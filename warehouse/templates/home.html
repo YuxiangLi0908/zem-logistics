@@ -1,0 +1,42 @@
+{% extends 'base.html' %}
+{% load static %}
+
+{% block content %}
+  <div class="jumbotron mt-5">
+    <h1 class="display-4">Welcome to the Warehouse Management System</h1>
+    <p class="lead">Efficiently manage your inventory with our system.</p>
+    <hr class="my-4">
+    <p>Explore the features and streamline your warehouse operations.</p>
+    <a class="btn btn-primary btn-lg" href="#" role="button">Get Started</a>
+  </div>
+
+  <div class="row">
+    <div class="col-md-4">
+      <div class="card">
+        <img src="{% static 'img/wh.jpg' %}" class="card-img-top" alt="Inventory Image">
+        <div class="card-body">
+          <h5 class="card-title">Inventory Management</h5>
+          <p class="card-text">Efficiently track and manage your inventory with our user-friendly system.</p>
+        </div>
+      </div>
+    </div>
+    <div class="col-md-4">
+      <div class="card">
+        <img src="{% static 'img/wh.jpg' %}" class="card-img-top" alt="Orders Image">
+        <div class="card-body">
+          <h5 class="card-title">Order Processing</h5>
+          <p class="card-text">Streamline order processing and improve customer satisfaction.</p>
+        </div>
+      </div>
+    </div>
+    <div class="col-md-4">
+      <div class="card">
+        <img src="{% static 'img/wh.jpg' %}" class="card-img-top" alt="Reports Image">
+        <div class="card-body">
+          <h5 class="card-title">Detailed Reports</h5>
+          <p class="card-text">Generate comprehensive reports to gain insights into your warehouse operations.</p>
+        </div>
+      </div>
+    </div>
+  </div>
+{% endblock %}
