@@ -26,7 +26,7 @@ SECRET_KEY = 'django-insecure-%h(m%(m(#q1^f6sk39(e9)-x2l8g59tf9l026qkg%0u_oc4r6#
 DEBUG = True
 
 ALLOWED_HOSTS = ["zem-warehouse.azurewebsites.net"]
-CSRF_TRUSTED_ORIGINS = ["https://zem-warehouse.azurewebsites.net"]
+CSRF_TRUSTED_ORIGINS = ["https://zem-warehouse.azurewebsites.net", "https://zem-warehouse.azurewebsites.net/login"]
 
 # Application definition
 
