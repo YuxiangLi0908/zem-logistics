@@ -1,80 +1,34 @@
 from django import forms
 from .models import Customer, Container, PackingList
-
-# class OrderForm(forms.ModelForm):
-#     class Meta:
-#         model = Order
-#         fields = ["container_id", "eta"]
-#         widgets = {
-#             'eta': forms.DateInput(attrs={'type':'date'}),
-#         }
-#         labels = {
-#             'eta': 'ETA'
-#         }
-
-# class PortForm(forms.ModelForm):
-#     departure_port = forms.ModelChoiceField(
-#         queryset=Port.objects.all(),
-#         widget=forms.Select(attrs={'class': 'form-control'}),
-#         required=False,
-#         empty_label='--- Select Departure Port ---',
-#     )
-#     arrival_port = forms.ModelChoiceField(
-#         queryset=Port.objects.all(),
-#         widget=forms.Select(attrs={'class': 'form-control'}),
-#         required=False,
-#         empty_label='--- Select Arrival Port ---',
-#     )
-
-#     class Meta:
-#         model = Port
-#         fields = []
-
-#     def __init__(self, *args, **kwargs):
-#         super().__init__(*args, **kwargs)
-#         self.fields['departure_port'].widget = forms.Select(choices=self.get_port_choices())
-#         self.fields['departure_port'].label = 'Departure Port'
-#         self.fields['arrival_port'].widget = forms.Select(choices=self.get_port_choices())
-#         self.fields['arrival_port'].label = 'Arrival Port'
-
-#     def get_port_choices(self):
-#         choices = [('',  '')]
-#         choices += [(port.id, f"{port.code} - {port.name}") for port in Port.objects.all()]
-#         return choices
-
-# class WarehouseForm(forms.ModelForm):
-#     class Meta:
-#         model = Warehouse
-#         fields = "__all__"
-
-#     def __init__(self, *args, **kwargs):
-#         super().__init__(*args, **kwargs)
-#         self.fields["name"].widget = forms.Select(choices=[(w.id, w.name) for w in Warehouse.objects.all()])
-#         self.fields['name'].label = 'Warehouse'
-
-# class CustomerForm(forms.ModelForm):
-#     class Meta:
-#         model = Customer
-#         fields = "__all__"
-
-#     def __init__(self, *args, **kwargs):
-#         super().__init__(*args, **kwargs)
-#         self.fields["name"].widget = forms.Select(choices=[(c.id, c.name) for c in Customer.objects.all()])
-#         self.fields['name'].label = 'Customer'
-
+from .utils.constants import (
+    SHIPPING_LINE_OPTIONS,
+    PICKUP_METHOD_OPTIONS,
+    ORDER_TYPE_OPTIONS,
+    CONTAINER_TYPE_OPTIONS,
+    PORT_OPTIONS,
+    DELIVERY_METHOD_OPTIONS
+)
 
 class ContainerForm(forms.ModelForm):
     class Meta:
         model = Container
+        fields = "__all__"
         exclude = [
             "port_arrived_at", "port_picked_at", "warehouse_arrived_at", "unpacked_at"
         ]
         widgets = {
             "created_at": forms.DateInput(attrs={'type':'date'}),
             "eta": forms.DateInput(attrs={'type':'date'}),
-            "container_type": forms.Select()
+            "container_type": forms.Select(choices=CONTAINER_TYPE_OPTIONS),
+            "order_type": forms.Select(choices=ORDER_TYPE_OPTIONS),
+            "pickup_method": forms.Select(choices=PICKUP_METHOD_OPTIONS),
+            "shipping_line": forms.Select(choices=SHIPPING_LINE_OPTIONS),
+            "departure_port": forms.Select(choices=PORT_OPTIONS),
+            "destination_port": forms.Select(choices=PORT_OPTIONS),
+            # "container_id": forms.TextInput(attrs={'style': 'width:120px; height:25px;'})
         }
         labels = {
+            "order_type": "订单类型",
             "container_id": "货柜号",
             "customer_name": "客户",
             "created_at": "建单日期",
@@ -84,8 +38,9 @@ class ContainerForm(forms.ModelForm):
             "departure_port": "起运港",
             "destination_port": "目的港",
             "warehouse": "入仓仓库",
+            "pickup_method": "提柜方式",
+            "pickup_id": "提单号",
         }
-
 
 class PackingListForm(forms.ModelForm):
     class Meta:
@@ -94,6 +49,9 @@ class PackingListForm(forms.ModelForm):
         exclude = [
             "container_id"
         ]
+        widgets = {
+            "delivery_method": forms.Select(choices=DELIVERY_METHOD_OPTIONS),
+        }
         labels = {
             "container_id": "货柜号",
             "product_name": "品名",
@@ -121,3 +79,6 @@ class PackingListForm(forms.ModelForm):
         ]
         for field_name in nullable_fields:
             self.fields[field_name].required = False
+        for field_name in self.Meta.labels.keys():
+            if field_name not in self.Meta.exclude:
+                self.fields[field_name].widget.attrs['style'] = 'width:180px; height:25px; font-size: 13px'

@@ -29,7 +29,6 @@ def user_logout(request: HttpRequest) -> HttpResponse:
 def home(request: HttpRequest) -> HttpResponse:
     return render(request, 'home.html')
 
-# class CreateOrder()
 @login_required(login_url='login') 
 def create_order(request: HttpRequest) -> HttpResponse:
     container_form = ContainerForm()
@@ -47,9 +46,15 @@ def create_order(request: HttpRequest) -> HttpResponse:
             container_form.save()
             for pl in packing_list_form:
                 if pl.is_valid():
+                    for k in pl.cleaned_data.keys():
+                        if isinstance(pl.cleaned_data[k], str):
+                            pl.cleaned_data[k] = pl.cleaned_data[k].strip()
+                        if k == "destination":
+                            pl.cleaned_data[k] = pl.cleaned_data[k].upper()
                     pl.cleaned_data["container_id"] = Container.objects.get(container_id=container_form.cleaned_data["container_id"])
                     PackingList.objects.create(**pl.cleaned_data)       
             return redirect("home")
         # else:
         #     return redirect("login")
-    return render(request, 'create_order_step_1.html', context)
+    return render(request, 'create_order.html', context)
+

@@ -1,33 +1,20 @@
 from django.db import models
 
-
-# class Warehouse(models.Model):
-#     id = models.BigAutoField(primary_key=True)
-#     name = models.CharField(max_length=200)
-
-#     def __str__(self) -> str:
-#         return self.name
-
-
 class Customer(models.Model):
     name = models.CharField(max_length=200)
 
     def __str__(self) -> str:
         return self.name
-
-
-# class Order(models.Model):
-#     container_id = models.CharField(max_length=100)
-#     eta = models.DateField()
-#     warehouse = models.ForeignKey(Warehouse, on_delete=models.CASCADE)
-#     customer = models.ForeignKey(Customer, on_delete=models.CASCADE)
-
-#     def __str__(self) -> str:
-#         return self.container_id
     
+class ZEMWarehouse(models.Model):
+    name = models.CharField(max_length=200)
+
+    def __str__(self) -> str:
+        return self.name
 
 class Container(models.Model):
     id = models.BigAutoField(primary_key=True)
+    order_type = models.CharField(max_length=255, null=True)
     container_id = models.CharField(max_length=255, null=True)
     customer_name = models.ForeignKey(Customer, null=True, on_delete=models.CASCADE)
     created_at = models.DateField()
@@ -36,11 +23,13 @@ class Container(models.Model):
     container_type = models.CharField(max_length=255)
     departure_port = models.CharField(max_length=255)
     destination_port = models.CharField(max_length=255)
-    warehouse = models.CharField(max_length=255)
+    warehouse = models.ForeignKey(ZEMWarehouse, null=True, on_delete=models.CASCADE)
     port_arrived_at = models.DateTimeField(null=True)
     port_picked_at = models.DateTimeField(null=True)
     warehouse_arrived_at = models.DateTimeField(null=True)
     unpacked_at = models.DateTimeField(null=True)
+    pickup_method = models.CharField(max_length=255, null=True)
+    pickup_id = models.CharField(max_length=255, null=True)    
 
     def __str__(self):
         return self.container_id
