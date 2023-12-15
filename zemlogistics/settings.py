@@ -85,24 +85,23 @@ WSGI_APPLICATION = 'zemlogistics.wsgi.application'
 # Database
 # https://docs.djangoproject.com/en/4.2/ref/settings/#databases
 
-DATABASES = {
-    'default': {
-        'ENGINE': 'django.db.backends.sqlite3',
-        'NAME': BASE_DIR / 'db.sqlite3',
-    }
-}
 # DATABASES = {
-#     "default": {
-#         "ENGINE": "django.db.backends.postgresql",
-#         "NAME": "zem-logtistics-db",
-#         "USER": "mlbbyiueta",
-#         "PASSWORD": "4B418AWV64S5P1Z7$!", #os.getenv("DB_PASSWORD"),
-#         "HOST": "zem-logtistics-db.postgres.database.azure.com",
-#         "PORT": "5432",
-#         "OPTIONS": {"sslmode": "require"},
+#     'default': {
+#         'ENGINE': 'django.db.backends.sqlite3',
+#         'NAME': BASE_DIR / 'db.sqlite3',
 #     }
 # }
-
+DATABASES = {
+    "default": {
+        "ENGINE": "django.db.backends.postgresql",
+        "NAME": "zem-logistics-database",
+        "USER": os.environ.get('DBUSER'),
+        "PASSWORD": os.environ.get('DBPASS'),
+        "HOST": "zem-logistics-server.postgres.database.azure.com",
+        "PORT": "5432",
+        "OPTIONS": {"sslmode": "require"},
+    }
+}
 
 # Password validation
 # https://docs.djangoproject.com/en/4.2/ref/settings/#auth-password-validators
