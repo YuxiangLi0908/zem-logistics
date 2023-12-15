@@ -14,7 +14,8 @@ class ContainerForm(forms.ModelForm):
         model = Container
         fields = "__all__"
         exclude = [
-            "port_arrived_at", "port_picked_at", "warehouse_arrived_at", "unpacked_at"
+            "port_arrived_at", "port_picked_at", "warehouse_arrived_at", "unpacked_at",
+            "pickup_scheduled_at", "pickup_appointment", "palletized_at"
         ]
         widgets = {
             "created_at": forms.DateInput(attrs={'type':'date'}),
@@ -47,7 +48,7 @@ class PackingListForm(forms.ModelForm):
         model = PackingList
         fields = "__all__"
         exclude = [
-            "container_id"
+            "container_id", "n_pallet"
         ]
         widgets = {
             "delivery_method": forms.Select(choices=DELIVERY_METHOD_OPTIONS),
@@ -82,3 +83,6 @@ class PackingListForm(forms.ModelForm):
         for field_name in self.Meta.labels.keys():
             if field_name not in self.Meta.exclude:
                 self.fields[field_name].widget.attrs['style'] = 'width:180px; height:25px; font-size: 13px'
+
+class UpdatePickupForm(forms.Form):
+    pickup_at = forms.DateField(widget=forms.DateInput(attrs={'type': 'date'}))

@@ -1,0 +1,76 @@
+{% extends 'base.html' %}
+
+{% block content %}
+    <h3>待预约</h3>
+    <table>
+        <thead>
+            <tr>
+                <th style="border: 1px solid #dddddd;">货柜</th>
+                <th style="border: 1px solid #dddddd;">客户</th>
+                <th style="border: 1px solid #dddddd;">ETA</th>
+                <th style="border: 1px solid #dddddd;">目的港</th>
+                <th style="border: 1px solid #dddddd;">船/空运公司</th>
+                <th style="border: 1px solid #dddddd;">柜型</th>
+                <th style="border: 1px solid #dddddd;">提柜方式</th>
+                <th style="border: 1px solid #dddddd;">提单号</th>
+                <th style="border: 1px solid #dddddd;">预约提柜日期</th>
+            </tr>
+        </thead>
+        <tbody>
+            {% for c in containers_unpicked %}
+            <tr>
+                <td style="border: 1px solid #dddddd;">{{ c.container_id }}</td>
+                <td style="border: 1px solid #dddddd;">{{ c.customer_name }}</td>
+                <td style="border: 1px solid #dddddd;">{{ c.eta }}</td>
+                <td style="border: 1px solid #dddddd;">{{ c.destination_port }}</td>
+                <td style="border: 1px solid #dddddd;">{{ c.shipping_line }}</td>
+                <td style="border: 1px solid #dddddd;">{{ c.container_type }}</td>
+                <td style="border: 1px solid #dddddd;">{{ c.pickup_method }}</td>
+                <td style="border: 1px solid #dddddd;">{{ c.pickup_id }}</td>
+                <td style="border: 1px solid #dddddd;">
+                    <form method="post" action="">
+                        {% csrf_token %}
+                        <input type="hidden" name="record_id" value="{{ c.container_id }}">
+                        {{ form.pickup_at }}
+                        <button type="submit">确认</button>
+                    </form>
+                </td>
+            </tr>
+            {% endfor %}
+        </tbody>
+    </table>
+
+    <hr class="Dashed" style="margin-top: 40px; margin-bottom: 40px;">
+
+    <h3>已预约</h3>
+    <table>
+        <thead>
+            <tr>
+                <th style="border: 1px solid #dddddd;">货柜</th>
+                <th style="border: 1px solid #dddddd;">客户</th>
+                <th style="border: 1px solid #dddddd;">ETA</th>
+                <th style="border: 1px solid #dddddd;">目的港</th>
+                <th style="border: 1px solid #dddddd;">船/空运公司</th>
+                <th style="border: 1px solid #dddddd;">柜型</th>
+                <th style="border: 1px solid #dddddd;">提柜方式</th>
+                <th style="border: 1px solid #dddddd;">提单号</th>
+                <th style="border: 1px solid #dddddd;">预约提柜日期</th>
+            </tr>
+        </thead>
+        <tbody>
+            {% for c in containers_picked %}
+            <tr>
+                <td style="border: 1px solid #dddddd;">{{ c.container_id }}</td>
+                <td style="border: 1px solid #dddddd;">{{ c.customer_name }}</td>
+                <td style="border: 1px solid #dddddd;">{{ c.eta }}</td>
+                <td style="border: 1px solid #dddddd;">{{ c.destination_port }}</td>
+                <td style="border: 1px solid #dddddd;">{{ c.shipping_line }}</td>
+                <td style="border: 1px solid #dddddd;">{{ c.container_type }}</td>
+                <td style="border: 1px solid #dddddd;">{{ c.pickup_method }}</td>
+                <td style="border: 1px solid #dddddd;">{{ c.pickup_id }}</td>
+                <td style="border: 1px solid #dddddd;">{{ c.pickup_appointment }}</td>
+            </tr>
+            {% endfor %}
+        </tbody>
+    
+{% endblock %}

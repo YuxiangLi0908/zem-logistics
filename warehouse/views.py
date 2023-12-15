@@ -1,10 +1,12 @@
+import datetime
+
 from django.shortcuts import render, redirect
 from django.contrib.auth import authenticate, login, logout
 from django.contrib import messages
 from django.contrib.auth.decorators import login_required
 from django.http import HttpRequest, HttpResponse
 from django.forms import formset_factory
-from .forms import ContainerForm, PackingListForm
+from .forms import ContainerForm, PackingListForm, UpdatePickupForm
 from .models import *
 
 def user_login(request: HttpRequest) -> HttpResponse:
@@ -52,9 +54,36 @@ def create_order(request: HttpRequest) -> HttpResponse:
                         if k == "destination":
                             pl.cleaned_data[k] = pl.cleaned_data[k].upper()
                     pl.cleaned_data["container_id"] = Container.objects.get(container_id=container_form.cleaned_data["container_id"])
-                    PackingList.objects.create(**pl.cleaned_data)       
+                    PackingList.objects.create(**pl.cleaned_data)
+                else:
+                    raise ValueError(f"{pl.is_valid()}")                    
             return redirect("home")
-        # else:
-        #     return redirect("login")
     return render(request, 'create_order.html', context)
 
+@login_required(login_url='login') 
+def schedule_pickup(request: HttpRequest) -> HttpResponse:
+    containers_unpicked= Container.objects.filter(pickup_scheduled_at__isnull=True).order_by('eta')
+    containers_picked = Container.objects.filter(pickup_scheduled_at__isnull=False, palletized_at__isnull=True).order_by('eta')
+    if request.method == "POST":
+        form = UpdatePickupForm(request.POST)
+        if form.is_valid():
+            container_id = request.POST.get('record_id')
+            appointment = form.cleaned_data['pickup_at']
+            current_time = datetime.datetime.now()
+            Container.objects.filter(container_id=container_id).update(pickup_appointment=appointment, pickup_scheduled_at=current_time)
+        containers_unpicked= Container.objects.filter(pickup_scheduled_at__isnull=True).order_by('eta')
+        containers_picked = Container.objects.filter(pickup_scheduled_at__isnull=False, palletized_at__isnull=True).order_by('eta')
+        context = {
+            'containers_unpicked': containers_unpicked,
+            'containers_picked': containers_picked,
+            'form': form,
+        }
+        return render(request, 'schedule_pickup.html', context)
+    else:
+        form = UpdatePickupForm()
+    context = {
+        'containers_unpicked': containers_unpicked,
+        'containers_picked': containers_picked,
+        'form': form,
+    }
+    return render(request, 'schedule_pickup.html', context)

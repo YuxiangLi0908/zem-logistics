@@ -10,6 +10,7 @@ For the full list of settings and their values, see
 https://docs.djangoproject.com/en/4.2/ref/settings/
 """
 
+import os
 from pathlib import Path
 
 # Build paths inside the project like this: BASE_DIR / 'subdir'.
@@ -81,6 +82,17 @@ DATABASES = {
         'NAME': BASE_DIR / 'db.sqlite3',
     }
 }
+# DATABASES = {
+#     "default": {
+#         "ENGINE": "django.db.backends.postgresql",
+#         "NAME": "zem-logtistics-db",
+#         "USER": "mlbbyiueta",
+#         "PASSWORD": "4B418AWV64S5P1Z7$!", #os.getenv("DB_PASSWORD"),
+#         "HOST": "zem-logtistics-db.postgres.database.azure.com",
+#         "PORT": "5432",
+#         "OPTIONS": {"sslmode": "require"},
+#     }
+# }
 
 
 # Password validation
