@@ -28,14 +28,14 @@ DEBUG = True
 
 ALLOWED_HOSTS = [
     "zem-warehouse.azurewebsites.net",
-    "zem-logistics.azurewebsites.net"
-    "*"
+    "zem-logistics.azurewebsites.net",
+    "*",
 ]
 CSRF_TRUSTED_ORIGINS = [
     "https://zem-warehouse.azurewebsites.net",
-    "https://zem-warehouse.azurewebsites.net/login"
+    "https://zem-warehouse.azurewebsites.net/login",
     "https://zem-logistics.azurewebsites.net",
-    "https://zem-logistics.azurewebsites.net/login"
+    "https://zem-logistics.azurewebsites.net/login",
 ]
 
 # Application definition
