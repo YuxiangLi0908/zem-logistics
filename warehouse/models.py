@@ -13,7 +13,7 @@ class ZEMWarehouse(models.Model):
         return self.name
 
 class Container(models.Model):
-    id = models.BigAutoField(primary_key=True)
+    # id = models.BigAutoField(primary_key=True)
     order_type = models.CharField(max_length=255, null=True)
     container_id = models.CharField(max_length=255, null=True)
     customer_name = models.ForeignKey(Customer, null=True, on_delete=models.CASCADE)
@@ -39,7 +39,7 @@ class Container(models.Model):
 
 
 class PackingList(models.Model):
-    id = models.BigAutoField(primary_key=True)
+    # id = models.BigAutoField(primary_key=True)
     container_id = models.ForeignKey(Container, null=True, on_delete=models.CASCADE)
     product_name = models.CharField(max_length=255, null=True)
     delivery_method = models.CharField(max_length=255)
