@@ -11,11 +11,11 @@ class Migration(migrations.Migration):
     ]
 
     operations = [
-        migrations.AddField(
-            model_name='container',
-            name='id',
-            field=models.BigAutoField(default=0, primary_key=True, serialize=False),
-        ),
+        # migrations.AddField(
+        #     model_name='container',
+        #     name='id',
+        #     field=models.BigAutoField(default=0, primary_key=True, serialize=False),
+        # ),
         migrations.AddField(
             model_name='packinglist',
             name='container_id',

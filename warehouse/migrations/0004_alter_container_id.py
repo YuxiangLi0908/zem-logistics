@@ -9,10 +9,10 @@ class Migration(migrations.Migration):
         ('warehouse', '0003_container_id_packinglist_container_id_and_more'),
     ]
 
-    operations = [
-        migrations.AlterField(
-            model_name='container',
-            name='id',
-            field=models.BigAutoField(primary_key=True, serialize=False),
-        ),
-    ]
+    # operations = [
+    #     migrations.AlterField(
+    #         model_name='container',
+    #         name='id',
+    #         field=models.BigAutoField(primary_key=False, serialize=False),
+    #     ),
+    # ]

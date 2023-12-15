@@ -9,15 +9,15 @@ class Migration(migrations.Migration):
         ('warehouse', '0012_container_palletized_at_container_pickup_appointment_and_more'),
     ]
 
-    operations = [
-        migrations.AlterField(
-            model_name='container',
-            name='id',
-            field=models.BigAutoField(auto_created=True, primary_key=True, serialize=False, verbose_name='ID'),
-        ),
-        migrations.AlterField(
-            model_name='packinglist',
-            name='id',
-            field=models.BigAutoField(auto_created=True, primary_key=True, serialize=False, verbose_name='ID'),
-        ),
-    ]
+    # operations = [
+    #     migrations.AlterField(
+    #         model_name='container',
+    #         name='id',
+    #         field=models.BigAutoField(auto_created=True, primary_key=True, serialize=False, verbose_name='ID'),
+    #     ),
+    #     migrations.AlterField(
+    #         model_name='packinglist',
+    #         name='id',
+    #         field=models.BigAutoField(auto_created=True, primary_key=True, serialize=False, verbose_name='ID'),
+    #     ),
+    # ]
