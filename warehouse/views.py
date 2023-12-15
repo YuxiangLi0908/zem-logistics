@@ -40,10 +40,8 @@ def create_order(request: HttpRequest) -> HttpResponse:
         "packing_list_form": packing_list_formsets(),
     }
     if request.method == "POST":
-        
         container_form = ContainerForm(request.POST)
         packing_list_form = packing_list_formsets(request.POST)
-
         if container_form.is_valid():
             container_form.save()
             for pl in packing_list_form:

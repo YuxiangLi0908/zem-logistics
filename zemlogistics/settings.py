@@ -98,12 +98,22 @@ if os.environ.get("ENV", "local") == "production":
         }
     }
 else:
+    # DATABASES = {
+    #     'default': {
+    #         'ENGINE': 'django.db.backends.sqlite3',
+    #         'NAME': BASE_DIR / 'db.sqlite3',
+    #     }
+    # }
     DATABASES = {
-        'default': {
-            'ENGINE': 'django.db.backends.sqlite3',
-            'NAME': BASE_DIR / 'db.sqlite3',
-        }
+    'default': {
+        'ENGINE': 'django.db.backends.postgresql_psycopg2',
+        'NAME': 'zem', 
+        'USER': 'postgres',
+        'PASSWORD': 'Dlmm04121313!',
+        'HOST': '127.0.0.1', 
+        'PORT': '5432',
     }
+}
 
 
 # Password validation

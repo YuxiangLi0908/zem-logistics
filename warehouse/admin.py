@@ -5,4 +5,4 @@ from .models import *
 admin.site.register(Customer)
 admin.site.register(Container)
 admin.site.register(PackingList)
-admin.site.register(ZEMWarehouse)
+admin.site.register(ZemWarehouse)

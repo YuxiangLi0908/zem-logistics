@@ -26,11 +26,10 @@ class ContainerForm(forms.ModelForm):
             "shipping_line": forms.Select(choices=SHIPPING_LINE_OPTIONS),
             "departure_port": forms.Select(choices=PORT_OPTIONS),
             "destination_port": forms.Select(choices=PORT_OPTIONS),
-            # "container_id": forms.TextInput(attrs={'style': 'width:120px; height:25px;'})
         }
         labels = {
             "order_type": "订单类型",
-            "container_id": "货柜号",
+            "container_iid": "货柜号",
             "customer_name": "客户",
             "created_at": "建单日期",
             "eta": "ETA",
@@ -54,7 +53,7 @@ class PackingListForm(forms.ModelForm):
             "delivery_method": forms.Select(choices=DELIVERY_METHOD_OPTIONS),
         }
         labels = {
-            "container_id": "货柜号",
+            "container_iid": "货柜号",
             "product_name": "品名",
             "delivery_method": "派送方式",
             "shipping_mark": "唛头",

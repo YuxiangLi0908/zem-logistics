@@ -6,15 +6,16 @@ class Customer(models.Model):
     def __str__(self) -> str:
         return self.name
     
-class ZEMWarehouse(models.Model):
+class ZemWarehouse(models.Model):
     name = models.CharField(max_length=200)
+    address = models.CharField(max_length=200, null=True)
 
     def __str__(self) -> str:
         return self.name
 
 class Container(models.Model):
     order_type = models.CharField(max_length=255, null=True)
-    container_id = models.CharField(max_length=255, null=True)
+    container_iid = models.CharField(max_length=255, null=True)
     customer_name = models.ForeignKey(Customer, null=True, on_delete=models.CASCADE)
     created_at = models.DateField()
     eta = models.DateField()
@@ -22,7 +23,7 @@ class Container(models.Model):
     container_type = models.CharField(max_length=255)
     departure_port = models.CharField(max_length=255)
     destination_port = models.CharField(max_length=255)
-    warehouse = models.ForeignKey(ZEMWarehouse, null=True, on_delete=models.CASCADE)
+    warehouse = models.ForeignKey(ZemWarehouse, null=True, on_delete=models.CASCADE)
     port_arrived_at = models.DateTimeField(null=True)
     port_picked_at = models.DateTimeField(null=True)
     warehouse_arrived_at = models.DateTimeField(null=True)
@@ -34,11 +35,11 @@ class Container(models.Model):
     palletized_at = models.DateTimeField(null=True)
 
     def __str__(self):
-        return self.container_id
+        return self.container_iid
 
 
 class PackingList(models.Model):
-    container_id = models.ForeignKey(Container, null=True, on_delete=models.CASCADE)
+    container_iid = models.ForeignKey(Container, null=True, on_delete=models.CASCADE)
     product_name = models.CharField(max_length=255, null=True)
     delivery_method = models.CharField(max_length=255)
     shipping_mark = models.CharField(max_length=255, null=True)
@@ -56,4 +57,4 @@ class PackingList(models.Model):
     n_pallet = models.IntegerField(null=True)
 
     def __str__(self):
-        return f"{self.container_id} - {self.destination}"
+        return f"{self.container_iid} - {self.destination}"
