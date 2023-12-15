@@ -19,7 +19,7 @@
         <tbody>
             {% for c in containers_unpicked %}
             <tr>
-                <td style="border: 1px solid #dddddd;">{{ c.container_id }}</td>
+                <td style="border: 1px solid #dddddd;">{{ c.container_number }}</td>
                 <td style="border: 1px solid #dddddd;">{{ c.customer_name }}</td>
                 <td style="border: 1px solid #dddddd;">{{ c.eta }}</td>
                 <td style="border: 1px solid #dddddd;">{{ c.destination_port }}</td>
@@ -30,7 +30,7 @@
                 <td style="border: 1px solid #dddddd;">
                     <form method="post" action="">
                         {% csrf_token %}
-                        <input type="hidden" name="record_id" value="{{ c.container_id }}">
+                        <input type="hidden" name="record_id" value="{{ c.container_number }}">
                         {{ form.pickup_at }}
                         <button type="submit">确认</button>
                     </form>
@@ -60,7 +60,7 @@
         <tbody>
             {% for c in containers_picked %}
             <tr>
-                <td style="border: 1px solid #dddddd;">{{ c.container_id }}</td>
+                <td style="border: 1px solid #dddddd;">{{ c.container_number }}</td>
                 <td style="border: 1px solid #dddddd;">{{ c.customer_name }}</td>
                 <td style="border: 1px solid #dddddd;">{{ c.eta }}</td>
                 <td style="border: 1px solid #dddddd;">{{ c.destination_port }}</td>

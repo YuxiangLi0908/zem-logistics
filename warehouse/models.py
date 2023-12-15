@@ -15,7 +15,7 @@ class ZemWarehouse(models.Model):
 
 class Container(models.Model):
     order_type = models.CharField(max_length=255, null=True)
-    container_iid = models.CharField(max_length=255, null=True)
+    container_number = models.CharField(max_length=255, null=True)
     customer_name = models.ForeignKey(Customer, null=True, on_delete=models.CASCADE)
     created_at = models.DateField()
     eta = models.DateField()
@@ -35,11 +35,11 @@ class Container(models.Model):
     palletized_at = models.DateTimeField(null=True)
 
     def __str__(self):
-        return self.container_iid
+        return self.container_number
 
 
 class PackingList(models.Model):
-    container_iid = models.ForeignKey(Container, null=True, on_delete=models.CASCADE)
+    container_number = models.ForeignKey(Container, null=True, on_delete=models.CASCADE)
     product_name = models.CharField(max_length=255, null=True)
     delivery_method = models.CharField(max_length=255)
     shipping_mark = models.CharField(max_length=255, null=True)
@@ -57,4 +57,4 @@ class PackingList(models.Model):
     n_pallet = models.IntegerField(null=True)
 
     def __str__(self):
-        return f"{self.container_iid} - {self.destination}"
+        return f"{self.container_number} - {self.destination}"

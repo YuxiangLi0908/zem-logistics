@@ -29,7 +29,7 @@ class ContainerForm(forms.ModelForm):
         }
         labels = {
             "order_type": "订单类型",
-            "container_iid": "货柜号",
+            "container_number": "货柜号",
             "customer_name": "客户",
             "created_at": "建单日期",
             "eta": "ETA",
@@ -47,13 +47,13 @@ class PackingListForm(forms.ModelForm):
         model = PackingList
         fields = "__all__"
         exclude = [
-            "container_id", "n_pallet"
+            "container_number", "n_pallet"
         ]
         widgets = {
             "delivery_method": forms.Select(choices=DELIVERY_METHOD_OPTIONS),
         }
         labels = {
-            "container_iid": "货柜号",
+            "container_number": "货柜号",
             "product_name": "品名",
             "delivery_method": "派送方式",
             "shipping_mark": "唛头",

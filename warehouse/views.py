@@ -51,7 +51,7 @@ def create_order(request: HttpRequest) -> HttpResponse:
                             pl.cleaned_data[k] = pl.cleaned_data[k].strip()
                         if k == "destination":
                             pl.cleaned_data[k] = pl.cleaned_data[k].upper()
-                    pl.cleaned_data["container_id"] = Container.objects.get(container_id=container_form.cleaned_data["container_id"])
+                    pl.cleaned_data["container_number"] = Container.objects.get(container_number=container_form.cleaned_data["container_number"])
                     PackingList.objects.create(**pl.cleaned_data)
                 else:
                     raise ValueError(f"{pl.is_valid()}")                    
@@ -65,10 +65,10 @@ def schedule_pickup(request: HttpRequest) -> HttpResponse:
     if request.method == "POST":
         form = UpdatePickupForm(request.POST)
         if form.is_valid():
-            container_id = request.POST.get('record_id')
+            container_number = request.POST.get('record_id')
             appointment = form.cleaned_data['pickup_at']
             current_time = datetime.datetime.now()
-            Container.objects.filter(container_id=container_id).update(pickup_appointment=appointment, pickup_scheduled_at=current_time)
+            Container.objects.filter(container_number=container_number).update(pickup_appointment=appointment, pickup_scheduled_at=current_time)
         containers_unpicked= Container.objects.filter(pickup_scheduled_at__isnull=True).order_by('eta')
         containers_picked = Container.objects.filter(pickup_scheduled_at__isnull=False, palletized_at__isnull=True).order_by('eta')
         context = {
