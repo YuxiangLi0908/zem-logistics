@@ -114,7 +114,7 @@ def packling_list(request: HttpRequest, pk: int) -> HttpResponse:
             pickup_appointment__isnull=False, palletized_at__isnull=True
         )
         context = {"containers": containers}
-        return render(request, 'palletization.html', context)
+        return palletize(request)
     else:
         forms = []
         for pl in packing_lists:
