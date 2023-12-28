@@ -88,10 +88,16 @@ def schedule_pickup(request: HttpRequest) -> HttpResponse:
 
 @login_required(login_url='login') 
 def palletize(request: HttpRequest) -> HttpResponse:
-    containers = Container.objects.filter(
+    containers_unpalletized = Container.objects.filter(
         pickup_appointment__isnull=False, palletized_at__isnull=True
     )
-    context = {"containers": containers}
+    containers_palletized = Container.objects.filter(
+        pickup_appointment__isnull=False, palletized_at__isnull=False
+    )
+    context = {
+        "containers_unpalletized": containers_unpalletized,
+        "containers_palletized": containers_palletized
+    }
     return render(request, 'palletization.html', context)
 
 @login_required(login_url='login') 
