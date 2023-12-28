@@ -6,7 +6,7 @@ from django.contrib import messages
 from django.contrib.auth.decorators import login_required
 from django.http import HttpRequest, HttpResponse
 from django.forms import formset_factory
-from .forms import ContainerForm, PackingListForm, UpdatePickupForm
+from .forms import ContainerForm, PackingListForm, UpdatePickupForm, UpdatePalletizationForm
 from .models import *
 
 def user_login(request: HttpRequest) -> HttpResponse:
@@ -85,3 +85,36 @@ def schedule_pickup(request: HttpRequest) -> HttpResponse:
         'form': form,
     }
     return render(request, 'schedule_pickup.html', context)
+
+@login_required(login_url='login') 
+def palletize(request: HttpRequest) -> HttpResponse:
+    containers = Container.objects.filter(
+        pickup_appointment__isnull=False, palletized_at__isnull=True
+    )
+    context = {"containers": containers}
+    return render(request, 'palletization.html', context)
+
+@login_required(login_url='login') 
+def packling_list(request: HttpRequest, pk: int) -> HttpResponse:
+    packing_lists = PackingList.objects.select_related('container_number').filter(
+        container_number__id=pk
+    )
+    if request.method == "POST":
+        Container.objects.filter(pk=pk).update(palletized_at=datetime.datetime.now())
+        for pl, n in zip(packing_lists, request.POST.getlist("n_pallet")):
+            pl.n_pallet = n
+            pl.save()
+        containers = Container.objects.filter(
+            pickup_appointment__isnull=False, palletized_at__isnull=True
+        )
+        context = {"containers": containers}
+        return render(request, 'palletization.html', context)
+    else:
+        forms = []
+        for pl in packing_lists:
+            forms.append(UpdatePalletizationForm(instance=pl))
+        data = zip(forms, packing_lists)
+    context = {
+        "data": data,
+    }
+    return render(request, 'palletization_detail.html', context)

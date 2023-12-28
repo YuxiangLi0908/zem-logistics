@@ -85,3 +85,11 @@ class PackingListForm(forms.ModelForm):
 
 class UpdatePickupForm(forms.Form):
     pickup_at = forms.DateField(widget=forms.DateInput(attrs={'type': 'date'}))
+
+class UpdatePalletizationForm(forms.ModelForm):
+    class Meta:
+        model = PackingList
+        fields = [
+            "id", "container_number", "shipping_mark", "fba_id", "ref_id", 
+            "destination", "pcs", "cbm", "n_pallet"
+        ]

@@ -8,4 +8,6 @@ urlpatterns = [
     path("home/", views.home, name="home"),
     path('create_order/', views.create_order, name='create_order'),
     path('container_pickup/', views.schedule_pickup, name='schedule_pickup'),
+    path('palletize/', views.palletize, name='palletization'),
+    path('palletize/<str:pk>/', views.packling_list, name='palletize'),
 ]
