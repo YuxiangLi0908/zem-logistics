@@ -55,6 +55,12 @@ class PackingList(models.Model):
     total_weight_lbs = models.FloatField(null=True)
     cbm = models.FloatField()
     n_pallet = models.IntegerField(null=True)
+    is_shipment_schduled = models.BooleanField(default=False)
+    shipment_schduled_at = models.DateTimeField(null=True)
+    shipment_appointment = models.DateField(null=True)
+    is_shipped = models.BooleanField(default=False)
+    shipped_at = models.DateTimeField(null=True)
+    shipment_batch_number = models.CharField(max_length=255, null=True)
 
     def __str__(self):
         return f"{self.container_number} - {self.destination}"

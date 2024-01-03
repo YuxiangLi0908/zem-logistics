@@ -1,12 +1,13 @@
 from django import forms
-from .models import Customer, Container, PackingList
+from .models import Customer, Container, PackingList, ZemWarehouse
 from .utils.constants import (
     SHIPPING_LINE_OPTIONS,
     PICKUP_METHOD_OPTIONS,
     ORDER_TYPE_OPTIONS,
     CONTAINER_TYPE_OPTIONS,
     PORT_OPTIONS,
-    DELIVERY_METHOD_OPTIONS
+    DELIVERY_METHOD_OPTIONS,
+    WAREHOUSE_OPTIONS,
 )
 
 class ContainerForm(forms.ModelForm):
@@ -29,7 +30,7 @@ class ContainerForm(forms.ModelForm):
         }
         labels = {
             "order_type": "订单类型",
-            "container_number": "货柜号",
+            "container_number": "柜号(#Ref)",
             "customer_name": "客户",
             "created_at": "建单日期",
             "eta": "ETA",
@@ -47,7 +48,8 @@ class PackingListForm(forms.ModelForm):
         model = PackingList
         fields = "__all__"
         exclude = [
-            "container_number", "n_pallet"
+            "container_number", "n_pallet", "is_shipment_schduled", "shipment_schduled_at",
+            "is_shipped", "shipped_at", "shipment_appointment", "shipment_batch_number"
         ]
         widgets = {
             "delivery_method": forms.Select(choices=DELIVERY_METHOD_OPTIONS),
@@ -93,3 +95,20 @@ class UpdatePalletizationForm(forms.ModelForm):
             "id", "container_number", "shipping_mark", "fba_id", "ref_id", 
             "destination", "pcs", "cbm", "n_pallet"
         ]
+
+class WarehouseSelectForm(forms.Form):
+    warehouse = forms.CharField(widget=forms.Select(choices=WAREHOUSE_OPTIONS))
+
+class ShipmentForm(forms.ModelForm):
+    class Meta:
+        model = PackingList
+        fields = [
+            "id", "container_number", "shipping_mark", "fba_id", "ref_id", 
+            "destination", "pcs", "cbm", "n_pallet", "is_shipment_schduled",
+            "shipment_appointment"
+        ]
+        widgets = {"shipment_appointment": forms.DateInput(attrs={'type':'date'})}
+
+    def __init__(self, *args, **kwargs):
+        super(ShipmentForm, self).__init__(*args, **kwargs)
+        self.fields['shipment_appointment'].required = False

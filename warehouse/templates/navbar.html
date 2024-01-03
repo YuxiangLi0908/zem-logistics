@@ -1,5 +1,39 @@
 {% load static %}
 
+<style>
+    .dropdown {
+        position: relative;
+        display: inline-block;
+    }
+
+    .dropdown-content {
+        display: none;
+        position: absolute;
+        top: 100%;
+        left: 0;
+        background-color: #f9f9f9;
+        min-width: 160px;
+        box-shadow: 0px 8px 16px 0px rgba(0, 0, 0, 0.2);
+        z-index: 1;
+        font-size: small;
+    }
+
+    .dropdown:hover .dropdown-content {
+        display: block;
+    }
+
+    .dropdown-content a {
+        color: black;
+        padding: 12px 16px;
+        text-decoration: none;
+        display: block;
+    }
+
+    .dropdown-content a:hover {
+        background-color: #f1f1f1;
+    }
+</style>
+
 <link rel="stylesheet" href="{% static 'css/styles.css' %}">
 
 <div class="container d-flex justify-content-between">
@@ -17,7 +51,17 @@
                     <a class="nav-link" href="{% url 'palletization' %}">拆柜入库</a>
                 </li>
                 <li class="nav-item">
-                    <a class="nav-link" href="#">预约出库</a>
+                    <a class="nav-link" href="{% url 'schedule_shipment' %}">预约出库</a>
+                    <!-- <div class="dropdown">
+                        <a class="nav-link">预约出库</a>
+                        <div class="dropdown-content">
+                          <a href="#" >货柜</a>
+                          <a href="#">目的仓库</a>
+                        </div>
+                    </div> -->
+                </li>
+                <li class="nav-item">
+                    <a class="nav-link" href="#">确认出库</a>
                 </li>
             </ul>
         {% endif %}

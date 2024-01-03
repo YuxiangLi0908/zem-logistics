@@ -1,0 +1,96 @@
+{% extends 'base.html' %}
+
+{% block content %}
+<h3 class="mb-4">选择仓库</h3>
+<form method="post" action="">
+    {% csrf_token %}
+    <input type="hidden" name="type" value="warehouse">
+    {{ warehouse_form.warehouse }}
+    <button type="submit">确认</button>
+</form>
+<hr class="Dashed" style="margin-top: 40px; margin-bottom: 40px;">
+
+{% if warehouse_data %}
+    <h3 class="mb-4">待预约</h3>
+    <table>
+        <thead>
+            <tr>
+                <th style="border: 1px solid #dddddd;">目的仓库</th>
+                <th style="border: 1px solid #dddddd;">箱数</th>
+                <th style="border: 1px solid #dddddd;">总重kg</th>
+                <th style="border: 1px solid #dddddd;">总重lbs</th>
+                <th style="border: 1px solid #dddddd;">CBM</th>
+                <th style="border: 1px solid #dddddd;">卡板</th>
+            </tr>
+        </thead>
+        <tbody>
+            {% for c in warehouse_data %}
+            <tr>
+                <td style="border: 1px solid #dddddd;">
+                    <a href="/schedule_shipment/?type=destination&warehouse={{ warehouse_form.warehouse.value }}&destination={{c.destination}}">{{ c.destination }}</a>
+                    <!-- <a href="/schedule_shipment/{{ warehouse_form.warehouse.value }}/{{c.destination}}/?type=destination">{{ c.destination }}</a> -->
+                </td>
+                <td style="border: 1px solid #dddddd;">{{ c.total_pcs }}</td>
+                <td style="border: 1px solid #dddddd;">{{ c.total_weight_kg }}</td>
+                <td style="border: 1px solid #dddddd;">{{ c.total_weight_lbs }}</td>
+                <td style="border: 1px solid #dddddd;">{{ c.total_cbm }}</td>
+                <td style="border: 1px solid #dddddd;">{{ c.total_n_pallet }}</td>
+            </tr>
+            {% endfor %}
+        </tbody>
+    </table>
+    <hr class="Dashed" style="margin-top: 40px; margin-bottom: 40px;">
+{% endif %}
+
+{% if shipment_form %}
+<h3 class="mb-4">预约列表</h3>
+<form method="post">
+    {% csrf_token %}
+    <table>
+        <thead>
+            <tr>
+                <th style="border: 1px solid #dddddd;">确认预约</th>
+                <th style="border: 1px solid #dddddd;">预约派送时间</th>
+                <th style="border: 1px solid #dddddd;">目的仓库</th>
+                <th style="border: 1px solid #dddddd;">客户</th>
+                <th style="border: 1px solid #dddddd;">柜号</th>
+                <th style="border: 1px solid #dddddd;">派送方式</th>
+                <th style="border: 1px solid #dddddd;">唛头</th>
+                <th style="border: 1px solid #dddddd;">FBA号</th>
+                <th style="border: 1px solid #dddddd;">ref_id</th>
+                <th style="border: 1px solid #dddddd;">箱数</th>
+                <th style="border: 1px solid #dddddd;">总重kg</th>
+                <th style="border: 1px solid #dddddd;">总重lbs</th>
+                <th style="border: 1px solid #dddddd;">CBM</th>
+                <th style="border: 1px solid #dddddd;">卡板</th>
+            </tr>
+        </thead>
+        <tbody>
+            {% for f, pl in shipment_form %}
+            <tr>
+                <td style="border: 1px solid #dddddd;">{{ f.is_shipment_schduled }}</td>
+                <td style="border: 1px solid #dddddd;">{{ f.shipment_appointment }}</td>
+                <td style="border: 1px solid #dddddd;">{{ pl.destination }}</td>
+                <td style="border: 1px solid #dddddd;">{{ pl.customer_name }}</td>
+                <td style="border: 1px solid #dddddd;">{{ pl.container_number__container_number }}</td>
+                <td style="border: 1px solid #dddddd;">{{ pl.delivery_method }}</td>
+                <td style="border: 1px solid #dddddd;">{{ pl.shipping_mark }}</td>
+                <td style="border: 1px solid #dddddd;">{{ pl.fba_id }}</td>
+                <td style="border: 1px solid #dddddd;">{{ pl.ref_id }}</td>
+                <td style="border: 1px solid #dddddd;">{{ pl.pcs }}</td>
+                <td style="border: 1px solid #dddddd;">{{ pl.total_weight_kg }}</td>
+                <td style="border: 1px solid #dddddd;">{{ pl.total_weight_lbs }}</td>
+                <td style="border: 1px solid #dddddd;">{{ pl.cbm }}</td>
+                <td style="border: 1px solid #dddddd;">{{ pl.n_pallet }}</td>
+            </tr>
+            {% endfor %}
+        </tbody>
+    </table>
+    <input type="hidden" name="type" value="appointment">
+    <input type="hidden" name="ids" value="{{ ids }}">
+    <button type="submit">Submit</button>
+</form>
+
+{% endif %}
+
+{% endblock %}

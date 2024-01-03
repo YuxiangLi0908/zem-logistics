@@ -1,0 +1,12 @@
+{% extends 'base.html' %}
+
+{% block content %}
+<h3 class="mb-4">选择仓库</h3>
+<form method="post" action="">
+    {% csrf_token %}
+    <input type="hidden" name="type" value="warehouse">
+    {{ warehouse_form.warehouse }}
+    <button type="submit">确认</button>
+</form>
+<hr class="Dashed" style="margin-top: 40px; margin-bottom: 40px;">
+{% endblock %}

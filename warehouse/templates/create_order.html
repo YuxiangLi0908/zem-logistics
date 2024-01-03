@@ -3,13 +3,13 @@
 {% block content %}
     <div class="container mt-5">
         <h2 class="mb-4">创建新订单</h2>
-        <form method="post" class="needs-validation" novalidate>
+        <form method="post" class="needs-validation" id="orderForm" novalidate>
             <h4 class="mb-4">货柜信息</h4>
             {% csrf_token %}
             <div class="form-row" >
                 {% for field in container_form %}
                     <div class="form-group col-md-2">
-                        <label class="col-form-label" style="width: 100px; height: 40px;">{{ field.label }}</label>
+                        <label class="col-form-label" style="font-size: 15px; width: 100px; height: 40px;">{{ field.label }}</label>
                         {{ field }}
                         <style>
                             #{{ field.id_for_label }} {
@@ -50,7 +50,16 @@
                 {% endfor %}
             </div>
             <div class="text-right">
-                <button type="submit" class="btn btn-primary" style="width: 100px; height: 35px;">Submit</button> 
+                <!-- <button type="submit" class="btn btn-primary" style="width: 100px; height: 35px;">Submit</button> -->
+                <button type="button" onclick="confirmSubmit()" class="btn btn-primary" style="width: 100px; height: 35px;">Submit</button>
+                <script>
+                    function confirmSubmit() {
+                      var confirmation = window.confirm("确认创建订单?");
+                      if (confirmation) {
+                        document.getElementById("orderForm").submit();
+                      }
+                    }
+                  </script>
             </div>
         </form>
     </div>
