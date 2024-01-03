@@ -13,7 +13,8 @@ ORDER_TYPE_OPTIONS = [
 ]
 
 CONTAINER_TYPE_OPTIONS = [
-    ("", ""), ('45HQ', '45HQ'), ('40HQ', '40HQ'),
+    ("", ""), ('45HQ/GP', '45HQ/GP'), ('40HQ/GP', '40HQ/GP'),
+    ('20GP', '20GP'), ('53HQ', '53HQ'),
 ]
 
 PORT_OPTIONS = [
