@@ -51,6 +51,7 @@
             <tr>
                 <th style="border: 1px solid #dddddd;">确认预约</th>
                 <th style="border: 1px solid #dddddd;">预约派送时间</th>
+                <th style="border: 1px solid #dddddd;">承运方</th>
                 <th style="border: 1px solid #dddddd;">目的仓库</th>
                 <th style="border: 1px solid #dddddd;">客户</th>
                 <th style="border: 1px solid #dddddd;">柜号</th>
@@ -70,6 +71,7 @@
             <tr>
                 <td style="border: 1px solid #dddddd;">{{ f.is_shipment_schduled }}</td>
                 <td style="border: 1px solid #dddddd;">{{ f.shipment_appointment }}</td>
+                <td style="border: 1px solid #dddddd;">{{ f.carrier }}</td>
                 <td style="border: 1px solid #dddddd;">{{ pl.destination }}</td>
                 <td style="border: 1px solid #dddddd;">{{ pl.customer_name }}</td>
                 <td style="border: 1px solid #dddddd;">{{ pl.container_number__container_number }}</td>

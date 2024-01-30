@@ -4,9 +4,46 @@
 <h3 class="mb-4">选择仓库</h3>
 <form method="post" action="">
     {% csrf_token %}
-    <input type="hidden" name="type" value="warehouse">
+    <input type="hidden" name="type" value="filter">
     {{ warehouse_form.warehouse }}
+    <!-- <button type="submit">确认</button> -->
+    {{ destination_form.destination }}
     <button type="submit">确认</button>
 </form>
 <hr class="Dashed" style="margin-top: 40px; margin-bottom: 40px;">
+
+{% if shipment_data %}
+    <h3 class="mb-4">待出库</h3>
+    <table>
+        <thead>
+            <tr>
+                <th style="border: 1px solid #dddddd;">批次号</th>
+                <th style="border: 1px solid #dddddd;">发货仓库</th>
+                <th style="border: 1px solid #dddddd;">目的地</th>
+                <th style="border: 1px solid #dddddd;">Carrier</th>
+                <th style="border: 1px solid #dddddd;">预约出库时间</th>
+                <th style="border: 1px solid #dddddd;">CBM</th>
+                <th style="border: 1px solid #dddddd;">卡板</th>
+                <th style="border: 1px solid #dddddd;">总重kg</th>
+                <th style="border: 1px solid #dddddd;">总重lbs</th>
+            </tr>
+        </thead>
+        <tbody>
+            {% for c in shipment_data %}
+            <tr>
+                <td style="border: 1px solid #dddddd;">{{ c.batch_id }}</td>
+                <td style="border: 1px solid #dddddd;">{{ c.shipment_batch_number__origin }}</td>
+                <td style="border: 1px solid #dddddd;">{{ c.shipment_batch_number__destination }}</td>
+                <td style="border: 1px solid #dddddd;">{{ c.shipment_batch_number__carrier }}</td>
+                <td style="border: 1px solid #dddddd;">{{ c.max_shipment_appointment }}</td>
+                <td style="border: 1px solid #dddddd;">{{ c.total_cbm }}</td>
+                <td style="border: 1px solid #dddddd;">{{ c.total_n_pallet }}</td>
+                <td style="border: 1px solid #dddddd;">{{ c.total_weight_kg }}</td>
+                <td style="border: 1px solid #dddddd;">{{ c.total_weight_lbs }}</td>
+            </tr>
+            {% endfor %}
+        </tbody>
+    </table>
+    <hr class="Dashed" style="margin-top: 40px; margin-bottom: 40px;">
+{% endif %}
 {% endblock %}

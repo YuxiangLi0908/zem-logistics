@@ -1,9 +1,18 @@
+ORDER_TYPES = {
+    "TD": "转运",
+    "DD": "直送",
+}
+
 SHIPPING_LINE_OPTIONS = [
-    ("", ""), ("COSCO", "COSCO"), ("EMC", "EMC"), ("MSC", "MSC"),
+    ("", ""), ("N/A", "N/A"), ("COSCO", "COSCO"), ("EMC", "EMC"), ("MSC", "MSC"),
     ("OOCL", "OOCL"), ("ZIM", "ZIM"),
 ]
 
-PICKUP_METHOD_OPTIONS = [
+CLEARANCE_OPTIONS = [
+    ("", ""), ('代理清关', '代理清关'), ('自理清关', '自理清关'), ('N/A', 'N/A'),
+]
+
+RETRIEVAL_OPTIONS = [
     ("", ""), ('代理卡车', '代理卡车'), ('自理卡车', '自理卡车'),
 ]
 
@@ -18,7 +27,7 @@ CONTAINER_TYPE_OPTIONS = [
 ]
 
 PORT_OPTIONS = [
-    ("", ""), ("LOS ANGELES", "LOS ANGELES"), ("NEW YORK", "NEW YORK"), ("NINGBO", "NINGBO"),
+    ("", ""), ("N/A", "N/A"), ("LOS ANGELES", "LOS ANGELES"), ("NEW YORK", "NEW YORK"), ("NINGBO", "NINGBO"),
     ("QINGDAO", "QINGDAO"), ("SAVANNAH", "SAVANNAH"), ("TAMPA", "TAMPA"), ("XIAMEN", "XIAMEN"),
     ("YANTIAN", "YANTIAN"),
 ]
@@ -35,5 +44,10 @@ DELIVERY_METHOD_OPTIONS = [
 ]
 
 WAREHOUSE_OPTIONS = [
-    ("美东新泽西仓", "美东新泽西仓"), ("美东南萨瓦纳仓", "美东南萨瓦纳仓")
+    ("", ""), ("美东新泽西仓", "美东新泽西仓"), ("美东南萨瓦纳仓", "美东南萨瓦纳仓"),
+    ("N/A", "N/A")
+]
+
+CARRIER_OPTIONS = [
+    ("UPS", "UPS"), ("FedEx", "FedEx"), ("ZEM", "ZEM"), ("客户自提", "客户自提")
 ]

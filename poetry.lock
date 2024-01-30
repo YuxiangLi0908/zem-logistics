@@ -656,6 +656,17 @@ files = [
 six = ">=1.5"
 
 [[package]]
+name = "pytz"
+version = "2023.4"
+description = "World timezone definitions, modern and historical"
+optional = false
+python-versions = "*"
+files = [
+    {file = "pytz-2023.4-py2.py3-none-any.whl", hash = "sha256:f90ef520d95e7c46951105338d918664ebfd6f1d995bd7d153127ce90efafa6a"},
+    {file = "pytz-2023.4.tar.gz", hash = "sha256:31d4583c4ed539cd037956140d695e42c033a19e984bfce9964a3f7d59bc2b40"},
+]
+
+[[package]]
 name = "pywin32"
 version = "306"
 description = "Python for Window Extensions"
@@ -911,4 +922,4 @@ files = [
 [metadata]
 lock-version = "2.0"
 python-versions = "^3.10"
-content-hash = "97e3322b74990fa9b7b5fd98e1b7c9df25bbc0f1be2b6503609b1a3a555d28f0"
+content-hash = "f973f922194995ce8383b3fc4d41cdf8d96fcce2a3b09fda57de52e23667a4e4"

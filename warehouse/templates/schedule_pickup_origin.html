@@ -11,27 +11,27 @@
                 <th style="border: 1px solid #dddddd;">目的港</th>
                 <th style="border: 1px solid #dddddd;">船/空运公司</th>
                 <th style="border: 1px solid #dddddd;">柜型</th>
-                <th style="border: 1px solid #dddddd;">提柜地址</th>
+                <th style="border: 1px solid #dddddd;">提柜方式</th>
                 <th style="border: 1px solid #dddddd;">提单号</th>
                 <th style="border: 1px solid #dddddd;">预约提柜日期</th>
             </tr>
         </thead>
         <tbody>
-            {% for c in retrieval_not_scheduled %}
+            {% for c in containers_unpicked %}
             <tr>
                 <td style="border: 1px solid #dddddd;">{{ c.container_number }}</td>
                 <td style="border: 1px solid #dddddd;">{{ c.customer_name }}</td>
                 <td style="border: 1px solid #dddddd;">{{ c.eta }}</td>
-                <td style="border: 1px solid #dddddd;">{{ c.retrieval_id.destination }}</td>
-                <td style="border: 1px solid #dddddd;">{{ c.retrieval_id.shipping_line }}</td>
-                <td style="border: 1px solid #dddddd;">{{ c.container_number.container_type }}</td>
-                <td style="border: 1px solid #dddddd;">{{ c.retrieval_id.retrieval_location }}</td>
-                <td style="border: 1px solid #dddddd;">{{ c.retrieval_id.shipping_order_number }}</td>
+                <td style="border: 1px solid #dddddd;">{{ c.destination_port }}</td>
+                <td style="border: 1px solid #dddddd;">{{ c.shipping_line }}</td>
+                <td style="border: 1px solid #dddddd;">{{ c.container_type }}</td>
+                <td style="border: 1px solid #dddddd;">{{ c.pickup_method }}</td>
+                <td style="border: 1px solid #dddddd;">{{ c.pickup_id }}</td>
                 <td style="border: 1px solid #dddddd;">
                     <form method="post" action="">
                         {% csrf_token %}
-                        <input type="hidden" name="order_id" value="{{ c.order_id }}">
-                        {{ retrieval_form.target_retrieval_timestamp }}
+                        <input type="hidden" name="record_id" value="{{ c.container_number }}">
+                        {{ form.pickup_at }}
                         <button type="submit">确认</button>
                     </form>
                 </td>
@@ -52,23 +52,23 @@
                 <th style="border: 1px solid #dddddd;">目的港</th>
                 <th style="border: 1px solid #dddddd;">船/空运公司</th>
                 <th style="border: 1px solid #dddddd;">柜型</th>
-                <th style="border: 1px solid #dddddd;">提柜地址</th>
+                <th style="border: 1px solid #dddddd;">提柜方式</th>
                 <th style="border: 1px solid #dddddd;">提单号</th>
                 <th style="border: 1px solid #dddddd;">预约提柜日期</th>
             </tr>
         </thead>
         <tbody>
-            {% for c in retrieval_scheduled %}
+            {% for c in containers_picked %}
             <tr>
                 <td style="border: 1px solid #dddddd;">{{ c.container_number }}</td>
                 <td style="border: 1px solid #dddddd;">{{ c.customer_name }}</td>
                 <td style="border: 1px solid #dddddd;">{{ c.eta }}</td>
-                <td style="border: 1px solid #dddddd;">{{ c.retrieval_id.destination }}</td>
-                <td style="border: 1px solid #dddddd;">{{ c.retrieval_id.shipping_line }}</td>
-                <td style="border: 1px solid #dddddd;">{{ c.container_number.container_type }}</td>
-                <td style="border: 1px solid #dddddd;">{{ c.retrieval_id.retrieval_location }}</td>
-                <td style="border: 1px solid #dddddd;">{{ c.retrieval_id.shipping_order_number }}</td>
-                <td style="border: 1px solid #dddddd;">{{ c.retrieval_id.target_retrieval_timestamp }}</td>
+                <td style="border: 1px solid #dddddd;">{{ c.destination_port }}</td>
+                <td style="border: 1px solid #dddddd;">{{ c.shipping_line }}</td>
+                <td style="border: 1px solid #dddddd;">{{ c.container_type }}</td>
+                <td style="border: 1px solid #dddddd;">{{ c.pickup_method }}</td>
+                <td style="border: 1px solid #dddddd;">{{ c.pickup_id }}</td>
+                <td style="border: 1px solid #dddddd;">{{ c.pickup_appointment }}</td>
             </tr>
             {% endfor %}
         </tbody>
