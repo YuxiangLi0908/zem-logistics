@@ -13,7 +13,7 @@
                 <th style="border: 1px solid #dddddd;">柜型</th>
                 <th style="border: 1px solid #dddddd;">提柜地址</th>
                 <th style="border: 1px solid #dddddd;">提单号</th>
-                <th style="border: 1px solid #dddddd;">预约提柜日期</th>
+                <th style="border: 1px solid #dddddd;">预约提柜时间</th>
             </tr>
         </thead>
         <tbody>
@@ -31,8 +31,9 @@
                     <form method="post" action="">
                         {% csrf_token %}
                         <input type="hidden" name="order_id" value="{{ c.order_id }}">
+                        <input type="hidden" name="step" value="schedule">
                         {{ retrieval_form.target_retrieval_timestamp }}
-                        <button type="submit">确认</button>
+                        <button type="submit">确认预约</button>
                     </form>
                 </td>
             </tr>
@@ -54,7 +55,8 @@
                 <th style="border: 1px solid #dddddd;">柜型</th>
                 <th style="border: 1px solid #dddddd;">提柜地址</th>
                 <th style="border: 1px solid #dddddd;">提单号</th>
-                <th style="border: 1px solid #dddddd;">预约提柜日期</th>
+                <th style="border: 1px solid #dddddd;">预约提柜时间</th>
+                <th style="border: 1px solid #dddddd;">实际提柜时间</th>
             </tr>
         </thead>
         <tbody>
@@ -69,6 +71,15 @@
                 <td style="border: 1px solid #dddddd;">{{ c.retrieval_id.retrieval_location }}</td>
                 <td style="border: 1px solid #dddddd;">{{ c.retrieval_id.shipping_order_number }}</td>
                 <td style="border: 1px solid #dddddd;">{{ c.retrieval_id.target_retrieval_timestamp }}</td>
+                <td style="border: 1px solid #dddddd;">
+                    <form method="post" action="">
+                        {% csrf_token %}
+                        <input type="hidden" name="order_id" value="{{ c.order_id }}">
+                        <input type="hidden" name="step" value="confirmation">
+                        {{ retrieval_form.actual_retrieval_timestamp }}
+                        <button type="submit">确认提柜</button>
+                    </form>
+                </td>
             </tr>
             {% endfor %}
         </tbody>

@@ -11,6 +11,7 @@ class RetrievalForm(forms.ModelForm):
             "destination": forms.Select(choices=PORT_OPTIONS),
             "shipping_line": forms.Select(choices=SHIPPING_LINE_OPTIONS),
             "target_retrieval_timestamp": forms.DateTimeInput(attrs={'type': 'datetime-local'}),
+            "actual_retrieval_timestamp": forms.DateTimeInput(attrs={'type': 'datetime-local'}),
         }
     
     def __init__(self, *args, **kwargs):
