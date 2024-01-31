@@ -57,14 +57,14 @@ class ScheduleRetrieval(View):
         return Order.objects.filter(
             models.Q(retrieval_id__retrive_by_zem=True) &
             models.Q(retrieval_id__scheduled_at__isnull=True)
-        )
+        ).order_by("eta")
     
     def _get_retrieval_scheduled(self) -> Order:
         return Order.objects.filter(
             models.Q(retrieval_id__retrive_by_zem=True) &
             models.Q(retrieval_id__scheduled_at__isnull=False) &
             models.Q(retrieval_id__actual_retrieval_timestamp__isnull=True)
-        )
+        ).order_by("retrieval_id__target_retrieval_timestamp")
     
     def _set_context(self) -> None:
         self.context["retrieval_not_scheduled"] = self.retrieval_not_scheduled

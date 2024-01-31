@@ -1,91 +1,76 @@
 {% extends 'base.html' %}
 
 {% block content %}
-    <h3>待拆柜</h3>
+<h3 class="mb-4">选择仓库</h3>
+<form method="post" action="">
+    {% csrf_token %}
+    <input type="hidden" name="step" value="warehouse">
+    {{ warehouse_form.name }}
+    <button type="submit">确认</button>
+</form>
+<hr class="Dashed" style="margin-top: 40px; margin-bottom: 40px;">
+
+{% if order_not_palletized %}
+    <h3 class="mb-3">待拆柜</h3>
     <table>
         <thead>
             <tr>
                 <th style="border: 1px solid #dddddd;">货柜</th>
                 <th style="border: 1px solid #dddddd;">客户</th>
-                <th style="border: 1px solid #dddddd;">ETA</th>
                 <th style="border: 1px solid #dddddd;">目的港</th>
-                <th style="border: 1px solid #dddddd;">船/空运公司</th>
                 <th style="border: 1px solid #dddddd;">柜型</th>
-                <th style="border: 1px solid #dddddd;">提柜方式</th>
-                <th style="border: 1px solid #dddddd;">提单号</th>
-                <th style="border: 1px solid #dddddd;">预约提柜日期</th>
+                <th style="border: 1px solid #dddddd;">预约提柜时间</th>
+                <th style="border: 1px solid #dddddd;">实际提柜时间</th>
             </tr>
         </thead>
         <tbody>
-            {% for c in containers_unpalletized %}
+            {% for c in order_not_palletized %}
             <tr>
                 <td style="border: 1px solid #dddddd;">
                     <a href="/palletize/{{c.id}}/">{{ c.container_number }}</a>
                 </td>
                 <td style="border: 1px solid #dddddd;">{{ c.customer_name }}</td>
-                <td style="border: 1px solid #dddddd;">{{ c.eta }}</td>
-                <td style="border: 1px solid #dddddd;">{{ c.destination_port }}</td>
-                <td style="border: 1px solid #dddddd;">{{ c.shipping_line }}</td>
-                <td style="border: 1px solid #dddddd;">{{ c.container_type }}</td>
-                <td style="border: 1px solid #dddddd;">{{ c.pickup_method }}</td>
-                <td style="border: 1px solid #dddddd;">{{ c.pickup_id }}</td>
-                <td style="border: 1px solid #dddddd;">{{ c.pickup_appointment }}</td>
-                <!-- <td style="border: 1px solid #dddddd;">
-                    <form method="post" action="">
-                        {% csrf_token %}
-                        <input type="hidden" name="record_id" value="{{ c.container_number }}">
-                        {{ form.pickup_at }}
-                        <button type="submit">确认</button>
-                    </form>
-                </td> -->
+                <td style="border: 1px solid #dddddd;">{{ c.retrieval_id.destination }}</td>
+                <td style="border: 1px solid #dddddd;">{{ c.container_number.container_type }}</td>
+                <td style="border: 1px solid #dddddd;">{{ c.retrieval_id.target_retrieval_timestamp }}</td>
+                <td style="border: 1px solid #dddddd;">{{ c.retrieval_id.actual_retrieval_timestamp }}</td>
             </tr>
             {% endfor %}
         </tbody>
     </table>
-
     <hr class="Dashed" style="margin-top: 40px; margin-bottom: 40px;">
+{% elif step %}
+    <h3 class="mb-3">无待拆货柜</h3>
+    <hr class="Dashed" style="margin-top: 40px; margin-bottom: 40px;">
+{% endif %}
 
-    <h3>拆柜完成</h3>
+{% if order_palletized %}
+    <h3 class="mb-3">拆柜完成，待出库</h3>
     <table>
         <thead>
             <tr>
                 <th style="border: 1px solid #dddddd;">货柜</th>
                 <th style="border: 1px solid #dddddd;">客户</th>
-                <th style="border: 1px solid #dddddd;">ETA</th>
                 <th style="border: 1px solid #dddddd;">目的港</th>
-                <th style="border: 1px solid #dddddd;">船/空运公司</th>
                 <th style="border: 1px solid #dddddd;">柜型</th>
-                <th style="border: 1px solid #dddddd;">提柜方式</th>
-                <th style="border: 1px solid #dddddd;">提单号</th>
-                <th style="border: 1px solid #dddddd;">预约提柜日期</th>
                 <th style="border: 1px solid #dddddd;">拆柜完成时间</th>
+                <th style="border: 1px solid #dddddd;">打板数</th>
             </tr>
         </thead>
         <tbody>
-            {% for c in containers_palletized %}
+            {% for c in order_palletized %}
             <tr>
                 <td style="border: 1px solid #dddddd;">
                     <a href="/palletize/{{c.id}}/">{{ c.container_number }}</a>
                 </td>
                 <td style="border: 1px solid #dddddd;">{{ c.customer_name }}</td>
-                <td style="border: 1px solid #dddddd;">{{ c.eta }}</td>
-                <td style="border: 1px solid #dddddd;">{{ c.destination_port }}</td>
-                <td style="border: 1px solid #dddddd;">{{ c.shipping_line }}</td>
-                <td style="border: 1px solid #dddddd;">{{ c.container_type }}</td>
-                <td style="border: 1px solid #dddddd;">{{ c.pickup_method }}</td>
-                <td style="border: 1px solid #dddddd;">{{ c.pickup_id }}</td>
-                <td style="border: 1px solid #dddddd;">{{ c.pickup_appointment }}</td>
-                <td style="border: 1px solid #dddddd;">{{ c.palletized_at }}</td>
-                <!-- <td style="border: 1px solid #dddddd;">
-                    <form method="post" action="">
-                        {% csrf_token %}
-                        <input type="hidden" name="record_id" value="{{ c.container_number }}">
-                        {{ form.pickup_at }}
-                        <button type="submit">确认</button>
-                    </form>
-                </td> -->
+                <td style="border: 1px solid #dddddd;">{{ c.retrieval_id.destination }}</td>
+                <td style="border: 1px solid #dddddd;">{{ c.container_number.container_type }}</td>
+                <td style="border: 1px solid #dddddd;">{{ c.offload_id.offload_at }}</td>
+                <td style="border: 1px solid #dddddd;">{{ c.offload_id.total_pallet }}</td>
             </tr>
             {% endfor %}
         </tbody>
     </table>
+{% endif %}
 {% endblock %}

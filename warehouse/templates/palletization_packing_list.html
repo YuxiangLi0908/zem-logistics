@@ -1,0 +1,37 @@
+{% extends 'base.html' %}
+
+{% block content %}
+    <form method="post">
+        {% csrf_token %}
+        <div class="container mt-3">
+            <table>
+                <thead>
+                    <tr>
+                        <th style="border: 1px solid #dddddd;">货柜</th>
+                        <th style="border: 1px solid #dddddd;">目的仓库</th>
+                        <th style="border: 1px solid #dddddd;">箱数</th>
+                        <th style="border: 1px solid #dddddd;">CBM</th>
+                        <th style="border: 1px solid #dddddd;">打板数</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    
+                    {% for pl, pl_form in order_packing_list %}
+                    <tr>
+                        <td style="border: 1px solid #dddddd;">{{ pl.container_number }}</td>
+                        <td style="border: 1px solid #dddddd;">{{ pl.destination }}</td>
+                        <td style="border: 1px solid #dddddd;">{{ pl.pcs }}</td>
+                        <td style="border: 1px solid #dddddd;">{{ pl.cbm }}</td>
+                        <td style="border: 1px solid #dddddd;">{{ pl_form.n_pallet }}</td> 
+                        <input type="hidden" name="id" value="{{pl.id}}">
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+            <div class="text-left">
+                <input type="hidden" name="step" value="palletization">
+                <button type="submit" class="btn btn-primary" style="width: 100px; height: 35px;">确认</button>
+            </div>
+        </div>
+    </form>
+{% endblock %}
