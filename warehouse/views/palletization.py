@@ -106,4 +106,3 @@ class Palletization(View):
         self.context["order_not_palletized"] = self.order_not_palletized
         self.context["order_palletized"] = self.order_palletized
         self.context["order_packing_list"] = self.order_packing_list
-        # self.context["retrieval_form"] = self.retrieval_form

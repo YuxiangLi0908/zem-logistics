@@ -4,34 +4,32 @@
 <h3 class="mb-4">选择仓库</h3>
 <form method="post" action="">
     {% csrf_token %}
-    <input type="hidden" name="type" value="warehouse">
-    {{ warehouse_form.warehouse }}
+    <input type="hidden" name="step" value="warehouse">
+    {{ warehouse_form.name }}
     <button type="submit">确认</button>
 </form>
 <hr class="Dashed" style="margin-top: 40px; margin-bottom: 40px;">
 
-{% if warehouse_data %}
+{% if packing_list_not_scheduled %}
     <h3 class="mb-4">待预约</h3>
     <table>
         <thead>
             <tr>
                 <th style="border: 1px solid #dddddd;">目的仓库</th>
                 <th style="border: 1px solid #dddddd;">箱数</th>
-                <th style="border: 1px solid #dddddd;">总重kg</th>
                 <th style="border: 1px solid #dddddd;">总重lbs</th>
                 <th style="border: 1px solid #dddddd;">CBM</th>
                 <th style="border: 1px solid #dddddd;">卡板</th>
             </tr>
         </thead>
         <tbody>
-            {% for c in warehouse_data %}
+            {% for c in packing_list_not_scheduled %}
             <tr>
                 <td style="border: 1px solid #dddddd;">
-                    <a href="/schedule_shipment/?type=destination&warehouse={{ warehouse_form.warehouse.value }}&destination={{c.destination}}">{{ c.destination }}</a>
+                    <a href="/schedule_shipment/?step=destination&warehouse={{ warehouse_form.name.value }}&destination={{c.destination}}">{{ c.destination }}</a>
                     <!-- <a href="/schedule_shipment/{{ warehouse_form.warehouse.value }}/{{c.destination}}/?type=destination">{{ c.destination }}</a> -->
                 </td>
                 <td style="border: 1px solid #dddddd;">{{ c.total_pcs }}</td>
-                <td style="border: 1px solid #dddddd;">{{ c.total_weight_kg }}</td>
                 <td style="border: 1px solid #dddddd;">{{ c.total_weight_lbs }}</td>
                 <td style="border: 1px solid #dddddd;">{{ c.total_cbm }}</td>
                 <td style="border: 1px solid #dddddd;">{{ c.total_n_pallet }}</td>
@@ -42,14 +40,14 @@
     <hr class="Dashed" style="margin-top: 40px; margin-bottom: 40px;">
 {% endif %}
 
-{% if shipment_form %}
+{% if order_packing_list %}
 <h3 class="mb-4">预约列表</h3>
-<form method="post">
+<form method="post" class="needs-validation" id="shipmentForm" novalidate>
     {% csrf_token %}
     <table>
         <thead>
             <tr>
-                <th style="border: 1px solid #dddddd;">确认预约</th>
+                <!-- <th style="border: 1px solid #dddddd;">确认预约</th> -->
                 <th style="border: 1px solid #dddddd;">预约派送时间</th>
                 <th style="border: 1px solid #dddddd;">承运方</th>
                 <th style="border: 1px solid #dddddd;">目的仓库</th>
@@ -60,16 +58,15 @@
                 <th style="border: 1px solid #dddddd;">FBA号</th>
                 <th style="border: 1px solid #dddddd;">ref_id</th>
                 <th style="border: 1px solid #dddddd;">箱数</th>
-                <th style="border: 1px solid #dddddd;">总重kg</th>
-                <th style="border: 1px solid #dddddd;">总重lbs</th>
+                <th style="border: 1px solid #dddddd;">总重-lbs</th>
                 <th style="border: 1px solid #dddddd;">CBM</th>
                 <th style="border: 1px solid #dddddd;">卡板</th>
             </tr>
         </thead>
         <tbody>
-            {% for f, pl in shipment_form %}
+            {% for pl, f in order_packing_list %}
             <tr>
-                <td style="border: 1px solid #dddddd;">{{ f.is_shipment_schduled }}</td>
+                <!-- <td style="border: 1px solid #dddddd;">{{ f.is_shipment_schduled }}</td> -->
                 <td style="border: 1px solid #dddddd;">{{ f.shipment_appointment }}</td>
                 <td style="border: 1px solid #dddddd;">{{ f.carrier }}</td>
                 <td style="border: 1px solid #dddddd;">{{ pl.destination }}</td>
@@ -80,7 +77,6 @@
                 <td style="border: 1px solid #dddddd;">{{ pl.fba_id }}</td>
                 <td style="border: 1px solid #dddddd;">{{ pl.ref_id }}</td>
                 <td style="border: 1px solid #dddddd;">{{ pl.pcs }}</td>
-                <td style="border: 1px solid #dddddd;">{{ pl.total_weight_kg }}</td>
                 <td style="border: 1px solid #dddddd;">{{ pl.total_weight_lbs }}</td>
                 <td style="border: 1px solid #dddddd;">{{ pl.cbm }}</td>
                 <td style="border: 1px solid #dddddd;">{{ pl.n_pallet }}</td>
@@ -88,9 +84,18 @@
             {% endfor %}
         </tbody>
     </table>
-    <input type="hidden" name="type" value="appointment">
+    <input type="hidden" name="step" value="appointment">
     <input type="hidden" name="ids" value="{{ ids }}">
-    <button type="submit">Submit</button>
+    <div class="text-left">
+        <button type="button" onclick="confirmSubmit()" class="btn btn-primary" style="width: 100px; height: 35px;">确认</button>
+        <script>
+            function confirmSubmit() {
+              var confirmation = window.confirm("确认预约?");
+              if (confirmation) {
+                document.getElementById("shipmentForm").submit();
+              }
+            }
+        </script>    </div>
 </form>
 
 {% endif %}
