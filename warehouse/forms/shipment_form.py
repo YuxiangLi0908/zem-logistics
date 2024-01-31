@@ -9,6 +9,8 @@ class ShipmentForm(forms.ModelForm):
         widgets = {
                 "shipment_appointment": forms.DateInput(attrs={'type':'date'}),
                 "carrier": forms.Select(choices=CARRIER_OPTIONS),
+                "shipped_at": forms.DateTimeInput(attrs={'type': 'datetime-local'}),
+                "arrived_at": forms.DateTimeInput(attrs={'type': 'datetime-local'}),
             }
 
     def __init__(self, *args, **kwargs) -> None:

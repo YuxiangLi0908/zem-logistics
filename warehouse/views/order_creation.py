@@ -19,6 +19,7 @@ from warehouse.models.clearance import Clearance
 from warehouse.models.retrieval import Retrieval
 from warehouse.models.warehouse import ZemWarehouse
 from warehouse.models.offload import Offload
+from warehouse.models.shipment import Shipment
 from warehouse.forms.container_form import ContainerForm
 from warehouse.forms.packling_list_form import PackingListForm
 from warehouse.forms.order_form import OrderForm
@@ -26,6 +27,7 @@ from warehouse.forms.warehouse_form import ZemWarehouseForm
 from warehouse.forms.clearance_form import ClearanceForm, ClearanceSelectForm
 from warehouse.forms.offload_form import OffloadForm
 from warehouse.forms.retrieval_form import RetrievalForm, RetrievalSelectForm
+from warehouse.forms.shipment_form import ShipmentForm
 from warehouse.utils.constants import ORDER_TYPES
 
 @method_decorator(login_required(login_url='login'), name='dispatch')
@@ -39,6 +41,7 @@ class OrderCreation(View):
         "retrieval_form": RetrievalForm(),
         "retrieval_select_form": RetrievalSelectForm(),
         "offload_form": OffloadForm(),
+        "shipment_form": ShipmentForm(),
         "packing_list_form": formset_factory(PackingListForm, extra=1)
     }
     
@@ -174,11 +177,26 @@ class OrderCreation(View):
         }
         return self._create_model_object(Container, container_data)
     
+    def _creat_shipment_object(self, order_data: dict[str, Any], container_data: dict[str, Any]) -> Shipment:
+        shipment_id = str(uuid.uuid3(
+            uuid.NAMESPACE_DNS,
+            str(uuid.uuid4())+order_data.get("customer_name")+datetime.now().strftime('%Y-%m-%d %H:%M:%S')+container_data.get("container_number")
+        ))
+        shipment_data = {
+            "shipment_batch_number": shipment_id,
+            "address": container_data.get("address"),
+        }
+        return self._create_model_object(Shipment, shipment_data)
+    
     def _create_order_object(
         self,
         order_data: dict[str, Any],
         container_data: dict[str, Any]
     ) -> Order:
+        if order_data.get("order_type", None) == "直送":
+            shipment = self._creat_shipment_object(order_data, container_data)
+        else:
+            shipment = None
         clearance = self._create_clearance_object(order_data)
         retrieval = self._create_retrieval_object(order_data, container_data)
         offload = self._create_offload_obejct(order_data)
@@ -198,5 +216,6 @@ class OrderCreation(View):
             "clearance_id": clearance,
             "retrieval_id": retrieval,
             "offload_id": offload,
+            "shipment_id": shipment,
         }
         return self._create_model_object(Order, order_data)

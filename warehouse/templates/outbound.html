@@ -4,42 +4,52 @@
 <h3 class="mb-4">选择仓库</h3>
 <form method="post" action="">
     {% csrf_token %}
-    <input type="hidden" name="type" value="filter">
-    {{ warehouse_form.warehouse }}
-    <!-- <button type="submit">确认</button> -->
-    {{ destination_form.destination }}
+    <input type="hidden" name="step" value="warehouse">
+    {{ warehouse_form.name }}
     <button type="submit">确认</button>
 </form>
 <hr class="Dashed" style="margin-top: 40px; margin-bottom: 40px;">
 
-{% if shipment_data %}
+{% if shipment_list %}
     <h3 class="mb-4">待出库</h3>
     <table>
         <thead>
             <tr>
                 <th style="border: 1px solid #dddddd;">批次号</th>
-                <th style="border: 1px solid #dddddd;">发货仓库</th>
                 <th style="border: 1px solid #dddddd;">目的地</th>
                 <th style="border: 1px solid #dddddd;">Carrier</th>
                 <th style="border: 1px solid #dddddd;">预约出库时间</th>
                 <th style="border: 1px solid #dddddd;">CBM</th>
                 <th style="border: 1px solid #dddddd;">卡板</th>
-                <th style="border: 1px solid #dddddd;">总重kg</th>
                 <th style="border: 1px solid #dddddd;">总重lbs</th>
+                <th style="border: 1px solid #dddddd;">实际出库时间</th>
             </tr>
         </thead>
         <tbody>
-            {% for c in shipment_data %}
+            {% for s, f in shipment_list %}
             <tr>
-                <td style="border: 1px solid #dddddd;">{{ c.batch_id }}</td>
-                <td style="border: 1px solid #dddddd;">{{ c.shipment_batch_number__origin }}</td>
-                <td style="border: 1px solid #dddddd;">{{ c.shipment_batch_number__destination }}</td>
-                <td style="border: 1px solid #dddddd;">{{ c.shipment_batch_number__carrier }}</td>
-                <td style="border: 1px solid #dddddd;">{{ c.max_shipment_appointment }}</td>
-                <td style="border: 1px solid #dddddd;">{{ c.total_cbm }}</td>
-                <td style="border: 1px solid #dddddd;">{{ c.total_n_pallet }}</td>
-                <td style="border: 1px solid #dddddd;">{{ c.total_weight_kg }}</td>
-                <td style="border: 1px solid #dddddd;">{{ c.total_weight_lbs }}</td>
+                <td style="border: 1px solid #dddddd;">
+                    {{ s.shipment_batch_number__shipment_batch_number }}
+                    <!-- <a href="/outbound/?step=batch&warehouse={{ warehouse_form.name.value }}&batch_id={{c.shipment_batch_number__shipment_batch_number}}">
+                        {{ c.shipment_batch_number__shipment_batch_number }}
+                    <a> -->
+                </td>
+                <td style="border: 1px solid #dddddd;">{{ s.shipment_batch_number__destination }}</td>
+                <td style="border: 1px solid #dddddd;">{{ s.shipment_batch_number__carrier }}</td>
+                <td style="border: 1px solid #dddddd;">{{ s.shipment_batch_number__shipment_appointment }}</td>
+                <td style="border: 1px solid #dddddd;">{{ s.total_cbm }}</td>
+                <td style="border: 1px solid #dddddd;">{{ s.total_n_pallet }}</td>
+                <td style="border: 1px solid #dddddd;">{{ s.total_weight_lbs }}</td>
+                <td style="border: 1px solid #dddddd;">
+                    <form method="post" action="">
+                        {% csrf_token %}
+                        <input type="hidden" name="batch_id" value="{{ s.shipment_batch_number__shipment_batch_number }}">
+                        <input type="hidden" name="step" value="confirm">
+                        <input type="hidden" name="name" value="{{ warehouse }}">
+                        {{ f.shipped_at }}
+                        <button type="submit">确认出库</button>
+                    </form>
+                </td>
             </tr>
             {% endfor %}
         </tbody>

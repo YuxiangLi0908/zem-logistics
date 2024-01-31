@@ -47,7 +47,7 @@ class ScheduleShipment(View):
             container_number__order__warehouse__name=warehouse,
             destination=destination,
             n_pallet__isnull=False,
-            # shipment_batch_number__isnull=True,
+            shipment_batch_number__isnull=True,
         )
         packing_list = packing_list.values(
             'id', 'delivery_method', 'shipping_mark', 'fba_id', 'ref_id', 'destination',
