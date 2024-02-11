@@ -1,13 +1,13 @@
 from django.contrib import admin
-from .models.clearance import Clearance
-from .models.container import Container
-from .models.customer import Customer
-from .models.offload import Offload
-from .models.order import Order
-from .models.packing_list import PackingList
-from .models.retrieval import Retrieval
-from .models.shipment import Shipment
-from .models.warehouse import ZemWarehouse
+from warehouse.models.clearance import Clearance
+from warehouse.models.container import Container
+from warehouse.models.customer import Customer
+from warehouse.models.offload import Offload
+from warehouse.models.order import Order
+from warehouse.models.packing_list import PackingList
+from warehouse.models.retrieval import Retrieval
+from warehouse.models.shipment import Shipment
+from warehouse.models.warehouse import ZemWarehouse
 # Register your models here.
 
 admin.site.register(Clearance)

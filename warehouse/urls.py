@@ -8,6 +8,8 @@ from warehouse.views.retrieval_schedule import ScheduleRetrieval
 from warehouse.views.palletization import Palletization
 from warehouse.views.shipment_schedule import ScheduleShipment
 from warehouse.views.shipment_dispatch import ShipmentDispatch
+from warehouse.views.export_file import ExportFile
+from warehouse.views.customer_management import CustomerManagement
 
 urlpatterns = [
     path("", home, name="home"),
@@ -21,4 +23,6 @@ urlpatterns = [
     path('schedule_shipment/', ScheduleShipment.as_view(), name='schedule_shipment'),
     # path('schedule_shipment/<str:warehouse>/<str:destination>/', views.ScheduleShipment.as_view(), name='schedule_shipment'),
     path('outbound/', ShipmentDispatch.as_view(), name='outbound'),
+    path('generate_pdf/', ExportFile.as_view(), name='generate_pdf'),
+    path('new_customer/', CustomerManagement.as_view(), name='new_customer'),
 ] + static(settings.STATIC_URL, document_root=settings.STATIC_ROOT)

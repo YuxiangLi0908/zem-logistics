@@ -1,7 +1,9 @@
 {% extends 'base.html' %}
 
 {% block content %}
-<h3 class="mb-4">选择仓库</h3>
+<h3 class="mb-3">拆柜入库</h3>
+
+<h4 class="mb-4">选择仓库</h4>
 <form method="post" action="">
     {% csrf_token %}
     <input type="hidden" name="step" value="warehouse">
@@ -11,7 +13,7 @@
 <hr class="Dashed" style="margin-top: 40px; margin-bottom: 40px;">
 
 {% if order_not_palletized %}
-    <h3 class="mb-3">待拆柜</h3>
+    <h4 class="mb-3">待拆柜</h4>
     <table>
         <thead>
             <tr>
@@ -40,12 +42,12 @@
     </table>
     <hr class="Dashed" style="margin-top: 40px; margin-bottom: 40px;">
 {% elif step %}
-    <h3 class="mb-3">无待拆货柜</h3>
+    <h4 class="mb-3">无待拆货柜</h4>
     <hr class="Dashed" style="margin-top: 40px; margin-bottom: 40px;">
 {% endif %}
 
 {% if order_palletized %}
-    <h3 class="mb-3">拆柜完成，待出库</h3>
+    <h4 class="mb-3">拆柜完成，待出库</h4>
     <table>
         <thead>
             <tr>

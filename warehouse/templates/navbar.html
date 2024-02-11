@@ -8,24 +8,36 @@
             <ul class="navbar-nav">
                 <li class="nav-item">
                     <div class="dropdown">
-                        <a class="nav-link">创建订单</a>
+                        <a class="nav-link">港前管理</a>
                         <div class="dropdown-content">
-                          <a href="{% url 'create_order' %}?type=TD">转运</a>
-                          <a href="{% url 'create_order' %}?type=DD">直送</a>
+                            <div class="nested-dropdown">
+                                <a>创建订单</a>
+                                <div class="nested-dropdown-content">
+                                    <a href="{% url 'create_order' %}?type=DD">直送</a>
+                                    <a href="{% url 'create_order' %}?type=TD">转运</a>
+                                </div>
+                            </div>
+                            <a href="{% url 'schedule_pickup' %}">预约提柜</a>
                         </div>
                     </div>
                 </li>
                 <li class="nav-item">
-                    <a class="nav-link" href="{% url 'schedule_pickup' %}">预约提柜</a>
+                    <div class="dropdown">
+                        <a class="nav-link">仓库操作</a>
+                        <div class="dropdown-content">
+                            <a href="{% url 'palletization' %}">拆柜入库</a>
+                            <a href="{% url 'schedule_shipment' %}">预约出库</a>
+                            <a href="{% url 'outbound' %}">确认出库</a>
+                        </div>
+                    </div>
                 </li>
                 <li class="nav-item">
-                    <a class="nav-link" href="{% url 'palletization' %}">拆柜入库</a>
-                </li>
-                <li class="nav-item">
-                    <a class="nav-link" href="{% url 'schedule_shipment' %}">预约出库</a>
-                </li>
-                <li class="nav-item">
-                    <a class="nav-link" href="{% url 'outbound' %}">确认出库</a>
+                    <div class="dropdown">
+                        <a class="nav-link">客户管理</a>
+                        <div class="dropdown-content">
+                            <a href="{% url 'new_customer' %}?type=new">添加客户</a>
+                        </div>
+                    </div>
                 </li>
             </ul>
         {% endif %}
@@ -39,11 +51,3 @@
         {% endif %}
     </div>
 </div>
-
-<!-- <div class="dropdown">
-                        <a class="nav-link">预约出库</a>
-                        <div class="dropdown-content">
-                          <a href="#" >货柜</a>
-                          <a href="#">目的仓库</a>
-                        </div>
-                    </div> -->

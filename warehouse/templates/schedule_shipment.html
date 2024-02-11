@@ -1,7 +1,9 @@
 {% extends 'base.html' %}
 
 {% block content %}
-<h3 class="mb-4">选择仓库</h3>
+<h3 class="mb-3">预约出库</h3>
+
+<h4 class="mb-4">选择仓库</h4>
 <form method="post" action="">
     {% csrf_token %}
     <input type="hidden" name="step" value="warehouse">
@@ -41,7 +43,7 @@
 {% endif %}
 
 {% if order_packing_list %}
-<h3 class="mb-4">预约列表</h3>
+<h4 class="mb-4">预约列表</h4>
 <form method="post" class="needs-validation" id="shipmentForm" novalidate>
     {% csrf_token %}
     <table>
