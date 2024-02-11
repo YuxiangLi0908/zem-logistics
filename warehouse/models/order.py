@@ -13,7 +13,7 @@ class Order(models.Model):
     container_number = models.ForeignKey(Container, null=True, on_delete=models.CASCADE)
     warehouse = models.ForeignKey(ZemWarehouse, null=True, on_delete=models.CASCADE)
     created_at = models.DateTimeField()
-    eta = models.DateField(null=True)
+    eta = models.DateField(null=True, blank=True)
     order_type = models.CharField(max_length=255, null=True)
     clearance_id = models.ForeignKey(Clearance, null=True, blank=True, on_delete=models.SET_NULL)
     retrieval_id = models.ForeignKey(Retrieval, null=True, blank=True, on_delete=models.SET_NULL)
