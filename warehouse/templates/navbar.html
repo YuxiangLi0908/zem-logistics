@@ -8,7 +8,7 @@
             <ul class="navbar-nav">
                 <li class="nav-item">
                     <div class="dropdown">
-                        <a class="nav-link">港前管理</a>
+                        <a class="nav-link">港前操作</a>
                         <div class="dropdown-content">
                             <div class="nested-dropdown">
                                 <a>创建订单</a>
@@ -33,9 +33,17 @@
                 </li>
                 <li class="nav-item">
                     <div class="dropdown">
+                        <a class="nav-link">订单管理</a>
+                        <div class="dropdown-content">
+                            <a href="{% url 'order_list' %}?step=all">订单列表</a>
+                        </div>
+                    </div>
+                </li>
+                <li class="nav-item">
+                    <div class="dropdown">
                         <a class="nav-link">客户管理</a>
                         <div class="dropdown-content">
-                            <a href="{% url 'new_customer' %}?type=new">添加客户</a>
+                            <a href="{% url 'new_customer' %}?step=new">添加客户</a>
                         </div>
                     </div>
                 </li>

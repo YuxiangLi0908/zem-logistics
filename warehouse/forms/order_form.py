@@ -1,14 +1,6 @@
 from django import forms
 from warehouse.models.order import Order
-from warehouse.utils.constants import (
-    SHIPPING_LINE_OPTIONS,
-    ORDER_TYPE_OPTIONS,
-    CONTAINER_TYPE_OPTIONS,
-    PORT_OPTIONS,
-    DELIVERY_METHOD_OPTIONS,
-    WAREHOUSE_OPTIONS,
-    CARRIER_OPTIONS,
-)
+from warehouse.utils.constants import ORDER_TYPE_OPTIONS
 
 class OrderForm(forms.ModelForm):
     class Meta:
@@ -16,6 +8,7 @@ class OrderForm(forms.ModelForm):
         fields = "__all__"
         widgets = {
             "eta": forms.DateInput(attrs={'type':'date'}),
+            "order_type": forms.Select(choices=ORDER_TYPE_OPTIONS),
         }
         labels = {
             "order_id": "订单号",
@@ -35,3 +28,4 @@ class OrderForm(forms.ModelForm):
         self.fields['clearance_id'].required = False
         self.fields['retrieval_id'].required = False
         self.fields['offload_id'].required = False
+        self.fields['eta'].required = False

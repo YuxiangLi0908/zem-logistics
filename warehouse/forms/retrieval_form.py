@@ -20,6 +20,7 @@ class RetrievalForm(forms.ModelForm):
         self.fields['destination'].required = False
         self.fields['shipping_line'].required = False
         self.fields['retrieval_location'].required = False
+        self.fields['shipping_order_number'].required = False
                  
 class RetrievalSelectForm(forms.Form):
     retrieval_option = forms.CharField(widget=forms.Select(choices=RETRIEVAL_OPTIONS))
