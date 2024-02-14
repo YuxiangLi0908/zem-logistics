@@ -13,3 +13,7 @@ class ContainerForm(forms.ModelForm):
             "container_number": "货柜号(#Ref)",
             "container_type": "货柜类型",
         }
+    
+    def __init__(self, *args, **kwargs):
+        super(ContainerForm, self).__init__(*args, **kwargs)
+        self.fields['container_type'].required = False

@@ -3,6 +3,10 @@ ORDER_TYPES = {
     "DD": "直送",
 }
 
+ORDER_TYPE_OPTIONS = [
+    ("", ""), ("转运", "转运"), ("直送", "直送"),
+]
+
 SHIPPING_LINE_OPTIONS = [
     ("", ""), ("N/A", "N/A"), ("COSCO", "COSCO"), ("EMC", "EMC"), ("MSC", "MSC"),
     ("OOCL", "OOCL"), ("ZIM", "ZIM"),
@@ -14,11 +18,6 @@ CLEARANCE_OPTIONS = [
 
 RETRIEVAL_OPTIONS = [
     ("", ""), ('代理卡车', '代理卡车'), ('自理卡车', '自理卡车'),
-]
-
-ORDER_TYPE_OPTIONS = [
-    ("", ""), ('整柜海卡', '整柜海卡'), ('码头直送', '码头直送'),
-    ('美国境内中转', '美国境内中转'), ('专线', '专线'), ('其它', '其它'),
 ]
 
 CONTAINER_TYPE_OPTIONS = [

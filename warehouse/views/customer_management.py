@@ -18,16 +18,16 @@ class CustomerManagement(View):
     context: dict[str, Any] = {}
 
     def get(self, request: HttpRequest) -> HttpResponse:
-        type = request.GET.get("type")
-        if type == "new":
+        step = request.GET.get("step")
+        if step == "new":
             return self.handle_new_customer_get(request)
         else:
             raise ValueError(f"{request}")
         return render(request, self.template_main, self.context)
     
     def post(self, request:HttpRequest) -> HttpResponse:
-        type = request.GET.get("type")
-        if type == "new":
+        step = request.GET.get("step")
+        if step == "new":
             return self.handle_new_customer_post(request)
         else:
             raise ValueError(f"{request}")

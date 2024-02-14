@@ -75,3 +75,11 @@ body {
 .nested-dropdown:hover .nested-dropdown-content {
     display: block;
 }
+
+.scrollable-table {
+    max-height: 400px; /* Set the maximum height of the table */
+    max-width: 1000px;
+    overflow-x: auto;
+    overflow-y: auto; /* Enable vertical scrolling */
+    display: block; /* Ensure block-level display to handle overflow */
+}

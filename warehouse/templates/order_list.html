@@ -1,0 +1,229 @@
+{% extends 'base.html' %}
+
+{% block content %}
+
+<h3 class="mb-3">订单列表</h3>
+{% if orders %}
+    <div style="overflow-x: auto; max-width: 1200px;">
+        <table>
+            <thead>
+                <tr>
+                    <th style="border: 1px solid #dddddd; min-width: 100px;">客户</th>
+                    <th style="border: 1px solid #dddddd; min-width: 100px;">柜号</th>
+                    <th style="border: 1px solid #dddddd; min-width: 140px;">入仓仓库</th>
+                    <th style="border: 1px solid #dddddd; min-width: 140px;">ETA</th>
+                    <th style="border: 1px solid #dddddd; min-width: 100px;">订单类型</th>
+                    <th style="border: 1px solid #dddddd; min-width: 100px;">柜型</th>
+                    <th style="border: 1px solid #dddddd; min-width: 100px;">清关方式</th>
+                    <th style="border: 1px solid #dddddd; min-width: 100px;">提柜方式</th>
+                    <th style="border: 1px solid #dddddd; min-width: 100px;">船/航空公司</th>
+                    <th style="border: 1px solid #dddddd; min-width: 100px;">提单号</th>
+                    <th style="border: 1px solid #dddddd; min-width: 140px;">始发港</th>
+                    <th style="border: 1px solid #dddddd; min-width: 140px;">到达港</th>
+                    <th style="border: 1px solid #dddddd; min-width: 180px;">创建时间</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for o in orders %}
+                <tr>
+                    <td style="border: 1px solid #dddddd;">{{ o.customer_name }}</td>
+                    <td style="border: 1px solid #dddddd;">
+                        <a href="/order_list/?step=query&container_number={{ o.container_number }}">{{ o.container_number }}</a>
+                    </td>
+                    <td style="border: 1px solid #dddddd;">{{ o.warehouse }}</td>
+                    <td style="border: 1px solid #dddddd;">{{ o.eta }}</td> 
+                    <td style="border: 1px solid #dddddd;">{{ o.order_type }}</td>
+                    <td style="border: 1px solid #dddddd;">{{ o.container_number.container_type }}</td>
+                    <td style="border: 1px solid #dddddd;">
+                        {% if o.clearance_id.clear_by_zem %}
+                            代理清关
+                        {% elif o.clearance_id.is_clearance_required %}
+                            自理清关
+                        {% else %}
+                            N/A
+                        {% endif %}
+                    </td>
+                    <td style="border: 1px solid #dddddd;">
+                        {% if o.retrieval_id.retrive_by_zem %}
+                            代理卡车
+                        {% else %}
+                            自理卡车
+                        {% endif %}
+                    </td>
+                    <td style="border: 1px solid #dddddd;">{{ o.retrieval_id.shipping_line }}</td>
+                    <td style="border: 1px solid #dddddd;">{{ o.retrieval_id.shipping_order_number }}</td>
+                    <td style="border: 1px solid #dddddd;">{{ o.retrieval_id.origin }}</td>
+                    <td style="border: 1px solid #dddddd;">{{ o.retrieval_id.destination }}</td>
+                    <td style="border: 1px solid #dddddd;">{{ o.created_at }}</td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+    <hr class="Dashed" style="margin-top: 40px; margin-bottom: 40px;">
+{% endif %}
+
+{% if order_form %}
+<form method="post">
+    {% csrf_token %}
+    <div style="overflow-x: auto; max-width: 1200px;">
+        <h5 class="mb-3">订单信息</h5>
+        <table>
+            <thead>
+                <tr>
+                    <th style="border: 1px solid #dddddd; min-width: 100px;">客户</th>
+                    <th style="border: 1px solid #dddddd; min-width: 100px;">柜号</th>
+                    <th style="border: 1px solid #dddddd; min-width: 140px;">入仓仓库</th>
+                    <th style="border: 1px solid #dddddd; min-width: 140px;">ETA</th>
+                    <th style="border: 1px solid #dddddd; min-width: 100px;">订单类型</th>
+                    <th style="border: 1px solid #dddddd; min-width: 100px;">柜型</th>
+                    <th style="border: 1px solid #dddddd; min-width: 100px;">清关方式</th>
+                </tr>
+            </thead>
+            <tbody>
+                <tr>
+                    <td style="border: 1px solid #dddddd;">{{ order_form.customer_name }}</td>
+                    <td style="border: 1px solid #dddddd;">{{ container_form.container_number }}</td>
+                    <td style="border: 1px solid #dddddd;">{{ order_form.warehouse }}</td> 
+                    <td style="border: 1px solid #dddddd;">{{ order_form.eta }}</td>
+                    <td style="border: 1px solid #dddddd;">{{ order_form.order_type }}</td>
+                    <td style="border: 1px solid #dddddd;">{{ container_form.container_type }}</td>
+                    <td style="border: 1px solid #dddddd;">{{ clearance_select_form.clearance_option }}</td>
+
+                </tr>
+            </tbody>
+        </table>
+    </div>
+    <br>
+    <div style="overflow-x: auto; max-width: 1200px;">
+        <h5 class="mb-3">提柜信息</h5>
+        <table>
+            <thead>
+                <tr>
+                    <th style="border: 1px solid #dddddd; min-width: 100px;">提柜方式</th>
+                    <th style="border: 1px solid #dddddd; min-width: 100px;">船/航空公司</th>
+                    <th style="border: 1px solid #dddddd; min-width: 100px;">提单号</th>
+                    <th style="border: 1px solid #dddddd; min-width: 140px;">始发港</th>
+                    <th style="border: 1px solid #dddddd; min-width: 140px;">到达港</th>
+                    <th style="border: 1px solid #dddddd; min-width: 180px;">提柜地点</th>
+                    <th style="border: 1px solid #dddddd; min-width: 140px;">预约提柜时间</th>
+                    <th style="border: 1px solid #dddddd; min-width: 140px;">实际提柜时间</th>
+                </tr>
+            </thead>
+            <tbody>
+                <tr>
+                    <td style="border: 1px solid #dddddd;">{{ retrieval_select_form.retrieval_option }}</td>
+                    <td style="border: 1px solid #dddddd;">{{ retrieval_form.shipping_line }}</td>
+                    <td style="border: 1px solid #dddddd;">{{ retrieval_form.shipping_order_number }}</td>
+                    <td style="border: 1px solid #dddddd;">{{ retrieval_form.origin }}</td>
+                    <td style="border: 1px solid #dddddd;">{{ retrieval_form.destination }}</td>
+                    <td style="border: 1px solid #dddddd;">{{ retrieval_form.retrieval_location }}</td>
+                    <td style="border: 1px solid #dddddd;">{{ retrieval_form.target_retrieval_timestamp }}</td>
+                    <td style="border: 1px solid #dddddd;">{{ retrieval_form.actual_retrieval_timestamp }}</td>
+                </tr>
+            </tbody>
+        </table>
+    </div>
+    <br>
+    <div>
+        <h5 class="mb-3">物品清单信息</h5>
+        <div class="text-right">
+            <button type="button" id="add-more-btn" class="btn btn-success" style="width: 100px; height: 35px;">
+                添加
+            </button>
+            <button type="button" id="remove-last-btn" class="btn btn-danger" style="width: 100px; height: 35px;">
+                删除
+            </button>
+        </div>
+    </div>
+    <div style="overflow-x: auto; max-width: 1200px;">
+        
+        {{ packing_list_formset.management_form }}
+        <table>
+            <thead>
+                <tr>
+                    <th style="border: 1px solid #dddddd; min-width: 100px;">物品名</th>
+                    <th style="border: 1px solid #dddddd; min-width: 100px;">派送方式</th>
+                    <th style="border: 1px solid #dddddd; min-width: 100px;">唛头</th>
+                    <th style="border: 1px solid #dddddd; min-width: 100px;">FBA号</th>
+                    <th style="border: 1px solid #dddddd; min-width: 100px;">目的地</th>
+                    <th style="border: 1px solid #dddddd; min-width: 100px;">地址</th>
+                    <th style="border: 1px solid #dddddd; min-width: 100px;">邮编</th>
+                    <th style="border: 1px solid #dddddd; min-width: 100px;">refid</th>
+                    <th style="border: 1px solid #dddddd; min-width: 100px;">箱数</th>
+                    <th style="border: 1px solid #dddddd; min-width: 100px;">单箱重量-lbs</th>
+                    <th style="border: 1px solid #dddddd; min-width: 100px;">总重量-lbs</th>
+                    <th style="border: 1px solid #dddddd; min-width: 100px;">CBM</th>
+                </tr>
+            </thead>
+            <tbody id="formsets-container">
+                {% for pl in packing_list_formset.forms %}
+                    <tr id="formset-row">
+                        <td style="border: 1px solid #dddddd; min-width: 100px;">{{ pl.product_name }}</td>
+                        <td style="border: 1px solid #dddddd; min-width: 100px;">{{ pl.delivery_method }}</td>
+                        <td style="border: 1px solid #dddddd; min-width: 100px;">{{ pl.shipping_mark }}</td>
+                        <td style="border: 1px solid #dddddd; min-width: 100px;">{{ pl.fba_id }}</td>
+                        <td style="border: 1px solid #dddddd; min-width: 100px;">{{ pl.destination }}</td>
+                        <td style="border: 1px solid #dddddd; min-width: 100px;">{{ pl.address }}</td>
+                        <td style="border: 1px solid #dddddd; min-width: 100px;">{{ pl.zipcode }}</td>
+                        <td style="border: 1px solid #dddddd; min-width: 100px;">{{ pl.ref_id }}</td>
+                        <td style="border: 1px solid #dddddd; min-width: 100px;">{{ pl.pcs }}</td>
+                        <td style="border: 1px solid #dddddd; min-width: 100px;">{{ pl.unit_weight_lbs }}</td>
+                        <td style="border: 1px solid #dddddd; min-width: 100px;">{{ pl.total_weight_lbs }}</td>
+                        <td style="border: 1px solid #dddddd; min-width: 100px;">{{ pl.cbm }}</td>
+                    </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+</form>
+{% endif %}
+
+<script>
+    document.addEventListener('DOMContentLoaded', function () {
+        const formsetsContainer = document.getElementById('formsets-container');
+        const addMoreBtn = document.getElementById('add-more-btn');
+        const removeLastBtn = document.getElementById('remove-last-btn');
+
+        addMoreBtn.addEventListener('click', function () {
+            const newFormset = document.createElement('tr');
+            const formsetCount = formsetsContainer.getElementsByTagName('tr').length;
+            newFormset.setAttribute('id', `id_order-${formsetCount}-container_id`)
+
+            // Clone the first formset and update the form indexes
+            const firstFormset = formsetsContainer.querySelector('#formset-row');
+            const newFormsetHtml = firstFormset.innerHTML.replace(/__prefix__/g, formsetCount);
+
+            newFormset.innerHTML = newFormsetHtml;
+            formsetsContainer.appendChild(newFormset);
+            for (let i = 0; i < newFormset.getElementsByTagName('input').length; i++) {
+                const inputField = newFormset.getElementsByTagName('input')[i]
+                inputField.id = inputField.id.replace('-0-', `-${formsetCount}-`)
+                inputField.name = inputField.name.replace('-0-', `-${formsetCount}-`)
+                inputField.value = ''
+            }
+            for (let i = 0; i < newFormset.getElementsByTagName('select').length; i++) {
+                const inputField = newFormset.getElementsByTagName('select')[i]
+                inputField.id = inputField.id.replace('-0-', `-${formsetCount}-`)
+                inputField.name = inputField.name.replace('-0-', `-${formsetCount}-`)
+                inputField.selectedIndex = 0
+            }
+            // Increment the form count
+            document.getElementById('id_form-TOTAL_FORMS').value++;
+        });
+
+        removeLastBtn.addEventListener('click', removeLastFormset);
+        function removeLastFormset() {
+            const formsetCount = formsetsContainer.getElementsByTagName('tr').length;
+
+            if (formsetCount > 1) {
+                // Remove the last formset
+                formsetsContainer.removeChild(formsetsContainer.lastChild);
+
+                // Decrement the form count
+                document.getElementById('id_form-TOTAL_FORMS').value--;
+            }
+        }
+    });
+</script>
+{% endblock %}
