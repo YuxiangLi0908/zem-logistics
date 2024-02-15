@@ -16,4 +16,5 @@ class ContainerForm(forms.ModelForm):
     
     def __init__(self, *args, **kwargs):
         super(ContainerForm, self).__init__(*args, **kwargs)
-        self.fields['container_type'].required = False
+        for k in self.fields.keys():
+            self.fields[k].required = False
