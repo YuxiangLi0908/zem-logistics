@@ -137,7 +137,6 @@
         </div>
     </div>
     <div style="overflow-x: auto; max-width: 1200px;">
-        
         {{ packing_list_formset.management_form }}
         <table>
             <thead>
@@ -154,9 +153,25 @@
                     <th style="border: 1px solid #dddddd; min-width: 100px;">单箱重量-lbs</th>
                     <th style="border: 1px solid #dddddd; min-width: 100px;">总重量-lbs</th>
                     <th style="border: 1px solid #dddddd; min-width: 100px;">CBM</th>
+                    <th style="border: 1px solid #dddddd; min-width: 100px;">打板数</th>
                 </tr>
             </thead>
             <tbody id="formsets-container">
+                <tr id="formset-row" style="display: none;">
+                    <td style="border: 1px solid #dddddd; min-width: 100px;">{{ packing_list_formset.empty_form.product_name }}</td>
+                    <td style="border: 1px solid #dddddd; min-width: 100px;">{{ packing_list_formset.empty_form.delivery_method }}</td>
+                    <td style="border: 1px solid #dddddd; min-width: 100px;">{{ packing_list_formset.empty_form.shipping_mark }}</td>
+                    <td style="border: 1px solid #dddddd; min-width: 100px;">{{ packing_list_formset.empty_form.fba_id }}</td>
+                    <td style="border: 1px solid #dddddd; min-width: 100px;">{{ packing_list_formset.empty_form.destination }}</td>
+                    <td style="border: 1px solid #dddddd; min-width: 100px;">{{ packing_list_formset.empty_form.address }}</td>
+                    <td style="border: 1px solid #dddddd; min-width: 100px;">{{ packing_list_formset.empty_form.zipcode }}</td>
+                    <td style="border: 1px solid #dddddd; min-width: 100px;">{{ packing_list_formset.empty_form.ref_id }}</td>
+                    <td style="border: 1px solid #dddddd; min-width: 100px;">{{ packing_list_formset.empty_form.pcs }}</td>
+                    <td style="border: 1px solid #dddddd; min-width: 100px;">{{ packing_list_formset.empty_form.unit_weight_lbs }}</td>
+                    <td style="border: 1px solid #dddddd; min-width: 100px;">{{ packing_list_formset.empty_form.total_weight_lbs }}</td>
+                    <td style="border: 1px solid #dddddd; min-width: 100px;">{{ packing_list_formset.empty_form.cbm }}</td>
+                    <td style="border: 1px solid #dddddd; min-width: 100px;">{{ packing_list_formset.empty_form.n_pallet }}</td>
+                </tr>
                 {% for pl in packing_list_formset.forms %}
                     <tr id="formset-row">
                         <td style="border: 1px solid #dddddd; min-width: 100px;">{{ pl.product_name }}</td>
@@ -176,6 +191,12 @@
             </tbody>
         </table>
     </div>
+    <input type="hidden" name="step" value="update">
+    <input type="hidden" name="order_id" value="{{ order_id }}">
+    <input type="hidden" name="container_number" value="{{ container_number }}">
+    <div class="text-right">
+        <button type="submit" class="btn btn-primary" style="width: 100px; height: 35px;">确认修改</button>
+    </div>
 </form>
 {% endif %}
 
@@ -187,7 +208,7 @@
 
         addMoreBtn.addEventListener('click', function () {
             const newFormset = document.createElement('tr');
-            const formsetCount = formsetsContainer.getElementsByTagName('tr').length;
+            const formsetCount = formsetsContainer.getElementsByTagName('tr').length - 1;
             newFormset.setAttribute('id', `id_order-${formsetCount}-container_id`)
 
             // Clone the first formset and update the form indexes
@@ -215,11 +236,12 @@
         removeLastBtn.addEventListener('click', removeLastFormset);
         function removeLastFormset() {
             const formsetCount = formsetsContainer.getElementsByTagName('tr').length;
+            const formsetRows = formsetsContainer.children;
 
             if (formsetCount > 1) {
                 // Remove the last formset
-                formsetsContainer.removeChild(formsetsContainer.lastChild);
-
+                // formsetsContainer.removeChild(formsetsContainer.lastChild);
+                formsetsContainer.removeChild(formsetRows[formsetCount - 1]);
                 // Decrement the form count
                 document.getElementById('id_form-TOTAL_FORMS').value--;
             }

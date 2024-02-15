@@ -24,8 +24,5 @@ class OrderForm(forms.ModelForm):
 
     def __init__(self, *args, **kwargs):
         super(OrderForm, self).__init__(*args, **kwargs)
-        self.fields['container_number'].required = False
-        self.fields['clearance_id'].required = False
-        self.fields['retrieval_id'].required = False
-        self.fields['offload_id'].required = False
-        self.fields['eta'].required = False
+        for k in self.fields.keys():
+            self.fields[k].required = False
