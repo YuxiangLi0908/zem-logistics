@@ -1,11 +1,13 @@
 import uuid
 import ast
+import os
 import pandas as pd
 import numpy as np
+from pathlib import Path
 from datetime import datetime
 from typing import Any
 
-from django.http import HttpRequest, HttpResponse
+from django.http import HttpRequest, HttpResponse, Http404
 from django.shortcuts import render, redirect
 from django.contrib.auth.decorators import login_required
 from django.forms import modelformset_factory, formset_factory
@@ -52,9 +54,13 @@ class OrderCreation(View):
     
     def get(self, request: HttpRequest) -> HttpResponse:
         order_type = request.GET.get("type")
-        self.context["step"] = 1
-        self.context["order_type"] = ORDER_TYPES[order_type]
-        return render(request, self.template_main, self.context)
+        step = request.GET.get("step", None)
+        if step == "download_template":
+            return self.handle_download_pl_template_post(request)
+        else:
+            self.context["step"] = 1
+            self.context["order_type"] = ORDER_TYPES[order_type]
+            return render(request, self.template_main, self.context)
     
     def post(self, request: HttpRequest) -> HttpResponse:
         step = request.POST.get('step')
@@ -68,6 +74,8 @@ class OrderCreation(View):
             return redirect("home")
         elif step == "upload_template":
             self.handle_upload_pl_template_post(request)
+        elif step == "download_template":
+            self.handle_download_pl_template_post(request)
         else:
             raise ValueError(f"{request.POST}")
         return render(request, self.template_main, self.context)
@@ -170,6 +178,15 @@ class OrderCreation(View):
             cache.clear()
         else:
             raise ValueError(f"invalid file format!")
+        
+    def handle_download_pl_template_post(self, request: HttpRequest) -> HttpResponse:
+        file_path = Path(__file__).parent.parent.resolve().joinpath("templates/export_file/packing_list_template.xlsx")
+        if not os.path.exists(file_path):
+            raise Http404("File does not exist")
+        with open(file_path, 'rb') as file:
+            response = HttpResponse(file.read(), content_type='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet')
+            response['Content-Disposition'] = f'attachment; filename="zem_packing_list_template.xlsx"'
+            return response
 
     def _create_model_object(self, model: models.Model, data: dict[str, Any], save: bool = True) -> models.Model:
         model_object = model(**data)
