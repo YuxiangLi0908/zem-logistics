@@ -154,6 +154,7 @@
                     <th style="border: 1px solid #dddddd; min-width: 100px;">总重量-lbs</th>
                     <th style="border: 1px solid #dddddd; min-width: 100px;">CBM</th>
                     <th style="border: 1px solid #dddddd; min-width: 100px;">打板数</th>
+                    <th style="border: 1px solid #dddddd; min-width: 100px;">批次号</th>
                 </tr>
             </thead>
             <tbody id="formsets-container">
@@ -171,6 +172,7 @@
                     <td style="border: 1px solid #dddddd; min-width: 100px;">{{ packing_list_formset.empty_form.total_weight_lbs }}</td>
                     <td style="border: 1px solid #dddddd; min-width: 100px;">{{ packing_list_formset.empty_form.cbm }}</td>
                     <td style="border: 1px solid #dddddd; min-width: 100px;">{{ packing_list_formset.empty_form.n_pallet }}</td>
+                    <td style="border: 1px solid #dddddd; min-width: 100px;">{{ packing_list_formset.empty_form.shipment_batch_number }}</td>
                 </tr>
                 {% for pl in packing_list_formset.forms %}
                     <tr id="formset-row">
@@ -187,6 +189,7 @@
                         <td style="border: 1px solid #dddddd; min-width: 100px;">{{ pl.total_weight_lbs }}</td>
                         <td style="border: 1px solid #dddddd; min-width: 100px;">{{ pl.cbm }}</td>
                         <td style="border: 1px solid #dddddd; min-width: 100px;">{{ pl.n_pallet }}</td>
+                        <td style="border: 1px solid #dddddd; min-width: 100px;">{{ pl.shipment_batch_number }}</td>
                     </tr>
                 {% endfor %}
             </tbody>
