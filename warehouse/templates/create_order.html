@@ -220,7 +220,8 @@
     <input type="hidden" name="step" value="upload_template">
     <input type="hidden" name="order_data" value="{{ order_data }}">
     <input type="hidden" name="container_data" value="{{ container_data }}">
-    <button type="submit" class="btn btn-success" style="width: 100px; height: 35px;">Upload</button>
+    <button type="submit" class="btn btn-success" style="width: 100px; height: 35px;">上传清单</button>
+    <a href="{% url 'create_order' %}?step=download_template" class="btn btn-success" style="width: 100px; height: 35px;">下载模版</a>
 </form>
 
 <form method="post" class="needs-validation" id="orderForm" novalidate>

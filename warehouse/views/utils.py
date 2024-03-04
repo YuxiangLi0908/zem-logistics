@@ -219,4 +219,3 @@ class OrderManagement(View):
             return "代理卡车"
         else:
             return "自理卡车"
-            
