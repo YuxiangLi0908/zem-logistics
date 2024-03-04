@@ -39,8 +39,11 @@ DELIVERY_METHOD_OPTIONS = [
     ("暂扣留仓", "暂扣留仓"),
     ("整柜直送", "整柜直送"),
     ("UPS", "UPS"),
+    ("UPS", "UPS"),
     ("FEDEX", "FEDEX"),
     ("DHL", "DHL"),
+    ("DPD", "DPD"),
+    ("TNT", "TNT"),
 ]
 
 WAREHOUSE_OPTIONS = [
@@ -51,3 +54,20 @@ WAREHOUSE_OPTIONS = [
 CARRIER_OPTIONS = [
     ("UPS", "UPS"), ("FedEx", "FedEx"), ("ZEM", "ZEM"), ("客户自提", "客户自提")
 ]
+
+PACKING_LIST_TEMP_COL_MAPPING = {
+    "唛头": "shipping_mark",
+    "品名": "product_name",
+    "箱数": "pcs",
+    "单箱重kg": "unit_weight_kg",
+    "总箱重kg": "total_weight_kg",
+    "单箱磅(lb)": "unit_weight_lbs",
+    "总箱磅(lb)": "total_weight_lbs",
+    "总cbm": "cbm",
+    "仓库代码": "destination",
+    "邮编": "zipcode",
+    "仓库/私人 地址": "address",
+    "FBA号": "fba_id",
+    "Amazon Reference ID": "ref_id",
+    "派送方式": "delivery_method",
+}

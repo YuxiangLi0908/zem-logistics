@@ -213,6 +213,16 @@
 </form>
 
 {% elif step == 3 %}
+<form method="post" enctype="multipart/form-data">
+    {% csrf_token %}
+    导入模版
+    {{ upload_file_form.file }}
+    <input type="hidden" name="step" value="upload_template">
+    <input type="hidden" name="order_data" value="{{ order_data }}">
+    <input type="hidden" name="container_data" value="{{ container_data }}">
+    <button type="submit" class="btn btn-success" style="width: 100px; height: 35px;">Upload</button>
+</form>
+
 <form method="post" class="needs-validation" id="orderForm" novalidate>
     {% csrf_token %}
     <div class="container mt-3">
@@ -249,6 +259,20 @@
                     </tr>
                 </thead>
                 <tbody id="formsets-container">
+                    <tr id="formset-row" style="display: none;">
+                        <td style="border: 1px solid #dddddd; min-width: 100px;">{{ packing_list_form.empty_form.product_name }}</td>
+                        <td style="border: 1px solid #dddddd; min-width: 100px;">{{ packing_list_form.empty_form.delivery_method }}</td>
+                        <td style="border: 1px solid #dddddd; min-width: 100px;">{{ packing_list_form.empty_form.shipping_mark }}</td>
+                        <td style="border: 1px solid #dddddd; min-width: 100px;">{{ packing_list_form.empty_form.fba_id }}</td>
+                        <td style="border: 1px solid #dddddd; min-width: 100px;">{{ packing_list_form.empty_form.destination }}</td>
+                        <td style="border: 1px solid #dddddd; min-width: 100px;">{{ packing_list_form.empty_form.address }}</td>
+                        <td style="border: 1px solid #dddddd; min-width: 100px;">{{ packing_list_form.empty_form.zipcode }}</td>
+                        <td style="border: 1px solid #dddddd; min-width: 100px;">{{ packing_list_form.empty_form.ref_id }}</td>
+                        <td style="border: 1px solid #dddddd; min-width: 100px;">{{ packing_list_form.empty_form.pcs }}</td>
+                        <td style="border: 1px solid #dddddd; min-width: 100px;">{{ packing_list_form.empty_form.unit_weight_lbs }}</td>
+                        <td style="border: 1px solid #dddddd; min-width: 100px;">{{ packing_list_form.empty_form.total_weight_lbs }}</td>
+                        <td style="border: 1px solid #dddddd; min-width: 100px;">{{ packing_list_form.empty_form.cbm }}</td>
+                    </tr>
                     {% for pl in packing_list_form.forms %}
                         <tr id="formset-row">
                             <td style="border: 1px solid #dddddd; min-width: 100px;">{{ pl.product_name }}</td>
@@ -272,15 +296,7 @@
         <input type="hidden" name="order_data" value="{{ order_data }}">
         <input type="hidden" name="container_data" value="{{ container_data }}">
         <div class="text-right">
-            <button type="button" onclick="confirmSubmit()" class="btn btn-primary" style="width: 100px; height: 35px;">创建订单</button>
-            <script>
-                function confirmSubmit() {
-                  var confirmation = window.confirm("确认创建订单?");
-                  if (confirmation) {
-                    document.getElementById("orderForm").submit();
-                  }
-                }
-            </script>
+            <button type="submit" class="btn btn-primary" style="width: 100px; height: 35px;">创建订单</button>
         </div>
     </div>
 </form>
@@ -322,11 +338,12 @@
         removeLastBtn.addEventListener('click', removeLastFormset);
         function removeLastFormset() {
             const formsetCount = formsetsContainer.getElementsByTagName('tr').length;
+            const formsetRows = formsetsContainer.children;
 
             if (formsetCount > 1) {
                 // Remove the last formset
-                formsetsContainer.removeChild(formsetsContainer.lastChild);
-
+                // formsetsContainer.removeChild(formsetsContainer.lastChild);
+                formsetsContainer.removeChild(formsetRows[formsetCount - 1]);
                 // Decrement the form count
                 document.getElementById('id_form-TOTAL_FORMS').value--;
             }
