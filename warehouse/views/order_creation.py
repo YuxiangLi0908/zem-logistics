@@ -1,15 +1,19 @@
 import uuid
 import ast
+import pandas as pd
+import numpy as np
 from datetime import datetime
 from typing import Any
 
 from django.http import HttpRequest, HttpResponse
 from django.shortcuts import render, redirect
 from django.contrib.auth.decorators import login_required
-from django.forms import formset_factory
+from django.forms import modelformset_factory, formset_factory
+from django.forms.models import model_to_dict
 from django.views import View
 from django.utils.decorators import method_decorator
 from django.db import models
+from django.core.cache import cache
 
 from warehouse.models.customer import Customer
 from warehouse.models.container import Container
@@ -28,7 +32,8 @@ from warehouse.forms.clearance_form import ClearanceForm, ClearanceSelectForm
 from warehouse.forms.offload_form import OffloadForm
 from warehouse.forms.retrieval_form import RetrievalForm, RetrievalSelectForm
 from warehouse.forms.shipment_form import ShipmentForm
-from warehouse.utils.constants import ORDER_TYPES
+from warehouse.forms.upload_file import UploadFileForm
+from warehouse.utils.constants import ORDER_TYPES, PACKING_LIST_TEMP_COL_MAPPING
 
 @method_decorator(login_required(login_url='login'), name='dispatch')
 class OrderCreation(View):
@@ -61,6 +66,8 @@ class OrderCreation(View):
         elif step == "place_order":
             self.handle_place_order_post(request)
             return redirect("home")
+        elif step == "upload_template":
+            self.handle_upload_pl_template_post(request)
         else:
             raise ValueError(f"{request.POST}")
         return render(request, self.template_main, self.context)
@@ -112,6 +119,8 @@ class OrderCreation(View):
                 "shipping_order_number": request.POST.get("shipping_order_number")
             }
             self.context["order_data"] = request.POST.get("order_data")
+            self.context["upload_file_form"] = UploadFileForm()
+            self.context["packing_list_form"] = formset_factory(PackingListForm, extra=1)
             self.context["step"] = 3
 
     def handle_place_order_post(self, request: HttpRequest) -> None:
@@ -131,7 +140,36 @@ class OrderCreation(View):
                         pl.cleaned_data[k] = pl.cleaned_data[k].upper()
                 pl.cleaned_data["container_number"] = container
                 PackingList.objects.create(**pl.cleaned_data)
-            # raise ValueError(f"{order}-{container}")
+                
+    def handle_upload_pl_template_post(self, request: HttpRequest) -> None:
+        form = UploadFileForm(request.POST, request.FILES)
+        if form.is_valid():
+            file = request.FILES['file']
+            df = pd.read_excel(file)
+            df = df.rename(columns=PACKING_LIST_TEMP_COL_MAPPING)
+            df = df.dropna(how="all", subset=[c for c in df.columns if c != "delivery_method"])
+            df = df.replace(np.nan, None)
+            df = df.reset_index(drop=True)
+            for idx, row in df.iterrows():
+                if row["unit_weight_kg"] and not row["unit_weight_lbs"]:
+                    df.loc[idx, "unit_weight_lbs"] = df.loc[idx, "unit_weight_kg"] * 2.20462
+                if row["total_weight_kg"] and not row["total_weight_lbs"]:
+                    df.loc[idx, "total_weight_lbs"] = df.loc[idx, "total_weight_kg"] * 2.20462
+            model_fields = [field.name for field in PackingList._meta.fields]
+            col = [c for c in df.columns if c in model_fields]
+            pl_data = df[col].to_dict("records")
+            
+            packing_list = [PackingList(**data) for data in pl_data]            
+            packing_list_formset = formset_factory(PackingListForm, extra=0)
+            packing_list_form = packing_list_formset(initial=[model_to_dict(obj) for obj in packing_list])
+            self.context["container_data"] = request.POST.get("container_data")
+            self.context["order_data"] = request.POST.get("order_data")
+            self.context["packing_list_form"] = packing_list_form
+            self.context["upload_file_form"] = UploadFileForm()
+            self.context["step"] = 3
+            cache.clear()
+        else:
+            raise ValueError(f"invalid file format!")
 
     def _create_model_object(self, model: models.Model, data: dict[str, Any], save: bool = True) -> models.Model:
         model_object = model(**data)
