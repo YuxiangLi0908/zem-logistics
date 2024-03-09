@@ -16,3 +16,4 @@ class ShipmentForm(forms.ModelForm):
     def __init__(self, *args, **kwargs) -> None:
         super(ShipmentForm, self).__init__(*args, **kwargs)
         self.fields['shipment_appointment'].required = False
+        self.fields['appointment_id'].required = False

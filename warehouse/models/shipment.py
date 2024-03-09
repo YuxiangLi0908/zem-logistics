@@ -4,6 +4,7 @@ class Shipment(models.Model):
     # double check the def of batch
     # e.g. goods sent to the same destination by a same carrier with multiple trucks
     shipment_batch_number = models.CharField(max_length=255, null=True)
+    appointment_id = models.CharField(max_length=255, null=True, blank=True)
     origin = models.CharField(max_length=255, null=True, blank=True)
     destination = models.CharField(max_length=255, null=True, blank=True)
     address = models.CharField(max_length=255, null=True, blank=True)
