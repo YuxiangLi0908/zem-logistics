@@ -14,3 +14,4 @@ from warehouse.forms.customer_form import CustomerForm
 
 @method_decorator(login_required(login_url='login'), name='dispatch')
 class BOL(View):
+    pass
