@@ -6,6 +6,7 @@ from django.utils.decorators import method_decorator
 from django.db import models
 from django.template.loader import get_template
 from xhtml2pdf import pisa
+from typing import Any
 
 @method_decorator(login_required(login_url='login'), name='dispatch')
 class ExportFile(View):
@@ -32,6 +33,16 @@ class ExportFile(View):
             raise ValueError('Error during PDF generation: %s' % pisa_status.err, content_type='text/plain')
         return response
 
+def export_bol(context: dict[str, Any]):
+    template_path = "export_file/bol_template.html"
+    template = get_template(template_path)
+    html = template.render(context)
+    response = HttpResponse(content_type="application/pdf")
+    response['Content-Disposition'] = f'attachment; filename="BOL_{context["batch_number"]}.pdf"'
+    pisa_status = pisa.CreatePDF(html, dest=response)
+    if pisa_status.err:
+        raise ValueError('Error during PDF generation: %s' % pisa_status.err, content_type='text/plain')
+    return response
 
 # def generate_pdf(request):
 #     # Your HTML template file path
