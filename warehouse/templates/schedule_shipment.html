@@ -1,4 +1,6 @@
 {% extends 'base.html' %}
+{% load static %}
+{% load static custom_tags %}
 
 {% block content %}
 <h3 class="mb-3">预约出库</h3>
@@ -13,43 +15,157 @@
 <hr class="Dashed" style="margin-top: 40px; margin-bottom: 40px;">
 
 {% if packing_list_not_scheduled %}
+<form method="post" action="">
+    {% csrf_token %}
     <h3 class="mb-4">待预约</h3>
-    <table>
+    <div class="search-filters">
+        <input type="text" id="containerSearchInput" placeholder="搜索柜号..." oninput="filterTable()">
+        <input type="text" id="destinationSearchInput" placeholder="搜索目的仓库..." oninput="filterTable()">
+    </div>
+    <div style="overflow-x: auto; max-width: 1200px; overflow-y: auto; max-height: 1200px;">
+        <table id="packing-list-table" class="table">
+            <thead>
+                <tr>
+                    <th class="th" style="min-width: 40px; text-align: center;"></th>
+                    <th class="th">客户</th>
+                    <th class="th">货柜号</th>
+                    <th class="th">目的仓库</th>
+                    <th class="th">箱数</th>
+                    <th class="th">总重lbs</th>
+                    <th class="th">CBM</th>
+                    <th class="th">卡板数</th>
+                    <th class="th">派送方式</th>
+                    <th class="th">入仓时间</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for c in packing_list_not_scheduled %}
+                <tr>
+                    <td class="td" style="min-width: 40px; text-align: center;">
+                        <input type='checkbox' name='is_shipment_schduled'>
+                        <input type="hidden" name="is_shipment_schduled", value='off'>
+                        <input type="hidden" name="pl_ids", value='{{ c.id }}'>
+                    </td>
+                    <td class="td">{{ c.container_number__order__customer_name__zem_name }}</td>
+                    <td class="td">{{ c.container_number__container_number }}</td>
+                    <td class="td">{{ c.destination }}</td>
+                    <td class="td">{{ c.total_pcs }}</td>
+                    <td class="td">{{ c.total_weight_lbs|floatformat:2 }}</td>
+                    <td class="td">{{ c.total_cbm|floatformat:2 }}</td>
+                    <td class="td">{{ c.total_n_pallet }}</td>
+                    <td class="td">{{ c.delivery_method }}</td>
+                    <td class="td">{{ c.container_number__order__offload_id__offload_at }}</td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+    <input type="hidden" name="step" value="selection">
+    <input type="hidden" name="warehouse" value="{{ warehouse }}">
+    <button type="submit" onclick="confirmSubmit()" class="btn btn-primary" style="width: 100px; height: 35px;">确认预约</button>
+</form> 
+<hr class="Dashed" style="margin-top: 40px; margin-bottom: 40px;">
+{% endif %}
+
+{% if shipment_form %}
+<form method="post" action="">
+    {% csrf_token %}
+    <h3 class="mb-4">待确认预约</h3>
+
+    <table id="shipment-table" class="table">
         <thead>
             <tr>
-                <th style="border: 1px solid #dddddd;">目的仓库</th>
-                <th style="border: 1px solid #dddddd;">箱数</th>
-                <th style="border: 1px solid #dddddd;">总重lbs</th>
-                <th style="border: 1px solid #dddddd;">CBM</th>
-                <th style="border: 1px solid #dddddd;">卡板</th>
+                <th class="th">预约号</th>
+                <th class="th">carrier</th>
+                <th class="th">装车类型</th>
+                <th class="th">发车日期</th>
             </tr>
         </thead>
         <tbody>
-            {% for c in packing_list_not_scheduled %}
             <tr>
-                <td style="border: 1px solid #dddddd;">
-                    <a href="/schedule_shipment/?step=destination&warehouse={{ warehouse_form.name.value }}&destination={{c.destination}}">{{ c.destination }}</a>
-                    <!-- <a href="/schedule_shipment/{{ warehouse_form.warehouse.value }}/{{c.destination}}/?type=destination">{{ c.destination }}</a> -->
-                </td>
-                <td style="border: 1px solid #dddddd;">{{ c.total_pcs }}</td>
-                <td style="border: 1px solid #dddddd;">{{ c.total_weight_lbs }}</td>
-                <td style="border: 1px solid #dddddd;">{{ c.total_cbm }}</td>
-                <td style="border: 1px solid #dddddd;">{{ c.total_n_pallet }}</td>
+                <td class="td">{{ shipment_form.appointment_id }}</td>
+                <td class="td">{{ shipment_form.carrier }}</td>
+                <td class="td">{{ shipment_form.load_type }}</td>
+                <td class="td">{{ shipment_form.shipment_appointment }}</td>
             </tr>
-            {% endfor %}
         </tbody>
     </table>
-    <hr class="Dashed" style="margin-top: 40px; margin-bottom: 40px;">
+    
+    <table id="shipment-table" class="table">
+        <thead>
+            <tr>
+                <th class="th">batch_number</th>
+                <th class="th">箱数</th>
+                <th class="th">总重lbs</th>
+                <th class="th">CBM</th>
+                <th class="th">卡板数</th>
+            </tr>
+        </thead>
+        <tbody>
+            <tr>
+                <td class="td">{{ shipment.shipment_batch_number }}</td>
+                <td class="td">{{ shipment.total_weight|floatformat:2 }}</td>
+                <td class="td">{{ shipment.total_cbm|floatformat:2 }}</td>
+                <td class="td">{{ shipment.total_pcs }}</td>
+                <td class="td">{{ shipment.total_pallet }}</td>
+            </tr>
+        </tbody>
+    </table>
+
+
+    <div style="overflow-x: auto; max-width: 1200px; overflow-y: auto; max-height: 1200px;">
+        <table id="packing-list-table" class="table">
+            <thead>
+                <tr>
+                    <th class="th">客户</th>
+                    <th class="th">货柜号</th>
+                    <th class="th">目的仓库</th>
+                    <th class="th">FBA_ID</th>
+                    <th class="th">REF_ID</th>
+                    <th class="th">箱数</th>
+                    <th class="th">总重lbs</th>
+                    <th class="th">CBM</th>
+                    <th class="th">卡板数</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for c in packling_list %}
+                <tr>
+                    <td class="td">{{ c.container_number__order__customer_name__zem_name }}</td>
+                    <td class="td">{{ c.container_number__container_number }}</td>
+                    <td class="td">{{ c.destination }}</td>
+                    <td class="td">{{ c.fba_id }}</td>
+                    <td class="td">{{ c.ref_id }}</td>
+                    <td class="td">{{ c.total_pcs }}</td>
+                    <td class="td">{{ c.total_weight_lbs|floatformat:2 }}</td>
+                    <td class="td">{{ c.total_cbm|floatformat:2 }}</td>
+                    <td class="td">{{ c.total_n_pallet }}</td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+    <input type="hidden" name="step" value="appointment">
+    <input type="hidden" name="shipment_data" value="{{ shipment_data }}">
+    <input type="hidden" name="pl_ids" value="{{ pl_ids }}">
+    <button id="submit-btn" type="submit" class="btn btn-primary" style="width: 100px; height: 35px;">确认预约</button>
+</form>
 {% endif %}
 
-{% if order_packing_list %}
+
+
+
+
+
+<!-- old -->
+<!-- {% if order_packing_list %}
 <h4 class="mb-4">预约列表</h4>
 <form method="post" class="needs-validation" id="shipmentForm" novalidate>
     {% csrf_token %}
     <table>
         <thead>
             <tr>
-                <!-- <th style="border: 1px solid #dddddd;">确认预约</th> -->
+                <th style="border: 1px solid #dddddd;">确认预约</th>
                 <th style="border: 1px solid #dddddd;">预约派送时间</th>
                 <th style="border: 1px solid #dddddd;">承运方</th>
                 <th style="border: 1px solid #dddddd;">目的仓库</th>
@@ -68,7 +184,10 @@
         <tbody>
             {% for pl, f in order_packing_list %}
             <tr>
-                <!-- <td style="border: 1px solid #dddddd;">{{ f.is_shipment_schduled }}</td> -->
+                <td style="border: 1px solid #dddddd;">
+                    {{ f.is_shipment_schduled }}
+                    <input type="hidden" name="is_shipment_schduled" id="id_is_shipment_schduled_hidden", value='off'>
+                </td>
                 <td style="border: 1px solid #dddddd;">{{ f.shipment_appointment }}</td>
                 <td style="border: 1px solid #dddddd;">{{ f.carrier }}</td>
                 <td style="border: 1px solid #dddddd;">{{ pl.destination }}</td>
@@ -79,8 +198,8 @@
                 <td style="border: 1px solid #dddddd;">{{ pl.fba_id }}</td>
                 <td style="border: 1px solid #dddddd;">{{ pl.ref_id }}</td>
                 <td style="border: 1px solid #dddddd;">{{ pl.pcs }}</td>
-                <td style="border: 1px solid #dddddd;">{{ pl.total_weight_lbs }}</td>
-                <td style="border: 1px solid #dddddd;">{{ pl.cbm }}</td>
+                <td style="border: 1px solid #dddddd;">{{ pl.total_weight_lbs|floatformat:2 }}</td>
+                <td style="border: 1px solid #dddddd;">{{ pl.cbm|floatformat:2 }}</td>
                 <td style="border: 1px solid #dddddd;">{{ pl.n_pallet }}</td>
             </tr>
             {% endfor %}
@@ -89,18 +208,74 @@
     <input type="hidden" name="step" value="appointment">
     <input type="hidden" name="ids" value="{{ ids }}">
     <div class="text-left">
-        <button type="button" onclick="confirmSubmit()" class="btn btn-primary" style="width: 100px; height: 35px;">确认</button>
+        <button id="submit-btn" type="button" onclick="confirmSubmit()" class="btn btn-primary" style="width: 100px; height: 35px;">确认</button>
         <script>
             function confirmSubmit() {
-              var confirmation = window.confirm("确认预约?");
-              if (confirmation) {
-                document.getElementById("shipmentForm").submit();
-              }
+                const checkBoxes = document.getElementsByName('is_shipment_schduled');
+                for (let i = 0; i < checkBoxes.length; i+=2) {
+                    if (checkBoxes[i].checked) {
+                        checkBoxes[i+1].disabled = true;
+                    }
+                }
+                var confirmation = window.confirm("确认预约?");
+                if (confirmation) {
+                    document.getElementById("shipmentForm").submit();
+                }
             }
         </script>
     </div>
 </form>
+{% endif %} -->
 
-{% endif %}
+<script>
+    function filterTable() {
+        var containerInput, destinationInput, containerFilter, destinationFilter, table, tbody, tr, containerTd, destinationTd, i, containerTxtValue, destinationTxtValue;
+        containerInput = document.getElementById("containerSearchInput");
+        destinationInput = document.getElementById("destinationSearchInput");
+        containerFilter = containerInput.value.toUpperCase();
+        destinationFilter = destinationInput.value.toUpperCase();
+        table = document.getElementById("packing-list-table");
+        tbody = table.getElementsByTagName("tbody")[0];
+        tr = tbody.getElementsByTagName("tr");
+
+        for (i = 0; i < tr.length; i++) {
+            containerTd = tr[i].getElementsByTagName("td")[1]; // Index 1 corresponds to the container_number__container_number column
+            destinationTd = tr[i].getElementsByTagName("td")[2]; // Index 2 corresponds to the destination column
+            if (containerTd && destinationTd) {
+                containerTxtValue = containerTd.textContent || containerTd.innerText;
+                destinationTxtValue = destinationTd.textContent || destinationTd.innerText;
+                var containerDisplayStyle = containerTxtValue.toUpperCase().indexOf(containerFilter) > -1 ? "" : "none";
+                var destinationDisplayStyle = destinationTxtValue.toUpperCase().indexOf(destinationFilter) > -1 ? "" : "none";
+
+                // Set display style based on both container and destination filters
+                tr[i].style.display = containerDisplayStyle === "" && destinationDisplayStyle === "" ? "" : "none";
+            }
+        }
+    }
+
+    function confirmSubmit() {
+        const checkBoxes = document.getElementsByName('is_shipment_schduled');
+        for (let i = 0; i < checkBoxes.length; i+=2) {
+            if (checkBoxes[i].checked) {
+                checkBoxes[i+1].disabled = true;
+            }
+        }
+    }
+</script>
+
+<!-- <script>
+    document.addEventListener('DOMContentLoaded', function () {
+        const submitBtn = document.getElementById('submit-btn');
+
+        submitBtn.addEventListener('click', function () {
+            const checkBoxes = document.getElementsByName('is_shipment_schduled');
+            for (let i = 0; i < checkBoxes.length; i+=2) {
+                if (checkBoxes[i].checked) {
+                    checkBoxes[i+1].disabled = true;
+                }
+            }
+        });
+    });
+</script> -->
 
 {% endblock %}

@@ -3,38 +3,42 @@
 {% block content %}
 
 <h3 class="mb-3">订单列表</h3>
+<div class="search-filters">
+    <input type="text" id="containerSearchInput" placeholder="搜索柜号..." oninput="filterTable()">
+    <input type="text" id="customerSearchInput" placeholder="搜索客户..." oninput="filterTable()">
+</div>
 {% if orders %}
     <div style="overflow-x: auto; max-width: 1200px;">
-        <table>
+        <table id="order-table" class="table">
             <thead>
                 <tr>
-                    <th style="border: 1px solid #dddddd; min-width: 100px;">客户</th>
-                    <th style="border: 1px solid #dddddd; min-width: 100px;">柜号</th>
-                    <th style="border: 1px solid #dddddd; min-width: 140px;">入仓仓库</th>
-                    <th style="border: 1px solid #dddddd; min-width: 140px;">ETA</th>
-                    <th style="border: 1px solid #dddddd; min-width: 100px;">订单类型</th>
-                    <th style="border: 1px solid #dddddd; min-width: 100px;">柜型</th>
-                    <th style="border: 1px solid #dddddd; min-width: 100px;">清关方式</th>
-                    <th style="border: 1px solid #dddddd; min-width: 100px;">提柜方式</th>
-                    <th style="border: 1px solid #dddddd; min-width: 100px;">船/航空公司</th>
-                    <th style="border: 1px solid #dddddd; min-width: 100px;">提单号</th>
-                    <th style="border: 1px solid #dddddd; min-width: 140px;">始发港</th>
-                    <th style="border: 1px solid #dddddd; min-width: 140px;">到达港</th>
-                    <th style="border: 1px solid #dddddd; min-width: 180px;">创建时间</th>
+                    <th class="th">客户</th>
+                    <th class="th">柜号</th>
+                    <th class="th" style="min-width: 140px;">入仓仓库</th>
+                    <th class="th" style="min-width: 140px;">ETA</th>
+                    <th class="th">订单类型</th>
+                    <th class="th">柜型</th>
+                    <th class="th">清关方式</th>
+                    <th class="th">提柜方式</th>
+                    <th class="th" style="min-width: 140px;">船/航空公司</th>
+                    <th class="th">提单号</th>
+                    <th class="th" style="min-width: 140px;">始发港</th>
+                    <th class="th" style="min-width: 140px;">到达港</th>
+                    <th class="th" style="min-width: 240px;">创建时间</th>
                 </tr>
             </thead>
             <tbody>
                 {% for o in orders %}
                 <tr>
-                    <td style="border: 1px solid #dddddd;">{{ o.customer_name }}</td>
-                    <td style="border: 1px solid #dddddd;">
+                    <td class="td">{{ o.customer_name }}</td>
+                    <td class="td">
                         <a href="/order_list/?step=query&container_number={{ o.container_number }}">{{ o.container_number }}</a>
                     </td>
-                    <td style="border: 1px solid #dddddd;">{{ o.warehouse }}</td>
-                    <td style="border: 1px solid #dddddd;">{{ o.eta }}</td> 
-                    <td style="border: 1px solid #dddddd;">{{ o.order_type }}</td>
-                    <td style="border: 1px solid #dddddd;">{{ o.container_number.container_type }}</td>
-                    <td style="border: 1px solid #dddddd;">
+                    <td class="td">{{ o.warehouse }}</td>
+                    <td class="td">{{ o.eta }}</td> 
+                    <td class="td">{{ o.order_type }}</td>
+                    <td class="td">{{ o.container_number.container_type }}</td>
+                    <td class="td">
                         {% if o.clearance_id.clear_by_zem %}
                             代理清关
                         {% elif o.clearance_id.is_clearance_required %}
@@ -43,18 +47,18 @@
                             N/A
                         {% endif %}
                     </td>
-                    <td style="border: 1px solid #dddddd;">
+                    <td class="td">
                         {% if o.retrieval_id.retrive_by_zem %}
                             代理卡车
                         {% else %}
                             自理卡车
                         {% endif %}
                     </td>
-                    <td style="border: 1px solid #dddddd;">{{ o.retrieval_id.shipping_line }}</td>
-                    <td style="border: 1px solid #dddddd;">{{ o.retrieval_id.shipping_order_number }}</td>
-                    <td style="border: 1px solid #dddddd;">{{ o.retrieval_id.origin }}</td>
-                    <td style="border: 1px solid #dddddd;">{{ o.retrieval_id.destination }}</td>
-                    <td style="border: 1px solid #dddddd;">{{ o.created_at }}</td>
+                    <td class="td">{{ o.retrieval_id.shipping_line }}</td>
+                    <td class="td">{{ o.retrieval_id.shipping_order_number }}</td>
+                    <td class="td">{{ o.retrieval_id.origin }}</td>
+                    <td class="td">{{ o.retrieval_id.destination }}</td>
+                    <td class="td">{{ o.created_at }}</td>
                 </tr>
                 {% endfor %}
             </tbody>
@@ -68,27 +72,27 @@
     {% csrf_token %}
     <div style="overflow-x: auto; max-width: 1200px;">
         <h5 class="mb-3">订单信息</h5>
-        <table>
+        <table class="table">
             <thead>
                 <tr>
-                    <th style="border: 1px solid #dddddd; min-width: 100px;">客户</th>
-                    <th style="border: 1px solid #dddddd; min-width: 100px;">柜号</th>
-                    <th style="border: 1px solid #dddddd; min-width: 140px;">入仓仓库</th>
-                    <th style="border: 1px solid #dddddd; min-width: 140px;">ETA</th>
-                    <th style="border: 1px solid #dddddd; min-width: 100px;">订单类型</th>
-                    <th style="border: 1px solid #dddddd; min-width: 100px;">柜型</th>
-                    <th style="border: 1px solid #dddddd; min-width: 100px;">清关方式</th>
+                    <th class="th">客户</th>
+                    <th class="th">柜号</th>
+                    <th class="th" style="min-width: 140px;">入仓仓库</th>
+                    <th class="th" style="min-width: 140px;">ETA</th>
+                    <th class="th">订单类型</th>
+                    <th class="th">柜型</th>
+                    <th class="th">清关方式</th>
                 </tr>
             </thead>
             <tbody>
                 <tr>
-                    <td style="border: 1px solid #dddddd;">{{ order_form.customer_name }}</td>
-                    <td style="border: 1px solid #dddddd;">{{ container_form.container_number }}</td>
-                    <td style="border: 1px solid #dddddd;">{{ order_form.warehouse }}</td> 
-                    <td style="border: 1px solid #dddddd;">{{ order_form.eta }}</td>
-                    <td style="border: 1px solid #dddddd;">{{ order_form.order_type }}</td>
-                    <td style="border: 1px solid #dddddd;">{{ container_form.container_type }}</td>
-                    <td style="border: 1px solid #dddddd;">{{ clearance_select_form.clearance_option }}</td>
+                    <td class="td">{{ order_form.customer_name }}</td>
+                    <td class="td">{{ container_form.container_number }}</td>
+                    <td class="td">{{ order_form.warehouse }}</td> 
+                    <td class="td">{{ order_form.eta }}</td>
+                    <td class="td">{{ order_form.order_type }}</td>
+                    <td class="td">{{ container_form.container_type }}</td>
+                    <td class="td">{{ clearance_select_form.clearance_option }}</td>
 
                 </tr>
             </tbody>
@@ -97,29 +101,29 @@
     <br>
     <div style="overflow-x: auto; max-width: 1200px;">
         <h5 class="mb-3">提柜信息</h5>
-        <table>
+        <table class="table">
             <thead>
                 <tr>
-                    <th style="border: 1px solid #dddddd; min-width: 100px;">提柜方式</th>
-                    <th style="border: 1px solid #dddddd; min-width: 100px;">船/航空公司</th>
-                    <th style="border: 1px solid #dddddd; min-width: 100px;">提单号</th>
-                    <th style="border: 1px solid #dddddd; min-width: 140px;">始发港</th>
-                    <th style="border: 1px solid #dddddd; min-width: 140px;">到达港</th>
-                    <th style="border: 1px solid #dddddd; min-width: 180px;">提柜地点</th>
-                    <th style="border: 1px solid #dddddd; min-width: 140px;">预约提柜时间</th>
-                    <th style="border: 1px solid #dddddd; min-width: 140px;">实际提柜时间</th>
+                    <th class="th">提柜方式</th>
+                    <th class="th">船/航空公司</th>
+                    <th class="th">提单号</th>
+                    <th class="th" style="min-width: 140px;">始发港</th>
+                    <th class="th" style="min-width: 140px;">到达港</th>
+                    <th class="th" style="min-width: 180px;">提柜地点</th>
+                    <th class="th" style="min-width: 140px;">预约提柜时间</th>
+                    <th class="th" style="min-width: 140px;">实际提柜时间</th>
                 </tr>
             </thead>
             <tbody>
                 <tr>
-                    <td style="border: 1px solid #dddddd;">{{ retrieval_select_form.retrieval_option }}</td>
-                    <td style="border: 1px solid #dddddd;">{{ retrieval_form.shipping_line }}</td>
-                    <td style="border: 1px solid #dddddd;">{{ retrieval_form.shipping_order_number }}</td>
-                    <td style="border: 1px solid #dddddd;">{{ retrieval_form.origin }}</td>
-                    <td style="border: 1px solid #dddddd;">{{ retrieval_form.destination }}</td>
-                    <td style="border: 1px solid #dddddd;">{{ retrieval_form.retrieval_location }}</td>
-                    <td style="border: 1px solid #dddddd;">{{ retrieval_form.target_retrieval_timestamp }}</td>
-                    <td style="border: 1px solid #dddddd;">{{ retrieval_form.actual_retrieval_timestamp }}</td>
+                    <td class="td">{{ retrieval_select_form.retrieval_option }}</td>
+                    <td class="td">{{ retrieval_form.shipping_line }}</td>
+                    <td class="td">{{ retrieval_form.shipping_order_number }}</td>
+                    <td class="td">{{ retrieval_form.origin }}</td>
+                    <td class="td">{{ retrieval_form.destination }}</td>
+                    <td class="td">{{ retrieval_form.retrieval_location }}</td>
+                    <td class="td">{{ retrieval_form.target_retrieval_timestamp }}</td>
+                    <td class="td">{{ retrieval_form.actual_retrieval_timestamp }}</td>
                 </tr>
             </tbody>
         </table>
@@ -138,58 +142,58 @@
     </div>
     <div style="overflow-x: auto; max-width: 1200px;">
         {{ packing_list_formset.management_form }}
-        <table>
+        <table class="table">
             <thead>
                 <tr>
-                    <th style="border: 1px solid #dddddd; min-width: 100px;">物品名</th>
-                    <th style="border: 1px solid #dddddd; min-width: 100px;">派送方式</th>
-                    <th style="border: 1px solid #dddddd; min-width: 100px;">唛头</th>
-                    <th style="border: 1px solid #dddddd; min-width: 100px;">FBA号</th>
-                    <th style="border: 1px solid #dddddd; min-width: 100px;">目的地</th>
-                    <th style="border: 1px solid #dddddd; min-width: 100px;">地址</th>
-                    <th style="border: 1px solid #dddddd; min-width: 100px;">邮编</th>
-                    <th style="border: 1px solid #dddddd; min-width: 100px;">refid</th>
-                    <th style="border: 1px solid #dddddd; min-width: 100px;">箱数</th>
-                    <th style="border: 1px solid #dddddd; min-width: 100px;">单箱重量-lbs</th>
-                    <th style="border: 1px solid #dddddd; min-width: 100px;">总重量-lbs</th>
-                    <th style="border: 1px solid #dddddd; min-width: 100px;">CBM</th>
-                    <th style="border: 1px solid #dddddd; min-width: 100px;">打板数</th>
-                    <th style="border: 1px solid #dddddd; min-width: 100px;">批次号</th>
+                    <th class="th">物品名</th>
+                    <th class="th">派送方式</th>
+                    <th class="th">唛头</th>
+                    <th class="th">FBA号</th>
+                    <th class="th">目的地</th>
+                    <th class="th">地址</th>
+                    <th class="th">邮编</th>
+                    <th class="th">refid</th>
+                    <th class="th">箱数</th>
+                    <th class="th">单箱重量-lbs</th>
+                    <th class="th">总重量-lbs</th>
+                    <th class="th">CBM</th>
+                    <th class="th">打板数</th>
+                    <th class="th">批次号</th>
                 </tr>
             </thead>
             <tbody id="formsets-container">
                 <tr id="formset-row" style="display: none;">
-                    <td style="border: 1px solid #dddddd; min-width: 100px;">{{ packing_list_formset.empty_form.product_name }}</td>
-                    <td style="border: 1px solid #dddddd; min-width: 100px;">{{ packing_list_formset.empty_form.delivery_method }}</td>
-                    <td style="border: 1px solid #dddddd; min-width: 100px;">{{ packing_list_formset.empty_form.shipping_mark }}</td>
-                    <td style="border: 1px solid #dddddd; min-width: 100px;">{{ packing_list_formset.empty_form.fba_id }}</td>
-                    <td style="border: 1px solid #dddddd; min-width: 100px;">{{ packing_list_formset.empty_form.destination }}</td>
-                    <td style="border: 1px solid #dddddd; min-width: 100px;">{{ packing_list_formset.empty_form.address }}</td>
-                    <td style="border: 1px solid #dddddd; min-width: 100px;">{{ packing_list_formset.empty_form.zipcode }}</td>
-                    <td style="border: 1px solid #dddddd; min-width: 100px;">{{ packing_list_formset.empty_form.ref_id }}</td>
-                    <td style="border: 1px solid #dddddd; min-width: 100px;">{{ packing_list_formset.empty_form.pcs }}</td>
-                    <td style="border: 1px solid #dddddd; min-width: 100px;">{{ packing_list_formset.empty_form.unit_weight_lbs }}</td>
-                    <td style="border: 1px solid #dddddd; min-width: 100px;">{{ packing_list_formset.empty_form.total_weight_lbs }}</td>
-                    <td style="border: 1px solid #dddddd; min-width: 100px;">{{ packing_list_formset.empty_form.cbm }}</td>
-                    <td style="border: 1px solid #dddddd; min-width: 100px;">{{ packing_list_formset.empty_form.n_pallet }}</td>
-                    <td style="border: 1px solid #dddddd; min-width: 100px;">{{ packing_list_formset.empty_form.shipment_batch_number }}</td>
+                    <td class="td">{{ packing_list_formset.empty_form.product_name }}</td>
+                    <td class="td">{{ packing_list_formset.empty_form.delivery_method }}</td>
+                    <td class="td">{{ packing_list_formset.empty_form.shipping_mark }}</td>
+                    <td class="td">{{ packing_list_formset.empty_form.fba_id }}</td>
+                    <td class="td">{{ packing_list_formset.empty_form.destination }}</td>
+                    <td class="td">{{ packing_list_formset.empty_form.address }}</td>
+                    <td class="td">{{ packing_list_formset.empty_form.zipcode }}</td>
+                    <td class="td">{{ packing_list_formset.empty_form.ref_id }}</td>
+                    <td class="td">{{ packing_list_formset.empty_form.pcs }}</td>
+                    <td class="td">{{ packing_list_formset.empty_form.unit_weight_lbs }}</td>
+                    <td class="td">{{ packing_list_formset.empty_form.total_weight_lbs }}</td>
+                    <td class="td">{{ packing_list_formset.empty_form.cbm }}</td>
+                    <td class="td">{{ packing_list_formset.empty_form.n_pallet }}</td>
+                    <td class="td">{{ packing_list_formset.empty_form.shipment_batch_number }}</td>
                 </tr>
                 {% for pl in packing_list_formset.forms %}
                     <tr id="formset-row">
-                        <td style="border: 1px solid #dddddd; min-width: 100px;">{{ pl.product_name }}</td>
-                        <td style="border: 1px solid #dddddd; min-width: 100px;">{{ pl.delivery_method }}</td>
-                        <td style="border: 1px solid #dddddd; min-width: 100px;">{{ pl.shipping_mark }}</td>
-                        <td style="border: 1px solid #dddddd; min-width: 100px;">{{ pl.fba_id }}</td>
-                        <td style="border: 1px solid #dddddd; min-width: 100px;">{{ pl.destination }}</td>
-                        <td style="border: 1px solid #dddddd; min-width: 100px;">{{ pl.address }}</td>
-                        <td style="border: 1px solid #dddddd; min-width: 100px;">{{ pl.zipcode }}</td>
-                        <td style="border: 1px solid #dddddd; min-width: 100px;">{{ pl.ref_id }}</td>
-                        <td style="border: 1px solid #dddddd; min-width: 100px;">{{ pl.pcs }}</td>
-                        <td style="border: 1px solid #dddddd; min-width: 100px;">{{ pl.unit_weight_lbs }}</td>
-                        <td style="border: 1px solid #dddddd; min-width: 100px;">{{ pl.total_weight_lbs }}</td>
-                        <td style="border: 1px solid #dddddd; min-width: 100px;">{{ pl.cbm }}</td>
-                        <td style="border: 1px solid #dddddd; min-width: 100px;">{{ pl.n_pallet }}</td>
-                        <td style="border: 1px solid #dddddd; min-width: 100px;">{{ pl.shipment_batch_number }}</td>
+                        <td class="td">{{ pl.product_name }}</td>
+                        <td class="td">{{ pl.delivery_method }}</td>
+                        <td class="td">{{ pl.shipping_mark }}</td>
+                        <td class="td">{{ pl.fba_id }}</td>
+                        <td class="td">{{ pl.destination }}</td>
+                        <td class="td">{{ pl.address }}</td>
+                        <td class="td">{{ pl.zipcode }}</td>
+                        <td class="td">{{ pl.ref_id }}</td>
+                        <td class="td">{{ pl.pcs }}</td>
+                        <td class="td">{{ pl.unit_weight_lbs }}</td>
+                        <td class="td">{{ pl.total_weight_lbs }}</td>
+                        <td class="td">{{ pl.cbm }}</td>
+                        <td class="td">{{ pl.n_pallet }}</td>
+                        <td class="td">{{ pl.shipment_batch_number }}</td>
                     </tr>
                 {% endfor %}
             </tbody>
@@ -251,5 +255,30 @@
             }
         }
     });
+
+    function filterTable() {
+        var containerInput, customerInput, containerFilter, customerFilter, table, tbody, tr, containerTd, customerTd, i, containerTxtValue, customerTxtValue;
+        containerInput = document.getElementById("containerSearchInput");
+        customerInput = document.getElementById("customerSearchInput");
+        containerFilter = containerInput.value.toUpperCase();
+        customerFilter = customerInput.value.toUpperCase();
+        table = document.getElementById("order-table");
+        tbody = table.getElementsByTagName("tbody")[0];
+        tr = tbody.getElementsByTagName("tr");
+
+        for (i = 0; i < tr.length; i++) {
+            containerTd = tr[i].getElementsByTagName("td")[1]; // Index 1 corresponds to the container_number__container_number column
+            customerTd = tr[i].getElementsByTagName("td")[0]; // Index 2 corresponds to the customer column
+            if (containerTd && customerTd) {
+                containerTxtValue = containerTd.textContent || containerTd.innerText;
+                customerTxtValue = customerTd.textContent || customerTd.innerText;
+                var containerDisplayStyle = containerTxtValue.toUpperCase().indexOf(containerFilter) > -1 ? "" : "none";
+                var customerDisplayStyle = customerTxtValue.toUpperCase().indexOf(customerFilter) > -1 ? "" : "none";
+
+                // Set display style based on both container and customer filters
+                tr[i].style.display = containerDisplayStyle === "" && customerDisplayStyle === "" ? "" : "none";
+            }
+        }
+    }
 </script>
 {% endblock %}

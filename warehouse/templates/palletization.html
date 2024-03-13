@@ -14,32 +14,38 @@
 
 {% if order_not_palletized %}
     <h4 class="mb-3">待拆柜</h4>
-    <table>
-        <thead>
-            <tr>
-                <th style="border: 1px solid #dddddd;">货柜</th>
-                <th style="border: 1px solid #dddddd;">客户</th>
-                <th style="border: 1px solid #dddddd;">目的港</th>
-                <th style="border: 1px solid #dddddd;">柜型</th>
-                <th style="border: 1px solid #dddddd;">预约提柜时间</th>
-                <th style="border: 1px solid #dddddd;">实际提柜时间</th>
-            </tr>
-        </thead>
-        <tbody>
-            {% for c in order_not_palletized %}
-            <tr>
-                <td style="border: 1px solid #dddddd;">
-                    <a href="/palletize/{{c.id}}/">{{ c.container_number }}</a>
-                </td>
-                <td style="border: 1px solid #dddddd;">{{ c.customer_name }}</td>
-                <td style="border: 1px solid #dddddd;">{{ c.retrieval_id.destination }}</td>
-                <td style="border: 1px solid #dddddd;">{{ c.container_number.container_type }}</td>
-                <td style="border: 1px solid #dddddd;">{{ c.retrieval_id.target_retrieval_timestamp }}</td>
-                <td style="border: 1px solid #dddddd;">{{ c.retrieval_id.actual_retrieval_timestamp }}</td>
-            </tr>
-            {% endfor %}
-        </tbody>
-    </table>
+    <div class="search-filters">
+        <input type="text" id="containerSearchInput" placeholder="搜索柜号..." oninput="filterTable()">
+        <input type="text" id="customerSearchInput" placeholder="搜索客户..." oninput="filterTable()">
+    </div>
+    <div style="overflow-x: auto; max-width: 1200px; overflow-y: auto; max-height: 1200px;">
+        <table id="container-table" class="table">
+            <thead>
+                <tr>
+                    <th class="th">货柜</th>
+                    <th class="th">客户</th>
+                    <th class="th">目的港</th>
+                    <th class="th">柜型</th>
+                    <th class="th">预约提柜时间</th>
+                    <th class="th">实际提柜时间</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for c in order_not_palletized %}
+                <tr>
+                    <td class="td">
+                        <a href="/palletize/{{c.id}}/">{{ c.container_number }}</a>
+                    </td>
+                    <td class="td">{{ c.customer_name }}</td>
+                    <td class="td">{{ c.retrieval_id.destination }}</td>
+                    <td class="td">{{ c.container_number.container_type }}</td>
+                    <td class="td">{{ c.retrieval_id.target_retrieval_timestamp }}</td>
+                    <td class="td">{{ c.retrieval_id.actual_retrieval_timestamp }}</td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
     <hr class="Dashed" style="margin-top: 40px; margin-bottom: 40px;">
 {% elif step %}
     <h4 class="mb-3">无待拆货柜</h4>
@@ -48,31 +54,59 @@
 
 {% if order_palletized %}
     <h4 class="mb-3">拆柜完成，待出库</h4>
-    <table>
-        <thead>
-            <tr>
-                <th style="border: 1px solid #dddddd;">货柜</th>
-                <th style="border: 1px solid #dddddd;">客户</th>
-                <th style="border: 1px solid #dddddd;">目的港</th>
-                <th style="border: 1px solid #dddddd;">柜型</th>
-                <th style="border: 1px solid #dddddd;">拆柜完成时间</th>
-                <th style="border: 1px solid #dddddd;">打板数</th>
-            </tr>
-        </thead>
-        <tbody>
-            {% for c in order_palletized %}
-            <tr>
-                <td style="border: 1px solid #dddddd;">
-                    <a href="/palletize/{{c.id}}/">{{ c.container_number }}</a>
-                </td>
-                <td style="border: 1px solid #dddddd;">{{ c.customer_name }}</td>
-                <td style="border: 1px solid #dddddd;">{{ c.retrieval_id.destination }}</td>
-                <td style="border: 1px solid #dddddd;">{{ c.container_number.container_type }}</td>
-                <td style="border: 1px solid #dddddd;">{{ c.offload_id.offload_at }}</td>
-                <td style="border: 1px solid #dddddd;">{{ c.offload_id.total_pallet }}</td>
-            </tr>
-            {% endfor %}
-        </tbody>
-    </table>
+    <div style="overflow-x: auto; max-width: 1200px; overflow-y: auto; max-height: 1200px;">
+        <table class="table">
+            <thead>
+                <tr>
+                    <th class="th">货柜</th>
+                    <th class="th">客户</th>
+                    <th class="th">目的港</th>
+                    <th class="th">柜型</th>
+                    <th class="th">拆柜完成时间</th>
+                    <th class="th">打板数</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for c in order_palletized %}
+                <tr>
+                    <td class="td">
+                        <a href="/palletize/{{c.id}}/">{{ c.container_number }}</a>
+                    </td>
+                    <td class="td">{{ c.customer_name }}</td>
+                    <td class="td">{{ c.retrieval_id.destination }}</td>
+                    <td class="td">{{ c.container_number.container_type }}</td>
+                    <td class="td">{{ c.offload_id.offload_at }}</td>
+                    <td class="td">{{ c.offload_id.total_pallet }}</td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
 {% endif %}
+<script>
+    function filterTable() {
+        var containerInput, customerInput, containerFilter, customerFilter, table, tbody, tr, containerTd, customerTd, i, containerTxtValue, customerTxtValue;
+        containerInput = document.getElementById("containerSearchInput");
+        customerInput = document.getElementById("customerSearchInput");
+        containerFilter = containerInput.value.toUpperCase();
+        customerFilter = customerInput.value.toUpperCase();
+        table = document.getElementById("container-table");
+        tbody = table.getElementsByTagName("tbody")[0];
+        tr = tbody.getElementsByTagName("tr");
+
+        for (i = 0; i < tr.length; i++) {
+            containerTd = tr[i].getElementsByTagName("td")[0]; // Index 1 corresponds to the container_number__container_number column
+            customerTd = tr[i].getElementsByTagName("td")[1]; // Index 2 corresponds to the customer column
+            if (containerTd && customerTd) {
+                containerTxtValue = containerTd.textContent || containerTd.innerText;
+                customerTxtValue = customerTd.textContent || customerTd.innerText;
+                var containerDisplayStyle = containerTxtValue.toUpperCase().indexOf(containerFilter) > -1 ? "" : "none";
+                var customerDisplayStyle = customerTxtValue.toUpperCase().indexOf(customerFilter) > -1 ? "" : "none";
+
+                // Set display style based on both container and customer filters
+                tr[i].style.display = containerDisplayStyle === "" && customerDisplayStyle === "" ? "" : "none";
+            }
+        }
+    }
+</script>
 {% endblock %}

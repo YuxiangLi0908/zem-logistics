@@ -2,78 +2,82 @@
 
 {% block content %}
     <h3 class="mb-3">预约提柜</h3>
-
+    <div class="search-filters">
+        <input type="text" id="containerSearchInput" placeholder="搜索柜号..." oninput="filterTable()">
+    </div>
     <h4 class="mb-4">待预约</h4>
-    <table>
-        <thead>
-            <tr>
-                <th style="border: 1px solid #dddddd;">货柜</th>
-                <th style="border: 1px solid #dddddd;">客户</th>
-                <th style="border: 1px solid #dddddd;">ETA</th>
-                <th style="border: 1px solid #dddddd;">目的港</th>
-                <th style="border: 1px solid #dddddd;">船/空运公司</th>
-                <th style="border: 1px solid #dddddd;">柜型</th>
-                <th style="border: 1px solid #dddddd;">提柜地址</th>
-                <th style="border: 1px solid #dddddd;">提单号</th>
-                <th style="border: 1px solid #dddddd;">预约提柜时间</th>
-            </tr>
-        </thead>
-        <tbody>
-            {% for c in retrieval_not_scheduled %}
-            <tr>
-                <td style="border: 1px solid #dddddd;">{{ c.container_number }}</td>
-                <td style="border: 1px solid #dddddd;">{{ c.customer_name }}</td>
-                <td style="border: 1px solid #dddddd;">{{ c.eta }}</td>
-                <td style="border: 1px solid #dddddd;">{{ c.retrieval_id.destination }}</td>
-                <td style="border: 1px solid #dddddd;">{{ c.retrieval_id.shipping_line }}</td>
-                <td style="border: 1px solid #dddddd;">{{ c.container_number.container_type }}</td>
-                <td style="border: 1px solid #dddddd;">{{ c.retrieval_id.retrieval_location }}</td>
-                <td style="border: 1px solid #dddddd;">{{ c.retrieval_id.shipping_order_number }}</td>
-                <td style="border: 1px solid #dddddd;">
-                    <form method="post" action="">
-                        {% csrf_token %}
-                        <input type="hidden" name="order_id" value="{{ c.order_id }}">
-                        <input type="hidden" name="step" value="schedule">
-                        {{ retrieval_form.target_retrieval_timestamp }}
-                        <button type="submit">确认预约</button>
-                    </form>
-                </td>
-            </tr>
-            {% endfor %}
-        </tbody>
-    </table>
+    <div style="overflow-x: auto; max-width: 1200px; overflow-y: auto; max-height: 600px;">
+        <table class="table">
+            <thead>
+                <tr>
+                    <th class="th">货柜</th>
+                    <th class="th">客户</th>
+                    <th class="th">ETA</th>
+                    <th class="th">目的港</th>
+                    <th class="th" style="min-width: 120px;">船/空运公司</th>
+                    <th class="th">柜型</th>
+                    <th class="th">提柜地址</th>
+                    <th class="th">提单号</th>
+                    <th class="th">预约提柜时间</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for c in retrieval_not_scheduled %}
+                <tr>
+                    <td class="td">{{ c.container_number }}</td>
+                    <td class="td">{{ c.customer_name }}</td>
+                    <td class="td">{{ c.eta }}</td>
+                    <td class="td">{{ c.retrieval_id.destination }}</td>
+                    <td class="td">{{ c.retrieval_id.shipping_line }}</td>
+                    <td class="td">{{ c.container_number.container_type }}</td>
+                    <td class="td">{{ c.retrieval_id.retrieval_location }}</td>
+                    <td class="td">{{ c.retrieval_id.shipping_order_number }}</td>
+                    <td class="td">
+                        <form method="post" action="">
+                            {% csrf_token %}
+                            <input type="hidden" name="order_id" value="{{ c.order_id }}">
+                            <input type="hidden" name="step" value="schedule">
+                            {{ retrieval_form.target_retrieval_timestamp }}
+                            <button type="submit">确认预约</button>
+                        </form>
+                    </td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
 
     <hr class="Dashed" style="margin-top: 40px; margin-bottom: 40px;">
 
     <h4 class="mb-4">待提柜</h4>
-    <table>
+    <table class="table">
         <thead>
             <tr>
-                <th style="border: 1px solid #dddddd;">货柜</th>
-                <th style="border: 1px solid #dddddd;">客户</th>
-                <th style="border: 1px solid #dddddd;">ETA</th>
-                <th style="border: 1px solid #dddddd;">目的港</th>
-                <th style="border: 1px solid #dddddd;">船/空运公司</th>
-                <th style="border: 1px solid #dddddd;">柜型</th>
-                <th style="border: 1px solid #dddddd;">提柜地址</th>
-                <th style="border: 1px solid #dddddd;">提单号</th>
-                <th style="border: 1px solid #dddddd;">预约提柜时间</th>
-                <th style="border: 1px solid #dddddd;">实际提柜时间</th>
+                <th class="th">货柜</th>
+                <th class="th">客户</th>
+                <th class="th">ETA</th>
+                <th class="th">目的港</th>
+                <th class="th" style="min-width: 120px;">船/空运公司</th>
+                <th class="th">柜型</th>
+                <th class="th">提柜地址</th>
+                <th class="th">提单号</th>
+                <th class="th">预约提柜时间</th>
+                <th class="th">实际提柜时间</th>
             </tr>
         </thead>
         <tbody>
             {% for c in retrieval_scheduled %}
             <tr>
-                <td style="border: 1px solid #dddddd;">{{ c.container_number }}</td>
-                <td style="border: 1px solid #dddddd;">{{ c.customer_name }}</td>
-                <td style="border: 1px solid #dddddd;">{{ c.eta }}</td>
-                <td style="border: 1px solid #dddddd;">{{ c.retrieval_id.destination }}</td>
-                <td style="border: 1px solid #dddddd;">{{ c.retrieval_id.shipping_line }}</td>
-                <td style="border: 1px solid #dddddd;">{{ c.container_number.container_type }}</td>
-                <td style="border: 1px solid #dddddd;">{{ c.retrieval_id.retrieval_location }}</td>
-                <td style="border: 1px solid #dddddd;">{{ c.retrieval_id.shipping_order_number }}</td>
-                <td style="border: 1px solid #dddddd;">{{ c.retrieval_id.target_retrieval_timestamp }}</td>
-                <td style="border: 1px solid #dddddd;">
+                <td class="td">{{ c.container_number }}</td>
+                <td class="td">{{ c.customer_name }}</td>
+                <td class="td">{{ c.eta }}</td>
+                <td class="td">{{ c.retrieval_id.destination }}</td>
+                <td class="td">{{ c.retrieval_id.shipping_line }}</td>
+                <td class="td">{{ c.container_number.container_type }}</td>
+                <td class="td">{{ c.retrieval_id.retrieval_location }}</td>
+                <td class="td">{{ c.retrieval_id.shipping_order_number }}</td>
+                <td class="td">{{ c.retrieval_id.target_retrieval_timestamp }}</td>
+                <td class="td">
                     <form method="post" action="">
                         {% csrf_token %}
                         <input type="hidden" name="order_id" value="{{ c.order_id }}">
@@ -85,4 +89,27 @@
             </tr>
             {% endfor %}
         </tbody>
+
+<script>
+    function filterTable() {
+        var containerInput, containerFilter, tables, tbody, tr, containerTd, i, containerTxtValue;
+        containerInput = document.getElementById("containerSearchInput");
+        containerFilter = containerInput.value.toUpperCase();
+        tables = document.getElementsByClassName("table");
+        for (i = 0; i < tables.length; i++) {
+            var table = tables[i];
+            tbody = table.getElementsByTagName("tbody")[0];
+            tr = tbody.getElementsByTagName("tr");
+            for (j = 0; j < tr.length; j++) {
+                containerTd = tr[j].getElementsByTagName("td")[0]; // Index 1 corresponds to the container_number__container_number column
+                if (containerTd) {
+                    containerTxtValue = containerTd.textContent || containerTd.innerText;
+                    var containerDisplayStyle = containerTxtValue.toUpperCase().indexOf(containerFilter) > -1 ? "" : "none";
+                    // Set display style based on both container and destination filters
+                    tr[j].style.display = containerDisplayStyle === "" ? "" : "none";
+                }
+            }
+        }
+    }
+</script>
 {% endblock %}

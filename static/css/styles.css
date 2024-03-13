@@ -83,3 +83,24 @@ body {
     overflow-y: auto; /* Enable vertical scrolling */
     display: block; /* Ensure block-level display to handle overflow */
 }
+
+.search-filters {
+    margin-bottom: 12px; /* Add some space below the input */
+}
+
+.table {
+    width: 100%;
+    border-collapse: collapse;
+    margin-top: 10px;
+}
+
+.th, td {
+    border: 1px solid #dddddd;
+    text-align: left;
+    min-width: 100px;
+}
+
+.th {
+    background-color: #f2f2f2;
+    min-width: 100px;
+}

@@ -16,6 +16,11 @@ class Shipment(models.Model):
     shipped_at = models.DateTimeField(null=True, blank=True)
     is_arrived = models.BooleanField(default=False, blank=True)
     arrived_at = models.DateTimeField(null=True, blank=True)
+    load_type = models.CharField(max_length=255, null=True, blank=True)
+    total_weight = models.FloatField(null=True)
+    total_cbm = models.FloatField(null=True)
+    total_pallet = models.FloatField(null=True)
+    total_pcs = models.FloatField(null=True)
 
     def __str__(self) -> str:
         return self.shipment_batch_number

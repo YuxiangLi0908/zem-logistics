@@ -1,6 +1,6 @@
 from django import forms
 from warehouse.models.shipment import Shipment
-from warehouse.utils.constants import CARRIER_OPTIONS
+from warehouse.utils.constants import CARRIER_OPTIONS, LOAD_TYPE_OPTIONS
 
 class ShipmentForm(forms.ModelForm):
     class Meta:
@@ -11,6 +11,7 @@ class ShipmentForm(forms.ModelForm):
                 "carrier": forms.Select(choices=CARRIER_OPTIONS),
                 "shipped_at": forms.DateTimeInput(attrs={'type': 'datetime-local'}),
                 "arrived_at": forms.DateTimeInput(attrs={'type': 'datetime-local'}),
+                "load_type": forms.Select(choices=LOAD_TYPE_OPTIONS)
             }
 
     def __init__(self, *args, **kwargs) -> None:

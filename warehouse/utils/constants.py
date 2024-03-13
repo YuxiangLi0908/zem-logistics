@@ -1,3 +1,8 @@
+import yaml
+
+from pathlib import Path
+
+
 ORDER_TYPES = {
     "TD": "转运",
     "DD": "直送",
@@ -55,6 +60,10 @@ CARRIER_OPTIONS = [
     ("UPS", "UPS"), ("FedEx", "FedEx"), ("ZEM", "ZEM"), ("客户自提", "客户自提")
 ]
 
+LOAD_TYPE_OPTIONS = [
+    ("卡板", "卡板"), ("地板", "地板"),
+]
+
 PACKING_LIST_TEMP_COL_MAPPING = {
     "唛头": "shipping_mark",
     "品名": "product_name",
@@ -71,3 +80,7 @@ PACKING_LIST_TEMP_COL_MAPPING = {
     "Amazon Reference ID": "ref_id",
     "派送方式": "delivery_method",
 }
+
+file_path = Path(__file__).parent.resolve().joinpath("fba_fulfillment_center.yaml")
+with open(file_path, "r") as f:
+    amazon_fba_locations = yaml.safe_load(f)

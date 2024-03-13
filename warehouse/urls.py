@@ -10,7 +10,8 @@ from warehouse.views.shipment_schedule import ScheduleShipment
 from warehouse.views.shipment_dispatch import ShipmentDispatch
 from warehouse.views.export_file import ExportFile
 from warehouse.views.customer_management import CustomerManagement
-from warehouse.views.utils import *
+from warehouse.views.order_management import *
+from warehouse.views.bol import BOL
 
 urlpatterns = [
     path("", home, name="home"),
@@ -27,4 +28,5 @@ urlpatterns = [
     path('generate_pdf/', ExportFile.as_view(), name='generate_pdf'),
     path('new_customer/', CustomerManagement.as_view(), name='new_customer'),
     path('order_list/', OrderManagement.as_view(), name='order_list'),
+    path('bol/', BOL.as_view(), name='bol'),
 ] + static(settings.STATIC_URL, document_root=settings.STATIC_ROOT)

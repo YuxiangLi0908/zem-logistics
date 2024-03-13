@@ -241,53 +241,53 @@
             </div>
         </div>
         {{ packing_list_form.management_form }}
-        <div style="overflow-x: auto; max-width: 1200px;">
-            <table>
+        <div style="overflow-x: auto; max-width: 1200px; overflow-y: auto; max-height: 600px;">
+            <table class="table">
                 <thead>
                     <tr>
-                        <th style="border: 1px solid #dddddd; min-width: 100px;">物品名</th>
-                        <th style="border: 1px solid #dddddd; min-width: 100px;">派送方式</th>
-                        <th style="border: 1px solid #dddddd; min-width: 100px;">唛头</th>
-                        <th style="border: 1px solid #dddddd; min-width: 100px;">FBA号</th>
-                        <th style="border: 1px solid #dddddd; min-width: 100px;">目的地</th>
-                        <th style="border: 1px solid #dddddd; min-width: 100px;">地址</th>
-                        <th style="border: 1px solid #dddddd; min-width: 100px;">邮编</th>
-                        <th style="border: 1px solid #dddddd; min-width: 100px;">refid</th>
-                        <th style="border: 1px solid #dddddd; min-width: 100px;">箱数</th>
-                        <th style="border: 1px solid #dddddd; min-width: 100px;">单箱重量-lbs</th>
-                        <th style="border: 1px solid #dddddd; min-width: 100px;">总重量-lbs</th>
-                        <th style="border: 1px solid #dddddd; min-width: 100px;">CBM</th>
+                        <th class="th">物品名</th>
+                        <th class="th">派送方式</th>
+                        <th class="th">唛头</th>
+                        <th class="th">FBA号</th>
+                        <th class="th">目的地</th>
+                        <th class="th">地址</th>
+                        <th class="th">邮编</th>
+                        <th class="th">refid</th>
+                        <th class="th">箱数</th>
+                        <th class="th">单箱重量-lbs</th>
+                        <th class="th">总重量-lbs</th>
+                        <th class="th">CBM</th>
                     </tr>
                 </thead>
                 <tbody id="formsets-container">
                     <tr id="formset-row" style="display: none;">
-                        <td style="border: 1px solid #dddddd; min-width: 100px;">{{ packing_list_form.empty_form.product_name }}</td>
-                        <td style="border: 1px solid #dddddd; min-width: 100px;">{{ packing_list_form.empty_form.delivery_method }}</td>
-                        <td style="border: 1px solid #dddddd; min-width: 100px;">{{ packing_list_form.empty_form.shipping_mark }}</td>
-                        <td style="border: 1px solid #dddddd; min-width: 100px;">{{ packing_list_form.empty_form.fba_id }}</td>
-                        <td style="border: 1px solid #dddddd; min-width: 100px;">{{ packing_list_form.empty_form.destination }}</td>
-                        <td style="border: 1px solid #dddddd; min-width: 100px;">{{ packing_list_form.empty_form.address }}</td>
-                        <td style="border: 1px solid #dddddd; min-width: 100px;">{{ packing_list_form.empty_form.zipcode }}</td>
-                        <td style="border: 1px solid #dddddd; min-width: 100px;">{{ packing_list_form.empty_form.ref_id }}</td>
-                        <td style="border: 1px solid #dddddd; min-width: 100px;">{{ packing_list_form.empty_form.pcs }}</td>
-                        <td style="border: 1px solid #dddddd; min-width: 100px;">{{ packing_list_form.empty_form.unit_weight_lbs }}</td>
-                        <td style="border: 1px solid #dddddd; min-width: 100px;">{{ packing_list_form.empty_form.total_weight_lbs }}</td>
-                        <td style="border: 1px solid #dddddd; min-width: 100px;">{{ packing_list_form.empty_form.cbm }}</td>
+                        <td class="td">{{ packing_list_form.empty_form.product_name }}</td>
+                        <td class="td">{{ packing_list_form.empty_form.delivery_method }}</td>
+                        <td class="td">{{ packing_list_form.empty_form.shipping_mark }}</td>
+                        <td class="td">{{ packing_list_form.empty_form.fba_id }}</td>
+                        <td class="td">{{ packing_list_form.empty_form.destination }}</td>
+                        <td class="td">{{ packing_list_form.empty_form.address }}</td>
+                        <td class="td">{{ packing_list_form.empty_form.zipcode }}</td>
+                        <td class="td">{{ packing_list_form.empty_form.ref_id }}</td>
+                        <td class="td">{{ packing_list_form.empty_form.pcs }}</td>
+                        <td class="td">{{ packing_list_form.empty_form.unit_weight_lbs }}</td>
+                        <td class="td">{{ packing_list_form.empty_form.total_weight_lbs }}</td>
+                        <td class="td">{{ packing_list_form.empty_form.cbm }}</td>
                     </tr>
                     {% for pl in packing_list_form.forms %}
                         <tr id="formset-row">
-                            <td style="border: 1px solid #dddddd; min-width: 100px;">{{ pl.product_name }}</td>
-                            <td style="border: 1px solid #dddddd; min-width: 100px;">{{ pl.delivery_method }}</td>
-                            <td style="border: 1px solid #dddddd; min-width: 100px;">{{ pl.shipping_mark }}</td>
-                            <td style="border: 1px solid #dddddd; min-width: 100px;">{{ pl.fba_id }}</td>
-                            <td style="border: 1px solid #dddddd; min-width: 100px;">{{ pl.destination }}</td>
-                            <td style="border: 1px solid #dddddd; min-width: 100px;">{{ pl.address }}</td>
-                            <td style="border: 1px solid #dddddd; min-width: 100px;">{{ pl.zipcode }}</td>
-                            <td style="border: 1px solid #dddddd; min-width: 100px;">{{ pl.ref_id }}</td>
-                            <td style="border: 1px solid #dddddd; min-width: 100px;">{{ pl.pcs }}</td>
-                            <td style="border: 1px solid #dddddd; min-width: 100px;">{{ pl.unit_weight_lbs }}</td>
-                            <td style="border: 1px solid #dddddd; min-width: 100px;">{{ pl.total_weight_lbs }}</td>
-                            <td style="border: 1px solid #dddddd; min-width: 100px;">{{ pl.cbm }}</td>
+                            <td class="td">{{ pl.product_name }}</td>
+                            <td class="td">{{ pl.delivery_method }}</td>
+                            <td class="td">{{ pl.shipping_mark }}</td>
+                            <td class="td">{{ pl.fba_id }}</td>
+                            <td class="td">{{ pl.destination }}</td>
+                            <td class="td">{{ pl.address }}</td>
+                            <td class="td">{{ pl.zipcode }}</td>
+                            <td class="td">{{ pl.ref_id }}</td>
+                            <td class="td">{{ pl.pcs }}</td>
+                            <td class="td">{{ pl.unit_weight_lbs }}</td>
+                            <td class="td">{{ pl.total_weight_lbs }}</td>
+                            <td class="td">{{ pl.cbm }}</td>
                         </tr>
                     {% endfor %}
                 </tbody>

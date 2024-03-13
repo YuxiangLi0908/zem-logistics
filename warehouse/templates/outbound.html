@@ -14,48 +14,81 @@
 
 {% if shipment_list %}
     <h4 class="mb-4">待出库</h4>
-    <table>
-        <thead>
-            <tr>
-                <th style="border: 1px solid #dddddd;">批次号</th>
-                <th style="border: 1px solid #dddddd;">目的地</th>
-                <th style="border: 1px solid #dddddd;">Carrier</th>
-                <th style="border: 1px solid #dddddd;">预约出库时间</th>
-                <th style="border: 1px solid #dddddd;">CBM</th>
-                <th style="border: 1px solid #dddddd;">卡板</th>
-                <th style="border: 1px solid #dddddd;">总重lbs</th>
-                <th style="border: 1px solid #dddddd;">实际出库时间</th>
-            </tr>
-        </thead>
-        <tbody>
-            {% for s, f in shipment_list %}
-            <tr>
-                <td style="border: 1px solid #dddddd;">
-                    {{ s.shipment_batch_number__shipment_batch_number }}
-                    <!-- <a href="/outbound/?step=batch&warehouse={{ warehouse_form.name.value }}&batch_id={{c.shipment_batch_number__shipment_batch_number}}">
-                        {{ c.shipment_batch_number__shipment_batch_number }}
-                    <a> -->
-                </td>
-                <td style="border: 1px solid #dddddd;">{{ s.shipment_batch_number__destination }}</td>
-                <td style="border: 1px solid #dddddd;">{{ s.shipment_batch_number__carrier }}</td>
-                <td style="border: 1px solid #dddddd;">{{ s.shipment_batch_number__shipment_appointment }}</td>
-                <td style="border: 1px solid #dddddd;">{{ s.total_cbm }}</td>
-                <td style="border: 1px solid #dddddd;">{{ s.total_n_pallet }}</td>
-                <td style="border: 1px solid #dddddd;">{{ s.total_weight_lbs }}</td>
-                <td style="border: 1px solid #dddddd;">
-                    <form method="post" action="">
-                        {% csrf_token %}
-                        <input type="hidden" name="batch_id" value="{{ s.shipment_batch_number__shipment_batch_number }}">
-                        <input type="hidden" name="step" value="confirm">
-                        <input type="hidden" name="name" value="{{ warehouse }}">
-                        {{ f.shipped_at }}
-                        <button type="submit">确认出库</button>
-                    </form>
-                </td>
-            </tr>
-            {% endfor %}
-        </tbody>
-    </table>
+    <div class="search-filters">
+        <input type="text" id="batchSearchInput" placeholder="搜索批次号..." oninput="filterTable()">
+        <input type="text" id="destinationSearchInput" placeholder="搜索目的仓库..." oninput="filterTable()">
+    </div>
+    <div style="overflow-x: auto; max-width: 1200px; overflow-y: auto; max-height: 1200px;">
+        <table id="shipment-batch-table" class="table">
+            <thead>
+                <tr>
+                    <th class="th">批次号</th>
+                    <th class="th">目的地</th>
+                    <th class="th">Carrier</th>
+                    <th class="th">预约出库时间</th>
+                    <th class="th">CBM</th>
+                    <th class="th">卡板</th>
+                    <th class="th">总重lbs</th>
+                    <th class="th">实际出库时间</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for s, f in shipment_list %}
+                <tr>
+                    <td class="td">
+                        {{ s.shipment_batch_number__shipment_batch_number }}
+                        <!-- <a href="/outbound/?step=batch&warehouse={{ warehouse_form.name.value }}&batch_id={{c.shipment_batch_number__shipment_batch_number}}">
+                            {{ c.shipment_batch_number__shipment_batch_number }}
+                        <a> -->
+                    </td>
+                    <td class="td">{{ s.shipment_batch_number__destination }}</td>
+                    <td class="td">{{ s.shipment_batch_number__carrier }}</td>
+                    <td class="td">{{ s.shipment_batch_number__shipment_appointment }}</td>
+                    <td class="td">{{ s.total_cbm }}</td>
+                    <td class="td">{{ s.total_n_pallet }}</td>
+                    <td class="td">{{ s.total_weight_lbs }}</td>
+                    <td class="td">
+                        <form method="post" action="">
+                            {% csrf_token %}
+                            <input type="hidden" name="batch_id" value="{{ s.shipment_batch_number__shipment_batch_number }}">
+                            <input type="hidden" name="step" value="confirm">
+                            <input type="hidden" name="name" value="{{ warehouse }}">
+                            {{ f.shipped_at }}
+                            <button type="submit">确认出库</button>
+                        </form>
+                    </td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
     <hr class="Dashed" style="margin-top: 40px; margin-bottom: 40px;">
 {% endif %}
+
+<script>
+    function filterTable() {
+        var batchInput, destinationInput, batchFilter, destinationFilter, table, tbody, tr, batchTd, destinationTd, i, batchTxtValue, destinationTxtValue;
+        batchInput = document.getElementById("batchSearchInput");
+        destinationInput = document.getElementById("destinationSearchInput");
+        batchFilter = batchInput.value.toUpperCase();
+        destinationFilter = destinationInput.value.toUpperCase();
+        table = document.getElementById("shipment-batch-table");
+        tbody = table.getElementsByTagName("tbody")[0];
+        tr = tbody.getElementsByTagName("tr");
+
+        for (i = 0; i < tr.length; i++) {
+            batchTd = tr[i].getElementsByTagName("td")[0]; // Index 1 corresponds to the batch_number__batch_number column
+            destinationTd = tr[i].getElementsByTagName("td")[1]; // Index 2 corresponds to the destination column
+            if (batchTd && destinationTd) {
+                batchTxtValue = batchTd.textContent || batchTd.innerText;
+                destinationTxtValue = destinationTd.textContent || destinationTd.innerText;
+                var batchDisplayStyle = batchTxtValue.toUpperCase().indexOf(batchFilter) > -1 ? "" : "none";
+                var destinationDisplayStyle = destinationTxtValue.toUpperCase().indexOf(destinationFilter) > -1 ? "" : "none";
+
+                // Set display style based on both batch and destination filters
+                tr[i].style.display = batchDisplayStyle === "" && destinationDisplayStyle === "" ? "" : "none";
+            }
+        }
+    }
+</script>
 {% endblock %}

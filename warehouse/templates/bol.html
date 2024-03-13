@@ -2,6 +2,133 @@
 
 {% block content %}
 <h3 class="mb-3">BOL导出</h3>
+<form method="post" action="" style="margin-top: 40px;">
+    {% csrf_token %}
+    <div>
+        <b style="margin-right: 5px;">预约日期:</b>
+        <input type="date" name="start_date" value="{{ start_date }}">
+        <input type="date" name="end_date" value="{{ end_date }}" style="margin-right: 5px;">
+        <b style="margin-right: 5px;">仓库:</b>
+        {{ warehouse_form.name }}
+        <input type="hidden" name="step" value="search">
+        <button id="submit-btn" type="submit" class="btn btn-primary" style="width: 100px; height: 35px; margin-left: 20px;">查询</button>
+    </div>
+</form>
+<hr class="Dashed" style="margin-top: 40px; margin-bottom: 40px;">
 
+{% if shipment_list %}
+<h3 class="mb-4">批次列表</h3>
+<div class="search-filters">
+    <input type="text" id="shipmentSearchInput" placeholder="搜索批次号..." oninput="filterTable()">
+</div>
+<div style="overflow-x: auto; max-width: 1200px; overflow-y: auto; max-height: 600px;">
+    <table id="shipment-list-table" class="table">
+        <thead>
+            <tr>
+                <th class="th">批次号</th>
+                <th class="th">目的地</th>
+                <th class="th">预约号</th>
+                <th class="th">预约日期</th>
+                <th class="th">发车日期</th>
+                <th class="th" style="min-width: 140px;">实际出库日期</th>
+                <th class="th">Carrier</th>
+                <th class="th">装车类型</th>
+                <th class="th">送达时间</th>
+                <th class="th">箱数</th>
+                <th class="th">总重lbs</th>
+                <th class="th">CBM</th>
+                <th class="th">卡板数</th>
+            </tr>
+        </thead>
+        <tbody>
+            {% for s in shipment_list %}
+            <tr>
+                <td class="td">
+                    <a href="/bol/?step=select&start_date={{ start_date }}&end_date={{ end_date }}&name={{ name }}&batch_number={{ s.shipment_batch_number }}">
+                        {{ s.shipment_batch_number }}
+                    </a>
+                </td>
+                <td class="td">{{ s.destination }}</td>
+                <td class="td">{{ s.appointment_id }}</td>
+                <td class="td">{{ s.shipment_schduled_at }}</td>
+                <td class="td">{{ s.shipment_appointment }}</td>
+                <td class="td">{{ s.shipped_at }}</td>
+                <td class="td">{{ s.carrier }}</td>
+                <td class="td">{{ s.load_type }}</td>
+                <td class="td">{{ s.arrived_at }}</td>
+                <td class="td">{{ s.total_pcs }}</td>
+                <td class="td">{{ s.total_weight|floatformat:2 }}</td>
+                <td class="td">{{ s.total_cbm|floatformat:2 }}</td>
+                <td class="td">{{ s.total_pallet }}</td>
+            </tr>
+            {% endfor %}
+        </tbody>
+    </table>
+</div>
+<hr class="Dashed" style="margin-top: 40px; margin-bottom: 40px;">
+{% endif %}
 
+{% if packing_list %}
+<h3 class="mb-4">批次明细</h3>
+<form method="post" action="">
+    {% csrf_token %}
+    <input type="hidden" name="batch_number" value="{{ shipment_list.0.shipment_batch_number }}">
+    <input type="hidden" name="step" value="export_bol">
+    <input type="hidden" name="warehouse" value="{{ warehouse.address }}">
+    <button type="submit" class="btn btn-success" style="width: 100px; height: 35px;">导出BOL</button>
+</form>
+<div style="overflow-x: auto; max-width: 1200px; overflow-y: auto; max-height: 1200px;">
+    <table id="packing-list-table" class="table">
+        <thead>
+            <tr>
+                <th class="th">客户</th>
+                <th class="th">货柜号</th>
+                <th class="th">目的仓库</th>
+                <th class="th">FBA_ID</th>
+                <th class="th">REF_ID</th>
+                <th class="th">箱数</th>
+                <th class="th">总重lbs</th>
+                <th class="th">CBM</th>
+                <th class="th">卡板数</th>
+            </tr>
+        </thead>
+        <tbody>
+            {% for c in packing_list %}
+            <tr>
+                <td class="td">{{ c.container_number__order__customer_name__zem_name }}</td>
+                <td class="td">{{ c.container_number__container_number }}</td>
+                <td class="td">{{ c.destination }}</td>
+                <td class="td">{{ c.fba_id }}</td>
+                <td class="td">{{ c.ref_id }}</td>
+                <td class="td">{{ c.total_pcs }}</td>
+                <td class="td">{{ c.total_weight_lbs|floatformat:2 }}</td>
+                <td class="td">{{ c.total_cbm|floatformat:2 }}</td>
+                <td class="td">{{ c.total_n_pallet }}</td>
+            </tr>
+            {% endfor %}
+        </tbody>
+    </table>
+</div>
+{% endif %}
+
+<script>
+    function filterTable() {
+        var shipmentInput, shipmentFilter, table, tbody, tr, shipmentTd, i, shipmentTxtValue;
+        shipmentInput = document.getElementById("shipmentSearchInput");
+        shipmentFilter = shipmentInput.value.toUpperCase();
+        table = document.getElementById("shipment-list-table");
+        tbody = table.getElementsByTagName("tbody")[0];
+        tr = tbody.getElementsByTagName("tr");
+
+        for (i = 0; i < tr.length; i++) {
+            shipmentTd = tr[i].getElementsByTagName("td")[0];
+            if (shipmentTd) {
+                shipmentTxtValue = shipmentTd.textContent || shipmentTd.innerText;
+                var shipmentDisplayStyle = shipmentTxtValue.toUpperCase().indexOf(shipmentFilter) > -1 ? "" : "none";
+                // Set display style based on both shipment and destination filters
+                tr[i].style.display = shipmentDisplayStyle === "" ? "" : "none";
+            }
+        }
+    }
+</script>
 {% endblock %}
