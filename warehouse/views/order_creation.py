@@ -136,14 +136,14 @@ class OrderCreation(View):
     def handle_place_order_post(self, request: HttpRequest) -> None:
         order_data = ast.literal_eval(request.POST.get("order_data"))
         container_data = ast.literal_eval(request.POST.get("container_data"))
-        if self._check_duplicated_container(container_data["container_nmber"]):
+        if self._check_duplicated_container(container_data["container_number"]):
             raise RuntimeError(f"{container_data.get('container_number')} exists!")
         packing_list_formsets = formset_factory(PackingListForm, extra=1)
         packing_list_form = packing_list_formsets(request.POST)
-        order = self._create_order_object(order_data, container_data)
-        container = Container.objects.get(container_number=container_data["container_number"])
         pl_valid = all([pl.is_valid() for pl in packing_list_form])
         if pl_valid:
+            order = self._create_order_object(order_data, container_data)
+            container = Container.objects.get(container_number=container_data["container_number"])
             for pl in packing_list_form:
                 for k in pl.cleaned_data.keys():
                     if isinstance(pl.cleaned_data[k], str):
@@ -152,7 +152,9 @@ class OrderCreation(View):
                         pl.cleaned_data[k] = pl.cleaned_data[k].upper()
                 pl.cleaned_data["container_number"] = container
                 PackingList.objects.create(**pl.cleaned_data)
-                
+        else:
+            raise ValueError("invalid packing list!")
+    
     def handle_upload_pl_template_post(self, request: HttpRequest) -> None:
         form = UploadFileForm(request.POST, request.FILES)
         if form.is_valid():

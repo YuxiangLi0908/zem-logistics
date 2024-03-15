@@ -100,7 +100,6 @@ class OrderManagement(View):
                 self.handle_upload_pl_template_post(request)
                 return render(request, self.template_main, self.context)
             else:
-                # raise ValueError(f"{request.POST}")
                 order_id = request.POST.get("order_id")
                 container_number = request.POST.get("container_number")
                 order = Order.objects.get(models.Q(order_id=order_id))
@@ -117,6 +116,12 @@ class OrderManagement(View):
                     request, order, container, retrieval, clearance, packing_list,
                     customer, warehoue
                 )
+        elif step == "delete_order":
+            self.handle_order_delete_post(request)  
+            mutable_get = request.GET.copy()
+            mutable_get["step"] = "all"
+            request.GET = mutable_get
+            return self.get(request)
         else:
             raise ValueError(f"{request.POST}")
         mutable_get = request.GET.copy()
@@ -124,6 +129,15 @@ class OrderManagement(View):
         mutable_get["step"] = "query"
         request.GET = mutable_get
         return self.get(request)
+    
+    def handle_download_pl_template_get(self, request: HttpRequest) -> HttpResponse:
+        file_path = Path(__file__).parent.parent.resolve().joinpath("templates/export_file/packing_list_template.xlsx")
+        if not os.path.exists(file_path):
+            raise Http404("File does not exist")
+        with open(file_path, 'rb') as file:
+            response = HttpResponse(file.read(), content_type='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet')
+            response['Content-Disposition'] = f'attachment; filename="zem_packing_list_template.xlsx"'
+            return response
     
     def handle_upload_pl_template_post(self, request: HttpRequest) -> None:
         form = UploadFileForm(request.POST, request.FILES)
@@ -151,14 +165,25 @@ class OrderManagement(View):
         else:
             raise ValueError(f"invalid file format!")
     
-    def handle_download_pl_template_get(self, request: HttpRequest) -> HttpResponse:
-        file_path = Path(__file__).parent.parent.resolve().joinpath("templates/export_file/packing_list_template.xlsx")
-        if not os.path.exists(file_path):
-            raise Http404("File does not exist")
-        with open(file_path, 'rb') as file:
-            response = HttpResponse(file.read(), content_type='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet')
-            response['Content-Disposition'] = f'attachment; filename="zem_packing_list_template.xlsx"'
-            return response
+    def handle_order_delete_post(self, request: HttpRequest) -> None:
+        order_ids = request.POST.getlist("order_id")
+        selected = request.POST.getlist("is_order_selected")
+        delete_orders = [id for s, id in zip(selected, order_ids) if s == "on"]
+        orders = Order.objects.filter(order_id__in=delete_orders)
+        for order in orders:
+            self._delete_order(order)
+        
+    def _delete_order(self, order: Order) -> None:
+        packing_list = PackingList.objects.filter(container_number__order__order_id=order.order_id)
+        for pl in packing_list:
+            pl.delete()
+        order.container_number.delete()
+        order.retrieval_id.delete()
+        order.clearance_id.delete()
+        order.offload_id.delete()
+        if order.shipment_id:
+            order.shipment_id.delete()
+        order.delete()
         
     def _update_clearance(self, request: HttpRequest, obj: Clearance) -> Clearance:
         clearance_option = request.POST.get("clearance_option")

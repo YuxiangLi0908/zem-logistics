@@ -8,6 +8,12 @@
     <input type="text" id="customerSearchInput" placeholder="搜索客户..." oninput="filterTable()">
 </div>
 {% if orders %}
+<form method="post" action="">
+    {% csrf_token %}
+    <div class="text-right">
+        <input type="hidden" name="step" value="delete_order">
+        <button type="submit" onclick="confirmSubmit()" class="btn btn-danger" style="width: 100px; height: 35px;">删除订单</button>
+    </div>
     <div style="overflow-x: auto; max-width: 1200px;">
         <table id="order-table" class="table">
             <thead>
@@ -32,7 +38,9 @@
                 {% for o in orders %}
                 <tr>
                     <td class="td" style="min-width: 40px; text-align: center;">
-                        <input type='checkbox' name='is_packing_list_selected'>
+                        <input type='checkbox' name='is_order_selected'>
+                        <input type="hidden" name="is_order_selected", value='off'>
+                        <input type="hidden" name="order_id", value='{{ o.order_id }}'>
                     </td>
                     <td class="td">{{ o.customer_name }}</td>
                     <td class="td">
@@ -69,6 +77,7 @@
         </table>
     </div>
     <hr class="Dashed" style="margin-top: 40px; margin-bottom: 40px;">
+</form>
 {% endif %}
 
 {% if order_form %}
@@ -328,10 +337,10 @@
                 tr[i].style.display = containerDisplayStyle === "" && customerDisplayStyle === "" ? "" : "none";
             }
         }
-    }
+    };
 
     function confirmSubmit() {
-        const checkBoxes = document.getElementsByName('is_shipment_schduled');
+        const checkBoxes = document.getElementsByName('is_order_selected');
         for (let i = 0; i < checkBoxes.length; i+=2) {
             if (checkBoxes[i].checked) {
                 checkBoxes[i+1].disabled = true;

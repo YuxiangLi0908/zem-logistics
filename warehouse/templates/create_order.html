@@ -320,7 +320,7 @@
 
         addMoreBtn.addEventListener('click', function () {
             const newFormset = document.createElement('tr');
-            const formsetCount = formsetsContainer.getElementsByTagName('tr').length;
+            const formsetCount = formsetsContainer.getElementsByTagName('tr').length - 1;
             newFormset.setAttribute('id', `id_order-${formsetCount}-container_id`)
 
             // Clone the first formset and update the form indexes
