@@ -1,14 +1,20 @@
+import os
 import pytz
+import pandas as pd
+import numpy as np
 from datetime import datetime
 from typing import Any
+from pathlib import Path
 
-from django.http import HttpRequest, HttpResponse
+from django.http import HttpRequest, HttpResponse, Http404
 from django.shortcuts import render
 from django.contrib.auth.decorators import login_required
 from django.views import View
 from django.utils.decorators import method_decorator
 from django.db import models
 from django.forms import modelformset_factory, formset_factory
+from django.forms.models import model_to_dict
+from django.core.cache import cache
 
 from warehouse.models.order import Order
 from warehouse.models.customer import Customer
@@ -22,6 +28,8 @@ from warehouse.forms.container_form import ContainerForm
 from warehouse.forms.clearance_form import ClearanceSelectForm
 from warehouse.forms.retrieval_form import RetrievalForm, RetrievalSelectForm
 from warehouse.forms.packling_list_form import PackingListForm
+from warehouse.forms.upload_file import UploadFileForm
+from warehouse.utils.constants import PACKING_LIST_TEMP_COL_MAPPING
 
 @method_decorator(login_required(login_url='login'), name='dispatch')
 class OrderManagement(View):
@@ -74,28 +82,41 @@ class OrderManagement(View):
                 "orders": selected_order,
                 "order_id": order_id,
                 "container_number": container_number,
+                "upload_file_form": UploadFileForm(),
             }
             return render(request, self.template_main, self.context)
+        elif step == "download_template":
+            return self.handle_download_pl_template_get(request)
         
     def post(self, request: HttpRequest) -> HttpResponse:
         step = request.POST.get("step")
         if step == "update":
-            order_id = request.POST.get("order_id")
-            container_number = request.POST.get("container_number")
-            order = Order.objects.get(models.Q(order_id=order_id))
-            container = Container.objects.get(models.Q(container_number=container_number))
-            customer = Customer.objects.get(models.Q(id=request.POST.get("customer_name")))
-            clearance = Clearance.objects.get(models.Q(order__order_id=order_id))
-            retrieval = Retrieval.objects.get(models.Q(order__order_id=order_id))
-            try:
-                warehoue = ZemWarehouse.objects.get(models.Q(id=request.POST.get("warehouse")))
-            except:
-                warehoue = None
-            packing_list = PackingList.objects.filter(models.Q(container_number__order__order_id=order_id))
-            self._update_order(
-                request, order, container, retrieval, clearance, packing_list,
-                customer, warehoue
-            )
+            if request.FILES:
+                mutable_get = request.GET.copy()
+                mutable_get["container_number"] = request.POST.getlist("container_number")[0]
+                mutable_get["step"] = "query"
+                request.GET = mutable_get
+                self.get(request)
+                self.handle_upload_pl_template_post(request)
+                return render(request, self.template_main, self.context)
+            else:
+                # raise ValueError(f"{request.POST}")
+                order_id = request.POST.get("order_id")
+                container_number = request.POST.get("container_number")
+                order = Order.objects.get(models.Q(order_id=order_id))
+                container = Container.objects.get(models.Q(container_number=container_number))
+                customer = Customer.objects.get(models.Q(id=request.POST.get("customer_name")))
+                clearance = Clearance.objects.get(models.Q(order__order_id=order_id))
+                retrieval = Retrieval.objects.get(models.Q(order__order_id=order_id))
+                try:
+                    warehoue = ZemWarehouse.objects.get(models.Q(id=request.POST.get("warehouse")))
+                except:
+                    warehoue = None
+                packing_list = PackingList.objects.filter(models.Q(container_number__order__order_id=order_id))
+                self._update_order(
+                    request, order, container, retrieval, clearance, packing_list,
+                    customer, warehoue
+                )
         else:
             raise ValueError(f"{request.POST}")
         mutable_get = request.GET.copy()
@@ -104,6 +125,41 @@ class OrderManagement(View):
         request.GET = mutable_get
         return self.get(request)
     
+    def handle_upload_pl_template_post(self, request: HttpRequest) -> None:
+        form = UploadFileForm(request.POST, request.FILES)
+        if form.is_valid():
+            file = request.FILES['file']
+            df = pd.read_excel(file)
+            df = df.rename(columns=PACKING_LIST_TEMP_COL_MAPPING)
+            df = df.dropna(how="all", subset=[c for c in df.columns if c != "delivery_method"])
+            df = df.replace(np.nan, None)
+            df = df.reset_index(drop=True)
+            for idx, row in df.iterrows():
+                if row["unit_weight_kg"] and not row["unit_weight_lbs"]:
+                    df.loc[idx, "unit_weight_lbs"] = df.loc[idx, "unit_weight_kg"] * 2.20462
+                if row["total_weight_kg"] and not row["total_weight_lbs"]:
+                    df.loc[idx, "total_weight_lbs"] = df.loc[idx, "total_weight_kg"] * 2.20462
+            model_fields = [field.name for field in PackingList._meta.fields]
+            col = [c for c in df.columns if c in model_fields]
+            pl_data = df[col].to_dict("records")
+            
+            packing_list = [PackingList(**data) for data in pl_data]            
+            packing_list_formset = formset_factory(PackingListForm, extra=0)
+            packing_list_form = packing_list_formset(initial=[model_to_dict(obj) for obj in packing_list])
+            self.context["packing_list_formset"] = packing_list_form
+            cache.clear()
+        else:
+            raise ValueError(f"invalid file format!")
+    
+    def handle_download_pl_template_get(self, request: HttpRequest) -> HttpResponse:
+        file_path = Path(__file__).parent.parent.resolve().joinpath("templates/export_file/packing_list_template.xlsx")
+        if not os.path.exists(file_path):
+            raise Http404("File does not exist")
+        with open(file_path, 'rb') as file:
+            response = HttpResponse(file.read(), content_type='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet')
+            response['Content-Disposition'] = f'attachment; filename="zem_packing_list_template.xlsx"'
+            return response
+        
     def _update_clearance(self, request: HttpRequest, obj: Clearance) -> Clearance:
         clearance_option = request.POST.get("clearance_option")
         if clearance_option == "N/A":
@@ -181,6 +237,8 @@ class OrderManagement(View):
             while j < n_pl_old:
                 obj[j].delete()
                 j += 1
+        else:
+            raise ValueError(f"invaid packing list!")
 
     def _update_order(
         self,
