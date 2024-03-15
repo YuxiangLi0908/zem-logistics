@@ -8,10 +8,17 @@
     <input type="text" id="customerSearchInput" placeholder="搜索客户..." oninput="filterTable()">
 </div>
 {% if orders %}
+<form method="post" action="">
+    {% csrf_token %}
+    <div class="text-right">
+        <input type="hidden" name="step" value="delete_order">
+        <button type="submit" onclick="confirmSubmit()" class="btn btn-danger" style="width: 100px; height: 35px;">删除订单</button>
+    </div>
     <div style="overflow-x: auto; max-width: 1200px;">
         <table id="order-table" class="table">
             <thead>
                 <tr>
+                    <th class="th" style="min-width: 40px; text-align: center;"></th>
                     <th class="th">客户</th>
                     <th class="th">柜号</th>
                     <th class="th" style="min-width: 140px;">入仓仓库</th>
@@ -30,6 +37,11 @@
             <tbody>
                 {% for o in orders %}
                 <tr>
+                    <td class="td" style="min-width: 40px; text-align: center;">
+                        <input type='checkbox' name='is_order_selected'>
+                        <input type="hidden" name="is_order_selected", value='off'>
+                        <input type="hidden" name="order_id", value='{{ o.order_id }}'>
+                    </td>
                     <td class="td">{{ o.customer_name }}</td>
                     <td class="td">
                         <a href="/order_list/?step=query&container_number={{ o.container_number }}">{{ o.container_number }}</a>
@@ -65,10 +77,11 @@
         </table>
     </div>
     <hr class="Dashed" style="margin-top: 40px; margin-bottom: 40px;">
+</form>
 {% endif %}
 
 {% if order_form %}
-<form method="post">
+<form method="post" enctype="multipart/form-data">
     {% csrf_token %}
     <div style="overflow-x: auto; max-width: 1200px;">
         <h5 class="mb-3">订单信息</h5>
@@ -131,12 +144,18 @@
     <br>
     <div>
         <h5 class="mb-3">物品清单信息</h5>
+        导入模版
+        {{ upload_file_form.file }}
+        <input type="hidden" name="order_data" value="{{ order_data }}">
+        <input type="hidden" name="container_data" value="{{ container_data }}">
+        <button type="submit" class="btn btn-success" style="width: 100px; height: 35px;">上传清单</button>
+        <a href="{% url 'order_list' %}?step=download_template" class="btn btn-success" style="width: 100px; height: 35px;">下载模版</a>
         <div class="text-right">
             <button type="button" id="add-more-btn" class="btn btn-success" style="width: 100px; height: 35px;">
-                添加
+                添加行
             </button>
             <button type="button" id="remove-last-btn" class="btn btn-danger" style="width: 100px; height: 35px;">
-                删除
+                删除行
             </button>
         </div>
     </div>
@@ -145,6 +164,7 @@
         <table class="table">
             <thead>
                 <tr>
+                    <th class="th" style="min-width: 40px; text-align: center;"></th>
                     <th class="th">物品名</th>
                     <th class="th">派送方式</th>
                     <th class="th">唛头</th>
@@ -163,6 +183,9 @@
             </thead>
             <tbody id="formsets-container">
                 <tr id="formset-row" style="display: none;">
+                    <td class="td" style="min-width: 40px; text-align: center;">
+                        <input type='checkbox' name='is_packing_list_selected'>
+                    </td>
                     <td class="td">{{ packing_list_formset.empty_form.product_name }}</td>
                     <td class="td">{{ packing_list_formset.empty_form.delivery_method }}</td>
                     <td class="td">{{ packing_list_formset.empty_form.shipping_mark }}</td>
@@ -180,6 +203,9 @@
                 </tr>
                 {% for pl in packing_list_formset.forms %}
                     <tr id="formset-row">
+                        <td class="td" style="min-width: 40px; text-align: center;">
+                            <input type='checkbox' name='is_packing_list_selected'>
+                        </td>
                         <td class="td">{{ pl.product_name }}</td>
                         <td class="td">{{ pl.delivery_method }}</td>
                         <td class="td">{{ pl.shipping_mark }}</td>
@@ -241,7 +267,7 @@
             document.getElementById('id_form-TOTAL_FORMS').value++;
         });
 
-        removeLastBtn.addEventListener('click', removeLastFormset);
+        removeLastBtn.addEventListener('click', removeSelectedFormset);
         function removeLastFormset() {
             const formsetCount = formsetsContainer.getElementsByTagName('tr').length;
             const formsetRows = formsetsContainer.children;
@@ -253,6 +279,38 @@
                 // Decrement the form count
                 document.getElementById('id_form-TOTAL_FORMS').value--;
             }
+        }
+        function removeSelectedFormset() {
+            var selectedRows = document.querySelectorAll('#formsets-container tr');
+            selectedRows.forEach(function(row) {
+                var checkbox = row.querySelector('input[type="checkbox"]');
+                if (checkbox.checked) {
+                    row.remove();
+                }
+            })
+            const formsetCount = formsetsContainer.getElementsByTagName('tr').length - 1;
+            for(let i = 0; i < formsetCount; i++) {
+                const tableRow = formsetsContainer.getElementsByTagName('tr')[i+1]
+                for (let j = 0; j < tableRow.getElementsByTagName('input').length; j++) {
+                    const inputField = tableRow.getElementsByTagName('input')[j];
+                    var idParts = inputField.id.split('-');
+                    var nameParts = inputField.name.split('-');
+                    var newId = idParts[0] + '-' + `${i}` + '-' + idParts[2];
+                    var newName = nameParts[0] + '-' + `${i}` + '-' + nameParts[2];
+                    inputField.setAttribute('id', newId);
+                    inputField.setAttribute('name', newName);
+                }
+                for (let j = 0; j < tableRow.getElementsByTagName('select').length; j++) {
+                    const inputField = tableRow.getElementsByTagName('select')[j]
+                    var idParts = inputField.id.split('-')
+                    var nameParts = inputField.name.split('-')
+                    var newId = idParts[0] + '-' + `${i}` + '-' + idParts[2]
+                    var newName = nameParts[0] + '-' + `${i}` + '-' + nameParts[2]
+                    inputField.setAttribute('id', newId)
+                    inputField.setAttribute('name', newName);
+                }
+            }
+            document.getElementById('id_form-TOTAL_FORMS').value = formsetCount
         }
     });
 
@@ -277,6 +335,15 @@
 
                 // Set display style based on both container and customer filters
                 tr[i].style.display = containerDisplayStyle === "" && customerDisplayStyle === "" ? "" : "none";
+            }
+        }
+    };
+
+    function confirmSubmit() {
+        const checkBoxes = document.getElementsByName('is_order_selected');
+        for (let i = 0; i < checkBoxes.length; i+=2) {
+            if (checkBoxes[i].checked) {
+                checkBoxes[i+1].disabled = true;
             }
         }
     }

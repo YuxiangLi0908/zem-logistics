@@ -233,10 +233,10 @@
             </div>
             <div class="col-4 text-right">
                 <button type="button" id="add-more-btn" class="btn btn-success" style="width: 100px; height: 35px;">
-                    添加
+                    添加行
                 </button>
                 <button type="button" id="remove-last-btn" class="btn btn-danger" style="width: 100px; height: 35px;">
-                    删除
+                    删除行
                 </button>
             </div>
         </div>
@@ -245,6 +245,7 @@
             <table class="table">
                 <thead>
                     <tr>
+                        <th class="th" style="min-width: 40px; text-align: center;"></th>
                         <th class="th">物品名</th>
                         <th class="th">派送方式</th>
                         <th class="th">唛头</th>
@@ -261,6 +262,9 @@
                 </thead>
                 <tbody id="formsets-container">
                     <tr id="formset-row" style="display: none;">
+                        <td class="td" style="min-width: 40px; text-align: center;">
+                            <input type='checkbox' name='is_packing_list_selected'>
+                        </td>
                         <td class="td">{{ packing_list_form.empty_form.product_name }}</td>
                         <td class="td">{{ packing_list_form.empty_form.delivery_method }}</td>
                         <td class="td">{{ packing_list_form.empty_form.shipping_mark }}</td>
@@ -276,6 +280,9 @@
                     </tr>
                     {% for pl in packing_list_form.forms %}
                         <tr id="formset-row">
+                            <td class="td" style="min-width: 40px; text-align: center;">
+                                <input type='checkbox' name='is_packing_list_selected'>
+                            </td>
                             <td class="td">{{ pl.product_name }}</td>
                             <td class="td">{{ pl.delivery_method }}</td>
                             <td class="td">{{ pl.shipping_mark }}</td>
@@ -313,7 +320,7 @@
 
         addMoreBtn.addEventListener('click', function () {
             const newFormset = document.createElement('tr');
-            const formsetCount = formsetsContainer.getElementsByTagName('tr').length;
+            const formsetCount = formsetsContainer.getElementsByTagName('tr').length - 1;
             newFormset.setAttribute('id', `id_order-${formsetCount}-container_id`)
 
             // Clone the first formset and update the form indexes
@@ -336,7 +343,7 @@
             document.getElementById('id_form-TOTAL_FORMS').value++;
         });
 
-        removeLastBtn.addEventListener('click', removeLastFormset);
+        removeLastBtn.addEventListener('click', removeSelectedFormset);
         function removeLastFormset() {
             const formsetCount = formsetsContainer.getElementsByTagName('tr').length;
             const formsetRows = formsetsContainer.children;
@@ -348,6 +355,38 @@
                 // Decrement the form count
                 document.getElementById('id_form-TOTAL_FORMS').value--;
             }
+        }
+        function removeSelectedFormset() {
+            var selectedRows = document.querySelectorAll('#formsets-container tr');
+            selectedRows.forEach(function(row) {
+                var checkbox = row.querySelector('input[type="checkbox"]');
+                if (checkbox.checked) {
+                    row.remove();
+                }
+            })
+            const formsetCount = formsetsContainer.getElementsByTagName('tr').length - 1;
+            for(let i = 0; i < formsetCount; i++) {
+                const tableRow = formsetsContainer.getElementsByTagName('tr')[i+1]
+                for (let j = 0; j < tableRow.getElementsByTagName('input').length; j++) {
+                    const inputField = tableRow.getElementsByTagName('input')[j];
+                    var idParts = inputField.id.split('-');
+                    var nameParts = inputField.name.split('-');
+                    var newId = idParts[0] + '-' + `${i}` + '-' + idParts[2];
+                    var newName = nameParts[0] + '-' + `${i}` + '-' + nameParts[2];
+                    inputField.setAttribute('id', newId);
+                    inputField.setAttribute('name', newName);
+                }
+                for (let j = 0; j < tableRow.getElementsByTagName('select').length; j++) {
+                    const inputField = tableRow.getElementsByTagName('select')[j]
+                    var idParts = inputField.id.split('-')
+                    var nameParts = inputField.name.split('-')
+                    var newId = idParts[0] + '-' + `${i}` + '-' + idParts[2]
+                    var newName = nameParts[0] + '-' + `${i}` + '-' + nameParts[2]
+                    inputField.setAttribute('id', newId)
+                    inputField.setAttribute('name', newName);
+                }
+            }
+            document.getElementById('id_form-TOTAL_FORMS').value = formsetCount
         }
     });
     (function () {
