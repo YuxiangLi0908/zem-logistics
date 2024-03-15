@@ -325,8 +325,8 @@
         tr = tbody.getElementsByTagName("tr");
 
         for (i = 0; i < tr.length; i++) {
-            containerTd = tr[i].getElementsByTagName("td")[1]; // Index 1 corresponds to the container_number__container_number column
-            customerTd = tr[i].getElementsByTagName("td")[0]; // Index 2 corresponds to the customer column
+            containerTd = tr[i].getElementsByTagName("td")[2]; // Index 1 corresponds to the container_number__container_number column
+            customerTd = tr[i].getElementsByTagName("td")[1]; // Index 2 corresponds to the customer column
             if (containerTd && customerTd) {
                 containerTxtValue = containerTd.textContent || containerTd.innerText;
                 customerTxtValue = customerTd.textContent || customerTd.innerText;
