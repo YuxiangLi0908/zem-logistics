@@ -177,7 +177,6 @@
                     <th class="th">单箱重量-lbs</th>
                     <th class="th">总重量-lbs</th>
                     <th class="th">CBM</th>
-                    <th class="th">打板数</th>
                     <th class="th">批次号</th>
                 </tr>
             </thead>
@@ -198,7 +197,6 @@
                     <td class="td">{{ packing_list_formset.empty_form.unit_weight_lbs }}</td>
                     <td class="td">{{ packing_list_formset.empty_form.total_weight_lbs }}</td>
                     <td class="td">{{ packing_list_formset.empty_form.cbm }}</td>
-                    <td class="td">{{ packing_list_formset.empty_form.n_pallet }}</td>
                     <td class="td">{{ packing_list_formset.empty_form.shipment_batch_number }}</td>
                 </tr>
                 {% for pl in packing_list_formset.forms %}
@@ -218,7 +216,6 @@
                         <td class="td">{{ pl.unit_weight_lbs }}</td>
                         <td class="td">{{ pl.total_weight_lbs }}</td>
                         <td class="td">{{ pl.cbm }}</td>
-                        <td class="td">{{ pl.n_pallet }}</td>
                         <td class="td">{{ pl.shipment_batch_number }}</td>
                     </tr>
                 {% endfor %}

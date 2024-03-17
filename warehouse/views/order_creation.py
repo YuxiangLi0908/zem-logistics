@@ -111,16 +111,18 @@ class OrderCreation(View):
     
     def handle_packing_list_post(self, request: HttpRequest) -> Any:
         order_type = request.POST.get("order_type")
-        if self._check_duplicated_container(request.POST.get("container_number")):
-                raise RuntimeError(f"{request.POST.get('container_number')} exists!")
+        container_number = request.POST.get("container_number").strip()
+        if self._check_duplicated_container(container_number):
+                raise RuntimeError(f"{container_number} exists!")
         if order_type == "直送":
             order_data = ast.literal_eval(request.POST.get("order_data"))
             container_data = dict(request.POST.items())
+            container_data["container_number"] = container_number
             order = self._create_order_object(order_data, container_data)
             return redirect("home")
         else:
             self.context["container_data"] = {
-                "container_number": request.POST.get("container_number"),
+                "container_number": container_number,
                 "container_type": request.POST.get("container_type"),
                 "shipping_line": request.POST.get("shipping_line"),
                 "origin": request.POST.get("origin"),

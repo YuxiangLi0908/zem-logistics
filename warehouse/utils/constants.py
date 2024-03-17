@@ -44,7 +44,6 @@ DELIVERY_METHOD_OPTIONS = [
     ("暂扣留仓", "暂扣留仓"),
     ("整柜直送", "整柜直送"),
     ("UPS", "UPS"),
-    ("UPS", "UPS"),
     ("FEDEX", "FEDEX"),
     ("DHL", "DHL"),
     ("DPD", "DPD"),

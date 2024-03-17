@@ -34,10 +34,10 @@
                 <th class="th">Carrier</th>
                 <th class="th">装车类型</th>
                 <th class="th">送达时间</th>
-                <th class="th">箱数</th>
+                <th class="th">总箱数</th>
                 <th class="th">总重lbs</th>
-                <th class="th">CBM</th>
-                <th class="th">卡板数</th>
+                <th class="th">总CBM</th>
+                <th class="th">总卡板数</th>
             </tr>
         </thead>
         <tbody>
@@ -89,7 +89,6 @@
                 <th class="th">箱数</th>
                 <th class="th">总重lbs</th>
                 <th class="th">CBM</th>
-                <th class="th">卡板数</th>
             </tr>
         </thead>
         <tbody>
@@ -103,7 +102,6 @@
                 <td class="td">{{ c.total_pcs }}</td>
                 <td class="td">{{ c.total_weight_lbs|floatformat:2 }}</td>
                 <td class="td">{{ c.total_cbm|floatformat:2 }}</td>
-                <td class="td">{{ c.total_n_pallet }}</td>
             </tr>
             {% endfor %}
         </tbody>

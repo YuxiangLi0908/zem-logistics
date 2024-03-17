@@ -22,13 +22,14 @@
         <table id="shipment-batch-table" class="table">
             <thead>
                 <tr>
-                    <th class="th">批次号</th>
+                    <th class="th" style="min-width: 150px;">批次号</th>
                     <th class="th">目的地</th>
                     <th class="th">Carrier</th>
-                    <th class="th">预约出库时间</th>
-                    <th class="th">CBM</th>
-                    <th class="th">卡板</th>
+                    <th class="th" style="min-width: 150px;">预约出库时间</th>
+                    <th class="th">总箱数</th>
                     <th class="th">总重lbs</th>
+                    <th class="th">总CBM</th>
+                    <th class="th">总卡板数</th>
                     <th class="th">实际出库时间</th>
                 </tr>
             </thead>
@@ -36,21 +37,19 @@
                 {% for s, f in shipment_list %}
                 <tr>
                     <td class="td">
-                        {{ s.shipment_batch_number__shipment_batch_number }}
-                        <!-- <a href="/outbound/?step=batch&warehouse={{ warehouse_form.name.value }}&batch_id={{c.shipment_batch_number__shipment_batch_number}}">
-                            {{ c.shipment_batch_number__shipment_batch_number }}
-                        <a> -->
+                        <small>{{ s.shipment_batch_number }}</small>
                     </td>
-                    <td class="td">{{ s.shipment_batch_number__destination }}</td>
-                    <td class="td">{{ s.shipment_batch_number__carrier }}</td>
-                    <td class="td">{{ s.shipment_batch_number__shipment_appointment }}</td>
-                    <td class="td">{{ s.total_cbm }}</td>
-                    <td class="td">{{ s.total_n_pallet }}</td>
-                    <td class="td">{{ s.total_weight_lbs }}</td>
+                    <td class="td"><small>{{ s.destination }}</small></td>
+                    <td class="td"><small>{{ s.carrier }}</small></td>
+                    <td class="td"><small>{{ s.shipment_appointment }}</small></td>
+                    <td class="td"><small>{{ s.total_pcs }}</small></td>
+                    <td class="td"><small>{{ s.total_weight|floatformat:2 }}</small></td>
+                    <td class="td"><small>{{ s.total_cbm|floatformat:2 }}</small></td>
+                    <td class="td"><small>{{ s.total_pallet }}</small></td>                    
                     <td class="td">
                         <form method="post" action="">
                             {% csrf_token %}
-                            <input type="hidden" name="batch_id" value="{{ s.shipment_batch_number__shipment_batch_number }}">
+                            <input type="hidden" name="batch_id" value="{{ s.shipment_batch_number }}">
                             <input type="hidden" name="step" value="confirm">
                             <input type="hidden" name="name" value="{{ warehouse }}">
                             {{ f.shipped_at }}
