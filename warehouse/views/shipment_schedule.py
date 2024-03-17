@@ -11,6 +11,9 @@ from django.contrib.auth.decorators import login_required
 from django.views import View
 from django.utils.decorators import method_decorator
 from django.db import models
+from django.db.models import Case, Value, CharField, F, Sum, FloatField, IntegerField, When, Count
+from django.db.models.functions import Concat, Cast
+from django.contrib.postgres.aggregates import StringAgg
 
 from warehouse.models.offload import Offload
 from warehouse.models.order import Order
@@ -86,7 +89,8 @@ class ScheduleShipment(View):
         warehouse_form = ZemWarehouseForm(initial={"name": warehouse})
         selections = request.POST.getlist("is_shipment_schduled")
         ids = request.POST.getlist("pl_ids")
-        selected = [int(id) for s, id in zip(selections, ids) if s == "on"]
+        ids = [i.split(",") for i in ids]
+        selected = [int(i) for s, id in zip(selections, ids) for i in id if s == "on"]
         if selected:
             packling_list = PackingList.objects.filter(
                 id__in=selected
@@ -96,19 +100,22 @@ class ScheduleShipment(View):
                 'container_number__order__customer_name__zem_name',
                 'container_number__order__offload_id__offload_at',
             ).annotate(
-                total_cbm=models.Sum('cbm'),
-                total_n_pallet=models.Sum('n_pallet'),
-                total_pcs=models.Sum('pcs'),
-                total_weight_lbs=models.Sum('total_weight_lbs')
+                total_pcs=Sum("pallet__pcs", output_field=IntegerField()),
+                total_cbm=Sum("pallet__cbm", output_field=FloatField()),
+                total_weight_lbs=Sum("pallet__weight_lbs", output_field=FloatField()),
+                total_n_pallet=Count('pallet__pallet_id', distinct=True),
             ).order_by(
                 'container_number__container_number',
                 '-total_weight_lbs'
             )
-            total_weight, total_cbm, total_pallet, total_pcs = .0, .0, .0, .0
+            
+            total_pallet = PackingList.objects.filter(id__in=selected).values('pallet__pallet_id').distinct().count()
+            total_weight, total_cbm, total_pcs = .0, .0, 0
+            cbm_list = []
             for pl in packling_list:
+                cbm_list.append(pl.get("total_cbm"))
                 total_weight += pl.get("total_weight_lbs")
                 total_cbm += pl.get("total_cbm")
-                total_pallet += pl.get("total_n_pallet")
                 total_pcs += pl.get("total_pcs")
             destination = packling_list[0].get("destination")
             batch_id = uuid.uuid3(uuid.NAMESPACE_DNS, str(uuid.uuid4()) + warehouse + destination + request.user.username + str(time.time()))
@@ -173,18 +180,30 @@ class ScheduleShipment(View):
     def _get_packing_list_not_scheduled(self, warehouse: str) -> PackingList:
         return PackingList.objects.filter(
             models.Q(container_number__order__warehouse__name=warehouse) &
-            models.Q(n_pallet__isnull=False) &
+            models.Q(container_number__order__offload_id__total_pallet__isnull=False) &
             models.Q(shipment_batch_number__isnull=True)
+        ).annotate(
+            custom_delivery_method=Case(
+                When(delivery_method='暂扣留仓', then=Concat('delivery_method', Value('-'), 'fba_id', Value('-'), 'id')),
+                default=F('delivery_method'),
+                output_field=CharField()
+            ),
+            str_id=Cast("id", CharField()),
+            str_fba_id=Cast("fba_id", CharField()),
+            str_ref_id=Cast("ref_id", CharField()),
         ).values(
-            'id',
             'container_number__container_number',
             'container_number__order__customer_name__zem_name',
             'destination',
-            'delivery_method',
+            'address',
+            'custom_delivery_method',
             'container_number__order__offload_id__offload_at'
         ).annotate(
-            total_cbm=models.Sum('cbm'),
-            total_n_pallet=models.Sum('n_pallet'),
-            total_pcs=models.Sum('pcs'),
-            total_weight_lbs=models.Sum('total_weight_lbs')
-        ).order_by('-total_n_pallet')
+            fba_ids=StringAgg("str_fba_id", delimiter=",", distinct=True, ordering="str_fba_id"),
+            ref_ids=StringAgg("str_ref_id", delimiter=",", distinct=True, ordering="str_ref_id"),
+            ids=StringAgg("str_id", delimiter=",", distinct=True, ordering="str_id"),
+            pcs=Sum("pallet__pcs", output_field=IntegerField()),
+            cbm=Sum("pallet__cbm", output_field=FloatField()),
+            weight_lbs=Sum("pallet__weight_lbs", output_field=FloatField()),
+            n_pallet=Count('pallet__pallet_id', distinct=True)
+        ).order_by('-n_pallet')

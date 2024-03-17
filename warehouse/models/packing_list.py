@@ -20,4 +20,4 @@ class PackingList(models.Model):
     shipment_batch_number = models.ForeignKey(Shipment, null=True, on_delete=models.SET_NULL)
 
     def __str__(self):
-        return f"{self.container_number} - {self.destination}"
+        return f"{self.container_number}-{self.destination}-{self.shipping_mark if self.shipping_mark else 'no_mt'}-{self.fba_id if self.fba_id else 'no_fba'}"

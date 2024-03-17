@@ -43,7 +43,7 @@ class ShipmentDispatch(View):
     def handle_warehouse_post(self, request: HttpRequest) -> HttpResponse:
         warehouse = request.POST.get("name")
         warehouse_form = ZemWarehouseForm(initial={"name": warehouse})
-        shipment_data = self._get_packing_list_scheduled(warehouse)
+        shipment_data = self._get_shipment(warehouse)
         shipment_list = []
         for s in shipment_data:
             shipment_list.append((s, ShipmentForm()))
@@ -64,9 +64,14 @@ class ShipmentDispatch(View):
         mutable_post = request.POST.copy()
         mutable_post["name"] = request.POST.get("name")
         request.POST = mutable_post
+        
         return self.handle_warehouse_post(request)
         
-    def _get_packing_list_scheduled(self, warehouse: str) -> PackingList:
+    def _get_shipment(self, warehouse: str) -> Shipment:
+        return Shipment.objects.filter(
+            models.Q(origin=warehouse)&
+            models.Q(is_shipped=False)
+        ).order_by('shipment_appointment')
         return PackingList.objects.filter(
             models.Q(container_number__order__warehouse__name=warehouse) &
             models.Q(shipment_batch_number__isnull=False) &

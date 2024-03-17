@@ -34,7 +34,7 @@
                 {% for c in order_not_palletized %}
                 <tr>
                     <td class="td">
-                        <a href="/palletize/{{c.id}}/">{{ c.container_number }}</a>
+                        <a href="/palletize/{{c.id}}/?step=new">{{ c.container_number }}</a>
                     </td>
                     <td class="td">{{ c.customer_name }}</td>
                     <td class="td">{{ c.retrieval_id.destination }}</td>
@@ -70,7 +70,7 @@
                 {% for c in order_palletized %}
                 <tr>
                     <td class="td">
-                        <a href="/palletize/{{c.id}}/">{{ c.container_number }}</a>
+                        <a href="/palletize/{{c.id}}/?step=complete">{{ c.container_number }}</a>
                     </td>
                     <td class="td">{{ c.customer_name }}</td>
                     <td class="td">{{ c.retrieval_id.destination }}</td>

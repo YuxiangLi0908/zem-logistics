@@ -1,6 +1,7 @@
 {% extends 'base.html' %}
 {% load static %}
 {% load static custom_tags %}
+{% load static custom_filters %}
 
 {% block content %}
 <h3 class="mb-3">预约出库</h3>
@@ -44,16 +45,20 @@
                     <td class="td" style="min-width: 40px; text-align: center;">
                         <input type='checkbox' name='is_shipment_schduled'>
                         <input type="hidden" name="is_shipment_schduled", value='off'>
-                        <input type="hidden" name="pl_ids", value='{{ c.id }}'>
+                        <input type="hidden" name="pl_ids", value='{{ c.ids }}'>
                     </td>
                     <td class="td">{{ c.container_number__order__customer_name__zem_name }}</td>
                     <td class="td">{{ c.container_number__container_number }}</td>
                     <td class="td">{{ c.destination }}</td>
-                    <td class="td">{{ c.total_pcs }}</td>
-                    <td class="td">{{ c.total_weight_lbs|floatformat:2 }}</td>
-                    <td class="td">{{ c.total_cbm|floatformat:2 }}</td>
-                    <td class="td">{{ c.total_n_pallet }}</td>
-                    <td class="td">{{ c.delivery_method }}</td>
+                    <td class="td">{{ c.pcs }}</td>
+                    <td class="td">{{ c.weight_lbs|floatformat:2 }}</td>
+                    <td class="td">{{ c.cbm|floatformat:2 }}</td>
+                    <td class="td">{{ c.n_pallet }}</td>
+                    <td class="td">
+                        {% with first_value=c.custom_delivery_method|split_and_get_first %}
+                            {{ first_value }}
+                        {% endwith %}
+                    </td>
                     <td class="td">{{ c.container_number__order__offload_id__offload_at }}</td>
                 </tr>
                 {% endfor %}
@@ -71,7 +76,6 @@
 <form method="post" action="">
     {% csrf_token %}
     <h3 class="mb-4">待确认预约</h3>
-
     <table id="shipment-table" class="table">
         <thead>
             <tr>
@@ -95,23 +99,22 @@
         <thead>
             <tr>
                 <th class="th">batch_number</th>
-                <th class="th">箱数</th>
+                <th class="th">总箱数</th>
                 <th class="th">总重lbs</th>
-                <th class="th">CBM</th>
-                <th class="th">卡板数</th>
+                <th class="th">总CBM</th>
+                <th class="th">总卡板数</th>
             </tr>
         </thead>
         <tbody>
             <tr>
                 <td class="td">{{ shipment.shipment_batch_number }}</td>
-                <td class="td">{{ shipment.total_weight|floatformat:2 }}</td>
-                <td class="td">{{ shipment.total_cbm|floatformat:2 }}</td>
                 <td class="td">{{ shipment.total_pcs }}</td>
+                <td class="td">{{ shipment.total_weight|floatformat:2 }}</td>
+                <td class="td">{{ shipment.total_cbm|floatformat:2}}</td>
                 <td class="td">{{ shipment.total_pallet }}</td>
             </tr>
         </tbody>
     </table>
-
 
     <div style="overflow-x: auto; max-width: 1200px; overflow-y: auto; max-height: 1200px;">
         <table id="packing-list-table" class="table">
@@ -123,9 +126,9 @@
                     <th class="th">FBA_ID</th>
                     <th class="th">REF_ID</th>
                     <th class="th">箱数</th>
-                    <th class="th">总重lbs</th>
+                    <th class="th">重量lbs</th>
                     <th class="th">CBM</th>
-                    <th class="th">卡板数</th>
+                    <th class="th">卡板数<br><small><small><i>以<b>总卡板数</b>为准</i></small></small></th>
                 </tr>
             </thead>
             <tbody>
@@ -140,7 +143,7 @@
                     <td class="td">{{ c.total_weight_lbs|floatformat:2 }}</td>
                     <td class="td">{{ c.total_cbm|floatformat:2 }}</td>
                     <td class="td">{{ c.total_n_pallet }}</td>
-                </tr>
+                </tr>          
                 {% endfor %}
             </tbody>
         </table>
@@ -152,80 +155,6 @@
 </form>
 {% endif %}
 
-
-
-
-
-
-<!-- old -->
-<!-- {% if order_packing_list %}
-<h4 class="mb-4">预约列表</h4>
-<form method="post" class="needs-validation" id="shipmentForm" novalidate>
-    {% csrf_token %}
-    <table>
-        <thead>
-            <tr>
-                <th style="border: 1px solid #dddddd;">确认预约</th>
-                <th style="border: 1px solid #dddddd;">预约派送时间</th>
-                <th style="border: 1px solid #dddddd;">承运方</th>
-                <th style="border: 1px solid #dddddd;">目的仓库</th>
-                <th style="border: 1px solid #dddddd;">客户</th>
-                <th style="border: 1px solid #dddddd;">柜号</th>
-                <th style="border: 1px solid #dddddd;">派送方式</th>
-                <th style="border: 1px solid #dddddd;">唛头</th>
-                <th style="border: 1px solid #dddddd;">FBA号</th>
-                <th style="border: 1px solid #dddddd;">ref_id</th>
-                <th style="border: 1px solid #dddddd;">箱数</th>
-                <th style="border: 1px solid #dddddd;">总重-lbs</th>
-                <th style="border: 1px solid #dddddd;">CBM</th>
-                <th style="border: 1px solid #dddddd;">卡板</th>
-            </tr>
-        </thead>
-        <tbody>
-            {% for pl, f in order_packing_list %}
-            <tr>
-                <td style="border: 1px solid #dddddd;">
-                    {{ f.is_shipment_schduled }}
-                    <input type="hidden" name="is_shipment_schduled" id="id_is_shipment_schduled_hidden", value='off'>
-                </td>
-                <td style="border: 1px solid #dddddd;">{{ f.shipment_appointment }}</td>
-                <td style="border: 1px solid #dddddd;">{{ f.carrier }}</td>
-                <td style="border: 1px solid #dddddd;">{{ pl.destination }}</td>
-                <td style="border: 1px solid #dddddd;">{{ pl.customer_name }}</td>
-                <td style="border: 1px solid #dddddd;">{{ pl.container_number__container_number }}</td>
-                <td style="border: 1px solid #dddddd;">{{ pl.delivery_method }}</td>
-                <td style="border: 1px solid #dddddd;">{{ pl.shipping_mark }}</td>
-                <td style="border: 1px solid #dddddd;">{{ pl.fba_id }}</td>
-                <td style="border: 1px solid #dddddd;">{{ pl.ref_id }}</td>
-                <td style="border: 1px solid #dddddd;">{{ pl.pcs }}</td>
-                <td style="border: 1px solid #dddddd;">{{ pl.total_weight_lbs|floatformat:2 }}</td>
-                <td style="border: 1px solid #dddddd;">{{ pl.cbm|floatformat:2 }}</td>
-                <td style="border: 1px solid #dddddd;">{{ pl.n_pallet }}</td>
-            </tr>
-            {% endfor %}
-        </tbody>
-    </table>
-    <input type="hidden" name="step" value="appointment">
-    <input type="hidden" name="ids" value="{{ ids }}">
-    <div class="text-left">
-        <button id="submit-btn" type="button" onclick="confirmSubmit()" class="btn btn-primary" style="width: 100px; height: 35px;">确认</button>
-        <script>
-            function confirmSubmit() {
-                const checkBoxes = document.getElementsByName('is_shipment_schduled');
-                for (let i = 0; i < checkBoxes.length; i+=2) {
-                    if (checkBoxes[i].checked) {
-                        checkBoxes[i+1].disabled = true;
-                    }
-                }
-                var confirmation = window.confirm("确认预约?");
-                if (confirmation) {
-                    document.getElementById("shipmentForm").submit();
-                }
-            }
-        </script>
-    </div>
-</form>
-{% endif %} -->
 
 <script>
     function filterTable() {
@@ -239,8 +168,8 @@
         tr = tbody.getElementsByTagName("tr");
 
         for (i = 0; i < tr.length; i++) {
-            containerTd = tr[i].getElementsByTagName("td")[1]; // Index 1 corresponds to the container_number__container_number column
-            destinationTd = tr[i].getElementsByTagName("td")[2]; // Index 2 corresponds to the destination column
+            containerTd = tr[i].getElementsByTagName("td")[2]; // Index 1 corresponds to the container_number__container_number column
+            destinationTd = tr[i].getElementsByTagName("td")[3]; // Index 2 corresponds to the destination column
             if (containerTd && destinationTd) {
                 containerTxtValue = containerTd.textContent || containerTd.innerText;
                 destinationTxtValue = destinationTd.textContent || destinationTd.innerText;

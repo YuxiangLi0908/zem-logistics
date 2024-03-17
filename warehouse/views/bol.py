@@ -8,6 +8,7 @@ from django.contrib.auth.decorators import login_required
 from django.views import View
 from django.utils.decorators import method_decorator
 from django.db import models
+from django.db.models import Sum, FloatField, IntegerField, Count
 
 from warehouse.models.customer import Customer
 from warehouse.models.shipment import Shipment
@@ -50,10 +51,10 @@ class BOL(View):
             'container_number__order__customer_name__zem_name',
             'container_number__order__offload_id__offload_at',
         ).annotate(
-            total_cbm=models.Sum('cbm'),
-            total_n_pallet=models.Sum('n_pallet'),
-            total_pcs=models.Sum('pcs'),
-            total_weight_lbs=models.Sum('total_weight_lbs')
+            total_pcs=Sum("pallet__pcs", output_field=IntegerField()),
+            total_cbm=Sum("pallet__cbm", output_field=FloatField()),
+            total_weight_lbs=Sum("pallet__weight_lbs", output_field=FloatField()),
+            total_n_pallet=Count('pallet__pallet_id', distinct=True),
         ).order_by(
             'container_number__container_number',
             '-total_weight_lbs'

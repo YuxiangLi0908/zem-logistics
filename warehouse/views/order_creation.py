@@ -117,6 +117,7 @@ class OrderCreation(View):
         if order_type == "直送":
             order_data = ast.literal_eval(request.POST.get("order_data"))
             container_data = dict(request.POST.items())
+            container_data["container_number"] = container_number
             order = self._create_order_object(order_data, container_data)
             return redirect("home")
         else:
