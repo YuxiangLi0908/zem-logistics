@@ -157,6 +157,7 @@ class Palletization(View):
             pcs_total = 0
             weight_total = 0
             pl_cbm = pl.cbm
+            pl_total_weight = pl.total_weight_lbs if pl.total_weight_lbs else 0
             while pl_cbm > 1e-10:
                 pcs_loaded = 0
                 cbm_loaded = 0
@@ -169,16 +170,16 @@ class Palletization(View):
                     pcs_loaded = int(pl.pcs * cbm_loaded / pl.cbm)
                     pcs_total += pcs_loaded
                     pcs_loaded += pl.pcs - pcs_total
-                    weight_loaded = round(pl.total_weight_lbs * cbm_loaded / pl.cbm, 2)
+                    weight_loaded = round(pl_total_weight * cbm_loaded / pl.cbm, 2)
                     weight_total += weight_loaded
-                    weight_loaded += pl.total_weight_lbs - weight_total
+                    weight_loaded += pl_total_weight - weight_total
                     pl_cbm = 0
                 else:
                     pl_cbm -= pallet_vol[i]
                     cbm_loaded += pallet_vol[i]
                     pcs_loaded = int(pl.pcs * cbm_loaded / pl.cbm)
                     pcs_total += pcs_loaded
-                    weight_loaded = round(pl.total_weight_lbs * cbm_loaded / pl.cbm, 2)
+                    weight_loaded = round(pl_total_weight * cbm_loaded / pl.cbm, 2)
                     weight_total += weight_loaded
                     pallet_vol[i] = 0
                 Pallet(**{
