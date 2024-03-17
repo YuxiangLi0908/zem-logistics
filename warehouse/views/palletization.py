@@ -19,7 +19,7 @@ from warehouse.models.packing_list import PackingList
 from warehouse.models.pallet import Pallet
 from warehouse.forms.warehouse_form import ZemWarehouseForm
 from warehouse.forms.packling_list_form import PackingListForm
-
+from warehouse.views.export_file import export_palletization_list
 
 @method_decorator(login_required(login_url='login'), name='dispatch')
 class Palletization(View):
@@ -51,6 +51,9 @@ class Palletization(View):
             self.handle_packing_list_post(request, pk)
         elif step == "back":
             self.handle_warehouse_post(request)
+        elif step == "export":
+            # raise ValueError(f"{request.POST}")
+            return export_palletization_list(request)
         else:
             raise ValueError(f"{request.POST}")
         return self.get(request)
@@ -71,9 +74,9 @@ class Palletization(View):
             ).values(
                 "container_number__container_number", "destination", "address", "custom_delivery_method"
             ).annotate(
-                fba_ids=StringAgg("str_fba_id", delimiter=",", distinct=True, ordering="str_fba_id"),
-                ref_ids=StringAgg("str_ref_id", delimiter=",", distinct=True, ordering="str_ref_id"),
-                ids=StringAgg("str_id", delimiter=",", distinct=True, ordering="str_id"),
+                fba_ids=StringAgg("str_fba_id", delimiter=",", distinct=True),
+                ref_ids=StringAgg("str_ref_id", delimiter=",", distinct=True),
+                ids=StringAgg("str_id", delimiter=",", distinct=True),
                 pcs=Sum("pcs", output_field=IntegerField()),
                 cbm=Sum("cbm", output_field=FloatField()),
                 n_pallet=Count('pallet__pallet_id', distinct=True)
