@@ -13,6 +13,7 @@
 <hr class="Dashed" style="margin-top: 40px; margin-bottom: 40px;">
 
 {% if order_not_palletized %}
+
     <h4 class="mb-3">待拆柜</h4>
     <div class="search-filters">
         <input type="text" id="containerSearchInput" placeholder="搜索柜号..." oninput="filterTable()">
@@ -28,20 +29,30 @@
                     <th class="th">柜型</th>
                     <th class="th">预约提柜时间</th>
                     <th class="th">实际提柜时间</th>
+                    <th class="th">拆柜单</th>
                 </tr>
             </thead>
             <tbody>
                 {% for c in order_not_palletized %}
-                <tr>
-                    <td class="td">
-                        <a href="/palletize/{{c.id}}/?step=new">{{ c.container_number }}</a>
-                    </td>
-                    <td class="td">{{ c.customer_name }}</td>
-                    <td class="td">{{ c.retrieval_id.destination }}</td>
-                    <td class="td">{{ c.container_number.container_type }}</td>
-                    <td class="td">{{ c.retrieval_id.target_retrieval_timestamp }}</td>
-                    <td class="td">{{ c.retrieval_id.actual_retrieval_timestamp }}</td>
-                </tr>
+                <form method="post" action="">
+                    {% csrf_token %}
+                    <tr>
+                        <td class="td">
+                            <a href="/palletize/{{c.id}}/?step=new">{{ c.container_number }}</a>
+                        </td>
+                        <td class="td">{{ c.customer_name }}</td>
+                        <td class="td">{{ c.retrieval_id.destination }}</td>
+                        <td class="td">{{ c.container_number.container_type }}</td>
+                        <td class="td">{{ c.retrieval_id.target_retrieval_timestamp }}</td>
+                        <td class="td">{{ c.retrieval_id.actual_retrieval_timestamp }}</td>
+                        <td class="td">
+                            <input type="hidden" name="step" value="export">
+                            <input type="hidden" name="status" value="non_palletized">
+                            <input type="hidden" name="container_number" value="{{ c.container_number }}">
+                            <button type="submit" class="btn btn-success">导出excel</button>
+                        </td>
+                    </tr>
+                </form>
                 {% endfor %}
             </tbody>
         </table>
@@ -64,20 +75,32 @@
                     <th class="th">柜型</th>
                     <th class="th">拆柜完成时间</th>
                     <th class="th">打板数</th>
+                    <th class="th">拆柜单</th>
                 </tr>
             </thead>
             <tbody>
                 {% for c in order_palletized %}
-                <tr>
-                    <td class="td">
-                        <a href="/palletize/{{c.id}}/?step=complete">{{ c.container_number }}</a>
-                    </td>
-                    <td class="td">{{ c.customer_name }}</td>
-                    <td class="td">{{ c.retrieval_id.destination }}</td>
-                    <td class="td">{{ c.container_number.container_type }}</td>
-                    <td class="td">{{ c.offload_id.offload_at }}</td>
-                    <td class="td">{{ c.offload_id.total_pallet }}</td>
-                </tr>
+                <form method="post" action="">
+                    {% csrf_token %}
+                    <tr>
+                        <td class="td">
+                            <a href="/palletize/{{c.id}}/?step=complete">{{ c.container_number }}</a>
+                        </td>
+                        <td class="td">{{ c.customer_name }}</td>
+                        <td class="td">{{ c.retrieval_id.destination }}</td>
+                        <td class="td">{{ c.container_number.container_type }}</td>
+                        <td class="td">{{ c.offload_id.offload_at }}</td>
+                        <td class="td">{{ c.offload_id.total_pallet }}</td>
+                        <td class="td">
+                            
+                                <input type="hidden" name="step" value="export">
+                                <input type="hidden" name="status" value="palletized">
+                                <input type="hidden" name="container_number" value="{{ c.container_number }}">
+                                <button type="submit" class="btn btn-success">导出excel</button>
+                            
+                        </td>
+                    </tr>
+                </form>
                 {% endfor %}
             </tbody>
         </table>
