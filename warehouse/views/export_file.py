@@ -1,7 +1,9 @@
+import pytz
 import pandas as pd
 
 from xhtml2pdf import pisa
 from typing import Any
+from datetime import datetime
 
 from django.http import HttpRequest, HttpResponse
 from django.shortcuts import render
@@ -100,14 +102,22 @@ def export_palletization_list(request: HttpRequest) -> HttpResponse:
         ).order_by("-cbm")
     else:
         raise ValueError(f"Unknown container status: {status}\n{request.POST}")
-    
+    cn = pytz.timezone('Asia/Shanghai')
+    current_time_cn = datetime.now(cn)
     data = [i for i in packing_list]
     df = pd.DataFrame.from_records(data)
+    df["palletized_at"] = current_time_cn
     df = df.rename({
-        "container_number__container_number": "container number",
-        "custom_delivery_method": "delivery_method"
+        "container_number__container_number": "container_number",
+        "custom_delivery_method": "delivery_method",
+        "fba_ids": "fba_id",
+        "ref_ids": "ref_id",
     }, axis=1)
     df["delivery_method"] = df["delivery_method"].apply(lambda x: x.split("-")[0])
+    df = df[[
+        "container_number", "palletized_at", "destination", "address", "delivery_method",
+        "fba_ids", "ref_ids", "weight_lbs", "pcs", "cbm", "n_pallet",
+    ]]
     response = HttpResponse(content_type='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet')
     response['Content-Disposition'] = f"attachment; filename={container_number}.xlsx"
     df.to_excel(excel_writer=response, index=False, columns=df.columns)
