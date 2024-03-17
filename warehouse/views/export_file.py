@@ -115,10 +115,10 @@ def export_palletization_list(request: HttpRequest) -> HttpResponse:
         "ref_ids": "ref_id",
     }, axis=1)
     df["delivery_method"] = df["delivery_method"].apply(lambda x: x.split("-")[0])
-    # df = df[[
-    #     "container_number", "palletized_at", "destination", "address", "delivery_method",
-    #     "fba_ids", "ref_ids", "weight_lbs", "pcs", "cbm", "n_pallet",
-    # ]]
+    df = df[[
+        "container_number", "palletized_at", "destination", "address", "delivery_method",
+        "fba_id", "ref_id", "weight_lbs", "pcs", "cbm", "n_pallet",
+    ]]
     response = HttpResponse(content_type='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet')
     response['Content-Disposition'] = f"attachment; filename={container_number}.xlsx"
     df.to_excel(excel_writer=response, index=False, columns=df.columns)
