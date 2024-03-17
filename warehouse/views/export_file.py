@@ -11,7 +11,7 @@ from django.contrib.auth.decorators import login_required
 from django.views import View
 from django.utils.decorators import method_decorator
 from django.db import models
-from django.db.models import Case, Value, CharField, F, Sum, FloatField, IntegerField, When, Count
+from django.db.models import Case, Value, CharField, F, Sum, FloatField, IntegerField, When, Count, DateTimeField, Max
 from django.db.models.functions import Concat, Cast
 from django.contrib.postgres.aggregates import StringAgg
 from django.forms import model_to_dict
@@ -60,6 +60,8 @@ def export_palletization_list(request: HttpRequest) -> HttpResponse:
     status = request.POST.get("status")
     container_number = request.POST.get("container_number")
     if status == "non_palletized":
+        cn = pytz.timezone('Asia/Shanghai')
+        current_time_cn = datetime.now(cn).strftime("%Y-%m-%d %H:%M:%S")
         packing_list = PackingList.objects.filter(container_number__container_number=container_number).annotate(
             custom_delivery_method=Case(
                 When(delivery_method='暂扣留仓', then=Concat('delivery_method', Value('-'), 'fba_id', Value('-'), 'id')),
@@ -72,12 +74,12 @@ def export_palletization_list(request: HttpRequest) -> HttpResponse:
         ).values(
             "container_number__container_number", "destination", "address", "custom_delivery_method"
         ).annotate(
+            palletized_at=Value(current_time_cn, output_field=CharField()),
             fba_ids=StringAgg("str_fba_id", delimiter=",", distinct=True, ordering="str_fba_id"),
             ref_ids=StringAgg("str_ref_id", delimiter=",", distinct=True, ordering="str_ref_id"),
             weight_lbs=Sum("pallet__weight_lbs", output_field=FloatField()),
             pcs=Sum("pcs", output_field=IntegerField()),
             cbm=Sum("cbm", output_field=FloatField()),
-            # n_pallet=Count('pallet__pallet_id', distinct=True),
             n_pallet=Value("", output_field=CharField()),
         ).order_by("-cbm")
     elif status == "palletized":
@@ -93,6 +95,7 @@ def export_palletization_list(request: HttpRequest) -> HttpResponse:
         ).values(
             "container_number__container_number", "destination", "address", "custom_delivery_method"
         ).annotate(
+            palletized_at=Cast(Max("container_number__order__offload_id__offload_at"), CharField()),
             fba_ids=StringAgg("str_fba_id", delimiter=",", distinct=True, ordering="str_fba_id"),
             ref_ids=StringAgg("str_ref_id", delimiter=",", distinct=True, ordering="str_ref_id"),
             weight_lbs=Sum("pallet__weight_lbs", output_field=FloatField()),
@@ -102,11 +105,9 @@ def export_palletization_list(request: HttpRequest) -> HttpResponse:
         ).order_by("-cbm")
     else:
         raise ValueError(f"Unknown container status: {status}\n{request.POST}")
-    cn = pytz.timezone('Asia/Shanghai')
-    current_time_cn = datetime.now(cn)
+    
     data = [i for i in packing_list]
     df = pd.DataFrame.from_records(data)
-    df["palletized_at"] = current_time_cn
     df = df.rename({
         "container_number__container_number": "container_number",
         "custom_delivery_method": "delivery_method",
@@ -114,10 +115,10 @@ def export_palletization_list(request: HttpRequest) -> HttpResponse:
         "ref_ids": "ref_id",
     }, axis=1)
     df["delivery_method"] = df["delivery_method"].apply(lambda x: x.split("-")[0])
-    df = df[[
-        "container_number", "palletized_at", "destination", "address", "delivery_method",
-        "fba_ids", "ref_ids", "weight_lbs", "pcs", "cbm", "n_pallet",
-    ]]
+    # df = df[[
+    #     "container_number", "palletized_at", "destination", "address", "delivery_method",
+    #     "fba_ids", "ref_ids", "weight_lbs", "pcs", "cbm", "n_pallet",
+    # ]]
     response = HttpResponse(content_type='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet')
     response['Content-Disposition'] = f"attachment; filename={container_number}.xlsx"
     df.to_excel(excel_writer=response, index=False, columns=df.columns)
