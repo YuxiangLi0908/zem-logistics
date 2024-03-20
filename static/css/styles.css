@@ -103,4 +103,6 @@ body {
 .th {
     background-color: #f2f2f2;
     min-width: 100px;
+    position: sticky;
+    top: 0;
 }

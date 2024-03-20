@@ -103,12 +103,6 @@ body {
 .th {
     background-color: #f2f2f2;
     min-width: 100px;
-}
-
-th.special-width {
-    min-width: 140px;
-}
-
-td.special-width {
-    min-width: 140px;
+    position: sticky;
+    top: 0;
 }

@@ -52,7 +52,6 @@ class Palletization(View):
         elif step == "back":
             self.handle_warehouse_post(request)
         elif step == "export":
-            # raise ValueError(f"{request.POST}")
             return export_palletization_list(request)
         else:
             raise ValueError(f"{request.POST}")
