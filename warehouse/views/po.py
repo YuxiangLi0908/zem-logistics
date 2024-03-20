@@ -173,15 +173,8 @@ class PO(View):
                 total_n_pallet_est=Sum("cbm", output_field=FloatField())/2,
                 
             ).order_by("label")
-            est_pallet = agg_pl[1]["total_n_pallet_est"]//1 + (1 if agg_pl[1]["total_n_pallet_est"]%1 >= 0.45 else 0)
-            summary = {
-                "total_cbm": agg_pl[0]["total_cbm"] + agg_pl[1]["total_cbm"],
-                "total_pcs": agg_pl[0]["total_pcs"] + agg_pl[1]["total_pcs"],
-                "total_weight_lbs": agg_pl[0]["total_weight_lbs"] + agg_pl[1]["total_weight_lbs"],
-                "act_pallet": agg_pl[0]["total_n_pallet_act"],
-                "est_pallet": est_pallet,
-                "total_pallet": agg_pl[0]["total_n_pallet_act"] + est_pallet,
-            }
+            
+            summary = self._get_pl_agg_summary(agg_pl)
             context = {
                 "selected_packing_list": packing_list,
                 "selected_pl_ids": selected,
@@ -195,4 +188,35 @@ class PO(View):
             mutable_post['name'] = warehouse
             request.POST = mutable_post
             return self.handle_search_post(request)
+        
+    def _get_pl_agg_summary(self, agg_pl: Any) -> dict[str, Any]:
+        if len(agg_pl) == 2:
+            est_pallet = agg_pl[1]["total_n_pallet_est"]//1 + (1 if agg_pl[1]["total_n_pallet_est"]%1 >= 0.45 else 0)
+            return {
+                "total_cbm": agg_pl[0]["total_cbm"] + agg_pl[1]["total_cbm"],
+                "total_pcs": agg_pl[0]["total_pcs"] + agg_pl[1]["total_pcs"],
+                "total_weight_lbs": agg_pl[0]["total_weight_lbs"] + agg_pl[1]["total_weight_lbs"],
+                "act_pallet": agg_pl[0]["total_n_pallet_act"],
+                "est_pallet": est_pallet,
+                "total_pallet": agg_pl[0]["total_n_pallet_act"] + est_pallet,
+            }
+        elif agg_pl[0]["label"] == "EST":
+            est_pallet = agg_pl[0]["total_n_pallet_est"]//1 + (1 if agg_pl[0]["total_n_pallet_est"]%1 >= 0.45 else 0)
+            return {
+                "total_cbm": agg_pl[0]["total_cbm"],
+                "total_pcs": agg_pl[0]["total_pcs"],
+                "total_weight_lbs": agg_pl[0]["total_weight_lbs"],
+                "act_pallet": 0,
+                "est_pallet": est_pallet,
+                "total_pallet": est_pallet,
+            }
+        else:
+            return {
+                "total_cbm": agg_pl[0]["total_cbm"],
+                "total_pcs": agg_pl[0]["total_pcs"],
+                "total_weight_lbs": agg_pl[0]["total_weight_lbs"],
+                "act_pallet": agg_pl[0]["total_n_pallet_act"],
+                "est_pallet": 0,
+                "total_pallet": agg_pl[0]["total_n_pallet_act"],
+            }
         
