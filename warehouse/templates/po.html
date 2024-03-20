@@ -1,0 +1,216 @@
+{% extends 'base.html' %}
+
+{% block content %}
+{% load static custom_mod %}
+
+<h3 class="mb-3">PO导出</h3>
+<form method="post" action="" style="margin-top: 40px;">
+    {% csrf_token %}
+    <div>
+        <b style="margin-right: 5px;">ETA:</b>
+        <input type="date" name="start_date" value="{{ start_date }}">
+        <input type="date" name="end_date" value="{{ end_date }}" style="margin-right: 5px;">
+        <b style="margin-right: 5px;">仓库:</b>
+        {{ warehouse_form.name }}
+        <input type="hidden" name="step" value="search">
+        <button id="submit-btn" type="submit" class="btn btn-primary" style="width: 100px; height: 35px; margin-left: 20px;">查询</button>
+    </div>
+</form>
+<hr class="Dashed" style="margin-top: 40px; margin-bottom: 40px;">
+
+{% if packing_list %}
+<form method="post" action="">
+    {% csrf_token %}
+    <h3 class="mb-4">Packing List</h3>
+    <div class="search-filters">
+        <input type="text" id="containerSearchInput" placeholder="搜索柜号..." oninput="filterTable()">
+        <input type="text" id="destinationSearchInput" placeholder="搜索目的仓库..." oninput="filterTable()">
+    </div>
+    <div style="overflow-x: auto; max-width: 1200px; overflow-y: auto; max-height: 600px;">
+        <table id="packing-list-table" class="table">
+            <thead>
+                <tr>
+                    <th class="th" style="min-width: 40px; text-align: center;"></th>
+                    <th class="th">柜号</th>
+                    <th class="th">目的地</th>
+                    <th class="th">派送方式</th>
+                    <th class="th">FBA ID</th>
+                    <th class="th">REF ID</th>
+                    <th class="th">CBM</th>
+                    <th class="th">箱数</th>
+                    <th class="th">重量lbs</th>
+                    <th class="th">卡板数</th>
+                    <th class="th">是否预估板数</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for s in packing_list %}
+                <tr>
+                    <td class="td" style="min-width: 40px; text-align: center;">
+                        <input type='checkbox' name='is_selected'>
+                        <input type="hidden" name="is_selected", value='off'>
+                        <input type="hidden" name="pl_ids", value='{{ s.ids }}'>
+                    </td>
+                    <td class="td">{{ s.container_number__container_number }}</td>
+                    <td class="td">{{ s.destination }}</td>
+                    <td class="td">{{ s.delivery_method }}</td>
+                    <td class="td">{{ s.fba_id }}</td>
+                    <td class="td">{{ s.ref_id }}</td>
+                    <td class="td">{{ s.total_cbm }}</td>
+                    <td class="td">{{ s.total_pcs }}</td>
+                    <td class="td">{{ s.total_weight_lbs }}</td>
+                    <td class="td">
+                        {% if s.label == "ACT" %}
+                            {{ s.total_n_pallet_act }}
+                        {% else %}
+                            {% if s.total_n_pallet_est < 1 %}
+                                {{ 1 }}
+                            {% elif s.total_n_pallet_est|modulo:1 >= 0.45 %}
+                                {{ s.total_n_pallet_est|floatformat:0|add:1 }}
+                            {% else %}
+                                {{ s.total_n_pallet_est|floatformat:0 }}
+                            {% endif %}
+                        {% endif %}
+                    </td>
+                    <td class="td">
+                        {% if s.label == "ACT" %}
+                            实际
+                        {% else %}
+                            预估
+                        {% endif %}
+                    </td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+    <input type="hidden" name="step" value="selection">
+    <input type="hidden" name="warehouse" value="{{ name }}">
+    <button type="submit" onclick="confirmSubmit()" class="btn btn-primary" style="width: 100px; height: 35px;">生成PO</button>
+</form>
+<hr class="Dashed" style="margin-top: 40px; margin-bottom: 40px;">
+{% endif %}
+
+{% if selected_packing_list %}
+<h3 class="mb-4">Summary</h3>
+<div style="overflow-x: auto; max-width: 1200px; overflow-y: auto; max-height: 600px;">
+    <table id="packing-list-table" class="table">
+        <thead>
+            <tr>
+                <th class="th">总CBM</th>
+                <th class="th">总箱数</th>
+                <th class="th">总重量lbs</th>
+                <th class="th">实际在库板数</th>
+                <th class="th">预估板数</th>
+                <th class="th">总板数</th>
+            </tr>
+        </thead>
+        <tbody>
+            <tr>
+                <td class="td">{{ summary.total_cbm|floatformat:2 }}</td>
+                <td class="td">{{ summary.total_pcs  }}</td>
+                <td class="td">{{ summary.total_weight_lbs|floatformat:2 }}</td>
+                <td class="td">{{ summary.act_pallet }}</td>
+                <td class="td">{{ summary.est_pallet|floatformat:0 }}</td>
+                <td class="td">{{ summary.total_pallet|floatformat:0 }}</td>
+            </tr>
+        </tbody>
+    </table>
+</div>
+<form method="post" action="">
+    {% csrf_token %}
+    <input type="hidden" name="step" value="export_po">
+    <input type="hidden" name="warehouse" value="{{ warehouse }}">
+    <input type="hidden" name="pl_ids" value="{{ selected_pl_ids }}">
+    <button type="submit" class="btn btn-success" style="width: 100px; height: 35px;">导出PO</button>
+</form>
+<div style="overflow-x: auto; max-width: 1200px; overflow-y: auto; max-height: 600px;">
+    <table id="packing-list-table" class="table">
+        <thead>
+            <tr>
+                <th class="th">柜号</th>
+                <th class="th">目的地</th>
+                <th class="th">派送方式</th>
+                <th class="th">FBA ID</th>
+                <th class="th">REF ID</th>
+                <th class="th">CBM</th>
+                <th class="th">箱数</th>
+                <th class="th">重量lbs</th>
+                <th class="th">卡板数</th>
+                <th class="th">是否预估板数</th>
+            </tr>
+        </thead>
+        <tbody>
+            {% for s in selected_packing_list %}
+            <tr>
+                <td class="td">{{ s.container_number__container_number }}</td>
+                <td class="td">{{ s.destination }}</td>
+                <td class="td">{{ s.delivery_method }}</td>
+                <td class="td">{{ s.fba_id }}</td>
+                <td class="td">{{ s.ref_id }}</td>
+                <td class="td">{{ s.total_cbm }}</td>
+                <td class="td">{{ s.total_pcs }}</td>
+                <td class="td">{{ s.total_weight_lbs }}</td>
+                <td class="td">
+                    {% if s.label == "ACT" %}
+                        {{ s.total_n_pallet_act }}
+                    {% else %}
+                        {% if s.total_n_pallet_est < 1 %}
+                            {{ 1 }}
+                        {% elif s.total_n_pallet_est|modulo:1 >= 0.45 %}
+                            {{ s.total_n_pallet_est|floatformat:0|add:1 }}
+                        {% else %}
+                            {{ s.total_n_pallet_est|floatformat:0 }}
+                        {% endif %}
+                    {% endif %}
+                </td>
+                <td class="td">
+                    {% if s.label == "ACT" %}
+                        实际
+                    {% else %}
+                        预估
+                    {% endif %}
+                </td>
+            </tr>
+            {% endfor %}
+        </tbody>
+    </table>
+</div>
+{% endif %}
+
+<script>
+    function filterTable() {
+        var containerInput, destinationInput, containerFilter, destinationFilter, table, tbody, tr, containerTd, destinationTd, i, containerTxtValue, destinationTxtValue;
+        containerInput = document.getElementById("containerSearchInput");
+        destinationInput = document.getElementById("destinationSearchInput");
+        containerFilter = containerInput.value.toUpperCase();
+        destinationFilter = destinationInput.value.toUpperCase();
+        table = document.getElementById("packing-list-table");
+        tbody = table.getElementsByTagName("tbody")[0];
+        tr = tbody.getElementsByTagName("tr");
+
+        for (i = 0; i < tr.length; i++) {
+            containerTd = tr[i].getElementsByTagName("td")[1]; // Index 1 corresponds to the container_number__container_number column
+            destinationTd = tr[i].getElementsByTagName("td")[2]; // Index 2 corresponds to the destination column
+            if (containerTd && destinationTd) {
+                containerTxtValue = containerTd.textContent || containerTd.innerText;
+                destinationTxtValue = destinationTd.textContent || destinationTd.innerText;
+                var containerDisplayStyle = containerTxtValue.toUpperCase().indexOf(containerFilter) > -1 ? "" : "none";
+                var destinationDisplayStyle = destinationTxtValue.toUpperCase().indexOf(destinationFilter) > -1 ? "" : "none";
+
+                // Set display style based on both container and destination filters
+                tr[i].style.display = containerDisplayStyle === "" && destinationDisplayStyle === "" ? "" : "none";
+            }
+        }
+    };
+
+    function confirmSubmit() {
+        const checkBoxes = document.getElementsByName('is_selected');
+        for (let i = 0; i < checkBoxes.length; i+=2) {
+            if (checkBoxes[i].checked) {
+                checkBoxes[i+1].disabled = true;
+            }
+        }
+    }
+</script>
+{% endblock %}

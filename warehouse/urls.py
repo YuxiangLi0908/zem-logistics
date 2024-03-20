@@ -12,6 +12,7 @@ from warehouse.views.export_file import ExportFile
 from warehouse.views.customer_management import CustomerManagement
 from warehouse.views.order_management import *
 from warehouse.views.bol import BOL
+from warehouse.views.po import PO
 
 urlpatterns = [
     path("", home, name="home"),
@@ -29,4 +30,5 @@ urlpatterns = [
     path('new_customer/', CustomerManagement.as_view(), name='new_customer'),
     path('order_list/', OrderManagement.as_view(), name='order_list'),
     path('bol/', BOL.as_view(), name='bol'),
+    path('po/', PO.as_view(), name='po'),
 ] + static(settings.STATIC_URL, document_root=settings.STATIC_ROOT)

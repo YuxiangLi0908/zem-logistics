@@ -123,3 +123,70 @@ def export_palletization_list(request: HttpRequest) -> HttpResponse:
     response['Content-Disposition'] = f"attachment; filename={container_number}.xlsx"
     df.to_excel(excel_writer=response, index=False, columns=df.columns)
     return response
+
+def export_po(request: HttpRequest) -> HttpResponse:
+    # raise ValueError(f"{request.POST}")
+    ids = request.POST.get("pl_ids")
+    ids = ids.replace("[", "").replace("]", "").split(", ")
+    ids = [int(i) for i in ids]
+    packing_list = PackingList.objects.filter(
+        id__in=ids
+    ).values(
+        'fba_id', 'ref_id','address','zipcode','destination','delivery_method',
+        'container_number__container_number',
+    ).annotate(
+        total_pcs=Sum(
+            Case(
+                When(pallet__isnull=True, then=F("pcs")),
+                default=F("pallet__pcs"),
+                output_field=IntegerField()
+            )
+        ),
+        total_cbm=Sum(
+            Case(
+                When(pallet__isnull=True, then=F("cbm")),
+                default=F("pallet__cbm"),
+                output_field=FloatField()
+            )
+        ),
+        total_weight_lbs=Sum(
+            Case(
+                When(pallet__isnull=True, then=F("total_weight_lbs")),
+                default=F("pallet__weight_lbs"),
+                output_field=FloatField()
+            )
+        ),
+        total_n_pallet_act=Count("pallet__pallet_id", distinct=True),
+        total_n_pallet_est=Sum("cbm", output_field=FloatField())/2,
+        label=Max(
+            Case(
+                When(pallet__isnull=True, then=Value("EST")),
+                default=Value("ACT"),
+                output_field=CharField()
+            )
+        ),
+    ).distinct().order_by("destination", "container_number__container_number")
+    data = [i for i in packing_list]
+    keep = ["fba_id", "container_number__container_number", "ref_id", "Pallet Count", "total_pcs"]
+    df = pd.DataFrame.from_records(data)
+    def get_est_pallet(n):
+        if n < 1:
+            return 1
+        elif n%1 >= 0.45:
+            return int(n//1 + 1)
+        else:
+            return int(n//1)
+    df["total_n_pallet_est"] = df["total_n_pallet_est"].apply(get_est_pallet)
+    df["est"] = df["label"] == "EST"
+    df["act"] = df["label"] == "ACT"
+    df["Pallet Count"] = df["total_n_pallet_act"] * df["act"] + df["total_n_pallet_est"] * df["est"]
+    df = df[keep].rename({
+        "fba_id": "PRO",
+        "container_number__container_number": "BOL",
+        "ref_id": "PO List (use , as separator) *",
+        "total_pcs": "Carton Count",
+    }, axis=1)
+    response = HttpResponse(content_type="text/csv")
+    response['Content-Disposition'] = f"attachment; filename=PO.csv"
+    df.to_csv(path_or_buf=response, index=False)
+    return response
