@@ -56,9 +56,9 @@
                     <td class="td">{{ s.delivery_method }}</td>
                     <td class="td">{{ s.fba_id }}</td>
                     <td class="td">{{ s.ref_id }}</td>
-                    <td class="td">{{ s.total_cbm }}</td>
+                    <td class="td">{{ s.total_cbm|floatformat:2 }}</td>
                     <td class="td">{{ s.total_pcs }}</td>
-                    <td class="td">{{ s.total_weight_lbs }}</td>
+                    <td class="td">{{ s.total_weight_lbs|floatformat:2 }}</td>
                     <td class="td">
                         {% if s.label == "ACT" %}
                             {{ s.total_n_pallet_act }}
@@ -148,9 +148,9 @@
                 <td class="td">{{ s.delivery_method }}</td>
                 <td class="td">{{ s.fba_id }}</td>
                 <td class="td">{{ s.ref_id }}</td>
-                <td class="td">{{ s.total_cbm }}</td>
+                <td class="td">{{ s.total_cbm|floatformat:2 }}</td>
                 <td class="td">{{ s.total_pcs }}</td>
-                <td class="td">{{ s.total_weight_lbs }}</td>
+                <td class="td">{{ s.total_weight_lbs|floatformat:2 }}</td>
                 <td class="td">
                     {% if s.label == "ACT" %}
                         {{ s.total_n_pallet_act }}
