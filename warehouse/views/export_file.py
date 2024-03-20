@@ -167,7 +167,7 @@ def export_po(request: HttpRequest) -> HttpResponse:
         ),
     ).distinct().order_by("destination", "container_number__container_number")
     data = [i for i in packing_list]
-    keep = ["fba_id", "container_number__container_number", "ref_id", "Pallet Count", "total_pcs"]
+    keep = ["fba_id", "container_number__container_number", "ref_id", "Pallet Count", "total_pcs", "label"]
     df = pd.DataFrame.from_records(data)
     def get_est_pallet(n):
         if n < 1:
