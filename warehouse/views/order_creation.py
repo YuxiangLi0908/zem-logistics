@@ -163,7 +163,7 @@ class OrderCreation(View):
             file = request.FILES['file']
             df = pd.read_excel(file)
             df = df.rename(columns=PACKING_LIST_TEMP_COL_MAPPING)
-            df = df.dropna(how="all", subset=[c for c in df.columns if c != "delivery_method"])
+            df = df.dropna(how="all", subset=[c for c in df.columns if c not in ["delivery_method", "note"]])
             df = df.replace(np.nan, None)
             df = df.reset_index(drop=True)
             for idx, row in df.iterrows():

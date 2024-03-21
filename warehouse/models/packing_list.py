@@ -18,6 +18,7 @@ class PackingList(models.Model):
     cbm = models.FloatField(null=True)
     n_pallet = models.IntegerField(null=True)
     shipment_batch_number = models.ForeignKey(Shipment, null=True, on_delete=models.SET_NULL)
+    note = models.CharField(null=True, blank=True, max_length=2000)
 
     def __str__(self):
         return f"{self.container_number}-{self.destination}-{self.shipping_mark if self.shipping_mark else 'no_mt'}-{self.fba_id if self.fba_id else 'no_fba'}"

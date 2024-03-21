@@ -78,6 +78,7 @@ PACKING_LIST_TEMP_COL_MAPPING = {
     "FBA号": "fba_id",
     "Amazon Reference ID": "ref_id",
     "派送方式": "delivery_method",
+    "备注": "note",
 }
 
 file_path = Path(__file__).parent.resolve().joinpath("fba_fulfillment_center.yaml")
