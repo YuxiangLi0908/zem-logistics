@@ -178,6 +178,7 @@
                     <th class="th">总重量-lbs</th>
                     <th class="th">CBM</th>
                     <th class="th">批次号</th>
+                    <th class="th">备注</th>
                 </tr>
             </thead>
             <tbody id="formsets-container">
@@ -217,6 +218,7 @@
                         <td class="td">{{ pl.total_weight_lbs }}</td>
                         <td class="td">{{ pl.cbm }}</td>
                         <td class="td">{{ pl.shipment_batch_number }}</td>
+                        <td class="td" style="min-width: 180px;">{{ pl.note }}</td>
                     </tr>
                 {% endfor %}
             </tbody>

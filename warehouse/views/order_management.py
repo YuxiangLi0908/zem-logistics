@@ -23,6 +23,7 @@ from warehouse.models.clearance import Clearance
 from warehouse.models.retrieval import Retrieval
 from warehouse.models.packing_list import PackingList
 from warehouse.models.warehouse import ZemWarehouse
+from warehouse.models.pallet import Pallet
 from warehouse.forms.order_form import OrderForm
 from warehouse.forms.container_form import ContainerForm
 from warehouse.forms.clearance_form import ClearanceSelectForm
@@ -174,6 +175,9 @@ class OrderManagement(View):
             self._delete_order(order)
         
     def _delete_order(self, order: Order) -> None:
+        pallet = Pallet.objects.filter(packing_list__container_number__order__order_id=order.order_id)
+        for p in pallet:
+            p.delete()
         packing_list = PackingList.objects.filter(container_number__order__order_id=order.order_id)
         for pl in packing_list:
             pl.delete()
