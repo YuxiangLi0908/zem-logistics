@@ -5,4 +5,7 @@ register = template.Library()
 
 @register.filter
 def floor_division(value: Any | int, n: int) -> int:
-    return value // n
+    try: 
+        return value // n
+    except:
+        return 0
