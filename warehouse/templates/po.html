@@ -24,14 +24,14 @@
     {% csrf_token %}
     <h3 class="mb-4">Packing List</h3>
     <div class="search-filters">
-        <input type="text" id="containerSearchInput" placeholder="搜索柜号..." oninput="filterTable()">
-        <input type="text" id="destinationSearchInput" placeholder="搜索目的仓库..." oninput="filterTable()">
+        <!-- <input type="text" id="containerSearchInput" placeholder="搜索柜号..." oninput="filterTable()">
+        <input type="text" id="destinationSearchInput" placeholder="搜索目的仓库..." oninput="filterTable()"> -->
     </div>
     <div style="overflow-x: auto; max-width: 1200px; overflow-y: auto; max-height: 600px;">
-        <table id="packing-list-table" class="table">
+        <table id="packing-list-table" class="table" style="font-size: 12px;">
             <thead>
                 <tr>
-                    <th class="th" style="min-width: 20px; text-align: center;"></th>
+                    <th class="th" style="max-width: 20px; text-align: center;"></th>
                     <th class="th">柜号</th>
                     <th class="th">目的地</th>
                     <th class="th">派送方式</th>
@@ -43,11 +43,26 @@
                     <th class="th">卡板数</th>
                     <th class="th">是否预估板数</th>
                 </tr>
+                <tr style="position: sticky; top: 46px;">
+                    <th class="th" style="max-width: 20px; text-align: center;">
+                        <input type="checkbox" id="selectAllCheckbox" onchange="toggleAllCheckboxes()">
+                    </th>
+                    <th class="th" style="max-width: 60px;"><input type="text" id="containerSearchInput" placeholder="搜索柜号..." oninput="filterTable()" style="max-width: 60px; font-size: 10px;"></th>
+                    <th class="th" style="max-width: 60px;"><input type="text" id="destinationSearchInput" placeholder="搜索目的地..." oninput="filterTable()" style="max-width: 60px; font-size: 10px;"></th>
+                    <th class="th"></th>
+                    <th class="th"></th>
+                    <th class="th"></th>
+                    <th class="th"></th>
+                    <th class="th"></th>
+                    <th class="th"></th>
+                    <th class="th"></th>
+                    <th class="th"></th>
+                </tr>
             </thead>
             <tbody>
                 {% for s in packing_list %}
                 <tr>
-                    <td class="td" style="min-width: 20px; text-align: center;">
+                    <td class="td" style="max-width: 20px; text-align: center;">
                         <input type='checkbox' name='is_selected'>
                         <input type="hidden" name="is_selected", value='off'>
                         <input type="hidden" name="pl_ids", value='{{ s.ids }}'>
@@ -254,7 +269,22 @@
     var checkboxes = document.getElementsByName('is_selected');
     for (var i = 0; i < checkboxes.length; i++) {
         checkboxes[i].addEventListener('change', updateSummary);
-    }
+    };
+
+    var selectAllCheckbox = document.getElementById('selectAllCheckbox');
+    selectAllCheckbox.addEventListener('change', updateSummary);
+
+    function toggleAllCheckboxes() {
+        var selectAllCheckbox = document.getElementById('selectAllCheckbox');
+        var checkboxes = document.querySelectorAll('tbody input[type="checkbox"][name="is_selected"]');
+        
+        checkboxes.forEach(function(checkbox) {
+            var tr = checkbox.closest('tr');
+            if (tr.style.display !== 'none') {
+                checkbox.checked = selectAllCheckbox.checked;
+            }
+        });
+    };
 
 </script>
 {% endblock %}
