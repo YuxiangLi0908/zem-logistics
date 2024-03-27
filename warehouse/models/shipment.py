@@ -11,7 +11,7 @@ class Shipment(models.Model):
     carrier = models.CharField(max_length=255, null=True, blank=True)
     is_shipment_schduled = models.BooleanField(default=False, blank=True)
     shipment_schduled_at = models.DateTimeField(null=True, blank=True)
-    shipment_appointment = models.DateField(null=True, blank=True)
+    shipment_appointment = models.DateTimeField(null=True, blank=True)
     is_shipped = models.BooleanField(default=False, blank=True)
     shipped_at = models.DateTimeField(null=True, blank=True)
     is_arrived = models.BooleanField(default=False, blank=True)
