@@ -1,4 +1,12 @@
 {% block content %}
+<style>
+    @media print {
+        .page-break {
+            page-break-before: always;
+        }
+    }
+</style>
+
 <div style="position: relative; min-height: 100%;">
     <div style="text-align: center;">
         <h2><b>BILL OF LADING</b></h2>
@@ -9,8 +17,8 @@
                 <td style="width: 60%; border: 1px solid #141414;">
                     <table>
                         <tr>
-                            <td style="text-align: center; color: white; background-color: #141414; vertical-align: middle;">
-                                SHIP FROM
+                            <td style="text-align: center; color: white; background-color: #141414;">
+                                <b>SHIP FROM</b>
                             </td>
                         </tr>
                         <tr>
@@ -34,8 +42,8 @@
                 <td style="width: 60%; border: 1px solid #141414;">
                     <table>
                         <tr>
-                            <td style="text-align: center; color: white; background-color: #141414; vertical-align: middle;">
-                                SHIP TO
+                            <td style="text-align: center; color: white; background-color: #141414;">
+                                <b>SHIP TO</b>
                             </td>
                         </tr>
                         <tr>
@@ -55,12 +63,7 @@
                         </tr>
                         <tr>
                             <td style="margin-left: 5px;">
-                                Scheduled At: {{ shipment.shipment_schduled_at }}
-                            </td>
-                        </tr>
-                        <tr>
-                            <td style="margin-left: 5px;">
-                                Shipped At: {{ shipment.shipment_appointment }}
+                                Scheduled Time: {{ shipment.shipment_appointment }}
                             </td>
                         </tr>
                     </table>
@@ -72,7 +75,7 @@
                     <table>
                         <tr>
                             <td style="text-align: center; color: white; background-color: #141414; vertical-align: middle;" colspan="2">
-                                THIRD PARTY FREIGHT CHARGES BILL TO
+                                <b>THIRD PARTY FREIGHT CHARGES BILL TO</b>
                             </td>
                         </tr>
                         <tr>
@@ -139,19 +142,19 @@
                     <table>
                         <thead>
                             <tr>
-                                <th>Container</th>
-                                <th>Shipment ID</th>
-                                <th>Red ID</th>
-                                <th>Qty</th>
+                                <th style="text-align: center; border: 1px solid #141414;">Container</th>
+                                <th style="text-align: center; border: 1px solid #141414;">Shipment ID</th>
+                                <th style="text-align: center; border: 1px solid #141414;">Red ID</th>
+                                <th style="text-align: center; border: 1px solid #141414;">Qty</th>
                             </tr>
                         </thead>
                         <tbody>
                             {% for c in packing_list %}
                                 <tr>
-                                    <td style="text-align: center;">{{ c.container_number }}</td>
-                                    <td style="text-align: center;">{{ c.fba_id }}</td>
-                                    <td style="text-align: center;">{{ c.ref_id }}</td>
-                                    <td style="text-align: center;">{{ c.pcs }}</td>
+                                    <td style="text-align: center; border: 1px solid #141414;">{{ c.container_number }}</td>
+                                    <td style="text-align: center; border: 1px solid #141414;">{{ c.fba_id }}</td>
+                                    <td style="text-align: center; border: 1px solid #141414;">{{ c.ref_id }}</td>
+                                    <td style="text-align: center; border: 1px solid #141414;">{{ c.pcs }}</td>
                                 </tr>
                             {% endfor %}
                         </tbody>
@@ -295,4 +298,31 @@
         </div>
     </div>
 </div>
+
+<div class="page-break" style="position: relative; min-height: 100%;">
+    <div style="text-align: center;">
+        <h2><b>Packing List</b></h2>
+    </div>
+    <div>
+        <table style="width: 100%; border: 1px solid #141414;">
+            <thead>
+                <tr>
+                    <th style="text-align: center; border: 1px solid #141414;">Container Number</th>
+                    <th style="text-align: center; border: 1px solid #141414;">Desination</th>
+                    <th style="text-align: center; border: 1px solid #141414;">Pallet</th>
+                    <th style="text-align: center; border: 1px solid #141414;">CBM</th>
+                </tr>
+            </thead>
+                <tbody>
+                    {% for c in pallet %}
+                        <tr>
+                            <td style="text-align: center; border: 1px solid #141414;">{{ c.container_number__container_number }}</td>
+                            <td style="text-align: center; border: 1px solid #141414;">{{ c.destination }}</td>
+                            <td style="text-align: center; border: 1px solid #141414;">{{ c.total_n_pallet }}</td>
+                            <td style="text-align: center; border: 1px solid #141414;">{{ c.total_cbm|floatformat:2 }}</td>
+                        </tr>
+                    {% endfor %}
+                </tbody>
+        </table>
+    </div>
 {% endblock %}

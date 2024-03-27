@@ -7,7 +7,7 @@ class ShipmentForm(forms.ModelForm):
         model = Shipment
         fields = "__all__"
         widgets = {
-                "shipment_appointment": forms.DateInput(attrs={'type':'date'}),
+                "shipment_appointment": forms.DateTimeInput(attrs={'type':'datetime-local'}),
                 "carrier": forms.Select(choices=CARRIER_OPTIONS),
                 "shipped_at": forms.DateTimeInput(attrs={'type': 'datetime-local'}),
                 "arrived_at": forms.DateTimeInput(attrs={'type': 'datetime-local'}),

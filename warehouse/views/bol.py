@@ -87,11 +87,20 @@ class BOL(View):
         warehouse = request.POST.get("warehouse")
         shipment = Shipment.objects.get(shipment_batch_number=batch_number)
         packing_list = PackingList.objects.filter(shipment_batch_number__shipment_batch_number=batch_number)
+        pallet = PackingList.objects.filter(
+            shipment_batch_number__shipment_batch_number=batch_number
+        ).values(
+            "container_number__container_number", "destination"
+        ).annotate(
+            total_cbm=Sum("pallet__cbm"),
+            total_n_pallet=Count("pallet__pallet_id", distinct=True),
+        ).order_by("container_number__container_number")
         context = {
             "batch_number": batch_number,
             "warehouse": warehouse,
             "shipment": shipment,
             "packing_list": packing_list,
+            "pallet": pallet,
         }
         return context
 
