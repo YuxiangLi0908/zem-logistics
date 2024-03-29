@@ -1,6 +1,3 @@
-import pytz
-import uuid
-import time
 from datetime import datetime
 from typing import Any
 
@@ -72,16 +69,3 @@ class ShipmentDispatch(View):
             models.Q(origin=warehouse)&
             models.Q(is_shipped=False)
         ).order_by('shipment_appointment')
-        return PackingList.objects.filter(
-            models.Q(container_number__order__warehouse__name=warehouse) &
-            models.Q(shipment_batch_number__isnull=False) &
-            models.Q(shipment_batch_number__is_shipped=False)
-        ).values(
-            "shipment_batch_number__shipment_batch_number", "shipment_batch_number__destination",
-            "shipment_batch_number__carrier", "shipment_batch_number__shipment_appointment"
-        ).annotate(
-            total_cbm=models.Sum('cbm'),
-            total_n_pallet=models.Sum('n_pallet'),
-            total_pcs=models.Sum('pcs'),
-            total_weight_lbs=models.Sum('total_weight_lbs')
-        ).order_by('shipment_batch_number__shipment_appointment')
