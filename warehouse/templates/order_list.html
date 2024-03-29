@@ -38,7 +38,7 @@
                 {% for o in orders %}
                 <tr>
                     <td class="td" style="min-width: 40px; text-align: center;">
-                        <input type='checkbox' name='is_order_selected'>
+                        <input type='checkbox' name='is_order_selected' onclick="toggleRowBackground(this)">
                         <input type="hidden" name="is_order_selected", value='off'>
                         <input type="hidden" name="order_id", value='{{ o.order_id }}'>
                     </td>
@@ -203,7 +203,7 @@
             <tbody id="formsets-container">
                 <tr id="formset-row" style="display: none;">
                     <td class="td" style="min-width: 40px; text-align: center;">
-                        <input type='checkbox' name='is_packing_list_selected'>
+                        <input type='checkbox' name='is_packing_list_selected' onclick="toggleRowBackground(this)">
                     </td>
                     <td class="td">{{ packing_list_formset.empty_form.product_name }}</td>
                     <td class="td">{{ packing_list_formset.empty_form.delivery_method }}</td>
@@ -222,7 +222,7 @@
                 {% for pl in packing_list_formset.forms %}
                     <tr id="formset-row">
                         <td class="td" style="min-width: 40px; text-align: center;">
-                            <input type='checkbox' name='is_packing_list_selected'>
+                            <input type='checkbox' name='is_packing_list_selected' onclick="toggleRowBackground(this)">
                         </td>
                         <td class="td">{{ pl.product_name }}</td>
                         <td class="td">{{ pl.delivery_method }}</td>
@@ -405,8 +405,22 @@
             var tr = checkbox.closest('tr');
             if (tr.style.display !== 'none') {
                 checkbox.checked = selectAllCheckbox.checked;
+                if (checkbox.checked) {
+                    tr.style.backgroundColor = '#f0f8ff'; // Change to your desired color
+                } else {
+                    tr.style.backgroundColor = ''; // Reset to default color
+                } 
             }
         });
+    };
+
+    function toggleRowBackground(checkbox) {
+        var row = checkbox.closest('tr');
+        if (checkbox.checked) {
+            row.style.backgroundColor = '#f0f8ff'; // Change to your desired color
+        } else {
+            row.style.backgroundColor = ''; // Reset to default color
+        }
     };
 </script>
 {% endblock %}

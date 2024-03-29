@@ -63,7 +63,7 @@
                 {% for s in packing_list %}
                 <tr>
                     <td class="td" style="max-width: 20px; text-align: center;">
-                        <input type='checkbox' name='is_selected'>
+                        <input type='checkbox' name='is_selected' onclick="toggleRowBackground(this)">
                         <input type="hidden" name="is_selected", value='off'>
                         <input type="hidden" name="pl_ids", value='{{ s.ids }}'>
                     </td>
@@ -282,9 +282,22 @@
             var tr = checkbox.closest('tr');
             if (tr.style.display !== 'none') {
                 checkbox.checked = selectAllCheckbox.checked;
+                if (checkbox.checked) {
+                    tr.style.backgroundColor = '#f0f8ff'; // Change to your desired color
+                } else {
+                    tr.style.backgroundColor = ''; // Reset to default color
+                }
             }
         });
     };
-
+    
+    function toggleRowBackground(checkbox) {
+        var row = checkbox.closest('tr');
+        if (checkbox.checked) {
+            row.style.backgroundColor = '#f0f8ff'; // Change to your desired color
+        } else {
+            row.style.backgroundColor = ''; // Reset to default color
+        }
+    };
 </script>
 {% endblock %}
