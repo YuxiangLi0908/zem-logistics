@@ -2,6 +2,7 @@ import ast
 import pytz
 import uuid
 import time
+import shortuuid
 from datetime import datetime
 from typing import Any
 
@@ -119,6 +120,7 @@ class ScheduleShipment(View):
                 total_pcs += pl.get("total_pcs")
             destination = packling_list[0].get("destination")
             batch_id = uuid.uuid3(uuid.NAMESPACE_DNS, str(uuid.uuid4()) + warehouse + destination + request.user.username + str(time.time()))
+            batch_id = shortuuid.encode(batch_id)
             if destination in amazon_fba_locations:
                 fba = amazon_fba_locations[destination]
                 address = f"{fba['location']}, {fba['city']} {fba['state']}, {fba['zipcode']}"

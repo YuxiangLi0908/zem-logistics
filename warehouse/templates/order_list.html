@@ -240,7 +240,25 @@
                         <td class="td" style="min-width: 180px;">{{ pl.note }}</td>
                     </tr>
                 {% endfor %}
+                
             </tbody>
+            <tr id="table_summary" style="position: sticky; bottom: 0; background-color: #f2f2f2;">
+                <td class="td"><b>总计</b></td>
+                <td class="td"></td>
+                <td class="td"></td>
+                <td class="td"></td>
+                <td class="td"></td>
+                <td class="td"></td>
+                <td class="td"></td>
+                <td class="td"></td>
+                <td class="td"></td>
+                <td class="td" id="table_summary_pcs">1</td>
+                <td class="td"></td>
+                <td class="td" id="table_summary_weight">1</td>
+                <td class="td" id="table_summary_cbm">1</td>
+                <td class="td"></td>
+                <td class="td"></td>
+            </tr>
         </table>
     </div>
     <input type="hidden" name="step" value="update">
@@ -297,7 +315,7 @@
                 // Decrement the form count
                 document.getElementById('id_form-TOTAL_FORMS').value--;
             }
-        }
+        };
         function removeSelectedFormset() {
             var selectedRows = document.querySelectorAll('#formsets-container tr');
             selectedRows.forEach(function(row) {
@@ -328,8 +346,9 @@
                     inputField.setAttribute('name', newName);
                 }
             }
-            document.getElementById('id_form-TOTAL_FORMS').value = formsetCount
-        }
+            document.getElementById('id_form-TOTAL_FORMS').value = formsetCount;
+            calculateSummary();
+        };
     });
 
     function filterTable() {
@@ -406,7 +425,7 @@
             if (tr.style.display !== 'none') {
                 checkbox.checked = selectAllCheckbox.checked;
                 if (checkbox.checked) {
-                    tr.style.backgroundColor = '#f0f8ff'; // Change to your desired color
+                    tr.style.backgroundColor = '#ADD8E6'; // Change to your desired color
                 } else {
                     tr.style.backgroundColor = ''; // Reset to default color
                 } 
@@ -417,10 +436,32 @@
     function toggleRowBackground(checkbox) {
         var row = checkbox.closest('tr');
         if (checkbox.checked) {
-            row.style.backgroundColor = '#f0f8ff'; // Change to your desired color
+            row.style.backgroundColor = '#ADD8E6'; // Change to your desired color
         } else {
             row.style.backgroundColor = ''; // Reset to default color
         }
     };
+
+    function calculateSummary() {
+        var totalPcs = 0;
+        var totalWeight = 0;
+        var totalCbm = 0;
+
+        // Loop through each row in the table body
+        var rows = document.querySelectorAll("#packing-list-table tbody tr:not(#table_summary)");
+        for (i = 1; i < rows.length; i++) {
+            var pcs = parseInt(rows[i].getElementsByTagName("td")[9].querySelector("input").value);
+            var weight = parseFloat(rows[i].getElementsByTagName("td")[11].querySelector("input").value);
+            var cbm = parseFloat(rows[i].getElementsByTagName("td")[12].querySelector("input").value);
+            totalPcs += pcs;
+            totalWeight += weight;
+            totalCbm += cbm;
+        }
+        // Update the summary row with the calculated totals
+        document.getElementById('table_summary_pcs').textContent = totalPcs;
+        document.getElementById('table_summary_weight').textContent = totalWeight.toFixed(2);
+        document.getElementById('table_summary_cbm').textContent = totalCbm.toFixed(2);
+    }
+    window.onload = calculateSummary;
 </script>
 {% endblock %}
