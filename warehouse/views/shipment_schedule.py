@@ -115,9 +115,9 @@ class ScheduleShipment(View):
             cbm_list = []
             for pl in packling_list:
                 cbm_list.append(pl.get("total_cbm"))
-                total_weight += pl.get("total_weight_lbs")
-                total_cbm += pl.get("total_cbm")
-                total_pcs += pl.get("total_pcs")
+                total_weight += pl.get("total_weight_lbs") if pl.get("total_weight_lbs") else 0
+                total_cbm += pl.get("total_cbm") if pl.get("total_cbm") else 0
+                total_pcs += pl.get("total_pcs") if pl.get("total_pcs") else 0
             destination = packling_list[0].get("destination")
             batch_id = uuid.uuid3(uuid.NAMESPACE_DNS, str(uuid.uuid4()) + warehouse + destination + request.user.username + str(time.time()))
             batch_id = shortuuid.encode(batch_id)
