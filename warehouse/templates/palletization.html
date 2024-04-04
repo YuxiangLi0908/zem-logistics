@@ -13,13 +13,13 @@
 <hr class="Dashed" style="margin-top: 40px; margin-bottom: 40px;">
 
 {% if order_not_palletized %}
-
-    <h4 class="mb-3">待拆柜</h4>
+    
     <div class="search-filters">
         <input type="text" id="containerSearchInput" placeholder="搜索柜号..." oninput="filterTable()">
         <input type="text" id="customerSearchInput" placeholder="搜索客户..." oninput="filterTable()">
     </div>
-    <div style="overflow-x: auto; max-width: 1200px; overflow-y: auto; max-height: 1200px;">
+    <h4 class="mb-3">待拆柜</h4>
+    <div style="overflow-x: auto; max-width: 1200px; overflow-y: auto; max-height: 600px;">
         <table id="container-table" class="table">
             <thead>
                 <tr>
@@ -65,7 +65,7 @@
 
 {% if order_palletized %}
     <h4 class="mb-3">拆柜完成，待出库</h4>
-    <div style="overflow-x: auto; max-width: 1200px; overflow-y: auto; max-height: 1200px;">
+    <div style="overflow-x: auto; max-width: 1200px; overflow-y: auto; max-height: 600px;">
         <table class="table">
             <thead>
                 <tr>

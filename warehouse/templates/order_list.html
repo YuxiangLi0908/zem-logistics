@@ -444,10 +444,17 @@
             var refTd = tr[i].getElementsByTagName("td")[5];
             var destinationTd = tr[i].getElementsByTagName("td")[6];
             if (shippingMarkTd && fbaTd && refTd && destinationTd) {
-                var shippingMarkTxtValue = shippingMarkTd.querySelector("input").value;
-                var fbaTxtValue = fbaTd.querySelector("input").value;
-                var refTxtValue = refTd.querySelector("input").value;
-                var destinationTxtValue = destinationTd.querySelector("input").value;
+                if (shippingMarkTd.firstChild.nodeName == 'INPUT') {
+                    var shippingMarkTxtValue = shippingMarkTd.querySelector("input").value;
+                    var fbaTxtValue = fbaTd.querySelector("input").value;
+                    var refTxtValue = refTd.querySelector("input").value;
+                    var destinationTxtValue = destinationTd.querySelector("input").value;
+                } else {
+                    var shippingMarkTxtValue = shippingMarkTd.textContent.trim();
+                    var fbaTxtValue = fbaTd.textContent.trim();
+                    var refTxtValue = refTd.textContent.trim();
+                    var destinationTxtValue = destinationTd.textContent.trim();
+                }
 
                 var shippingMarkDisplayStyle = shippingMarkTxtValue.toUpperCase().indexOf(shippingMarkInput) > -1 ? "" : "none";
                 var fbaDisplayStyle = fbaTxtValue.toUpperCase().indexOf(fbaInput) > -1 ? "" : "none";
