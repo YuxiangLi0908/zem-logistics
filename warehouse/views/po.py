@@ -1,5 +1,5 @@
 import pytz
-from datetime import datetime
+from datetime import datetime, timedelta
 from typing import Any
 
 from django.http import HttpRequest, HttpResponse
@@ -25,7 +25,14 @@ class PO(View):
     template_main = "po.html"
 
     def get(self, request: HttpRequest) -> HttpResponse:
-        context = {"warehouse_form": ZemWarehouseForm()}
+        current_date = datetime.now().date()
+        start_date = current_date + timedelta(days=-30)
+        end_date = current_date + timedelta(days=30)
+        context = {
+            "warehouse_form": ZemWarehouseForm(),
+            "start_date": start_date.strftime('%Y-%m-%d'),
+            "end_date": end_date.strftime('%Y-%m-%d'),
+        }
         return render(request, self.template_main, context)
     
     def post(self, request: HttpRequest) -> HttpResponse:
