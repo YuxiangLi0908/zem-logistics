@@ -52,7 +52,7 @@ DELIVERY_METHOD_OPTIONS = [
 
 WAREHOUSE_OPTIONS = [
     ("", ""), ("美东新泽西仓", "美东新泽西仓"), ("美东南萨瓦纳仓", "美东南萨瓦纳仓"),
-    ("N/A", "N/A")
+    ("N/A(直送)", "N/A(直送)")
 ]
 
 CARRIER_OPTIONS = [

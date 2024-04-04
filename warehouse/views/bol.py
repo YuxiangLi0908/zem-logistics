@@ -71,6 +71,7 @@ class BOL(View):
     
     def handle_search_post(self, request: HttpRequest) -> dict[str, Any]:
         warehouse = request.POST.get("name")
+        warehouse = None if warehouse=="N/A(直送)" else warehouse
         start_date = request.POST.get("start_date", None)
         end_date = request.POST.get("end_date", None)
         criteria = models.Q(packinglist__container_number__order__warehouse__name=warehouse)
@@ -79,11 +80,12 @@ class BOL(View):
         if end_date:
             criteria &= models.Q(shipment_schduled_at__lte=end_date)
         shipment = Shipment.objects.filter(criteria).distinct()
+        warehouse_object = ZemWarehouse.objects.get(name=warehouse) if warehouse else None
         context = {
             "shipment_list": shipment,
             "warehouse_form": ZemWarehouseForm(initial={"name": warehouse}),
             "name": warehouse,
-            "warehouse": ZemWarehouse.objects.get(name=warehouse),
+            "warehouse": warehouse_object,
             "start_date": start_date,
             "end_date": end_date,
         }

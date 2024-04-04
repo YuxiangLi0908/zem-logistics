@@ -40,6 +40,7 @@ class ShipmentDispatch(View):
     def handle_warehouse_post(self, request: HttpRequest) -> HttpResponse:
         warehouse = request.POST.get("name")
         warehouse_form = ZemWarehouseForm(initial={"name": warehouse})
+        warehouse = None if warehouse=="N/A(直送)" else warehouse
         shipment_data = self._get_shipment(warehouse)
         shipment_list = []
         for s in shipment_data:
