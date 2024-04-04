@@ -79,10 +79,12 @@ class ScheduleShipment(View):
     
     def handle_warehouse_post(self, request: HttpRequest) -> dict[str, Any]:
         warehouse = request.POST.get("name")
+        warehouse_form = ZemWarehouseForm(initial={"name": warehouse})
+        warehouse = None if warehouse=="N/A(直送)" else warehouse
         bol = BOL()
         context = bol.handle_search_post(request)
         packing_list_not_scheduled = self._get_packing_list_not_scheduled(warehouse)
-        warehouse_form = ZemWarehouseForm(initial={"name": warehouse})
+        
         context.update({
             "warehouse_form": warehouse_form,
             "packing_list_not_scheduled": packing_list_not_scheduled,
