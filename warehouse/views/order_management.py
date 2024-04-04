@@ -68,6 +68,9 @@ class OrderManagement(View):
             packing_list = PackingList.objects.filter(
                 models.Q(container_number__container_number=container_number)
             )
+            pallet = Pallet.objects.filter(
+                models.Q(packing_list__container_number__order__order_id=selected_order[0].order_id)
+            )
             order_form = OrderForm(instance=selected_order[0])
             container_form = ContainerForm(instance=container)
             clearance_select_form = ClearanceSelectForm(initial={"clearance_option": self._get_clearance_option(clearance)})
@@ -91,6 +94,8 @@ class OrderManagement(View):
                 "container_number": container_number,
                 "upload_file_form": UploadFileForm(),
                 "status": status,
+                "pallet": pallet,
+                "packing_list": packing_list,
             }
             return render(request, self.template_main, self.context)
         elif step == "download_template":
@@ -300,7 +305,9 @@ class OrderManagement(View):
         order.eta = str(form.cleaned_data.get("eta"))
         order.order_type = form.cleaned_data.get("order_type")
         order.save()
-        self._update_packing_list(request, packing_list, container)
+        status = request.POST.get("status")
+        if status == "non_palletized":
+            self._update_packing_list(request, packing_list, container)
 
     def _get_clearance_option(self, clearance: Clearance) -> str:
         if not clearance.is_clearance_required:
