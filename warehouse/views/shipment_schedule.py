@@ -24,6 +24,7 @@ from warehouse.forms.warehouse_form import ZemWarehouseForm
 from warehouse.forms.packling_list_form import PackingListForm
 from warehouse.forms.shipment_form import ShipmentForm
 from warehouse.utils.constants import amazon_fba_locations
+from warehouse.views.bol import BOL
 
 @method_decorator(login_required(login_url='login'), name='dispatch')
 class ScheduleShipment(View):
@@ -45,6 +46,8 @@ class ScheduleShipment(View):
             return render(request, self.template_main, self.handle_selection_post(request))
         elif step == "appointment":
             return render(request, self.template_main, self.handle_appointment_post(request))
+        elif step == "cancel":
+            return render(request, self.template_main, self.handle_cancel_post(request))
         else:
             raise ValueError(f"{request.POST}")
     
@@ -76,13 +79,15 @@ class ScheduleShipment(View):
     
     def handle_warehouse_post(self, request: HttpRequest) -> dict[str, Any]:
         warehouse = request.POST.get("name")
+        bol = BOL()
+        context = bol.handle_search_post(request)
         packing_list_not_scheduled = self._get_packing_list_not_scheduled(warehouse)
         warehouse_form = ZemWarehouseForm(initial={"name": warehouse})
-        context = {
+        context.update({
             "warehouse_form": warehouse_form,
             "packing_list_not_scheduled": packing_list_not_scheduled,
             "warehouse": warehouse
-        }
+        })
         return context
     
     def handle_selection_post(self, request: HttpRequest) -> dict[str, Any]:
@@ -178,7 +183,19 @@ class ScheduleShipment(View):
         mutable_post['name'] = shipment_data.get("origin")
         request.POST = mutable_post
         return self.handle_warehouse_post(request)
-
+    
+    def handle_cancel_post(self, request: HttpRequest):
+        shipment_batch_number = request.POST.get("shipment_batch_number")
+        shipment = Shipment.objects.get(shipment_batch_number=shipment_batch_number)
+        if shipment.is_shipped:
+            raise RuntimeError(f"Shipment with batch number {shipment} has been shipped!")
+        shipment.delete()
+        warehouse = request.POST.get("warehouse")
+        mutable_post = request.POST.copy()
+        mutable_post['name'] = warehouse
+        request.POST = mutable_post
+        return self.handle_warehouse_post(request)
+        
     def _get_packing_list_not_scheduled(self, warehouse: str) -> PackingList:
         return PackingList.objects.filter(
             models.Q(container_number__order__warehouse__name=warehouse) &

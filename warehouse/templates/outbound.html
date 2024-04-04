@@ -13,11 +13,11 @@
 <hr class="Dashed" style="margin-top: 40px; margin-bottom: 40px;">
 
 {% if shipment_list %}
-    <h4 class="mb-4">待出库</h4>
     <div class="search-filters">
         <input type="text" id="batchSearchInput" placeholder="搜索批次号..." oninput="filterTable()">
         <input type="text" id="destinationSearchInput" placeholder="搜索目的仓库..." oninput="filterTable()">
     </div>
+    <h4 class="mb-4">待出库</h4>
     <div style="overflow-x: auto; max-width: 1200px; overflow-y: auto; max-height: 1200px;">
         <table id="shipment-batch-table" class="table">
             <thead>

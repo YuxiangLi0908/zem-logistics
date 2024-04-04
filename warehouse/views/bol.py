@@ -71,8 +71,8 @@ class BOL(View):
     
     def handle_search_post(self, request: HttpRequest) -> dict[str, Any]:
         warehouse = request.POST.get("name")
-        start_date = request.POST.get("start_date")
-        end_date = request.POST.get("end_date")
+        start_date = request.POST.get("start_date", None)
+        end_date = request.POST.get("end_date", None)
         criteria = models.Q(packinglist__container_number__order__warehouse__name=warehouse)
         if start_date:
             criteria &= models.Q(shipment_schduled_at__gte=start_date)

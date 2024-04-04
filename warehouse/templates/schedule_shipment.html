@@ -23,7 +23,7 @@
         <input type="text" id="containerSearchInput" placeholder="搜索柜号..." oninput="filterTable()">
         <input type="text" id="destinationSearchInput" placeholder="搜索目的仓库..." oninput="filterTable()">
     </div>
-    <div style="overflow-x: auto; max-width: 1200px; overflow-y: auto; max-height: 1200px;">
+    <div style="overflow-x: auto; max-width: 1200px; overflow-y: auto; max-height: 600px;">
         <table id="packing-list-table" class="table">
             <thead>
                 <tr>
@@ -70,6 +70,57 @@
     <button type="submit" onclick="confirmSubmit()" class="btn btn-primary" style="width: 100px; height: 35px;">确认预约</button>
 </form> 
 <hr class="Dashed" style="margin-top: 40px; margin-bottom: 40px;">
+{% endif %}
+
+{% if shipment_list %}
+    <h3 class="mb-4">已预约批次</h3>
+    <div class="search-filters">
+        <input type="text" id="shipmentSearchInput" placeholder="搜索批次号..." oninput="filterShipmentTable()">
+    </div>
+    <div style="overflow-x: auto; max-width: 1200px; overflow-y: auto; max-height: 600px;">
+        <table id="shipment-table" class="table">
+            <thead>
+                <tr>
+                    <th class="th">批次号</th>
+                    <th class="th">目的地</th>
+                    <th class="th">预约号</th>
+                    <th class="th">Scheduled Time</th>
+                    <th class="th">Carrier</th>
+                    <th class="th">装车类型</th>
+                    <th class="th">总箱数</th>
+                    <th class="th">总重lbs</th>
+                    <th class="th">总CBM</th>
+                    <th class="th">总卡板数</th>
+                    <th class="th">撤销预约</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for s in shipment_list %}
+                <tr>
+                    <td class="td">{{ s.shipment_batch_number }}</td>
+                    <td class="td">{{ s.destination }}</td>
+                    <td class="td">{{ s.appointment_id }}</td>
+                    <td class="td">{{ s.shipment_appointment }}</td>
+                    <td class="td">{{ s.carrier }}</td>
+                    <td class="td">{{ s.load_type }}</td>
+                    <td class="td">{{ s.total_pcs }}</td>
+                    <td class="td">{{ s.total_weight|floatformat:2 }}</td>
+                    <td class="td">{{ s.total_cbm|floatformat:2 }}</td>
+                    <td class="td">{{ s.total_pallet }}</td>
+                    <td class="td">
+                        <form method="post" action="">
+                            {% csrf_token %}
+                            <input type="hidden" name="step" value="cancel">
+                            <input type="hidden" name="shipment_batch_number" value="{{ s.shipment_batch_number }}">
+                            <input type="hidden" name="warehouse" value="{{ warehouse }}">
+                            <button type="submit" class="btn btn-danger">撤销</button>
+                        </form>
+                    </td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
 {% endif %}
 
 {% if shipment_form %}
@@ -178,6 +229,26 @@
 
                 // Set display style based on both container and destination filters
                 tr[i].style.display = containerDisplayStyle === "" && destinationDisplayStyle === "" ? "" : "none";
+            }
+        }
+    }
+
+    function filterShipmentTable() {
+        var shipmentInput, shipmentFilter, table, tbody, tr, shipmentTd, i, shipmentTxtValue;
+        shipmentInput = document.getElementById("shipmentSearchInput");
+        shipmentFilter = shipmentInput.value.toUpperCase();
+        table = document.getElementById("shipment-table");
+        tbody = table.getElementsByTagName("tbody")[0];
+        tr = tbody.getElementsByTagName("tr");
+
+        for (i = 0; i < tr.length; i++) {
+            shipmentTd = tr[i].getElementsByTagName("td")[0]; // Index 1 corresponds to the shipment_number__shipment_number column
+            if (shipmentTd) {
+                shipmentTxtValue = shipmentTd.textContent || shipmentTd.innerText;
+                var shipmentDisplayStyle = shipmentTxtValue.toUpperCase().indexOf(shipmentFilter) > -1 ? "" : "none";
+
+                // Set display style based on both shipment and destination filters
+                tr[i].style.display = shipmentDisplayStyle === "" ? "" : "none";
             }
         }
     }
