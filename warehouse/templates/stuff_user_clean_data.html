@@ -1,0 +1,14 @@
+{% extends 'base.html' %}
+
+{% block content %}
+<div>
+    <form method="post" action="">
+        {% csrf_token %}
+        <b>Clean Data</b>
+        <button type="submit" class="btn btn-danger" style="width: 100px; height: 35px; margin-left: 20px;">清理数据</button>
+    </form>
+    {% if success %}
+    <b>Successful!</b>
+    {% endif %}
+</div>
+{% endblock %}

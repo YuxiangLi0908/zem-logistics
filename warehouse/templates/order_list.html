@@ -104,6 +104,10 @@
                     <th class="th">订单类型</th>
                     <th class="th">柜型</th>
                     <th class="th">清关方式</th>
+                    {% if orders.0.order_type == '直送' %}
+                        <th class="th">目的地</th>
+                        <th class="th">地址</th>
+                    {% endif %}
                 </tr>
             </thead>
             <tbody>
@@ -115,7 +119,10 @@
                     <td class="td">{{ order_form.order_type }}</td>
                     <td class="td">{{ container_form.container_type }}</td>
                     <td class="td">{{ clearance_select_form.clearance_option }}</td>
-
+                    {% if orders.0.order_type == '直送' %}
+                        <td class="td">{{ shipment.destination}}</td>
+                        <td class="td">{{ shipment.address}}</td>
+                    {% endif %}
                 </tr>
             </tbody>
         </table>

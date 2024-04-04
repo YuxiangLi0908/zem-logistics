@@ -248,6 +248,7 @@ class OrderCreation(View):
         shipment_data = {
             "shipment_batch_number": shipment_id,
             "address": container_data.get("address"),
+            "destination": container_data.get("destination"),
         }
         return self._create_model_object(Shipment, shipment_data)
     

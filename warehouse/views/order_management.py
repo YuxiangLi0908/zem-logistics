@@ -25,6 +25,7 @@ from warehouse.models.packing_list import PackingList
 from warehouse.models.warehouse import ZemWarehouse
 from warehouse.models.pallet import Pallet
 from warehouse.models.offload import Offload
+from warehouse.models.shipment import Shipment
 from warehouse.forms.order_form import OrderForm
 from warehouse.forms.container_form import ContainerForm
 from warehouse.forms.clearance_form import ClearanceSelectForm
@@ -62,15 +63,14 @@ class OrderManagement(View):
             retrieval = Retrieval.objects.get(
                 models.Q(retrieval_id=selected_order[0].retrieval_id)
             )
-            offload = Offload.objects.get(
-                models.Q(offload_id=selected_order[0].offload_id)
-            )
+            offload = selected_order[0].offload_id
             packing_list = PackingList.objects.filter(
                 models.Q(container_number__container_number=container_number)
             )
             pallet = Pallet.objects.filter(
                 models.Q(packing_list__container_number__order__order_id=selected_order[0].order_id)
             )
+            shipment = selected_order[0].shipment_id
             order_form = OrderForm(instance=selected_order[0])
             container_form = ContainerForm(instance=container)
             clearance_select_form = ClearanceSelectForm(initial={"clearance_option": self._get_clearance_option(clearance)})
@@ -96,6 +96,7 @@ class OrderManagement(View):
                 "status": status,
                 "pallet": pallet,
                 "packing_list": packing_list,
+                "shipment": shipment,
             }
             return render(request, self.template_main, self.context)
         elif step == "download_template":

@@ -156,7 +156,18 @@
             </div>
             {% if order_type == "直送" %}
             <div class="form-group col-md-4">
-                <label class="col-form-label" style="font-size: 15px; width: 100px; height: 40px;">目的仓库地址</label>
+                <label class="col-form-label" style="font-size: 15px; width: 100px; height: 40px;">目的地</label>
+                {{ shipment_form.destination }}
+                <style>
+                    #{{ shipment_form.destination.id_for_label }} {
+                        width: 150px;
+                        height: 30px;
+                        font-size: 15px;
+                    }
+                </style>
+            </div>
+            <div class="form-group col-md-4">
+                <label class="col-form-label" style="font-size: 15px; width: 100px; height: 40px;">详细地址</label>
                 {{ shipment_form.address }}
                 <style>
                     #{{ shipment_form.address.id_for_label }} {
@@ -196,15 +207,7 @@
     <input type="hidden" name="order_data" value="{{ order_data }}">
     <div class="text-right">
     {% if order_type == "直送" %}
-        <button type="button" onclick="confirmSubmit()" class="btn btn-primary" style="width: 100px; height: 35px;">创建订单</button>
-        <script>
-            function confirmSubmit() {
-            var confirmation = window.confirm("确认创建订单?");
-            if (confirmation) {
-                document.getElementById("orderForm").submit();
-            }
-            }
-        </script>
+        <button type="submit" class="btn btn-primary" style="width: 100px; height: 35px;">创建订单</button>
     {% else %}
         <button type="submit" class="btn btn-primary" style="width: 100px; height: 35px;">下一步</button>
     {% endif %}
