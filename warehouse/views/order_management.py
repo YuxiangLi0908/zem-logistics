@@ -24,6 +24,8 @@ from warehouse.models.retrieval import Retrieval
 from warehouse.models.packing_list import PackingList
 from warehouse.models.warehouse import ZemWarehouse
 from warehouse.models.pallet import Pallet
+from warehouse.models.offload import Offload
+from warehouse.models.shipment import Shipment
 from warehouse.forms.order_form import OrderForm
 from warehouse.forms.container_form import ContainerForm
 from warehouse.forms.clearance_form import ClearanceSelectForm
@@ -31,6 +33,7 @@ from warehouse.forms.retrieval_form import RetrievalForm, RetrievalSelectForm
 from warehouse.forms.packling_list_form import PackingListForm
 from warehouse.forms.upload_file import UploadFileForm
 from warehouse.utils.constants import PACKING_LIST_TEMP_COL_MAPPING
+from warehouse.views.export_file import export_palletization_list
 
 @method_decorator(login_required(login_url='login'), name='dispatch')
 class OrderManagement(View):
@@ -60,14 +63,20 @@ class OrderManagement(View):
             retrieval = Retrieval.objects.get(
                 models.Q(retrieval_id=selected_order[0].retrieval_id)
             )
+            offload = selected_order[0].offload_id
             packing_list = PackingList.objects.filter(
                 models.Q(container_number__container_number=container_number)
             )
+            pallet = Pallet.objects.filter(
+                models.Q(packing_list__container_number__order__order_id=selected_order[0].order_id)
+            )
+            shipment = selected_order[0].shipment_id
             order_form = OrderForm(instance=selected_order[0])
             container_form = ContainerForm(instance=container)
             clearance_select_form = ClearanceSelectForm(initial={"clearance_option": self._get_clearance_option(clearance)})
             retrieval_select_form = RetrievalSelectForm(initial={"retrieval_option": self._get_retrieval_option(retrieval)})
             retrieval_form = RetrievalForm(instance=retrieval)
+            status = "palletized" if offload.offload_at else "non_palletized"
             if len(packing_list) > 0:
                 packing_list_formset = modelformset_factory(PackingList, form=PackingListForm, extra=0)
             else:
@@ -84,6 +93,10 @@ class OrderManagement(View):
                 "order_id": order_id,
                 "container_number": container_number,
                 "upload_file_form": UploadFileForm(),
+                "status": status,
+                "pallet": pallet,
+                "packing_list": packing_list,
+                "shipment": shipment,
             }
             return render(request, self.template_main, self.context)
         elif step == "download_template":
@@ -123,6 +136,8 @@ class OrderManagement(View):
             mutable_get["step"] = "all"
             request.GET = mutable_get
             return self.get(request)
+        elif step == "export_palletization_list":
+            return export_palletization_list(request)
         else:
             raise ValueError(f"{request.POST}")
         mutable_get = request.GET.copy()
@@ -291,7 +306,9 @@ class OrderManagement(View):
         order.eta = str(form.cleaned_data.get("eta"))
         order.order_type = form.cleaned_data.get("order_type")
         order.save()
-        self._update_packing_list(request, packing_list, container)
+        status = request.POST.get("status")
+        if status == "non_palletized":
+            self._update_packing_list(request, packing_list, container)
 
     def _get_clearance_option(self, clearance: Clearance) -> str:
         if not clearance.is_clearance_required:

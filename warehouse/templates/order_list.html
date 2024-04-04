@@ -76,11 +76,20 @@
             </tbody>
         </table>
     </div>
-    <hr class="Dashed" style="margin-top: 40px; margin-bottom: 40px;">
+    <hr class="Dashed" style="margin-top: 10px; margin-bottom: 10px;">
 </form>
 {% endif %}
 
 {% if order_form %}
+<b>表格导出</b>
+<form method="post" enctype="multipart/form-data">
+    {% csrf_token %}
+    <input type="hidden" name="step" value="export_palletization_list">
+    <input type="hidden" name="status" value="{{ status }}">
+    <input type="hidden" name="container_number" value="{{ container_number }}">
+    <button type="submit" class="btn btn-success" style="width: 100px; height: 35px; margin-top: 10px;">卸柜单</button>
+</form>
+<hr class="Dashed" style="margin-top: 10px; margin-bottom: 10px;">
 <form method="post" enctype="multipart/form-data">
     {% csrf_token %}
     <div style="overflow-x: auto; max-width: 1200px;">
@@ -95,6 +104,10 @@
                     <th class="th">订单类型</th>
                     <th class="th">柜型</th>
                     <th class="th">清关方式</th>
+                    {% if orders.0.order_type == '直送' %}
+                        <th class="th">目的地</th>
+                        <th class="th">地址</th>
+                    {% endif %}
                 </tr>
             </thead>
             <tbody>
@@ -106,7 +119,10 @@
                     <td class="td">{{ order_form.order_type }}</td>
                     <td class="td">{{ container_form.container_type }}</td>
                     <td class="td">{{ clearance_select_form.clearance_option }}</td>
-
+                    {% if orders.0.order_type == '直送' %}
+                        <td class="td">{{ shipment.destination}}</td>
+                        <td class="td">{{ shipment.address}}</td>
+                    {% endif %}
                 </tr>
             </tbody>
         </table>
@@ -142,6 +158,7 @@
     </div>
     <div>
         <b>物品清单信息</b>
+        {% if not pallet %}
         <div>
             导入模版
             {{ upload_file_form.file }}
@@ -158,6 +175,7 @@
                 删除行
             </button>
         </div>
+        {% endif %}
     </div>
     <div style="overflow-x: auto; max-width: 1200px; overflow-y: auto; max-height: 600px;">
         {{ packing_list_formset.management_form }}
@@ -200,6 +218,7 @@
                     <th class="th"></th>
                 </tr>
             </thead>
+            {% if not pallet %}
             <tbody id="formsets-container">
                 <tr id="formset-row" style="display: none;">
                     <td class="td" style="min-width: 40px; text-align: center;">
@@ -240,8 +259,32 @@
                         <td class="td" style="min-width: 180px;">{{ pl.note }}</td>
                     </tr>
                 {% endfor %}
-                
             </tbody>
+            {% else %}
+            <tbody id="formsets-container">
+                {% for pl in packing_list %}
+                    <tr id="formset-row">
+                        <td class="td" style="min-width: 40px; text-align: center;">
+                            <input type='checkbox' name='is_packing_list_selected' onclick="toggleRowBackground(this)">
+                        </td>
+                        <td class="td">{{ pl.product_name }}</td>
+                        <td class="td">{{ pl.delivery_method }}</td>
+                        <td class="td">{{ pl.shipping_mark }}</td>
+                        <td class="td">{{ pl.fba_id }}</td>
+                        <td class="td">{{ pl.ref_id }}</td>
+                        <td class="td">{{ pl.destination }}</td>
+                        <td class="td">{{ pl.address }}</td>
+                        <td class="td">{{ pl.zipcode }}</td>
+                        <td class="td">{{ pl.pcs }}</td>
+                        <td class="td">{{ pl.unit_weight_lbs }}</td>
+                        <td class="td">{{ pl.total_weight_lbs }}</td>
+                        <td class="td">{{ pl.cbm }}</td>
+                        <td class="td">{{ pl.shipment_batch_number }}</td>
+                        <td class="td" style="min-width: 180px;">{{ pl.note }}</td>
+                    </tr>
+                {% endfor %}
+            </tbody>
+            {% endif %}
             <tr id="table_summary" style="position: sticky; bottom: 0; background-color: #f2f2f2;">
                 <td class="td"><b>总计</b></td>
                 <td class="td"></td>
@@ -264,6 +307,7 @@
     <input type="hidden" name="step" value="update">
     <input type="hidden" name="order_id" value="{{ order_id }}">
     <input type="hidden" name="container_number" value="{{ container_number }}">
+    <input type="hidden" name="status" value="{% if pallet %}palletized{% else %}non_palletized{% endif %}">
     <div class="text-right">
         <button type="submit" class="btn btn-primary" style="width: 100px; height: 35px;">确认修改</button>
     </div>
@@ -450,9 +494,15 @@
         // Loop through each row in the table body
         var rows = document.querySelectorAll("#packing-list-table tbody tr:not(#table_summary)");
         for (i = 1; i < rows.length; i++) {
-            var pcs = parseInt(rows[i].getElementsByTagName("td")[9].querySelector("input").value);
-            var weight = parseFloat(rows[i].getElementsByTagName("td")[11].querySelector("input").value);
-            var cbm = parseFloat(rows[i].getElementsByTagName("td")[12].querySelector("input").value);
+            if (rows[i].getElementsByTagName("td")[9].firstChild.nodeName == 'INPUT') {
+                var pcs = parseInt(rows[i].getElementsByTagName("td")[9].querySelector("input").value);
+                var weight = parseFloat(rows[i].getElementsByTagName("td")[11].querySelector("input").value);
+                var cbm = parseFloat(rows[i].getElementsByTagName("td")[12].querySelector("input").value);
+            } else {
+                var pcs = parseInt(rows[i].getElementsByTagName("td")[9].textContent.trim());
+                var weight = parseFloat(rows[i].getElementsByTagName("td")[11].textContent.trim());
+                var cbm = parseFloat(rows[i].getElementsByTagName("td")[12].textContent.trim());
+            }
             totalPcs += pcs;
             totalWeight += weight;
             totalCbm += cbm;

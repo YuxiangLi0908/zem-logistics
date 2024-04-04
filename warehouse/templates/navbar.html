@@ -57,6 +57,16 @@
                         </div>
                     </div>
                 </li>
+                {% if user.is_authenticated and user.is_staff %}
+                <li class="nav-item">
+                    <div class="dropdown">
+                        <a class="nav-link">后台管理</a>
+                        <div class="dropdown-content">
+                            <a href="{% url 'stuff_user' %}?step=clean_data">清理数据</a>
+                        </div>
+                    </div>
+                </li>
+                {% endif %}
             </ul>
         {% endif %}
     </div>

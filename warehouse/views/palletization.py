@@ -17,6 +17,7 @@ from warehouse.models.offload import Offload
 from warehouse.models.order import Order
 from warehouse.models.packing_list import PackingList
 from warehouse.models.pallet import Pallet
+from warehouse.models.shipment import Shipment
 from warehouse.forms.warehouse_form import ZemWarehouseForm
 from warehouse.forms.packling_list_form import PackingListForm
 from warehouse.views.export_file import export_palletization_list
@@ -53,6 +54,8 @@ class Palletization(View):
             self.handle_warehouse_post(request)
         elif step == "export":
             return export_palletization_list(request)
+        elif step == "cancel":
+            self.handle_cancel_post(request)
         else:
             raise ValueError(f"{request.POST}")
         return self.get(request)
@@ -135,6 +138,24 @@ class Palletization(View):
         offload.save()
         mutable_post = request.POST.copy()
         mutable_post['name'] = order_selected.warehouse.name
+        request.POST = mutable_post
+        self.handle_warehouse_post(request)
+
+    def handle_cancel_post(self, request: HttpRequest) -> None:
+        container_number = request.POST.get("container_number")
+        shipment = Shipment.objects.filter(packinglist__container_number__container_number=container_number)
+        if shipment:
+            raise ValueError(f"Order {container_number} has scheduled shipment!")
+        order = Order.objects.get(container_number__container_number=container_number)
+        offload = Offload.objects.get(order__container_number__container_number=container_number)
+        pallet = Pallet.objects.filter(packing_list__container_number__container_number=container_number)
+        offload.total_pallet = None
+        offload.offload_at = None
+        offload.save()
+        for p in pallet:
+            p.delete()
+        mutable_post = request.POST.copy()
+        mutable_post['name'] = order.warehouse.name
         request.POST = mutable_post
         self.handle_warehouse_post(request)
 
