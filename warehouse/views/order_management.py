@@ -24,6 +24,7 @@ from warehouse.models.retrieval import Retrieval
 from warehouse.models.packing_list import PackingList
 from warehouse.models.warehouse import ZemWarehouse
 from warehouse.models.pallet import Pallet
+from warehouse.models.offload import Offload
 from warehouse.forms.order_form import OrderForm
 from warehouse.forms.container_form import ContainerForm
 from warehouse.forms.clearance_form import ClearanceSelectForm
@@ -31,6 +32,7 @@ from warehouse.forms.retrieval_form import RetrievalForm, RetrievalSelectForm
 from warehouse.forms.packling_list_form import PackingListForm
 from warehouse.forms.upload_file import UploadFileForm
 from warehouse.utils.constants import PACKING_LIST_TEMP_COL_MAPPING
+from warehouse.views.export_file import export_palletization_list
 
 @method_decorator(login_required(login_url='login'), name='dispatch')
 class OrderManagement(View):
@@ -60,6 +62,9 @@ class OrderManagement(View):
             retrieval = Retrieval.objects.get(
                 models.Q(retrieval_id=selected_order[0].retrieval_id)
             )
+            offload = Offload.objects.get(
+                models.Q(offload_id=selected_order[0].offload_id)
+            )
             packing_list = PackingList.objects.filter(
                 models.Q(container_number__container_number=container_number)
             )
@@ -68,6 +73,7 @@ class OrderManagement(View):
             clearance_select_form = ClearanceSelectForm(initial={"clearance_option": self._get_clearance_option(clearance)})
             retrieval_select_form = RetrievalSelectForm(initial={"retrieval_option": self._get_retrieval_option(retrieval)})
             retrieval_form = RetrievalForm(instance=retrieval)
+            status = "palletized" if offload.offload_at else "non_palletized"
             if len(packing_list) > 0:
                 packing_list_formset = modelformset_factory(PackingList, form=PackingListForm, extra=0)
             else:
@@ -84,6 +90,7 @@ class OrderManagement(View):
                 "order_id": order_id,
                 "container_number": container_number,
                 "upload_file_form": UploadFileForm(),
+                "status": status,
             }
             return render(request, self.template_main, self.context)
         elif step == "download_template":
@@ -123,6 +130,8 @@ class OrderManagement(View):
             mutable_get["step"] = "all"
             request.GET = mutable_get
             return self.get(request)
+        elif step == "export_palletization_list":
+            return export_palletization_list(request)
         else:
             raise ValueError(f"{request.POST}")
         mutable_get = request.GET.copy()

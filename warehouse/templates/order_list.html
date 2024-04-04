@@ -76,11 +76,20 @@
             </tbody>
         </table>
     </div>
-    <hr class="Dashed" style="margin-top: 40px; margin-bottom: 40px;">
+    <hr class="Dashed" style="margin-top: 10px; margin-bottom: 10px;">
 </form>
 {% endif %}
 
 {% if order_form %}
+<b>表格导出</b>
+<form method="post" enctype="multipart/form-data">
+    {% csrf_token %}
+    <input type="hidden" name="step" value="export_palletization_list">
+    <input type="hidden" name="status" value="{{ status }}">
+    <input type="hidden" name="container_number" value="{{ container_number }}">
+    <button type="submit" class="btn btn-success" style="width: 100px; height: 35px; margin-top: 10px;">卸柜单</button>
+</form>
+<hr class="Dashed" style="margin-top: 10px; margin-bottom: 10px;">
 <form method="post" enctype="multipart/form-data">
     {% csrf_token %}
     <div style="overflow-x: auto; max-width: 1200px;">
