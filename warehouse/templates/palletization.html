@@ -76,12 +76,12 @@
                     <th class="th">拆柜完成时间</th>
                     <th class="th">打板数</th>
                     <th class="th">拆柜单</th>
+                    <th class="th">撤销拆柜</th>
                 </tr>
             </thead>
             <tbody>
                 {% for c in order_palletized %}
-                <form method="post" action="">
-                    {% csrf_token %}
+                
                     <tr>
                         <td class="td">
                             <a href="/palletize/{{c.id}}/?step=complete">{{ c.container_number }}</a>
@@ -92,15 +92,24 @@
                         <td class="td">{{ c.offload_id.offload_at }}</td>
                         <td class="td">{{ c.offload_id.total_pallet }}</td>
                         <td class="td">
-                            
+                            <form method="post" action="">
+                                {% csrf_token %}
                                 <input type="hidden" name="step" value="export">
                                 <input type="hidden" name="status" value="palletized">
                                 <input type="hidden" name="container_number" value="{{ c.container_number }}">
                                 <button type="submit" class="btn btn-success">导出excel</button>
-                            
+                            </form>
+                        </td>
+                        <td class="td">
+                            <form method="post" action="">
+                                {% csrf_token %}
+                                <input type="hidden" name="step" value="cancel">
+                                <input type="hidden" name="container_number" value="{{ c.container_number }}">
+                                <button type="submit" class="btn btn-danger">撤销</button>
+                            </form>
                         </td>
                     </tr>
-                </form>
+                
                 {% endfor %}
             </tbody>
         </table>
