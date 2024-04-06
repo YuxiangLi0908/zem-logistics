@@ -185,9 +185,9 @@
                     <th class="th" style="min-width: 40px; text-align: center;"></th>
                     <th class="th">物品名</th>
                     <th class="th">派送方式</th>
-                    <th class="th">唛头</th>
-                    <th class="th">FBA号</th>
-                    <th class="th">refid</th>
+                    <th class="th" style="max-width: 400px; word-break: break-all;">唛头</th>
+                    <th class="th" style="max-width: 400px; word-break: break-all;">FBA号</th>
+                    <th class="th" style="max-width: 400px; word-break: break-all;">refid</th>
                     <th class="th">目的地</th>
                     <th class="th">地址</th>
                     <th class="th">邮编</th>
@@ -237,6 +237,7 @@
                     <td class="td">{{ packing_list_formset.empty_form.total_weight_lbs }}</td>
                     <td class="td">{{ packing_list_formset.empty_form.cbm }}</td>
                     <td class="td">{{ packing_list_formset.empty_form.shipment_batch_number }}</td>
+                    <td class="td">{{ packing_list_formset.empty_form.note }}</td>
                 </tr>
                 {% for pl in packing_list_formset.forms %}
                     <tr id="formset-row">
