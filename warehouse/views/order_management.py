@@ -96,6 +96,7 @@ class OrderManagement(View):
                 "status": status,
                 "pallet": pallet,
                 "packing_list": packing_list,
+                "pl_pl_form_zip": zip(packing_list, packing_list_formset),
                 "shipment": shipment,
             }
             return render(request, self.template_main, self.context)
@@ -253,7 +254,7 @@ class OrderManagement(View):
         obj.save()
         return obj
     
-    def _update_packing_list(
+    def _update_packing_list_non_palletized(
         self, request: HttpRequest, obj: list[PackingList], container: Container
     ) -> None:
         packing_list_formsets = formset_factory(PackingListForm, extra=1)
@@ -285,7 +286,26 @@ class OrderManagement(View):
                 j += 1
         else:
             raise ValueError(f"invaid packing list!")
-
+        
+    def _update_packing_list_palletized(
+        self, request: HttpRequest, obj: list[PackingList], container: Container
+    ) -> None:
+        packing_list_formsets = formset_factory(PackingListForm, extra=1)
+        packing_list_form = packing_list_formsets(request.POST)
+        pl_valid = all([pl.is_valid() for pl in packing_list_form])
+        if pl_valid:
+            cleaned_data = [pl.cleaned_data for pl in packing_list_form]
+            for pl, pl_form in zip(obj, cleaned_data):
+                pl.product_name = pl_form["product_name"]
+                pl.delivery_method = pl_form["delivery_method"]
+                pl.destination = pl_form["destination"]
+                pl.address = pl_form["address"]
+                pl.zipcode = pl_form["zipcode"]
+                pl.note = pl_form["note"]
+                pl.save()
+        else:
+            raise ValueError(f"invaid packing list!")
+        
     def _update_order(
         self,
         request: HttpRequest,
@@ -310,7 +330,9 @@ class OrderManagement(View):
         order.save()
         status = request.POST.get("status")
         if status == "non_palletized":
-            self._update_packing_list(request, packing_list, container)
+            self._update_packing_list_non_palletized(request, packing_list, container)
+        else:
+            self._update_packing_list_palletized(request, packing_list, container)
 
     def _get_clearance_option(self, clearance: Clearance) -> str:
         if not clearance.is_clearance_required:

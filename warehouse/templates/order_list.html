@@ -263,25 +263,25 @@
             </tbody>
             {% else %}
             <tbody id="formsets-container">
-                {% for pl in packing_list %}
+                {% for pl, pl_form in pl_pl_form_zip %}
                     <tr id="formset-row">
                         <td class="td" style="min-width: 40px; text-align: center;">
                             <input type='checkbox' name='is_packing_list_selected' onclick="toggleRowBackground(this)">
                         </td>
-                        <td class="td">{{ pl.product_name }}</td>
-                        <td class="td">{{ pl.delivery_method }}</td>
+                        <td class="td">{{ pl_form.product_name }}</td>
+                        <td class="td">{{ pl_form.delivery_method }}</td>
                         <td class="td" style="max-width: 400px; word-break: break-all;">{{ pl.shipping_mark }}</td>
                         <td class="td" style="max-width: 400px; word-break: break-all;">{{ pl.fba_id }}</td>
                         <td class="td" style="max-width: 400px; word-break: break-all;">{{ pl.ref_id }}</td>
-                        <td class="td">{{ pl.destination }}</td>
-                        <td class="td">{{ pl.address }}</td>
-                        <td class="td">{{ pl.zipcode }}</td>
+                        <td class="td">{{ pl_form.destination }}</td>
+                        <td class="td">{{ pl_form.address }}</td>
+                        <td class="td">{{ pl_form.zipcode }}</td>
                         <td class="td">{{ pl.pcs }}</td>
                         <td class="td">{{ pl.unit_weight_lbs|floatformat:2 }}</td>
                         <td class="td">{{ pl.total_weight_lbs|floatformat:2 }}</td>
                         <td class="td">{{ pl.cbm }}</td>
                         <td class="td">{{ pl.shipment_batch_number }}</td>
-                        <td class="td" style="min-width: 180px;">{{ pl.note }}</td>
+                        <td class="td" style="min-width: 180px;">{{ pl_form.note }}</td>
                     </tr>
                 {% endfor %}
             </tbody>
