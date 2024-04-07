@@ -234,7 +234,7 @@
                     <td class="td">{{ packing_list_formset.empty_form.zipcode }}</td>
                     <td class="td">{{ packing_list_formset.empty_form.pcs }}</td>
                     <td class="td">{{ packing_list_formset.empty_form.unit_weight_lbs }}</td>
-                    <td class="td">{{ packing_list_formset.empty_form.total_weight_lbs }}</td>
+                    <td class="td">{{ packing_list_formset.empty_form.total_weight_lbs|floatformat:2 }}</td>
                     <td class="td">{{ packing_list_formset.empty_form.cbm }}</td>
                     <td class="td">{{ packing_list_formset.empty_form.shipment_batch_number }}</td>
                     <td class="td">{{ packing_list_formset.empty_form.note }}</td>
@@ -277,8 +277,8 @@
                         <td class="td">{{ pl.address }}</td>
                         <td class="td">{{ pl.zipcode }}</td>
                         <td class="td">{{ pl.pcs }}</td>
-                        <td class="td">{{ pl.unit_weight_lbs }}</td>
-                        <td class="td">{{ pl.total_weight_lbs }}</td>
+                        <td class="td">{{ pl.unit_weight_lbs|floatformat:2 }}</td>
+                        <td class="td">{{ pl.total_weight_lbs|floatformat:2 }}</td>
                         <td class="td">{{ pl.cbm }}</td>
                         <td class="td">{{ pl.shipment_batch_number }}</td>
                         <td class="td" style="min-width: 180px;">{{ pl.note }}</td>

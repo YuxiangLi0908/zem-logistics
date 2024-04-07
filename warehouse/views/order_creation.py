@@ -166,11 +166,13 @@ class OrderCreation(View):
             df = df.dropna(how="all", subset=[c for c in df.columns if c not in ["delivery_method", "note"]])
             df = df.replace(np.nan, None)
             df = df.reset_index(drop=True)
+            if df[df["delivery_method"]!="客户自提"]["destination"].isna().sum():
+                raise ValueError(f"destination NA error!")
             for idx, row in df.iterrows():
                 if row["unit_weight_kg"] and not row["unit_weight_lbs"]:
-                    df.loc[idx, "unit_weight_lbs"] = df.loc[idx, "unit_weight_kg"] * 2.20462
+                    df.loc[idx, "unit_weight_lbs"] = round(df.loc[idx, "unit_weight_kg"] * 2.20462, 2)
                 if row["total_weight_kg"] and not row["total_weight_lbs"]:
-                    df.loc[idx, "total_weight_lbs"] = df.loc[idx, "total_weight_kg"] * 2.20462
+                    df.loc[idx, "total_weight_lbs"] = round(df.loc[idx, "total_weight_kg"] * 2.20462, 2)
             model_fields = [field.name for field in PackingList._meta.fields]
             col = [c for c in df.columns if c in model_fields]
             pl_data = df[col].to_dict("records")
