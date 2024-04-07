@@ -96,6 +96,7 @@ class OrderManagement(View):
                 "status": status,
                 "pallet": pallet,
                 "packing_list": packing_list,
+                "pl_pl_form_zip": zip(packing_list, packing_list_formset),
                 "shipment": shipment,
             }
             return render(request, self.template_main, self.context)
@@ -164,11 +165,13 @@ class OrderManagement(View):
             df = df.dropna(how="all", subset=[c for c in df.columns if c != "delivery_method"])
             df = df.replace(np.nan, None)
             df = df.reset_index(drop=True)
+            if df[df["delivery_method"]!="客户自提"]["destination"].isna().sum():
+                raise ValueError(f"destination NA error!")
             for idx, row in df.iterrows():
                 if row["unit_weight_kg"] and not row["unit_weight_lbs"]:
-                    df.loc[idx, "unit_weight_lbs"] = df.loc[idx, "unit_weight_kg"] * 2.20462
+                    df.loc[idx, "unit_weight_lbs"] = round(df.loc[idx, "unit_weight_kg"] * 2.20462, 2)
                 if row["total_weight_kg"] and not row["total_weight_lbs"]:
-                    df.loc[idx, "total_weight_lbs"] = df.loc[idx, "total_weight_kg"] * 2.20462
+                    df.loc[idx, "total_weight_lbs"] = round(df.loc[idx, "total_weight_kg"] * 2.20462, 2)
             model_fields = [field.name for field in PackingList._meta.fields]
             col = [c for c in df.columns if c in model_fields]
             pl_data = df[col].to_dict("records")
@@ -251,7 +254,7 @@ class OrderManagement(View):
         obj.save()
         return obj
     
-    def _update_packing_list(
+    def _update_packing_list_non_palletized(
         self, request: HttpRequest, obj: list[PackingList], container: Container
     ) -> None:
         packing_list_formsets = formset_factory(PackingListForm, extra=1)
@@ -283,7 +286,26 @@ class OrderManagement(View):
                 j += 1
         else:
             raise ValueError(f"invaid packing list!")
-
+        
+    def _update_packing_list_palletized(
+        self, request: HttpRequest, obj: list[PackingList], container: Container
+    ) -> None:
+        packing_list_formsets = formset_factory(PackingListForm, extra=1)
+        packing_list_form = packing_list_formsets(request.POST)
+        pl_valid = all([pl.is_valid() for pl in packing_list_form])
+        if pl_valid:
+            cleaned_data = [pl.cleaned_data for pl in packing_list_form]
+            for pl, pl_form in zip(obj, cleaned_data):
+                pl.product_name = pl_form["product_name"]
+                pl.delivery_method = pl_form["delivery_method"]
+                pl.destination = pl_form["destination"]
+                pl.address = pl_form["address"]
+                pl.zipcode = pl_form["zipcode"]
+                pl.note = pl_form["note"]
+                pl.save()
+        else:
+            raise ValueError(f"invaid packing list!")
+        
     def _update_order(
         self,
         request: HttpRequest,
@@ -308,7 +330,9 @@ class OrderManagement(View):
         order.save()
         status = request.POST.get("status")
         if status == "non_palletized":
-            self._update_packing_list(request, packing_list, container)
+            self._update_packing_list_non_palletized(request, packing_list, container)
+        else:
+            self._update_packing_list_palletized(request, packing_list, container)
 
     def _get_clearance_option(self, clearance: Clearance) -> str:
         if not clearance.is_clearance_required:
