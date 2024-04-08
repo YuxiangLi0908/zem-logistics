@@ -66,7 +66,7 @@ class OrderManagement(View):
             offload = selected_order[0].offload_id
             packing_list = PackingList.objects.filter(
                 models.Q(container_number__container_number=container_number)
-            )
+            ).order_by("id")
             pallet = Pallet.objects.filter(
                 models.Q(packing_list__container_number__order__order_id=selected_order[0].order_id)
             )
