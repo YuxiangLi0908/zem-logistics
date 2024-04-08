@@ -445,15 +445,35 @@
             var refTd = tr[i].getElementsByTagName("td")[5];
             var destinationTd = tr[i].getElementsByTagName("td")[6];
             if (shippingMarkTd && fbaTd && refTd && destinationTd) {
+                // if (shippingMarkTd.firstChild.nodeName == 'INPUT') {
+                //     var shippingMarkTxtValue = shippingMarkTd.querySelector("input").value;
+                //     var fbaTxtValue = fbaTd.querySelector("input").value;
+                //     var refTxtValue = refTd.querySelector("input").value;
+                //     var destinationTxtValue = destinationTd.querySelector("input").value;
+                // } else {
+                //     var shippingMarkTxtValue = shippingMarkTd.textContent.trim();
+                //     var fbaTxtValue = fbaTd.textContent.trim();
+                //     var refTxtValue = refTd.textContent.trim();
+                //     var destinationTxtValue = destinationTd.textContent.trim();
+                // }
                 if (shippingMarkTd.firstChild.nodeName == 'INPUT') {
                     var shippingMarkTxtValue = shippingMarkTd.querySelector("input").value;
-                    var fbaTxtValue = fbaTd.querySelector("input").value;
-                    var refTxtValue = refTd.querySelector("input").value;
-                    var destinationTxtValue = destinationTd.querySelector("input").value;
                 } else {
                     var shippingMarkTxtValue = shippingMarkTd.textContent.trim();
+                }
+                if (fbaTd.firstChild.nodeName == 'INPUT') {
+                    var fbaTxtValue = fbaTd.querySelector("input").value;
+                } else {
                     var fbaTxtValue = fbaTd.textContent.trim();
+                }
+                if (refTd.firstChild.nodeName == 'INPUT') {
+                    var refTxtValue = refTd.querySelector("input").value;
+                } else {
                     var refTxtValue = refTd.textContent.trim();
+                }
+                if (destinationTd.firstChild.nodeName == 'INPUT') {
+                    var destinationTxtValue = destinationTd.querySelector("input").value;
+                } else {
                     var destinationTxtValue = destinationTd.textContent.trim();
                 }
 
