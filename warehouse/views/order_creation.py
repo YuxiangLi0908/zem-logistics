@@ -166,8 +166,14 @@ class OrderCreation(View):
             df = df.dropna(how="all", subset=[c for c in df.columns if c not in ["delivery_method", "note"]])
             df = df.replace(np.nan, None)
             df = df.reset_index(drop=True)
-            if df[df["delivery_method"]!="客户自提"]["destination"].isna().sum():
-                raise ValueError(f"destination NA error!")
+            # if df[df["delivery_method"]!="客户自提"]["destination"].isna().sum():
+            #     raise ValueError(f"destination NA error!")
+            if df["cbm"].isna().sum():
+                raise ValueError(f"cbm number N/A error!")
+            if df["total_weight_lbs"].isna().sum():
+                raise ValueError(f"weight number N/A error!")
+            if df["pcs"].isna().sum():
+                raise ValueError(f"boxes number N/A error!")
             for idx, row in df.iterrows():
                 if row["unit_weight_kg"] and not row["unit_weight_lbs"]:
                     df.loc[idx, "unit_weight_lbs"] = round(df.loc[idx, "unit_weight_kg"] * 2.20462, 2)

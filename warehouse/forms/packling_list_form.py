@@ -14,6 +14,3 @@ class PackingListForm(forms.ModelForm):
         super(PackingListForm, self).__init__(*args, **kwargs)
         for k in self.fields.keys():
             self.fields[k].required = False
-        self.fields["cbm"].required = True
-        self.fields["pcs"].required = True
-        self.fields["total_weight_lbs"].required = True
