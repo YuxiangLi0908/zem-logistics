@@ -521,13 +521,13 @@
         var rows = document.querySelectorAll("#packing-list-table tbody tr:not(#table_summary)");
         for (i = 1; i < rows.length; i++) {
             if (rows[i].getElementsByTagName("td")[9].firstChild.nodeName == 'INPUT') {
-                var pcs = parseInt(rows[i].getElementsByTagName("td")[9].querySelector("input").value);
-                var weight = parseFloat(rows[i].getElementsByTagName("td")[11].querySelector("input").value);
-                var cbm = parseFloat(rows[i].getElementsByTagName("td")[12].querySelector("input").value);
+                var pcs = parseInt(rows[i].getElementsByTagName("td")[9].querySelector("input").value) || 0;
+                var weight = parseFloat(rows[i].getElementsByTagName("td")[11].querySelector("input").value)|| 0;
+                var cbm = parseFloat(rows[i].getElementsByTagName("td")[12].querySelector("input").value)|| 0;
             } else {
-                var pcs = parseInt(rows[i].getElementsByTagName("td")[9].textContent.trim());
-                var weight = parseFloat(rows[i].getElementsByTagName("td")[11].textContent.trim());
-                var cbm = parseFloat(rows[i].getElementsByTagName("td")[12].textContent.trim());
+                var pcs = parseInt(rows[i].getElementsByTagName("td")[9].textContent.trim())|| 0;
+                var weight = parseFloat(rows[i].getElementsByTagName("td")[11].textContent.trim())|| 0;
+                var cbm = parseFloat(rows[i].getElementsByTagName("td")[12].textContent.trim())|| 0;
             }
             totalPcs += pcs;
             totalWeight += weight;
