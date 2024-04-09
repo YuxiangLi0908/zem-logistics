@@ -124,8 +124,7 @@ def export_palletization_list(request: HttpRequest) -> HttpResponse:
     df.to_excel(excel_writer=response, index=False, columns=df.columns)
     return response
 
-def export_po(request: HttpRequest) -> HttpResponse:
-    # raise ValueError(f"{request.POST}")
+def export_po(request: HttpRequest, export_format: str = "PO") -> HttpResponse:
     ids = request.POST.get("pl_ids")
     ids = ids.replace("[", "").replace("]", "").split(", ")
     ids = [int(i) for i in ids]
@@ -167,7 +166,15 @@ def export_po(request: HttpRequest) -> HttpResponse:
         ),
     ).distinct().order_by("destination", "container_number__container_number")
     data = [i for i in packing_list]
-    keep = ["fba_id", "container_number__container_number", "ref_id", "Pallet Count", "total_pcs", "label"]
+    if export_format == "PO":
+        keep = ["fba_id", "container_number__container_number", "ref_id", "Pallet Count", "total_pcs", "label"]
+    elif export_format == "FULL_TABLE":
+        keep = [
+            "container_number__container_number", "destination", "delivery_method", "fba_id", "ref_id", 
+            "total_cbm", "total_pcs", "total_weight_lbs", "Pallet Count", "label"
+        ]
+    else:
+        raise ValueError(f"unknown export_format option: {export_format}")
     df = pd.DataFrame.from_records(data)
     def get_est_pallet(n):
         if n < 1:
@@ -186,6 +193,11 @@ def export_po(request: HttpRequest) -> HttpResponse:
         "ref_id": "PO List (use , as separator) *",
         "total_pcs": "Carton Count",
     }, axis=1)
+    if export_format == "FULL_TABLE":
+        df = df.rename({
+            "total_cbm": "CBM",
+            "total_weight_lbs": "WEIGHT(LBS)",
+        }, axis=1)
     response = HttpResponse(content_type="text/csv")
     response['Content-Disposition'] = f"attachment; filename=PO.csv"
     df.to_csv(path_or_buf=response, index=False)
