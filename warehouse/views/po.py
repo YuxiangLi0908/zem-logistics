@@ -43,6 +43,8 @@ class PO(View):
             return render(request, self.template_main, self.handle_selection_post(request))
         elif step == "export_po":
             return export_po(request)
+        elif step == "export_po_full":
+            return export_po(request, "FULL_TABLE")
         
     def handle_search_post(self, request: HttpRequest) -> dict[str, Any]:
         warehouse = request.POST.get("name")

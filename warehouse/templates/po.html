@@ -146,13 +146,29 @@
         </tbody>
     </table>
 </div>
-<form method="post" action="">
-    {% csrf_token %}
-    <input type="hidden" name="step" value="export_po">
-    <input type="hidden" name="warehouse" value="{{ warehouse }}">
-    <input type="hidden" name="pl_ids" value="{{ selected_pl_ids }}">
-    <button type="submit" class="btn btn-success" style="width: 100px; height: 35px;">导出PO</button>
-</form>
+
+<div>
+    <div style="display: inline-block;">
+        <form method="post" action="">
+            {% csrf_token %}
+            <input type="hidden" name="step" value="export_po">
+            <input type="hidden" name="warehouse" value="{{ warehouse }}">
+            <input type="hidden" name="pl_ids" value="{{ selected_pl_ids }}">
+            <button type="submit" class="btn btn-success" style="width: 100px; height: 35px;">导出PO</button>
+        </form>
+    </div>
+
+    <div style="display: inline-block; margin-left: 10px;">
+        <form method="post" action="">
+            {% csrf_token %}
+            <input type="hidden" name="step" value="export_po_full">
+            <input type="hidden" name="warehouse" value="{{ warehouse }}">
+            <input type="hidden" name="pl_ids" value="{{ selected_pl_ids }}">
+            <button type="submit" class="btn btn-success" style="width: 100px; height: 35px;">导出表格</button>
+        </form>
+    </div>
+</div>
+
 <div style="overflow-x: auto; max-width: 1200px; overflow-y: auto; max-height: 600px;">
     <table id="packing-list-table" class="table">
         <thead>
