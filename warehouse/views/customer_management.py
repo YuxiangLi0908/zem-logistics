@@ -23,7 +23,6 @@ class CustomerManagement(View):
             return self.handle_new_customer_get(request)
         else:
             raise ValueError(f"{request}")
-        return render(request, self.template_main, self.context)
     
     def post(self, request:HttpRequest) -> HttpResponse:
         step = request.GET.get("step")
@@ -31,7 +30,6 @@ class CustomerManagement(View):
             return self.handle_new_customer_post(request)
         else:
             raise ValueError(f"{request}")
-        return render(request, self.template_main, self.context)
     
     def handle_new_customer_get(self, request: HttpRequest) -> HttpResponse:
         self.context["customer_form"] = CustomerForm()
