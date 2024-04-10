@@ -283,7 +283,10 @@ class OrderManagement(View):
             for d in cleaned_data:
                 d["container_number"] = container
                 if d["destination"]:
-                    d["destination"] = d["destination"].upper()
+                    try:
+                        d["destination"] = d["destination"].upper()
+                    except:
+                        pass
             n_pl_new = len(cleaned_data)
             n_pl_old = len(obj)
             i, j = 0, 0

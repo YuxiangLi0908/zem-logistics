@@ -151,7 +151,10 @@ class OrderCreation(View):
                     if isinstance(pl.cleaned_data[k], str):
                         pl.cleaned_data[k] = pl.cleaned_data[k].strip()
                     if k == "destination":
-                        pl.cleaned_data[k] = pl.cleaned_data[k].upper()
+                        try:
+                            pl.cleaned_data[k] = pl.cleaned_data[k].upper()
+                        except:
+                            pass
                 pl.cleaned_data["container_number"] = container
                 PackingList.objects.create(**pl.cleaned_data)
         else:
