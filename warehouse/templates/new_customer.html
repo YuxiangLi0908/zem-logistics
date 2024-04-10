@@ -29,11 +29,15 @@
 <hr class="Dashed" style="margin-top: 20px; margin-bottom: 20px;">
 <h4>客户列表</h4>
 <div style="overflow-x: auto; max-width: 1200px; overflow-y: auto; max-height: 800px;">
-    <table class="table">
+    <table class="table" id="customer-table">
         <thead>
-            <tr>
+            <tr style="position: sticky; top: 0;">
                 <th class="th">客户简称</th>
                 <th class="th">客户全称</th>
+            </tr>
+            <tr style="position: sticky; top: 40px;">
+                <th class="th"><input type="text" id="zemNameSearchInput" placeholder="搜索..." oninput="filterCustomerTable()"></th>
+                <th class="th"><input type="text" id="fullNameSearchInput" placeholder="搜索..." oninput="filterCustomerTable()"></th>
             </tr>
         </thead>
         <tbody>
@@ -70,5 +74,29 @@
     </div>
 </form>
 {% endif %}
+<script>
+    function filterCustomerTable() {
+        var zemNameInput, fullNameInput, zemNameFilter, fullNameFilter, table, tbody, tr, zemNameTd, fullNameTd, i, zemNameTxtValue, fullNameTxtValue;
+        zemNameInput = document.getElementById("zemNameSearchInput");
+        fullNameInput = document.getElementById("fullNameSearchInput");
+        zemNameFilter = zemNameInput.value.toUpperCase();
+        fullNameFilter = fullNameInput.value.toUpperCase();
+        table = document.getElementById("customer-table");
+        tbody = table.getElementsByTagName("tbody")[0];
+        tr = tbody.getElementsByTagName("tr");
 
+        for (i = 0; i < tr.length; i++) {
+            zemNameTd = tr[i].getElementsByTagName("td")[0];
+            fullNameTd = tr[i].getElementsByTagName("td")[1]; 
+            if (zemNameTd && fullNameTd) {
+                zemNameTxtValue = zemNameTd.textContent || zemNameTd.innerText;
+                fullNameTxtValue = fullNameTd.textContent || fullNameTd.innerText;
+                var zemNameDisplayStyle = zemNameTxtValue.toUpperCase().indexOf(zemNameFilter) > -1 ? "" : "none";
+                var fullNameDisplayStyle = fullNameTxtValue.toUpperCase().indexOf(fullNameFilter) > -1 ? "" : "none";
+
+                tr[i].style.display = zemNameDisplayStyle === "" && fullNameDisplayStyle === "" ? "" : "none";
+            }
+        }
+    };
+</script>
 {% endblock %}
