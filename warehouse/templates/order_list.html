@@ -480,9 +480,9 @@
                 //     var cbm = parseFloat(rows[i].getElementsByTagName("td")[12].textContent.trim())|| 0;
                 // }
                 var pcs = parseInt(rows[i].getElementsByTagName("td")[9].textContent.trim())|| parseInt(rows[i].getElementsByTagName("td")[9].querySelector("input").value);
-                var weightKg = parseInt(rows[i].getElementsByTagName("td")[10].textContent.trim())|| parseInt(rows[i].getElementsByTagName("td")[10].querySelector("input").value);
-                var weight = parseInt(rows[i].getElementsByTagName("td")[11].textContent.trim())|| parseInt(rows[i].getElementsByTagName("td")[11].querySelector("input").value);
-                var cbm = parseInt(rows[i].getElementsByTagName("td")[12].textContent.trim())|| parseInt(rows[i].getElementsByTagName("td")[12].querySelector("input").value);
+                var weightKg = parseFloat(rows[i].getElementsByTagName("td")[10].textContent.trim())|| parseFloat(rows[i].getElementsByTagName("td")[10].querySelector("input").value);
+                var weight = parseFloat(rows[i].getElementsByTagName("td")[11].textContent.trim())|| parseFloat(rows[i].getElementsByTagName("td")[11].querySelector("input").value);
+                var cbm = parseFloat(rows[i].getElementsByTagName("td")[12].textContent.trim())|| parseFloat(rows[i].getElementsByTagName("td")[12].querySelector("input").value);
                 totalPcs += pcs;
                 totalWeightKg += weightKg;
                 totalWeight += weight;
@@ -586,9 +586,9 @@
             //     var cbm = parseFloat(rows[i].getElementsByTagName("td")[12].textContent.trim())|| 0;
             // }
             var pcs = parseInt(rows[i].getElementsByTagName("td")[9].textContent.trim())|| parseInt(rows[i].getElementsByTagName("td")[9].querySelector("input").value);
-            var weightKg = parseInt(rows[i].getElementsByTagName("td")[10].textContent.trim())|| parseInt(rows[i].getElementsByTagName("td")[10].querySelector("input").value);
-            var weight = parseInt(rows[i].getElementsByTagName("td")[11].textContent.trim())|| parseInt(rows[i].getElementsByTagName("td")[11].querySelector("input").value);
-            var cbm = parseInt(rows[i].getElementsByTagName("td")[12].textContent.trim())|| parseInt(rows[i].getElementsByTagName("td")[12].querySelector("input").value);
+            var weightKg = parseFloat(rows[i].getElementsByTagName("td")[10].textContent.trim())|| parseFloat(rows[i].getElementsByTagName("td")[10].querySelector("input").value);
+            var weight = parseFloat(rows[i].getElementsByTagName("td")[11].textContent.trim())|| parseFloat(rows[i].getElementsByTagName("td")[11].querySelector("input").value);
+            var cbm = parseFloat(rows[i].getElementsByTagName("td")[12].textContent.trim())|| parseFloat(rows[i].getElementsByTagName("td")[12].querySelector("input").value);
             totalPcs += pcs;
             totalWeightKg += weightKg;
             totalWeight += weight;
