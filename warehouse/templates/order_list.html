@@ -2,10 +2,18 @@
 
 {% block content %}
 
-<b>订单列表</b>
+
 
 {% if orders %}
 <form method="post" action="">
+    {% if order_detail %}
+    <div style="display: inline-block;"><b>订单列表</b></div>
+    <div class="text-right" style="display: inline-block; margin-left: 80%;">
+        <input type="hidden" name="step" value="delete_order">
+        <button type="submit" onclick="confirmSubmit()" class="btn btn-danger" style="width: 100px; height: 35px;">删除订单</button>
+    </div>
+    {% else %}
+    <div><b>订单列表</b></div>
     {% csrf_token %}
     <div class="search-filters" style="display: inline-block;">
         <input type="text" id="containerSearchInput" placeholder="搜索柜号..." oninput="filterTable()">
@@ -15,6 +23,7 @@
         <input type="hidden" name="step" value="delete_order">
         <button type="submit" onclick="confirmSubmit()" class="btn btn-danger" style="width: 100px; height: 35px;">删除订单</button>
     </div>
+    {% endif %}
     <div style="overflow-x: auto; max-width: 1200px;">
         <table id="order-table" class="table" style="font-size: 12px;">
             <thead>

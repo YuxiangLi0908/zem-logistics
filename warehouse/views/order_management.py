@@ -47,6 +47,7 @@ class OrderManagement(View):
             orders = Order.objects.all()
             self.context = {
                 'orders': orders,
+                'order_detail': False,
             }
             return render(request, self.template_main, self.context)
         elif step == "query":
@@ -101,6 +102,7 @@ class OrderManagement(View):
                 "pl_pl_form_zip": zip(packing_list, packing_list_formset),
                 "shipment": shipment,
                 "shipment_form": shipment_form,
+                "order_detail": True,
             }
             return render(request, self.template_main, self.context)
         elif step == "download_template":
