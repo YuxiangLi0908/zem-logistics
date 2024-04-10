@@ -22,5 +22,32 @@
     {% if pl_update_success %}
     <b>Successful!</b>
     {% endif %}
+    {% if invalid_cases %}
+    <table>
+        <thead>
+            <tr>
+                <th class="th">container_number</th>
+                <th class="th">destination</th>
+                <th class="th">delivery_method</th>
+                <th class="th">shipping_mark</th>
+                <th class="th">fba_id</th>
+                <th class="th">ref_id</th>
+            </tr>
+        </thead>
+        <tbody>
+            {% for p in invalid_cases %}
+            <tr>
+                <td class="td">p.container_number</td>
+                <td class="td">p.destination</td>
+                <td class="td">p.delivery_method</td>
+                <td class="td">p.shipping_mark</td>
+                <td class="td">p.fba_id</td>
+                <td class="td">p.ref_id</td>
+            </tr>
+            {% endfor %}
+        </tbody>
+    </table>
+    
+    {% endif %}
 </div>
 {% endblock %}
