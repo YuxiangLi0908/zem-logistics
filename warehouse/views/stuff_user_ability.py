@@ -24,8 +24,11 @@ class StuffPower(View):
     def post(self, request: HttpRequest) -> HttpResponse:
         step = request.POST.get("step", None)
         if step == "update_pl_weight_kg":
-            self._update_pl_weight_kg_20240410()
-            context = {"pl_update_success": True}
+            invalid_cases = self._update_pl_weight_kg_20240410()
+            context = {
+                "pl_update_success": True,
+                "invalid_cases": invalid_cases,
+            }
             return render(request, self.template_1, context)
         else:
             self._remove_offload()
@@ -71,7 +74,14 @@ class StuffPower(View):
             s.delete()
 
     def _update_pl_weight_kg_20240410(self):
+        invalid_cases = []
         pl = PackingList.objects.all()
         for p in pl:
-            p.total_weight_kg = round(p.total_weight_lbs / 2.20462, 2)
-            p.save()
+            try:
+                p.total_weight_kg = round(p.total_weight_lbs / 2.20462, 2)
+                p.save()
+            except:
+                p.total_weight_kg = 0
+                p.save()
+                invalid_cases.append(p)
+        return invalid_cases
