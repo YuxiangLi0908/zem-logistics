@@ -2,15 +2,16 @@
 
 {% block content %}
 
-<h3 class="mb-3">订单列表</h3>
-<div class="search-filters">
-    <input type="text" id="containerSearchInput" placeholder="搜索柜号..." oninput="filterTable()">
-    <input type="text" id="customerSearchInput" placeholder="搜索客户..." oninput="filterTable()">
-</div>
+<b>订单列表</b>
+
 {% if orders %}
 <form method="post" action="">
     {% csrf_token %}
-    <div class="text-right">
+    <div class="search-filters" style="display: inline-block;">
+        <input type="text" id="containerSearchInput" placeholder="搜索柜号..." oninput="filterTable()">
+        <input type="text" id="customerSearchInput" placeholder="搜索客户..." oninput="filterTable()">
+    </div>
+    <div class="text-right" style="display: inline-block; margin-left: 50%;">
         <input type="hidden" name="step" value="delete_order">
         <button type="submit" onclick="confirmSubmit()" class="btn btn-danger" style="width: 100px; height: 35px;">删除订单</button>
     </div>
@@ -44,7 +45,7 @@
                     </td>
                     <td class="td">{{ o.customer_name }}</td>
                     <td class="td">
-                        <a href="/order_list/?step=query&container_number={{ o.container_number }}">{{ o.container_number }}</a>
+                        <a href="/order_list/?step=query&container_number={{ o.container_number }}" target="_blank">{{ o.container_number }}</a>
                     </td>
                     <td class="td">{{ o.warehouse }}</td>
                     <td class="td">{{ o.eta }}</td> 
@@ -81,15 +82,17 @@
 {% endif %}
 
 {% if order_form %}
-<b>表格导出</b>
-<form method="post" enctype="multipart/form-data">
+<b style="display: inline-block;"">表格导出</b>
+<form method="post" enctype="multipart/form-data" style="display: inline-block; margin-left: 10px;">
     {% csrf_token %}
     <input type="hidden" name="step" value="export_palletization_list">
     <input type="hidden" name="status" value="{{ status }}">
     <input type="hidden" name="container_number" value="{{ container_number }}">
-    <button type="submit" class="btn btn-success" style="width: 100px; height: 35px; margin-top: 10px;">卸柜单</button>
+    <button type="submit" class="btn btn-success" style="width: 100px; height: 35px;">卸柜单</button>
 </form>
+
 <hr class="Dashed" style="margin-top: 10px; margin-bottom: 10px;">
+<div style="overflow-y: auto; max-height: 800px;">
 <form method="post" enctype="multipart/form-data">
     {% csrf_token %}
     <div style="overflow-x: auto; max-width: 1200px;">
@@ -157,9 +160,9 @@
         </table>
     </div>
     <div>
-        <b>物品清单信息</b>
+        <div><b>物品清单信息</b></div>
         {% if not pallet %}
-        <div>
+        <div style="display: inline-block;">
             导入模版
             {{ upload_file_form.file }}
             <input type="hidden" name="order_data" value="{{ order_data }}">
@@ -167,7 +170,7 @@
             <button type="submit" class="btn btn-success" style="width: 100px; height: 35px;">上传清单</button>
             <a href="{% url 'order_list' %}?step=download_template" class="btn btn-success" style="width: 100px; height: 35px;">下载模版</a>
         </div>
-        <div class="text-right">
+        <div class="text-right" style="display: inline-block; margin-left: 20%;">
             <button type="button" id="add-more-btn" class="btn btn-success" style="width: 100px; height: 35px;">
                 添加行
             </button>
@@ -192,7 +195,7 @@
                     <th class="th">地址</th>
                     <th class="th">邮编</th>
                     <th class="th">箱数</th>
-                    <th class="th">单箱重量-lbs</th>
+                    <th class="th">总重量-kg</th>
                     <th class="th">总重量-lbs</th>
                     <th class="th">CBM</th>
                     <th class="th">批次号</th>
@@ -232,7 +235,7 @@
                     <td class="td">{{ packing_list_formset.empty_form.address }}</td>
                     <td class="td">{{ packing_list_formset.empty_form.zipcode }}</td>
                     <td class="td">{{ packing_list_formset.empty_form.pcs }}</td>
-                    <td class="td">{{ packing_list_formset.empty_form.unit_weight_lbs }}</td>
+                    <td class="td">{{ packing_list_formset.empty_form.total_weight_kg|floatformat:2 }}</td>
                     <td class="td">{{ packing_list_formset.empty_form.total_weight_lbs|floatformat:2 }}</td>
                     <td class="td">{{ packing_list_formset.empty_form.cbm }}</td>
                     <td class="td">{{ packing_list_formset.empty_form.shipment_batch_number }}</td>
@@ -253,7 +256,7 @@
                             <td class="td">{{ pl.address }}</td>
                             <td class="td">{{ pl.zipcode }}</td>
                             <td class="td">{{ pl.pcs }}</td>
-                            <td class="td">{{ pl.unit_weight_lbs }}</td>
+                            <td class="td">{{ pl.total_weight_kg }}</td>
                             <td class="td">{{ pl.total_weight_lbs }}</td>
                             <td class="td">{{ pl.cbm }}</td>
                             <td class="td">{{ pl.shipment_batch_number }}</td>
@@ -275,7 +278,7 @@
                             <td class="td">{{ pl_form.address }}</td>
                             <td class="td">{{ pl_form.zipcode }}</td>
                             <td class="td">{{ pl.pcs }}</td>
-                            <td class="td">{{ pl.unit_weight_lbs|floatformat:2 }}</td>
+                            <td class="td">{{ pl.total_weight_kg|floatformat:2 }}</td>
                             <td class="td">{{ pl.total_weight_lbs|floatformat:2 }}</td>
                             <td class="td">{{ pl.cbm }}</td>
                             <td class="td">{{ pl.shipment_batch_number }}</td>
@@ -295,7 +298,7 @@
                 <td class="td"></td>
                 <td class="td"></td>
                 <td class="td" id="sub_table_summary_pcs">0</td>
-                <td class="td"></td>
+                <td class="td" id="sub_table_summary_weight_kg">0</td>
                 <td class="td" id="sub_table_summary_weight">0</td>
                 <td class="td" id="sub_table_summary_cbm">0</td>
                 <td class="td"></td>
@@ -312,7 +315,7 @@
                 <td class="td"></td>
                 <td class="td"></td>
                 <td class="td" id="table_summary_pcs">0</td>
-                <td class="td"></td>
+                <td class="td" id="table_summary_weight_kg">0</td>
                 <td class="td" id="table_summary_weight">0</td>
                 <td class="td" id="table_summary_cbm">0</td>
                 <td class="td"></td>
@@ -328,6 +331,7 @@
         <button type="submit" class="btn btn-primary" style="width: 100px; height: 35px;">确认修改</button>
     </div>
 </form>
+</div>
 {% endif %}
 
 <script>
@@ -447,6 +451,7 @@
 
     function updateSubTableSummary() {
         var totalPcs = 0;
+        var totalWeightKg = 0;
         var totalWeight = 0;
         var totalCbm = 0;
 
@@ -456,19 +461,23 @@
             if (rows[i].style.display == "") {
                 if (rows[i].getElementsByTagName("td")[9].firstChild.nodeName == 'INPUT') {
                     var pcs = parseInt(rows[i].getElementsByTagName("td")[9].querySelector("input").value) || 0;
+                    var weightKg = parseFloat(rows[i].getElementsByTagName("td")[10].querySelector("input").value)|| 0;
                     var weight = parseFloat(rows[i].getElementsByTagName("td")[11].querySelector("input").value)|| 0;
                     var cbm = parseFloat(rows[i].getElementsByTagName("td")[12].querySelector("input").value)|| 0;
                 } else {
                     var pcs = parseInt(rows[i].getElementsByTagName("td")[9].textContent.trim())|| 0;
+                    var weightKg = parseFloat(rows[i].getElementsByTagName("td")[10].textContent.trim())|| 0;
                     var weight = parseFloat(rows[i].getElementsByTagName("td")[11].textContent.trim())|| 0;
                     var cbm = parseFloat(rows[i].getElementsByTagName("td")[12].textContent.trim())|| 0;
                 }
                 totalPcs += pcs;
+                totalWeightKg += weightKg;
                 totalWeight += weight;
                 totalCbm += cbm;
             }
         }
         document.getElementById('sub_table_summary_pcs').textContent = totalPcs;
+        document.getElementById('sub_table_summary_weight_kg').textContent = totalWeightKg.toFixed(2);
         document.getElementById('sub_table_summary_weight').textContent = totalWeight.toFixed(2);
         document.getElementById('sub_table_summary_cbm').textContent = totalCbm.toFixed(2);
     };
@@ -548,6 +557,7 @@
 
     function calculateSummary() {
         var totalPcs = 0;
+        var totalWeightKg = 0;
         var totalWeight = 0;
         var totalCbm = 0;
 
@@ -556,23 +566,28 @@
         for (i = 1; i < rows.length; i++) {
             if (rows[i].getElementsByTagName("td")[9].firstChild.nodeName == 'INPUT') {
                 var pcs = parseInt(rows[i].getElementsByTagName("td")[9].querySelector("input").value) || 0;
+                var weightKg = parseFloat(rows[i].getElementsByTagName("td")[10].querySelector("input").value)|| 0;
                 var weight = parseFloat(rows[i].getElementsByTagName("td")[11].querySelector("input").value)|| 0;
                 var cbm = parseFloat(rows[i].getElementsByTagName("td")[12].querySelector("input").value)|| 0;
             } else {
                 var pcs = parseInt(rows[i].getElementsByTagName("td")[9].textContent.trim())|| 0;
+                var weightKg = parseFloat(rows[i].getElementsByTagName("td")[10].textContent.trim())|| 0;
                 var weight = parseFloat(rows[i].getElementsByTagName("td")[11].textContent.trim())|| 0;
                 var cbm = parseFloat(rows[i].getElementsByTagName("td")[12].textContent.trim())|| 0;
             }
             totalPcs += pcs;
+            totalWeightKg += weightKg;
             totalWeight += weight;
             totalCbm += cbm;
         }
         // Update the summary row with the calculated totals
         document.getElementById('table_summary_pcs').textContent = totalPcs;
+        document.getElementById('table_summary_weight_kg').textContent = totalWeightKg.toFixed(2);
         document.getElementById('table_summary_weight').textContent = totalWeight.toFixed(2);
         document.getElementById('table_summary_cbm').textContent = totalCbm.toFixed(2);
 
         document.getElementById('sub_table_summary_pcs').textContent = totalPcs;
+        document.getElementById('sub_table_summary_weight_kg').textContent = totalWeightKg.toFixed(2);
         document.getElementById('sub_table_summary_weight').textContent = totalWeight.toFixed(2);
         document.getElementById('sub_table_summary_cbm').textContent = totalCbm.toFixed(2);
     }
