@@ -169,7 +169,7 @@ class OrderManagement(View):
             #     raise ValueError(f"destination N/A error!")
             if df["cbm"].isna().sum():
                 raise ValueError(f"cbm number N/A error!")
-            if df["total_weight_lbs"].isna().sum():
+            if df["total_weight_lbs"].isna().sum() and df["total_weight_kg"].isna().sum():
                 raise ValueError(f"weight number N/A error!")
             if df["pcs"].isna().sum():
                 raise ValueError(f"boxes number N/A error!")
