@@ -129,7 +129,7 @@ class OrderManagement(View):
                     warehoue = ZemWarehouse.objects.get(models.Q(id=request.POST.get("warehouse")))
                 except:
                     warehoue = None
-                packing_list = PackingList.objects.filter(models.Q(container_number__order__order_id=order_id))
+                packing_list = PackingList.objects.filter(models.Q(container_number__order__order_id=order_id)).order_by("id")
                 if order.order_type == "直送":
                     shipment = order.shipment_id
                     shipment.destination = request.POST.getlist("destination")[0]
@@ -312,6 +312,9 @@ class OrderManagement(View):
             for pl, pl_form in zip(obj, cleaned_data):
                 pl.product_name = pl_form["product_name"]
                 pl.delivery_method = pl_form["delivery_method"]
+                pl.shipping_mark = pl_form["shipping_mark"]
+                pl.fba_id = pl_form["fba_id"]
+                pl.ref_id = pl_form["ref_id"]
                 pl.destination = pl_form["destination"]
                 pl.address = pl_form["address"]
                 pl.zipcode = pl_form["zipcode"]
