@@ -11,4 +11,16 @@
     <b>Successful!</b>
     {% endif %}
 </div>
+
+<div style="margin-top: 30px;">
+    <form method="post" action="">
+        {% csrf_token %}
+        <p>2024-04-10: 添加packing list - total_weight_kg field</p>
+        <input type="hidden" name="step" value="update_pl_weight_kg">
+        <button type="submit" class="btn btn-danger" style="width: 100px; height: 35px; margin-left: 20px;">更新</button>
+    </form>
+    {% if pl_update_success %}
+    <b>Successful!</b>
+    {% endif %}
+</div>
 {% endblock %}

@@ -22,12 +22,18 @@ class StuffPower(View):
         return render(request, self.template_1, context)
     
     def post(self, request: HttpRequest) -> HttpResponse:
-        self._remove_offload()
-        self._remove_clearance()
-        self._remove_retrieval()
-        self._remove_shipment()
-        context = {"success": True}
-        return render(request, self.template_1, context)
+        step = request.POST.get("step", None)
+        if step == "update_pl_weight_kg":
+            self._update_pl_weight_kg_20240410()
+            context = {"pl_update_success": True}
+            return render(request, self.template_1, context)
+        else:
+            self._remove_offload()
+            self._remove_clearance()
+            self._remove_retrieval()
+            self._remove_shipment()
+            context = {"success": True}
+            return render(request, self.template_1, context)
     
     def _remove_offload(self) -> None:
         order_all = Order.objects.all()
@@ -63,3 +69,9 @@ class StuffPower(View):
         shipment_to_remove = [s for s in shipment_all if s not in shipment_in_use]
         for s in shipment_to_remove:
             s.delete()
+
+    def _update_pl_weight_kg_20240410(self):
+        pl = PackingList.objects.all()
+        for p in pl:
+            p.total_weight_kg = round(p.total_weight_lbs / 2.20462, 2)
+            p.save()
