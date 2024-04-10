@@ -284,6 +284,23 @@
                     {% endfor %}
             </tbody>
             {% endif %}
+            <tr id="table_summary" style="position: sticky; bottom: 40px; background-color: #f2f2f2;">
+                <td class="td"><b>已筛选</b></td>
+                <td class="td"></td>
+                <td class="td"></td>
+                <td class="td"></td>
+                <td class="td"></td>
+                <td class="td"></td>
+                <td class="td"></td>
+                <td class="td"></td>
+                <td class="td"></td>
+                <td class="td" id="sub_table_summary_pcs">0</td>
+                <td class="td"></td>
+                <td class="td" id="sub_table_summary_weight">0</td>
+                <td class="td" id="sub_table_summary_cbm">0</td>
+                <td class="td"></td>
+                <td class="td"></td>
+            </tr>
             <tr id="table_summary" style="position: sticky; bottom: 0; background-color: #f2f2f2;">
                 <td class="td"><b>总计</b></td>
                 <td class="td"></td>
@@ -294,10 +311,10 @@
                 <td class="td"></td>
                 <td class="td"></td>
                 <td class="td"></td>
-                <td class="td" id="table_summary_pcs">1</td>
+                <td class="td" id="table_summary_pcs">0</td>
                 <td class="td"></td>
-                <td class="td" id="table_summary_weight">1</td>
-                <td class="td" id="table_summary_cbm">1</td>
+                <td class="td" id="table_summary_weight">0</td>
+                <td class="td" id="table_summary_cbm">0</td>
                 <td class="td"></td>
                 <td class="td"></td>
             </tr>
@@ -428,6 +445,34 @@
         }
     };
 
+    function updateSubTableSummary() {
+        var totalPcs = 0;
+        var totalWeight = 0;
+        var totalCbm = 0;
+
+        // Loop through each row in the table body
+        var rows = document.querySelectorAll("#packing-list-table tbody tr:not(#table_summary)");
+        for (i = 1; i < rows.length; i++) {
+            if (rows[i].style.display == "") {
+                if (rows[i].getElementsByTagName("td")[9].firstChild.nodeName == 'INPUT') {
+                    var pcs = parseInt(rows[i].getElementsByTagName("td")[9].querySelector("input").value) || 0;
+                    var weight = parseFloat(rows[i].getElementsByTagName("td")[11].querySelector("input").value)|| 0;
+                    var cbm = parseFloat(rows[i].getElementsByTagName("td")[12].querySelector("input").value)|| 0;
+                } else {
+                    var pcs = parseInt(rows[i].getElementsByTagName("td")[9].textContent.trim())|| 0;
+                    var weight = parseFloat(rows[i].getElementsByTagName("td")[11].textContent.trim())|| 0;
+                    var cbm = parseFloat(rows[i].getElementsByTagName("td")[12].textContent.trim())|| 0;
+                }
+                totalPcs += pcs;
+                totalWeight += weight;
+                totalCbm += cbm;
+            }
+        }
+        document.getElementById('sub_table_summary_pcs').textContent = totalPcs;
+        document.getElementById('sub_table_summary_weight').textContent = totalWeight.toFixed(2);
+        document.getElementById('sub_table_summary_cbm').textContent = totalCbm.toFixed(2);
+    };
+
     function filterPackingList() {
         var shippingMarkInput = document.getElementById("shippingMarkSearchInput").value.toUpperCase();
         var fbaInput = document.getElementById("fbaSearchInput").value.toUpperCase();
@@ -437,23 +482,12 @@
         tbody = table.getElementsByTagName("tbody")[0];
         tr = tbody.getElementsByTagName("tr");
 
-        for (i = 0; i < tr.length; i++) {
+        for (i = 1; i < tr.length; i++) {
             var shippingMarkTd = tr[i].getElementsByTagName("td")[3];
             var fbaTd = tr[i].getElementsByTagName("td")[4];
             var refTd = tr[i].getElementsByTagName("td")[5];
             var destinationTd = tr[i].getElementsByTagName("td")[6];
             if (shippingMarkTd && fbaTd && refTd && destinationTd) {
-                // if (shippingMarkTd.firstChild.nodeName == 'INPUT') {
-                //     var shippingMarkTxtValue = shippingMarkTd.querySelector("input").value;
-                //     var fbaTxtValue = fbaTd.querySelector("input").value;
-                //     var refTxtValue = refTd.querySelector("input").value;
-                //     var destinationTxtValue = destinationTd.querySelector("input").value;
-                // } else {
-                //     var shippingMarkTxtValue = shippingMarkTd.textContent.trim();
-                //     var fbaTxtValue = fbaTd.textContent.trim();
-                //     var refTxtValue = refTd.textContent.trim();
-                //     var destinationTxtValue = destinationTd.textContent.trim();
-                // }
                 if (shippingMarkTd.firstChild.nodeName == 'INPUT') {
                     var shippingMarkTxtValue = shippingMarkTd.querySelector("input").value;
                 } else {
@@ -483,7 +517,7 @@
                 tr[i].style.display = shippingMarkDisplayStyle === "" && fbaDisplayStyle === "" && refDisplayStyle === "" && destinationDisplayStyle === "" ? "" : "none";
             }
         }
-
+        updateSubTableSummary();
     };
 
     function toggleAllCheckboxes() {
@@ -537,6 +571,10 @@
         document.getElementById('table_summary_pcs').textContent = totalPcs;
         document.getElementById('table_summary_weight').textContent = totalWeight.toFixed(2);
         document.getElementById('table_summary_cbm').textContent = totalCbm.toFixed(2);
+
+        document.getElementById('sub_table_summary_pcs').textContent = totalPcs;
+        document.getElementById('sub_table_summary_weight').textContent = totalWeight.toFixed(2);
+        document.getElementById('sub_table_summary_cbm').textContent = totalCbm.toFixed(2);
     }
     window.onload = calculateSummary;
 </script>
