@@ -32,6 +32,7 @@ from warehouse.forms.clearance_form import ClearanceSelectForm
 from warehouse.forms.retrieval_form import RetrievalForm, RetrievalSelectForm
 from warehouse.forms.packling_list_form import PackingListForm
 from warehouse.forms.upload_file import UploadFileForm
+from warehouse.forms.shipment_form import ShipmentForm
 from warehouse.utils.constants import PACKING_LIST_TEMP_COL_MAPPING
 from warehouse.views.export_file import export_palletization_list
 
@@ -71,6 +72,7 @@ class OrderManagement(View):
                 models.Q(packing_list__container_number__order__order_id=selected_order[0].order_id)
             )
             shipment = selected_order[0].shipment_id
+            shipment_form = ShipmentForm(instance=shipment)
             order_form = OrderForm(instance=selected_order[0])
             container_form = ContainerForm(instance=container)
             clearance_select_form = ClearanceSelectForm(initial={"clearance_option": self._get_clearance_option(clearance)})
@@ -98,6 +100,7 @@ class OrderManagement(View):
                 "packing_list": packing_list,
                 "pl_pl_form_zip": zip(packing_list, packing_list_formset),
                 "shipment": shipment,
+                "shipment_form": shipment_form,
             }
             return render(request, self.template_main, self.context)
         elif step == "download_template":
@@ -127,6 +130,11 @@ class OrderManagement(View):
                 except:
                     warehoue = None
                 packing_list = PackingList.objects.filter(models.Q(container_number__order__order_id=order_id))
+                if order.order_type == "直送":
+                    shipment = order.shipment_id
+                    shipment.destination = request.POST.getlist("destination")[0]
+                    shipment.address = request.POST.getlist("address")[0]
+                    shipment.save()
                 self._update_order(
                     request, order, container, retrieval, clearance, packing_list,
                     customer, warehoue

@@ -120,8 +120,8 @@
                     <td class="td">{{ container_form.container_type }}</td>
                     <td class="td">{{ clearance_select_form.clearance_option }}</td>
                     {% if orders.0.order_type == '直送' %}
-                        <td class="td">{{ shipment.destination}}</td>
-                        <td class="td">{{ shipment.address}}</td>
+                        <td class="td">{{ shipment_form.destination}}</td>
+                        <td class="td">{{ shipment_form.address}}</td>
                     {% endif %}
                 </tr>
             </tbody>
