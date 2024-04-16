@@ -74,6 +74,8 @@ PACKING_LIST_TEMP_COL_MAPPING = {
     "总cbm": "cbm",
     "仓库代码": "destination",
     "邮编": "zipcode",
+    "收件人": "contact_name",
+    "联系方式": "contact_method",
     "仓库/私人 地址": "address",
     "FBA号": "fba_id",
     "Amazon Reference ID": "ref_id",
