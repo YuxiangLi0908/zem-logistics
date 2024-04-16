@@ -321,6 +321,8 @@ class OrderManagement(View):
                 pl.fba_id = pl_form["fba_id"]
                 pl.ref_id = pl_form["ref_id"]
                 pl.destination = pl_form["destination"]
+                pl.contact_name = pl_form["contact_name"]
+                pl.contact_method = pl_form["contact_method"]
                 pl.address = pl_form["address"]
                 pl.zipcode = pl_form["zipcode"]
                 pl.note = pl_form["note"]

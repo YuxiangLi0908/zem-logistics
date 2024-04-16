@@ -2,10 +2,10 @@
 
 {% block content %}
 {% load static custom_filters %}
-    <form method="post">
+    <form method="post" style="width: 100%;">
         {% csrf_token %}
-        <div class="container mt-3">
-            <div style="overflow-x: auto; max-width: 1200px; overflow-y: auto; max-height: 1200px;">
+        <div class="container mt-3" style="max-width: 100%;">
+            <div style="overflow-x: auto; max-width: 100%; overflow-y: auto; max-height: 1200px;">
                 <table class="table">
                     <thead>
                         <tr>

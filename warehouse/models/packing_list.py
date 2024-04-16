@@ -11,6 +11,8 @@ class PackingList(models.Model):
     destination = models.CharField(max_length=255, null=True, blank=True)
     address = models.CharField(max_length=2000, null=True, blank=True)
     zipcode = models.CharField(max_length=20, null=True, blank=True)
+    contact_name = models.CharField(max_length=255, null=True, blank=True)
+    contact_method = models.CharField(max_length=400, null=True, blank=True)
     ref_id = models.CharField(max_length=400, null=True, blank=True)
     pcs = models.IntegerField(null=True)
     unit_weight_lbs = models.FloatField(null=True, blank=True)
