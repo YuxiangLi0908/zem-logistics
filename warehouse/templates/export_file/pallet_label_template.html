@@ -1,0 +1,46 @@
+{% block content %}
+<style>
+    @media print {
+        .page-break {
+            page-break-before: always;
+            justify-content: center;
+            align-items: center;
+            min-height: 100%;
+        }
+
+        .page-break.first-page {
+            page-break-before: auto;
+        }
+
+        .text-container {
+            text-align: center;
+            margin-top: 20%;
+            height: 100%;
+        }
+
+        .huge-text {
+            font-size: 60px;
+            margin: 5%;
+        }
+    }
+</style>
+
+{% for d in data %}
+<div class="page-break {% if forloop.first %}first-page{% endif %}">
+    <div class="text-container">
+        <br style="font-size: 100px;">
+        <div class="huge-text">{{ d.container_number }}</div>
+        <br>
+        <div class="huge-text">{{ d.destination }}</div>
+        <br>
+        {% if d.date %}
+            <div class="huge-text">{{ d.date }}</div>
+            <br>
+        {% endif %}
+        {% if d.hold %}
+            <div class="huge-text">!!! HOLD !!!</div>
+        {% endif %}
+    </div>
+</div>
+{% endfor %}
+{% endblock %}

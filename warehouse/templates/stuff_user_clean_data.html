@@ -37,12 +37,12 @@
         <tbody>
             {% for p in invalid_cases %}
             <tr>
-                <td class="td">p.container_number</td>
-                <td class="td">p.destination</td>
-                <td class="td">p.delivery_method</td>
-                <td class="td">p.shipping_mark</td>
-                <td class="td">p.fba_id</td>
-                <td class="td">p.ref_id</td>
+                <td class="td">{{ p.container_number.container_number }}</td>
+                <td class="td">{{ p.destination }}</td>
+                <td class="td">{{ p.delivery_method }}</td>
+                <td class="td">{{ p.shipping_mark }}</td>
+                <td class="td">{{ p.fba_id }}</td>
+                <td class="td">{{ p.ref_id }}</td>
             </tr>
             {% endfor %}
         </tbody>
