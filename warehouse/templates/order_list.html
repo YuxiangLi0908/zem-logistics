@@ -4,6 +4,7 @@
 
 {% if orders %}
 <form method="post" action="" style="width: 100%;">
+    {% csrf_token %}
     <div class="container" style="display: inline-block; width: 100%; margin: 0; padding: 0; max-width: 100%;">
         {% if order_detail %}
         <div class="d-flex justify-content-between">
@@ -16,7 +17,6 @@
         {% else %}
         <div><b>订单列表</b></div>
         <div class="d-flex justify-content-between">
-            {% csrf_token %}
             <div class="search-filters" style="width: 80%;">
                 <input type="text" id="containerSearchInput" placeholder="搜索柜号..." oninput="filterTable()">
                 <input type="text" id="customerSearchInput" placeholder="搜索客户..." oninput="filterTable()">
