@@ -88,7 +88,7 @@
     </div>
     <input type="hidden" name="order_type" value="{{ order_type }}">
     <input type="hidden" name="step" value="container_info">
-    <div class="text-right">
+    <div>
         <button type="submit" class="btn btn-primary" style="width: 100px; height: 35px;">下一步</button>
     </div>
 </form>
@@ -205,7 +205,7 @@
     <input type="hidden" name="order_type" value="{{ order_type }}">
     <input type="hidden" name="step" value="packing_list">
     <input type="hidden" name="order_data" value="{{ order_data }}">
-    <div class="text-right">
+    <div>
     {% if order_type == "直送" %}
         <button type="submit" class="btn btn-primary" style="width: 100px; height: 35px;">创建订单</button>
     {% else %}
@@ -216,7 +216,7 @@
 </form>
 
 {% elif step == 3 %}
-<form method="post" enctype="multipart/form-data">
+<form method="post" enctype="multipart/form-data" style="width: 100%;">
     {% csrf_token %}
     导入模版
     {{ upload_file_form.file }}
@@ -227,9 +227,9 @@
     <a href="{% url 'create_order' %}?step=download_template" class="btn btn-success" style="width: 100px; height: 35px;">下载模版</a>
 </form>
 
-<form method="post" class="needs-validation" id="orderForm" novalidate>
+<form method="post" class="needs-validation" id="orderForm" style="width: 100%; max-width: 100%;" novalidate>
     {% csrf_token %}
-    <div class="container mt-3">
+    <div class="container mt-3" style="max-width: 100%;">
         <div class="row" style="margin-top: 30px;">
             <div class="col-8">
                 <h4 class="mb-3">物品清单</h4>
@@ -244,8 +244,8 @@
             </div>
         </div>
         {{ packing_list_form.management_form }}
-        <div style="overflow-x: auto; max-width: 1200px; overflow-y: auto; max-height: 600px;">
-            <table class="table">
+        <div style="overflow-x: auto; max-width: 100%; overflow-y: auto; max-height: 600px;">
+            <table class="table" style="font-size: 12px;">
                 <thead>
                     <tr>
                         <th class="th" style="min-width: 40px; text-align: center;"></th>
@@ -254,11 +254,13 @@
                         <th class="th">唛头</th>
                         <th class="th">FBA号</th>
                         <th class="th">目的地</th>
+                        <th class="th">收件人</th>
+                        <th class="th">联系方式</th>
                         <th class="th">地址</th>
                         <th class="th">邮编</th>
                         <th class="th">refid</th>
                         <th class="th">箱数</th>
-                        <th class="th">单箱重量-lbs</th>
+                        <th class="th">总重量-kg</th>
                         <th class="th">总重量-lbs</th>
                         <th class="th">CBM</th>
                         <th class="th">备注</th>
@@ -274,13 +276,16 @@
                         <td class="td">{{ packing_list_form.empty_form.shipping_mark }}</td>
                         <td class="td">{{ packing_list_form.empty_form.fba_id }}</td>
                         <td class="td">{{ packing_list_form.empty_form.destination }}</td>
+                        <td class="td">{{ packing_list_form.empty_form.contact_name }}</td>
+                        <td class="td">{{ packing_list_form.empty_form.contact_method }}</td>
                         <td class="td">{{ packing_list_form.empty_form.address }}</td>
                         <td class="td">{{ packing_list_form.empty_form.zipcode }}</td>
                         <td class="td">{{ packing_list_form.empty_form.ref_id }}</td>
                         <td class="td">{{ packing_list_form.empty_form.pcs }}</td>
-                        <td class="td">{{ packing_list_form.empty_form.unit_weight_lbs }}</td>
+                        <td class="td">{{ packing_list_form.empty_form.total_weight_kg }}</td>
                         <td class="td">{{ packing_list_form.empty_form.total_weight_lbs }}</td>
                         <td class="td">{{ packing_list_form.empty_form.cbm }}</td>
+                        <td class="td">{{ packing_list_form.empty_form.note }}</td>
                     </tr>
                     {% for pl in packing_list_form.forms %}
                         <tr id="formset-row">
@@ -292,11 +297,13 @@
                             <td class="td">{{ pl.shipping_mark }}</td>
                             <td class="td">{{ pl.fba_id }}</td>
                             <td class="td">{{ pl.destination }}</td>
+                            <td class="td">{{ pl.contact_name }}</td>
+                            <td class="td">{{ pl.contact_method }}</td>
                             <td class="td">{{ pl.address }}</td>
                             <td class="td">{{ pl.zipcode }}</td>
                             <td class="td">{{ pl.ref_id }}</td>
                             <td class="td">{{ pl.pcs }}</td>
-                            <td class="td">{{ pl.unit_weight_lbs }}</td>
+                            <td class="td">{{ pl.total_weight_kg }}</td>
                             <td class="td">{{ pl.total_weight_lbs }}</td>
                             <td class="td">{{ pl.cbm }}</td>
                             <td class="td">{{ pl.note }}</td>
@@ -308,7 +315,7 @@
         <input type="hidden" name="step" value="place_order">
         <input type="hidden" name="order_data" value="{{ order_data }}">
         <input type="hidden" name="container_data" value="{{ container_data }}">
-        <div class="text-right">
+        <div>
             <button type="submit" class="btn btn-primary" style="width: 100px; height: 35px;">创建订单</button>
         </div>
     </div>

@@ -2,19 +2,20 @@
 {% load static custom_tags %}
 
 <!DOCTYPE html>
-<html lang="en">
+<html lang="en" style="margin: 0; padding: 0;">
 <head>
     <!-- other head elements... -->
     <link rel="stylesheet" href="{% static 'css/style.css' %}">
     <link rel="stylesheet" href="https://stackpath.bootstrapcdn.com/bootstrap/4.3.1/css/bootstrap.min.css" integrity="sha384-ggOyR0iXCbMQv3Xipma34MD+dH/1fQ784/j6cY/iJTQUOhcWr7x9JvoRxT2MZw1T" crossorigin="anonymous">
 </head>
-<body>
-    <nav class="navbar navbar-expand-lg navbar-dark bg-dark">
+<body style="margin: 0; padding: 0;">
+    <nav class="navbar navbar-expand-lg navbar-dark bg-dark" style="width: 100%;">
         {% navbar %}
     </nav>
 
-    <div class="container">
-        {% block content %}{% endblock %}
+    <div class="container" style="width: 100%; max-width: 98%; margin: 1%;">
+        {% block content %}
+        {% endblock %}
     </div>
 
     <!-- Include Bootstrap JS and Popper.js -->
