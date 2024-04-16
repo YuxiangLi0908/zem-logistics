@@ -21,6 +21,7 @@ class Shipment(models.Model):
     total_cbm = models.FloatField(null=True)
     total_pallet = models.FloatField(null=True)
     total_pcs = models.FloatField(null=True)
+    note = models.CharField(max_length=1000, null=True, blank=True)
 
     def __str__(self) -> str:
         return self.shipment_batch_number

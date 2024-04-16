@@ -9,6 +9,7 @@ from warehouse.models.retrieval import Retrieval
 from warehouse.models.shipment import Shipment
 from warehouse.models.warehouse import ZemWarehouse
 from warehouse.models.pallet import Pallet
+from warehouse.models.quote import Quote
 # Register your models here.
 
 admin.site.register(Clearance)
@@ -21,3 +22,4 @@ admin.site.register(Retrieval)
 admin.site.register(Shipment)
 admin.site.register(ZemWarehouse)
 admin.site.register(Pallet)
+admin.site.register(Quote)

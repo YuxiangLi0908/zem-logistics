@@ -2,6 +2,7 @@ import pytz
 import uuid
 from datetime import datetime
 from typing import Any
+from xhtml2pdf import pisa
 
 from django.http import HttpRequest, HttpResponse
 from django.shortcuts import render
@@ -12,6 +13,7 @@ from django.db import models
 from django.db.models import Case, Value, CharField, F, Sum, FloatField, IntegerField, When, Count
 from django.db.models.functions import Concat, Cast
 from django.contrib.postgres.aggregates import StringAgg
+from django.template.loader import get_template
 
 from warehouse.models.offload import Offload
 from warehouse.models.order import Order
@@ -26,6 +28,7 @@ from warehouse.views.export_file import export_palletization_list
 class Palletization(View):
     template_main = "palletization.html"
     template_palletize = "palletization_packing_list.html"
+    template_pallet_label = "export_file/pallet_label_template.html"
     context: dict[str, Any] = {}
     warehouse_form = ZemWarehouseForm()
     order_not_palletized: Order | Any = None
@@ -52,8 +55,10 @@ class Palletization(View):
             self.handle_packing_list_post(request, pk)
         elif step == "back":
             self.handle_warehouse_post(request)
-        elif step == "export":
+        elif step == "export_palletization_list":
             return export_palletization_list(request)
+        elif step == "export_pallet_label":
+            return self._export_pallet_label(request)
         elif step == "cancel":
             self.handle_cancel_post(request)
         else:
@@ -158,6 +163,56 @@ class Palletization(View):
         mutable_post['name'] = order.warehouse.name
         request.POST = mutable_post
         self.handle_warehouse_post(request)
+
+    def _export_pallet_label(self, request: HttpRequest) -> HttpResponse:
+        container_number = request.POST.get("container_number")
+        offload = Offload.objects.get(order__container_number__container_number=container_number)
+        offload_date = offload.offload_at
+        if offload_date:
+            offload_date = offload_date.date()
+        else:
+            offload_date = None
+        packing_list = PackingList.objects.filter(container_number__container_number=container_number).annotate(
+            custom_delivery_method=Case(
+                When(delivery_method='暂扣留仓', then=Concat('delivery_method', Value('-'), 'fba_id', Value('-'), 'id')),
+                default=F('delivery_method'),
+                output_field=CharField()
+            ),
+            str_id=Cast("id", CharField()),
+            str_fba_id=Cast("fba_id", CharField()),
+            str_ref_id=Cast("ref_id", CharField()),
+        ).values(
+            "container_number__container_number", "destination", "address", "custom_delivery_method"
+        ).annotate(
+            fba_ids=StringAgg("str_fba_id", delimiter=",", distinct=True),
+            ref_ids=StringAgg("str_ref_id", delimiter=",", distinct=True),
+            ids=StringAgg("str_id", delimiter=",", distinct=True),
+            pcs=Sum("pcs", output_field=IntegerField()),
+            cbm=Sum("cbm", output_field=FloatField()),
+            n_pallet=Count('pallet__pallet_id', distinct=True)
+        ).order_by("-cbm")
+
+        data = []
+        for pl in packing_list:
+            cbm = int(pl.get("cbm"))
+            cbm += cbm%2
+            for i in range(cbm):
+                data.append({
+                    "container_number": pl.get("container_number__container_number"),
+                    "destination": pl.get("destination"),
+                    "date": offload_date,
+                    "hold": (pl.get("custom_delivery_method").split("-")[0] == "暂扣留仓"),
+                })
+
+        context = {"data": data}
+        template = get_template(self.template_pallet_label)
+        html = template.render(context)
+        response = HttpResponse(content_type="application/pdf")
+        response['Content-Disposition'] = f'attachment; filename="pallet_label_{container_number}.pdf"'
+        pisa_status = pisa.CreatePDF(html, dest=response)
+        if pisa_status.err:
+            raise ValueError('Error during PDF generation: %s' % pisa_status.err, content_type='text/plain')
+        return response
 
     def _split_pallet(self, ids: list[Any], n: int, c: float, pk: int) -> None:
         if n == 0 or n is None:
