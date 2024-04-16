@@ -184,26 +184,26 @@ class Palletization(View):
         ).values(
             "container_number__container_number", "destination", "address", "custom_delivery_method"
         ).annotate(
-            fba_ids=StringAgg("str_fba_id", delimiter=",", distinct=True),
-            ref_ids=StringAgg("str_ref_id", delimiter=",", distinct=True),
-            ids=StringAgg("str_id", delimiter=",", distinct=True),
-            pcs=Sum("pcs", output_field=IntegerField()),
-            cbm=Sum("cbm", output_field=FloatField()),
+            fba_ids=StringAgg("str_fba_id", delimiter=",", distinct=True, ordering="str_fba_id"),
+            ref_ids=StringAgg("str_ref_id", delimiter=",", distinct=True, ordering="str_ref_id"),
+            ids=StringAgg("str_id", delimiter=",", distinct=True, ordering="str_id"),
+            pcs=Sum("pallet__pcs", output_field=IntegerField()),
+            cbm=Sum("pallet__cbm", output_field=FloatField()),
             n_pallet=Count('pallet__pallet_id', distinct=True)
         ).order_by("-cbm")
 
         data = []
         for pl in packing_list:
             cbm = int(pl.get("cbm"))
-            cbm += cbm%2
-            for i in range(cbm):
+            cbm += (cbm%2)
+            for _ in range(cbm):
                 data.append({
                     "container_number": pl.get("container_number__container_number"),
                     "destination": pl.get("destination"),
                     "date": offload_date,
                     "hold": (pl.get("custom_delivery_method").split("-")[0] == "暂扣留仓"),
+                    "cbm": cbm,
                 })
-
         context = {"data": data}
         template = get_template(self.template_pallet_label)
         html = template.render(context)
