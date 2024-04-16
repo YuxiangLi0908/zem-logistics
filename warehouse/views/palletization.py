@@ -202,7 +202,6 @@ class Palletization(View):
                     "destination": pl.get("destination"),
                     "date": offload_date,
                     "hold": (pl.get("custom_delivery_method").split("-")[0] == "暂扣留仓"),
-                    "cbm": cbm,
                 })
         context = {"data": data}
         template = get_template(self.template_pallet_label)
