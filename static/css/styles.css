@@ -109,3 +109,12 @@ body {
     position: sticky;
     top: 0;
 }
+
+.quote-form-row {
+    padding: 5px;
+}
+
+.quote-form-row.flex-4 {
+    flex: 0 0 25%;
+    max-width: 25%;
+}

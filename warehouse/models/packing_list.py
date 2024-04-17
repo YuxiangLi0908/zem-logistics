@@ -1,6 +1,7 @@
 from django.db import models
 from .container import Container
 from .shipment import Shipment
+from warehouse.models.quote import Quote
 
 class PackingList(models.Model):
     container_number = models.ForeignKey(Container, null=True, on_delete=models.CASCADE)
@@ -22,6 +23,7 @@ class PackingList(models.Model):
     n_pallet = models.IntegerField(null=True, blank=True)
     shipment_batch_number = models.ForeignKey(Shipment, null=True, blank=True, on_delete=models.SET_NULL)
     note = models.CharField(null=True, blank=True, max_length=2000)
+    quote_id = models.ForeignKey(Quote, null=True, blank=True, on_delete=models.SET_NULL)
 
     def __str__(self):
         return f"{self.container_number}-{self.destination}-{self.shipping_mark if self.shipping_mark else 'no_mt'}-{self.fba_id if self.fba_id else 'no_fba'}"

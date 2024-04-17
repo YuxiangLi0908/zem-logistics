@@ -1,0 +1,200 @@
+{% extends 'base.html' %}
+
+{% block content %}
+
+{% if step == "create" %}
+<form method="post" action="">
+    {% csrf_token %}
+    <div style="display: flex;">
+        <div style="width: 30%; border: 2px solid rgb(180, 180, 180); border-radius: 12px; padding: 1%; margin: 1%;">
+            <div>
+                <b style="background-color: rgb(208, 208, 208); border-radius: 20px; font-size: 15px; display:inline-flex; color: rgb(100, 100, 100); padding: 5px;">
+                    询价信息
+                </b>
+            </div>
+            <div>
+                <div class="quote-form-row">
+                    <label style="font-size: 15px;">客户</label>
+                    <div>{{ quote_form.customer_name }}</div>
+                </div>
+                <div class="quote-form-row" >
+                    <label style="font-size: 15px;">参考日期</label>
+                    {{ quote_form.pickup_date }}
+                </div>
+                <div class="quote-form-row" >
+                    <label style="font-size: 15px;">询价平台</label>
+                    {{ quote_form.platform }}
+                </div>
+                <div class="quote-form-row" >
+                    <label style="font-size: 15px;">发货仓库</label>
+                    {{ quote_form.warehouse }}
+                </div>
+                <div class="quote-form-row" >
+                    <label style="font-size: 15px;">目的地邮编</label>
+                    {{ quote_form.zipcode }}
+                </div>
+                <div class="quote-form-row" >
+                    <label style="font-size: 15px;">是否有超大件</label>
+                    {{ quote_form.is_oversize }}
+                </div>
+                <div class="quote-form-row" >
+                    <label style="font-size: 15px;">详细地址</label>
+                    {{ quote_form.address }}
+                </div>
+                <div class="quote-form-row" >
+                    <label style="font-size: 15px;">询盘明细</label>
+                    {{ quote_form.note }}
+                </div>
+            </div>
+        </div>
+        <div style="width: 70%; border: 2px solid rgb(180, 180, 180); border-radius: 12px; padding: 1%; margin: 1%;">
+            <div class="d-flex justify-content-between">
+                <div style="width: 80%;">
+                    <b style="background-color: rgb(208, 208, 208); border-radius: 20px; font-size: 15px; display:inline-flex; color: rgb(100, 100, 100); padding: 5px;">
+                    报价
+                    </b>
+                </div>
+                <div class="text-right" style="width: 20%;">
+                    <button type="button" id="add-more-btn" style="border-radius: 8px; background-color: rgb(208, 208, 208); color: rgb(100, 100, 100);">添加报价</button>
+                    <button type="button" id="remove-last-btn" style="border-radius: 8px; background-color: rgb(208, 208, 208); color: rgb(100, 100, 100);">删除报价</button>
+                </div>
+            </div>
+            <div id="quote-results">
+                {{ quote_formset.management_form }}
+                <div id="quote-price-empty" style="display: none;">
+                    <hr class="Dashed" style="margin-top: 10px; margin-bottom: 2px; width: 99%;">
+                        <div style="display: flex;">
+                            <div class="quote-form-row flex-4" >
+                                <label style="font-size: 15px;">FTL/LTL</label>
+                                {{ quote_formset.empty_form.load_type }}
+                            </div>
+                            <div class="quote-form-row flex-4" >
+                                <label style="font-size: 15px;">是否带尾板</label>
+                                {{ quote_formset.empty_form.is_lift_gate }}
+                            </div>
+                            <div class="quote-form-row flex-4" >
+                                <label style="font-size: 15px;">成本</label>
+                                {{ quote_formset.empty_form.cost }}
+                            </div>
+                            <div class="quote-form-row flex-4" >
+                                <label style="font-size: 15px;">实际报价</label>
+                                {{ quote_formset.empty_form.price }}
+                            </div>
+                        </div>
+                </div>
+                {% for q in quote_formset.forms %}
+                    <div id="quote-price">
+                        <hr class="Dashed" style="margin-top: 10px; margin-bottom: 2px; width: 99%;">
+                        <div style="display: flex;">
+                            <div class="quote-form-row flex-4" >
+                                <label style="font-size: 15px;">FTL/LTL</label>
+                                {{ q.load_type }}
+                            </div>
+                            <div class="quote-form-row flex-4" >
+                                <label style="font-size: 15px;">是否带尾板</label>
+                                {{ q.is_lift_gate }}
+                            </div>
+                            <div class="quote-form-row flex-4" >
+                                <label style="font-size: 15px;">成本</label>
+                                {{ q.cost }}
+                            </div>
+                            <div class="quote-form-row flex-4" >
+                                <label style="font-size: 15px;">实际报价</label>
+                                {{ q.price }}
+                            </div>
+                        </div>
+                    </div>
+                {% endfor %}
+            </div>
+        </div>
+    </div>
+    <div class="text-right" style="margin: 1%;">
+        <input type="hidden" name="step" value="create">
+        <button type="submit" class="btn btn-primary" style="width: 100px; height: 35px;">生成报价</button>
+    </div>
+</form>
+
+{% elif step == "review" %}
+<table class="table">
+    <thead>
+        <tr>
+            <th class="th">询盘号</th>
+            <th class="th">客户</th>
+            <th class="th">询盘日期</th>
+            <th class="th">发货仓库</th>
+            <th class="th">目的地</th>
+            <th class="th">详细地址</th>
+            <th class="th">FTL/LTL</th>
+            <th class="th">是否带尾板</th>
+            <th class="th">报价</th>
+        </tr>
+    </thead>
+    <tbody>
+        {% for q in all_quotes %}
+        <tr>
+            <td class="td">{{ q.quote_id }}</td>
+            <td class="td">{{ q.customer_name.full_name }}</td>
+            <td class="td">{{ q.created_at }}</td>
+            <td class="td">{{ q.warehouse.name }}</td>
+            <td class="td">{{ q.zipcode }}</td>
+            <td class="td">{{ q.address }}</td>
+            <td class="td">{{ q.load_type }}</td>
+            <td class="td">{{ q.is_lift_gate }}</td>
+            <td class="td">${{ q.price|floatformat:"2g" }}</td>
+        </tr>
+        {% endfor %}
+    </tbody>
+</table>
+<form method="post" action="" class="text-right">
+    {% csrf_token %}
+    <input type="hidden" name="parent_id" value="{{ parent_id }}">
+    <input type="hidden" name="step" value="export_single_quote_excel">
+    <button type="submit" class="btn btn-success" style="width: 100px; height: 35px;">导出excel</button>
+</form>
+{% endif %}
+
+<script>
+    document.addEventListener('DOMContentLoaded', function () {
+        const quoteResults = document.getElementById('quote-results');
+        const addMoreBtn = document.getElementById('add-more-btn');
+        const removeLastBtn = document.getElementById('remove-last-btn');
+
+        addMoreBtn.addEventListener('click', function () {
+            const newQuote = document.createElement('div');
+            const quoteCount = quoteResults.getElementsByTagName('hr').length - 1;
+            newQuote.setAttribute('id', `id_order-${quoteCount}-container_id`)
+
+            // Clone the first formset and update the form indexes
+            const firstQuote = quoteResults.querySelector('#quote-price');
+            const newQuoteHtml = firstQuote.innerHTML.replace(/__prefix__/g, quoteCount);
+
+            newQuote.innerHTML = newQuoteHtml;
+            quoteResults.appendChild(newQuote);
+            for (let i = 0; i < newQuote.getElementsByTagName('input').length; i++) {
+                const inputField = newQuote.getElementsByTagName('input')[i]
+                inputField.id = inputField.id.replace('-0-', `-${quoteCount}-`)
+                inputField.name = inputField.name.replace('-0-', `-${quoteCount}-`)
+            }
+            for (let i = 0; i < newQuote.getElementsByTagName('select').length; i++) {
+                const inputField = newQuote.getElementsByTagName('select')[i]
+                inputField.id = inputField.id.replace('-0-', `-${quoteCount}-`)
+                inputField.name = inputField.name.replace('-0-', `-${quoteCount}-`)
+            }
+            // Increment the form count
+            document.getElementById('id_form-TOTAL_FORMS').value++;
+        });
+
+        removeLastBtn.addEventListener('click', removeLastQuote);
+        function removeLastQuote() {
+            const quoteCount = quoteResults.getElementsByTagName('hr').length - 1;
+            const quotes = quoteResults.children;
+
+            if (quoteCount > 1) {
+                quoteResults.removeChild(quotes[quotes.length - 1]);
+                document.getElementById('id_form-TOTAL_FORMS').value--;
+            }
+        };
+    });
+
+</script>
+{% endblock %}
