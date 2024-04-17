@@ -10,7 +10,16 @@
                     <div class="dropdown">
                         <a class="nav-link">港前操作</a>
                         <div class="dropdown-content">
-                            <div class="nested-dropdown">
+                            <div class="nested-dropdown" >
+                                <a>询价</a>
+                                <div class="nested-dropdown-content">
+                                    <a href="{% url 'quote_management' %}?step=new" target="_blank">新建</a>
+                                    <a href="#" target="_blank">历史询价(未完成)</a>
+                                    <!-- <a href="{% url 'quote_management' %}?step=history" target="_blank">历史询价</a> -->
+                                </div>
+                            </div>
+                            <div></div>
+                            <div class="nested-dropdown" >
                                 <a>创建订单</a>
                                 <div class="nested-dropdown-content">
                                     <a href="{% url 'create_order' %}?type=DD" target="_blank">直送</a>

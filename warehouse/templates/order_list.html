@@ -257,8 +257,8 @@
                     <td class="td">{{ packing_list_formset.empty_form.address }}</td>
                     <td class="td">{{ packing_list_formset.empty_form.zipcode }}</td>
                     <td class="td">{{ packing_list_formset.empty_form.pcs }}</td>
-                    <td class="td">{{ packing_list_formset.empty_form.total_weight_kg|floatformat:2 }}</td>
-                    <td class="td">{{ packing_list_formset.empty_form.total_weight_lbs|floatformat:2 }}</td>
+                    <td class="td">{{ packing_list_formset.empty_form.total_weight_kg }}</td>
+                    <td class="td">{{ packing_list_formset.empty_form.total_weight_lbs }}</td>
                     <td class="td">{{ packing_list_formset.empty_form.cbm }}</td>
                     <td class="td">{{ packing_list_formset.empty_form.shipment_batch_number }}</td>
                     <td class="td">{{ packing_list_formset.empty_form.note }}</td>
@@ -313,7 +313,7 @@
                     {% endfor %}
             </tbody>
             {% endif %}
-            <tr id="table_summary" style="position: sticky; bottom: 40px; background-color: #f2f2f2;">
+            <tr id="sub_table_summary" style="position: sticky; bottom: 40px; background-color: #f2f2f2;">
                 <td class="td"><b>已筛选</b></td>
                 <td class="td"></td>
                 <td class="td"></td>
@@ -372,15 +372,21 @@
 
         addMoreBtn.addEventListener('click', function () {
             const newFormset = document.createElement('tr');
-            const formsetCount = formsetsContainer.getElementsByTagName('tr').length - 1;
+            const formsetCount = formsetsContainer.getElementsByTagName('tr').length - 3;
             newFormset.setAttribute('id', `id_order-${formsetCount}-container_id`)
 
             // Clone the first formset and update the form indexes
             const firstFormset = formsetsContainer.querySelector('#formset-row');
+            const tableSummary = formsetsContainer.querySelector('#table_summary');
+            const subTableSummary = formsetsContainer.querySelector('#sub_table_summary');
             const newFormsetHtml = firstFormset.innerHTML.replace(/__prefix__/g, formsetCount);
 
             newFormset.innerHTML = newFormsetHtml;
+            formsetsContainer.removeChild(tableSummary);
+            formsetsContainer.removeChild(subTableSummary);
             formsetsContainer.appendChild(newFormset);
+            formsetsContainer.appendChild(subTableSummary);
+            formsetsContainer.appendChild(tableSummary);
             for (let i = 0; i < newFormset.getElementsByTagName('input').length; i++) {
                 const inputField = newFormset.getElementsByTagName('input')[i]
                 inputField.id = inputField.id.replace('-0-', `-${formsetCount}-`)
@@ -486,7 +492,7 @@
         var totalCbm = 0;
 
         // Loop through each row in the table body
-        var rows = document.querySelectorAll("#packing-list-table tbody tr:not(#table_summary)");
+        var rows = document.querySelectorAll("#packing-list-table tbody tr:not(#table_summary):not(#sub_table_summary)");
         for (i = 1; i < rows.length; i++) {
             if (rows[i].style.display == "") {
                 // if (rows[i].getElementsByTagName("td")[9].firstChild.nodeName == 'INPUT') {
@@ -521,7 +527,7 @@
         var fbaInput = document.getElementById("fbaSearchInput").value.toUpperCase();
         var refInput = document.getElementById("refSearchInput").value.toUpperCase();
         var destinationInput = document.getElementById("detinationSearchInput").value.toUpperCase();
-        tr = document.querySelectorAll("#packing-list-table tbody tr:not(#table_summary)")
+        tr = document.querySelectorAll("#packing-list-table tbody tr:not(#table_summary):not(#sub_table_summary)")
 
         for (i = 1; i < tr.length; i++) {
             var shippingMarkTd = tr[i].getElementsByTagName("td")[3];
@@ -593,7 +599,7 @@
         var totalCbm = 0;
 
         // Loop through each row in the table body
-        var rows = document.querySelectorAll("#packing-list-table tbody tr:not(#table_summary)");
+        var rows = document.querySelectorAll("#packing-list-table tbody tr:not(#table_summary):not(#sub_table_summary)");
         for (i = 1; i < rows.length; i++) {
             // if (rows[i].getElementsByTagName("td")[9].firstChild.nodeName == 'INPUT') {
             //     var pcs = parseInt(rows[i].getElementsByTagName("td")[9].querySelector("input").value) || 0;

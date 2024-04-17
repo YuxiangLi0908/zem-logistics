@@ -63,6 +63,10 @@ LOAD_TYPE_OPTIONS = [
     ("卡板", "卡板"), ("地板", "地板"),
 ]
 
+QUOTE_PLATFORM_OPTIONS = [
+    ("Uber Freight", "Uber Freight"), ("Unishipper", "Unishipper"), ("Coyote", "Coyote"),
+]
+
 PACKING_LIST_TEMP_COL_MAPPING = {
     "唛头": "shipping_mark",
     "品名": "product_name",
