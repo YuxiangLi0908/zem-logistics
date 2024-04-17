@@ -170,6 +170,7 @@ class Palletization(View):
         offload_date = offload.offload_at
         if offload_date:
             offload_date = offload_date.date()
+            offload_date = offload_date.strftime("%m/%d")
         else:
             offload_date = None
         packing_list = PackingList.objects.filter(container_number__container_number=container_number).annotate(
@@ -194,8 +195,13 @@ class Palletization(View):
 
         data = []
         for pl in packing_list:
-            cbm = int(pl.get("cbm"))
-            cbm += (cbm%2)
+            cbm = pl.get("cbm")
+            remainder = cbm % 1
+            cbm = int(cbm)
+            if cbm%2:
+                cbm += (cbm%2)
+            elif remainder:
+                cbm += 2
             for _ in range(cbm):
                 data.append({
                     "container_number": pl.get("container_number__container_number"),
