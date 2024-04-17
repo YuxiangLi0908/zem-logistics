@@ -1,5 +1,9 @@
 {% block content %}
 <style>
+    @page {
+            size: landscape; /* Set page orientation to landscape */
+        }
+
     @media print {
         .page-break {
             page-break-before: always;
@@ -22,25 +26,31 @@
             font-size: 60px;
             margin: 5%;
         }
+
+        .huge-text.larger {
+            font-size: 100px;
+            margin: 5%;
+        }
     }
 </style>
 
+<body>
 {% for d in data %}
 <div class="page-break {% if forloop.first %}first-page{% endif %}">
     <div class="text-container">
         <br style="font-size: 100px;">
         <div class="huge-text">{{ d.container_number }}</div>
         <br>
-        <div class="huge-text">{{ d.destination }}</div>
+        <div class="huge-text larger">{{ d.destination }}</div>
         <br>
         {% if d.date %}
             <div class="huge-text">{{ d.date }}</div>
-            <br>
         {% endif %}
         {% if d.hold %}
-            <div class="huge-text">!!! HOLD !!!</div>
+            <div class="huge-text larger">!!! HOLD !!!</div>
         {% endif %}
     </div>
 </div>
 {% endfor %}
+</body>
 {% endblock %}
