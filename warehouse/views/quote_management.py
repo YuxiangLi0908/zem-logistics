@@ -3,7 +3,7 @@ import random
 
 import pandas as pd
 from typing import Any
-from datetime import datetime
+from datetime import datetime, timedelta
 
 from django.http import HttpRequest, HttpResponse
 from django.shortcuts import render, redirect
@@ -25,6 +25,8 @@ class QuoteManagement(View):
         step = request.GET.get("step")
         if step == "new":
             return render(request, self.template_create, self.handle_new_quote_get(request))
+        elif step == "history":
+            return render(request, self.template_update, self.handle_history_quote_get(request))
         context = {}
         return render(request, self.template_create, context)
 
@@ -34,6 +36,8 @@ class QuoteManagement(View):
             return render(request, self.template_create, self.handle_create_post(request))
         elif step == "export_single_quote_excel":
             return self.handle_single_excel_export(request)
+        elif step == "search":
+            return render(request, self.template_update, self.handle_quote_search_post(request))
 
     def handle_new_quote_get(self, request: HttpRequest) -> dict[str, Any]:
         quote_form = QuoteForm()
@@ -42,6 +46,16 @@ class QuoteManagement(View):
             "quote_form": quote_form,
             "quote_formset": quote_formset,
             "step": "create",
+        }
+        return context
+    
+    def handle_history_quote_get(self, request: HttpRequest) -> dict[str, Any]:
+        current_date = datetime.now().date()
+        start_date = current_date + timedelta(days=-30)
+        end_date = current_date
+        context = {
+            "start_date": start_date.strftime('%Y-%m-%d'),
+            "end_date": end_date.strftime('%Y-%m-%d'),
         }
         return context
     
@@ -54,7 +68,7 @@ class QuoteManagement(View):
             customer = cleaned_data_p1.get('customer_name')
             customer_id = customer.id if customer else 999
             id_prefix = f"QT{timestamp.strftime('%Y%m%d')}{''.join(random.choices(string.ascii_uppercase, k=2))}{customer_id}"
-            parent_id = f"{id_prefix}{''.join(random.choices(string.ascii_uppercase, k=2))}{timestamp.strftime('%H%M')}"
+            parent_id = f"{id_prefix}{timestamp.strftime('%H%M')}"
             quote_formset = formset_factory(QuoteForm, extra=1)
             quote_form = quote_formset(request.POST)
             q_valid = all([q.is_valid() for q in quote_form])
@@ -68,10 +82,12 @@ class QuoteManagement(View):
                     data["created_at"] = timestamp.date()
                     data["parent_id"] = parent_id
                     data["quote_id"] = quote_id
+                    data["warehouse"] = d["warehouse"]
                     data["load_type"] = d["load_type"]
                     data["is_lift_gate"] = d["is_lift_gate"]
                     data["cost"] = d["cost"]
                     data["price"] = d["price"]
+                    data["comment"] = d["comment"]
                     quote = Quote(**data)
                     all_quotes.append(quote)
                     quote.save()
@@ -84,6 +100,28 @@ class QuoteManagement(View):
         context["parent_id"] = parent_id
         context["all_quotes"] = all_quotes
         context["step"] = "review"
+        return context
+    
+    def handle_quote_search_post(self, request: HttpRequest) -> dict[str, Any]:
+        start_date = request.POST.get("start_date", None)
+        end_date = request.POST.get("end_date", None)
+        if start_date and end_date:
+            criteria = models.Q(created_at__gte=start_date) & models.Q(created_at__lte=end_date)
+        elif start_date:
+            criteria = models.Q(created_at__gte=start_date)
+        elif end_date:
+            criteria = models.Q(created_at__lte=end_date)
+        else:
+            default_date = datetime.now().date() + timedelta(days=-30)
+            criteria = models.Q(created_at__gte=default_date)
+        quote = Quote.objects.filter(criteria).order_by(
+            "-created_at", "customer_name", "parent_id", "warehouse", "platform", "load_type", "is_lift_gate"
+        )
+        context = {
+            "start_date": start_date,
+            "end_date": end_date,
+            "quote": quote
+        }
         return context
     
     def handle_single_excel_export(self, request: HttpRequest) -> HttpResponse:

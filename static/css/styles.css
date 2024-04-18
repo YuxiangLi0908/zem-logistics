@@ -114,7 +114,7 @@ body {
     padding: 5px;
 }
 
-.quote-form-row.flex-4 {
-    flex: 0 0 25%;
-    max-width: 25%;
+.quote-form-row.flex-6 {
+    flex: 0 0 16%;
+    max-width: 16%;
 }

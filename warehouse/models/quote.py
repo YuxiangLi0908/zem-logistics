@@ -19,6 +19,7 @@ class Quote(models.Model):
     is_oversize = models.CharField(max_length=10, null=True, blank=True)
     cost = models.FloatField(null=True, blank=True)
     price = models.FloatField(null=True, blank=True)
+    comment = models.CharField(max_length=500, null=True, blank=True)
 
     def __str__(self) -> str:
         return f"{self.customer_name}-{self.warehouse}-{self.zipcode}-{self.quote_id}"
