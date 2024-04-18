@@ -1,6 +1,108 @@
 {% extends 'base.html' %}
 
 {% block content %}
-Old
+<h3 class="mb-3">询价记录</h3>
+<form method="post" action="" style="margin-top: 10px;">
+    {% csrf_token %}
+    <div>
+        <b style="margin-right: 5px;">询价日期:</b>
+        <input type="date" name="start_date" value="{{ start_date }}">
+        <input type="date" name="end_date" value="{{ end_date }}" style="margin-right: 5px;">
+        <input type="hidden" name="step" value="search">
+        <button id="submit-btn" type="submit" class="btn btn-primary" style="width: 100px; height: 35px; margin-left: 20px;">查询</button>
+    </div>
+</form>
+<hr class="Dashed" style="margin-top: 10px; margin-bottom: 10px;">
 
+{% if quote %}
+<table class="table" id="quote-table" style="font-size: 12px;">
+    <thead>
+        <tr>
+            <th class="th">询盘号</th>
+            <th class="th">客户</th>
+            <th class="th">询盘日期</th>
+            <th class="th">发货仓库</th>
+            <th class="th">目的地</th>
+            <th class="th">详细地址</th>
+            <th class="th">平台</th>
+            <th class="th">FTL/LTL</th>
+            <th class="th">是否带尾板</th>
+            <th class="th">是否有超大件</th>
+            <th class="th">参考时间</th>
+            <th class="th">成本</th>
+            <th class="th">报价</th>
+            <th class="th">备注</th>
+        </tr>
+        <tr>
+            <th class="th"><input type="text" id="quoteIdSearchInput" placeholder="搜索询盘号..." oninput="filterQuote()"></th>
+            <th class="th"><input type="text" id="customerSearchInput" placeholder="搜索客户..." oninput="filterQuote()"></th>
+            <th class="th"><input type="text" id="dateSearchInput" style="max-width: 80px;" placeholder="搜索日期..." oninput="filterQuote()"></th>
+            <th class="th"><input type="text" id="warehouseSearchInput" style="max-width: 90px;" placeholder="搜索仓库..." oninput="filterQuote()"></th>
+            <th class="th"><input type="text" id="destinationSearchInput" style="max-width: 75px;" placeholder="搜索目的地..." oninput="filterQuote()"></th>
+            <th class="th"></th>
+            <th class="th"></th>
+            <th class="th"></th>
+            <th class="th"></th>
+            <th class="th"></th>
+            <th class="th"></th>
+            <th class="th"></th>
+            <th class="th"></th>
+            <th class="th"></th>
+        </tr>
+    </thead>
+    <tbody>
+        {% for q in quote %}
+        <tr>
+            <td class="td">{{ q.quote_id }}</td>
+            <td class="td">{{ q.customer_name.full_name }}</td>
+            <td class="td">{{ q.created_at|date:"Y-m-d" }}</td>
+            <td class="td">{{ q.warehouse.name }}</td>
+            <td class="td">{{ q.zipcode }}</td>
+            <td class="td">{{ q.address }}</td>
+            <td class="td">{{ q.platform }}</td>
+            <td class="td">{{ q.load_type }}</td>
+            <td class="td">{{ q.is_lift_gate }}</td>
+            <td class="td">{{ q.is_oversize }}</td>
+            <td class="td">{{ q.pickup_date }}</td>
+            <td class="td">${{ q.cost|floatformat:"2g" }}</td>
+            <td class="td">${{ q.price|floatformat:"2g" }}</td>
+            <td class="td">{{ q.comment }}</td>
+        </tr>
+        {% endfor %}
+    </tbody>
+</table>
+{% endif %}
+<script>
+    function filterQuote() {
+        var quoteIdInput = document.getElementById("quoteIdSearchInput").value.toUpperCase();
+        var customerInput = document.getElementById("customerSearchInput").value.toUpperCase();
+        var dateInput = document.getElementById("dateSearchInput").value.toUpperCase();
+        var warehouseInput = document.getElementById("warehouseSearchInput").value.toUpperCase();
+        var destinationInput = document.getElementById("destinationSearchInput").value.toUpperCase();
+        tr = document.querySelectorAll("#quote-table tbody tr")
+
+        for (i = 0; i < tr.length; i++) {
+            var quoteIdTd = tr[i].getElementsByTagName("td")[0];
+            var customerTd = tr[i].getElementsByTagName("td")[1];
+            var dateTd = tr[i].getElementsByTagName("td")[2];
+            var warehouseTd = tr[i].getElementsByTagName("td")[3];
+            var destinationTd = tr[i].getElementsByTagName("td")[4];
+            if (quoteIdTd && customerTd && dateTd && warehouseTd && destinationTd) {
+                var quoteIdTxtValue = quoteIdTd.textContent.trim();
+                var customerTxtValue = customerTd.textContent.trim();
+                var dateTxtValue = dateTd.textContent.trim();
+                var warehouseTxtValue = warehouseTd.textContent.trim();
+                var destinationTxtValue = destinationTd.textContent.trim();
+
+                var quoteIdDisplayStyle = quoteIdTxtValue.toUpperCase().indexOf(quoteIdInput) > -1 ? "" : "none";
+                var customerDisplayStyle = customerTxtValue.toUpperCase().indexOf(customerInput) > -1 ? "" : "none";
+                var dateDisplayStyle = dateTxtValue.toUpperCase().indexOf(dateInput) > -1 ? "" : "none";
+                var warehouseDisplayStyle = warehouseTxtValue.toUpperCase().indexOf(warehouseInput) > -1 ? "" : "none";
+                var destinationDisplayStyle = destinationTxtValue.toUpperCase().indexOf(destinationInput) > -1 ? "" : "none";
+
+                tr[i].style.display = quoteIdDisplayStyle === "" && customerDisplayStyle === "" && dateDisplayStyle === "" && warehouseDisplayStyle === "" && destinationDisplayStyle === "" ? "" : "none";
+            }
+        }
+    };
+</script>
 {% endblock %}
