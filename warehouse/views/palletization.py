@@ -135,9 +135,9 @@ class Palletization(View):
         offload_date = offload.offload_at
         if offload_date:
             offload_date = offload_date.date()
-            offload_date = offload_date.strftime("%m/%d")
         else:
             offload_date = datetime.now().date()
+        offload_date = offload_date.strftime("%m/%d")
         packing_list = self._get_packing_list(container_number=container_number, status=status)
         data = []
         for pl in packing_list:
