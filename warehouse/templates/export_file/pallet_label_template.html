@@ -23,13 +23,11 @@
         }
 
         .huge-text {
-            font-size: 60px;
-            margin: 5%;
+            font-size: 80px;
         }
 
         .huge-text.larger {
-            font-size: 100px;
-            margin: 5%;
+            font-size: 120px;
         }
     }
 </style>
@@ -38,7 +36,7 @@
 {% for d in data %}
 <div class="page-break {% if forloop.first %}first-page{% endif %}">
     <div class="text-container">
-        <br style="font-size: 100px;">
+        <br style="font-size: 60px;">
         <div class="huge-text">{{ d.container_number }}</div>
         <br>
         <div class="huge-text larger">{{ d.destination }}</div>
