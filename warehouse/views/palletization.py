@@ -69,45 +69,9 @@ class Palletization(View):
         order_selected = Order.objects.get(pk=pk)
         container = order_selected.container_number
         if step == "new":
-            packing_list = PackingList.objects.filter(container_number__container_number=container.container_number).annotate(
-                custom_delivery_method=Case(
-                    When(delivery_method='暂扣留仓', then=Concat('delivery_method', Value('-'), 'fba_id', Value('-'), 'id')),
-                    default=F('delivery_method'),
-                    output_field=CharField()
-                ),
-                str_id=Cast("id", CharField()),
-                str_fba_id=Cast("fba_id", CharField()),
-                str_ref_id=Cast("ref_id", CharField()),
-            ).values(
-                "container_number__container_number", "destination", "address", "custom_delivery_method"
-            ).annotate(
-                fba_ids=StringAgg("str_fba_id", delimiter=",", distinct=True),
-                ref_ids=StringAgg("str_ref_id", delimiter=",", distinct=True),
-                ids=StringAgg("str_id", delimiter=",", distinct=True),
-                pcs=Sum("pcs", output_field=IntegerField()),
-                cbm=Sum("cbm", output_field=FloatField()),
-                n_pallet=Count('pallet__pallet_id', distinct=True)
-            ).order_by("-cbm")
+            packing_list = self._get_packing_list(container_number=container.container_number, status="non_palletized")
         elif step == "complete":
-            packing_list = PackingList.objects.filter(container_number__container_number=container.container_number).annotate(
-                custom_delivery_method=Case(
-                    When(delivery_method='暂扣留仓', then=Concat('delivery_method', Value('-'), 'fba_id', Value('-'), 'id')),
-                    default=F('delivery_method'),
-                    output_field=CharField()
-                ),
-                str_id=Cast("id", CharField()),
-                str_fba_id=Cast("fba_id", CharField()),
-                str_ref_id=Cast("ref_id", CharField()),
-            ).values(
-                "container_number__container_number", "destination", "address", "custom_delivery_method"
-            ).annotate(
-                fba_ids=StringAgg("str_fba_id", delimiter=",", distinct=True, ordering="str_fba_id"),
-                ref_ids=StringAgg("str_ref_id", delimiter=",", distinct=True, ordering="str_ref_id"),
-                ids=StringAgg("str_id", delimiter=",", distinct=True, ordering="str_id"),
-                pcs=Sum("pallet__pcs", output_field=IntegerField()),
-                cbm=Sum("pallet__cbm", output_field=FloatField()),
-                n_pallet=Count('pallet__pallet_id', distinct=True)
-            ).order_by("-cbm")
+            packing_list = self._get_packing_list(container_number=container.container_number, status="palletized")
             self.context["step"] = "complete"
             self.context["name"] = order_selected.warehouse.name
         self.order_packing_list.clear()
@@ -166,33 +130,15 @@ class Palletization(View):
 
     def _export_pallet_label(self, request: HttpRequest) -> HttpResponse:
         container_number = request.POST.get("container_number")
+        status = request.POST.get("status")
         offload = Offload.objects.get(order__container_number__container_number=container_number)
         offload_date = offload.offload_at
         if offload_date:
             offload_date = offload_date.date()
-            offload_date = offload_date.strftime("%m/%d")
         else:
-            offload_date = None
-        packing_list = PackingList.objects.filter(container_number__container_number=container_number).annotate(
-            custom_delivery_method=Case(
-                When(delivery_method='暂扣留仓', then=Concat('delivery_method', Value('-'), 'fba_id', Value('-'), 'id')),
-                default=F('delivery_method'),
-                output_field=CharField()
-            ),
-            str_id=Cast("id", CharField()),
-            str_fba_id=Cast("fba_id", CharField()),
-            str_ref_id=Cast("ref_id", CharField()),
-        ).values(
-            "container_number__container_number", "destination", "address", "custom_delivery_method"
-        ).annotate(
-            fba_ids=StringAgg("str_fba_id", delimiter=",", distinct=True, ordering="str_fba_id"),
-            ref_ids=StringAgg("str_ref_id", delimiter=",", distinct=True, ordering="str_ref_id"),
-            ids=StringAgg("str_id", delimiter=",", distinct=True, ordering="str_id"),
-            pcs=Sum("pallet__pcs", output_field=IntegerField()),
-            cbm=Sum("pallet__cbm", output_field=FloatField()),
-            n_pallet=Count('pallet__pallet_id', distinct=True)
-        ).order_by("-cbm")
-
+            offload_date = datetime.now().date()
+        offload_date = offload_date.strftime("%m/%d")
+        packing_list = self._get_packing_list(container_number=container_number, status=status)
         data = []
         for pl in packing_list:
             cbm = pl.get("cbm")
@@ -269,6 +215,50 @@ class Palletization(View):
                     "cbm": cbm_loaded,
                     "weight_lbs": weight_loaded,
                 }).save()
+
+    def _get_packing_list(self, container_number:str, status: str) -> PackingList:
+        if status == "non_palletized":
+            return PackingList.objects.filter(container_number__container_number=container_number).annotate(
+                custom_delivery_method=Case(
+                    When(delivery_method='暂扣留仓', then=Concat('delivery_method', Value('-'), 'fba_id', Value('-'), 'id')),
+                    default=F('delivery_method'),
+                    output_field=CharField()
+                ),
+                str_id=Cast("id", CharField()),
+                str_fba_id=Cast("fba_id", CharField()),
+                str_ref_id=Cast("ref_id", CharField()),
+            ).values(
+                "container_number__container_number", "destination", "address", "custom_delivery_method"
+            ).annotate(
+                fba_ids=StringAgg("str_fba_id", delimiter=",", distinct=True),
+                ref_ids=StringAgg("str_ref_id", delimiter=",", distinct=True),
+                ids=StringAgg("str_id", delimiter=",", distinct=True),
+                pcs=Sum("pcs", output_field=IntegerField()),
+                cbm=Sum("cbm", output_field=FloatField()),
+                n_pallet=Count('pallet__pallet_id', distinct=True)
+            ).order_by("-cbm")
+        elif status == "palletized":
+            return PackingList.objects.filter(container_number__container_number=container_number).annotate(
+                custom_delivery_method=Case(
+                    When(delivery_method='暂扣留仓', then=Concat('delivery_method', Value('-'), 'fba_id', Value('-'), 'id')),
+                    default=F('delivery_method'),
+                    output_field=CharField()
+                ),
+                str_id=Cast("id", CharField()),
+                str_fba_id=Cast("fba_id", CharField()),
+                str_ref_id=Cast("ref_id", CharField()),
+            ).values(
+                "container_number__container_number", "destination", "address", "custom_delivery_method"
+            ).annotate(
+                fba_ids=StringAgg("str_fba_id", delimiter=",", distinct=True, ordering="str_fba_id"),
+                ref_ids=StringAgg("str_ref_id", delimiter=",", distinct=True, ordering="str_ref_id"),
+                ids=StringAgg("str_id", delimiter=",", distinct=True, ordering="str_id"),
+                pcs=Sum("pallet__pcs", output_field=IntegerField()),
+                cbm=Sum("pallet__cbm", output_field=FloatField()),
+                n_pallet=Count('pallet__pallet_id', distinct=True)
+            ).order_by("-cbm")
+        else:
+            raise ValueError(f"invalid status: {status}")
 
     def _get_order_not_palletized(self, warehouse: str) -> Order:
         return Order.objects.filter(
