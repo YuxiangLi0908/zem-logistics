@@ -65,6 +65,18 @@ class QuoteManagement(View):
         all_quotes = []
         if quote_form_p1.is_valid():
             cleaned_data_p1 = quote_form_p1.cleaned_data
+            try:
+                cleaned_data_p1["note"] = cleaned_data_p1["note"].strip()
+            except:
+                pass
+            try:
+                cleaned_data_p1["zipcode"] = cleaned_data_p1["zipcode"].strip().upper()
+            except:
+                pass
+            try:
+                cleaned_data_p1["address"] = cleaned_data_p1["address"].strip()
+            except:
+                pass
             customer = cleaned_data_p1.get('customer_name')
             customer_id = customer.id if customer else 999
             id_prefix = f"QT{timestamp.strftime('%Y%m%d')}{''.join(random.choices(string.ascii_uppercase, k=2))}{customer_id}"
@@ -87,7 +99,10 @@ class QuoteManagement(View):
                     data["is_lift_gate"] = d["is_lift_gate"]
                     data["cost"] = d["cost"]
                     data["price"] = d["price"]
-                    data["comment"] = d["comment"]
+                    try:
+                        data["comment"] = d["comment"].strip()
+                    except:
+                        data["comment"] = d["comment"]
                     quote = Quote(**data)
                     all_quotes.append(quote)
                     quote.save()
