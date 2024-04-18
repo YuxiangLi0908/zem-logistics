@@ -5,8 +5,8 @@
 {% if step == "create" %}
 <form method="post" action="">
     {% csrf_token %}
-    <div style="display: flex;">
-        <div style="width: 30%; border: 2px solid rgb(180, 180, 180); border-radius: 12px; padding: 1%; margin: 1%;">
+    <div style="display: flex; max-height: 720px;">
+        <div style="overflow-y: auto; max-height: 100%; width: 30%; border: 2px solid rgb(180, 180, 180); border-radius: 12px; padding: 1%; margin: 1%;">
             <div>
                 <b style="background-color: rgb(208, 208, 208); border-radius: 20px; font-size: 15px; display:inline-flex; color: rgb(100, 100, 100); padding: 5px;">
                     询价信息
@@ -43,7 +43,7 @@
                 </div>
             </div>
         </div>
-        <div style="width: 70%; border: 2px solid rgb(180, 180, 180); border-radius: 12px; padding: 1%; margin: 1%;">
+        <div style="overflow-y: auto; max-height: 100%; width: 70%; border: 2px solid rgb(180, 180, 180); border-radius: 12px; padding: 1%; margin: 1%;">
             <div class="d-flex justify-content-between">
                 <div style="width: 80%;">
                     <b style="background-color: rgb(208, 208, 208); border-radius: 20px; font-size: 15px; display:inline-flex; color: rgb(100, 100, 100); padding: 5px;">

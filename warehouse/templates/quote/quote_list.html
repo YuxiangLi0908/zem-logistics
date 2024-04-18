@@ -15,62 +15,67 @@
 <hr class="Dashed" style="margin-top: 10px; margin-bottom: 10px;">
 
 {% if quote %}
-<table class="table" id="quote-table" style="font-size: 12px;">
-    <thead>
-        <tr>
-            <th class="th">询盘号</th>
-            <th class="th">客户</th>
-            <th class="th">询盘日期</th>
-            <th class="th">发货仓库</th>
-            <th class="th">目的地</th>
-            <th class="th">详细地址</th>
-            <th class="th">平台</th>
-            <th class="th">FTL/LTL</th>
-            <th class="th">是否带尾板</th>
-            <th class="th">是否有超大件</th>
-            <th class="th">参考时间</th>
-            <th class="th">成本</th>
-            <th class="th">报价</th>
-            <th class="th">备注</th>
-        </tr>
-        <tr>
-            <th class="th"><input type="text" id="quoteIdSearchInput" placeholder="搜索询盘号..." oninput="filterQuote()"></th>
-            <th class="th"><input type="text" id="customerSearchInput" placeholder="搜索客户..." oninput="filterQuote()"></th>
-            <th class="th"><input type="text" id="dateSearchInput" style="max-width: 80px;" placeholder="搜索日期..." oninput="filterQuote()"></th>
-            <th class="th"><input type="text" id="warehouseSearchInput" style="max-width: 90px;" placeholder="搜索仓库..." oninput="filterQuote()"></th>
-            <th class="th"><input type="text" id="destinationSearchInput" style="max-width: 75px;" placeholder="搜索目的地..." oninput="filterQuote()"></th>
-            <th class="th"></th>
-            <th class="th"></th>
-            <th class="th"></th>
-            <th class="th"></th>
-            <th class="th"></th>
-            <th class="th"></th>
-            <th class="th"></th>
-            <th class="th"></th>
-            <th class="th"></th>
-        </tr>
-    </thead>
-    <tbody>
-        {% for q in quote %}
-        <tr>
-            <td class="td">{{ q.quote_id }}</td>
-            <td class="td">{{ q.customer_name.full_name }}</td>
-            <td class="td">{{ q.created_at|date:"Y-m-d" }}</td>
-            <td class="td">{{ q.warehouse.name }}</td>
-            <td class="td">{{ q.zipcode }}</td>
-            <td class="td">{{ q.address }}</td>
-            <td class="td">{{ q.platform }}</td>
-            <td class="td">{{ q.load_type }}</td>
-            <td class="td">{{ q.is_lift_gate }}</td>
-            <td class="td">{{ q.is_oversize }}</td>
-            <td class="td">{{ q.pickup_date }}</td>
-            <td class="td">${{ q.cost|floatformat:"2g" }}</td>
-            <td class="td">${{ q.price|floatformat:"2g" }}</td>
-            <td class="td">{{ q.comment }}</td>
-        </tr>
-        {% endfor %}
-    </tbody>
-</table>
+<div style="overflow-y: auto; max-height: 700px;">
+    <table class="table" id="quote-table" style="font-size: 12px;">
+        <thead>
+            <tr style="position: sticky; top: 0;">
+                <th class="th">询盘号</th>
+                <th class="th">客户</th>
+                <th class="th">询盘日期</th>
+                <th class="th">发货仓库</th>
+                <th class="th">目的地</th>
+                <th class="th">详细地址</th>
+                <th class="th">询盘明细</th>
+                <th class="th">平台</th>
+                <th class="th">FTL/LTL</th>
+                <th class="th">是否带尾板</th>
+                <th class="th">是否有超大件</th>
+                <th class="th">参考时间</th>
+                <th class="th">成本</th>
+                <th class="th">报价</th>
+                <th class="th">备注</th>
+            </tr>
+            <tr style="position: sticky; top: 40px;">
+                <th class="th"><input type="text" id="quoteIdSearchInput" placeholder="搜索询盘号..." oninput="filterQuote()"></th>
+                <th class="th"><input type="text" id="customerSearchInput" placeholder="搜索客户..." oninput="filterQuote()"></th>
+                <th class="th"><input type="text" id="dateSearchInput" style="max-width: 80px;" placeholder="搜索日期..." oninput="filterQuote()"></th>
+                <th class="th"><input type="text" id="warehouseSearchInput" style="max-width: 90px;" placeholder="搜索仓库..." oninput="filterQuote()"></th>
+                <th class="th"><input type="text" id="destinationSearchInput" style="max-width: 75px;" placeholder="搜索目的地..." oninput="filterQuote()"></th>
+                <th class="th"></th>
+                <th class="th"></th>
+                <th class="th"></th>
+                <th class="th"></th>
+                <th class="th"></th>
+                <th class="th"></th>
+                <th class="th"></th>
+                <th class="th"></th>
+                <th class="th"></th>
+                <th class="th"></th>
+            </tr>
+        </thead>
+        <tbody>
+            {% for q in quote %}
+            <tr>
+                <td class="td">{{ q.quote_id }}</td>
+                <td class="td">{{ q.customer_name.full_name }}</td>
+                <td class="td">{{ q.created_at|date:"Y-m-d" }}</td>
+                <td class="td">{{ q.warehouse.name }}</td>
+                <td class="td">{{ q.zipcode }}</td>
+                <td class="td">{{ q.address }}</td>
+                <td class="td">{{ q.note }}</td>
+                <td class="td">{{ q.platform }}</td>
+                <td class="td">{{ q.load_type }}</td>
+                <td class="td">{{ q.is_lift_gate }}</td>
+                <td class="td">{{ q.is_oversize }}</td>
+                <td class="td">{{ q.pickup_date }}</td>
+                <td class="td">${{ q.cost|floatformat:"2g" }}</td>
+                <td class="td">${{ q.price|floatformat:"2g" }}</td>
+                <td class="td">{{ q.comment }}</td>
+            </tr>
+            {% endfor %}
+        </tbody>
+    </table>
+</div>
 {% endif %}
 <script>
     function filterQuote() {
