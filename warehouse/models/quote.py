@@ -3,6 +3,7 @@ from django.db import models
 from warehouse.models.customer import Customer
 from warehouse.models.warehouse import ZemWarehouse
 
+
 class Quote(models.Model):
     parent_id = models.CharField(max_length=255, null=True)
     quote_id = models.CharField(max_length=255, null=True)

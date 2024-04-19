@@ -1,5 +1,3 @@
-import pytz
-from datetime import datetime
 from typing import Any
 
 from django.http import HttpRequest, HttpResponse
@@ -7,10 +5,10 @@ from django.shortcuts import render, redirect
 from django.contrib.auth.decorators import login_required
 from django.views import View
 from django.utils.decorators import method_decorator
-from django.db import models
 
 from warehouse.models.customer import Customer
 from warehouse.forms.customer_form import CustomerForm
+
 
 @method_decorator(login_required(login_url='login'), name='dispatch')
 class CustomerManagement(View):
@@ -75,6 +73,7 @@ class CustomerManagement(View):
         if form.is_valid():
             selected_customer.zem_name = form.cleaned_data.get("zem_name")
             selected_customer.full_name = form.cleaned_data.get("full_name")
+            selected_customer.zem_code = form.cleaned_data.get("zem_code")
             selected_customer.save()
         else:
             raise ValueError(f"invalid customer info")

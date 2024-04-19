@@ -6,15 +6,16 @@ from typing import Any
 from datetime import datetime, timedelta
 
 from django.http import HttpRequest, HttpResponse
-from django.shortcuts import render, redirect
+from django.shortcuts import render
 from django.contrib.auth.decorators import login_required
 from django.views import View
 from django.utils.decorators import method_decorator
 from django.db import models
-from django.forms import modelformset_factory, formset_factory
+from django.forms import formset_factory
 
 from warehouse.models.quote import Quote
 from warehouse.forms.quote_form import QuoteForm
+
 
 @method_decorator(login_required(login_url='login'), name='dispatch')
 class QuoteManagement(View):

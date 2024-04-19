@@ -2,6 +2,7 @@ from django import forms
 from warehouse.models.quote import Quote
 from warehouse.utils.constants import QUOTE_PLATFORM_OPTIONS
 
+
 class QuoteForm(forms.ModelForm):
     class Meta:
         model = Quote

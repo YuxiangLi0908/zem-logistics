@@ -2,6 +2,7 @@ from django import forms
 from warehouse.models.retrieval import Retrieval
 from warehouse.utils.constants import RETRIEVAL_OPTIONS, PORT_OPTIONS, SHIPPING_LINE_OPTIONS
 
+
 class RetrievalForm(forms.ModelForm):
     class Meta:
         model = Retrieval

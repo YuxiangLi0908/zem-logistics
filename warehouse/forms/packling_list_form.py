@@ -2,6 +2,7 @@ from django import forms
 from warehouse.models.packing_list import PackingList
 from warehouse.utils.constants import DELIVERY_METHOD_OPTIONS
 
+
 class PackingListForm(forms.ModelForm):
     class Meta:
         model = PackingList

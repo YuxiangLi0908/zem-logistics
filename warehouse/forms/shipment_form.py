@@ -2,6 +2,7 @@ from django import forms
 from warehouse.models.shipment import Shipment
 from warehouse.utils.constants import CARRIER_OPTIONS, LOAD_TYPE_OPTIONS
 
+
 class ShipmentForm(forms.ModelForm):
     class Meta:
         model = Shipment
