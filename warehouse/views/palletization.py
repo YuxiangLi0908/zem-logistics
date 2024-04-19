@@ -130,6 +130,7 @@ class Palletization(View):
 
     def _export_pallet_label(self, request: HttpRequest) -> HttpResponse:
         container_number = request.POST.get("container_number")
+        customer_name = request.POST.get("customer_name")
         status = request.POST.get("status")
         offload = Offload.objects.get(order__container_number__container_number=container_number)
         offload_date = offload.offload_at
@@ -153,6 +154,7 @@ class Palletization(View):
                     "container_number": pl.get("container_number__container_number"),
                     "destination": pl.get("destination"),
                     "date": offload_date,
+                    "customer": customer_name,
                     "hold": (pl.get("custom_delivery_method").split("-")[0] == "暂扣留仓"),
                 })
         context = {"data": data}
