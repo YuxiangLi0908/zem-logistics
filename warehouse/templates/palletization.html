@@ -57,6 +57,7 @@
                                 {% csrf_token %}
                                 <input type="hidden" name="step" value="export_pallet_label">
                                 <input type="hidden" name="status" value="non_palletized">
+                                <input type="hidden" name="customer_name" value="{{ c.customer_name }}">
                                 <input type="hidden" name="container_number" value="{{ c.container_number }}">
                                 <button type="submit" class="btn btn-success"><small>托盘标</small></button>
                             </form>
@@ -112,6 +113,7 @@
                                 {% csrf_token %}
                                 <input type="hidden" name="step" value="export_pallet_label">
                                 <input type="hidden" name="status" value="non_palletized">
+                                <input type="hidden" name="customer_name" value="{{ c.customer_name }}">
                                 <input type="hidden" name="container_number" value="{{ c.container_number }}">
                                 <button type="submit" class="btn btn-success"><small>托盘标</small></button>
                             </form>
