@@ -2,6 +2,7 @@ from django import forms
 from warehouse.models.order import Order
 from warehouse.utils.constants import ORDER_TYPE_OPTIONS
 
+
 class OrderForm(forms.ModelForm):
     class Meta:
         model = Order

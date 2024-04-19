@@ -2,6 +2,7 @@ from django import forms
 from warehouse.models.clearance import Clearance
 from warehouse.utils.constants import CLEARANCE_OPTIONS
 
+
 class ClearanceForm(forms.ModelForm):
     class Meta:
         model = Clearance

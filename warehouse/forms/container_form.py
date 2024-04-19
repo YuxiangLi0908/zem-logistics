@@ -2,6 +2,7 @@ from django import forms
 from warehouse.models.container import Container
 from warehouse.utils.constants import CONTAINER_TYPE_OPTIONS
 
+
 class ContainerForm(forms.ModelForm):
     class Meta:
         model = Container

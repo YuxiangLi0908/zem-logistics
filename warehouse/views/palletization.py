@@ -24,6 +24,7 @@ from warehouse.forms.warehouse_form import ZemWarehouseForm
 from warehouse.forms.packling_list_form import PackingListForm
 from warehouse.views.export_file import export_palletization_list
 
+
 @method_decorator(login_required(login_url='login'), name='dispatch')
 class Palletization(View):
     template_main = "palletization.html"
