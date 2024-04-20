@@ -5,6 +5,7 @@
 - [X] Shipment batch management
 - [X] Change offload logic to enable shipment scheduled for not offload and palletized container/packling lists
 - [ ] DO export
+- [ ] Quote management - enable edit after creation
 - [ ] Delivery confirmation and POD upload
 - [ ] Packing list deliver status check
 - [ ] Add L/W/H to packing list to identify oversize
@@ -24,6 +25,7 @@
 ### 2024-04-20
 -  新增撤销入库、撤销预约功能
 -  新增询价管理模块
+-  完善客户管理模块
 -  增加托盘标打印功能
 -  解决pdf导出时中文乱码问题
 -  页面优化
