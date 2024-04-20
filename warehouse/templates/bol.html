@@ -37,6 +37,7 @@
                 <th class="th">总重lbs</th>
                 <th class="th">总CBM</th>
                 <th class="th">总卡板数</th>
+                <th class="th">备注</th>
             </tr>
         </thead>
         <tbody>
@@ -58,6 +59,7 @@
                 <td class="td">{{ s.total_weight|floatformat:2 }}</td>
                 <td class="td">{{ s.total_cbm|floatformat:2 }}</td>
                 <td class="td">{{ s.total_pallet }}</td>
+                <td class="td">{{ s.note }}</td>
             </tr>
             {% endfor %}
         </tbody>

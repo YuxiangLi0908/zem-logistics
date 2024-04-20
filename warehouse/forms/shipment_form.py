@@ -12,7 +12,8 @@ class ShipmentForm(forms.ModelForm):
                 "carrier": forms.Select(choices=CARRIER_OPTIONS),
                 "shipped_at": forms.DateTimeInput(attrs={'type': 'datetime-local'}),
                 "arrived_at": forms.DateTimeInput(attrs={'type': 'datetime-local'}),
-                "load_type": forms.Select(choices=LOAD_TYPE_OPTIONS)
+                "load_type": forms.Select(choices=LOAD_TYPE_OPTIONS),
+                "note": forms.Textarea(attrs={"rows": "2"})
             }
 
     def __init__(self, *args, **kwargs) -> None:
