@@ -22,11 +22,7 @@
 {% if packing_list %}
 <form method="post" action="">
     {% csrf_token %}
-    <4 style="margin-bottom: 10px;">Packing List</4>
-    <div class="search-filters">
-        <!-- <input type="text" id="containerSearchInput" placeholder="搜索柜号..." oninput="filterTable()">
-        <input type="text" id="destinationSearchInput" placeholder="搜索目的仓库..." oninput="filterTable()"> -->
-    </div>
+    <b style="margin-bottom: 5px;">Packing List</b>
     <div style="overflow-x: auto; max-width: 100%; overflow-y: auto; max-height: 600px;">
         <table id="packing-list-table" class="table" style="font-size: 12px;">
             <thead>

@@ -5,7 +5,23 @@
 <h4>创建新客户</h4>
 <form method="post">
     {% csrf_token %}
-    <div class="form-row" >
+    <div style="display: flex;">
+        <div class="form-row flex-3" style="margin: 2px;">
+            <label style="font-size: 15px; margin-right: 5px;">客户全称</label>
+            {{ customer_form.full_name }}
+        </div>
+        <div class="form-row flex-3" >
+            <label style="font-size: 15px; margin-right: 5px;">客户简称</label>
+            {{ customer_form.zem_name }}
+        </div>
+        <div class="form-row flex-3" >
+            <label style="font-size: 15px; margin-right: 5px;">ZEM客户代码</label>
+            {{ customer_form.zem_code }}
+        </div>
+    </div>
+
+
+    <!-- <div class="form-row" >
         <div class="form-group col-md-4">
             <label class="col-form-label" style="font-size: 15px; width: 100px; height: 40px;">客户全称</label>
             {{ customer_form.full_name }}
@@ -22,7 +38,8 @@
             <label class="col-form-label" style="font-size: 15px; width: 100px; height: 40px;">ZEM客户代码</label>
             {{ customer_form.zem_code }}
         </div>
-    </div>
+    </div> -->
+
     <div class="text-left">
         <input type="hidden" name="step" value="new">
         <button type="submit" class="btn btn-primary" style="width: 100px; height: 35px;">确认</button>
