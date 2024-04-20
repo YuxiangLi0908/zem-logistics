@@ -4,21 +4,23 @@
 {% load static custom_filters %}
 
 {% block content %}
-<h3 class="mb-3">预约出库</h3>
+<h4 class="mb-4">预约出库</h4>
 
-<h4 class="mb-4">选择仓库</h4>
 <form method="post" action="">
     {% csrf_token %}
-    <input type="hidden" name="step" value="warehouse">
-    {{ warehouse_form.name }}
-    <button type="submit">确认</button>
+    <div>
+        <b style="margin-right: 5px;">选择仓库:</b>
+        <input type="hidden" name="step" value="warehouse">
+        {{ warehouse_form.name }}
+        <button type="submit">确认</button>
+    </div>
 </form>
-<hr class="Dashed" style="margin-top: 40px; margin-bottom: 40px;">
+<hr class="Dashed" style="margin-top: 10px; margin-bottom: 10px;">
 
 {% if packing_list_not_scheduled %}
 <form method="post" action="">
     {% csrf_token %}
-    <h3 class="mb-4">待预约</h3>
+    <h4 class="mb-4">待预约</h4>
     <div class="search-filters">
         <input type="text" id="containerSearchInput" placeholder="搜索柜号..." oninput="filterTable()">
         <input type="text" id="destinationSearchInput" placeholder="搜索目的仓库..." oninput="filterTable()">
@@ -73,7 +75,7 @@
 {% endif %}
 
 {% if shipment_list %}
-    <h3 class="mb-4">已预约批次</h3>
+    <h4 class="mb-4">已预约批次</h4>
     <div class="search-filters">
         <input type="text" id="shipmentSearchInput" placeholder="搜索批次号..." oninput="filterShipmentTable()">
     </div>
@@ -91,6 +93,7 @@
                     <th class="th">总重lbs</th>
                     <th class="th">总CBM</th>
                     <th class="th">总卡板数</th>
+                    <th class="th">备注</th>
                     <th class="th">撤销预约</th>
                 </tr>
             </thead>
@@ -100,13 +103,14 @@
                     <td class="td">{{ s.shipment_batch_number }}</td>
                     <td class="td">{{ s.destination }}</td>
                     <td class="td">{{ s.appointment_id }}</td>
-                    <td class="td">{{ s.shipment_appointment }}</td>
+                    <td class="td">{{ s.shipment_appointment|date:"Y-m-d" }} {{ s.shipment_appointment|time:"H:i" }}</td>
                     <td class="td">{{ s.carrier }}</td>
                     <td class="td">{{ s.load_type }}</td>
                     <td class="td">{{ s.total_pcs }}</td>
                     <td class="td">{{ s.total_weight|floatformat:2 }}</td>
                     <td class="td">{{ s.total_cbm|floatformat:2 }}</td>
                     <td class="td">{{ s.total_pallet }}</td>
+                    <td class="td">{{ s.note }}</td>
                     <td class="td">
                         <form method="post" action="">
                             {% csrf_token %}
@@ -126,7 +130,7 @@
 {% if shipment_form %}
 <form method="post" action="">
     {% csrf_token %}
-    <h3 class="mb-4">待确认预约</h3>
+    <h4 class="mb-4">待确认预约</h4>
     <table id="shipment-table" class="table">
         <thead>
             <tr>
@@ -134,6 +138,7 @@
                 <th class="th">carrier</th>
                 <th class="th">装车类型</th>
                 <th class="th">Scheduled Time</th>
+                <th class="th">备注</th>
             </tr>
         </thead>
         <tbody>
@@ -142,6 +147,7 @@
                 <td class="td">{{ shipment_form.carrier }}</td>
                 <td class="td">{{ shipment_form.load_type }}</td>
                 <td class="td">{{ shipment_form.shipment_appointment }}</td>
+                <td class="td">{{ shipment_form.note }}</td>
             </tr>
         </tbody>
     </table>
@@ -167,7 +173,7 @@
         </tbody>
     </table>
 
-    <div style="overflow-x: auto; max-width: 1200px; overflow-y: auto; max-height: 1200px;">
+    <div style="overflow-x: auto; max-width: 100%; overflow-y: auto; max-height: 1200px;">
         <table id="packing-list-table" class="table">
             <thead>
                 <tr>

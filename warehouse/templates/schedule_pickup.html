@@ -1,11 +1,11 @@
 {% extends 'base.html' %}
 
 {% block content %}
-    <h3 class="mb-3">预约提柜</h3>
+    <h4 class="mb-4">预约提柜</h4>
     <div class="search-filters">
         <input type="text" id="containerSearchInput" placeholder="搜索柜号..." oninput="filterTable()">
     </div>
-    <h4 class="mb-4">待预约</h4>
+    <b>待预约</b>
     <div style="overflow-x: auto; max-width: 100%; overflow-y: auto; max-height: 600px;">
         <table class="table">
             <thead>
@@ -47,9 +47,9 @@
         </table>
     </div>
 
-    <hr class="Dashed" style="margin-top: 40px; margin-bottom: 40px;">
+    <hr class="Dashed" style="margin-top: 10px; margin-bottom: 10px;">
 
-    <h4 class="mb-4">待提柜</h4>
+    <b>待提柜</b>
     <table class="table" style="width: 100%;">
         <thead>
             <tr>

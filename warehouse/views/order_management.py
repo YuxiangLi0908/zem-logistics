@@ -2,7 +2,7 @@ import os
 import pytz
 import pandas as pd
 import numpy as np
-from datetime import datetime
+from datetime import datetime, timedelta
 from typing import Any
 from pathlib import Path
 
@@ -24,8 +24,6 @@ from warehouse.models.retrieval import Retrieval
 from warehouse.models.packing_list import PackingList
 from warehouse.models.warehouse import ZemWarehouse
 from warehouse.models.pallet import Pallet
-from warehouse.models.offload import Offload
-from warehouse.models.shipment import Shipment
 from warehouse.forms.order_form import OrderForm
 from warehouse.forms.container_form import ContainerForm
 from warehouse.forms.clearance_form import ClearanceSelectForm
@@ -43,11 +41,18 @@ class OrderManagement(View):
 
     def get(self, request: HttpRequest) -> HttpResponse:
         step = request.GET.get("step")
+        current_date = datetime.now().date()
+        start_date = (current_date + timedelta(days=-30)).strftime('%Y-%m-%d')
+        end_date = (current_date + timedelta(days=30)).strftime('%Y-%m-%d')
         if step == "all":
-            orders = Order.objects.all()
+            orders = Order.objects.filter(
+                models.Q(eta__gte=start_date) & models.Q(eta__lte=end_date)
+            )
             self.context = {
                 'orders': orders,
                 'order_detail': False,
+                'start_date': start_date,
+                'end_date': end_date,
             }
             return render(request, self.template_main, self.context)
         elif step == "query":
@@ -142,13 +147,12 @@ class OrderManagement(View):
                     customer, warehoue
                 )
         elif step == "delete_order":
-            self.handle_order_delete_post(request)  
-            mutable_get = request.GET.copy()
-            mutable_get["step"] = "all"
-            request.GET = mutable_get
-            return self.get(request)
+            self.handle_order_delete_post(request)
+            return self.handle_search_post(request)
         elif step == "export_palletization_list":
             return export_palletization_list(request)
+        elif step == "search":
+            return self.handle_search_post(request)
         else:
             raise ValueError(f"{request.POST}")
         mutable_get = request.GET.copy()
@@ -207,6 +211,26 @@ class OrderManagement(View):
         orders = Order.objects.filter(order_id__in=delete_orders)
         for order in orders:
             self._delete_order(order)
+
+    def handle_search_post(self, request: HttpRequest) -> HttpResponse:
+        start_date = request.POST.get("start_date", None)
+        end_date = request.POST.get("end_date", None)
+        if start_date and end_date:
+            criteria = models.Q(eta__gte=start_date) & models.Q(eta__lte=end_date)
+        elif start_date:
+            criteria = models.Q(eta__gte=start_date)
+        elif end_date:
+            criteria = models.Q(eta__lte=end_date)
+        else:
+            criteria = models.Q(eta__gte="2023-01-01")
+        orders = Order.objects.filter(criteria)
+        self.context = {
+            'orders': orders,
+            'order_detail': False,
+            'start_date': start_date,
+            'end_date': end_date,
+        }
+        return render(request, self.template_main, self.context)
         
     def _delete_order(self, order: Order) -> None:
         pallet = Pallet.objects.filter(packing_list__container_number__order__order_id=order.order_id)

@@ -1,8 +1,8 @@
 {% extends 'base.html' %}
 
 {% block content %}
-<h3 class="mb-3">BOL导出</h3>
-<form method="post" action="" style="margin-top: 40px;">
+<h4 class="mb-4">BOL导出</h4>
+<form method="post" action="">
     {% csrf_token %}
     <div>
         <b style="margin-right: 5px;">预约日期:</b>
@@ -14,10 +14,10 @@
         <button id="submit-btn" type="submit" class="btn btn-primary" style="width: 100px; height: 35px; margin-left: 20px;">查询</button>
     </div>
 </form>
-<hr class="Dashed" style="margin-top: 40px; margin-bottom: 40px;">
+<hr class="Dashed" style="margin-top: 10px; margin-bottom: 10px;">
 
 {% if shipment_list %}
-<h3 class="mb-4">批次列表</h3>
+<b>批次列表</b>
 <div class="search-filters">
     <input type="text" id="shipmentSearchInput" placeholder="搜索批次号..." oninput="filterTable()">
 </div>
@@ -37,6 +37,7 @@
                 <th class="th">总重lbs</th>
                 <th class="th">总CBM</th>
                 <th class="th">总卡板数</th>
+                <th class="th">备注</th>
             </tr>
         </thead>
         <tbody>
@@ -58,16 +59,17 @@
                 <td class="td">{{ s.total_weight|floatformat:2 }}</td>
                 <td class="td">{{ s.total_cbm|floatformat:2 }}</td>
                 <td class="td">{{ s.total_pallet }}</td>
+                <td class="td">{{ s.note }}</td>
             </tr>
             {% endfor %}
         </tbody>
     </table>
 </div>
-<hr class="Dashed" style="margin-top: 40px; margin-bottom: 40px;">
+<hr class="Dashed" style="margin-top: 10px; margin-bottom: 10px;">
 {% endif %}
 
 {% if packing_list %}
-<h3 class="mb-4">批次明细</h3>
+<b>批次明细</b>
 <form method="post" action="">
     {% csrf_token %}
     <input type="hidden" name="batch_number" value="{{ shipment_list.0.shipment_batch_number }}">

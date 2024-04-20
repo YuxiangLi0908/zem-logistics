@@ -16,12 +16,9 @@ from django.db.models import Case, Value, CharField, F, Sum, FloatField, Integer
 from django.db.models.functions import Concat, Cast
 from django.contrib.postgres.aggregates import StringAgg
 
-from warehouse.models.offload import Offload
-from warehouse.models.order import Order
 from warehouse.models.packing_list import PackingList
 from warehouse.models.shipment import Shipment
 from warehouse.forms.warehouse_form import ZemWarehouseForm
-from warehouse.forms.packling_list_form import PackingListForm
 from warehouse.forms.shipment_form import ShipmentForm
 from warehouse.utils.constants import amazon_fba_locations
 from warehouse.views.bol import BOL
@@ -169,6 +166,7 @@ class ScheduleShipment(View):
         shipment_data["appointment_id"] = request.POST.get("appointment_id", None)
         shipment_data["carrier"] = request.POST.get("carrier", None)
         shipment_data["load_type"] = request.POST.get("load_type", None)
+        shipment_data["note"] = request.POST.get("note", None)
         shipment_data["shipment_appointment"] = request.POST.get("shipment_appointment", None)
         shipment_data["shipment_schduled_at"] = current_time_cn
         shipment_data["is_shipment_schduled"] = True

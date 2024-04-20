@@ -1,23 +1,25 @@
 {% extends 'base.html' %}
 
 {% block content %}
-<h3 class="mb-3">确认出库</h3>
+<h4 class="mb-4">确认出库</h4>
 
-<h4 class="mb-4">选择仓库</h4>
 <form method="post" action="">
     {% csrf_token %}
-    <input type="hidden" name="step" value="warehouse">
-    {{ warehouse_form.name }}
-    <button type="submit">确认</button>
+    <div>
+        <b style="margin-right: 5px;">选择仓库:</b>
+        <input type="hidden" name="step" value="warehouse">
+        {{ warehouse_form.name }}
+        <button type="submit">确认</button>
+    </div>
 </form>
-<hr class="Dashed" style="margin-top: 40px; margin-bottom: 40px;">
+<hr class="Dashed" style="margin-top: 10px; margin-bottom: 10px;">
 
 {% if shipment_list %}
     <div class="search-filters">
         <input type="text" id="batchSearchInput" placeholder="搜索批次号..." oninput="filterTable()">
         <input type="text" id="destinationSearchInput" placeholder="搜索目的仓库..." oninput="filterTable()">
     </div>
-    <h4 class="mb-4">待出库</h4>
+    <b>待出库</b>
     <div style="overflow-x: auto; max-width: 100%; overflow-y: auto; max-height: 1200px;">
         <table id="shipment-batch-table" class="table">
             <thead>
@@ -61,7 +63,6 @@
             </tbody>
         </table>
     </div>
-    <hr class="Dashed" style="margin-top: 40px; margin-bottom: 40px;">
 {% endif %}
 
 <script>

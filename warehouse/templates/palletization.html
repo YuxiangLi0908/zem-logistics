@@ -1,16 +1,18 @@
 {% extends 'base.html' %}
 
 {% block content %}
-<h3 class="mb-3">拆柜入库</h3>
+<h4 class="mb-4">拆柜入库</h4>
 
-<h4 class="mb-4">选择仓库</h4>
 <form method="post" action="">
     {% csrf_token %}
-    <input type="hidden" name="step" value="warehouse">
-    {{ warehouse_form.name }}
-    <button type="submit">确认</button>
+    <div>
+        <b style="margin-right: 5px;">选择仓库:</b>
+        <input type="hidden" name="step" value="warehouse">
+        {{ warehouse_form.name }}
+        <button type="submit">确认</button>
+    </div>
 </form>
-<hr class="Dashed" style="margin-top: 40px; margin-bottom: 40px;">
+<hr class="Dashed" style="margin-top: 10px; margin-bottom: 10px;">
 
 {% if order_not_palletized %}
     
@@ -18,7 +20,7 @@
         <input type="text" id="containerSearchInput" placeholder="搜索柜号..." oninput="filterTable()">
         <input type="text" id="customerSearchInput" placeholder="搜索客户..." oninput="filterTable()">
     </div>
-    <h4 class="mb-3">待拆柜</h4>
+    <b>待拆柜</b>
     <div style="overflow-x: auto; max-width: 100%; overflow-y: auto; max-height: 600px;">
         <table id="container-table" class="table">
             <thead>
@@ -67,14 +69,14 @@
             </tbody>
         </table>
     </div>
-    <hr class="Dashed" style="margin-top: 40px; margin-bottom: 40px;">
+    <hr class="Dashed" style="margin-top: 10px; margin-bottom: 10px;">
 {% elif step %}
-    <h4 class="mb-3">无待拆货柜</h4>
-    <hr class="Dashed" style="margin-top: 40px; margin-bottom: 40px;">
+    <b>无待拆货柜</b>
+    <hr class="Dashed" style="margin-top: 10px; margin-bottom: 10px;">
 {% endif %}
 
 {% if order_palletized %}
-    <h4 class="mb-3">拆柜完成，待出库</h4>
+    <b>拆柜完成，待出库</b>
     <div style="overflow-x: auto; max-width: 100%; overflow-y: auto; max-height: 600px;">
         <table class="table">
             <thead>

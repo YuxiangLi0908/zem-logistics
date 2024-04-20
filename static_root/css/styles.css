@@ -118,3 +118,12 @@ body {
     flex: 0 0 16%;
     max-width: 16%;
 }
+
+.form-row {
+    padding: 5px;
+}
+
+.form-row.flex-3 {
+    flex: 0 0 33%;
+    max-width: 33%;
+}
