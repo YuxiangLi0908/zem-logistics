@@ -51,4 +51,30 @@
         </tbody>
     </table>
 </div>
+
+<script>
+    function filterTable() {
+        var batchInput = document.getElementById("batchSearchInput").value.toUpperCase();
+        var destinationInput = document.getElementById("destinationSearchInput").value.toUpperCase();
+        var appInput = document.getElementById("appIdSearchInput").value.toUpperCase();
+        var tbody = document.getElementById("shipment-batch-table").getElementsByTagName("tbody")[0];
+        var tr = tbody.getElementsByTagName("tr");
+        for (i = 0; i < tr.length; i++) {
+            var batchTd = tr[i].getElementsByTagName("td")[0];
+            var destinationTd = tr[i].getElementsByTagName("td")[1];
+            var appTd = tr[i].getElementsByTagName("td")[2];
+            if (batchTd && destinationTd && appTd) {
+                var batchTxtValue = batchTd.textContent.trim();
+                var destinationTxtValue = destinationTd.textContent.trim();
+                var appTxtValue = appTd.textContent.trim();
+
+                var batchDisplayStyle = batchTxtValue.toUpperCase().indexOf(batchInput) > -1 ? "" : "none";
+                var destinationDisplayStyle = destinationTxtValue.toUpperCase().indexOf(destinationInput) > -1 ? "" : "none";
+                var appDisplayStyle = appTxtValue.toUpperCase().indexOf(appInput) > -1 ? "" : "none";
+
+                tr[i].style.display = batchDisplayStyle === "" && destinationDisplayStyle === "" && appDisplayStyle === "" ? "" : "none";
+            }
+        }
+    }
+</script>
 {% endblock %}
