@@ -100,8 +100,8 @@
                     </td>
                     <td class="td">{{ o.retrieval_id.shipping_line }}</td>
                     <td class="td">{{ o.retrieval_id.shipping_order_number }}</td>
-                    <td class="td">{{ o.retrieval_id.origin }}</td>
-                    <td class="td">{{ o.retrieval_id.destination }}</td>
+                    <td class="td">{{ o.retrieval_id.origin_port }}</td>
+                    <td class="td">{{ o.retrieval_id.destination_port }}</td>
                     <td class="td">{{ o.created_at }}</td>
                 </tr>
                 {% endfor %}
@@ -184,8 +184,8 @@
                     <td class="td">{{ retrieval_select_form.retrieval_option }}</td>
                     <td class="td">{{ retrieval_form.shipping_line }}</td>
                     <td class="td">{{ retrieval_form.shipping_order_number }}</td>
-                    <td class="td">{{ retrieval_form.origin }}</td>
-                    <td class="td">{{ retrieval_form.destination }}</td>
+                    <td class="td">{{ retrieval_form.origin_port }}</td>
+                    <td class="td">{{ retrieval_form.destination_port }}</td>
                     <td class="td">{{ retrieval_form.retrieval_location }}</td>
                     <td class="td">{{ retrieval_form.target_retrieval_timestamp }}</td>
                     <td class="td">{{ retrieval_form.actual_retrieval_timestamp }}</td>

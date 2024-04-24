@@ -1,0 +1,54 @@
+{% extends 'base.html' %}
+
+{% block content %}
+<h4 class="mb-4">确认送达</h4>
+<div style="overflow-x: auto; max-width: 100%; overflow-y: auto; max-height: 800px;">
+    <table id="shipment-batch-table" class="table" style="font-size: 12px; width: 100%;">
+        <thead>
+            <tr style="position: sticky; top: 0;">
+                <th class="th">批次号</th>
+                <th class="th">目的地</th>
+                <th class="th">预约号</th>
+                <th class="th">Carrier</th>
+                <th class="th">预约出库时间</th>
+                <th class="th">总箱数</th>
+                <th class="th">总重lbs</th>
+                <th class="th">总CBM</th>
+                <th class="th">总卡板数</th>
+                <th class="th">实际出库时间</th>
+            </tr>
+            <tr style="position: sticky; top: 40px;">
+                <th class="th"><input type="text" id="batchSearchInput" placeholder="搜索批次号..." oninput="filterTable()"></th>
+                <th class="th"><input type="text" id="destinationSearchInput" placeholder="搜索目的地..." oninput="filterTable()"></th>
+                <th class="th"><input type="text" id="appIdSearchInput" placeholder="搜索预约号..." oninput="filterTable()"></th>
+                <th class="th"></th>
+                <th class="th"></th>
+                <th class="th"></th>
+                <th class="th"></th>
+                <th class="th"></th>
+                <th class="th"></th>
+                <th class="th"></th>
+            </tr>
+        </thead>
+        <tbody>
+            {% for s in shipment_list%}
+            <tr>
+                <td class="td">
+                    <a href="/pod/?step=select&batch_number={{ s.shipment_batch_number }}">
+                    {{ s.shipment_batch_number }}
+                </td>
+                <td class="td">{{ s.destination }}</td>
+                <td class="td">{{ s.appointment_id }}</td>
+                <td class="td">{{ s.carrier }}</td>
+                <td class="td">{{ s.shipment_appointment|date:"Y-m-d" }} {{ s.shipment_appointment|time:"H:i" }}</td>
+                <td class="td">{{ s.total_pcs|floatformat:0 }}</td>
+                <td class="td">{{ s.total_weight|floatformat:2 }}</td>
+                <td class="td">{{ s.total_cbm|floatformat:2 }}</td>
+                <td class="td">{{ s.total_pallet|floatformat:0 }}</td>
+                <td class="td">{{ s.shipped_at|date:"Y-m-d" }} {{ s.shipped_at|time:"H:i" }}</td>
+            </tr>
+            {% endfor %}
+        </tbody>
+    </table>
+</div>
+{% endblock %}

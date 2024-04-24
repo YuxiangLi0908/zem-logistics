@@ -13,6 +13,7 @@ from warehouse.views.customer_management import CustomerManagement
 from warehouse.views.order_management import *
 from warehouse.views.bol import BOL
 from warehouse.views.po import PO
+from warehouse.views.pod import POD
 from warehouse.views.stuff_user_ability import StuffPower
 from warehouse.views.quote_management import QuoteManagement
 
@@ -32,6 +33,7 @@ urlpatterns = [
     path('order_list/', OrderManagement.as_view(), name='order_list'),
     path('bol/', BOL.as_view(), name='bol'),
     path('po/', PO.as_view(), name='po'),
+    path('pod/', POD.as_view(), name='pod'),
     path('quote/', QuoteManagement.as_view(), name='quote_management'),
     path('stuff_user/', StuffPower.as_view(), name='stuff_user'),
 ] + static(settings.STATIC_URL, document_root=settings.STATIC_ROOT)
