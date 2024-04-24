@@ -23,11 +23,10 @@
             <button type="submit" onclick="confirmSubmit()" class="btn btn-danger" style="width: 100px; height: 35px;">删除订单</button>
         </div>
 </div>
+<hr class="Dashed" style="margin-top: 10px; margin-bottom: 10px;">
 {% endif %}
 
-<hr class="Dashed" style="margin-top: 10px; margin-bottom: 10px;">
-
-{% if orders %}
+{% if orders and not order_detail %}
 <form method="post" action="" style="width: 100%;">
     {% csrf_token %}
     <div style="overflow-x: auto; width: 100%; overflow-y: auto; max-height: 100%;">
@@ -130,7 +129,6 @@
 <form method="post" enctype="multipart/form-data">
     {% csrf_token %}
     <div style="overflow-x: auto; width: 100%;">
-        <b>订单信息</b>
         <table class="table" style="font-size: 12px;">
             <thead>
                 <tr>
@@ -145,6 +143,14 @@
                         <th class="th">目的地</th>
                         <th class="th">地址</th>
                     {% endif %}
+                    <th class="th">提柜方式</th>
+                    <th class="th">船/航空公司</th>
+                    <th class="th">提单号</th>
+                    <th class="th" style="min-width: 140px;">始发港</th>
+                    <th class="th" style="min-width: 140px;">到达港</th>
+                    <th class="th" style="min-width: 180px;">提柜地点</th>
+                    <th class="th" style="min-width: 140px;">预约提柜时间</th>
+                    <th class="th" style="min-width: 140px;">实际提柜时间</th>
                 </tr>
             </thead>
             <tbody>
@@ -160,11 +166,19 @@
                         <td class="td">{{ shipment_form.destination}}</td>
                         <td class="td">{{ shipment_form.address}}</td>
                     {% endif %}
+                    <td class="td">{{ retrieval_select_form.retrieval_option }}</td>
+                    <td class="td">{{ retrieval_form.shipping_line }}</td>
+                    <td class="td">{{ retrieval_form.shipping_order_number }}</td>
+                    <td class="td">{{ retrieval_form.origin_port }}</td>
+                    <td class="td">{{ retrieval_form.destination_port }}</td>
+                    <td class="td">{{ retrieval_form.retrieval_location }}</td>
+                    <td class="td">{{ retrieval_form.target_retrieval_timestamp }}</td>
+                    <td class="td">{{ retrieval_form.actual_retrieval_timestamp }}</td>
                 </tr>
             </tbody>
         </table>
     </div>
-    <div style="overflow-x: auto; width: 100%;">
+    <!-- <div style="overflow-x: auto; width: 100%;">
         <b>提柜信息</b>
         <table class="table" style="font-size: 12px;">
             <thead>
@@ -192,7 +206,7 @@
                 </tr>
             </tbody>
         </table>
-    </div>
+    </div> -->
     <div class="container d-flex justify-content-between" style="display: inline-block; width: 100%; margin: 0; padding: 0; max-width: 100%;">
         <div style="width: 10%;"><b>物品清单信息</b></div>
         {% if not pallet %}
@@ -214,7 +228,7 @@
         </div>
         {% endif %}
     </div>
-    <div style="overflow-x: auto; width: 100%; overflow-y: auto; max-height: 600px;">
+    <div style="overflow-x: auto; width: 100%; overflow-y: auto; max-height: 800px;">
         {{ packing_list_formset.management_form }}
         <table class="table" id="packing-list-table" style="font-size: 12px; width: 1800px;">
             <thead>

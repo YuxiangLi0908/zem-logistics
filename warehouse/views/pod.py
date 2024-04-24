@@ -1,32 +1,23 @@
 import os
-import pytz
-import pickle
-from datetime import datetime, timedelta
 from typing import Any
 
 from django.http import HttpRequest, HttpResponse
-from django.shortcuts import render, redirect
+from django.shortcuts import render
 from django.contrib.auth.decorators import login_required
 from django.views import View
 from django.utils.decorators import method_decorator
 from django.db import models
 from django.db.models import Sum, FloatField, IntegerField, Count
-from django.forms import formset_factory
 from django.forms.models import model_to_dict
 
 from office365.runtime.auth.user_credential import UserCredential
 from office365.sharepoint.client_context import ClientContext
 from office365.sharepoint.sharing.links.kind import SharingLinkKind
 
-from warehouse.models.customer import Customer
 from warehouse.models.shipment import Shipment
 from warehouse.models.packing_list import PackingList
-from warehouse.models.warehouse import ZemWarehouse
-from warehouse.forms.customer_form import CustomerForm
-from warehouse.forms.warehouse_form import ZemWarehouseForm
 from warehouse.forms.shipment_form import ShipmentForm
 from warehouse.forms.upload_file import UploadFileForm
-from warehouse.views.export_file import export_bol
 from warehouse.utils.constants import APP_ENV, SP_USER, SP_PASS, SP_URL, SP_DOC_LIB, SYSTEM_FOLDER
 
 
