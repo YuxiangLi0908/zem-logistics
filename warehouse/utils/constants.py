@@ -65,6 +65,7 @@ LOAD_TYPE_OPTIONS = [
 
 QUOTE_PLATFORM_OPTIONS = [
     ("Uber Freight", "Uber Freight"), ("Unishipper", "Unishipper"), ("Coyote", "Coyote"),
+    ("报价表", "报价表"), ("整柜直送", "整柜直送"),
 ]
 
 PACKING_LIST_TEMP_COL_MAPPING = {

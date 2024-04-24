@@ -6,39 +6,31 @@
 <form method="post">
     {% csrf_token %}
     <div style="display: flex;">
-        <div class="form-row flex-3" style="margin: 2px;">
+        <div class="quote-form-row flex-6" style="margin: 2px;">
             <label style="font-size: 15px; margin-right: 5px;">客户全称</label>
             {{ customer_form.full_name }}
         </div>
-        <div class="form-row flex-3" >
+        <div class="quote-form-row flex-6" >
             <label style="font-size: 15px; margin-right: 5px;">客户简称</label>
             {{ customer_form.zem_name }}
         </div>
-        <div class="form-row flex-3" >
+        <div class="quote-form-row flex-6" >
             <label style="font-size: 15px; margin-right: 5px;">ZEM客户代码</label>
             {{ customer_form.zem_code }}
         </div>
-    </div>
-
-
-    <!-- <div class="form-row" >
-        <div class="form-group col-md-4">
-            <label class="col-form-label" style="font-size: 15px; width: 100px; height: 40px;">客户全称</label>
-            {{ customer_form.full_name }}
+        <div class="quote-form-row flex-6" >
+            <label style="font-size: 15px; margin-right: 5px;">Email</label>
+            {{ customer_form.email }}
+        </div>
+        <div class="quote-form-row flex-6" >
+            <label style="font-size: 15px; margin-right: 5px;">Phone</label>
+            {{ customer_form.phone }}
+        </div>
+        <div class="quote-form-row flex-6" >
+            <label style="font-size: 15px; margin-right: 5px;">备注</label>
+            {{ customer_form.note }}
         </div>
     </div>
-    <div class="form-row" >
-        <div class="form-group col-md-4">
-            <label class="col-form-label" style="font-size: 15px; width: 100px; height: 40px;">客户简称</label>
-            {{ customer_form.zem_name }}
-        </div>
-    </div>
-    <div class="form-row" >
-        <div class="form-group col-md-4">
-            <label class="col-form-label" style="font-size: 15px; width: 100px; height: 40px;">ZEM客户代码</label>
-            {{ customer_form.zem_code }}
-        </div>
-    </div> -->
 
     <div class="text-left">
         <input type="hidden" name="step" value="new">
@@ -51,16 +43,24 @@
 
 <hr class="Dashed" style="margin-top: 20px; margin-bottom: 20px;">
 <h4>客户列表</h4>
-<div style="overflow-x: auto; max-width: 1200px; overflow-y: auto; max-height: 800px;">
+<div style="overflow-x: auto; max-width: 100%; overflow-y: auto; max-height: 800px;">
     <table class="table" id="customer-table">
         <thead>
             <tr style="position: sticky; top: 0;">
                 <th class="th">客户简称</th>
                 <th class="th">客户全称</th>
+                <th class="th">ZEM客户代码</th>
+                <th class="th">Email</th>
+                <th class="th">Phone</th>
+                <th class="th">备注</th>
             </tr>
             <tr style="position: sticky; top: 40px;">
                 <th class="th"><input type="text" id="zemNameSearchInput" placeholder="搜索..." oninput="filterCustomerTable()"></th>
                 <th class="th"><input type="text" id="fullNameSearchInput" placeholder="搜索..." oninput="filterCustomerTable()"></th>
+                <th class="th"></th>
+                <th class="th"></th>
+                <th class="th"></th>
+                <th class="th"></th>
             </tr>
         </thead>
         <tbody>
@@ -68,6 +68,10 @@
             <tr>
                 <td class="td"><a href="/customer_management/{{c.zem_name}}/?step=update">{{ c.zem_name }}</a></td>
                 <td class="td">{{ c.full_name }}</td>
+                <td class="td">{{ c.zem_code }}</td>
+                <td class="td">{{ c.email }}</td>
+                <td class="td">{{ c.phone }}</td>
+                <td class="td">{{ c.note }}</td>
             </tr>
             {% endfor %}
         </tbody>
@@ -93,8 +97,26 @@
     </div>
     <div class="form-row" >
         <div class="form-group col-md-4">
-            <label class="col-form-label" style="font-size: 15px; width: 100px; height: 40px;">客户简称</label>
+            <label class="col-form-label" style="font-size: 15px; width: 100px; height: 40px;">ZEM客户代码</label>
             {{ customer_update_form.zem_code }}
+        </div>
+    </div>
+    <div class="form-row" >
+        <div class="form-group col-md-4">
+            <label class="col-form-label" style="font-size: 15px; width: 100px; height: 40px;">Email</label>
+            {{ customer_update_form.email }}
+        </div>
+    </div>
+    <div class="form-row" >
+        <div class="form-group col-md-4">
+            <label class="col-form-label" style="font-size: 15px; width: 100px; height: 40px;">Phone</label>
+            {{ customer_update_form.phone }}
+        </div>
+    </div>
+    <div class="form-row" >
+        <div class="form-group col-md-4">
+            <label class="col-form-label" style="font-size: 15px; width: 100px; height: 40px;">备注</label>
+            {{ customer_update_form.note }}
         </div>
     </div>
     <div class="text-left">
