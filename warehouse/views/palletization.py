@@ -109,13 +109,15 @@ class Palletization(View):
         mutable_post = request.POST.copy()
         mutable_post['name'] = order_selected.warehouse.name
         request.POST = mutable_post
+        self._update_shipment_stats(ids)
         self.handle_warehouse_post(request)
+        
 
     def handle_cancel_post(self, request: HttpRequest) -> None:
         container_number = request.POST.get("container_number")
-        shipment = Shipment.objects.filter(packinglist__container_number__container_number=container_number)
-        if shipment:
-            raise ValueError(f"Order {container_number} has scheduled shipment!")
+        # shipment = Shipment.objects.filter(packinglist__container_number__container_number=container_number)
+        # if shipment:
+        #     raise ValueError(f"Order {container_number} has scheduled shipment!")
         order = Order.objects.get(container_number__container_number=container_number)
         offload = Offload.objects.get(order__container_number__container_number=container_number)
         pallet = Pallet.objects.filter(packing_list__container_number__container_number=container_number)
@@ -218,6 +220,27 @@ class Palletization(View):
                     "cbm": cbm_loaded,
                     "weight_lbs": weight_loaded,
                 }).save()
+
+    def _update_shipment_stats(self, ids: list[Any]) -> None:
+        ids = [int(i) for i in ids[0]]
+        packing_list = PackingList.objects.filter(id__in=ids)
+        shipment = set([pl.shipment_batch_number for pl in packing_list if pl.shipment_batch_number])
+        for s in shipment:
+            shipment_stats = PackingList.objects.filter(
+                shipment_batch_number__shipment_batch_number=s.shipment_batch_number
+            ).values(
+                "container_number__container_number"
+            ).annotate(
+                total_pcs=Sum("pallet__pcs", output_field=IntegerField()),
+                total_cbm=Sum("pallet__cbm", output_field=FloatField()),
+                weight_lbs=Sum("pallet__weight_lbs", output_field=FloatField()),
+                total_n_pallet=Count('pallet__pallet_id', distinct=True, output_field=IntegerField()),
+            )
+            s.total_cbm = shipment_stats[0]["total_cbm"]
+            s.total_pallet = shipment_stats[0]["total_n_pallet"]
+            s.total_weight = shipment_stats[0]["weight_lbs"]
+            s.total_pcs = shipment_stats[0]["total_pcs"]
+            s.save()
 
     def _get_packing_list(self, container_number:str, status: str) -> PackingList:
         if status == "non_palletized":
