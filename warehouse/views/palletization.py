@@ -222,10 +222,10 @@ class Palletization(View):
                 }).save()
 
     def _update_shipment_stats(self, ids: list[Any]) -> None:
-        ids = [int(i) for i in ids[0]]
+        ids = [int(j) for i in ids for j in i]
         packing_list = PackingList.objects.filter(id__in=ids)
-        shipment = set([pl.shipment_batch_number for pl in packing_list if pl.shipment_batch_number])
-        for s in shipment:
+        shipment_list = set([pl.shipment_batch_number for pl in packing_list if pl.shipment_batch_number])
+        for s in shipment_list:
             shipment_stats = PackingList.objects.filter(
                 shipment_batch_number__shipment_batch_number=s.shipment_batch_number
             ).values(
