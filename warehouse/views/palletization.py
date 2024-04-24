@@ -229,7 +229,7 @@ class Palletization(View):
             shipment_stats = PackingList.objects.filter(
                 shipment_batch_number__shipment_batch_number=s.shipment_batch_number
             ).values(
-                "container_number__container_number"
+                "destination"
             ).annotate(
                 total_pcs=Sum("pallet__pcs", output_field=IntegerField()),
                 total_cbm=Sum("pallet__cbm", output_field=FloatField()),
