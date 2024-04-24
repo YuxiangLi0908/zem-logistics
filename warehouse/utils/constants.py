@@ -1,5 +1,5 @@
+import os
 import yaml
-
 from pathlib import Path
 
 
@@ -90,3 +90,11 @@ PACKING_LIST_TEMP_COL_MAPPING = {
 file_path = Path(__file__).parent.resolve().joinpath("fba_fulfillment_center.yaml")
 with open(file_path, "r") as f:
     amazon_fba_locations = yaml.safe_load(f)
+
+SP_USER = os.environ.get("MS_SP_USER")
+SP_PASS = os.environ.get("MS_SP_PASS")
+SP_URL = os.environ.get("MS_SP_URL")
+SP_SITE = os.environ.get("MS_SP_SITE")
+SP_DOC_LIB = os.environ.get("MS_SP_DOC_LIB")
+SYSTEM_FOLDER = "system_archive"
+APP_ENV = "prd" if os.environ.get("APP_ENV", "staging") == "production" else "stg"

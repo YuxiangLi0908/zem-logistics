@@ -1,0 +1,83 @@
+{% extends 'base.html' %}
+
+{% block content %}
+<h4 class="mb-4">确认送达</h4>
+<form method="post" enctype="multipart/form-data" action="">
+    {% csrf_token %}
+    <div style="overflow-x: auto; max-width: 100%; overflow-y: auto; max-height: 800px;">
+        <table id="shipment-batch-table" class="table" style="font-size: 12px; width: 100%;">
+            <thead>
+                <tr>
+                    <th class="th">批次号</th>
+                    <th class="th">目的地</th>
+                    <th class="th">预约号</th>
+                    <th class="th">Carrier</th>
+                    <th class="th">预约出库时间</th>
+                    <th class="th">总箱数</th>
+                    <th class="th">总重lbs</th>
+                    <th class="th">总CBM</th>
+                    <th class="th">总卡板数</th>
+                    <th class="th">实际出库时间</th>
+                    <th class="th">实际送达时间</th>
+                    <th class="th">POD</th>
+                </tr>
+            </thead>
+            <tbody>
+                <tr>
+                    <td class="td">{{ shipment.shipment_batch_number }}</td>
+                    <td class="td">{{ shipment.destination }}</td>
+                    <td class="td">{{ shipment.appointment_id }}</td>
+                    <td class="td">{{ shipment.carrier }}</td>
+                    <td class="td">{{ shipment.shipment_appointment|date:"Y-m-d" }} {{ shipment.shipment_appointment|time:"H:i" }}</td>
+                    <td class="td">{{ shipment.total_pcs|floatformat:0 }}</td>
+                    <td class="td">{{ shipment.total_weight|floatformat:2 }}</td>
+                    <td class="td">{{ shipment.total_cbm|floatformat:2 }}</td>
+                    <td class="td">{{ shipment.total_pallet|floatformat:0 }}</td>
+                    <td class="td">{{ shipment.shipped_at|date:"Y-m-d" }} {{ shipment.shipped_at|time:"H:i" }}</td>
+                    <td class="td">{{ shipment_form.arrived_at }}</td>
+                    <td class="td">{{ upload_file_form.file }}</td>
+                </tr>
+            </tbody>
+        </table>
+    </div>
+    <input type="hidden" name="step" value="confirm_delivery">
+    <input type="hidden" name="batch_number" value="{{ shipment.shipment_batch_number }}">
+    <button type="submit" class="btn btn-success" style="width: 100px; height: 35px;">确认送达</button>
+</form>
+
+<hr class="Dashed" style="margin-top: 10px; margin-bottom: 10px;">
+
+<div>
+    <b>Packing List</b>
+    <div style="overflow-x: auto; max-width: 100%; overflow-y: auto; max-height: 800px;">
+        <table id="packing-list-table" class="table" style="font-size: 12px; width: 100%;">
+            <thead>
+                <tr>
+                    <th class="th">客户</th>
+                    <th class="th">货柜号</th>
+                    <th class="th">目的仓库</th>
+                    <th class="th">FBA_ID</th>
+                    <th class="th">REF_ID</th>
+                    <th class="th">箱数</th>
+                    <th class="th">总重lbs</th>
+                    <th class="th">CBM</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for c in packing_list %}
+                <tr>
+                    <td class="td">{{ c.container_number__order__customer_name__zem_name }}</td>
+                    <td class="td">{{ c.container_number__container_number }}</td>
+                    <td class="td">{{ c.destination }}</td>
+                    <td class="td">{{ c.fba_id }}</td>
+                    <td class="td">{{ c.ref_id }}</td>
+                    <td class="td">{{ c.total_pcs }}</td>
+                    <td class="td">{{ c.total_weight_lbs|floatformat:2 }}</td>
+                    <td class="td">{{ c.total_cbm|floatformat:2 }}</td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+</div>
+{% endblock %}

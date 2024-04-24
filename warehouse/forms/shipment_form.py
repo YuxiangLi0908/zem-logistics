@@ -13,13 +13,11 @@ class ShipmentForm(forms.ModelForm):
                 "shipped_at": forms.DateTimeInput(attrs={'type': 'datetime-local'}),
                 "arrived_at": forms.DateTimeInput(attrs={'type': 'datetime-local'}),
                 "load_type": forms.Select(choices=LOAD_TYPE_OPTIONS),
-                "note": forms.Textarea(attrs={"rows": "2"})
+                "note": forms.Textarea(attrs={"rows": "2"}),
             }
 
     def __init__(self, *args, **kwargs) -> None:
         super(ShipmentForm, self).__init__(*args, **kwargs)
         for k in self.fields.keys():
             self.fields[k].required = False
-        # self.fields['shipment_appointment'].required = False
-        # self.fields['appointment_id'].required = False
         

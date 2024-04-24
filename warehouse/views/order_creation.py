@@ -10,7 +10,7 @@ from typing import Any
 from django.http import HttpRequest, HttpResponse, Http404
 from django.shortcuts import render, redirect
 from django.contrib.auth.decorators import login_required
-from django.forms import modelformset_factory, formset_factory
+from django.forms import formset_factory
 from django.forms.models import model_to_dict
 from django.views import View
 from django.utils.decorators import method_decorator
@@ -30,7 +30,7 @@ from warehouse.forms.container_form import ContainerForm
 from warehouse.forms.packling_list_form import PackingListForm
 from warehouse.forms.order_form import OrderForm
 from warehouse.forms.warehouse_form import ZemWarehouseForm
-from warehouse.forms.clearance_form import ClearanceForm, ClearanceSelectForm
+from warehouse.forms.clearance_form import ClearanceSelectForm
 from warehouse.forms.offload_form import OffloadForm
 from warehouse.forms.retrieval_form import RetrievalForm, RetrievalSelectForm
 from warehouse.forms.shipment_form import ShipmentForm
@@ -125,8 +125,8 @@ class OrderCreation(View):
                 "container_number": container_number,
                 "container_type": request.POST.get("container_type"),
                 "shipping_line": request.POST.get("shipping_line"),
-                "origin": request.POST.get("origin"),
-                "destination": request.POST.get("destination"),
+                "origin_port": request.POST.get("origin_port"),
+                "destination_port": request.POST.get("destination_port"),
                 "retrieval_location": request.POST.get("retrieval_location"),
                 "shipping_order_number": request.POST.get("shipping_order_number")
             }
@@ -229,8 +229,8 @@ class OrderCreation(View):
         retrieval_data = {
             "retrieval_id": order_data["retrieval_id"],
             "retrive_by_zem": True if order_data["retrieval_option"]=="代理卡车" else False,
-            "origin": container_data.get("origin"),
-            "destination": container_data.get("destination"),
+            "origin_port": container_data.get("origin_port"),
+            "destination_port": container_data.get("destination_port"),
             "retrieval_location": container_data.get("retrieval_location"),
             "shipping_line": container_data.get("shipping_line"),
             "shipping_order_number": container_data.get("shipping_order_number")

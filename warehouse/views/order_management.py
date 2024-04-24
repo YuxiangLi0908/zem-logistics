@@ -126,7 +126,7 @@ class OrderManagement(View):
                 return render(request, self.template_main, self.context)
             else:
                 order_id = request.POST.get("order_id")
-                container_number = request.POST.get("container_number")
+                container_number = request.POST.get("container_number").strip()
                 order = Order.objects.get(models.Q(order_id=order_id))
                 container = Container.objects.get(models.Q(container_number=container_number))
                 customer = Customer.objects.get(models.Q(id=request.POST.get("customer_name")))
@@ -139,8 +139,8 @@ class OrderManagement(View):
                 packing_list = PackingList.objects.filter(models.Q(container_number__order__order_id=order_id)).order_by("id")
                 if order.order_type == "直送":
                     shipment = order.shipment_id
-                    shipment.destination = request.POST.getlist("destination")[0]
-                    shipment.address = request.POST.getlist("address")[0]
+                    shipment.destination = request.POST.get("destination")
+                    shipment.address = request.POST.get("address")
                     shipment.save()
                 self._update_order(
                     request, order, container, retrieval, clearance, packing_list,
@@ -270,8 +270,8 @@ class OrderManagement(View):
         form = RetrievalForm(request.POST)
         form.is_valid()
         obj.shipping_order_number = form.cleaned_data.get("shipping_order_number")
-        obj.origin = form.cleaned_data.get("origin")
-        obj.destination = form.cleaned_data.get("destination")
+        obj.origin_port = form.cleaned_data.get("origin_port")
+        obj.destination_port = form.cleaned_data.get("destination_port")
         obj.retrieval_location = form.cleaned_data.get("retrieval_location")
         obj.shipping_line = form.cleaned_data.get("shipping_line")
         obj.target_retrieval_timestamp = form.cleaned_data.get("target_retrieval_timestamp")
