@@ -135,7 +135,8 @@
         <thead>
             <tr>
                 <th class="th">预约号</th>
-                <th class="th">carrier</th>
+                <th class="th">Carrier</th>
+                <th class="th">3rd Party 地址</th>
                 <th class="th">装车类型</th>
                 <th class="th">Scheduled Time</th>
                 <th class="th">备注</th>
@@ -145,6 +146,7 @@
             <tr>
                 <td class="td">{{ shipment_form.appointment_id }}</td>
                 <td class="td">{{ shipment_form.carrier }}</td>
+                <td class="td">{{ shipment_form.third_party_address }}</td>
                 <td class="td">{{ shipment_form.load_type }}</td>
                 <td class="td">{{ shipment_form.shipment_appointment }}</td>
                 <td class="td">{{ shipment_form.note }}</td>

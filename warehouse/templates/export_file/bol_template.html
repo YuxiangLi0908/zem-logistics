@@ -85,8 +85,13 @@
                         </tr>
                         <tr>
                             <td style="margin-left: 5px;">
-                                <br>ZEM LOGISTICS INC<br>
-                                {{ warehouse }}
+                                {% if shipment.third_party_address %}
+                                    <br>{{ shipment.carrier }}<br>
+                                    {{ shipment.third_party_address }}
+                                {% else %}
+                                    <br>ZEM LOGISTICS INC<br>
+                                    {{ warehouse }}
+                                {% endif %}
                             </td>
                         </tr>
                     </table>
