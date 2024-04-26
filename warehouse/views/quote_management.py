@@ -21,6 +21,7 @@ from warehouse.forms.quote_form import QuoteForm
 class QuoteManagement(View):
     template_create = "quote/quote_creation.html"
     template_update = "quote/quote_list.html"
+    template_edit = "quote/quote_edit.html"
 
     def get(self, request: HttpRequest) -> HttpResponse:
         step = request.GET.get("step")
@@ -28,6 +29,8 @@ class QuoteManagement(View):
             return render(request, self.template_create, self.handle_new_quote_get(request))
         elif step == "history":
             return render(request, self.template_update, self.handle_history_quote_get(request))
+        elif step == "edit":
+            return render(request, self.template_edit, self.handle_edit_get(request))
         context = {}
         return render(request, self.template_create, context)
 
@@ -39,6 +42,8 @@ class QuoteManagement(View):
             return self.handle_single_excel_export(request)
         elif step == "search":
             return render(request, self.template_update, self.handle_quote_search_post(request))
+        elif step == "update":
+            return render(request, self.template_update, self.handle_update_post(request))
 
     def handle_new_quote_get(self, request: HttpRequest) -> dict[str, Any]:
         quote_form = QuoteForm()
@@ -57,6 +62,16 @@ class QuoteManagement(View):
         context = {
             "start_date": start_date.strftime('%Y-%m-%d'),
             "end_date": end_date.strftime('%Y-%m-%d'),
+        }
+        return context
+    
+    def handle_edit_get(self, request: HttpRequest) -> dict[str, Any]:
+        quote_id = request.GET.get("qid")
+        quote = Quote.objects.get(quote_id=quote_id)
+        quote_form = QuoteForm(instance=quote)
+        context = {
+            "quote": quote,
+            "quote_form": quote_form,
         }
         return context
     
@@ -165,3 +180,21 @@ class QuoteManagement(View):
         response['Content-Disposition'] = f"attachment; filename={parent_id}.xlsx"
         df.to_excel(excel_writer=response, index=False, columns=df.columns)
         return response
+    
+    def handle_update_post(self, request: HttpRequest) -> dict[str, Any]:
+        quote_id = request.POST.get("quote_id")
+        quote = Quote.objects.get(quote_id=quote_id)
+        quote_form = QuoteForm(request.POST)
+        if quote_form.is_valid():
+            data = quote_form.cleaned_data
+            for k, v in data.items():
+                if v:
+                    setattr(quote, k, v)
+            quote.save()
+        else:
+            raise ValueError(f"invalid quote data: {quote_form}")
+        context = self.handle_history_quote_get(request)
+        mutable_post = request.POST.copy()
+        mutable_post.update(context)
+        request.POST = mutable_post
+        return self.handle_quote_search_post(request)
