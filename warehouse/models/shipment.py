@@ -9,6 +9,7 @@ class Shipment(models.Model):
     destination = models.CharField(max_length=255, null=True, blank=True)
     address = models.CharField(max_length=255, null=True, blank=True)
     carrier = models.CharField(max_length=255, null=True, blank=True)
+    third_party_address = models.CharField(max_length=500, null=True, blank=True)
     is_shipment_schduled = models.BooleanField(default=False, blank=True)
     shipment_schduled_at = models.DateTimeField(null=True, blank=True)
     shipment_appointment = models.DateTimeField(null=True, blank=True)

@@ -165,6 +165,11 @@ class ScheduleShipment(View):
         shipment_data = ast.literal_eval(request.POST.get("shipment_data"))
         shipment_data["appointment_id"] = request.POST.get("appointment_id", None)
         shipment_data["carrier"] = request.POST.get("carrier", None)
+        shipment_data["third_party_address"] = request.POST.get("third_party_address", None)
+        try:
+            shipment_data["third_party_address"] = shipment_data["third_party_address"].strip()
+        except:
+            pass
         shipment_data["load_type"] = request.POST.get("load_type", None)
         shipment_data["note"] = request.POST.get("note", None)
         shipment_data["shipment_appointment"] = request.POST.get("shipment_appointment", None)
