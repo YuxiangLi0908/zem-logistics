@@ -1,0 +1,68 @@
+{% extends 'base.html' %}
+
+{% block content %}
+<h3 class="mb-3">询价记录: {{ quote.quote_id }}</h3>
+<hr class="Dashed" style="margin-top: 10px; margin-bottom: 10px;">
+
+<form method="post" action="" style="margin-top: 10px;">
+    {% csrf_token %}
+    <div class="form-row">
+        <div class="form-group col-md-4">
+            <label style="font-size: 15px;">客户</label>
+            {{ quote_form.customer_name }}
+        </div>
+        <div class="form-group col-md-4">
+            <label style="font-size: 15px;">参考日期</label>
+            {{ quote_form.pickup_date }}
+        </div>
+        <div class="form-group col-md-4">
+            <label style="font-size: 15px;">询价平台</label>
+            {{ quote_form.platform }}
+        </div>
+        <div class="form-group col-md-4">
+            <label style="font-size: 15px;">目的地邮编</label>
+            {{ quote_form.zipcode }}
+        </div>
+        <div class="form-group col-md-4">
+            <label style="font-size: 15px;">是否有超大件</label>
+            {{ quote_form.is_oversize }}
+        </div>
+        <div class="form-group col-md-4">
+            <label style="font-size: 15px;">详细地址</label>
+            {{ quote_form.address }}
+        </div>
+        <div class="form-group col-md-4">
+            <label style="font-size: 15px;">发货仓库</label>
+            {{ quote_form.warehouse }}
+        </div>
+        <div class="form-group col-md-4">
+            <label style="font-size: 15px;">FTL/LTL</label>
+            {{ quote_form.load_type }}
+        </div>
+        <div class="form-group col-md-4">
+            <label style="font-size: 15px;">是否带尾板</label>
+            {{ quote_form.is_lift_gate }}
+        </div>
+        <div class="form-group col-md-4">
+            <label style="font-size: 15px;">成本</label>
+            {{ quote_form.cost }}
+        </div>
+        <div class="form-group col-md-4">
+            <label style="font-size: 15px;">实际报价</label>
+            {{ quote_form.price }}
+        </div>
+        <div class="form-group col-md-4">
+            <label style="font-size: 15px;">备注</label>
+            {{ quote_form.comment }}
+        </div>
+        <div class="form-group col-md-4">
+            <label style="font-size: 15px;">询盘明细</label>
+            {{ quote_form.note }}
+        </div>
+    </div>
+    <input type="hidden" name="step" value="update">
+    <input type="hidden" name="quote_id" value="{{ quote.quote_id }}">
+    <button type="submit" class="btn btn-primary" style="width: 150px; height: 35px;">更新报价信息</button>
+</form>
+
+{% endblock %}

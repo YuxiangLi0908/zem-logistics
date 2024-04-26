@@ -56,7 +56,9 @@
         <tbody>
             {% for q in quote %}
             <tr>
-                <td class="td">{{ q.quote_id }}</td>
+                <td class="td">
+                    <a href="/quote/?step=edit&qid={{ q.quote_id }}" target="_blank">{{ q.quote_id }}</a>
+                </td>
                 <td class="td">{{ q.customer_name.full_name }}</td>
                 <td class="td">{{ q.created_at|date:"Y-m-d" }}</td>
                 <td class="td">{{ q.warehouse.name }}</td>
