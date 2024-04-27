@@ -1084,10 +1084,10 @@ ORD6:
   state: IL
   zipcode: '60191'
 ORF2:
-  city: Richmond
-  location: 9603 Coach Road
+  city: Chesapeake
+  location: 5045 Portsmouth Blvd
   state: VA
-  zipcode: '23297'
+  zipcode: 23321-1425
 ORF2-:
   city: CHESAPEAKE
   location: 5045 PORTSMOUTH BLVD
@@ -1570,6 +1570,6 @@ XUSE:
   zipcode: '46975'
 PBI2:
   city: Jupiter
-  location: 14490 Corporate Rd N,
+  location: 14490 Corporate Rd N
   state: FL
   zipcode: '33478'
