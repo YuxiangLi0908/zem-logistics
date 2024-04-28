@@ -17,8 +17,8 @@ from django.contrib.postgres.aggregates import StringAgg
 from django.forms import model_to_dict
 from django.template.loader import get_template
 
-
 from warehouse.models.packing_list import PackingList
+from warehouse.models.order import Order
 
 @method_decorator(login_required(login_url='login'), name='dispatch')
 class ExportFile(View):
@@ -202,3 +202,33 @@ def export_po(request: HttpRequest, export_format: str = "PO") -> HttpResponse:
     response['Content-Disposition'] = f"attachment; filename=PO.csv"
     df.to_csv(path_or_buf=response, index=False)
     return response
+
+def export_do(request: HttpRequest) -> HttpResponse:
+    container_number = request.POST.get("container_number")
+    order = Order.objects.get(container_number__container_number=container_number)
+    container = order.container_number
+    packing_list = PackingList.objects.filter(container_number__container_number=container_number)
+    pcs, weight = 0, 0
+    for pl in packing_list:
+        pcs += pl.pcs if pl.pcs else 0
+        weight += pl.total_weight_lbs if pl.total_weight_lbs else 0
+    retrieval = order.retrieval_id
+    warehouse = order.warehouse
+    context = {
+        "order": order,
+        "retrieval": retrieval,
+        "container": container,
+        "warehouse": warehouse,
+        "pcs": pcs,
+        "weight": weight,
+    }
+    template_path = "export_file/do_template.html"
+    template = get_template(template_path)
+    html = template.render(context)
+    response = HttpResponse(content_type="application/pdf")
+    response['Content-Disposition'] = f'attachment; filename="DO_{container_number}.pdf"'
+    pisa_status = pisa.CreatePDF(html, dest=response)
+    if pisa_status.err:
+        raise ValueError('Error during PDF generation: %s' % pisa_status.err, content_type='text/plain')
+    return response
+    raise ValueError(request.POST)

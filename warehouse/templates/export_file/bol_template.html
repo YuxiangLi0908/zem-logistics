@@ -17,7 +17,7 @@
                 <td style="width: 60%; border: 1px solid #141414;">
                     <table>
                         <tr>
-                            <td style="text-align: center; color: white; background-color: #141414;">
+                            <td style="text-align: center; color: white; background-color: #141414; padding-top: 1px;">
                                 <b>SHIP FROM</b>
                             </td>
                         </tr>
@@ -42,7 +42,7 @@
                 <td style="width: 60%; border: 1px solid #141414;">
                     <table>
                         <tr>
-                            <td style="text-align: center; color: white; background-color: #141414;">
+                            <td style="text-align: center; color: white; background-color: #141414; padding-top: 1px;">
                                 <b>SHIP TO</b>
                             </td>
                         </tr>
@@ -79,7 +79,7 @@
                 <td style="width: 60%; border: 1px solid #141414;">
                     <table>
                         <tr>
-                            <td style="text-align: center; color: white; background-color: #141414; vertical-align: middle;" colspan="2">
+                            <td style="text-align: center; color: white; background-color: #141414; vertical-align: middle; padding-top: 1px;" colspan="2">
                                 <b>THIRD PARTY FREIGHT CHARGES BILL TO</b>
                             </td>
                         </tr>
@@ -140,8 +140,8 @@
                 <td style="width: 100%; border: solid #141414; margin-top: 10px;">
                     <table>
                         <tr>
-                            <td style="text-align: center; color: white; background-color: #141414; vertical-align: baseline;" colspan="2">
-                                CUSTOMER ORDER INFORMATIO
+                            <td style="text-align: center; color: white; background-color: #141414; vertical-align: baseline; padding-top: 1px;" colspan="2">
+                                CUSTOMER ORDER INFORMATION
                             </td>
                         </tr>
                     </table>
@@ -152,19 +152,19 @@
                     <table>
                         <thead>
                             <tr>
-                                <th style="text-align: center; border: 1px solid #141414;">Container</th>
-                                <th style="text-align: center; border: 1px solid #141414;">Shipment ID</th>
-                                <th style="text-align: center; border: 1px solid #141414;">Ref ID</th>
-                                <th style="text-align: center; border: 1px solid #141414;">Qty</th>
+                                <th style="text-align: center; border: 1px solid #141414; padding-top: 1px;">Container</th>
+                                <th style="text-align: center; border: 1px solid #141414; padding-top: 1px;">Shipment ID</th>
+                                <th style="text-align: center; border: 1px solid #141414; padding-top: 1px;">Ref ID</th>
+                                <th style="text-align: center; border: 1px solid #141414; padding-top: 1px;">Qty</th>
                             </tr>
                         </thead>
                         <tbody>
                             {% for c in packing_list %}
                                 <tr>
-                                    <td style="text-align: center; border: 1px solid #141414;">{{ c.container_number }}</td>
-                                    <td style="text-align: center; border: 1px solid #141414; text-wrap: wrap;">{{ c.fba_id }}</td>
-                                    <td style="text-align: center; border: 1px solid #141414; text-wrap: wrap;">{{ c.ref_id }}</td>
-                                    <td style="text-align: center; border: 1px solid #141414;">{{ c.pcs }}</td>
+                                    <td style="text-align: center; border: 1px solid #141414; padding-top: 1px;">{{ c.container_number }}</td>
+                                    <td style="text-align: center; border: 1px solid #141414; text-wrap: wrap; padding-top: 1px;">{{ c.fba_id }}</td>
+                                    <td style="text-align: center; border: 1px solid #141414; text-wrap: wrap; padding-top: 1px;">{{ c.ref_id }}</td>
+                                    <td style="text-align: center; border: 1px solid #141414; padding-top: 1px;">{{ c.pcs }}</td>
                                 </tr>
                             {% endfor %}
                         </tbody>
