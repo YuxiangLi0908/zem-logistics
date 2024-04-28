@@ -121,6 +121,12 @@
         <input type="hidden" name="container_number" value="{{ container_number }}">
         <button type="submit" class="btn btn-success" style="width: 100px; height: 35px;">卸柜单</button>
     </form>
+    <form method="post" enctype="multipart/form-data" style="display: inline-block; margin-left: 10px;">
+        {% csrf_token %}
+        <input type="hidden" name="step" value="export_do">
+        <input type="hidden" name="container_number" value="{{ container_number }}">
+        <button type="submit" class="btn btn-success" style="width: 100px; height: 35px;">DO</button>
+    </form>
     
     <hr class="Dashed" style="margin-top: 10px; margin-bottom: 10px;">
 </div>

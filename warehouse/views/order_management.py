@@ -32,7 +32,7 @@ from warehouse.forms.packling_list_form import PackingListForm
 from warehouse.forms.upload_file import UploadFileForm
 from warehouse.forms.shipment_form import ShipmentForm
 from warehouse.utils.constants import PACKING_LIST_TEMP_COL_MAPPING
-from warehouse.views.export_file import export_palletization_list
+from warehouse.views.export_file import export_do, export_palletization_list
 
 @method_decorator(login_required(login_url='login'), name='dispatch')
 class OrderManagement(View):
@@ -151,6 +151,8 @@ class OrderManagement(View):
             return self.handle_search_post(request)
         elif step == "export_palletization_list":
             return export_palletization_list(request)
+        elif step == "export_do":
+            return export_do(request)
         elif step == "search":
             return self.handle_search_post(request)
         else:
