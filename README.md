@@ -4,9 +4,9 @@
 - [X] Enable editing after palletization
 - [X] Shipment batch management
 - [X] Change offload logic to enable shipment scheduled for not offload and palletized container/packling lists
-- [ ] DO export
-- [ ] Quote management - enable edit after creation
-- [ ] Delivery confirmation and POD upload
+- [X] DO export
+- [X] Quote management - enable edit after creation
+- [X] Delivery confirmation and POD upload
 - [ ] Packing list deliver status check
 - [ ] Add L/W/H to packing list to identify oversize
 - [ ] Add more search criteria to BOL. e.g. container number, appointment number, destination etc.
@@ -29,3 +29,9 @@
 -  增加托盘标打印功能
 -  解决pdf导出时中文乱码问题
 -  页面优化
+
+### 2024-04-28
+-  增加DO导出
+-  增加确认送达，POD回传
+-  BOL字体优化
+-  预约出库增加3rd party地址
