@@ -7,7 +7,7 @@ class Shipment(models.Model):
     appointment_id = models.CharField(max_length=255, null=True, blank=True)
     origin = models.CharField(max_length=255, null=True, blank=True)
     destination = models.CharField(max_length=255, null=True, blank=True)
-    address = models.CharField(max_length=255, null=True, blank=True)
+    address = models.CharField(max_length=2000, null=True, blank=True)
     carrier = models.CharField(max_length=255, null=True, blank=True)
     third_party_address = models.CharField(max_length=500, null=True, blank=True)
     is_shipment_schduled = models.BooleanField(default=False, blank=True)
