@@ -1,6 +1,7 @@
 import uuid
 import ast
 import os
+import shortuuid
 import pandas as pd
 import numpy as np
 from pathlib import Path
@@ -256,6 +257,7 @@ class OrderCreation(View):
             uuid.NAMESPACE_DNS,
             str(uuid.uuid4())+order_data.get("customer_name")+datetime.now().strftime('%Y-%m-%d %H:%M:%S')+container_data.get("container_number")
         ))
+        shipment_id = shortuuid.encode(shipment_id)
         shipment_data = {
             "shipment_batch_number": shipment_id,
             "address": container_data.get("address"),
