@@ -19,14 +19,21 @@
         .text-container {
             text-align: center;
             height: 100%;
+            padding-top: 100px;
         }
 
         .huge-text {
-            font-size: 80px;
+            font-size: 120px;
+            font-family: STSong-Light;
+            padding: -10px;
+            margin: -10px;
         }
 
         .huge-text.larger {
             font-size: 160px;
+            font-family: STSong-Light;
+            padding: -10px;
+            margin: -10px;
         }
     }
 </style>
@@ -35,16 +42,16 @@
 {% for d in data %}
 <div class="page-break {% if forloop.first %}first-page{% endif %}">
     <div class="text-container">
-        <br style="font-size: 60px;">
-        <div class="huge-text">{{ d.container_number }}</div>
         <br>
-        <div class="huge-text larger" style="font-family: STSong-Light; font-size: 160px;">
-            <b>{{ d.destination }}</b>
-        </div>
-        <br>
-        <div class="huge-text">{{ d.customer }} {{ d.date }}</div>
         {% if d.hold %}
-            <div class="huge-text"><b>!!! HOLD !!!</b></div>
+            <p class="huge-text">{{ d.container_number }}</p>
+            <p class="huge-text"><b>{{ d.destination }}</b></p>
+            <p class="huge-text">{{ d.customer }} {{ d.date }}</p>
+            <p class="huge-text"><b>!!! HOLD !!!</b></p>
+        {% else %}
+            <p class="huge-text larger">{{ d.container_number }}</p>
+            <p class="huge-text larger"><b>{{ d.destination }}</b></p>
+            <p class="huge-text larger">{{ d.customer }} {{ d.date }}</p>
         {% endif %}
     </div>
 </div>
