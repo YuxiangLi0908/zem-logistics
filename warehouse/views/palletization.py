@@ -16,6 +16,7 @@ from django.contrib.postgres.aggregates import StringAgg
 from django.template.loader import get_template
 
 from warehouse.models.offload import Offload
+from warehouse.models.retrieval import Retrieval
 from warehouse.models.order import Order
 from warehouse.models.packing_list import PackingList
 from warehouse.models.pallet import Pallet
@@ -135,13 +136,13 @@ class Palletization(View):
         container_number = request.POST.get("container_number")
         customer_name = request.POST.get("customer_name")
         status = request.POST.get("status")
-        offload = Offload.objects.get(order__container_number__container_number=container_number)
-        offload_date = offload.offload_at
-        if offload_date:
-            offload_date = offload_date.date()
+        retrieval = Retrieval.objects.get(order__container_number__container_number=container_number)
+        retrieval_date = retrieval.target_retrieval_timestamp
+        if retrieval_date:
+            retrieval_date = retrieval_date.date()
         else:
-            offload_date = datetime.now().date()
-        offload_date = offload_date.strftime("%m/%d")
+            retrieval_date = datetime.now().date()
+        retrieval_date = retrieval_date.strftime("%m/%d")
         packing_list = self._get_packing_list(container_number=container_number, status=status)
         data = []
         for pl in packing_list:
@@ -156,7 +157,7 @@ class Palletization(View):
                 data.append({
                     "container_number": pl.get("container_number__container_number"),
                     "destination": pl.get("destination"),
-                    "date": offload_date,
+                    "date": retrieval_date,
                     "customer": customer_name,
                     "hold": (pl.get("custom_delivery_method").split("-")[0] == "暂扣留仓"),
                 })
