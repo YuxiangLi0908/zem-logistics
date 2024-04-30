@@ -253,15 +253,18 @@ class OrderCreation(View):
         return self._create_model_object(Container, container_data)
     
     def _creat_shipment_object(self, order_data: dict[str, Any], container_data: dict[str, Any]) -> Shipment:
-        shipment_id = str(uuid.uuid3(
+        shipment_id = uuid.uuid3(
             uuid.NAMESPACE_DNS,
             str(uuid.uuid4())+order_data.get("customer_name")+datetime.now().strftime('%Y-%m-%d %H:%M:%S')+container_data.get("container_number")
-        ))
+        )
         shipment_id = shortuuid.encode(shipment_id)
         shipment_data = {
             "shipment_batch_number": shipment_id,
             "address": container_data.get("address"),
             "destination": container_data.get("destination"),
+            "carrier": container_data.get("carrier", None),
+            "third_party_address": container_data.get("third_party_address", None),
+            "appointment_id": container_data.get("appointment_id", None),
         }
         return self._create_model_object(Shipment, shipment_data)
     

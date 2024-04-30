@@ -202,7 +202,7 @@
             </div>
             <div class="form-group col-md-4">
                 <label class="col-form-label" style="font-size: 15px; width: 100px; height: 40px;">Carrier</label>
-                {{ shipment_form.destination }}
+                {{ shipment_form.carrier }}
                 <style>
                     #{{ shipment_form.carrier.id_for_label }} {
                         width: 150px;
@@ -212,8 +212,19 @@
                 </style>
             </div>
             <div class="form-group col-md-4">
+                <label class="col-form-label" style="font-size: 15px; width: 100px; height: 40px;">3rd Pty Addr.</label>
+                {{ shipment_form.third_party_address }}
+                <style>
+                    #{{ shipment_form.third_party_address.id_for_label }} {
+                        width: 150px;
+                        height: 30px;
+                        font-size: 15px;
+                    }
+                </style>
+            </div>
+            <div class="form-group col-md-4">
                 <label class="col-form-label" style="font-size: 15px; width: 100px; height: 40px;">预约号(ISA)</label>
-                {{ shipment_form.destination }}
+                {{ shipment_form.appointment_id }}
                 <style>
                     #{{ shipment_form.appointment_id.id_for_label }} {
                         width: 150px;
