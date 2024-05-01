@@ -71,12 +71,14 @@ def export_palletization_list(request: HttpRequest) -> HttpResponse:
             str_id=Cast("id", CharField()),
             str_fba_id=Cast("fba_id", CharField()),
             str_ref_id=Cast("ref_id", CharField()),
+            str_shipping_mark=Cast("shipping_mark", CharField()),
         ).values(
             "container_number__container_number", "destination", "address", "custom_delivery_method"
         ).annotate(
             palletized_at=Value(current_time_cn, output_field=CharField()),
             fba_ids=StringAgg("str_fba_id", delimiter=",", distinct=True, ordering="str_fba_id"),
             ref_ids=StringAgg("str_ref_id", delimiter=",", distinct=True, ordering="str_ref_id"),
+            shipping_marks=StringAgg("str_shipping_mark", delimiter=",", distinct=True, ordering="str_shipping_mark"),
             weight_lbs=Sum("pallet__weight_lbs", output_field=FloatField()),
             pcs=Sum("pcs", output_field=IntegerField()),
             cbm=Sum("cbm", output_field=FloatField()),
@@ -92,12 +94,14 @@ def export_palletization_list(request: HttpRequest) -> HttpResponse:
             str_id=Cast("id", CharField()),
             str_fba_id=Cast("fba_id", CharField()),
             str_ref_id=Cast("ref_id", CharField()),
+            str_shipping_mark=Cast("shipping_mark", CharField()),
         ).values(
             "container_number__container_number", "destination", "address", "custom_delivery_method"
         ).annotate(
             palletized_at=Cast(Max("container_number__order__offload_id__offload_at"), CharField()),
             fba_ids=StringAgg("str_fba_id", delimiter=",", distinct=True, ordering="str_fba_id"),
             ref_ids=StringAgg("str_ref_id", delimiter=",", distinct=True, ordering="str_ref_id"),
+            shipping_marks=StringAgg("str_shipping_mark", delimiter=",", distinct=True, ordering="str_shipping_mark"),
             weight_lbs=Sum("pallet__weight_lbs", output_field=FloatField()),
             pcs=Sum("pallet__pcs", output_field=IntegerField()),
             cbm=Sum("pallet__cbm", output_field=FloatField()),
@@ -113,11 +117,12 @@ def export_palletization_list(request: HttpRequest) -> HttpResponse:
         "custom_delivery_method": "delivery_method",
         "fba_ids": "fba_id",
         "ref_ids": "ref_id",
+        "shipping_marks": "shipping_mark"
     }, axis=1)
     df["delivery_method"] = df["delivery_method"].apply(lambda x: x.split("-")[0])
     df = df[[
         "container_number", "palletized_at", "destination", "address", "delivery_method",
-        "fba_id", "ref_id", "weight_lbs", "pcs", "cbm", "n_pallet",
+        "fba_id", "ref_id", "shipping_mark", "weight_lbs", "pcs", "cbm", "n_pallet",
     ]]
     response = HttpResponse(content_type='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet')
     response['Content-Disposition'] = f"attachment; filename={container_number}.xlsx"
