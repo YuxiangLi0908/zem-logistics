@@ -1198,6 +1198,11 @@ RDU1:
   location: 4851 Jones Sausage Rd
   state: NC
   zipcode: 27529-9438
+RDU2:
+  city: SMITHFIELD
+  location: 2150 US-70 BUS
+  state: NC
+  zipcode: '27577'
 RFD4:
   city: HUNTLEY
   location: 11400 Venture Court
