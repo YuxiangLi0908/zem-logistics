@@ -10,4 +10,4 @@ class Customer(models.Model):
     note = models.CharField(max_length=500, null=True, blank=True)
 
     def __str__(self) -> str:
-        return f"{self.zem_name}"
+        return f"{self.zem_name} - {self.full_name}"
