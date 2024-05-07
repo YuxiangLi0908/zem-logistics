@@ -71,11 +71,17 @@ class BOL(View):
         warehouse = None if warehouse=="N/A(直送)" else warehouse
         start_date = request.POST.get("start_date", None)
         end_date = request.POST.get("end_date", None)
+        container_number = request.POST.get("container_number", None)
         criteria = models.Q(packinglist__container_number__order__warehouse__name=warehouse)
         if start_date:
             criteria &= models.Q(shipment_schduled_at__gte=start_date)
         if end_date:
             criteria &= models.Q(shipment_schduled_at__lte=end_date)
+        if container_number:
+            criteria &= (
+                models.Q(packinglist__container_number__container_number=container_number) |
+                models.Q(order__container_number__container_number=container_number)
+            )
         shipment = Shipment.objects.filter(criteria).distinct()
         warehouse_object = ZemWarehouse.objects.get(name=warehouse) if warehouse else None
         context = {
@@ -85,6 +91,7 @@ class BOL(View):
             "warehouse": warehouse_object,
             "start_date": start_date,
             "end_date": end_date,
+            "container_number": container_number,
         }
         return context
     
