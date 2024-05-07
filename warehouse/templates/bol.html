@@ -19,7 +19,7 @@
 {% if shipment_list %}
 <b>批次列表</b>
 <div class="search-filters">
-    <input type="text" id="shipmentSearchInput" placeholder="搜索批次号..." oninput="filterTable()">
+    <!-- <input type="text" id="shipmentSearchInput" placeholder="搜索批次号..." oninput="filterTable()"> -->
 </div>
 <div style="overflow-x: auto; max-width: 100%; overflow-y: auto; max-height: 600px;">
     <table id="shipment-list-table" class="table">
@@ -38,6 +38,21 @@
                 <th class="th">总CBM</th>
                 <th class="th">总卡板数</th>
                 <th class="th">备注</th>
+            </tr>
+            <tr>
+                <th class="th"><input type="text" id="shipmentSearchInput" placeholder="搜索批次号..." oninput="filterTable()" style="min-width: 100px; font-size: 12px;"></th>
+                <th class="th"><input type="text" id="destSearchInput" placeholder="搜索目的地..." oninput="filterTable()" style="min-width: 100px; font-size: 12px;"></th>
+                <th class="th"><input type="text" id="appIdSearchInput" placeholder="搜索预约号..." oninput="filterTable()" style="min-width: 100px; font-size: 12px;"></th>
+                <th class="th"></th>
+                <th class="th"></th>
+                <th class="th"></th>
+                <th class="th"></th>
+                <th class="th"></th>
+                <th class="th"></th>
+                <th class="th"></th>
+                <th class="th"></th>
+                <th class="th"></th>
+                <th class="th"></th>
             </tr>
         </thead>
         <tbody>
@@ -111,22 +126,27 @@
 
 <script>
     function filterTable() {
-        var shipmentInput, shipmentFilter, table, tbody, tr, shipmentTd, i, shipmentTxtValue;
-        shipmentInput = document.getElementById("shipmentSearchInput");
-        shipmentFilter = shipmentInput.value.toUpperCase();
-        table = document.getElementById("shipment-list-table");
-        tbody = table.getElementsByTagName("tbody")[0];
-        tr = tbody.getElementsByTagName("tr");
+        var shipmentInput = document.getElementById("shipmentSearchInput").value.toUpperCase();
+        var destInput = document.getElementById("destSearchInput").value.toUpperCase();
+        var appIdInput = document.getElementById("appIdSearchInput").value.toUpperCase();
+        tr = document.querySelectorAll("#shipment-list-table tbody tr");
 
         for (i = 0; i < tr.length; i++) {
-            shipmentTd = tr[i].getElementsByTagName("td")[0];
-            if (shipmentTd) {
-                shipmentTxtValue = shipmentTd.textContent || shipmentTd.innerText;
-                var shipmentDisplayStyle = shipmentTxtValue.toUpperCase().indexOf(shipmentFilter) > -1 ? "" : "none";
-                // Set display style based on both shipment and destination filters
-                tr[i].style.display = shipmentDisplayStyle === "" ? "" : "none";
+            var shipmentTd = tr[i].getElementsByTagName("td")[0];
+            var destTd = tr[i].getElementsByTagName("td")[1];
+            var appIdTd = tr[i].getElementsByTagName("td")[2];
+            if (shipmentTd && destTd && appIdTd) {
+                var shipmentTxtValue = shipmentTd.textContent.trim();
+                var destTxtValue = destTd.textContent.trim();
+                var appIdTxtValue = appIdTd.textContent.trim(); 
+
+                var shipmentDisplayStyle = shipmentTxtValue.toUpperCase().indexOf(shipmentInput) > -1 ? "" : "none";
+                var destDisplayStyle = destTxtValue.toUpperCase().indexOf(destInput) > -1 ? "" : "none";
+                var appIdDisplayStyle = appIdTxtValue.toUpperCase().indexOf(appIdInput) > -1 ? "" : "none";
+
+                tr[i].style.display = shipmentDisplayStyle === "" && destDisplayStyle === "" && appIdDisplayStyle === "" ? "" : "none";
             }
-        }
+        };
     }
 </script>
 {% endblock %}
