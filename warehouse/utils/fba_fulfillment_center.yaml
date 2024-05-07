@@ -1578,3 +1578,23 @@ PBI2:
   location: 14490 Corporate Rd N
   state: FL
   zipcode: '33478'
+沃尔玛-NJ3:
+  city: Pedricktown
+  location: 3 Sorbello Rd
+  state: NJ
+  zipcode: '08067'
+沃尔玛NJ3:
+  city: Pedricktown
+  location: 3 Sorbello Rd
+  state: NJ
+  zipcode: '08067'
+WMMNJ3:
+  city: Pedricktown
+  location: 3 Sorbello Rd
+  state: NJ
+  zipcode: '08067'
+WMM-NJ3:
+  city: Pedricktown
+  location: 3 Sorbello Rd
+  state: NJ
+  zipcode: '08067'
