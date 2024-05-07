@@ -10,6 +10,8 @@
         <input type="date" name="end_date" value="{{ end_date }}" style="margin-right: 5px;">
         <b style="margin-right: 5px;">仓库:</b>
         {{ warehouse_form.name }}
+        <b style="margin-right: 5px; margin-left: 10px;">柜号(optional):</b>
+        <input type="text" name="container_number" value="{{ container_number }}">
         <input type="hidden" name="step" value="search">
         <button id="submit-btn" type="submit" class="btn btn-primary" style="width: 100px; height: 35px; margin-left: 20px;">查询</button>
     </div>
@@ -59,7 +61,7 @@
             {% for s in shipment_list %}
             <tr>
                 <td class="td">
-                    <a href="/bol/?step=select&start_date={{ start_date }}&end_date={{ end_date }}&name={{ name }}&batch_number={{ s.shipment_batch_number }}">
+                    <a href="/bol/?step=select&start_date={{ start_date }}&end_date={{ end_date }}&name={{ name }}&batch_number={{ s.shipment_batch_number }}&container_number={{ container_number }}">
                         {{ s.shipment_batch_number }}
                     </a>
                 </td>
