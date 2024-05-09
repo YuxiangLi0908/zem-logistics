@@ -1,0 +1,20 @@
+{% extends 'base.html' %}
+{% load static %}
+{% load static custom_tags %}
+{% load static custom_filters %}
+
+{% block content %}
+<h4 class="mb-4">预约出库</h4>
+
+<form method="post" action="">
+    {% csrf_token %}
+    <div>
+        <b style="margin-right: 5px;">选择仓库:</b>
+        <input type="hidden" name="step" value="warehouse">
+        {{ warehouse_form.name }}
+        <button type="submit">确认</button>
+    </div>
+</form>
+<hr class="Dashed" style="margin-top: 10px; margin-bottom: 10px;">
+
+{% endblock %}

@@ -1,0 +1,166 @@
+{% extends 'base.html' %}
+{% load static %}
+{% load static custom_tags %}
+{% load static custom_filters %}
+
+{% block content %}
+<h4 class="mb-4">预约出库</h4>
+
+<form method="post" action="">
+    {% csrf_token %}
+    <div>
+        <b style="margin-right: 5px;">选择仓库:</b>
+        <input type="hidden" name="step" value="warehouse">
+        {{ warehouse_form.name }}
+        <button type="submit">确认</button>
+    </div>
+</form>
+<hr class="Dashed" style="margin-top: 10px; margin-bottom: 10px;">
+
+{% if shipment %}
+<h4 class="mb-4">待预约</h4>
+    <div class="search-filters">
+        <input type="text" id="containerSearchInput" placeholder="搜索柜号..." oninput="filterTable()">
+        <input type="text" id="destinationSearchInput" placeholder="搜索目的仓库..." oninput="filterTable()">
+    </div>
+    <div style="overflow-x: auto; max-width: 100%; overflow-y: auto; max-height: 600px;">
+        <table id="packing-list-table" class="table">
+            <thead>
+                <tr>
+                    <th class="th">客户</th>
+                    <th class="th">货柜号</th>
+                    <th class="th">目的地</th>
+                    <th class="th">批次号</th>
+                    <th class="th">预约号</th>
+                    <th class="th">Carrier</th>
+                    <th class="th">Scheduled Time</th>
+                    <th class="th">备注</th>
+                    <th class="th">确认预约</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for c in shipment %}
+                    {% if not c.is_shipment_schduled %}
+                    <tr>
+                        <form method="post" action="">
+                            {% csrf_token %}
+                            <td class="td">{{ c.order__customer_name__zem_name }}</td>
+                            <td class="td">{{ c.order__container_number__container_number }}</td>
+                            <td class="td">{{ c.destination }}</td>
+                            <td class="td">{{ c.shipment_batch_number }}</td>
+                            <td class="td">{{ c.appointment_id }}</td>
+                            <td class="td">{{ c.carrier }}</td>
+                            <td class="td">{{ shipment_form.shipment_appointment }}</td>
+                            <td class="td">{{ shipment_form.note }}</td>
+                            <td class="td">
+                                <input type="hidden" name="step" value="appointment">
+                                <input type="hidden" name="type" value="dd">
+                                <input type="hidden" name="batch_number" value="{{ c.shipment_batch_number }}">
+                                <input type="hidden" name="warehouse" value="{{ warehouse }}">
+                                <button type="submit" class="btn btn-primary" style="width: 100px; height: 35px;">确认预约</button>
+                            </td>
+                        </form>
+                    </tr>
+                    {% endif %}
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+<hr class="Dashed" style="margin-top: 40px; margin-bottom: 40px;">
+
+<h4 class="mb-4">已预约批次</h4>
+    <div class="search-filters">
+        <input type="text" id="shipmentSearchInput" placeholder="搜索批次号..." oninput="filterShipmentTable()">
+    </div>
+    <div style="overflow-x: auto; max-width: 100%; overflow-y: auto; max-height: 600px;">
+        <table id="shipment-table" class="table">
+            <thead>
+                <tr>
+                    <th class="th">客户</th>
+                    <th class="th">货柜号</th>
+                    <th class="th">目的地</th>
+                    <th class="th">批次号</th>
+                    <th class="th">预约号</th>
+                    <th class="th">Carrier</th>
+                    <th class="th">Scheduled Time</th>
+                    <th class="th">备注</th>
+                    <th class="th">撤销预约</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for c in shipment %}
+                    {% if c.is_shipment_schduled %}
+                    <tr>
+                        <form method="post" action="">
+                            {% csrf_token %}
+                            <td class="td">{{ c.order__customer_name__zem_name }}</td>
+                            <td class="td">{{ c.order__container_number__container_number }}</td>
+                            <td class="td">{{ c.destination }}</td>
+                            <td class="td">{{ c.shipment_batch_number }}</td>
+                            <td class="td">{{ c.appointment_id }}</td>
+                            <td class="td">{{ c.carrier }}</td>
+                            <td class="td">{{ c.shipment_appointment|date:"Y-m-d" }} {{ c.shipment_appointment|time:"H:i" }}</td>
+                            <td class="td">{{ c.note }}</td>
+                            <td class="td">
+                                <input type="hidden" name="step" value="cancel">
+                                <input type="hidden" name="type" value="dd">
+                                <input type="hidden" name="batch_number" value="{{ c.shipment_batch_number }}">
+                                <input type="hidden" name="warehouse" value="{{ warehouse }}">
+                                <button type="submit" class="btn btn-danger">撤销预约</button>
+                            </td>
+                        </form>
+                    </tr>
+                    {% endif %}
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+{% endif %}
+
+
+<script>
+    function filterTable() {
+        var containerInput, destinationInput, containerFilter, destinationFilter, table, tbody, tr, containerTd, destinationTd, i, containerTxtValue, destinationTxtValue;
+        containerInput = document.getElementById("containerSearchInput");
+        destinationInput = document.getElementById("destinationSearchInput");
+        containerFilter = containerInput.value.toUpperCase();
+        destinationFilter = destinationInput.value.toUpperCase();
+        table = document.getElementById("packing-list-table");
+        tbody = table.getElementsByTagName("tbody")[0];
+        tr = tbody.getElementsByTagName("tr");
+
+        for (i = 0; i < tr.length; i++) {
+            containerTd = tr[i].getElementsByTagName("td")[1];
+            destinationTd = tr[i].getElementsByTagName("td")[2];
+            if (containerTd && destinationTd) {
+                containerTxtValue = containerTd.textContent || containerTd.innerText;
+                destinationTxtValue = destinationTd.textContent || destinationTd.innerText;
+                var containerDisplayStyle = containerTxtValue.toUpperCase().indexOf(containerFilter) > -1 ? "" : "none";
+                var destinationDisplayStyle = destinationTxtValue.toUpperCase().indexOf(destinationFilter) > -1 ? "" : "none";
+
+                tr[i].style.display = containerDisplayStyle === "" && destinationDisplayStyle === "" ? "" : "none";
+            }
+        }
+    }
+
+    function filterShipmentTable() {
+        var shipmentInput, shipmentFilter, table, tbody, tr, shipmentTd, i, shipmentTxtValue;
+        shipmentInput = document.getElementById("shipmentSearchInput");
+        shipmentFilter = shipmentInput.value.toUpperCase();
+        table = document.getElementById("shipment-table");
+        tbody = table.getElementsByTagName("tbody")[0];
+        tr = tbody.getElementsByTagName("tr");
+
+        for (i = 0; i < tr.length; i++) {
+            shipmentTd = tr[i].getElementsByTagName("td")[3];
+            if (shipmentTd) {
+                shipmentTxtValue = shipmentTd.textContent || shipmentTd.innerText;
+                var shipmentDisplayStyle = shipmentTxtValue.toUpperCase().indexOf(shipmentFilter) > -1 ? "" : "none";
+
+                tr[i].style.display = shipmentDisplayStyle === "" ? "" : "none";
+            }
+        }
+    }
+</script>
+
+{% endblock %}
