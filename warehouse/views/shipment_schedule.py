@@ -25,7 +25,10 @@ from warehouse.views.bol import BOL
 
 @method_decorator(login_required(login_url='login'), name='dispatch')
 class ScheduleShipment(View):
-    template_main = 'schedule_shipment.html'
+    template_main = 'schedule_shipment/search.html'
+    template_td = 'schedule_shipment/td_shipment.html'
+    template_dd = 'schedule_shipment/dd_shipment.html'
+    template_confirmation = 'schedule_shipment/confirmation.html'
 
     def get(self, request: HttpRequest) -> HttpResponse:
         step = request.GET.get("step", None)
@@ -38,13 +41,17 @@ class ScheduleShipment(View):
     def post(self, request: HttpRequest) -> HttpResponse:
         step = request.POST.get("step")
         if step == "warehouse":
-            return render(request, self.template_main, self.handle_warehouse_post(request))
+            template, context = self.handle_warehouse_post(request)
+            return render(request, template, context)
         elif step == "selection":
-            return render(request, self.template_main, self.handle_selection_post(request))
+            template, context = self.handle_selection_post(request)
+            return render(request, template, context)
         elif step == "appointment":
-            return render(request, self.template_main, self.handle_appointment_post(request))
+            template, context = self.handle_appointment_post(request)
+            return render(request, template, context)
         elif step == "cancel":
-            return render(request, self.template_main, self.handle_cancel_post(request))
+            template, context = self.handle_cancel_post(request)
+            return render(request, template, context)
         else:
             raise ValueError(f"{request.POST}")
     
@@ -74,22 +81,38 @@ class ScheduleShipment(View):
         }
         return context
     
-    def handle_warehouse_post(self, request: HttpRequest) -> dict[str, Any]:
+    def handle_warehouse_post(self, request: HttpRequest) -> tuple[Any]:
         warehouse = request.POST.get("name")
         warehouse_form = ZemWarehouseForm(initial={"name": warehouse})
+        is_direct = True if warehouse=="N/A(直送)" else False
         warehouse = None if warehouse=="N/A(直送)" else warehouse
-        bol = BOL()
-        context = bol.handle_search_post(request)
-        packing_list_not_scheduled = self._get_packing_list_not_scheduled(warehouse)
-        
-        context.update({
-            "warehouse_form": warehouse_form,
-            "packing_list_not_scheduled": packing_list_not_scheduled,
-            "warehouse": warehouse
-        })
-        return context
+        if is_direct:
+            shipment = Shipment.objects.filter(
+                order__order_type="直送"
+            ).values(
+                "shipment_batch_number", "order__customer_name__zem_name", "order__container_number__container_number",
+                "destination", "appointment_id", "shipment_appointment", "carrier", "load_type", "total_pcs", "total_weight",
+                "total_cbm", "total_pallet", "note", "is_shipment_schduled"
+            )
+            context = {
+                "warehouse_form": warehouse_form,
+                "warehouse": "N/A(直送)",
+                "shipment":shipment,
+                "shipment_form": ShipmentForm(),
+            }
+            return self.template_dd, context
+        else:
+            bol = BOL()
+            context = bol.handle_search_post(request)
+            packing_list_not_scheduled = self._get_packing_list_not_scheduled(warehouse)
+            context.update({
+                "warehouse_form": warehouse_form,
+                "packing_list_not_scheduled": packing_list_not_scheduled,
+                "warehouse": warehouse,
+            })
+            return self.template_td, context
     
-    def handle_selection_post(self, request: HttpRequest) -> dict[str, Any]:
+    def handle_selection_post(self, request: HttpRequest) -> tuple[Any]:
         warehouse = request.POST.get("warehouse")
         warehouse_form = ZemWarehouseForm(initial={"name": warehouse})
         selections = request.POST.getlist("is_shipment_schduled")
@@ -122,7 +145,7 @@ class ScheduleShipment(View):
                 total_weight += pl.get("total_weight_lbs") if pl.get("total_weight_lbs") else 0
                 total_cbm += pl.get("total_cbm") if pl.get("total_cbm") else 0
                 total_pcs += pl.get("total_pcs") if pl.get("total_pcs") else 0
-            destination = packling_list[0].get("destination")
+            destination = packling_list[0].get("destination") if packling_list[0].get("destination") else "null"
             batch_id = uuid.uuid3(uuid.NAMESPACE_DNS, str(uuid.uuid4()) + warehouse + destination + request.user.username + str(time.time()))
             batch_id = shortuuid.encode(batch_id)
             if destination in amazon_fba_locations:
@@ -152,49 +175,78 @@ class ScheduleShipment(View):
                 "warehouse_form": warehouse_form,
                 "pl_ids": selected,
             }
-            return context
+            return self.template_confirmation, context
         else:
             mutable_post = request.POST.copy()
             mutable_post['name'] = warehouse
             request.POST = mutable_post
             return self.handle_warehouse_post(request)
     
-    def handle_appointment_post(self, request: HttpRequest):
+    def handle_appointment_post(self, request: HttpRequest) -> tuple[Any]:
         cn = pytz.timezone('Asia/Shanghai')
         current_time_cn = datetime.now(cn)
-        shipment_data = ast.literal_eval(request.POST.get("shipment_data"))
-        shipment_data["appointment_id"] = request.POST.get("appointment_id", None)
-        shipment_data["carrier"] = request.POST.get("carrier", None)
-        shipment_data["third_party_address"] = request.POST.get("third_party_address", None)
-        try:
-            shipment_data["third_party_address"] = shipment_data["third_party_address"].strip()
-        except:
-            pass
-        shipment_data["load_type"] = request.POST.get("load_type", None)
-        shipment_data["note"] = request.POST.get("note", None)
-        shipment_data["shipment_appointment"] = request.POST.get("shipment_appointment", None)
-        shipment_data["shipment_schduled_at"] = current_time_cn
-        shipment_data["is_shipment_schduled"] = True
-        shipment = Shipment(**shipment_data)
-        shipment.save()
-        
-        pl_ids = request.POST.get("pl_ids").strip('][').split(', ')
-        for pl_id in pl_ids:
-            pl = PackingList.objects.get(id=int(pl_id))
-            pl.shipment_batch_number = shipment
-            pl.save()
-        
-        mutable_post = request.POST.copy()
-        mutable_post['name'] = shipment_data.get("origin")
-        request.POST = mutable_post
+        appointment_type = request.POST.get("type")
+        if appointment_type == "td":
+            shipment_data = ast.literal_eval(request.POST.get("shipment_data"))
+            shipment_data["appointment_id"] = request.POST.get("appointment_id", None)
+            shipment_data["carrier"] = request.POST.get("carrier", None)
+            shipment_data["third_party_address"] = request.POST.get("third_party_address", None)
+            try:
+                shipment_data["third_party_address"] = shipment_data["third_party_address"].strip()
+            except:
+                pass
+            shipment_data["load_type"] = request.POST.get("load_type", None)
+            shipment_data["note"] = request.POST.get("note", None)
+            shipment_data["shipment_appointment"] = request.POST.get("shipment_appointment", None)
+            shipment_data["shipment_schduled_at"] = current_time_cn
+            shipment_data["is_shipment_schduled"] = True
+            shipment = Shipment(**shipment_data)
+            shipment.save()
+            
+            pl_ids = request.POST.get("pl_ids").strip('][').split(', ')
+            for pl_id in pl_ids:
+                pl = PackingList.objects.get(id=int(pl_id))
+                pl.shipment_batch_number = shipment
+                pl.save()
+            
+            mutable_post = request.POST.copy()
+            mutable_post['name'] = shipment_data.get("origin")
+            request.POST = mutable_post
+        else:
+            batch_number = request.POST.get("batch_number")
+            warehouse = request.POST.get("warehouse")
+            shipment_appointment = request.POST.get("shipment_appointment")
+            note = request.POST.get("note")
+            shipment = Shipment.objects.get(shipment_batch_number=batch_number)
+            shipment.shipment_appointment = shipment_appointment
+            shipment.note = note
+            shipment.is_shipment_schduled = True
+            shipment.shipment_schduled_at = current_time_cn
+            shipment.save()
+            mutable_post = request.POST.copy()
+            mutable_post['name'] = warehouse
+            request.POST = mutable_post
         return self.handle_warehouse_post(request)
     
-    def handle_cancel_post(self, request: HttpRequest):
-        shipment_batch_number = request.POST.get("shipment_batch_number")
-        shipment = Shipment.objects.get(shipment_batch_number=shipment_batch_number)
-        if shipment.is_shipped:
-            raise RuntimeError(f"Shipment with batch number {shipment} has been shipped!")
-        shipment.delete()
+    def handle_cancel_post(self, request: HttpRequest) -> tuple[Any]:
+        appointment_type = request.POST.get("type")
+        if appointment_type == "td":
+            shipment_batch_number = request.POST.get("shipment_batch_number")
+            shipment = Shipment.objects.get(shipment_batch_number=shipment_batch_number)
+            if shipment.is_shipped:
+                raise RuntimeError(f"Shipment with batch number {shipment} has been shipped!")
+            shipment.delete()
+        else:
+            shipment_batch_number = request.POST.get("batch_number")
+            shipment = Shipment.objects.get(shipment_batch_number=shipment_batch_number)
+            if shipment.is_shipped:
+                raise RuntimeError(f"Shipment with batch number {shipment} has been shipped!")
+            shipment.is_shipment_schduled = False
+            shipment.shipment_appointment = None
+            shipment.note = None
+            shipment.shipment_schduled_at = None
+            shipment.save()
+
         warehouse = request.POST.get("warehouse")
         mutable_post = request.POST.copy()
         mutable_post['name'] = warehouse

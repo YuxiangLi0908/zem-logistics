@@ -1,0 +1,108 @@
+{% extends 'base.html' %}
+{% load static %}
+{% load static custom_tags %}
+{% load static custom_filters %}
+
+{% block content %}
+<h4 class="mb-4">预约出库</h4>
+
+<form method="post" action="">
+    {% csrf_token %}
+    <div>
+        <b style="margin-right: 5px;">选择仓库:</b>
+        <input type="hidden" name="step" value="warehouse">
+        {{ warehouse_form.name }}
+        <button type="submit">确认</button>
+    </div>
+</form>
+<hr class="Dashed" style="margin-top: 10px; margin-bottom: 10px;">
+
+{% if shipment_form %}
+<form method="post" action="">
+    {% csrf_token %}
+    <h4 class="mb-4">待确认预约</h4>
+    <table id="shipment-table" class="table">
+        <thead>
+            <tr>
+                <th class="th">预约号</th>
+                <th class="th">Carrier</th>
+                <th class="th">3rd Party 地址</th>
+                <th class="th">装车类型</th>
+                <th class="th">Scheduled Time</th>
+                <th class="th">备注</th>
+            </tr>
+        </thead>
+        <tbody>
+            <tr>
+                <td class="td">{{ shipment_form.appointment_id }}</td>
+                <td class="td">{{ shipment_form.carrier }}</td>
+                <td class="td">{{ shipment_form.third_party_address }}</td>
+                <td class="td">{{ shipment_form.load_type }}</td>
+                <td class="td">{{ shipment_form.shipment_appointment }}</td>
+                <td class="td">{{ shipment_form.note }}</td>
+            </tr>
+        </tbody>
+    </table>
+    
+    <table id="shipment-table" class="table">
+        <thead>
+            <tr>
+                <th class="th">batch_number</th>
+                <th class="th">总箱数</th>
+                <th class="th">总重lbs</th>
+                <th class="th">总CBM</th>
+                <th class="th">总卡板数</th>
+            </tr>
+        </thead>
+        <tbody>
+            <tr>
+                <td class="td">{{ shipment.shipment_batch_number }}</td>
+                <td class="td">{{ shipment.total_pcs }}</td>
+                <td class="td">{{ shipment.total_weight|floatformat:2 }}</td>
+                <td class="td">{{ shipment.total_cbm|floatformat:2}}</td>
+                <td class="td">{{ shipment.total_pallet }}</td>
+            </tr>
+        </tbody>
+    </table>
+
+    <div style="overflow-x: auto; max-width: 100%; overflow-y: auto; max-height: 1200px;">
+        <table id="packing-list-table" class="table">
+            <thead>
+                <tr>
+                    <th class="th">客户</th>
+                    <th class="th">货柜号</th>
+                    <th class="th">目的仓库</th>
+                    <th class="th">FBA_ID</th>
+                    <th class="th">REF_ID</th>
+                    <th class="th">箱数</th>
+                    <th class="th">重量lbs</th>
+                    <th class="th">CBM</th>
+                    <th class="th">卡板数<br><small><small><i>以<b>总卡板数</b>为准</i></small></small></th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for c in packling_list %}
+                <tr>
+                    <td class="td">{{ c.container_number__order__customer_name__zem_name }}</td>
+                    <td class="td">{{ c.container_number__container_number }}</td>
+                    <td class="td">{{ c.destination }}</td>
+                    <td class="td">{{ c.fba_id }}</td>
+                    <td class="td">{{ c.ref_id }}</td>
+                    <td class="td">{{ c.total_pcs }}</td>
+                    <td class="td">{{ c.total_weight_lbs|floatformat:2 }}</td>
+                    <td class="td">{{ c.total_cbm|floatformat:2 }}</td>
+                    <td class="td">{{ c.total_n_pallet }}</td>
+                </tr>          
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+    <input type="hidden" name="step" value="appointment">
+    <input type="hidden" name="type" value="td">
+    <input type="hidden" name="shipment_data" value="{{ shipment_data }}">
+    <input type="hidden" name="pl_ids" value="{{ pl_ids }}">
+    <button id="submit-btn" type="submit" class="btn btn-primary" style="width: 100px; height: 35px;">确认预约</button>
+</form>
+{% endif %}
+
+{% endblock %}
