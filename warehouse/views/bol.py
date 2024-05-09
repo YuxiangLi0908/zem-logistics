@@ -63,7 +63,7 @@ class BOL(View):
             'container_number__container_number',
             '-total_weight_lbs'
         )
-        context["packing_list"] = packling_list
+        context["packing_list"] = packling_list if packling_list else [None]
         return context
     
     def handle_search_post(self, request: HttpRequest) -> dict[str, Any]:
@@ -84,6 +84,7 @@ class BOL(View):
             )
         shipment = Shipment.objects.filter(criteria).distinct()
         warehouse_object = ZemWarehouse.objects.get(name=warehouse) if warehouse else None
+        warehouse = warehouse if warehouse else "N/A(直送)"
         context = {
             "shipment_list": shipment,
             "warehouse_form": ZemWarehouseForm(initial={"name": warehouse}),
