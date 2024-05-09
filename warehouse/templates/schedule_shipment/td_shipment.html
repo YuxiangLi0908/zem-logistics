@@ -21,10 +21,6 @@
 <form method="post" action="">
     {% csrf_token %}
     <h4 class="mb-4">待预约</h4>
-    <div class="search-filters">
-        <input type="text" id="containerSearchInput" placeholder="搜索柜号..." oninput="filterTable()">
-        <input type="text" id="destinationSearchInput" placeholder="搜索目的仓库..." oninput="filterTable()">
-    </div>
     <div style="overflow-x: auto; max-width: 100%; overflow-y: auto; max-height: 600px;">
         <table id="packing-list-table" class="table">
             <thead>
@@ -39,6 +35,18 @@
                     <th class="th">卡板数</th>
                     <th class="th">派送方式</th>
                     <th class="th">入仓时间</th>
+                </tr>
+                <tr style="position: sticky; top: 40px;">
+                    <th class="th" style="min-width: 40px;"></th>
+                    <th class="th"></th>
+                    <th class="th"><input type="text" id="containerSearchInput" placeholder="搜索柜号..." oninput="filterTable()"></th>
+                    <th class="th"><input type="text" id="destinationSearchInput" placeholder="搜索目的仓库..." oninput="filterTable()"></th>
+                    <th class="th"></th>
+                    <th class="th"></th>
+                    <th class="th"></th>
+                    <th class="th"></th>
+                    <th class="th"></th>
+                    <th class="th"></th>
                 </tr>
             </thead>
             <tbody>
@@ -76,9 +84,9 @@
 
 {% if shipment_list %}
     <h4 class="mb-4">已预约批次</h4>
-    <div class="search-filters">
+    <!-- <div class="search-filters">
         <input type="text" id="shipmentSearchInput" placeholder="搜索批次号..." oninput="filterShipmentTable()">
-    </div>
+    </div> -->
     <div style="overflow-x: auto; max-width: 100%; overflow-y: auto; max-height: 600px;">
         <table id="shipment-table" class="table">
             <thead>
@@ -95,6 +103,20 @@
                     <th class="th">总卡板数</th>
                     <th class="th">备注</th>
                     <th class="th">撤销预约</th>
+                </tr>
+                <tr style="position: sticky; top: 40px;">
+                    <th class="th"><input type="text" id="shipmentSearchInput" placeholder="搜索批次号..." oninput="filterShipmentTable()"></th>
+                    <th class="th"><input type="text" id="destSearchInput" placeholder="搜索目的地..." oninput="filterShipmentTable()"></th>
+                    <th class="th"><input type="text" id="appIdSearchInput" placeholder="搜索预约号..." oninput="filterShipmentTable()"></th>
+                    <th class="th"></th>
+                    <th class="th"></th>
+                    <th class="th"></th>
+                    <th class="th"></th>
+                    <th class="th"></th>
+                    <th class="th"></th>
+                    <th class="th"></th>
+                    <th class="th"></th>
+                    <th class="th"></th>
                 </tr>
             </thead>
             <tbody>
@@ -155,23 +177,27 @@
     }
 
     function filterShipmentTable() {
-        var shipmentInput, shipmentFilter, table, tbody, tr, shipmentTd, i, shipmentTxtValue;
-        shipmentInput = document.getElementById("shipmentSearchInput");
-        shipmentFilter = shipmentInput.value.toUpperCase();
-        table = document.getElementById("shipment-table");
-        tbody = table.getElementsByTagName("tbody")[0];
-        tr = tbody.getElementsByTagName("tr");
+        var shipmentInput = document.getElementById("shipmentSearchInput").value.toUpperCase();
+        var destInput = document.getElementById("destSearchInput").value.toUpperCase();
+        var appIdInput = document.getElementById("appIdSearchInput").value.toUpperCase();
+        tr = document.querySelectorAll("#shipment-table tbody tr");
 
         for (i = 0; i < tr.length; i++) {
-            shipmentTd = tr[i].getElementsByTagName("td")[0]; // Index 1 corresponds to the shipment_number__shipment_number column
-            if (shipmentTd) {
-                shipmentTxtValue = shipmentTd.textContent || shipmentTd.innerText;
-                var shipmentDisplayStyle = shipmentTxtValue.toUpperCase().indexOf(shipmentFilter) > -1 ? "" : "none";
+            var shipmentTd = tr[i].getElementsByTagName("td")[0];
+            var destTd = tr[i].getElementsByTagName("td")[1];
+            var appIdTd = tr[i].getElementsByTagName("td")[2];
+            if (shipmentTd && destTd && appIdTd) {
+                var shipmentTxtValue = shipmentTd.textContent.trim();
+                var destTxtValue = destTd.textContent.trim();
+                var appIdTxtValue = appIdTd.textContent.trim(); 
 
-                // Set display style based on both shipment and destination filters
-                tr[i].style.display = shipmentDisplayStyle === "" ? "" : "none";
+                var shipmentDisplayStyle = shipmentTxtValue.toUpperCase().indexOf(shipmentInput) > -1 ? "" : "none";
+                var destDisplayStyle = destTxtValue.toUpperCase().indexOf(destInput) > -1 ? "" : "none";
+                var appIdDisplayStyle = appIdTxtValue.toUpperCase().indexOf(appIdInput) > -1 ? "" : "none";
+
+                tr[i].style.display = shipmentDisplayStyle === "" && destDisplayStyle === "" && appIdDisplayStyle === "" ? "" : "none";
             }
-        }
+        };
     }
 
     function confirmSubmit() {
