@@ -236,4 +236,3 @@ def export_do(request: HttpRequest) -> HttpResponse:
     if pisa_status.err:
         raise ValueError('Error during PDF generation: %s' % pisa_status.err, content_type='text/plain')
     return response
-    raise ValueError(request.POST)
