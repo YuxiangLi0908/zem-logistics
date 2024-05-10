@@ -1,9 +1,6 @@
-import pytz
-import uuid
 import pandas as pd
 from datetime import datetime, timedelta
 from typing import Any
-from xhtml2pdf import pisa
 
 from django.http import HttpRequest, HttpResponse, HttpResponseForbidden
 from django.shortcuts import render
@@ -12,20 +9,8 @@ from django.contrib.auth.models import User
 from django.views import View
 from django.utils.decorators import method_decorator
 from django.db import models
-from django.db.models import Case, Value, CharField, F, Sum, FloatField, IntegerField, When, Count
-from django.db.models.functions import Concat, Cast
-from django.contrib.postgres.aggregates import StringAgg
-from django.template.loader import get_template
 
-from warehouse.models.offload import Offload
-from warehouse.models.retrieval import Retrieval
 from warehouse.models.order import Order
-from warehouse.models.packing_list import PackingList
-from warehouse.models.pallet import Pallet
-from warehouse.models.shipment import Shipment
-from warehouse.forms.warehouse_form import ZemWarehouseForm
-from warehouse.forms.packling_list_form import PackingListForm
-from warehouse.views.export_file import export_palletization_list
 
 
 @method_decorator(login_required(login_url='login'), name='dispatch')

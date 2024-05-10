@@ -36,7 +36,7 @@
                     <td class="td">{{ c.customer_name }}</td>
                     <td class="td">{{ c.warehouse.name }}</td>
                     <td class="td">{{ c.container_number.container_type }}</td>
-                    <td class="td">{{ c.offload_id.offload_at }}</td>
+                    <td class="td">{{ c.offload_id.offload_at|date:"Y-m-d" }} {{ c.offload_id.offload_at|time:"H:i" }}</td>
                     <td class="td">{{ c.offload_id.total_pallet }}</td>
                 </tr>
             
