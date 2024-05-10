@@ -7,9 +7,9 @@
 - [X] DO export
 - [X] Quote management - enable edit after creation
 - [X] Delivery confirmation and POD upload
+- [X] Add more search criteria to BOL. e.g. container number, appointment number, destination etc.
 - [ ] Packing list deliver status check
 - [ ] Add L/W/H to packing list to identify oversize
-- [ ] Add more search criteria to BOL. e.g. container number, appointment number, destination etc.
 - [ ] Record the people/user for each operation
 
 # Last Update
@@ -33,5 +33,20 @@
 ### 2024-04-28
 -  增加DO导出
 -  增加确认送达，POD回传
+   -  upload to sharepoint site
 -  BOL字体优化
 -  预约出库增加3rd party地址
+
+### 2024-05-10
+-  调整托盘标字体大小、布局
+-  完善直送订单出入库逻辑
+-  增添财务管理模块
+   - 设置是同权限accounting group 
+   - 托盘数据导出
+- 完善询盘功能
+  - 历史询盘记录查询和更新
+- 维护amazon和walmart仓库地址
+- 拆柜单导出增加唛头
+- 更新部分表格的filter
+  - 添加BOL搜索字段：柜号、预约号、目的地
+  - 优化table filter布局
