@@ -1,0 +1,59 @@
+{% extends 'base.html' %}
+
+{% block content %}
+<div><b>托盘数据</b></div>
+<div style="width: 100%; display: flex; justify-content: space-between;">
+    <form method="post" action="" style="width: 80%;">
+        {% csrf_token %}
+        <div>
+            <b style="margin-right: 5px;">ETA:</b>
+            <input type="date" name="start_date" value="{{ start_date }}">
+            <input type="date" name="end_date" value="{{ end_date }}" style="margin-right: 5px;">
+            <input type="hidden" name="step" value="pallet_data_search">
+            <button id="submit-btn" type="submit" class="btn btn-primary" style="width: 100px; height: 35px; margin-left: 20px;">查询</button>
+        </div>
+    </form>
+</div>
+<hr class="Dashed" style="margin-top: 10px; margin-bottom: 10px;">
+
+{% if pallet_data %}
+<div style="overflow-x: auto; max-width: 100%; overflow-y: auto; max-height: 600px;">
+    <table class="table" id="_container-table">
+        <thead>
+            <tr>
+                <th class="th">货柜号</th>
+                <th class="th">客户</th>
+                <th class="th">入仓仓库</th>
+                <th class="th">柜型</th>
+                <th class="th">拆柜完成时间</th>
+                <th class="th">打板数</th>
+            </tr>
+        </thead>
+        <tbody>
+            {% for c in pallet_data %}
+                <tr>
+                    <td class="td">{{ c.container_number }}</td>
+                    <td class="td">{{ c.customer_name }}</td>
+                    <td class="td">{{ c.warehouse.name }}</td>
+                    <td class="td">{{ c.container_number.container_type }}</td>
+                    <td class="td">{{ c.offload_id.offload_at }}</td>
+                    <td class="td">{{ c.offload_id.total_pallet }}</td>
+                </tr>
+            
+            {% endfor %}
+        </tbody>
+    </table>
+</div>
+
+<form method="post" action="" style="width: 80%;">
+    {% csrf_token %}
+    <div>
+        <input type="hidden" name="start_date" value="{{ start_date }}">
+        <input type="hidden" name="end_date" value="{{ end_date }}" style="margin-right: 5px;">
+        <input type="hidden" name="step" value="pallet_data_export">
+        <button id="submit-btn" type="submit" class="btn btn-success" style="width: 100px; height: 35px; margin-left: 20px;">导出</button>
+    </div>
+</form>
+{% endif %}
+
+{% endblock %}

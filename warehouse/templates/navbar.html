@@ -65,6 +65,14 @@
                         </div>
                     </div>
                 </li>
+                <li class="nav-item">
+                    <div class="dropdown">
+                        <a class="nav-link">财务管理</a>
+                        <div class="dropdown-content">
+                            <a href="{% url 'accounting' %}?step=pallet_data">托盘数据</a>
+                        </div>
+                    </div>
+                </li>
                 {% if user.is_authenticated and user.is_staff %}
                 <li class="nav-item">
                     <div class="dropdown">
