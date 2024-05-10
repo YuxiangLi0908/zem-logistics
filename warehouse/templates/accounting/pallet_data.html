@@ -6,7 +6,7 @@
     <form method="post" action="" style="width: 80%;">
         {% csrf_token %}
         <div>
-            <b style="margin-right: 5px;">ETA:</b>
+            <b style="margin-right: 5px;">入库时间:</b>
             <input type="date" name="start_date" value="{{ start_date }}">
             <input type="date" name="end_date" value="{{ end_date }}" style="margin-right: 5px;">
             <input type="hidden" name="step" value="pallet_data_search">

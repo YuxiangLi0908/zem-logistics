@@ -47,13 +47,13 @@ class Accounting(View):
     def handle_pallet_data_get(self, start_date: str = None, end_date: str = None) -> tuple[Any, Any]:
         current_date = datetime.now().date()
         start_date = (current_date + timedelta(days=-30)).strftime('%Y-%m-%d') if not start_date else start_date
-        end_date = (current_date + timedelta(days=30)).strftime('%Y-%m-%d') if not end_date else end_date
+        end_date = current_date.strftime('%Y-%m-%d') if not end_date else end_date
         pallet_data = Order.objects.filter(
             models.Q(offload_id__offload_required=True) &
             models.Q(offload_id__offload_at__isnull=False) &
             models.Q(retrieval_id__actual_retrieval_timestamp__isnull=False) &
-            models.Q(eta__gte=start_date) &
-            models.Q(eta__lte=end_date)
+            models.Q(offload_id__offload_at__gte=start_date) &
+            models.Q(offload_id__offload_at__lte=end_date)
         ).order_by("offload_id__offload_at")
         context = {
             "pallet_data": pallet_data,
