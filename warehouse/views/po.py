@@ -47,7 +47,11 @@ class PO(View):
             return export_po(request, "FULL_TABLE")
         
     def handle_search_post(self, request: HttpRequest) -> dict[str, Any]:
-        warehouse = request.POST.get("name")
+        warehouse = None if request.POST.get("name")=="N/A(直送)" else request.POST.get("name")
+        try:
+            warehouse_obj = ZemWarehouse.objects.get(name=warehouse)
+        except:
+            warehouse_obj = None 
         start_date = request.POST.get("start_date")
         end_date = request.POST.get("end_date")
         criteria = models.Q(container_number__order__warehouse__name=warehouse)
@@ -96,9 +100,9 @@ class PO(View):
         ).distinct().order_by("destination", "container_number__container_number")
         context = {
             "packing_list": packing_list,
-            "warehouse_form": ZemWarehouseForm(initial={"name": warehouse}),
-            "name": warehouse,
-            "warehouse": ZemWarehouse.objects.get(name=warehouse),
+            "warehouse_form": ZemWarehouseForm(initial={"name": request.POST.get("name")}),
+            "name": request.POST.get("name"),
+            "warehouse": warehouse_obj,
             "start_date": start_date,
             "end_date": end_date,
         }
