@@ -19,6 +19,7 @@ class Order(models.Model):
     retrieval_id = models.ForeignKey(Retrieval, null=True, blank=True, on_delete=models.SET_NULL)
     offload_id = models.ForeignKey(Offload, null=True, blank=True, on_delete=models.SET_NULL)
     shipment_id = models.ForeignKey(Shipment, null=True, blank=True, on_delete=models.SET_NULL)
+    do_sent = models.BooleanField(default=False, blank=True)
     
     def __str__(self) -> str:
         return self.customer_name.zem_name + " - " + self.container_number.container_number
