@@ -17,6 +17,7 @@ from warehouse.views.pod import POD
 from warehouse.views.stuff_user_ability import StuffPower
 from warehouse.views.quote_management import QuoteManagement
 from warehouse.views.accounting import Accounting
+from warehouse.views.shipment_status import ShipmentStatus
 
 urlpatterns = [
     path("", home, name="home"),
@@ -38,4 +39,5 @@ urlpatterns = [
     path('quote/', QuoteManagement.as_view(), name='quote_management'),
     path('stuff_user/', StuffPower.as_view(), name='stuff_user'),
     path('accounting/', Accounting.as_view(), name='accounting'),
+    path('shipment_status/', ShipmentStatus.as_view(), name='shipment_status'),
 ] + static(settings.STATIC_URL, document_root=settings.STATIC_ROOT)
