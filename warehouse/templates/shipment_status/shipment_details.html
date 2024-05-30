@@ -1,0 +1,75 @@
+{% extends 'base.html' %}
+
+{% block content %}
+<div><b>货物状态</b></div>
+<form method="post" action="">
+    {% csrf_token %}
+    <div>
+        <b style="margin-right: 5px;">批次号:</b>
+        <input type="text" name="batch_number" value="{{ batch_number }}">
+        <b style="margin-right: 5px; margin-left: 10px;">柜号:</b>
+        <input type="text" name="container_number" value="{{ container_number }}">
+        <b style="margin-right: 5px; margin-left: 10px;">目的地:</b>
+        <input type="text" name="destination" value="{{ destination }}">
+        <input type="hidden" name="step" value="search">
+        <button id="submit-btn" type="submit" class="btn btn-primary" style="width: 100px; height: 35px; margin-left: 20px;">查询</button>
+    </div>
+</form>
+<hr class="Dashed" style="margin-top: 10px; margin-bottom: 10px;">
+
+<div style="overflow-x: auto; max-width: 100%; overflow-y: auto; max-height: 600px;">
+    <table id="packing-list-table" class="table">
+        <thead>
+            <tr>
+                <th class="th">下单日期</th>
+                <th class="th">客户</th>
+                <th class="th">所属仓库</th>
+                <th class="th">柜号</th>
+                <th class="th">入库日期</th>
+                <th class="th">FBA ID</th>
+                <th class="th">唛头</th>
+                <th class="th">REF ID</th>
+                <th class="th">批次号</th>
+                <th class="th">预约号</th>
+                <th class="th">目的地</th>
+                <th class="th">Carrier</th>
+                <th class="th">预约日期</th>
+                <th class="th">出库日期</th>
+                <th class="th">送达日期</th>
+                <th class="th">POD</th>
+                <th class="th">备注</th>
+            </tr>
+        </thead>
+        <tbody>
+            {% for pl in packing_list %}
+            <tr>
+                <td class="td">{{ pl.container_number__order__created_at|date:"Y-m-d" }}</td>
+                <td class="td">{{ pl.container_number__order__customer_name__zem_name }}</td>
+                <td class="td">{{ pl.container_number__order__warehouse__name }}</td>
+                <td class="td">{{ pl.container_number__container_number }}</td>
+                <td class="td">{{ pl.container_number__order__offload_id__offload_at|date:"Y-m-d" }}</td>
+                <td class="td">{% if pl.fba_id %} {{ pl.fba_id }} {% endif %}</td>
+                <td class="td">{% if pl.shipping_mark %} {{ pl.shipping_mark }} {% endif %}</td>
+                <td class="td">{% if pl.ref_id %} {{ pl.ref_id }} {% endif %}</td>
+                <td class="td">{% if pl.shipment_batch_number__shipment_batch_number %} {{ pl.shipment_batch_number__shipment_batch_number }} {% endif %}</td>
+                <td class="td">{% if pl.shipment_batch_number__appointment_id %} {{ pl.shipment_batch_number__appointment_id }} {% endif %}</td>
+                <td class="td">{{ pl.destination }}</td>
+                <td class="td">{% if pl.shipment_batch_number__carrier %} {{ pl.shipment_batch_number__carrier }} {% endif %}</td>
+                <td class="td">{% if pl.shipment_batch_number__shipment_appointment %} {{ pl.shipment_batch_number__shipment_appointment|date:"Y-m-d" }} {{ pl.shipment_batch_number__shipment_appointment|time:"H:i" }} {% endif %}</td>
+                <td class="td">{% if pl.shipment_batch_number__shipped_at %} {{ pl.shipment_batch_number__shipped_at|date:"Y-m-d" }} {{ pl.shipment_batch_number__shipped_at|time:"H:i" }} {% endif %}</td>
+                <td class="td">{% if pl.shipment_batch_number__arrived_at %} {{ pl.shipment_batch_number__arrived_at|date:"Y-m-d" }} {{ pl.shipment_batch_number__arrived_at|time:"H:i" }} {% endif %}</td>
+                <td class="td">
+                    {% if pl.shipment_batch_number__pod_link %}
+                        <a href="{{ pl.shipment_batch_number__pod_link }}">
+                            POD
+                        </a>
+                    {% endif %}
+                </td>
+                <td class="td">{% if pl.note %} {{ pl.note }} {% endif %}</td>
+            </tr>
+            {% endfor %}
+        </tbody>
+    </table>
+</div>
+<hr class="Dashed" style="margin-top: 10px; margin-bottom: 10px;">
+{% endblock %}
