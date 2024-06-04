@@ -18,7 +18,10 @@ class RetrievalForm(forms.ModelForm):
     def __init__(self, *args, **kwargs):
         super(RetrievalForm, self).__init__(*args, **kwargs)
         for k in self.fields.keys():
-            self.fields[k].required = False
+            if k in ["trucking_fee"]:
+                self.fields[k].required = True
+            else:
+                self.fields[k].required = False
                  
 class RetrievalSelectForm(forms.Form):
     retrieval_option = forms.CharField(widget=forms.Select(choices=RETRIEVAL_OPTIONS))

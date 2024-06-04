@@ -50,45 +50,61 @@
     <hr class="Dashed" style="margin-top: 10px; margin-bottom: 10px;">
 
     <b>待提柜</b>
-    <table class="table" style="width: 100%;">
-        <thead>
-            <tr>
-                <th class="th">货柜</th>
-                <th class="th">客户</th>
-                <th class="th">ETA</th>
-                <th class="th">目的港</th>
-                <th class="th" style="min-width: 120px;">船/空运公司</th>
-                <th class="th">柜型</th>
-                <th class="th">提柜地址</th>
-                <th class="th">提单号</th>
-                <th class="th">预约提柜时间</th>
-                <th class="th">实际提柜时间</th>
-            </tr>
-        </thead>
-        <tbody>
-            {% for c in retrieval_scheduled %}
-            <tr>
-                <td class="td">{{ c.container_number }}</td>
-                <td class="td">{{ c.customer_name }}</td>
-                <td class="td">{{ c.eta }}</td>
-                <td class="td">{{ c.retrieval_id.destination_port }}</td>
-                <td class="td">{{ c.retrieval_id.shipping_line }}</td>
-                <td class="td">{{ c.container_number.container_type }}</td>
-                <td class="td">{{ c.retrieval_id.retrieval_location }}</td>
-                <td class="td">{{ c.retrieval_id.shipping_order_number }}</td>
-                <td class="td">{{ c.retrieval_id.target_retrieval_timestamp }}</td>
-                <td class="td">
-                    <form method="post" action="">
-                        {% csrf_token %}
+    <form method="post" action="">
+        {% csrf_token %}
+        <table class="table" style="width: 100%;">
+            <thead>
+                <tr>
+                    <th class="th">货柜</th>
+                    <th class="th">客户</th>
+                    <th class="th">ETA</th>
+                    <th class="th">目的港</th>
+                    <th class="th" style="min-width: 120px;">船/空运公司</th>
+                    <th class="th">柜型</th>
+                    <th class="th">提柜地址</th>
+                    <th class="th">提单号</th>
+                    <th class="th">预约提柜时间</th>
+                    <th class="th">实际提柜时间</th>
+                    <th class="th">拖车成本</th>
+                    <th class="th">车架成本</th>
+                    <th class="th">确认提柜</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for c in retrieval_scheduled %}
+                <tr>
+                    <td class="td">{{ c.container_number }}</td>
+                    <td class="td">{{ c.customer_name }}</td>
+                    <td class="td">{{ c.eta }}</td>
+                    <td class="td">{{ c.retrieval_id.destination_port }}</td>
+                    <td class="td">{{ c.retrieval_id.shipping_line }}</td>
+                    <td class="td">{{ c.container_number.container_type }}</td>
+                    <td class="td">{{ c.retrieval_id.retrieval_location }}</td>
+                    <td class="td">{{ c.retrieval_id.shipping_order_number }}</td>
+                    <td class="td">{{ c.retrieval_id.target_retrieval_timestamp }}</td>
+                    <!-- <td class="td">
+                        <form method="post" action="">
+                            {% csrf_token %}
+                            <input type="hidden" name="order_id" value="{{ c.order_id }}">
+                            <input type="hidden" name="step" value="confirmation">
+                            {{ retrieval_form.actual_retrieval_timestamp }}
+                            <button type="submit">确认提柜</button>
+                        </form>
+                    </td> -->
+                    <td class="td">{{ retrieval_form.actual_retrieval_timestamp }}</td>
+                    <td class="td">$ {{ retrieval_form.trucking_fee }}</td>
+                    <td class="td">$ {{ retrieval_form.chassis_fee }}</td>
+                    <td class="td">
                         <input type="hidden" name="order_id" value="{{ c.order_id }}">
                         <input type="hidden" name="step" value="confirmation">
-                        {{ retrieval_form.actual_retrieval_timestamp }}
                         <button type="submit">确认提柜</button>
-                    </form>
-                </td>
-            </tr>
-            {% endfor %}
-        </tbody>
+                    </td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </form>
+    
 
 <script>
     function filterTable() {

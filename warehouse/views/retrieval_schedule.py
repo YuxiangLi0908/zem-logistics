@@ -48,9 +48,13 @@ class ScheduleRetrieval(View):
     def handle_confirmation_post(self, request: HttpRequest) -> None:
         order_id = request.POST.get('order_id')
         actual_retrieval_timestamp = request.POST.get("actual_retrieval_timestamp")
+        trucking_fee = request.POST.get("trucking_fee")
+        chassis_fee = request.POST.get("chassis_fee")
         order = Order.objects.get(order_id=order_id)
         retrieval = order.retrieval_id
         retrieval.actual_retrieval_timestamp = actual_retrieval_timestamp
+        retrieval.trucking_fee = trucking_fee
+        retrieval.chassis_fee = chassis_fee
         retrieval.save()
     
     def _get_retrieval_not_scheduled(self) -> Order:
