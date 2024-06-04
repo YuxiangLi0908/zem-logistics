@@ -108,8 +108,9 @@ class Palletization(View):
         current_time_cn = datetime.now(cn)
         offload.total_pallet = total_pallet
         offload.offload_at = current_time_cn
-        offload.devanning_company = request.POST.get("devanning_company")
-        offload.devanning_fee = request.POST.get("devanning_fee")
+        if request.POST.get("devanning_fee"):
+            offload.devanning_company = request.POST.get("devanning_company")
+            offload.devanning_fee = request.POST.get("devanning_fee")
         offload.save()
         mutable_post = request.POST.copy()
         mutable_post['name'] = order_selected.warehouse.name
@@ -128,8 +129,11 @@ class Palletization(View):
         pallet = Pallet.objects.filter(packing_list__container_number__container_number=container_number)
         offload.total_pallet = None
         offload.offload_at = None
-        offload.devanning_company = None
-        offload.devanning_fee = None
+        try:
+            offload.devanning_company = None
+            offload.devanning_fee = None
+        except:
+            pass
         offload.save()
         for p in pallet:
             p.delete()
