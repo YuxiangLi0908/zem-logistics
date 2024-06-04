@@ -23,6 +23,7 @@ from warehouse.models.pallet import Pallet
 from warehouse.models.shipment import Shipment
 from warehouse.forms.warehouse_form import ZemWarehouseForm
 from warehouse.forms.packling_list_form import PackingListForm
+from warehouse.forms.offload_form import OffloadForm
 from warehouse.views.export_file import export_palletization_list
 
 
@@ -36,6 +37,7 @@ class Palletization(View):
     order_not_palletized: Order | Any = None
     order_palletized: Order | Any = None
     order_packing_list: list[PackingList | Any] = []
+    offload_form: OffloadForm | Any = OffloadForm()
     step: int | Any = None
 
     def get(self, request: HttpRequest, **kwargs) -> HttpResponse:
@@ -106,6 +108,8 @@ class Palletization(View):
         current_time_cn = datetime.now(cn)
         offload.total_pallet = total_pallet
         offload.offload_at = current_time_cn
+        offload.devanning_company = request.POST.get("devanning_company")
+        offload.devanning_fee = request.POST.get("devanning_fee")
         offload.save()
         mutable_post = request.POST.copy()
         mutable_post['name'] = order_selected.warehouse.name
@@ -124,6 +128,8 @@ class Palletization(View):
         pallet = Pallet.objects.filter(packing_list__container_number__container_number=container_number)
         offload.total_pallet = None
         offload.offload_at = None
+        offload.devanning_company = None
+        offload.devanning_fee = None
         offload.save()
         for p in pallet:
             p.delete()
@@ -309,3 +315,4 @@ class Palletization(View):
         self.context["order_not_palletized"] = self.order_not_palletized
         self.context["order_palletized"] = self.order_palletized
         self.context["order_packing_list"] = self.order_packing_list
+        self.context["offload_form"] = self.offload_form
