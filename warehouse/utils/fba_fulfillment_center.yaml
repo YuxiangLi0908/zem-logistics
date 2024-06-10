@@ -18,12 +18,12 @@ ABE5:
   location: 6455 Allentown Boulevard
   state: PA
   zipcode: '17112'
+# ABE8:
+#   city: Florence
+#   location: 401 Independence Road
+#   state: NJ
+#   zipcode: 08518
 ABE8:
-  city: Florence
-  location: 401 Independence Road
-  state: NJ
-  zipcode: 08518
-ABE8-309:
   city: Florence
   location: 309 Cedar Lane
   state: NJ
