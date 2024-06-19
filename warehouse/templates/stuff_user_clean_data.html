@@ -50,4 +50,17 @@
     
     {% endif %}
 </div>
+
+<div>
+    <form method="post" action="">
+        {% csrf_token %}
+        <b>Update Delivery Method</b>
+        <input type="hidden" name="step" value="update_delivery_method">
+        <button type="submit" class="btn btn-danger" style="width: 100px; height: 35px; margin-left: 20px;">更新派送方式</button>
+    </form>
+    {% if delivery_update_success %}
+    <b>Successfully update {{ count }} packing list!</b>
+    {% endif %}
+</div>
+
 {% endblock %}
