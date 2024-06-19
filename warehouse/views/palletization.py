@@ -169,7 +169,7 @@ class Palletization(View):
                     "destination": pl.get("destination"),
                     "date": retrieval_date,
                     "customer": customer_name,
-                    "hold": (pl.get("custom_delivery_method").split("-")[0] == "暂扣留仓"),
+                    "hold": (pl.get("custom_delivery_method").split("-")[0] == "暂扣留仓(HOLD)"),
                 })
         context = {"data": data}
         template = get_template(self.template_pallet_label)
@@ -257,7 +257,7 @@ class Palletization(View):
         if status == "non_palletized":
             return PackingList.objects.filter(container_number__container_number=container_number).annotate(
                 custom_delivery_method=Case(
-                    When(delivery_method='暂扣留仓', then=Concat('delivery_method', Value('-'), 'fba_id', Value('-'), 'id')),
+                    When(delivery_method='暂扣留仓(HOLD)', then=Concat('delivery_method', Value('-'), 'fba_id', Value('-'), 'id')),
                     default=F('delivery_method'),
                     output_field=CharField()
                 ),
@@ -277,7 +277,7 @@ class Palletization(View):
         elif status == "palletized":
             return PackingList.objects.filter(container_number__container_number=container_number).annotate(
                 custom_delivery_method=Case(
-                    When(delivery_method='暂扣留仓', then=Concat('delivery_method', Value('-'), 'fba_id', Value('-'), 'id')),
+                    When(delivery_method='暂扣留仓(HOLD)', then=Concat('delivery_method', Value('-'), 'fba_id', Value('-'), 'id')),
                     default=F('delivery_method'),
                     output_field=CharField()
                 ),

@@ -260,7 +260,7 @@ class ScheduleShipment(View):
             models.Q(shipment_batch_number__isnull=True)
         ).annotate(
             custom_delivery_method=Case(
-                When(delivery_method='暂扣留仓', then=Concat('delivery_method', Value('-'), 'fba_id', Value('-'), 'id')),
+                When(delivery_method='暂扣留仓(HOLD)', then=Concat('delivery_method', Value('-'), 'fba_id', Value('-'), 'id')),
                 default=F('delivery_method'),
                 output_field=CharField()
             ),
