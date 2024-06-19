@@ -30,6 +30,13 @@ class StuffPower(View):
                 "invalid_cases": invalid_cases,
             }
             return render(request, self.template_1, context)
+        elif step == "update_delivery_method":
+            cnt = self._update_delivery_method()
+            context = {
+                "delivery_update_success": True,
+                "count": cnt,
+            }
+            return render(request, self.template_1, context)
         else:
             self._remove_offload()
             self._remove_clearance()
@@ -85,3 +92,14 @@ class StuffPower(View):
                 p.save()
                 invalid_cases.append(p)
         return invalid_cases
+    
+    def _update_delivery_method(self) -> int:
+        pl = PackingList.objects.all()
+        cnt = 0
+        for p in pl:
+            if p.delivery_method == "暂扣留仓":
+                p.delivery_method = "暂扣留仓(HOLD)"
+                p.save()
+                cnt += 1
+        return cnt
+    

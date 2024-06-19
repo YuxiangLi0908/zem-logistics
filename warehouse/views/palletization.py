@@ -10,7 +10,7 @@ from django.contrib.auth.decorators import login_required
 from django.views import View
 from django.utils.decorators import method_decorator
 from django.db import models
-from django.db.models import Case, Value, CharField, F, Sum, FloatField, IntegerField, When, Count
+from django.db.models import Case, Value, CharField, F, Sum, FloatField, IntegerField, When, Count, Q
 from django.db.models.functions import Concat, Cast
 from django.contrib.postgres.aggregates import StringAgg
 from django.template.loader import get_template
@@ -169,7 +169,7 @@ class Palletization(View):
                     "destination": pl.get("destination"),
                     "date": retrieval_date,
                     "customer": customer_name,
-                    "hold": (pl.get("custom_delivery_method").split("-")[0] == "暂扣留仓(HOLD)"),
+                    "hold": ("暂扣留仓" in pl.get("custom_delivery_method").split("-")[0]),
                 })
         context = {"data": data}
         template = get_template(self.template_pallet_label)
@@ -257,7 +257,7 @@ class Palletization(View):
         if status == "non_palletized":
             return PackingList.objects.filter(container_number__container_number=container_number).annotate(
                 custom_delivery_method=Case(
-                    When(delivery_method='暂扣留仓(HOLD)', then=Concat('delivery_method', Value('-'), 'fba_id', Value('-'), 'id')),
+                    When(Q(delivery_method='暂扣留仓(HOLD)') | Q(delivery_method='暂扣留仓'), then=Concat('delivery_method', Value('-'), 'fba_id', Value('-'), 'id')),
                     default=F('delivery_method'),
                     output_field=CharField()
                 ),
@@ -277,7 +277,7 @@ class Palletization(View):
         elif status == "palletized":
             return PackingList.objects.filter(container_number__container_number=container_number).annotate(
                 custom_delivery_method=Case(
-                    When(delivery_method='暂扣留仓(HOLD)', then=Concat('delivery_method', Value('-'), 'fba_id', Value('-'), 'id')),
+                    When(Q(delivery_method='暂扣留仓(HOLD)') | Q(delivery_method='暂扣留仓'), then=Concat('delivery_method', Value('-'), 'fba_id', Value('-'), 'id')),
                     default=F('delivery_method'),
                     output_field=CharField()
                 ),

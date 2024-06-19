@@ -12,7 +12,7 @@ from django.contrib.auth.decorators import login_required
 from django.views import View
 from django.utils.decorators import method_decorator
 from django.db import models
-from django.db.models import Case, Value, CharField, F, Sum, FloatField, IntegerField, When, Count
+from django.db.models import Case, Value, CharField, F, Sum, FloatField, IntegerField, When, Count, Q
 from django.db.models.functions import Concat, Cast
 from django.contrib.postgres.aggregates import StringAgg
 
@@ -260,7 +260,7 @@ class ScheduleShipment(View):
             models.Q(shipment_batch_number__isnull=True)
         ).annotate(
             custom_delivery_method=Case(
-                When(delivery_method='暂扣留仓(HOLD)', then=Concat('delivery_method', Value('-'), 'fba_id', Value('-'), 'id')),
+                When(Q(delivery_method='暂扣留仓(HOLD)') | Q(delivery_method='暂扣留仓'), then=Concat('delivery_method', Value('-'), 'fba_id', Value('-'), 'id')),
                 default=F('delivery_method'),
                 output_field=CharField()
             ),
