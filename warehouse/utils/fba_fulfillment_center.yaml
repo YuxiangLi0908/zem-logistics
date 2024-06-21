@@ -1603,3 +1603,23 @@ WMM-NJ3:
   location: 3 Sorbello Rd
   state: NJ
   zipcode: '08067'
+沃尔玛PHL4N:
+  city: Shippensbure
+  location: 1410 United Dr
+  state: PA
+  zipcode: '17257'
+沃尔玛-PHL4N:
+  city: Shippensbure
+  location: 1410 United Dr
+  state: PA
+  zipcode: '17257'
+WMMPHL4N:
+  city: Shippensbure
+  location: 1410 United Dr
+  state: PA
+  zipcode: '17257'
+WMM-PHL4N:
+  city: Shippensbure
+  location: 1410 United Dr
+  state: PA
+  zipcode: '17257'

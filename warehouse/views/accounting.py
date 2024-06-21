@@ -11,11 +11,13 @@ from django.utils.decorators import method_decorator
 from django.db import models
 
 from warehouse.models.order import Order
+from warehouse.models.packing_list import PackingList
 
 
 @method_decorator(login_required(login_url='login'), name='dispatch')
 class Accounting(View):
     template_pallet_data = "accounting/pallet_data.html"
+    template_pl_data = "accounting/pl_data.html"
     allowed_group = "accounting"
 
     def get(self, request: HttpRequest) -> HttpResponse:
@@ -25,6 +27,9 @@ class Accounting(View):
         step = request.GET.get("step", None)
         if step == "pallet_data":
             template, context = self.handle_pallet_data_get()
+            return render(request, template, context)
+        elif step == "pl_data":
+            template, context = self.handle_pl_data_get()
             return render(request, template, context)
         else:
             raise ValueError(f"unknow request {step}")
@@ -38,6 +43,12 @@ class Accounting(View):
             start_date = request.POST.get("start_date")
             end_date = request.POST.get("end_date")
             template, context = self.handle_pallet_data_get(start_date, end_date)
+            return render(request, template, context)
+        elif step == "pl_data_search":
+            start_date = request.POST.get("start_date")
+            end_date = request.POST.get("end_date")
+            container_number = request.POST.get("container_number")
+            template, context = self.handle_pl_data_get(start_date, end_date, container_number)
             return render(request, template, context)
         elif step == "pallet_data_export":
             return self.handle_pallet_data_export_post(request)
@@ -61,6 +72,32 @@ class Accounting(View):
             "end_date": end_date,
         }
         return self.template_pallet_data, context
+    
+    def handle_pl_data_get(
+        self, 
+        start_date: str = None,
+        end_date: str = None,
+        container_number: str = None,
+    ) -> tuple[Any, Any]:
+        current_date = datetime.now().date()
+        start_date = (current_date + timedelta(days=-30)).strftime('%Y-%m-%d') if not start_date else start_date
+        end_date = current_date.strftime('%Y-%m-%d') if not end_date else end_date
+        criteria = models.Q(container_number__order__eta__gte=start_date)
+        criteria &= models.Q(container_number__order__eta__lte=end_date)
+        if container_number == "None":
+            container_number = None
+        if container_number:
+            criteria &= models.Q(container_number__container_number=container_number)
+        pl_data = PackingList.objects.filter(criteria).values(
+            'container_number__container_number', 'destination', 'delivery_method', 'cbm', 'pcs', 'total_weight_kg'
+        ).order_by("container_number__container_number", "destination")
+        context = {
+            "start_date": start_date,
+            "end_date": end_date,
+            "container_number": container_number,
+            "pl_data": pl_data,
+        }
+        return self.template_pl_data, context
     
     def handle_pallet_data_export_post(self, request: HttpRequest) -> HttpResponse:
         start_date = request.POST.get("start_date")
