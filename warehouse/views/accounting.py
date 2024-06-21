@@ -52,6 +52,8 @@ class Accounting(View):
             return render(request, template, context)
         elif step == "pallet_data_export":
             return self.handle_pallet_data_export_post(request)
+        elif step == "pl_data_export":
+            return self.handle_pl_data_export_post(request)
         else:
             raise ValueError(f"unknow request {step}")
 
@@ -122,6 +124,27 @@ class Accounting(View):
         df = pd.DataFrame.from_records(data)
         response = HttpResponse(content_type='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet')
         response['Content-Disposition'] = f"attachment; filename=pallet_data_{start_date}_{end_date}.xlsx"
+        df.to_excel(excel_writer=response, index=False, columns=df.columns)
+        return response
+    
+    def handle_pl_data_export_post(self, request: HttpRequest) -> HttpResponse:
+        start_date = request.POST.get("start_date")
+        end_date = request.POST.get("end_date")
+        container_number = request.POST.get("container_number")
+        _, context = self.handle_pl_data_get(start_date, end_date, container_number)
+        data = [
+            {
+                "货柜号": d["container_number__container_number"],
+                "目的地": d["destination"],
+                "派送方式": d["delivery_method"],
+                "CBM": d["cbm"],
+                "箱数": d["pcs"],
+                "总重KG": d["total_weight_kg"],
+            } for d in context["pl_data"]
+        ]
+        df = pd.DataFrame.from_records(data)
+        response = HttpResponse(content_type='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet')
+        response['Content-Disposition'] = f"attachment; filename=packing_list_data_{start_date}_{end_date}.xlsx"
         df.to_excel(excel_writer=response, index=False, columns=df.columns)
         return response
 
