@@ -352,7 +352,7 @@
             </tbody>
             {% endif %}
             <tr id="sub_table_summary" style="position: sticky; bottom: 40px; background-color: #f2f2f2;">
-                <td class="td"><b>已筛选</b></td>
+                <td class="td" id="sub_table_summary_cnt"><b>已筛选</b></td>
                 <td class="td"></td>
                 <td class="td"></td>
                 <td class="td"></td>
@@ -371,7 +371,7 @@
                 <td class="td"></td>
             </tr>
             <tr id="table_summary" style="position: sticky; bottom: 0; background-color: #f2f2f2;">
-                <td class="td"><b>总计</b></td>
+                <td class="td" id="table_summary_cnt"><b>总计</b></td>
                 <td class="td"></td>
                 <td class="td"></td>
                 <td class="td"></td>
@@ -528,6 +528,7 @@
         var totalWeightKg = 0;
         var totalWeight = 0;
         var totalCbm = 0;
+        var cnt = 0;
 
         // Loop through each row in the table body
         var rows = document.querySelectorAll("#packing-list-table tbody tr:not(#table_summary):not(#sub_table_summary)");
@@ -552,8 +553,10 @@
                 totalWeightKg += weightKg;
                 totalWeight += weight;
                 totalCbm += cbm;
+                cnt += 1;
             }
         }
+        document.getElementById('sub_table_summary_cnt').innerHTML = "<b>" + "已筛选: " + cnt + "</b>";
         document.getElementById('sub_table_summary_pcs').textContent = totalPcs;
         document.getElementById('sub_table_summary_weight_kg').textContent = totalWeightKg.toFixed(2);
         document.getElementById('sub_table_summary_weight').textContent = totalWeight.toFixed(2);
@@ -660,11 +663,13 @@
             totalCbm += cbm;
         }
         // Update the summary row with the calculated totals
+        document.getElementById('table_summary_cnt').innerHTML = "<b>" + "总计: " + rows.length + "</b>";
         document.getElementById('table_summary_pcs').textContent = totalPcs;
         document.getElementById('table_summary_weight_kg').textContent = totalWeightKg.toFixed(2);
         document.getElementById('table_summary_weight').textContent = totalWeight.toFixed(2);
         document.getElementById('table_summary_cbm').textContent = totalCbm.toFixed(2);
 
+        document.getElementById('sub_table_summary_cnt').innerHTML = "<b>" + "已筛选: " + rows.length + "</b>";
         document.getElementById('sub_table_summary_pcs').textContent = totalPcs;
         document.getElementById('sub_table_summary_weight_kg').textContent = totalWeightKg.toFixed(2);
         document.getElementById('sub_table_summary_weight').textContent = totalWeight.toFixed(2);
