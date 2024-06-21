@@ -1,0 +1,51 @@
+{% extends 'base.html' %}
+
+{% block content %}
+<div><b>派送清单</b></div>
+<div style="width: 100%; display: flex; justify-content: space-between;">
+    <form method="post" action="" style="width: 80%;">
+        {% csrf_token %}
+        <div>
+            <b style="margin-right: 5px;">ETA:</b>
+            <input type="date" name="start_date" value="{{ start_date }}">
+            <input type="date" name="end_date" value="{{ end_date }}" style="margin-right: 5px;">
+            <b style="margin-right: 5px;">柜号(optional):</b>
+            <input type="text" name="container_number" value="{{ container_number }}">
+            <input type="hidden" name="step" value="pl_data_search">
+            <button id="submit-btn" type="submit" class="btn btn-primary" style="width: 100px; height: 35px; margin-left: 20px;">查询</button>
+        </div>
+    </form>
+</div>
+<hr class="Dashed" style="margin-top: 10px; margin-bottom: 10px;">
+
+{% if pl_data %}
+<div style="overflow-x: auto; max-width: 100%; overflow-y: auto; max-height: 600px;">
+    <table class="table" id="_container-table">
+        <thead>
+            <tr>
+                <th class="th">货柜号</th>
+                <th class="th">目的地</th>
+                <th class="th">派送方式</th>
+                <th class="th">CBM</th>
+                <th class="th">箱数</th>
+                <th class="th">总重KG</th>
+            </tr>
+        </thead>
+        <tbody>
+            {% for c in pl_data %}
+                <tr>
+                    <td class="td">{{ c.container_number__container_number }}</td>
+                    <td class="td">{{ c.destination }}</td>
+                    <td class="td">{{ c.delivery_method }}</td>
+                    <td class="td">{{ c.cbm }}</td>
+                    <td class="td">{{ c.pcs }}</td>
+                    <td class="td">{{ c.total_weight_kg }}</td>
+                </tr>
+            {% endfor %}
+        </tbody>
+    </table>
+</div>
+
+{% endif %}
+
+{% endblock %}
