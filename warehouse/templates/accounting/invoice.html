@@ -1,0 +1,142 @@
+{% extends 'base.html' %}
+{% load static %}
+
+{% block content %}
+<form method="post" action="">
+    {% csrf_token %}
+    <div style="text-align: center;">
+        <h2><b>INVOICE</b></h2>
+    </div>
+    <div style="width: 100%;">
+        <table style="width: 100%;">
+            <tr>
+                <td style="width: 40%;">
+                    <p style="padding-top: 10px; padding-left: 10px;">Zem Elitelink Logistics Inc</p>
+                    <p style="padding-left: 10px;">400 Clearview Rd, Edison, NJ 07094</p>
+                </td>
+                <td style="width: 30%;">
+                    <p style="padding-top: 10px; padding-left: 10px;">FINANCE@ZEMLOGISTICS.COM</p>
+                    <p style="padding-left: 10px;">+1 (929)810-9968</p>
+                </td>
+                <td style="text-align: center; width: 30%;">
+                    <p style="font-size: 50px; padding-bottom: -20px; margin-bottom: -20px;"><b>ZEM</b></p>
+                    <p style="font-size: 13px; padding-top: -3px; margin-top: -3px;"><b>ZEM LOGISTICS INC</b></p>
+                </td>
+            </tr>
+        </table>
+    </div>
+
+    <div style="margin-top: 20px;">
+        <table style="width: 100%; font-size: 14px;">
+            <tr style="height: 10px;">
+                <td colspan="4">
+                    <p style="padding-left: 10px;"><b>{{ customer.accounting_name }}</b></p>
+                </td>
+            </tr>
+            <tr style="height: 30px;">
+                <td colspan="2">
+                    <p style="padding-left: 10px;">Bill to</p>
+                </td>
+                <td colspan="2">
+                    <p style="padding-left: 10px;">Ship to</p>
+                </td>
+            </tr>
+            <tr>
+                <td colspan="2">
+                    <p style="padding-left: 10px;"><b>{{ customer.accounting_name }}</b></p>
+                </td>
+                <td colspan="2">
+                    <p style="padding-left: 10px;"><b>{{ customer.accounting_name }}</b></p>
+                </td>
+            </tr>
+            <tr>
+                <td colspan="4">
+                    <p style="padding-left: 10px;"><b>Invoice details</b></p>
+                </td>
+            </tr>
+            <tr>
+                <td colspan="1">
+                    <p style="padding-left: 10px;">
+                        Invoice no.:
+                    </p>
+                </td>
+                <td colspan="3">
+                    <input type="text" name="invoice_number">
+                </td>
+            </tr>
+            <tr>
+                <td colspan="1">
+                    <p style="padding-left: 10px;">
+                        Terms:
+                    </p>
+                </td>
+                <td colspan="3">
+                    <input type="text" name="invoice_terms">
+                </td>
+            </tr>
+            <tr>
+                <td colspan="1">
+                    <p style="padding-left: 10px;">
+                        Invoice date:
+                    </p>
+                </td>
+                <td colspan="3">
+                    <input type="date" name="invoice_date">
+                </td>
+            </tr>
+            <tr>
+                <td colspan="1">
+                    <p style="padding-left: 10px;">
+                        Due date:
+                    </p>
+                </td>
+                <td colspan="3">
+                    <input type="date" name="due_date">
+                </td>
+            </tr>
+        </table>
+    </div>
+
+    <div style="margin-top: 20px;">
+        <table style="width: 100%; text-align: center;">
+            <thead>
+                <tr>
+                    <th>Date</th>
+                    <th>Product or service</th>
+                    <th>Description</th>
+                    <th>Qty</th>
+                    <th>Rate</th>
+                    <th>Amount</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for o in order %}
+                    <tr>
+                        <td colspan="4" style="text-align: center;">
+                            TRANSFER CONTAINER FEE {{ o.container_number }}
+                            <input type="hidden" name="container_number" value="{{ o.container_number }}">
+                        </td>
+                        <td style="text-align: center;">$<input type="number" name="rate" step=0.01></td>
+                        <td style="text-align: center;">$<input type="number" name="amount" step=0.01></td>
+                    </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+
+    <div style="margin-top: 20px; margin-left: 20px;">
+        <p style="margin: 5px;">Beneficiary Name: Zem Elitelink Logistics Inc</p>
+        <p style="margin: 5px;">Bank Name: Bank of America , N.A</p>
+        <p style="margin: 5px;">SWIFT Code: BOFAUS3N</p>
+
+        <p style="margin: 5px; margin-top: 20px;">ACH/Wire Transfer Routing Number: 021000322</p>
+        <p style="margin: 5px;">Beneficiary Account # 483105128462</p>
+
+        <p style="margin: 5px; margin-top: 20px;">Beneficiary Address: 222 BROADWAY, NEW YORK, NY 10038</p>
+    </div>
+
+    <input type="hidden" name="step" value="export_invoice">
+    <input type="hidden" name="customer" value="{{ customer.accounting_name }}">
+    <button type="submit" class="btn btn-success" style="width: 100px; height: 35px; margin-top: 20px;">导出</button>
+</form>
+{% endblock %}

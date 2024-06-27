@@ -47,10 +47,17 @@
                             </td>
                         </tr>
                         <tr>
-                            <td style="margin-left: 5px; font-family: STSong-Light;">
+                            {% if chinese_char %}
+                                <td style="margin-left: 5px; font-family: STSong-Light;">
+                                    <br>{{ shipment.destination }}<br>
+                                    {{ shipment.address }}
+                                </td>
+                            {% else %}
+                            <td style="margin-left: 5px;">
                                 <br>{{ shipment.destination }}<br>
                                 {{ shipment.address }}
                             </td>
+                            {% endif %}
                         </tr>
                     </table>
                 </td>
