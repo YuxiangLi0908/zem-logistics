@@ -31,7 +31,12 @@
             {{ customer_form.note }}
         </div>
     </div>
-
+    <div style="display: flex;">
+        <div class="quote-form-row flex-6" >
+            <label style="font-size: 15px; margin-right: 5px;">财务名称</label>
+            {{ customer_form.accounting_name }}
+        </div>
+    </div>
     <div class="text-left">
         <input type="hidden" name="step" value="new">
         <button type="submit" class="btn btn-primary" style="width: 100px; height: 35px;">确认</button>
@@ -50,6 +55,7 @@
                 <th class="th">客户简称</th>
                 <th class="th">客户全称</th>
                 <th class="th">ZEM客户代码</th>
+                <th class="th">财务名称</th>
                 <th class="th">Email</th>
                 <th class="th">Phone</th>
                 <th class="th">备注</th>
@@ -57,6 +63,7 @@
             <tr style="position: sticky; top: 40px;">
                 <th class="th"><input type="text" id="zemNameSearchInput" placeholder="搜索..." oninput="filterCustomerTable()"></th>
                 <th class="th"><input type="text" id="fullNameSearchInput" placeholder="搜索..." oninput="filterCustomerTable()"></th>
+                <th class="th"></th>
                 <th class="th"></th>
                 <th class="th"></th>
                 <th class="th"></th>
@@ -69,6 +76,7 @@
                 <td class="td"><a href="/customer_management/{{c.zem_name}}/?step=update">{{ c.zem_name }}</a></td>
                 <td class="td">{{ c.full_name }}</td>
                 <td class="td">{{ c.zem_code }}</td>
+                <td class="td">{{ c.accounting_name }}</td>
                 <td class="td">{{ c.email }}</td>
                 <td class="td">{{ c.phone }}</td>
                 <td class="td">{{ c.note }}</td>
@@ -99,6 +107,12 @@
         <div class="form-group col-md-4">
             <label class="col-form-label" style="font-size: 15px; width: 100px; height: 40px;">ZEM客户代码</label>
             {{ customer_update_form.zem_code }}
+        </div>
+    </div>
+    <div class="form-row" >
+        <div class="form-group col-md-4">
+            <label class="col-form-label" style="font-size: 15px; width: 100px; height: 40px;">财务名称</label>
+            {{ customer_update_form.accounting_name }}
         </div>
     </div>
     <div class="form-row" >

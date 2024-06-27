@@ -262,7 +262,7 @@ def export_invoice(request: HttpRequest) -> HttpResponse:
     template = get_template(template_path)
     html = template.render(context)
     response = HttpResponse(content_type="application/pdf")
-    response['Content-Disposition'] = f'attachment; filename="invoice_test.pdf"'
+    response['Content-Disposition'] = f'attachment; filename="invoice_{invoice_number}_from_ZEM_ELITELINK LOGISTICS_INC.pdf"'
     pisa_status = pisa.CreatePDF(html, dest=response)
     if pisa_status.err:
         raise ValueError('Error during PDF generation: %s' % pisa_status.err, content_type='text/plain')
