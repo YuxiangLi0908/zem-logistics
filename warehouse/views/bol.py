@@ -117,4 +117,3 @@ class BOL(View):
             "pallet": pallet,
         }
         return context
-

@@ -232,3 +232,38 @@ def export_do(request: HttpRequest) -> HttpResponse:
     if pisa_status.err:
         raise ValueError('Error during PDF generation: %s' % pisa_status.err, content_type='text/plain')
     return response
+
+def export_invoice(request: HttpRequest) -> HttpResponse:
+    customer = request.POST.get("customer")
+    chinese_char = False if customer.isascii() else True
+    invoice_number = request.POST.get("invoice_number")
+    invoice_terms = request.POST.get("invoice_terms")
+    invoice_date = request.POST.get("invoice_date")
+    due_date = request.POST.get("due_date")
+    container_number = request.POST.getlist("container_number")
+    rate = [float(r) for r in request.POST.getlist("rate")]
+    amount = [float(r) for r in request.POST.getlist("amount")]
+    total_amount = sum(amount)
+    cnt = list(range(1, len(container_number) + 1))
+    invoice_details = zip(cnt, container_number, rate, amount)
+    
+    context = {
+        "customer": customer,
+        "chinese_char": chinese_char,
+        "invoice_details": invoice_details,
+        "total_amount": total_amount,
+        "invoice_number": invoice_number,
+        "invoice_terms": invoice_terms,
+        "invoice_date": invoice_date,
+        "due_date": due_date,
+    }
+
+    template_path = "export_file/invoice_template.html"
+    template = get_template(template_path)
+    html = template.render(context)
+    response = HttpResponse(content_type="application/pdf")
+    response['Content-Disposition'] = f'attachment; filename="invoice_test.pdf"'
+    pisa_status = pisa.CreatePDF(html, dest=response)
+    if pisa_status.err:
+        raise ValueError('Error during PDF generation: %s' % pisa_status.err, content_type='text/plain')
+    return response

@@ -12,12 +12,15 @@ from django.db import models
 
 from warehouse.models.order import Order
 from warehouse.models.packing_list import PackingList
-
+from warehouse.forms.order_form import OrderForm
+from warehouse.views.export_file import export_invoice
 
 @method_decorator(login_required(login_url='login'), name='dispatch')
 class Accounting(View):
     template_pallet_data = "accounting/pallet_data.html"
     template_pl_data = "accounting/pl_data.html"
+    template_invoice_management = "accounting/invoice_management.html"
+    template_invoice = "accounting/invoice.html"
     allowed_group = "accounting"
 
     def get(self, request: HttpRequest) -> HttpResponse:
@@ -30,6 +33,9 @@ class Accounting(View):
             return render(request, template, context)
         elif step == "pl_data":
             template, context = self.handle_pl_data_get()
+            return render(request, template, context)
+        elif step == "invoice":
+            template, context = self.handle_invoice_get()
             return render(request, template, context)
         else:
             raise ValueError(f"unknow request {step}")
@@ -54,6 +60,13 @@ class Accounting(View):
             return self.handle_pallet_data_export_post(request)
         elif step == "pl_data_export":
             return self.handle_pl_data_export_post(request)
+        elif step == "invoice_order_search":
+            template, context = self.handle_invoice_order_search_post(request)
+            return render(request, template, context)
+        elif step == "invoice_order_select":
+            return self.handle_invoice_order_select_post(request)
+        elif step == "export_invoice":
+            return export_invoice(request)
         else:
             raise ValueError(f"unknow request {step}")
 
@@ -101,6 +114,29 @@ class Accounting(View):
         }
         return self.template_pl_data, context
     
+    def handle_invoice_get(
+        self, 
+        start_date: str = None,
+        end_date: str = None,
+        customer: str = None,
+    ) -> tuple[Any, Any]:
+        current_date = datetime.now().date()
+        start_date = (current_date + timedelta(days=-30)).strftime('%Y-%m-%d') if not start_date else start_date
+        end_date = current_date.strftime('%Y-%m-%d') if not end_date else end_date
+        criteria = models.Q(created_at__gte=start_date)
+        criteria &= models.Q(created_at__lte=end_date)
+        if customer:
+            criteria &= models.Q(customer_name__zem_name=customer)
+        order = Order.objects.filter(criteria).order_by("created_at")
+        context = {
+            "order_form":OrderForm(),
+            "start_date": start_date,
+            "end_date": end_date,
+            "order": order,
+            "customer": customer,
+        } 
+        return self.template_invoice_management, context
+    
     def handle_pallet_data_export_post(self, request: HttpRequest) -> HttpResponse:
         start_date = request.POST.get("start_date")
         end_date = request.POST.get("end_date")
@@ -147,7 +183,35 @@ class Accounting(View):
         response['Content-Disposition'] = f"attachment; filename=packing_list_data_{start_date}_{end_date}.xlsx"
         df.to_excel(excel_writer=response, index=False, columns=df.columns)
         return response
+    
+    def handle_invoice_order_search_post(self, request: HttpRequest) -> tuple[Any, Any]:
+        start_date = request.POST.get("start_date")
+        end_date = request.POST.get("end_date")
+        order_form = OrderForm(request.POST)
+        if order_form.is_valid():
+            customer = order_form.cleaned_data.get("customer_name")
+        else:
+            customer = None
+        return self.handle_invoice_get(start_date, end_date, customer)
 
+    def handle_invoice_order_select_post(self, request: HttpRequest) -> HttpResponse:
+        order_ids = request.POST.getlist("order_id")
+        selections = request.POST.getlist("is_order_selected")
+        order_selected = [o for s, o in zip(selections, order_ids) if s == "on"]
+        if order_selected:
+            order = Order.objects.filter(
+                order_id__in=order_selected
+            )
+            customer = order[0].customer_name
+            context = {
+                "order": order,
+                "customer": customer,
+            }
+            return render(request, self.template_invoice, context)
+        else:
+            template, context = self.handle_invoice_order_search_post(request)
+            return render(request, template, context)
+        
     def _validate_user_group(self, user: User) -> bool:
         if user.groups.filter(name=self.allowed_group).exists():
             return True
