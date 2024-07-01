@@ -1,5 +1,6 @@
 import io
 import os
+import openpyxl.workbook
 import openpyxl.worksheet
 import openpyxl.worksheet.worksheet
 import pandas as pd
@@ -11,8 +12,7 @@ from office365.sharepoint.client_context import ClientContext
 from office365.sharepoint.sharing.links.kind import SharingLinkKind
 
 import openpyxl
-from openpyxl.utils import get_column_letter
-from openpyxl.styles import Alignment, Font, PatternFill
+from openpyxl.styles import Font, PatternFill
 from django.http import HttpRequest, HttpResponse, HttpResponseForbidden
 from django.shortcuts import render
 from django.contrib.auth.decorators import login_required
@@ -20,9 +20,10 @@ from django.contrib.auth.models import User
 from django.views import View
 from django.utils.decorators import method_decorator
 from django.db import models
-from django.db.models import Sum, FloatField, IntegerField, Count
+from django.db.models import Sum, FloatField, Count
 
 from warehouse.models.order import Order
+from warehouse.models.invoice import Invoice
 from warehouse.models.packing_list import PackingList
 from warehouse.forms.order_form import OrderForm
 from warehouse.views.export_file import export_invoice
@@ -47,7 +48,7 @@ class Accounting(View):
     template_pallet_data = "accounting/pallet_data.html"
     template_pl_data = "accounting/pl_data.html"
     template_invoice_management = "accounting/invoice_management.html"
-    template_invoice = "accounting/invoice.html"
+    template_invoice_statement = "accounting/invoice_statement.html.html"
     template_invoice_container = "accounting/invoice_container.html"
     allowed_group = "accounting"
     conn = ClientContext(SP_URL).with_credentials(UserCredential(SP_USER, SP_PASS))
@@ -167,8 +168,8 @@ class Accounting(View):
         if customer:
             criteria &= models.Q(customer_name__zem_name=customer)
         order = Order.objects.filter(criteria).order_by("created_at")
-        order_no_invoice = [o for o in order if not o.invoice_link]
-        order_invoice = [o for o in order if o.invoice_link]
+        order_no_invoice = [o for o in order if o.invoice_id is None]
+        order_invoice = [o for o in order if o.invoice_id]
         context = {
             "order_form":OrderForm(),
             "start_date": start_date,
@@ -273,7 +274,7 @@ class Accounting(View):
                 "order": order,
                 "customer": customer,
             }
-            return render(request, self.template_invoice, context)
+            return render(request, self.template_invoice_statement, context)
         else:
             template, context = self.handle_invoice_order_search_post(request)
             return render(request, template, context)
@@ -299,7 +300,7 @@ class Accounting(View):
         order_id = str(context["order"].id)
         if len(order_id) < 5:
             order_id = '0' * (5 - len(order_id)) + order_id
-        
+        invoice_number = f"{current_date.strftime('%Y-%m-%d').replace('-', '')}C{order_id}"
         workbook = openpyxl.Workbook()
         worksheet = workbook.active
         worksheet.title = "Sheet1"
@@ -316,8 +317,8 @@ class Accounting(View):
         worksheet.column_dimensions['C'].width = 19
         worksheet.column_dimensions['D'].width = 6
         worksheet.column_dimensions['E'].width = 8
-        worksheet.column_dimensions['F'].width = 6
-        worksheet.column_dimensions['G'].width = 10
+        worksheet.column_dimensions['F'].width = 7
+        worksheet.column_dimensions['G'].width = 11
 
         worksheet["A1"] = "ZEM LOGISTICS INC."
         worksheet["A3"] = "85 Metro Way"
@@ -330,17 +331,17 @@ class Accounting(View):
         worksheet["E4"] = "Date"
         worksheet["F4"] = current_date.strftime('%Y-%m-%d')
         worksheet["E5"] = "Invoice #"
-        worksheet["F5"] = f"{current_date.strftime('%Y-%m-%d').replace('-', '')}C{order_id}"
+        worksheet["F5"] = invoice_number
 
         worksheet['A1'].font = Font(size=20)
         worksheet['F1'].font = Font(size=28)
-        worksheet['A8'].font = Font(color="00FFFFFF")
-        worksheet['A8'].fill = PatternFill(start_color="00000000", end_color="00000000", fill_type="solid")
 
         worksheet.append(["CONTAINER #", "DESCRIPTION", "WAREHOUSE CODE", "CBM", "QTY", "QTY", "AMOUNT"])
         row_count = 12
+        total_amount = 0.0
         for d, wc, cbm, qty, r, amt in context["data"]:
             worksheet.append([context["container_number"], d, wc, cbm, qty, r, amt])
+            total_amount += float(amt)
             row_count += 1
         self._merge_ws_cells(worksheet, [f"A{row_count}:G{row_count}"])
         row_count += 1
@@ -361,17 +362,21 @@ class Accounting(View):
             row_count += 1
         self._merge_ws_cells(worksheet, [f"A{row_count}:G{row_count}"])
 
-        excel_file = io.BytesIO()
-        workbook.save(excel_file)
-        excel_file.seek(0)
-        file_path = os.path.join(SP_DOC_LIB, f"{SYSTEM_FOLDER}/invoice/{APP_ENV}")
-        sp_folder = self.conn.web.get_folder_by_server_relative_url(file_path)
-        resp = sp_folder.upload_file(f"INVOICE-{context['container_number']}.xlsx", excel_file).execute_query()
-        link = resp.share_link(SharingLinkKind.OrganizationView).execute_query().value.to_json()["sharingLinkInfo"]["Url"]
-        context["order"].invoice_date = current_date
-        context["order"].invoice_link = link
+        invoice_link = self._upload_excel_to_sharepoint(workbook, f"INVOICE-{context['container_number']}")
+        invoice = Invoice(**{
+            "invoice_number": invoice_number,
+            "invoice_date": current_date,
+            "invoice_link": invoice_link,
+            "customer": context["order"].customer_name,
+            "container_number": context["order"].container_number,
+            "total_amount": total_amount,
+        })
+        invoice.save()
+        context["order"].invoice_id = invoice
         context["order"].save()
 
+        worksheet['A8'].font = Font(color="00FFFFFF")
+        worksheet['A8'].fill = PatternFill(start_color="00000000", end_color="00000000", fill_type="solid")
         response = HttpResponse(content_type='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet')
         response['Content-Disposition'] = f'attachment; filename=INVOICE-{context["container_number"]}.xlsx'
         workbook.save(response)
@@ -380,6 +385,16 @@ class Accounting(View):
     def _merge_ws_cells(self, ws: openpyxl.worksheet.worksheet, cells: list[str]) -> None:
         for c in cells:
             ws.merge_cells(c)
+
+    def _upload_excel_to_sharepoint(self, wb: openpyxl.workbook.workbook, file_name: str) -> str:
+        excel_file = io.BytesIO()
+        wb.save(excel_file)
+        excel_file.seek(0)
+        file_path = os.path.join(SP_DOC_LIB, f"{SYSTEM_FOLDER}/invoice/{APP_ENV}")
+        sp_folder = self.conn.web.get_folder_by_server_relative_url(file_path)
+        resp = sp_folder.upload_file(f"{file_name}.xlsx", excel_file).execute_query()
+        link = resp.share_link(SharingLinkKind.OrganizationView).execute_query().value.to_json()["sharingLinkInfo"]["Url"]
+        return link
         
     def _validate_user_group(self, user: User) -> bool:
         if user.groups.filter(name=self.allowed_group).exists():
