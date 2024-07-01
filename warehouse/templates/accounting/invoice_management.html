@@ -18,14 +18,15 @@
 </div>
 <hr class="Dashed" style="margin-top: 10px; margin-bottom: 10px;">
 
-{% if order %}
+{% if order_no_invoice %}
+<div><b>待开账单</b></div>
 <form method="post" action="">
     {% csrf_token %}
     <div style="overflow-x: auto; max-width: 100%; overflow-y: auto; max-height: 600px;">
         <table class="table" id="order-table">
             <thead>
                 <tr style="position: sticky; top: 0;">
-                    <th class="th" style="max-width: 2%; min-width: 10px; text-align: center;">
+                    <th class="th" style="max-width: 2%; min-width: 10px; text-align: center;"></th>
                     <th class="th">客户</th>
                     <th class="th">货柜号</th>
                     <th class="th">建单日期</th>
@@ -46,17 +47,19 @@
                             <input type="hidden" name="order_id", value='{{ c.order_id }}'>
                         </td>
                         <td class="td">{{ c.customer_name }}</td>
-                        <td class="td">{{ c.container_number }}</td>
+                        <td class="td">
+                            <a href="/accounting/?step=container_invoice&container_number={{ c.container_number }}" target="_blank">{{ c.container_number }}</a>
+                        </td>
                         <td class="td">{{ c.created_at|date:"Y-m-d" }} {{ c.created_at|time:"H:i" }}</td>
                     </tr>
                 {% endfor %}
             </tbody>
         </table>
     </div>
-    <input type="hidden" name="step" value="invoice_order_select">
+    <!-- <input type="hidden" name="step" value="invoice_order_select">
     <input type="hidden" name="start_date" value="{{ start_date }}">
-    <input type="hidden" name="end_date" value="{{ end_date }}">
-    <button type="submit" onclick="confirmSubmit()" class="btn btn-primary" style="width: 150px; height: 35px;">生成INVOICE</button>
+    <input type="hidden" name="end_date" value="{{ end_date }}"> -->
+    <!-- <button type="submit" onclick="confirmSubmit()" class="btn btn-primary" style="width: 150px; height: 35px;">生成INVOICE</button> -->
 </form>
 {% endif %}
 

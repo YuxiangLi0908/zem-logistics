@@ -1,7 +1,18 @@
+import io
+import os
+import openpyxl.worksheet
+import openpyxl.worksheet.worksheet
 import pandas as pd
 from datetime import datetime, timedelta
 from typing import Any
 
+from office365.runtime.auth.user_credential import UserCredential
+from office365.sharepoint.client_context import ClientContext
+from office365.sharepoint.sharing.links.kind import SharingLinkKind
+
+import openpyxl
+from openpyxl.utils import get_column_letter
+from openpyxl.styles import Alignment, Font, PatternFill
 from django.http import HttpRequest, HttpResponse, HttpResponseForbidden
 from django.shortcuts import render
 from django.contrib.auth.decorators import login_required
@@ -9,11 +20,27 @@ from django.contrib.auth.models import User
 from django.views import View
 from django.utils.decorators import method_decorator
 from django.db import models
+from django.db.models import Sum, FloatField, IntegerField, Count
 
 from warehouse.models.order import Order
 from warehouse.models.packing_list import PackingList
 from warehouse.forms.order_form import OrderForm
 from warehouse.views.export_file import export_invoice
+from warehouse.utils.constants import (
+    APP_ENV,
+    SP_USER,
+    SP_PASS,
+    SP_URL,
+    SP_DOC_LIB,
+    SYSTEM_FOLDER,
+    ACCT_ACH_ROUTING_NUMBER,
+    ACCT_BANK_NAME,
+    ACCT_BENEFICIARY_ACCOUNT,
+    ACCT_BENEFICIARY_ADDRESS,
+    ACCT_BENEFICIARY_NAME,
+    ACCT_SWIFT_CODE
+)
+
 
 @method_decorator(login_required(login_url='login'), name='dispatch')
 class Accounting(View):
@@ -21,7 +48,9 @@ class Accounting(View):
     template_pl_data = "accounting/pl_data.html"
     template_invoice_management = "accounting/invoice_management.html"
     template_invoice = "accounting/invoice.html"
+    template_invoice_container = "accounting/invoice_container.html"
     allowed_group = "accounting"
+    conn = ClientContext(SP_URL).with_credentials(UserCredential(SP_USER, SP_PASS))
 
     def get(self, request: HttpRequest) -> HttpResponse:
         if not self._validate_user_group(request.user):
@@ -36,6 +65,10 @@ class Accounting(View):
             return render(request, template, context)
         elif step == "invoice":
             template, context = self.handle_invoice_get()
+            return render(request, template, context)
+        elif step == "container_invoice":
+            container_number = request.GET.get("container_number")
+            template, context = self.handle_container_invoice_get(container_number)
             return render(request, template, context)
         else:
             raise ValueError(f"unknow request {step}")
@@ -67,6 +100,8 @@ class Accounting(View):
             return self.handle_invoice_order_select_post(request)
         elif step == "export_invoice":
             return export_invoice(request)
+        elif step == "create_container_invoice":
+            return self.handle_create_container_invoice_post(request)
         else:
             raise ValueError(f"unknow request {step}")
 
@@ -123,19 +158,50 @@ class Accounting(View):
         current_date = datetime.now().date()
         start_date = (current_date + timedelta(days=-30)).strftime('%Y-%m-%d') if not start_date else start_date
         end_date = current_date.strftime('%Y-%m-%d') if not end_date else end_date
-        criteria = models.Q(created_at__gte=start_date)
+        criteria = models.Q(
+            models.Q(offload_id__offload_required=True, offload_id__offload_at__isnull=False) |
+            models.Q(offload_id__offload_required=False)
+        )
+        criteria &= models.Q(created_at__gte=start_date)
         criteria &= models.Q(created_at__lte=end_date)
         if customer:
             criteria &= models.Q(customer_name__zem_name=customer)
         order = Order.objects.filter(criteria).order_by("created_at")
+        order_no_invoice = [o for o in order if not o.invoice_link]
+        order_invoice = [o for o in order if o.invoice_link]
         context = {
             "order_form":OrderForm(),
             "start_date": start_date,
             "end_date": end_date,
             "order": order,
             "customer": customer,
-        } 
+            "order_no_invoice": order_no_invoice,
+            "order_invoice": order_invoice,
+        }
         return self.template_invoice_management, context
+    
+    def handle_container_invoice_get(self, container_number: str) -> tuple[Any, Any]:
+        order = Order.objects.get(container_number__container_number=container_number)
+        packing_list = PackingList.objects.filter(
+            container_number__container_number=container_number
+        ).values(
+            'container_number__container_number', 'destination'
+        ).annotate(
+            total_cbm=Sum("pallet__cbm", output_field=FloatField()),
+            total_n_pallet=Count('pallet__pallet_id', distinct=True),
+        ).order_by("destination", "-total_cbm")
+        for pl in packing_list:
+            if pl["total_cbm"] > 1:
+                pl["total_n_pallet"] = round(pl["total_cbm"] / 2)
+            elif pl["total_cbm"] >= 0.6 and pl["total_cbm"] <= 1:
+                pl["total_n_pallet"] = 0.5
+            else:
+                pl["total_n_pallet"] = 0.25
+        context = {
+            "order": order,
+            "packing_list": packing_list,
+        }
+        return self.template_invoice_container, context
     
     def handle_pallet_data_export_post(self, request: HttpRequest) -> HttpResponse:
         start_date = request.POST.get("start_date")
@@ -211,6 +277,109 @@ class Accounting(View):
         else:
             template, context = self.handle_invoice_order_search_post(request)
             return render(request, template, context)
+        
+    def handle_create_container_invoice_post(self, request: HttpRequest) -> HttpResponse:
+        container_number = request.POST.get("container_number")
+        description = request.POST.getlist("description")
+        warehouse_code = request.POST.getlist("warehouse_code")
+        cbm = request.POST.getlist("cbm")
+        qty = request.POST.getlist("qty")
+        rate = request.POST.getlist("rate")
+        amount = request.POST.getlist("amount")
+        order = Order.objects.get(container_number__container_number=container_number)
+        context = {
+            "order": order,
+            "container_number": container_number,
+            "data": zip(description, warehouse_code, cbm, qty, rate, amount)
+        }
+        return self._generate_invoice_excel(context)
+    
+    def _generate_invoice_excel(self, context: dict[Any, Any]) -> HttpResponse:
+        current_date = datetime.now().date()
+        order_id = str(context["order"].id)
+        if len(order_id) < 5:
+            order_id = '0' * (5 - len(order_id)) + order_id
+        
+        workbook = openpyxl.Workbook()
+        worksheet = workbook.active
+        worksheet.title = "Sheet1"
+
+        cells_to_merge = [
+            "A1:B1", "A3:B3", "A4:B4", "A5:B5", "A6:B6", "A8:B8", "A9:B9", "F1:G1", "F4:G4", "F5:G5", "C1:E1", "A2:G2",
+            "C3:G3", "C4:D4", "C5:D5", "C6:G6", "A7:G7", "C8:G8", "C9:G9", "A10:G10"
+        ]
+        self._merge_ws_cells(worksheet, cells_to_merge)
+
+        worksheet.column_dimensions['A'].width = 18
+        worksheet.row_dimensions[1].height = 40
+        worksheet.column_dimensions['B'].width = 18
+        worksheet.column_dimensions['C'].width = 19
+        worksheet.column_dimensions['D'].width = 6
+        worksheet.column_dimensions['E'].width = 8
+        worksheet.column_dimensions['F'].width = 6
+        worksheet.column_dimensions['G'].width = 10
+
+        worksheet["A1"] = "ZEM LOGISTICS INC."
+        worksheet["A3"] = "85 Metro Way"
+        worksheet["A4"] = "Secaucas, NJ 07906"
+        worksheet["A5"] = "Phone: 929-810-9968"
+        worksheet["A6"] = "E-mail: OFFICE@ZEMLOGISTICS.COM"
+        worksheet["A8"] = "BILL TO"
+        worksheet["A9"] = context["order"].customer_name.accounting_name
+        worksheet["F1"] = "Invoice"
+        worksheet["E4"] = "Date"
+        worksheet["F4"] = current_date.strftime('%Y-%m-%d')
+        worksheet["E5"] = "Invoice #"
+        worksheet["F5"] = f"{current_date.strftime('%Y-%m-%d').replace('-', '')}C{order_id}"
+
+        worksheet['A1'].font = Font(size=20)
+        worksheet['F1'].font = Font(size=28)
+        worksheet['A8'].font = Font(color="00FFFFFF")
+        worksheet['A8'].fill = PatternFill(start_color="00000000", end_color="00000000", fill_type="solid")
+
+        worksheet.append(["CONTAINER #", "DESCRIPTION", "WAREHOUSE CODE", "CBM", "QTY", "QTY", "AMOUNT"])
+        row_count = 12
+        for d, wc, cbm, qty, r, amt in context["data"]:
+            worksheet.append([context["container_number"], d, wc, cbm, qty, r, amt])
+            row_count += 1
+        self._merge_ws_cells(worksheet, [f"A{row_count}:G{row_count}"])
+        row_count += 1
+
+        bank_info = [
+            f"Beneficiary Name: {ACCT_BENEFICIARY_NAME}",
+            f"Bank Name: {ACCT_BANK_NAME}",
+            f"SWIFT Code: {ACCT_SWIFT_CODE}",
+            f"ACH/Wire Transfer Routing Number: {ACCT_ACH_ROUTING_NUMBER}",
+            f"Beneficiary Account #: {ACCT_BENEFICIARY_ACCOUNT}",
+            f"Beneficiary Address: {ACCT_BENEFICIARY_ADDRESS}",
+            f"Email:FINANCE@ZEMLOGISTICS.COM",
+            f"phone: 929-810-9968",
+        ]
+        for c in bank_info:
+            worksheet.append([c])
+            self._merge_ws_cells(worksheet, [f"A{row_count}:G{row_count}"])
+            row_count += 1
+        self._merge_ws_cells(worksheet, [f"A{row_count}:G{row_count}"])
+
+        excel_file = io.BytesIO()
+        workbook.save(excel_file)
+        excel_file.seek(0)
+        file_path = os.path.join(SP_DOC_LIB, f"{SYSTEM_FOLDER}/invoice/{APP_ENV}")
+        sp_folder = self.conn.web.get_folder_by_server_relative_url(file_path)
+        resp = sp_folder.upload_file(f"INVOICE-{context['container_number']}.xlsx", excel_file).execute_query()
+        link = resp.share_link(SharingLinkKind.OrganizationView).execute_query().value.to_json()["sharingLinkInfo"]["Url"]
+        context["order"].invoice_date = current_date
+        context["order"].invoice_link = link
+        context["order"].save()
+
+        response = HttpResponse(content_type='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet')
+        response['Content-Disposition'] = f'attachment; filename=INVOICE-{context["container_number"]}.xlsx'
+        workbook.save(response)
+        return response
+
+    def _merge_ws_cells(self, ws: openpyxl.worksheet.worksheet, cells: list[str]) -> None:
+        for c in cells:
+            ws.merge_cells(c)
         
     def _validate_user_group(self, user: User) -> bool:
         if user.groups.filter(name=self.allowed_group).exists():

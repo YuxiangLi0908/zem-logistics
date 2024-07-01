@@ -20,6 +20,8 @@ class Order(models.Model):
     offload_id = models.ForeignKey(Offload, null=True, blank=True, on_delete=models.SET_NULL)
     shipment_id = models.ForeignKey(Shipment, null=True, blank=True, on_delete=models.SET_NULL)
     do_sent = models.BooleanField(default=False, blank=True)
+    invoice_date = models.DateTimeField(null=True, blank=True)
+    invoice_link = models.CharField(max_length=2000, null=True, blank=True)
     
     def __str__(self) -> str:
         return self.customer_name.zem_name + " - " + self.container_number.container_number

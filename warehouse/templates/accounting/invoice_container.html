@@ -1,0 +1,103 @@
+{% extends 'base.html' %}
+
+{% block content %}
+<div class="container d-flex justify-content-between" style="display: inline-block; width: 100%; margin: 0; padding: 0; max-width: 100%;">    <b>Invoice - {{ order.customer_name.accounting_name }} - {{order.container_number.container_number}}</b>
+    <div class="text-right" style="width: 30%;">
+        <button type="button" id="add-more-btn" class="btn btn-success" style="width: 100px; height: 35px;">
+            添加
+        </button>
+        <button type="button" id="remove-row-btn" class="btn btn-danger" style="width: 100px; height: 35px;">
+            删除
+        </button>
+    </div>
+</div>
+
+<form method="post" action="">
+    {% csrf_token %}
+    <div style="overflow-x: auto; max-width: 100%; overflow-y: auto; max-height: 600px;">
+        <table class="table" id="invoice-table">
+            <thead>
+                <tr style="position: sticky; top: 0;">
+                    <th class="th" style="max-width: 2%; min-width: 10px; text-align: center;"></th>
+                    <th class="th">DESCRIPTION</th>
+                    <th class="th">WAREHOUSE CODE</th>
+                    <th class="th">CBM</th>
+                    <th class="th">QTY</th>
+                    <th class="th">RATE</th>
+                    <th class="th">AMOUNT</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for pl in packing_list%}
+                <tr>
+                    <td class="td" style="max-width: 2%; min-width: 10px; text-align: center;">
+                        <input type="checkbox" name="is_item_selected" onclick="toggleRowBackground(this)">
+                    </td>
+                    <td class="td"><input type="text" name="description" value="派送费" required></td>
+                    <td class="td"><input type="text" name="warehouse_code" value="{{ pl.destination }}"></td>
+                    <td class="td"><input type="number" name="cbm" step=0.01 value="{{ pl.total_cbm|floatformat:2 }}"></td>
+                    <td class="td"><input type="number" name="qty" step=0.01 value="{{ pl.total_n_pallet }}" required></td>
+                    <td class="td"><input type="number" name="rate" step=0.01 oninput="updateAmount(this)" required></td>
+                    <td class="td"><input type="number" name="amount" step=0.01 required></td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+        <input type="hidden" name="step" value="create_container_invoice">
+        <input type="hidden" name="container_number" value="{{ order.container_number.container_number }}">
+        <button type="submit" onclick="confirmSubmit()" class="btn btn-primary" style="width: 150px; height: 35px;">生成INVOICE</button>
+    </div>
+</form>
+
+<script>
+    function toggleRowBackground(checkbox) {
+        var row = checkbox.closest('tr');
+        if (checkbox.checked) {
+            row.style.backgroundColor = '#ADD8E6'; // Change to your desired color
+        } else {
+            row.style.backgroundColor = ''; // Reset to default color
+        }
+    };
+
+    function updateAmount(rateInput) {
+        const row = rateInput.closest('tr');
+        const qty = parseFloat(row.querySelector('input[name="qty"]').value);
+        const rate = parseFloat(rateInput.value);
+        const amount = qty * rate;
+        const amountInput = row.querySelector('input[name="amount"]');
+        amountInput.value = amount.toFixed(2);
+    };
+
+    function addRow() {
+        const table = document.getElementById('invoice-table').getElementsByTagName('tbody')[0];
+        const newRow = table.insertRow();
+        newRow.innerHTML = `
+            <tr>
+                <td class="td" style="max-width: 2%; min-width: 10px; text-align: center;">
+                    <input type="checkbox" name="is_item_selected" onclick="toggleRowBackground(this)">
+                </td>
+                <td class="td"><input type="text" name="description" value="" required></td>
+                <td class="td"><input type="text" name="warehouse_code" value=""></td>
+                <td class="td"><input type="number" name="cbm" step=0.01 value=""></td>
+                <td class="td"><input type="number" name="qty" step=0.01 value="" required></td>
+                <td class="td"><input type="number" name="rate" step=0.01 oninput="updateAmount(this)" required></td>
+                <td class="td"><input type="number" name="amount" step=0.01 required></td>
+            </tr>
+        `;
+    };
+
+    function removeRows() {
+        const checkboxes = document.querySelectorAll('input[name="is_item_selected"]:checked');
+        checkboxes.forEach(checkbox => {
+            const row = checkbox.closest('tr');
+            row.remove();
+        });
+    };
+
+    document.addEventListener('DOMContentLoaded', (event) => {
+        document.getElementById('add-more-btn').addEventListener('click', addRow);
+        document.getElementById('remove-row-btn').addEventListener('click', removeRows);
+    });
+
+</script>
+{% endblock %}
