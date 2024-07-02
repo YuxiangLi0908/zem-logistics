@@ -1,6 +1,8 @@
+import io
 import pytz
 import pandas as pd
 
+from io import BytesIO
 from xhtml2pdf import pisa
 from typing import Any
 from datetime import datetime
@@ -233,10 +235,10 @@ def export_do(request: HttpRequest) -> HttpResponse:
         raise ValueError('Error during PDF generation: %s' % pisa_status.err, content_type='text/plain')
     return response
 
-def export_invoice(request: HttpRequest) -> HttpResponse:
+def export_invoice(request: HttpRequest) -> tuple[HttpResponse, str, BytesIO, dict[Any, Any]]:
     customer = request.POST.get("customer")
     chinese_char = False if customer.isascii() else True
-    invoice_number = request.POST.get("invoice_number")
+    invoice_statement_id = request.POST.get("invoice_statement_id")
     invoice_terms = request.POST.get("invoice_terms")
     invoice_date = request.POST.get("invoice_date")
     due_date = request.POST.get("due_date")
@@ -252,18 +254,25 @@ def export_invoice(request: HttpRequest) -> HttpResponse:
         "chinese_char": chinese_char,
         "invoice_details": invoice_details,
         "total_amount": total_amount,
-        "invoice_number": invoice_number,
+        "invoice_statement_id": invoice_statement_id,
         "invoice_terms": invoice_terms,
         "invoice_date": invoice_date,
         "due_date": due_date,
+        "container_number": container_number,
     }
 
     template_path = "export_file/invoice_template.html"
     template = get_template(template_path)
     html = template.render(context)
     response = HttpResponse(content_type="application/pdf")
-    response['Content-Disposition'] = f'attachment; filename="invoice_{invoice_number}_from_ZEM_ELITELINK LOGISTICS_INC.pdf"'
+    response['Content-Disposition'] = f'attachment; filename="invoice_{invoice_statement_id}_from_ZEM_ELITELINK LOGISTICS_INC.pdf"'
     pisa_status = pisa.CreatePDF(html, dest=response)
     if pisa_status.err:
         raise ValueError('Error during PDF generation: %s' % pisa_status.err, content_type='text/plain')
-    return response
+    
+    pdf_file = io.BytesIO()
+    pisa_status = pisa.CreatePDF(html, dest=pdf_file)
+    if pisa_status.err:
+        return HttpResponse('Error during PDF generation: %s' % pisa_status.err, content_type='text/plain')
+    pdf_file.seek(0)
+    return response, f"invoice_{invoice_statement_id}_from_ZEM_ELITELINK LOGISTICS_INC.pdf", pdf_file, context

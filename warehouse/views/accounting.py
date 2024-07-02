@@ -4,6 +4,7 @@ import openpyxl.workbook
 import openpyxl.worksheet
 import openpyxl.worksheet.worksheet
 import pandas as pd
+from io import BytesIO
 from datetime import datetime, timedelta
 from typing import Any
 
@@ -23,9 +24,9 @@ from django.db import models
 from django.db.models import Sum, FloatField, Count
 
 from warehouse.models.order import Order
-from warehouse.models.invoice import Invoice
+from warehouse.models.invoice import Invoice, InvoiceStatement
 from warehouse.models.packing_list import PackingList
-from warehouse.models.warehouse import ZemWarehouse
+from warehouse.models.customer import Customer
 from warehouse.forms.order_form import OrderForm
 from warehouse.views.export_file import export_invoice
 from warehouse.utils.constants import (
@@ -101,7 +102,7 @@ class Accounting(View):
         elif step == "invoice_order_select":
             return self.handle_invoice_order_select_post(request)
         elif step == "export_invoice":
-            return export_invoice(request)
+            return self.handle_export_invoice_post(request)
         elif step == "create_container_invoice":
             return self.handle_create_container_invoice_post(request)
         else:
@@ -272,12 +273,13 @@ class Accounting(View):
             )
             order_id = [o.id for o in order]
             customer = order[0].customer_name
-            current_date = datetime.now().date().strftime("%Y-%m-%d").replace("-", "")
-            invoice_statement_id = f"{current_date}S{customer.id}{max(order_id)}"
+            current_date = datetime.now().date().strftime("%Y-%m-%d")
+            invoice_statement_id = f"{current_date.replace('-', '')}S{customer.id}{max(order_id)}"
             context = {
                 "order": order,
                 "customer": customer,
                 "invoice_statement_id": invoice_statement_id,
+                "current_date": current_date,
             }
             return render(request, self.template_invoice_statement, context)
         else:
@@ -299,6 +301,27 @@ class Accounting(View):
             "data": zip(description, warehouse_code, cbm, qty, rate, amount)
         }
         return self._generate_invoice_excel(context)
+    
+    def handle_export_invoice_post(self, request: HttpRequest) -> HttpResponse:
+        resp, file_name, pdf_file, context = export_invoice(request)
+        pdf_file.seek(0)
+        link = self._upload_excel_to_sharepoint(pdf_file, "invoice_statement", file_name)
+        invoice = Invoice.objects.filter(models.Q(container_number__container_number__in=context["container_number"]))
+        invoice_statement = InvoiceStatement(**{
+            "invoice_statement_id": context["invoice_statement_id"],
+            "statement_amount": context["total_amount"],
+            "statement_date": context["invoice_date"],
+            "due_date": context["due_date"],
+            "invoice_terms": context["invoice_terms"],
+            "customer": Customer.objects.get(accounting_name=context["customer"]),
+            "statement_link": link,
+        })
+        invoice_statement.save()
+        for invc in invoice:
+            invc.statement_id = invoice_statement
+            invc.save()
+        
+        return resp
     
     def _generate_invoice_excel(self, context: dict[Any, Any]) -> HttpResponse:
         current_date = datetime.now().date()
@@ -376,7 +399,10 @@ class Accounting(View):
             row_count += 1
         self._merge_ws_cells(worksheet, [f"A{row_count}:G{row_count}"])
 
-        invoice_link = self._upload_excel_to_sharepoint(workbook, f"INVOICE-{context['container_number']}")
+        excel_file = io.BytesIO()
+        workbook.save(excel_file)
+        excel_file.seek(0)
+        invoice_link = self._upload_excel_to_sharepoint(excel_file, "invoice", f"INVOICE-{context['container_number']}.xlsx")
         invoice = Invoice(**{
             "invoice_number": invoice_number,
             "invoice_date": current_date,
@@ -400,13 +426,15 @@ class Accounting(View):
         for c in cells:
             ws.merge_cells(c)
 
-    def _upload_excel_to_sharepoint(self, wb: openpyxl.workbook.workbook, file_name: str) -> str:
-        excel_file = io.BytesIO()
-        wb.save(excel_file)
-        excel_file.seek(0)
-        file_path = os.path.join(SP_DOC_LIB, f"{SYSTEM_FOLDER}/invoice/{APP_ENV}")
+    def _upload_excel_to_sharepoint(
+        self,
+        file: BytesIO,
+        schema: str,
+        file_name: str
+    ) -> str:
+        file_path = os.path.join(SP_DOC_LIB, f"{SYSTEM_FOLDER}/{schema}/{APP_ENV}")
         sp_folder = self.conn.web.get_folder_by_server_relative_url(file_path)
-        resp = sp_folder.upload_file(f"{file_name}.xlsx", excel_file).execute_query()
+        resp = sp_folder.upload_file(f"{file_name}", file).execute_query()
         link = resp.share_link(SharingLinkKind.OrganizationView).execute_query().value.to_json()["sharingLinkInfo"]["Url"]
         return link
         
