@@ -339,8 +339,8 @@ class Accounting(View):
         ]
         self._merge_ws_cells(worksheet, cells_to_merge)
 
-        worksheet.column_dimensions['A'].width = 13
-        worksheet.column_dimensions['B'].width = 15
+        worksheet.column_dimensions['A'].width = 18
+        worksheet.column_dimensions['B'].width = 18
         worksheet.column_dimensions['C'].width = 15
         worksheet.column_dimensions['D'].width = 7
         worksheet.column_dimensions['E'].width = 8
@@ -348,7 +348,7 @@ class Accounting(View):
         worksheet.column_dimensions['G'].width = 11
         worksheet.row_dimensions[1].height = 40
 
-        worksheet["A1"] = "ZEM LOGISTICS INC."
+        worksheet["A1"] = "Zem Elitelink Logistics Inc"
         worksheet["A3"] = "NJ"
         worksheet["B3"] = "27 Engelhard Ave. Avenel NJ 07001"
         worksheet["B4"] = "Contact: Marstin Ma 929-810-9968"
