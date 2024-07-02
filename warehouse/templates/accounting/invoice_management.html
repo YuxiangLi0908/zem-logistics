@@ -68,12 +68,14 @@
                             <th class="th">客户</th>
                             <th class="th">货柜号</th>
                             <th class="th">建单日期</th>
+                            <th class="th">账单日期</th>
                             <th class="th">INVOICE</th>
                         </tr>
                         <tr style="position: sticky; top: 40px;">
                             <th class="th" style="max-width: 2%; min-width: 10px; text-align: center;"></th>
                             <th class="th"></th>
                             <th class="th"><input type="text" id="containerSearchInput" placeholder="搜索柜号..." oninput="filterTable(this, 2)"></th>
+                            <th class="th"></th>
                             <th class="th"></th>
                             <th class="th"></th>
                         </tr>
@@ -89,8 +91,11 @@
                                 <td class="td">{{ c.customer_name }}</td>
                                 <td class="td">{{ c.container_number }}</td>
                                 <td class="td">{{ c.created_at|date:"Y-m-d" }} {{ c.created_at|time:"H:i" }}</td>
+                                <td class="td">{{ c.invoice_id.invoice_date|date:"Y-m-d" }}</td>
                                 <td class="td">
-                                    <a href="{{ c.invoice_id.invoice_link }}" target="_blank">invoice</a>
+                                    <a href="{{ c.invoice_id.invoice_link }}" target="_blank">
+                                        <i class="bi bi-file-earmark-bar-graph-fill"></i>
+                                    </a>
                                 </td>
                             </tr>
                         {% endfor %}
@@ -100,7 +105,7 @@
             <input type="hidden" name="step" value="invoice_order_select">
             <input type="hidden" name="start_date" value="{{ start_date }}">
             <input type="hidden" name="end_date" value="{{ end_date }}">
-            <button type="submit" onclick="confirmSubmit()" class="btn btn-primary" style="width: 150px; height: 35px;">生成INVOICE</button>
+            <button type="submit" onclick="confirmSubmit()" class="btn btn-primary" style="width: 150px; height: 35px;">生成INVOICE <i class="bi bi-receipt"></i></button>
         </form>
         {% endif %}
     </div>

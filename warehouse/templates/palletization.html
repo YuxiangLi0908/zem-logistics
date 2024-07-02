@@ -57,7 +57,7 @@
                                 <input type="hidden" name="step" value="export_palletization_list">
                                 <input type="hidden" name="status" value="non_palletized">
                                 <input type="hidden" name="container_number" value="{{ c.container_number }}">
-                                <button type="submit" class="btn btn-success"><small>拆柜单</small></button>
+                                <button type="submit" class="btn btn-success"><small>拆柜单</small> <i class="bi bi-cloud-arrow-down-fill"></i></button>
                             </form>
                             <form method="post" action="" style="display: inline-block;">
                                 {% csrf_token %}
@@ -65,7 +65,7 @@
                                 <input type="hidden" name="status" value="non_palletized">
                                 <input type="hidden" name="customer_name" value="{{ c.customer_name.zem_code }}">
                                 <input type="hidden" name="container_number" value="{{ c.container_number }}">
-                                <button type="submit" class="btn btn-success"><small>托盘标</small></button>
+                                <button type="submit" class="btn btn-success"><small>托盘标</small> <i class="bi bi-cloud-arrow-down-fill"></i></button>
                             </form>
                         </td>
                     </tr>
@@ -123,7 +123,7 @@
                                 <input type="hidden" name="step" value="export_palletization_list">
                                 <input type="hidden" name="status" value="palletized">
                                 <input type="hidden" name="container_number" value="{{ c.container_number }}">
-                                <button type="submit" class="btn btn-success"><small>拆柜单</small></button>
+                                <button type="submit" class="btn btn-success"><small>拆柜单</small> <i class="bi bi-cloud-arrow-down-fill"></i></button>
                             </form>
                             <form method="post" action="" style="display: inline-block;">
                                 {% csrf_token %}
@@ -131,7 +131,7 @@
                                 <input type="hidden" name="status" value="palletized">
                                 <input type="hidden" name="customer_name" value="{{ c.customer_name.zem_code }}">
                                 <input type="hidden" name="container_number" value="{{ c.container_number }}">
-                                <button type="submit" class="btn btn-success"><small>托盘标</small></button>
+                                <button type="submit" class="btn btn-success"><small>托盘标</small> <i class="bi bi-cloud-arrow-down-fill"></i></button>
                             </form>
                         </td>
                         <td class="td">
@@ -139,7 +139,7 @@
                                 {% csrf_token %}
                                 <input type="hidden" name="step" value="cancel">
                                 <input type="hidden" name="container_number" value="{{ c.container_number }}">
-                                <button type="submit" class="btn btn-danger">撤销</button>
+                                <button type="submit" class="btn btn-danger"><i class="bi bi-x-octagon"></i></button>
                             </form>
                         </td>
                     </tr>

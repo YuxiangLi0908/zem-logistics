@@ -12,7 +12,7 @@ from office365.sharepoint.client_context import ClientContext
 from office365.sharepoint.sharing.links.kind import SharingLinkKind
 
 import openpyxl
-from openpyxl.styles import Font, PatternFill
+from openpyxl.styles import Alignment, Font, PatternFill
 from django.http import HttpRequest, HttpResponse, HttpResponseForbidden
 from django.shortcuts import render
 from django.contrib.auth.decorators import login_required
@@ -25,6 +25,7 @@ from django.db.models import Sum, FloatField, Count
 from warehouse.models.order import Order
 from warehouse.models.invoice import Invoice
 from warehouse.models.packing_list import PackingList
+from warehouse.models.warehouse import ZemWarehouse
 from warehouse.forms.order_form import OrderForm
 from warehouse.views.export_file import export_invoice
 from warehouse.utils.constants import (
@@ -48,7 +49,7 @@ class Accounting(View):
     template_pallet_data = "accounting/pallet_data.html"
     template_pl_data = "accounting/pl_data.html"
     template_invoice_management = "accounting/invoice_management.html"
-    template_invoice_statement = "accounting/invoice_statement.html.html"
+    template_invoice_statement = "accounting/invoice_statement.html"
     template_invoice_container = "accounting/invoice_container.html"
     allowed_group = "accounting"
     conn = ClientContext(SP_URL).with_credentials(UserCredential(SP_USER, SP_PASS))
@@ -269,10 +270,14 @@ class Accounting(View):
             order = Order.objects.filter(
                 order_id__in=order_selected
             )
+            order_id = [o.id for o in order]
             customer = order[0].customer_name
+            current_date = datetime.now().date().strftime("%Y-%m-%d").replace("-", "")
+            invoice_statement_id = f"{current_date}S{customer.id}{max(order_id)}"
             context = {
                 "order": order,
                 "customer": customer,
+                "invoice_statement_id": invoice_statement_id,
             }
             return render(request, self.template_invoice_statement, context)
         else:
@@ -306,38 +311,47 @@ class Accounting(View):
         worksheet.title = "Sheet1"
 
         cells_to_merge = [
-            "A1:B1", "A3:B3", "A4:B4", "A5:B5", "A6:B6", "A8:B8", "A9:B9", "F1:G1", "F4:G4", "F5:G5", "C1:E1", "A2:G2",
-            "C3:G3", "C4:D4", "C5:D5", "C6:G6", "A7:G7", "C8:G8", "C9:G9", "A10:G10"
+            "A1:B1", "A3:A4", "B3:D3", "B4:D4", "E3:E4", "F3:G4", "A5:A6", "B5:D5", "B6:D6", "E5:E6", "F5:G6", "A9:B9", 
+            "A10:B10", "F1:G1", "C1:E1", "A2:G2", "A7:G7", "A8:G8", "C9:G9", "C10:G10", "A11:G11"
         ]
         self._merge_ws_cells(worksheet, cells_to_merge)
 
-        worksheet.column_dimensions['A'].width = 18
-        worksheet.row_dimensions[1].height = 40
-        worksheet.column_dimensions['B'].width = 18
-        worksheet.column_dimensions['C'].width = 19
-        worksheet.column_dimensions['D'].width = 6
+        worksheet.column_dimensions['A'].width = 13
+        worksheet.column_dimensions['B'].width = 15
+        worksheet.column_dimensions['C'].width = 15
+        worksheet.column_dimensions['D'].width = 7
         worksheet.column_dimensions['E'].width = 8
         worksheet.column_dimensions['F'].width = 7
         worksheet.column_dimensions['G'].width = 11
+        worksheet.row_dimensions[1].height = 40
 
         worksheet["A1"] = "ZEM LOGISTICS INC."
-        worksheet["A3"] = "85 Metro Way"
-        worksheet["A4"] = "Secaucas, NJ 07906"
-        worksheet["A5"] = "Phone: 929-810-9968"
-        worksheet["A6"] = "E-mail: OFFICE@ZEMLOGISTICS.COM"
-        worksheet["A8"] = "BILL TO"
-        worksheet["A9"] = context["order"].customer_name.accounting_name
+        worksheet["A3"] = "NJ"
+        worksheet["B3"] = "27 Engelhard Ave. Avenel NJ 07001"
+        worksheet["B4"] = "Contact: Marstin Ma 929-810-9968"
+        worksheet["A5"] = "SAV"
+        worksheet["B5"] = "774 King George Blvd Savannah, GA 31419"
+        worksheet["B6"] = "Contact: Darren Zheng 805-868-1682"
+        worksheet["A7"] = "E-mail: OFFICE@ZEMLOGISTICS.COM"
+        worksheet["A9"] = "BILL TO"
+        worksheet["A10"] = context["order"].customer_name.accounting_name
         worksheet["F1"] = "Invoice"
-        worksheet["E4"] = "Date"
-        worksheet["F4"] = current_date.strftime('%Y-%m-%d')
+        worksheet["E3"] = "Date"
+        worksheet["F3"] = current_date.strftime('%Y-%m-%d')
         worksheet["E5"] = "Invoice #"
         worksheet["F5"] = invoice_number
 
         worksheet['A1'].font = Font(size=20)
         worksheet['F1'].font = Font(size=28)
+        worksheet["A3"].alignment = Alignment(vertical="center")
+        worksheet["A5"].alignment = Alignment(vertical="center")
+        worksheet["E3"].alignment = Alignment(vertical="center")
+        worksheet["E5"].alignment = Alignment(vertical="center")
+        worksheet["F3"].alignment = Alignment(vertical="center")
+        worksheet["F5"].alignment = Alignment(vertical="center")
 
         worksheet.append(["CONTAINER #", "DESCRIPTION", "WAREHOUSE CODE", "CBM", "QTY", "QTY", "AMOUNT"])
-        row_count = 12
+        row_count = 13
         total_amount = 0.0
         for d, wc, cbm, qty, r, amt in context["data"]:
             worksheet.append([context["container_number"], d, wc, cbm, qty, r, amt])
@@ -375,8 +389,8 @@ class Accounting(View):
         context["order"].invoice_id = invoice
         context["order"].save()
 
-        worksheet['A8'].font = Font(color="00FFFFFF")
-        worksheet['A8'].fill = PatternFill(start_color="00000000", end_color="00000000", fill_type="solid")
+        worksheet['A9'].font = Font(color="00FFFFFF")
+        worksheet['A9'].fill = PatternFill(start_color="00000000", end_color="00000000", fill_type="solid")
         response = HttpResponse(content_type='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet')
         response['Content-Disposition'] = f'attachment; filename=INVOICE-{context["container_number"]}.xlsx'
         workbook.save(response)
