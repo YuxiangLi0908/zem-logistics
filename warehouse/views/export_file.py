@@ -21,6 +21,14 @@ from django.template.loader import get_template
 
 from warehouse.models.packing_list import PackingList
 from warehouse.models.order import Order
+from warehouse.utils.constants import (
+    ACCT_ACH_ROUTING_NUMBER,
+    ACCT_BANK_NAME,
+    ACCT_BENEFICIARY_ACCOUNT,
+    ACCT_BENEFICIARY_ADDRESS,
+    ACCT_BENEFICIARY_NAME,
+    ACCT_SWIFT_CODE
+)
 
 @method_decorator(login_required(login_url='login'), name='dispatch')
 class ExportFile(View):
@@ -259,6 +267,12 @@ def export_invoice(request: HttpRequest) -> tuple[HttpResponse, str, BytesIO, di
         "invoice_date": invoice_date,
         "due_date": due_date,
         "container_number": container_number,
+        "ACCT_ACH_ROUTING_NUMBER": ACCT_ACH_ROUTING_NUMBER,
+        "ACCT_BANK_NAME": ACCT_BANK_NAME,
+        "ACCT_BENEFICIARY_ACCOUNT": ACCT_BENEFICIARY_ACCOUNT,
+        "ACCT_BENEFICIARY_ADDRESS": ACCT_BENEFICIARY_ADDRESS,
+        "ACCT_BENEFICIARY_NAME": ACCT_BENEFICIARY_NAME,
+        "ACCT_SWIFT_CODE": ACCT_SWIFT_CODE,
     }
 
     template_path = "export_file/invoice_template.html"
