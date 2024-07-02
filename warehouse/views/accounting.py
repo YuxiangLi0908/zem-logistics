@@ -13,7 +13,7 @@ from office365.sharepoint.client_context import ClientContext
 from office365.sharepoint.sharing.links.kind import SharingLinkKind
 
 import openpyxl
-from openpyxl.styles import Alignment, Font, PatternFill
+from openpyxl.styles import Alignment, Font, numbers, PatternFill
 from django.http import HttpRequest, HttpResponse, HttpResponseForbidden
 from django.shortcuts import render
 from django.contrib.auth.decorators import login_required
@@ -357,7 +357,7 @@ class Accounting(View):
         worksheet["B6"] = "Contact: Darren Zheng 805-868-1682"
         worksheet["A7"] = "E-mail: OFFICE@ZEMLOGISTICS.COM"
         worksheet["A9"] = "BILL TO"
-        worksheet["A10"] = context["order"].customer_name.accounting_name
+        worksheet["A10"] = context["order"].customer_name.zem_name
         worksheet["F1"] = "Invoice"
         worksheet["E3"] = "Date"
         worksheet["F3"] = current_date.strftime('%Y-%m-%d')
@@ -373,13 +373,22 @@ class Accounting(View):
         worksheet["F3"].alignment = Alignment(vertical="center")
         worksheet["F5"].alignment = Alignment(vertical="center")
 
-        worksheet.append(["CONTAINER #", "DESCRIPTION", "WAREHOUSE CODE", "CBM", "QTY", "QTY", "AMOUNT"])
+        worksheet.append(["CONTAINER #", "DESCRIPTION", "WAREHOUSE CODE", "CBM", "QTY", "RATE", "AMOUNT"])
         row_count = 13
         total_amount = 0.0
         for d, wc, cbm, qty, r, amt in context["data"]:
             worksheet.append([context["container_number"], d, wc, cbm, qty, r, amt])
             total_amount += float(amt)
             row_count += 1
+
+        worksheet.append(["Total", None, None, None, None, None, total_amount])
+        self._merge_ws_cells(worksheet, [f"A{row_count}:F{row_count}"])
+        # worksheet[f"A{row_count}"] = "Total"
+        # worksheet[f"G{row_count}"] = total_amount
+        worksheet[f"A{row_count}"].alignment = Alignment(horizontal="center")
+        worksheet[f"G{row_count}"].number_format = numbers.FORMAT_NUMBER_00
+        worksheet[f"G{row_count}"].alignment = Alignment(horizontal="left")
+        row_count += 1
         self._merge_ws_cells(worksheet, [f"A{row_count}:G{row_count}"])
         row_count += 1
 
