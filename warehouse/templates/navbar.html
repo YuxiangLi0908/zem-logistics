@@ -72,7 +72,12 @@
                         <div class="dropdown-content">
                             <a href="{% url 'accounting' %}?step=pallet_data">托盘数据</a>
                             <a href="{% url 'accounting' %}?step=pl_data">派送清单</a>
-                            <a href="{% url 'accounting' %}?step=invoice">账单</a>
+                            <div class="nested-dropdown" >
+                                <a>账单</a>
+                                <div class="nested-dropdown-content">
+                                    <a href="{% url 'accounting' %}?step=invoice">货柜账单</a>
+                                </div>
+                            </div>
                         </div>
                     </div>
                 </li>

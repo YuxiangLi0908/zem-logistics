@@ -99,3 +99,10 @@ SP_SITE = os.environ.get("MS_SP_SITE")
 SP_DOC_LIB = os.environ.get("MS_SP_DOC_LIB")
 SYSTEM_FOLDER = "system_archive"
 APP_ENV = "prd" if os.environ.get("APP_ENV", "staging") == "production" else "stg"
+
+ACCT_ACH_ROUTING_NUMBER = os.environ.get("ACCT_ACH_ROUTING_NUMBER")
+ACCT_BANK_NAME = os.environ.get("ACCT_BANK_NAME")
+ACCT_BENEFICIARY_ACCOUNT = os.environ.get("ACCT_BENEFICIARY_ACCOUNT")
+ACCT_BENEFICIARY_ADDRESS = os.environ.get("ACCT_BENEFICIARY_ADDRESS")
+ACCT_BENEFICIARY_NAME = os.environ.get("ACCT_BENEFICIARY_NAME")
+ACCT_SWIFT_CODE = os.environ.get("ACCT_SWIFT_CODE")

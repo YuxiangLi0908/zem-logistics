@@ -18,65 +18,118 @@
 </div>
 <hr class="Dashed" style="margin-top: 10px; margin-bottom: 10px;">
 
-{% if order %}
-<form method="post" action="">
-    {% csrf_token %}
-    <div style="overflow-x: auto; max-width: 100%; overflow-y: auto; max-height: 600px;">
-        <table class="table" id="order-table">
-            <thead>
-                <tr style="position: sticky; top: 0;">
-                    <th class="th" style="max-width: 2%; min-width: 10px; text-align: center;">
-                    <th class="th">客户</th>
-                    <th class="th">货柜号</th>
-                    <th class="th">建单日期</th>
-                </tr>
-                <tr style="position: sticky; top: 40px;">
-                    <th class="th" style="max-width: 2%; min-width: 10px; text-align: center;"></th>
-                    <th class="th"></th>
-                    <th class="th"><input type="text" id="containerSearchInput" placeholder="搜索柜号..." oninput="filterTable()"></th>
-                    <th class="th"></th>
-                </tr>
-            </thead>
-            <tbody>
-                {% for c in order %}
-                    <tr>
-                        <td class="td" style="max-width: 2%; min-width: 10px; text-align: center;">
-                            <input type='checkbox' name='is_order_selected' onclick="toggleRowBackground(this)">
-                            <input type="hidden" name="is_order_selected", value='off'>
-                            <input type="hidden" name="order_id", value='{{ c.order_id }}'>
-                        </td>
-                        <td class="td">{{ c.customer_name }}</td>
-                        <td class="td">{{ c.container_number }}</td>
-                        <td class="td">{{ c.created_at|date:"Y-m-d" }} {{ c.created_at|time:"H:i" }}</td>
-                    </tr>
-                {% endfor %}
-            </tbody>
-        </table>
+<div style="display: flex; max-height: 720px;">
+    <div style="overflow-y: auto; max-height: 100%; width: 35%; border: 2px solid rgb(180, 180, 180); border-radius: 12px; padding: 1%; margin: 1%;">
+        {% if order_no_invoice %}
+        <div><b>待开账单</b></div>
+        <form method="post" action="">
+            {% csrf_token %}
+            <div style="overflow-x: auto; max-width: 100%; overflow-y: auto; max-height: 600px;">
+                <table class="table" id="order-table">
+                    <thead>
+                        <tr style="position: sticky; top: 0;">
+                            <th class="th">客户</th>
+                            <th class="th">货柜号</th>
+                            <th class="th">建单日期</th>
+                        </tr>
+                        <tr style="position: sticky; top: 40px;">
+                            <th class="th"></th>
+                            <th class="th"><input type="text" id="containerSearchInput" placeholder="搜索柜号..." oninput="filterTable(this, 1)"></th>
+                            <th class="th"></th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for c in order_no_invoice %}
+                            <tr>
+                                <td class="td">{{ c.customer_name }}</td>
+                                <td class="td">
+                                    <a href="/accounting/?step=container_invoice&container_number={{ c.container_number }}" target="_blank">{{ c.container_number }}</a>
+                                </td>
+                                <td class="td">{{ c.created_at|date:"Y-m-d" }} {{ c.created_at|time:"H:i" }}</td>
+                            </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+        </form>
+        {% endif %}
     </div>
-    <input type="hidden" name="step" value="invoice_order_select">
-    <input type="hidden" name="start_date" value="{{ start_date }}">
-    <input type="hidden" name="end_date" value="{{ end_date }}">
-    <button type="submit" onclick="confirmSubmit()" class="btn btn-primary" style="width: 150px; height: 35px;">生成INVOICE</button>
-</form>
-{% endif %}
+
+    <div style="overflow-y: auto; max-height: 100%; width: 65%; border: 2px solid rgb(180, 180, 180); border-radius: 12px; padding: 1%; margin: 1%;">
+        {% if order_invoice %}
+        <div><b>已开账单</b></div>
+        <form method="post" action="">
+            {% csrf_token %}
+            <div style="overflow-x: auto; max-width: 100%; overflow-y: auto; max-height: 600px;">
+                <table class="table" id="order-table">
+                    <thead>
+                        <tr style="position: sticky; top: 0;">
+                            <th class="th" style="max-width: 2%; min-width: 10px; text-align: center;"></th>
+                            <th class="th">客户</th>
+                            <th class="th">货柜号</th>
+                            <th class="th">建单日期</th>
+                            <th class="th">账单日期</th>
+                            <th class="th">INVOICE</th>
+                        </tr>
+                        <tr style="position: sticky; top: 40px;">
+                            <th class="th" style="max-width: 2%; min-width: 10px; text-align: center;"></th>
+                            <th class="th"></th>
+                            <th class="th"><input type="text" id="containerSearchInput" placeholder="搜索柜号..." oninput="filterTable(this, 2)"></th>
+                            <th class="th"></th>
+                            <th class="th"></th>
+                            <th class="th"></th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for c in order_invoice %}
+                            <tr>
+                                <td class="td" style="max-width: 2%; min-width: 10px; text-align: center;">
+                                    <input type='checkbox' name='is_order_selected' onclick="toggleRowBackground(this)">
+                                    <input type="hidden" name="is_order_selected", value='off'>
+                                    <input type="hidden" name="order_id", value='{{ c.order_id }}'>
+                                </td>
+                                <td class="td">{{ c.customer_name }}</td>
+                                <td class="td">{{ c.container_number }}</td>
+                                <td class="td">{{ c.created_at|date:"Y-m-d" }} {{ c.created_at|time:"H:i" }}</td>
+                                <td class="td">{{ c.invoice_id.invoice_date|date:"Y-m-d" }}</td>
+                                <td class="td">
+                                    <a href="{{ c.invoice_id.invoice_link }}" target="_blank">
+                                        <i class="bi bi-file-earmark-bar-graph-fill"></i>
+                                    </a>
+                                </td>
+                            </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+            <input type="hidden" name="step" value="invoice_order_select">
+            <input type="hidden" name="start_date" value="{{ start_date }}">
+            <input type="hidden" name="end_date" value="{{ end_date }}">
+            <button type="submit" onclick="confirmSubmit()" class="btn btn-primary" style="width: 150px; height: 35px;">生成INVOICE <i class="bi bi-receipt"></i></button>
+        </form>
+        {% endif %}
+    </div>
+</div>
+
 
 <script>
-    function filterTable() {
+    function filterTable(filterInput, col_idx) {
         var containerInput, containerFilter, table, tbody, tr, containerTd, i, containerTxtValue;
-        containerInput = document.getElementById("containerSearchInput");
-        containerFilter = containerInput.value.toUpperCase();
-        table = document.getElementById("order-table");
+        containerFilter = filterInput.value.toUpperCase();
+        var table = filterInput.closest('table');
         tbody = table.getElementsByTagName("tbody")[0];
         tr = tbody.getElementsByTagName("tr");
 
         for (i = 0; i < tr.length; i++) {
-            containerTd = tr[i].getElementsByTagName("td")[2];
+            containerTd = tr[i].getElementsByTagName("td")[col_idx];
             if (containerTd) {
-                containerTxtValue = containerTd.textContent || containerTd.innerText;
-                var containerDisplayStyle = containerTxtValue.toUpperCase().indexOf(containerFilter) > -1 ? "" : "none";
 
+                containerTxtValue = containerTd.textContent || containerTd.innerText;
+                containerTxtValue = containerTxtValue.toUpperCase().trim()
+                var containerDisplayStyle_1 = containerTxtValue.indexOf(containerFilter) > -1 ? "" : "none";
+                var containerDisplayStyle_2 = containerFilter.indexOf(containerTxtValue) > -1 ? "" : "none";
                 // Set display style based on both container and customer filters
-                tr[i].style.display = containerDisplayStyle === "" ? "" : "none";
+                tr[i].style.display = containerDisplayStyle_1 === "" || containerDisplayStyle_2 === "" ? "" : "none";
             }
         }
     };
