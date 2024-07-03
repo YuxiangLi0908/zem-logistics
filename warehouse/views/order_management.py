@@ -377,6 +377,9 @@ class OrderManagement(View):
         form.is_valid()
         order.eta = str(form.cleaned_data.get("eta"))
         order.order_type = form.cleaned_data.get("order_type")
+        if form.cleaned_data.get("order_type") == "转运":
+            order.offload_id.offload_required = True
+            order.offload_id.save()
         order.save()
         status = request.POST.get("status")
         if status == "non_palletized":
