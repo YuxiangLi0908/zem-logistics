@@ -27,3 +27,16 @@ class Invoice(models.Model):
 
     def __str__(self) -> str:
         return self.customer.zem_name + " - " + self.container_number.container_number + " - " + self.invoice_number
+    
+
+class InvoiceItem(models.Model):
+    invoice_number = models.ForeignKey(Invoice, on_delete=models.CASCADE)
+    description = models.CharField(max_length=1000, null=True, blank=True)
+    warehouse_code = models.CharField(max_length=200, null=True, blank=True)
+    cbm = models.FloatField(null=True, blank=True)
+    qty = models.FloatField(null=True, blank=True)
+    rate = models.FloatField(null=True, blank=True)
+    amount = models.FloatField(null=True, blank=True)
+
+    def __str__(self) -> str:
+        return self.invoice_number.__str__() + " - " + self.description + " - " + self.warehouse_code

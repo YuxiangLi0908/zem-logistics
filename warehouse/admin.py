@@ -10,7 +10,7 @@ from warehouse.models.shipment import Shipment
 from warehouse.models.warehouse import ZemWarehouse
 from warehouse.models.pallet import Pallet
 from warehouse.models.quote import Quote
-from warehouse.models.invoice import Invoice, InvoiceStatement
+from warehouse.models.invoice import Invoice, InvoiceItem, InvoiceStatement
 
 # Register your models here.
 
@@ -26,4 +26,5 @@ admin.site.register(ZemWarehouse)
 admin.site.register(Pallet)
 admin.site.register(Quote)
 admin.site.register(Invoice)
+admin.site.register(InvoiceItem)
 admin.site.register(InvoiceStatement)

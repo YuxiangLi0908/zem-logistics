@@ -2,7 +2,7 @@
 
 {% block content %}
 <div class="container d-flex justify-content-between" style="display: inline-block; width: 100%; margin: 0; padding: 0; max-width: 100%;">
-    <b>Invoice - {{ order.customer_name.accounting_name }} - {{order.container_number.container_number}}</b>
+    <b>Invoice - {{ invoice.invoice_number }} - {{ invoice.customer.accounting_name }} - {{ invoice.container_number.container_number }}</b>
     <div class="text-right" style="width: 30%;">
         <button type="button" id="add-more-btn" class="btn btn-success" style="width: 100px; height: 35px;">
             添加
@@ -29,25 +29,25 @@
                 </tr>
             </thead>
             <tbody>
-                {% for pl in packing_list%}
+                {% for inv_itm in invoice_item %}
                 <tr>
                     <td class="td" style="max-width: 2%; min-width: 10px; text-align: center;">
                         <input type="checkbox" name="is_item_selected" onclick="toggleRowBackground(this)">
                     </td>
-                    <td class="td"><input type="text" name="description" value="派送费" required></td>
-                    <td class="td"><input type="text" name="warehouse_code" value="{{ pl.destination }}"></td>
-                    <td class="td"><input type="number" name="cbm" step=0.01 value="{{ pl.total_cbm|floatformat:2 }}"></td>
-                    <td class="td"><input type="number" name="qty" step=0.01 value="{{ pl.total_n_pallet }}" oninput="updateAmount(this)" required></td>
-                    <td class="td"><input type="number" name="rate" step=0.01 oninput="updateAmount(this)" required></td>
-                    <td class="td"><input type="number" name="amount" step=0.01 required></td>
+                    <td class="td"><input type="text" name="description" value="{{ inv_itm.description }}" required></td>
+                    <td class="td"><input type="text" name="warehouse_code" value="{{ inv_itm.warehouse_code }}"></td>
+                    <td class="td"><input type="number" name="cbm" step=0.01 value="{{ inv_itm.cbm|floatformat:2 }}"></td>
+                    <td class="td"><input type="number" name="qty" step=0.01 value="{{ inv_itm.qty }}" oninput="updateAmount(this)" required></td>
+                    <td class="td"><input type="number" name="rate" step=0.01 value="{{ inv_itm.rate|floatformat:2 }}" oninput="updateAmount(this)" required></td>
+                    <td class="td"><input type="number" name="amount" step=0.01 value="{{ inv_itm.amount|floatformat:2 }}" required></td>
                 </tr>
                 {% endfor %}
             </tbody>
         </table>
     </div>
-    <input type="hidden" name="step" value="create_container_invoice">
-    <input type="hidden" name="container_number" value="{{ order.container_number.container_number }}">
-    <button type="submit" class="btn btn-primary" style="width: 150px; height: 35px;">生成INVOICE</button>
+    <input type="hidden" name="step" value="container_invoice_edit">
+    <input type="hidden" name="invoice_number" value="{{ invoice.invoice_number }}">
+    <button type="submit" class="btn btn-primary" style="width: 150px; height: 35px;">更新INVOICE</button>
 </form>
 
 <script>

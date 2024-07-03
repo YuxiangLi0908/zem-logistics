@@ -24,7 +24,7 @@ from django.db import models
 from django.db.models import Sum, FloatField, Count
 
 from warehouse.models.order import Order
-from warehouse.models.invoice import Invoice, InvoiceStatement
+from warehouse.models.invoice import Invoice, InvoiceItem, InvoiceStatement
 from warehouse.models.packing_list import PackingList
 from warehouse.models.customer import Customer
 from warehouse.forms.order_form import OrderForm
@@ -52,6 +52,7 @@ class Accounting(View):
     template_invoice_management = "accounting/invoice_management.html"
     template_invoice_statement = "accounting/invoice_statement.html"
     template_invoice_container = "accounting/invoice_container.html"
+    template_invoice_container_edit = "accounting/invoice_container_edit.html"
     allowed_group = "accounting"
     conn = ClientContext(SP_URL).with_credentials(UserCredential(SP_USER, SP_PASS))
 
@@ -72,6 +73,13 @@ class Accounting(View):
         elif step == "container_invoice":
             container_number = request.GET.get("container_number")
             template, context = self.handle_container_invoice_get(container_number)
+            return render(request, template, context)
+        elif step == "container_invoice_edit":
+            container_number = request.GET.get("container_number")
+            template, context = self.handle_container_invoice_edit_get(container_number)
+            return render(request, template, context)
+        elif step == "container_invoice_delete":
+            template, context = self.handle_container_invoice_delete_get(request)
             return render(request, template, context)
         else:
             raise ValueError(f"unknow request {step}")
@@ -105,6 +113,8 @@ class Accounting(View):
             return self.handle_export_invoice_post(request)
         elif step == "create_container_invoice":
             return self.handle_create_container_invoice_post(request)
+        elif step == "container_invoice_edit":
+            return self.handle_container_invoice_edit_post(request)
         else:
             raise ValueError(f"unknow request {step}")
 
@@ -206,6 +216,28 @@ class Accounting(View):
         }
         return self.template_invoice_container, context
     
+    def handle_container_invoice_edit_get(self, container_number: str) -> tuple[Any, Any]:
+        invoice = Invoice.objects.get(container_number__container_number=container_number)
+        invoice_item = InvoiceItem.objects.filter(invoice_number__invoice_number=invoice.invoice_number)
+        context = {
+            "invoice": invoice,
+            "invoice_item": invoice_item,
+        }
+        return self.template_invoice_container_edit, context
+    
+    def handle_container_invoice_delete_get(self, request: HttpRequest) -> tuple[Any, Any]:
+        invoice_number = request.GET.get("invoice_number")
+        invoice = Invoice.objects.get(invoice_number=invoice_number)
+        invoice_item = InvoiceItem.objects.filter(invoice_number__invoice_number=invoice_number)
+        container_number = invoice.container_number.container_number
+        # delete file from sharepoint
+        self._delete_file_from_sharepoint("invoice", f"INVOICE-{container_number}.xlsx")
+        # delete invoice item
+        invoice_item.delete()
+        # delete invoice
+        invoice.delete()
+        return self.handle_invoice_get()
+    
     def handle_pallet_data_export_post(self, request: HttpRequest) -> HttpResponse:
         start_date = request.POST.get("start_date")
         end_date = request.POST.get("end_date")
@@ -288,6 +320,8 @@ class Accounting(View):
         
     def handle_create_container_invoice_post(self, request: HttpRequest) -> HttpResponse:
         container_number = request.POST.get("container_number")
+        if self._check_invoice_exist(container_number):
+            raise RuntimeError(f"货柜-{container_number}已生成invoice!")
         description = request.POST.getlist("description")
         warehouse_code = request.POST.getlist("warehouse_code")
         cbm = request.POST.getlist("cbm")
@@ -300,7 +334,34 @@ class Accounting(View):
             "container_number": container_number,
             "data": zip(description, warehouse_code, cbm, qty, rate, amount)
         }
-        return self._generate_invoice_excel(context)
+
+        workbook, invoice_data = self._generate_invoice_excel(context)
+        invoice = Invoice(**{
+            "invoice_number": invoice_data["invoice_number"],
+            "invoice_date": invoice_data["invoice_date"],
+            "invoice_link": invoice_data["invoice_link"],
+            "customer": context["order"].customer_name,
+            "container_number": context["order"].container_number,
+            "total_amount": invoice_data["total_amount"],
+        })
+        invoice.save()
+        order.invoice_id = invoice
+        order.save()
+        for d, wc, c, q, r, a in zip(description, warehouse_code, cbm, qty, rate, amount):
+            invoice_item = InvoiceItem(**{
+                "invoice_number": invoice,
+                "description": d,
+                "warehouse_code": wc,
+                "cbm": c if c else None,
+                "qty": q if q else None,
+                "rate": r if r else None,
+                "amount": a if a else None,
+            })
+            invoice_item.save()
+        response = HttpResponse(content_type='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet')
+        response['Content-Disposition'] = f'attachment; filename=INVOICE-{container_number}.xlsx'
+        workbook.save(response)
+        return response
     
     def handle_export_invoice_post(self, request: HttpRequest) -> HttpResponse:
         resp, file_name, pdf_file, context = export_invoice(request)
@@ -323,16 +384,63 @@ class Accounting(View):
         
         return resp
     
-    def _generate_invoice_excel(self, context: dict[Any, Any]) -> HttpResponse:
+    def handle_container_invoice_edit_post(self, request: HttpRequest) -> HttpResponse:
+        # raise ValueError(f"{request.POST}")
+        invoice_number = request.POST.get("invoice_number")
+        invoice = Invoice.objects.get(invoice_number=invoice_number)
+        container_number = invoice.container_number.container_number
+        description = request.POST.getlist("description")
+        warehouse_code = request.POST.getlist("warehouse_code")
+        cbm = request.POST.getlist("cbm")
+        qty = request.POST.getlist("qty")
+        rate = request.POST.getlist("rate")
+        amount = request.POST.getlist("amount")
+        order = Order.objects.get(invoice_id__invoice_number=invoice_number)
+        context = {
+            "order": order,
+            "container_number": container_number,
+            "data": zip(description, warehouse_code, cbm, qty, rate, amount)
+        }
+
+        # delete old file from sharepoint
+        self._delete_file_from_sharepoint("invoice", f"INVOICE-{container_number}.xlsx")
+        # create new file and upload to sharepoint
+        workbook, invoice_data = self._generate_invoice_excel(context)
+        # update invoice information
+        invoice.invoice_number = invoice_data["invoice_number"]
+        invoice.invoice_date = invoice_data["invoice_date"]
+        invoice.invoice_link = invoice_data["invoice_link"]
+        invoice.total_amount = invoice_data["total_amount"]
+        invoice.save()
+        # update invoice item information
+        invoice_item = InvoiceItem.objects.filter(invoice_number__invoice_number=invoice_number).delete()
+        for d, wc, c, q, r, a in zip(description, warehouse_code, cbm, qty, rate, amount):
+            invoice_item = InvoiceItem(**{
+                "invoice_number": invoice,
+                "description": d,
+                "warehouse_code": wc,
+                "cbm": c if c else None,
+                "qty": q if q else None,
+                "rate": r if r else None,
+                "amount": a if a else None,
+            })
+            invoice_item.save()
+        # export new file
+        response = HttpResponse(content_type='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet')
+        response['Content-Disposition'] = f'attachment; filename=INVOICE-{container_number}.xlsx'
+        workbook.save(response)
+        return response
+        
+    def _generate_invoice_excel(
+            self, context: dict[Any, Any],
+        ) -> tuple[openpyxl.workbook.Workbook, dict[Any, Any]]:
         current_date = datetime.now().date()
         order_id = str(context["order"].id)
-        if len(order_id) < 5:
-            order_id = '0' * (5 - len(order_id)) + order_id
-        invoice_number = f"{current_date.strftime('%Y-%m-%d').replace('-', '')}C{order_id}"
+        customer_id = context["order"].customer_name.id
+        invoice_number = f"{current_date.strftime('%Y-%m-%d').replace('-', '')}C{customer_id}{order_id}"
         workbook = openpyxl.Workbook()
         worksheet = workbook.active
         worksheet.title = "Sheet1"
-
         cells_to_merge = [
             "A1:B1", "A3:A4", "B3:D3", "B4:D4", "E3:E4", "F3:G4", "A5:A6", "B5:D5", "B6:D6", "E5:E6", "F5:G6", "A9:B9", 
             "A10:B10", "F1:G1", "C1:E1", "A2:G2", "A7:G7", "A8:G8", "C9:G9", "C10:G10", "A11:G11"
@@ -410,24 +518,16 @@ class Accounting(View):
         workbook.save(excel_file)
         excel_file.seek(0)
         invoice_link = self._upload_excel_to_sharepoint(excel_file, "invoice", f"INVOICE-{context['container_number']}.xlsx")
-        invoice = Invoice(**{
-            "invoice_number": invoice_number,
-            "invoice_date": current_date,
-            "invoice_link": invoice_link,
-            "customer": context["order"].customer_name,
-            "container_number": context["order"].container_number,
-            "total_amount": total_amount,
-        })
-        invoice.save()
-        context["order"].invoice_id = invoice
-        context["order"].save()
 
         worksheet['A9'].font = Font(color="00FFFFFF")
         worksheet['A9'].fill = PatternFill(start_color="00000000", end_color="00000000", fill_type="solid")
-        response = HttpResponse(content_type='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet')
-        response['Content-Disposition'] = f'attachment; filename=INVOICE-{context["container_number"]}.xlsx'
-        workbook.save(response)
-        return response
+        invoice_data = {
+            "invoice_number": invoice_number,
+            "invoice_date": current_date.strftime('%Y-%m-%d'),
+            "invoice_link": invoice_link,
+            "total_amount": total_amount,
+        }
+        return workbook, invoice_data
 
     def _merge_ws_cells(self, ws: openpyxl.worksheet.worksheet, cells: list[str]) -> None:
         for c in cells:
@@ -444,9 +544,20 @@ class Accounting(View):
         resp = sp_folder.upload_file(f"{file_name}", file).execute_query()
         link = resp.share_link(SharingLinkKind.OrganizationView).execute_query().value.to_json()["sharingLinkInfo"]["Url"]
         return link
-        
+    
+    def _delete_file_from_sharepoint(
+        self,
+        schema: str,
+        file_name: str,
+    ) -> None:
+        file_path = os.path.join(SP_DOC_LIB, f"{SYSTEM_FOLDER}/{schema}/{APP_ENV}/{file_name}")
+        self.conn.web.get_file_by_server_relative_url(file_path).delete_object().execute_query()
+
     def _validate_user_group(self, user: User) -> bool:
         if user.groups.filter(name=self.allowed_group).exists():
             return True
         else:
             return False
+        
+    def _check_invoice_exist(self, container_number: str) -> bool:
+        return Invoice.objects.filter(container_number__container_number=container_number).exists()

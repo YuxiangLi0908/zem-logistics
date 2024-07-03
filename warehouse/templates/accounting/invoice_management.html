@@ -19,7 +19,7 @@
 <hr class="Dashed" style="margin-top: 10px; margin-bottom: 10px;">
 
 <div style="display: flex; max-height: 720px;">
-    <div style="overflow-y: auto; max-height: 100%; width: 35%; border: 2px solid rgb(180, 180, 180); border-radius: 12px; padding: 1%; margin: 1%;">
+    <div style="overflow-y: auto; max-height: 100%; width: 30%; border: 2px solid rgb(180, 180, 180); border-radius: 12px; padding: 1%; margin: 1%;">
         {% if order_no_invoice %}
         <div><b>待开账单</b></div>
         <form method="post" action="">
@@ -41,11 +41,11 @@
                     <tbody>
                         {% for c in order_no_invoice %}
                             <tr>
-                                <td class="td">{{ c.customer_name }}</td>
+                                <td class="td">{{ c.customer_name.zem_name }}</td>
                                 <td class="td">
                                     <a href="/accounting/?step=container_invoice&container_number={{ c.container_number }}" target="_blank">{{ c.container_number }}</a>
                                 </td>
-                                <td class="td">{{ c.created_at|date:"Y-m-d" }} {{ c.created_at|time:"H:i" }}</td>
+                                <td class="td">{{ c.created_at|date:"Y-m-d" }}</td>
                             </tr>
                         {% endfor %}
                     </tbody>
@@ -55,7 +55,7 @@
         {% endif %}
     </div>
 
-    <div style="overflow-y: auto; max-height: 100%; width: 65%; border: 2px solid rgb(180, 180, 180); border-radius: 12px; padding: 1%; margin: 1%;">
+    <div style="overflow-y: auto; max-height: 100%; width: 70%; border: 2px solid rgb(180, 180, 180); border-radius: 12px; padding: 1%; margin: 1%;">
         {% if order_invoice %}
         <div><b>已开账单</b></div>
         <form method="post" action="">
@@ -67,6 +67,7 @@
                             <th class="th" style="max-width: 2%; min-width: 10px; text-align: center;"></th>
                             <th class="th">客户</th>
                             <th class="th">货柜号</th>
+                            <th class="th">INVOICE #</th>
                             <th class="th">建单日期</th>
                             <th class="th">账单日期</th>
                             <th class="th">INVOICE</th>
@@ -75,6 +76,7 @@
                             <th class="th" style="max-width: 2%; min-width: 10px; text-align: center;"></th>
                             <th class="th"></th>
                             <th class="th"><input type="text" id="containerSearchInput" placeholder="搜索柜号..." oninput="filterTable(this, 2)"></th>
+                            <th class="th"><input type="text" id="containerSearchInput" placeholder="搜索INVOICE #..." oninput="filterTable(this, 3)"></th>
                             <th class="th"></th>
                             <th class="th"></th>
                             <th class="th"></th>
@@ -90,11 +92,18 @@
                                 </td>
                                 <td class="td">{{ c.customer_name }}</td>
                                 <td class="td">{{ c.container_number }}</td>
-                                <td class="td">{{ c.created_at|date:"Y-m-d" }} {{ c.created_at|time:"H:i" }}</td>
+                                <td class="td">{{ c.invoice_id.invoice_number }}</td>
+                                <td class="td">{{ c.created_at|date:"Y-m-d" }}</td>
                                 <td class="td">{{ c.invoice_id.invoice_date|date:"Y-m-d" }}</td>
                                 <td class="td">
-                                    <a href="{{ c.invoice_id.invoice_link }}" target="_blank">
+                                    <a href="{{ c.invoice_id.invoice_link }}" target="_blank" style="margin-right: 10px;">
                                         <i class="bi bi-file-earmark-bar-graph-fill"></i>
+                                    </a>
+                                    <a href="/accounting/?step=container_invoice_edit&container_number={{ c.container_number }}" target="_blank" style="margin-right: 10px;"">
+                                        <i class="bi bi-pencil-fill" style="color: rgba(34, 153, 84, 0.873);"></i>
+                                    </a>
+                                    <a href="#" onclick="confirmDelete(event, '{{ c.container_number }}', '{{ c.invoice_id.invoice_number }}')">
+                                        <i class="bi bi-x-circle-fill" style="color: rgb(203, 67, 53);"></i>
                                     </a>
                                 </td>
                             </tr>
@@ -149,6 +158,14 @@
             if (checkBoxes[i].checked) {
                 checkBoxes[i+1].disabled = true;
             }
+        }
+    };
+
+    function confirmDelete(event, containerNumber, invoiceNumber) {
+        event.preventDefault();
+        const confirmation = confirm(`确认删除${containerNumber}的invoice: ${invoiceNumber}?`);
+        if (confirmation) {
+            window.location.href = `/accounting/?step=container_invoice_delete&invoice_number=${invoiceNumber}`;
         }
     };
 </script>
