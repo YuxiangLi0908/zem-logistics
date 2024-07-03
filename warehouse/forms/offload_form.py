@@ -11,7 +11,7 @@ class OffloadForm(forms.ModelForm):
         super(OffloadForm, self).__init__(*args, **kwargs)
         for k in self.fields.keys():
             self.fields[k].required = False
-            # if k in ["devanning_company", "devanning_fee"]:
-            #     self.fields[k].required = True
-            # else:
-            #     self.fields[k].required = False
+            if k in ["devanning_company", "devanning_fee"]:
+                self.fields[k].required = True
+            else:
+                self.fields[k].required = False
