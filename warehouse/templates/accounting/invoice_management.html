@@ -70,6 +70,7 @@
                             <th class="th">INVOICE #</th>
                             <th class="th">建单日期</th>
                             <th class="th">账单日期</th>
+                            <th class="th">应收金额</th>
                             <th class="th">INVOICE</th>
                         </tr>
                         <tr style="position: sticky; top: 40px;">
@@ -77,6 +78,7 @@
                             <th class="th"></th>
                             <th class="th"><input type="text" id="containerSearchInput" placeholder="搜索柜号..." oninput="filterTable(this, 2)"></th>
                             <th class="th"><input type="text" id="containerSearchInput" placeholder="搜索INVOICE #..." oninput="filterTable(this, 3)"></th>
+                            <th class="th"></th>
                             <th class="th"></th>
                             <th class="th"></th>
                             <th class="th"></th>
@@ -95,6 +97,7 @@
                                 <td class="td">{{ c.invoice_id.invoice_number }}</td>
                                 <td class="td">{{ c.created_at|date:"Y-m-d" }}</td>
                                 <td class="td">{{ c.invoice_id.invoice_date|date:"Y-m-d" }}</td>
+                                <td class="td">${{ c.invoice_id.total_amount|floatformat:"2g" }}</td>
                                 <td class="td">
                                     <a href="{{ c.invoice_id.invoice_link }}" target="_blank" style="margin-right: 10px;">
                                         <i class="bi bi-file-earmark-bar-graph-fill"></i>
