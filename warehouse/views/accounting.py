@@ -13,7 +13,7 @@ from office365.sharepoint.client_context import ClientContext
 from office365.sharepoint.sharing.links.kind import SharingLinkKind
 
 import openpyxl
-from openpyxl.styles import Alignment, Font, numbers, PatternFill
+from openpyxl.styles import Alignment, Border, Font, PatternFill, Side, numbers
 from django.http import HttpRequest, HttpResponse, HttpResponseForbidden
 from django.shortcuts import render
 from django.contrib.auth.decorators import login_required
@@ -482,14 +482,32 @@ class Accounting(View):
         worksheet["F5"].alignment = Alignment(vertical="center")
 
         worksheet.append(["CONTAINER #", "DESCRIPTION", "WAREHOUSE CODE", "CBM", "QTY", "RATE", "AMOUNT"])
+        invoice_item_starting_row = 12
+        invoice_item_row_count = 0
         row_count = 13
         total_amount = 0.0
         for d, wc, cbm, qty, r, amt in context["data"]:
             worksheet.append([context["container_number"], d, wc, cbm, qty, r, amt])
             total_amount += float(amt)
             row_count += 1
+            invoice_item_row_count += 1
 
         worksheet.append(["Total", None, None, None, None, None, total_amount])
+        invoice_item_row_count += 1
+        for row in worksheet.iter_rows(
+            min_row=invoice_item_starting_row,
+            max_row=invoice_item_starting_row + invoice_item_row_count,
+            min_col=1,
+            max_col=7,
+        ):
+            for cell in row:
+                cell.border = Border(
+                    left=Side(style="thin"),
+                    right=Side(style="thin"),
+                    top=Side(style="thin"),
+                    bottom=Side(style="thin"),
+                )
+            
         self._merge_ws_cells(worksheet, [f"A{row_count}:F{row_count}"])
         worksheet[f"A{row_count}"].alignment = Alignment(horizontal="center")
         worksheet[f"G{row_count}"].number_format = numbers.FORMAT_NUMBER_00

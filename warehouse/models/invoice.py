@@ -24,6 +24,7 @@ class Invoice(models.Model):
     container_number = models.ForeignKey(Container, null=True, blank=True, on_delete=models.SET_NULL)
     total_amount = models.FloatField(null=True, blank=True)
     statement_id = models.ForeignKey(InvoiceStatement, null=True, blank=True, on_delete=models.SET_NULL)
+    received_amount = models.FloatField(null=True, blank=True)
 
     def __str__(self) -> str:
         return self.customer.zem_name + " - " + self.container_number.container_number + " - " + self.invoice_number
