@@ -34,7 +34,7 @@
                         </tr>
                         <tr style="position: sticky; top: 40px;">
                             <th class="th"></th>
-                            <th class="th"><input type="text" id="containerSearchInput" placeholder="搜索柜号..." oninput="filterTable(this, 1)"></th>
+                            <th class="th"><input type="text" id="containerSearchInput" placeholder="搜索柜号..." oninput="filterTable(this, 1)" size="16" style="font-size: 14px;"></th>
                             <th class="th"></th>
                         </tr>
                     </thead>
@@ -72,16 +72,18 @@
                             <th class="th">账单日期</th>
                             <th class="th">应收金额</th>
                             <th class="th">INVOICE</th>
+                            <th class="th">STMT #</th>
                         </tr>
                         <tr style="position: sticky; top: 40px;">
                             <th class="th" style="max-width: 2%; min-width: 10px; text-align: center;"></th>
                             <th class="th"></th>
-                            <th class="th"><input type="text" id="containerSearchInput" placeholder="搜索柜号..." oninput="filterTable(this, 2)"></th>
-                            <th class="th"><input type="text" id="containerSearchInput" placeholder="搜索INVOICE #..." oninput="filterTable(this, 3)"></th>
+                            <th class="th"><input type="text" id="containerSearchInput" placeholder="搜索柜号..." oninput="filterTable(this, 2, true)" size="16" style="font-size: 14px;"></th>
+                            <th class="th"><input type="text" id="containerSearchInput" placeholder="搜索INVOICE #..." oninput="filterTable(this, 3, true)" size="16" style="font-size: 14px;"></th>
                             <th class="th"></th>
                             <th class="th"></th>
                             <th class="th"></th>
                             <th class="th"></th>
+                            <th class="th"><input type="text" id="containerSearchInput" placeholder="搜索STMT #..." oninput="filterTable(this, 8, false)" size="16" style="font-size: 14px;"></th>
                         </tr>
                     </thead>
                     <tbody>
@@ -109,6 +111,13 @@
                                         <i class="bi bi-x-circle-fill" style="color: rgb(203, 67, 53);"></i>
                                     </a>
                                 </td>
+                                <td class="td">
+                                    {% if c.invoice_id.statement_id %}
+                                        {{ c.invoice_id.statement_id.invoice_statement_id }}
+                                    {% else %}
+                                        <div> </div>
+                                    {% endif %}
+                                </td>
                             </tr>
                         {% endfor %}
                     </tbody>
@@ -125,7 +134,7 @@
 
 
 <script>
-    function filterTable(filterInput, col_idx) {
+    function filterTable(filterInput, col_idx, trim) {
         var containerInput, containerFilter, table, tbody, tr, containerTd, i, containerTxtValue;
         containerFilter = filterInput.value.toUpperCase();
         var table = filterInput.closest('table');
@@ -135,9 +144,8 @@
         for (i = 0; i < tr.length; i++) {
             containerTd = tr[i].getElementsByTagName("td")[col_idx];
             if (containerTd) {
-
                 containerTxtValue = containerTd.textContent || containerTd.innerText;
-                containerTxtValue = containerTxtValue.toUpperCase().trim()
+                containerTxtValue = trim ? containerTxtValue.toUpperCase().trim() : containerTxtValue.toUpperCase()
                 var containerDisplayStyle_1 = containerTxtValue.indexOf(containerFilter) > -1 ? "" : "none";
                 var containerDisplayStyle_2 = containerFilter.indexOf(containerTxtValue) > -1 ? "" : "none";
                 // Set display style based on both container and customer filters
