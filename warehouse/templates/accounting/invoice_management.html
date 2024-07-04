@@ -77,13 +77,13 @@
                         <tr style="position: sticky; top: 40px;">
                             <th class="th" style="max-width: 2%; min-width: 10px; text-align: center;"></th>
                             <th class="th"></th>
-                            <th class="th"><input type="text" id="containerSearchInput" placeholder="搜索柜号..." oninput="filterTable(this, 2)" size="16" style="font-size: 14px;"></th>
-                            <th class="th"><input type="text" id="containerSearchInput" placeholder="搜索INVOICE #..." oninput="filterTable(this, 3)" size="16" style="font-size: 14px;"></th>
+                            <th class="th"><input type="text" id="containerSearchInput" placeholder="搜索柜号..." oninput="filterTable(this, 2, true)" size="16" style="font-size: 14px;"></th>
+                            <th class="th"><input type="text" id="containerSearchInput" placeholder="搜索INVOICE #..." oninput="filterTable(this, 3, true)" size="16" style="font-size: 14px;"></th>
                             <th class="th"></th>
                             <th class="th"></th>
                             <th class="th"></th>
                             <th class="th"></th>
-                            <th class="th"><input type="text" id="containerSearchInput" placeholder="搜索STMT #..." oninput="filterTable(this, 8)" size="16" style="font-size: 14px;"></th>
+                            <th class="th"><input type="text" id="containerSearchInput" placeholder="搜索STMT #..." oninput="filterTable(this, 8, false)" size="16" style="font-size: 14px;"></th>
                         </tr>
                     </thead>
                     <tbody>
@@ -134,7 +134,7 @@
 
 
 <script>
-    function filterTable(filterInput, col_idx) {
+    function filterTable(filterInput, col_idx, trim) {
         var containerInput, containerFilter, table, tbody, tr, containerTd, i, containerTxtValue;
         containerFilter = filterInput.value.toUpperCase();
         var table = filterInput.closest('table');
@@ -145,7 +145,7 @@
             containerTd = tr[i].getElementsByTagName("td")[col_idx];
             if (containerTd) {
                 containerTxtValue = containerTd.textContent || containerTd.innerText;
-                containerTxtValue = containerTxtValue.toUpperCase()
+                containerTxtValue = trim ? containerTxtValue.toUpperCase().trim() : containerTxtValue.toUpperCase()
                 var containerDisplayStyle_1 = containerTxtValue.indexOf(containerFilter) > -1 ? "" : "none";
                 var containerDisplayStyle_2 = containerFilter.indexOf(containerTxtValue) > -1 ? "" : "none";
                 // Set display style based on both container and customer filters
