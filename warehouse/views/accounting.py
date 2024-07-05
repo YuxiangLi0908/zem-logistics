@@ -54,7 +54,6 @@ class Accounting(View):
     template_invoice_container = "accounting/invoice_container.html"
     template_invoice_container_edit = "accounting/invoice_container_edit.html"
     allowed_group = "accounting"
-    conn = ClientContext(SP_URL).with_credentials(UserCredential(SP_USER, SP_PASS))
 
     def get(self, request: HttpRequest) -> HttpResponse:
         if not self._validate_user_group(request.user):
@@ -551,14 +550,18 @@ class Accounting(View):
         for c in cells:
             ws.merge_cells(c)
 
+    def _get_sharepoint_auth(self) -> ClientContext:
+        return  ClientContext(SP_URL).with_credentials(UserCredential(SP_USER, SP_PASS))
+
     def _upload_excel_to_sharepoint(
         self,
         file: BytesIO,
         schema: str,
         file_name: str
     ) -> str:
+        conn = self._get_sharepoint_auth()
         file_path = os.path.join(SP_DOC_LIB, f"{SYSTEM_FOLDER}/{schema}/{APP_ENV}")
-        sp_folder = self.conn.web.get_folder_by_server_relative_url(file_path)
+        sp_folder = conn.web.get_folder_by_server_relative_url(file_path)
         resp = sp_folder.upload_file(f"{file_name}", file).execute_query()
         link = resp.share_link(SharingLinkKind.OrganizationView).execute_query().value.to_json()["sharingLinkInfo"]["Url"]
         return link
@@ -568,8 +571,9 @@ class Accounting(View):
         schema: str,
         file_name: str,
     ) -> None:
+        conn = self._get_sharepoint_auth()
         file_path = os.path.join(SP_DOC_LIB, f"{SYSTEM_FOLDER}/{schema}/{APP_ENV}/{file_name}")
-        self.conn.web.get_file_by_server_relative_url(file_path).delete_object().execute_query()
+        conn.web.get_file_by_server_relative_url(file_path).delete_object().execute_query()
 
     def _validate_user_group(self, user: User) -> bool:
         if user.groups.filter(name=self.allowed_group).exists():

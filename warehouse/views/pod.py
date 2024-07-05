@@ -25,7 +25,6 @@ from warehouse.utils.constants import APP_ENV, SP_USER, SP_PASS, SP_URL, SP_DOC_
 class POD(View):
     template_main = "pod/shipment_list.html"
     template_shipment_detail = "pod/shipment_detail.html"
-    conn = ClientContext(SP_URL).with_credentials(UserCredential(SP_USER, SP_PASS))
 
     def get(self, request: HttpRequest) -> HttpResponse:
         step = request.GET.get("step", None)
@@ -77,6 +76,7 @@ class POD(View):
         return context
     
     def handle_confirm_delivery_post(self, request: HttpRequest) -> dict[str, Any]:
+        conn = self._get_sharepoint_auth()
         pod_form = UploadFileForm(request.POST, request.FILES)
         arrived_at = request.POST.get("arrived_at")
         batch_number = request.POST.get("batch_number")
@@ -84,7 +84,7 @@ class POD(View):
             file = request.FILES['file']
             file_extension = os.path.splitext(file.name)[1]
             file_path = os.path.join(SP_DOC_LIB, f"{SYSTEM_FOLDER}/pod/{APP_ENV}")
-            sp_folder = self.conn.web.get_folder_by_server_relative_url(file_path)
+            sp_folder = conn.web.get_folder_by_server_relative_url(file_path)
             resp = sp_folder.upload_file(f"{batch_number}{file_extension}", file).execute_query()
             link = resp.share_link(SharingLinkKind.OrganizationView).execute_query().value.to_json()["sharingLinkInfo"]["Url"]
         else:
@@ -101,3 +101,6 @@ class POD(View):
             models.Q(is_shipped=True) &
             models.Q(is_arrived=False)
         ).order_by("shipped_at")
+    
+    def _get_sharepoint_auth(self) -> ClientContext:
+        return  ClientContext(SP_URL).with_credentials(UserCredential(SP_USER, SP_PASS))
