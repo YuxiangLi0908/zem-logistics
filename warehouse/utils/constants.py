@@ -64,7 +64,7 @@ LOAD_TYPE_OPTIONS = [
 ]
 
 QUOTE_PLATFORM_OPTIONS = [
-    ("ARM", "ARM"), ("Uber Freight", "Uber Freight"), ("Unishipper", "Unishipper"),
+    ("无", "无"), ("ARM", "ARM"), ("Uber Freight", "Uber Freight"), ("Unishipper", "Unishipper"),
     ("Coyote", "Coyote"), ("报价表", "报价表"), ("整柜直送", "整柜直送"),
 ]
 

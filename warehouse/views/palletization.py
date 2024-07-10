@@ -108,9 +108,6 @@ class Palletization(View):
         current_time_cn = datetime.now(cn)
         offload.total_pallet = total_pallet
         offload.offload_at = current_time_cn
-        if request.POST.get("devanning_fee"):
-            offload.devanning_company = request.POST.get("devanning_company")
-            offload.devanning_fee = request.POST.get("devanning_fee")
         offload.save()
         mutable_post = request.POST.copy()
         mutable_post['name'] = order_selected.warehouse.name
@@ -265,7 +262,7 @@ class Palletization(View):
                 str_fba_id=Cast("fba_id", CharField()),
                 str_ref_id=Cast("ref_id", CharField()),
             ).values(
-                "container_number__container_number", "destination", "address", "custom_delivery_method"
+                "container_number__container_number", "destination", "address", "custom_delivery_method", "note"
             ).annotate(
                 fba_ids=StringAgg("str_fba_id", delimiter=",", distinct=True),
                 ref_ids=StringAgg("str_ref_id", delimiter=",", distinct=True),
@@ -285,7 +282,7 @@ class Palletization(View):
                 str_fba_id=Cast("fba_id", CharField()),
                 str_ref_id=Cast("ref_id", CharField()),
             ).values(
-                "container_number__container_number", "destination", "address", "custom_delivery_method"
+                "container_number__container_number", "destination", "address", "custom_delivery_method", "note"
             ).annotate(
                 fba_ids=StringAgg("str_fba_id", delimiter=",", distinct=True, ordering="str_fba_id"),
                 ref_ids=StringAgg("str_ref_id", delimiter=",", distinct=True, ordering="str_ref_id"),

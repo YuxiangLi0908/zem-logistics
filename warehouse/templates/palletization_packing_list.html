@@ -5,23 +5,6 @@
     <form method="post" style="width: 100%;">
         {% csrf_token %}
         <div class="container mt-3" style="max-width: 100%;">
-            <div style="overflow-x: auto; max-width: 100%; overflow-y: auto; max-height: 600px;">
-                <table class="table">
-                    <thead>
-                        <tr>
-                            <th class="th">拆柜公司</th>
-                            <th class="th">拆柜费</th>
-                        </tr>
-                    </thead>
-                    <tbody>
-                        <tr>
-                            <td class="td">{{ offload_form.devanning_company }}</td>
-                            <td class="td">$ {{ offload_form.devanning_fee }}</td>
-                        </tr>
-                    </tbody>
-                </table>
-            </div>
-
             <div style="overflow-x: auto; max-width: 100%; overflow-y: auto; max-height: 800px;">
                 <table class="table">
                     <thead>
@@ -34,6 +17,7 @@
                             <th class="th">箱数</th>
                             <th class="th">CBM</th>
                             <th class="th">打板数</th>
+                            <th class="th">备注</th>
                         </tr>
                     </thead>
                     <tbody>
@@ -56,6 +40,7 @@
                             {% else %}
                             <td class="td">{{ pl_form.n_pallet }}</td> 
                             {% endif %}
+                            <td class="td">{{ pl.note }}</td> 
                             <input type="hidden" name="ids" value="{{pl.ids}}">
                             <input type="hidden" name="cbms" value="{{pl.cbm}}">
                         </tr>

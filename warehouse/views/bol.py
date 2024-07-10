@@ -109,16 +109,20 @@ class BOL(View):
             total_cbm=Sum("pallet__cbm"),
             total_n_pallet=Count("pallet__pallet_id", distinct=True),
         ).order_by("container_number__container_number")
-        if shipment.address.isascii() and shipment.destination.isascii():
-            chinese_char = False
-        else:
-            chinese_char = True
+        address_chinese_char = False if shipment.address.isascii() else True
+        destination_chinese_char = False if shipment.destination.isascii() else True
+        try:
+            note_chinese_char = False if shipment.note.isascii() else True
+        except:
+            note_chinese_char = False
         context = {
             "batch_number": batch_number,
             "warehouse": warehouse,
             "shipment": shipment,
             "packing_list": packing_list,
             "pallet": pallet,
-            "chinese_char": chinese_char,
+            "address_chinese_char": address_chinese_char,
+            "destination_chinese_char": destination_chinese_char,
+            "note_chinese_char": note_chinese_char,
         }
         return context
