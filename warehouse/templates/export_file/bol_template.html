@@ -47,17 +47,26 @@
                             </td>
                         </tr>
                         <tr>
-                            {% if chinese_char %}
-                                <td style="margin-left: 5px; font-family: STSong-Light;">
-                                    <br>{{ shipment.destination }}<br>
-                                    {{ shipment.address }}
-                                </td>
-                            {% else %}
                             <td style="margin-left: 5px;">
-                                <br>{{ shipment.destination }}<br>
-                                {{ shipment.address }}
+                                {% if destination_chinese_char %}
+                                    <div style="font-family: STSong-Light;">
+                                        <br>{{ shipment.destination }}<br>
+                                    </div>
+                                {% else %}
+                                    <div>
+                                        <br>{{ shipment.destination }}<br>
+                                    </div>
+                                {% endif %}
+                                {% if address_chinese_char %}
+                                    <div style="font-family: STSong-Light;">
+                                        {{ shipment.address }}
+                                    </div>
+                                {% else %}
+                                    <div>
+                                        {{ shipment.address }}
+                                    </div>
+                                {% endif %}
                             </td>
-                            {% endif %}
                         </tr>
                     </table>
                 </td>
@@ -74,9 +83,15 @@
                             </td>
                         </tr>
                         <tr>
-                            <td style="margin-left: 5px; font-family: STSong-Light;">
-                                Note: {{ shipment.note }}
-                            </td>
+                            {% if note_chinese_char %}
+                                <td style="margin-left: 5px; font-family: STSong-Light;">
+                                    Note: {{ shipment.note }}
+                                </td>
+                            {% else %}
+                                <td style="margin-left: 5px;">
+                                    Note: {{ shipment.note }}
+                                </td>
+                            {% endif %}
                         </tr>
                     </table>
                 </td>
