@@ -38,6 +38,7 @@ class InvoiceItem(models.Model):
     qty = models.FloatField(null=True, blank=True)
     rate = models.FloatField(null=True, blank=True)
     amount = models.FloatField(null=True, blank=True)
+    note = models.CharField(max_length=2000, null=True, blank=True)
 
     def __str__(self) -> str:
         return self.invoice_number.__str__() + " - " + self.description + " - " + self.warehouse_code

@@ -1623,3 +1623,22 @@ WMM-PHL4N:
   location: 1410 United Dr
   state: PA
   zipcode: '17257'
+沃尔玛MCO1:
+  city: Davenport
+  location: 5100 NORTH RIDGE TRAIL
+  zipcode: '33897'
+沃尔玛-MCO1:
+  city: Davenport
+  location: 5100 NORTH RIDGE TRAIL
+  state: FL
+  zipcode: '33897'
+WMMMCO1:
+  city: Davenport
+  location: 5100 NORTH RIDGE TRAIL
+  state: FL
+  zipcode: '33897'
+WMM-MCO1:
+  city: Davenport
+  location: 5100 NORTH RIDGE TRAIL
+  state: FL
+  zipcode: '33897'
