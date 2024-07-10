@@ -16,7 +16,7 @@
 <form method="post" action="">
     {% csrf_token %}
     <div style="overflow-x: auto; max-width: 100%; overflow-y: auto; max-height: 600px;">
-        <table class="table" id="invoice-table">
+        <table class="table" id="invoice-table" style="font-size: 13px;">
             <thead>
                 <tr style="position: sticky; top: 0;">
                     <th class="th" style="max-width: 2%; min-width: 10px; text-align: center;"></th>
@@ -26,6 +26,7 @@
                     <th class="th">QTY</th>
                     <th class="th">RATE</th>
                     <th class="th">AMOUNT</th>
+                    <th class="th">NOTE</th>
                 </tr>
             </thead>
             <tbody>
@@ -40,6 +41,7 @@
                     <td class="td"><input type="number" name="qty" step=0.01 value="{{ pl.total_n_pallet }}" oninput="updateAmount(this)" required></td>
                     <td class="td"><input type="number" name="rate" step=0.01 oninput="updateAmount(this)" required></td>
                     <td class="td"><input type="number" name="amount" step=0.01 required></td>
+                    <td class="td"><input type="text" name="note" rows="4"></td>
                 </tr>
                 {% endfor %}
             </tbody>
@@ -83,6 +85,7 @@
                 <td class="td"><input type="number" name="qty" step=0.01 value="" oninput="updateAmount(this)" required></td>
                 <td class="td"><input type="number" name="rate" step=0.01 oninput="updateAmount(this)" required></td>
                 <td class="td"><input type="number" name="amount" step=0.01 required></td>
+                <td class="td"><input type="text" name="note" rows="4"></td>
             </tr>
         `;
     };

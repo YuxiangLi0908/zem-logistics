@@ -869,10 +869,10 @@ MCI3:
   state: MO
   zipcode: '64068'
 MCO1:
-  city: Orlando
-  location: 12340 Boggy Creek Rd
+  city: Davenport
+  location: 5100 NORTH RIDGE TRAIL
   state: FL
-  zipcode: '32824'
+  zipcode: '33897'
 MCO2:
   city: Deltona
   location: 2600 N Normandy Blvd

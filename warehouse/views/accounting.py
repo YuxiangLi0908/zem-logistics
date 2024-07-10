@@ -327,11 +327,12 @@ class Accounting(View):
         qty = request.POST.getlist("qty")
         rate = request.POST.getlist("rate")
         amount = request.POST.getlist("amount")
+        note = request.POST.getlist("note")
         order = Order.objects.get(container_number__container_number=container_number)
         context = {
             "order": order,
             "container_number": container_number,
-            "data": zip(description, warehouse_code, cbm, qty, rate, amount)
+            "data": zip(description, warehouse_code, cbm, qty, rate, amount, note)
         }
 
         workbook, invoice_data = self._generate_invoice_excel(context)
@@ -346,7 +347,7 @@ class Accounting(View):
         invoice.save()
         order.invoice_id = invoice
         order.save()
-        for d, wc, c, q, r, a in zip(description, warehouse_code, cbm, qty, rate, amount):
+        for d, wc, c, q, r, a, n in zip(description, warehouse_code, cbm, qty, rate, amount, note):
             invoice_item = InvoiceItem(**{
                 "invoice_number": invoice,
                 "description": d,
@@ -355,6 +356,7 @@ class Accounting(View):
                 "qty": q if q else None,
                 "rate": r if r else None,
                 "amount": a if a else None,
+                "note": n if n else None,
             })
             invoice_item.save()
         response = HttpResponse(content_type='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet')
@@ -394,11 +396,12 @@ class Accounting(View):
         qty = request.POST.getlist("qty")
         rate = request.POST.getlist("rate")
         amount = request.POST.getlist("amount")
+        note = request.POST.getlist("note")
         order = Order.objects.get(invoice_id__invoice_number=invoice_number)
         context = {
             "order": order,
             "container_number": container_number,
-            "data": zip(description, warehouse_code, cbm, qty, rate, amount)
+            "data": zip(description, warehouse_code, cbm, qty, rate, amount, note)
         }
 
         # delete old file from sharepoint
@@ -413,7 +416,7 @@ class Accounting(View):
         invoice.save()
         # update invoice item information
         invoice_item = InvoiceItem.objects.filter(invoice_number__invoice_number=invoice_number).delete()
-        for d, wc, c, q, r, a in zip(description, warehouse_code, cbm, qty, rate, amount):
+        for d, wc, c, q, r, a, n in zip(description, warehouse_code, cbm, qty, rate, amount, note):
             invoice_item = InvoiceItem(**{
                 "invoice_number": invoice,
                 "description": d,
@@ -422,6 +425,7 @@ class Accounting(View):
                 "qty": q if q else None,
                 "rate": r if r else None,
                 "amount": a if a else None,
+                "note": n if n else None,
             })
             invoice_item.save()
         # export new file
@@ -441,8 +445,8 @@ class Accounting(View):
         worksheet = workbook.active
         worksheet.title = "Sheet1"
         cells_to_merge = [
-            "A1:B1", "A3:A4", "B3:D3", "B4:D4", "E3:E4", "F3:G4", "A5:A6", "B5:D5", "B6:D6", "E5:E6", "F5:G6", "A9:B9", 
-            "A10:B10", "F1:G1", "C1:E1", "A2:G2", "A7:G7", "A8:G8", "C9:G9", "C10:G10", "A11:G11"
+            "A1:B1", "A3:A4", "B3:D3", "B4:D4", "E3:E4", "F3:H4", "A5:A6", "B5:D5", "B6:D6", "E5:E6", "F5:H6", "A9:B9", 
+            "A10:B10", "F1:H1", "C1:E1", "A2:H2", "A7:H7", "A8:H8", "C9:H9", "C10:H10", "A11:H11"
         ]
         self._merge_ws_cells(worksheet, cells_to_merge)
 
@@ -452,6 +456,7 @@ class Accounting(View):
         worksheet.column_dimensions['D'].width = 7
         worksheet.column_dimensions['E'].width = 8
         worksheet.column_dimensions['F'].width = 7
+        worksheet.column_dimensions['G'].width = 11
         worksheet.column_dimensions['G'].width = 11
         worksheet.row_dimensions[1].height = 40
 
@@ -480,24 +485,24 @@ class Accounting(View):
         worksheet["F3"].alignment = Alignment(vertical="center")
         worksheet["F5"].alignment = Alignment(vertical="center")
 
-        worksheet.append(["CONTAINER #", "DESCRIPTION", "WAREHOUSE CODE", "CBM", "QTY", "RATE", "AMOUNT"])
+        worksheet.append(["CONTAINER #", "DESCRIPTION", "WAREHOUSE CODE", "CBM", "QTY", "RATE", "AMOUNT", "NOTE"])
         invoice_item_starting_row = 12
         invoice_item_row_count = 0
         row_count = 13
         total_amount = 0.0
-        for d, wc, cbm, qty, r, amt in context["data"]:
-            worksheet.append([context["container_number"], d, wc, cbm, qty, r, amt])
+        for d, wc, cbm, qty, r, amt, n in context["data"]:
+            worksheet.append([context["container_number"], d, wc, cbm, qty, r, amt, n])
             total_amount += float(amt)
             row_count += 1
             invoice_item_row_count += 1
 
-        worksheet.append(["Total", None, None, None, None, None, total_amount])
+        worksheet.append(["Total", None, None, None, None, None, total_amount, None])
         invoice_item_row_count += 1
         for row in worksheet.iter_rows(
             min_row=invoice_item_starting_row,
             max_row=invoice_item_starting_row + invoice_item_row_count,
             min_col=1,
-            max_col=7,
+            max_col=8,
         ):
             for cell in row:
                 cell.border = Border(
@@ -512,7 +517,7 @@ class Accounting(View):
         worksheet[f"G{row_count}"].number_format = numbers.FORMAT_NUMBER_00
         worksheet[f"G{row_count}"].alignment = Alignment(horizontal="left")
         row_count += 1
-        self._merge_ws_cells(worksheet, [f"A{row_count}:G{row_count}"])
+        self._merge_ws_cells(worksheet, [f"A{row_count}:H{row_count}"])
         row_count += 1
 
         bank_info = [
@@ -527,9 +532,9 @@ class Accounting(View):
         ]
         for c in bank_info:
             worksheet.append([c])
-            self._merge_ws_cells(worksheet, [f"A{row_count}:G{row_count}"])
+            self._merge_ws_cells(worksheet, [f"A{row_count}:H{row_count}"])
             row_count += 1
-        self._merge_ws_cells(worksheet, [f"A{row_count}:G{row_count}"])
+        self._merge_ws_cells(worksheet, [f"A{row_count}:H{row_count}"])
 
         excel_file = io.BytesIO()
         workbook.save(excel_file)
