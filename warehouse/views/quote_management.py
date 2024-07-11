@@ -115,6 +115,7 @@ class QuoteManagement(View):
                     data["is_lift_gate"] = d["is_lift_gate"]
                     data["cost"] = d["cost"]
                     data["price"] = d["price"]
+                    data["distance_mile"] = d["distance_mile"]
                     try:
                         data["comment"] = d["comment"].strip()
                     except:
