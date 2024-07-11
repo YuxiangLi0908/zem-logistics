@@ -251,11 +251,12 @@ def export_invoice(request: HttpRequest) -> tuple[HttpResponse, str, BytesIO, di
     invoice_date = request.POST.get("invoice_date")
     due_date = request.POST.get("due_date")
     container_number = request.POST.getlist("container_number")
+    invoice_number = request.POST.getlist("invoice_number")
     rate = [float(r) for r in request.POST.getlist("rate")]
     amount = [float(r) for r in request.POST.getlist("amount")]
     total_amount = sum(amount)
     cnt = list(range(1, len(container_number) + 1))
-    invoice_details = zip(cnt, container_number, rate, amount)
+    invoice_details = zip(cnt, container_number, invoice_number, rate, amount)
     
     context = {
         "customer": customer,

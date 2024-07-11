@@ -113,10 +113,10 @@
             </tr>
         </thead>
         <tbody>
-            {% for i, o, r, a in invoice_details %}
+            {% for i, o, inv_num, r, a in invoice_details %}
                 <tr style="padding-top: 5px; border-bottom: 1px solid rgb(226,229,232);">
                     <td style="text-align: center;">{{ i }}</td>
-                    <td colspan="4" style="text-align: center;">TRANSFER CONTAINER FEE {{ o }}</td>
+                    <td colspan="4" style="text-align: center;">TRANSFER CONTAINER FEE {{ o }} INV# {{ inv_num }}</td>
                     <td style="text-align: center;">${{ r|floatformat:"2g" }}</td>
                     <td style="text-align: center;">${{ a|floatformat:"2g" }}</td>
                 </tr>

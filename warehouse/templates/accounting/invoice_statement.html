@@ -114,8 +114,9 @@
                 {% for o in order %}
                     <tr>
                         <td colspan="4" style="text-align: center;">
-                            TRANSFER CONTAINER FEE {{ o.container_number }}
+                            TRANSFER CONTAINER FEE {{ o.container_number }} INV# {{ o.invoice_id.invoice_number }}
                             <input type="hidden" name="container_number" value="{{ o.container_number }}">
+                            <input type="hidden" name="invoice_number" value="{{ o.invoice_id.invoice_number }}">
                         </td>
                         <td style="text-align: center;">
                             $<input type="number" name="rate" step=0.01 value="{{ o.invoice_id.total_amount }}">
