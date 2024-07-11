@@ -32,6 +32,7 @@
                 <th class="th">是否有超大件</th>
                 <th class="th">参考时间</th>
                 <th class="th">成本</th>
+                <th class="th">里程(英里)</th>
                 <th class="th">报价</th>
                 <th class="th">备注</th>
             </tr>
@@ -41,6 +42,7 @@
                 <th class="th"><input type="text" id="dateSearchInput" style="max-width: 80px;" placeholder="搜索日期..." oninput="filterQuote()"></th>
                 <th class="th"><input type="text" id="warehouseSearchInput" style="max-width: 90px;" placeholder="搜索仓库..." oninput="filterQuote()"></th>
                 <th class="th"><input type="text" id="destinationSearchInput" style="max-width: 75px;" placeholder="搜索目的地..." oninput="filterQuote()"></th>
+                <th class="th"></th>
                 <th class="th"></th>
                 <th class="th"></th>
                 <th class="th"></th>
@@ -69,8 +71,9 @@
                 <td class="td">{{ q.load_type }}</td>
                 <td class="td">{{ q.is_lift_gate }}</td>
                 <td class="td">{{ q.is_oversize }}</td>
-                <td class="td">{{ q.pickup_date }}</td>
+                <td class="td">{{ q.pickup_date|date:"Y-m-d" }}</td>
                 <td class="td">${{ q.cost|floatformat:"2g" }}</td>
+                <td class="td">{{ q.distance_mile|floatformat:"2g" }}</td>
                 <td class="td">${{ q.price|floatformat:"2g" }}</td>
                 <td class="td">{{ q.comment }}</td>
             </tr>

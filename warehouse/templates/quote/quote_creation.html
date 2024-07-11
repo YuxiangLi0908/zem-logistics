@@ -6,7 +6,7 @@
 <form method="post" action="">
     {% csrf_token %}
     <div style="display: flex; max-height: 720px;">
-        <div style="overflow-y: auto; max-height: 100%; width: 30%; border: 2px solid rgb(180, 180, 180); border-radius: 12px; padding: 1%; margin: 1%;">
+        <div style="overflow-y: auto; max-height: 100%; width: 20%; border: 2px solid rgb(180, 180, 180); border-radius: 12px; padding: 1%; margin: 1%;">
             <div>
                 <b style="background-color: rgb(208, 208, 208); border-radius: 20px; font-size: 15px; display:inline-flex; color: rgb(100, 100, 100); padding: 5px;">
                     询价信息
@@ -43,7 +43,7 @@
                 </div>
             </div>
         </div>
-        <div style="overflow-y: auto; max-height: 100%; width: 70%; border: 2px solid rgb(180, 180, 180); border-radius: 12px; padding: 1%; margin: 1%;">
+        <div style="overflow-y: auto; max-height: 100%; width: 80%; border: 2px solid rgb(180, 180, 180); border-radius: 12px; padding: 1%; margin: 1%;">
             <div class="d-flex justify-content-between">
                 <div style="width: 80%;">
                     <b style="background-color: rgb(208, 208, 208); border-radius: 20px; font-size: 15px; display:inline-flex; color: rgb(100, 100, 100); padding: 5px;">
@@ -60,27 +60,31 @@
                 <div id="quote-price-empty" style="display: none;">
                     <hr class="Dashed" style="margin-top: 10px; margin-bottom: 2px; width: 99%;">
                         <div style="display: flex;">
-                            <div class="quote-form-row flex-6" >
+                            <div class="quote-form-row flex-7" >
                                 <label style="font-size: 15px;">发货仓库</label>
                                 {{ quote_form.empty_form.warehouse }}
                             </div>
-                            <div class="quote-form-row flex-6" >
+                            <div class="quote-form-row flex-7" >
                                 <label style="font-size: 15px;">FTL/LTL</label>
                                 {{ quote_formset.empty_form.load_type }}
                             </div>
-                            <div class="quote-form-row flex-6" >
+                            <div class="quote-form-row flex-7" >
                                 <label style="font-size: 15px;">是否带尾板</label>
                                 {{ quote_formset.empty_form.is_lift_gate }}
                             </div>
-                            <div class="quote-form-row flex-6" >
+                            <div class="quote-form-row flex-7" >
                                 <label style="font-size: 15px;">成本</label>
                                 {{ quote_formset.empty_form.cost }}
                             </div>
-                            <div class="quote-form-row flex-6" >
+                            <div class="quote-form-row flex-7" >
+                                <label style="font-size: 15px;">里程(英里)</label>
+                                {{ quote_formset.empty_form.distance_mile }}
+                            </div>
+                            <div class="quote-form-row flex-7" >
                                 <label style="font-size: 15px;">实际报价</label>
                                 {{ quote_formset.empty_form.price }}
                             </div>
-                            <div class="quote-form-row flex-6" >
+                            <div class="quote-form-row flex-7" >
                                 <label style="font-size: 15px;">备注</label>
                                 {{ quote_formset.empty_form.comment }}
                             </div>
@@ -90,27 +94,31 @@
                     <div id="quote-price">
                         <hr class="Dashed" style="margin-top: 10px; margin-bottom: 2px; width: 99%;">
                         <div style="display: flex;">
-                            <div class="quote-form-row flex-6" >
+                            <div class="quote-form-row flex-7" >
                                 <label style="font-size: 15px;">发货仓库</label>
                                 {{ q.warehouse }}
                             </div>
-                            <div class="quote-form-row flex-6" >
+                            <div class="quote-form-row flex-7" >
                                 <label style="font-size: 15px;">FTL/LTL</label>
                                 {{ q.load_type }}
                             </div>
-                            <div class="quote-form-row flex-6" >
+                            <div class="quote-form-row flex-7" >
                                 <label style="font-size: 15px;">是否带尾板</label>
                                 {{ q.is_lift_gate }}
                             </div>
-                            <div class="quote-form-row flex-6" >
+                            <div class="quote-form-row flex-7" >
                                 <label style="font-size: 15px;">成本</label>
                                 {{ q.cost }}
                             </div>
-                            <div class="quote-form-row flex-6" >
+                            <div class="quote-form-row flex-7" >
+                                <label style="font-size: 15px;">里程(英里)</label>
+                                {{ q.distance_mile }}
+                            </div>
+                            <div class="quote-form-row flex-7" >
                                 <label style="font-size: 15px;">实际报价</label>
                                 {{ q.price }}
                             </div>
-                            <div class="quote-form-row flex-6" >
+                            <div class="quote-form-row flex-7" >
                                 <label style="font-size: 15px;">备注</label>
                                 {{ q.comment }}
                             </div>

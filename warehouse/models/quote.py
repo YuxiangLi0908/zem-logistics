@@ -18,6 +18,7 @@ class Quote(models.Model):
     note = models.CharField(max_length=1000, null=True, blank=True)
     is_lift_gate = models.CharField(max_length=10, null=True, blank=True)
     is_oversize = models.CharField(max_length=10, null=True, blank=True)
+    distance_mile = models.FloatField(null=True, blank=True)
     cost = models.FloatField(null=True, blank=True)
     price = models.FloatField(null=True, blank=True)
     comment = models.CharField(max_length=500, null=True, blank=True)
