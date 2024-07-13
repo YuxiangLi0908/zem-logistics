@@ -55,7 +55,7 @@ class PO(View):
         start_date = request.POST.get("start_date")
         end_date = request.POST.get("end_date")
         criteria = models.Q(container_number__order__warehouse__name=warehouse)
-        criteria &= models.Q(shipment_batch_number__isnull=True)
+        # criteria &= models.Q(shipment_batch_number__isnull=True)
         if start_date:
             criteria &= models.Q(container_number__order__eta__gte=start_date)
         if end_date:
