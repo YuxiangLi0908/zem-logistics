@@ -188,6 +188,8 @@ class ScheduleShipment(View):
         appointment_type = request.POST.get("type")
         if appointment_type == "td":
             shipment_data = ast.literal_eval(request.POST.get("shipment_data"))
+            if self._shipment_exist(shipment_data["shipment_batch_number"]):
+                raise ValueError(f"Shipment {shipment_data['shipment_batch_number']} already exists!")
             shipment_data["appointment_id"] = request.POST.get("appointment_id", None)
             shipment_data["carrier"] = request.POST.get("carrier", None)
             shipment_data["third_party_address"] = request.POST.get("third_party_address", None)
@@ -283,3 +285,9 @@ class ScheduleShipment(View):
             weight_lbs=Sum("pallet__weight_lbs", output_field=FloatField()),
             n_pallet=Count('pallet__pallet_id', distinct=True)
         ).order_by('-n_pallet')
+    
+    def _shipment_exist(self, batch_number: str) -> bool:
+        if Shipment.objects.get(shipment_batch_number=batch_number):
+            return True
+        else:
+            return False
