@@ -287,7 +287,7 @@ class ScheduleShipment(View):
         ).order_by('-n_pallet')
     
     def _shipment_exist(self, batch_number: str) -> bool:
-        if Shipment.objects.get(shipment_batch_number=batch_number):
+        if Shipment.objects.filter(shipment_batch_number=batch_number):
             return True
         else:
             return False
