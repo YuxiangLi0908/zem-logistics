@@ -62,17 +62,8 @@ class OrderManagement(View):
             )
             order_id = selected_order[0].order_id
             container = selected_order[0].container_number
-            # container = Container.objects.get(
-            #     models.Q(container_number=container_number)
-            # )
             clearance = selected_order[0].clearance_id
-            # clearance = Clearance.objects.get(
-            #     models.Q(clearance_id=selected_order[0].clearance_id)
-            # )
             retrieval = selected_order[0].retrieval_id
-            # retrieval = Retrieval.objects.get(
-            #     models.Q(retrieval_id=selected_order[0].retrieval_id)
-            # )
             offload = selected_order[0].offload_id
             packing_list = PackingList.objects.filter(
                 models.Q(container_number__container_number=container_number)
@@ -129,16 +120,11 @@ class OrderManagement(View):
                 return render(request, self.template_main, self.context)
             else:
                 order_id = request.POST.get("order_id")
-                container_number = request.POST.get("container_number").strip()
                 order = Order.objects.get(models.Q(order_id=order_id))
                 container = order.container_number
-                # container = Container.objects.get(models.Q(container_number=container_number))
                 customer = order.customer_name
-                # customer = Customer.objects.get(models.Q(id=request.POST.get("customer_name")))
                 clearance = order.clearance_id
-                # clearance = Clearance.objects.get(models.Q(order__order_id=order_id))
                 retrieval = order.retrieval_id
-                # retrieval = Retrieval.objects.get(models.Q(order__order_id=order_id))
                 try:
                     warehoue = ZemWarehouse.objects.get(models.Q(id=request.POST.get("warehouse")))
                 except:
