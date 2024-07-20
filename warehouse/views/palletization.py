@@ -131,9 +131,9 @@ class Palletization(View):
             offload.devanning_fee = None
         except:
             pass
-        offload.save()
         for p in pallet:
             p.delete()
+        offload.save()
         mutable_post = request.POST.copy()
         mutable_post['name'] = order.warehouse.name
         request.POST = mutable_post
