@@ -122,8 +122,7 @@ class Palletization(View):
         # if shipment:
         #     raise ValueError(f"Order {container_number} has scheduled shipment!")
         order = Order.objects.get(container_number__container_number=container_number)
-        offload = Offload.objects.get(order__container_number__container_number=container_number)
-        pallet = Pallet.objects.filter(packing_list__container_number__container_number=container_number)
+        offload = order.offload_id
         offload.total_pallet = None
         offload.offload_at = None
         try:
@@ -131,8 +130,7 @@ class Palletization(View):
             offload.devanning_fee = None
         except:
             pass
-        for p in pallet:
-            p.delete()
+        Pallet.objects.filter(packing_list__container_number__container_number=container_number).delete()
         offload.save()
         mutable_post = request.POST.copy()
         mutable_post['name'] = order.warehouse.name
@@ -233,21 +231,27 @@ class Palletization(View):
         ids = [int(j) for i in ids for j in i]
         packing_list = PackingList.objects.filter(id__in=ids)
         shipment_list = set([pl.shipment_batch_number for pl in packing_list if pl.shipment_batch_number])
+        shipment_stats = PackingList.objects.values(
+            "shipment_batch_number__shipment_batch_number"
+        ).annotate(
+            total_pcs=Sum("pallet__pcs", output_field=IntegerField()),
+            total_cbm=Sum("pallet__cbm", output_field=FloatField()),
+            weight_lbs=Sum("pallet__weight_lbs", output_field=FloatField()),
+            total_n_pallet=Count('pallet__pallet_id', distinct=True, output_field=IntegerField()),
+        )
+        shipment_stats = {
+            s["shipment_batch_number__shipment_batch_number"]: {
+                "total_pcs": s["total_pcs"],
+                "total_cbm": s["total_cbm"],
+                "weight_lbs": s["weight_lbs"],
+                "total_n_pallet": s["total_n_pallet"],
+            } for s in shipment_stats
+        }
         for s in shipment_list:
-            shipment_stats = PackingList.objects.filter(
-                shipment_batch_number__shipment_batch_number=s.shipment_batch_number
-            ).values(
-                "destination"
-            ).annotate(
-                total_pcs=Sum("pallet__pcs", output_field=IntegerField()),
-                total_cbm=Sum("pallet__cbm", output_field=FloatField()),
-                weight_lbs=Sum("pallet__weight_lbs", output_field=FloatField()),
-                total_n_pallet=Count('pallet__pallet_id', distinct=True, output_field=IntegerField()),
-            )
-            s.total_cbm = shipment_stats[0]["total_cbm"]
-            s.total_pallet = shipment_stats[0]["total_n_pallet"]
-            s.total_weight = shipment_stats[0]["weight_lbs"]
-            s.total_pcs = shipment_stats[0]["total_pcs"]
+            s.total_cbm = shipment_stats[s.shipment_batch_number]["total_cbm"]
+            s.total_pallet = shipment_stats[s.shipment_batch_number]["total_n_pallet"]
+            s.total_weight = shipment_stats[s.shipment_batch_number]["weight_lbs"]
+            s.total_pcs = shipment_stats[s.shipment_batch_number]["total_pcs"]
             s.save()
 
     def _get_packing_list(self, container_number:str, status: str) -> PackingList:
