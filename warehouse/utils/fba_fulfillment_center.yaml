@@ -1642,3 +1642,83 @@ WMM-MCO1:
   location: 5100 NORTH RIDGE TRAIL
   state: FL
   zipcode: '33897'
+沃尔玛ATL1:
+  city: Atlanta
+  location: 6055 Derrick Industrial Pkwy
+  state: GA
+  zipcode: '30349'
+ATL1沃尔玛:
+  city: Atlanta
+  location: 6055 Derrick Industrial Pkwy
+  state: GA
+  zipcode: '30349'
+WMATL1:
+  city: Atlanta
+  location: 6055 Derrick Industrial Pkwy
+  state: GA
+  zipcode: '30349'
+WMMATL1:
+  city: Atlanta
+  location: 6055 Derrick Industrial Pkwy
+  state: GA
+  zipcode: '30349'
+沃尔玛-ATL1:
+  city: Atlanta
+  location: 6055 Derrick Industrial Pkwy
+  state: GA
+  zipcode: '30349'
+ATL1-沃尔玛:
+  city: Atlanta
+  location: 6055 Derrick Industrial Pkwy
+  state: GA
+  zipcode: '30349'
+WM-ATL1:
+  city: Atlanta
+  location: 6055 Derrick Industrial Pkwy
+  state: GA
+  zipcode: '30349'
+WMM-ATL1:
+  city: Atlanta
+  location: 6055 Derrick Industrial Pkwy
+  state: GA
+  zipcode: '30349'
+沃尔玛ATL2:
+  city: Carrollton
+  location: 3101 N. Highway 27
+  state: GA
+  zipcode: '30117'
+ATL2沃尔玛:
+  city: Carrollton
+  location: 3101 N. Highway 27
+  state: GA
+  zipcode: '30117'
+WMATL2:
+  city: Carrollton
+  location: 3101 N. Highway 27
+  state: GA
+  zipcode: '30117'
+WMMATL2:
+  city: Carrollton
+  location: 3101 N. Highway 27
+  state: GA
+  zipcode: '30117'
+沃尔玛-ATL2:
+  city: Carrollton
+  location: 3101 N. Highway 27
+  state: GA
+  zipcode: '30117'
+ATL2-沃尔玛:
+  city: Carrollton
+  location: 3101 N. Highway 27
+  state: GA
+  zipcode: '30117'
+WM-ATL2:
+  city: Carrollton
+  location: 3101 N. Highway 27
+  state: GA
+  zipcode: '30117'
+WMM-ATL2:
+  city: Carrollton
+  location: 3101 N. Highway 27
+  state: GA
+  zipcode: '30117'
