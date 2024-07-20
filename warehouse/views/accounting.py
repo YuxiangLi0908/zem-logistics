@@ -418,7 +418,7 @@ class Accounting(View):
         invoice.total_amount = invoice_data["total_amount"]
         invoice.save()
         # update invoice item information
-        invoice_item = InvoiceItem.objects.filter(invoice_number__invoice_number=invoice_number).delete()
+        InvoiceItem.objects.filter(invoice_number__invoice_number=invoice_number).delete()
         for d, wc, c, q, r, a, n in zip(description, warehouse_code, cbm, qty, rate, amount, note):
             invoice_item = InvoiceItem(**{
                 "invoice_number": invoice,
