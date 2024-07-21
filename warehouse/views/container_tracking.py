@@ -4,7 +4,7 @@ from django.shortcuts import render
 from django.http import HttpRequest, HttpResponse
 from django.contrib.auth.decorators import login_required
 from django.utils.decorators import method_decorator
-
+from warehouse.views.terminal49_webhook import T49Webhook
 
 @method_decorator(login_required(login_url='login'), name='dispatch')
 class ContainerTracking(View):
@@ -22,6 +22,8 @@ class ContainerTracking(View):
         step = request.POST.get("step", None)
         if step == "tracking_request":
             pass
+        else:
+            return T49Webhook().post(request)
 
     def _send_tracking_request(self):
         pass        

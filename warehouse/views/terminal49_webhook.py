@@ -1,3 +1,4 @@
+import json
 from typing import Any
 from datetime import datetime
 
@@ -12,12 +13,16 @@ class T49Webhook(View):
         return HttpResponse("GET request received")
     
     def post(self, request: HttpRequest) -> Any:
+        try:
+            body = json.loads(request.body.decode('utf-8'))
+        except json.JSONDecodeError:
+            body = request.body.decode('utf-8') 
         t49_event = T49Raw(
             received_at=datetime.now(),
             ip_address=self._get_client_ip(request),
-            header=request.headers,
-            body=request.body,
-            payload=request.POST,
+            header=dict(request.headers),
+            body=body,
+            payload=request.POST.dict(),
         )
         t49_event.save()
         return HttpResponse("POST request received")
