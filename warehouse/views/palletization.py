@@ -1,5 +1,6 @@
 import pytz
 import uuid
+import asyncio
 from datetime import datetime
 from typing import Any
 from xhtml2pdf import pisa
@@ -53,12 +54,14 @@ class Palletization(View):
     def post(self, request: HttpRequest, **kwargs) -> HttpRequest:
         step = request.POST.get("step")
         if step == "warehouse":
-            self.handle_warehouse_post(request)
+            asyncio.run(self.handle_warehouse_post(request))
+            # self.handle_warehouse_post(request)
         elif step == "palletization":
             pk = kwargs.get("pk")
             self.handle_packing_list_post(request, pk)
         elif step == "back":
-            self.handle_warehouse_post(request)
+            asyncio.run(self.handle_warehouse_post(request))
+            # self.handle_warehouse_post(request)
         elif step == "export_palletization_list":
             return export_palletization_list(request)
         elif step == "export_pallet_label":
@@ -84,10 +87,14 @@ class Palletization(View):
             pl_form = PackingListForm(initial={"n_pallet": pl["n_pallet"]})
             self.order_packing_list.append((pl, pl_form))
     
-    def handle_warehouse_post(self, request: HttpRequest) -> None:
+    async def handle_warehouse_post(self, request: HttpRequest) -> None:
         warehouse = request.POST.get("name")
-        self.order_not_palletized = self._get_order_not_palletized(warehouse)
-        self.order_palletized = self._get_order_palletized(warehouse)
+        # self.order_not_palletized = self._get_order_not_palletized(warehouse)
+        # self.order_palletized = self._get_order_palletized(warehouse)
+        self.order_not_palletized, self.order_palletized = await asyncio.gather(
+            self._get_order_not_palletized(warehouse),
+            self._get_order_palletized(warehouse)
+        )
         self.step = 1
         self.warehouse_form = ZemWarehouseForm(initial={"name": warehouse})
 
@@ -113,7 +120,8 @@ class Palletization(View):
         mutable_post['name'] = order_selected.warehouse.name
         request.POST = mutable_post
         self._update_shipment_stats(ids)
-        self.handle_warehouse_post(request)
+        asyncio.run(self.handle_warehouse_post(request))
+        # self.handle_warehouse_post(request)
         
 
     def handle_cancel_post(self, request: HttpRequest) -> None:
@@ -135,7 +143,8 @@ class Palletization(View):
         mutable_post = request.POST.copy()
         mutable_post['name'] = order.warehouse.name
         request.POST = mutable_post
-        self.handle_warehouse_post(request)
+        asyncio.run(self.handle_warehouse_post(request))
+        # self.handle_warehouse_post(request)
 
     def _export_pallet_label(self, request: HttpRequest) -> HttpResponse:
         container_number = request.POST.get("container_number")
@@ -298,7 +307,7 @@ class Palletization(View):
         else:
             raise ValueError(f"invalid status: {status}")
 
-    def _get_order_not_palletized(self, warehouse: str) -> Order:
+    async def _get_order_not_palletized(self, warehouse: str) -> Order:
         return Order.objects.filter(
             models.Q(warehouse__name=warehouse) &
             models.Q(offload_id__offload_required=True) &
@@ -306,7 +315,7 @@ class Palletization(View):
             (models.Q(retrieval_id__actual_retrieval_timestamp__isnull=False) | models.Q(retrieval_id__retrive_by_zem=False))
         ).order_by("retrieval_id__actual_retrieval_timestamp")
     
-    def _get_order_palletized(self, warehouse: str) -> Order:
+    async def _get_order_palletized(self, warehouse: str) -> Order:
         return Order.objects.filter(
             models.Q(warehouse__name=warehouse) &
             models.Q(offload_id__offload_required=True) &
