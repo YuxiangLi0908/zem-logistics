@@ -11,6 +11,7 @@ from warehouse.models.warehouse import ZemWarehouse
 from warehouse.models.pallet import Pallet
 from warehouse.models.quote import Quote
 from warehouse.models.invoice import Invoice, InvoiceItem, InvoiceStatement
+from warehouse.models.terminal49_webhook_raw import T49Raw
 
 # Register your models here.
 
@@ -28,3 +29,4 @@ admin.site.register(Quote)
 admin.site.register(Invoice)
 admin.site.register(InvoiceItem)
 admin.site.register(InvoiceStatement)
+admin.site.register(T49Raw)
