@@ -20,7 +20,7 @@ class T49Webhook(View):
             payload=request.POST,
         )
         t49_event.save()
-        return HttpResponse()
+        return HttpResponse("POST request received")
 
     def _get_client_ip(self, request: HttpRequest) -> str:
         x_forwarded_for = request.META.get('HTTP_X_FORWARDED_FOR')
