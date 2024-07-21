@@ -18,6 +18,8 @@ from warehouse.views.stuff_user_ability import StuffPower
 from warehouse.views.quote_management import QuoteManagement
 from warehouse.views.accounting import Accounting
 from warehouse.views.shipment_status import ShipmentStatus
+from warehouse.views.container_tracking import ContainerTracking
+from warehouse.views.terminal49_webhook import T49Webhook
 
 urlpatterns = [
     path("", home, name="home"),
@@ -40,4 +42,6 @@ urlpatterns = [
     path('stuff_user/', StuffPower.as_view(), name='stuff_user'),
     path('accounting/', Accounting.as_view(), name='accounting'),
     path('shipment_status/', ShipmentStatus.as_view(), name='shipment_status'),
+    path('container_tracking/', ContainerTracking.as_view(), name='container_tracking'),
+    path('t49webhook/', T49Webhook.as_view(), name='t49webhook'),
 ] + static(settings.STATIC_URL, document_root=settings.STATIC_ROOT)
