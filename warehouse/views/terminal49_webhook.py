@@ -4,10 +4,11 @@ from datetime import datetime
 
 from django.views import View
 from django.http import HttpRequest, HttpResponse
+from django.views.decorators.csrf import csrf_exempt
 
 from warehouse.models.terminal49_webhook_raw import T49Raw
 
-
+@csrf_exempt
 class T49Webhook(View):
     def get(self, request: HttpRequest) -> Any:
         return HttpResponse("GET request received")
