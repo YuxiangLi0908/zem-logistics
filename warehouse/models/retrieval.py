@@ -20,5 +20,11 @@ class Retrieval(models.Model):
     trucking_fee_paid_at = models.FloatField(null=True, blank=True)
     chassis_fee_paid_at = models.FloatField(null=True, blank=True)
 
+    class Meta:
+        indexes = [
+            models.Index(fields=['retrieval_id']),
+            models.Index(fields=['target_retrieval_timestamp']),
+        ]
+
     def __str__(self) -> str:
         return self.retrieval_id

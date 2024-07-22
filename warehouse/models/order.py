@@ -23,6 +23,13 @@ class Order(models.Model):
     shipment_id = models.ForeignKey(Shipment, null=True, blank=True, on_delete=models.SET_NULL)
     do_sent = models.BooleanField(default=False, blank=True)
     invoice_id = models.ForeignKey(Invoice, null=True, on_delete=models.SET_NULL)
+
+    class Meta:
+        indexes = [
+            models.Index(fields=['order_id']),
+            models.Index(fields=['eta']),
+            models.Index(fields=['created_at']),
+        ]
     
     def __str__(self) -> str:
         return self.customer_name.zem_name + " - " + self.container_number.container_number
