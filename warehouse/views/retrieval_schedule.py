@@ -1,6 +1,7 @@
 import pytz
+import asyncio
 from datetime import datetime
-from typing import Any
+from typing import Any, Coroutine
 
 from django.http import HttpRequest, HttpResponse
 from django.shortcuts import render
@@ -18,8 +19,7 @@ class ScheduleRetrieval(View):
     context: dict[str, Any] = {}
 
     def get(self, request: HttpRequest) -> HttpResponse:
-        self.retrieval_not_scheduled = self._get_retrieval_not_scheduled()
-        self.retrieval_scheduled =self._get_retrieval_scheduled()
+        self.retrieval_not_scheduled, self.retrieval_scheduled = asyncio.run(self._get_all_retrieval())
         self.retrieval_form = RetrievalForm()
         self._set_context()
         return render(request, self.template_main, self.context)
@@ -39,7 +39,7 @@ class ScheduleRetrieval(View):
         target_retrieval_timestamp = request.POST.get("target_retrieval_timestamp")
         cn = pytz.timezone('Asia/Shanghai')
         current_time_cn = datetime.now(cn)
-        order = Order.objects.get(order_id=order_id)
+        order = Order.objects.select_related("retrieval_id").get(order_id=order_id)
         retrieval = order.retrieval_id
         retrieval.scheduled_at = current_time_cn
         retrieval.target_retrieval_timestamp = target_retrieval_timestamp
@@ -50,25 +50,28 @@ class ScheduleRetrieval(View):
         actual_retrieval_timestamp = request.POST.get("actual_retrieval_timestamp")
         trucking_fee = request.POST.get("trucking_fee")
         chassis_fee = request.POST.get("chassis_fee")
-        order = Order.objects.get(order_id=order_id)
+        order = Order.objects.select_related("retrieval_id").get(order_id=order_id)
         retrieval = order.retrieval_id
         retrieval.actual_retrieval_timestamp = actual_retrieval_timestamp
         retrieval.trucking_fee = trucking_fee
         retrieval.chassis_fee = chassis_fee
         retrieval.save()
     
-    def _get_retrieval_not_scheduled(self) -> Order:
-        return Order.objects.filter(
+    async def _get_retrieval_not_scheduled(self) -> Order:
+        return Order.objects.select_related("container_number", "customer_name", "retrieval_id").filter(
             models.Q(retrieval_id__retrive_by_zem=True) &
             models.Q(retrieval_id__scheduled_at__isnull=True)
         ).order_by("eta")
     
-    def _get_retrieval_scheduled(self) -> Order:
-        return Order.objects.filter(
+    async def _get_retrieval_scheduled(self) -> Order:
+        return Order.objects.select_related("container_number", "customer_name", "retrieval_id").filter(
             models.Q(retrieval_id__retrive_by_zem=True) &
             models.Q(retrieval_id__scheduled_at__isnull=False) &
             models.Q(retrieval_id__actual_retrieval_timestamp__isnull=True)
         ).order_by("retrieval_id__target_retrieval_timestamp")
+    
+    async def _get_all_retrieval(self) -> Coroutine[None, None, list[Order]]:
+        return await asyncio.gather(self._get_retrieval_not_scheduled(), self._get_retrieval_scheduled())
     
     def _set_context(self) -> None:
         self.context["retrieval_not_scheduled"] = self.retrieval_not_scheduled
