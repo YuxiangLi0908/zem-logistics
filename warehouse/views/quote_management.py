@@ -146,7 +146,7 @@ class QuoteManagement(View):
         else:
             default_date = datetime.now().date() + timedelta(days=-30)
             criteria = models.Q(created_at__gte=default_date)
-        quote = Quote.objects.filter(criteria).order_by("-created_at")
+        quote = Quote.objects.filter(criteria)
         context = {
             "start_date": start_date,
             "end_date": end_date,
