@@ -1,6 +1,3 @@
-from datetime import datetime
-from typing import Any
-
 from django.http import HttpRequest, HttpResponse
 from django.shortcuts import render
 from django.contrib.auth.decorators import login_required
@@ -8,12 +5,8 @@ from django.views import View
 from django.utils.decorators import method_decorator
 from django.db import models
 
-from warehouse.models.offload import Offload
-from warehouse.models.order import Order
-from warehouse.models.packing_list import PackingList
 from warehouse.models.shipment import Shipment
 from warehouse.forms.warehouse_form import ZemWarehouseForm
-from warehouse.forms.packling_list_form import PackingListForm
 from warehouse.forms.shipment_form import ShipmentForm
 
 @method_decorator(login_required(login_url='login'), name='dispatch')
