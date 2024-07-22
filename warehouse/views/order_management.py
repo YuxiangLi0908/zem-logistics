@@ -45,7 +45,10 @@ class OrderManagement(View):
         start_date = (current_date + timedelta(days=-30)).strftime('%Y-%m-%d')
         end_date = (current_date + timedelta(days=30)).strftime('%Y-%m-%d')
         if step == "all":
-            orders = Order.objects.filter(
+            orders = Order.objects.select_related(
+                "customer_name", "container_number", "warehouse", "clearance_id", "retrieval_id", "offload_id",
+                "shipment_id"
+            ).filter(
                 models.Q(eta__gte=start_date) & models.Q(eta__lte=end_date)
             )
             self.context = {
@@ -57,7 +60,10 @@ class OrderManagement(View):
             return render(request, self.template_main, self.context)
         elif step == "query":
             container_number = request.GET.get("container_number")
-            selected_order = Order.objects.filter(
+            selected_order = Order.objects.select_related(
+                "customer_name", "container_number", "warehouse", "clearance_id", "retrieval_id", "offload_id",
+                "shipment_id"
+            ).filter(
                 models.Q(container_number__container_number=container_number)
             )
             order_id = selected_order[0].order_id
@@ -65,10 +71,14 @@ class OrderManagement(View):
             clearance = selected_order[0].clearance_id
             retrieval = selected_order[0].retrieval_id
             offload = selected_order[0].offload_id
-            packing_list = PackingList.objects.filter(
+            packing_list = PackingList.objects.select_related(
+                "container_number"
+            ).filter(
                 models.Q(container_number__container_number=container_number)
             ).order_by("id")
-            pallet = Pallet.objects.filter(
+            pallet = Pallet.objects.select_related(
+                "packing_list__container_number__order"
+            ).filter(
                 models.Q(packing_list__container_number__order__order_id=selected_order[0].order_id)
             )
             shipment = selected_order[0].shipment_id
@@ -203,7 +213,9 @@ class OrderManagement(View):
         order_ids = request.POST.getlist("order_id")
         selected = request.POST.getlist("is_order_selected")
         delete_orders = [id for s, id in zip(selected, order_ids) if s == "on"]
-        orders = Order.objects.filter(order_id__in=delete_orders)
+        orders = Order.objects.select_related(
+            "container_number", "clearance_id", "retrieval_id", "offload_id", "shipment_id"
+        ).filter(order_id__in=delete_orders)
         for order in orders:
             self._delete_order(order)
 
@@ -218,7 +230,10 @@ class OrderManagement(View):
             criteria = models.Q(eta__lte=end_date)
         else:
             criteria = models.Q(eta__gte="2023-01-01")
-        orders = Order.objects.filter(criteria)
+        orders = Order.objects.select_related(
+            "customer_name", "container_number", "warehouse", "clearance_id", "retrieval_id", "offload_id",
+            "shipment_id"
+        ).filter(criteria)
         self.context = {
             'orders': orders,
             'order_detail': False,
@@ -341,7 +356,13 @@ class OrderManagement(View):
                 pl.address = pl_form["address"]
                 pl.zipcode = pl_form["zipcode"]
                 pl.note = pl_form["note"]
-                pl.save()
+            PackingList.objects.bulk_update(
+                obj, 
+                [
+                    'product_name', 'delivery_method', 'shipping_mark', 'fba_id', 'ref_id', 'destination',
+                    'contact_name', 'contact_method', 'address', 'zipcode', 'note',
+                ]
+            )
         else:
             raise ValueError(f"invaid packing list!")
         
