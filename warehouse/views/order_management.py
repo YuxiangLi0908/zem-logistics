@@ -76,9 +76,7 @@ class OrderManagement(View):
             ).filter(
                 models.Q(container_number__container_number=container_number)
             ).order_by("id")
-            pallet = Pallet.objects.select_related(
-                "packing_list__container_number__order"
-            ).filter(
+            pallet = Pallet.objects.filter(
                 models.Q(packing_list__container_number__order__order_id=selected_order[0].order_id)
             )
             shipment = selected_order[0].shipment_id
