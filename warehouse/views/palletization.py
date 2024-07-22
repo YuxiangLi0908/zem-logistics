@@ -1,9 +1,11 @@
 import pytz
 import uuid
 import asyncio
+import multiprocessing as mp
 from datetime import datetime
 from typing import Any
 from xhtml2pdf import pisa
+from asgiref.sync import sync_to_async
 
 from django.http import HttpRequest, HttpResponse
 from django.shortcuts import render
@@ -16,7 +18,6 @@ from django.db.models.functions import Concat, Cast
 from django.contrib.postgres.aggregates import StringAgg
 from django.template.loader import get_template
 
-from warehouse.models.offload import Offload
 from warehouse.models.retrieval import Retrieval
 from warehouse.models.order import Order
 from warehouse.models.packing_list import PackingList
@@ -55,13 +56,11 @@ class Palletization(View):
         step = request.POST.get("step")
         if step == "warehouse":
             asyncio.run(self.handle_warehouse_post(request))
-            # self.handle_warehouse_post(request)
         elif step == "palletization":
             pk = kwargs.get("pk")
             self.handle_packing_list_post(request, pk)
         elif step == "back":
             asyncio.run(self.handle_warehouse_post(request))
-            # self.handle_warehouse_post(request)
         elif step == "export_palletization_list":
             return export_palletization_list(request)
         elif step == "export_pallet_label":
@@ -73,11 +72,12 @@ class Palletization(View):
         return self.get(request)
     
     def handle_packing_list_get(self, request: HttpRequest, pk: int, step: str) -> None:
-        order_selected = Order.objects.get(pk=pk)
+        order_selected = Order.objects.select_related("container_number", "warehouse", "offload_id").get(pk=pk)
         container = order_selected.container_number
-        if step == "new":
+        offload = order_selected.offload_id
+        if step == "new" and offload.offload_at is None:
             packing_list = self._get_packing_list(container_number=container.container_number, status="non_palletized")
-        elif step == "complete":
+        else:
             packing_list = self._get_packing_list(container_number=container.container_number, status="palletized")
             self.context["step"] = "complete"
             self.context["name"] = order_selected.warehouse.name
@@ -89,8 +89,6 @@ class Palletization(View):
     
     async def handle_warehouse_post(self, request: HttpRequest) -> None:
         warehouse = request.POST.get("name")
-        # self.order_not_palletized = self._get_order_not_palletized(warehouse)
-        # self.order_palletized = self._get_order_palletized(warehouse)
         self.order_not_palletized, self.order_palletized = await asyncio.gather(
             self._get_order_not_palletized(warehouse),
             self._get_order_palletized(warehouse)
@@ -99,18 +97,15 @@ class Palletization(View):
         self.warehouse_form = ZemWarehouseForm(initial={"name": warehouse})
 
     def handle_packing_list_post(self, request: HttpRequest, pk: int) -> None:
-        order_selected = Order.objects.get(pk=pk)
+        order_selected = Order.objects.select_related("offload_id", "warehouse").get(pk=pk)
         offload = order_selected.offload_id
         ids = request.POST.getlist("ids")
         ids = [i.split(",") for i in ids]
-        n_pallet = request.POST.getlist("n_pallet")
-        cbm = request.POST.getlist("cbms")
-        total_pallet = 0
+        n_pallet = [int(n) for n in request.POST.getlist("n_pallet")]
+        cbm = [float(c) for c in request.POST.getlist("cbms")]
+        total_pallet = sum(n_pallet)
         for i, n, c in zip(ids, n_pallet, cbm):
-            n = int(n)
-            c = float(c)
             self._split_pallet(i, n, c, pk)
-            total_pallet += n
         cn = pytz.timezone('Asia/Shanghai')
         current_time_cn = datetime.now(cn)
         offload.total_pallet = total_pallet
@@ -121,15 +116,13 @@ class Palletization(View):
         request.POST = mutable_post
         self._update_shipment_stats(ids)
         asyncio.run(self.handle_warehouse_post(request))
-        # self.handle_warehouse_post(request)
         
-
     def handle_cancel_post(self, request: HttpRequest) -> None:
         container_number = request.POST.get("container_number")
         # shipment = Shipment.objects.filter(packinglist__container_number__container_number=container_number)
         # if shipment:
         #     raise ValueError(f"Order {container_number} has scheduled shipment!")
-        order = Order.objects.get(container_number__container_number=container_number)
+        order = Order.objects.select_related("offload_id", "warehouse").get(container_number__container_number=container_number)
         offload = order.offload_id
         offload.total_pallet = None
         offload.offload_at = None
@@ -144,7 +137,6 @@ class Palletization(View):
         mutable_post['name'] = order.warehouse.name
         request.POST = mutable_post
         asyncio.run(self.handle_warehouse_post(request))
-        # self.handle_warehouse_post(request)
 
     def _export_pallet_label(self, request: HttpRequest) -> HttpResponse:
         container_number = request.POST.get("container_number")
@@ -167,14 +159,13 @@ class Palletization(View):
                 cbm += (cbm%2)
             elif remainder:
                 cbm += 2
-            for _ in range(cbm):
-                data.append({
-                    "container_number": pl.get("container_number__container_number"),
-                    "destination": pl.get("destination"),
-                    "date": retrieval_date,
-                    "customer": customer_name,
-                    "hold": ("暂扣留仓" in pl.get("custom_delivery_method").split("-")[0]),
-                })
+            data += [{
+                "container_number": pl.get("container_number__container_number"),
+                "destination": pl.get("destination"),
+                "date": retrieval_date,
+                "customer": customer_name,
+                "hold": ("暂扣留仓" in pl.get("custom_delivery_method").split("-")[0]),
+            }] * cbm
         context = {"data": data}
         template = get_template(self.template_pallet_label)
         html = template.render(context)
@@ -199,6 +190,7 @@ class Palletization(View):
         ids = [int(i) for i in ids]
         packing_list = PackingList.objects.filter(id__in=ids)
         i = 0
+        pallet_data = []
         for pl in packing_list:
             pcs_total = 0
             weight_total = 0
@@ -228,19 +220,25 @@ class Palletization(View):
                     weight_loaded = round(pl_total_weight * cbm_loaded / pl.cbm, 2)
                     weight_total += weight_loaded
                     pallet_vol[i] = 0
-                Pallet(**{
+                pallet_data.append({
                     "packing_list": pl,
                     "pallet_id": pallet_ids[i],
                     "pcs": pcs_loaded,
                     "cbm": cbm_loaded,
                     "weight_lbs": weight_loaded,
-                }).save()
+                })
+        Pallet.objects.bulk_create([
+            Pallet(**d) for d in pallet_data
+        ])
 
     def _update_shipment_stats(self, ids: list[Any]) -> None:
         ids = [int(j) for i in ids for j in i]
-        packing_list = PackingList.objects.filter(id__in=ids)
-        shipment_list = set([pl.shipment_batch_number for pl in packing_list if pl.shipment_batch_number])
-        shipment_stats = PackingList.objects.values(
+        shipment_stats = PackingList.objects.select_related(
+            "shipment_batch_number", "pallet"
+        ).filter(
+            models.Q(id__in=ids) &
+            models.Q(shipment_batch_number__isnull=False)
+        ).values(
             "shipment_batch_number__shipment_batch_number"
         ).annotate(
             total_pcs=Sum("pallet__pcs", output_field=IntegerField()),
@@ -248,6 +246,8 @@ class Palletization(View):
             weight_lbs=Sum("pallet__weight_lbs", output_field=FloatField()),
             total_n_pallet=Count('pallet__pallet_id', distinct=True, output_field=IntegerField()),
         )
+        packing_list = PackingList.objects.select_related("shipment_batch_number").filter(id__in=ids)
+        shipment_list = set([pl.shipment_batch_number for pl in packing_list if pl.shipment_batch_number])
         shipment_stats = {
             s["shipment_batch_number__shipment_batch_number"]: {
                 "total_pcs": s["total_pcs"],
@@ -261,11 +261,13 @@ class Palletization(View):
             s.total_pallet = shipment_stats[s.shipment_batch_number]["total_n_pallet"]
             s.total_weight = shipment_stats[s.shipment_batch_number]["weight_lbs"]
             s.total_pcs = shipment_stats[s.shipment_batch_number]["total_pcs"]
-            s.save()
+        Shipment.objects.bulk_update(shipment_list, ["total_cbm", "total_pallet", "total_weight", "total_pcs"])
 
     def _get_packing_list(self, container_number:str, status: str) -> PackingList:
         if status == "non_palletized":
-            return PackingList.objects.filter(container_number__container_number=container_number).annotate(
+            return PackingList.objects.select_related(
+                "container_number", "pallet"
+            ).filter(container_number__container_number=container_number).annotate(
                 custom_delivery_method=Case(
                     When(Q(delivery_method='暂扣留仓(HOLD)') | Q(delivery_method='暂扣留仓'), then=Concat('delivery_method', Value('-'), 'fba_id', Value('-'), 'id')),
                     default=F('delivery_method'),
@@ -285,7 +287,9 @@ class Palletization(View):
                 n_pallet=Count('pallet__pallet_id', distinct=True)
             ).order_by("-cbm")
         elif status == "palletized":
-            return PackingList.objects.filter(container_number__container_number=container_number).annotate(
+            return PackingList.objects.select_related(
+                "container_number", "pallet"
+            ).filter(container_number__container_number=container_number).annotate(
                 custom_delivery_method=Case(
                     When(Q(delivery_method='暂扣留仓(HOLD)') | Q(delivery_method='暂扣留仓'), then=Concat('delivery_method', Value('-'), 'fba_id', Value('-'), 'id')),
                     default=F('delivery_method'),
@@ -308,7 +312,9 @@ class Palletization(View):
             raise ValueError(f"invalid status: {status}")
 
     async def _get_order_not_palletized(self, warehouse: str) -> Order:
-        return Order.objects.filter(
+        return Order.objects.select_related(
+            "customer_name", "container_number", "retrieval_id", "offload_id", "warehouse"
+        ).filter(
             models.Q(warehouse__name=warehouse) &
             models.Q(offload_id__offload_required=True) &
             models.Q(offload_id__offload_at__isnull=True) &
@@ -316,7 +322,9 @@ class Palletization(View):
         ).order_by("retrieval_id__actual_retrieval_timestamp")
     
     async def _get_order_palletized(self, warehouse: str) -> Order:
-        return Order.objects.filter(
+        return Order.objects.select_related(
+            "customer_name", "container_number", "retrieval_id", "offload_id", "warehouse"
+        ).filter(
             models.Q(warehouse__name=warehouse) &
             models.Q(offload_id__offload_required=True) &
             models.Q(offload_id__offload_at__isnull=False) &
