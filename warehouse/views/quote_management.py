@@ -67,7 +67,7 @@ class QuoteManagement(View):
     
     def handle_edit_get(self, request: HttpRequest) -> dict[str, Any]:
         quote_id = request.GET.get("qid")
-        quote = Quote.objects.get(quote_id=quote_id)
+        quote = Quote.objects.select_related("warehouse", "customer_name").get(quote_id=quote_id)
         quote_form = QuoteForm(instance=quote)
         context = {
             "quote": quote,
@@ -78,7 +78,6 @@ class QuoteManagement(View):
     def handle_create_post(self, request: HttpRequest) -> dict[str, Any]:
         quote_form_p1 = QuoteForm(request.POST)
         timestamp = datetime.now()
-        all_quotes = []
         if quote_form_p1.is_valid():
             cleaned_data_p1 = quote_form_p1.cleaned_data
             try:
@@ -103,6 +102,7 @@ class QuoteManagement(View):
             if q_valid:
                 cleaned_data_p2 = [q.cleaned_data for q in quote_form]
                 i = 1
+                quote_data = []
                 for d in cleaned_data_p2:
                     data = {}
                     quote_id = f"{parent_id}{''.join(random.choices(string.ascii_uppercase, k=2))}{i}"
@@ -120,10 +120,11 @@ class QuoteManagement(View):
                         data["comment"] = d["comment"].strip()
                     except:
                         data["comment"] = d["comment"]
-                    quote = Quote(**data)
-                    all_quotes.append(quote)
-                    quote.save()
+                    quote_data.append(data)
                     i += 1
+                all_quotes = Quote.objects.bulk_create([
+                    Quote(**d) for d in quote_data
+                ])
             else:
                 raise RuntimeError(f"invalid 报价!")
         else:
@@ -156,7 +157,7 @@ class QuoteManagement(View):
     
     def handle_single_excel_export(self, request: HttpRequest) -> HttpResponse:
         parent_id = request.POST.get("parent_id")
-        quote = Quote.objects.filter(
+        quote = Quote.objects.select_related("warehouse", "customer_name").filter(
             parent_id=parent_id
         ).values(
             "quote_id", "customer_name__full_name", "created_at", "warehouse__name", "zipcode",
@@ -182,7 +183,7 @@ class QuoteManagement(View):
     
     def handle_update_post(self, request: HttpRequest) -> dict[str, Any]:
         quote_id = request.POST.get("quote_id")
-        quote = Quote.objects.get(quote_id=quote_id)
+        quote = Quote.objects.select_related("warehouse", "customer_name").get(quote_id=quote_id)
         quote_form = QuoteForm(request.POST)
         if quote_form.is_valid():
             data = quote_form.cleaned_data
