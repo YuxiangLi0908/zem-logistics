@@ -21,7 +21,7 @@ class PackingList(models.Model):
     total_weight_kg = models.FloatField(null=True)
     cbm = models.FloatField(null=True)
     n_pallet = models.IntegerField(null=True, blank=True)
-    shipment_batch_number = models.ForeignKey(Shipment, null=True, blank=True, on_delete=models.SET_NULL)
+    shipment_batch_number = models.ForeignKey(Shipment, null=True, blank=True, on_delete=models.SET_NULL, related_name='packinglist')
     note = models.CharField(null=True, blank=True, max_length=2000)
     quote_id = models.ForeignKey(Quote, null=True, blank=True, on_delete=models.SET_NULL)
 

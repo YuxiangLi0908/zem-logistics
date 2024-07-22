@@ -58,7 +58,10 @@ class ScheduleShipment(View):
     def handle_destination_get(self, request: HttpRequest) -> dict[str, Any]:
         warehouse = request.GET.get("warehouse")
         destination = request.GET.get("destination")
-        packing_list = PackingList.objects.filter(
+        packing_list = PackingList.objects.select_related(
+            "container_number", "container_number__order__warehouse", "shipment_batch_number",
+            "container_number__order__customer_name"
+        ).filter(
             container_number__order__warehouse__name=warehouse,
             destination=destination,
             n_pallet__isnull=False,
@@ -87,7 +90,9 @@ class ScheduleShipment(View):
         is_direct = True if warehouse=="N/A(直送)" else False
         warehouse = None if warehouse=="N/A(直送)" else warehouse
         if is_direct:
-            shipment = Shipment.objects.filter(
+            shipment = Shipment.objects.select_related(
+                "order", "container_number", "customer_name"
+            ).filter(
                 order__order_type="直送"
             ).values(
                 "shipment_batch_number", "order__customer_name__zem_name", "order__container_number__container_number",
@@ -120,7 +125,10 @@ class ScheduleShipment(View):
         ids = [i.split(",") for i in ids]
         selected = [int(i) for s, id in zip(selections, ids) for i in id if s == "on"]
         if selected:
-            packling_list = PackingList.objects.filter(
+            packling_list = PackingList.objects.select_related(
+                "container_number", "container_number__order__customer_name",
+                "container_number__order__offload_id", "pallet"
+            ).filter(
                 id__in=selected
             ).values(
                 'id', 'fba_id', 'ref_id','address','zipcode','destination','delivery_method',
@@ -132,12 +140,9 @@ class ScheduleShipment(View):
                 total_cbm=Sum("pallet__cbm", output_field=FloatField()),
                 total_weight_lbs=Sum("pallet__weight_lbs", output_field=FloatField()),
                 total_n_pallet=Count('pallet__pallet_id', distinct=True),
-            ).order_by(
-                'container_number__container_number',
-                '-total_weight_lbs'
-            )
+            ).order_by('container_number__container_number')
             
-            total_pallet = PackingList.objects.filter(id__in=selected).values('pallet__pallet_id').distinct().count()
+            total_pallet = PackingList.objects.select_related("pallet").filter(id__in=selected).values('pallet__pallet_id').distinct().count()
             total_weight, total_cbm, total_pcs = .0, .0, 0
             cbm_list = []
             for pl in packling_list:
@@ -206,10 +211,11 @@ class ScheduleShipment(View):
             shipment.save()
             
             pl_ids = request.POST.get("pl_ids").strip('][').split(', ')
-            for pl_id in pl_ids:
-                pl = PackingList.objects.get(id=int(pl_id))
+            pl_ids = [int(i) for i in pl_ids]
+            packing_list = PackingList.objects.filter(id__in=pl_ids)
+            for pl in packing_list:
                 pl.shipment_batch_number = shipment
-                pl.save()
+            PackingList.objects.bulk_update(packing_list, ["shipment_batch_number"])
             
             mutable_post = request.POST.copy()
             mutable_post['name'] = shipment_data.get("origin")
@@ -256,7 +262,11 @@ class ScheduleShipment(View):
         return self.handle_warehouse_post(request)
         
     def _get_packing_list_not_scheduled(self, warehouse: str) -> PackingList:
-        return PackingList.objects.filter(
+        return PackingList.objects.select_related(
+            "container_number", "container_number__order", "container_number__order__warehouse",
+            "shipment_batch_number", "container_number__order__offload_id", "container_number__order__customer_name",
+            "pallet"
+        ).filter(
             models.Q(container_number__order__warehouse__name=warehouse) &
             models.Q(container_number__order__offload_id__total_pallet__isnull=False) &
             models.Q(shipment_batch_number__isnull=True)

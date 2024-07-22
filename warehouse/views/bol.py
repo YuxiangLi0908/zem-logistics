@@ -82,7 +82,10 @@ class BOL(View):
                 models.Q(packinglist__container_number__container_number=container_number) |
                 models.Q(order__container_number__container_number=container_number)
             )
-        shipment = Shipment.objects.filter(criteria).distinct()
+        shipment = Shipment.objects.prefetch_related(
+            "packinglist", "packinglist__container_number", "packinglist__container_number__order",
+            "packinglist__container_number__order__warehouse", "order"
+        ).filter(criteria).distinct()
         warehouse_object = ZemWarehouse.objects.get(name=warehouse) if warehouse else None
         warehouse = warehouse if warehouse else "N/A(直送)"
         context = {
