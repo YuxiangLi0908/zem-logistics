@@ -23,5 +23,12 @@ class Quote(models.Model):
     price = models.FloatField(null=True, blank=True)
     comment = models.CharField(max_length=500, null=True, blank=True)
 
+    class Meta:
+        indexes = [
+            models.Index(fields=['quote_id']),
+            models.Index(fields=['parent_id']),
+            models.Index(fields=['created_at']),
+        ]
+
     def __str__(self) -> str:
         return f"{self.customer_name}-{self.warehouse}-{self.zipcode}-{self.quote_id}"
