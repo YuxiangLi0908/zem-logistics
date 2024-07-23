@@ -152,7 +152,7 @@ class Accounting(View):
             container_number = None
         if container_number:
             criteria &= models.Q(container_number__container_number=container_number)
-        pl_data = PackingList.objects.filter(criteria).values(
+        pl_data = PackingList.objects.select_related("container_number").filter(criteria).values(
             'container_number__container_number', 'destination', 'delivery_method', 'cbm', 'pcs', 'total_weight_kg'
         ).order_by("container_number__container_number", "destination")
         context = {
