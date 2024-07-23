@@ -72,9 +72,9 @@ def export_palletization_list(request: HttpRequest) -> HttpResponse:
     if status == "non_palletized":
         cn = pytz.timezone('Asia/Shanghai')
         current_time_cn = datetime.now(cn).strftime("%Y-%m-%d %H:%M:%S")
-        packing_list = PackingList.select_related(
+        packing_list = PackingList.objects.select_related(
                 "container_number", "pallet"
-            ).objects.filter(container_number__container_number=container_number).annotate(
+            ).filter(container_number__container_number=container_number).annotate(
             custom_delivery_method=Case(
                 When(Q(delivery_method='暂扣留仓(HOLD)') | Q(delivery_method='暂扣留仓'), then=Concat('delivery_method', Value('-'), 'fba_id', Value('-'), 'id')),
                 default=F('delivery_method'),
