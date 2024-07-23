@@ -1,9 +1,8 @@
-import pytz
 from datetime import datetime, timedelta
 from typing import Any
 
 from django.http import HttpRequest, HttpResponse
-from django.shortcuts import render, redirect
+from django.shortcuts import render
 from django.contrib.auth.decorators import login_required
 from django.views import View
 from django.utils.decorators import method_decorator
@@ -12,11 +11,8 @@ from django.db.models import Sum, FloatField, IntegerField, Count, Case, When, F
 from django.db.models.functions import Cast
 from django.contrib.postgres.aggregates import StringAgg
 
-from warehouse.models.customer import Customer
-from warehouse.models.shipment import Shipment
 from warehouse.models.packing_list import PackingList
 from warehouse.models.warehouse import ZemWarehouse
-from warehouse.forms.customer_form import CustomerForm
 from warehouse.forms.warehouse_form import ZemWarehouseForm
 from warehouse.views.export_file import export_po
 
@@ -55,12 +51,13 @@ class PO(View):
         start_date = request.POST.get("start_date")
         end_date = request.POST.get("end_date")
         criteria = models.Q(container_number__order__warehouse__name=warehouse)
-        # criteria &= models.Q(shipment_batch_number__isnull=True)
         if start_date:
             criteria &= models.Q(container_number__order__eta__gte=start_date)
         if end_date:
             criteria &= models.Q(container_number__order__eta__lte=end_date)
-        packing_list = PackingList.objects.filter(criteria).annotate(
+        packing_list = PackingList.objects.select_related(
+            "container_number", "container_number__order", "container_number__order__warehouse", "pallet"
+        ).filter(criteria).annotate(
             str_id=Cast("id", CharField()),
         ).values(
             'fba_id', 'ref_id','address','zipcode','destination','delivery_method',
@@ -115,7 +112,9 @@ class PO(View):
         selections = request.POST.getlist("is_selected")
         selected = [int(i) for s, id in zip(selections, ids) for i in id if s == "on"]
         if selected:
-            packing_list = PackingList.objects.filter(
+            packing_list = PackingList.objects.select_related(
+                "container_number", "pallet"
+            ).filter(
                 id__in=selected
             ).values(
                 'fba_id', 'ref_id','address','zipcode','destination','delivery_method',

@@ -51,7 +51,9 @@ class POD(View):
         batch_number = request.GET.get("batch_number")
         shipment = Shipment.objects.get(shipment_batch_number=batch_number)
         shipment_form = ShipmentForm(initial=model_to_dict(shipment))
-        packing_list = PackingList.objects.filter(
+        packing_list = PackingList.objects.select_related(
+            "container_number", "container_number__order__customer_name", "pallet"
+        ).filter(
             shipment_batch_number__shipment_batch_number=batch_number
         ).values(
             'id', 'fba_id', 'ref_id','address','zipcode','destination','delivery_method',

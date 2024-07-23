@@ -26,9 +26,9 @@
                 <th class="th">所属仓库</th>
                 <th class="th">柜号</th>
                 <th class="th">入库日期</th>
-                <th class="th">FBA ID</th>
-                <th class="th">唛头</th>
-                <th class="th">REF ID</th>
+                <th class="th" style="max-width: 200px;">FBA ID</th>
+                <th class="th" style="max-width: 200px;">唛头</th>
+                <th class="th" style="max-width: 200px;">REF ID</th>
                 <th class="th">批次号</th>
                 <th class="th">预约号</th>
                 <th class="th">目的地</th>
@@ -37,7 +37,7 @@
                 <th class="th">出库日期</th>
                 <th class="th">送达日期</th>
                 <th class="th">POD</th>
-                <th class="th">备注</th>
+                <th class="th" style="max-width: 200px;">备注</th>
             </tr>
         </thead>
         <tbody>
@@ -48,9 +48,9 @@
                 <td class="td">{{ pl.container_number__order__warehouse__name }}</td>
                 <td class="td">{{ pl.container_number__container_number }}</td>
                 <td class="td">{{ pl.container_number__order__offload_id__offload_at|date:"Y-m-d" }}</td>
-                <td class="td">{% if pl.fba_id %} {{ pl.fba_id }} {% endif %}</td>
-                <td class="td">{% if pl.shipping_mark %} {{ pl.shipping_mark }} {% endif %}</td>
-                <td class="td">{% if pl.ref_id %} {{ pl.ref_id }} {% endif %}</td>
+                <td class="td" style="max-width: 200px;">{% if pl.fba_id %} {{ pl.fba_id }} {% endif %}</td>
+                <td class="td" style="max-width: 200px;">{% if pl.shipping_mark %} {{ pl.shipping_mark }} {% endif %}</td>
+                <td class="td" style="max-width: 200px;">{% if pl.ref_id %} {{ pl.ref_id }} {% endif %}</td>
                 <td class="td">{% if pl.shipment_batch_number__shipment_batch_number %} {{ pl.shipment_batch_number__shipment_batch_number }} {% endif %}</td>
                 <td class="td">{% if pl.shipment_batch_number__appointment_id %} {{ pl.shipment_batch_number__appointment_id }} {% endif %}</td>
                 <td class="td">{{ pl.destination }}</td>
@@ -65,7 +65,7 @@
                         </a>
                     {% endif %}
                 </td>
-                <td class="td">{% if pl.note %} {{ pl.note }} {% endif %}</td>
+                <td class="td" style="max-width: 200px;">{% if pl.note %} {{ pl.note }} {% endif %}</td>
             </tr>
             {% endfor %}
         </tbody>

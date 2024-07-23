@@ -1,9 +1,3 @@
-import ast
-import pytz
-import uuid
-import time
-import shortuuid
-from datetime import datetime
 from typing import Any
 
 from django.http import HttpRequest, HttpResponse
@@ -12,16 +6,10 @@ from django.contrib.auth.decorators import login_required
 from django.views import View
 from django.utils.decorators import method_decorator
 from django.db import models
-from django.db.models import Case, Value, CharField, F, Sum, FloatField, IntegerField, When, Count
-from django.db.models.functions import Concat, Cast
-from django.contrib.postgres.aggregates import StringAgg
+from django.db.models import Sum, FloatField, IntegerField, Count
 
 from warehouse.models.packing_list import PackingList
-from warehouse.models.shipment import Shipment
-from warehouse.forms.warehouse_form import ZemWarehouseForm
-from warehouse.forms.shipment_form import ShipmentForm
-from warehouse.utils.constants import amazon_fba_locations
-from warehouse.views.bol import BOL
+
 
 @method_decorator(login_required(login_url='login'), name='dispatch')
 class ShipmentStatus(View):
@@ -50,7 +38,10 @@ class ShipmentStatus(View):
             criteria &= models.Q(container_number__container_number=container_number)
         if destination:
             criteria &= models.Q(destination=destination)
-        packing_list = PackingList.objects.filter(criteria).values(
+        packing_list = PackingList.objects.select_related(
+            "container_number", "container_number__order", "container_number__order__warehouse",
+            "container_number__order__customer_name", "shipment_batch_number", "pallet"
+        ).filter(criteria).values(
             "container_number__order__created_at",
             "container_number__order__customer_name__zem_name",
             "container_number__order__warehouse__name",

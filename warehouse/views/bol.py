@@ -47,7 +47,9 @@ class BOL(View):
         batch_number = request.GET.get("batch_number")
         context = self.handle_search_post(request)
         context['shipment_list'] = context['shipment_list'].filter(shipment_batch_number=batch_number)
-        packling_list = PackingList.objects.filter(
+        packling_list = PackingList.objects.select_related(
+            "container_number", "container_number__order__customer_name"
+        ).filter(
             shipment_batch_number__shipment_batch_number=batch_number
         ).values(
             'id', 'fba_id', 'ref_id','address','zipcode','destination','delivery_method',
@@ -103,8 +105,10 @@ class BOL(View):
         batch_number = request.POST.get("batch_number")
         warehouse = request.POST.get("warehouse")
         shipment = Shipment.objects.get(shipment_batch_number=batch_number)
-        packing_list = PackingList.objects.filter(shipment_batch_number__shipment_batch_number=batch_number)
-        pallet = PackingList.objects.filter(
+        packing_list = PackingList.objects.select_related("container_number").filter(
+            shipment_batch_number__shipment_batch_number=batch_number
+        )
+        pallet = PackingList.objects.select_related("pallet", "container_number").filter(
             shipment_batch_number__shipment_batch_number=batch_number
         ).values(
             "container_number__container_number", "destination"
