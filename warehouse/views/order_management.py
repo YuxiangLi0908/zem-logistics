@@ -128,7 +128,10 @@ class OrderManagement(View):
                 return render(request, self.template_main, self.context)
             else:
                 order_id = request.POST.get("order_id")
-                order = Order.objects.get(models.Q(order_id=order_id))
+                order = Order.objects.select_related(
+                    "customer_name", "container_number", "warehouse", "clearance_id", "retrieval_id", "offload_id",
+                    "shipment_id"
+                ).get(models.Q(order_id=order_id))
                 container = order.container_number
                 customer = order.customer_name
                 clearance = order.clearance_id
@@ -324,10 +327,13 @@ class OrderManagement(View):
                 obj[j].save()
                 i += 1
                 j += 1
+            new_pl_data = []
             while i < n_pl_new:
-                new_obj = PackingList(**cleaned_data[i])
-                new_obj.save()
+                new_pl_data.append(cleaned_data[i])
                 i += 1
+            PackingList.objects.bulk_create([
+                PackingList(**d) for d in new_pl_data
+            ])
             while j < n_pl_old:
                 obj[j].delete()
                 j += 1
