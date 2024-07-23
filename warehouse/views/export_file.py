@@ -220,7 +220,9 @@ def export_po(request: HttpRequest, export_format: str = "PO") -> HttpResponse:
 
 def export_do(request: HttpRequest) -> HttpResponse:
     container_number = request.POST.get("container_number")
-    order = Order.objects.get(container_number__container_number=container_number)
+    order = Order.objects.select_related(
+        "container_number", "retrieval_id", "warehouse"
+    ).get(container_number__container_number=container_number)
     container = order.container_number
     packing_list = PackingList.objects.filter(container_number__container_number=container_number)
     pcs, weight = 0, 0
