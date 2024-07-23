@@ -10,5 +10,10 @@ class Customer(models.Model):
     phone = models.CharField(max_length=30, null=True, blank=True)
     note = models.CharField(max_length=500, null=True, blank=True)
 
+    class Meta:
+        indexes = [
+            models.Index(fields=['zem_name']),
+        ]
+
     def __str__(self) -> str:
         return f"{self.zem_name}"
