@@ -113,7 +113,9 @@
                                 </td>
                                 <td class="td">
                                     {% if c.invoice_id.statement_id %}
-                                        {{ c.invoice_id.statement_id.invoice_statement_id }}
+                                        <a href="{{ c.invoice_id.statement_id.statement_link }}" target="_blank">
+                                            {{ c.invoice_id.statement_id.invoice_statement_id }}
+                                        </a>
                                     {% else %}
                                         <div> </div>
                                     {% endif %}
