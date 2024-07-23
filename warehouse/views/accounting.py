@@ -180,7 +180,9 @@ class Accounting(View):
         criteria &= models.Q(created_at__lte=end_date)
         if customer:
             criteria &= models.Q(customer_name__zem_name=customer)
-        order = Order.objects.filter(criteria).order_by("created_at")
+        order = Order.objects.select_related(
+            "invoice_id", "customer_name", "container_number", "invoice_id__statement_id"
+        ).filter(criteria).order_by("created_at")
         order_no_invoice = [o for o in order if o.invoice_id is None]
         order_invoice = [o for o in order if o.invoice_id]
         context = {
@@ -197,7 +199,9 @@ class Accounting(View):
     def handle_container_invoice_get(self, container_number: str) -> tuple[Any, Any]:
         order = Order.objects.get(container_number__container_number=container_number)
         if order.order_type == "转运":
-            packing_list = PackingList.objects.filter(
+            packing_list = PackingList.objects.select_related(
+                "container_number", "pallet"
+            ).filter(
                 container_number__container_number=container_number
             ).values(
                 'container_number__container_number', 'destination'
@@ -221,7 +225,9 @@ class Accounting(View):
         return self.template_invoice_container, context
     
     def handle_container_invoice_edit_get(self, container_number: str) -> tuple[Any, Any]:
-        invoice = Invoice.objects.get(container_number__container_number=container_number)
+        invoice = Invoice.objects.select_related("customer", "container_number").get(
+            container_number__container_number=container_number
+        )
         invoice_item = InvoiceItem.objects.filter(invoice_number__invoice_number=invoice.invoice_number)
         context = {
             "invoice": invoice,
@@ -231,7 +237,7 @@ class Accounting(View):
     
     def handle_container_invoice_delete_get(self, request: HttpRequest) -> tuple[Any, Any]:
         invoice_number = request.GET.get("invoice_number")
-        invoice = Invoice.objects.get(invoice_number=invoice_number)
+        invoice = Invoice.objects.select_related("container_number").get(invoice_number=invoice_number)
         invoice_item = InvoiceItem.objects.filter(invoice_number__invoice_number=invoice_number)
         container_number = invoice.container_number.container_number
         # delete file from sharepoint
@@ -306,7 +312,9 @@ class Accounting(View):
         selections = request.POST.getlist("is_order_selected")
         order_selected = [o for s, o in zip(selections, order_ids) if s == "on"]
         if order_selected:
-            order = Order.objects.filter(
+            order = Order.objects.select_related(
+                "customer_name", "container_number", "invoice_id"
+            ).filter(
                 order_id__in=order_selected
             )
             order_id = [o.id for o in order]
@@ -335,7 +343,9 @@ class Accounting(View):
         rate = request.POST.getlist("rate")
         amount = request.POST.getlist("amount")
         note = request.POST.getlist("note")
-        order = Order.objects.get(container_number__container_number=container_number)
+        order = Order.objects.select_related("customer_name", "container_number").get(
+            container_number__container_number=container_number
+        )
         context = {
             "order": order,
             "container_number": container_number,
@@ -354,8 +364,9 @@ class Accounting(View):
         invoice.save()
         order.invoice_id = invoice
         order.save()
+        invoice_item_data = []
         for d, wc, c, q, r, a, n in zip(description, warehouse_code, cbm, qty, rate, amount, note):
-            invoice_item = InvoiceItem(**{
+            invoice_item_data.append({
                 "invoice_number": invoice,
                 "description": d,
                 "warehouse_code": wc,
@@ -365,7 +376,9 @@ class Accounting(View):
                 "amount": a if a else None,
                 "note": n if n else None,
             })
-            invoice_item.save()
+        InvoiceItem.objects.bulk_create([
+            InvoiceItem(**inv_itm_data) for inv_itm_data in invoice_item_data
+        ])
         response = HttpResponse(content_type='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet')
         response['Content-Disposition'] = f'attachment; filename=INVOICE-{container_number}.xlsx'
         workbook.save(response)
@@ -374,8 +387,22 @@ class Accounting(View):
     def handle_export_invoice_post(self, request: HttpRequest) -> HttpResponse:
         resp, file_name, pdf_file, context = export_invoice(request)
         pdf_file.seek(0)
+        invoice = Invoice.objects.select_related("statement_id").filter(
+            models.Q(container_number__container_number__in=context["container_number"])
+        )
+        invoice_statement = InvoiceStatement.objects.filter(
+            models.Q(invoice__container_number__container_number__in=context["container_number"])
+        )
+        for invc_stmt in invoice_statement.distinct():
+            try:
+                self._delete_file_from_sharepoint(
+                    "invoice_statement",
+                    f"invoice_{invc_stmt.invoice_statement_id}_from_ZEM_ELITELINK LOGISTICS_INC.pdf"
+                )
+            except:
+                pass
+        invoice_statement.delete()
         link = self._upload_excel_to_sharepoint(pdf_file, "invoice_statement", file_name)
-        invoice = Invoice.objects.filter(models.Q(container_number__container_number__in=context["container_number"]))
         invoice_statement = InvoiceStatement(**{
             "invoice_statement_id": context["invoice_statement_id"],
             "statement_amount": context["total_amount"],
@@ -388,14 +415,12 @@ class Accounting(View):
         invoice_statement.save()
         for invc in invoice:
             invc.statement_id = invoice_statement
-            invc.save()
-        
+        Invoice.objects.bulk_update(invoice, ["statement_id"])
         return resp
     
     def handle_container_invoice_edit_post(self, request: HttpRequest) -> HttpResponse:
-        # raise ValueError(f"{request.POST}")
         invoice_number = request.POST.get("invoice_number")
-        invoice = Invoice.objects.get(invoice_number=invoice_number)
+        invoice = Invoice.objects.select_related("container_number").get(invoice_number=invoice_number)
         container_number = invoice.container_number.container_number
         description = request.POST.getlist("description")
         warehouse_code = request.POST.getlist("warehouse_code")
@@ -404,7 +429,7 @@ class Accounting(View):
         rate = request.POST.getlist("rate")
         amount = request.POST.getlist("amount")
         note = request.POST.getlist("note")
-        order = Order.objects.get(invoice_id__invoice_number=invoice_number)
+        order = Order.objects.select_related("customer_name").get(invoice_id__invoice_number=invoice_number)
         context = {
             "order": order,
             "container_number": container_number,
@@ -423,8 +448,9 @@ class Accounting(View):
         invoice.save()
         # update invoice item information
         InvoiceItem.objects.filter(invoice_number__invoice_number=invoice_number).delete()
+        invoice_item_data = []
         for d, wc, c, q, r, a, n in zip(description, warehouse_code, cbm, qty, rate, amount, note):
-            invoice_item = InvoiceItem(**{
+            invoice_item_data.append({
                 "invoice_number": invoice,
                 "description": d,
                 "warehouse_code": wc,
@@ -434,7 +460,9 @@ class Accounting(View):
                 "amount": a if a else None,
                 "note": n if n else None,
             })
-            invoice_item.save()
+        InvoiceItem.objects.bulk_create([
+            InvoiceItem(**inv_itm_data) for inv_itm_data in invoice_item_data
+        ])
         # export new file
         response = HttpResponse(content_type='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet')
         response['Content-Disposition'] = f'attachment; filename=INVOICE-{container_number}.xlsx'
