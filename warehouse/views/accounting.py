@@ -121,7 +121,9 @@ class Accounting(View):
         current_date = datetime.now().date()
         start_date = (current_date + timedelta(days=-30)).strftime('%Y-%m-%d') if not start_date else start_date
         end_date = current_date.strftime('%Y-%m-%d') if not end_date else end_date
-        pallet_data = Order.objects.filter(
+        pallet_data = Order.objects.select_related(
+            "container_number", "customer_name", "warehouse", "offload_id", "retrieval_id"
+        ).filter(
             models.Q(offload_id__offload_required=True) &
             models.Q(offload_id__offload_at__isnull=False) &
             models.Q(retrieval_id__actual_retrieval_timestamp__isnull=False) &
@@ -243,7 +245,9 @@ class Accounting(View):
     def handle_pallet_data_export_post(self, request: HttpRequest) -> HttpResponse:
         start_date = request.POST.get("start_date")
         end_date = request.POST.get("end_date")
-        pallet_data = Order.objects.filter(
+        pallet_data = Order.objects.select_related(
+            "container_number", "customer_name", "warehouse", "offload_id", "retrieval_id"
+        ).filter(
             models.Q(offload_id__offload_required=True) &
             models.Q(offload_id__offload_at__isnull=False) &
             models.Q(retrieval_id__actual_retrieval_timestamp__isnull=False) &
