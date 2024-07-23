@@ -1,9 +1,3 @@
-import ast
-import pytz
-import uuid
-import time
-import shortuuid
-from datetime import datetime
 from typing import Any
 
 from django.http import HttpRequest, HttpResponse
@@ -12,16 +6,10 @@ from django.contrib.auth.decorators import login_required
 from django.views import View
 from django.utils.decorators import method_decorator
 from django.db import models
-from django.db.models import Case, Value, CharField, F, Sum, FloatField, IntegerField, When, Count
-from django.db.models.functions import Concat, Cast
-from django.contrib.postgres.aggregates import StringAgg
+from django.db.models import Sum, FloatField, IntegerField, Count
 
 from warehouse.models.packing_list import PackingList
-from warehouse.models.shipment import Shipment
-from warehouse.forms.warehouse_form import ZemWarehouseForm
-from warehouse.forms.shipment_form import ShipmentForm
-from warehouse.utils.constants import amazon_fba_locations
-from warehouse.views.bol import BOL
+
 
 @method_decorator(login_required(login_url='login'), name='dispatch')
 class ShipmentStatus(View):
