@@ -55,12 +55,13 @@ class PO(View):
         start_date = request.POST.get("start_date")
         end_date = request.POST.get("end_date")
         criteria = models.Q(container_number__order__warehouse__name=warehouse)
-        # criteria &= models.Q(shipment_batch_number__isnull=True)
         if start_date:
             criteria &= models.Q(container_number__order__eta__gte=start_date)
         if end_date:
             criteria &= models.Q(container_number__order__eta__lte=end_date)
-        packing_list = PackingList.objects.filter(criteria).annotate(
+        packing_list = PackingList.objects.select_related(
+            "container_number", "container_number__order", "container_number__order__warehouse", "pallet"
+        ).filter(criteria).annotate(
             str_id=Cast("id", CharField()),
         ).values(
             'fba_id', 'ref_id','address','zipcode','destination','delivery_method',
@@ -115,7 +116,9 @@ class PO(View):
         selections = request.POST.getlist("is_selected")
         selected = [int(i) for s, id in zip(selections, ids) for i in id if s == "on"]
         if selected:
-            packing_list = PackingList.objects.filter(
+            packing_list = PackingList.objects.select_related(
+                "container_number", "pallet"
+            ).filter(
                 id__in=selected
             ).values(
                 'fba_id', 'ref_id','address','zipcode','destination','delivery_method',

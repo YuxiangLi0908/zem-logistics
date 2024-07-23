@@ -143,7 +143,9 @@ def export_po(request: HttpRequest, export_format: str = "PO") -> HttpResponse:
     ids = request.POST.get("pl_ids")
     ids = ids.replace("[", "").replace("]", "").split(", ")
     ids = [int(i) for i in ids]
-    packing_list = PackingList.objects.filter(
+    packing_list = PackingList.objects.select_related(
+        "container_number", "pallet"
+    ).filter(
         id__in=ids
     ).values(
         'fba_id', 'ref_id','address','zipcode','destination','delivery_method',
