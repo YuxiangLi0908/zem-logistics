@@ -1626,6 +1626,7 @@ WMM-PHL4N:
 沃尔玛MCO1:
   city: Davenport
   location: 5100 NORTH RIDGE TRAIL
+  state: FL
   zipcode: '33897'
 沃尔玛-MCO1:
   city: Davenport
