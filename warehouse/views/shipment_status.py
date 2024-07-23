@@ -50,7 +50,10 @@ class ShipmentStatus(View):
             criteria &= models.Q(container_number__container_number=container_number)
         if destination:
             criteria &= models.Q(destination=destination)
-        packing_list = PackingList.objects.filter(criteria).values(
+        packing_list = PackingList.objects.select_related(
+            "container_number", "container_number__order", "container_number__order__warehouse",
+            "container_number__order__customer_name", "shipment_batch_number", "pallet"
+        ).filter(criteria).values(
             "container_number__order__created_at",
             "container_number__order__customer_name__zem_name",
             "container_number__order__warehouse__name",
