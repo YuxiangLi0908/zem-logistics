@@ -393,14 +393,14 @@ class Accounting(View):
         invoice_statement = InvoiceStatement.objects.filter(
             models.Q(invoice__container_number__container_number__in=context["container_number"])
         )
-        for invc_stmt in invoice_statement.distinct():
-            try:
-                self._delete_file_from_sharepoint(
-                    "invoice_statement",
-                    f"invoice_{invc_stmt.invoice_statement_id}_from_ZEM_ELITELINK LOGISTICS_INC.pdf"
-                )
-            except:
-                pass
+        # for invc_stmt in invoice_statement.distinct():
+        #     try:
+        #         self._delete_file_from_sharepoint(
+        #             "invoice_statement",
+        #             f"invoice_{invc_stmt.invoice_statement_id}_from_ZEM_ELITELINK LOGISTICS_INC.pdf"
+        #         )
+        #     except:
+        #         pass
         invoice_statement.delete()
         link = self._upload_excel_to_sharepoint(pdf_file, "invoice_statement", file_name)
         invoice_statement = InvoiceStatement(**{
