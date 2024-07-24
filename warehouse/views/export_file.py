@@ -1,4 +1,5 @@
 import io
+import os
 import pytz
 import pandas as pd
 
@@ -18,6 +19,8 @@ from django.db.models.functions import Concat, Cast
 from django.contrib.postgres.aggregates import StringAgg
 from django.forms import model_to_dict
 from django.template.loader import get_template
+from django.conf import settings
+from django.contrib.staticfiles import finders
 
 from warehouse.models.packing_list import PackingList
 from warehouse.models.order import Order
@@ -289,13 +292,27 @@ def export_invoice(request: HttpRequest) -> tuple[HttpResponse, str, BytesIO, di
     html = template.render(context)
     response = HttpResponse(content_type="application/pdf")
     response['Content-Disposition'] = f'attachment; filename="invoice_{invoice_statement_id}_from_ZEM_ELITELINK LOGISTICS_INC.pdf"'
-    pisa_status = pisa.CreatePDF(html, dest=response)
+    pisa_status = pisa.CreatePDF(html, dest=response, link_callback=link_callback)
     if pisa_status.err:
         raise ValueError('Error during PDF generation: %s' % pisa_status.err, content_type='text/plain')
     
     pdf_file = io.BytesIO()
-    pisa_status = pisa.CreatePDF(html, dest=pdf_file)
+    pisa_status = pisa.CreatePDF(html, dest=pdf_file, link_callback=link_callback)
     if pisa_status.err:
         return HttpResponse('Error during PDF generation: %s' % pisa_status.err, content_type='text/plain')
     pdf_file.seek(0)
     return response, f"invoice_{invoice_statement_id}_from_ZEM_ELITELINK LOGISTICS_INC.pdf", pdf_file, context
+
+def link_callback(uri: Any, rel: Any) -> Any:
+    if uri.startswith(settings.STATIC_URL):
+        path = os.path.join(settings.STATIC_ROOT, uri.replace(settings.STATIC_URL, ""))
+        if not os.path.isfile(path):
+            # Try to find the file using staticfiles finders
+            result = finders.find(uri.replace(settings.STATIC_URL, ""))
+            if not result:
+                raise Exception(f"Static file not found: {uri}")
+            if isinstance(result, (list, tuple)):
+                result = result[0]
+            path = result
+        return path
+    return uri
