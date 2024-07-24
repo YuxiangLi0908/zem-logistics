@@ -387,35 +387,35 @@ class Accounting(View):
     def handle_export_invoice_post(self, request: HttpRequest) -> HttpResponse:
         resp, file_name, pdf_file, context = export_invoice(request)
         pdf_file.seek(0)
-        invoice = Invoice.objects.select_related("statement_id").filter(
-            models.Q(container_number__container_number__in=context["container_number"])
-        )
-        invoice_statement = InvoiceStatement.objects.filter(
-            models.Q(invoice__container_number__container_number__in=context["container_number"])
-        )
+        # invoice = Invoice.objects.select_related("statement_id").filter(
+        #     models.Q(container_number__container_number__in=context["container_number"])
+        # )
+        # invoice_statement = InvoiceStatement.objects.filter(
+        #     models.Q(invoice__container_number__container_number__in=context["container_number"])
+        # )
         # for invc_stmt in invoice_statement.distinct():
-        #     try:
-        #         self._delete_file_from_sharepoint(
-        #             "invoice_statement",
-        #             f"invoice_{invc_stmt.invoice_statement_id}_from_ZEM_ELITELINK LOGISTICS_INC.pdf"
-        #         )
-        #     except:
-        #         pass
-        invoice_statement.delete()
-        link = self._upload_excel_to_sharepoint(pdf_file, "invoice_statement", file_name)
-        invoice_statement = InvoiceStatement(**{
-            "invoice_statement_id": context["invoice_statement_id"],
-            "statement_amount": context["total_amount"],
-            "statement_date": context["invoice_date"],
-            "due_date": context["due_date"],
-            "invoice_terms": context["invoice_terms"],
-            "customer": Customer.objects.get(accounting_name=context["customer"]),
-            "statement_link": link,
-        })
-        invoice_statement.save()
-        for invc in invoice:
-            invc.statement_id = invoice_statement
-        Invoice.objects.bulk_update(invoice, ["statement_id"])
+            # try:
+            #     self._delete_file_from_sharepoint(
+            #         "invoice_statement",
+            #         f"invoice_{invc_stmt.invoice_statement_id}_from_ZEM_ELITELINK LOGISTICS_INC.pdf"
+            #     )
+            # except:
+            #     pass
+        # invoice_statement.delete()
+        # link = self._upload_excel_to_sharepoint(pdf_file, "invoice_statement", file_name)
+        # invoice_statement = InvoiceStatement(**{
+        #     "invoice_statement_id": context["invoice_statement_id"],
+        #     "statement_amount": context["total_amount"],
+        #     "statement_date": context["invoice_date"],
+        #     "due_date": context["due_date"],
+        #     "invoice_terms": context["invoice_terms"],
+        #     "customer": Customer.objects.get(accounting_name=context["customer"]),
+        #     "statement_link": link,
+        # })
+        # invoice_statement.save()
+        # for invc in invoice:
+        #     invc.statement_id = invoice_statement
+        # Invoice.objects.bulk_update(invoice, ["statement_id"])
         return resp
     
     def handle_container_invoice_edit_post(self, request: HttpRequest) -> HttpResponse:
