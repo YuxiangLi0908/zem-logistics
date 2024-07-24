@@ -22,7 +22,7 @@ class Order(models.Model):
     offload_id = models.ForeignKey(Offload, null=True, blank=True, on_delete=models.SET_NULL)
     shipment_id = models.ForeignKey(Shipment, null=True, blank=True, on_delete=models.SET_NULL, related_name="order")
     do_sent = models.BooleanField(default=False, blank=True)
-    invoice_id = models.ForeignKey(Invoice, null=True, on_delete=models.SET_NULL)
+    invoice_id = models.ForeignKey(Invoice, null=True, blank=True, on_delete=models.SET_NULL)
 
     class Meta:
         indexes = [
