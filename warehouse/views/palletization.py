@@ -317,8 +317,8 @@ class Palletization(View):
         ).filter(
             models.Q(warehouse__name=warehouse) &
             models.Q(offload_id__offload_required=True) &
-            models.Q(offload_id__offload_at__isnull=True) &
-            (models.Q(retrieval_id__actual_retrieval_timestamp__isnull=False) | models.Q(retrieval_id__retrive_by_zem=False))
+            models.Q(offload_id__offload_at__isnull=True)
+            # (models.Q(retrieval_id__actual_retrieval_timestamp__isnull=False) | models.Q(retrieval_id__retrive_by_zem=False))
         ).order_by("retrieval_id__actual_retrieval_timestamp")
     
     async def _get_order_palletized(self, warehouse: str) -> Order:
