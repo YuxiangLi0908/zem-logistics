@@ -50,8 +50,6 @@
     <hr class="Dashed" style="margin-top: 10px; margin-bottom: 10px;">
 
     <b>待提柜</b>
-    <form method="post" action="">
-        {% csrf_token %}
         <table class="table" style="width: 100%;">
             <thead>
                 <tr>
@@ -73,6 +71,8 @@
             <tbody>
                 {% for c in retrieval_scheduled %}
                 <tr>
+                    <form method="post" action="">
+                        {% csrf_token %}
                     <td class="td">{{ c.container_number }}</td>
                     <td class="td">{{ c.customer_name }}</td>
                     <td class="td">{{ c.eta }}</td>
@@ -99,11 +99,12 @@
                         <input type="hidden" name="step" value="confirmation">
                         <button type="submit">确认提柜</button>
                     </td>
+                    </form>
                 </tr>
                 {% endfor %}
             </tbody>
         </table>
-    </form>
+   
     
 
 <script>
