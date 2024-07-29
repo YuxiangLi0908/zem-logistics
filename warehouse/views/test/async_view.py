@@ -19,12 +19,13 @@ class AsyncView(View):
 
     async def get(self, request, *args, **kwargs):
         """Async post"""
+        step = request.GET.get("step")
         time.sleep(6)
-        context = await self.async_get_data()
+        context = await self.async_get_data(step)
         return await sync_to_async(render)(request, self.template, context)
     
-    async def async_get_data(self):
+    async def async_get_data(self, step):
         # Simulate an async data retrieval process (e.g., database call)
         asyncio.sleep(5)
-        return {"message": "Async GET request successful"}
+        return {"message": f"{step} call"}
     
