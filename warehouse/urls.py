@@ -20,6 +20,7 @@ from warehouse.views.accounting import Accounting
 from warehouse.views.shipment_status import ShipmentStatus
 from warehouse.views.container_tracking import ContainerTracking
 from warehouse.views.terminal49_webhook import T49Webhook
+from warehouse.views.test.async_view import AsyncView
 
 urlpatterns = [
     path("", home, name="home"),
@@ -44,4 +45,5 @@ urlpatterns = [
     path('shipment_status/', ShipmentStatus.as_view(), name='shipment_status'),
     path('container_tracking/', ContainerTracking.as_view(), name='container_tracking'),
     path('t49webhook/', T49Webhook.as_view(), name='t49webhook'),
+    path('async_view', AsyncView.as_view(), name='async_view'),
 ] + static(settings.STATIC_URL, document_root=settings.STATIC_ROOT)

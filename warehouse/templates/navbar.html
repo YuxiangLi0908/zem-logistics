@@ -88,6 +88,13 @@
                         <div class="dropdown-content">
                             <a href="{% url 'stuff_user' %}?step=clean_data">清理数据</a>
                             <a href="{% url 'container_tracking' %}">Tracking</a>
+                            <div class="nested-dropdown" >
+                                <a>Test Async</a>
+                                <div class="nested-dropdown-content">
+                                    <a href="{% url 'async_view' %}?step=async" target="_blank">async</a>
+                                    <a href="{% url 'async_view' %}?step=sync" target="_blank">sync</a>
+                                </div>
+                            </div>
                         </div>
                     </div>
                 </li>
