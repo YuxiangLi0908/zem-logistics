@@ -1723,3 +1723,43 @@ WMM-ATL2:
   location: 3101 N. Highway 27
   state: GA
   zipcode: '30117'
+沃尔玛ATL3:
+  city: Pendergrass
+  location: 445 Valentine Industrial Parkway
+  state: GA
+  zipcode: '30567'
+ATL3沃尔玛:
+  city: Pendergrass
+  location: 445 Valentine Industrial Parkway
+  state: GA
+  zipcode: '30567'
+WMATL3:
+  city: Pendergrass
+  location: 445 Valentine Industrial Parkway
+  state: GA
+  zipcode: '30567'
+WMMATL3:
+  city: Pendergrass
+  location: 445 Valentine Industrial Parkway
+  state: GA
+  zipcode: '30567'
+沃尔玛-ATL3:
+  city: Pendergrass
+  location: 445 Valentine Industrial Parkway
+  state: GA
+  zipcode: '30567'
+ATL3-沃尔玛:
+  city: Pendergrass
+  location: 445 Valentine Industrial Parkway
+  state: GA
+  zipcode: '30567'
+WM-ATL3:
+  city: Pendergrass
+  location: 445 Valentine Industrial Parkway
+  state: GA
+  zipcode: '30567'
+WMM-ATL3:
+  city: Pendergrass
+  location: 445 Valentine Industrial Parkway
+  state: GA
+  zipcode: '30567'
