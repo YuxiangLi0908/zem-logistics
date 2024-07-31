@@ -327,8 +327,8 @@ class Palletization(View):
         ).filter(
             models.Q(warehouse__name=warehouse) &
             models.Q(offload_id__offload_required=True) &
-            models.Q(offload_id__offload_at__isnull=False) &
-            models.Q(retrieval_id__actual_retrieval_timestamp__isnull=False)
+            models.Q(offload_id__offload_at__isnull=False)
+            # models.Q(retrieval_id__actual_retrieval_timestamp__isnull=False)
         ).order_by("offload_id__offload_at")
     
     def _set_context(self) -> None:
