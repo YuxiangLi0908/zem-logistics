@@ -232,7 +232,7 @@ class OrderCreation(View):
             "retrive_by_zem": True if order_data["retrieval_option"]=="代理卡车" else False,
             "origin_port": container_data.get("origin_port"),
             "destination_port": container_data.get("destination_port"),
-            "retrieval_location": container_data.get("retrieval_location"),
+            # "retrieval_location": container_data.get("retrieval_location"),
             "shipping_line": container_data.get("shipping_line"),
             "shipping_order_number": container_data.get("shipping_order_number")
         }
