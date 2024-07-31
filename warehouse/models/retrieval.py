@@ -8,8 +8,12 @@ class Retrieval(models.Model):
     retrieval_carrier = models.CharField(max_length=100, null=True, blank=True)
     origin_port = models.CharField(max_length=255, null=True, blank=True)
     destination_port = models.CharField(max_length=255, null=True, blank=True)
-    retrieval_location = models.CharField(max_length=255, null=True, blank=True)
     shipping_line = models.CharField(max_length=255, null=True, blank=True)
+    retrieval_destination_precise = models.CharField(max_length=20, null=True, blank=True)
+    retrieval_destination_area = models.CharField(max_length=20, null=True, blank=True)
+    vessel = models.CharField(max_length=100, blank=True, null=True)
+    vessel_etd = models.DateField(null=True, blank=True)
+    vessel_eta = models.DateField(null=True, blank=True)
     scheduled_at = models.DateTimeField(null=True, blank=True)
     target_retrieval_timestamp = models.DateTimeField(null=True, blank=True)
     actual_retrieval_timestamp = models.DateTimeField(null=True, blank=True)
@@ -19,6 +23,7 @@ class Retrieval(models.Model):
     is_chassis_fee_paid = models.BooleanField(default=False, blank=True)
     trucking_fee_paid_at = models.FloatField(null=True, blank=True)
     chassis_fee_paid_at = models.FloatField(null=True, blank=True)
+    note = models.TextField(null=True, blank=True)
 
     class Meta:
         indexes = [

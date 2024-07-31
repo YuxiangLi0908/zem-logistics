@@ -27,7 +27,7 @@ class Invoice(models.Model):
     received_amount = models.FloatField(null=True, blank=True)
 
     def __str__(self) -> str:
-        return self.customer.zem_name + " - " + self.container_number.container_number + " - " + self.invoice_number
+        return self.customer.zem_name + " - " + self.container_number + " - " + self.invoice_number
     
 
 class InvoiceItem(models.Model):
