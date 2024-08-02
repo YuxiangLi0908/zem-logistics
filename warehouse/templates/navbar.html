@@ -17,14 +17,14 @@
                                     <a href="{% url 'quote_management' %}?step=history" target="_blank">历史询价</a>
                                 </div>
                             </div>
-                            <div></div>
                             <div class="nested-dropdown" >
                                 <a>创建订单</a>
                                 <div class="nested-dropdown-content">
-                                    <a href="{% url 'create_order' %}?type=DD" target="_blank">直送</a>
-                                    <a href="{% url 'create_order' %}?type=TD" target="_blank">转运</a>
+                                    <a href="{% url 'create_order_legacy' %}?type=DD" target="_blank">直送</a>
+                                    <a href="{% url 'create_order_legacy' %}?type=TD" target="_blank">转运</a>
                                 </div>
                             </div>
+                            <!-- <a href="{% url 'create_order' %}?step=all">订单管理</a> -->
                             <a href="{% url 'schedule_pickup' %}">预约提柜</a>
                         </div>
                     </div>
@@ -95,7 +95,9 @@
                                     <a href="{% url 'async_view' %}?step=sync" target="_blank">sync</a>
                                 </div>
                             </div>
+                            <a href="{% url 'create_order' %}?step=all">港前订单管理(TEST)</a>
                         </div>
+                        
                     </div>
                 </li>
                 {% endif %}

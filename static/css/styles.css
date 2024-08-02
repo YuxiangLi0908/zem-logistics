@@ -133,3 +133,12 @@ body {
     flex: 0 0 33%;
     max-width: 33%;
 }
+
+.order-form-1-row {
+    padding: 5px;
+}
+
+.order-form-1-row.flex-8 {
+    flex: 0 0 12%;
+    max-width: 12%;
+}

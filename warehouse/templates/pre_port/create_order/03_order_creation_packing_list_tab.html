@@ -1,0 +1,396 @@
+{% extends 'pre_port/create_order/02_base_order_creation_status.html' %}
+{% block order_supplement %}
+<div style="display: flex;">
+    <div style="width: 100%; font-size: 11px;">
+        <ul class="nav nav-tabs">
+            <div style="width: 20%;">
+                <b style="background-color: rgb(208, 208, 208); border-radius: 20px; display:inline-flex; color: rgb(100, 100, 100); padding: 5px;">
+                    订单信息 - {{ selected_order.container_number.container_number }}
+                </b>
+            </div>
+            <li class="nav-item">
+                <button class="nav-link" onclick="showSection(this, 'order-basic-info-sec')"><b>基础信息</b></button>
+            </li>
+            <li class="nav-item">
+                <button class="nav-link" onclick="showSection(this, 'order-shipping-info-sec')"><b>航运信息</b></button>
+            </li>
+            {% if selected_order.order_type == "转运" %}
+                <li class="nav-item">
+                    <button class="nav-link active" onclick="showSection(this, 'order-packing-list-info-sec')"><b>Packing List</b></button>
+                </li>
+            {% endif %}
+        </ul>
+    </div>
+</div>
+
+<div id="order-info-sec" style="max-height: 500px;">
+    <div id="order-basic-info-sec" style="display: none;">
+        <form method="post" action="" style="width: 100%;">
+            {% csrf_token %}
+            <table class="table" style="margin-top: 10px; font-size: 11px;">
+                <thead>
+                    <tr>
+                        <th class="th">客户</th>
+                        <th class="th">订单类型</th>
+                        <th class="th" id="td-order-area-th" {% if selected_order.order_type == "直送" %}style="display: none;"{% endif %}>所属仓</th>
+                        <th class="th" id="dd-order-destination-th" {% if selected_order.order_type == "转运" %}style="display: none;"{% endif %}>直送地址</th>
+                        <th class="th">柜号</th>
+                        <th class="th">柜型</th>
+                        <th class="th">柜重</th>
+                        <th class="th">特殊柜型</th>
+                        <th class="th" id="special-container-note-th" {% if not selected_order.container_number.is_special_container %}style="display: none;"{% endif %}>备注(特殊柜型)</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    <tr>
+                        <td class="td">
+                            <select name="customer" style="font-size: 13px;">
+                                {% for k, v in customers.items %}
+                                <option value="{{ v }}" {% if k == selected_order.customer_name.zem_name %}selected{% endif %}>{{ k }}</option>
+                                {% endfor %}
+                            </select>
+                        </td>
+                        <td class="td">
+                            <select name="order_type" id="infoOrderType" style="font-size: 13px;" onchange="alterTableTdAreaDestination(this)">
+                                {% for k, v in order_type.items %}{% if k %}
+                                <option value="{{ v }}" {% if k == selected_order.order_type %}selected{% endif %}>{{ k }}</option>
+                                {% endif %}{% endfor %}
+                            </select>
+                        </td>
+                        <td class="td" id="td-order-area" {% if selected_order.order_type == "直送" %}style="display: none;"{% endif %}>
+                            <select name="area">
+                                {% for k, v in area.items %}
+                                <option value="{{ v }}" {% if k == selected_order.retrieval_id.retrieval_destination_area %}selected{% endif %}>{{ k }}</option>
+                                {% endfor %}
+                            </select>
+                        </td>
+                        <td class="td" id="dd-order-destination" {% if selected_order.order_type == "转运" %}style="display: none;"{% endif %}>
+                            <input type="text" name="destination" id="infoOrderDestination" value="{{ packing_list.0.destination }}">
+                        </td>
+                        <td class="td">
+                            <input type="text" name="container_number" id="infoContainerNumber" value="{{ selected_order.container_number.container_number }}" required>
+                        </td>
+                        <td class="td">
+                            <select name="container_type">
+                                {% for k, v in container_type.items %}
+                                <option value="{{ v }}" {% if k == selected_order.container_number.container_type %}selected{% endif %}>{{ k }}</option>
+                                {% endfor %}
+                            </select>
+                        </td>
+                        <td class="td">
+                            <input type="number" name="weight" id="infoContainerWeight" step=0.01 style="width: 80px" value="{{ selected_order.container_number.weight_lbs }}" required> lbs
+                        </td>
+                        <td class="td">
+                            <input type="checkbox" name="is_special_container" onchange="alterTableNote(this)" {% if selected_order.container_number.is_special_container %}checked{% endif %}>
+                        </td>
+                        <td class="td" id="special-container-note" {% if not selected_order.container_number.is_special_container %}style="display: none;"{% endif %}>
+                            <input type="text" name="note" value="{{ selected_order.container_number.note }}">
+                        </td>
+                    </tr>
+                </tbody>
+            </table>
+            <div class="text-right">
+                <input type="hidden" name="step" value="update_order_basic_info">
+                <input type="hidden" name="original_customer" value="{{ selected_order.customer_name.id }}">
+                <input type="hidden" name="original_order_type" value="{{ selected_order.order_type }}">
+                <input type="hidden" name="original_container_number" value="{{ selected_order.container_number.container_number }}">
+                <input type="hidden" name="original_container_type" value="{{ selected_order.container_number.container_type }}">
+                <input type="hidden" name="original_container_weight" value="{{ selected_order.container_number.weight_lbs }}">
+                <input type="hidden" name="original_is_special_container" value="{{ selected_order.container_number.is_special_container }}">
+                <input type="hidden" name="original_container_note" value="{{ selected_order.container_number.note }}">
+                <button id="submit-btn-update-basic-info" type="submit" class="btn btn-primary" style="width: 90px; height: 30px; margin-left: 20px; font-size: 13px;">
+                    更新信息
+                </button>
+            </div>
+        </form>
+    </div>
+
+    <div id="order-shipping-info-sec" style="display: none;">
+        <form method="post" action="">
+            {% csrf_token %}
+            <table class="table" style="margin-top: 10px; font-size: 11px;">
+                <thead>
+                    <tr>
+                        <th class="th">船名</th>
+                        <th class="th">船次</th>
+                        <th class="th">船司</th>
+                        <th class="th">MBL</th>
+                        <th class="th">到达港</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    <tr>
+                        <td class="td">
+                            <input type="text" name="vessel" {%if vessel %}value="{{ vessel.vessel }}"{% endif %} required>
+                        </td>
+                        <td class="td">
+                            <input type="text" name="voyage" {%if vessel %}value="{{ vessel.voyage }}"{% endif %} required>
+                        </td>
+                        <td class="td">
+                            {% if vessel %}
+                            <select name="shipping_line" id="shipping-line-select">
+                                {% for k, v in shipping_lines %}
+                                <option value="{{ v }}" {% if k == vessel.shipping_line %}selected{% endif %}>{{ k }}</option>
+                                {% endfor %}
+                            </select>
+                            {% else %}
+                            <select name="shipping_line">
+                                {% for k, v in shipping_lines %}
+                                <option value="{{ v }}">{{ k }}</option>
+                                {% endfor %}
+                            </select>
+                            {% endif %}
+                        </td>
+                        <td class="td">
+                            <input type="text" name="mbl" {%if vessel %}value="{{ vessel.master_bill_of_lading }}"{% endif %} required>
+                        </td>
+                        <td class="td">
+                            <input type="text" name="pod" {%if vessel %}value="{{ vessel.destination_port }}"{% endif %} required>
+                        </td>
+                    </tr>
+                </tbody>
+            </table>
+            <div class="text-right">
+                <input type="hidden" name="step" value="update_order_shipping_info">
+                <input type="hidden" name="container_number" value="{{ selected_order.container_number.container_number }}">
+                <input type="hidden" name="is_vessel_created" {% if vessel %}value="YES"{% else %}value="NO"{% endif %}>
+                <button id="submit-btn-update-basic-info" type="submit" class="btn btn-primary" style="width: 90px; height: 30px; margin-left: 20px; font-size: 13px;" onclick="checkShippingLineInput()">
+                    更新信息
+                </button>
+            </div>
+        </form>
+    </div>
+    
+    <div id="order-packing-list-info-sec" style="display: block;">
+        <div style="display: flex;">
+            <div style="display: flex; width: 80%;">
+                <div>
+                    <form method="post" enctype="multipart/form-data" style="font-size: 11px;">
+                        {% csrf_token %}
+                        导入模版: 
+                        {{ packing_list_upload_form.file }}
+                        <input type="hidden" name="step" value="upload_template">
+                        <input type="hidden" name="container_number" value="{{ selected_order.container_number.container_number }}">
+                        <button type="submit" class="btn btn-success" style="width: 100px; height: 35px; font-size: 12px; margin: 5px;">上传清单</button>
+                    </form>
+                </div>
+                <div>
+                    <form method="post" action="">
+                        {% csrf_token %}
+                        <input type="hidden" name="step" value="download_template">
+                        <button type="submit" class="btn btn-success" style="width: 100px; height: 35px; font-size: 12px; margin: 5px;">下载模版</button>
+                    </form>
+                </div>
+            </div>
+            <div class="text-right" style="min-width: 200px">
+                <button type="button" id="add-more-btn" class="btn btn-success" style="height: 35px; font-size: 12px; margin: 5px;" onclick="addRowBelow()">
+                    <i class="bi bi-plus-lg"></i> 添加行
+                </button>
+                <button type="button" id="remove-last-btn" class="btn btn-danger" style="height: 35px; font-size: 12px; margin: 5px;" onclick="rmLastRow()">
+                    <i class="bi bi-dash-lg"></i> 删除行
+                </button>
+            </div>
+        </div>
+
+        <div style="overflow-x: auto; table-layout: fixed;">
+            <form method="post" id="packing-list-form" action="">
+                {% csrf_token %}
+                <div style="overflow-x: auto; max-width: 100%; max-height: 100%;">
+                    <div style="overflow-y: auto; max-width: 100%; max-height: 400px;">
+                        <table class="packing-list-table" style="margin-top: 10px; font-size: 11px; max-width: 100%; table-layout: fixed;">
+                            <thead>
+                                <tr style="position: sticky; top: 0;">
+                                    <th class="th">物品名</th>
+                                    <th class="th">派送方式</th>
+                                    <th class="th">唛头</th>
+                                    <th class="th">FBA号</th>
+                                    <th class="th">refid</th>
+                                    <th class="th">目的地</th>
+                                    <th class="th">收件人</th>
+                                    <th class="th">联系方式</th>
+                                    <th class="th">地址</th>
+                                    <th class="th">邮编</th>
+                                    <th class="th">箱数</th>
+                                    <th class="th">总重量-kg</th>
+                                    <th class="th">总重量-lbs</th>
+                                    <th class="th">CBM</th>
+                                    <th class="th">备注</th>
+                                </tr>
+                            </thead>
+                            <tbody id="packing-list-container">
+                                <tr id="packing-list-row-empty" style="display: none;">
+                                    <td class="td"><input type="text" name="product_name"></td>
+                                    <td class="td">
+                                        <select name="delivery_method"  class="delivery-method">
+                                        {% for k, v in delivery_options %}
+                                        <option value="{{ v }}">{{ k }}</option>
+                                        {% endfor %}
+                                        </select>
+                                    </td>
+                                    <td class="td"><input type="text" name="shipping_mark"></td>
+                                    <td class="td"><input type="text" name="fba_id"></td>
+                                    <td class="td"><input type="text" name="ref_id"></td>
+                                    <td class="td"><input type="text" name="destination" required></td>
+                                    <td class="td"><input type="text" name="contact_name"></td>
+                                    <td class="td"><input type="text" name="contact_method"></td>
+                                    <td class="td"><input type="text" name="address"></td>
+                                    <td class="td"><input type="text" name="zipcode"></td>
+                                    <td class="td"><input type="number" step="0.01" name="pcs" required></td>
+                                    <td class="td"><input type="number" step="0.01" name="total_weight_kg" oninput="updateWeight(this)" required></td>
+                                    <td class="td"><input type="number" step="0.01" name="total_weight_lbs" oninput="updateWeight(this)" required></td>
+                                    <td class="td"><input type="number" step="0.01" name="cbm" required></td>
+                                    <td class="td"><input type="text" name="note"></td>
+                                </tr>
+                                {% for pl in packing_list %}
+                                <tr id="packing-list-row">
+                                    <td class="td"><input type="text" name="product_name" value="{{ pl.product_name }}"></td>
+                                    <td class="td">
+                                        <select name="delivery_method" class="delivery-method">
+                                            {% for k, v in delivery_options %}
+                                            <option value="{{ v }}" {% if pl.delivery_method == k %}selected{% endif %}>{{ k }}</option>
+                                            {% endfor %}
+                                        </select>
+                                    </td>
+                                    <td class="td"><input type="text" name="shipping_mark" value="{{ pl.shipping_mark }}"></td>
+                                    <td class="td"><input type="text" name="fba_id" value="{{ pl.fba_id }}"></td>
+                                    <td class="td"><input type="text" name="ref_id" value="{{ pl.ref_id }}"></td>
+                                    <td class="td"><input type="text" name="destination" value="{{ pl.destination }}" required></td>
+                                    <td class="td"><input type="text" name="contact_name" value="{{ pl.contact_name }}"></td>
+                                    <td class="td"><input type="text" name="contact_method" value="{{ pl.contact_method }}"></td>
+                                    <td class="td"><input type="text" name="address" value="{{ pl.address }}"></td>
+                                    <td class="td"><input type="text" name="zipcode" value="{{ pl.zipcode }}"></td>
+                                    <td class="td"><input type="number" step="0.01" name="pcs" value="{{ pl.pcs }}" required></td>
+                                    <td class="td"><input type="number" step="0.01" name="total_weight_kg" value="{{ pl.total_weight_kg }}" oninput="updateWeight(this)" required></td>
+                                    <td class="td"><input type="number" step="0.01" name="total_weight_lbs" value="{{ pl.total_weight_lbs }}" oninput="updateWeight(this)" required></td>
+                                    <td class="td"><input type="number" step="0.01" name="cbm" value="{{ pl.cbm }}" required></td>
+                                    <td class="td"><input type="text" name="note" value="{{ pl.note }}"></td>
+                                </tr>
+                                {% endfor %}
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+                <div class="text-right">
+                    <input type="hidden" name="step" value="update_order_packing_list_info">
+                    <input type="hidden" name="container_number" value="{{ selected_order.container_number.container_number }}">
+                    <button id="submit-btn-update-basic-info" type="submit" class="btn btn-primary" style="width: 90px; height: 30px; margin-left: 20px; font-size: 13px;" onclick="processForm()">
+                        更新信息
+                    </button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+
+
+<script>
+    function showSection(navItem, secId) {
+        const navLinks = document.querySelectorAll('.nav-link');
+        navLinks.forEach(link => {
+            link.classList.remove('active')
+        });
+        navItem.classList.add('active');
+
+        const sections = document.querySelectorAll('#order-info-sec > div');
+        sections.forEach(section => {
+            section.style.display = section.id === secId ? "":"none";
+        });
+    };
+
+    function alterTableTdAreaDestination(select) {
+        const selectedValue = select.value;
+        console.log(selectedValue);
+        const td = document.getElementById("td-order-area");
+        const dd = document.getElementById("dd-order-destination");
+        const tdThead = document.getElementById("td-order-area-th");
+        const ddThead = document.getElementById("dd-order-destination-th");
+        const inputElement = document.getElementById('infoOrderDestination');
+        if (selectedValue == "直送") {
+            td.style.display = 'none';
+            dd.style.display = '';
+            tdThead.style.display = 'none';
+            ddThead.style.display = '';
+            inputElement.setAttribute('required', 'required')
+        } else {
+            td.style.display = '';
+            dd.style.display = 'none';
+            tdThead.style.display = '';
+            ddThead.style.display = 'none';
+            inputElement.removeAttribute('required');
+        };
+    };
+
+    function alterTableNote(checkbox) {
+        const noteTd = document.getElementById("special-container-note");
+        const noteTh = document.getElementById("special-container-note-th");
+        noteTd.style.display = checkbox.checked ? "":"none";
+        noteTh.style.display = checkbox.checked ? "":"none";
+    };
+
+    function checkShippingLineInput() {
+        const selectedValue = document.getElementById('shipping-line-select').value;
+        if (!selectedValue) {
+            alert('请选择船司！');
+            event.preventDefault();
+        };
+    };
+
+    function addRowBelow() {
+        var table = document.getElementById('packing-list-container');
+        var newRow = document.querySelector('#packing-list-row-empty').cloneNode(true);
+        newRow.style.display = '';
+        newRow.id = 'packing-list-row';
+        table.appendChild(newRow);
+    };
+
+    function rmLastRow() {
+        var table = document.getElementById('packing-list-container');
+        var rows = table.getElementsByTagName('tr');
+        if (rows.length > 1) {
+            table.removeChild(rows[rows.length - 1]);
+        };
+    };
+
+    function updateWeight(numberInput) {
+        const row = numberInput.closest('tr');
+        if (numberInput.name == "total_weight_kg") {
+            var lbsWeightInpu = row.querySelector('input[name="total_weight_lbs"]');
+            lbsWeightInpu.value = (numberInput.value * 2.20462).toFixed(2);
+        } else {
+            var kgWeightInpu = row.querySelector('input[name="total_weight_kg"]');
+            kgWeightInpu.value = (numberInput.value / 2.20462).toFixed(2);
+        };
+    };
+
+    function processForm() {
+        var firstEmptyRow = document.getElementById('packing-list-row-empty');
+        if (firstEmptyRow && firstEmptyRow.style.display === 'none') {
+            var inputs = firstEmptyRow.querySelectorAll('input, select');
+            inputs.forEach(function(input) {
+                if (input.hasAttribute('required')) {
+                    input.removeAttribute('required');
+                };
+                input.disabled = true;
+            });
+        };
+
+        var deliveryMethodSelects = document.querySelectorAll('.delivery-method');
+        var isValid = true;
+        deliveryMethodSelects.forEach(function(select) {
+            if (!select.disabled) {
+                if (select.value.trim() === '') {
+                isValid = false;
+                select.style.border = '2px solid red';
+                } else {
+                    select.style.border = '';
+                };
+            };
+        });
+        if (!isValid) {
+            event.preventDefault();
+            alert("请选择'派送方式'!");
+        };
+    };
+</script>
+
+{% endblock %}

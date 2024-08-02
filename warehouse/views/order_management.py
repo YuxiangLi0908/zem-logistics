@@ -49,7 +49,8 @@ class OrderManagement(View):
                 "customer_name", "container_number", "warehouse", "clearance_id", "retrieval_id", "offload_id",
                 "shipment_id"
             ).filter(
-                models.Q(eta__gte=start_date) & models.Q(eta__lte=end_date)
+                (models.Q(eta__gte=start_date) & models.Q(eta__lte=end_date)) |
+                models.Q(eta__isnull=True)
             )
             self.context = {
                 'orders': orders,
@@ -231,6 +232,7 @@ class OrderManagement(View):
             criteria = models.Q(eta__lte=end_date)
         else:
             criteria = models.Q(eta__gte="2023-01-01")
+        criteria |= models.Q(eta__isnull=True)
         orders = Order.objects.select_related(
             "customer_name", "container_number", "warehouse", "clearance_id", "retrieval_id", "offload_id",
             "shipment_id"
@@ -402,12 +404,15 @@ class OrderManagement(View):
             self._update_packing_list_palletized(request, packing_list, container)
 
     def _get_clearance_option(self, clearance: Clearance) -> str:
-        if not clearance.is_clearance_required:
+        try:
+            if not clearance.is_clearance_required:
+                return "N/A"
+            elif clearance.clear_by_zem:
+                return "代理清关"
+            else:
+                return "自理清关"
+        except:
             return "N/A"
-        elif clearance.clear_by_zem:
-            return "代理清关"
-        else:
-            return "自理清关"
         
     def _get_retrieval_option(self, retrieval: Retrieval) -> str:
         if retrieval.retrive_by_zem:

@@ -7,6 +7,7 @@ from warehouse.models.retrieval import Retrieval
 from warehouse.models.offload import Offload
 from warehouse.models.shipment import Shipment
 from warehouse.models.invoice import Invoice
+from warehouse.models.vessel import Vessel
 
 
 class Order(models.Model):
@@ -17,6 +18,7 @@ class Order(models.Model):
     created_at = models.DateTimeField()
     eta = models.DateField(null=True, blank=True)
     order_type = models.CharField(max_length=255, null=True)
+    vessel_id = models.ForeignKey(Vessel, null=True, blank=True, on_delete=models.SET_NULL)
     clearance_id = models.ForeignKey(Clearance, null=True, blank=True, on_delete=models.SET_NULL)
     retrieval_id = models.ForeignKey(Retrieval, null=True, blank=True, on_delete=models.SET_NULL)
     offload_id = models.ForeignKey(Offload, null=True, blank=True, on_delete=models.SET_NULL)

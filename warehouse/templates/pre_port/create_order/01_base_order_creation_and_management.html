@@ -1,0 +1,150 @@
+{% extends 'base.html' %}
+{% block content %}
+<div style="max-height: 100%; max-width: 100%;">
+    <div><b>港前订单管理</b></div>
+    <div style="width: 100%; display: flex; justify-content: space-between;">
+        <form method="post" action="" style="width: 100%;">
+            {% csrf_token %}
+            <div style="overflow-x: auto; border: 2px solid rgb(180, 180, 180); border-radius: 12px; padding: 1%; margin-top: 1%;">
+                <div class="d-flex justify-content-between">
+                    <div style="width: 80%;">
+                        <b style="background-color: rgb(208, 208, 208); border-radius: 20px; font-size: 12px; display:inline-flex; color: rgb(100, 100, 100); padding: 4px;">
+                            创建订单 - 基本信息
+                        </b>
+                    </div>  
+                    <div class="text-right" style="width: 20%;">
+                        <input type="hidden" name="step" value="create_order_basic">
+                        <button id="submit-btn-create-order" type="submit" class="btn btn-primary" style="width: 90px; height: 30px; margin-left: 20px; font-size: 13px;" onclick="checkOrderTypeInput()">
+                            创建订单
+                        </button>
+                    </div>
+                </div>
+                <div style="display: flex;">
+                    <div class="order-form-1-row flex-8">
+                        <div><label style="font-size: 13px;">客户</label></div>
+                        <select name="customer" style="font-size: 13px;">
+                            {% for k, v in customers.items %}
+                                <option value="{{ v }}">{{ k }}</option>
+                            {% endfor %}
+                        </select>
+                    </div>
+                    <div class="order-form-1-row flex-8">
+                        <div><label style="font-size: 13px;">订单类型</label></div>
+                        <select name="order_type" id="order_type" style="font-size: 13px;" onchange="changeFollowingInput(this)">
+                            {% for k, v in order_type.items %}
+                                <option value="{{ v }}">{{ k }}</option>
+                            {% endfor %}
+                        </select>
+                    </div>
+                    <div class="order-form-1-row flex-8" id="area" style="display: none; font-size: 13px;">
+                        <div><label style="font-size: 13px;">所属仓</label></div>
+                        <select name="area">
+                            {% for k, v in area.items %}
+                                <option value="{{ v }}">{{ k }}</option>
+                            {% endfor %}
+                        </select>
+                    </div>
+                    <div class="order-form-1-row flex-8" id="destination" style="display: none; font-size: 13px;">
+                        <div><label style="font-size: 13px;">直送地址</label></div>
+                        <input type="text" name="destination" id="orderDestination" size="15">
+                    </div>
+                    <div class="order-form-1-row flex-8" style="font-size: 13px;">
+                        <div><label style="font-size: 13px;">柜号</label></div>
+                        <input type="text" name="container_number" id="containerNumber" size="15" required>
+                    </div>
+                    <div class="order-form-1-row flex-8" style="font-size: 13px;">
+                        <div><label style="font-size: 13px;">柜型</label></div>
+                        <select name="container_type">
+                            {% for k, v in container_type.items %}
+                                <option value="{{ v }}">{{ k }}</option>
+                            {% endfor %}
+                        </select>
+                    </div>
+                    <div class="order-form-1-row flex-8" style="font-size: 13px;">
+                        <div><label style="font-size: 13px;">柜重</label></div>
+                        <div style="display: flex;">
+                            <div><input type="number" name="weight" id="containerWeight" step=0.01 style="width: 80px" required></div>
+                            <div>
+                                <select name="weight_unit">
+                                    <option value="kg">kg</option>
+                                    <option value="lbs">lbs</option>
+                                </select>
+                            </div>
+                        </div>
+                        
+                    </div>
+                    <div class="order-form-1-row flex-8" style="font-size: 13px;">
+                        <div><label style="font-size: 13px;">特殊柜型</label></div>
+                        <input type="checkbox" name="is_special_container" onchange="showNote(this)">
+                    </div>
+                    <div class="order-form-1-row flex-8" id="containerNote" style="display: none; font-size: 13px;">
+                        <div><label style="font-size: 13px;">备注(特殊柜型)</label></div>
+                        <input type="text" name="note">
+                    </div>
+                </div>
+            </div>
+        </form>
+    </div>
+    
+    {% block order_status %}
+    
+    {% endblock %}
+</div>
+
+<script>
+    document.addEventListener('DOMContentLoaded', function() {
+        document.getElementById('order_types').addEventListener('submit', (event) => {
+            const selectedValue = orderTypesSelect.value;
+            console.log(selectedValue)
+            if (!selectedValue) {
+                alert('请选择订单类型！');
+                event.preventDefault();
+            }
+        });
+    });
+
+    function changeFollowingInput(select) {
+        const selectedValue = select.value;
+        var areaDiv = document.getElementById("area");
+        var destinationDiv = document.getElementById("destination");
+        var orderDestinationInput = document.getElementById('orderDestination');
+
+        if (selectedValue == "直送") {
+            areaDiv.style.display = 'none';
+            destinationDiv.style.display = 'block';
+            orderDestinationInput.required = true;
+        } else if (selectedValue == "转运") {
+            areaDiv.style.display = 'block';
+            destinationDiv.style.display = 'none';
+            orderDestinationInput.required = false;
+        } else {
+            areaDiv.style.display = 'none';
+            destinationDiv.style.display = 'none';
+            orderDestinationInput.required = false;
+        };
+    };
+
+    function showNote(checkbox) {
+        const noteDiv = document.getElementById('containerNote');
+        if (checkbox.checked) {
+            noteDiv.style.display = 'block';
+        } else {
+            noteDiv.style.display = 'none';
+        };
+    };
+
+    function checkOrderTypeInput() {
+        const selectedValue = document.getElementById('order_type').value;
+        if (!selectedValue) {
+            alert('请选择订单类型！');
+            event.preventDefault();
+        };
+    };
+    
+    window.addEventListener('pageshow', function(event) {
+        if (event.persisted || (window.performance && window.performance.navigation.type == 2)) {
+            window.location.reload();
+        }
+    });
+</script>
+{% endblock %}

@@ -39,7 +39,7 @@ from warehouse.forms.upload_file import UploadFileForm
 from warehouse.utils.constants import ORDER_TYPES, PACKING_LIST_TEMP_COL_MAPPING
 
 @method_decorator(login_required(login_url='login'), name='dispatch')
-class OrderCreation(View):
+class OrderCreationLegacy(View):
     template_main = 'create_order.html'
     context = {
         "order_form": OrderForm(),

@@ -6,7 +6,7 @@ from warehouse.models.quote import Quote
 class PackingList(models.Model):
     container_number = models.ForeignKey(Container, null=True, on_delete=models.CASCADE)
     product_name = models.CharField(max_length=255, null=True, blank=True)
-    delivery_method = models.CharField(max_length=255)
+    delivery_method = models.CharField(max_length=255, null=True, blank=True)
     shipping_mark = models.CharField(max_length=400, null=True, blank=True)
     fba_id = models.CharField(max_length=400, null=True, blank=True)
     destination = models.CharField(max_length=255, null=True, blank=True)

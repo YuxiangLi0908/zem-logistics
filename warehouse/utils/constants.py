@@ -13,9 +13,20 @@ ORDER_TYPE_OPTIONS = [
 ]
 
 SHIPPING_LINE_OPTIONS = [
-    ("", ""), ("N/A", "N/A"), ("COSCO", "COSCO"), ("EMC", "EMC"), ("MSC", "MSC"),
-    ("OOCL", "OOCL"), ("ZIM", "ZIM"),
-]
+    ('', ''),
+    ('CMA CGM', 'CMA CGM'),
+    ('COSCO', 'COSCO'),
+    ('EMC', 'EMC'),
+    ('Evergreen', 'Evergreen'),
+    ('Hyundai', 'Hyundai'),
+    ('MSC', 'MSC'),
+    ('Maersk', 'Maersk'),
+    ('ONE', 'ONE'),
+    ('OOCL', 'OOCL'),
+    ('Wan Hai Lines', 'Wan Hai Lines'),
+    ('Yangming', 'Yangming'),
+    ('ZIM Line', 'ZIM Line')
+ ]
 
 CLEARANCE_OPTIONS = [
     ("", ""), ('代理清关', '代理清关'), ('自理清关', '自理清关'), ('N/A', 'N/A'),

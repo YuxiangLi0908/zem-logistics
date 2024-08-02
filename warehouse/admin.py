@@ -12,7 +12,7 @@ from warehouse.models.pallet import Pallet
 from warehouse.models.quote import Quote
 from warehouse.models.invoice import Invoice, InvoiceItem, InvoiceStatement
 from warehouse.models.terminal49_webhook_raw import T49Raw
-
+from warehouse.models.vessel import Vessel
 # Register your models here.
 
 admin.site.register(Clearance)
@@ -30,3 +30,4 @@ admin.site.register(Invoice)
 admin.site.register(InvoiceItem)
 admin.site.register(InvoiceStatement)
 admin.site.register(T49Raw)
+admin.site.register(Vessel)
