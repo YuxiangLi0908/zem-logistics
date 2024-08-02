@@ -138,7 +138,7 @@ body {
     padding: 5px;
 }
 
-.order-form-1-row.flex-7 {
-    flex: 0 0 14%;
-    max-width: 14%;
+.order-form-1-row.flex-8 {
+    flex: 0 0 12%;
+    max-width: 12%;
 }
