@@ -1,11 +1,11 @@
 {% extends 'base.html' %}
 {% block content %}
-<div style="max-height: 100%;">
+<div style="max-height: 100%; max-width: 100%;">
     <div><b>港前订单管理</b></div>
     <div style="width: 100%; display: flex; justify-content: space-between;">
         <form method="post" action="" style="width: 100%;">
             {% csrf_token %}
-            <div style="overflow-x: auto; border: 2px solid rgb(180, 180, 180); border-radius: 12px; padding: 1%; margin: 1%;">
+            <div style="overflow-x: auto; border: 2px solid rgb(180, 180, 180); border-radius: 12px; padding: 1%; margin-top: 1%;">
                 <div class="d-flex justify-content-between">
                     <div style="width: 80%;">
                         <b style="background-color: rgb(208, 208, 208); border-radius: 20px; font-size: 12px; display:inline-flex; color: rgb(100, 100, 100); padding: 4px;">
@@ -14,7 +14,7 @@
                     </div>  
                     <div class="text-right" style="width: 20%;">
                         <input type="hidden" name="step" value="create_order_basic">
-                        <button id="submit-btn-create-order" type="submit" class="btn btn-primary" style="width: 90px; height: 30px; margin-left: 20px; font-size: 13px;" onclick="checkInput()">
+                        <button id="submit-btn-create-order" type="submit" class="btn btn-primary" style="width: 90px; height: 30px; margin-left: 20px; font-size: 13px;" onclick="checkOrderTypeInput()">
                             创建订单
                         </button>
                     </div>
@@ -133,23 +133,14 @@
         };
     };
 
-    function checkInput() {
+    function checkOrderTypeInput() {
         const selectedValue = document.getElementById('order_type').value;
-        console.log(selectedValue);
         if (!selectedValue) {
             alert('请选择订单类型！');
             event.preventDefault();
         };
     };
-
-    // function onPageLoad() {
-    //     const orderType = document.getElementById("order_type");
-    //     const isSpecialContainer = document.getElementsByName("is_special_container")[0];
-    //     changeFollowingInput(orderType);
-    //     showNote(isSpecialContainer);
-    // };
-
-    // document.addEventListener("DOMContentLoaded", onPageLoad);
+    
     window.addEventListener('pageshow', function(event) {
         if (event.persisted || (window.performance && window.performance.navigation.type == 2)) {
             window.location.reload();
