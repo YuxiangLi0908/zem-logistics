@@ -1583,6 +1583,11 @@ RMN3:
   location: 220 Centerport Parkway
   state: VA
   zipcode: '22406'
+RYY2:
+  city: White
+  location: 1250 Cassville White Road
+  state: GA
+  zipcode: '30184'
 沃尔玛-NJ3:
   city: Pedricktown
   location: 3 Sorbello Rd
