@@ -1,0 +1,188 @@
+{% extends 'base.html' %}
+{% block content %}
+<div style="max-height: 100%; max-width: 100%;">
+    <div><b>港口调度</b></div>
+    {{ current_date }}
+</div>
+<div style="display: flex;">
+    <div style="height: 800px; width: 28%; margin-top: .5%; margin-right: .5%; margin-bottom: 1%;">
+        <div style="height: 50%; width: 100%; border: 2px solid rgb(180, 180, 180); border-radius: 12px; padding: 1%;">
+            <div>
+                <b style="background-color: rgb(208, 208, 208); border-radius: 20px; font-size: 11px; display:inline-flex; color: rgb(100, 100, 100); padding: 5px;">
+                    待预约货柜 - {{ orders_not_scheduled|length }}
+                </b>
+            </div>
+            <div style="overflow-y: scroll;">
+                <table class="table" id="eta-order-table" style="font-size: 11px;">
+                    <thead>
+                        <tr style="position: sticky; top: 0;">
+                            <th class="th">柜号</th>
+                            <th class="th">订单类型</th>
+                            <th class="th">船名船次</th>
+                            <th class="th">ETA</th>
+                        </tr>
+                        <tr style="position: sticky; top: 28px;">
+                            <th class="th">
+                                <input type="text" id="ctnSearch" placeholder="搜索柜号..." oninput="filterTable(this, 0, true)" size="13" style="font-size: 11px;">
+                            </th>
+                            <th class="th"></th>
+                            <th class="th"></th>
+                            <th class="th"></th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for o in orders_not_scheduled %}
+                        <tr>
+                            <td class="td">
+                                <a href="/terminal_dispatch/?step=schedule_container_pickup&container_number={{ o.container_number.container_number }}">
+                                    {{ o.container_number.container_number }}
+                                </a>
+                            </td>
+                            <td class="td">{{ o.order_type }}</td>
+                            <td class="td">{{ o.vessel_id.vessel }} - {{ o.vessel_id.voyage }}</td>
+                            <td class="td">
+                                {% if o.vessel_id.eta_status == "past_due" %}
+                                <span class="status-span-red">{{ o.vessel_id.vessel_eta|date:"M-j" }}</span>
+                                {% elif o.vessel_id.eta_status == "within_one_week" %}
+                                <span class="status-span-yellow">{{ o.vessel_id.vessel_eta|date:"M-j" }}</span>
+                                {% else %}
+                                {{ o.vessel_id.vessel_eta|date:"M-j" }}
+                                {% endif %}
+                            </td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+        </div>
+        <div style="max-height: 50%; width: 100%; border: 2px solid rgb(180, 180, 180); border-radius: 12px; padding: 1%; margin-top: .5%;">
+            <div>
+                <b style="background-color: rgb(208, 208, 208); border-radius: 20px; font-size: 11px; display:inline-flex; color: rgb(100, 100, 100); padding: 5px;">
+                    待确认提柜 - {{ orders_not_pickup|length }}
+                </b>
+            </div>
+            <div style="overflow-y: scroll; max-height: 700px;">
+                <table class="table" id="order-pickup-schedule-table" style="font-size: 11px;">
+                    <thead>
+                        <tr style="position: sticky; top: 0;">
+                            <th class="th">柜号</th>
+                            <th class="th">目的地</th>
+                            <th class="th">供应商</th>
+                            <th class="th">ETA</th>
+                            <th class="th">预约时间</th>
+                        </tr>
+                        <tr style="position: sticky; top: 28px;">
+                            <th class="th">
+                                <input type="text" id="ctnSearch" placeholder="搜索柜号..." oninput="filterTable(this, 0, true)" size="13" style="font-size: 11px;">
+                            </th>
+                            <th class="th"></th>
+                            <th class="th"></th>
+                            <th class="th"></th>
+                            <th class="th"></th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for o in orders_not_pickup %}
+                        <tr>
+                            <td class="td">
+                                <a href="/terminal_dispatch/?step=update_pickup_schedule&container_number={{ o.container_number.container_number }}">
+                                    {{ o.container_number.container_number }}
+                                </a>
+                            </td>
+                            <td class="td">{{ o.retrieval_id.retrieval_destination_precise }}</td>
+                            <td class="td">{{ o.retrieval_id.retrieval_carrier }}</td>
+                            <td class="td">
+                                {% if o.vessel_id.eta_status == "past_due" %}
+                                <span class="status-span-red">{{ o.vessel_id.vessel_eta|date:"M-j" }}</span>
+                                {% elif o.vessel_id.eta_status == "within_one_week" %}
+                                <span class="status-span-yellow">{{ o.vessel_id.vessel_eta|date:"M-j" }}</span>
+                                {% else %}
+                                {{ o.vessel_id.vessel_eta|date:"M-j" }}
+                                {% endif %}
+                            </td>
+                            <td class="td">
+                                {% if o.retrieval_id.pickup_schedule_status == "past_due" %}
+                                <span class="status-span-red">{{ o.retrieval_id.target_retrieval_timestamp|date:"M-j" }} {{ o.retrieval_id.target_retrieval_timestamp|time:"H:i" }}</span>
+                                {% elif o.retrieval_id.pickup_schedule_status == "need_attention" %}
+                                <span class="status-span-yellow">{{ o.retrieval_id.target_retrieval_timestamp|date:"M-j" }} {{ o.retrieval_id.target_retrieval_timestamp|time:"H:i" }}</span>
+                                {% else %}
+                                {{ o.retrieval_id.target_retrieval_timestamp|date:"M-j" }} {{ o.retrieval_id.target_retrieval_timestamp|time:"H:i" }}
+                                {% endif %}
+                            </td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+    
+    {% block schedule_pickup %}
+        
+    {% endblock %}
+
+    {% block update_schedule_pickup %}
+        
+    {% endblock %}
+</div>
+
+<script>
+    document.addEventListener("DOMContentLoaded", function () {
+        var table_1 = document.getElementById("eta-order-table");
+        var table_2 = document.getElementById("order-pickup-schedule-table");
+        var tbody = table_1.getElementsByTagName("tbody")[0];
+        var rows = Array.from(tbody.getElementsByTagName("tr"));
+    
+        rows.sort(function (a, b) {
+            var dateA = new Date(a.cells[3].innerText); // ETA of row 'a'
+            var dateB = new Date(b.cells[3].innerText); // ETA of row 'b'
+            return dateA - dateB; // Ascending order
+        });
+    
+        while (tbody.firstChild) {
+            tbody.removeChild(tbody.firstChild);
+        }
+    
+        rows.forEach(function (row) {
+            tbody.appendChild(row);
+        });
+
+        var tbody = table_2.getElementsByTagName("tbody")[0];
+        var rows = Array.from(tbody.getElementsByTagName("tr"));
+    
+        rows.sort(function (a, b) {
+            var dateA = new Date(a.cells[4].innerText); // ETA of row 'a'
+            var dateB = new Date(b.cells[4].innerText); // ETA of row 'b'
+            return dateA - dateB; // Ascending order
+        });
+    
+        while (tbody.firstChild) {
+            tbody.removeChild(tbody.firstChild);
+        }
+    
+        rows.forEach(function (row) {
+            tbody.appendChild(row);
+        });
+    });
+
+    function filterTable(filterInput, col_idx, trim) {
+        var containerInput, containerFilter, table, tbody, tr, containerTd, i, containerTxtValue;
+        containerFilter = filterInput.value.toUpperCase();
+        var table = filterInput.closest('table');
+        tbody = table.getElementsByTagName("tbody")[0];
+        tr = tbody.getElementsByTagName("tr");
+
+        for (i = 0; i < tr.length; i++) {
+            containerTd = tr[i].getElementsByTagName("td")[col_idx];
+            if (containerTd) {
+                containerTxtValue = containerTd.textContent || containerTd.innerText;
+                containerTxtValue = trim ? containerTxtValue.toUpperCase().trim() : containerTxtValue.toUpperCase()
+                var containerDisplayStyle_1 = containerTxtValue.indexOf(containerFilter) > -1 ? "" : "none";
+                var containerDisplayStyle_2 = containerFilter.indexOf(containerTxtValue) > -1 ? "" : "none";
+                // Set display style based on both container and customer filters
+                tr[i].style.display = containerDisplayStyle_1 === "" || containerDisplayStyle_2 === "" ? "" : "none";
+            }
+        }
+    };
+</script>
+{% endblock %}

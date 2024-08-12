@@ -1,0 +1,140 @@
+{% extends 'base.html' %}
+{% block content %}
+<div style="max-height: 100%; max-width: 100%;">
+    <div><b>港前订单追踪</b></div>
+</div>
+<div style="display: flex;">
+    <div style="max-height: 100%; width: 28%; border: 2px solid rgb(180, 180, 180); border-radius: 12px; padding: 1%; margin-top: 1%;">
+        <form method="post" action="" style="width: 100%;">
+            {% csrf_token %}
+            <div style="display: flex;">
+                <div style="width: 60%;">
+                    <b style="background-color: rgb(208, 208, 208); border-radius: 20px; font-size: 11px; display:inline-flex; color: rgb(100, 100, 100); padding: 5px;">
+                        待追踪货柜 - {{ orders_need_track|length }}
+                    </b>
+                </div>
+                <div class="text-right" style="width: 20%;">
+                    <input type="hidden" name="step" value="t49_tracking_template">
+                    <button id="submit-btn-create-order" type="submit" class="btn btn-success" style="width: 110px; height: 30px; margin-left: 20px; font-size: 13px;">
+                        <i class="bi bi-cloud-arrow-down-fill"></i>
+                        T49模版
+                    </button>
+                </div>
+            </div>
+            <div style="overflow-y: scroll; max-height: 700px;">
+                <table class="table" id="eta-order-table" style="font-size: 11px;">
+                    <thead>
+                        <tr style="position: sticky; top: 0;">
+                            <th class="th">柜号</th>
+                            <th class="th">MBL</th>
+                            <th class="th">ETA</th>
+                            <th class="th">船名船次</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for o in orders_need_track %}
+                        <tr>
+                            <td class="td">
+                                <input type="hidden" name="container_number" value="{{ o.container_number__container_number }}">
+                                {{ o.container_number__container_number }}
+                            </td>
+                            <td class="td">{{ o.vessel_id__master_bill_of_lading }}</td>
+                            <td class="td">{{ o.vessel_id__vessel_eta|date:"Y-m-d" }}</td>
+                            <td class="td">{{ o.vessel_id__vessel }} - {{ o.vessel_id__voyage }}</td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+        </form>
+    </div>
+
+    <div style="max-height: 100%; width: 72%; border: 2px solid rgb(180, 180, 180); border-radius: 12px; padding: 1%; margin-top: 1%; margin-left: .5%;">
+        <form method="post" action="" style="width: 100%;">
+            {% csrf_token %}
+        </form>
+        <div style="display: flex;">
+            <div style="width: 30%;">
+                <b style="background-color: rgb(208, 208, 208); border-radius: 20px; font-size: 11px; display:inline-flex; color: rgb(100, 100, 100); padding: 5px;">
+                    货柜状态
+                </b>
+            </div>
+            <div class="text-right" style="width: 70%;">
+                <form method="post" enctype="multipart/form-data" style="font-size: 11px;">
+                    {% csrf_token %}
+                    导入T49 Data: 
+                    {{ t49_tracking_data.file }}
+                    <input type="hidden" name="step" value="t49_tracking_upload">
+                    <button type="submit" class="btn btn-success" style="width: 100px; height: 35px; font-size: 12px; margin: 5px;">
+                        <i class="bi bi-cloud-arrow-up-fill"></i> 上传
+                    </button>
+                </form>
+            </div>
+        </div>
+        <div style="overflow-y: scroll; max-height: 700px;">
+            <table class="table" id="tracking-order-table" style="font-size: 11px;">
+                <thead>
+                    <tr style="position: sticky; top: 0;">
+                        <th class="th">柜号</th>
+                        <th class="th">MBL</th>
+                        <th class="th">船名船次</th>
+                        <th class="th">ETA</th>
+                        <th class="th">ATA</th>
+                        <th class="th">Discharge Time</th>
+                        <th class="th">LFD</th>
+                        <th class="th">Available</th>
+                        <th class="th">Hold</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for o in orders_under_tracking %}
+                    <tr style="position: sticky; top: 0;">
+                        <td class="td">{{ o.container_number.container_number }}</td>
+                        <td class="td">{{ o.vessel_id.master_bill_of_lading }}</td>
+                        <td class="td">{{ o.vessel_id.vessel }} - {{ o.vessel_id.voyage }}</td>
+                        <td class="td">{{ o.vessel_id.vessel_eta|date:"Y-m-d" }}</td>
+                        <td class="td">{{ o.retrieval_id.temp_t49_pod_arrive_at|date:"Y-m-d" }}</td>
+                        <td class="td">{{ o.retrieval_id.temp_t49_pod_discharge_at|date:"Y-m-d" }}</td>
+                        <td class="td">{{ o.retrieval_id.temp_t49_lfd|date:"Y-m-d" }}</td>
+                        <td class="td" style="font-size: 20px;">
+                            {% if o.retrieval_id.temp_t49_available_for_pickup %}
+                            <i class="bi bi-check-square-fill" style="color: rgb(7, 171, 53);"></i>
+                            {% else  %}
+                            <i class="bi bi-dash-square-fill" style="color: rgb(225, 6, 6);"></i>
+                            {% endif %}
+                        </td>
+                        <td class="td" style="font-size: 20px;">
+                            {% if o.retrieval_id.temp_t49_hold_status %}
+                            <i class="bi bi-exclamation-circle-fill" style="color: rgb(225, 6, 6);"></i>
+                            {% endif %}
+                        </td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </div>
+</div>
+
+<script>
+    document.addEventListener("DOMContentLoaded", function () {
+        var table = document.getElementById("tracking-order-table");
+        var tbody = table.getElementsByTagName("tbody")[0];
+        var rows = Array.from(tbody.getElementsByTagName("tr"));
+    
+        rows.sort(function (a, b) {
+            var dateA = new Date(a.cells[6].innerText); // ETA of row 'a'
+            var dateB = new Date(b.cells[6].innerText); // ETA of row 'b'
+            return dateA - dateB; // Ascending order
+        });
+    
+        while (tbody.firstChild) {
+            tbody.removeChild(tbody.firstChild);
+        }
+    
+        rows.forEach(function (row) {
+            tbody.appendChild(row);
+        });
+    });
+</script>
+{% endblock %}

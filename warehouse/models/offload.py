@@ -1,4 +1,6 @@
 from django.db import models
+from datetime import datetime, timedelta
+
 
 class Offload(models.Model):
     offload_id = models.CharField(max_length=255, null=True)
@@ -12,3 +14,12 @@ class Offload(models.Model):
 
     def __str__(self) -> str:
         return self.offload_id
+    
+
+    @property
+    def offload_status(self) -> str:
+        today = datetime.now().date()
+        if today > self.offload_at + timedelta(days=1):
+            return "past_due"
+        else:
+            return "on_time"

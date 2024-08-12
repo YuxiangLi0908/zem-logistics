@@ -25,8 +25,13 @@ SHIPPING_LINE_OPTIONS = [
     ('OOCL', 'OOCL'),
     ('Wan Hai Lines', 'Wan Hai Lines'),
     ('Yangming', 'Yangming'),
-    ('ZIM Line', 'ZIM Line')
+    ('Zim Line', 'Zim Line')
  ]
+
+CONTAINER_PICKUP_CARRIER = [
+    ("", ""), ("东海岸", "东海岸"), ("kars", "kars"), ("大方广", "大方广"), ("Eric", "Eric"), 
+    ("客户自提", "客户自提"), 
+]
 
 CLEARANCE_OPTIONS = [
     ("", ""), ('代理清关', '代理清关'), ('自理清关', '自理清关'), ('N/A', 'N/A'),

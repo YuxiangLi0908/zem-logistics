@@ -16,7 +16,7 @@
                         <th class="th" style="text-align: center;">航运信息</th>
                         <th class="th" style="text-align: center;">Packing List</th>
                     </tr>
-                    <tr style="position: sticky; top: 40px;">
+                    <tr style="position: sticky; top: 28px;">
                         <th class="th">
                             <input type="text" id="ctnSearch" placeholder="搜索柜号..." oninput="filterTable(this, 0, true)" size="13" style="font-size: 11px;">
                         </th>
@@ -44,7 +44,7 @@
                                 {% endif %}
                             </td>
                             <td class="td" style="text-align: center;">
-                                {% if o.n_pl > 0 or o.order_type == "直送" %}
+                                {% if o.packing_list_updloaded or o.order_type == "直送" %}
                                     <i class="bi bi-file-check-fill" style="color: rgba(34, 153, 84, 0.873); font-size: 15px;"></i>
                                 {% else %}
                                     <i class="bi bi-heartbreak-fill" style="color: rgb(203, 67, 53); font-size: 15px;"></i>

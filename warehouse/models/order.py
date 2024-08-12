@@ -26,6 +26,8 @@ class Order(models.Model):
     customer_do_link = models.CharField(max_length=2000, null=True, blank=True)
     do_sent = models.BooleanField(default=False, blank=True)
     invoice_id = models.ForeignKey(Invoice, null=True, blank=True, on_delete=models.SET_NULL)
+    add_to_t49 = models.BooleanField(default=False)
+    packing_list_updloaded = models.BooleanField(default=False)
 
     class Meta:
         indexes = [

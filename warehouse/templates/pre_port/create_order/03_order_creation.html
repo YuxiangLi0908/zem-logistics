@@ -115,7 +115,8 @@
                         <th class="th">船次</th>
                         <th class="th">船司</th>
                         <th class="th">MBL</th>
-                        <th class="th">到达港</th>
+                        <th class="th">码头</th>
+                        <th class="th">ETA</th>
                     </tr>
                 </thead>
                 <tbody>
@@ -146,6 +147,9 @@
                         </td>
                         <td class="td">
                             <input type="text" name="pod" {%if vessel %}value="{{ vessel.destination_port }}"{% endif %} required>
+                        </td>
+                        <td class="td">
+                            <input type="date" name="eta" {%if vessel %}value="{{ vessel.vessel_eta }}"{% endif %} required>
                         </td>
                     </tr>
                 </tbody>

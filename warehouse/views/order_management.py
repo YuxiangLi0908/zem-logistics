@@ -115,7 +115,7 @@ class OrderManagement(View):
             return render(request, self.template_main, self.context)
         elif step == "download_template":
             return self.handle_download_pl_template_get(request)
-        
+
     def post(self, request: HttpRequest) -> HttpResponse:
         step = request.POST.get("step")
         if step == "update":
@@ -167,7 +167,7 @@ class OrderManagement(View):
         mutable_get["step"] = "query"
         request.GET = mutable_get
         return self.get(request)
-    
+
     def handle_download_pl_template_get(self, request: HttpRequest) -> HttpResponse:
         file_path = Path(__file__).parent.parent.resolve().joinpath("templates/export_file/packing_list_template.xlsx")
         if not os.path.exists(file_path):
@@ -176,7 +176,7 @@ class OrderManagement(View):
             response = HttpResponse(file.read(), content_type='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet')
             response['Content-Disposition'] = f'attachment; filename="zem_packing_list_template.xlsx"'
             return response
-    
+
     def handle_upload_pl_template_post(self, request: HttpRequest) -> None:
         form = UploadFileForm(request.POST, request.FILES)
         if form.is_valid():
@@ -210,7 +210,7 @@ class OrderManagement(View):
             cache.clear()
         else:
             raise ValueError(f"invalid file format!")
-    
+
     def handle_order_delete_post(self, request: HttpRequest) -> None:
         order_ids = request.POST.getlist("order_id")
         selected = request.POST.getlist("is_order_selected")
@@ -244,7 +244,7 @@ class OrderManagement(View):
             'end_date': end_date,
         }
         return render(request, self.template_main, self.context)
-        
+
     def _delete_order(self, order: Order) -> None:
         Pallet.objects.filter(packing_list__container_number__order__order_id=order.order_id).delete()
         PackingList.objects.filter(container_number__order__order_id=order.order_id).delete()
@@ -255,7 +255,7 @@ class OrderManagement(View):
         if order.shipment_id:
             order.shipment_id.delete()
         order.delete()
-        
+
     def _update_clearance(self, request: HttpRequest, obj: Clearance) -> Clearance:
         clearance_option = request.POST.get("clearance_option")
         if clearance_option == "N/A":
@@ -302,7 +302,7 @@ class OrderManagement(View):
         obj.container_type = form.cleaned_data.get("container_type")
         obj.save()
         return obj
-    
+
     def _update_packing_list_non_palletized(
         self, request: HttpRequest, obj: list[PackingList], container: Container
     ) -> None:
@@ -341,7 +341,7 @@ class OrderManagement(View):
                 j += 1
         else:
             raise ValueError(f"invaid packing list!")
-        
+
     def _update_packing_list_palletized(
         self, request: HttpRequest, obj: list[PackingList], container: Container
     ) -> None:
@@ -371,7 +371,7 @@ class OrderManagement(View):
             )
         else:
             raise ValueError(f"invaid packing list!")
-        
+
     def _update_order(
         self,
         request: HttpRequest,
@@ -413,7 +413,7 @@ class OrderManagement(View):
                 return "自理清关"
         except:
             return "N/A"
-        
+
     def _get_retrieval_option(self, retrieval: Retrieval) -> str:
         if retrieval.retrive_by_zem:
             return "代理卡车"
