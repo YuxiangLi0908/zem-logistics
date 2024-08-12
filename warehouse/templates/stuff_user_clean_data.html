@@ -17,7 +17,7 @@
         {% csrf_token %}
         <p>2024-04-10: 添加packing list - total_weight_kg field</p>
         <input type="hidden" name="step" value="update_pl_weight_kg">
-        <button type="submit" class="btn btn-danger" style="width: 100px; height: 35px; margin-left: 20px;">更新</button>
+        <button type="submit" class="btn btn-danger" style="height: 35px; margin-left: 20px;">更新</button>
     </form>
     {% if pl_update_success %}
     <b>Successful!</b>
@@ -56,10 +56,28 @@
         {% csrf_token %}
         <b>Update Delivery Method</b>
         <input type="hidden" name="step" value="update_delivery_method">
-        <button type="submit" class="btn btn-danger" style="width: 100px; height: 35px; margin-left: 20px;">更新派送方式</button>
+        <button type="submit" class="btn btn-danger" style="height: 35px; margin-left: 20px;">更新派送方式</button>
     </form>
     {% if delivery_update_success %}
     <b>Successfully update {{ count }} packing list!</b>
+    {% endif %}
+</div>
+
+<div>
+    <form method="post" enctype="multipart/form-data" style="font-size: 11px;">
+        {% csrf_token %}
+        Refactor Pre Port Logic: Migrate Data
+        {{ pre_port_t49_tracking.file }}
+        <input type="hidden" name="step" value="pre_port_update_vessel_pl_data">
+        <button type="submit" class="btn btn-danger" style="height: 35px; font-size: 12px; margin: 5px;">
+            <i class="bi bi-cloud-arrow-up-fill"></i> 上传
+        </button>
+    </form>
+    
+    {% if vessel_pl_data_update_success %}
+    <b>Successfully update {{ orders_count }} orders!</b>
+    {% else %}
+    <b>0 order updated!</b>
     {% endif %}
 </div>
 
