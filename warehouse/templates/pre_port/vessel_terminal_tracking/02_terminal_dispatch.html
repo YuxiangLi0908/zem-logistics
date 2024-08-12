@@ -12,8 +12,8 @@
                     待预约货柜 - {{ orders_not_scheduled|length }}
                 </b>
             </div>
-            <div style="overflow-y: scroll;">
-                <table class="table" id="eta-order-table" style="font-size: 11px;">
+            <div style="overflow-y: scroll; max-height: 90%;">
+                <table class="table" id="eta-order-table" style="font-size: 11px; max-height: 90%;">
                     <thead>
                         <tr style="position: sticky; top: 0;">
                             <th class="th">柜号</th>
@@ -61,8 +61,8 @@
                     待确认提柜 - {{ orders_not_pickup|length }}
                 </b>
             </div>
-            <div style="overflow-y: scroll; max-height: 700px;">
-                <table class="table" id="order-pickup-schedule-table" style="font-size: 11px;">
+            <div style="overflow-y: scroll; max-height: 90%;">
+                <table class="table" id="order-pickup-schedule-table" style="font-size: 11px; max-height: 90%;">
                     <thead>
                         <tr style="position: sticky; top: 0;">
                             <th class="th">柜号</th>

@@ -80,6 +80,8 @@ class OrderCreation(View):
             Order.objects.select_related("vessel_id", "container_number", "customer_name", "container_number__packinglist").values(
                 "container_number__container_number", "customer_name__zem_name", "vessel_id", "order_type",
                 "packing_list_updloaded"
+            ).filter(
+                models.Q(created_at__gte='2024-07-01')
             )
         )
         unfinished_orders = []
