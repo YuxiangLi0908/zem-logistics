@@ -166,8 +166,8 @@ body {
     color: white;
     padding-bottom: .125rem;
     padding-top: .125rem;
-    padding-left: .125rem;
-    padding-right: .125rem;
+    padding-left: .225rem;
+    padding-right: .225rem;
 }
 
 .status-span-yellow {
@@ -176,17 +176,38 @@ body {
     color: white;
     padding-bottom: .125rem;
     padding-top: .125rem;
-    padding-left: .125rem;
-    padding-right: .125rem;
+    padding-left: .225rem;
+    padding-right: .225rem;
 }
 
-.status-span-green {
+.status-span-green-100 {
     border-radius: .25rem;
     background-color: #d5f6e8;
+    color: #115035;
     padding-bottom: .125rem;
     padding-top: .125rem;
-    padding-left: .125rem;
-    padding-right: .125rem;
+    padding-left: .225rem;
+    padding-right: .225rem;
+}
+
+.status-span-red-100 {
+    border-radius: .25rem;
+    background-color: #f9d8da;
+    color: #5c0f15;
+    padding-bottom: .125rem;
+    padding-top: .125rem;
+    padding-left: .225rem;
+    padding-right: .225rem;
+}
+
+.status-span-blue-100 {
+    border-radius: .25rem;
+    background-color: #cce5ff;
+    color: #003166;
+    padding-bottom: .125rem;
+    padding-top: .125rem;
+    padding-left: .225rem;
+    padding-right: .225rem;
 }
 
 .tr-status-red {
