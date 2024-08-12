@@ -155,7 +155,7 @@ class StuffPower(View):
                     retrieval = o.retrieval_id
                     retrieval.temp_t49_lfd = (
                         self._format_string_datetime(df.loc[df["Container number"]==o.container_number.container_number, "Current last free day at the POD terminal"].values[0])
-                        if df.loc[df["Container number"]==o.container_number.container_number, "Current last free day at the POD terminal"]
+                        if df.loc[df["Container number"]==o.container_number.container_number, "Current last free day at the POD terminal"].any()
                         else None
                     )
                     retrieval.temp_t49_available_for_pickup = (
@@ -165,12 +165,12 @@ class StuffPower(View):
                     )
                     retrieval.temp_t49_pod_arrive_at = (
                         self._format_string_datetime(df.loc[df["Container number"]==o.container_number.container_number, "Port of Discharge arrival time"].values[0], "datetime")
-                        if df.loc[df["Container number"]==o.container_number.container_number, "Port of Discharge arrival time"]
+                        if df.loc[df["Container number"]==o.container_number.container_number, "Port of Discharge arrival time"].any()
                         else None
                     )
                     retrieval.temp_t49_pod_discharge_at = (
                         self._format_string_datetime(df.loc[df["Container number"]==o.container_number.container_number, "Port of Discharge discharged event"].values[0], "datetime")
-                        if df.loc[df["Container number"]==o.container_number.container_number, "Port of Discharge discharged event"]
+                        if df.loc[df["Container number"]==o.container_number.container_number, "Port of Discharge discharged event"].any()
                         else None
                     )
                     retrieval.temp_t49_hold_status = (
@@ -180,12 +180,12 @@ class StuffPower(View):
                     )
                     retrieval.master_bill_of_lading = (
                         df.loc[df["Container number"]==o.container_number.container_number, "Shipment number"].values[0]
-                        if df.loc[df["Container number"]==o.container_number.container_number, "Shipment number"]
+                        if df.loc[df["Container number"]==o.container_number.container_number, "Shipment number"].any()
                         else None
                     )
                     retrieval.origin_port = (
                         df.loc[df["Container number"]==o.container_number.container_number, "Port of Lading"].values[0]
-                        if df.loc[df["Container number"]==o.container_number.container_number, "Port of Lading"]
+                        if df.loc[df["Container number"]==o.container_number.container_number, "Port of Lading"].any()
                         else None
                     )
                     retrieval.shipping_line = o.vessel_id.shipping_line
