@@ -1,7 +1,5 @@
 import uuid
-import ast
 import os
-import shortuuid
 import pandas as pd
 import numpy as np
 from asgiref.sync import sync_to_async
@@ -11,11 +9,7 @@ from typing import Any
 
 from django.http import HttpRequest, HttpResponse, Http404
 from django.shortcuts import render, redirect
-from django.contrib.auth.decorators import login_required
-from django.forms import formset_factory
-from django.forms.models import model_to_dict
 from django.views import View
-from django.utils.decorators import method_decorator, sync_and_async_middleware
 from django.db import models
 from django.core.cache import cache
 from django.db.models import Count
@@ -25,30 +19,14 @@ from warehouse.models.customer import Customer
 from warehouse.models.container import Container
 from warehouse.models.packing_list import PackingList
 from warehouse.models.order import Order
-from warehouse.models.clearance import Clearance
 from warehouse.models.retrieval import Retrieval
-from warehouse.models.warehouse import ZemWarehouse
 from warehouse.models.offload import Offload
-from warehouse.models.shipment import Shipment
 from warehouse.models.vessel import Vessel
-from warehouse.forms.container_form import ContainerForm
-from warehouse.forms.packling_list_form import PackingListForm
-from warehouse.forms.order_form import OrderForm
-from warehouse.forms.warehouse_form import ZemWarehouseForm
-from warehouse.forms.clearance_form import ClearanceSelectForm
-from warehouse.forms.offload_form import OffloadForm
-from warehouse.forms.retrieval_form import RetrievalForm, RetrievalSelectForm
-from warehouse.forms.shipment_form import ShipmentForm
 from warehouse.forms.upload_file import UploadFileForm
 from warehouse.utils.constants import (
-    ORDER_TYPES, PACKING_LIST_TEMP_COL_MAPPING, SHIPPING_LINE_OPTIONS,
+    PACKING_LIST_TEMP_COL_MAPPING, SHIPPING_LINE_OPTIONS,
     DELIVERY_METHOD_OPTIONS
 )
-
-from django.contrib.auth import REDIRECT_FIELD_NAME
-from django.contrib.auth.decorators import user_passes_test
-from functools import wraps
-from django.views.decorators.csrf import csrf_exempt
 
 
 class OrderCreation(View):
@@ -100,9 +78,8 @@ class OrderCreation(View):
         customers = { c.zem_name: c.id for c in customers}
         orders = await sync_to_async(list)(
             Order.objects.select_related("vessel_id", "container_number", "customer_name", "container_number__packinglist").values(
-                "container_number__container_number", "customer_name__zem_name", "vessel_id", "order_type"
-            ).annotate(
-                n_pl=Count('container_number__packinglist__id', distinct=True),
+                "container_number__container_number", "customer_name__zem_name", "vessel_id", "order_type",
+                "packing_list_updloaded"
             )
         )
         unfinished_orders = []
@@ -111,7 +88,7 @@ class OrderCreation(View):
                 if not o.get("vessel_id"):
                     unfinished_orders.append(o)
             elif o.get("order_type") == "转运":
-                if not o.get("vessel_id") or o.get("n_pl") == 0:
+                if not o.get("vessel_id") or not o.get("packing_list_updloaded"):
                     unfinished_orders.append(o)
         context = {
             "customers": customers,
@@ -183,7 +160,7 @@ class OrderCreation(View):
         container = Container(**container_data)
         retrieval_data = {
             "retrieval_id": retrieval_id,
-            "retrieval_destination_area": area,
+            "retrieval_destination_area": area if order_type=="转运" else destination,
         }
         retrieval = Retrieval(**retrieval_data)
         offload_data = {
@@ -199,6 +176,7 @@ class OrderCreation(View):
             "container_number": container,
             "retrieval_id": retrieval,
             "offload_id": offload,
+            "packing_list_updloaded": True if order_type == "直送" else False,
         }
         order = Order(**order_data)
         await sync_to_async(container.save)()
@@ -258,6 +236,7 @@ class OrderCreation(View):
                     models.Q(container_number__container_number=original_container_number)
                 )
                 packing_list.destination = request.POST.get("destination").upper().strip()
+                retrieval.retrieval_destination_area = request.POST.get("destination").upper().strip()
                 await sync_to_async(packing_list.save)()
             else:
                 # update retrieval area
@@ -271,11 +250,13 @@ class OrderCreation(View):
                 )
                 offload.offload_required = True
                 retrieval.retrieval_destination_area = request.POST.get("area")
+                order.packing_list_updloaded = False
                 await sync_to_async(packing_list.delete)()
             else:
                 # TD to DD
                 offload.offload_required = False
-                retrieval.retrieval_destination_area = None
+                retrieval.retrieval_destination_area = request.POST.get("destination").upper().strip()
+                order.packing_list_updloaded = True
                 await sync_to_async(PackingList(**{
                     "container_number": container,
                     "destination": request.POST.get("destination").upper().strip(),
@@ -305,6 +286,7 @@ class OrderCreation(View):
             vessel.shipping_line = request.POST.get("shipping_line").upper().strip()
             vessel.vessel = request.POST.get("vessel").upper().strip()
             vessel.voyage = request.POST.get("voyage").upper().strip()
+            vessel.vessel_eta = request.POST.get("eta").upper().strip()
             await sync_to_async(vessel.save)()
         else:
             order = await sync_to_async(Order.objects.get)(
@@ -318,6 +300,7 @@ class OrderCreation(View):
                 shipping_line=request.POST.get("shipping_line"),
                 vessel=request.POST.get("vessel").upper().strip(),
                 voyage=request.POST.get("voyage").upper().strip(),
+                vessel_eta=request.POST.get("eta").upper().strip(),
             )
             await sync_to_async(vessel.save)()
             order.vessel_id = vessel
@@ -330,6 +313,7 @@ class OrderCreation(View):
     
     async def handle_update_order_packing_list_info_post(self, request: HttpRequest) -> tuple[Any, Any]:
         container_number = request.POST.get("container_number")
+        order = await sync_to_async(Order.objects.get)(container_number__container_number=container_number)
         container = await sync_to_async(Container.objects.get)(container_number=container_number)
         await sync_to_async(PackingList.objects.filter(
             container_number__container_number=container_number
@@ -373,6 +357,8 @@ class OrderCreation(View):
             ) for d in pl_data
         ]
         await sync_to_async(PackingList.objects.bulk_create)(pl_to_create)
+        order.packing_list_updloaded = True
+        await sync_to_async(order.save)()
         return await self.handle_order_basic_info_get()
     
     async def handle_upload_template_post(self, request: HttpRequest) -> tuple[Any, Any]:
@@ -417,4 +403,4 @@ class OrderCreation(View):
     async def _user_authenticate(self, request: HttpRequest):
         if await sync_to_async(lambda: request.user.is_authenticated)():
             return True
-        return False()
+        return False

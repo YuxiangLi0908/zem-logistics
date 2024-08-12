@@ -95,20 +95,37 @@ body {
 .table {
     width: 100%;
     border-collapse: collapse;
-    margin-top: 10px;
+    margin-top: 5px;
 }
 
 .th, td {
     border: 1px solid #dddddd;
     text-align: left;
-    min-width: 100px;
+    min-width: 80px;
+    padding: 1px;
 }
 
 .th {
     background-color: #f2f2f2;
-    min-width: 100px;
+    min-width: 80px;
     position: sticky;
     top: 0;
+}
+
+.table th {
+    border: 1px solid #dddddd;
+    background-color: #f2f2f2;
+    text-align: left;
+    min-width: 80px;
+    padding: 5px;
+    position: sticky;
+    top: 0;
+}
+
+.table td {
+    border: 1px solid #dddddd;
+    padding: 5px;
+    min-width: 80px;
 }
 
 .quote-form-row {
@@ -141,4 +158,64 @@ body {
 .order-form-1-row.flex-8 {
     flex: 0 0 12%;
     max-width: 12%;
+}
+
+.status-span-red {
+    border-radius: .25rem;
+    background-color: #de3442;
+    color: white;
+    padding-bottom: .125rem;
+    padding-top: .125rem;
+    padding-left: .225rem;
+    padding-right: .225rem;
+}
+
+.status-span-yellow {
+    border-radius: .25rem;
+    background-color: #fcc405;
+    color: white;
+    padding-bottom: .125rem;
+    padding-top: .125rem;
+    padding-left: .225rem;
+    padding-right: .225rem;
+}
+
+.status-span-green-100 {
+    border-radius: .25rem;
+    background-color: #d5f6e8;
+    color: #115035;
+    padding-bottom: .125rem;
+    padding-top: .125rem;
+    padding-left: .225rem;
+    padding-right: .225rem;
+}
+
+.status-span-red-100 {
+    border-radius: .25rem;
+    background-color: #f9d8da;
+    color: #5c0f15;
+    padding-bottom: .125rem;
+    padding-top: .125rem;
+    padding-left: .225rem;
+    padding-right: .225rem;
+}
+
+.status-span-blue-100 {
+    border-radius: .25rem;
+    background-color: #cce5ff;
+    color: #003166;
+    padding-bottom: .125rem;
+    padding-top: .125rem;
+    padding-left: .225rem;
+    padding-right: .225rem;
+}
+
+.tr-status-red {
+    background-color: #de3442;
+    color: white;
+}
+
+.tr-status-yellow {
+    background-color: #fcc405;
+    color: white;
 }

@@ -1,0 +1,187 @@
+{% extends 'base.html' %}
+{% block content %}
+<div style="max-height: 100%; max-width: 100%;">
+    <div style="width: 100%; display: flex; justify-content: space-between;">
+        <form method="post" action="">
+            {% csrf_token %}
+            <div style="font-size: 15px;">
+                <b style="margin-left: 10px;">建单时间: </b>
+                <input type="date" name="start_date" value="{{ start_date }}">
+                <input type="date" name="end_date" value="{{ end_date }}" style="margin-right: 5px;">
+                <input type="hidden" name="step" value="search_orders_by_eta">
+                <button id="submit-btn" type="submit" class="btn btn-primary" style="height: 35px; margin-left: 20px; font-size: 13px;">查询</button>
+            </div>
+        </form>
+    </div>
+</div>
+
+<div style="width: 100%; font-size: 11px;">
+    <ul class="nav nav-tabs">
+        <li class="nav-item">
+            <button class="nav-link" onclick="showSection(this, 'status-summary-sec')"><b>货柜进度汇总</b></button>
+        </li>
+        <!-- <li class="nav-item">
+            <button class="nav-link" onclick="showSection(this, 'dispatch-summary-sec')"><b>调度信息</b></button>
+        </li> -->
+    </ul>
+</div>
+
+<div id="order-info-sec" style="width: 100%;">
+    <div id="status-summary-sec" style="display: ''; overflow-y: scroll; max-height: 800px;">
+        <table class="table" style="font-size: 11px;">
+            <thead>
+                <tr style="position: sticky; top: 0;">
+                    <th class="th">柜号</th>
+                    <th class="th">客户</th>
+                    <th class="th">订单类型</th>
+                    <th class="th">建单日期</th>
+                    <th class="th">ETA</th>
+                    <th class="th">所属仓/直送地址</th>
+                    <th class="th">建单进度</th>
+                    <th class="th">Vessel状态</th>
+                    <th class="th">预约提柜</th>
+                    <th class="th">实际提柜</th>
+                    <th class="th">抵达仓库</th>
+                    <th class="th">拆柜状态</th>
+                    <th class="th">还空状态</th>
+                </tr>
+                <tr style="position: sticky; top: 20px;">
+                    <th class="th">
+                        <input type="text" id="ctnSearch" placeholder="搜索柜号..." oninput="filterTable(this, 0, true)" size="13" style="font-size: 11px;">
+                    </th>
+                    <th class="th">
+                        <select name="customer" onchange="filterTable(this, 1, true)">
+                            <option value="" selected></option>
+                            {% for k, v in customers.items %}
+                                <option value="{{ v }}">{{ k }}</option>
+                            {% endfor %}
+                        </select>
+                    </th>
+                    <th class="th"></th>
+                    <th class="th"></th>
+                    <th class="th"></th>
+                    <th class="th"></th>
+                    <th class="th"></th>
+                    <th class="th"></th>
+                    <th class="th"></th>
+                    <th class="th"></th>
+                    <th class="th"></th>
+                    <th class="th"></th>
+                    <th class="th"></th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for o in orders %}
+                <tr>
+                    <td class="td">{{ o.container_number.container_number }}</td>
+                    <td class="td">{{ o.customer_name.zem_name }}</td>
+                    <td class="td">{{ o.order_type }}</td>
+                    <td class="td">{{ o.created_at|date:"M-j" }}</td>
+                    <td class="td">{{ o.vessel_id.vessel_eta|date:"M-j" }}</td>
+                    <td class="td">{{ o.retrieval_id.retrieval_destination_area }}</td>
+                    <td>
+                        {% if o.vessel_id and o.packing_list_updloaded %}
+                        <span class="status-span-green-100">完成</span>
+                        {% else %}
+                            {% if not o.vessel_id %}
+                            <span class="status-span-red-100">缺航运信息</span>
+                            {% endif %}
+                            {% if not o.packing_list_updloaded %}
+                            <span class="status-span-red-100">缺PL</span>
+                            {% endif %}
+                        {% endif %}
+                    </td>
+                    <td>
+                        {% if o.retrieval_id.temp_t49_pod_arrive_at %}
+                        <span class="status-span-green-100">到港</span>
+                        {% elif o.vessel_id %}
+                        <span class="status-span-blue-100">en route</span>
+                        {% endif %}
+                    </td>
+                    <td>
+                        {% if o.retrieval_id.target_retrieval_timestamp %}
+                        <span class="status-span-green-100">
+                            {{ o.retrieval_id.retrieval_carrier }} {{ o.retrieval_id.target_retrieval_timestamp|date:"M-j" }}
+                        </span>
+                        {% else %}
+                        <span class="status-span-red-100">无提柜计划</span>
+                        {% endif %}
+                    </td>
+                    <td>
+                        {% if o.retrieval_id.actual_retrieval_timestamp %}
+                        <span class="status-span-green-100">{{ o.retrieval_id.actual_retrieval_timestamp|date:"M-j" }}</span>
+                        {% elif o.retrieval_id.target_retrieval_timestamp.date > current_date %}
+                        <span class="status-span-blue-100">预计提柜 {{ o.retrieval_id.target_retrieval_timestamp|date:"M-j" }}</span>
+                        {% endif %}
+                    </td>
+                    <td>
+                        {% if o.retrieval_id.arrive_at_destination %}
+                        <span class="status-span-green-100">{{ o.retrieval_id.arrive_at|date:"M-j" }}</span>
+                        {% endif %}
+                    </td>
+                    <td>
+                        {% if o.offload_id.offload_at %}
+                        <span class="status-span-green-100">{{ o.offload_id.offload_at|date:"M-j" }}</span>
+                        {% endif %}
+                    </td>
+                    <td>
+                        {% if o.retrieval_id.empty_returned %}
+                        <span class="status-span-green-100">{{ o.retrieval_id.empty_returned_at|date:"M-j" }}</span>
+                        {% endif %}
+                    </td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+    <div id="dispatch-summary-sec" style="display: none;">
+
+    </div>
+</div>
+
+<script>
+    function showSection(navItem, secId) {
+        const navLinks = document.querySelectorAll('.nav-link');
+        navLinks.forEach(link => {
+            link.classList.remove('active')
+        });
+        navItem.classList.add('active');
+
+        const sections = document.querySelectorAll('#order-info-sec > div');
+        sections.forEach(section => {
+            section.style.display = section.id === secId ? "":"none";
+        });
+    };
+
+    function filterTable(filterInput, col_idx, trim) {
+        var table = filterInput.closest('table');
+        var tbody = table.getElementsByTagName("tbody")[0];
+        var tr = tbody.getElementsByTagName("tr");
+
+        var filters = document.querySelectorAll('thead input[type="text"], thead select');
+        var filterValues = Array.from(filters).map(function(filter) {
+            return filter.value.toUpperCase().trim();
+        });
+
+        for (var i = 0; i < tr.length; i++) {
+            var row = tr[i];
+            var showRow = true;
+            for (var j = 0; j < filters.length; j++) {
+                var colIdx = j;
+                var filterValue = filterValues[j];
+                var cell = row.getElementsByTagName("td")[colIdx];
+                if (cell) {
+                    var cellText = cell.textContent || cell.innerText;
+                    var cellValue = trim ? cellText.toUpperCase().trim() : cellText.toUpperCase();
+                    if (filterValue !== "" && cellValue.indexOf(filterValue) === -1) {
+                        showRow = false;
+                        break;
+                    }
+                }
+            }
+            row.style.display = showRow ? "" : "none";
+        }
+    }
+
+</script>
+{% endblock %}

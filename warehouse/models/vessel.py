@@ -1,4 +1,5 @@
 from django.db import models
+from datetime import datetime, timedelta
 
 class Vessel(models.Model):
     vessel_id = models.CharField(max_length=255, null=True)
@@ -21,3 +22,13 @@ class Vessel(models.Model):
 
     def __str__(self) -> str:
         return self.vessel_id
+    
+    @property
+    def eta_status(self) -> str:
+        today = datetime.now().date()
+        if self.vessel_eta <= today:
+            return "past_due"
+        elif self.vessel_eta <= today + timedelta(weeks=1):
+            return "within_one_week"
+        else:
+            return "on_time"

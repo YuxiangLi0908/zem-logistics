@@ -1,0 +1,181 @@
+{% extends 'base.html' %}
+{% block content %}
+<div style="max-height: 100%; max-width: 100%;">
+    <div><b>货柜状态追踪</b></div>
+</div>
+<div style="height: 400px; max-height: 400px; width: 100%; border: 2px solid rgb(180, 180, 180); border-radius: 12px; padding: 1%; margin-top: .5%; margin-right: .5%;">
+    <div style="display: flex;">
+        <div style="width: 60%;">
+            <b style="background-color: rgb(208, 208, 208); border-radius: 20px; font-size: 11px; display:inline-flex; color: rgb(100, 100, 100); padding: 5px;">
+                确认到仓 - {{ orders_pickup_scheduled|length }}
+            </b>
+        </div>
+    </div>
+    <div style="overflow-x: scroll; overflow-y: scroll;">
+        <table class="table" id="pickup-schedule-table" style="font-size: 11px; overflow-y: scroll;">
+            <thead>
+                <tr style="position: sticky; top: 0;">
+                    <th class="th">柜号</th>
+                    <th class="th">订单类型</th>
+                    <th class="th">目的地</th>
+                    <th class="th">提柜时间</th>
+                    <th class="th">供应商</th>
+                    <th class="th">提柜备注</th>
+                    <th class="th">到仓时间</th>
+                </tr>
+                <tr style="position: sticky; top: 20px;">
+                    <th class="th">
+                        <input type="text" id="ctnSearch" placeholder="搜索柜号..." oninput="filterTable(this, 0, true)" size="13" style="font-size: 11px;">
+                    </th>
+                    <th class="th"></th>
+                    <th class="th"></th>
+                    <th class="th"></th>
+                    <th class="th"></th>
+                    <th class="th"></th>
+                    <th class="th"></th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for o in orders_pickup_scheduled%}
+                <form method="post" action="" style="width: 100%;">
+                    {% csrf_token %}
+                    <tr {% if o.retrieval_id.arrive_at_warehouse_status == "past_due" %}class="tr-status-red"{% endif %}>
+                        <td class="td">
+                            {{ o.container_number.container_number }}
+                        </td>
+                        <td class="td">{{ o.order_type }}</td>
+                        <td class="td">{{ o.retrieval_id.retrieval_destination_precise }}</td>
+                        <td class="td">{{ o.retrieval_id.actual_retrieval_timestamp|date:'M-j' }}</td>
+                        <td class="td">{{ o.retrieval_id.retrieval_carrier }}</td>
+                        <td class="td">{{ o.retrieval_id.note }}</td>
+                        <td class="td">
+                            <input type="datetime-local" name="arrive_at" style="font-size: 13px;" required>
+                            <input type="hidden" name="step" value="arrive_at_destination">
+                            <input type="hidden" name="container_number" value="{{ o.container_number.container_number }}">
+                            <button id="schedule-pickup-btn" type="submit" class="btn btn-primary" style="height: 30px; margin-left: 20px; font-size: 13px;">
+                                确认
+                            </button>
+                        </td>
+                    </tr>
+                </form>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+</div>  
+<div style="display: flex;">
+    <div style="height: 350px; max-height: 350px; width: 30%; border: 2px solid rgb(180, 180, 180); border-radius: 12px; padding: 1%; margin-top: .5%; margin-right: .5%">
+        <div style="display: flex;">
+            <div style="width: 60%;">
+                <b style="background-color: rgb(208, 208, 208); border-radius: 20px; font-size: 11px; display:inline-flex; color: rgb(100, 100, 100); padding: 5px;">
+                    确认拆柜 - {{ orders_at_warehouse|length }}
+                </b>
+            </div>
+        </div>
+        <div style="overflow-x: scroll; overflow-y: scroll;">
+            <table class="table" id="orders-at-warehouse-table" style="font-size: 11px;">
+                <thead>
+                    <tr style="position: sticky; top: 0;">
+                        <th class="th">柜号</th>
+                        <th class="th">仓库</th>
+                        <th class="th">到仓时间</th>
+                    </tr>
+                    <tr style="position: sticky; top: 28px;">
+                        <th class="th">
+                            <input type="text" id="ctnSearch" placeholder="搜索柜号..." oninput="filterTable(this, 0, true)" size="13" style="font-size: 11px;">
+                        </th>
+                        <th class="th"></th>
+                        <th class="th"></th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for o in orders_at_warehouse%}
+                    <tr {% if o.retrieval_id.offload_status == "past_due" %}class="tr-status-red"{% elif o.retrieval_id.offload_status == "past_due" %}class="tr-status-yellow"{% endif %}>
+                        <td class="td">{{ o.container_number.container_number }}</td>
+                        <td class="td">{{ o.warehouse.name }}</td>
+                        <td class="td">{{ o.retrieval_id.arrive_at|date:'M-j' }}</td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </div>
+    <div style="height: 350px; max-height: 350px; width: 70%; border: 2px solid rgb(180, 180, 180); border-radius: 12px; padding: 1%; margin-top: .5%; margin-right: .5%">
+        <div style="display: flex;">
+            <div style="width: 60%;">
+                <b style="background-color: rgb(208, 208, 208); border-radius: 20px; font-size: 11px; display:inline-flex; color: rgb(100, 100, 100); padding: 5px;">
+                    确认还空 - {{ orders_palletized|length }}
+                </b>
+            </div>
+        </div>
+        <div style="overflow-x: scroll; overflow-y: scroll;">
+            <table class="table" id="palletized-order-table" style="font-size: 11px;">
+                <thead>
+                    <tr style="position: sticky; top: 0;">
+                        <th class="th">柜号</th>
+                        <th class="th">目的地</th>
+                        <th class="th">到仓时间</th>
+                        <th class="th">拆柜时间</th>
+                        <th class="th">供应商</th>
+                        <th class="th">还柜时间</th>
+                    </tr>
+                    <tr style="position: sticky; top: 28px;">
+                        <th class="th">
+                            <input type="text" id="ctnSearch" placeholder="搜索柜号..." oninput="filterTable(this, 0, true)" size="13" style="font-size: 11px;">
+                        </th>
+                        <th class="th"></th>
+                        <th class="th"></th>
+                        <th class="th"></th>
+                        <th class="th"></th>
+                        <th class="th"></th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for o in orders_palletized%}
+                    <form method="post" action="" style="width: 100%;">
+                        {% csrf_token %}
+                        <tr {% if o.offload_id.offload_status == "past_due" %}class="tr-status-red"{% endif %}>
+                            <td class="td">{{ o.container_number.container_number }}</td>
+                            <td class="td">{{ o.retrieval_id.retrieval_destination_precise }}</td>
+                            <td class="td">{{ o.retrieval_id.arrive_at|date:'M-j' }}</td>
+                            <td class="td">{{ o.offload_id.offload_at|date:'M-j' }}</td>
+                            <td class="td">{{ o.retrieval_id.retrieval_carrier }}</td>
+                            <td class="td">
+                                <input type="datetime-local" name="empty_returned_at" style="font-size: 13px;" required>
+                                <input type="hidden" name="step" value="empty_return">
+                                <input type="hidden" name="container_number" value="{{ o.container_number.container_number }}">
+                                <button id="empty-return-btn" type="submit" class="btn btn-primary" style="height: 30px; margin-left: 20px; font-size: 13px;">
+                                    确认
+                                </button>
+                            </td>
+                        </tr>
+                    </form>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </div>  
+</div>
+
+<script>
+    function filterTable(filterInput, col_idx, trim) {
+        var containerInput, containerFilter, table, tbody, tr, containerTd, i, containerTxtValue;
+        containerFilter = filterInput.value.toUpperCase();
+        var table = filterInput.closest('table');
+        tbody = table.getElementsByTagName("tbody")[0];
+        tr = tbody.getElementsByTagName("tr");
+
+        for (i = 0; i < tr.length; i++) {
+            containerTd = tr[i].getElementsByTagName("td")[col_idx];
+            if (containerTd) {
+                containerTxtValue = containerTd.textContent || containerTd.innerText;
+                containerTxtValue = trim ? containerTxtValue.toUpperCase().trim() : containerTxtValue.toUpperCase()
+                var containerDisplayStyle_1 = containerTxtValue.indexOf(containerFilter) > -1 ? "" : "none";
+                var containerDisplayStyle_2 = containerFilter.indexOf(containerTxtValue) > -1 ? "" : "none";
+                // Set display style based on both container and customer filters
+                tr[i].style.display = containerDisplayStyle_1 === "" || containerDisplayStyle_2 === "" ? "" : "none";
+            }
+        }
+    };
+</script>
+{% endblock %}

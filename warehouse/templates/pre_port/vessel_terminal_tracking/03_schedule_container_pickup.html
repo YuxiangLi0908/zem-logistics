@@ -1,0 +1,133 @@
+{% extends 'pre_port/vessel_terminal_tracking/02_terminal_dispatch.html' %}
+{% block schedule_pickup %}
+<div style="height: 800px; width: 72%; border: 2px solid rgb(180, 180, 180); border-radius: 12px; padding: 1%; margin-top: .5%;">
+    <div>
+        <b style="background-color: rgb(208, 208, 208); border-radius: 20px; font-size: 11px; display:inline-flex; color: rgb(100, 100, 100); padding: 5px;">
+            提柜计划 - {{ container_number }}
+        </b>
+    </div>
+    <div>
+        <table class="table" id="shipment-info-table" style="font-size: 11px;">
+            <thead>
+                <tr style="position: sticky; top: 0;">
+                    <th class="th">客户</th>
+                    <th class="th">
+                        {% if selected_order.order_type == "直送" %}
+                        直送地址
+                        {% else %}
+                        所属仓
+                        {% endif %}
+                    </th>
+                    <th class="th">MBL</th>
+                    <th class="th">码头</th>
+                    <th class="th">船司</th>
+                    <th class="th">船名航次</th>
+                    <th class="th">柜型</th>
+                    <th class="th">柜重 LBS</th>
+                    {% if selected_order.container_number.is_special_container %}
+                    <th class="th">柜型备注</th>
+                    {% endif %}
+                    <th class="th">ETA</th>
+                    <th class="th">LFD</th>
+                </tr>
+            </thead>
+            <tbody>
+                <tr>
+                    <td class="td">{{ selected_order.customer_name.zem_name }}</td>
+                    <td class="td">
+                        {% if selected_order.order_type == "直送" %}
+                        {{ packing_list.destination }}
+                        {% else %}
+                        {{ selected_order.retrieval_id.retrieval_destination_area }}
+                        {% endif %}
+                    </td>
+                    <td class="td">{{ selected_order.vessel_id.master_bill_of_lading }}</td>
+                    <td class="td">{{ selected_order.vessel_id.destination_port }}</td>
+                    <td class="td">{{ selected_order.vessel_id.shipping_line }}</td>
+                    <td class="td">{{ selected_order.vessel_id.vessel }} - {{ selected_order.vessel_id.voyage }}</td>
+                    <td class="td">{{ selected_order.container_number.container_type }}</td>
+                    <td class="td">{{ selected_order.container_number.weight_lbs|floatformat:2  }}</td>
+                    {% if selected_order.container_number.is_special_container %}
+                    <td class="td">{{ selected_order.container_number.note }}</td>
+                    {% endif %}
+                    <td class="td">
+                        {% if selected_order.vessel_id.eta_status == "past_due" %}
+                        <span class="status-span-red">{{ selected_order.vessel_id.vessel_eta|date:"M-j" }}</span>
+                        {% elif selected_order.vessel_id.eta_status == "within_one_week" %}
+                        <span class="status-span-yellow">{{ selected_order.vessel_id.vessel_eta|date:"M-j" }}</span>
+                        {% else %}
+                        {{ selected_order.vessel_id.vessel_eta|date:"M-j" }}
+                        {% endif %}
+                    </td>
+                    <td class="td">
+                        {% if selected_order.retrieval_id.lfd_status == "past_due" %}
+                        <span class="status-span-red">{{ selected_order.retrieval_id.temp_t49_lfd|date:"M-j" }}</span>
+                        {% elif selected_order.retrieval_id.lfd_status == "need_attention" %}
+                        <span class="status-span-yellow">{{ selected_order.retrieval_id.temp_t49_lfd|date:"M-j" }}</span>
+                        {% else %}
+                        {{ selected_order.retrieval_id.temp_t49_lfd|date:"M-j" }}
+                        {% endif %}
+                    </td>
+                </tr>
+            </tbody>
+        </table>
+    </div>
+    <div>
+        <form method="post" action="" style="width: 100%;">
+            {% csrf_token %}
+            <table class="table" id="pickup-schedule-table" style="font-size: 11px;">
+                <thead>
+                    <tr style="position: sticky; top: 0;">
+                        <th class="th">
+                            {% if selected_order.order_type == "直送" %}
+                            直送地址(详细)
+                            {% else %}
+                            目的地
+                            {% endif %}
+                        </th>
+                        <th class="th">供应商</th>
+                        <th class="th">预约时间</th>
+                        <th class="th">提柜备注</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    <tr>
+                        <td class="td">
+                            {% if selected_order.order_type == "直送" %}
+                            <input type="text" name="retrieval_destination" style="font-size: 13px;" required>
+                            {% else %}
+                            <select name="retrieval_destination" id="retrieval-destination-select" style="font-size: 13px;">
+                                {% for k, v in warehouse_options %}
+                                <option value="{{ v }}">{{ k }}</option>
+                                {% endfor %}
+                            </select>
+                            {% endif %}
+                        </td>
+                        <td class="td">
+                            <select name="retrieval_carrier" id="retrieval-carrier-select" style="font-size: 13px;">
+                                {% for k, v in carrier_options %}
+                                <option value="{{ v }}">{{ k }}</option>
+                                {% endfor %}
+                            </select>
+                        </td>
+                        <td class="td"><input type="datetime-local" name="target_retrieval_timestamp" style="font-size: 13px;" required></td>
+                        <td class="td"><input type="text" name="note" style="font-size: 13px;"></td>
+                    </tr>
+                </tbody>
+            </table>
+            <div class="text-right">
+                <input type="hidden" name="step" value="pickup_schedule_confirmation">
+                <input type="hidden" name="container_number" value="{{ container_number }}">
+                <input type="hidden" name="order_type" value="{{ selected_order.order_type }}">
+                <button id="schedule-pickup-btn" type="submit" class="btn btn-primary" style="width: 90px; height: 30px; margin-left: 20px; font-size: 13px;">
+                    确认预约
+                </button>
+            </div>
+        </form>
+    </div>
+</div>
+
+<script>
+
+</script>
+{% endblock %}

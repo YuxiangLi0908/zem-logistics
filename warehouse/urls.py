@@ -5,6 +5,10 @@ from django.conf.urls.static import static
 from warehouse.views.user_login import *
 from warehouse.views.order_creation import OrderCreationLegacy
 from warehouse.views.pre_port.order_creation import OrderCreation
+from warehouse.views.pre_port.tracking import PrePortTracking
+from warehouse.views.pre_port.terminal_dispatch import TerminalDispatch
+from warehouse.views.pre_port.pickup_containers_status import ContainerPickupStatus
+from warehouse.views.pre_port.pre_port_dash import PrePortDash
 from warehouse.views.retrieval_schedule import ScheduleRetrieval
 from warehouse.views.palletization import Palletization
 from warehouse.views.shipment_schedule import ScheduleShipment
@@ -29,6 +33,10 @@ urlpatterns = [
     path("logout/", user_logout, name="logout"),
     path('create_order_legacy/', OrderCreationLegacy.as_view(), name='create_order_legacy'),
     path('create_order/', OrderCreation.as_view(), name='create_order'),
+    path('pre_port_tracking/', PrePortTracking.as_view(), name='pre_port_tracking'),
+    path('terminal_dispatch/', TerminalDispatch.as_view(), name='terminal_dispatch'),
+    path('contaier_pickup_status/', ContainerPickupStatus.as_view(), name='contaier_pickup_status'),
+    path('contaier_pre_port_summary_dash/', PrePortDash.as_view(), name='contaier_pre_port_summary_dash'),
     path('container_pickup/', ScheduleRetrieval.as_view(), name='schedule_pickup'),
     path('palletize/', Palletization.as_view(), name='palletization'),
     path('palletize/<str:pk>/', Palletization.as_view(), name='palletize'),
