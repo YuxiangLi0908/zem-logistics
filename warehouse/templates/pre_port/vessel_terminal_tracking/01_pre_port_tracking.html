@@ -88,7 +88,7 @@
                 </thead>
                 <tbody>
                     {% for o in orders_under_tracking %}
-                    <tr style="position: sticky; top: 0;">
+                    <tr>
                         <td class="td">{{ o.container_number.container_number }}</td>
                         <td class="td">{{ o.vessel_id.master_bill_of_lading }}</td>
                         <td class="td">{{ o.vessel_id.vessel }} - {{ o.vessel_id.voyage }}</td>
