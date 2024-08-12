@@ -198,7 +198,9 @@ class StuffPower(View):
         return self.template_1, context
             
     
-    def _format_string_datetime(self, datetime_str: str, datetime_part: str = "date") -> str:
+    def _format_string_datetime(self, datetime_str: str, datetime_part: str = "date") -> str|None:
+        if not datetime_str:
+            return None
         datetime_obj = datetime.fromisoformat(datetime_str)
         if datetime_part == "date":
             return datetime_obj.strftime('%Y-%m-%d')
