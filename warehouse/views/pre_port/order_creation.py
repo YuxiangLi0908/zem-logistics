@@ -86,12 +86,14 @@ class OrderCreation(View):
         )
         unfinished_orders = []
         for o in orders:
-            if o.get("order_type") == "直送":
-                if not o.get("vessel_id"):
-                    unfinished_orders.append(o)
-            elif o.get("order_type") == "转运":
-                if not o.get("vessel_id") or not o.get("packing_list_updloaded"):
-                    unfinished_orders.append(o)
+            if not o.get("vessel_id") or not o.get("packing_list_updloaded"):
+                unfinished_orders.append(o)
+            # if o.get("order_type") == "直送":
+            #     if not o.get("vessel_id"):
+            #         unfinished_orders.append(o)
+            # elif o.get("order_type") == "转运":
+            #     if not o.get("vessel_id") or not o.get("packing_list_updloaded"):
+            #         unfinished_orders.append(o)
         context = {
             "customers": customers,
             "order_type": self.order_type,
