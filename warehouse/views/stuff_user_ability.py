@@ -51,6 +51,9 @@ class StuffPower(View):
         elif step == "pre_port_update_vessel_pl_data":
             template, context = self.update_vessel_pl_data(request)
             return render(request, template, context)
+        elif step == "add_pl_to_dd_order":
+            template, context = self.add_pl_to_dd_order(request)
+            return render(request, template, context)
         else:
             self._remove_offload()
             self._remove_clearance()
@@ -192,7 +195,7 @@ class StuffPower(View):
                     updated_retrievals.append(retrieval)
                     cnt += 1
                 if o.order_type == "直送" or order_pl_count.get(o.container_number.container_number, 0) > 0:
-                    o.packing_list_updloaded == True
+                    o.packing_list_updloaded = True
                 updated_orders.append(o)
             Order.objects.bulk_update(
                 updated_orders, ["add_to_t49", "packing_list_updloaded", "vessel_id"]
@@ -207,7 +210,6 @@ class StuffPower(View):
             context["vessel_pl_data_update_success"] = True
             context["orders_count"] = cnt
         return self.template_1, context
-            
     
     def _format_string_datetime(self, datetime_str: str, datetime_part: str = "date") -> str|None:
         if not datetime_str:
