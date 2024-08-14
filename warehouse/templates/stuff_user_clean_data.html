@@ -81,4 +81,18 @@
     {% endif %}
 </div>
 
+<div>
+    <form method="post" enctype="multipart/form-data" style="font-size: 11px;">
+        {% csrf_token %}
+        Update order pl upload status
+        <input type="hidden" name="step" value="update_pl_status">
+        <button type="submit" class="btn btn-danger" style="height: 35px; font-size: 12px; margin: 5px;">
+            更新
+        </button>
+    </form>
+    {% if order_packing_list_updloaded_updated %}
+    <b>Successfully update {{ count }} orders!</b>
+    {% endif %}
+</div>
+
 {% endblock %}

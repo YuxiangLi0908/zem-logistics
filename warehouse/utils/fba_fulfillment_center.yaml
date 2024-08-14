@@ -1768,3 +1768,43 @@ WMM-ATL3:
   location: 445 Valentine Industrial Parkway
   state: GA
   zipcode: '30567'
+沃尔玛MEM1:
+  city: Olive Branch
+  location: 9200 Alexander Rd
+  state: MS
+  zipcode: '38654'
+MEM1沃尔玛:
+  city: Olive Branch
+  location: 9200 Alexander Rd
+  state: MS
+  zipcode: '38654'
+WMMEM1:
+  city: Olive Branch
+  location: 9200 Alexander Rd
+  state: MS
+  zipcode: '38654'
+WMMMEM1:
+  city: Olive Branch
+  location: 9200 Alexander Rd
+  state: MS
+  zipcode: '38654'
+沃尔玛-MEM1:
+  city: Olive Branch
+  location: 9200 Alexander Rd
+  state: MS
+  zipcode: '38654'
+MEM1-沃尔玛:
+  city: Olive Branch
+  location: 9200 Alexander Rd
+  state: MS
+  zipcode: '38654'
+WM-MEM1:
+  city: Olive Branch
+  location: 9200 Alexander Rd
+  state: MS
+  zipcode: '38654'
+WMM-MEM1:
+  city: Olive Branch
+  location: 9200 Alexander Rd
+  state: MS
+  zipcode: '38654'

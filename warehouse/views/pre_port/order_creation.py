@@ -118,12 +118,14 @@ class OrderCreation(View):
             )
         except:
             vessel = []
-        if order.order_type == "直送":
-            if vessel:
-                return await self.handle_order_basic_info_get()
-        else:
-            if vessel and packing_list:
-                return await self.handle_order_basic_info_get()
+        # if order.order_type == "直送":
+        #     if vessel:
+        #         return await self.handle_order_basic_info_get()
+        # else:
+        #     if vessel and packing_list:
+        #         return await self.handle_order_basic_info_get()
+        if vessel and packing_list:
+            return await self.handle_order_basic_info_get()
         context["selected_order"] = order
         context["packing_list"] = packing_list
         context["vessel"] = vessel
@@ -180,22 +182,23 @@ class OrderCreation(View):
             "container_number": container,
             "retrieval_id": retrieval,
             "offload_id": offload,
-            "packing_list_updloaded": True if order_type == "直送" else False,
+            # "packing_list_updloaded": True if order_type == "直送" else False,
+            "packing_list_updloaded": False,
         }
         order = Order(**order_data)
         await sync_to_async(container.save)()
         await sync_to_async(retrieval.save)()
         await sync_to_async(offload.save)()
         await sync_to_async(order.save)()
-        if order_type == "直送":
-            await sync_to_async(PackingList(**{
-                "container_number": container,
-                "destination": destination.upper().strip(),
-                "pcs": 0,
-                "total_weight_lbs": weight,
-                "cbm": 0,                
-                "note": "DD Placeholder",
-            }).save)()
+        # if order_type == "直送":
+        #     await sync_to_async(PackingList(**{
+        #         "container_number": container,
+        #         "destination": destination.upper().strip(),
+        #         "pcs": 0,
+        #         "total_weight_lbs": weight,
+        #         "cbm": 0,                
+        #         "note": "DD Placeholder",
+        #     }).save)()
         return await self.handle_order_basic_info_get()
     
     async def handle_update_order_basic_info_post(self, request: HttpRequest) -> tuple[Any, Any]:
@@ -236,12 +239,12 @@ class OrderCreation(View):
             # order type not changed
             if original_order_type == "直送":
                 # update destination
-                packing_list = await sync_to_async(PackingList.objects.get)(
-                    models.Q(container_number__container_number=original_container_number)
-                )
-                packing_list.destination = request.POST.get("destination").upper().strip()
+                # packing_list = await sync_to_async(PackingList.objects.get)(
+                #     models.Q(container_number__container_number=original_container_number)
+                # )
+                # packing_list.destination = request.POST.get("destination").upper().strip()
                 retrieval.retrieval_destination_area = request.POST.get("destination").upper().strip()
-                await sync_to_async(packing_list.save)()
+                # await sync_to_async(packing_list.save)()
             else:
                 # update retrieval area
                 retrieval.retrieval_destination_area = request.POST.get("area")
@@ -249,26 +252,26 @@ class OrderCreation(View):
             order.order_type = input_order_type
             if original_order_type == "直送":
                 # DD to TD
-                packing_list = await sync_to_async(PackingList.objects.get)(
-                    models.Q(container_number__container_number=original_container_number)
-                )
+                # packing_list = await sync_to_async(PackingList.objects.get)(
+                #     models.Q(container_number__container_number=original_container_number)
+                # )
                 offload.offload_required = True
                 retrieval.retrieval_destination_area = request.POST.get("area")
                 order.packing_list_updloaded = False
-                await sync_to_async(packing_list.delete)()
+                # await sync_to_async(packing_list.delete)()
             else:
                 # TD to DD
                 offload.offload_required = False
                 retrieval.retrieval_destination_area = request.POST.get("destination").upper().strip()
-                order.packing_list_updloaded = True
-                await sync_to_async(PackingList(**{
-                    "container_number": container,
-                    "destination": request.POST.get("destination").upper().strip(),
-                    "pcs": 0,
-                    "total_weight_lbs": request.POST.get("weight"),
-                    "cbm": 0,                
-                    "note": "DD Order Placeholder",
-                }).save)()
+                # order.packing_list_updloaded = True
+                # await sync_to_async(PackingList(**{
+                #     "container_number": container,
+                #     "destination": request.POST.get("destination").upper().strip(),
+                #     "pcs": 0,
+                #     "total_weight_lbs": request.POST.get("weight"),
+                #     "cbm": 0,                
+                #     "note": "DD Order Placeholder",
+                # }).save)()
         await sync_to_async(offload.save)()
         await sync_to_async(retrieval.save)()
         await sync_to_async(container.save)()
