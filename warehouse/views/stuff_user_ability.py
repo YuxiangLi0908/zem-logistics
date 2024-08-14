@@ -51,8 +51,8 @@ class StuffPower(View):
         elif step == "pre_port_update_vessel_pl_data":
             template, context = self.update_vessel_pl_data(request)
             return render(request, template, context)
-        elif step == "add_pl_to_dd_order":
-            template, context = self.add_pl_to_dd_order(request)
+        elif step == "update_pl_status":
+            template, context = self.update_pl_status()
             return render(request, template, context)
         else:
             self._remove_offload()
@@ -209,6 +209,37 @@ class StuffPower(View):
             )
             context["vessel_pl_data_update_success"] = True
             context["orders_count"] = cnt
+        return self.template_1, context
+    
+    def update_pl_status(self) -> tuple[Any, Any]:
+        orders = Order.objects.select_related(
+            "customer_name", "container_number", "vessel_id", "retrieval_id"
+        ).filter(
+            created_at__gte="2024-07-01"
+        )
+
+        order_pl_count = Order.objects.select_related(
+            "container_number"
+        ).filter(
+            models.Q(created_at__gte="2024-07-01")
+        ).values(
+            "container_number__container_number"
+        ).annotate(
+            n_pl=models.Count("container_number__packinglist__id", distinct=True),
+        )
+        order_pl_count = {o["container_number__container_number"]: o["n_pl"] for o in order_pl_count}
+        cnt = 0
+        for o in orders:
+            cnt += 1
+            if order_pl_count.get(o.container_number.container_number, 0) > 0:
+                o.packing_list_updloaded = True
+            else:
+                o.packing_list_updloaded = False
+        Order.objects.bulk_update(orders, ["packing_list_updloaded"])
+        context = {
+            "order_packing_list_updloaded_updated": True,
+            "count": cnt
+        }
         return self.template_1, context
     
     def _format_string_datetime(self, datetime_str: str, datetime_part: str = "date") -> str|None:

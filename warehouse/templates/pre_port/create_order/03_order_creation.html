@@ -14,11 +14,9 @@
             <li class="nav-item">
                 <button class="nav-link" onclick="showSection(this, 'order-shipping-info-sec')"><b>航运信息</b></button>
             </li>
-            {% if selected_order.order_type == "转运" %}
-                <li class="nav-item">
-                    <button class="nav-link" onclick="showSection(this, 'order-packing-list-info-sec')"><b>Packing List</b></button>
-                </li>
-            {% endif %}
+            <li class="nav-item">
+                <button class="nav-link" onclick="showSection(this, 'order-packing-list-info-sec')"><b>Packing List</b></button>
+            </li>
         </ul>
     </div>
 </div>
