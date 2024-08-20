@@ -142,11 +142,11 @@ class OrderManagement(View):
                 except:
                     warehoue = None
                 packing_list = PackingList.objects.filter(models.Q(container_number__order__order_id=order_id)).order_by("id")
-                if order.order_type == "直送":
-                    shipment = order.shipment_id
-                    shipment.destination = request.POST.get("destination")
-                    shipment.address = request.POST.get("address")
-                    shipment.save()
+                # if order.order_type == "直送":
+                #     shipment = order.shipment_id
+                #     shipment.destination = request.POST.get("destination")
+                #     shipment.address = request.POST.get("address")
+                #     shipment.save()
                 self._update_order(
                     request, order, container, retrieval, clearance, packing_list,
                     customer, warehoue
