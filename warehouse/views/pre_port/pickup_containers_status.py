@@ -45,7 +45,8 @@ class ContainerPickupStatus(View):
             ).filter(
                 models.Q(add_to_t49=True) &
                 models.Q(retrieval_id__actual_retrieval_timestamp__isnull=False) &
-                models.Q(retrieval_id__arrive_at_destination=False)
+                models.Q(retrieval_id__arrive_at_destination=False) &
+                models.Q(created_at__gte='2024-08-19')
             ).order_by("retrieval_id__actual_retrieval_timestamp")
         )
         orders_at_warehouse = await sync_to_async(list)(
@@ -56,7 +57,8 @@ class ContainerPickupStatus(View):
                 models.Q(retrieval_id__actual_retrieval_timestamp__isnull=False) &
                 models.Q(retrieval_id__arrive_at_destination=True) &
                 models.Q(offload_id__offload_at__isnull=True) &
-                models.Q(order_type="转运")
+                models.Q(order_type="转运") &
+                models.Q(created_at__gte='2024-08-19')
             ).order_by("retrieval_id__arrive_at")
         )
         orders_palletized = await sync_to_async(list)(
@@ -67,7 +69,8 @@ class ContainerPickupStatus(View):
                 models.Q(retrieval_id__actual_retrieval_timestamp__isnull=False) &
                 models.Q(retrieval_id__arrive_at_destination=True) &
                 models.Q(offload_id__offload_at__isnull=False) &
-                models.Q(retrieval_id__empty_returned=False)
+                models.Q(retrieval_id__empty_returned=False) &
+                models.Q(created_at__gte='2024-08-19')
             ).order_by("offload_id__offload_at")
         )
         context = {

@@ -81,7 +81,7 @@ class OrderCreation(View):
                 "container_number__container_number", "customer_name__zem_name", "vessel_id", "order_type",
                 "packing_list_updloaded"
             ).filter(
-                models.Q(created_at__gte='2024-07-01')
+                models.Q(created_at__gte='2024-08-19')
             )
         )
         unfinished_orders = []

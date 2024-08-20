@@ -62,7 +62,8 @@ class TerminalDispatch(View):
                 models.Q(add_to_t49=True) &
                 models.Q(retrieval_id__actual_retrieval_timestamp__isnull=True) &
                 models.Q(retrieval_id__target_retrieval_timestamp__isnull=True) &
-                models.Q(vessel_id__vessel_eta__lte=datetime.now() + timedelta(weeks=1))
+                models.Q(vessel_id__vessel_eta__lte=datetime.now() + timedelta(weeks=1)) &
+                models.Q(created_at__gte='2024-08-19')
             )
         )
         orders_not_pickup = await sync_to_async(list)(
@@ -71,7 +72,8 @@ class TerminalDispatch(View):
             ).filter(
                 models.Q(add_to_t49=True) &
                 models.Q(retrieval_id__actual_retrieval_timestamp__isnull=True) &
-                models.Q(retrieval_id__target_retrieval_timestamp__isnull=False)
+                models.Q(retrieval_id__target_retrieval_timestamp__isnull=False) &
+                models.Q(created_at__gte='2024-08-19')
             )
         )
         context = {
