@@ -134,7 +134,9 @@ class OrderManagement(View):
                     "shipment_id"
                 ).get(models.Q(order_id=order_id))
                 container = order.container_number
-                customer = order.customer_name
+                customer_id = request.POST.get("customer_name")
+                customer = Customer.objects.get(id=customer_id)
+                # customer = order.customer_name
                 clearance = order.clearance_id
                 retrieval = order.retrieval_id
                 try:
@@ -142,11 +144,11 @@ class OrderManagement(View):
                 except:
                     warehoue = None
                 packing_list = PackingList.objects.filter(models.Q(container_number__order__order_id=order_id)).order_by("id")
-                if order.order_type == "直送":
-                    shipment = order.shipment_id
-                    shipment.destination = request.POST.get("destination")
-                    shipment.address = request.POST.get("address")
-                    shipment.save()
+                # if order.order_type == "直送":
+                #     shipment = order.shipment_id
+                #     shipment.destination = request.POST.get("destination")
+                #     shipment.address = request.POST.get("address")
+                #     shipment.save()
                 self._update_order(
                     request, order, container, retrieval, clearance, packing_list,
                     customer, warehoue
@@ -386,12 +388,13 @@ class OrderManagement(View):
         container = self._update_container(request, container)
         # order.container_number = container
         order.retrieval_id = self._update_retrieval(request, retrieval)
-        order.clearance_id = self._update_clearance(request, clearance)
+        # order.clearance_id = self._update_clearance(request, clearance)
         order.customer_name = customer
         order.warehouse = warehouse
         form = OrderForm(request.POST)
         form.is_valid()
-        order.eta = str(form.cleaned_data.get("eta"))
+        if form.cleaned_data.get("eta"):
+            order.eta = str(form.cleaned_data.get("eta"))
         order.order_type = form.cleaned_data.get("order_type")
         if form.cleaned_data.get("order_type") == "转运":
             order.offload_id.offload_required = True
