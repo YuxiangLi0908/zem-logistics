@@ -293,7 +293,7 @@ class OrderCreation(View):
             vessel.shipping_line = request.POST.get("shipping_line").upper().strip()
             vessel.vessel = request.POST.get("vessel").upper().strip()
             vessel.voyage = request.POST.get("voyage").upper().strip()
-            vessel.vessel_eta = request.POST.get("eta").upper().strip()
+            vessel.vessel_eta = request.POST.get("eta")
             await sync_to_async(vessel.save)()
         else:
             order = await sync_to_async(Order.objects.get)(
@@ -307,7 +307,7 @@ class OrderCreation(View):
                 shipping_line=request.POST.get("shipping_line"),
                 vessel=request.POST.get("vessel").upper().strip(),
                 voyage=request.POST.get("voyage").upper().strip(),
-                vessel_eta=request.POST.get("eta").upper().strip(),
+                vessel_eta=request.POST.get("eta"),
             )
             await sync_to_async(vessel.save)()
             order.vessel_id = vessel
