@@ -124,7 +124,7 @@ class OrderCreation(View):
         # else:
         #     if vessel and packing_list:
         #         return await self.handle_order_basic_info_get()
-        if vessel and packing_list:
+        if vessel and order.packing_list_updloaded:
             return await self.handle_order_basic_info_get()
         context["selected_order"] = order
         context["packing_list"] = packing_list
