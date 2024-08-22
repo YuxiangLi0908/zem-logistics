@@ -76,7 +76,7 @@
                             </select>
                         </td>
                         <td class="td">
-                            <input type="number" name="weight" id="infoContainerWeight" step=0.01 style="width: 80px" value="{{ selected_order.container_number.weight_lbs }}" required> lbs
+                            <input type="number" name="weight" id="infoContainerWeight" step=0.0001 style="width: 80px" value="{{ selected_order.container_number.weight_lbs }}" required> lbs
                         </td>
                         <td class="td">
                             <input type="checkbox" name="is_special_container" onchange="alterTableNote(this)" {% if selected_order.container_number.is_special_container %}checked{% endif %}>
@@ -147,7 +147,7 @@
                             <input type="text" name="pod" {%if vessel %}value="{{ vessel.destination_port }}"{% endif %} required>
                         </td>
                         <td class="td">
-                            <input type="date" name="eta" {%if vessel %}value="{{ vessel.vessel_eta }}"{% endif %} required>
+                            <input type="date" name="eta" {%if vessel %}value="{{ vessel.vessel_eta|date:'Y-m-d' }}"{% endif %} required>
                         </td>
                     </tr>
                 </tbody>
