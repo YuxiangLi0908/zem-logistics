@@ -18,6 +18,7 @@ from warehouse.models.clearance import Clearance
 from warehouse.models.retrieval import Retrieval
 from warehouse.models.packing_list import PackingList
 from warehouse.models.shipment import Shipment
+from warehouse.models.warehouse import ZemWarehouse
 from warehouse.forms.upload_file import UploadFileForm
 
 @method_decorator(login_required(login_url='login'), name='dispatch')
@@ -53,6 +54,9 @@ class StuffPower(View):
             return render(request, template, context)
         elif step == "update_pl_status":
             template, context = self.update_pl_status()
+            return render(request, template, context)
+        elif step == "update_warehouse":
+            template, context = self.update_warehouse()
             return render(request, template, context)
         else:
             self._remove_offload()
@@ -239,6 +243,26 @@ class StuffPower(View):
         context = {
             "order_packing_list_updloaded_updated": True,
             "count": cnt
+        }
+        return self.template_1, context
+    
+    def update_warehouse(self) -> tuple[Any, Any]:
+        orders = Order.objects.select_related("warehouse").filter(
+            models.Q(warehouse__name="SAV-31419")
+        )
+        warehouse = ZemWarehouse.objects.get(name="SAV-31326")
+        orders_updated = []
+        cnt = 0
+        for o in orders:
+            o.warehouse = warehouse
+            orders_updated.append(o)
+            cnt += 1
+        Order.objects.bulk_update(
+            orders_updated, ["warehouse"]
+        )
+        context = {
+            "warehouse_updated": True,
+            "count": cnt,
         }
         return self.template_1, context
     
