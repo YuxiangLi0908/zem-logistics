@@ -28,7 +28,7 @@
                             <th class="th">柜号</th>
                             <th class="th">MBL</th>
                             <th class="th">ETA</th>
-                            <th class="th">船名船次</th>
+                            <th class="th">船司</th>
                         </tr>
                     </thead>
                     <tbody>
@@ -40,7 +40,7 @@
                             </td>
                             <td class="td">{{ o.vessel_id__master_bill_of_lading }}</td>
                             <td class="td">{{ o.vessel_id__vessel_eta|date:"Y-m-d" }}</td>
-                            <td class="td">{{ o.vessel_id__vessel }} - {{ o.vessel_id__voyage }}</td>
+                            <td class="td">{{ o.vessel_id__shipping_line }}</td>
                         </tr>
                         {% endfor %}
                     </tbody>
