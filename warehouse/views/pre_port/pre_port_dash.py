@@ -59,8 +59,8 @@ class PrePortDash(View):
         
     async def handle_all_get(self, start_date: str = None, end_date: str = None) -> tuple[Any, Any]:
         current_date = datetime.now().date()
-        start_date = (datetime.now().date() + timedelta(days=-30)).strftime('%Y-%m-%d') if not start_date else start_date
-        end_date = (datetime.now().date() + timedelta(days=30)).strftime('%Y-%m-%d') if not end_date else end_date
+        start_date = (datetime.now().date() + timedelta(days=-7)).strftime('%Y-%m-%d') if not start_date else start_date
+        end_date = (datetime.now().date() + timedelta(days=7)).strftime('%Y-%m-%d') if not end_date else end_date
         customers = await sync_to_async(list)(Customer.objects.all())
         customers = { c.zem_name: c.zem_name for c in customers}
         orders = await sync_to_async(list)(
