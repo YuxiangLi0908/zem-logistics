@@ -80,7 +80,7 @@ class PrePortTracking(View):
             ).filter(
                 models.Q(container_number__container_number__in=container_number)
             ).values(
-                "vessel_id__master_bill_of_lading", "vessel_id__shipping_line"
+                "vessel_id__master_bill_of_lading", "vessel_id__shipping_line", "container_number__container_number"
             )
         )
         df = pd.DataFrame(orders)
@@ -88,6 +88,7 @@ class PrePortTracking(View):
             {
                 "vessel_id__master_bill_of_lading": "Master Bill of Lading / Booking Number",
                 "vessel_id__shipping_line": "Shipping Line",
+                "container_number__container_number": "Container Number",
             },
             axis=1
         )
