@@ -47,7 +47,8 @@ class PrePortTracking(View):
                 "retrieval_id", "offload_id"
             ).values(
                 "container_number__container_number", "customer_name__zem_name", "vessel_id", "order_type",
-                "vessel_id__vessel_eta", "vessel_id__master_bill_of_lading", "vessel_id__vessel", "vessel_id__voyage"
+                "vessel_id__vessel_eta", "vessel_id__master_bill_of_lading", "vessel_id__vessel", "vessel_id__voyage",
+                "vessel_id__shipping_line"
             ).filter(
                 models.Q(vessel_id__isnull=False) &
                 models.Q(packing_list_updloaded=True) &
