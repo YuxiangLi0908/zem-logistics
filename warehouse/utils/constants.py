@@ -16,7 +16,6 @@ SHIPPING_LINE_OPTIONS = [
     ('', ''),
     ('CMA CGM', 'CMA CGM'),
     ('COSCO', 'COSCO'),
-    ('EMC', 'EMC'),
     ('Evergreen', 'Evergreen'),
     ('Hyundai', 'Hyundai'),
     ('MSC', 'MSC'),
