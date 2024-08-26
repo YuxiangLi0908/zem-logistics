@@ -1,0 +1,14 @@
+{% extends 'base.html' %}
+{% block content %}
+<div><b>SQL Query</b></div>
+<div>
+    <form method="post" action="">
+        {% csrf_token %}
+        <textarea id="sql-query" name="sql" rows="20" cols="100"></textarea>
+        <div style="font-size: 15px;">
+            <input type="hidden" name="step" value="execute_query">
+            <button id="submit-btn" type="submit" class="btn btn-primary" style="height: 35px; margin-left: 20px; font-size: 13px;">Run</button>
+        </div>
+    </form>
+</div>
+{% endblock %}

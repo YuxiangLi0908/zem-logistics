@@ -26,6 +26,7 @@ from warehouse.views.shipment_status import ShipmentStatus
 from warehouse.views.container_tracking import ContainerTracking
 from warehouse.views.terminal49_webhook import T49Webhook
 from warehouse.views.test.async_view import AsyncView
+from warehouse.views.data_query.db_query import DBConn
 
 urlpatterns = [
     path("", home, name="home"),
@@ -56,4 +57,5 @@ urlpatterns = [
     path('container_tracking/', ContainerTracking.as_view(), name='container_tracking'),
     path('t49webhook/', T49Webhook.as_view(), name='t49webhook'),
     path('async_view', AsyncView.as_view(), name='async_view'),
+    path('dbconn', DBConn.as_view(), name='dbconn'),
 ] + static(settings.STATIC_URL, document_root=settings.STATIC_ROOT)
