@@ -69,7 +69,7 @@ class PrePortDash(View):
             ).filter(
                 models.Q(created_at__gte=start_date) &
                 models.Q(created_at__lte=end_date)
-            ).order_by("created_at")
+            ).order_by("vessel_id__vessel_eta")
         )
         context = {
             "customers": customers,
