@@ -1,5 +1,6 @@
 import os
 import yaml
+import pandas as pd
 from pathlib import Path
 
 
@@ -121,3 +122,6 @@ ACCT_BENEFICIARY_ACCOUNT = os.environ.get("ACCT_BENEFICIARY_ACCOUNT")
 ACCT_BENEFICIARY_ADDRESS = os.environ.get("ACCT_BENEFICIARY_ADDRESS")
 ACCT_BENEFICIARY_NAME = os.environ.get("ACCT_BENEFICIARY_NAME")
 ACCT_SWIFT_CODE = os.environ.get("ACCT_SWIFT_CODE")
+
+file_path = Path(__file__).parent.resolve().joinpath("data/20240826_additional_containers/data.xlsx")
+ADDITIONAL_CONTAINER = pd.read_excel(file_path)["container_number"].to_list()
