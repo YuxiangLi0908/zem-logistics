@@ -25,7 +25,7 @@ from warehouse.models.vessel import Vessel
 from warehouse.forms.upload_file import UploadFileForm
 from warehouse.utils.constants import (
     PACKING_LIST_TEMP_COL_MAPPING, SHIPPING_LINE_OPTIONS,
-    DELIVERY_METHOD_OPTIONS
+    DELIVERY_METHOD_OPTIONS, ADDITIONAL_CONTAINER
 )
 
 
@@ -81,7 +81,8 @@ class OrderCreation(View):
                 "container_number__container_number", "customer_name__zem_name", "vessel_id", "order_type",
                 "packing_list_updloaded"
             ).filter(
-                models.Q(created_at__gte='2024-08-19')
+                models.Q(created_at__gte='2024-08-19') |
+                models.Q(container_number__container_number__in=ADDITIONAL_CONTAINER)
             )
         )
         unfinished_orders = []

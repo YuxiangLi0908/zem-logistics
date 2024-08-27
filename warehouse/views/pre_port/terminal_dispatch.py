@@ -13,7 +13,7 @@ from warehouse.models.warehouse import ZemWarehouse
 from warehouse.models.order import Order
 from warehouse.models.retrieval import Retrieval
 from warehouse.utils.constants import (
-    CONTAINER_PICKUP_CARRIER, WAREHOUSE_OPTIONS
+    CONTAINER_PICKUP_CARRIER, WAREHOUSE_OPTIONS, ADDITIONAL_CONTAINER
 )
 
 
@@ -59,21 +59,31 @@ class TerminalDispatch(View):
             Order.objects.select_related(
                 "vessel_id", "container_number", "customer_name", "retrieval_id"
             ).filter(
-                models.Q(add_to_t49=True) &
-                models.Q(retrieval_id__actual_retrieval_timestamp__isnull=True) &
-                models.Q(retrieval_id__target_retrieval_timestamp__isnull=True) &
-                models.Q(vessel_id__vessel_eta__lte=datetime.now() + timedelta(weeks=2)) &
-                models.Q(created_at__gte='2024-08-19')
+                (
+                    models.Q(add_to_t49=True) &
+                    models.Q(retrieval_id__actual_retrieval_timestamp__isnull=True) &
+                    models.Q(retrieval_id__target_retrieval_timestamp__isnull=True) &
+                    models.Q(vessel_id__vessel_eta__lte=datetime.now() + timedelta(weeks=2))
+                ) &
+                (
+                    models.Q(created_at__gte='2024-08-19') |
+                    models.Q(container_number__container_number__in=ADDITIONAL_CONTAINER)
+                )
             )
         )
         orders_not_pickup = await sync_to_async(list)(
             Order.objects.select_related(
                 "vessel_id", "container_number", "customer_name", "retrieval_id"
             ).filter(
-                models.Q(add_to_t49=True) &
-                models.Q(retrieval_id__actual_retrieval_timestamp__isnull=True) &
-                models.Q(retrieval_id__target_retrieval_timestamp__isnull=False) &
-                models.Q(created_at__gte='2024-08-19')
+                (
+                    models.Q(add_to_t49=True) &
+                    models.Q(retrieval_id__actual_retrieval_timestamp__isnull=True) &
+                    models.Q(retrieval_id__target_retrieval_timestamp__isnull=False)
+                ) &
+                (
+                    models.Q(created_at__gte='2024-08-19') |
+                    models.Q(container_number__container_number__in=ADDITIONAL_CONTAINER)
+                )
             )
         )
         context = {
