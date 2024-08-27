@@ -133,7 +133,7 @@
                                 {% endfor %}
                             </select>
                             {% else %}
-                            <select name="shipping_line">
+                            <select name="shipping_line" id="shipping-line-select">
                                 {% for k, v in shipping_lines %}
                                 <option value="{{ v }}">{{ k }}</option>
                                 {% endfor %}
@@ -330,7 +330,9 @@
     };
 
     function checkShippingLineInput() {
-        const selectedValue = document.getElementById('shipping-line-select').value;
+        var selectElement = document.getElementById('shipping-line-select');
+        var selectedOption = selectElement.options[selectElement.selectedIndex];
+        var selectedValue = selectedOption.value;
         if (!selectedValue) {
             alert('请选择船司！');
             event.preventDefault();
