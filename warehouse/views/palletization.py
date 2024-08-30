@@ -99,22 +99,23 @@ class Palletization(View):
     def handle_packing_list_post(self, request: HttpRequest, pk: int) -> None:
         order_selected = Order.objects.select_related("offload_id", "warehouse").get(pk=pk)
         offload = order_selected.offload_id
-        ids = request.POST.getlist("ids")
-        ids = [i.split(",") for i in ids]
-        n_pallet = [int(n) for n in request.POST.getlist("n_pallet")]
-        cbm = [float(c) for c in request.POST.getlist("cbms")]
-        total_pallet = sum(n_pallet)
-        for i, n, c in zip(ids, n_pallet, cbm):
-            self._split_pallet(i, n, c, pk)
-        cn = pytz.timezone('Asia/Shanghai')
-        current_time_cn = datetime.now(cn)
-        offload.total_pallet = total_pallet
-        offload.offload_at = current_time_cn
-        offload.save()
+        if not offload.offload_at:
+            ids = request.POST.getlist("ids")
+            ids = [i.split(",") for i in ids]
+            n_pallet = [int(n) for n in request.POST.getlist("n_pallet")]
+            cbm = [float(c) for c in request.POST.getlist("cbms")]
+            total_pallet = sum(n_pallet)
+            for i, n, c in zip(ids, n_pallet, cbm):
+                self._split_pallet(i, n, c, pk)
+            cn = pytz.timezone('Asia/Shanghai')
+            current_time_cn = datetime.now(cn)
+            offload.total_pallet = total_pallet
+            offload.offload_at = current_time_cn
+            offload.save()
+            self._update_shipment_stats(ids)
         mutable_post = request.POST.copy()
         mutable_post['name'] = order_selected.warehouse.name
         request.POST = mutable_post
-        self._update_shipment_stats(ids)
         asyncio.run(self.handle_warehouse_post(request))
         
     def handle_cancel_post(self, request: HttpRequest) -> None:
