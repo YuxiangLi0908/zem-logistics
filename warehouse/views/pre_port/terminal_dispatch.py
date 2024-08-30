@@ -100,7 +100,7 @@ class TerminalDispatch(View):
             "container_number", "customer_name", "vessel_id", "retrieval_id"
         ).get)(container_number__container_number=container_number)
         if order.order_type == "直送":
-            packing_list = await sync_to_async(PackingList.objects.get)(
+            packing_list = await sync_to_async(PackingList.objects.filter)(
                 container_number__container_number=container_number
             )
             context["packing_list"] = packing_list
