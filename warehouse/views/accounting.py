@@ -441,8 +441,8 @@ class Accounting(View):
         # create new file and upload to sharepoint
         workbook, invoice_data = self._generate_invoice_excel(context)
         # update invoice information
-        invoice.invoice_number = invoice_data["invoice_number"]
-        invoice.invoice_date = invoice_data["invoice_date"]
+        # invoice.invoice_number = invoice_data["invoice_number"]
+        # invoice.invoice_date = invoice_data["invoice_date"]
         invoice.invoice_link = invoice_data["invoice_link"]
         invoice.total_amount = invoice_data["total_amount"]
         invoice.save()
