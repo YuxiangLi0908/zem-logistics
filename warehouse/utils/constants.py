@@ -18,6 +18,7 @@ SHIPPING_LINE_OPTIONS = [
     ('CMA CGM', 'CMA CGM'),
     ('COSCO', 'COSCO'),
     ('Evergreen', 'Evergreen'),
+    ('Hapag-Lloyd', 'Hapag-Lloyd'),
     ('Hyundai', 'Hyundai'),
     ('MSC', 'MSC'),
     ('Maersk', 'Maersk'),
