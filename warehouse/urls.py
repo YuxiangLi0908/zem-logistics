@@ -3,6 +3,7 @@ from django.conf import settings
 from django.conf.urls.static import static
 
 from warehouse.views.user_login import *
+from warehouse.views.heartbeat import get_heartbeat
 from warehouse.views.order_creation import OrderCreationLegacy
 from warehouse.views.pre_port.order_creation import OrderCreation
 from warehouse.views.pre_port.tracking import PrePortTracking
@@ -32,6 +33,7 @@ urlpatterns = [
     path("", home, name="home"),
     path("login/", user_login, name="login"),
     path("logout/", user_logout, name="logout"),
+    path("health/", get_heartbeat, name="health_check"),
     path('create_order_legacy/', OrderCreationLegacy.as_view(), name='create_order_legacy'),
     path('create_order/', OrderCreation.as_view(), name='create_order'),
     path('pre_port_tracking/', PrePortTracking.as_view(), name='pre_port_tracking'),
