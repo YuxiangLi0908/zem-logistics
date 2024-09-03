@@ -58,6 +58,9 @@ class StuffPower(View):
         elif step == "update_warehouse":
             template, context = self.update_warehouse()
             return render(request, template, context)
+        elif step == "update_order_eta":
+            template, context = self.update_order_eta()
+            return render(request, template, context)
         else:
             self._remove_offload()
             self._remove_clearance()
@@ -262,6 +265,28 @@ class StuffPower(View):
         )
         context = {
             "warehouse_updated": True,
+            "count": cnt,
+        }
+        return self.template_1, context
+    
+    def update_order_eta(self) -> tuple[Any, Any]:
+        orders = Order.objects.select_related("vessel_id").filter(
+            models.Q(
+                vessel_id__isnull=False,
+                eta__isnull=True
+            )
+        )
+        orders_updated = []
+        cnt = 0
+        for o in orders:
+            o.eta = o.vessel_id.vessel_eta
+            orders_updated.append(o)
+            cnt += 1
+        Order.objects.bulk_update(
+            orders_updated, ["eta"]
+        )
+        context = {
+            "order_eta_updated": True,
             "count": cnt,
         }
         return self.template_1, context
