@@ -1,7 +1,7 @@
-from django.http import JsonResponse
+from django.http import HttpRequest, HttpResponse
 
-def get_heartbeat(request):
+def get_heartbeat(request: HttpRequest) -> HttpResponse:
     data = {
-        'status': 'healthy'
+        "is_alive": True,
     }
-    return JsonResponse(data)
+    return HttpResponse(data, status=200)
