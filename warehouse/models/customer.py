@@ -16,4 +16,4 @@ class Customer(models.Model):
         ]
 
     def __str__(self) -> str:
-        return f"{self.zem_name}"
+        return f"{self.zem_name}" if self.zem_name else f"{self.full_name}"
