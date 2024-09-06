@@ -16,7 +16,6 @@ from warehouse.views.shipment_schedule import ScheduleShipment
 from warehouse.views.shipment_dispatch import ShipmentDispatch
 from warehouse.views.export_file import ExportFile
 from warehouse.views.customer_management import CustomerManagement
-from warehouse.views.order_management import *
 from warehouse.views.bol import BOL
 from warehouse.views.po import PO
 from warehouse.views.pod import POD
@@ -48,7 +47,6 @@ urlpatterns = [
     path('generate_pdf/', ExportFile.as_view(), name='generate_pdf'),
     path('customer_management/', CustomerManagement.as_view(), name='customer_management'),
     path('customer_management/<str:name>/', CustomerManagement.as_view(), name='customer_management'),
-    path('order_list/', OrderManagement.as_view(), name='order_list'),
     path('bol/', BOL.as_view(), name='bol'),
     path('po/', PO.as_view(), name='po'),
     path('pod/', POD.as_view(), name='pod'),
