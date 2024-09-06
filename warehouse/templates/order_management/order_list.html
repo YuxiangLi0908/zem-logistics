@@ -1,0 +1,207 @@
+{% extends 'base.html' %}
+
+{% block content %}
+<div><b>订单列表</b></div>
+<div style="width: 100%; display: flex; justify-content: space-between;">
+    <form method="post" action="" style="width: 80%;">
+        {% csrf_token %}
+        <div>
+            <b style="margin-right: 5px;">ETA:</b>
+            <input type="date" name="start_date" value="{{ start_date }}">
+            <input type="date" name="end_date" value="{{ end_date }}" style="margin-right: 5px;">
+            <input type="hidden" name="step" value="order_management_search">
+            <button id="submit-btn" type="submit" class="btn btn-primary" style="width: 100px; height: 35px; margin-left: 20px;">查询</button>
+        </div>
+    </form>
+    {% if user.is_authenticated and user.is_staff %}
+    <form method="post" action="" style="width: 20%;">
+        {% csrf_token %}
+        <div class="text-right">
+            <input type="hidden" name="step" value="delete_order">
+            <input type="hidden" name="start_date" value="{{ start_date }}">
+            <input type="hidden" name="end_date" value="{{ end_date }}">
+            <button type="submit" onclick="confirmSubmit()" class="btn btn-danger" style="width: 100px; height: 35px;">删除订单</button>
+        </div>
+    </form>
+    {% endif %}
+</div>
+<hr class="Dashed" style="margin-top: 10px; margin-bottom: 10px;">
+
+<form method="post" action="" style="width: 100%;">
+    {% csrf_token %}
+    <div style="overflow-x: auto; width: 100%; overflow-y: auto; max-height: 100%;">
+        <table id="order-table" class="table" style="font-size: 12px; width: 100%;">
+            <thead>
+                <tr style="position: sticky; top: 0;">
+                    <th class="th" style="max-width: 2%; min-width: 10px; text-align: center;"></th>
+                    <th class="th">客户</th>
+                    <th class="th">柜号</th>
+                    <th class="th" style="min-width: 140px;">入仓仓库</th>
+                    <th class="th" style="min-width: 140px;">ETA</th>
+                    <th class="th">订单类型</th>
+                    <th class="th">柜型</th>
+                    <th class="th" style="min-width: 140px;">船/航空公司</th>
+                    <th class="th">MBL</th>
+                    <th class="th" style="min-width: 140px;">始发港</th>
+                    <th class="th" style="min-width: 140px;">到达港</th>
+                    <th class="th" style="min-width: 240px;">创建时间</th>
+                </tr>
+                <tr style="position: sticky; top: 28px;">
+                    <th class="th" style="max-width: 2%; min-width: 10px; text-align: center;"></th>
+                    <th class="th"><input type="text" id="customerSearchInput" placeholder="搜索客户..." oninput="filterTable()"></th>
+                    <th class="th"><input type="text" id="containerSearchInput" placeholder="搜索柜号..." oninput="filterTable()"></th>
+                    <th class="th"></th>
+                    <th class="th"></th>
+                    <th class="th"></th>
+                    <th class="th"></th>
+                    <th class="th"></th>
+                    <th class="th"></th>
+                    <th class="th"></th>
+                    <th class="th"></th>
+                    <th class="th"></th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for o in orders %}
+                <tr>
+                    <td class="td" style="max-width: 2%; min-width: 10px; text-align: center;">
+                        <input type='checkbox' name='is_order_selected' onclick="toggleRowBackground(this)">
+                        <input type="hidden" name="is_order_selected", value='off'>
+                        <input type="hidden" name="order_id", value='{{ o.order_id }}'>
+                    </td>
+                    <td class="td">{{ o.customer_name }}</td>
+                    <td class="td">
+                        <a href="/create_order/?step=order_management_container&container_number={{ o.container_number }}" target="_blank">
+                            {{ o.container_number }}
+                        </a>
+                    </td>
+                    <td class="td">{{ o.warehouse }}</td>
+                    <td class="td">{{ o.eta }}</td> 
+                    <td class="td">{{ o.order_type }}</td>
+                    <td class="td">{{ o.container_number.container_type }}</td>
+                    <td class="td">{{ o.vessel_id.shipping_line }}</td>
+                    <td class="td">{{ o.vessel_id.master_bill_of_lading }}</td>
+                    <td class="td">{{ o.vessel_id.origin_port }}</td>
+                    <td class="td">{{ o.vessel_id.destination_port }}</td>
+                    <td class="td">{{ o.created_at }}</td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+    <hr class="Dashed" style="margin-top: 10px; margin-bottom: 10px; width: 100%;">
+</form>
+
+<script>
+    document.addEventListener('DOMContentLoaded', function () {
+        const formsetsContainer = document.getElementById('formsets-container');
+        const addMoreBtn = document.getElementById('add-more-btn');
+        const removeLastBtn = document.getElementById('remove-last-btn');
+
+        addMoreBtn.addEventListener('click', function () {
+            const newFormset = document.createElement('tr');
+            const formsetCount = formsetsContainer.getElementsByTagName('tr').length - 3;
+            newFormset.setAttribute('id', `id_order-${formsetCount}-container_id`)
+
+            // Clone the first formset and update the form indexes
+            const firstFormset = formsetsContainer.querySelector('#formset-row');
+            const tableSummary = formsetsContainer.querySelector('#table_summary');
+            const subTableSummary = formsetsContainer.querySelector('#sub_table_summary');
+            const newFormsetHtml = firstFormset.innerHTML.replace(/__prefix__/g, formsetCount);
+
+            newFormset.innerHTML = newFormsetHtml;
+            formsetsContainer.removeChild(tableSummary);
+            formsetsContainer.removeChild(subTableSummary);
+            formsetsContainer.appendChild(newFormset);
+            formsetsContainer.appendChild(subTableSummary);
+            formsetsContainer.appendChild(tableSummary);
+            for (let i = 0; i < newFormset.getElementsByTagName('input').length; i++) {
+                const inputField = newFormset.getElementsByTagName('input')[i]
+                inputField.id = inputField.id.replace('-0-', `-${formsetCount}-`)
+                inputField.name = inputField.name.replace('-0-', `-${formsetCount}-`)
+                inputField.value = ''
+            }
+            for (let i = 0; i < newFormset.getElementsByTagName('select').length; i++) {
+                const inputField = newFormset.getElementsByTagName('select')[i]
+                inputField.id = inputField.id.replace('-0-', `-${formsetCount}-`)
+                inputField.name = inputField.name.replace('-0-', `-${formsetCount}-`)
+                inputField.selectedIndex = 0
+            }
+            // Increment the form count
+            document.getElementById('id_form-TOTAL_FORMS').value++;
+        });
+
+        removeLastBtn.addEventListener('click', removeSelectedFormset);
+        function removeLastFormset() {
+            const formsetCount = formsetsContainer.getElementsByTagName('tr').length;
+            const formsetRows = formsetsContainer.children;
+
+            if (formsetCount > 1) {
+                // Remove the last formset
+                // formsetsContainer.removeChild(formsetsContainer.lastChild);
+                formsetsContainer.removeChild(formsetRows[formsetCount - 1]);
+                // Decrement the form count
+                document.getElementById('id_form-TOTAL_FORMS').value--;
+            }
+        };
+        function removeSelectedFormset() {
+            var selectedRows = document.querySelectorAll('#formsets-container tr');
+            selectedRows.forEach(function(row) {
+                var checkbox = row.querySelector('input[type="checkbox"]');
+                if (checkbox.checked) {
+                    row.remove();
+                }
+            })
+            const formsetCount = formsetsContainer.getElementsByTagName('tr').length - 1;
+            for(let i = 0; i < formsetCount; i++) {
+                const tableRow = formsetsContainer.getElementsByTagName('tr')[i+1]
+                for (let j = 0; j < tableRow.getElementsByTagName('input').length; j++) {
+                    const inputField = tableRow.getElementsByTagName('input')[j];
+                    var idParts = inputField.id.split('-');
+                    var nameParts = inputField.name.split('-');
+                    var newId = idParts[0] + '-' + `${i}` + '-' + idParts[2];
+                    var newName = nameParts[0] + '-' + `${i}` + '-' + nameParts[2];
+                    inputField.setAttribute('id', newId);
+                    inputField.setAttribute('name', newName);
+                }
+                for (let j = 0; j < tableRow.getElementsByTagName('select').length; j++) {
+                    const inputField = tableRow.getElementsByTagName('select')[j]
+                    var idParts = inputField.id.split('-')
+                    var nameParts = inputField.name.split('-')
+                    var newId = idParts[0] + '-' + `${i}` + '-' + idParts[2]
+                    var newName = nameParts[0] + '-' + `${i}` + '-' + nameParts[2]
+                    inputField.setAttribute('id', newId)
+                    inputField.setAttribute('name', newName);
+                }
+            }
+            document.getElementById('id_form-TOTAL_FORMS').value = formsetCount;
+            calculateSummary();
+        };
+    });
+
+    function filterTable() {
+        var containerInput, customerInput, containerFilter, customerFilter, table, tbody, tr, containerTd, customerTd, i, containerTxtValue, customerTxtValue;
+        containerInput = document.getElementById("containerSearchInput");
+        customerInput = document.getElementById("customerSearchInput");
+        containerFilter = containerInput.value.toUpperCase();
+        customerFilter = customerInput.value.toUpperCase();
+        table = document.getElementById("order-table");
+        tbody = table.getElementsByTagName("tbody")[0];
+        tr = tbody.getElementsByTagName("tr");
+
+        for (i = 0; i < tr.length; i++) {
+            containerTd = tr[i].getElementsByTagName("td")[2]; // Index 1 corresponds to the container_number__container_number column
+            customerTd = tr[i].getElementsByTagName("td")[1]; // Index 2 corresponds to the customer column
+            if (containerTd && customerTd) {
+                containerTxtValue = containerTd.textContent || containerTd.innerText;
+                customerTxtValue = customerTd.textContent || customerTd.innerText;
+                var containerDisplayStyle = containerTxtValue.toUpperCase().indexOf(containerFilter) > -1 ? "" : "none";
+                var customerDisplayStyle = customerTxtValue.toUpperCase().indexOf(customerFilter) > -1 ? "" : "none";
+
+                // Set display style based on both container and customer filters
+                tr[i].style.display = containerDisplayStyle === "" && customerDisplayStyle === "" ? "" : "none";
+            }
+        }
+    };
+</script>
+{% endblock %}

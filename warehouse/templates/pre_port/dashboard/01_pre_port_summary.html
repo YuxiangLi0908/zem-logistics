@@ -1,33 +1,32 @@
 {% extends 'base.html' %}
 {% block content %}
-<div style="max-height: 100%; max-width: 100%;">
-    <div style="width: 100%; display: flex; justify-content: space-between;">
-        <form method="post" action="">
-            {% csrf_token %}
-            <div style="font-size: 15px;">
-                <b style="margin-left: 10px;">建单时间: </b>
-                <input type="date" name="start_date" value="{{ start_date }}">
-                <input type="date" name="end_date" value="{{ end_date }}" style="margin-right: 5px;">
-                <input type="hidden" name="step" value="search_orders_by_eta">
-                <button id="submit-btn" type="submit" class="btn btn-primary" style="height: 35px; margin-left: 20px; font-size: 13px;">查询</button>
-            </div>
-        </form>
-    </div>
-</div>
-
 <div style="width: 100%; font-size: 11px;">
     <ul class="nav nav-tabs">
         <li class="nav-item">
             <button class="nav-link" onclick="showSection(this, 'status-summary-sec')"><b>货柜进度汇总</b></button>
         </li>
         <!-- <li class="nav-item">
-            <button class="nav-link" onclick="showSection(this, 'dispatch-summary-sec')"><b>调度信息</b></button>
+            <button class="nav-link" onclick="showSection(this, 'dispatch-summary-sec')"><b></b></button>
         </li> -->
     </ul>
 </div>
 
 <div id="order-info-sec" style="width: 100%;">
     <div id="status-summary-sec" style="display: ''; overflow-y: scroll; max-height: 800px;">
+        <div style="max-height: 100%; max-width: 100%;">
+            <div style="width: 100%; display: flex; justify-content: space-between;">
+                <form method="post" action="">
+                    {% csrf_token %}
+                    <div style="font-size: 15px;">
+                        <b style="margin-left: 10px;">建单时间: </b>
+                        <input type="date" name="start_date" value="{{ start_date }}">
+                        <input type="date" name="end_date" value="{{ end_date }}" style="margin-right: 5px;">
+                        <input type="hidden" name="step" value="search_orders_by_eta">
+                        <button id="submit-btn" type="submit" class="btn btn-primary" style="height: 35px; margin-left: 20px; font-size: 13px;">查询</button>
+                    </div>
+                </form>
+            </div>
+        </div>
         <table class="table" style="font-size: 11px;">
             <thead>
                 <tr style="position: sticky; top: 0;">
@@ -75,7 +74,11 @@
             <tbody>
                 {% for o in orders %}
                 <tr>
-                    <td class="td">{{ o.container_number.container_number }}</td>
+                    <td class="td">
+                        <a href="/create_order/?step=order_management_container&container_number={{ o.container_number.container_number }}" target="_blank">
+                            {{ o.container_number.container_number }}
+                        </a>
+                    </td>
                     <td class="td">{{ o.customer_name.zem_name }}</td>
                     <td class="td">{{ o.order_type }}</td>
                     <td class="td">{{ o.created_at|date:"M-j" }}</td>
