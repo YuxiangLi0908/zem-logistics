@@ -36,6 +36,7 @@ class OrderCreation(View):
     template_order_create_supplement_pl_tab = 'pre_port/create_order/03_order_creation_packing_list_tab.html'
     template_order_list = 'order_management/order_list.html'
     template_order_details = 'order_management/order_details.html'
+    template_order_details_pl = 'order_management/order_details_pl_tab.html'
     order_type = {"": "", "转运": "转运", "直送": "直送"}
     area = {"NJ": "NJ", "SAV": "SAV"}
     container_type = {
@@ -434,11 +435,21 @@ class OrderCreation(View):
             col = [c for c in df.columns if c in model_fields]
             pl_data = df[col].to_dict("records")
             packing_list = [PackingList(**data) for data in pl_data]
-            _, context = await self.handle_order_supplemental_info_get(request)
-            context["packing_list"] = packing_list
         else:
             raise ValueError(f"invalid file format!")
-        return self.template_order_create_supplement_pl_tab, context
+        source = request.POST.get("source")
+        if source == "order_management":
+            container_number = request.POST.get("container_number")
+            mutable_get = request.GET.copy()
+            mutable_get["container_number"] = container_number
+            request.GET = mutable_get
+            _, context = await self.handle_order_management_container_get(request)
+            context["packing_list"] = packing_list
+            return self.template_order_details_pl, context
+        else:
+            _, context = await self.handle_order_supplemental_info_get(request)
+            context["packing_list"] = packing_list
+            return self.template_order_create_supplement_pl_tab, context
     
     async def handle_download_template_post(self) -> HttpResponse:
         file_path = Path(__file__).parent.parent.parent.resolve().joinpath("templates/export_file/packing_list_template.xlsx")

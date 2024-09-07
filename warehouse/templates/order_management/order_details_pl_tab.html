@@ -9,20 +9,20 @@
                 </b>
             </div>
             <li class="nav-item">
-                <button class="nav-link active" onclick="showSection(this, 'order-basic-info-sec')"><b>基础信息</b></button>
+                <button class="nav-link" onclick="showSection(this, 'order-basic-info-sec')"><b>基础信息</b></button>
             </li>
             <li class="nav-item">
                 <button class="nav-link" onclick="showSection(this, 'order-shipping-info-sec')"><b>航运信息</b></button>
             </li>
             <li class="nav-item">
-                <button class="nav-link" onclick="showSection(this, 'order-packing-list-info-sec')"><b>Packing List</b></button>
+                <button class="nav-link active" onclick="showSection(this, 'order-packing-list-info-sec')"><b>Packing List</b></button>
             </li>
         </ul>
     </div>
 </div>
 
 <div id="order-info-sec" style="max-height: 500px;">
-    <div id="order-basic-info-sec" style="display: block;">
+    <div id="order-basic-info-sec" style="display: none;">
         <form method="post" action="" style="width: 100%;">
             {% csrf_token %}
             <table class="table" style="margin-top: 10px; font-size: 11px;">
@@ -165,7 +165,7 @@
         </form>
     </div>
     
-    <div id="order-packing-list-info-sec" style="display: none;">
+    <div id="order-packing-list-info-sec" style="display: block;">
         <div style="display: flex;">
             <div style="display: flex; width: 80%;">
                 <div>
