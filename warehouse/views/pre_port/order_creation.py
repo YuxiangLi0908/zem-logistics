@@ -149,6 +149,11 @@ class OrderCreation(View):
                     vessel_id__vessel_eta__gte=start_date,
                     vessel_id__vessel_eta__lte=end_date,
                     packing_list_updloaded=True,
+                ) |
+                models.Q(
+                    eta__gte=start_date,
+                    eta__lte=end_date,
+                    packing_list_updloaded=True,
                 )
             )
         )
