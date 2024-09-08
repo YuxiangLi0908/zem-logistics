@@ -235,10 +235,12 @@ def export_do(request: HttpRequest) -> HttpResponse:
         pcs += pl.pcs if pl.pcs else 0
         weight += pl.total_weight_lbs if pl.total_weight_lbs else 0
     retrieval = order.retrieval_id
+    vessel = order.vessel_id
     warehouse = order.warehouse
     context = {
         "order": order,
         "retrieval": retrieval,
+        "vessel": vessel,
         "container": container,
         "warehouse": warehouse,
         "pcs": pcs,

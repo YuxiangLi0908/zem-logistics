@@ -17,6 +17,9 @@
             <li class="nav-item">
                 <button class="nav-link" onclick="showSection(this, 'order-packing-list-info-sec')"><b>Packing List</b></button>
             </li>
+            <li class="nav-item">
+                <button class="nav-link" onclick="showSection(this, 'order-export-sec')"><b>表格导出</b></button>
+            </li>
         </ul>
     </div>
 </div>
@@ -346,6 +349,17 @@
                         更新信息
                     </button>
                 </div>
+            </form>
+        </div>
+    </div>
+
+    <div id="order-export-sec" style="display: block;">
+        <div style="margin-top: 10px;">
+            <form method="post" enctype="multipart/form-data" style="display: inline-block; margin-left: 10px;">
+                {% csrf_token %}
+                <input type="hidden" name="step" value="export_do">
+                <input type="hidden" name="container_number" value="{{ selected_order.container_number.container_number }}">
+                <button type="submit" class="btn btn-success" style="width: 100px; height: 35px;">DO <i class="bi bi-cloud-arrow-down-fill"></i></button>
             </form>
         </div>
     </div>

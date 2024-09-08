@@ -35,8 +35,8 @@
                 <td style="padding-top: 5px;" colspan="6">
                     <table>
                         <tr><td><b style="font-size: 10px;">CARRIER</b></td></tr>
-                        <tr><td>{% if retrieval.shipping_line %}
-                            <p>{{ retrieval.shipping_line }}</p>
+                        <tr><td>{% if vessel.shipping_line %}
+                            <p>{{ vessel.shipping_line }}</p>
                         {% else %}
                             <br>
                         {% endif %}</td></tr>
@@ -58,8 +58,8 @@
                     <table>
                         <tr><td><b style="font-size: 10px;">ORIGIN/DESTINATION PORT</b></td></tr>
                         <tr><td>
-                            {% if retrieval.destination_port %}
-                                <p>{{ retrieval.destination_port }}</p>
+                            {% if vessel.destination_port %}
+                                <p>{{ vessel.destination_port }}</p>
                             {% else %}
                                 <br>
                             {% endif %}
@@ -72,8 +72,8 @@
                     <table>
                         <tr><td><b style="font-size: 10px;">B/L OR AWB. NO.</b></td></tr>
                         <tr><td>
-                            {% if retrieval.shipping_order_number %}
-                                <p>{{ retrieval.shipping_order_number }}</p>
+                            {% if vessel.master_bill_of_lading %}
+                                <p>{{ vessel.master_bill_of_lading }}</p>
                             {% else %}
                                 <br>
                             {% endif %}
@@ -84,8 +84,8 @@
                     <table>
                         <tr><td><b style="font-size: 10px;">ARR./DEPT. DATE</b></td></tr>
                         <tr><td>
-                            {% if order.eta %}
-                                <p>{{ order.eta|date:"Y-m-d" }}</p>
+                            {% if vessel.vessel_eta %}
+                                <p>{{ vessel.vessel_eta|date:"Y-m-d" }}</p>
                             {% else %}
                                 <br>
                             {% endif %}
