@@ -17,6 +17,7 @@ from django.db.models import Count
 
 from warehouse.models.customer import Customer
 from warehouse.models.container import Container
+from warehouse.views.export_file import export_do
 from warehouse.models.packing_list import PackingList
 from warehouse.models.order import Order
 from warehouse.models.retrieval import Retrieval
@@ -27,7 +28,6 @@ from warehouse.utils.constants import (
     PACKING_LIST_TEMP_COL_MAPPING, SHIPPING_LINE_OPTIONS,
     DELIVERY_METHOD_OPTIONS, ADDITIONAL_CONTAINER
 )
-
 
 class OrderCreation(View):
     # template_main = 'pre_port/create_order/01_order_creation_and_management.html'
@@ -86,8 +86,10 @@ class OrderCreation(View):
             end_date = request.POST.get("end_date")
             template, context = await self.handle_order_management_list_get(start_date, end_date)
             return await sync_to_async(render)(request, template, context)
+        elif step == "export_do":
+            return await sync_to_async(export_do)(request)
         elif step == "delete_order":
-            template, context = await self.handle_delete_order_post(request) 
+            template, context = await self.handle_delete_order_post(request)
 
     async def handle_order_basic_info_get(self) -> tuple[Any, Any]:
         customers = await sync_to_async(list)(Customer.objects.all())
