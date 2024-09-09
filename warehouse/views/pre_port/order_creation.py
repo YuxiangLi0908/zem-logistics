@@ -36,7 +36,7 @@ class OrderCreation(View):
     template_order_create_supplement_pl_tab = 'pre_port/create_order/03_order_creation_packing_list_tab.html'
     template_order_list = 'order_management/order_list.html'
     template_order_details = 'order_management/order_details.html'
-    order_type = {"": "", "转运": "转运", "直送": "直送", "火车站": "火车站"}
+    order_type = {"": "", "转运": "转运", "直送": "直送", "火车站": "火车站" }
     area = {"NJ": "NJ", "SAV": "SAV"}
     container_type = {
         '45HQ/GP':'45HQ/GP', '40HQ/GP':'40HQ/GP', '20GP':'20GP', '53HQ':'53HQ'
