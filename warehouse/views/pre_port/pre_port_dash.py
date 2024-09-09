@@ -38,7 +38,7 @@ class PrePortDash(View):
             return redirect("login")
         step = request.GET.get("step", None)
         if step == "all":
-            template, context = await self.handle_all_get()
+            template, context = await self.handle_all_get(tab="summary")
             return await sync_to_async(render)(request, template, context)
         else:
             context = {}
@@ -51,13 +51,18 @@ class PrePortDash(View):
         if step == "search_orders_by_eta":
             start_date = request.POST.get("start_date")
             end_date = request.POST.get("end_date")
-            template, context = await self.handle_all_get(start_date=start_date, end_date=end_date)
+            template, context = await self.handle_all_get(start_date=start_date, end_date=end_date, tab="summary")
             return await sync_to_async(render)(request, template, context)
         elif step == "empty_return":
             template, context = await self.handle_empty_return_post(request)
             return await sync_to_async(render)(request, template, context)
         
-    async def handle_all_get(self, start_date: str = None, end_date: str = None) -> tuple[Any, Any]:
+    async def handle_all_get(
+        self, 
+        start_date:str = None,
+        end_date: str = None,
+        tab: str = None,
+    ) -> tuple[Any, Any]:
         current_date = datetime.now().date()
         start_date = (datetime.now().date() + timedelta(days=-7)).strftime('%Y-%m-%d') if not start_date else start_date
         end_date = (datetime.now().date() + timedelta(days=7)).strftime('%Y-%m-%d') if not end_date else end_date
@@ -77,6 +82,7 @@ class PrePortDash(View):
             "start_date": start_date,
             "end_date": end_date,
             "current_date": current_date,
+            "tab": tab,
         }
         return self.template_main, context
     

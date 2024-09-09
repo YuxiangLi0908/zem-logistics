@@ -3,8 +3,10 @@
 <div style="width: 100%; font-size: 11px;">
     <ul class="nav nav-tabs">
         <li class="nav-item">
-            <button class="nav-link" onclick="showSection(this, 'status-summary-sec')"><b>货柜进度汇总</b></button>
-        </li>
+            <button {% if tab == "summary" %}class="nav-link active"{% else %}class="nav-link"{% endif %} onclick="showSection(this, 'status-summary-sec')">
+                <b>货柜进度汇总{{ tab }}</b>
+            </button>
+        </li> 
         <!-- <li class="nav-item">
             <button class="nav-link" onclick="showSection(this, 'dispatch-summary-sec')"><b></b></button>
         </li> -->
