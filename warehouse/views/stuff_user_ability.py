@@ -236,13 +236,15 @@ class StuffPower(View):
         )
         order_pl_count = {o["container_number__container_number"]: o["n_pl"] for o in order_pl_count}
         cnt = 0
+        orders_updated = []
         for o in orders:
             cnt += 1
             if order_pl_count.get(o.container_number.container_number, 0) > 0:
                 o.packing_list_updloaded = True
+                orders_updated.append(o)
             else:
                 o.packing_list_updloaded = False
-        Order.objects.bulk_update(orders, ["packing_list_updloaded"])
+        Order.objects.bulk_update(orders_updated, ["packing_list_updloaded"])
         context = {
             "order_packing_list_updloaded_updated": True,
             "count": cnt
