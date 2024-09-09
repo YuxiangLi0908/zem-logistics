@@ -31,6 +31,9 @@ class ShipmentStatus(View):
         batch_number = self._process_search_string(request.POST.get("batch_number"), to_upper=False)
         container_number = self._process_search_string(request.POST.get("container_number"))
         destination = self._process_search_string(request.POST.get("destination"))
+        shipping_mark = self._process_search_string(request.POST.get("shipping_mark"), to_upper=False)
+        fba_id = self._process_search_string(request.POST.get("fba_id"), to_upper=False)
+        ref_id = self._process_search_string(request.POST.get("ref_id"), to_upper=False)
         criteria = models.Q()
         if batch_number:
             criteria &= models.Q(shipment_batch_number__shipment_batch_number=batch_number)
@@ -38,6 +41,12 @@ class ShipmentStatus(View):
             criteria &= models.Q(container_number__container_number=container_number)
         if destination:
             criteria &= models.Q(destination=destination)
+        if shipping_mark:
+            criteria &= models.Q(shipping_mark=shipping_mark)
+        if fba_id:
+            criteria &= models.Q(fba_id=fba_id)
+        if ref_id:
+            criteria &= models.Q(ref_id=ref_id)
         packing_list = PackingList.objects.select_related(
             "container_number", "container_number__order", "container_number__order__warehouse",
             "container_number__order__customer_name", "shipment_batch_number", "pallet"
@@ -69,6 +78,9 @@ class ShipmentStatus(View):
             "container_number": container_number,
             "destination": destination,
             "packing_list": packing_list,
+            "shipping_mark": shipping_mark,
+            "fba_id": fba_id,
+            "ref_id": ref_id,
         }
         return context
     
