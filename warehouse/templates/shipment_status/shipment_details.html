@@ -1,7 +1,7 @@
 {% extends 'base.html' %}
 
 {% block content %}
-<div><b>货物状态</b></div>
+<div><b>货物查询</b></div>
 <form method="post" action="">
     {% csrf_token %}
     <div>
@@ -11,6 +11,12 @@
         <input type="text" name="container_number" value="{{ container_number }}">
         <b style="margin-right: 5px; margin-left: 10px;">目的地:</b>
         <input type="text" name="destination" value="{{ destination }}">
+        <b style="margin-right: 5px; margin-left: 10px;">唛头:</b>
+        <input type="text" name="shipping_mark" value="{{ shipping_mark }}">
+        <b style="margin-right: 5px; margin-left: 10px;">FBA ID:</b>
+        <input type="text" name="fba_id" value="{{ fba_id }}">
+        <b style="margin-right: 5px; margin-left: 10px;">REF ID:</b>
+        <input type="text" name="ref_id" value="{{ ref_id }}">
         <input type="hidden" name="step" value="search">
         <button id="submit-btn" type="submit" class="btn btn-primary" style="width: 100px; height: 35px; margin-left: 20px;">查询</button>
     </div>
