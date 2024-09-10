@@ -63,7 +63,8 @@
                             </select>
                         </td>
                         <td class="td" id="dd-order-destination" {% if selected_order.order_type == "转运" %}style="display: none;"{% endif %}>
-                            <input type="text" name="destination" id="infoOrderDestination" value="{{ packing_list.0.destination }}">
+                            <input type="text" name="destination" id="infoOrderDestination" value="{{ selected_order.retrieval_id.retrieval_destination_area }}">
+                            <!--<input type="text" name="destination" id="infoOrderDestination" value="{{ packing_list.0.destination }}">-->
                         </td>
                         <td class="td">
                             <input type="text" name="container_number" id="infoContainerNumber" value="{{ selected_order.container_number.container_number }}" required>
