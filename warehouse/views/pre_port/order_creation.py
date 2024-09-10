@@ -4,7 +4,7 @@ import pandas as pd
 import numpy as np
 from asgiref.sync import sync_to_async
 from pathlib import Path
-from datetime import datetime
+from datetime import datetime, timedelta
 from typing import Any
 
 from django.http import HttpRequest, HttpResponse, Http404
@@ -34,6 +34,8 @@ class OrderCreation(View):
     template_order_create_base = 'pre_port/create_order/02_base_order_creation_status.html'
     template_order_create_supplement = 'pre_port/create_order/03_order_creation.html'
     template_order_create_supplement_pl_tab = 'pre_port/create_order/03_order_creation_packing_list_tab.html'
+    template_order_list = 'order_management/order_list.html'
+    template_order_details = 'order_management/order_details.html'
     order_type = {"": "", "转运": "转运", "直送": "直送", "火车站": "火车站"}
     area = {"NJ": "NJ", "SAV": "SAV"}
     container_type = {
@@ -41,14 +43,20 @@ class OrderCreation(View):
     }
     
     async def get(self, request: HttpRequest) -> HttpResponse:
-        if not await self._user_authenticate(request):  #调用 ​self._user_authenticate​ 方法进行用户身份验证，并等待其返回结果
+        if not await self._user_authenticate(request):
             return redirect("login")
         step = request.GET.get("step", None)
         if step == "all":
-            template, context = await self.handle_order_basic_info_get() #调用 ​self.handle_order_basic_info_get​ 方法，并等待其返回结果,将返回的结果解包为​template​和​context​两个变量
-            return await sync_to_async(render)(request, template, context)
+            template, context = await self.handle_order_basic_info_get()
+            return await sync_to_async(render)(request, template, context)            
         elif step == "container_info_supplement":
             template, context = await self.handle_order_supplemental_info_get(request)
+            return await sync_to_async(render)(request, template, context)
+        elif step == "order_management_list":
+            template, context = await self.handle_order_management_list_get()
+            return await sync_to_async(render)(request, template, context)
+        elif step == "order_management_container":
+            template, context = await self.handle_order_management_container_get(request)
             return await sync_to_async(render)(request, template, context)
 
     async def post(self, request: HttpRequest) -> HttpResponse:
@@ -72,9 +80,16 @@ class OrderCreation(View):
             return await sync_to_async(render)(request, template, context)
         elif step == "download_template":
             return await self.handle_download_template_post()
+        elif step == "order_management_search":
+            start_date = request.POST.get("start_date")
+            end_date = request.POST.get("end_date")
+            template, context = await self.handle_order_management_list_get(start_date, end_date)
+            return await sync_to_async(render)(request, template, context)
+        elif step == "delete_order":
+            template, context = await self.handle_delete_order_post(request) 
 
     async def handle_order_basic_info_get(self) -> tuple[Any, Any]:
-        customers = await sync_to_async(list)(Customer.objects.all())  #Customer.objects.all()获取customer表的全部对象；list将返回的对象转为列表格式；同步转异步
+        customers = await sync_to_async(list)(Customer.objects.all())
         customers = { c.zem_name: c.id for c in customers}
         orders = await sync_to_async(list)(   #预先加载order表相关联的外键，vessel_id——container_number_packinglist
             Order.objects.select_related("vessel_id", "container_number", "customer_name", "container_number__packinglist", "retrieval_id ").values(   #values指定查询结果包含的字段
@@ -87,25 +102,19 @@ class OrderCreation(View):
         )
         unfinished_orders = []
         for o in orders:
-            if not o.get("vessel_id") or not o.get("packing_list_updloaded"):  #没有航运信息或者没有上传清单
+            if not o.get("vessel_id") or not o.get("packing_list_updloaded"):
                 unfinished_orders.append(o)
-            # if o.get("order_type") == "直送":
-            #     if not o.get("vessel_id"):
-            #         unfinished_orders.append(o)
-            # elif o.get("order_type") == "转运":
-            #     if not o.get("vessel_id") or not o.get("packing_list_updloaded"):
-            #         unfinished_orders.append(o)
         context = {
             "customers": customers,
-            "order_type": self.order_type,           #订单类型
-            "area": self.area,                       #仓库
-            "container_type": self.container_type,   #柜型
-            "unfinished_orders": unfinished_orders,  #字段包括：container_number__container_number,customer_name__zem_name,vessel_id,order_type,packing_list_updloaded
+            "order_type": self.order_type,
+            "area": self.area,
+            "container_type": self.container_type,
+            "unfinished_orders": unfinished_orders,
         }
         return self.template_order_create_base, context
     
     async def handle_order_supplemental_info_get(self, request: HttpRequest) -> tuple[Any, Any]:
-        _, context = await self.handle_order_basic_info_get()  
+        _, context = await self.handle_order_basic_info_get()
         container_number = request.GET.get("container_number")
         order = await sync_to_async(Order.objects.select_related(
             "customer_name", "container_number", "retrieval_id", "vessel_id",
@@ -119,12 +128,6 @@ class OrderCreation(View):
             )
         except:
             vessel = []
-        # if order.order_type == "直送":
-        #     if vessel:
-        #         return await self.handle_order_basic_info_get()
-        # else:
-        #     if vessel and packing_list:
-        #         return await self.handle_order_basic_info_get()
         if vessel and order.packing_list_updloaded:
             return await self.handle_order_basic_info_get()
         context["selected_order"] = order
@@ -135,6 +138,51 @@ class OrderCreation(View):
         context["packing_list_upload_form"] = UploadFileForm()
         return self.template_order_create_supplement, context
     
+    async def handle_order_management_list_get(self, start_date: str = None, end_date: str = None) -> tuple[Any, Any]:
+        start_date = (datetime.now().date() + timedelta(days=-30)).strftime('%Y-%m-%d') if not start_date else start_date
+        end_date = (datetime.now().date() + timedelta(days=30)).strftime('%Y-%m-%d') if not end_date else end_date
+        orders = await sync_to_async(list)(
+            Order.objects.select_related(
+                "vessel_id", "container_number", "customer_name", "retrieval_id", "offload_id", "warehouse"
+            ).filter(
+                models.Q(
+                    vessel_id__vessel_eta__gte=start_date,
+                    vessel_id__vessel_eta__lte=end_date,
+                    packing_list_updloaded=True,
+                )
+            )
+        )
+        context = {
+            "orders": orders,
+            "start_date": start_date,
+            "end_date": end_date,
+        }
+        return self.template_order_list, context
+    
+    async def handle_order_management_container_get(self, request: HttpRequest) -> tuple[Any, Any]:
+        container_number = request.GET.get("container_number")
+        customers = await sync_to_async(list)(Customer.objects.all())
+        customers = { c.zem_name: c.id for c in customers}
+        order = await sync_to_async(Order.objects.select_related(
+            "customer_name", "container_number", "retrieval_id", "vessel_id", "warehouse", "offload_id", "shipment_id"
+        ).get)(container_number__container_number=container_number)
+        packing_list = await sync_to_async(list)(PackingList.objects.filter(
+            models.Q(container_number__container_number=container_number)
+        ))
+        context = {
+            "selected_order": order,
+            "packing_list": packing_list,
+            "vessel": order.vessel_id,
+            "shipping_lines": SHIPPING_LINE_OPTIONS,
+            "delivery_options": DELIVERY_METHOD_OPTIONS,
+            "packing_list_upload_form": UploadFileForm(),
+            "order_type": self.order_type,
+            "container_type": self.container_type,
+            "customers": customers,
+            "area": self.area,
+        }
+        return self.template_order_details, context
+
     async def handle_create_order_basic_post(self, request: HttpRequest) -> tuple[Any, Any]:
         customer_id = request.POST.get("customer")
         customer = await sync_to_async(Customer.objects.get)(id=customer_id)
@@ -152,7 +200,7 @@ class OrderCreation(View):
         is_special_container = True if request.POST.get("is_special_container", None) else False
         order_id = str(uuid.uuid3(
             uuid.NAMESPACE_DNS,
-            str(uuid.uuid4())+customer.zem_name+created_at.strftime('%Y-%m-%d %H:%M:%S')          #生成一个订单编号
+            str(uuid.uuid4())+customer.zem_name+created_at.strftime('%Y-%m-%d %H:%M:%S')
         ))
         retrieval_id = str(uuid.uuid3(uuid.NAMESPACE_DNS, order_id + container_number))
         offload_id = str(uuid.uuid3(uuid.NAMESPACE_DNS, order_id + order_type))
@@ -169,19 +217,12 @@ class OrderCreation(View):
             "retrieval_id": retrieval_id,
             "retrieval_destination_area": area if order_type=="转运" else destination,
         }
-        retrieval = Retrieval(**retrieval_data)    #使用字典解包的方式将​retrieval_data​中的键值对作为关键字参数传递给 ​Retrieval​ 类的构造函数
-        #retrieval_dict = vars(retrieval)
-        # for key, value in retrieval_dict.items():
-        #     print(f"{key}: {value}")
+        retrieval = Retrieval(**retrieval_data)
         offload_data = {
             "offload_id": offload_id,
             "offload_required": True if order_type=="转运" else False,
-        }       
+        }
         offload = Offload(**offload_data)
-        # print("offload表-------------------------")
-        # offload_dict = vars(offload)
-        # for key, value in offload_dict.items():
-        #     print(f"{key}: {value}")
         order_data = {
             "order_id": order_id,
             "customer_name": customer,
@@ -190,33 +231,13 @@ class OrderCreation(View):
             "container_number": container,
             "retrieval_id": retrieval,
             "offload_id": offload,
-            # "packing_list_updloaded": True if order_type == "直送" else False,
             "packing_list_updloaded": False,
         }
         order = Order(**order_data)
-        # print("Order表-------------------------")
-        # for field in Order._meta.fields:
-        #     field_name = field.name  # 获取字段名
-        #     field_value = getattr(order, field_name)  # 获取字段值
-        #     # 如果是外键字段，访问关联对象的具体字段
-        #     if field.is_relation and field.many_to_one:
-        #         related_object = getattr(order, field_name)  # 获取外键关联的对象
-        #         if related_object:
-        #             field_value = str(related_object)  # 转换为字符串表示外键对象
-        #     print(f"{field_name}: {field_value}")
-        await sync_to_async(container.save)()  #以上信息存储到对应数据表中
+        await sync_to_async(container.save)()
         await sync_to_async(retrieval.save)()
         await sync_to_async(offload.save)()
         await sync_to_async(order.save)()
-        # if order_type == "直送":
-        #     await sync_to_async(PackingList(**{
-        #         "container_number": container,
-        #         "destination": destination.upper().strip(),
-        #         "pcs": 0,
-        #         "total_weight_lbs": weight,
-        #         "cbm": 0,                
-        #         "note": "DD Placeholder",
-        #     }).save)()
         return await self.handle_order_basic_info_get()
     
     async def handle_update_order_basic_info_post(self, request: HttpRequest) -> tuple[Any, Any]:
@@ -257,12 +278,7 @@ class OrderCreation(View):
             # order type not changed
             if original_order_type == "直送":
                 # update destination
-                # packing_list = await sync_to_async(PackingList.objects.get)(
-                #     models.Q(container_number__container_number=original_container_number)
-                # )
-                # packing_list.destination = request.POST.get("destination").upper().strip()
                 retrieval.retrieval_destination_area = request.POST.get("destination").upper().strip()
-                # await sync_to_async(packing_list.save)()
             else:
                 # update retrieval area
                 retrieval.retrieval_destination_area = request.POST.get("area")
@@ -270,26 +286,13 @@ class OrderCreation(View):
             order.order_type = input_order_type
             if original_order_type == "直送":
                 # DD to TD
-                # packing_list = await sync_to_async(PackingList.objects.get)(
-                #     models.Q(container_number__container_number=original_container_number)
-                # )
                 offload.offload_required = True
                 retrieval.retrieval_destination_area = request.POST.get("area")
                 order.packing_list_updloaded = False
-                # await sync_to_async(packing_list.delete)()
             else:
                 # TD to DD
                 offload.offload_required = False
                 retrieval.retrieval_destination_area = request.POST.get("destination").upper().strip()
-                # order.packing_list_updloaded = True
-                # await sync_to_async(PackingList(**{
-                #     "container_number": container,
-                #     "destination": request.POST.get("destination").upper().strip(),
-                #     "pcs": 0,
-                #     "total_weight_lbs": request.POST.get("weight"),
-                #     "cbm": 0,                
-                #     "note": "DD Order Placeholder",
-                # }).save)()
         await sync_to_async(offload.save)()
         await sync_to_async(retrieval.save)()
         await sync_to_async(container.save)()
@@ -298,22 +301,26 @@ class OrderCreation(View):
         mutable_get["container_number"] = container.container_number
         mutable_get["step"] = "container_info_supplement"
         request.GET = mutable_get
-        return await self.handle_order_supplemental_info_get(request)
+        source = request.POST.get("source")
+        if source == "order_management":
+            return await self.handle_order_management_container_get(request)
+        else:
+            return await self.handle_order_supplemental_info_get(request)
     
     async def handle_update_order_shipping_info_post(self, request: HttpRequest) -> tuple[Any, Any]:
         container_number = request.POST.get("container_number")
-        if request.POST.get("is_vessel_created").upper().strip() == "YES":          #如果已有船信息，进行更新
+        if request.POST.get("is_vessel_created").upper().strip() == "YES":
             vessel = await sync_to_async(Vessel.objects.get)(
                 models.Q(order__container_number__container_number=container_number)
             )
             vessel.master_bill_of_lading = request.POST.get("mbl").upper().strip()
             vessel.destination_port = request.POST.get("pod").upper().strip()
-            vessel.shipping_line = request.POST.get("shipping_line").upper().strip()
+            vessel.shipping_line = request.POST.get("shipping_line").strip()
             vessel.vessel = request.POST.get("vessel").upper().strip()
             vessel.voyage = request.POST.get("voyage").upper().strip()
             vessel.vessel_eta = request.POST.get("eta")
             await sync_to_async(vessel.save)()
-        else:                                                                      #没有，则创建
+        else:
             order = await sync_to_async(Order.objects.get)(
                 models.Q(container_number__container_number=container_number)
             )
@@ -334,7 +341,11 @@ class OrderCreation(View):
         mutable_get["container_number"] = container_number
         mutable_get["step"] = "container_info_supplement"
         request.GET = mutable_get
-        return await self.handle_order_supplemental_info_get(request)
+        source = request.POST.get("source")
+        if source == "order_management":
+            return await self.handle_order_management_container_get(request)
+        else:
+            return await self.handle_order_supplemental_info_get(request)
     
     async def handle_update_order_packing_list_info_post(self, request: HttpRequest) -> tuple[Any, Any]:
         container_number = request.POST.get("container_number")
@@ -343,7 +354,7 @@ class OrderCreation(View):
         await sync_to_async(PackingList.objects.filter(
             container_number__container_number=container_number
         ).delete)()
-        pl_data = zip(                    #将多个列表压缩成一个元祖
+        pl_data = zip(
             request.POST.getlist("product_name"),
             request.POST.getlist("delivery_method"),
             request.POST.getlist("shipping_mark"),
@@ -362,7 +373,7 @@ class OrderCreation(View):
             strict=True,
         )
         pl_to_create = [
-            PackingList(                      #使用 pl_data 中的数据创建 PackingList 对象列表
+            PackingList(
                 container_number=container,
                 product_name=d[0],
                 delivery_method=d[1],
@@ -381,32 +392,40 @@ class OrderCreation(View):
                 note=d[14],
             ) for d in pl_data
         ]
-        await sync_to_async(PackingList.objects.bulk_create)(pl_to_create)   #批量创建装箱清单
+        await sync_to_async(PackingList.objects.bulk_create)(pl_to_create)
         order.packing_list_updloaded = True
         await sync_to_async(order.save)()
-        return await self.handle_order_basic_info_get()
+        source = request.POST.get("source")
+        if source == "order_management":
+            mutable_get = request.GET.copy()
+            mutable_get["container_number"] = container_number
+            mutable_get["step"] = "container_info_supplement"
+            request.GET = mutable_get
+            return await self.handle_order_management_container_get(request)
+        else:
+            return await self.handle_order_basic_info_get()
     
     async def handle_upload_template_post(self, request: HttpRequest) -> tuple[Any, Any]:
-        form = UploadFileForm(request.POST, request.FILES)    #创建一个表单实例，用于验证文件正常，request.FILES包含上传的文件
+        form = UploadFileForm(request.POST, request.FILES)
         if form.is_valid():
             file = request.FILES['file']
             df = pd.read_excel(file)
-            df = df.rename(columns=PACKING_LIST_TEMP_COL_MAPPING)  #根据 PACKING_LIST_TEMP_COL_MAPPING 字典重命名列名
-            df = df.dropna(how="all", subset=[c for c in df.columns if c not in ["delivery_method", "note"]])  #删除缺失值的行
-            df = df.replace(np.nan, '')  #将缺失值nan替换为空字符
+            df = df.rename(columns=PACKING_LIST_TEMP_COL_MAPPING)
+            df = df.dropna(how="all", subset=[c for c in df.columns if c not in ["delivery_method", "note"]])
+            df = df.replace(np.nan, '')
             df = df.reset_index(drop=True)
-            if df["cbm"].isna().sum():    #数据验证
+            if df["cbm"].isna().sum():
                 raise ValueError(f"cbm number N/A error!")
             if df["total_weight_lbs"].isna().sum() and df["total_weight_kg"].isna().sum():
                 raise ValueError(f"weight number N/A error!")
             if df["pcs"].isna().sum():
                 raise ValueError(f"boxes number N/A error!")
-            for idx, row in df.iterrows():    #单位转换
+            for idx, row in df.iterrows():
                 if row["unit_weight_kg"] and not row["unit_weight_lbs"]:
                     df.loc[idx, "unit_weight_lbs"] = round(df.loc[idx, "unit_weight_kg"] * 2.20462, 2)
                 if row["total_weight_kg"] and not row["total_weight_lbs"]:
                     df.loc[idx, "total_weight_lbs"] = round(df.loc[idx, "total_weight_kg"] * 2.20462, 2)
-            model_fields = [field.name for field in PackingList._meta.fields]    #遍历PackingList模型字段并提取每个字段的名称，将其存储在model_fields列表中
+            model_fields = [field.name for field in PackingList._meta.fields]
             col = [c for c in df.columns if c in model_fields]
             pl_data = df[col].to_dict("records")
             packing_list = [PackingList(**data) for data in pl_data]
@@ -424,6 +443,9 @@ class OrderCreation(View):
             response = HttpResponse(file.read(), content_type='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet')
             response['Content-Disposition'] = f'attachment; filename="zem_packing_list_template.xlsx"'
             return response
+
+    async def handle_delete_order_post(self, request: HttpRequest) -> tuple[Any, Any]:
+        raise ValueError(request.POST)
 
     async def _user_authenticate(self, request: HttpRequest):
         if await sync_to_async(lambda: request.user.is_authenticated)():

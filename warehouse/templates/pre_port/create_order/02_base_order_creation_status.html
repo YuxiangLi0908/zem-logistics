@@ -11,12 +11,16 @@
             <table class="table" id="unfinished-order-table" style="font-size: 11px;">
                 <thead>
                     <tr style="position: sticky; top: 0;">
-                        <th class="th">柜号</th>
+                        <th class="th" style="text-align: center;">仓库/地址</th>
+                        <th class="th" style="text-align: center;">柜号</th>
                         <th class="th" style="text-align: center;">基础信息</th>
                         <th class="th" style="text-align: center;">航运信息</th>
                         <th class="th" style="text-align: center;">Packing List</th>
                     </tr>
                     <tr style="position: sticky; top: 28px;">
+                        <th class="th" style="text-align: center;">
+                            <input type="text" id="warehouseSearch" placeholder="搜索仓库/地址..." oninput="filterTable(this, 0, true)" size="13" style="font-size: 11px;">
+                        </th>
                         <th class="th">
                             <input type="text" id="ctnSearch" placeholder="搜索柜号..." oninput="filterTable(this, 0, true)" size="13" style="font-size: 11px;">
                         </th>
