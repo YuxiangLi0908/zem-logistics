@@ -357,52 +357,84 @@ class OrderCreation(View):
     
     async def handle_update_order_packing_list_info_post(self, request: HttpRequest) -> tuple[Any, Any]:
         container_number = request.POST.get("container_number")
-        order = await sync_to_async(Order.objects.get)(container_number__container_number=container_number)
-        container = await sync_to_async(Container.objects.get)(container_number=container_number)
-        await sync_to_async(PackingList.objects.filter(
-            container_number__container_number=container_number
-        ).delete)()
-        pl_data = zip(
-            request.POST.getlist("product_name"),
-            request.POST.getlist("delivery_method"),
-            request.POST.getlist("shipping_mark"),
-            request.POST.getlist("fba_id"),
-            request.POST.getlist("ref_id"),
-            [d.upper().strip() for d in request.POST.getlist("destination")],
-            request.POST.getlist("contact_name"),
-            request.POST.getlist("contact_method"),
-            request.POST.getlist("address"),
-            request.POST.getlist("zipcode"),
-            request.POST.getlist("pcs"),
-            request.POST.getlist("total_weight_kg"),
-            request.POST.getlist("total_weight_lbs"),
-            request.POST.getlist("cbm"),
-            request.POST.getlist("note"),
-            strict=True,
-        )
-        pl_to_create = [
-            PackingList(
-                container_number=container,
-                product_name=d[0],
-                delivery_method=d[1],
-                shipping_mark=d[2],
-                fba_id=d[3],
-                ref_id=d[4],
-                destination=d[5],
-                contact_name=d[6],
-                contact_method=d[7],
-                address=d[8],
-                zipcode=d[9],
-                pcs=d[10],
-                total_weight_kg=d[11],
-                total_weight_lbs=d[12],
-                cbm=d[13],
-                note=d[14],
-            ) for d in pl_data
-        ]
-        await sync_to_async(PackingList.objects.bulk_create)(pl_to_create)
-        order.packing_list_updloaded = True
-        await sync_to_async(order.save)()
+        order = await sync_to_async(
+            Order.objects.select_related("container_number","offload_id").get
+        )(container_number__container_number=container_number)
+        container = order.container_number
+        offload = order.offload_id
+        if offload.offload_at:
+            updated_pl = []
+            pl_ids = request.POST.getlist("pl_id")
+            pl_id_idx_mapping = {int(pl_ids[i]): i for i in range(len(pl_ids))}
+            packing_list = await sync_to_async(list)(PackingList.objects.filter(
+                container_number__container_number=container_number
+            ))
+            for pl in packing_list:
+                idx = pl_id_idx_mapping[pl.id]
+                pl.product_name = request.POST.getlist("product_name")[idx]
+                pl.delivery_method = request.POST.getlist("delivery_method")[idx]
+                pl.shipping_mark = request.POST.getlist("shipping_mark")[idx]
+                pl.fba_id = request.POST.getlist("fba_id")[idx]
+                pl.ref_id = request.POST.getlist("ref_id")[idx]
+                pl.destination = request.POST.getlist("destination")[idx].upper().strip()
+                pl.contact_name = request.POST.getlist("contact_name")[idx]
+                pl.contact_method = request.POST.getlist("contact_method")[idx]
+                pl.address = request.POST.getlist("address")[idx]
+                pl.zipcode = request.POST.getlist("zipcode")[idx]
+                pl.note = request.POST.getlist("note")[idx]
+                updated_pl.append(pl)
+            await sync_to_async(PackingList.objects.bulk_update)(
+                updated_pl,
+                [
+                    "product_name", "delivery_method", "shipping_mark", "fba_id", "ref_id", "destination",
+                    "contact_name", "contact_method", "address", "zipcode", "note",
+                ]
+            )
+        else:
+            await sync_to_async(PackingList.objects.filter(
+                container_number__container_number=container_number
+            ).delete)()
+            pl_data = zip(
+                request.POST.getlist("product_name"),
+                request.POST.getlist("delivery_method"),
+                request.POST.getlist("shipping_mark"),
+                request.POST.getlist("fba_id"),
+                request.POST.getlist("ref_id"),
+                [d.upper().strip() for d in request.POST.getlist("destination")],
+                request.POST.getlist("contact_name"),
+                request.POST.getlist("contact_method"),
+                request.POST.getlist("address"),
+                request.POST.getlist("zipcode"),
+                request.POST.getlist("pcs"),
+                request.POST.getlist("total_weight_kg"),
+                request.POST.getlist("total_weight_lbs"),
+                request.POST.getlist("cbm"),
+                request.POST.getlist("note"),
+                strict=True,
+            )
+            pl_to_create = [
+                PackingList(
+                    container_number=container,
+                    product_name=d[0],
+                    delivery_method=d[1],
+                    shipping_mark=d[2],
+                    fba_id=d[3],
+                    ref_id=d[4],
+                    destination=d[5],
+                    contact_name=d[6],
+                    contact_method=d[7],
+                    address=d[8],
+                    zipcode=d[9],
+                    pcs=d[10],
+                    total_weight_kg=d[11],
+                    total_weight_lbs=d[12],
+                    cbm=d[13],
+                    note=d[14],
+                ) for d in pl_data
+            ]
+            await sync_to_async(PackingList.objects.bulk_create)(pl_to_create)
+            order.packing_list_updloaded = True
+            await sync_to_async(order.save)()
         source = request.POST.get("source")
         if source == "order_management":
             mutable_get = request.GET.copy()
