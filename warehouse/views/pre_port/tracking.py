@@ -119,51 +119,76 @@ class PrePortTracking(View):
             orders_updated = []
             for o in orders:
                 if o.container_number.container_number in t49_container_numbers:
-                    o.vessel_id.vessel_eta = (
-                        self._format_string_datetime(df.loc[df["Container number"]==o.container_number.container_number, "Port of Discharge estimated time of arrival"].values[0])
-                        if df.loc[df["Container number"]==o.container_number.container_number, "Port of Discharge estimated time of arrival"].any()
-                        else self._format_string_datetime(df.loc[df["Container number"]==o.container_number.container_number, "Port of Discharge actual time of arrival"].values[0])
-                    )
-                    o.vessel_id.origin_port = (
-                        df.loc[df["Container number"]==o.container_number.container_number, "Port of Lading"].values[0]
-                        if df.loc[df["Container number"]==o.container_number.container_number, "Port of Lading"].any()
-                        else ""
-                    )
-                    o.retrieval_id.temp_t49_lfd = (
-                        self._format_string_datetime(df.loc[df["Container number"]==o.container_number.container_number, "Current last free day at the POD terminal"].values[0])
-                        if df.loc[df["Container number"]==o.container_number.container_number, "Current last free day at the POD terminal"].any()
-                        else None
-                    )
-                    o.retrieval_id.temp_t49_available_for_pickup = (
-                        True 
-                        if df.loc[df["Container number"]==o.container_number.container_number, "Available for pickup"].values[0] == "Yes"
-                        else False
-                    )
-                    o.retrieval_id.temp_t49_pod_arrive_at = (
-                        self._format_string_datetime(df.loc[df["Container number"]==o.container_number.container_number, "Port of Discharge arrival time"].values[0], "datetime")
-                        if df.loc[df["Container number"]==o.container_number.container_number, "Port of Discharge arrival time"].any()
-                        else None
-                    )
-                    o.retrieval_id.temp_t49_pod_discharge_at = (
-                        self._format_string_datetime(df.loc[df["Container number"]==o.container_number.container_number, "Port of Discharge discharged event"].values[0], "datetime")
-                        if df.loc[df["Container number"]==o.container_number.container_number, "Port of Discharge discharged event"].any()
-                        else None
-                    )
-                    o.retrieval_id.temp_t49_hold_status = (
-                        True 
-                        if df.loc[df["Container number"]==o.container_number.container_number, "Holds at POD status (0)"].values[0] == "Hold"
-                        else False
-                    )
-                    o.retrieval_id.master_bill_of_lading =(
-                        df.loc[df["Container number"]==o.container_number.container_number, "Shipment number"].values[0]
-                        if df.loc[df["Container number"]==o.container_number.container_number, "Shipment number"].any()
-                        else None
-                    )
-                    o.retrieval_id.origin_port = (
-                        df.loc[df["Container number"]==o.container_number.container_number, "Port of Lading"].values[0]
-                        if df.loc[df["Container number"]==o.container_number.container_number, "Port of Lading"].any()
-                        else None
-                    )
+                    try:
+                        o.vessel_id.vessel_eta = (
+                            self._format_string_datetime(df.loc[df["Container number"]==o.container_number.container_number, "Port of Discharge estimated time of arrival"].values[0])
+                            if df.loc[df["Container number"]==o.container_number.container_number, "Port of Discharge estimated time of arrival"].any()
+                            else self._format_string_datetime(df.loc[df["Container number"]==o.container_number.container_number, "Port of Discharge actual time of arrival"].values[0])
+                        )
+                    except:
+                        pass
+                    try:
+                        o.vessel_id.origin_port = (
+                            df.loc[df["Container number"]==o.container_number.container_number, "Port of Lading"].values[0]
+                            if df.loc[df["Container number"]==o.container_number.container_number, "Port of Lading"].any()
+                            else ""
+                        )
+                    except:
+                        pass
+                    try:
+                        o.retrieval_id.temp_t49_lfd = (
+                            self._format_string_datetime(df.loc[df["Container number"]==o.container_number.container_number, "Current last free day at the POD terminal"].values[0])
+                            if df.loc[df["Container number"]==o.container_number.container_number, "Current last free day at the POD terminal"].any()
+                            else None
+                        )
+                    except:
+                        pass
+                    try:
+                        o.retrieval_id.temp_t49_available_for_pickup = (
+                            True 
+                            if df.loc[df["Container number"]==o.container_number.container_number, "Available for pickup"].values[0] == "Yes"
+                            else False
+                        )
+                    except:
+                        pass
+                    try:
+                        o.retrieval_id.temp_t49_pod_arrive_at = (
+                            self._format_string_datetime(df.loc[df["Container number"]==o.container_number.container_number, "Port of Discharge arrival time"].values[0], "datetime")
+                            if df.loc[df["Container number"]==o.container_number.container_number, "Port of Discharge arrival time"].any()
+                            else None
+                        )
+                    except:
+                        pass
+                    try:
+                        o.retrieval_id.temp_t49_pod_discharge_at = (
+                            self._format_string_datetime(df.loc[df["Container number"]==o.container_number.container_number, "Port of Discharge discharged event"].values[0], "datetime")
+                            if df.loc[df["Container number"]==o.container_number.container_number, "Port of Discharge discharged event"].any()
+                            else None
+                        )
+                    except:
+                        pass
+                    try:
+                        o.retrieval_id.temp_t49_hold_status = (
+                            True 
+                            if df.loc[df["Container number"]==o.container_number.container_number, "Holds at POD status (0)"].values[0] == "Hold"
+                            else False
+                        )
+                    try:
+                        o.retrieval_id.master_bill_of_lading =(
+                            df.loc[df["Container number"]==o.container_number.container_number, "Shipment number"].values[0]
+                            if df.loc[df["Container number"]==o.container_number.container_number, "Shipment number"].any()
+                            else None
+                        )
+                    except:
+                        pass
+                    try:
+                        o.retrieval_id.origin_port = (
+                            df.loc[df["Container number"]==o.container_number.container_number, "Port of Lading"].values[0]
+                            if df.loc[df["Container number"]==o.container_number.container_number, "Port of Lading"].any()
+                            else None
+                        )
+                    except:
+                        pass
                     o.retrieval_id.destination_port = o.vessel_id.destination_port
                     o.retrieval_id.shipping_line = o.vessel_id.shipping_line
                     o.add_to_t49 = True
