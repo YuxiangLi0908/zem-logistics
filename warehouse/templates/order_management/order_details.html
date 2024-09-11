@@ -170,6 +170,7 @@
     
     <div id="order-packing-list-info-sec" style="display: none;">
         <div style="display: flex;">
+            {% if not selected_order.offload_id.offload_at %}
             <div style="display: flex; width: 80%;">
                 <div>
                     <form method="post" enctype="multipart/form-data" style="font-size: 11px;">
@@ -198,6 +199,7 @@
                     <i class="bi bi-dash-lg"></i> 删除行
                 </button>
             </div>
+            {% endif %}
         </div>
 
         <div style="overflow-x: auto; table-layout: fixed;">
@@ -341,6 +343,7 @@
                         </table>
                     </div>
                 </div>
+                {% if not selected_order.offload_id.offload_at %}
                 <div class="text-right">
                     <input type="hidden" name="step" value="update_order_packing_list_info">
                     <input type="hidden" name="source" value="order_management">
@@ -349,11 +352,12 @@
                         更新信息
                     </button>
                 </div>
+                {% endif %}
             </form>
         </div>
     </div>
 
-    <div id="order-export-sec" style="display: block;">
+    <div id="order-export-sec" style="display: none;">
         <div style="margin-top: 10px;">
             <form method="post" enctype="multipart/form-data" style="display: inline-block; margin-left: 10px;">
                 {% csrf_token %}
