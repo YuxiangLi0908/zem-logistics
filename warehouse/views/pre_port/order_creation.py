@@ -23,7 +23,6 @@ from warehouse.models.order import Order
 from warehouse.models.retrieval import Retrieval
 from warehouse.models.offload import Offload
 from warehouse.models.vessel import Vessel
-from warehouse.models.pallet import Pallet
 from warehouse.forms.upload_file import UploadFileForm
 from warehouse.utils.constants import (
     PACKING_LIST_TEMP_COL_MAPPING, SHIPPING_LINE_OPTIONS,
