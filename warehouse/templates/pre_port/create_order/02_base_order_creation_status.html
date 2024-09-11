@@ -11,14 +11,18 @@
             <table class="table" id="unfinished-order-table" style="font-size: 11px;">
                 <thead>
                     <tr style="position: sticky; top: 0;">
-                        <th class="th">柜号</th>
+                        <th class="th" style="text-align: center;">仓库/地址</th>
+                        <th class="th" style="text-align: center;">柜号</th>
                         <th class="th" style="text-align: center;">基础信息</th>
                         <th class="th" style="text-align: center;">航运信息</th>
                         <th class="th" style="text-align: center;">Packing List</th>
                     </tr>
                     <tr style="position: sticky; top: 28px;">
+                        <th class="th" style="text-align: center;">
+                            <input type="text" id="warehouseSearch" placeholder="搜索仓库/地址..." oninput="filterTable(this, 0, true)" size="13" style="font-size: 11px;">
+                        </th>
                         <th class="th">
-                            <input type="text" id="ctnSearch" placeholder="搜索柜号..." oninput="filterTable(this, 0, true)" size="13" style="font-size: 11px;">
+                            <input type="text" id="ctnSearch" placeholder="搜索柜号..." oninput="filterTable(this, 1, true)" size="13" style="font-size: 11px;">
                         </th>
                         <th class="th"></th>
                         <th class="th"></th>
@@ -28,6 +32,9 @@
                 <tbody>
                     {% for o in unfinished_orders %}
                         <tr>
+                            <td class="td" style="text-align: center;">
+                                {{ o.retrieval_id__retrieval_destination_area }}
+                            </td>
                             <td class="td">
                                 <a href="/create_order/?step=container_info_supplement&container_number={{ o.container_number__container_number }}">
                                     {{ o.container_number__container_number }}
@@ -75,12 +82,12 @@
         for (i = 0; i < tr.length; i++) {
             containerTd = tr[i].getElementsByTagName("td")[col_idx];
             if (containerTd) {
-                containerTxtValue = containerTd.textContent || containerTd.innerText;
+                containerTxtValue = containerTd.textContent || containerTd.innerText;   <!--获取当前单元格的文本内容-->
                 containerTxtValue = trim ? containerTxtValue.toUpperCase().trim() : containerTxtValue.toUpperCase()
                 var containerDisplayStyle_1 = containerTxtValue.indexOf(containerFilter) > -1 ? "" : "none";
                 var containerDisplayStyle_2 = containerFilter.indexOf(containerTxtValue) > -1 ? "" : "none";
                 // Set display style based on both container and customer filters
-                tr[i].style.display = containerDisplayStyle_1 === "" || containerDisplayStyle_2 === "" ? "" : "none";
+                tr[i].style.display = containerDisplayStyle_1 === "" || containerDisplayStyle_2 === "" ? "" : "none";  <!--如果包含就显示，不包含就不显示-->
             }
         }
     };
