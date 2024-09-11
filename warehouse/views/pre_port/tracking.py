@@ -173,6 +173,8 @@ class PrePortTracking(View):
                             if df.loc[df["Container number"]==o.container_number.container_number, "Holds at POD status (0)"].values[0] == "Hold"
                             else False
                         )
+                    except:
+                        pass
                     try:
                         o.retrieval_id.master_bill_of_lading =(
                             df.loc[df["Container number"]==o.container_number.container_number, "Shipment number"].values[0]
