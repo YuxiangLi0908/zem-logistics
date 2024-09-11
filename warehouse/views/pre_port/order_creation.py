@@ -36,7 +36,7 @@ class OrderCreation(View):
     template_order_create_supplement_pl_tab = 'pre_port/create_order/03_order_creation_packing_list_tab.html'
     template_order_list = 'order_management/order_list.html'
     template_order_details = 'order_management/order_details.html'
-    order_type = {"": "", "转运": "转运", "直送": "直送", "火车站": "火车站"}
+    order_type = {"": "", "转运": "转运", "直送": "直送", "火车站": "火车站" }
     area = {"NJ": "NJ", "SAV": "SAV"}
     container_type = {
         '45HQ/GP':'45HQ/GP', '40HQ/GP':'40HQ/GP', '20GP':'20GP', '53HQ':'53HQ'
@@ -89,7 +89,7 @@ class OrderCreation(View):
             template, context = await self.handle_delete_order_post(request) 
 
     async def handle_order_basic_info_get(self) -> tuple[Any, Any]:
-        customers = await sync_to_async(list)(Customer.objects.all())
+        customers = await sync_to_async(list)(Customer.objects.all())  #Customer.objects.all()获取customer表的全部对象；list将返回的对象转为列表格式；同步转异步
         customers = { c.zem_name: c.id for c in customers}
         orders = await sync_to_async(list)(   #预先加载order表相关联的外键，vessel_id——container_number_packinglist
             Order.objects.select_related("vessel_id", "container_number", "customer_name", "container_number__packinglist", "retrieval_id ").values(   #values指定查询结果包含的字段
@@ -102,14 +102,20 @@ class OrderCreation(View):
         )
         unfinished_orders = []
         for o in orders:
-            if not o.get("vessel_id") or not o.get("packing_list_updloaded"):
+            if not o.get("vessel_id") or not o.get("packing_list_updloaded"):  #没有航运信息或者没有上传清单
                 unfinished_orders.append(o)
+            # if o.get("order_type") == "直送":
+            #     if not o.get("vessel_id"):
+            #         unfinished_orders.append(o)
+            # elif o.get("order_type") == "转运":
+            #     if not o.get("vessel_id") or not o.get("packing_list_updloaded"):
+            #         unfinished_orders.append(o)
         context = {
             "customers": customers,
-            "order_type": self.order_type,
-            "area": self.area,
-            "container_type": self.container_type,
-            "unfinished_orders": unfinished_orders,
+            "order_type": self.order_type,           #订单类型
+            "area": self.area,                       #仓库
+            "container_type": self.container_type,   #柜型
+            "unfinished_orders": unfinished_orders,  #未完成的订单内容
         }
         return self.template_order_create_base, context
     
