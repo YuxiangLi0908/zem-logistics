@@ -95,9 +95,11 @@ class OrderCreation(View):
         customers = await sync_to_async(list)(Customer.objects.all())
         customers = { c.zem_name: c.id for c in customers}
         orders = await sync_to_async(list)(
-            Order.objects.select_related("vessel_id", "container_number", "customer_name", "container_number__packinglist", "retrieval_id ").values(
-                "container_number__container_number", "customer_name__zem_name", "vessel_id", "order_type", "retrieval_id__retrieval_destination_area",
-                "packing_list_updloaded"
+            Order.objects.select_related(
+                "vessel_id", "container_number", "customer_name", "container_number__packinglist", "retrieval_id "
+            ).values(
+                "container_number__container_number", "customer_name__zem_name", "vessel_id", "order_type", 
+                "retrieval_id__retrieval_destination_area", "packing_list_updloaded"
             ).filter(
                 models.Q(created_at__gte='2024-08-19') |
                 models.Q(container_number__container_number__in=ADDITIONAL_CONTAINER)
