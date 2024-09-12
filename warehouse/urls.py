@@ -11,7 +11,8 @@ from warehouse.views.pre_port.terminal_dispatch import TerminalDispatch
 from warehouse.views.pre_port.pickup_containers_status import ContainerPickupStatus
 from warehouse.views.pre_port.pre_port_dash import PrePortDash
 from warehouse.views.retrieval_schedule import ScheduleRetrieval
-from warehouse.views.palletization import Palletization
+from warehouse.views.palletization import Palletization as LegacyPalletization
+from warehouse.views.post_port.warehouse.palletization import Palletization
 from warehouse.views.shipment_schedule import ScheduleShipment
 from warehouse.views.shipment_dispatch import ShipmentDispatch
 from warehouse.views.export_file import ExportFile
@@ -41,7 +42,9 @@ urlpatterns = [
     path('contaier_pre_port_summary_dash/', PrePortDash.as_view(), name='contaier_pre_port_summary_dash'),
     path('container_pickup/', ScheduleRetrieval.as_view(), name='schedule_pickup'),
     path('palletize/', Palletization.as_view(), name='palletization'),
-    path('palletize/<str:pk>/', Palletization.as_view(), name='palletize'),
+    path('palletize/<str:pk>/', Palletization.as_view(), name='palletize_container'),
+    path('palletize_legacy/', LegacyPalletization.as_view(), name='palletization_legacy'),
+    path('palletize_legacy/<str:pk>/', LegacyPalletization.as_view(), name='palletize_legacy'),
     path('schedule_shipment/', ScheduleShipment.as_view(), name='schedule_shipment'),
     path('outbound/', ShipmentDispatch.as_view(), name='outbound'),
     path('generate_pdf/', ExportFile.as_view(), name='generate_pdf'),

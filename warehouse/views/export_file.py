@@ -7,6 +7,7 @@ from io import BytesIO
 from xhtml2pdf import pisa
 from typing import Any
 from datetime import datetime
+from asgiref.sync import sync_to_async
 
 from django.http import HttpRequest, HttpResponse
 from django.shortcuts import render
@@ -69,13 +70,13 @@ def export_bol(context: dict[str, Any]) -> HttpResponse:
         raise ValueError('Error during PDF generation: %s' % pisa_status.err, content_type='text/plain')
     return response
 
-def export_palletization_list(request: HttpRequest) -> HttpResponse:
+async def export_palletization_list(request: HttpRequest) -> HttpResponse:
     status = request.POST.get("status")
     container_number = request.POST.get("container_number")
     if status == "non_palletized":
         cn = pytz.timezone('Asia/Shanghai')
         current_time_cn = datetime.now(cn).strftime("%Y-%m-%d %H:%M:%S")
-        packing_list = PackingList.objects.select_related(
+        packing_list = await sync_to_async(list)(PackingList.objects.select_related(
                 "container_number", "pallet"
             ).filter(container_number__container_number=container_number).annotate(
             custom_delivery_method=Case(
@@ -96,9 +97,9 @@ def export_palletization_list(request: HttpRequest) -> HttpResponse:
             pcs=Sum("pcs", output_field=IntegerField()),
             cbm=Sum("cbm", output_field=FloatField()),
             n_pallet=Value("", output_field=CharField()),
-        ).order_by("-cbm")
+        ).order_by("-cbm"))
     elif status == "palletized":
-        packing_list = PackingList.objects.select_related(
+        packing_list = await sync_to_async(list)(PackingList.objects.select_related(
                 "container_number", "pallet"
             ).filter(container_number__container_number=container_number).annotate(
             custom_delivery_method=Case(
@@ -119,7 +120,7 @@ def export_palletization_list(request: HttpRequest) -> HttpResponse:
             pcs=Sum("pallet__pcs", output_field=IntegerField()),
             cbm=Sum("pallet__cbm", output_field=FloatField()),
             n_pallet=Count("pallet__pallet_id", distinct=True),
-        ).order_by("-cbm")
+        ).order_by("-cbm"))
     else:
         raise ValueError(f"Unknown container status: {status}\n{request.POST}")
     

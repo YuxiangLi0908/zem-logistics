@@ -69,7 +69,8 @@ DELIVERY_METHOD_OPTIONS = [
 
 WAREHOUSE_OPTIONS = [
     ("", ""), ("NJ-07001", "NJ-07001"), ("NJ-08817", "NJ-08817"),
-    ("SAV-31419", "SAV-31419"), ("SAV-31326", "SAV-31326"), ("N/A(直送)", "N/A(直送)"), 
+    ("SAV-31326", "SAV-31326"), ("N/A(直送)", "N/A(直送)"), 
+    ("Empty", "Empty"),
 ]
 
 CARRIER_OPTIONS = [

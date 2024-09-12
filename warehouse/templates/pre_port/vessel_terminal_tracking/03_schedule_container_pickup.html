@@ -119,7 +119,7 @@
                 <input type="hidden" name="step" value="pickup_schedule_confirmation">
                 <input type="hidden" name="container_number" value="{{ container_number }}">
                 <input type="hidden" name="order_type" value="{{ selected_order.order_type }}">
-                <button id="schedule-pickup-btn" type="submit" class="btn btn-primary" style="width: 90px; height: 30px; margin-left: 20px; font-size: 13px;">
+                <button id="schedule-pickup-btn" type="submit" class="btn btn-primary" style="width: 90px; height: 30px; margin-left: 20px; font-size: 13px;" onclick="checkInput()">
                     确认预约
                 </button>
             </div>
@@ -128,6 +128,23 @@
 </div>
 
 <script>
-
+    function checkInput() {
+        var destinationSelect = document.getElementById('retrieval-destination-select');
+        if (destinationSelect) {
+            var destinationOption = destinationSelect.options[destinationSelect.selectedIndex];
+            var destinationValue = destinationOption.value;
+            if (!destinationValue) {
+                alert('请选择仓库!');
+                event.preventDefault();
+            }
+        };
+        var carrierSelect = document.getElementById('retrieval-carrier-select');
+        var carrierOption = carrierSelect.options[carrierSelect.selectedIndex];
+        var carrierValue = carrierOption.value;
+        if (!carrierValue) {
+            alert('请选择Carrier!');
+            event.preventDefault();
+        };
+    };
 </script>
 {% endblock %}

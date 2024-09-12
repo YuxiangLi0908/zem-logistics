@@ -133,7 +133,8 @@
                                 {% for k, v in carrier_options %}
                                 <option value="{{ v }}" {% if k == selected_order.retrieval_id.retrieval_carrier %}selected{% endif %}>{{ k }}</option>
                                 {% endfor %}
-                            </select>                        </td>
+                            </select>
+                        </td>
                         <td class="td"><input type="datetime-local" name="target_retrieval_timestamp" value="{{ selected_order.retrieval_id.target_retrieval_timestamp|date:'Y-m-d\\TH:i' }}" style="font-size: 13px;" required></td>
                         <td class="td"><input type="text" name="note" value="{{ selected_order.retrieval_id.note }}" style="font-size: 13px;"></td>
                     </tr>
@@ -143,11 +144,31 @@
                 <input type="hidden" name="step" value="pickup_schedule_update">
                 <input type="hidden" name="container_number" value="{{ container_number }}">
                 <input type="hidden" name="order_type" value="{{ selected_order.order_type }}">
-                <button id="schedule-pickup-btn" type="submit" class="btn btn-primary" style="height: 30px; margin-left: 20px; font-size: 13px;">
+                <button id="schedule-pickup-btn" type="submit" class="btn btn-primary" style="height: 30px; margin-left: 20px; font-size: 13px;" onclick="checkInput()">
                     更新提柜计划
                 </button>
             </div>
         </form>
     </div>
 </div>
+<script>
+    function checkInput() {
+        var destinationSelect = document.getElementById('retrieval-destination-select');
+        if (destinationSelect) {
+            var destinationOption = destinationSelect.options[destinationSelect.selectedIndex];
+            var destinationValue = destinationOption.value;
+            if (!destinationValue) {
+                alert('请选择仓库!');
+                event.preventDefault();
+            }
+        };
+        var carrierSelect = document.getElementById('retrieval-carrier-select');
+        var carrierOption = carrierSelect.options[carrierSelect.selectedIndex];
+        var carrierValue = carrierOption.value;
+        if (!carrierValue) {
+            alert('请选择Carrier!');
+            event.preventDefault();
+        };
+    };
+</script>
 {% endblock %}
