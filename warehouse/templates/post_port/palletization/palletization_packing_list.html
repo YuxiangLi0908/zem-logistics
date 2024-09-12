@@ -1,0 +1,63 @@
+{% extends 'base.html' %}
+
+{% block content %}
+{% load static custom_filters %}
+    <form method="post" style="width: 100%;">
+        {% csrf_token %}
+        <div class="container mt-3" style="max-width: 100%;">
+            <div style="overflow-x: auto; max-width: 100%; overflow-y: auto; max-height: 800px;">
+                <table class="table">
+                    <thead>
+                        <tr>
+                            <th class="th">货柜</th>
+                            <th class="th">目的仓库</th>
+                            <th class="th">FBA ID</th>
+                            <th class="th">REF ID</th>
+                            <th class="th">派送方式</th>
+                            <th class="th">箱数</th>
+                            <th class="th">CBM</th>
+                            <th class="th">打板数</th>
+                            <th class="th">备注</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        
+                        {% for pl, pl_form in order_packing_list %}
+                        <tr>
+                            <td class="td">{{ pl.container_number__container_number }}</td>
+                            <td class="td">{{ pl.destination }}</td>
+                            <td class="td" style="max-width: 400px; word-break: break-all;"><small>{{ pl.fba_ids }}</small></td>
+                            <td class="td" style="max-width: 400px; word-break: break-all;"><small>{{ pl.ref_ids }}</small></td>
+                            <td class="td">
+                                {% with first_value=pl.custom_delivery_method|split_and_get_first %}
+                                    {{ first_value }}
+                                {% endwith %}
+                            </td>
+                            <td class="td">{{ pl.pcs }}</td>
+                            <td class="td">{{ pl.cbm|floatformat:2 }}</td>
+                            {% if status == 'palletized' %}
+                            <td class="td">{{ pl.n_pallet }}</td> 
+                            {% else %}
+                            <td class="td">{{ pl_form.n_pallet }}</td> 
+                            {% endif %}
+                            <td class="td">{{ pl.note }}</td> 
+                            <input type="hidden" name="ids" value="{{pl.ids}}">
+                            <input type="hidden" name="cbms" value="{{pl.cbm}}">
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+            <div class="text-left">
+                {% if status == 'palletized' %}
+                    <input type="hidden" name="step" value="back">
+                    <input type="hidden" name="name" value="{{ warehouse }}">
+                    <button type="submit" class="btn btn-primary" style="width: 100px; height: 35px;">返回</button>
+                {% else %}
+                    <input type="hidden" name="step" value="palletize">
+                    <button type="submit" class="btn btn-primary" style="width: 100px; height: 35px;">确认</button>
+                {% endif %}
+            </div>
+        </div>
+    </form>
+{% endblock %}

@@ -106,7 +106,7 @@ class TerminalDispatch(View):
             context["packing_list"] = packing_list
         context["container_number"] = container_number
         context["selected_order"] = order
-        context["warehouse_options"] = [(k, v) for k, v in WAREHOUSE_OPTIONS if k!="N/A(直送)"]
+        context["warehouse_options"] = [(k, v) for k, v in WAREHOUSE_OPTIONS if k not in ["N/A(直送)", "Empty"]]
         context["carrier_options"] = CONTAINER_PICKUP_CARRIER
         return self.template_schedule_container_pickup, context
     

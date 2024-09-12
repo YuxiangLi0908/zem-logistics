@@ -23,3 +23,11 @@ class Offload(models.Model):
             return "past_due"
         else:
             return "on_time"
+        
+    @property
+    def shipment_status(self) -> str:
+        today = datetime.now().date()
+        if today > self.offload_at + timedelta(days=7):
+            return "past_due"
+        else:
+            return "on_time"
