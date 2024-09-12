@@ -16,12 +16,16 @@
                 <table class="table" id="eta-order-table" style="font-size: 11px; max-height: 90%;">
                     <thead>
                         <tr style="position: sticky; top: 0;">
+                            <th class="th">仓库/地址</th>
                             <th class="th">柜号</th>
                             <th class="th">订单类型</th>
                             <th class="th">船名船次</th>
                             <th class="th">ETA</th>
                         </tr>
                         <tr style="position: sticky; top: 28px;">
+                            <th class="th">
+                                <input type="text" id="ctnSearch" placeholder="搜索仓库/地址..." oninput="filterTable(this, 0, true)" size="13" style="font-size: 11px;">
+                            </th>
                             <th class="th">
                                 <input type="text" id="ctnSearch" placeholder="搜索柜号..." oninput="filterTable(this, 0, true)" size="13" style="font-size: 11px;">
                             </th>
@@ -33,6 +37,7 @@
                     <tbody>
                         {% for o in orders_not_scheduled %}
                         <tr>
+                            <td class="td">{{ o.retrieval_id.retrieval_destination_area }}</td>
                             <td class="td">
                                 <a href="/terminal_dispatch/?step=schedule_container_pickup&container_number={{ o.container_number.container_number }}">
                                     {{ o.container_number.container_number }}
@@ -65,6 +70,7 @@
                 <table class="table" id="order-pickup-schedule-table" style="font-size: 11px; max-height: 90%;">
                     <thead>
                         <tr style="position: sticky; top: 0;">
+                            <th class="th">仓库/地址</th>
                             <th class="th">柜号</th>
                             <th class="th">目的地</th>
                             <th class="th">供应商</th>
@@ -73,7 +79,10 @@
                         </tr>
                         <tr style="position: sticky; top: 28px;">
                             <th class="th">
-                                <input type="text" id="ctnSearch" placeholder="搜索柜号..." oninput="filterTable(this, 0, true)" size="13" style="font-size: 11px;">
+                                <input type="text" id="ctnSearch" placeholder="搜索仓库/地址..." oninput="filterTable(this, 0, true)" size="13" style="font-size: 11px;">
+                            </th>
+                            <th class="th">
+                                <input type="text" id="ctnSearch" placeholder="搜索柜号..." oninput="filterTable(this, 1, true)" size="13" style="font-size: 11px;">
                             </th>
                             <th class="th"></th>
                             <th class="th"></th>
@@ -84,6 +93,7 @@
                     <tbody>
                         {% for o in orders_not_pickup %}
                         <tr>
+                            <td class="td">{{ o.retrieval_id.retrieval_destination_area }}</td>
                             <td class="td">
                                 <a href="/terminal_dispatch/?step=update_pickup_schedule&container_number={{ o.container_number.container_number }}">
                                     {{ o.container_number.container_number }}
