@@ -69,7 +69,7 @@ class TerminalDispatch(View):
                     models.Q(created_at__gte='2024-08-19') |
                     models.Q(container_number__container_number__in=ADDITIONAL_CONTAINER)
                 )
-            )
+            ).order_by("vessel_id__vessel_eta")
         )
         orders_not_pickup = await sync_to_async(list)(
             Order.objects.select_related(
@@ -84,7 +84,7 @@ class TerminalDispatch(View):
                     models.Q(created_at__gte='2024-08-19') |
                     models.Q(container_number__container_number__in=ADDITIONAL_CONTAINER)
                 )
-            )
+            ).order_by("vessel_id__vessel_eta")
         )
         context = {
             "orders_not_scheduled": orders_not_scheduled,
