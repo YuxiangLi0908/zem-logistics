@@ -76,7 +76,13 @@
                         </a>
                     </td>
                     <td class="td">{{ o.warehouse }}</td>
-                    <td class="td">{{ o.eta }}</td> 
+                    <td class="td">
+                        {% if o.vessel_id %}
+                            {{o.vessel_id.vessel_eta}}
+                        {% else  %}
+                            {{o.eta}}
+                        {% endif %}
+                    </td>                 
                     <td class="td">{{ o.order_type }}</td>
                     <td class="td">{{ o.container_number.container_type }}</td>
                     <td class="td">{{ o.vessel_id.shipping_line }}</td>
