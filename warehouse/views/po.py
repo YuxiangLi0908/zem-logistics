@@ -59,7 +59,7 @@ class PO(View):
         if end_date:
             criteria &= (
                 models.Q(container_number__order__eta__lte=end_date) |
-                models.Q(container_number__order__vessel_id__vessel_eta__lte=start_date)
+                models.Q(container_number__order__vessel_id__vessel_eta__lte=end_date)
             )
         packing_list = PackingList.objects.select_related(
             "container_number", "container_number__order", "container_number__order__warehouse", "pallet"
