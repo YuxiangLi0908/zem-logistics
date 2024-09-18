@@ -353,6 +353,7 @@ class Palletization(View):
                 warehouse__name=warehouse,
                 offload_id__offload_required=True,
                 offload_id__offload_at__isnull=True,
+                created_at__gte='2024-07-01'
             )
             # & (models.Q(retrieval_id__actual_retrieval_timestamp__isnull=False) | models.Q(retrieval_id__retrive_by_zem=False))
         ).order_by("retrieval_id__arrive_at"))
