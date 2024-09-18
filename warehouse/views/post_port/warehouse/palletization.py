@@ -10,7 +10,7 @@ from django.http import HttpRequest, HttpResponse
 from django.shortcuts import render, redirect
 from django.views import View
 from django.db import models
-from django.db.models import Case, Value, CharField, F, Sum, FloatField, IntegerField, When, Count, Q
+from django.db.models import Case, Value, CharField, F, Sum, Min, FloatField, IntegerField, When, Count, Q
 from django.db.models.functions import Concat, Cast
 from django.contrib.postgres.aggregates import StringAgg
 from django.template.loader import get_template
@@ -69,13 +69,25 @@ class Palletization(View):
     async def handle_all_get(self, warehouse: str = None) -> tuple[str, dict[str, Any]]:
         if warehouse:
             warehouse = None if warehouse == "Empty" else warehouse
-            order_not_palletized, order_palletized = await asyncio.gather(
+            order_not_palletized, order_palletized, order_with_shipment = await asyncio.gather(
                 self._get_order_not_palletized(warehouse),
-                self._get_order_palletized(warehouse)
+                self._get_order_palletized(warehouse),
+                self._get_order_shipment(warehouse)
             )
+            
+            order_with_shipment = {
+                o.get("container_number__container_number"): o.get("shipment_scheduled_time")
+                for o in order_with_shipment
+            }
+            order_not_palletized = [
+                o for o in order_not_palletized if o.container_number.container_number in order_with_shipment
+            ] + [
+                o for o in order_not_palletized if o.container_number.container_number not in order_with_shipment
+            ]
             context = {
                 "order_not_palletized": order_not_palletized,
                 "order_palletized": order_palletized,
+                "order_with_shipment": order_with_shipment,
                 "warehouse_form": ZemWarehouseForm(initial={"name": warehouse}),
                 "warehouse": warehouse,
             }
@@ -341,6 +353,7 @@ class Palletization(View):
                 warehouse__name=warehouse,
                 offload_id__offload_required=True,
                 offload_id__offload_at__isnull=True,
+                created_at__gte='2024-07-01'
             )
             # & (models.Q(retrieval_id__actual_retrieval_timestamp__isnull=False) | models.Q(retrieval_id__retrive_by_zem=False))
         ).order_by("retrieval_id__arrive_at"))
@@ -356,6 +369,20 @@ class Palletization(View):
                 # retrieval_id__actual_retrieval_timestamp__isnull=False,
             )
         ).order_by("offload_id__offload_at"))
+    
+    async def _get_order_shipment(self, warehouse: str) -> Order:
+        return await sync_to_async(list)(PackingList.objects.prefetch_related(
+                "container_number", "container_number__order", "container_number__order__warehouse",
+                "shipment_batch_number"
+            ).filter(models.Q(
+                container_number__order__warehouse__name=warehouse,
+                shipment_batch_number__isnull=False
+            )).values(
+               "container_number__container_number" 
+            ).annotate(
+                shipment_scheduled_time=Min("shipment_batch_number__shipment_appointment")
+            )
+        )
     
     async def _user_authenticate(self, request: HttpRequest):
         if await sync_to_async(lambda: request.user.is_authenticated)():
