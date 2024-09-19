@@ -23,12 +23,12 @@
                         <b style="margin-left: 10px;">建单时间: </b>
                         <input type="date" name="start_date" value="{{ start_date }}">
                         <input type="date" name="end_date" value="{{ end_date }}" style="margin-right: 5px;">
-                        <button id="submit-btn" type="submit" name="step" value = "search_orders_by_created_at" class="btn btn-primary" style="height: 35px; margin-left: 20px; font-size: 13px;">查询</button>
+                        <!-- <button id="submit-btn" type="submit" name="step" value = "search_orders_by_created_at" class="btn btn-primary" style="height: 35px; margin-left: 20px; font-size: 13px;">查询</button> -->
                         <b style="margin-left: 10px;">ETA: </b>
-                        <input type="date" name="start_date_ETA" value="{{ start_date_ETA }}">
-                        <input type="date" name="end_date_ETA" value="{{ end_date_ETA }}" style="margin-right: 5px;">
-                        <button id="submit-btn" type="submit" name="step" value = "search_orders_by_eta" class="btn btn-primary" style="height: 35px; margin-left: 20px; font-size: 13px;">查询</button>
-                        <button id="submit-btn" type="submit" name="step" value = "down_eta_file" class="btn btn-primary" style="height: 35px; margin-left: 20px; font-size: 13px;">导出</button>
+                        <input type="date" name="start_date_eta" value="{{ start_date_eta }}">
+                        <input type="date" name="end_date_eta" value="{{ end_date_eta }}" style="margin-right: 5px;">
+                        <button id="submit-btn" type="submit" name="step" value = "search_orders" class="btn btn-primary" style="height: 35px; margin-left: 20px; font-size: 13px;">查询</button>
+                        <button id="submit-btn" type="submit" name="step" value = "download_eta_file" class="btn btn-primary" style="height: 35px; margin-left: 20px; font-size: 13px;">导出</button>
                     </div>
                 </form>
             </div>
@@ -95,7 +95,13 @@
                         <span class="status-span-red-100"><i class="bi bi-x-square"></i></i></span>
                         {% endif %}
                     </td>
-                    <td class="td">{{ o.vessel_id.vessel_eta|date:"M-j" }}</td>
+                    <td class="td">
+                        {% if o.vessel_id.vessel_eta %}
+                        {{ o.vessel_id.vessel_eta|date:"M-j" }}
+                        {% else %}
+                        {{ o.eta|date:"M-j" }}
+                        {% endif %}
+                    </td>
                     <td class="td">{{ o.retrieval_id.retrieval_destination_area }}</td>
                     <td>
                         {% if o.vessel_id and o.packing_list_updloaded %}

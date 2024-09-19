@@ -48,46 +48,51 @@ class PrePortDash(View):
             return redirect("login")
         step = request.POST.get("step", None)
         print("step",step)
-        #根据建单时间进行筛选       
-        if step == "search_orders_by_created_at":
+        #根据建单时间和ETA进行筛选       
+        if step == "search_orders":
             start_date = request.POST.get("start_date")
             end_date = request.POST.get("end_date")
-            template, context = await self.handle_all_get(start_date=start_date, end_date=end_date, tab="summary")
+            start_date_eta = request.POST.get("start_date_eta")
+            end_date_eta = request.POST.get("end_date_eta")
+            template, context = await self.handle_all_get(
+                start_date=start_date,
+                end_date=end_date,
+                start_date_eta=start_date_eta,
+                end_date_eta=end_date_eta,
+                tab="summary"
+            )
             return await sync_to_async(render)(request, template, context)
-        #根据ETA进行筛选
-        if step == "search_orders_by_eta":
+        elif step == "download_eta_file":
             start_date = request.POST.get("start_date")
             end_date = request.POST.get("end_date")
-            start_date_ETA = request.POST.get("start_date_ETA")
-            end_date_ETA = request.POST.get("end_date_ETA")
-            template, context = await self.handle_all_get_ETA(start_date,end_date,start_date_ETA=start_date_ETA, end_date_ETA=end_date_ETA, tab="summary")
-            return await sync_to_async(render)(request, template, context)
-        if step == "down_eta_file":
-            start_date = request.POST.get("start_date")
-            end_date = request.POST.get("end_date")
-            start_date_ETA = request.POST.get("start_date_ETA")
-            end_date_ETA = request.POST.get("end_date_ETA")
-            return await self.down_eta_file(start_date,end_date,start_date_ETA, end_date_ETA)
-        elif step == "empty_return":
-            template, context = await self.handle_empty_return_post(request)
-            return await sync_to_async(render)(request, template, context)
+            start_date_eta = request.POST.get("start_date_eta")
+            end_date_eta = request.POST.get("end_date_eta")
+            return await self.download_eta_file(start_date, end_date, start_date_eta, end_date_eta)
+        else:
+            return await sync_to_async(render)(request, self.template_main, {})
 
-    async def down_eta_file(self, start_date,end_date,start_date_ETA, end_date_ETA) -> HttpResponse:  
+    async def download_eta_file(self, start_date,end_date,start_date_eta, end_date_eta) -> HttpResponse:  
         current_date = datetime.now().date()
-        start_date_ETA = current_date.strftime('%Y-%m-%d') if not start_date_ETA else start_date_ETA
-        end_date_ETA = (datetime.now().date() + timedelta(days=7)).strftime('%Y-%m-%d') if not end_date_ETA else end_date_ETA
+        start_date_eta = current_date.strftime('%Y-%m-%d') if not start_date_eta else start_date_eta
+        end_date_eta = (datetime.now().date() + timedelta(days=7)).strftime('%Y-%m-%d') if not end_date_eta else end_date_eta
         customers = await sync_to_async(list)(Customer.objects.all())
         customers = { c.zem_name: c.zem_name for c in customers}
         orders = await sync_to_async(list)(
             Order.objects.select_related(
                 "vessel_id", "container_number", "customer_name", "retrieval_id", "offload_id", "warehouse"
             ).filter(
-                (
-                    models.Q(created_at__gte=start_date) &
-                    models.Q(created_at__lte=end_date)
+                models.Q(
+                    created_at__gte=start_date,
+                    created_at__lte=end_date,
                 ) & (
-                    models.Q(vessel_id__vessel_eta__gte=start_date_ETA) &
-                    models.Q(vessel_id__vessel_eta__lte=end_date_ETA)
+                    models.Q(
+                        vessel_id__vessel_eta__gte=start_date_eta,
+                        vessel_id__vessel_eta__lte=end_date_eta
+                    ) |
+                    models.Q(
+                        eta__gte=start_date_eta,
+                        eta__lte=end_date_eta
+                    )
                 )
             ).values(
                 "container_number__container_number", "customer_name__zem_code", "retrieval_id__retrieval_destination_area","warehouse__name", "vessel_id__shipping_line","vessel_id__vessel","vessel_id__vessel_eta"
@@ -116,64 +121,41 @@ class PrePortDash(View):
         self, 
         start_date:str = None,
         end_date: str = None,
+        start_date_eta: str = None,
+        end_date_eta: str = None,
         tab: str = None,
     ) -> tuple[Any, Any]:
         current_date = datetime.now().date()
         start_date = (datetime.now().date() + timedelta(days=-7)).strftime('%Y-%m-%d') if not start_date else start_date
         end_date = (datetime.now().date() + timedelta(days=7)).strftime('%Y-%m-%d') if not end_date else end_date
+        criteria = models.Q(
+            created_at__gte=start_date,
+            created_at__lte=end_date
+        )
+        if start_date_eta:
+            criteria &= (
+                models.Q(vessel_id__vessel_eta__gte=start_date_eta) |
+                models.Q(eta__gte=start_date_eta)
+            )
+        if end_date_eta:
+            criteria &= (
+                models.Q(vessel_id__vessel_eta__lte=end_date_eta) |
+                models.Q(eta__lte=end_date_eta)
+            )
         customers = await sync_to_async(list)(Customer.objects.all())
         customers = { c.zem_name: c.zem_name for c in customers}
         orders = await sync_to_async(list)(
             Order.objects.select_related(
                 "vessel_id", "container_number", "customer_name", "retrieval_id", "offload_id", "warehouse"
-            ).filter(
-                models.Q(created_at__gte=start_date) &
-                models.Q(created_at__lte=end_date)
-            ).order_by("vessel_id__vessel_eta")
+            ).filter(criteria).order_by("vessel_id__vessel_eta")
         )
         context = {
             "customers": customers,
             "orders": orders,
             "start_date": start_date,
             "end_date": end_date,
-            "current_date": current_date,
-            "tab": tab,
-        }
-        return self.template_main, context
-    
-    async def handle_all_get_ETA(
-        self, 
-        start_date:str = None,
-        end_date:str = None,
-        start_date_ETA:str = None,
-        end_date_ETA: str = None,
-        tab: str = None,
-    ) -> tuple[Any, Any]:
-        current_date = datetime.now().date()
-        start_date_ETA = current_date.strftime('%Y-%m-%d') if not start_date_ETA else start_date_ETA
-        end_date_ETA = (datetime.now().date() + timedelta(days=7)).strftime('%Y-%m-%d') if not end_date_ETA else end_date_ETA
-        customers = await sync_to_async(list)(Customer.objects.all())
-        customers = { c.zem_name: c.zem_name for c in customers}
-        orders = await sync_to_async(list)(
-            Order.objects.select_related(
-                "vessel_id", "container_number", "customer_name", "retrieval_id", "offload_id", "warehouse"
-            ).filter(
-                (
-                    models.Q(created_at__gte=start_date) &
-                    models.Q(created_at__lte=end_date)
-                )&(
-                    models.Q(vessel_id__vessel_eta__gte=start_date_ETA) &
-                models.Q(vessel_id__vessel_eta__lte=end_date_ETA)
-                )              
-            ).order_by("vessel_id__vessel_eta")
-        )
-        context = {
-            "customers": customers,
-            "orders": orders,
-            "start_date":start_date,
-            "end_date": end_date,
-            "start_date_ETA": start_date_ETA,
-            "end_date_ETA": end_date_ETA,
+            "start_date_eta": start_date_eta,
+            "end_date_eta": end_date_eta,
             "current_date": current_date,
             "tab": tab,
         }
