@@ -6,7 +6,7 @@
 {% load static custom_floor_division %}
 
 {% block content %}
-<div><b>预约出库</b></div>
+<div><b>预约管理</b></div>
 
 <form method="post" action="">
     {% csrf_token %}
@@ -120,18 +120,17 @@
         <div style="height: 50%; width: 100%; border: 2px solid rgb(180, 180, 180); border-radius: 12px; padding: 1%; margin-top: .5%;">
             <div>
                 <b style="background-color: rgb(208, 208, 208); border-radius: 20px; font-size: 11px; display:inline-flex; color: rgb(100, 100, 100); padding: 5px;">
-                    待出库批次 - {{ shipment_list|length }}
+                    预约批次 - {{ shipment_list|length }}
                 </b>
             </div>
             <div style="max-height: 95%; overflow-y: scroll;">
                 <table id="shipment-table" class="table" style="font-size: 11px; max-height: 90%; overflow-y: scroll;">
                     <thead>
                         <tr>
-                            <th class="th">批次号</th>
+                            <th class="th">预约批次</th>
                             <th class="th">目的地</th>
                             <th class="th">预约号</th>
                             <th class="th">Scheduled Time</th>
-                            <th class="th">Carrier</th>
                             <th class="th">总重lbs</th>
                             <th class="th">总CBM</th>
                             <th class="th">总卡板数</th>
@@ -142,7 +141,6 @@
                             <th class="th"><input type="text" id="shipmentSearchInput" placeholder="搜索批次号..." oninput="filterShipmentTable()" size="13" style="font-size: 11px;"></th>
                             <th class="th"><input type="text" id="destSearchInput" placeholder="搜索目的地..." oninput="filterShipmentTable()" size="13" style="font-size: 11px;"></th>
                             <th class="th"><input type="text" id="appIdSearchInput" placeholder="搜索预约号..." oninput="filterShipmentTable()" size="13" style="font-size: 11px;"></th>
-                            <th class="th"></th>
                             <th class="th"></th>
                             <th class="th"></th>
                             <th class="th"></th>
@@ -162,7 +160,6 @@
                             <td class="td">{{ s.destination }}</td>
                             <td class="td">{{ s.appointment_id }}</td>
                             <td class="td">{{ s.shipment_appointment|date:"Y-m-d" }} {{ s.shipment_appointment|time:"H:i" }}</td>
-                            <td class="td">{{ s.carrier }}</td>
                             <td class="td">{{ s.total_weight|floatformat:2 }}</td>
                             <td class="td">{{ s.total_cbm|floatformat:2 }}</td>
                             <td class="td">{{ s.total_pallet }}</td>

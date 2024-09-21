@@ -1,0 +1,121 @@
+{% extends 'post_port/shipment/03_fleet_main.html' %}
+{% load static custom_mod %}
+{% load static custom_floor_division %}
+
+{% block schedule_fleet %}
+<div style="height: 800px; width: 40%; border: 2px solid rgb(180, 180, 180); border-radius: 12px; padding: 1%; margin-top: .5%;">
+    <div>
+        <form method="post" action="" style="width: 100%; overflow-x: auto; max-width: 100%;">
+            {% csrf_token %}
+            <div style="display: flex;">
+                <div style="width: 80%;">
+                    <b style="background-color: rgb(208, 208, 208); border-radius: 20px; font-size: 11px; display:inline-flex; color: rgb(100, 100, 100); padding: 5px;">
+                        出库批次信息 - {{ fleet_number }}
+                    </b>
+                </div>
+
+                <div class="text-right">
+                    <input type="hidden" name="step" value="fleet_confirmation">
+                    <input type="hidden" name="fleet_data" value="{{ fleet_data }}">
+                    <input type="hidden" name="selected_ids" value="{{ shipment_ids }}">
+                    <input type="hidden" name="warehouse" value="{{ warehouse }}">
+                    <button type="submit" onclick="confirmSubmit()" class="btn btn-primary" style="font-size: 11px;">确认</button>
+         
+                </div>
+            </div>
+            <table id="fleet-table-1" class="table" style="font-size: 11px; overflow-x: scroll; max-width: 100%;">
+                <thead>
+                    <tr>
+                        <th class="th">carrier</th>
+                        <th class="th">3rd Party Address</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    <tr>
+                        <td class="td"><input type="text" name="carrier" style="font-size: 13px;"></td>
+                        <td class="td"><input type="text" name="third_party_address" style="font-size: 13px;"></td>
+                    </tr>
+                </tbody>
+            </table>
+            <table id="fleet-table-1" class="table" style="font-size: 11px; overflow-x: scroll; max-width: 100%;">
+                <thead>
+                    <tr>
+                        <th class="th">发车日期</th>
+                        <th class="th">备注</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    <tr>
+                        <td class="td"><input type="date" name="appointment_date" style="font-size: 13px;" required></td>
+                        <td class="td"><input type="text" name="note" style="font-size: 13px;"></td>
+                    </tr>
+                </tbody>
+            </table>
+        </form>
+    </div>
+
+    <b style="background-color: rgb(208, 208, 208); border-radius: 20px; font-size: 11px; display:inline-flex; color: rgb(100, 100, 100); padding: 5px;">
+        预约批次
+    </b>
+
+    <div style="overflow-x: auto; max-width: 100%; overflow-y: auto; max-height: 60%;">
+        <table id="shipment-table" class="table" style="font-size: 11px; max-height: 90%; overflow-y: scroll;">
+            <thead>
+                <tr>
+                    <th class="th">预约批次</th>
+                    <th class="th">目的地</th>
+                    <th class="th">预约号</th>
+                    <th class="th">Scheduled Time</th>
+                    <th class="th">备注</th>
+                    <th class="th">总重lbs</th>
+                    <th class="th">总CBM</th>
+                    <th class="th">总卡板数</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for s in shipment_selected %}
+                <tr>
+                    <td class="td" style="max-width: 120px; word-break: break-all;">
+                        <a href="/schedule_shipment/?step=shipment_info&batch_number={{ s.shipment_batch_number }}&warehouse={{ warehouse }}" target="_blank">
+                            {{ s.shipment_batch_number }}
+                        </a>
+                    </td>
+                    <td class="td">{{ s.destination }}</td>
+                    <td class="td">{{ s.appointment_id }}</td>
+                    <td class="td">{{ s.shipment_appointment|date:"Y-m-d" }} {{ s.shipment_appointment|time:"H:i" }}</td>
+                    <td class="td" style="max-width: 120px; word-break: break-all;">{{ s.note }}</td>
+                    <td class="td">{{ s.total_weight|floatformat:2 }}</td>
+                    <td class="td">{{ s.total_cbm|floatformat:2 }}</td>
+                    <td class="td">{{ s.total_pallet|floatformat:0 }}</td>
+                </tr>
+                {% endfor %}
+                <tr id="table-summary">
+                    <td class="td" colspan="5"><b>汇总</b></td>
+                    <td class="td">{{ fleet_data.total_weight|floatformat:2 }}</td>
+                    <td class="td">{{ fleet_data.total_cbm|floatformat:2 }}</td>
+                    <td class="td">{{ fleet_data.total_pallet|floatformat:0 }}</td>
+                </tr>
+            </tbody>
+        </table>
+    </div>
+</div>
+
+<script>
+    function toggleAllCheckboxes() {
+        var checkboxes = document.querySelectorAll('tbody input[type="checkbox"][name="is_appointment_added"]');
+        
+        checkboxes.forEach(function(checkbox) {
+            var tr = checkbox.closest('tr');
+            if (tr.style.display !== 'none') {
+                if (checkbox.checked) {
+                    tr.style.backgroundColor = '#ADD8E6'; // Change to your desired color
+                } else {
+                    tr.style.backgroundColor = ''; // Reset to default color
+                }
+            }
+        });
+    };
+
+    toggleAllCheckboxes();
+</script>
+{% endblock %}

@@ -1,11 +1,12 @@
 {% extends 'base.html' %}
 {% load custom_filters %}
 {% block content %}
+
 <div style="max-height: 100%; max-width: 100%;">
     <div><b>拆柜入库</b></div>
 </div>
 
-<form method="post" action="">
+<form method="post" action="" onsubmit="showLoadingBar()">
     {% csrf_token %}
     <div>
         <b style="margin-right: 5px;">选择仓库:</b>
@@ -14,6 +15,11 @@
         <button type="submit">确认</button>
     </div>
 </form>
+
+<div id="loading-bar">
+    <div class="spinner"></div>
+    <p>Loading, please wait...</p>
+</div>
 
 <div style="display: flex; max-height: 800px">
     <div style="max-height: 100%; width: 50%; border: 2px solid rgb(180, 180, 180); border-radius: 12px; padding: 1%; margin-top: 1%;">
@@ -227,5 +233,24 @@
             }
         }
     }
+
+    function showLoadingBar() {
+        document.getElementById('loading-bar').style.display = 'block';
+    }
+
+    // Hide loading bar when page is fully loaded
+    window.onload = function() {
+        document.getElementById('loading-bar').style.display = 'none';
+    };
+
+    // Attach the showLoadingBar function to form submit events
+    document.addEventListener('DOMContentLoaded', function() {
+        const form = document.querySelector('form');
+        if (form) {
+            form.addEventListener('submit', function() {
+                showLoadingBar();
+            });
+        }
+    });
 </script>
 {% endblock %}

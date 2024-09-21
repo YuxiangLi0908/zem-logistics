@@ -27,15 +27,13 @@
                 <thead>
                     <tr>
                         <th class="th">预约号</th>
-                        <th class="th">Carrier</th>
-                        <th class="th">3rd Party 地址</th>
+                        <th class="th">Scheduled Time</th>
                     </tr>
                 </thead>
                 <tbody>
                     <tr>
                         <td class="td"><input type="text" name="appointment_id" value="{{ shipment.appointment_id }}" style="font-size: 13px;"></td>
-                        <td class="td"><input type="text" name="carrier" value="{{ shipment.carrier }}" style="font-size: 13px;"></td>
-                        <td class="td"><input type="text" name="third_party_address" value="{{ shipment.third_party_address }}" style="font-size: 13px;"></td>
+                        <td class="td"><input type="datetime-local" name="shipment_appointment" value="{{ shipment.shipment_appointment|date:'Y-m-d\\TH:i'  }}" style="font-size: 13px;" required></td>
                     </tr>
                 </tbody>
             </table>
@@ -43,7 +41,6 @@
                 <thead>
                     <tr>
                         <th class="th">装车类型</th>
-                        <th class="th">Scheduled Time</th>
                         <th class="th">备注</th>
                     </tr>
                 </thead>
@@ -56,7 +53,6 @@
                                 {% endfor %}
                             </select>
                         </td>
-                        <td class="td"><input type="datetime-local" name="shipment_appointment" value="{{ shipment.shipment_appointment|date:'Y-m-d\\TH:i'  }}" style="font-size: 13px;" required></td>
                         <td class="td"><input type="text" name="note" value="{{ shipment.note }}" style="font-size: 13px;"></td>
                     </tr>
                 </tbody>

@@ -21,6 +21,7 @@ from warehouse.models.order import Order
 from warehouse.models.packing_list import PackingList
 from warehouse.models.pallet import Pallet
 from warehouse.models.shipment import Shipment
+from warehouse.models.fleet import Fleet
 from warehouse.forms.warehouse_form import ZemWarehouseForm
 from warehouse.forms.shipment_form import ShipmentForm
 from warehouse.forms.packling_list_form import PackingListForm
@@ -33,6 +34,10 @@ class ShippingManagement(View):
     template_td = "post_port/shipment/02_td_shipment.html"
     template_td_schedule = "post_port/shipment/02_1_td_shipment_schedule.html"
     template_td_shipment_info = "post_port/shipment/02_2_td_shipment_info.html"
+    template_fleet = "post_port/shipment/03_fleet_main.html"
+    template_fleet_schedule = "post_port/shipment/03_1_fleet_schedule.html"
+    template_fleet_schedule_info = "post_port/shipment/03_2_fleet_schedule_info.html"
+    template_outbound = "post_port/shipment/04_outbound_main.html"
 
     async def get(self, request: HttpRequest) -> HttpResponse:
         if not await self._user_authenticate(request):
@@ -40,6 +45,15 @@ class ShippingManagement(View):
         step = request.GET.get("step", None)
         if step == "shipment_info":
             template, context = await self.handle_shipment_info_get(request)
+            return render(request, template, context)
+        elif step == "outbound":
+            context = {"warehouse_form": ZemWarehouseForm()}
+            return render(request, self.template_outbound, context)
+        elif step == "fleet":
+            context = {"warehouse_form": ZemWarehouseForm()}
+            return render(request, self.template_fleet, context)
+        elif step == "fleet_info":
+            template, context = await self.handle_fleet_info_get(request)
             return render(request, template, context)
         else:
             context = {"warehouse_form": ZemWarehouseForm()}
@@ -64,6 +78,24 @@ class ShippingManagement(View):
         elif step == "update_appointment":
             template, context = await self.handle_update_appointment_post(request)
             return render(request, template, context)
+        elif step == "fleet_warehouse_search":
+            template, context = await self.handle_fleet_warehouse_search_post(request)
+            return render(request, template, context)
+        elif step == "add_appointment_to_fleet":
+            template, context = await self.handle_add_appointment_to_fleet_post(request)
+            return render(request, template, context)
+        elif step == "fleet_confirmation":
+            template, context = await self.handle_fleet_confirmation_post(request)
+            return render(request, template, context)
+        elif step == "update_fleet":
+            template, context = await self.handle_update_fleet_post(request)
+            return render(request, template, context)
+        elif step == "cancel_fleet":
+            template, context = await self.handle_cancel_fleet_post(request)
+            return render(request, template, context)
+        elif step == "outbound_warehouse_search":
+            template, context = await self.handle_outbound_warehouse_search_post(request)
+            return render(request, template, context)
         else:
             return await self.get(request)
         
@@ -82,6 +114,25 @@ class ShippingManagement(View):
             "warehouse": request.GET.get("warehouse"),
         })
         return self.template_td_shipment_info, context
+    
+    async def handle_fleet_info_get(self, request: HttpRequest) -> tuple[str, dict[str, Any]]:
+        fleet_number = request.GET.get("fleet_number")
+        mutable_post = request.POST.copy()
+        mutable_post['name'] = request.GET.get("warehouse")
+        request.POST = mutable_post
+        _, context = await self.handle_fleet_warehouse_search_post(request)
+        fleet = await sync_to_async(Fleet.objects.get)(fleet_number=fleet_number)
+        shipment = await sync_to_async(list)(
+            Shipment.objects.filter(fleet_number__fleet_number=fleet_number)
+        )
+        context.update({
+            "fleet": fleet,
+            "shipment": shipment,
+        })
+        return self.template_fleet_schedule_info, context
+    
+    async def handle_outbound_get(self, request: HttpRequest) -> tuple[str, dict[str, Any]]:
+        pass
 
     async def handle_warehouse_post(self, request: HttpRequest) -> tuple[str, dict[str, Any]]:
         warehouse = request.POST.get("name") if request.POST.get("name") else request.POST.get("warehouse")
@@ -222,14 +273,12 @@ class ShippingManagement(View):
             if await self._shipment_exist(shipment_data["shipment_batch_number"]):
                 raise ValueError(f"Shipment {shipment_data['shipment_batch_number']} already exists!")
             shipment_data["appointment_id"] = request.POST.get("appointment_id", None)
-            shipment_data["carrier"] = request.POST.get("carrier", None)
-            shipment_data["third_party_address"] = request.POST.get("third_party_address", None)
             try:
                 shipment_data["third_party_address"] = shipment_data["third_party_address"].strip()
             except:
                 pass
             shipment_data["load_type"] = request.POST.get("load_type", None)
-            shipment_data["note"] = request.POST.get("note", None)
+            shipment_data["note"] = request.POST.get("note", "")
             shipment_data["shipment_appointment"] = request.POST.get("shipment_appointment", None)
             shipment_data["shipment_schduled_at"] = current_time
             shipment_data["is_shipment_schduled"] = True
@@ -237,7 +286,6 @@ class ShippingManagement(View):
             shipment_data["address"] = request.POST.get("address", None)
             shipment = Shipment(**shipment_data)
             await sync_to_async(shipment.save)()
-            
             pl_ids = request.POST.get("pl_ids").strip('][').split(', ')
             pl_ids = [int(i) for i in pl_ids]
             packing_list = await sync_to_async(list)(PackingList.objects.filter(id__in=pl_ids))
@@ -304,8 +352,128 @@ class ShippingManagement(View):
         mutable_get['batch_number'] = batch_number
         request.GET = mutable_get
         return await self.handle_shipment_info_get(request)
+    
+    async def handle_fleet_warehouse_search_post(self, request: HttpRequest) -> tuple[str, dict[str, Any]]:
+        warehouse = request.POST.get("name") if request.POST.get("name") else request.POST.get("warehouse")
+        warehouse_form = ZemWarehouseForm(initial={"name": warehouse})
+        shipment = await sync_to_async(list)(
+            Shipment.objects.filter(
+                origin=warehouse,
+                fleet_number__isnull=True
+            ).order_by("shipment_appointment")
+        )
+        fleet = await sync_to_async(list)(
+            Fleet.objects.filter(
+                origin=warehouse,
+                departured_at__isnull=True,
+            ).order_by("appointment_date")
+        )
+        context = {
+            "shipment_list": shipment,
+            "fleet_list": fleet,
+            "warehouse_form": warehouse_form,
+            "warehouse": warehouse,
+            "shipment_ids": [],
+        }
+        return self.template_fleet, context
+    
+    async def handle_add_appointment_to_fleet_post(self, request: HttpRequest) -> tuple[str, dict[str, Any]]:
+        selections = request.POST.getlist("is_appointment_added")
+        ids = request.POST.getlist("shipment_ids")
+        selected_ids = [int(id) for s, id in zip(selections, ids) if s == "on"]
+        if selected_ids:
+            current_time = datetime.now()
+            _, context = await self.handle_fleet_warehouse_search_post(request)
+            fleet_number = "F" + current_time.strftime("%m%d%H%M%S") + str(uuid.uuid4())[:2].upper()
+            shipment_selected = await sync_to_async(list)(
+                Shipment.objects.filter(id__in=selected_ids)
+            )
+            total_weight, total_cbm, total_pcs, total_pallet = .0, .0, 0, 0
+            for s in shipment_selected:
+                total_weight += s.total_weight
+                total_cbm += s.total_cbm
+                total_pcs += s.total_pcs
+                total_pallet += s.total_pallet
+            fleet_data = {
+                "fleet_number": fleet_number,
+                "origin": request.POST.get("warehouse"),
+                "total_weight": total_weight,
+                "total_cbm": total_cbm,
+                "total_pallet": total_pallet,
+                "total_pcs": total_pcs,
+            }
+            context.update({
+                "shipment_ids": selected_ids,
+                "fleet_number": fleet_number,
+                "shipment_selected": shipment_selected,
+                "fleet_data": fleet_data,
+            })
+            return self.template_fleet_schedule, context
+        else:
+            return await self.handle_fleet_warehouse_search_post(request)
 
-    async def _get_packing_list(self, criteria: models.Q) -> list[PackingList]:
+    async def handle_fleet_confirmation_post(self, request: HttpRequest) -> tuple[str, dict[str, Any]]:
+        current_time = datetime.now()
+        fleet_data = ast.literal_eval(request.POST.get("fleet_data"))
+        shipment_ids = request.POST.get("selected_ids").strip('][').split(', ')
+        shipment_ids = [int(i) for i in shipment_ids]
+        fleet_data.update({
+            "carrier": request.POST.get("carrier", ""),
+            "third_party_address": request.POST.get("third_party_address", ""),
+            "appointment_date": request.POST.get("appointment_date"),
+            "scheduled_at": current_time,
+            "note": request.POST.get("note", ""),
+            "multipule_destination": True if len(shipment_ids) > 1 else False,
+        })
+        fleet = Fleet(**fleet_data)
+        await sync_to_async(fleet.save)()
+        shipment = await sync_to_async(list)(Shipment.objects.filter(id__in=shipment_ids))
+        for s in shipment:
+            s.fleet_number = fleet
+        await sync_to_async(Shipment.objects.bulk_update)(shipment, ["fleet_number"])
+        return await self.handle_fleet_warehouse_search_post(request)
+
+    async def handle_update_fleet_post(self, request: HttpRequest) -> tuple[str, dict[str, Any]]:
+        fleet_number = request.POST.get("fleet_number")
+        fleet = await sync_to_async(Fleet.objects.get)(fleet_number=fleet_number)
+        fleet.carrier = request.POST.get("carrier", "")
+        fleet.third_party_address = request.POST.get("third_party_address", "")
+        fleet.appointment_date = request.POST.get("appointment_date")
+        fleet.note = request.POST.get("note", "")
+        await sync_to_async(fleet.save)()
+        mutable_get = request.GET.copy()
+        mutable_get['warehouse'] = request.POST.get("warehouse")
+        mutable_get['fleet_number'] = fleet_number
+        request.GET = mutable_get
+        return await self.handle_fleet_info_get(request)
+    
+    async def handle_cancel_fleet_post(self, request: HttpRequest) -> tuple[str, dict[str, Any]]:
+        fleet_number = request.POST.get("fleet_number")
+        fleet = await sync_to_async(Fleet.objects.get)(fleet_number=fleet_number)
+        if fleet.departured_at is not None:
+            raise RuntimeError(f"Shipment with batch number {fleet_number} has been shipped!")
+        await sync_to_async(fleet.delete)()
+        warehouse = request.POST.get("warehouse")
+        mutable_post = request.POST.copy()
+        mutable_post['name'] = warehouse
+        request.POST = mutable_post
+        return await self.handle_fleet_warehouse_search_post(request)
+    
+    async def handle_outbound_warehouse_search_post(self, request: HttpRequest) -> tuple[str, dict[str, Any]]:
+        warehouse = request.POST.get("name") if request.POST.get("name") else request.POST.get("warehouse")
+        warehouse_form = ZemWarehouseForm(initial={"name": warehouse})
+        fleet = await sync_to_async(list)(
+            Fleet.objects.prefetch_related(
+                "shipment"
+            ).filter(
+                origin=warehouse,
+                departured_at__isnull=True,
+            ).all()
+        )
+        # temp = [f.shipment.shipment_batch_number for f in fleet]
+        raise ValueError(fleet)
+
+    async def _get_packing_list(self, criteria: models.Q) -> list[Any]:
         return await sync_to_async(list)(
             PackingList.objects.prefetch_related(
                 "container_number", "container_number__order", "container_number__order__warehouse", "shipment_batch_number"
@@ -324,6 +492,7 @@ class ShippingManagement(View):
                 str_id=Cast("id", CharField()),
                 str_fba_id=Cast("fba_id", CharField()),
                 str_ref_id=Cast("ref_id", CharField()),
+                str_shipping_mark=Cast("shipping_mark", CharField())
             ).values(
                 'container_number__container_number',
                 'container_number__order__customer_name__zem_name',
@@ -335,6 +504,7 @@ class ShippingManagement(View):
             ).annotate(
                 fba_ids=StringAgg("str_fba_id", delimiter=",", distinct=True, ordering="str_fba_id"),
                 ref_ids=StringAgg("str_ref_id", delimiter=",", distinct=True, ordering="str_ref_id"),
+                shipping_marks=StringAgg("str_shipping_mark", delimiter=",", distinct=True, ordering="str_shipping_mark"),
                 ids=StringAgg("str_id", delimiter=",", distinct=True, ordering="str_id"),
                 total_pcs=Sum(
                     Case(
@@ -368,7 +538,7 @@ class ShippingManagement(View):
                 ),
             ).distinct().order_by('container_number__order__offload_id__offload_at')
         )
-    
+
     async def _shipment_exist(self, batch_number: str) -> bool:
         if await sync_to_async(list)(Shipment.objects.filter(shipment_batch_number=batch_number)):
             return True
