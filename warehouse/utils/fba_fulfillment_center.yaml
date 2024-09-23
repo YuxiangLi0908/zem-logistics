@@ -1813,4 +1813,8 @@ BNA6:
   location: 3875 Guthrie Hwy
   state: TN
   zipcode: '37040'
-  
+RDU4:
+  city: Fayetteville
+  location: 6309 Bragg Blvd
+  state: NC
+  zipcode: '28303'  
