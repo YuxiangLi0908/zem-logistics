@@ -20,7 +20,7 @@
             <input type="hidden" name="step" value="delete_order">
             <input type="hidden" name="start_date" value="{{ start_date }}">
             <input type="hidden" name="end_date" value="{{ end_date }}">
-            <button type="submit" onclick="confirmSubmit()" class="btn btn-danger" style="width: 100px; height: 35px;">删除订单</button>
+            <button type="submit" onclick="confirmSubmit(this)" class="btn btn-danger" style="width: 100px; height: 35px;">删除订单</button>
         </div>
     </form>
     {% endif %}
@@ -33,9 +33,10 @@
         <table id="order-table" class="table" style="font-size: 12px; width: 100%;">
             <thead>
                 <tr style="position: sticky; top: 0;">
-                    <th class="th" style="max-width: 2%; min-width: 10px; text-align: center;"></th>
+                    <th class="th" style="max-width: 2%; min-width: 10px; text-align: center;"></th>                   
                     <th class="th">客户</th>
                     <th class="th">柜号</th>
+                    <th class="th">取消预报</th>
                     <th class="th" style="min-width: 140px;">入仓仓库</th>
                     <th class="th" style="min-width: 140px;">ETA</th>
                     <th class="th">订单类型</th>
@@ -47,10 +48,18 @@
                     <th class="th" style="min-width: 240px;">创建时间</th>
                 </tr>
                 <tr style="position: sticky; top: 28px;">
-                    <th class="th" style="max-width: 2%; min-width: 10px; text-align: center;"></th>
+                    <th class="th" style="max-width: 2%; min-width: 10px; text - align: center;">
+                        <input type="checkbox" id="selectAll">
+                    </th>
                     <th class="th"><input type="text" id="customerSearchInput" placeholder="搜索客户..." oninput="filterTable()"></th>
                     <th class="th"><input type="text" id="containerSearchInput" placeholder="搜索柜号..." oninput="filterTable()"></th>
-                    <th class="th"></th>
+                    <th class="th">
+                        <select id="filter-select">
+                            <option value="all">全选</option>
+                            <option value="cancelled">已取消</option>
+                            <option value="not-cancelled">未取消</option>
+                        </select>
+                    </th>
                     <th class="th"></th>
                     <th class="th"></th>
                     <th class="th"></th>
@@ -65,7 +74,7 @@
                 {% for o in orders %}
                 <tr>
                     <td class="td" style="max-width: 2%; min-width: 10px; text-align: center;">
-                        <input type='checkbox' name='is_order_selected' onclick="toggleRowBackground(this)">
+                        <input type='checkbox' name='is_order_selected_click' onclick="toggleRowBackground(this)">
                         <input type="hidden" name="is_order_selected", value='off'>
                         <input type="hidden" name="order_id", value='{{ o.order_id }}'>
                     </td>
@@ -75,6 +84,13 @@
                             {{ o.container_number }}
                         </a>
                     </td>
+                    <td class="td">
+                        {% if o.cancel_notification %}
+                            {{"已取消"}}
+                        {% else  %}
+                            {{"未取消"}}
+                        {% endif %}
+                    </td>  
                     <td class="td">{{ o.warehouse }}</td>
                     <td class="td">
                         {% if o.vessel_id %}
@@ -96,6 +112,10 @@
         </table>
     </div>
     <hr class="Dashed" style="margin-top: 10px; margin-bottom: 10px; width: 100%;">
+    <div>
+        <input type="hidden" name="step" value="export_forecast">
+        <button type="submit" onclick="exportForecast(this)" class="btn btn-primary" style="width: 100px; height: 35px;">导出预报</button>
+    </div>
 </form>
 
 <script>
@@ -208,6 +228,90 @@
                 tr[i].style.display = containerDisplayStyle === "" && customerDisplayStyle === "" ? "" : "none";
             }
         }
+    };
+    document.getElementById('filter-select').addEventListener('change', function () {
+        var table, tbody, tr, i;
+        var selectedValue = this.value;
+        table = document.getElementById("order-table");
+        tbody = table.getElementsByTagName("tbody")[0];
+        tr = tbody.getElementsByTagName("tr");
+        var selectedOption = this.options[this.selectedIndex];
+        var optionText = selectedOption.textContent || selectedOption.innerText;
+        if (optionText == "全选"){
+            for (var i = 0; i < tr.length; i++) {
+                tr[i].style.display = "";
+            }
+        }else{
+            for (var i = 0; i < tr.length; i++) {
+                cancel_status = tr[i].getElementsByTagName("td")[3];
+                cancel_data = cancel_status.textContent || cancel_status.innerText;
+                if (optionText == cancel_data.trim()){   //通过打印发现cancel_data返回的结果前后存在较长的空字符串
+                    tr[i].style.display = "";
+                }else{
+                    tr[i].style.display = "none";
+                }
+    
+            }
+        }       
+    });
+
+    function confirmSubmit(Element){
+        if (selectedOrders.length === 0){
+            alert('未选中数据！')
+            return;
+        }
+        if (confirm('是否确定删除？')){
+            let form = Element.parentNode.parentNode;
+            let hiddenInput = document.createElement('input');
+            hiddenInput.type = 'hidden';
+            hiddenInput.name ='selectedOrders';
+            hiddenInput.value = JSON.stringify(selectedOrders);
+            form.appendChild(hiddenInput);
+            form.submit();
+        }       
+    };
+
+    var selectedOrders = [];   //存储选中的数据行
+    function toggleRowBackground(checkbox){
+        let row = checkbox.parentNode.parentNode;
+        let OrderElement = row.children[2];      
+        let Orders = OrderElement? OrderElement.textContent : '';
+        if (checkbox.checked) {
+            // 将选中行的container_number添加到数组中
+            selectedOrders.push(Orders.trim());
+        } else {
+            // 如果取消选中，从数组中移除对应的container_number
+            let index = selectedOrders.indexOf(Orders.trim());
+            if (index > -1) {
+                selectedOrders.splice(index, 1);
+            }
+        }
+    };
+    //全选的操作
+    document.getElementById('selectAll').addEventListener('click', function () {
+        var checkboxes = document.getElementsByName('is_order_selected_click');
+        for (var i = 0; i < checkboxes.length; i++) {
+            
+            checkboxes[i].checked = this.checked;
+            if (this.checked){
+                let checkbox = checkboxes[i];
+                let row = checkbox.parentNode.parentNode;
+                let OrderElement = row.children[2];
+                let Orders = OrderElement? OrderElement.textContent : '';
+                selectedOrders.push(Orders.trim());
+            }
+
+        }
+    });
+    //导出时，增加隐藏的input
+    function exportForecast(Element){
+        let form = Element.parentNode.parentNode;
+        let hiddenInput = document.createElement('input');
+        hiddenInput.type = 'hidden';
+        hiddenInput.name ='selectedOrders';
+        hiddenInput.value = JSON.stringify(selectedOrders);
+        form.appendChild(hiddenInput);
+        form.submit();
     };
 </script>
 {% endblock %}

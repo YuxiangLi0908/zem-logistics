@@ -20,6 +20,14 @@
             <li class="nav-item">
                 <button class="nav-link" onclick="showSection(this, 'order-export-sec')"><b>表格导出</b></button>
             </li>
+            <form method="post" action="">
+                {% csrf_token %}
+                <input type="hidden" name="step" value="cancel_notification">
+                <input type="hidden" name="container_number" value="{{ selected_order.container_number.container_number }}">
+                <button id="submit-btn-update-basic-info" type="submit" class="btn btn-primary" style="width: 90px; height: 30px; margin-left: 20px; font-size: 13px;">
+                <b>取消预报</b></button>
+            </form>
+
         </ul>
     </div>
 </div>
