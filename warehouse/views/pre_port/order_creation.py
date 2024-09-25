@@ -102,32 +102,27 @@ class OrderCreation(View):
             
 
     async def handle_export_forecast(self, request: HttpRequest) -> tuple[Any, Any]:           
-        selectedOrders = json.loads(request.POST.get('selectedOrders', '[]'))
-        selectedOrders = list(set(selectedOrders))
-        orders_export = []
-        for container_number in selectedOrders:
-            orders = await sync_to_async(list)(
+        selected_orders = json.loads(request.POST.get('selectedOrders', '[]'))
+        selected_orders = list(set(selected_orders))
+        orders = await sync_to_async(list)(
                 Order.objects.select_related(
                     "vessel_id", "container_number", "customer_name", "retrieval_id "
                 ).values(
                     "container_number__container_number", "customer_name__zem_code", "vessel_id__vessel_eta", "cancel_time", "created_at",
                     "retrieval_id__retrieval_carrier", "vessel_id__destination_port","vessel_id__master_bill_of_lading"
                 ).filter(
-                    models.Q(container_number__container_number=container_number)
-                )
+                    models.Q(container_number__container_number__in=selected_orders)
+                ) 
             )
-            for order in orders:
-                #timezone-aware会报错，改成指定时区UTC
-                if order.get('created_at'):  #
-                    order['created_at'] = order['created_at'].astimezone(pytz.utc).replace(tzinfo=None)
-                #由于carrier的内容为中文，导出的文件中为乱码，所以修改编码，但是这段代码并没有解决编码问题，依旧是乱码，没有找到解决方案
-                if order.get('retrieval_id__retrieval_carrier'):  
-                    raw_data = order['retrieval_id__retrieval_carrier']
-                    raw_data = raw_data.encode('utf-8')
-                    encoding = chardet.detect(raw_data)['encoding']
-                    order['retrieval_id__retrieval_carrier'] = raw_data.decode(encoding)
-            orders_export.extend(orders)
-        df = pd.DataFrame(orders_export)
+        for order in orders:
+            #由于carrier的内容为中文，导出的文件中为乱码，所以修改编码，但是这段代码并没有解决编码问题，依旧是乱码，没有找到解决方案
+            if order.get('retrieval_id__retrieval_carrier'):  
+                raw_data = order['retrieval_id__retrieval_carrier']
+                raw_data = raw_data.encode('utf-8')
+                encoding = chardet.detect(raw_data)['encoding']
+                order['retrieval_id__retrieval_carrier'] = raw_data.decode(encoding)
+            
+        df = pd.DataFrame(orders)
         df = df.rename(
             {
                 "container_number__container_number": "container",
