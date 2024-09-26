@@ -167,7 +167,6 @@ class OrderCreation(View):
             "container_type": self.container_type,
             "unfinished_orders": unfinished_orders,
         }
-        print("handle_order_basic_info_get",context)
         return self.template_order_create_base, context
     
     async def handle_order_supplemental_info_get(self, request: HttpRequest) -> tuple[Any, Any]:
