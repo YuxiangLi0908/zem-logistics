@@ -2,6 +2,7 @@ import ast
 import pytz
 import uuid
 import asyncio
+import pandas as pd
 from asgiref.sync import sync_to_async
 from datetime import datetime, timedelta
 from typing import Any
@@ -22,6 +23,7 @@ from warehouse.models.packing_list import PackingList
 from warehouse.models.pallet import Pallet
 from warehouse.models.shipment import Shipment
 from warehouse.models.fleet import Fleet
+from warehouse.models.warehouse import ZemWarehouse
 from warehouse.forms.warehouse_form import ZemWarehouseForm
 from warehouse.forms.shipment_form import ShipmentForm
 from warehouse.forms.packling_list_form import PackingListForm
@@ -39,6 +41,7 @@ class ShippingManagement(View):
     template_fleet_schedule_info = "post_port/shipment/03_2_fleet_schedule_info.html"
     template_outbound = "post_port/shipment/04_outbound_main.html"
     template_outbound_departure = "post_port/shipment/04_outbound_depature_confirmation.html"
+    template_bol = "export_file/bol_base_template.html"
 
     async def get(self, request: HttpRequest) -> HttpResponse:
         if not await self._user_authenticate(request):
@@ -100,6 +103,12 @@ class ShippingManagement(View):
         elif step == "outbound_warehouse_search":
             template, context = await self.handle_outbound_warehouse_search_post(request)
             return render(request, template, context)
+        elif step == "export_packing_list":
+            return await self.handle_export_packing_list_post(request)
+        elif step == "export_bol":
+            return await self.handle_export_bol_post(request)
+        elif step == "fleet_departure":
+            pass
         else:
             raise ValueError(request.POST)
             return await self.get(request)
@@ -138,11 +147,12 @@ class ShippingManagement(View):
     
     async def handle_fleet_depature_get(self, request: HttpRequest) -> tuple[str, dict[str, Any]]:
         selected_fleet_number = request.GET.get("fleet_number")
+        warehouse = request.GET.get("warehouse")
         selected_fleet = await sync_to_async(Fleet.objects.get)(fleet_number=selected_fleet_number)
         shipment = await sync_to_async(list)(
             Shipment.objects.filter(
                 fleet_number__fleet_number=selected_fleet_number
-            ).order_by("shipment_appointment")
+            ).order_by("-shipment_appointment")
         )
         mutable_post = request.POST.copy()
         mutable_post['name'] = request.GET.get("warehouse")
@@ -151,6 +161,7 @@ class ShippingManagement(View):
         context.update({
             "selected_fleet": selected_fleet,
             "shipment": shipment,
+            "warehouse": warehouse,
         })
         return self.template_outbound_departure, context
 
@@ -494,7 +505,84 @@ class ShippingManagement(View):
             "fleet": fleet,
         }
         return self.template_outbound, context
-
+    
+    async def handle_export_packing_list_post(self, request: HttpRequest) -> HttpResponse:
+        fleet_number = request.POST.get("fleet_number")
+        shipment = await sync_to_async(list)(
+            Shipment.objects.filter(fleet_number__fleet_number=fleet_number).order_by("-shipment_appointment")
+        )
+        packing_list = await sync_to_async(list)(
+            PackingList.objects.select_related(
+                "container_number", "shipment_batch_number", "pallet"
+            ).filter(
+                shipment_batch_number__fleet_number__fleet_number=fleet_number
+            ).values(
+                "container_number__container_number", "destination", "shipment_batch_number__shipment_batch_number",
+                "shipment_batch_number__shipment_appointment"
+            ).annotate(
+                total_weight=Sum("pallet__weight_lbs"),
+                total_cbm=Sum("pallet__cbm"),
+                total_n_pallet=Count("pallet__pallet_id", distinct=True),
+            ).order_by("-shipment_batch_number__shipment_appointment")
+        )
+        df = pd.DataFrame(packing_list)
+        if len(shipment) > 1:
+            i = 1
+            for s in shipment:
+                df.loc[df["shipment_batch_number__shipment_batch_number"]==s.shipment_batch_number, "一提两卸"] = f"第{i}装"
+                i += 1
+        df = df.rename(
+            columns={
+                "container_number__container_number": "柜号",
+                "destination": "仓点",
+                "shipment_batch_number__shipment_batch_number": "预约批次",
+                "total_cbm": "CBM",
+                "total_n_pallet": "板数",
+            }
+        )
+        if len(shipment) > 1:
+            df = df[["柜号", "预约批次", "仓点", "CBM", "板数", "一提两卸"]]
+        else:
+            df = df[["柜号", "预约批次", "仓点", "CBM", "板数"]]
+        response = HttpResponse(content_type="text/csv")
+        response['Content-Disposition'] = f"attachment; filename=packing_list_{fleet_number}.csv"
+        df.to_csv(path_or_buf=response, index=False)
+        return response
+    
+    async def handle_export_bol_post(self, request: HttpRequest) -> HttpResponse:
+        batch_number = request.POST.get("shipment_batch_number")
+        warehouse = request.POST.get("warehouse")
+        warehouse_obj = await sync_to_async(ZemWarehouse.objects.get)(name=warehouse) if warehouse else None
+        shipment = await sync_to_async(Shipment.objects.get)(shipment_batch_number=batch_number)
+        packing_list = await sync_to_async(list)(
+            PackingList.objects.select_related("container_number").filter(
+                shipment_batch_number__shipment_batch_number=batch_number
+            )
+        )
+        address_chinese_char = False if shipment.address.isascii() else True
+        destination_chinese_char = False if shipment.destination.isascii() else True
+        try:
+            note_chinese_char = False if shipment.note.isascii() else True
+        except:
+            note_chinese_char = False
+        context = {
+            "warehouse": warehouse_obj.address,
+            "batch_number": batch_number,
+            "shipment": shipment,
+            "packing_list": packing_list,
+            "address_chinese_char": address_chinese_char,
+            "destination_chinese_char": destination_chinese_char,
+            "note_chinese_char": note_chinese_char,
+        }
+        template = get_template(self.template_bol)
+        html = template.render(context)
+        response = HttpResponse(content_type="application/pdf")
+        response['Content-Disposition'] = f'attachment; filename="BOL_{batch_number}.pdf"'
+        pisa_status = pisa.CreatePDF(html, dest=response)
+        if pisa_status.err:
+            raise ValueError('Error during PDF generation: %s' % pisa_status.err, content_type='text/plain')
+        return response
+        
     async def _get_packing_list(self, criteria: models.Q) -> list[Any]:
         return await sync_to_async(list)(
             PackingList.objects.prefetch_related(
