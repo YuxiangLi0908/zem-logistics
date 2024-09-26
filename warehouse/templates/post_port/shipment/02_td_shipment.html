@@ -1,0 +1,263 @@
+{% extends 'base.html' %}
+{% load static %}
+{% load static custom_tags %}
+{% load static custom_filters %}
+{% load static custom_mod %}
+{% load static custom_floor_division %}
+
+{% block content %}
+<div><b>预约管理</b></div>
+
+<form method="post" action="">
+    {% csrf_token %}
+    <div>
+        <b style="margin-right: 5px;">选择仓库:</b>
+        <input type="hidden" name="step" value="warehouse">
+        {{ warehouse_form.name }}
+        <button type="submit">确认</button>
+    </div>
+</form>
+
+<div style="display: flex;">
+    <div style="height: 800px; width: 60%; margin-top: .5%; margin-right: .5%; margin-bottom: 1%;">
+        <div style="height: 50%; width: 100%; border: 2px solid rgb(180, 180, 180); border-radius: 12px; padding: 1%;">
+            <div style="max-height: 99%; overflow-y: scroll;">
+                <form method="post" action="" style="max-height: 100%;">
+                    {% csrf_token %}
+                    <div style="display: flex; position: sticky; top: 0; background-color: #f8f9fa;">
+                        <div style="width: 80%;">
+                            <b style="background-color: rgb(208, 208, 208); border-radius: 20px; font-size: 11px; display:inline-flex; color: rgb(100, 100, 100); padding: 5px;">
+                                待预约
+                            </b>
+                            <b style="background-color: rgb(208, 208, 208); border-radius: 20px; font-size: 11px; display:inline-flex; color: rgb(100, 100, 100); padding: 5px;">
+                                CBM - 
+                                <span class="status-span-green-100" style="padding-top: 0; padding-bottom: 0;">库存 {{ cbm_act|floatformat:2 }}</span> / 
+                                <span class="status-span-blue-100" style="padding-top: 0; padding-bottom: 0;">ETA {{ cbm_est|floatformat:2 }}</span>
+                            </b>
+                            <b style="background-color: rgb(208, 208, 208); border-radius: 20px; font-size: 11px; display:inline-flex; color: rgb(100, 100, 100); padding: 5px;">
+                                卡板 - 
+                                <span class="status-span-green-100" style="padding-top: 0; padding-bottom: 0;">库存 {{ pallet_act|floatformat:0 }}</span> / 
+                                <span class="status-span-blue-100" style="padding-top: 0; padding-bottom: 0;">ETA {{ pallet_est|floatformat:0 }}</span>
+                            </b>
+                        </div>
+                        <input type="hidden" name="step" value="selection">
+                        <input type="hidden" name="warehouse" value="{{ warehouse }}">
+                        <button type="submit" onclick="confirmSubmit()" class="btn btn-primary" style="font-size: 11px;">预约出库批次</button>
+                    </div>
+                    
+                    <table id="packing-list-table" class="table" style="font-size: 11px; max-height: 90%; overflow-y: scroll;">
+                        <thead>
+                            <tr style="position: sticky; top: 30px;">
+                                <th class="th" style="min-width: 40px; text-align: center;"></th>
+                                <th class="th">客户</th>
+                                <th class="th">货柜号</th>
+                                <th class="th">目的仓库</th>
+                                <th class="th">入仓时间</th>
+                                <th class="th">CBM</th>
+                                <th class="th">卡板数</th>
+                                <th class="th">派送方式</th>
+                                <th class="th">总重lbs</th>
+                            </tr>
+                            <tr style="position: sticky; top: 52px;">
+                                <th class="th" style="min-width: 40px;"></th>
+                                <th class="th"></th>
+                                <th class="th"><input type="text" id="containerSearchInput" placeholder="搜索柜号..." oninput="filterTable()" size="13" style="font-size: 11px;"></th>
+                                <th class="th"><input type="text" id="destinationSearchInput" placeholder="搜索目的仓库..." oninput="filterTable()" size="13" style="font-size: 11px;"></th>
+                                <th class="th"></th>
+                                <th class="th"></th>
+                                <th class="th"></th>
+                                <th class="th"></th>
+                                <th class="th"></th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {% for c in packing_list_not_scheduled %}
+                            <tr>
+                                <td class="td" style="min-width: 40px; text-align: center;">
+                                    <input type='checkbox' name='is_shipment_schduled' onclick="toggleRowBackground(this)" {% if c.ids in pl_ids_raw %}checked{% endif %}>
+                                    <input type="hidden" name="is_shipment_schduled", value='off'>
+                                    <input type="hidden" name="pl_ids", value='{{ c.ids }}'>
+                                </td>
+                                <td class="td" style="max-width: 120px; word-break: break-all;">{{ c.container_number__order__customer_name__zem_name }}</td>
+                                <td class="td">{{ c.container_number__container_number }}</td>
+                                <td class="td">{{ c.destination }}</td>
+                                <td class="td">
+                                    {% if c.schedule_status == 'past_due' %}
+                                    <span class="status-span-red">{{ c.container_number__order__offload_id__offload_at|date:"M-j" }}</span>
+                                    {% else %}
+                                    {{ c.container_number__order__offload_id__offload_at|date:"M-j" }}
+                                    {% endif %}
+                                </td>
+                                <td class="td">{{ c.total_cbm|floatformat:2 }}</td>
+                                <td class="td">
+                                    {% if c.label == "ACT" %}
+                                    <span class="status-span-green-100">ACT</span>
+                                    {{ c.total_n_pallet_act }}
+                                    {% else %}
+                                        <span class="status-span-blue-100">EST</span>
+                                        {% if c.total_n_pallet_est < 1 %}
+                                        {{ 1 }}
+                                        {% elif c.total_n_pallet_est|modulo:1 >= 0.45 %}
+                                        {{ c.total_n_pallet_est|floor_division:1|add:1|floatformat:0 }}
+                                        {% else %}
+                                        {{ c.total_n_pallet_est|floor_division:1|floatformat:0 }}
+                                        {% endif %}
+                                    {% endif %}
+                                </td>
+                                <td class="td">
+                                    {% with first_value=c.custom_delivery_method|split_and_get_first %}
+                                        {{ first_value }}
+                                    {% endwith %}
+                                </td>
+                                <td class="td">{{ c.total_weight_lbs|floatformat:2 }}</td>
+                            </tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                </form> 
+            </div>
+        </div>
+        <div style="height: 50%; width: 100%; border: 2px solid rgb(180, 180, 180); border-radius: 12px; padding: 1%; margin-top: .5%;">
+            <div>
+                <b style="background-color: rgb(208, 208, 208); border-radius: 20px; font-size: 11px; display:inline-flex; color: rgb(100, 100, 100); padding: 5px;">
+                    预约批次 - {{ shipment_list|length }}
+                </b>
+            </div>
+            <div style="max-height: 95%; overflow-y: scroll;">
+                <table id="shipment-table" class="table" style="font-size: 11px; max-height: 90%; overflow-y: scroll;">
+                    <thead>
+                        <tr>
+                            <th class="th">预约批次</th>
+                            <th class="th">目的地</th>
+                            <th class="th">预约号</th>
+                            <th class="th">Scheduled Time</th>
+                            <th class="th">总重lbs</th>
+                            <th class="th">总CBM</th>
+                            <th class="th">总卡板数</th>
+                            <th class="th">备注</th>
+                            <th class="th">撤销预约</th>
+                        </tr>
+                        <tr style="position: sticky; top: 28px;">
+                            <th class="th"><input type="text" id="shipmentSearchInput" placeholder="搜索批次号..." oninput="filterShipmentTable()" size="13" style="font-size: 11px;"></th>
+                            <th class="th"><input type="text" id="destSearchInput" placeholder="搜索目的地..." oninput="filterShipmentTable()" size="13" style="font-size: 11px;"></th>
+                            <th class="th"><input type="text" id="appIdSearchInput" placeholder="搜索预约号..." oninput="filterShipmentTable()" size="13" style="font-size: 11px;"></th>
+                            <th class="th"></th>
+                            <th class="th"></th>
+                            <th class="th"></th>
+                            <th class="th"></th>
+                            <th class="th"></th>
+                            <th class="th"></th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for s in shipment_list %}
+                        <tr>
+                            <td class="td" style="max-width: 120px; word-break: break-all;">
+                                <a href="/schedule_shipment/?step=shipment_info&batch_number={{ s.shipment_batch_number }}&warehouse={{ warehouse }}">
+                                    {{ s.shipment_batch_number }}
+                                </a>
+                            </td>
+                            <td class="td">{{ s.destination }}</td>
+                            <td class="td">{{ s.appointment_id }}</td>
+                            <td class="td">{{ s.shipment_appointment|date:"Y-m-d" }} {{ s.shipment_appointment|time:"H:i" }}</td>
+                            <td class="td">{{ s.total_weight|floatformat:2 }}</td>
+                            <td class="td">{{ s.total_cbm|floatformat:2 }}</td>
+                            <td class="td">{{ s.total_pallet }}</td>
+                            <td class="td" style="max-width: 120px; word-break: break-all;">{{ s.note }}</td>
+                            <td class="td">
+                                <form method="post" action="">
+                                    {% csrf_token %}
+                                    <input type="hidden" name="step" value="cancel">
+                                    <input type="hidden" name="type" value="td">
+                                    <input type="hidden" name="shipment_batch_number" value="{{ s.shipment_batch_number }}">
+                                    <input type="hidden" name="warehouse" value="{{ warehouse }}">
+                                    <button type="submit" class="btn btn-danger"><i class="bi bi-x-octagon"></i></button>
+                                </form>
+                            </td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+
+    {% block schedule_shipment %}
+        
+    {% endblock %}
+
+    {% block shipment_info %}
+        
+    {% endblock %}
+</div>
+
+
+<script>
+    function filterTable() {
+        var containerInput, destinationInput, containerFilter, destinationFilter, table, tbody, tr, containerTd, destinationTd, i, containerTxtValue, destinationTxtValue;
+        containerInput = document.getElementById("containerSearchInput");
+        destinationInput = document.getElementById("destinationSearchInput");
+        containerFilter = containerInput.value.toUpperCase();
+        destinationFilter = destinationInput.value.toUpperCase();
+        table = document.getElementById("packing-list-table");
+        tbody = table.getElementsByTagName("tbody")[0];
+        tr = tbody.getElementsByTagName("tr");
+
+        for (i = 0; i < tr.length; i++) {
+            containerTd = tr[i].getElementsByTagName("td")[2]; // Index 1 corresponds to the container_number__container_number column
+            destinationTd = tr[i].getElementsByTagName("td")[3]; // Index 2 corresponds to the destination column
+            if (containerTd && destinationTd) {
+                containerTxtValue = containerTd.textContent || containerTd.innerText;
+                destinationTxtValue = destinationTd.textContent || destinationTd.innerText;
+                var containerDisplayStyle = containerTxtValue.toUpperCase().indexOf(containerFilter) > -1 ? "" : "none";
+                var destinationDisplayStyle = destinationTxtValue.toUpperCase().indexOf(destinationFilter) > -1 ? "" : "none";
+
+                // Set display style based on both container and destination filters
+                tr[i].style.display = containerDisplayStyle === "" && destinationDisplayStyle === "" ? "" : "none";
+            }
+        }
+    }
+
+    function filterShipmentTable() {
+        var shipmentInput = document.getElementById("shipmentSearchInput").value.toUpperCase();
+        var destInput = document.getElementById("destSearchInput").value.toUpperCase();
+        var appIdInput = document.getElementById("appIdSearchInput").value.toUpperCase();
+        tr = document.querySelectorAll("#shipment-table tbody tr");
+
+        for (i = 0; i < tr.length; i++) {
+            var shipmentTd = tr[i].getElementsByTagName("td")[0];
+            var destTd = tr[i].getElementsByTagName("td")[1];
+            var appIdTd = tr[i].getElementsByTagName("td")[2];
+            if (shipmentTd && destTd && appIdTd) {
+                var shipmentTxtValue = shipmentTd.textContent.trim();
+                var destTxtValue = destTd.textContent.trim();
+                var appIdTxtValue = appIdTd.textContent.trim(); 
+
+                var shipmentDisplayStyle = shipmentTxtValue.toUpperCase().indexOf(shipmentInput) > -1 ? "" : "none";
+                var destDisplayStyle = destTxtValue.toUpperCase().indexOf(destInput) > -1 ? "" : "none";
+                var appIdDisplayStyle = appIdTxtValue.toUpperCase().indexOf(appIdInput) > -1 ? "" : "none";
+
+                tr[i].style.display = shipmentDisplayStyle === "" && destDisplayStyle === "" && appIdDisplayStyle === "" ? "" : "none";
+            }
+        };
+    }
+
+    function confirmSubmit() {
+        const checkBoxes = document.getElementsByName('is_shipment_schduled');
+        for (let i = 0; i < checkBoxes.length; i+=2) {
+            if (checkBoxes[i].checked) {
+                checkBoxes[i+1].disabled = true;
+            }
+        }
+    }
+
+    function toggleRowBackground(checkbox) {
+        var row = checkbox.closest('tr');
+        if (checkbox.checked) {
+            row.style.backgroundColor = '#ADD8E6'; // Change to your desired color
+        } else {
+            row.style.backgroundColor = ''; // Reset to default color
+        }
+    };
+</script>
+{% endblock %}

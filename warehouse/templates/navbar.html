@@ -31,14 +31,45 @@
                         </div>
                     </div>
                 </li>
+                <!-- <li>
+                    <div class="dropdown">
+                        <a class="nav-link">港后操作(Beta)</a>
+                        <div class="dropdown-content">
+                            <div class="nested-dropdown">
+                                <a>预约出库</a>
+                                <div class="nested-dropdown-content">
+                                    <a href="{% url 'schedule_shipment' %}">预约管理</a>
+                                    <a href="{% url 'fleet' %}?step=fleet">车次管理</a>
+                                </div>
+                            </div>
+                            <a href="{% url 'outbound' %}?step=outbound">确认出库</a>
+                            <a href="{% url 'pod' %}">确认送达</a>
+                            <div class="nested-dropdown">
+                                <a>表格导出</a>
+                                <div class="nested-dropdown-content">
+                                    <a href="{% url 'po' %}">PO导出</a>
+                                    <a href="{% url 'bol' %}">BOL导出</a>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </li> -->
                 <li class="nav-item">
                     <div class="dropdown">
                         <a class="nav-link">仓库操作</a>
                         <div class="dropdown-content">
                             <a href="{% url 'palletization' %}">拆柜入库</a>
-                            <a href="{% url 'schedule_shipment' %}">预约出库</a>
+                            <a href="{% url 'schedule_shipment_legacy' %}">预约出库</a>
                             <a href="{% url 'outbound' %}">确认出库</a>
-                            <a href="{% url 'palletization_legacy' %}">拆柜入库(legacy)</a>
+                            <a href="{% url 'shipment_status' %}">货物状态查询</a>
+                            <div class="nested-dropdown">
+                                <a>仓库操作(legacy)</a>
+                                <div class="nested-dropdown-content">
+                                    <a href="{% url 'palletization_legacy' %}">拆柜入库</a>
+                                    <a href="{% url 'schedule_shipment_legacy' %}">预约出库</a>
+                                    <a href="{% url 'outbound_legacy' %}">确认出库</a>
+                                </div>
+                            </div>
                         </div>
                     </div>
                 </li>
@@ -124,6 +155,29 @@
                             </div>
                         </div>
                         
+                    </div>
+                </li>
+                <li>
+                    <div class="dropdown">
+                        <a class="nav-link">港后操作(Beta)</a>
+                        <div class="dropdown-content">
+                            <div class="nested-dropdown">
+                                <a>预约出库</a>
+                                <div class="nested-dropdown-content">
+                                    <a href="{% url 'schedule_shipment' %}">预约管理</a>
+                                    <a href="{% url 'fleet' %}?step=fleet">出库批次管理</a>
+                                </div>
+                            </div>
+                            <a href="{% url 'outbound' %}?step=outbound">出库管理</a>
+                            <a href="{% url 'pod' %}">确认送达</a>
+                            <div class="nested-dropdown">
+                                <a>表格导出</a>
+                                <div class="nested-dropdown-content">
+                                    <a href="{% url 'po' %}">PO导出</a>
+                                    <a href="{% url 'bol' %}">BOL导出</a>
+                                </div>
+                            </div>
+                        </div>
                     </div>
                 </li>
                 {% endif %}

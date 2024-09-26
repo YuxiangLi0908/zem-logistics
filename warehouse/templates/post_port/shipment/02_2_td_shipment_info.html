@@ -1,0 +1,151 @@
+{% extends 'post_port/shipment/02_td_shipment.html' %}
+{% load static custom_mod %}
+{% load static custom_floor_division %}
+
+{% block shipment_info %}
+<div style="height: 800px; width: 40%; border: 2px solid rgb(180, 180, 180); border-radius: 12px; padding: 1%; margin-top: .5%;">
+    <div>
+        <form method="post" action="" style="width: 100%; overflow-x: auto; max-width: 100%;">
+            {% csrf_token %}
+            <div style="display: flex;">
+                <div style="width: 80%;">
+                    <b style="background-color: rgb(208, 208, 208); border-radius: 20px; font-size: 11px; display:inline-flex; color: rgb(100, 100, 100); padding: 5px;">
+                        预约信息 - {{ shipment.shipment_batch_number }}
+                    </b>
+                </div>
+
+                <div class="text-right">
+                    <input type="hidden" name="step" value="update_appointment">
+                    <input type="hidden" name="type" value="td">
+                    <input type="hidden" name="batch_number" value="{{ shipment.shipment_batch_number }}">
+                    <input type="hidden" name="warehouse" value="{{ warehouse }}">
+                    <button type="submit" onclick="confirmSubmit()" class="btn btn-primary" style="font-size: 11px;">更新预约</button>
+         
+                </div>
+            </div>
+            <table id="shipment-table-1" class="table" style="font-size: 11px; overflow-x: scroll; max-width: 100%;">
+                <thead>
+                    <tr>
+                        <th class="th">预约号</th>
+                        <th class="th">Scheduled Time</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    <tr>
+                        <td class="td"><input type="text" name="appointment_id" value="{{ shipment.appointment_id }}" style="font-size: 13px;"></td>
+                        <td class="td"><input type="datetime-local" name="shipment_appointment" value="{{ shipment.shipment_appointment|date:'Y-m-d\\TH:i'  }}" style="font-size: 13px;" required></td>
+                    </tr>
+                </tbody>
+            </table>
+            <table id="shipment-table-2" class="table" style="font-size: 11px; overflow-x: auto; max-width: 100%;">
+                <thead>
+                    <tr>
+                        <th class="th">装车类型</th>
+                        <th class="th">备注</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    <tr>
+                        <td class="td">
+                            <select name="load_type" id="load-type-select" style="font-size: 13px;">
+                                {% for k, v in load_type_options %}
+                                <option value="{{ v }}" {% if k == shipment.load_type %}selected{% endif %}>{{ k }}</option>
+                                {% endfor %}
+                            </select>
+                        </td>
+                        <td class="td"><input type="text" name="note" value="{{ shipment.note }}" style="font-size: 13px;"></td>
+                    </tr>
+                </tbody>
+            </table>
+            <table id="shipment-table-3" class="table" style="font-size: 11px; overflow-x: auto; max-width: 100%;">
+                <thead>
+                    <tr>
+                        <th class="th">目的地</th>
+                        <th class="th">地址</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    <tr>
+                        <td class="td"><input type="text" name="destination" value="{{ shipment.destination }}" style="font-size: 13px;" required></td>
+                        <td class="td"><input type="text" name="address" value="{{ shipment.address }}" style="font-size: 13px;" size="40" required></td>
+                    </tr>
+                </tbody>
+            </table>
+        </form>
+    </div>
+
+    <b style="background-color: rgb(208, 208, 208); border-radius: 20px; font-size: 11px; display:inline-flex; color: rgb(100, 100, 100); padding: 5px;">
+        拣货单
+    </b>
+
+    <div style="overflow-x: auto; max-width: 100%; overflow-y: auto; max-height: 60%;">
+        <table id="selected-packing-list-table" class="table" style="font-size: 11px;">
+            <thead>
+                <tr>
+                    <th class="th">客户</th>
+                    <th class="th">货柜号</th>
+                    <th class="th">目的仓库</th>
+                    <th class="th">FBA_ID</th>
+                    <th class="th">REF_ID</th>
+                    <th class="th">重量lbs</th>
+                    <th class="th">CBM</th>
+                    <th class="th">卡板数</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for c in packing_list_selected %}
+                <tr>
+                    <td class="td">{{ c.container_number__order__customer_name__zem_name }}</td>
+                    <td class="td">{{ c.container_number__container_number }}</td>
+                    <td class="td">{{ c.destination }}</td>
+                    <td class="td" style="max-width: 120px; word-break: break-all;">{{ c.fba_ids }}</td>
+                    <td class="td" style="max-width: 120px; word-break: break-all;">{{ c.ref_ids }}</td>
+                    <td class="td">{{ c.total_weight_lbs|floatformat:2 }}</td>
+                    <td class="td">{{ c.total_cbm|floatformat:2 }}</td>
+                    <td class="td">
+                        {% if c.label == "ACT" %}
+                        <span class="status-span-green-100">ACT</span>
+                        {{ c.total_n_pallet_act }}
+                        {% else %}
+                            <span class="status-span-blue-100">EST</span>
+                            {% if c.total_n_pallet_est < 1 %}
+                            {{ 1 }}
+                            {% elif c.total_n_pallet_est|modulo:1 >= 0.45 %}
+                            {{ c.total_n_pallet_est|floor_division:1|add:1|floatformat:0 }}
+                            {% else %}
+                            {{ c.total_n_pallet_est|floor_division:1|floatformat:0 }}
+                            {% endif %}
+                        {% endif %}
+                    </td>
+                </tr>          
+                {% endfor %}
+                <tr id="table-summary">
+                    <td class="td" colspan="5"><b>汇总</b></td>
+                    <td class="td">{{ shipment.total_weight|floatformat:2 }}</td>
+                    <td class="td">{{ shipment.total_cbm|floatformat:2 }}</td>
+                    <td class="td">{{ shipment.total_pallet|floatformat:0 }}</td>
+                </tr>
+            </tbody>
+        </table>
+    </div>
+</div>
+
+<script>
+    function toggleAllCheckboxes() {
+        var checkboxes = document.querySelectorAll('tbody input[type="checkbox"][name="is_shipment_schduled"]');
+        
+        checkboxes.forEach(function(checkbox) {
+            var tr = checkbox.closest('tr');
+            if (tr.style.display !== 'none') {
+                if (checkbox.checked) {
+                    tr.style.backgroundColor = '#ADD8E6'; // Change to your desired color
+                } else {
+                    tr.style.backgroundColor = ''; // Reset to default color
+                }
+            }
+        });
+    };
+
+    toggleAllCheckboxes();
+</script>
+{% endblock %}

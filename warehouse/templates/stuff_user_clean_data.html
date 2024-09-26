@@ -122,4 +122,18 @@
     <b>Successfully update {{ count }} orders!</b>
     {% endif %}
 </div>
+
+<div>
+    <form method="post" enctype="multipart/form-data" style="font-size: 11px;">
+        {% csrf_token %}
+        update shipment
+        <input type="hidden" name="step" value="update_shipment">
+        <button type="submit" class="btn btn-danger" style="height: 35px; font-size: 12px; margin: 5px;">
+            update shipment
+        </button>
+    </form>
+    {% if shipment_updated %}
+    <b>Successfully update {{ count }} shipments!</b>
+    {% endif %}
+</div>
 {% endblock %}
