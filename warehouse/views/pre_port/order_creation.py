@@ -149,7 +149,7 @@ class OrderCreation(View):
                 "vessel_id", "container_number", "customer_name", "container_number__packinglist", "retrieval_id "
             ).values(
                 "container_number__container_number", "customer_name__zem_name", "vessel_id", "order_type", 
-                "retrieval_id__retrieval_destination_area", "packing_list_updloaded"
+                "retrieval_id__retrieval_destination_area", "packing_list_updloaded","cancel_notification"
             ).filter(
                 models.Q(created_at__gte='2024-08-19') |
                 models.Q(container_number__container_number__in=ADDITIONAL_CONTAINER)
@@ -158,7 +158,8 @@ class OrderCreation(View):
         unfinished_orders = []
         for o in orders:
             if not o.get("vessel_id") or not o.get("packing_list_updloaded"):
-                unfinished_orders.append(o)
+                if not o.get("cancel_notification"):
+                    unfinished_orders.append(o)
         context = {
             "customers": customers,
             "order_type": self.order_type,
@@ -166,6 +167,7 @@ class OrderCreation(View):
             "container_type": self.container_type,
             "unfinished_orders": unfinished_orders,
         }
+        print("handle_order_basic_info_get",context)
         return self.template_order_create_base, context
     
     async def handle_order_supplemental_info_get(self, request: HttpRequest) -> tuple[Any, Any]:
