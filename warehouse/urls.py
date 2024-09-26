@@ -24,6 +24,7 @@ from warehouse.views.stuff_user_ability import StuffPower
 from warehouse.views.quote_management import QuoteManagement
 from warehouse.views.accounting import Accounting
 from warehouse.views.shipment_status import ShipmentStatus
+from warehouse.views.post_port.shipment.shipping_management import ShippingManagement
 from warehouse.views.container_tracking import ContainerTracking
 from warehouse.views.terminal49_webhook import T49Webhook
 from warehouse.views.test.async_view import AsyncView
@@ -43,10 +44,9 @@ urlpatterns = [
     path('container_pickup/', ScheduleRetrieval.as_view(), name='schedule_pickup'),
     path('palletize/', Palletization.as_view(), name='palletization'),
     path('palletize/<str:pk>/', Palletization.as_view(), name='palletize_container'),
-    path('palletize_legacy/', LegacyPalletization.as_view(), name='palletization_legacy'),
-    path('palletize_legacy/<str:pk>/', LegacyPalletization.as_view(), name='palletize_legacy'),
-    path('schedule_shipment/', ScheduleShipment.as_view(), name='schedule_shipment'),
-    path('outbound/', ShipmentDispatch.as_view(), name='outbound'),
+    path('schedule_shipment/', ShippingManagement.as_view(), name='schedule_shipment'),
+    path('fleet/', ShippingManagement.as_view(), name='fleet'),
+    path('outbound/', ShippingManagement.as_view(), name='outbound'),
     path('generate_pdf/', ExportFile.as_view(), name='generate_pdf'),
     path('customer_management/', CustomerManagement.as_view(), name='customer_management'),
     path('customer_management/<str:name>/', CustomerManagement.as_view(), name='customer_management'),
@@ -61,4 +61,9 @@ urlpatterns = [
     path('t49webhook/', T49Webhook.as_view(), name='t49webhook'),
     path('async_view', AsyncView.as_view(), name='async_view'),
     path('dbconn', DBConn.as_view(), name='dbconn'),
+    # legacy views, to be removed in the future
+    path('palletize_legacy/', LegacyPalletization.as_view(), name='palletization_legacy'),
+    path('palletize_legacy/<str:pk>/', LegacyPalletization.as_view(), name='palletize_legacy'),
+    path('schedule_shipment_legacy/', ScheduleShipment.as_view(), name='schedule_shipment_legacy'),
+    path('outbound_legacy/', ShipmentDispatch.as_view(), name='outbound_legacy'),
 ] + static(settings.STATIC_URL, document_root=settings.STATIC_ROOT)
