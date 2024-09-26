@@ -28,6 +28,8 @@ class Order(models.Model):
     invoice_id = models.ForeignKey(Invoice, null=True, blank=True, on_delete=models.SET_NULL)
     add_to_t49 = models.BooleanField(default=False)
     packing_list_updloaded = models.BooleanField(default=False)
+    cancel_notification = models.BooleanField(default=False)
+    cancel_time = models.DateField(null=True, blank=True)
 
     class Meta:
         indexes = [

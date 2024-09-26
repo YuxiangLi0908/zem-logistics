@@ -2,10 +2,13 @@ import uuid
 import os
 import pandas as pd
 import numpy as np
+import json
 from asgiref.sync import sync_to_async
 from pathlib import Path
 from datetime import datetime, timedelta
 from typing import Any
+import pytz
+import chardet
 
 from django.http import HttpRequest, HttpResponse, Http404
 from django.shortcuts import render, redirect
@@ -90,7 +93,54 @@ class OrderCreation(View):
             return await sync_to_async(export_do)(request)
         elif step == "delete_order":
             template, context = await self.handle_delete_order_post(request)
+            return await sync_to_async(render)(request, template, context)
+        elif step == "cancel_notification":
+            template, context = await self.handle_cancel_notification(request)
+            return await sync_to_async(render)(request, template, context)
+        elif step == "export_forecast":
+            return await self.handle_export_forecast(request)
+            
 
+    async def handle_export_forecast(self, request: HttpRequest) -> tuple[Any, Any]:           
+        selected_orders = json.loads(request.POST.get('selectedOrders', '[]'))
+        selected_orders = list(set(selected_orders))
+        orders = await sync_to_async(list)(
+                Order.objects.select_related(
+                    "vessel_id", "container_number", "customer_name", "retrieval_id "
+                ).values(
+                    "container_number__container_number", "customer_name__zem_code", "vessel_id__vessel_eta", "cancel_time", "created_at",
+                    "retrieval_id__retrieval_carrier", "vessel_id__destination_port","vessel_id__master_bill_of_lading"
+                ).filter(
+                    models.Q(container_number__container_number__in=selected_orders)
+                ) 
+            )
+        for order in orders:
+            #由于carrier的内容为中文，导出的文件中为乱码，所以修改编码，但是这段代码并没有解决编码问题，依旧是乱码，没有找到解决方案
+            if order.get('retrieval_id__retrieval_carrier'):  
+                raw_data = order['retrieval_id__retrieval_carrier']
+                raw_data = raw_data.encode('utf-8')
+                encoding = chardet.detect(raw_data)['encoding']
+                order['retrieval_id__retrieval_carrier'] = raw_data.decode(encoding)
+            
+        df = pd.DataFrame(orders)
+        df = df.rename(
+            {
+                "container_number__container_number": "container",
+                "customer_name__zem_code": "customer",
+                "vessel_id__master_bill_of_lading":"MBL",
+                "vessel_id__destination_port":"destination_port",
+                "vessel_id__vessel_eta": "ETA",
+                "retrieval_id__retrieval_carrier": "carrier",
+            },
+            axis=1
+        )
+        
+        response = HttpResponse(content_type="text/csv")
+        response['Content-Disposition'] = f"attachment; filename=cancel_notification.csv"
+        df.to_csv(path_or_buf=response, index=False, encoding='utf-8-sig')
+        return response
+            
+        
     async def handle_order_basic_info_get(self) -> tuple[Any, Any]:
         customers = await sync_to_async(list)(Customer.objects.all())
         customers = { c.zem_name: c.id for c in customers}
@@ -150,16 +200,10 @@ class OrderCreation(View):
             Order.objects.select_related(
                 "vessel_id", "container_number", "customer_name", "retrieval_id", "offload_id", "warehouse"
             ).filter(
-                models.Q(
-                    vessel_id__vessel_eta__gte=start_date,
-                    vessel_id__vessel_eta__lte=end_date,
-                    packing_list_updloaded=True,
-                ) |
-                models.Q(
-                    eta__gte=start_date,
-                    eta__lte=end_date,
-                    packing_list_updloaded=True,
-                )
+                models.Q(   #订单列表中显示所有已建单的数据
+                    created_at__gte=start_date,
+                    created_at__lte=end_date,
+                ) 
             )
         )
         context = {
@@ -447,6 +491,21 @@ class OrderCreation(View):
         else:
             return await self.handle_order_basic_info_get()
     
+    async def handle_cancel_notification(self, request: HttpRequest) -> tuple[Any, Any]:
+        container_number = request.POST.get("container_number")
+        #查询order表的contain_number
+        order = await sync_to_async(Order.objects.get)(
+                models.Q(container_number__container_number=container_number)
+            )    
+        order.cancel_notification = True
+        order.cancel_time = datetime.now()  
+        await sync_to_async(order.save)()
+        mutable_get = request.GET.copy()
+        mutable_get["container_number"] = container_number
+        mutable_get["step"] = "cancel_notification"
+        request.GET = mutable_get
+        return await self.handle_order_management_container_get(request)
+        
     async def handle_upload_template_post(self, request: HttpRequest) -> tuple[Any, Any]:
         form = UploadFileForm(request.POST, request.FILES)
         if form.is_valid():
@@ -496,8 +555,18 @@ class OrderCreation(View):
             response['Content-Disposition'] = f'attachment; filename="zem_packing_list_template.xlsx"'
             return response
 
-    async def handle_delete_order_post(self, request: HttpRequest) -> tuple[Any, Any]:
-        raise ValueError(request.POST)
+    async def handle_delete_order_post(self, request: HttpRequest) -> tuple[Any, Any]:           
+        selectedOrders = json.loads(request.POST.get('selectedOrders', '[]'))
+        selectedOrders = list(set(selectedOrders))
+        #在这里进行订单删除操作，例如：
+        for order_number in selectedOrders:
+            await sync_to_async(Order.objects.filter(
+                container_number__container_number=order_number
+            ).delete)()
+        start_date = request.POST.get("start_date")
+        end_date = request.POST.get("end_date")
+        return await self.handle_order_management_list_get(start_date,end_date)
+        
 
     async def _user_authenticate(self, request: HttpRequest):
         if await sync_to_async(lambda: request.user.is_authenticated)():
