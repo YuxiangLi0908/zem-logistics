@@ -257,6 +257,7 @@ class ShippingManagement(View):
                 container_number__order__warehouse__name=warehouse,
                 shipment_batch_number__isnull=True,
             ) & (
+                # TODOs: 考虑按照安排提柜时间筛选
                 models.Q(container_number__order__vessel_id__vessel_eta__lte=datetime.now().date() + timedelta(days=7)) |
                 models.Q(container_number__order__eta__lte=datetime.now().date() + timedelta(days=7))
             )
