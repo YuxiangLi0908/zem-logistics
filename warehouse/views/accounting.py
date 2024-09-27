@@ -500,8 +500,8 @@ class Accounting(View):
         worksheet["B3"] = "27 Engelhard Ave. Avenel NJ 07001"
         worksheet["B4"] = "Contact: Marstin Ma 929-810-9968"
         worksheet["A5"] = "SAV"
-        worksheet["B5"] = "774 King George Blvd Savannah, GA 31419"
-        worksheet["B6"] = "Contact: Darren Zheng 805-868-1682"
+        worksheet["B5"] = "1001 Trade Center Pkwy, Rincon, GA 31326, USA"
+        worksheet["B6"] = "Contact: Ken 929-329-4323"
         worksheet["A7"] = "E-mail: OFFICE@ZEMLOGISTICS.COM"
         worksheet["A9"] = "BILL TO"
         worksheet["A10"] = context["order"].customer_name.zem_name

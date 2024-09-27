@@ -1,0 +1,91 @@
+{% extends 'base.html' %}
+{% load static %}
+{% load static custom_tags %}
+{% load static custom_filters %}
+
+{% block content %}
+<div><b>出库管理</b></div>
+<form method="post" action="">
+    {% csrf_token %}
+    <div>
+        <b style="margin-right: 5px;">选择仓库:</b>
+        <input type="hidden" name="step" value="outbound_warehouse_search">
+        {{ warehouse_form.name }}
+        <button type="submit">确认</button>
+    </div>
+</form>
+
+<div style="display: flex;">
+    <div style="max-height: 800px; width: 45%; margin-top: .5%; margin-right: .5%; margin-bottom: 1%;">
+        <div style="max-height: 100%; width: 100%; border: 2px solid rgb(180, 180, 180); border-radius: 12px; padding: 1%;">
+            <div style="max-height: 99%; overflow-y: scroll;">
+                <div style="display: flex; position: sticky; top: 0; background-color: #f8f9fa;">
+                    <div style="width: 80%;">
+                        <b style="background-color: rgb(208, 208, 208); border-radius: 20px; font-size: 11px; display:inline-flex; color: rgb(100, 100, 100); padding: 5px;">
+                            出库批次 - {{ fleet|length }}
+                        </b>
+                    </div>
+                </div>
+                <table id="shipment-table" class="table" style="font-size: 11px; max-height: 95%; overflow-y: scroll;">
+                    <thead>
+                        <tr style="position: sticky; top: 30px;">
+                            <th class="th">批次号</th>
+                            <th class="th">Carrier</th>
+                            <th class="th">发车日期</th>
+                            <th class="th">总重lbs</th>
+                            <th class="th">总CBM</th>
+                            <th class="th">总卡板数</th>
+                            <th class="th">一提两卸</th>
+                            <th class="th">备注</th>
+                        </tr>
+                        <tr style="position: sticky; top: 52px;">
+                            <th class="th"><input type="text" id="fleetSearchInput" placeholder="搜索批次号..." oninput="filterShipmentTable()" size="13" style="font-size: 11px;"></th>
+                            <th class="th"></th>
+                            <th class="th"></th>
+                            <th class="th"></th>
+                            <th class="th"></th>
+                            <th class="th"></th>
+                            <th class="th"></th>
+                            <th class="th"></th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for f in fleet %}
+                        <tr>
+                            <td class="td" style="max-width: 120px; word-break: break-all;">
+                                <a href="/fleet/?step=fleet_depature&fleet_number={{ f.fleet_number }}&warehouse={{ warehouse }}">
+                                    {{ f.fleet_number }}
+                                </a>
+                            </td>
+                            <td class="td">{{ f.carrier }}</td>
+                            <td class="td">
+                                {% if f.departure_status == "past_due" %}
+                                <span class="status-span-red">{{ f.appointment_date|date:"M-j" }}</span>
+                                {% elif f.departure_status == "need_attention" %}
+                                <span class="status-span-yellow">{{ f.appointment_date|date:"M-j" }}</span>
+                                {% else %}
+                                {{ f.appointment_date|date:"M-j" }}
+                                {% endif %}
+                            </td>
+                            <td class="td">{{ f.total_weight|floatformat:2 }}</td>
+                            <td class="td">{{ f.total_cbm|floatformat:2 }}</td>
+                            <td class="td">{{ f.total_pallet|floatformat:0 }}</td>
+                            <td class="td">
+                                {% if f.multipule_destination %}
+                                <i class="bi bi-check-square-fill" style="color: rgba(34, 153, 84, 0.873); font-size: 15px"></i>
+                                {% endif %}
+                            </td>
+                            <td class="td" style="max-width: 120px; word-break: break-all;">{{ f.note }}</td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>                    
+            </div>
+        </div>
+    </div>
+    {% block depature_confirmation %}
+        
+    {% endblock %}
+</div>
+
+{% endblock %}

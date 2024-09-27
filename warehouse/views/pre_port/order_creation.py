@@ -557,10 +557,10 @@ class OrderCreation(View):
             return response
 
     async def handle_delete_order_post(self, request: HttpRequest) -> tuple[Any, Any]:           
-        selectedOrders = json.loads(request.POST.get('selectedOrders', '[]'))
-        selectedOrders = list(set(selectedOrders))
+        selected_orders = json.loads(request.POST.get('selectedOrders', '[]'))
+        selected_orders = list(set(selected_orders))
         #在这里进行订单删除操作，例如：
-        for order_number in selectedOrders:
+        for order_number in selected_orders:
             await sync_to_async(Order.objects.filter(
                 container_number__container_number=order_number
             ).delete)()

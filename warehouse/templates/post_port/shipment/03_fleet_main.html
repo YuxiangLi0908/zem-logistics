@@ -1,0 +1,239 @@
+{% extends 'base.html' %}
+{% load static %}
+{% load static custom_tags %}
+{% load static custom_filters %}
+{% load static custom_mod %}
+{% load static custom_floor_division %}
+
+{% block content %}
+<div><b>出库批次管理</b></div>
+<form method="post" action="">
+    {% csrf_token %}
+    <div>
+        <b style="margin-right: 5px;">选择仓库:</b>
+        <input type="hidden" name="step" value="fleet_warehouse_search">
+        {{ warehouse_form.name }}
+        <button type="submit">确认</button>
+    </div>
+</form>
+
+<div style="display: flex;">
+    <div style="height: 800px; width: 60%; margin-top: .5%; margin-right: .5%; margin-bottom: 1%;">
+        <div style="height: 50%; width: 100%; border: 2px solid rgb(180, 180, 180); border-radius: 12px; padding: 1%;">
+            <div style="max-height: 99%; overflow-y: scroll;">
+                <form method="post" action="" style="max-height: 100%;">
+                    {% csrf_token %}
+                    <div style="display: flex; position: sticky; top: 0; background-color: #f8f9fa;">
+                        <div style="width: 80%;">
+                            <b style="background-color: rgb(208, 208, 208); border-radius: 20px; font-size: 11px; display:inline-flex; color: rgb(100, 100, 100); padding: 5px;">
+                                预约批次 - {{ shipment_list|length }}
+                            </b>
+                        </div>
+                        <input type="hidden" name="step" value="add_appointment_to_fleet">
+                        <input type="hidden" name="warehouse" value="{{ warehouse }}">
+                        <button type="submit" onclick="confirmSubmit()" class="btn btn-primary" style="font-size: 11px;">安排出库批次</button>
+                    </div>
+                    
+                    <table id="shipment-table" class="table" style="font-size: 11px; max-height: 95%; overflow-y: scroll;">
+                        <thead>
+                            <tr style="position: sticky; top: 30px;">
+                                <th class="th" style="min-width: 40px; text-align: center;"></th>
+                                <th class="th">预约批次</th>
+                                <th class="th">目的仓库</th>
+                                <th class="th">预约号</th>
+                                <th class="th">Scheduled Time</th>
+                                <th class="th">总重lbs</th>
+                                <th class="th">总CBM</th>
+                                <th class="th">总卡板数</th>
+                                <th class="th">备注</th>
+                            </tr>
+                            <tr style="position: sticky; top: 52px;">
+                                <th class="th" style="min-width: 40px;"></th>
+                                <th class="th"><input type="text" id="shipmentSearchInput" placeholder="搜索批次号..." oninput="filterShipmentTable()" size="13" style="font-size: 11px;"></th>
+                                <th class="th"><input type="text" id="destSearchInput" placeholder="搜索目的地..." oninput="filterShipmentTable()" size="13" style="font-size: 11px;"></th>
+                                <th class="th"><input type="text" id="appIdSearchInput" placeholder="搜索预约号..." oninput="filterShipmentTable()" size="13" style="font-size: 11px;"></th>
+                                <th class="th"></th>
+                                <th class="th"></th>
+                                <th class="th"></th>
+                                <th class="th"></th>
+                                <th class="th"></th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {% for s in shipment_list %}
+                            <tr>
+                                <td class="td" style="min-width: 40px; text-align: center;">
+                                    <input type='checkbox' name='is_appointment_added' onclick="toggleRowBackground(this)" {% if s.id in shipment_ids %}checked{% endif %}>
+                                    <input type="hidden" name="is_appointment_added", value='off'>
+                                    <input type="hidden" name="shipment_ids", value='{{ s.id }}'>
+                                </td>
+                                <td class="td" style="max-width: 130px; word-break: break-all;">
+                                    {% if s.batch > 0 %}
+                                    <span class="status-span-red">甩板</span>
+                                    {% endif %}
+                                    {{ s.shipment_batch_number }}
+                                </td>
+                                <td class="td">{{ s.destination }}</td>
+                                <td class="td">{{ s.appointment_id }}</td>
+                                <td class="td">
+                                    {% if s.shipping_status == "past_due" %}
+                                    <span class="status-span-red">{{ s.shipment_appointment|date:"Y-m-d" }} {{ s.shipment_appointment|time:"H:i" }}</span>
+                                    {% elif s.shipping_status == "need_attention" %}
+                                    <span class="status-span-yellow">{{ s.shipment_appointment|date:"Y-m-d" }} {{ s.shipment_appointment|time:"H:i" }}</span>
+                                    {% else %}
+                                    {{ s.shipment_appointment|date:"Y-m-d" }} {{ s.shipment_appointment|time:"H:i" }}
+                                    {% endif %}
+                                </td>
+                                <td class="td">{{ s.total_weight|floatformat:2 }}</td>
+                                <td class="td">{{ s.total_cbm|floatformat:2 }}</td>
+                                <td class="td">{{ s.total_pallet }}</td>
+                                <td class="td" style="max-width: 120px; word-break: break-all;">{{ s.note }}</td>
+                            </tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                </form> 
+            </div>
+        </div>
+        <div style="height: 50%; width: 100%; border: 2px solid rgb(180, 180, 180); border-radius: 12px; padding: 1%; margin-top: .5%;">
+            <div>
+                <b style="background-color: rgb(208, 208, 208); border-radius: 20px; font-size: 11px; display:inline-flex; color: rgb(100, 100, 100); padding: 5px;">
+                    出库批次 - {{ fleet_list|length }}
+                </b>
+            </div>
+            <div style="max-height: 95%; overflow-y: scroll;">
+                <table id="fleet-table" class="table" style="font-size: 11px; max-height: 90%; overflow-y: scroll;">
+                    <thead>
+                        <tr>
+                            <th class="th">出库批次</th>
+                            <th class="th">carrier</th>
+                            <th class="th">发车时间</th>
+                            <th class="th">总重lbs</th>
+                            <th class="th">总CBM</th>
+                            <th class="th">总卡板数</th>
+                            <th class="th">note</th>
+                            <th class="th">撤销批次</th>
+                        </tr>
+                        <tr style="position: sticky; top: 28px;">
+                            <th class="th"><input type="text" id="fleetSearchInput" placeholder="搜索批次号..." oninput="filterFleetTable()" size="13" style="font-size: 11px;"></th>
+                            <th class="th"><input type="text" id="carrierSearchInput" placeholder="搜索carrier..." oninput="filterFleetTable()" size="13" style="font-size: 11px;"></th>
+                            <th class="th"></th>
+                            <th class="th"></th>
+                            <th class="th"></th>
+                            <th class="th"></th>
+                            <th class="th"></th>
+                            <th class="th"></th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for f in fleet_list %}
+                        <tr>
+                            <td class="td" style="max-width: 120px; word-break: break-all;">
+                                <a href="/fleet/?step=fleet_info&fleet_number={{ f.fleet_number }}&warehouse={{ warehouse }}">
+                                    {{ f.fleet_number }}
+                                </a>
+                            </td>
+                            <td class="td">{{ f.carrier }}</td>
+                            <td class="td">
+                                {% if f.departure_status == "past_due" %}
+                                <span class="status-span-red">{{ f.appointment_date|date:"M-j" }}</span>
+                                {% elif f.departure_status == "need_attention" %}
+                                <span class="status-span-yellow">{{ f.appointment_date|date:"M-j" }}</span>
+                                {% else %}
+                                {{ f.appointment_date|date:"M-j" }}
+                                {% endif %}
+                            </td>
+                            <td class="td">{{ f.total_weight|floatformat:2 }}</td>
+                            <td class="td">{{ f.total_cbm|floatformat:2 }}</td>
+                            <td class="td">{{ f.total_pallet }}</td>
+                            <td class="td" style="max-width: 120px; word-break: break-all;">{{ f.note }}</td>
+                            <td class="td">
+                                <form method="post" action="">
+                                    {% csrf_token %}
+                                    <input type="hidden" name="step" value="cancel_fleet">
+                                    <input type="hidden" name="fleet_number" value="{{ f.fleet_number }}">
+                                    <input type="hidden" name="warehouse" value="{{ warehouse }}">
+                                    <button type="submit" class="btn btn-danger"><i class="bi bi-x-octagon"></i></button>
+                                </form>
+                            </td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+
+    {% block schedule_fleet %}
+        
+    {% endblock %}
+
+    {% block fleet_info %}
+        
+    {% endblock %}
+</div>
+
+<script>
+    function filterShipmentTable() {
+        var shipmentInput = document.getElementById("shipmentSearchInput").value.toUpperCase();
+        var destInput = document.getElementById("destSearchInput").value.toUpperCase();
+        var appIdInput = document.getElementById("appIdSearchInput").value.toUpperCase();
+        tr = document.querySelectorAll("#shipment-table tbody tr");
+
+        for (i = 0; i < tr.length; i++) {
+            var shipmentTd = tr[i].getElementsByTagName("td")[1];
+            var destTd = tr[i].getElementsByTagName("td")[2];
+            var appIdTd = tr[i].getElementsByTagName("td")[3];
+            if (shipmentTd && destTd && appIdTd) {
+                var shipmentTxtValue = shipmentTd.textContent.trim();
+                var destTxtValue = destTd.textContent.trim();
+                var appIdTxtValue = appIdTd.textContent.trim(); 
+
+                var shipmentDisplayStyle = shipmentTxtValue.toUpperCase().indexOf(shipmentInput) > -1 ? "" : "none";
+                var destDisplayStyle = destTxtValue.toUpperCase().indexOf(destInput) > -1 ? "" : "none";
+                var appIdDisplayStyle = appIdTxtValue.toUpperCase().indexOf(appIdInput) > -1 ? "" : "none";
+
+                tr[i].style.display = shipmentDisplayStyle === "" && destDisplayStyle === "" && appIdDisplayStyle === "" ? "" : "none";
+            }
+        };
+    }
+
+    function filterFleetTable() {
+        var fleetInput = document.getElementById("fleetSearchInput").value.toUpperCase();
+        var carrierInput = document.getElementById("carrierSearchInput").value.toUpperCase();
+        tr = document.querySelectorAll("#fleet-table tbody tr");
+
+        for (i = 0; i < tr.length; i++) {
+            var fleetTd = tr[i].getElementsByTagName("td")[0];
+            var carrierTd = tr[i].getElementsByTagName("td")[1];
+            if (fleetTd && carrierTd) {
+                var fleetTxtValue = fleetTd.textContent.trim();
+                var carrierTxtValue = carrierTd.textContent.trim();
+
+                var fleetDisplayStyle = fleetTxtValue.toUpperCase().indexOf(fleetInput) > -1 ? "" : "none";
+                var carrierDisplayStyle = carrierTxtValue.toUpperCase().indexOf(carrierInput) > -1 ? "" : "none";
+
+                tr[i].style.display = fleetDisplayStyle === "" && carrierDisplayStyle === "" ? "" : "none";
+            }
+        };
+    }
+
+    function confirmSubmit() {
+        const checkBoxes = document.getElementsByName('is_appointment_added');
+        for (let i = 0; i < checkBoxes.length; i+=2) {
+            if (checkBoxes[i].checked) {
+                checkBoxes[i+1].disabled = true;
+            }
+        }
+    }
+
+    function toggleRowBackground(checkbox) {
+        var row = checkbox.closest('tr');
+        if (checkbox.checked) {
+            row.style.backgroundColor = '#ADD8E6'; // Change to your desired color
+        } else {
+            row.style.backgroundColor = ''; // Reset to default color
+        }
+    };
+</script>
+{% endblock %}
