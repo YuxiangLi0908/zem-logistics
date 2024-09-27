@@ -34,7 +34,7 @@
             {% for s in shipment_list%}
             <tr>
                 <td class="td">
-                    <a href="/pod/?step=select&batch_number={{ s.shipment_batch_number }}">
+                    <a href="/pod_legacy/?step=select&batch_number={{ s.shipment_batch_number }}">
                     {{ s.shipment_batch_number }}
                 </td>
                 <td class="td">{{ s.destination }}</td>
