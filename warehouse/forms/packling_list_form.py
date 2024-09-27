@@ -9,6 +9,7 @@ class PackingListForm(forms.ModelForm):
         fields = "__all__"
         widgets = {
             "delivery_method": forms.Select(choices=DELIVERY_METHOD_OPTIONS),
+            "n_pallet": forms.NumberInput(attrs={"min": 1}),
         }
 
     def __init__(self, *args, **kwargs):
