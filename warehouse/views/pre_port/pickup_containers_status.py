@@ -46,7 +46,8 @@ class ContainerPickupStatus(View):
                 (
                     models.Q(add_to_t49=True) &
                     models.Q(retrieval_id__actual_retrieval_timestamp__isnull=False) &
-                    models.Q(retrieval_id__arrive_at_destination=False)
+                    models.Q(retrieval_id__arrive_at_destination=False) &
+                    models.Q(cancel_notification=False)
                 ) &
                 (
                     models.Q(created_at__gte='2024-08-19') |
@@ -63,7 +64,8 @@ class ContainerPickupStatus(View):
                     models.Q(retrieval_id__actual_retrieval_timestamp__isnull=False) &
                     models.Q(retrieval_id__arrive_at_destination=True) &
                     models.Q(offload_id__offload_at__isnull=True) &
-                    models.Q(order_type="转运")
+                    models.Q(order_type="转运") &
+                    models.Q(cancel_notification=False)
                 ) &
                 (
                     models.Q(created_at__gte='2024-08-19') |
@@ -80,7 +82,8 @@ class ContainerPickupStatus(View):
                     models.Q(retrieval_id__actual_retrieval_timestamp__isnull=False) &
                     models.Q(retrieval_id__arrive_at_destination=True) &
                     models.Q(offload_id__offload_at__isnull=False) &
-                    models.Q(retrieval_id__empty_returned=False)
+                    models.Q(retrieval_id__empty_returned=False) &
+                    models.Q(cancel_notification=False)
                 ) & 
                 (
                     models.Q(created_at__gte='2024-08-19') |

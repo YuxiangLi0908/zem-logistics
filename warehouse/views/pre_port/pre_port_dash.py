@@ -130,7 +130,8 @@ class PrePortDash(View):
         end_date = (datetime.now().date() + timedelta(days=7)).strftime('%Y-%m-%d') if not end_date else end_date
         criteria = models.Q(
             created_at__gte=start_date,
-            created_at__lte=end_date
+            created_at__lte=end_date,
+            cancel_notification=False
         )
         if start_date_eta:
             criteria &= (

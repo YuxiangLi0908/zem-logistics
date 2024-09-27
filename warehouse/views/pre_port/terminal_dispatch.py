@@ -63,7 +63,8 @@ class TerminalDispatch(View):
                     models.Q(add_to_t49=True) &
                     models.Q(retrieval_id__actual_retrieval_timestamp__isnull=True) &
                     models.Q(retrieval_id__target_retrieval_timestamp__isnull=True) &
-                    models.Q(vessel_id__vessel_eta__lte=datetime.now() + timedelta(weeks=2))
+                    models.Q(vessel_id__vessel_eta__lte=datetime.now() + timedelta(weeks=2)) &
+                    models.Q(cancel_notification=False)        
                 ) &
                 (
                     models.Q(created_at__gte='2024-08-19') |
@@ -78,7 +79,8 @@ class TerminalDispatch(View):
                 (
                     models.Q(add_to_t49=True) &
                     models.Q(retrieval_id__actual_retrieval_timestamp__isnull=True) &
-                    models.Q(retrieval_id__target_retrieval_timestamp__isnull=False)
+                    models.Q(retrieval_id__target_retrieval_timestamp__isnull=False) &
+                    models.Q(cancel_notification=False)
                 ) &
                 (
                     models.Q(created_at__gte='2024-08-19') |
