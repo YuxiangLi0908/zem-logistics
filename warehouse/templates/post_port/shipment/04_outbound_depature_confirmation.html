@@ -71,8 +71,9 @@
                             <td class="td">{{ s.total_cbm|floatformat:2 }}</td>
                             <td class="td">{{ s.total_pallet|floatformat:0 }}</td>
                             <td class="td">
-                                <input type="number" name="actual_shipped_pallet" step=1 required>
+                                <input type="number" name="actual_shipped_pallet" step=1 max="{{ s.total_pallet }}" required>
                             </td>
+                            <input type="hidden" name="batch_number" value="{{ s.shipment_batch_number }}">
                         </tr>
                         {% endfor %}
                     </tbody>
@@ -89,6 +90,7 @@
                                 <input type="datetime-local" name="departured_at" style="font-size: 13px;" required>
                                 <input type="hidden" name="step" value="fleet_departure">
                                 <input type="hidden" name="fleet_number" value="{{ selected_fleet.fleet_number }}">
+                                <input type="hidden" name="warehouse" value="{{ warehouse }}">
                                 <button type="submit" onclick="confirmSubmit()" class="btn btn-primary" style="font-size: 11px;">确认出库</button>
                             </th>
                         </tr>

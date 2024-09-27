@@ -31,6 +31,11 @@
                 </td>
                 <td style="border: 1px solid #141414;">
                     <table>
+                        {% if fleet_number %}
+                        <tr>
+                            <td style="margin-left: 5px;">Fleet number: {{ fleet_number }}</td>
+                        </tr>
+                        {% endif %}
                         <tr>
                             <td style="margin-left: 5px;">Batch number: {{ batch_number }}</td>
                         </tr>

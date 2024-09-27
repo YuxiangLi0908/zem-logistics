@@ -6,6 +6,8 @@ from warehouse.models.fleet import Fleet
 
 class Shipment(models.Model):
     shipment_batch_number = models.CharField(max_length=255, null=True)
+    master_batch_number = models.CharField(max_length=255, null=True, blank=True)
+    batch = models.IntegerField(null=True, default=0)
     appointment_id = models.CharField(max_length=255, null=True, blank=True)
     origin = models.CharField(max_length=255, null=True, blank=True)
     destination = models.CharField(max_length=255, null=True, blank=True)
@@ -25,10 +27,10 @@ class Shipment(models.Model):
     total_cbm = models.FloatField(null=True)
     total_pallet = models.FloatField(null=True)
     total_pcs = models.FloatField(null=True)
-    # shipped_weight = models.FloatField(null=True)
-    # shipped_cbm = models.FloatField(null=True)
-    # shipped_pallet = models.FloatField(null=True)
-    # shipped_pcs = models.FloatField(null=True)
+    shipped_weight = models.FloatField(null=True, default=0)
+    shipped_cbm = models.FloatField(null=True, default=0)
+    shipped_pallet = models.FloatField(null=True, default=0)
+    shipped_pcs = models.FloatField(null=True, default=0)
     note = models.CharField(max_length=1000, null=True, blank=True)
     pod_link = models.CharField(max_length=2000, null=True, blank=True)
     pallet_dumpped = models.FloatField(null=True, blank=True, default=0)

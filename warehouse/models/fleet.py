@@ -15,6 +15,10 @@ class Fleet(models.Model):
     total_pallet = models.FloatField(null=True)
     total_pcs = models.FloatField(null=True)
     note = models.CharField(max_length=1000, null=True, blank=True)
+    shipped_weight = models.FloatField(null=True, default=0)
+    shipped_cbm = models.FloatField(null=True, default=0)
+    shipped_pallet = models.FloatField(null=True, default=0)
+    shipped_pcs = models.FloatField(null=True, default=0)
     multipule_destination = models.BooleanField(default=False, blank=True)
     pod_link = models.CharField(max_length=2000, null=True, blank=True)
 
@@ -27,6 +31,16 @@ class Fleet(models.Model):
         if self.appointment_date <= today:
             return "past_due"
         elif self.appointment_date <= today + timedelta(days=1):
+            return "need_attention"
+        else:
+            return "on_time"
+        
+    @property
+    def arrival_status(self) -> str:
+        today = datetime.now().date()
+        if self.departured_at.date() <= today:
+            return "past_due"
+        elif self.departured_at <= today + timedelta(days=1):
             return "need_attention"
         else:
             return "on_time"

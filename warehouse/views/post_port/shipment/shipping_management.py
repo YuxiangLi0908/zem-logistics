@@ -1,7 +1,6 @@
 import ast
-import pytz
 import uuid
-import asyncio
+import os
 import pandas as pd
 from asgiref.sync import sync_to_async
 from datetime import datetime, timedelta
@@ -17,6 +16,10 @@ from django.db.models.functions import Concat, Cast
 from django.contrib.postgres.aggregates import StringAgg
 from django.template.loader import get_template
 
+from office365.runtime.auth.user_credential import UserCredential
+from office365.sharepoint.client_context import ClientContext
+from office365.sharepoint.sharing.links.kind import SharingLinkKind
+
 from warehouse.models.retrieval import Retrieval
 from warehouse.models.order import Order
 from warehouse.models.packing_list import PackingList
@@ -28,7 +31,17 @@ from warehouse.forms.warehouse_form import ZemWarehouseForm
 from warehouse.forms.shipment_form import ShipmentForm
 from warehouse.forms.packling_list_form import PackingListForm
 from warehouse.views.export_file import export_palletization_list
-from warehouse.utils.constants import amazon_fba_locations, LOAD_TYPE_OPTIONS
+from warehouse.forms.upload_file import UploadFileForm
+from warehouse.utils.constants import (
+    amazon_fba_locations,
+    APP_ENV,
+    LOAD_TYPE_OPTIONS,
+    SP_USER,
+    SP_PASS,
+    SP_URL,
+    SP_DOC_LIB,
+    SYSTEM_FOLDER,
+)
 
 
 class ShippingManagement(View):
@@ -41,6 +54,7 @@ class ShippingManagement(View):
     template_fleet_schedule_info = "post_port/shipment/03_2_fleet_schedule_info.html"
     template_outbound = "post_port/shipment/04_outbound_main.html"
     template_outbound_departure = "post_port/shipment/04_outbound_depature_confirmation.html"
+    template_delivery_and_pod = "post_port/shipment/05_delivery_and_pod.html"
     template_bol = "export_file/bol_base_template.html"
 
     async def get(self, request: HttpRequest) -> HttpResponse:
@@ -61,6 +75,9 @@ class ShippingManagement(View):
             return render(request, template, context)
         elif step == "fleet_depature":
             template, context = await self.handle_fleet_depature_get(request)
+            return render(request, template, context)
+        elif step == "delivery_and_pod":
+            template, context = await self.handle_delivery_and_pod_get(request)
             return render(request, template, context)
         else:
             context = {"warehouse_form": ZemWarehouseForm()}
@@ -108,9 +125,19 @@ class ShippingManagement(View):
         elif step == "export_bol":
             return await self.handle_export_bol_post(request)
         elif step == "fleet_departure":
-            pass
+            template, context = await self.handle_fleet_departure_post(request)
+            return render(request, template, context)
+        elif step == "fleet_delivery_search":
+            mutable_get = request.GET.copy()
+            mutable_get["fleet_number"] = request.POST.get("fleet_number", None)
+            mutable_get["batch_number"] = request.POST.get("batch_number", None)
+            request.GET = mutable_get
+            template, context = await self.handle_delivery_and_pod_get(request)
+            return render(request, template, context)
+        elif step == "confirm_delivery":
+            template, context = await self.handle_confirm_delivery_post(request)
+            return render(request, template, context)
         else:
-            raise ValueError(request.POST)
             return await self.get(request)
         
     async def handle_shipment_info_get(self, request: HttpRequest) -> tuple[str, dict[str, Any]]:
@@ -164,6 +191,28 @@ class ShippingManagement(View):
             "warehouse": warehouse,
         })
         return self.template_outbound_departure, context
+    
+    async def handle_delivery_and_pod_get(self, request: HttpRequest) -> tuple[str, dict[str, Any]]:
+        fleet_number = request.GET.get("fleet_number", "")
+        batch_number = request.GET.get("batch_number", "")
+        criteria = models.Q(
+            departured_at__isnull=False,
+            arrived_at__isnull=True
+        )
+        if fleet_number:
+            criteria &= models.Q(fleet_number=fleet_number)
+        if batch_number:
+            criteria &= models.Q(shipment__shipment_batch_number=batch_number)
+        fleet = await sync_to_async(list)(
+            Fleet.objects.filter(criteria).order_by("departured_at")
+        )
+        context = {
+            "fleet_number": fleet_number,
+            "batch_number": batch_number,
+            "fleet": fleet,
+            "upload_file_form": UploadFileForm(required=True),
+        }
+        return self.template_delivery_and_pod, context
 
     async def handle_warehouse_post(self, request: HttpRequest) -> tuple[str, dict[str, Any]]:
         warehouse = request.POST.get("name") if request.POST.get("name") else request.POST.get("warehouse")
@@ -391,7 +440,7 @@ class ShippingManagement(View):
             Shipment.objects.filter(
                 origin=warehouse,
                 fleet_number__isnull=True
-            ).order_by("shipment_appointment")
+            ).order_by("-batch", "shipment_appointment")
         )
         fleet = await sync_to_async(list)(
             Fleet.objects.filter(
@@ -553,7 +602,9 @@ class ShippingManagement(View):
         batch_number = request.POST.get("shipment_batch_number")
         warehouse = request.POST.get("warehouse")
         warehouse_obj = await sync_to_async(ZemWarehouse.objects.get)(name=warehouse) if warehouse else None
-        shipment = await sync_to_async(Shipment.objects.get)(shipment_batch_number=batch_number)
+        shipment = await sync_to_async(
+            Shipment.objects.select_related("fleet_number").get
+        )(shipment_batch_number=batch_number)
         packing_list = await sync_to_async(list)(
             PackingList.objects.select_related("container_number").filter(
                 shipment_batch_number__shipment_batch_number=batch_number
@@ -568,6 +619,7 @@ class ShippingManagement(View):
         context = {
             "warehouse": warehouse_obj.address,
             "batch_number": batch_number,
+            "fleet_number": shipment.fleet_number.fleet_number,
             "shipment": shipment,
             "packing_list": packing_list,
             "address_chinese_char": address_chinese_char,
@@ -582,7 +634,109 @@ class ShippingManagement(View):
         if pisa_status.err:
             raise ValueError('Error during PDF generation: %s' % pisa_status.err, content_type='text/plain')
         return response
-        
+    
+    async def handle_fleet_departure_post(self, request: HttpRequest) -> tuple[str, dict[str, Any]]:
+        fleet_number = request.POST.get("fleet_number")
+        departured_at = request.POST.get("departured_at")
+        actual_shipped_pallet = request.POST.getlist("actual_shipped_pallet")
+        actual_shipped_pallet = [int(n) for n in actual_shipped_pallet]
+        batch_number = request.POST.getlist("batch_number")
+        actual_shipped_pallet = dict(zip(batch_number, actual_shipped_pallet))
+        fleet = await sync_to_async(Fleet.objects.get)(fleet_number=fleet_number)
+        shipment = await sync_to_async(list)(
+            Shipment.objects.filter(
+                shipment_batch_number__in=batch_number
+            ).order_by("-shipment_appointment")
+        )
+        updated_shipment = []
+        sub_shipment = []
+        fleet_shipped_weight, fleet_shipped_cbm, fleet_shipped_pallet, fleet_shipped_pcs = 0, 0, 0, 0
+        for s in shipment:
+            s.shipped_pallet = actual_shipped_pallet.get(s.shipment_batch_number)
+            s.shipped_weight = actual_shipped_pallet.get(s.shipment_batch_number) / s.total_pallet * s.total_weight
+            s.shipped_cbm = actual_shipped_pallet.get(s.shipment_batch_number) / s.total_pallet * s.total_cbm
+            s.shipped_pcs = actual_shipped_pallet.get(s.shipment_batch_number) / s.total_pallet * s.total_pcs
+            fleet_shipped_weight += s.shipped_weight
+            fleet_shipped_cbm += s.shipped_cbm
+            fleet_shipped_pallet += s.shipped_pallet
+            fleet_shipped_pcs += s.shipped_pcs
+            s.is_shipped = True
+            s.shipped_at = departured_at
+            if actual_shipped_pallet.get(s.shipment_batch_number) < s.total_pallet:
+                s.pallet_dumpped = s.total_pallet - actual_shipped_pallet.get(s.shipment_batch_number)
+                s.is_full_out = False
+                sub_shipment.append({
+                    "shipment_batch_number": f"{s.shipment_batch_number.split('_')[0]}_{s.batch + 1}",
+                    "master_batch_number": s.shipment_batch_number.split("_")[0],
+                    "batch": s.batch + 1,
+                    "appointment_id": s.appointment_id,
+                    "origin": s.origin,
+                    "destination": s.destination,
+                    "is_shipment_schduled": s.is_shipment_schduled,
+                    "shipment_schduled_at": s.shipment_schduled_at,
+                    "shipment_appointment": s.shipment_appointment,
+                    "load_type": s.load_type,
+                    "total_weight": s.total_weight - s.shipped_weight,
+                    "total_cbm": s.total_cbm - s.shipped_cbm,
+                    "total_pallet": s.total_pallet - s.shipped_pallet,
+                    "total_pcs": s.total_pcs - s.shipped_pcs,
+                })
+            else:
+                s.pallet_dumpped = 0
+                s.is_full_out = True
+            updated_shipment.append(s)
+        fleet.departured_at = departured_at
+        fleet.shipped_weight = fleet_shipped_weight
+        fleet.shipped_cbm = fleet_shipped_cbm
+        fleet.shipped_pallet = fleet_shipped_pallet
+        fleet.shipped_pcs = fleet_shipped_pcs
+        await sync_to_async(Shipment.objects.bulk_update)(
+            updated_shipment,
+            [
+                "shipped_pallet", "shipped_weight", "shipped_cbm", "shipped_pcs", "is_shipped", 
+                "shipped_at", "pallet_dumpped", "is_full_out"
+            ]
+        )
+        if sub_shipment:
+            await sync_to_async(Shipment.objects.bulk_create)([
+                Shipment(**d) for d in sub_shipment
+            ])
+        await sync_to_async(fleet.save)()
+        return await self.handle_outbound_warehouse_search_post(request)
+    
+    async def handle_confirm_delivery_post(self, request: HttpRequest) -> tuple[str, dict[str, Any]]:
+        conn = await self._get_sharepoint_auth()
+        pod_form = UploadFileForm(request.POST, request.FILES)
+        arrived_at = request.POST.get("arrived_at")
+        fleet_number = request.POST.get("fleet_number")
+        fleet = await sync_to_async(Fleet.objects.get)(fleet_number=fleet_number)
+        shipment = await sync_to_async(list)(
+            Shipment.objects.filter(fleet_number__fleet_number=fleet_number)
+        )
+        if pod_form.is_valid():
+            file = request.FILES['file']
+            file_extension = os.path.splitext(file.name)[1]
+            file_path = os.path.join(SP_DOC_LIB, f"{SYSTEM_FOLDER}/pod/{APP_ENV}")
+            sp_folder = conn.web.get_folder_by_server_relative_url(file_path)
+            resp = sp_folder.upload_file(f"{fleet_number}{file_extension}", file).execute_query()
+            link = resp.share_link(SharingLinkKind.OrganizationView).execute_query().value.to_json()["sharingLinkInfo"]["Url"]
+        else:
+            raise ValueError("invalid file uploaded.")
+        fleet.arrived_at = arrived_at
+        fleet.pod_link = link
+        updated_shipment = []
+        for s in shipment:
+            s.arrived_at = arrived_at
+            s.is_arrived = True
+            s.pod_link = link
+            updated_shipment.append(s)
+        await sync_to_async(fleet.save)()
+        await sync_to_async(Shipment.objects.bulk_update)(
+            updated_shipment,
+            ["arrived_at", "is_arrived", "pod_link"]
+        )
+        return await self.handle_delivery_and_pod_get(request)
+
     async def _get_packing_list(self, criteria: models.Q) -> list[Any]:
         return await sync_to_async(list)(
             PackingList.objects.prefetch_related(
@@ -648,6 +802,9 @@ class ShippingManagement(View):
                 ),
             ).distinct().order_by('container_number__order__offload_id__offload_at')
         )
+    
+    async def _get_sharepoint_auth(self) -> ClientContext:
+        return ClientContext(SP_URL).with_credentials(UserCredential(SP_USER, SP_PASS))
 
     async def _shipment_exist(self, batch_number: str) -> bool:
         if await sync_to_async(list)(Shipment.objects.filter(shipment_batch_number=batch_number)):

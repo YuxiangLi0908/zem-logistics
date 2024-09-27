@@ -301,6 +301,7 @@ class StuffPower(View):
         shipment_updated = []
         cnt = 0
         for s in shipment:
+            s.batch = 0
             if s.is_shipped:
                 s.is_full_out = True
                 s.pallet_dumpped = 0
@@ -311,7 +312,7 @@ class StuffPower(View):
             cnt += 1
         Shipment.objects.bulk_update(
             shipment_updated,
-            ["is_full_out", "pallet_dumpped"]
+            ["is_full_out", "pallet_dumpped", "batch"]
         )
         context = {
             "shipment_updated": True,

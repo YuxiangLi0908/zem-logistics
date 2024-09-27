@@ -67,7 +67,12 @@
                                     <input type="hidden" name="is_appointment_added", value='off'>
                                     <input type="hidden" name="shipment_ids", value='{{ s.id }}'>
                                 </td>
-                                <td class="td" style="max-width: 120px; word-break: break-all;">{{ s.shipment_batch_number }}</td>
+                                <td class="td" style="max-width: 130px; word-break: break-all;">
+                                    {% if s.batch > 0 %}
+                                    <span class="status-span-red">甩板</span>
+                                    {% endif %}
+                                    {{ s.shipment_batch_number }}
+                                </td>
                                 <td class="td">{{ s.destination }}</td>
                                 <td class="td">{{ s.appointment_id }}</td>
                                 <td class="td">
