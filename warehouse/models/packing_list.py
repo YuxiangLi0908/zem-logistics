@@ -1,3 +1,4 @@
+from django.core.validators import MinValueValidator
 from django.db import models
 from .container import Container
 from .shipment import Shipment
@@ -20,7 +21,7 @@ class PackingList(models.Model):
     total_weight_lbs = models.FloatField(null=True)
     total_weight_kg = models.FloatField(null=True)
     cbm = models.FloatField(null=True)
-    n_pallet = models.IntegerField(null=True, blank=True)
+    n_pallet = models.IntegerField(null=True, blank=True, validators=[MinValueValidator(1)])
     shipment_batch_number = models.ForeignKey(Shipment, null=True, blank=True, on_delete=models.SET_NULL, related_name='packinglist')
     note = models.CharField(null=True, blank=True, max_length=2000)
     quote_id = models.ForeignKey(Quote, null=True, blank=True, on_delete=models.SET_NULL)
