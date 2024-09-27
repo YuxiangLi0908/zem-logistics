@@ -413,15 +413,11 @@ class OrderCreation(View):
         order = await sync_to_async(Order.objects.select_related(
             "retrieval_id"
         ).get)(container_number__container_number=container_number)
-        if not order.retrieval_id:
-            print()
-            retrieval = await sync_to_async(Retrieval.objects.get)(models.Q(retrieval_id = order.retrieval_id))
+        retrieval = await sync_to_async(Retrieval.objects.get)(models.Q(retrieval_id = order.retrieval_id))
         retrieval.retrieval_carrier = request.POST.get("retrieval_carrier")
         retrieval.retrieval_destination_precise = request.POST.get("retrieval_destination_precise")
         retrieval.target_retrieval_timestamp = request.POST.get("target_retrieval_timestamp")
         retrieval.actual_retrieval_timestamp = request.POST.get("actual_retrieval_timestamp")
-        print(request.POST.get("actual_retrieval_timestamp"))
-        print(request.POST.get("retrieval_note"))
         retrieval.note = request.POST.get("retrieval_note").strip()
         await sync_to_async(retrieval.save)()
         mutable_get = request.GET.copy()
