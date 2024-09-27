@@ -67,7 +67,7 @@
                                     <input type="hidden" name="is_appointment_added", value='off'>
                                     <input type="hidden" name="shipment_ids", value='{{ s.id }}'>
                                 </td>
-                                <td class="td" style="max-width: 130px; word-break: break-all;">
+                                <td class="td" style="max-width: 200px; word-break: break-all;">
                                     {% if s.batch > 0 %}
                                     <span class="status-span-red">甩板</span>
                                     {% endif %}
@@ -75,7 +75,7 @@
                                 </td>
                                 <td class="td">{{ s.destination }}</td>
                                 <td class="td">{{ s.appointment_id }}</td>
-                                <td class="td">
+                                <td class="td" style="max-width: 150px; word-break: break-all;">
                                     {% if s.shipping_status == "past_due" %}
                                     <span class="status-span-red">{{ s.shipment_appointment|date:"Y-m-d" }} {{ s.shipment_appointment|time:"H:i" }}</span>
                                     {% elif s.shipping_status == "need_attention" %}
@@ -87,7 +87,7 @@
                                 <td class="td">{{ s.total_weight|floatformat:2 }}</td>
                                 <td class="td">{{ s.total_cbm|floatformat:2 }}</td>
                                 <td class="td">{{ s.total_pallet }}</td>
-                                <td class="td" style="max-width: 120px; word-break: break-all;">{{ s.note }}</td>
+                                <td class="td" style="max-width: 150px; word-break: break-all;">{{ s.note }}</td>
                             </tr>
                             {% endfor %}
                         </tbody>
