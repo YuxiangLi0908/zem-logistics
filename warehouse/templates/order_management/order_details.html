@@ -18,6 +18,9 @@
                 <button class="nav-link" onclick="showSection(this, 'order-packing-list-info-sec')"><b>Packing List</b></button>
             </li>
             <li class="nav-item">
+                <button class="nav-link" onclick="showSection(this, 'order-retrieval-info-sec')"><b>调度信息</b></button>
+            </li>
+            <li class="nav-item">
                 <button class="nav-link" onclick="showSection(this, 'order-export-sec')"><b>表格导出</b></button>
             </li>
             <form method="post" action="">
@@ -380,6 +383,71 @@
                     </button>
                 </div>
             </form>
+        </div>
+    </div>
+
+    <div id="order-retrieval-info-sec" style="display: none;">
+        <form method="post" action="">
+            {% csrf_token %}
+            <table class="table" style="margin-top: 10px; font-size: 11px;">
+                <thead>
+                    <tr>
+                        <th class="th">供应商</th>
+                        <th class="th">目的地</th>
+                        <th class="th">预约时间</th>
+                        <th class="th">实际提柜时间</th>
+                        <th class="th">提柜备注</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    <tr>
+                        <td class="td">
+                            <select name="retrieval_carrier" id="retrieval-carrier-select" style="font-size: 13px;">
+                                {% for k, v in carrier_options %}
+                                    {% if v == retrieval.retrieval_carrier %}
+                                        <option value="{{ v }}" selected>{{ k }}</option>
+                                    {% else %}
+                                        <option value="{{ v }}">{{ k }}</option>
+                                    {% endif %}
+                                {% endfor %}
+                            </select>                            
+                        </td>
+                        <td class="td">
+                            {% if selected_order.order_type == "直送" %}
+                                <input type="text" name="retrieval_destination_precise" {%if retrieval %} value="{{ retrieval.retrieval_destination_precise }}" {% endif %} required>
+                            {% else %}
+                                <select name="retrieval_destination_precise" id="retrieval_destination_precise-select" style="font-size: 13px;">
+                                    {% for k, v in warehouse_options %}
+                                        {% if v == retrieval.retrieval_destination_precise  %}
+                                            <option value="{{ retrieval.retrieval_destination_precise }}" selected>{{ k }}</option>
+                                        {% else %}
+                                            <option value="{{ v }}">{{ k }}</option>
+                                        {% endif %}
+                                    {% endfor %}
+                                </select>
+                            {% endif %}
+                        </td>
+                        <td class="td">
+                            <input type="date" name="retrieval_target_time" {%if retrieval %}value="{{ retrieval.target_retrieval_timestamp|date:'Y-m-d' }}"{% endif %} required>
+                        </td>
+                        <td class="td">
+                            <input type="date" name="retrieval_actual_time" {%if retrieval %}value="{{ retrieval.actual_retrieval_timestamp|date:'Y-m-d' }}"{% endif %} required>
+                        </td>
+                        <td class="td">
+                            <input type="text" name="retrieval_note" {%if retrieval %}value="{{ retrieval.note }}"{% endif %} required>
+                        </td>
+                    </tr>
+                </tbody>
+            </table>
+            <div class="text-right">
+                <input type="hidden" name="step" value="update_order_retrieval_info">
+                <input type="hidden" name="source" value="order_management">
+                <input type="hidden" name="container_number" value="{{ selected_order.container_number.container_number }}">  <!-- 这里对用户输入内容没有明确要求-->
+                <button id="submit-btn-update-basic-info" type="submit" class="btn btn-primary" style="width: 90px; height: 30px; margin-left: 20px; font-size: 13px;">
+                    更新信息
+                </button>
+            </div>
+        </form>
         </div>
     </div>
 
