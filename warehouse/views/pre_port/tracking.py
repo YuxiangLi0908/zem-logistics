@@ -54,7 +54,8 @@ class PrePortTracking(View):
                 models.Q(packing_list_updloaded=True) &
                 models.Q(retrieval_id__actual_retrieval_timestamp__isnull=True) &
                 models.Q(vessel_id__vessel_eta__lte=datetime.now() + timedelta(weeks=2)) &
-                models.Q(add_to_t49=False)
+                models.Q(add_to_t49=False) &
+                models.Q(cancel_notification=False)
             )
         )
         orders_under_tracking = await sync_to_async(list)(
@@ -62,7 +63,8 @@ class PrePortTracking(View):
                 "vessel_id", "container_number", "customer_name", "retrieval_id", "offload_id"
             ).filter(
                 models.Q(add_to_t49=True) &
-                models.Q(retrieval_id__actual_retrieval_timestamp__isnull=True)
+                models.Q(retrieval_id__actual_retrieval_timestamp__isnull=True) &
+                models.Q(cancel_notification=False)
             )
         )
         context = {
