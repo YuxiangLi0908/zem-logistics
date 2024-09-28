@@ -27,7 +27,7 @@
                 {% csrf_token %}
                 <input type="hidden" name="step" value="cancel_notification">
                 <input type="hidden" name="container_number" value="{{ selected_order.container_number.container_number }}">
-                <button id="submit-btn-update-basic-info" type="submit" class="btn btn-primary" style="width: 90px; height: 30px; margin-left: 20px; font-size: 13px;">
+                <button id="submit-btn-update-basic-info" onclick="confirmSubmit(this)" type="submit" class="btn btn-primary" style="width: 90px; height: 30px; margin-left: 20px; font-size: 13px;">
                 <b>取消预报</b></button>
             </form>
 
@@ -448,7 +448,6 @@
                 </button>
             </div>
         </form>
-        </div>
     </div>
 
     <div id="order-export-sec" style="display: none;">
@@ -465,6 +464,17 @@
 
 
 <script>
+    function confirmSubmit(Element){
+        if (confirm('是否确定取消？')){
+            var form = button.form;
+            form.submit();
+            form.addEventListener('submit',function(){
+                alert('已经删除');
+            });
+        }else{
+            return false;
+        }       
+    };
     function showSection(navItem, secId) {
         const navLinks = document.querySelectorAll('.nav-link');
         navLinks.forEach(link => {
