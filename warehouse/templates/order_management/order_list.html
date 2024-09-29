@@ -13,6 +13,13 @@
             <button id="submit-btn" type="submit" class="btn btn-primary" style="width: 100px; height: 35px; margin-left: 20px;">查询</button>
         </div>
     </form>
+    <form method="post" enctype="multipart/form-data" style="display: inline-block; margin-left: 10px;">
+        <div id="do-export" style="width: 100%;" class="text-right">          
+            {% csrf_token %}
+            <input type="hidden" name="step" value="export_do">
+            <button type="submit" onclick="exportDo(this)" class="btn btn-success" style="width: 100px; height: 35px;">DO <i class="bi bi-cloud-arrow-down-fill"></i></button>           
+        </div>
+    </form>
     {% if user.is_authenticated and user.is_staff %}
     <form method="post" action="" style="width: 20%;">
         {% csrf_token %}
@@ -27,7 +34,7 @@
 </div>
 <hr class="Dashed" style="margin-top: 10px; margin-bottom: 10px;">
 
-<form method="post" action="" style="width: 100%;">
+<form method="post" action="" style="width: 100%;" id="myForm">
     {% csrf_token %}
     <div style="overflow-x: auto; width: 100%; overflow-y: auto; max-height: 100%;">
         <table id="order-table" class="table" style="font-size: 12px; width: 100%;">
@@ -53,13 +60,7 @@
                     </th>
                     <th class="th"><input type="text" id="customerSearchInput" placeholder="搜索客户..." oninput="filterTable()"></th>
                     <th class="th"><input type="text" id="containerSearchInput" placeholder="搜索柜号..." oninput="filterTable()"></th>
-                    <th class="th">
-                        <select id="filter-select">
-                            <option value="all">全选</option>
-                            <option value="cancelled">已取消</option>
-                            <option value="not-cancelled">未取消</option>
-                        </select>
-                    </th>
+                    <th class="th"><input type="text" id="forcastSearchInput" placeholder="取消状态" oninput="filterTable()" style="width:60px;"></th>
                     <th class="th"></th>
                     <th class="th"></th>
                     <th class="th"></th>
@@ -208,53 +209,46 @@
 
     function filterTable() {
         var containerInput, customerInput, containerFilter, customerFilter, table, tbody, tr, containerTd, customerTd, i, containerTxtValue, customerTxtValue;
+        var forcastInput, forcastFilter, forcastTxtValue;
         containerInput = document.getElementById("containerSearchInput");
         customerInput = document.getElementById("customerSearchInput");
+        forcastInput = document.getElementById("forcastSearchInput");
         containerFilter = containerInput.value.toUpperCase();
         customerFilter = customerInput.value.toUpperCase();
+        forcastFilter = forcastInput.value.toUpperCase();
         table = document.getElementById("order-table");
         tbody = table.getElementsByTagName("tbody")[0];
         tr = tbody.getElementsByTagName("tr");
-
+        var parts = containerFilter.split(/\W/);  //按照除字母数字（柜号）外的字符分组
+        for (var i = 0; i < parts.length; i++) {
+            var part = parts[i];  
+        }
+        
         for (i = 0; i < tr.length; i++) {
             containerTd = tr[i].getElementsByTagName("td")[2]; // Index 1 corresponds to the container_number__container_number column
             customerTd = tr[i].getElementsByTagName("td")[1]; // Index 2 corresponds to the customer column
-            if (containerTd && customerTd) {
+            forcastTd = tr[i].getElementsByTagName("td")[3];
+            if (containerTd && customerTd && forcastTd) {
                 containerTxtValue = containerTd.textContent || containerTd.innerText;
                 customerTxtValue = customerTd.textContent || customerTd.innerText;
-                var containerDisplayStyle = containerTxtValue.toUpperCase().indexOf(containerFilter) > -1 ? "" : "none";
+                forcastTxtValue = forcastTd.textContent || forcastTd.innerText;
                 var customerDisplayStyle = customerTxtValue.toUpperCase().indexOf(customerFilter) > -1 ? "" : "none";
-
-                // Set display style based on both container and customer filters
-                tr[i].style.display = containerDisplayStyle === "" && customerDisplayStyle === "" ? "" : "none";
+                var forcastDisplayStyle = forcastTxtValue.toUpperCase().indexOf(forcastFilter) > -1 ? "" : "none";
+                var containerDisplayStyle = "none";
+                if (parts.length >0){              //如果一次输入多个柜号，则分开处理柜号的显示属性
+                    for(var j=0;j<parts.length;j++){
+                        if(containerTxtValue.toUpperCase().indexOf(parts[j]) > -1){
+                            var containerDisplayStyle = "";
+                            break;
+                        }
+                    }
+                }else{
+                    containerDisplayStyle = containerTxtValue.toUpperCase().indexOf(containerFilter) > -1 ? "" : "none";
+                }
+                tr[i].style.display = containerDisplayStyle === "" && customerDisplayStyle === "" && forcastDisplayStyle === "" ? "" : "none";
             }
         }
     };
-    document.getElementById('filter-select').addEventListener('change', function () {
-        var table, tbody, tr, i;
-        var selectedValue = this.value;
-        table = document.getElementById("order-table");
-        tbody = table.getElementsByTagName("tbody")[0];
-        tr = tbody.getElementsByTagName("tr");
-        var selectedOption = this.options[this.selectedIndex];
-        var optionText = selectedOption.textContent || selectedOption.innerText;
-        if (optionText == "全选"){
-            for (var i = 0; i < tr.length; i++) {
-                tr[i].style.display = "";
-            }
-        }else{
-            for (var i = 0; i < tr.length; i++) {
-                cancel_status = tr[i].getElementsByTagName("td")[3];
-                cancel_data = cancel_status.textContent || cancel_status.innerText;
-                if (optionText == cancel_data.trim()){   //通过打印发现cancel_data返回的结果前后存在较长的空字符串
-                    tr[i].style.display = "";
-                }else{
-                    tr[i].style.display = "none";
-                }
-    
-            }
-        }       
-    });
 
     function confirmSubmit(Element){
         if (selectedOrders.length === 0){
@@ -292,27 +286,49 @@
     document.getElementById('selectAll').addEventListener('click', function () {
         var checkboxes = document.getElementsByName('is_order_selected_click');
         for (var i = 0; i < checkboxes.length; i++) {
-            
-            checkboxes[i].checked = this.checked;
-            if (this.checked){
-                let checkbox = checkboxes[i];
-                let row = checkbox.parentNode.parentNode;
-                let OrderElement = row.children[2];
-                let Orders = OrderElement? OrderElement.textContent : '';
-                selectedOrders.push(Orders.trim());
+            tr = checkboxes[i].parentNode.parentNode;   //当其他字段通过筛选过滤时，过滤掉的display='none'，全选时应该去掉该柜号
+            if(tr.style.display === ""){
+                checkboxes[i].checked = this.checked;
+                if (this.checked){
+                    let checkbox = checkboxes[i];
+                    let row = checkbox.parentNode.parentNode;
+                    let OrderElement = row.children[2];
+                    let Orders = OrderElement? OrderElement.textContent : '';
+                    selectedOrders.push(Orders.trim());
+                }
             }
-
         }
     });
-    //导出时，增加隐藏的input
+    //导出预报时，增加隐藏的input
     function exportForecast(Element){
-        let form = Element.parentNode.parentNode;
-        let hiddenInput = document.createElement('input');
-        hiddenInput.type = 'hidden';
-        hiddenInput.name ='selectedOrders';
-        hiddenInput.value = JSON.stringify(selectedOrders);
-        form.appendChild(hiddenInput);
-        form.submit();
+        if (selectedOrders.length === 0){
+            alert('未选中数据！');
+            event.preventDefault();
+            return;
+        }else{
+            let form = Element.parentNode.parentNode;
+            let hiddenInput = document.createElement('input');
+            hiddenInput.type = 'hidden';
+            hiddenInput.name ='selectedOrders';
+            hiddenInput.value = JSON.stringify(selectedOrders);
+            form.appendChild(hiddenInput);
+            form.submit();
+        }
+    };
+    //导出DO时，增加隐藏的input
+    function exportDo(Element){       
+        if (selectedOrders.length === 0){
+            alert('未选中数据！');
+            event.preventDefault();
+            return;
+        }else{
+            let form = Element.parentNode;
+            let hiddenInput = document.createElement('input');
+            hiddenInput.type = 'hidden';
+            hiddenInput.name ='selectedOrders';
+            hiddenInput.value = JSON.stringify(selectedOrders);
+            form.appendChild(hiddenInput);
+        }   
     };
 </script>
 {% endblock %}

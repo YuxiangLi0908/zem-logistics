@@ -2,6 +2,8 @@ import io
 import os
 import pytz
 import pandas as pd
+import json
+import zipfile
 
 from io import BytesIO
 from xhtml2pdf import pisa
@@ -225,7 +227,26 @@ def export_po(request: HttpRequest, export_format: str = "PO") -> HttpResponse:
     return response
 
 def export_do(request: HttpRequest) -> HttpResponse:
-    container_number = request.POST.get("container_number")
+    selected_orders = json.loads(request.POST.get('selectedOrders', '[]'))
+ 
+    if len(selected_orders) > 1:
+        # 创建一个BytesIO对象来保存ZIP文件，我理解是前后端导出pdf只能响应一次，所以实现不了一次导出多个pdf，就将多个pdf合并为一个压缩包
+        zip_buffer = BytesIO()
+        with zipfile.ZipFile(zip_buffer, 'w', zipfile.ZIP_DEFLATED) as zip_file:
+            for container_number in selected_orders:
+                pdf_response = export_do_branch(container_number)
+                zip_file.writestr(f'DO_{container_number}.pdf', pdf_response.content)
+
+        # 设置HTTP响应，格式为压缩包
+        response = HttpResponse(zip_buffer.getvalue(), content_type='application/zip')
+        response['Content-Disposition'] = 'attachment; filename="orders.zip"'
+        zip_buffer.close()
+        return response
+    else:
+        pdf_response = export_do_branch(selected_orders[0])
+        return pdf_response
+
+def export_do_branch(container_number) -> Any:
     order = Order.objects.select_related(
         "container_number", "retrieval_id", "warehouse"
     ).get(container_number__container_number=container_number)

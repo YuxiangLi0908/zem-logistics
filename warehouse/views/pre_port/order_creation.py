@@ -29,7 +29,7 @@ from warehouse.models.vessel import Vessel
 from warehouse.forms.upload_file import UploadFileForm
 from warehouse.utils.constants import (
     PACKING_LIST_TEMP_COL_MAPPING, SHIPPING_LINE_OPTIONS,
-    DELIVERY_METHOD_OPTIONS, ADDITIONAL_CONTAINER
+    DELIVERY_METHOD_OPTIONS, ADDITIONAL_CONTAINER,CONTAINER_PICKUP_CARRIER,WAREHOUSE_OPTIONS
 )
 
 class OrderCreation(View):
@@ -76,8 +76,10 @@ class OrderCreation(View):
         elif step == "update_order_shipping_info":
             template, context = await self.handle_update_order_shipping_info_post(request)
             return await sync_to_async(render)(request, template, context)
-        elif step == "update_order_packing_list_info":
+        elif step == "update_order_packing_list_info":   
             template, context = await self.handle_update_order_packing_list_info_post(request)
+        elif step == "update_order_retrieval_info":   
+            template, context = await self.handle_update_order_retrieval_info_post(request)
             return await sync_to_async(render)(request, template, context)
         elif step == "upload_template":
             template, context = await self.handle_upload_template_post(request)
@@ -224,10 +226,12 @@ class OrderCreation(View):
         packing_list = await sync_to_async(list)(PackingList.objects.filter(
             models.Q(container_number__container_number=container_number)
         ))
+        
         context = {
             "selected_order": order,
             "packing_list": packing_list,
             "vessel": order.vessel_id,
+            "retrieval":order.retrieval_id,
             "shipping_lines": SHIPPING_LINE_OPTIONS,
             "delivery_options": DELIVERY_METHOD_OPTIONS,
             "packing_list_upload_form": UploadFileForm(),
@@ -236,6 +240,8 @@ class OrderCreation(View):
             "customers": customers,
             "area": self.area,
         }
+        context["carrier_options"] = CONTAINER_PICKUP_CARRIER
+        context["warehouse_options"] = [(k, v) for k, v in WAREHOUSE_OPTIONS if k not in ["N/A(直送)", "Empty"]]
         return self.template_order_details, context
 
     async def handle_create_order_basic_post(self, request: HttpRequest) -> tuple[Any, Any]:
@@ -402,6 +408,25 @@ class OrderCreation(View):
         else:
             return await self.handle_order_supplemental_info_get(request)
     
+    async def handle_update_order_retrieval_info_post(self, request:HttpRequest) -> tuple[Any, Any]:
+        container_number = request.POST.get("container_number")
+        order = await sync_to_async(Order.objects.select_related(
+            "retrieval_id"
+        ).get)(container_number__container_number=container_number)
+        retrieval = await sync_to_async(Retrieval.objects.get)(models.Q(retrieval_id = order.retrieval_id))
+        retrieval.retrieval_carrier = request.POST.get("retrieval_carrier")
+        retrieval.retrieval_destination_precise = request.POST.get("retrieval_destination_precise")
+        retrieval.target_retrieval_timestamp = request.POST.get("target_retrieval_timestamp")
+        retrieval.actual_retrieval_timestamp = request.POST.get("actual_retrieval_timestamp")
+        retrieval.note = request.POST.get("retrieval_note").strip()
+        await sync_to_async(retrieval.save)()
+        mutable_get = request.GET.copy()
+        mutable_get["container_number"] = container_number
+        mutable_get["step"] = "container_info_supplement"
+        request.GET = mutable_get
+        return await self.handle_order_management_container_get(request)
+
+
     async def handle_update_order_packing_list_info_post(self, request: HttpRequest) -> tuple[Any, Any]:
         container_number = request.POST.get("container_number")
         order = await sync_to_async(
