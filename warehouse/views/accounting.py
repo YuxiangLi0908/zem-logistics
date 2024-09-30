@@ -146,8 +146,14 @@ class Accounting(View):
         current_date = datetime.now().date()
         start_date = (current_date + timedelta(days=-30)).strftime('%Y-%m-%d') if not start_date else start_date
         end_date = current_date.strftime('%Y-%m-%d') if not end_date else end_date
-        criteria = models.Q(container_number__order__eta__gte=start_date)
-        criteria &= models.Q(container_number__order__eta__lte=end_date)
+        criteria = models.Q(
+            container_number__order__eta__gte=start_date,
+            container_number__order__eta__lte=end_date,
+        )
+        criteria |= models.Q(
+            container_number__order__vessel_id__vessel_eta__gte=start_date,
+            container_number__order__vessel_id__vessel_eta__lte=end_date,
+        )
         if container_number == "None":
             container_number = None
         if container_number:
