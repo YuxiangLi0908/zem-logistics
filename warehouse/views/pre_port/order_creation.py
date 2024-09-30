@@ -78,6 +78,7 @@ class OrderCreation(View):
             return await sync_to_async(render)(request, template, context)
         elif step == "update_order_packing_list_info":   
             template, context = await self.handle_update_order_packing_list_info_post(request)
+            return await sync_to_async(render)(request, template, context)
         elif step == "update_order_retrieval_info":   
             template, context = await self.handle_update_order_retrieval_info_post(request)
             return await sync_to_async(render)(request, template, context)
