@@ -78,6 +78,7 @@ class OrderCreation(View):
             return await sync_to_async(render)(request, template, context)
         elif step == "update_order_packing_list_info":   
             template, context = await self.handle_update_order_packing_list_info_post(request)
+            return await sync_to_async(render)(request, template, context)
         elif step == "update_order_retrieval_info":   
             template, context = await self.handle_update_order_retrieval_info_post(request)
             return await sync_to_async(render)(request, template, context)
@@ -425,7 +426,6 @@ class OrderCreation(View):
         mutable_get["step"] = "container_info_supplement"
         request.GET = mutable_get
         return await self.handle_order_management_container_get(request)
-
 
     async def handle_update_order_packing_list_info_post(self, request: HttpRequest) -> tuple[Any, Any]:
         container_number = request.POST.get("container_number")
