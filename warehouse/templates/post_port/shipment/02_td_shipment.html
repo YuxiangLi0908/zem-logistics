@@ -11,9 +11,13 @@
 <form id="warehouse-form" method="post" action="">
     {% csrf_token %}
     <div>
-        <b style="margin-right: 5px;">选择仓库:</b>
+        <b style="margin-right: 5px;">所属仓:</b>
+        <select name="area">
+            {% for k, v in area_options.items %}
+            <option value="{{ v }}" {% if k == area %}selected{% endif %}>{{ k }}</option>
+            {% endfor %}
+        </select>
         <input type="hidden" name="step" value="warehouse">
-        {{ warehouse_form.name }}
         <button type="submit">确认</button>
     </div>
 </form>
@@ -46,7 +50,7 @@
                             </b>
                         </div>
                         <input type="hidden" name="step" value="selection">
-                        <input type="hidden" name="warehouse" value="{{ warehouse }}">
+                        <input type="hidden" name="area" value="{{ area }}">
                         <button type="submit" onclick="confirmSubmit()" class="btn btn-primary" style="font-size: 11px;">预约出库批次</button>
                     </div>
                     
@@ -158,7 +162,7 @@
                         {% for s in shipment_list %}
                         <tr>
                             <td class="td" style="max-width: 120px; word-break: break-all;">
-                                <a href="/schedule_shipment/?step=shipment_info&batch_number={{ s.shipment_batch_number }}&warehouse={{ warehouse }}">
+                                <a href="/schedule_shipment/?step=shipment_info&batch_number={{ s.shipment_batch_number }}&area={{ area }}">
                                     {{ s.shipment_batch_number }}
                                 </a>
                             </td>
@@ -175,7 +179,7 @@
                                     <input type="hidden" name="step" value="cancel">
                                     <input type="hidden" name="type" value="td">
                                     <input type="hidden" name="shipment_batch_number" value="{{ s.shipment_batch_number }}">
-                                    <input type="hidden" name="warehouse" value="{{ warehouse }}">
+                                    <input type="hidden" name="area" value="{{ area }}">
                                     <button type="submit" class="btn btn-danger"><i class="bi bi-x-octagon"></i></button>
                                 </form>
                             </td>

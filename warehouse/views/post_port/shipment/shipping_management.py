@@ -56,6 +56,8 @@ class ShippingManagement(View):
     template_outbound_departure = "post_port/shipment/04_outbound_depature_confirmation.html"
     template_delivery_and_pod = "post_port/shipment/05_delivery_and_pod.html"
     template_bol = "export_file/bol_base_template.html"
+    area_options = {"NJ": "NJ", "SAV": "SAV"}
+    warehouse_options = {"": "", "NJ-07001": "NJ-07001", "NJ-08817": "NJ-08817", "SAV-31326": "SAV-31326"}
 
     async def get(self, request: HttpRequest) -> HttpResponse:
         if not await self._user_authenticate(request):
@@ -80,7 +82,7 @@ class ShippingManagement(View):
             template, context = await self.handle_delivery_and_pod_get(request)
             return render(request, template, context)
         else:
-            context = {"warehouse_form": ZemWarehouseForm()}
+            context = {"area_options": self.area_options}
             return render(request, self.template_main, context)
     
     async def post(self, request: HttpRequest) -> HttpRequest:
@@ -143,7 +145,7 @@ class ShippingManagement(View):
     async def handle_shipment_info_get(self, request: HttpRequest) -> tuple[str, dict[str, Any]]:
         batch_number = request.GET.get("batch_number")
         mutable_post = request.POST.copy()
-        mutable_post['name'] = request.GET.get("warehouse")
+        mutable_post['area'] = request.GET.get("area")
         request.POST = mutable_post
         _, context = await self.handle_warehouse_post(request)
         shipment = await sync_to_async(Shipment.objects.get)(shipment_batch_number=batch_number)
@@ -215,82 +217,56 @@ class ShippingManagement(View):
         return self.template_delivery_and_pod, context
 
     async def handle_warehouse_post(self, request: HttpRequest) -> tuple[str, dict[str, Any]]:
-        warehouse = request.POST.get("name") if request.POST.get("name") else request.POST.get("warehouse")
-        warehouse_form = ZemWarehouseForm(initial={"name": warehouse})
-        is_direct = True if warehouse=="N/A(直送)" else False
-        warehouse = None if warehouse=="N/A(直送)" else warehouse
-        if is_direct:
-            shipment = await sync_to_async(list)(
-                Shipment.objects.select_related(
-                    "order", "container_number", "customer_name"
-                ).filter(
-                    order__order_type="直送"
-                ).values(
-                    "shipment_batch_number", "order__customer_name__zem_name", "order__container_number__container_number",
-                    "destination", "appointment_id", "shipment_appointment", "carrier", "load_type", "total_pcs",
-                    "total_weight", "total_cbm", "total_pallet", "note", "is_shipment_schduled"
+        area = request.POST.get("area") if request.POST.get("area") else request.POST.get("area")
+        shipment = await sync_to_async(list)(
+            Shipment.objects.prefetch_related(
+                "packinglist", "packinglist__container_number", "packinglist__container_number__order",
+                "packinglist__container_number__order__warehouse", "order"
+            ).filter(
+                models.Q(
+                    packinglist__container_number__order__retrieval_id__retrieval_destination_area=area,
+                    is_shipped=False
                 )
-            )
-            context = {
-                "warehouse_form": warehouse_form,
-                "warehouse": "N/A(直送)",
-                "shipment":shipment,
-                "shipment_form": ShipmentForm(),
-                "pl_ids": [],
-                "pl_ids_raw": [],
-            }
-            return self.template_dd, context
-        else:
-            shipment = await sync_to_async(list)(
-                Shipment.objects.prefetch_related(
-                    "packinglist", "packinglist__container_number", "packinglist__container_number__order",
-                    "packinglist__container_number__order__warehouse", "order"
-                ).filter(
-                    models.Q(
-                        packinglist__container_number__order__warehouse__name=warehouse,
-                        is_shipped=False
-                    )
-                ).distinct()
-            )
-            warehouse = warehouse if warehouse else "N/A(直送)"
-            criteria = models.Q(
-                container_number__order__warehouse__name=warehouse,
-                shipment_batch_number__isnull=True,
-                container_number__order__created_at__gte='2024-09-01',
-            ) & (
-                # TODOs: 考虑按照安排提柜时间筛选
-                models.Q(container_number__order__vessel_id__vessel_eta__lte=datetime.now().date() + timedelta(days=7)) |
-                models.Q(container_number__order__eta__lte=datetime.now().date() + timedelta(days=7))
-            )
-            packing_list_not_scheduled = await self._get_packing_list(criteria)
-            cbm_act, cbm_est, pallet_act, pallet_est = 0, 0, 0, 0
-            for pl in packing_list_not_scheduled:
-                if pl.get("label") == "ACT":
-                    cbm_act += pl.get("total_cbm")
-                    pallet_act += pl.get("total_n_pallet_act")
+            ).distinct()
+        )
+        criteria = models.Q(
+            container_number__order__retrieval_id__retrieval_destination_area=area,
+            container_number__order__packing_list_updloaded=True,
+            shipment_batch_number__isnull=True,
+            container_number__order__order_type="转运",
+            # container_number__order__created_at__gte='2024-09-01',
+        ) & (
+            # TODOs: 考虑按照安排提柜时间筛选
+            models.Q(container_number__order__vessel_id__vessel_eta__lte=datetime.now().date() + timedelta(days=7)) |
+            models.Q(container_number__order__eta__lte=datetime.now().date() + timedelta(days=7))
+        )
+        packing_list_not_scheduled = await self._get_packing_list(criteria)
+        cbm_act, cbm_est, pallet_act, pallet_est = 0, 0, 0, 0
+        for pl in packing_list_not_scheduled:
+            if pl.get("label") == "ACT":
+                cbm_act += pl.get("total_cbm")
+                pallet_act += pl.get("total_n_pallet_act")
+            else:
+                cbm_est += pl.get("total_cbm")
+                if pl.get("total_n_pallet_est < 1"):
+                    pallet_est += 1
+                elif pl.get("total_n_pallet_est")%1 >= 0.45:
+                    pallet_est += int(pl.get("total_n_pallet_est") // 1 + 1)
                 else:
-                    cbm_est += pl.get("total_cbm")
-                    if pl.get("total_n_pallet_est < 1"):
-                        pallet_est += 1
-                    elif pl.get("total_n_pallet_est")%1 >= 0.45:
-                        pallet_est += int(pl.get("total_n_pallet_est") // 1 + 1)
-                    else:
-                        pallet_est += int(pl.get("total_n_pallet_est") // 1)
-            context = {
-                "shipment_list": shipment,
-                "name": warehouse,
-                "warehouse": warehouse,
-                "warehouse_form": warehouse_form,
-                "packing_list_not_scheduled": packing_list_not_scheduled,
-                "cbm_act": cbm_act,
-                "cbm_est": cbm_est,
-                "pallet_act": pallet_act,
-                "pallet_est": pallet_est,
-            }
-            return self.template_td, context
+                    pallet_est += int(pl.get("total_n_pallet_est") // 1)
+        context = {
+            "shipment_list": shipment,
+            "area_options": self.area_options,
+            "area": area,
+            "packing_list_not_scheduled": packing_list_not_scheduled,
+            "cbm_act": cbm_act,
+            "cbm_est": cbm_est,
+            "pallet_act": pallet_act,
+            "pallet_est": pallet_est,
+        }
+        return self.template_td, context
         
     async def handle_selection_post(self, request: HttpRequest) -> tuple[str, dict[str, Any]]:
-        warehouse = request.POST.get("warehouse")
         selections = request.POST.getlist("is_shipment_schduled")
         ids = request.POST.getlist("pl_ids")
         ids = [id for s, id in zip(selections, ids) if s == "on"]
@@ -327,7 +303,6 @@ class ShippingManagement(View):
                     address += f", {zipcode}"
             shipment_data = {
                 "shipment_batch_number": str(batch_id),
-                "origin": warehouse,
                 "destination": destination,
                 "total_weight": total_weight,
                 "total_cbm": total_cbm,
@@ -341,6 +316,7 @@ class ShippingManagement(View):
                 "pl_ids_raw": ids,
                 "address": address,
                 "shipment_data": shipment_data,
+                "warehouse_options": self.warehouse_options,
                 "load_type_options": LOAD_TYPE_OPTIONS,
             })
             return self.template_td_schedule, context
@@ -348,6 +324,7 @@ class ShippingManagement(View):
             return await self.handle_warehouse_post(request)
         
     async def handle_appointment_post(self, request: HttpRequest) -> tuple[str, dict[str, Any]]:
+        area = request.POST.get("area")
         current_time = datetime.now()
         appointment_type = request.POST.get("type")
         if appointment_type == "td":
@@ -366,6 +343,7 @@ class ShippingManagement(View):
             shipment_data["is_shipment_schduled"] = True
             shipment_data["destination"] = request.POST.get("destination", None)
             shipment_data["address"] = request.POST.get("address", None)
+            shipment_data["origin"] = request.POST.get("origin", "")
             shipment = Shipment(**shipment_data)
             await sync_to_async(shipment.save)()
             pl_ids = request.POST.get("pl_ids").strip('][').split(', ')
@@ -375,7 +353,7 @@ class ShippingManagement(View):
                 pl.shipment_batch_number = shipment
             await sync_to_async(PackingList.objects.bulk_update)(packing_list, ["shipment_batch_number"])
             mutable_post = request.POST.copy()
-            mutable_post['name'] = shipment_data.get("origin")
+            mutable_post['area'] = area
             request.POST = mutable_post
         else:
             batch_number = request.POST.get("batch_number")
@@ -389,7 +367,7 @@ class ShippingManagement(View):
             shipment.shipment_schduled_at = current_time
             shipment.save()
             mutable_post = request.POST.copy()
-            mutable_post['name'] = warehouse
+            mutable_post['area'] = warehouse
             request.POST = mutable_post
         return await self.handle_warehouse_post(request)
     
