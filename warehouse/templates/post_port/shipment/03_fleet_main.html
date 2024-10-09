@@ -7,7 +7,7 @@
 
 {% block content %}
 <div><b>出库批次管理</b></div>
-<form method="post" action="">
+<form method="post" action="" onsubmit="showLoadingBar()">
     {% csrf_token %}
     <div>
         <b style="margin-right: 5px;">选择仓库:</b>
@@ -21,7 +21,7 @@
     <div style="height: 800px; width: 60%; margin-top: .5%; margin-right: .5%; margin-bottom: 1%;">
         <div style="height: 50%; width: 100%; border: 2px solid rgb(180, 180, 180); border-radius: 12px; padding: 1%;">
             <div style="max-height: 99%; overflow-y: scroll;">
-                <form method="post" action="" style="max-height: 100%;">
+                <form method="post" action="" style="max-height: 100%;" onsubmit="showLoadingBar()">
                     {% csrf_token %}
                     <div style="display: flex; position: sticky; top: 0; background-color: #f8f9fa;">
                         <div style="width: 80%;">
@@ -148,7 +148,7 @@
                             <td class="td">{{ f.total_pallet }}</td>
                             <td class="td" style="max-width: 120px; word-break: break-all;">{{ f.note }}</td>
                             <td class="td">
-                                <form method="post" action="">
+                                <form method="post" action="" onsubmit="showLoadingBar()">
                                     {% csrf_token %}
                                     <input type="hidden" name="step" value="cancel_fleet">
                                     <input type="hidden" name="fleet_number" value="{{ f.fleet_number }}">
@@ -225,7 +225,7 @@
                 checkBoxes[i+1].disabled = true;
             }
         }
-    }
+    };
 
     function toggleRowBackground(checkbox) {
         var row = checkbox.closest('tr');
@@ -235,5 +235,23 @@
             row.style.backgroundColor = ''; // Reset to default color
         }
     };
+
+    function showLoadingBar() {
+        document.getElementById('loading-bar').style.display = 'block';
+    };
+
+    // Hide loading bar when page is fully loaded
+    window.onload = function() {
+        document.getElementById('loading-bar').style.display = 'none';
+    };
+
+    document.addEventListener('DOMContentLoaded', function() {
+        const form = document.getElementById('warehouse-form');
+        if (form) {
+            form.addEventListener('submit', function() {
+                showLoadingBar();
+            });
+        }
+    });
 </script>
 {% endblock %}

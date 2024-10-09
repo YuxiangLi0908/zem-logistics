@@ -5,7 +5,7 @@
 
 {% block content %}
 <div><b>预约出库</b></div>
-<form method="post" action="">
+<form method="post" action="" onsubmit="showLoadingBar()">
     {% csrf_token %}
     <div>
         <b style="margin-right: 5px;">所属仓:</b>
@@ -19,4 +19,28 @@
     </div>
 </form>
 
+<div id="loading-bar">
+    <div class="spinner"></div>
+    <p>Loading, please wait...</p>
+</div>
+
+<script>
+    function showLoadingBar() {
+        document.getElementById('loading-bar').style.display = 'block';
+    };
+
+    // Hide loading bar when page is fully loaded
+    window.onload = function() {
+        document.getElementById('loading-bar').style.display = 'none';
+    };
+
+    document.addEventListener('DOMContentLoaded', function() {
+        const form = document.getElementById('warehouse-form');
+        if (form) {
+            form.addEventListener('submit', function() {
+                showLoadingBar();
+            });
+        }
+    });
+</script>
 {% endblock %}
