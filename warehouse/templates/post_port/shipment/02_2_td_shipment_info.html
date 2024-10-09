@@ -5,7 +5,7 @@
 {% block shipment_info %}
 <div style="height: 800px; width: 40%; border: 2px solid rgb(180, 180, 180); border-radius: 12px; padding: 1%; margin-top: .5%;">
     <div>
-        <form method="post" action="" style="width: 100%; overflow-x: auto; max-width: 100%;">
+        <form method="post" action="" style="width: 100%; overflow-x: auto; max-width: 100%;" onsubmit="showLoadingBar()">
             {% csrf_token %}
             <div style="display: flex;">
                 <div style="width: 80%;">

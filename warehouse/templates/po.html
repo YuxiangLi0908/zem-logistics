@@ -5,7 +5,7 @@
 {% load static custom_floor_division %}
 
 <h4 style="margin-bottom: 10px;">PO导出</h4>
-<form method="post" action="">
+<form method="post" action="" onsubmit="showLoadingBar()">
     {% csrf_token %}
     <div>
         <b style="margin-right: 5px;">ETA:</b>
@@ -18,6 +18,11 @@
     </div>
 </form>
 <hr class="Dashed" style="margin-top: 10px; margin-bottom: 10px;">
+
+<div id="loading-bar">
+    <div class="spinner"></div>
+    <p>Loading, please wait...</p>
+</div>
 
 {% if packing_list %}
 <form method="post" action="">
@@ -311,5 +316,24 @@
             row.style.backgroundColor = ''; // Reset to default color
         }
     };
+
+    function showLoadingBar() {
+        document.getElementById('loading-bar').style.display = 'block';
+    };
+
+    // Hide loading bar when page is fully loaded
+    window.onload = function() {
+        document.getElementById('loading-bar').style.display = 'none';
+    };
+
+    // Attach the showLoadingBar function to form submit events
+    document.addEventListener('DOMContentLoaded', function() {
+        const form = document.querySelector('form');
+        if (form) {
+            form.addEventListener('submit', function() {
+                showLoadingBar();
+            });
+        }
+    });
 </script>
 {% endblock %}
