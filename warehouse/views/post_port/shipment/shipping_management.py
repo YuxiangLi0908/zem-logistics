@@ -179,9 +179,28 @@ class ShippingManagement(View):
         warehouse = request.GET.get("warehouse")
         selected_fleet = await sync_to_async(Fleet.objects.get)(fleet_number=selected_fleet_number)
         shipment = await sync_to_async(list)(
-            Shipment.objects.filter(
-                fleet_number__fleet_number=selected_fleet_number
-            ).order_by("-shipment_appointment")
+            PackingList.objects.select_related(
+                "shipment_batch_number", "shipment_batch_number__fleet_number", "container_number", "pallet"
+            ).filter(
+                shipment_batch_number__fleet_number__fleet_number=selected_fleet_number
+            ).annotate(
+                custom_delivery_method=Case(
+                    When(Q(delivery_method='暂扣留仓(HOLD)') | Q(delivery_method='暂扣留仓'), then=Concat('delivery_method', Value('-'), 'fba_id', Value('-'), 'id')),
+                    default=F('delivery_method'),
+                    output_field=CharField()
+                ),
+                str_id=Cast("id", CharField()),
+                str_plt_id=Cast("pallet__pallet_id", CharField()),
+            ).values(
+                "shipment_batch_number__shipment_batch_number", "container_number__container_number", "destination",
+                "shipment_batch_number__appointment_id", "shipment_batch_number__shipment_appointment", "shipment_batch_number__note",
+            ).annotate(
+                ids=StringAgg("str_id", delimiter=",", distinct=True, ordering="str_id"),
+                plt_ids=StringAgg("str_plt_id", delimiter=",", distinct=True, ordering="str_plt_id"),
+                total_weight=Sum("pallet__weight_lbs", output_field=FloatField()),
+                total_cbm=Sum("pallet__cbm", output_field=FloatField()),
+                total_pallet=Count('pallet__pallet_id', distinct=True)
+            ).order_by("-shipment_batch_number__shipment_appointment")
         )
         mutable_post = request.POST.copy()
         mutable_post['name'] = request.GET.get("warehouse")
@@ -217,7 +236,14 @@ class ShippingManagement(View):
         return self.template_delivery_and_pod, context
 
     async def handle_warehouse_post(self, request: HttpRequest) -> tuple[str, dict[str, Any]]:
-        area = request.POST.get("area") if request.POST.get("area") else request.POST.get("area")
+        if request.POST.get("area"):
+            area = request.POST.get("area")
+        elif request.POST.get("warehouse"):
+            area = request.POST.get("warehouse")[:2]
+        elif request.GET.get("warehouse"):
+            area = request.GET.get("warehouse")[:2]
+        else:
+            area = None
         shipment = await sync_to_async(list)(
             Shipment.objects.prefetch_related(
                 "packinglist", "packinglist__container_number", "packinglist__container_number__order",
@@ -621,6 +647,12 @@ class ShippingManagement(View):
         actual_shipped_pallet = request.POST.getlist("actual_shipped_pallet")
         actual_shipped_pallet = [int(n) for n in actual_shipped_pallet]
         batch_number = request.POST.getlist("batch_number")
+        pl_ids = request.POST.getlist("pl_ids")
+        plt_ids = request.POST.getlist("plt_ids")
+        pl_ids = [ids.split(",") for ids in pl_ids]
+        pl_ids = [[int(i) for i in ids] for ids in pl_ids]
+        plt_ids = [ids.split(",") for ids in plt_ids]
+        # raise ValueError(plt_ids, pl_ids, actual_shipped_pallet, batch_number)
         actual_shipped_pallet = dict(zip(batch_number, actual_shipped_pallet))
         fleet = await sync_to_async(Fleet.objects.get)(fleet_number=fleet_number)
         shipment = await sync_to_async(list)(
@@ -734,6 +766,7 @@ class ShippingManagement(View):
                     output_field=CharField()
                 ),
                 str_id=Cast("id", CharField()),
+                str_plt_id=Cast("pallet__pallet_id", CharField()),
                 str_fba_id=Cast("fba_id", CharField()),
                 str_ref_id=Cast("ref_id", CharField()),
                 str_shipping_mark=Cast("shipping_mark", CharField())
@@ -750,6 +783,7 @@ class ShippingManagement(View):
                 ref_ids=StringAgg("str_ref_id", delimiter=",", distinct=True, ordering="str_ref_id"),
                 shipping_marks=StringAgg("str_shipping_mark", delimiter=",", distinct=True, ordering="str_shipping_mark"),
                 ids=StringAgg("str_id", delimiter=",", distinct=True, ordering="str_id"),
+                plt_ids=StringAgg("str_plt_id", delimiter=",", distinct=True, ordering="str_plt_id"),
                 total_pcs=Sum(
                     Case(
                         When(pallet__isnull=True, then=F("pcs")),
