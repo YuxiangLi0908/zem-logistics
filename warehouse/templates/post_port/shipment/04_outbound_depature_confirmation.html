@@ -25,14 +25,14 @@
                     <i class="bi bi-cloud-arrow-down-fill"></i>
                 </button>
             </form>
-            {% for s in shipment %}
+            {% for batch_number in shipment_batch_numbers %}
             <form method="post" action="" style="display: inline-block;">
                 {% csrf_token %}
                 <input type="hidden" name="step" value="export_bol">
-                <input type="hidden" name="shipment_batch_number" value="{{ s.shipment_batch_number__shipment_batch_number }}">
+                <input type="hidden" name="shipment_batch_number" value="{{ batch_number }}">
                 <input type="hidden" name="warehouse" value="{{ warehouse }}">
                 <button type="submit" class="btn btn-success" style="font-size: 15px;">
-                    <small>BOL- {{ s.shipment_batch_number__shipment_batch_number }}</small>
+                    <small>BOL- {{ batch_number }}</small>
                     <i class="bi bi-cloud-arrow-down-fill"></i>
                 </button>
             </form>

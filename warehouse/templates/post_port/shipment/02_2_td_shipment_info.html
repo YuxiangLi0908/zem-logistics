@@ -19,7 +19,7 @@
                     <input type="hidden" name="type" value="td">
                     <input type="hidden" name="batch_number" value="{{ shipment.shipment_batch_number }}">
                     <input type="hidden" name="warehouse" value="{{ warehouse }}">
-                    <button type="submit" onclick="confirmSubmit()" class="btn btn-primary" style="font-size: 11px;">更新预约</button>
+                    <button type="submit" onclick="checkOriginInput()" class="btn btn-primary" style="font-size: 11px;">更新预约</button>
          
                 </div>
             </div>
@@ -47,7 +47,13 @@
                 </thead>
                 <tbody>
                     <tr>
-                        <td class="td"><input type="text" name="note" value="{{ shipment.origin }}" style="font-size: 13px;" required></td>
+                        <td class="td">
+                            <select name="origin" id="origin-select" style="font-size: 13px;">
+                                {% for k, v in warehouse_options.items %}
+                                <option value="{{ v }}" {% if k == shipment.origin %}selected{% endif %}>{{ k }}</option>
+                                {% endfor %}
+                            </select>
+                        </td>
                         <td class="td">
                             <select name="load_type" id="load-type-select" style="font-size: 13px;">
                                 {% for k, v in load_type_options %}
@@ -146,6 +152,14 @@
                 }
             }
         });
+    };
+
+    function checkOriginInput() {
+        const selectedValue = document.getElementById('origin-select').value;
+        if (!selectedValue) {
+            alert('请选择发货仓库！');
+            event.preventDefault();
+        };
     };
 
     toggleAllCheckboxes();

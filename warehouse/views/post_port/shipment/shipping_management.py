@@ -155,6 +155,7 @@ class ShippingManagement(View):
             "packing_list_selected": packing_list_selected,
             "load_type_options": LOAD_TYPE_OPTIONS,
             "warehouse": request.GET.get("warehouse"),
+            "warehouse_options": self.warehouse_options,
         })
         return self.template_td_shipment_info, context
     
@@ -202,6 +203,10 @@ class ShippingManagement(View):
                 total_pallet=Count('pallet__pallet_id', distinct=True)
             ).order_by("-shipment_batch_number__shipment_appointment")
         )
+        shipment_batch_numbers = []
+        for s in shipment:
+            if s.get("shipment_batch_number__shipment_batch_number") not in shipment_batch_numbers:
+                shipment_batch_numbers.append(s.get("shipment_batch_number__shipment_batch_number"))
         mutable_post = request.POST.copy()
         mutable_post['name'] = request.GET.get("warehouse")
         request.POST = mutable_post
@@ -210,6 +215,7 @@ class ShippingManagement(View):
             "selected_fleet": selected_fleet,
             "shipment": shipment,
             "warehouse": warehouse,
+            "shipment_batch_numbers": shipment_batch_numbers,
         })
         return self.template_outbound_departure, context
     
@@ -296,7 +302,10 @@ class ShippingManagement(View):
         selections = request.POST.getlist("is_shipment_schduled")
         ids = request.POST.getlist("pl_ids")
         ids = [id for s, id in zip(selections, ids) if s == "on"]
+        plt_ids = request.POST.getlist("plt_ids")
+        plt_ids = [id for s, id in zip(selections, plt_ids) if s == "on"]
         selected = [int(i) for id in ids for i in id.split(",")]
+        selected_plt = [str(i) for id in plt_ids for i in id.split(",")]
         if selected:
             current_time = datetime.now()
             _, context = await self.handle_warehouse_post(request)
@@ -340,6 +349,7 @@ class ShippingManagement(View):
                 "packing_list_selected": packing_list_selected,
                 "pl_ids": selected,
                 "pl_ids_raw": ids,
+                "plt_ids": selected_plt,
                 "address": address,
                 "shipment_data": shipment_data,
                 "warehouse_options": self.warehouse_options,
@@ -377,6 +387,12 @@ class ShippingManagement(View):
             packing_list = await sync_to_async(list)(PackingList.objects.filter(id__in=pl_ids))
             for pl in packing_list:
                 pl.shipment_batch_number = shipment
+            plt_ids = request.POST.get("plt_ids").strip('][').split(', ')
+            plt_ids = [i.replace("'", "") for i in plt_ids]
+            pallet = await sync_to_async(list)(Pallet.objects.filter(pallet_id__in=plt_ids))
+            for p in pallet:
+                p.shipment_number = shipment
+            await sync_to_async(Pallet.objects.bulk_update)(pallet, ["shipment_number"])
             await sync_to_async(PackingList.objects.bulk_update)(packing_list, ["shipment_batch_number"])
             mutable_post = request.POST.copy()
             mutable_post['area'] = area
@@ -425,6 +441,7 @@ class ShippingManagement(View):
         batch_number = request.POST.get("batch_number")
         shipment = await sync_to_async(Shipment.objects.get)(shipment_batch_number=batch_number)
         shipment.appointment_id = request.POST.get("appointment_id")
+        shipment.origin = request.POST.get("origin")
         shipment.carrier = request.POST.get("carrier")
         shipment.third_party_address = request.POST.get("third_party_address")
         shipment.load_type = request.POST.get("load_type")
