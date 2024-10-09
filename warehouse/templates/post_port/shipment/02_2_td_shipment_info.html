@@ -40,12 +40,14 @@
             <table id="shipment-table-2" class="table" style="font-size: 11px; overflow-x: auto; max-width: 100%;">
                 <thead>
                     <tr>
+                        <th class="th">发货仓库</th>
                         <th class="th">装车类型</th>
                         <th class="th">备注</th>
                     </tr>
                 </thead>
                 <tbody>
                     <tr>
+                        <td class="td"><input type="text" name="note" value="{{ shipment.origin }}" style="font-size: 13px;" required></td>
                         <td class="td">
                             <select name="load_type" id="load-type-select" style="font-size: 13px;">
                                 {% for k, v in load_type_options %}

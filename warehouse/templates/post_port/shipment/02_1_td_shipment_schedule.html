@@ -16,10 +16,11 @@
 
                 <div class="text-right">
                     <input type="hidden" name="step" value="appointment">
+                    <input type="hidden" name="area" value="{{ area }}">
                     <input type="hidden" name="type" value="td">
                     <input type="hidden" name="shipment_data" value="{{ shipment_data }}">
                     <input type="hidden" name="pl_ids" value="{{ pl_ids }}">
-                    <button type="submit" onclick="confirmSubmit()" class="btn btn-primary" style="font-size: 11px;">确认预约</button>
+                    <button type="submit" class="btn btn-primary" style="font-size: 11px;" onclick="checkOriginInput()">确认预约</button>
                 </div>
             </div>
             <table id="shipment-table-1" class="table" style="font-size: 11px; overflow-x: scroll; max-width: 100%;">
@@ -39,12 +40,20 @@
             <table id="shipment-table-2" class="table" style="font-size: 11px; overflow-x: auto; max-width: 100%;">
                 <thead>
                     <tr>
+                        <th class="th">发货仓库</th>
                         <th class="th">装车类型</th>
                         <th class="th">备注</th>
                     </tr>
                 </thead>
                 <tbody>
                     <tr>
+                        <td class="td">
+                            <select name="origin" id="origin-select" style="font-size: 13px;">
+                                {% for k, v in warehouse_options.items %}
+                                <option value="{{ v }}">{{ k }}</option>
+                                {% endfor %}
+                            </select>
+                        </td>
                         <td class="td">
                             <select name="load_type" id="load-type-select" style="font-size: 13px;">
                                 {% for k, v in load_type_options %}
@@ -143,6 +152,14 @@
                 }
             }
         });
+    };
+
+    function checkOriginInput() {
+        const selectedValue = document.getElementById('origin-select').value;
+        if (!selectedValue) {
+            alert('请选择发货仓库！');
+            event.preventDefault();
+        };
     };
 
     toggleAllCheckboxes();
