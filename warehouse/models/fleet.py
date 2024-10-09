@@ -15,10 +15,10 @@ class Fleet(models.Model):
     total_pallet = models.FloatField(null=True)
     total_pcs = models.FloatField(null=True)
     note = models.CharField(max_length=1000, null=True, blank=True)
-    shipped_weight = models.FloatField(null=True, default=0)
-    shipped_cbm = models.FloatField(null=True, default=0)
+    shipped_weight = models.FloatField(null=True, default=0, blank=True)
+    shipped_cbm = models.FloatField(null=True, default=0, blank=True)
     shipped_pallet = models.FloatField(null=True, default=0)
-    shipped_pcs = models.FloatField(null=True, default=0)
+    shipped_pcs = models.FloatField(null=True, default=0, blank=True)
     multipule_destination = models.BooleanField(default=False, blank=True)
     pod_link = models.CharField(max_length=2000, null=True, blank=True)
 

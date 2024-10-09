@@ -140,7 +140,7 @@ class Palletization(View):
             offload.total_pallet = total_pallet
             offload.offload_at = current_time_cn
             await sync_to_async(offload.save)()
-            self._update_shipment_stats(ids)
+            await self._update_shipment_stats(ids)
         mutable_post = request.POST.copy()
         mutable_post['name'] = order_selected.warehouse.name
         request.POST = mutable_post
@@ -220,7 +220,9 @@ class Palletization(View):
             remaining = pallet_vol.pop()
             pallet_vol[-1] += remaining
         ids = [int(i) for i in ids]
-        packing_list = await sync_to_async(list)(PackingList.objects.filter(id__in=ids))
+        packing_list = await sync_to_async(list)(
+            PackingList.objects.select_related("shipment_batch_number").filter(id__in=ids)
+        )
         i = 0
         pallet_data = []
         for pl in packing_list:
@@ -258,6 +260,7 @@ class Palletization(View):
                     "pcs": pcs_loaded,
                     "cbm": cbm_loaded,
                     "weight_lbs": weight_loaded,
+                    "shipment_number": pl.shipment_batch_number,
                 })
         await sync_to_async(Pallet.objects.bulk_create)([
             Pallet(**d) for d in pallet_data

@@ -25,14 +25,14 @@
                     <i class="bi bi-cloud-arrow-down-fill"></i>
                 </button>
             </form>
-            {% for s in shipment %}
+            {% for batch_number in shipment_batch_numbers %}
             <form method="post" action="" style="display: inline-block;">
                 {% csrf_token %}
                 <input type="hidden" name="step" value="export_bol">
-                <input type="hidden" name="shipment_batch_number" value="{{ s.shipment_batch_number }}">
+                <input type="hidden" name="shipment_batch_number" value="{{ batch_number }}">
                 <input type="hidden" name="warehouse" value="{{ warehouse }}">
                 <button type="submit" class="btn btn-success" style="font-size: 15px;">
-                    <small>BOL- {{ s.shipment_batch_number }}</small>
+                    <small>BOL- {{ batch_number }}</small>
                     <i class="bi bi-cloud-arrow-down-fill"></i>
                 </button>
             </form>
@@ -45,8 +45,9 @@
                     <thead>
                         <tr>
                             <th class="th">预约批次</th>
-                            <th class="th">目的地</th>
                             <th class="th">预约号</th>
+                            <th class="th">柜号</th>
+                            <th class="th">目的地</th>
                             <th class="th">Scheduled Time</th>
                             <th class="th">备注</th>
                             <th class="th">总重lbs</th>
@@ -59,21 +60,33 @@
                         {% for s in shipment %}
                         <tr>
                             <td class="td" style="max-width: 120px; word-break: break-all;">
-                                <a href="/schedule_shipment/?step=shipment_info&batch_number={{ s.shipment_batch_number }}&warehouse={{ warehouse }}" target="_blank">
-                                    {{ s.shipment_batch_number }}
+                                <a href="/schedule_shipment/?step=shipment_info&batch_number={{ s.shipment_number__shipment_batch_number }}&warehouse={{ warehouse }}" target="_blank">
+                                    {{ s.shipment_number__shipment_batch_number }}
                                 </a>
                             </td>
-                            <td class="td">{{ s.destination }}</td>
-                            <td class="td">{{ s.appointment_id }}</td>
-                            <td class="td">{{ s.shipment_appointment|date:"Y-m-d" }} {{ s.shipment_appointment|time:"H:i" }}</td>
-                            <td class="td" style="max-width: 120px; word-break: break-all;">{{ s.note }}</td>
-                            <td class="td">{{ s.total_weight|floatformat:2 }}</td>
-                            <td class="td">{{ s.total_cbm|floatformat:2 }}</td>
-                            <td class="td">{{ s.total_pallet|floatformat:0 }}</td>
+                            <td class="td">{{ s.shipment_number__appointment_id }}</td>
+                            <td class="td">{{ s.packing_list__container_number__container_number }}</td>
+                            <td class="td">{{ s.packing_list__destination }}</td>
+                            <td class="td">{{ s.shipment_number__shipment_appointment|date:"Y-m-d" }} {{ s.shipment_number__shipment_appointment|time:"H:i" }}</td>
+                            <td class="td" style="max-width: 120px; word-break: break-all;">{{ s.shipment_number__note }}</td>
+                            <td class="td">
+                                {{ s.total_weight|floatformat:2 }}
+                                <input type="hidden" name="scheduled_weight" value="{{ s.total_weight }}">
+                            </td>
+                            <td class="td">
+                                {{ s.total_cbm|floatformat:2 }}
+                                <input type="hidden" name="scheduled_cbm" value="{{ s.total_cbm }}">
+                            </td>
+                            <td class="td">
+                                {{ s.total_pallet|floatformat:0 }}
+                                <input type="hidden" name="scheduled_pallet" value="{{ s.total_pallet }}">
+                            </td>
                             <td class="td">
                                 <input type="number" name="actual_shipped_pallet" step=1 max="{{ s.total_pallet }}" required>
                             </td>
-                            <input type="hidden" name="batch_number" value="{{ s.shipment_batch_number }}">
+                            <input type="hidden" name="batch_number" value="{{ s.shipment_number__shipment_batch_number }}">
+                            <input type="hidden" name="pl_ids" value="{{ s.ids }}">
+                            <input type="hidden" name="plt_ids" value="{{ s.plt_ids }}">
                         </tr>
                         {% endfor %}
                     </tbody>

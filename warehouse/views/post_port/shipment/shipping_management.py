@@ -155,6 +155,7 @@ class ShippingManagement(View):
             "packing_list_selected": packing_list_selected,
             "load_type_options": LOAD_TYPE_OPTIONS,
             "warehouse": request.GET.get("warehouse"),
+            "warehouse_options": self.warehouse_options,
         })
         return self.template_td_shipment_info, context
     
@@ -179,10 +180,29 @@ class ShippingManagement(View):
         warehouse = request.GET.get("warehouse")
         selected_fleet = await sync_to_async(Fleet.objects.get)(fleet_number=selected_fleet_number)
         shipment = await sync_to_async(list)(
-            Shipment.objects.filter(
-                fleet_number__fleet_number=selected_fleet_number
-            ).order_by("-shipment_appointment")
+            Pallet.objects.select_related(
+                "packing_list", "shipment_number",
+                "shipment_number__fleet_number", 
+                "packing_list__container_number",
+            ).filter(
+                shipment_number__fleet_number__fleet_number=selected_fleet_number
+            ).annotate(
+                str_plt_id=Cast("pallet_id", CharField()),
+            ).values(
+                "shipment_number__shipment_batch_number", "packing_list__container_number__container_number", 
+                "packing_list__destination", "shipment_number__appointment_id", "shipment_number__shipment_appointment",
+                "shipment_number__note",
+            ).annotate(
+                plt_ids=StringAgg("str_plt_id", delimiter=",", distinct=True, ordering="str_plt_id"),
+                total_weight=Sum("weight_lbs", output_field=FloatField()),
+                total_cbm=Sum("cbm", output_field=FloatField()),
+                total_pallet=Count('pallet_id', distinct=True)
+            ).order_by("-shipment_number__shipment_appointment")
         )
+        shipment_batch_numbers = []
+        for s in shipment:
+            if s.get("shipment_number__shipment_batch_number") not in shipment_batch_numbers:
+                shipment_batch_numbers.append(s.get("shipment_number__shipment_batch_number"))
         mutable_post = request.POST.copy()
         mutable_post['name'] = request.GET.get("warehouse")
         request.POST = mutable_post
@@ -191,6 +211,7 @@ class ShippingManagement(View):
             "selected_fleet": selected_fleet,
             "shipment": shipment,
             "warehouse": warehouse,
+            "shipment_batch_numbers": shipment_batch_numbers,
         })
         return self.template_outbound_departure, context
     
@@ -217,7 +238,14 @@ class ShippingManagement(View):
         return self.template_delivery_and_pod, context
 
     async def handle_warehouse_post(self, request: HttpRequest) -> tuple[str, dict[str, Any]]:
-        area = request.POST.get("area") if request.POST.get("area") else request.POST.get("area")
+        if request.POST.get("area"):
+            area = request.POST.get("area")
+        elif request.POST.get("warehouse"):
+            area = request.POST.get("warehouse")[:2]
+        elif request.GET.get("warehouse"):
+            area = request.GET.get("warehouse")[:2]
+        else:
+            area = None
         shipment = await sync_to_async(list)(
             Shipment.objects.prefetch_related(
                 "packinglist", "packinglist__container_number", "packinglist__container_number__order",
@@ -270,7 +298,10 @@ class ShippingManagement(View):
         selections = request.POST.getlist("is_shipment_schduled")
         ids = request.POST.getlist("pl_ids")
         ids = [id for s, id in zip(selections, ids) if s == "on"]
+        plt_ids = request.POST.getlist("plt_ids")
+        plt_ids = [id for s, id in zip(selections, plt_ids) if s == "on"]
         selected = [int(i) for id in ids for i in id.split(",")]
+        selected_plt = [str(i) for id in plt_ids for i in id.split(",")]
         if selected:
             current_time = datetime.now()
             _, context = await self.handle_warehouse_post(request)
@@ -314,6 +345,7 @@ class ShippingManagement(View):
                 "packing_list_selected": packing_list_selected,
                 "pl_ids": selected,
                 "pl_ids_raw": ids,
+                "plt_ids": selected_plt,
                 "address": address,
                 "shipment_data": shipment_data,
                 "warehouse_options": self.warehouse_options,
@@ -351,6 +383,12 @@ class ShippingManagement(View):
             packing_list = await sync_to_async(list)(PackingList.objects.filter(id__in=pl_ids))
             for pl in packing_list:
                 pl.shipment_batch_number = shipment
+            plt_ids = request.POST.get("plt_ids").strip('][').split(', ')
+            plt_ids = [i.replace("'", "") for i in plt_ids]
+            pallet = await sync_to_async(list)(Pallet.objects.filter(pallet_id__in=plt_ids))
+            for p in pallet:
+                p.shipment_number = shipment
+            await sync_to_async(Pallet.objects.bulk_update)(pallet, ["shipment_number"])
             await sync_to_async(PackingList.objects.bulk_update)(packing_list, ["shipment_batch_number"])
             mutable_post = request.POST.copy()
             mutable_post['area'] = area
@@ -399,6 +437,7 @@ class ShippingManagement(View):
         batch_number = request.POST.get("batch_number")
         shipment = await sync_to_async(Shipment.objects.get)(shipment_batch_number=batch_number)
         shipment.appointment_id = request.POST.get("appointment_id")
+        shipment.origin = request.POST.get("origin")
         shipment.carrier = request.POST.get("carrier")
         shipment.third_party_address = request.POST.get("third_party_address")
         shipment.load_type = request.POST.get("load_type")
@@ -620,32 +659,53 @@ class ShippingManagement(View):
         departured_at = request.POST.get("departured_at")
         actual_shipped_pallet = request.POST.getlist("actual_shipped_pallet")
         actual_shipped_pallet = [int(n) for n in actual_shipped_pallet]
+        scheduled_pallet = request.POST.getlist("scheduled_pallet")
+        scheduled_pallet = [int(n) for n in scheduled_pallet]
+        scheduled_cbm = request.POST.getlist("scheduled_cbm")
+        scheduled_cbm = [float(n) for n in scheduled_cbm]
+        scheduled_weight = request.POST.getlist("scheduled_weight")
+        scheduled_weight = [float(n) for n in scheduled_weight]
         batch_number = request.POST.getlist("batch_number")
-        actual_shipped_pallet = dict(zip(batch_number, actual_shipped_pallet))
+        plt_ids = request.POST.getlist("plt_ids")
+        plt_ids = [ids.split(",") for ids in plt_ids]
         fleet = await sync_to_async(Fleet.objects.get)(fleet_number=fleet_number)
         shipment = await sync_to_async(list)(
             Shipment.objects.filter(
                 shipment_batch_number__in=batch_number
             ).order_by("-shipment_appointment")
         )
+        unshipped_pallet_ids = []
+        for plt_id, p_schedule, p_shipped in zip(plt_ids, scheduled_pallet, actual_shipped_pallet):
+            if p_schedule > p_shipped:
+                unshipped_pallet_ids += plt_id[:p_schedule-p_shipped]
+        unshipped_pallet = await sync_to_async(list)(
+            Pallet.objects.select_related("shipment_number").filter(pallet_id__in=unshipped_pallet_ids)
+        )
+        shipment_pallet = {}
+        for p in unshipped_pallet:
+            if p.shipment_number.shipment_batch_number not in shipment_pallet:
+                shipment_pallet[p.shipment_number.shipment_batch_number] = [p]
+            else:
+                shipment_pallet[p.shipment_number.shipment_batch_number].append(p)
         updated_shipment = []
-        sub_shipment = []
+        updated_pallet = []
+        sub_shipment = {s.shipment_batch_number: None for s in shipment}
         fleet_shipped_weight, fleet_shipped_cbm, fleet_shipped_pallet, fleet_shipped_pcs = 0, 0, 0, 0
         for s in shipment:
-            s.shipped_pallet = actual_shipped_pallet.get(s.shipment_batch_number)
-            s.shipped_weight = actual_shipped_pallet.get(s.shipment_batch_number) / s.total_pallet * s.total_weight
-            s.shipped_cbm = actual_shipped_pallet.get(s.shipment_batch_number) / s.total_pallet * s.total_cbm
-            s.shipped_pcs = actual_shipped_pallet.get(s.shipment_batch_number) / s.total_pallet * s.total_pcs
-            fleet_shipped_weight += s.shipped_weight
-            fleet_shipped_cbm += s.shipped_cbm
-            fleet_shipped_pallet += s.shipped_pallet
-            fleet_shipped_pcs += s.shipped_pcs
+            dumped_pallets = len(set([p.pallet_id for p in shipment_pallet.get(s.shipment_batch_number)]))
             s.is_shipped = True
             s.shipped_at = departured_at
-            if actual_shipped_pallet.get(s.shipment_batch_number) < s.total_pallet:
-                s.pallet_dumpped = s.total_pallet - actual_shipped_pallet.get(s.shipment_batch_number)
+            s.shipped_pallet = s.total_pallet - dumped_pallets
+            if dumped_pallets > 0:
+                dumped_weight = sum([p.weight_lbs for p in shipment_pallet.get(s.shipment_batch_number)])
+                dumped_cbm = sum([p.cbm for p in shipment_pallet.get(s.shipment_batch_number)])
+                dumped_pcs = sum([p.pcs for p in shipment_pallet.get(s.shipment_batch_number)])
+                s.pallet_dumpped = dumped_pallets
                 s.is_full_out = False
-                sub_shipment.append({
+                s.shipped_weight = s.total_weight - dumped_weight
+                s.shipped_cbm = s.total_weight - dumped_cbm
+                s.shipped_pcs = s.total_weight - dumped_pcs
+                sub_shipment_data = {
                     "shipment_batch_number": f"{s.shipment_batch_number.split('_')[0]}_{s.batch + 1}",
                     "master_batch_number": s.shipment_batch_number.split("_")[0],
                     "batch": s.batch + 1,
@@ -656,14 +716,26 @@ class ShippingManagement(View):
                     "shipment_schduled_at": s.shipment_schduled_at,
                     "shipment_appointment": s.shipment_appointment,
                     "load_type": s.load_type,
-                    "total_weight": s.total_weight - s.shipped_weight,
-                    "total_cbm": s.total_cbm - s.shipped_cbm,
-                    "total_pallet": s.total_pallet - s.shipped_pallet,
-                    "total_pcs": s.total_pcs - s.shipped_pcs,
-                })
+                    "total_weight": dumped_weight,
+                    "total_cbm": dumped_cbm,
+                    "total_pallet": dumped_pallets,
+                    "total_pcs": dumped_pcs,
+                }
+                sub_shipment = Shipment(**sub_shipment_data)
+                await sync_to_async(sub_shipment.save)()
+                for p in shipment_pallet.get(s.shipment_batch_number):
+                    p.shipment_number = sub_shipment
+                    updated_pallet.append(p)
             else:
                 s.pallet_dumpped = 0
                 s.is_full_out = True
+                s.shipped_weight = s.total_weight
+                s.shipped_cbm = s.total_weight
+                s.shipped_pcs = s.total_weight
+            fleet_shipped_weight += s.shipped_weight
+            fleet_shipped_cbm += s.shipped_cbm
+            fleet_shipped_pallet += s.shipped_pallet
+            fleet_shipped_pcs += s.shipped_pcs
             updated_shipment.append(s)
         fleet.departured_at = departured_at
         fleet.shipped_weight = fleet_shipped_weight
@@ -677,10 +749,9 @@ class ShippingManagement(View):
                 "shipped_at", "pallet_dumpped", "is_full_out"
             ]
         )
-        if sub_shipment:
-            await sync_to_async(Shipment.objects.bulk_create)([
-                Shipment(**d) for d in sub_shipment
-            ])
+        await sync_to_async(Pallet.objects.bulk_update)(
+            updated_pallet, ["shipment_number"]
+        )
         await sync_to_async(fleet.save)()
         return await self.handle_outbound_warehouse_search_post(request)
     
@@ -734,6 +805,7 @@ class ShippingManagement(View):
                     output_field=CharField()
                 ),
                 str_id=Cast("id", CharField()),
+                str_plt_id=Cast("pallet__pallet_id", CharField()),
                 str_fba_id=Cast("fba_id", CharField()),
                 str_ref_id=Cast("ref_id", CharField()),
                 str_shipping_mark=Cast("shipping_mark", CharField())
@@ -750,6 +822,7 @@ class ShippingManagement(View):
                 ref_ids=StringAgg("str_ref_id", delimiter=",", distinct=True, ordering="str_ref_id"),
                 shipping_marks=StringAgg("str_shipping_mark", delimiter=",", distinct=True, ordering="str_shipping_mark"),
                 ids=StringAgg("str_id", delimiter=",", distinct=True, ordering="str_id"),
+                plt_ids=StringAgg("str_plt_id", delimiter=",", distinct=True, ordering="str_plt_id"),
                 total_pcs=Sum(
                     Case(
                         When(pallet__isnull=True, then=F("pcs")),
