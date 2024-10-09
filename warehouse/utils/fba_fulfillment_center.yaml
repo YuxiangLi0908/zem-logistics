@@ -1578,6 +1578,11 @@ PBI2:
   location: 14490 Corporate Rd N
   state: FL
   zipcode: '33478'
+PBI3:
+  city: Port St. Lucie
+  location: Amazon PBI3
+  state: FL
+  zipcode: '34981'
 RMN3:
   city: Fredericksburg
   location: 220 Centerport Parkway
