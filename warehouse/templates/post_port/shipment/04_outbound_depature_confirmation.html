@@ -26,7 +26,7 @@
                 </button>
             </form>
             {% for s in shipment %}
-            <form method="post" action="" style="display: inline-block;">
+            <form method="post" action="" style="display: inline-block;" id="exportBOL">
                 {% csrf_token %}
                 <input type="hidden" name="step" value="export_bol">
                 <input type="hidden" name="shipment_batch_number" value="{{ s.shipment_batch_number }}">
@@ -35,6 +35,41 @@
                     <small>BOL- {{ s.shipment_batch_number }}</small>
                     <i class="bi bi-cloud-arrow-down-fill"></i>
                 </button>
+                <button id="editButton" type="button" class="btn btn-primary" onclick="editBOL(this)" style="font-size: 11px;">编辑</button>
+                <div class="popup" style="display: none; z-index:999; position: fixed; top: 50%; left: 50%; transform: translate(-50%, -50%); background-color: white; border: 1px solid gray; padding: 20px;">
+                    <div style="text-align:right;">
+                        <button type="button" id="add-more-btn" class="btn btn-success" style="height: 35px; font-size: 12px; margin: 5px;" onclick="addRowBelow()">
+                            <i class="bi bi-plus-lg"></i> 添加行
+                        </button>
+                        <button type="button" id="add-more-btn" class="btn btn-success" style="height: 35px; font-size: 12px; margin: 5px;" onclick="editTable(true)">编辑</button>
+                    </div>
+                    <table style=" max-height:90%; overflow-y:scroll; margin: 10px; padding: 100px; cellpadding='15';" id="BOL-container">
+                        <thead>                       
+                            <th class="th" style="text-align: center; border: 1px solid #141414">Container</th>
+                            <th class="th" style="text-align: center; border: 1px solid #141414">Shipment ID</th>
+                            <th class="th" style="text-align: center; border: 1px solid #141414">Ref ID</th>
+                            <th class="th" style="text-align: center; border: 1px solid #141414">Qty</th>   
+                        </thead>
+                        {% for c in packing_list %}
+                        <tr id="BOL-row">
+                            <td style="text-align: center; border: 1px solid #141414; padding:10px;" data-editable="true">{{ c.container_number }}</td>
+                            <td style="text-align: center; border: 1px solid #141414; text-wrap: wrap; padding:10px;" data-editable="true">{{ c.fba_id }}</td>
+                            <td style="text-align: center; border: 1px solid #141414; text-wrap: wrap; padding:10px;" data-editable="true">{{ c.ref_id }}</td>
+                            <td style="text-align: center; border: 1px solid #141414; padding:10px;" data-editable="true">{{ c.pcs }}</td>
+                        </tr>
+                        {% endfor %}
+                        <tr id="BOL-row-empty" style="display: none;">
+                            <td style="text-align: center; border: 1px solid #141414; padding:10px;" data-editable="true"></td>
+                            <td style="text-align: center; border: 1px solid #141414; text-wrap: wrap; padding:10px;" data-editable="true"></td>
+                            <td style="text-align: center; border: 1px solid #141414; text-wrap: wrap; padding:10px;" data-editable="true"></td>
+                            <td style="text-align: center; border: 1px solid #141414; padding:10px;" data-editable="true"></td>
+                        </tr> 
+                    </table>
+                    <div style="text-align:right;">
+                        <button id="confirmButton" type="button" class="btn btn-primary"  style="font-size: 11px;" onclick="editTable(false)">确认</button>
+                    </div>
+                </div>
+                <script src="script.js"></script>
             </form>
             {% endfor %}
         </div>
@@ -81,23 +116,103 @@
                 <table id="fleet-departure-table" class="table" style="font-size: 11px; max-height: 90%; overflow-y: scroll;">
                     <thead>
                         <tr>
-                            <th class="th">实际出库时间</th>
+                            <th class="th" style="text-align:right;">实际出库时间</th>
                         </tr>
                     </thead>
                     <tbody>
                         <tr>
                             <td class="td">
-                                <input type="datetime-local" name="departured_at" style="font-size: 13px;" required>
-                                <input type="hidden" name="step" value="fleet_departure">
-                                <input type="hidden" name="fleet_number" value="{{ selected_fleet.fleet_number }}">
-                                <input type="hidden" name="warehouse" value="{{ warehouse }}">
-                                <button type="submit" onclick="confirmSubmit()" class="btn btn-primary" style="font-size: 11px;">确认出库</button>
+                                <div style="text-align:right;">
+                                    <input type="datetime-local" name="departured_at" style="font-size: 13px;" required>
+                                    <input type="hidden" name="step" value="fleet_departure">
+                                    <input type="hidden" name="fleet_number" value="{{ selected_fleet.fleet_number }}">
+                                    <input type="hidden" name="warehouse" value="{{ warehouse }}">
+                                    <button type="submit" onclick="confirmSubmit()" class="btn btn-primary" style="font-size: 11px;">确认出库</button>
+                                </div>
                             </th>
                         </tr>
                     </tbody>
                 </table>
+                
             </form>
         </div>
+        
     </div>
 </div>
+
+
+
+<script>
+    function editBOL(button) {   //用户要编辑BOL中的表时，弹出表格框
+        var popup = document.querySelector('.popup');
+        if (popup.style.display === 'none') {
+            popup.style.display = 'block';
+        } else {
+            popup.style.display = 'none';
+        }
+        //button.style.backgroundColor = 'gray';   
+    };
+    function editTable(flag){   //用户编辑时，将表格的单元格变为编辑状态，用户确认时，变为不可编辑状态，并记录单元格的内容，用于传输给视图
+        customerInfo = []
+        var table = document.getElementById('BOL-container');
+        var rows = table.getElementsByTagName('tr');
+        for (var i=1; i < rows.length; i++){
+            var cells = rows[i].getElementsByTagName('td');
+            var rowData = [];
+            for (var j = 0; j < cells.length; j++) {
+                if (cells[j].getAttribute('data-editable') === 'true') {
+                    if (flag){
+                        if (!cells[j].getElementsByTagName('input')[0]){
+                            var content = cells[j].innerHTML;
+                            var input = document.createElement('input');
+                            input.type = 'text';
+                            input.value = content;
+                            input.size = 15;
+                            cells[j].innerHTML = '';
+                            cells[j].appendChild(input);
+                        }                       
+                    } else {
+                        var input = cells[j].getElementsByTagName('input')[0];
+                        if (input){
+                            rowData.push(input.value);
+                        }                     
+                    }                   
+                }
+            }
+            if (rowData.length > 0) {
+                customerInfo.push(rowData);
+            }
+        };
+        if (!flag){   
+            for (var i=1; i<rows.length; i++){
+                var rowData = {};
+                var cells = rows[i].getElementsByTagName('td');
+                for (var j = 0; j < cells.length; j++) {
+                    var cellName = 'cell' + j;
+                    rowData[cellName] = cells[j].innerHTML;
+                }
+            }
+            var form = document.getElementById('exportBOL');
+            var jsonCustomerInfo = JSON.stringify(customerInfo);
+            var newInput = document.createElement('input');
+            newInput.value = jsonCustomerInfo;
+            newInput.name = 'customerInfo';
+            newInput.type = 'hidden'
+            form.appendChild(newInput)
+
+            var popup = document.querySelector('.popup');
+            popup.style.display = 'none';
+        };
+        
+    };
+    function addRowBelow() {   //添加行的操作
+        var table = document.getElementById('BOL-container');
+        var newRow = document.querySelector('#BOL-row-empty').cloneNode(true);
+        newRow.style.display = '';
+        var newId = 'BOL - row -'+ Date.now();
+        newRow.id = newId;
+        table.appendChild(newRow);
+    };
+    
+</script>
 {% endblock %}

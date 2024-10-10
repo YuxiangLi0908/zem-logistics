@@ -1,6 +1,6 @@
 import ast
 import uuid
-import os
+import os,json
 import pandas as pd
 from asgiref.sync import sync_to_async
 from datetime import datetime, timedelta
@@ -181,6 +181,12 @@ class ShippingManagement(View):
                 fleet_number__fleet_number=selected_fleet_number
             ).order_by("-shipment_appointment")
         )
+        packing_list = await sync_to_async(list)(
+            PackingList.objects.select_related("container_number").filter(
+                shipment_batch_number__shipment_batch_number=shipment[0].shipment_batch_number
+            )
+        )
+        print('打包',packing_list)
         mutable_post = request.POST.copy()
         mutable_post['name'] = request.GET.get("warehouse")
         request.POST = mutable_post
@@ -189,6 +195,7 @@ class ShippingManagement(View):
             "selected_fleet": selected_fleet,
             "shipment": shipment,
             "warehouse": warehouse,
+            "packing_list":packing_list,
         })
         return self.template_outbound_departure, context
     
@@ -221,7 +228,7 @@ class ShippingManagement(View):
         warehouse = None if warehouse=="N/A(直送)" else warehouse
         if is_direct:
             shipment = await sync_to_async(list)(
-                Shipment.objects.select_related(
+                Shipment.objects.select_related(   #用于处理一对一或者多对一的关系
                     "order", "container_number", "customer_name"
                 ).filter(
                     order__order_type="直送"
@@ -242,7 +249,7 @@ class ShippingManagement(View):
             return self.template_dd, context
         else:
             shipment = await sync_to_async(list)(
-                Shipment.objects.prefetch_related(
+                Shipment.objects.prefetch_related(  #用于处理多对多关系和反向外键关系，先查询主对象，再查询相关对象
                     "packinglist", "packinglist__container_number", "packinglist__container_number__order",
                     "packinglist__container_number__order__warehouse", "order"
                 ).filter(
@@ -252,6 +259,7 @@ class ShippingManagement(View):
                     )
                 ).distinct()
             )
+            print('shipment',shipment)
             warehouse = warehouse if warehouse else "N/A(直送)"
             criteria = models.Q(
                 container_number__order__warehouse__name=warehouse,
@@ -291,9 +299,9 @@ class ShippingManagement(View):
         
     async def handle_selection_post(self, request: HttpRequest) -> tuple[str, dict[str, Any]]:
         warehouse = request.POST.get("warehouse")
-        selections = request.POST.getlist("is_shipment_schduled")
+        selections = request.POST.getlist("is_shipment_schduled")  #从字典的数据结构中获取该键的值，以列表返回
         ids = request.POST.getlist("pl_ids")
-        ids = [id for s, id in zip(selections, ids) if s == "on"]
+        ids = [id for s, id in zip(selections, ids) if s == "on"]  #zip将selections和ids打包成元组
         selected = [int(i) for id in ids for i in id.split(",")]
         if selected:
             current_time = datetime.now()
@@ -317,14 +325,14 @@ class ShippingManagement(View):
             destination = packing_list_selected[0].get("destination", "RDM")
             batch_id = destination + current_time.strftime("%m%d%H%M%S") + str(uuid.uuid4())[:2].upper()
             batch_id = batch_id.replace(" ", "").upper()
-            address = amazon_fba_locations.get(destination, None)
-            if destination in amazon_fba_locations:
+            address = amazon_fba_locations.get(destination, None) #查找亚马逊地址中是否有该地址
+            if destination in amazon_fba_locations: 
                 fba = amazon_fba_locations[destination]
                 address = f"{fba['location']}, {fba['city']} {fba['state']}, {fba['zipcode']}"
             else:
                 address, zipcode = str(packing_list_selected[0].get("address")), str(packing_list_selected[0].get('zipcode'))
-                if zipcode.lower() not in address.lower():
-                    address += f", {zipcode}"
+                if zipcode.lower() not in address.lower():   #如果不在亚马逊地址中，就从packing_list_selected的第一个元素获取地址和编码，转为字符串类型
+                    address += f", {zipcode}"                #如果编码不在地址字符串内，将邮编添加到字符串后面
             shipment_data = {
                 "shipment_batch_number": str(batch_id),
                 "origin": warehouse,
@@ -603,15 +611,29 @@ class ShippingManagement(View):
     async def handle_export_bol_post(self, request: HttpRequest) -> HttpResponse:
         batch_number = request.POST.get("shipment_batch_number")
         warehouse = request.POST.get("warehouse")
+        customerInfo = request.POST.get("customerInfo")
+        #进行判断，如果在前端进行了表的修改，就用修改后的表，如果没有修改，就用packing_list直接查询的
+        if customerInfo:  
+            customer_info = json.loads(customerInfo)
+            packing_list = []
+            for row in customer_info:
+                packing_list.append({
+                    'container_number': row[0].strip(),
+                    'fba_id': row[1].strip(),
+                    'ref_id': row[2].strip(),
+                    'pcs': row[3].strip()
+                })
+        else:
+            packing_list = await sync_to_async(list)(
+            PackingList.objects.select_related("container_number").filter(
+                shipment_batch_number__shipment_batch_number=batch_number
+            )
+        )    
         warehouse_obj = await sync_to_async(ZemWarehouse.objects.get)(name=warehouse) if warehouse else None
         shipment = await sync_to_async(
             Shipment.objects.select_related("fleet_number").get
         )(shipment_batch_number=batch_number)
-        packing_list = await sync_to_async(list)(
-            PackingList.objects.select_related("container_number").filter(
-                shipment_batch_number__shipment_batch_number=batch_number
-            )
-        )
+        
         address_chinese_char = False if shipment.address.isascii() else True
         destination_chinese_char = False if shipment.destination.isascii() else True
         try:
