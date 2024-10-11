@@ -5,7 +5,7 @@
 
 {% block content %}
 <div><b>出库管理</b></div>
-<form method="post" action="">
+<form method="post" action="" onsubmit="showLoadingBar()">
     {% csrf_token %}
     <div>
         <b style="margin-right: 5px;">选择仓库:</b>
@@ -88,4 +88,23 @@
     {% endblock %}
 </div>
 
+<script>
+    function showLoadingBar() {
+        document.getElementById('loading-bar').style.display = 'block';
+    };
+
+    // Hide loading bar when page is fully loaded
+    window.onload = function() {
+        document.getElementById('loading-bar').style.display = 'none';
+    };
+
+    document.addEventListener('DOMContentLoaded', function() {
+        const form = document.getElementById('warehouse-form');
+        if (form) {
+            form.addEventListener('submit', function() {
+                showLoadingBar();
+            });
+        }
+    });
+</script>
 {% endblock %}

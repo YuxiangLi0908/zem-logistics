@@ -5,14 +5,42 @@
 
 {% block content %}
 <div><b>预约出库</b></div>
-<form method="post" action="">
+<form method="post" action="" onsubmit="showLoadingBar()">
     {% csrf_token %}
     <div>
-        <b style="margin-right: 5px;">选择仓库:</b>
+        <b style="margin-right: 5px;">所属仓:</b>
+        <select name="area">
+            {% for k, v in area_options.items %}
+            <option value="{{ v }}" {% if k == selected_area %}selected{% endif %}>{{ k }}</option>
+            {% endfor %}
+        </select>
         <input type="hidden" name="step" value="warehouse">
-        {{ warehouse_form.name }}
         <button type="submit">确认</button>
     </div>
 </form>
 
+<div id="loading-bar">
+    <div class="spinner"></div>
+    <p>Loading, please wait...</p>
+</div>
+
+<script>
+    function showLoadingBar() {
+        document.getElementById('loading-bar').style.display = 'block';
+    };
+
+    // Hide loading bar when page is fully loaded
+    window.onload = function() {
+        document.getElementById('loading-bar').style.display = 'none';
+    };
+
+    document.addEventListener('DOMContentLoaded', function() {
+        const form = document.getElementById('warehouse-form');
+        if (form) {
+            form.addEventListener('submit', function() {
+                showLoadingBar();
+            });
+        }
+    });
+</script>
 {% endblock %}

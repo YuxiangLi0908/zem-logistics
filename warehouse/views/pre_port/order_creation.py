@@ -427,7 +427,6 @@ class OrderCreation(View):
         request.GET = mutable_get
         return await self.handle_order_management_container_get(request)
 
-
     async def handle_update_order_packing_list_info_post(self, request: HttpRequest) -> tuple[Any, Any]:
         container_number = request.POST.get("container_number")
         order = await sync_to_async(
