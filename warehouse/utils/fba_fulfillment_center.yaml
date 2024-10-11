@@ -1818,3 +1818,8 @@ RDU4:
   location: 6309 Bragg Blvd
   state: NC
   zipcode: '28303'  
+TEB8:
+  city: Homestead
+  location: 27505 SW 132nd Ave
+  state: FL
+  zipcode: '33032'
