@@ -199,6 +199,14 @@ class ShippingManagement(View):
                 total_pallet=Count('pallet_id', distinct=True)
             ).order_by("-shipment_number__shipment_appointment")
         )
+        packing_list = {}
+        for s in shipment:
+            pl = await sync_to_async(list)(
+                PackingList.objects.select_related("container_number").filter(
+                    shipment_batch_number__shipment_batch_number=s["shipment_number__shipment_batch_number"]
+                )
+            )
+            packing_list[s["shipment_number__shipment_batch_number"]] = pl
         shipment_batch_numbers = []
         for s in shipment:
             if s.get("shipment_number__shipment_batch_number") not in shipment_batch_numbers:
@@ -212,6 +220,7 @@ class ShippingManagement(View):
             "shipment": shipment,
             "warehouse": warehouse,
             "shipment_batch_numbers": shipment_batch_numbers,
+            "packing_list": packing_list,
         })
         return self.template_outbound_departure, context
     
