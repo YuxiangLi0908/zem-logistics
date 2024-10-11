@@ -1828,3 +1828,8 @@ PBI3:
   location: Amazon PBI3
   state: FL
   zipcode: '34981'
+TEB8:
+  city: Homestead
+  location: 27505 SW 132nd Ave
+  state: FL
+  zipcode: '33032'
