@@ -83,6 +83,7 @@ async def export_palletization_list(request: HttpRequest) -> HttpResponse:
             ).filter(container_number__container_number=container_number).annotate(
             custom_delivery_method=Case(
                 When(Q(delivery_method='暂扣留仓(HOLD)') | Q(delivery_method='暂扣留仓'), then=Concat('delivery_method', Value('-'), 'fba_id', Value('-'), 'id')),
+                When(Q(delivery_method='客户自提') | Q(destination='客户自提'), then=Concat('delivery_method', Value('-'), 'destination',  Value('-'), 'shipping_mark')),
                 default=F('delivery_method'),
                 output_field=CharField()
             ),
@@ -106,6 +107,7 @@ async def export_palletization_list(request: HttpRequest) -> HttpResponse:
             ).filter(container_number__container_number=container_number).annotate(
             custom_delivery_method=Case(
                 When(Q(delivery_method='暂扣留仓(HOLD)') | Q(delivery_method='暂扣留仓'), then=Concat('delivery_method', Value('-'), 'fba_id', Value('-'), 'id')),
+                When(Q(delivery_method='客户自提') | Q(destination='客户自提'), then=Concat('delivery_method', Value('-'), 'destination',  Value('-'), 'shipping_mark')),
                 default=F('delivery_method'),
                 output_field=CharField()
             ),

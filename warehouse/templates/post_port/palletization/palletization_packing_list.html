@@ -11,6 +11,7 @@
                         <tr>
                             <th class="th">货柜</th>
                             <th class="th">目的仓库</th>
+                            <th class="th">唛头</th>
                             <th class="th">FBA ID</th>
                             <th class="th">REF ID</th>
                             <th class="th">派送方式</th>
@@ -26,6 +27,7 @@
                         <tr>
                             <td class="td">{{ pl.container_number__container_number }}</td>
                             <td class="td">{{ pl.destination }}</td>
+                            <td class="td" style="max-width: 400px; word-break: break-all;"><small>{{ pl.shipping_marks }}</small></td>
                             <td class="td" style="max-width: 400px; word-break: break-all;"><small>{{ pl.fba_ids }}</small></td>
                             <td class="td" style="max-width: 400px; word-break: break-all;"><small>{{ pl.ref_ids }}</small></td>
                             <td class="td">
