@@ -307,17 +307,20 @@ class Palletization(View):
             ).filter(container_number__container_number=container_number).annotate(
                 custom_delivery_method=Case(
                     When(Q(delivery_method='暂扣留仓(HOLD)') | Q(delivery_method='暂扣留仓'), then=Concat('delivery_method', Value('-'), 'fba_id', Value('-'), 'id')),
+                    When(Q(delivery_method='客户自提') | Q(destination='客户自提'), then=Concat('delivery_method', Value('-'), 'destination',  Value('-'), 'shipping_mark')),
                     default=F('delivery_method'),
                     output_field=CharField()
                 ),
                 str_id=Cast("id", CharField()),
                 str_fba_id=Cast("fba_id", CharField()),
                 str_ref_id=Cast("ref_id", CharField()),
+                str_shipping_mark=Cast("shipping_mark", CharField()),
             ).values(
                 "container_number__container_number", "destination", "address", "custom_delivery_method", "note"
             ).annotate(
                 fba_ids=StringAgg("str_fba_id", delimiter=",", distinct=True),
                 ref_ids=StringAgg("str_ref_id", delimiter=",", distinct=True),
+                shipping_marks=StringAgg("str_shipping_mark", delimiter=",", distinct=True),
                 ids=StringAgg("str_id", delimiter=",", distinct=True),
                 pcs=Sum("pcs", output_field=IntegerField()),
                 cbm=Sum("cbm", output_field=FloatField()),
@@ -329,17 +332,20 @@ class Palletization(View):
             ).filter(container_number__container_number=container_number).annotate(
                 custom_delivery_method=Case(
                     When(Q(delivery_method='暂扣留仓(HOLD)') | Q(delivery_method='暂扣留仓'), then=Concat('delivery_method', Value('-'), 'fba_id', Value('-'), 'id')),
+                    When(Q(delivery_method='客户自提') | Q(destination='客户自提'), then=Concat('delivery_method', Value('-'), 'destination',  Value('-'), 'shipping_mark')),
                     default=F('delivery_method'),
                     output_field=CharField()
                 ),
                 str_id=Cast("id", CharField()),
                 str_fba_id=Cast("fba_id", CharField()),
                 str_ref_id=Cast("ref_id", CharField()),
+                str_shipping_mark=Cast("shipping_mark", CharField()),
             ).values(
                 "container_number__container_number", "destination", "address", "custom_delivery_method", "note"
             ).annotate(
                 fba_ids=StringAgg("str_fba_id", delimiter=",", distinct=True, ordering="str_fba_id"),
                 ref_ids=StringAgg("str_ref_id", delimiter=",", distinct=True, ordering="str_ref_id"),
+                shipping_marks=StringAgg("str_shipping_mark", delimiter=",", distinct=True),
                 ids=StringAgg("str_id", delimiter=",", distinct=True, ordering="str_id"),
                 pcs=Sum("pallet__pcs", output_field=IntegerField()),
                 cbm=Sum("pallet__cbm", output_field=FloatField()),
