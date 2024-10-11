@@ -1,6 +1,9 @@
 import pytz
 import uuid
 import asyncio
+import barcode
+import io,base64
+from barcode.writer import ImageWriter
 from asgiref.sync import sync_to_async
 from datetime import datetime
 from typing import Any
@@ -183,7 +186,9 @@ class Palletization(View):
         retrieval_date = retrieval_date.strftime("%m/%d")
         packing_list = await self._get_packing_list(container_number=container_number, status=status)
         data = []
+        num = 0
         for pl in packing_list:
+            num += 1
             cbm = pl.get("cbm")
             remainder = cbm % 1
             cbm = int(cbm)
@@ -191,13 +196,37 @@ class Palletization(View):
                 cbm += (cbm%2)
             elif remainder:
                 cbm += 2
-            data += [{
-                "container_number": pl.get("container_number__container_number"),
-                "destination": pl.get("destination"),
-                "date": retrieval_date,
-                "customer": customer_name,
-                "hold": ("暂扣留仓" in pl.get("custom_delivery_method").split("-")[0]),
-            }] * cbm
+            if "客户自提" in pl.get("destination"):
+                destination = 'Cutomer_PickUp'
+            else:
+                destination = pl.get("destination")
+            
+            barcode_type = 'code128'
+            barcode_class = barcode.get_barcode_class(barcode_type)
+
+            for num in range(1,cbm+1):
+                barcode_content = f"{pl.get("container_number__container_number")}|{destination}-{num}|{customer_name}{retrieval_date}"
+                my_barcode = barcode_class(barcode_content, writer = ImageWriter())
+                buffer = io.BytesIO()
+                my_barcode.write(buffer)
+                buffer.seek(0)
+                barcode_base64 = base64.b64encode(buffer.read()).decode('utf-8')
+                new_data = {
+                    "container_number": pl.get("container_number__container_number"),
+                    "destination": f"{pl.get("destination")}-{num}",
+                    "date": retrieval_date,
+                    "customer": customer_name,
+                    "hold": ("暂扣留仓" in pl.get("custom_delivery_method").split("-")[0]),
+                    "barcode":barcode_base64
+                }
+                data.append(new_data)
+            # data += [{
+            #     "container_number": pl.get("container_number__container_number"),
+            #     "destination": pl.get("destination"),
+            #     "date": retrieval_date,
+            #     "customer": customer_name,
+            #     "hold": ("暂扣留仓" in pl.get("custom_delivery_method").split("-")[0]),
+            # }] * cbm
         context = {"data": data}
         template = get_template(self.template_pallet_label)
         html = template.render(context)

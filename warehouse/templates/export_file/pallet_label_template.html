@@ -19,22 +19,23 @@
         .text-container {
             text-align: center;
             height: 100%;
-            padding-top: 100px;
+            padding-top: 20px;
         }
 
         .huge-text {
-            font-size: 120px;
+            font-size: 90px;
             font-family: STSong-Light;
             padding: -10px;
             margin: -10px;
         }
 
         .huge-text.larger {
-            font-size: 160px;
+            font-size: 110px;
             font-family: STSong-Light;
             padding: -10px;
             margin: -10px;
         }
+        
     }
 </style>
 
@@ -44,11 +45,13 @@
     <div class="text-container">
         <br>
         {% if d.hold %}
+            <img src="data:image/png;base64,{{ d.barcode }}">
             <p class="huge-text">{{ d.container_number }}</p>
             <p class="huge-text"><b>{{ d.destination }}</b></p>
             <p class="huge-text">{{ d.customer }} {{ d.date }}</p>
             <p class="huge-text"><b>!!! HOLD !!!</b></p>
         {% else %}
+            <img src="data:image/png;base64,{{ d.barcode }}">
             <p class="huge-text larger">{{ d.container_number }}</p>
             <p class="huge-text larger"><b>{{ d.destination }}</b></p>
             <p class="huge-text larger">{{ d.customer }} {{ d.date }}</p>
