@@ -356,7 +356,6 @@ class Accounting(View):
             "container_number": container_number,
             "data": zip(description, warehouse_code, cbm, qty, rate, amount, note)
         }
-        print('要写的内容',context)
         workbook, invoice_data = self._generate_invoice_excel(context)
         invoice = Invoice(**{
             "invoice_number": invoice_data["invoice_number"],
@@ -579,14 +578,14 @@ class Accounting(View):
         excel_file = io.BytesIO()  #创建一个BytesIO对象
         workbook.save(excel_file)  #将workbook保存到BytesIO中
         excel_file.seek(0)         #将文件指针移动到文件开头
-        #invoice_link = self._upload_excel_to_sharepoint(excel_file, "invoice", f"INVOICE-{context['container_number']}.xlsx")
+        invoice_link = self._upload_excel_to_sharepoint(excel_file, "invoice", f"INVOICE-{context['container_number']}.xlsx")
 
         worksheet['A9'].font = Font(color="00FFFFFF")
         worksheet['A9'].fill = PatternFill(start_color="00000000", end_color="00000000", fill_type="solid")
         invoice_data = {
             "invoice_number": invoice_number,
             "invoice_date": current_date.strftime('%Y-%m-%d'),
-            "invoice_link": "no link",
+            "invoice_link": invoice_link,
             "total_amount": total_amount,
         }
         return workbook, invoice_data
