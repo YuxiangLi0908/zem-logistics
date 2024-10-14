@@ -130,7 +130,7 @@
             <input type="hidden" name="step" value="invoice_order_select">
             <input type="hidden" name="start_date" value="{{ start_date }}">
             <input type="hidden" name="end_date" value="{{ end_date }}">
-            <button type="submit" onclick="confirmSubmit()" class="btn btn-primary" style="width: 150px; height: 35px;">生成INVOICE <i class="bi bi-receipt"></i></button>
+            <button type="submit" onclick="confirmSubmit(this)" class="btn btn-primary" style="width: 150px; height: 35px;">生成INVOICE <i class="bi bi-receipt"></i></button>
         </form>
         {% endif %}
     </div>
@@ -138,7 +138,7 @@
 
 
 <script>
-    var selectedOrders = [];
+    var selectedOrders = []; //存储选中的柜号
     //全选的操作
     document.getElementById('selectAll').addEventListener('click', function () {
         var checkboxes = document.getElementsByName('is_order_selected_click');
@@ -197,24 +197,25 @@
                 selectedOrders.splice(index, 1);
             }
         }
+        console.log('选中的值',selectedOrders)
     };
 
     function confirmSubmit(Element) {
         if (selectedOrders.length === 0){
             alert('未选中数据！');
             return;
-        }/*else{
+        }else{
             let form = Element.parentNode;
             let hiddenInput = document.createElement('input');
             hiddenInput.type = 'hidden';
             hiddenInput.name ='selectedOrders';
-            hiddenInput.value = JSON.stringify(selectedOrders);
+            hiddenInput.value = JSON.stringify(selectedOrders);            
             form.appendChild(hiddenInput);
             form.submit();
-        }*/
+        }
         
         const checkBoxes = document.getElementsByName('is_order_selected');
-        for (let i = 0; i < checkBoxes.length; i+=2) {
+        for (let i = 0; i < checkBoxes.length; i+=1) {
             if (checkBoxes[i].checked) {
                 checkBoxes[i+1].disabled = true;
             }

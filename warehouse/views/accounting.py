@@ -1,5 +1,5 @@
 import io
-import os
+import os,json
 import openpyxl.workbook
 import openpyxl.worksheet
 import openpyxl.worksheet.worksheet
@@ -224,7 +224,6 @@ class Accounting(View):
                     pl["total_n_pallet"] = 0.25
         else:
             packing_list = []
-        print('packinglist',packing_list)
         context = {
             "order": order,
             "packing_list": packing_list,
@@ -315,17 +314,13 @@ class Accounting(View):
         return self.handle_invoice_get(start_date, end_date, customer)
 
     def handle_invoice_order_select_post(self, request: HttpRequest) -> HttpResponse:
-        order_ids = request.POST.getlist("order_id")
-        
-        selections = request.POST.getlist("is_order_selected")
-        print('选中的数据',selections)
-        order_selected = [o for s, o in zip(selections, order_ids) if s == "on"]
-        print('order_selected',order_selected)
-        if order_selected:
+        selected_orders = json.loads(request.POST.get('selectedOrders', '[]'))
+        selected_orders = list(set(selected_orders))
+        if selected_orders:
             order = Order.objects.select_related(
                 "customer_name", "container_number", "invoice_id"
             ).filter(
-                order_id__in=order_selected
+                container_number__container_number__in=selected_orders
             )
             order_id = [o.id for o in order]
             customer = order[0].customer_name

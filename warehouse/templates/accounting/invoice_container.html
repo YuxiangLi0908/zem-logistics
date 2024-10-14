@@ -44,6 +44,11 @@
                     <td class="td"><input type="text" name="note" rows="4"></td>
                 </tr>
                 {% endfor %}
+                <tr id="amount-total-row">
+                    <td colspan="6"></td>
+                    <td class="td"><input type="number" id="amount-total" disabled></td>
+                    <td colspan="1"></td>
+                </tr>
             </tbody>
         </table>
     </div>
@@ -69,6 +74,20 @@
         const amount = qty * rate;
         const amountInput = row.querySelector('input[name="amount"]');
         amountInput.value = amount.toFixed(2);
+        calculateAmountTotal();
+    };
+
+    function calculateAmountTotal(){
+        const amountInputs = document.querySelectorAll('input[name="amount"]');
+        let total = 0;
+        amountInputs.forEach(function (input) {
+            const value = parseFloat(input.value);
+            if (!isNaN(value)) {
+                total += value;
+            }
+        });
+        const amountTotalInput = document.getElementById('amount-total');
+        amountTotalInput.value = total.toFixed(2);
     };
 
     function addRow() {
