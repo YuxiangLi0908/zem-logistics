@@ -114,6 +114,7 @@ class Palletization(View):
             }
         for pl in packing_list:
             pl_form = PackingListForm(initial={"n_pallet": pl["n_pallet"]})
+            print(type(pl_form))
             order_packing_list.append((pl, pl_form))
         context["warehouse"] = request.GET.get("warehouse", None)
         context["order_packing_list"] = order_packing_list
