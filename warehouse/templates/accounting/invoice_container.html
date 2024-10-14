@@ -40,7 +40,7 @@
                     <td class="td"><input type="number" name="cbm" step=0.01 value="{{ pl.total_cbm|floatformat:2 }}"></td>
                     <td class="td"><input type="number" name="qty" step=0.01 value="{{ pl.total_n_pallet }}" oninput="updateAmount(this)" required></td>
                     <td class="td"><input type="number" name="rate" step=0.01 oninput="updateAmount(this)" required></td>
-                    <td class="td"><input type="number" name="amount" step=0.01 required></td>
+                    <td class="td"><input type="number" name="amount" step=0.01 oninput="updateAmount(this)" required></td>
                     <td class="td"><input type="text" name="note" rows="4"></td>
                 </tr>
                 {% endfor %}
@@ -92,7 +92,8 @@
 
     function addRow() {
         const table = document.getElementById('invoice-table').getElementsByTagName('tbody')[0];
-        const newRow = table.insertRow();
+        const totalRow = document.getElementById("amount-total-row");
+        var newRow = document.createElement("tr");
         newRow.innerHTML = `
             <tr>
                 <td class="td" style="max-width: 2%; min-width: 10px; text-align: center;">
@@ -103,10 +104,11 @@
                 <td class="td"><input type="number" name="cbm" step=0.01 value=""></td>
                 <td class="td"><input type="number" name="qty" step=0.01 value="" oninput="updateAmount(this)" required></td>
                 <td class="td"><input type="number" name="rate" step=0.01 oninput="updateAmount(this)" required></td>
-                <td class="td"><input type="number" name="amount" step=0.01 required></td>
+                <td class="td"><input type="number" name="amount" step=0.01 oninput="updateAmount(this)" required></td>
                 <td class="td"><input type="text" name="note" rows="4"></td>
             </tr>
         `;
+        table.insertBefore(newRow, totalRow);
     };
 
     function removeRows() {
