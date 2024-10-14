@@ -224,6 +224,7 @@ class Accounting(View):
                     pl["total_n_pallet"] = 0.25
         else:
             packing_list = []
+        print('packinglist',packing_list)
         context = {
             "order": order,
             "packing_list": packing_list,
@@ -315,8 +316,11 @@ class Accounting(View):
 
     def handle_invoice_order_select_post(self, request: HttpRequest) -> HttpResponse:
         order_ids = request.POST.getlist("order_id")
+        
         selections = request.POST.getlist("is_order_selected")
+        print('选中的数据',selections)
         order_selected = [o for s, o in zip(selections, order_ids) if s == "on"]
+        print('order_selected',order_selected)
         if order_selected:
             order = Order.objects.select_related(
                 "customer_name", "container_number", "invoice_id"
@@ -357,7 +361,7 @@ class Accounting(View):
             "container_number": container_number,
             "data": zip(description, warehouse_code, cbm, qty, rate, amount, note)
         }
-
+        print('要写的内容',context)
         workbook, invoice_data = self._generate_invoice_excel(context)
         invoice = Invoice(**{
             "invoice_number": invoice_data["invoice_number"],
@@ -482,14 +486,14 @@ class Accounting(View):
         order_id = str(context["order"].id)
         customer_id = context["order"].customer_name.id
         invoice_number = f"{current_date.strftime('%Y-%m-%d').replace('-', '')}C{customer_id}{order_id}"
-        workbook = openpyxl.Workbook()
-        worksheet = workbook.active
-        worksheet.title = "Sheet1"
-        cells_to_merge = [
+        workbook = openpyxl.Workbook()  #创建一个工作簿对象
+        worksheet = workbook.active     #获取工作簿的活动工作表
+        worksheet.title = "Sheet1"      #给表命名
+        cells_to_merge = [              #要合并的单元格
             "A1:B1", "A3:A4", "B3:D3", "B4:D4", "E3:E4", "F3:H4", "A5:A6", "B5:D5", "B6:D6", "E5:E6", "F5:H6", "A9:B9", 
             "A10:B10", "F1:H1", "C1:E1", "A2:H2", "A7:H7", "A8:H8", "C9:H9", "C10:H10", "A11:H11"
         ]
-        self._merge_ws_cells(worksheet, cells_to_merge)
+        self._merge_ws_cells(worksheet, cells_to_merge)   #进行合并
 
         worksheet.column_dimensions['A'].width = 18
         worksheet.column_dimensions['B'].width = 18
@@ -526,20 +530,20 @@ class Accounting(View):
         worksheet["F3"].alignment = Alignment(vertical="center")
         worksheet["F5"].alignment = Alignment(vertical="center")
 
-        worksheet.append(["CONTAINER #", "DESCRIPTION", "WAREHOUSE CODE", "CBM", "QTY", "RATE", "AMOUNT", "NOTE"])
+        worksheet.append(["CONTAINER #", "DESCRIPTION", "WAREHOUSE CODE", "CBM", "QTY", "RATE", "AMOUNT", "NOTE"]) #添加表头
         invoice_item_starting_row = 12
         invoice_item_row_count = 0
         row_count = 13
         total_amount = 0.0
         for d, wc, cbm, qty, r, amt, n in context["data"]:
-            worksheet.append([context["container_number"], d, wc, cbm, qty, r, amt, n])
-            total_amount += float(amt)
+            worksheet.append([context["container_number"], d, wc, cbm, qty, r, amt, n])  #添加数据
+            total_amount += float(amt)  #计算总金额
             row_count += 1
             invoice_item_row_count += 1
 
-        worksheet.append(["Total", None, None, None, None, None, total_amount, None])
+        worksheet.append(["Total", None, None, None, None, None, total_amount, None])   #工作表末尾添加总金额
         invoice_item_row_count += 1
-        for row in worksheet.iter_rows(
+        for row in worksheet.iter_rows(  #单元格设置样式
             min_row=invoice_item_starting_row,
             max_row=invoice_item_starting_row + invoice_item_row_count,
             min_col=1,
@@ -577,17 +581,17 @@ class Accounting(View):
             row_count += 1
         self._merge_ws_cells(worksheet, [f"A{row_count}:H{row_count}"])
 
-        excel_file = io.BytesIO()
-        workbook.save(excel_file)
-        excel_file.seek(0)
-        invoice_link = self._upload_excel_to_sharepoint(excel_file, "invoice", f"INVOICE-{context['container_number']}.xlsx")
+        excel_file = io.BytesIO()  #创建一个BytesIO对象
+        workbook.save(excel_file)  #将workbook保存到BytesIO中
+        excel_file.seek(0)         #将文件指针移动到文件开头
+        #invoice_link = self._upload_excel_to_sharepoint(excel_file, "invoice", f"INVOICE-{context['container_number']}.xlsx")
 
         worksheet['A9'].font = Font(color="00FFFFFF")
         worksheet['A9'].fill = PatternFill(start_color="00000000", end_color="00000000", fill_type="solid")
         invoice_data = {
             "invoice_number": invoice_number,
             "invoice_date": current_date.strftime('%Y-%m-%d'),
-            "invoice_link": invoice_link,
+            "invoice_link": "no link",
             "total_amount": total_amount,
         }
         return workbook, invoice_data
