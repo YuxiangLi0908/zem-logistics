@@ -200,7 +200,7 @@ class Palletization(View):
             if "客户自提" in pl.get("destination"):
                 destination = 'Cutomer_PickUp'
             else:
-                destination = pl.get("destination")
+                destination = pl.get("destination").replace("沃尔玛", "WM-")
 
             if "暂扣留仓" in pl.get("custom_delivery_method").split("-")[0]:
                 fba_ids = pl.get("fba_ids")
