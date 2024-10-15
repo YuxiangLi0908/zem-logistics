@@ -187,9 +187,7 @@ class Palletization(View):
         retrieval_date = retrieval_date.strftime("%m/%d")
         packing_list = await self._get_packing_list(container_number=container_number, status=status)
         data = []
-        num = 0
         for pl in packing_list:
-            num += 1
             cbm = pl.get("cbm")
             remainder = cbm % 1
             cbm = int(cbm)
