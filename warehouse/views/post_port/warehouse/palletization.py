@@ -201,6 +201,11 @@ class Palletization(View):
                 destination = 'Cutomer_PickUp'
             else:
                 destination = pl.get("destination")
+
+            if "暂扣留仓" in pl.get("custom_delivery_method").split("-")[0]:
+                fba_ids = pl.get("fba_ids")
+            else:
+                fba_ids = None
             
             for num in range(cbm):
                 i = num // 4 + 1
@@ -219,6 +224,7 @@ class Palletization(View):
                         width, height = image.size 
                         new_height = int(height * 0.72)   #裁剪图像
                         cropped_image = image.crop((0, 0, width, new_height)) #存储
+                        cropped_image = cropped_image.resize((width, 100))
                         buffer = io.BytesIO()
                         cropped_image.save(buffer, format='PNG')
                         buffer.seek(0)
@@ -236,6 +242,7 @@ class Palletization(View):
                     "date": retrieval_date,
                     "customer": customer_name,
                     "hold": ("暂扣留仓" in pl.get("custom_delivery_method").split("-")[0]),
+                    "fba_ids": fba_ids,
                     "barcode":new_barcode_base64
                 }
                 data.append(new_data)
