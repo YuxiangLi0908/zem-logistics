@@ -75,7 +75,9 @@
                             <th class="th">STMT #</th>
                         </tr>
                         <tr style="position: sticky; top: 28px;">
-                            <th class="th" style="max-width: 2%; min-width: 10px; text-align: center;"></th>
+                            <th class="th" style="max-width: 2%; min-width: 10px; text-align: center;">
+                                <input type="checkbox" id="selectAll">
+                            </th>
                             <th class="th"></th>
                             <th class="th"><input type="text" id="containerSearchInput" placeholder="搜索柜号..." oninput="filterTable(this, 2, true)" size="16" style="font-size: 14px;"></th>
                             <th class="th"><input type="text" id="containerSearchInput" placeholder="搜索INVOICE #..." oninput="filterTable(this, 3, true)" size="16" style="font-size: 14px;"></th>
@@ -90,7 +92,7 @@
                         {% for c in order_invoice %}
                             <tr>
                                 <td class="td" style="max-width: 2%; min-width: 10px; text-align: center;">
-                                    <input type='checkbox' name='is_order_selected' onclick="toggleRowBackground(this)">
+                                    <input type='checkbox' name='is_order_selected_click' onclick="toggleRowBackground(this)">
                                     <input type="hidden" name="is_order_selected", value='off'>
                                     <input type="hidden" name="order_id", value='{{ c.order_id }}'>
                                 </td>
@@ -104,7 +106,7 @@
                                     <a href="{{ c.invoice_id.invoice_link }}" target="_blank" style="margin-right: 10px;">
                                         <i class="bi bi-file-earmark-bar-graph-fill"></i>
                                     </a>
-                                    <a href="/accounting/?step=container_invoice_edit&container_number={{ c.container_number }}" target="_blank" style="margin-right: 10px;"">
+                                    <a href="/accounting/?step=container_invoice_edit&container_number={{ c.container_number }}" target="_blank" style="margin-right: 10px;">
                                         <i class="bi bi-pencil-fill" style="color: rgba(34, 153, 84, 0.873);"></i>
                                     </a>
                                     <a href="#" onclick="confirmDelete(event, '{{ c.container_number }}', '{{ c.invoice_id.invoice_number }}')">
@@ -128,7 +130,7 @@
             <input type="hidden" name="step" value="invoice_order_select">
             <input type="hidden" name="start_date" value="{{ start_date }}">
             <input type="hidden" name="end_date" value="{{ end_date }}">
-            <button type="submit" onclick="confirmSubmit()" class="btn btn-primary" style="width: 150px; height: 35px;">生成INVOICE <i class="bi bi-receipt"></i></button>
+            <button type="submit" onclick="confirmSubmit(this)" class="btn btn-primary" style="width: 150px; height: 35px;">生成INVOICE <i class="bi bi-receipt"></i></button>
         </form>
         {% endif %}
     </div>
@@ -136,6 +138,28 @@
 
 
 <script>
+    var selectedOrders = []; //存储选中的柜号
+    //全选的操作
+    document.getElementById('selectAll').addEventListener('click', function () {
+        var checkboxes = document.getElementsByName('is_order_selected_click');
+        for (var i = 0; i < checkboxes.length; i++) {
+            tr = checkboxes[i].parentNode.parentNode;   //当其他字段通过筛选过滤时，过滤掉的display='none'，全选时应该去掉该柜号
+            if(tr.style.display === ""){
+                checkboxes[i].checked = this.checked;
+                let row = checkboxes[i].parentNode.parentNode;
+                if (this.checked){                   
+                    row.style.backgroundColor = '#ADD8E6'; // Change to your desired color
+                    let OrderElement = row.children[2];
+                    let Orders = OrderElement? OrderElement.textContent : '';
+                    if(!selectedOrders.includes(Orders)){
+                        selectedOrders.push(Orders.trim());
+                    }                 
+                }else{
+                    row.style.backgroundColor = '';
+                }
+            }
+        }
+    });
     function filterTable(filterInput, col_idx, trim) {
         var containerInput, containerFilter, table, tbody, tr, containerTd, i, containerTxtValue;
         containerFilter = filterInput.value.toUpperCase();
@@ -157,21 +181,46 @@
     };
 
     function toggleRowBackground(checkbox) {
-        var row = checkbox.closest('tr');
+        let row = checkbox.parentNode.parentNode;
+        let OrderElement = row.children[2];      
+        let Orders = OrderElement? OrderElement.textContent : '';
+        //var tr = checkbox.parentNode;
         if (checkbox.checked) {
+            // 将选中行的container_number添加到数组中
+            selectedOrders.push(Orders.trim());
             row.style.backgroundColor = '#ADD8E6'; // Change to your desired color
         } else {
+            // 如果取消选中，从数组中移除对应的container_number
             row.style.backgroundColor = ''; // Reset to default color
+            let index = selectedOrders.indexOf(Orders.trim());
+            if (index > -1) {
+                selectedOrders.splice(index, 1);
+            }
         }
+        console.log('选中的值',selectedOrders)
     };
 
-    function confirmSubmit() {
+    function confirmSubmit(Element) {
+        if (selectedOrders.length === 0){
+            alert('未选中数据！');
+            return;
+        }else{
+            let form = Element.parentNode;
+            let hiddenInput = document.createElement('input');
+            hiddenInput.type = 'hidden';
+            hiddenInput.name ='selectedOrders';
+            hiddenInput.value = JSON.stringify(selectedOrders);            
+            form.appendChild(hiddenInput);
+            form.submit();
+        }
+        
         const checkBoxes = document.getElementsByName('is_order_selected');
-        for (let i = 0; i < checkBoxes.length; i+=2) {
+        for (let i = 0; i < checkBoxes.length; i+=1) {
             if (checkBoxes[i].checked) {
                 checkBoxes[i+1].disabled = true;
             }
         }
+        
     };
 
     function confirmDelete(event, containerNumber, invoiceNumber) {
