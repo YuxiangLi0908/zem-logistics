@@ -197,15 +197,18 @@ class Palletization(View):
                 cbm += (cbm%2)
             elif remainder:
                 cbm += 2
+            cbm *= 2
+
             if "客户自提" in pl.get("destination"):
                 destination = 'Cutomer_PickUp'
             else:
                 destination = pl.get("destination")
             
-            for num in range(1,cbm+1):
+            for num in range(cbm):
+                i = num // 4 + 1
                 barcode_type = 'code128'
                 barcode_class = barcode.get_barcode_class(barcode_type)
-                barcode_content = f"{pl.get("container_number__container_number")}|{destination}-{num}|{customer_name}{retrieval_date}"
+                barcode_content = f"{pl.get('container_number__container_number')}|{destination}-{i}|{customer_name}|{retrieval_date}"
                 my_barcode = barcode_class(barcode_content, writer = ImageWriter()) #将条形码转换为图像形式
                 buffer = io.BytesIO()   #创建缓冲区
                 my_barcode.write(buffer)   #缓冲区存储图像
@@ -225,26 +228,19 @@ class Palletization(View):
                         del image
                         del buffer
                     except OSError as e:
-                        print(f"Error opening image: {e}")
+                        raise RuntimeError(f"Error opening image: {e}")
                 except base64.binascii.Error as e:
-                    print(f"Error decoding base64: {e}")
+                    raise RuntimeError(f"Error decoding base64: {e}")
 
                 new_data = {
                     "container_number": pl.get("container_number__container_number"),
-                    "destination": f"{pl.get("destination")}-{num}",
+                    "destination": f"{pl.get('destination')}-{i}",
                     "date": retrieval_date,
                     "customer": customer_name,
                     "hold": ("暂扣留仓" in pl.get("custom_delivery_method").split("-")[0]),
                     "barcode":new_barcode_base64
                 }
                 data.append(new_data)
-            # data += [{
-            #     "container_number": pl.get("container_number__container_number"),
-            #     "destination": pl.get("destination"),
-            #     "date": retrieval_date,
-            #     "customer": customer_name,
-            #     "hold": ("暂扣留仓" in pl.get("custom_delivery_method").split("-")[0]),
-            # }] * cbm
         context = {"data": data}
         template = get_template(self.template_pallet_label)
         html = template.render(context)
