@@ -1,6 +1,10 @@
 import pytz
 import uuid
 import asyncio
+import barcode
+import io,base64
+from PIL import Image
+from barcode.writer import ImageWriter
 from asgiref.sync import sync_to_async
 from datetime import datetime
 from typing import Any
@@ -114,7 +118,6 @@ class Palletization(View):
             }
         for pl in packing_list:
             pl_form = PackingListForm(initial={"n_pallet": pl["n_pallet"]})
-            print(type(pl_form))
             order_packing_list.append((pl, pl_form))
         context["warehouse"] = request.GET.get("warehouse", None)
         context["order_packing_list"] = order_packing_list
@@ -192,13 +195,57 @@ class Palletization(View):
                 cbm += (cbm%2)
             elif remainder:
                 cbm += 2
-            data += [{
-                "container_number": pl.get("container_number__container_number"),
-                "destination": pl.get("destination"),
-                "date": retrieval_date,
-                "customer": customer_name,
-                "hold": ("暂扣留仓" in pl.get("custom_delivery_method").split("-")[0]),
-            }] * cbm
+            cbm *= 2
+
+            if "客户自提" in pl.get("destination"):
+                destination = 'Cutomer_PickUp'
+            else:
+                destination = pl.get("destination")
+
+            if "暂扣留仓" in pl.get("custom_delivery_method").split("-")[0]:
+                fba_ids = pl.get("fba_ids")
+            else:
+                fba_ids = None
+            
+            for num in range(cbm):
+                i = num // 4 + 1
+                barcode_type = 'code128'
+                barcode_class = barcode.get_barcode_class(barcode_type)
+                barcode_content = f"{pl.get('container_number__container_number')}|{destination}-{i}|{customer_name}|{retrieval_date}"
+                my_barcode = barcode_class(barcode_content, writer = ImageWriter()) #将条形码转换为图像形式
+                buffer = io.BytesIO()   #创建缓冲区
+                my_barcode.write(buffer)   #缓冲区存储图像
+                buffer.seek(0)               
+                barcode_base64 = base64.b64encode(buffer.read()).decode('utf-8')  #编码
+                try:
+                    barcode_bytes = base64.b64decode(barcode_base64)
+                    try:
+                        image = Image.open(io.BytesIO(barcode_bytes))  #打开图像
+                        width, height = image.size 
+                        new_height = int(height * 0.72)   #裁剪图像
+                        cropped_image = image.crop((0, 0, width, new_height)) #存储
+                        cropped_image = cropped_image.resize((width, 100))
+                        buffer = io.BytesIO()
+                        cropped_image.save(buffer, format='PNG')
+                        buffer.seek(0)
+                        new_barcode_base64 = base64.b64encode(buffer.read()).decode('utf-8')
+                        del image
+                        del buffer
+                    except OSError as e:
+                        raise RuntimeError(f"Error opening image: {e}")
+                except base64.binascii.Error as e:
+                    raise RuntimeError(f"Error decoding base64: {e}")
+
+                new_data = {
+                    "container_number": pl.get("container_number__container_number"),
+                    "destination": f"{pl.get('destination')}-{i}",
+                    "date": retrieval_date,
+                    "customer": customer_name,
+                    "hold": ("暂扣留仓" in pl.get("custom_delivery_method").split("-")[0]),
+                    "fba_ids": fba_ids,
+                    "barcode":new_barcode_base64
+                }
+                data.append(new_data)
         context = {"data": data}
         template = get_template(self.template_pallet_label)
         html = template.render(context)
