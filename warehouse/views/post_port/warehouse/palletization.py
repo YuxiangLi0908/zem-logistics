@@ -238,7 +238,7 @@ class Palletization(View):
 
                 new_data = {
                     "container_number": pl.get("container_number__container_number"),
-                    "destination": f"{pl.get('destination')}-{i}",
+                    "destination": f"{pl.get('destination').replace("沃尔玛", "WM-")}-{i}",
                     "date": retrieval_date,
                     "customer": customer_name,
                     "hold": ("暂扣留仓" in pl.get("custom_delivery_method").split("-")[0]),
