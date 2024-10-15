@@ -3,6 +3,7 @@ import uuid
 import asyncio
 import barcode
 import io,base64
+from PIL import Image
 from barcode.writer import ImageWriter
 from asgiref.sync import sync_to_async
 from datetime import datetime
@@ -117,7 +118,6 @@ class Palletization(View):
             }
         for pl in packing_list:
             pl_form = PackingListForm(initial={"n_pallet": pl["n_pallet"]})
-            print(type(pl_form))
             order_packing_list.append((pl, pl_form))
         context["warehouse"] = request.GET.get("warehouse", None)
         context["order_packing_list"] = order_packing_list
@@ -202,23 +202,40 @@ class Palletization(View):
             else:
                 destination = pl.get("destination")
             
-            barcode_type = 'code128'
-            barcode_class = barcode.get_barcode_class(barcode_type)
-
             for num in range(1,cbm+1):
+                barcode_type = 'code128'
+                barcode_class = barcode.get_barcode_class(barcode_type)
                 barcode_content = f"{pl.get("container_number__container_number")}|{destination}-{num}|{customer_name}{retrieval_date}"
-                my_barcode = barcode_class(barcode_content, writer = ImageWriter())
-                buffer = io.BytesIO()
-                my_barcode.write(buffer)
-                buffer.seek(0)
-                barcode_base64 = base64.b64encode(buffer.read()).decode('utf-8')
+                my_barcode = barcode_class(barcode_content, writer = ImageWriter()) #将条形码转换为图像形式
+                buffer = io.BytesIO()   #创建缓冲区
+                my_barcode.write(buffer)   #缓冲区存储图像
+                buffer.seek(0)               
+                barcode_base64 = base64.b64encode(buffer.read()).decode('utf-8')  #编码
+                try:
+                    barcode_bytes = base64.b64decode(barcode_base64)
+                    try:
+                        image = Image.open(io.BytesIO(barcode_bytes))  #打开图像
+                        width, height = image.size 
+                        new_height = int(height * 0.72)   #裁剪图像
+                        cropped_image = image.crop((0, 0, width, new_height)) #存储
+                        buffer = io.BytesIO()
+                        cropped_image.save(buffer, format='PNG')
+                        buffer.seek(0)
+                        new_barcode_base64 = base64.b64encode(buffer.read()).decode('utf-8')
+                        del image
+                        del buffer
+                    except OSError as e:
+                        print(f"Error opening image: {e}")
+                except base64.binascii.Error as e:
+                    print(f"Error decoding base64: {e}")
+
                 new_data = {
                     "container_number": pl.get("container_number__container_number"),
                     "destination": f"{pl.get("destination")}-{num}",
                     "date": retrieval_date,
                     "customer": customer_name,
                     "hold": ("暂扣留仓" in pl.get("custom_delivery_method").split("-")[0]),
-                    "barcode":barcode_base64
+                    "barcode":new_barcode_base64
                 }
                 data.append(new_data)
             # data += [{
