@@ -54,13 +54,7 @@ class PO(View):
         container_list = container_number.split()
         criteria = models.Q(container_number__order__warehouse__name=warehouse)
         if container_list:
-            q_objects = []
-            for container in container_list:
-                q_objects.append(models.Q(container_number__container_number = Value(container, output_field = CharField())))
-            container_criteria = q_objects.pop()
-            for q in q_objects:
-                container_criteria = container_criteria | q
-            criteria &= container_criteria
+            criteria &= models.Q(container_number__container_number__in=container_list)
         if start_date:
             criteria &= (
                 models.Q(container_number__order__eta__gte=start_date) |
