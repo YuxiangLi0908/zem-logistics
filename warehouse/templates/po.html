@@ -13,6 +13,8 @@
         <input type="date" name="end_date" value="{{ end_date }}" style="margin-right: 5px;">
         <b style="margin-right: 5px;">仓库:</b>
         {{ warehouse_form.name }}
+        <b style="margin-right: 5px;">柜号:</b>
+        <input type="text" name="container_number" value="{{ container_number }}">
         <input type="hidden" name="step" value="search">
         <button id="submit-btn" type="submit" class="btn btn-primary" style="width: 100px; height: 35px; margin-left: 20px;">查询</button>
     </div>

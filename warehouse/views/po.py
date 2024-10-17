@@ -50,7 +50,11 @@ class PO(View):
             warehouse_obj = None 
         start_date = request.POST.get("start_date")
         end_date = request.POST.get("end_date")
+        container_number = request.POST.get("container_number")
+        container_list = container_number.split()
         criteria = models.Q(container_number__order__warehouse__name=warehouse)
+        if container_list:
+            criteria &= models.Q(container_number__container_number__in=container_list)
         if start_date:
             criteria &= (
                 models.Q(container_number__order__eta__gte=start_date) |
@@ -108,6 +112,7 @@ class PO(View):
             "warehouse": warehouse_obj,
             "start_date": start_date,
             "end_date": end_date,
+            "container_number": container_number,
         }
         return context
     
