@@ -15,8 +15,8 @@
                             <th class="th">FBA ID</th>
                             <th class="th">REF ID</th>
                             <th class="th">派送方式</th>
-                            <th class="th">箱数</th>
-                            <th class="th">箱数异常</th>
+                            <th class="th">预报箱数</th>
+                            <th class="th">实际箱数</th>
                             <th class="th">CBM</th>
                             <th class="th">打板数</th>
                             <th class="th">备注</th>
@@ -37,7 +37,7 @@
                                 {% endwith %}
                             </td>
                             <td class="td">{{ pl.pcs }}</td>                           
-                            <td class="td"><input name="pcs_diff" value="{{pcs_diff|default:0}}"></td>
+                            <td class="td"><input type="number" step="1" name="pcs_actul" value="{{ pl.pcs }}" required></td>
                             <td class="td">{{ pl.cbm|floatformat:2 }}</td>
                             {% if status == 'palletized' %}
                             <td class="td">{{ pl.n_pallet }}</td> 

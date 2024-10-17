@@ -48,7 +48,6 @@ class Palletization(View):
             return render(request, template, context)
     
     async def post(self, request: HttpRequest, **kwargs) -> HttpRequest:
-        print('提交了表单')
         if not await self._user_authenticate(request):
             return redirect("login")
         step = request.POST.get("step")
@@ -141,10 +140,11 @@ class Palletization(View):
             ids = request.POST.getlist("ids")
             ids = [i.split(",") for i in ids]
             n_pallet = [int(n) for n in request.POST.getlist("n_pallet")]
-            pcs_diff = [int(d) for d in request.POST.getlist('pcs_diff')]
+            n_pcs = [int(d) for d in request.POST.getlist('pcs_actul')]
             cbm = [float(c) for c in request.POST.getlist("cbms")]
             destinations = [d for d in request.POST.getlist("destinations")]
             total_pallet = sum(n_pallet)
+            
             for i, n, p, c, d in zip(ids, n_pallet, pcs_diff, cbm,destinations):
                 await self._split_pallet(order_selected, i, n, p, c, d, pk)  #循环遍历每个汇总的板数
             cn = pytz.timezone('Asia/Shanghai')
