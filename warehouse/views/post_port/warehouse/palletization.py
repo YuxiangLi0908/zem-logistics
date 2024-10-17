@@ -21,6 +21,8 @@ from django.template.loader import get_template
 
 from warehouse.models.retrieval import Retrieval
 from warehouse.models.order import Order
+from warehouse.models.container import Container
+from warehouse.models.offload_status import AbnormalOffloadStatus
 from warehouse.models.packing_list import PackingList
 from warehouse.models.pallet import Pallet
 from warehouse.models.shipment import Shipment
@@ -132,27 +134,48 @@ class Palletization(View):
         return template, context
 
     async def handle_packing_list_post(self, request: HttpRequest, pk: int) -> tuple[str, dict[str, Any]]:
-        order_selected = await sync_to_async(Order.objects.select_related("offload_id", "warehouse").get)(pk=pk)
+        order_selected = await sync_to_async(Order.objects.select_related(
+            "offload_id", "warehouse", "container_number"
+        ).get)(pk=pk)
         offload = order_selected.offload_id
-        container_number = [num for num in request.POST.getlist("container_number")]
-        container_number = list(set(container_number))
+        container = order_selected.container_number
         if not offload.offload_at:
+            cn = pytz.timezone('Asia/Shanghai')
+            current_time_cn = datetime.now(cn)
             ids = request.POST.getlist("ids")
             ids = [i.split(",") for i in ids]
             n_pallet = [int(n) for n in request.POST.getlist("n_pallet")]
-            n_pcs = [int(d) for d in request.POST.getlist('pcs_actul')]
+            pcs_actual = [int(n) for n in request.POST.getlist("pcs_actul")]
+            pcs_reported = [int(d) for d in request.POST.getlist('pcs_reported')]
             cbm = [float(c) for c in request.POST.getlist("cbms")]
+            weight = [float(c) for c in request.POST.getlist("weights")]
             destinations = [d for d in request.POST.getlist("destinations")]
+            delivery_method = [d for d in request.POST.getlist("delivery_method")]
+            shipment_batch_number = [d for d in request.POST.getlist("shipment_batch_number")]
             total_pallet = sum(n_pallet)
-            
-            for i, n, p, c, d in zip(ids, n_pallet, pcs_diff, cbm,destinations):
-                await self._split_pallet(order_selected, i, n, p, c, d, pk)  #循环遍历每个汇总的板数
-            cn = pytz.timezone('Asia/Shanghai')
-            current_time_cn = datetime.now(cn)
+            abnormal_offloads = []
+            for n, p_a, p_r, c, w, dest, d_m, shipment in zip(
+                n_pallet, pcs_actual, pcs_reported, cbm, weight, destinations, delivery_method, shipment_batch_number
+            ):
+                await self._split_pallet(n, p_a, p_r, c, w, dest, d_m, shipment, pk)  #循环遍历每个汇总的板数
+                if p_a != p_r:
+                    abnormal_offloads.append({
+                        "offload": offload,
+                        "container_number": container,
+                        "created_at": current_time_cn,
+                        "is_resolved": False,
+                        "destination": dest,
+                        "deivery_method": d_m,
+                        "pcs_reported": p_r,
+                        "pcs_actual": p_a,
+                    })
             offload.total_pallet = total_pallet
             offload.offload_at = current_time_cn
             await sync_to_async(offload.save)()
             await self._update_shipment_stats(ids)
+            await sync_to_async(AbnormalOffloadStatus.objects.bulk_create)(
+                AbnormalOffloadStatus(**d) for d in abnormal_offloads
+            )
         mutable_post = request.POST.copy()
         mutable_post['name'] = order_selected.warehouse.name
         request.POST = mutable_post
@@ -172,7 +195,7 @@ class Palletization(View):
         except:
             pass
         await sync_to_async(Pallet.objects.filter(
-            packing_list__container_number__container_number=container_number
+            container_number__container_number=container_number
         ).delete)()
         await sync_to_async(offload.save)()
         mutable_post = request.POST.copy()
@@ -264,89 +287,73 @@ class Palletization(View):
             raise ValueError('Error during PDF generation: %s' % pisa_status.err, content_type='text/plain')
         return response
 
-    async def _split_pallet(self, container_number:CharField, ids: list[Any], n: int, p: int,c: float, des: CharField, pk: int) -> None:
-        #packing_list的id，打板数，cbm，pk
+    async def _split_pallet(
+        self,
+        n: int,
+        p_a: int,
+        p_r: int,
+        c: float,
+        w: float,
+        destination: str,
+        delivery_method: str,
+        shipment_batch_number: str,
+        pk: int
+    ) -> None:
         if n == 0 or n is None:
             return
-        order_selected = await sync_to_async(Order.objects.select_related("offload_id", "warehouse").get)(pk=pk)
+        order_selected = await sync_to_async(Order.objects.select_related(
+            "offload_id", "warehouse", "container_number"
+        ).get)(pk=pk)
         pallet_ids = [
             str(uuid.uuid3(uuid.NAMESPACE_DNS, str(uuid.uuid4()) + str(pk) + str(i))) for i in range(n)
         ]
-        pallet_vol = [round(c / float(n), 2) for _ in range(n)]  #估计每个托盘的体积
-        pallet_vol[-1] += (c - sum(pallet_vol))   #调整误差
-        while (pallet_vol[-1] <= 0) & (len(pallet_vol) > 0): #调整最后一个托盘的体积，防止为0
-            remaining = pallet_vol.pop()
-            pallet_vol[-1] += remaining
-        ids = [int(i) for i in ids]
-        packing_list = await sync_to_async(list)(
-            PackingList.objects.select_related("shipment_batch_number").filter(id__in=ids)
-        )
-        i = 0
+        cbm_actual = c * p_a / p_r
+        weight_actual = w * p_a / p_r
+        if shipment_batch_number != "None":
+            shipment = await sync_to_async(Shipment.objects.get)(shipment_batch_number=shipment_batch_number)
+        else:
+            shipment = None
         pallet_data = []
-        for pl in packing_list:
-            pcs_total = 0
-            weight_total = 0
-            pl_cbm = pl.cbm
-            pl_total_weight = pl.total_weight_lbs if pl.total_weight_lbs else 0
-            while pl_cbm > 1e-10:   #分配货物到托盘
-                pcs_loaded = 0     #本次循环分配到卡板的件数、体积、重量
-                cbm_loaded = 0
-                weight_loaded = 0
-                if pallet_vol[i] == 0:   #如果当前托盘装满了，就处理下一个托盘
-                    i += 1
-                if pl_cbm - pallet_vol[i] <= 1e-10:   #如果pl的剩余体积-当前托盘的体积很小，可以将pl全部装入当前托盘
-                    pallet_vol[i] -= pl_cbm
-                    cbm_loaded += pl_cbm
-                    pcs_loaded = int(pl.pcs * cbm_loaded / pl.cbm)  #计算装入托盘的件数
-                    pcs_total += pcs_loaded
-                    pcs_loaded += pl.pcs - pcs_total    #调整装入的件数
-                    weight_loaded = round(pl_total_weight * cbm_loaded / pl.cbm, 2) ##计算装入的重量
-                    weight_total += weight_loaded
-                    weight_loaded += pl_total_weight - weight_total   #调整重量
-                    pl_cbm = 0
-                else:                                  #pl不能完全装入托盘
-                    pl_cbm -= pallet_vol[i]            #pl的剩余体积
-                    cbm_loaded += pallet_vol[i]
-                    pcs_loaded = int(pl.pcs * cbm_loaded / pl.cbm)
-                    pcs_total += pcs_loaded
-                    weight_loaded = round(pl_total_weight * cbm_loaded / pl.cbm, 2)
-                    weight_total += weight_loaded
-                    pallet_vol[i] = 0
-                pallet_data.append({
-                    "packing_list": pl,
-                    "container_number": order_selected,  #这里有误，这里需要传入一个Container实例，不会写
-                    "destination": des,
-                    "pallet_id": pallet_ids[i],
-                    "pcs": pcs_loaded+p,
-                    "cbm": cbm_loaded,
-                    "weight_lbs": weight_loaded,
-                    "shipment_number": pl.shipment_batch_number,
-                })
+        pallet_pcs = [p_a // n for _ in range(n)]
+        for i in range(p_a % n):
+            pallet_pcs[i] += 1
+        for i in range(n):
+            cbm_loaded = cbm_actual * pallet_pcs[i] / p_a
+            weight_loaded = weight_actual * pallet_pcs[i] / p_a
+            pallet_data.append({
+                "container_number": order_selected.container_number,
+                "destination": destination,
+                "delivery_method": delivery_method,
+                "pallet_id": pallet_ids[i],
+                "pcs": pallet_pcs[i],
+                "cbm": cbm_loaded,
+                "weight_lbs": weight_loaded,
+                "shipment_number": shipment,
+            })
         await sync_to_async(Pallet.objects.bulk_create)([
             Pallet(**d) for d in pallet_data
         ])
 
     async def _update_shipment_stats(self, ids: list[Any]) -> None:
         ids = [int(j) for i in ids for j in i]
-        shipment_stats = await sync_to_async(list)(PackingList.objects.select_related(
-            "shipment_batch_number", "pallet"
-        ).filter(
-            models.Q(id__in=ids) &
-            models.Q(shipment_batch_number__isnull=False)
-        ).values(
-            "shipment_batch_number__shipment_batch_number"
-        ).annotate(
-            total_pcs=Sum("pallet__pcs", output_field=IntegerField()),
-            total_cbm=Sum("pallet__cbm", output_field=FloatField()),
-            weight_lbs=Sum("pallet__weight_lbs", output_field=FloatField()),
-            total_n_pallet=Count('pallet__pallet_id', distinct=True, output_field=IntegerField()),
-        ))
         packing_list = await sync_to_async(list)(
             PackingList.objects.select_related("shipment_batch_number").filter(id__in=ids)
         )
         shipment_list = set([pl.shipment_batch_number for pl in packing_list if pl.shipment_batch_number])
+        shipment_stats = await sync_to_async(list)(Pallet.objects.select_related(
+            "shipment_number"
+        ).filter(
+            shipment_number__shipment_batch_number__in=shipment_list
+        ).values(
+            "shipment_number__shipment_batch_number"
+        ).annotate(
+            total_pcs=Sum("pcs", output_field=IntegerField()),
+            total_cbm=Sum("cbm", output_field=FloatField()),
+            weight_lbs=Sum("weight_lbs", output_field=FloatField()),
+            total_n_pallet=Count('pallet_id', distinct=True, output_field=IntegerField()),
+        ))
         shipment_stats = {
-            s["shipment_batch_number__shipment_batch_number"]: {
+            s["shipment_number__shipment_batch_number"]: {
                 "total_pcs": s["total_pcs"],
                 "total_cbm": s["total_cbm"],
                 "weight_lbs": s["weight_lbs"],
@@ -376,7 +383,8 @@ class Palletization(View):
                 str_ref_id=Cast("ref_id", CharField()),
                 str_shipping_mark=Cast("shipping_mark", CharField()),
             ).values(
-                "container_number__container_number", "destination", "address", "custom_delivery_method", "note"
+                "container_number__container_number", "destination", "address", "custom_delivery_method", 
+                "note", "shipment_batch_number__shipment_batch_number",
             ).annotate(
                 fba_ids=StringAgg("str_fba_id", delimiter=",", distinct=True),
                 ref_ids=StringAgg("str_ref_id", delimiter=",", distinct=True),
@@ -384,7 +392,8 @@ class Palletization(View):
                 ids=StringAgg("str_id", delimiter=",", distinct=True),
                 pcs=Sum("pcs", output_field=IntegerField()),
                 cbm=Sum("cbm", output_field=FloatField()),
-                n_pallet=Count('pallet__pallet_id', distinct=True)
+                n_pallet=Count('pallet__pallet_id', distinct=True),
+                weight_lbs=Sum("total_weight_lbs", output_field=FloatField()),
             ).order_by("-cbm"))
         elif status == "palletized":
             return await sync_to_async(list)(PackingList.objects.select_related(

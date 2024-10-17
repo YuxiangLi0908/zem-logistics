@@ -271,7 +271,7 @@ class ShippingManagement(View):
             container_number__order__packing_list_updloaded=True,
             shipment_batch_number__isnull=True,
             container_number__order__order_type="转运",
-            container_number__order__created_at__gte='2024-09-01',
+            # container_number__order__created_at__gte='2024-09-01',
         ) & (
             # TODOs: 考虑按照安排提柜时间筛选
             models.Q(container_number__order__vessel_id__vessel_eta__lte=datetime.now().date() + timedelta(days=7)) |

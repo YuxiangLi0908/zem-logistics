@@ -34,6 +34,7 @@
                             <td class="td">
                                 {% with first_value=pl.custom_delivery_method|split_and_get_first %}
                                     {{ first_value }}
+                                    <input type="hidden" name="delivery_method" value="{{first_value}}">
                                 {% endwith %}
                             </td>
                             <td class="td">{{ pl.pcs }}</td>                           
@@ -46,9 +47,12 @@
                             {% endif %}
                             <td class="td">{{ pl.note }}</td> 
                             <input type="hidden" name="ids" value="{{pl.ids}}">
+                            <input type="hidden" name="pcs_reported" value="{{pl.pcs}}">
                             <input type="hidden" name="cbms" value="{{pl.cbm}}">
+                            <input type="hidden" name="weights" value="{{pl.weight_lbs}}">
                             <input type="hidden" name="destinations" value="{{pl.destination}}">
                             <input type="hidden" name="container_number" value="{{pl.container_number__container_number}}">
+                            <input type="hidden" name="shipment_batch_number" value="{{pl.shipment_batch_number__shipment_batch_number}}">
                         </tr>
                         {% endfor %}
                     </tbody>

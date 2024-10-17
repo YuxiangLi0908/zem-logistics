@@ -16,4 +16,4 @@ class Pallet(models.Model):
     shipment_number = models.ForeignKey(Shipment, null=True, blank=True, on_delete=models.SET_NULL, related_name='pallet')
 
     def __str__(self):
-        return f"{self.packing_list}-{self.pallet_id}"
+        return f"{self.container_number}-{self.destination}-{self.delivery_method}"
