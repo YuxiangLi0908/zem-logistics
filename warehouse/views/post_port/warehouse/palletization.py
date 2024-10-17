@@ -39,6 +39,7 @@ class Palletization(View):
             return redirect("login")
         pk = kwargs.get("pk", None)
         step = request.GET.get("step", None)
+        print('GET step',step)
         if step == "container_palletization":
             template, context = await self.handle_container_palletization_get(request, pk)
             return render(request, template, context)
@@ -47,14 +48,17 @@ class Palletization(View):
             return render(request, template, context)
     
     async def post(self, request: HttpRequest, **kwargs) -> HttpRequest:
+        print('提交了表单')
         if not await self._user_authenticate(request):
             return redirect("login")
         step = request.POST.get("step")
+        print('step',step)
         if step == "warehouse":
             template, context = await self.handle_warehouse_post(request)
             return render(request, template, context)
         elif step == "palletize":
             pk = kwargs.get("pk")
+            print('pk',pk)
             template, context = await self.handle_packing_list_post(request, pk)
             return render(request, template, context)
         elif step == "back":
@@ -131,14 +135,18 @@ class Palletization(View):
     async def handle_packing_list_post(self, request: HttpRequest, pk: int) -> tuple[str, dict[str, Any]]:
         order_selected = await sync_to_async(Order.objects.select_related("offload_id", "warehouse").get)(pk=pk)
         offload = order_selected.offload_id
+        container_number = [num for num in request.POST.getlist("container_number")]
+        container_number = list(set(container_number))
         if not offload.offload_at:
             ids = request.POST.getlist("ids")
             ids = [i.split(",") for i in ids]
             n_pallet = [int(n) for n in request.POST.getlist("n_pallet")]
+            pcs_diff = [int(d) for d in request.POST.getlist('pcs_diff')]
             cbm = [float(c) for c in request.POST.getlist("cbms")]
+            destinations = [d for d in request.POST.getlist("destinations")]
             total_pallet = sum(n_pallet)
-            for i, n, c in zip(ids, n_pallet, cbm):
-                await self._split_pallet(i, n, c, pk)
+            for i, n, p, c, d in zip(ids, n_pallet, pcs_diff, cbm,destinations):
+                await self._split_pallet(order_selected, i, n, p, c, d, pk)  #循环遍历每个汇总的板数
             cn = pytz.timezone('Asia/Shanghai')
             current_time_cn = datetime.now(cn)
             offload.total_pallet = total_pallet
@@ -256,15 +264,17 @@ class Palletization(View):
             raise ValueError('Error during PDF generation: %s' % pisa_status.err, content_type='text/plain')
         return response
 
-    async def _split_pallet(self, ids: list[Any], n: int, c: float, pk: int) -> None:
+    async def _split_pallet(self, container_number:CharField, ids: list[Any], n: int, p: int,c: float, des: CharField, pk: int) -> None:
+        #packing_list的id，打板数，cbm，pk
         if n == 0 or n is None:
             return
+        order_selected = await sync_to_async(Order.objects.select_related("offload_id", "warehouse").get)(pk=pk)
         pallet_ids = [
             str(uuid.uuid3(uuid.NAMESPACE_DNS, str(uuid.uuid4()) + str(pk) + str(i))) for i in range(n)
         ]
-        pallet_vol = [round(c / float(n), 2) for _ in range(n)]
-        pallet_vol[-1] += (c - sum(pallet_vol))
-        while (pallet_vol[-1] <= 0) & (len(pallet_vol) > 0):
+        pallet_vol = [round(c / float(n), 2) for _ in range(n)]  #估计每个托盘的体积
+        pallet_vol[-1] += (c - sum(pallet_vol))   #调整误差
+        while (pallet_vol[-1] <= 0) & (len(pallet_vol) > 0): #调整最后一个托盘的体积，防止为0
             remaining = pallet_vol.pop()
             pallet_vol[-1] += remaining
         ids = [int(i) for i in ids]
@@ -278,24 +288,24 @@ class Palletization(View):
             weight_total = 0
             pl_cbm = pl.cbm
             pl_total_weight = pl.total_weight_lbs if pl.total_weight_lbs else 0
-            while pl_cbm > 1e-10:
-                pcs_loaded = 0
+            while pl_cbm > 1e-10:   #分配货物到托盘
+                pcs_loaded = 0     #本次循环分配到卡板的件数、体积、重量
                 cbm_loaded = 0
                 weight_loaded = 0
-                if pallet_vol[i] == 0:
+                if pallet_vol[i] == 0:   #如果当前托盘装满了，就处理下一个托盘
                     i += 1
-                if pl_cbm - pallet_vol[i] <= 1e-10:
+                if pl_cbm - pallet_vol[i] <= 1e-10:   #如果pl的剩余体积-当前托盘的体积很小，可以将pl全部装入当前托盘
                     pallet_vol[i] -= pl_cbm
                     cbm_loaded += pl_cbm
-                    pcs_loaded = int(pl.pcs * cbm_loaded / pl.cbm)
+                    pcs_loaded = int(pl.pcs * cbm_loaded / pl.cbm)  #计算装入托盘的件数
                     pcs_total += pcs_loaded
-                    pcs_loaded += pl.pcs - pcs_total
-                    weight_loaded = round(pl_total_weight * cbm_loaded / pl.cbm, 2)
+                    pcs_loaded += pl.pcs - pcs_total    #调整装入的件数
+                    weight_loaded = round(pl_total_weight * cbm_loaded / pl.cbm, 2) ##计算装入的重量
                     weight_total += weight_loaded
-                    weight_loaded += pl_total_weight - weight_total
+                    weight_loaded += pl_total_weight - weight_total   #调整重量
                     pl_cbm = 0
-                else:
-                    pl_cbm -= pallet_vol[i]
+                else:                                  #pl不能完全装入托盘
+                    pl_cbm -= pallet_vol[i]            #pl的剩余体积
                     cbm_loaded += pallet_vol[i]
                     pcs_loaded = int(pl.pcs * cbm_loaded / pl.cbm)
                     pcs_total += pcs_loaded
@@ -304,8 +314,10 @@ class Palletization(View):
                     pallet_vol[i] = 0
                 pallet_data.append({
                     "packing_list": pl,
+                    "container_number": order_selected,  #这里有误，这里需要传入一个Container实例，不会写
+                    "destination": des,
                     "pallet_id": pallet_ids[i],
-                    "pcs": pcs_loaded,
+                    "pcs": pcs_loaded+p,
                     "cbm": cbm_loaded,
                     "weight_lbs": weight_loaded,
                     "shipment_number": pl.shipment_batch_number,

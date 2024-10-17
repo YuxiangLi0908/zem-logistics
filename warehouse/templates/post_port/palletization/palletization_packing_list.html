@@ -16,6 +16,7 @@
                             <th class="th">REF ID</th>
                             <th class="th">派送方式</th>
                             <th class="th">箱数</th>
+                            <th class="th">箱数异常</th>
                             <th class="th">CBM</th>
                             <th class="th">打板数</th>
                             <th class="th">备注</th>
@@ -35,7 +36,8 @@
                                     {{ first_value }}
                                 {% endwith %}
                             </td>
-                            <td class="td">{{ pl.pcs }}</td>
+                            <td class="td">{{ pl.pcs }}</td>                           
+                            <td class="td"><input name="pcs_diff" value="{{pcs_diff|default:0}}"></td>
                             <td class="td">{{ pl.cbm|floatformat:2 }}</td>
                             {% if status == 'palletized' %}
                             <td class="td">{{ pl.n_pallet }}</td> 
@@ -45,6 +47,8 @@
                             <td class="td">{{ pl.note }}</td> 
                             <input type="hidden" name="ids" value="{{pl.ids}}">
                             <input type="hidden" name="cbms" value="{{pl.cbm}}">
+                            <input type="hidden" name="destinations" value="{{pl.destination}}">
+                            <input type="hidden" name="container_number" value="{{pl.container_number__container_number}}">
                         </tr>
                         {% endfor %}
                     </tbody>

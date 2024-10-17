@@ -6,6 +6,8 @@ from .shipment import Shipment
 
 class Pallet(models.Model):
     packing_list = models.ForeignKey(PackingList, null=True, on_delete=models.CASCADE)
+    container_number = models.ForeignKey(Container, null=True, on_delete=models.CASCADE)
+    destination = models.CharField(max_length=255, null=True, blank=True)
     pallet_id = models.CharField(max_length=255, null=True, blank=True)
     pcs = models.IntegerField(null=True, blank=True)
     cbm = models.FloatField(null=True, blank=True)
