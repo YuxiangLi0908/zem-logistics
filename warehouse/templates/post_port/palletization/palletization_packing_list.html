@@ -11,12 +11,14 @@
                         <tr>
                             <th class="th">货柜</th>
                             <th class="th">目的仓库</th>
+                            <th class="th">派送方式</th>
+                            {% if status == 'non_palletized' %}
                             <th class="th">唛头</th>
                             <th class="th">FBA ID</th>
                             <th class="th">REF ID</th>
-                            <th class="th">派送方式</th>
                             <th class="th">预报箱数</th>
-                            <th class="th">实际箱数</th>
+                            {% endif %}
+                            <th class="th">入库箱数</th>
                             <th class="th">CBM</th>
                             <th class="th">打板数</th>
                             <th class="th">备注</th>
@@ -28,17 +30,21 @@
                         <tr>
                             <td class="td">{{ pl.container_number__container_number }}</td>
                             <td class="td">{{ pl.destination }}</td>
-                            <td class="td" style="max-width: 400px; word-break: break-all;"><small>{{ pl.shipping_marks }}</small></td>
-                            <td class="td" style="max-width: 400px; word-break: break-all;"><small>{{ pl.fba_ids }}</small></td>
-                            <td class="td" style="max-width: 400px; word-break: break-all;"><small>{{ pl.ref_ids }}</small></td>
                             <td class="td">
                                 {% with first_value=pl.custom_delivery_method|split_and_get_first %}
                                     {{ first_value }}
                                     <input type="hidden" name="delivery_method" value="{{first_value}}">
                                 {% endwith %}
                             </td>
-                            <td class="td">{{ pl.pcs }}</td>                           
+                            {% if status == 'non_palletized' %}
+                            <td class="td" style="max-width: 400px; word-break: break-all;"><small>{{ pl.shipping_marks }}</small></td>
+                            <td class="td" style="max-width: 400px; word-break: break-all;"><small>{{ pl.fba_ids }}</small></td>
+                            <td class="td" style="max-width: 400px; word-break: break-all;"><small>{{ pl.ref_ids }}</small></td>
+                            <td class="td">{{ pl.pcs }}</td>
                             <td class="td"><input type="number" step="1" name="pcs_actul" value="{{ pl.pcs }}" required></td>
+                            {% else %}
+                            <td class="td">{{ pl.pcs }}</td> 
+                            {% endif %}
                             <td class="td">{{ pl.cbm|floatformat:2 }}</td>
                             {% if status == 'palletized' %}
                             <td class="td">{{ pl.n_pallet }}</td> 
