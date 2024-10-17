@@ -152,12 +152,13 @@ class Palletization(View):
             destinations = [d for d in request.POST.getlist("destinations")]
             delivery_method = [d for d in request.POST.getlist("delivery_method")]
             shipment_batch_number = [d for d in request.POST.getlist("shipment_batch_number")]
+            notes = [d for d in request.POST.getlist("note")]
             total_pallet = sum(n_pallet)
             abnormal_offloads = []
-            for n, p_a, p_r, c, w, dest, d_m, shipment in zip(
-                n_pallet, pcs_actual, pcs_reported, cbm, weight, destinations, delivery_method, shipment_batch_number
+            for n, p_a, p_r, c, w, dest, d_m, note, shipment in zip(
+                n_pallet, pcs_actual, pcs_reported, cbm, weight, destinations, delivery_method, notes, shipment_batch_number
             ):
-                await self._split_pallet(n, p_a, p_r, c, w, dest, d_m, shipment, pk)  #循环遍历每个汇总的板数
+                await self._split_pallet(n, p_a, p_r, c, w, dest, d_m, note, shipment, pk)  #循环遍历每个汇总的板数
                 if p_a != p_r:
                     abnormal_offloads.append({
                         "offload": offload,
@@ -195,6 +196,9 @@ class Palletization(View):
         except:
             pass
         await sync_to_async(Pallet.objects.filter(
+            container_number__container_number=container_number
+        ).delete)()
+        await sync_to_async(AbnormalOffloadStatus.objects.filter(
             container_number__container_number=container_number
         ).delete)()
         await sync_to_async(offload.save)()
@@ -296,6 +300,7 @@ class Palletization(View):
         w: float,
         destination: str,
         delivery_method: str,
+        note: str,
         shipment_batch_number: str,
         pk: int
     ) -> None:
@@ -329,6 +334,7 @@ class Palletization(View):
                 "cbm": cbm_loaded,
                 "weight_lbs": weight_loaded,
                 "shipment_number": shipment,
+                "note": note,
             })
         await sync_to_async(Pallet.objects.bulk_create)([
             Pallet(**d) for d in pallet_data
