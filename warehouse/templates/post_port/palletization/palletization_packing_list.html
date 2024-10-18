@@ -5,6 +5,10 @@
     <form method="post" style="width: 100%;">
         {% csrf_token %}
         <div class="container mt-3" style="max-width: 100%;">
+            <div class="text-right">
+                <button id="addRowButton" type="button" class="btn btn-primary" style="width: 100px; height: 35px;" onclick="addRowBelow()">添加行</button>
+                <button id="addRowButton" type="button" class="btn btn-primary" style="width: 100px; height: 35px;" onclick="rmLastRow()">删除行</button>            
+            </div>
             <div style="overflow-x: auto; max-width: 100%; overflow-y: auto; max-height: 800px;">
                 <table class="table">
                     <thead>
@@ -24,10 +28,9 @@
                             <th class="th">备注</th>
                         </tr>
                     </thead>
-                    <tbody>
-                        
+                    <tbody id="palletization-container">                       
                         {% for pl, pl_form in order_packing_list %}
-                        <tr>
+                        <tr id="palletization-row">
                             <td class="td">{{ pl.container_number__container_number }}</td>
                             <td class="td">{{ pl.destination }}</td>
                             <td class="td">
@@ -48,18 +51,39 @@
                             <td class="td">{{ pl.cbm|floatformat:2 }}</td>
                             {% if status == 'palletized' %}
                             <td class="td">{{ pl.n_pallet }}</td> 
+                            <input type="hidden" name="pallets" value="{{pl.n_pallet}}">
                             {% else %}
                             <td class="td">{{ pl_form.n_pallet }}</td> 
+                            <input type="hidden" name="pallets" value="{{pl_form.n_pallet}}">
                             {% endif %}
                             <td class="td">{{ pl.note }}</td> 
                             <input type="hidden" name="ids" value="{{pl.ids}}">
                             <input type="hidden" name="note" value="{{pl.note}}">
                             <input type="hidden" name="pcs_reported" value="{{pl.pcs}}">
                             <input type="hidden" name="cbms" value="{{pl.cbm}}">
+                            <input type="hidden" name="notes" value="{{pl.note}}">
                             <input type="hidden" name="weights" value="{{pl.weight_lbs}}">
                             <input type="hidden" name="destinations" value="{{pl.destination}}">
                             <input type="hidden" name="container_number" value="{{pl.container_number__container_number}}">
                             <input type="hidden" name="shipment_batch_number" value="{{pl.shipment_batch_number__shipment_batch_number}}">
+                        </tr>
+                        <tr id="palletization-row-empty" style="display: none;">
+                            <td class="td"><input type="text" name="container_numer" value ="{{pl.container_number__container_number}}" disabled></td>
+                            <td class="td"><input type="text" name="new_destinations"></td> <!--这里一加required后，点击确认就不能自动跳转了，还没有找出原因-->
+                            <td class="td"><input type="text" name="new_delivery_method"></td>
+                            {% if status == 'non_palletized' %}
+                            <td class="td"><input type="text" name="new_shipping_marks"></td>
+                            <td class="td"><input type="text" name="new_fba_ids"></td>
+                            <td class="td"><input type="text" name="new_ref_ids"></td>
+                            <td class="td"><input type="text" name="new_pcs_reported" disabled></td>
+                            <td class="td"><input type="text" name="new_pcs_actul"></td>
+                            {% else %}
+                            <td class="td"><input type="text" name="new_pcs_actul"></td>
+                            {% endif %}
+                            <td class="td"><input type="text" name="new_cbms"></td>
+                            <td class="td"><input type="text" name="new_pallets"></td>
+                            <td class="td"><input type="text" name="new_weights"></td>
+                            <td class="td"><input type="text" name="new_notes" value=" "></td>
                         </tr>
                         {% endfor %}
                     </tbody>
@@ -77,4 +101,22 @@
             </div>
         </div>
     </form>
+
+<script>
+    function addRowBelow(){
+        var table = document.getElementById('palletization-container');
+        var newRow = document.querySelector('#palletization-row-empty').cloneNode(true);
+        newRow.style.display = '';
+        newRow.id = 'palletization-row';
+        table.appendChild(newRow);
+        console.log(table);
+    }
+    function rmLastRow() {
+        var table = document.getElementById('palletization-container');
+        var rows = table.getElementsByTagName('tr');
+        if (rows.length > 1) {
+            table.removeChild(rows[rows.length - 1]);
+        };
+    };
+</script>
 {% endblock %}
