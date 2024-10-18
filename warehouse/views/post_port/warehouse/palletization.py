@@ -30,7 +30,7 @@ from warehouse.models.shipment import Shipment
 from warehouse.forms.warehouse_form import ZemWarehouseForm
 from warehouse.forms.packling_list_form import PackingListForm
 from warehouse.views.export_file import export_palletization_list
-
+from warehouse.utils.constants import  DELIVERY_METHOD_OPTIONS
 
 class Palletization(View):
     template_main = "post_port/palletization/palletization.html"
@@ -54,7 +54,6 @@ class Palletization(View):
         if not await self._user_authenticate(request):
             return redirect("login")
         step = request.POST.get("step")
-        print('step',step)
         if step == "warehouse":
             template, context = await self.handle_warehouse_post(request)
             return render(request, template, context)
@@ -127,6 +126,8 @@ class Palletization(View):
             order_packing_list.append((pl, pl_form))
         context["warehouse"] = request.GET.get("warehouse", None)
         context["order_packing_list"] = order_packing_list
+        context["delivery_method_options"] = DELIVERY_METHOD_OPTIONS
+        context["container_number"] = container.container_number
         return self.template_palletize, context
     
     async def handle_warehouse_post(self, request: HttpRequest) -> tuple[str, dict[str, Any]]:
@@ -172,24 +173,20 @@ class Palletization(View):
                         "pcs_reported": p_r,
                         "pcs_actual": p_a,
                     })
-            
-            if newForcast:    #如果有多货的情况，因为前端目前新增行的时候通过clone id="palletization-row-empty"的行，所以会增加input，值为空，所以下面就进行了去重工作
-                              #计划是把多货的打板和正常预报的货一起做，但是因为多的input比较乱的插入在input中，不太好去重，所以就把新增的新命名了，然后直接去重
-                new_destinations = [value for value in request.POST.getlist("new_destinations") if value]
-                new_delivery_method = [value for value in request.POST.getlist("new_delivery_method") if value]
-                new_shipping_marks = [value for value in request.POST.getlist("new_shipping_marks") if value]
-                new_fba_ids = [value for value in request.POST.getlist("new_fba_ids") if value]
-                new_pcs_actul = [int(value) for value in request.POST.getlist("new_pcs_actul") if value]
-                new_pallets = [int(value) for value in request.POST.getlist("new_pallets") if value]            
-                new_notes = [value for value in request.POST.getlist("new_notes") if value]
-                print(new_notes)
+            if newForcast:
+                #如果有多货的情况，因为前端目前新增行的时候通过clone id="palletization-row-empty"的行，所以会增加input，值为空，所以下面就进行了去重工作
+                #计划是把多货的打板和正常预报的货一起做，但是因为多的input比较乱的插入在input中，不太好去重，所以就把新增的新命名了，然后直接去重
+                new_destinations = request.POST.getlist("new_destinations")
+                new_delivery_method = request.POST.getlist("new_delivery_method")
+                new_pcs_actul = [int(value) for value in request.POST.getlist("new_pcs_actul")]
+                new_pallets = [int(value) for value in request.POST.getlist("new_pallets")]            
                 new_notes = request.POST.getlist("new_notes")
-                new_cbm = [float(value) for value in request.POST.getlist("new_cbms") if value]  #这里新增货物的cbm我记得开会时候说不填，但是打板的算法中需要cbm
-                new_weights = [float(value) for value in request.POST.getlist("new_weights") if value]#打板算法也需要重量，但是原本的打板页面是没有重量的，前端我先加在打板后面了
+                new_cbm = [float(value) if value else 0 for value in request.POST.getlist("new_cbms")]
                 #生成pallet
-                for n, p_a, c, w, dest, d_m, note, shipment in zip_longest(   #这里现在的问题是，必须每个值都部不为空，有空值就不会执行for循环
-                    new_pallets, new_pcs_actul, new_cbm, new_weights, new_destinations, new_delivery_method, new_notes, shipment_batch_number):
-                    await self._split_pallet(n, p_a, 0, c, w, dest, d_m, note, shipment, pk)  
+                for n, p_a, c, dest, d_m, note in zip(   #这里现在的问题是，必须每个值都部不为空，有空值就不会执行for循环
+                    new_pallets, new_pcs_actul, new_cbm, new_destinations, new_delivery_method, new_notes
+                ):
+                    await self._split_pallet(n, p_a, 0, c, 0, dest, d_m, note, "None", pk, seed=1)  
                     #记录异常拆柜
                     abnormal_offloads.append({
                         "offload": offload,
@@ -333,7 +330,8 @@ class Palletization(View):
         delivery_method: str,
         note: str,
         shipment_batch_number: str,
-        pk: int
+        pk: int,
+        seed: int = 0
     ) -> None:
         if n == 0 or n is None:
             return
@@ -341,7 +339,7 @@ class Palletization(View):
             "offload_id", "warehouse", "container_number"
         ).get)(pk=pk)
         pallet_ids = [
-            str(uuid.uuid3(uuid.NAMESPACE_DNS, str(uuid.uuid4()) + str(pk) + str(i))) for i in range(n)
+            str(uuid.uuid3(uuid.NAMESPACE_DNS, str(uuid.uuid4()) + str(pk) + str(i) + str(seed))) for i in range(n)
         ]
         if p_r == 0:  #多货的货物
             cbm_actual = c
@@ -371,9 +369,7 @@ class Palletization(View):
                 "shipment_number": shipment,
                 "note": note,
             })
-        await sync_to_async(Pallet.objects.bulk_create)([
-            Pallet(**d) for d in pallet_data
-        ])
+        await sync_to_async(Pallet.objects.bulk_create)([Pallet(**d) for d in pallet_data])
 
     async def _update_shipment_stats(self, ids: list[Any]) -> None:
         ids = [int(j) for i in ids for j in i]
@@ -401,6 +397,7 @@ class Palletization(View):
                 "total_n_pallet": s["total_n_pallet"],
             } for s in shipment_stats
         }
+        
         for s in shipment_list:
             s.total_cbm = shipment_stats[s.shipment_batch_number]["total_cbm"]
             s.total_pallet = shipment_stats[s.shipment_batch_number]["total_n_pallet"]

@@ -1,16 +1,17 @@
 {% extends 'base.html' %}
-
 {% block content %}
 {% load static custom_filters %}
     <form method="post" style="width: 100%;">
         {% csrf_token %}
         <div class="container mt-3" style="max-width: 100%;">
+            {% if status == 'non_palletized' %}
             <div class="text-right">
                 <button id="addRowButton" type="button" class="btn btn-primary" style="width: 100px; height: 35px;" onclick="addRowBelow()">添加行</button>
                 <button id="addRowButton" type="button" class="btn btn-primary" style="width: 100px; height: 35px;" onclick="rmLastRow()">删除行</button>            
             </div>
+            {% endif %}
             <div style="overflow-x: auto; max-width: 100%; overflow-y: auto; max-height: 800px;">
-                <table class="table">
+                <table class="table" style="font-size: 11px">
                     <thead>
                         <tr>
                             <th class="th">货柜</th>
@@ -51,12 +52,10 @@
                             <td class="td">{{ pl.cbm|floatformat:2 }}</td>
                             {% if status == 'palletized' %}
                             <td class="td">{{ pl.n_pallet }}</td> 
-                            <input type="hidden" name="pallets" value="{{pl.n_pallet}}">
                             {% else %}
                             <td class="td">{{ pl_form.n_pallet }}</td> 
-                            <input type="hidden" name="pallets" value="{{pl_form.n_pallet}}">
                             {% endif %}
-                            <td class="td">{{ pl.note }}</td> 
+                            <td class="td">{{ pl.note }}</td>
                             <input type="hidden" name="ids" value="{{pl.ids}}">
                             <input type="hidden" name="note" value="{{pl.note}}">
                             <input type="hidden" name="pcs_reported" value="{{pl.pcs}}">
@@ -67,25 +66,32 @@
                             <input type="hidden" name="container_number" value="{{pl.container_number__container_number}}">
                             <input type="hidden" name="shipment_batch_number" value="{{pl.shipment_batch_number__shipment_batch_number}}">
                         </tr>
+                        {% endfor %}
+                        {% if status == 'non_palletized' %}
                         <tr id="palletization-row-empty" style="display: none;">
-                            <td class="td"><input type="text" name="container_numer" value ="{{pl.container_number__container_number}}" disabled></td>
-                            <td class="td"><input type="text" name="new_destinations"></td> <!--这里一加required后，点击确认就不能自动跳转了，还没有找出原因-->
-                            <td class="td"><input type="text" name="new_delivery_method"></td>
+                            <td class="td"><input type="text" name="container_numer" value="{{ container_number }}" disabled></td>
+                            <td class="td"><input type="text" name="new_destinations" required></td>
+                            <td class="td">
+                                <select name="new_delivery_method" class="new-delivery-method" style="font-size: 13px;">
+                                    {% for k, v in delivery_method_options %}
+                                    <option value="{{ v }}">{{ k }}</option>
+                                    {% endfor %}
+                                </select>
+                            </td>
                             {% if status == 'non_palletized' %}
-                            <td class="td"><input type="text" name="new_shipping_marks"></td>
-                            <td class="td"><input type="text" name="new_fba_ids"></td>
-                            <td class="td"><input type="text" name="new_ref_ids"></td>
-                            <td class="td"><input type="text" name="new_pcs_reported" disabled></td>
-                            <td class="td"><input type="text" name="new_pcs_actul"></td>
+                            <td class="td"><input type="text" name="new_shipping_marks" placeholder="optional"></td>
+                            <td class="td"><input type="text" name="new_fba_ids" placeholder="optional"></td>
+                            <td class="td"><input type="text" name="new_ref_ids" placeholder="optional"></td>
+                            <td class="td"><input type="text" name="new_pcs_reported" value="0" disabled></td>
+                            <td class="td"><input type="number" step="1" name="new_pcs_actul"></td>
                             {% else %}
                             <td class="td"><input type="text" name="new_pcs_actul"></td>
                             {% endif %}
-                            <td class="td"><input type="text" name="new_cbms"></td>
-                            <td class="td"><input type="text" name="new_pallets"></td>
-                            <td class="td"><input type="text" name="new_weights"></td>
-                            <td class="td"><input type="text" name="new_notes" value=" "></td>
+                            <td class="td"><input type="number" name="new_cbms" placeholder="optional"></td>
+                            <td class="td"><input type="number" step="1" name="new_pallets" required></td>
+                            <td class="td"><input type="text" name="new_notes"></td>
                         </tr>
-                        {% endfor %}
+                        {% endif %}
                     </tbody>
                 </table>
             </div>
@@ -96,7 +102,7 @@
                     <button type="submit" class="btn btn-primary" style="width: 100px; height: 35px;">返回</button>
                 {% else %}
                     <input type="hidden" name="step" value="palletize">
-                    <button type="submit" class="btn btn-primary" style="width: 100px; height: 35px;">确认</button>
+                    <button type="submit" class="btn btn-primary" style="width: 100px; height: 35px;" onclick="processForm()">确认</button>
                 {% endif %}
             </div>
         </div>
@@ -110,12 +116,44 @@
         newRow.id = 'palletization-row';
         table.appendChild(newRow);
         console.log(table);
-    }
+    };
+
     function rmLastRow() {
         var table = document.getElementById('palletization-container');
         var rows = table.getElementsByTagName('tr');
         if (rows.length > 1) {
             table.removeChild(rows[rows.length - 1]);
+        };
+    };
+
+    function processForm() {
+        var firstEmptyRow = document.getElementById('palletization-row-empty');
+        if (firstEmptyRow && firstEmptyRow.style.display === 'none') {
+            var inputs = firstEmptyRow.querySelectorAll('input, select');
+            inputs.forEach(function(input) {
+                if (input.hasAttribute('required')) {
+                    input.removeAttribute('required');
+                };
+                input.disabled = true;
+            });
+        };
+
+        var deliveryMethodSelects = document.querySelectorAll('select.new-delivery-method');
+        console.log(deliveryMethodSelects)
+        var isValid = true;
+        deliveryMethodSelects.forEach(function(select) {
+            if (!select.disabled) {
+                if (select.value.trim() === '') {
+                isValid = false;
+                select.style.border = '2px solid red';
+                } else {
+                    select.style.border = '';
+                };
+            };
+        });
+        if (!isValid) {
+            event.preventDefault();
+            alert("请选择'派送方式'!");
         };
     };
 </script>
