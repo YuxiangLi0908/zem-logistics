@@ -260,7 +260,7 @@ class Palletization(View):
                 cbm += 2
             cbm *= 2
 
-            if "客户自提" in pl.get("destination"):
+            if "客户自提" in pl.get("destination") or "自提" in pl.get("destination"):
                 destination = 'Cutomer_PickUp'
             else:
                 destination = pl.get("destination").replace("沃尔玛", "WM-")
