@@ -68,7 +68,7 @@
                         </tr>
                         {% endfor %}
                         {% if status == 'non_palletized' %}
-                        <tr id="palletization-row-empty" style="display: none;">
+                        <tr id="palletization-row-empty" class="abnormal-palletization-row" style="display: none;">
                             <td class="td"><input type="text" name="container_numer" value="{{ container_number }}" disabled></td>
                             <td class="td"><input type="text" name="new_destinations" required></td>
                             <td class="td">
@@ -120,7 +120,8 @@
 
     function rmLastRow() {
         var table = document.getElementById('palletization-container');
-        var rows = table.getElementsByTagName('tr');
+        var rows = document.querySelectorAll('tr.abnormal-palletization-row');
+        console.log(rows);
         if (rows.length > 1) {
             table.removeChild(rows[rows.length - 1]);
         };
