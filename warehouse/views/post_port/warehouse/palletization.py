@@ -183,7 +183,7 @@ class Palletization(View):
                 new_notes = request.POST.getlist("new_notes")
                 new_cbm = [float(value) if value else 0 for value in request.POST.getlist("new_cbms")]
                 #生成pallet
-                for n, p_a, c, dest, d_m, note in zip(   #这里现在的问题是，必须每个值都部不为空，有空值就不会执行for循环
+                for n, p_a, c, dest, d_m, note in zip(
                     new_pallets, new_pcs_actul, new_cbm, new_destinations, new_delivery_method, new_notes
                 ):
                     await self._split_pallet(n, p_a, 0, c, 0, dest, d_m, note, "None", pk, seed=1)  
