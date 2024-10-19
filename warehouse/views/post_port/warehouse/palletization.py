@@ -80,32 +80,37 @@ class Palletization(View):
         elif step == "cancel":
             template, context = await self.handle_cancel_post(request)
             return render(request, template, context)
+        elif step == "amend_abnormal":
+            template, context = await self.handle_amend_abnormal_post(request)
+            return render(request, template, context)
         else:
             return await self.get(request)
     
-    async def handle_palletization_abnormal_get(self,warehouse: str = None) -> tuple[str, dict[str, Any]]:
+    async def handle_palletization_abnormal_get(self, warehouse: str = None) -> tuple[str, dict[str, Any]]:
         retrieval_precise_subquery = Subquery(
             Retrieval.objects.filter(
-                id = OuterRef('container_number__order__retrieval_id')
+                id=OuterRef('container_number__order__retrieval_id')
             ).values('retrieval_destination_precise')[:1],
             output_field = CharField()
         )
         all_status = await sync_to_async(list)(
             AbnormalOffloadStatus.objects
-        .select_related('container_number', 'offload')
-        .annotate(retrieval_destination_precise = Subquery(retrieval_precise_subquery))
-        .all()
+            .select_related('container_number', 'offload')
+            .filter(is_resolved=False)
+            .annotate(retrieval_destination_precise=Subquery(retrieval_precise_subquery))
+            .all()
+            .order_by('created_at')
         )
-
-        abnormal = []        
+        abnormal = []
         for status in all_status:
             if warehouse :
                 if warehouse in status.retrieval_destination_precise:
                     status_dict = {
+                        "id": status.id,
                         "offload":status.offload.offload_id,
                         "container_number": status.container_number.container_number,
                         "created_at": status.created_at.strftime('%b-%d') if status.created_at else None,
-                        "resolved_at": "" if not status.is_resolved else status.resolved_at,
+                        "resolved_at": status.resolved_at,
                         "is_resolved": True if status.is_resolved else False,
                         "destination": status.destination,
                         "deivery_method": status.deivery_method,
@@ -114,14 +119,16 @@ class Palletization(View):
                         "abnormal_reason": status.abnormal_reason,
                         "note": status.note,
                         "retrieval_destination_precise": status.retrieval_destination_precise,
+                        "ddl_status": status.abnormal_status,
                     }
                     abnormal.append(status_dict)
             else:
                 status_dict = {
+                        "id": status.id,
                         "offload":status.offload.offload_id,
                         "container_number": status.container_number.container_number,
                         "created_at": status.created_at.strftime('%b-%d') if status.created_at else None,
-                        "resolved_at": "" if not status.is_resolved else status.resolved_at,
+                        "resolved_at": status.resolved_at,
                         "is_resolved": True if status.is_resolved else False,
                         "destination": status.destination,
                         "deivery_method": status.deivery_method,
@@ -130,12 +137,13 @@ class Palletization(View):
                         "abnormal_reason": status.abnormal_reason,
                         "note": status.note,
                         "retrieval_destination_precise": status.retrieval_destination_precise,
+                        "ddl_status": status.abnormal_status,
                     }
                 abnormal.append(status_dict)
-            
-                        
-        context = {"abnormal":abnormal}
-
+        context = {
+            "abnormal":abnormal,
+            "warehouse": warehouse,
+        }
         return self.template_pallet_abnormal, context
     
     async def handle_all_get(self, warehouse: str = None) -> tuple[str, dict[str, Any]]:
@@ -199,7 +207,7 @@ class Palletization(View):
         return template, context
 
     async def handle_warehosue_abnormal_post(self, request: HttpRequest) -> tuple[str, dict[str, Any]]:
-        warehouse = request.POST.get("warehouse_abnormal")
+        warehouse = request.POST.get("warehouse")
         template, context = await self.handle_palletization_abnormal_get(warehouse)
         return template, context
     
@@ -302,6 +310,9 @@ class Palletization(View):
         mutable_post['name'] = order.warehouse.name
         request.POST = mutable_post
         return await self.handle_warehouse_post(request)
+    
+    async def handle_amend_abnormal_post(self, request: HttpRequest) -> HttpResponse:
+        pass
 
     async def _export_pallet_label(self, request: HttpRequest) -> HttpResponse:
         container_number = request.POST.get("container_number")

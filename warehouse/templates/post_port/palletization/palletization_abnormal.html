@@ -1,18 +1,18 @@
 {% extends 'base.html' %}
 {% block content %}
 <div style="max-height: 100%; max-width: 100%;">
-    <div><b>异常拆柜</b></div>
+    <div><b>{{ warehouse }}异常拆柜</b></div>
     {{ current_date }}
 </div>
 <form method="post" action="" onsubmit="showLoadingBar()">
     {% csrf_token %}
     <div>
-        <b style="margin-right: 5px;">选择仓库:</b>
+        <b style="margin-right: 5px;">选择仓点区域:</b>
         <input type="hidden" name="step" value="warehouse_abnormal">
-        <select name="warehouse_abnormal">
-            <option selected></option>
-            <option>NJ</option>
-            <option>SAV</option>
+        <select name="warehouse">
+            <option value="" {% if not warehouse %}selected{% endif %}></option>
+            <option value="NJ" {% if warehouse == "NJ" %}selected{% endif %}>NJ</option>
+            <option value="SAV" {% if warehouse == "SAV" %}selected{% endif %}>SAV</option>
         </select>
         <button type="submit">确认</button>
     </div>
@@ -27,15 +27,14 @@
                         <tr>
                             <th>仓库</th>
                             <th>柜号</th>
-                            <th>异常记录时间</th>
-                            <th>是否解决</th>
-                            <th>解决时间</th>
                             <th>目的地</th>
                             <th>派送方式</th>
+                            <th>异常记录时间</th>
                             <th>预报箱数</th>
                             <th>实际箱数</th>
+                            <th>是否解决</th>
                             <th>异常原因</th>
-                            <th>备注</th>
+                            <th>处理操作</th>
                         </tr>
                     </thead>
                     <tbody id="palletization-container">                       
@@ -43,36 +42,40 @@
                         <tr id="palletization-row">
                             <td class="td">{{ pl.retrieval_destination_precise }}</td>
                             <td class="td">{{ pl.container_number }}</td>
-                            <td class="td">{{ pl.created_at }}</td>
-                            <td class="status-cell" style="text-align: left; cursor: pointer; display: flex; align-items: center;">
-                                <input type="checkbox" id="status1" {% if pl.is_resolved %} checked {% endif %} style="display: none;">
-                                <label for="status1" class="status-label" onclick="toggleStatus(event)"
-                                    style="display: flex; justify-content: center; align-items: center; width: 30px; height: 30px; border-radius: 50%; color: white; font-weight: bold; transition: background-color 0.3s ease; background-color: {% if pl.is_resolved %} #4CAF50 {% else %} #f44336 {% endif %}; font-size: 20px; margin-right: 10px;">
-                                    {% if pl.is_resolved %} &#10003; {% else %} &times; {% endif %}
-                                </label>
-                            </td>                      
-                            <td class="td" id="resolved_at_{{ forloop.counter }}">{{ pl.resolved_at }}</td>
-                            
                             <td class="td">{{ pl.destination }}</td>
                             <td class="td">{{ pl.deivery_method }}</td>
+                            <td class="td">
+                                {% if pl.ddl_status == "past_due" %}
+                                <span class="status-span-red">{{ pl.created_at }}</span>
+                                {% else %}
+                                {{ pl.created_at }}
+                                {% endif %}
+                            </td>                                                
                             <td class="td">{{ pl.pcs_reported }}</td>
                             <td class="td">{{ pl.pcs_actual }}</td>
-                            
+                            <td class="status-cell" style="text-align: left; cursor: pointer; display: flex; align-items: center;">
+                                <input type="checkbox" id="status-{{pl.id}}" style="display: none;" {% if pl.is_resolved %}checked{% endif %}>
+                                <label 
+                                    for="status-{{pl.id}}" class="status-label" onclick="toggleStatus(event)"
+                                    style="display: flex; justify-content: center; align-items: center; width: 30px; height: 30px; border-radius: 50%; 
+                                    color: white; font-weight: bold; transition: background-color 0.3s ease; 
+                                    background-color: {% if pl.is_resolved %} #4CAF50 {% else %} #f44336 {% endif %}; font-size: 20px; margin-right: 10px;"
+                                >
+                                    {% if pl.is_resolved %} &#10003; {% else %} &times; {% endif %}
+                                </label>
+                            </td>  
                             <td class="td">
-                                <select name="abnormal_reason" required>
-                                    <option value="预报文件出错" {% if pl.abnormal_reason and pl.abnormal_reason == "预报文件出错" %}selected{% endif %}>预报文件出错</option>
+                                <select name="abnormal_reason" class="abnormal-reason">
+                                    <option value="" {% if pl.abnormal_reason and pl.abnormal_reason == "" %}selected{% endif %}></option>
+                                    <option value="原始预报文件出错" {% if pl.abnormal_reason and pl.abnormal_reason == "原始预报文件出错" %}selected{% endif %}>原始预报文件出错</option>
+                                    <option value="预报文件录入出错" {% if pl.abnormal_reason and pl.abnormal_reason == "预报文件录入出错" %}selected{% endif %}>预报文件录入出错</option>
                                     <option value="客户装柜出错" {% if pl.abnormal_reason and pl.abnormal_reason == "客户装柜出错" %}selected{% endif %}>客户装柜出错</option>
                                     <option value="拆柜出错" {% if pl.abnormal_reason and pl.abnormal_reason == "拆柜出错" %}selected{% endif %}>拆柜出错</option>
                                 </select>
-                            </td>                            
+                            </td>
                             <td class="td">
-                                {% if pl.note %}
-                                    {{ pl.note }}
-                                {% else %}
-                                    <input type="text" name="note" placeholder="请输入备注" required>
-                                {% endif %}
+                                <textarea name="note" placeholder="请输入..."></textarea>
                             </td>                            
-                            
                             <input type="hidden" name="ids" value="{{pl.ids}}">
                             <input type="hidden" name="note" value="{{pl.note}}">
                             <input type="hidden" name="pcs_reported" value="{{pl.pcs}}">
@@ -88,7 +91,8 @@
                 </table>
             </div>
             <div class="text-left">
-                <input type="hidden" name="step" value="abnormal_record">
+                <input type="hidden" name="step" value="amend_abnormal">
+                <input type="hidden" name="warehosue" value="{{ warehosue }}">
                 <button type="submit" class="btn btn-primary" style="width: 100px; height: 35px;" onclick="processForm()">确认</button>
             </div>
         </div>
@@ -96,28 +100,53 @@
 
 <script>
     function toggleStatus(event) {
-        const checkbox = event.target.previousElementSibling;
-        checkbox.checked = !checkbox.checked;
-        if (checkbox.checked) {
+        const checkbox = event.target.previousElementSibling; // Get the checkbox linked to the label
+        if (!checkbox.checked) {
             event.target.innerHTML = '&#10003;'; // Check mark
             event.target.style.backgroundColor = '#4CAF50'; // Green
         } else {
             event.target.innerHTML = '&times;'; // Cross mark
             event.target.style.backgroundColor = '#f44336'; // Red
         }
-    };
+    }
+
     function processForm() {
-        var firstEmptyRow = document.getElementById('palletization-row');
-        if (firstEmptyRow && firstEmptyRow.style.display === 'none') {
-            var inputs = firstEmptyRow.querySelectorAll('input, select');
-            inputs.forEach(function(input) {
-                if (input.hasAttribute('required')) {
-                    input.removeAttribute('required');
+        var rows = document.querySelectorAll('tr#palletization-row');
+        var abnormalReasonSelect = document.querySelectorAll('select.abnormal-reason');
+        var isValid = true;
+        var isReasonEmpty = false;
+        var isNoteEmpty = false;
+        rows.forEach(row => {
+            const checkbox = row.querySelector('input[type="checkbox"]');
+            if (checkbox && checkbox.checked) {
+                const abnormalReasonSelect = row.querySelector('select[name="abnormal_reason"]');
+                const abnormalNote = row.querySelector('textarea[name="note"]');
+                if (abnormalReasonSelect && abnormalReasonSelect.value.trim() === '') {
+                    isValid = false;
+                    isReasonEmpty = true;
+                    abnormalReasonSelect.style.border = '2px solid red';
+                } else {
+                    abnormalReasonSelect.style.border = '';
                 };
-                input.disabled = true;
-            });
+                if (abnormalNote && abnormalNote.value.trim() === '') {
+                    isValid = false;
+                    isNoteEmpty = true;
+                    abnormalNote.style.border = '2px solid red';
+                } else {
+                    abnormalNote.style.border = '';
+                };
+            };
+        });
+        if (!isValid) {
+            event.preventDefault();
+            if (isReasonEmpty && isNoteEmpty) {
+                alert("请选择'异常原因'并填写'处理操作'!");
+            } else if (isReasonEmpty) {
+                alert("请选择'异常原因'!");
+            } else {
+                alert("请填写'处理操作'!");
+            }
         };
     };
-    
 </script>
 {% endblock %}
