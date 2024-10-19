@@ -13,6 +13,7 @@ class AbnormalOffloadStatus(models.Model):
     deivery_method = models.CharField(max_length=255, null=True, blank=True)
     pcs_reported = models.IntegerField(null=True, blank=True)
     pcs_actual = models.IntegerField(null=True, blank=True)
+    abnormal_reason = models.CharField(max_length=255, null=True, blank=True)
     note = models.CharField(max_length=1000, null=True, blank=True)
 
     def __str__(self) -> str:

@@ -10,6 +10,7 @@ from datetime import datetime
 from typing import Any
 from xhtml2pdf import pisa
 from itertools import zip_longest
+from django.db.models import OuterRef, Subquery
 
 from django.http import HttpRequest, HttpResponse
 from django.shortcuts import render, redirect
@@ -35,6 +36,7 @@ from warehouse.utils.constants import  DELIVERY_METHOD_OPTIONS
 class Palletization(View):
     template_main = "post_port/palletization/palletization.html"
     template_palletize = "post_port/palletization/palletization_packing_list.html"
+    template_pallet_abnormal = "post_port/palletization/palletization_abnormal.html"
     template_pallet_label = "export_file/pallet_label_template.html"
 
     async def get(self, request: HttpRequest, **kwargs) -> HttpResponse:
@@ -46,6 +48,9 @@ class Palletization(View):
         if step == "container_palletization":
             template, context = await self.handle_container_palletization_get(request, pk)
             return render(request, template, context)
+        elif step == "abnormal":
+            template, context = await self.handle_palletization_abnormal_get()
+            return render(request, template, context)
         else:
             template, context = await self.handle_all_get()
             return render(request, template, context)
@@ -56,6 +61,9 @@ class Palletization(View):
         step = request.POST.get("step")
         if step == "warehouse":
             template, context = await self.handle_warehouse_post(request)
+            return render(request, template, context)
+        elif step == "warehouse_abnormal":
+            template, context = await self.handle_warehosue_abnormal_post(request)
             return render(request, template, context)
         elif step == "palletize":
             pk = kwargs.get("pk")
@@ -74,6 +82,61 @@ class Palletization(View):
             return render(request, template, context)
         else:
             return await self.get(request)
+    
+    async def handle_palletization_abnormal_get(self,warehouse: str = None) -> tuple[str, dict[str, Any]]:
+        retrieval_precise_subquery = Subquery(
+            Retrieval.objects.filter(
+                id = OuterRef('container_number__order__retrieval_id')
+            ).values('retrieval_destination_precise')[:1],
+            output_field = CharField()
+        )
+        all_status = await sync_to_async(list)(
+            AbnormalOffloadStatus.objects
+        .select_related('container_number', 'offload')
+        .annotate(retrieval_destination_precise = Subquery(retrieval_precise_subquery))
+        .all()
+        )
+
+        abnormal = []        
+        for status in all_status:
+            if warehouse :
+                if warehouse in status.retrieval_destination_precise:
+                    status_dict = {
+                        "offload":status.offload.offload_id,
+                        "container_number": status.container_number.container_number,
+                        "created_at": status.created_at.strftime('%b-%d') if status.created_at else None,
+                        "resolved_at": "" if not status.is_resolved else status.resolved_at,
+                        "is_resolved": True if status.is_resolved else False,
+                        "destination": status.destination,
+                        "deivery_method": status.deivery_method,
+                        "pcs_reported": status.pcs_reported,
+                        "pcs_actual": status.pcs_actual,
+                        "abnormal_reason": status.abnormal_reason,
+                        "note": status.note,
+                        "retrieval_destination_precise": status.retrieval_destination_precise,
+                    }
+                    abnormal.append(status_dict)
+            else:
+                status_dict = {
+                        "offload":status.offload.offload_id,
+                        "container_number": status.container_number.container_number,
+                        "created_at": status.created_at.strftime('%b-%d') if status.created_at else None,
+                        "resolved_at": "" if not status.is_resolved else status.resolved_at,
+                        "is_resolved": True if status.is_resolved else False,
+                        "destination": status.destination,
+                        "deivery_method": status.deivery_method,
+                        "pcs_reported": status.pcs_reported,
+                        "pcs_actual": status.pcs_actual,
+                        "abnormal_reason": status.abnormal_reason,
+                        "note": status.note,
+                        "retrieval_destination_precise": status.retrieval_destination_precise,
+                    }
+                abnormal.append(status_dict)
+            
+                        
+        context = {"abnormal":abnormal}
+
+        return self.template_pallet_abnormal, context
     
     async def handle_all_get(self, warehouse: str = None) -> tuple[str, dict[str, Any]]:
         if warehouse:
@@ -135,6 +198,11 @@ class Palletization(View):
         template, context = await self.handle_all_get(warehouse)
         return template, context
 
+    async def handle_warehosue_abnormal_post(self, request: HttpRequest) -> tuple[str, dict[str, Any]]:
+        warehouse = request.POST.get("warehouse_abnormal")
+        template, context = await self.handle_palletization_abnormal_get(warehouse)
+        return template, context
+    
     async def handle_packing_list_post(self, request: HttpRequest, pk: int) -> tuple[str, dict[str, Any]]:
         order_selected = await sync_to_async(Order.objects.select_related(
             "offload_id", "warehouse", "container_number"

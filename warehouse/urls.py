@@ -63,6 +63,7 @@ urlpatterns = [
     path('dbconn', DBConn.as_view(), name='dbconn'),
     # legacy views, to be removed in the future
     path('palletize_legacy/', LegacyPalletization.as_view(), name='palletization_legacy'),
+    path('palletization_abnormal/', LegacyPalletization.as_view(), name='palletization_abnormal'),
     path('palletize_legacy/<str:pk>/', LegacyPalletization.as_view(), name='palletize_legacy'),
     path('schedule_shipment_legacy/', ScheduleShipment.as_view(), name='schedule_shipment_legacy'),
     path('outbound_legacy/', ShipmentDispatch.as_view(), name='outbound_legacy'),
