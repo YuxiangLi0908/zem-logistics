@@ -2,8 +2,8 @@
 {% block content %}
 <div style="max-height: 100%; max-width: 100%;">
     <div><b>{% if warehouse %}{{ warehouse }}{% endif %}异常拆柜</b></div>
-    {{ current_date }}
 </div>
+
 <form method="post" action="" onsubmit="showLoadingBar()">
     {% csrf_token %}
     <div>
@@ -17,6 +17,12 @@
         <button type="submit">确认</button>
     </div>
 </form>
+
+<div id="loading-bar">
+    <div class="spinner"></div>
+    <p>Loading, please wait...</p>
+</div>
+
 {% load static custom_filters %}
     <form method="post" style="width: 100%;">
         {% csrf_token %}

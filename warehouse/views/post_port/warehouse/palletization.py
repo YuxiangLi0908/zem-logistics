@@ -38,7 +38,8 @@ class Palletization(View):
     template_palletize = "post_port/palletization/palletization_packing_list.html"
     template_pallet_abnormal = "post_port/palletization/palletization_abnormal.html"
     template_pallet_label = "export_file/pallet_label_template.html"
-    template_pallet_abnormal_records = "palletization_abnormal_records.html"
+    template_pallet_abnormal_records_search = "post_port/palletization/palletization_abnormal_records_search.html"
+    template_pallet_abnormal_records_display = "post_port/palletization/palletization_abnormal_records_display.html"
 
     async def get(self, request: HttpRequest, **kwargs) -> HttpResponse:
         if not await self._user_authenticate(request):
@@ -53,13 +54,11 @@ class Palletization(View):
             template, context = await self.handle_palletization_abnormal_get()
             return render(request, template, context)
         elif step == "abnormal_records":
-            #TODOs
-            template, context = await self.handle_abnormal_records_get()
-            return render(request, template, context)
+            return render(request, self.template_pallet_abnormal_records_search, {})
         else:
             template, context = await self.handle_all_get()
             return render(request, template, context)
-    
+
     async def post(self, request: HttpRequest, **kwargs) -> HttpRequest:
         if not await self._user_authenticate(request):
             return redirect("login")
@@ -88,24 +87,36 @@ class Palletization(View):
         elif step == "amend_abnormal":
             template, context = await self.handle_amend_abnormal_post(request)
             return render(request, template, context)
+        elif step == "abnormal_records":
+            template, context = await self.handle_abnormal_records_post(request)
+            return render(request, template, context)
         else:
             return await self.get(request)
     
-    async def handle_palletization_abnormal_get(self, warehouse: str = None) -> tuple[str, dict[str, Any]]:
+    async def handle_palletization_abnormal_get(self, warehouse: str = None, include_all: bool = False) -> tuple[str, dict[str, Any]]:
         retrieval_precise_subquery = Subquery(
             Retrieval.objects.filter(
                 id=OuterRef('container_number__order__retrieval_id')
             ).values('retrieval_destination_precise')[:1],
             output_field = CharField()
         )
-        all_status = await sync_to_async(list)(
-            AbnormalOffloadStatus.objects
-            .select_related('container_number', 'offload')
-            .filter(is_resolved=False)
-            .annotate(retrieval_destination_precise=Subquery(retrieval_precise_subquery))
-            .all()
-            .order_by('created_at')
-        )
+        if include_all:
+            all_status = await sync_to_async(list)(
+                AbnormalOffloadStatus.objects
+                .select_related('container_number', 'offload')
+                .annotate(retrieval_destination_precise=Subquery(retrieval_precise_subquery))
+                .all()
+                .order_by('created_at')
+            )
+        else:
+            all_status = await sync_to_async(list)(
+                AbnormalOffloadStatus.objects
+                .select_related('container_number', 'offload')
+                .filter(is_resolved=False)
+                .annotate(retrieval_destination_precise=Subquery(retrieval_precise_subquery))
+                .all()
+                .order_by('created_at')
+            )
         abnormal = []
         for status in all_status:
             if warehouse :
@@ -150,7 +161,10 @@ class Palletization(View):
             "warehouse": warehouse,
             "warehouse_options": WAREHOUSE_OPTIONS,
         }
-        return self.template_pallet_abnormal, context
+        if include_all:
+            return self.template_pallet_abnormal_records_display, context
+        else:
+            return self.template_pallet_abnormal, context
     
     async def handle_all_get(self, warehouse: str = None) -> tuple[str, dict[str, Any]]:
         if warehouse:
@@ -182,9 +196,6 @@ class Palletization(View):
                 "warehouse_form": ZemWarehouseForm()
             }
         return self.template_main, context
-    
-    async def handle_abnormal_records_get(self) -> tuple[str, dict[str, Any]]:
-        pass
     
     async def handle_container_palletization_get(self, request: HttpRequest, pk: int) -> tuple[str, dict[str, Any]]:
         order_selected = await sync_to_async(Order.objects.select_related("container_number", "warehouse", "offload_id").get)(pk=pk)
@@ -320,7 +331,7 @@ class Palletization(View):
         request.POST = mutable_post
         return await self.handle_warehouse_post(request)
     
-    async def handle_amend_abnormal_post(self, request: HttpRequest) -> HttpResponse:
+    async def handle_amend_abnormal_post(self, request: HttpRequest) -> tuple[str, dict[str, Any]]:
         warehouse = request.POST.get("warehouse")
         selected = request.POST.getlist("is_case_selected")
         abnormal_pl_ids = request.POST.getlist("ids")
@@ -342,6 +353,10 @@ class Palletization(View):
             updated_records, ["is_resolved", "abnormal_reason", "note"]
         )
         return await self.handle_palletization_abnormal_get(warehouse)
+    
+    async def handle_abnormal_records_post(self, request: HttpRequest) -> tuple[str, dict[str, Any]]:
+        warehouse = request.POST.get("warehouse")
+        return await self.handle_palletization_abnormal_get(warehouse, include_all=True)
         
     async def _export_pallet_label(self, request: HttpRequest) -> HttpResponse:
         container_number = request.POST.get("container_number")
