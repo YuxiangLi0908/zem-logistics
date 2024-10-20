@@ -23,7 +23,6 @@ from django.template.loader import get_template
 
 from warehouse.models.retrieval import Retrieval
 from warehouse.models.order import Order
-from warehouse.models.container import Container
 from warehouse.models.offload_status import AbnormalOffloadStatus
 from warehouse.models.packing_list import PackingList
 from warehouse.models.pallet import Pallet
@@ -31,13 +30,15 @@ from warehouse.models.shipment import Shipment
 from warehouse.forms.warehouse_form import ZemWarehouseForm
 from warehouse.forms.packling_list_form import PackingListForm
 from warehouse.views.export_file import export_palletization_list
-from warehouse.utils.constants import  DELIVERY_METHOD_OPTIONS
+from warehouse.utils.constants import DELIVERY_METHOD_OPTIONS, WAREHOUSE_OPTIONS
+
 
 class Palletization(View):
     template_main = "post_port/palletization/palletization.html"
     template_palletize = "post_port/palletization/palletization_packing_list.html"
     template_pallet_abnormal = "post_port/palletization/palletization_abnormal.html"
     template_pallet_label = "export_file/pallet_label_template.html"
+    template_pallet_abnormal_records = "palletization_abnormal_records.html"
 
     async def get(self, request: HttpRequest, **kwargs) -> HttpResponse:
         if not await self._user_authenticate(request):
@@ -50,6 +51,10 @@ class Palletization(View):
             return render(request, template, context)
         elif step == "abnormal":
             template, context = await self.handle_palletization_abnormal_get()
+            return render(request, template, context)
+        elif step == "abnormal_records":
+            #TODOs
+            template, context = await self.handle_abnormal_records_get()
             return render(request, template, context)
         else:
             template, context = await self.handle_all_get()
@@ -143,6 +148,7 @@ class Palletization(View):
         context = {
             "abnormal":abnormal,
             "warehouse": warehouse,
+            "warehouse_options": WAREHOUSE_OPTIONS,
         }
         return self.template_pallet_abnormal, context
     
@@ -176,6 +182,9 @@ class Palletization(View):
                 "warehouse_form": ZemWarehouseForm()
             }
         return self.template_main, context
+    
+    async def handle_abnormal_records_get(self) -> tuple[str, dict[str, Any]]:
+        pass
     
     async def handle_container_palletization_get(self, request: HttpRequest, pk: int) -> tuple[str, dict[str, Any]]:
         order_selected = await sync_to_async(Order.objects.select_related("container_number", "warehouse", "offload_id").get)(pk=pk)
@@ -312,8 +321,28 @@ class Palletization(View):
         return await self.handle_warehouse_post(request)
     
     async def handle_amend_abnormal_post(self, request: HttpRequest) -> HttpResponse:
-        pass
+        warehouse = request.POST.get("warehouse")
+        selected = request.POST.getlist("is_case_selected")
+        abnormal_pl_ids = request.POST.getlist("ids")
+        abnormal_reasons = request.POST.getlist("abnormal_reason")
+        notes = request.POST.getlist("note")
 
+        abnormal_pl_ids = [abnormal_pl_ids[i] for i in range(len(selected)) if selected[i] == "on"]
+        abnormal_reasons = [abnormal_reasons[i] for i in range(len(selected)) if selected[i] == "on"]
+        notes = [notes[i] for i in range(len(selected)) if selected[i] == "on"]
+
+        abnormal_records = await sync_to_async(list)(AbnormalOffloadStatus.objects.filter(id__in=abnormal_pl_ids))
+        updated_records = []
+        for record, reason, note in zip(abnormal_records, abnormal_reasons, notes):
+            record.note = note
+            record.abnormal_reason = reason
+            record.is_resolved = True
+            updated_records.append(record)
+        await sync_to_async(AbnormalOffloadStatus.objects.bulk_update)(
+            updated_records, ["is_resolved", "abnormal_reason", "note"]
+        )
+        return await self.handle_palletization_abnormal_get(warehouse)
+        
     async def _export_pallet_label(self, request: HttpRequest) -> HttpResponse:
         container_number = request.POST.get("container_number")
         customer_name = request.POST.get("customer_name")
