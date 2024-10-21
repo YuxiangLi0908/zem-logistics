@@ -3,6 +3,7 @@ import uuid
 import asyncio
 import barcode
 import io,base64
+import sys
 from PIL import Image
 from barcode.writer import ImageWriter
 from asgiref.sync import sync_to_async
@@ -25,6 +26,7 @@ from warehouse.models.retrieval import Retrieval
 from warehouse.models.order import Order
 from warehouse.models.offload_status import AbnormalOffloadStatus
 from warehouse.models.packing_list import PackingList
+from warehouse.models.fleet import Fleet
 from warehouse.models.pallet import Pallet
 from warehouse.models.shipment import Shipment
 from warehouse.forms.warehouse_form import ZemWarehouseForm
@@ -41,6 +43,8 @@ class Palletization(View):
     template_pallet_abnormal_records_search = "post_port/palletization/palletization_abnormal_records_search.html"
     template_pallet_abnormal_records_display = "post_port/palletization/palletization_abnormal_records_display.html"
 
+    template_pallet_daily_operation = "post_port/palletization/daily_operation.html"
+
     async def get(self, request: HttpRequest, **kwargs) -> HttpResponse:
         if not await self._user_authenticate(request):
             return redirect("login")
@@ -55,6 +59,9 @@ class Palletization(View):
             return render(request, template, context)
         elif step == "abnormal_records":
             return render(request, self.template_pallet_abnormal_records_search, {})
+        elif step == "daily_operation":
+            template, context = await self.handle_daily_operation_get()
+            return render(request, template, context)
         else:
             template, context = await self.handle_all_get()
             return render(request, template, context)
@@ -165,7 +172,94 @@ class Palletization(View):
             return self.template_pallet_abnormal_records_display, context
         else:
             return self.template_pallet_abnormal, context
-    
+
+    async def handle_daily_operation_get(self, warehouse: str = None, include_all: bool = False) -> tuple[str, dict[str, Any]]:
+        #拆柜异常，客服已解决货物
+        retrieval_precise_subquery = Subquery(
+            Retrieval.objects.filter(
+                id=OuterRef('container_number__order__retrieval_id')
+            ).values('retrieval_destination_precise')[:1],
+            output_field = CharField()
+        )
+        all_status = await sync_to_async(list)(
+            AbnormalOffloadStatus.objects
+            .select_related('container_number')
+            .annotate(retrieval_destination_precise=Subquery(retrieval_precise_subquery))
+            .filter(is_resolved=True,confirmed_by_warehouse=False)
+            .order_by('created_at')
+        )
+        
+        abnormal = []
+        for status in all_status:
+            status_dict = {
+                "id": status.id,
+                "container_number": status.container_number.container_number,
+                "created_at": status.created_at.strftime('%b-%d') if status.created_at else None,
+                "resolved_at": status.resolved_at,
+                "confirmed_by_warehouse": True if status.confirmed_by_warehouse else False,
+                "destination": status.destination,
+                "deivery_method": status.deivery_method,
+                "pcs_reported": status.pcs_reported,
+                "pcs_actual": status.pcs_actual,
+                "abnormal_reason": status.abnormal_reason,
+                "note": status.note,
+                "retrieval_destination_precise": status.retrieval_destination_precise,
+                "ddl_status": status.abnormal_status,
+            }
+            abnormal.append(status_dict)
+        
+        cn = pytz.timezone('Asia/Shanghai')
+        current_time_cn = datetime.now(cn)
+        today = current_time_cn.date()
+
+        #当日+下一天的预约信息
+        shipment = await sync_to_async(list)(
+            Shipment.objects.prefetch_related(
+                "packinglist", "packinglist__container_number", "packinglist__container_number__order",
+                "packinglist__container_number__order__warehouse", "order"
+            ).filter(
+                shipment_schduled_at__date=today
+            ).distinct()
+        )
+        print('预约',shipment)
+        #当日+下一天的预约信息
+        fleet = await sync_to_async(list)(
+            Fleet.objects.filter(
+                scheduled_at__date=today
+            )
+        )
+        #当日到港货柜
+        
+        containers = await sync_to_async(list)(
+            Order.objects.select_related(
+                "vessel_id", "container_number", "customer_name", "retrieval_id"
+            ).filter(
+                (
+                    models.Q(retrieval_id__target_retrieval_timestamp__date=today) &
+                    models.Q(cancel_notification=False)
+                )
+            )
+        )
+        arrived_containers = []
+        for o in containers:
+            con_dict = {
+                "id": status.id,
+                "retrieval_destination_precise":o.retrieval_id.retrieval_destination_precise,
+                "container_number": o.container_number.container_number,
+                "order_type": o.order_type,
+                "vessel_id":o.vessel_id,
+                "temp_t49_pod_arrive_at": o.retrieval_id.temp_t49_pod_arrive_at,
+            }
+            arrived_containers.append(con_dict)
+        context = {
+            "abnormal":abnormal,
+            "shipment":shipment,
+            "fleet":fleet,
+            "arrived_containers":arrived_containers,
+            "warehouse_options": WAREHOUSE_OPTIONS,
+        }
+        return self.template_pallet_daily_operation, context
+           
     async def handle_all_get(self, warehouse: str = None) -> tuple[str, dict[str, Any]]:
         if warehouse:
             warehouse = None if warehouse == "Empty" else warehouse
@@ -334,25 +428,34 @@ class Palletization(View):
     async def handle_amend_abnormal_post(self, request: HttpRequest) -> tuple[str, dict[str, Any]]:
         warehouse = request.POST.get("warehouse")
         selected = request.POST.getlist("is_case_selected")
-        abnormal_pl_ids = request.POST.getlist("ids")
+        abnormal_pl_ids = request.POST.getlist("ids")       
         abnormal_reasons = request.POST.getlist("abnormal_reason")
         notes = request.POST.getlist("note")
+        confirmed_by_warehouse = request.POST.getlist("confirmed_by_warehouse")     
 
         abnormal_pl_ids = [abnormal_pl_ids[i] for i in range(len(selected)) if selected[i] == "on"]
-        abnormal_reasons = [abnormal_reasons[i] for i in range(len(selected)) if selected[i] == "on"]
-        notes = [notes[i] for i in range(len(selected)) if selected[i] == "on"]
-
         abnormal_records = await sync_to_async(list)(AbnormalOffloadStatus.objects.filter(id__in=abnormal_pl_ids))
         updated_records = []
-        for record, reason, note in zip(abnormal_records, abnormal_reasons, notes):
-            record.note = note
-            record.abnormal_reason = reason
-            record.is_resolved = True
-            updated_records.append(record)
-        await sync_to_async(AbnormalOffloadStatus.objects.bulk_update)(
-            updated_records, ["is_resolved", "abnormal_reason", "note"]
-        )
-        return await self.handle_palletization_abnormal_get(warehouse)
+        if confirmed_by_warehouse:
+            for record in abnormal_records:
+                record.confirmed_by_warehouse = True
+                updated_records.append(record)
+            await sync_to_async(AbnormalOffloadStatus.objects.bulk_update)(
+                updated_records, ["confirmed_by_warehouse"]
+            )
+            return await self.handle_daily_operation_get()
+        else:
+            abnormal_reasons = [abnormal_reasons[i] for i in range(len(selected)) if selected[i] == "on"]
+            notes = [notes[i] for i in range(len(selected)) if selected[i] == "on"]
+            for record, reason, note in zip(abnormal_records, abnormal_reasons, notes):
+                record.note = note
+                record.abnormal_reason = reason
+                record.is_resolved = True
+                updated_records.append(record)
+            await sync_to_async(AbnormalOffloadStatus.objects.bulk_update)(
+                updated_records, ["is_resolved", "abnormal_reason", "note"]
+            )
+            return await self.handle_palletization_abnormal_get(warehouse)
     
     async def handle_abnormal_records_post(self, request: HttpRequest) -> tuple[str, dict[str, Any]]:
         warehouse = request.POST.get("warehouse")
