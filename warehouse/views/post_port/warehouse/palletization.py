@@ -465,6 +465,7 @@ class Palletization(View):
         container_number = request.POST.get("container_number")
         customer_name = request.POST.get("customer_name")
         status = request.POST.get("status")
+        n_label = int(request.POST.get("n_label"))
         retrieval = await sync_to_async(Retrieval.objects.get)(
             order__container_number__container_number=container_number
         )
@@ -484,12 +485,16 @@ class Palletization(View):
                 cbm += (cbm%2)
             elif remainder:
                 cbm += 2
-            cbm *= 2
+            cbm /= 2
+            cbm *= n_label
+            cbm = int(cbm)
 
             if "客户自提" in pl.get("destination") or "自提" in pl.get("destination"):
                 destination = 'Cutomer_PickUp'
+                shipping_marks = pl.get("shipping_marks")
             else:
                 destination = pl.get("destination").replace("沃尔玛", "WM-")
+                shipping_marks = ""
 
             if "暂扣留仓" in pl.get("custom_delivery_method").split("-")[0]:
                 fba_ids = pl.get("fba_ids")
@@ -497,7 +502,7 @@ class Palletization(View):
                 fba_ids = None
             
             for num in range(cbm):
-                i = num // 4 + 1
+                i = num // n_label + 1
                 barcode_type = 'code128'
                 barcode_class = barcode.get_barcode_class(barcode_type)
                 barcode_content = f"{pl.get('container_number__container_number')}|{destination}-{i}|{customer_name}|{retrieval_date}"
