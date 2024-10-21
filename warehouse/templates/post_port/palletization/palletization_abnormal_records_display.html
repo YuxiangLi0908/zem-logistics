@@ -1,0 +1,112 @@
+{% extends 'post_port/palletization/palletization_abnormal_records_search.html' %}
+{% block abnormal_records %}
+<div class="container mt-3" style="max-width: 100%;">
+    <div style="overflow-x: auto; max-width: 100%; overflow-y: auto; max-height: 800px;">
+        <table class="table" style="font-size: 11px">
+            <thead>
+                <tr>
+                    <th>仓库</th>
+                    <th>柜号</th>
+                    <th>目的地</th>
+                    <th>派送方式</th>
+                    <th>异常记录时间</th>
+                    <th>预报箱数</th>
+                    <th>实际箱数</th>
+                    <th>是否解决</th>
+                    <th>异常原因</th>
+                    <th>操作指令</th>
+                </tr>
+                <tr style="position: sticky; top: 28px;">
+                    <th class="th">
+                        <select name="warehouse_filter" onchange="filterTable(this, 0, true)">
+                            {% for k, v in warehouse_options %}
+                                <option value="{{ v }}">{{ k }}</option>
+                            {% endfor %}
+                        </select>
+                    </th>
+                    <th class="th">
+                        <input type="text" id="ctnSearch" placeholder="搜索柜号..." oninput="filterTable(this, 1, true)" size="13" style="font-size: 11px;">
+                    </th>
+                    <th class="th">
+                        <input type="text" id="destSearch" placeholder="搜索目的地..." oninput="filterTable(this, 2, true)" size="13" style="font-size: 11px;">
+                    </th>
+                    <th class="th"></th>
+                    <th class="th"></th>
+                    <th class="th"></th>
+                    <th class="th"></th>
+                    <th class="th"></th>
+                    <th class="th"></th>
+                    <th class="th"></th>
+                </tr>
+            </thead>
+            <tbody id="palletization-container">                       
+                {% for pl in abnormal %}
+                <tr id="palletization-row">
+                    <td class="td">{{ pl.retrieval_destination_precise }}</td>
+                    <td class="td">{{ pl.container_number }}</td>
+                    <td class="td">{{ pl.destination }}</td>
+                    <td class="td">{{ pl.deivery_method }}</td>
+                    <td class="td">
+                        {% if pl.ddl_status == "past_due" %}
+                        <span class="status-span-red">{{ pl.created_at }}</span>
+                        {% else %}
+                        {{ pl.created_at }}
+                        {% endif %}
+                    </td>                                                
+                    <td class="td">{{ pl.pcs_reported }}</td>
+                    <td class="td">{{ pl.pcs_actual }}</td>
+                    <td class="td" style="text-align: left; cursor: pointer; display: flex; align-items: center;">
+                        <label 
+                            class="status-label" onclick="toggleStatus(event)"
+                            style="display: flex; justify-content: center; align-items: center; width: 30px; height: 30px; border-radius: 50%; 
+                            color: white; font-weight: bold; transition: background-color 0.3s ease; 
+                            background-color: {% if pl.is_resolved %} #4CAF50 {% else %} #f44336 {% endif %}; font-size: 15px; margin-right: 10px;"
+                        >
+                            {% if pl.is_resolved %} &#10003; {% else %} &times; {% endif %}
+                        </label>
+                    </td>  
+                    <td class="td">
+                        {% if pl.abnormal_reason %}{{ pl.abnormal_reason }}{% endif %}
+                    </td>
+                    <td class="td">
+                        {% if pl.note %}{{ pl.note }}{% endif %}
+                    </td>                            
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+</div>
+
+<script>
+    function filterTable(filterInput, col_idx, trim) {
+        var table = filterInput.closest('table');
+        var tbody = table.getElementsByTagName("tbody")[0];
+        var tr = tbody.getElementsByTagName("tr");
+
+        var filters = document.querySelectorAll('thead input[type="text"], thead select');
+        var filterValues = Array.from(filters).map(function(filter) {
+            return filter.value.toUpperCase().trim();
+        });
+
+        for (var i = 0; i < tr.length; i++) {
+            var row = tr[i];
+            var showRow = true;
+            for (var j = 0; j < filters.length; j++) {
+                var colIdx = j;
+                var filterValue = filterValues[j];
+                var cell = row.getElementsByTagName("td")[colIdx];
+                if (cell) {
+                    var cellText = cell.textContent || cell.innerText;
+                    var cellValue = trim ? cellText.toUpperCase().trim() : cellText.toUpperCase();
+                    if (filterValue !== "" && cellValue.indexOf(filterValue) === -1) {
+                        showRow = false;
+                        break;
+                    }
+                }
+            }
+            row.style.display = showRow ? "" : "none";
+        }
+    };
+</script>
+{% endblock %}
