@@ -63,6 +63,7 @@ class ShippingManagement(View):
         if not await self._user_authenticate(request):
             return redirect("login")
         step = request.GET.get("step", None)
+        print('step',step)
         if step == "shipment_info":
             template, context = await self.handle_shipment_info_get(request)
             return render(request, template, context)
@@ -89,6 +90,7 @@ class ShippingManagement(View):
         if not await self._user_authenticate(request):
             return redirect("login")
         step = request.POST.get("step")
+        print('step',step)
         if step == "warehouse":
             template, context = await self.handle_warehouse_post(request)
             return render(request, template, context)
@@ -207,6 +209,25 @@ class ShippingManagement(View):
                 )
             )
             packing_list[s["shipment_number__shipment_batch_number"]] = pl
+
+        pl_fleet = await sync_to_async(list)(
+            PackingList.objects.select_related(
+                "container_number", "shipment_batch_number", "pallet"
+            ).filter(
+                shipment_batch_number__fleet_number__fleet_number=selected_fleet_number
+            ).values(
+                'container_number__container_number',
+                'destination',
+                'shipment_batch_number__shipment_batch_number',
+                'shipment_batch_number__shipment_appointment',
+            ).annotate(
+                total_weight=Sum("pallet__weight_lbs"),
+                total_cbm=Sum("pallet__cbm"),
+                total_n_pallet=Count("pallet__pallet_id", distinct=True),
+            ).order_by("-shipment_batch_number__shipment_appointment")
+        )
+       
+        
         shipment_batch_numbers = []
         for s in shipment:
             if s.get("shipment_number__shipment_batch_number") not in shipment_batch_numbers:
@@ -221,6 +242,7 @@ class ShippingManagement(View):
             "warehouse": warehouse,
             "shipment_batch_numbers": shipment_batch_numbers,
             "packing_list": packing_list,
+            "pl_fleet":pl_fleet,
         })
         return self.template_outbound_departure, context
     
@@ -585,10 +607,20 @@ class ShippingManagement(View):
     
     async def handle_export_packing_list_post(self, request: HttpRequest) -> HttpResponse:
         fleet_number = request.POST.get("fleet_number")
-        shipment = await sync_to_async(list)(
-            Shipment.objects.filter(fleet_number__fleet_number=fleet_number).order_by("-shipment_appointment")
-        )
-        packing_list = await sync_to_async(list)(
+        customerInfo = request.POST.get("customerInfo")
+        if customerInfo:
+            customer_info = json.loads(customerInfo)
+            packing_list = []
+            for row in customer_info:
+                packing_list.append({
+                    'container_number__container_number': row[0].strip(),
+                    'shipment_batch_number__shipment_batch_number': row[1].strip(),
+                    'destination': row[2].strip(),
+                    'total_cbm': row[3].strip(),
+                    'total_n_pallet': row[4].strip()
+                })
+        else:
+            packing_list = await sync_to_async(list)(
             PackingList.objects.select_related(
                 "container_number", "shipment_batch_number", "pallet"
             ).filter(
@@ -602,6 +634,10 @@ class ShippingManagement(View):
                 total_n_pallet=Count("pallet__pallet_id", distinct=True),
             ).order_by("-shipment_batch_number__shipment_appointment")
         )
+        shipment = await sync_to_async(list)(
+            Shipment.objects.filter(fleet_number__fleet_number=fleet_number).order_by("-shipment_appointment")
+        )
+        
         df = pd.DataFrame(packing_list)
         if len(shipment) > 1:
             i = 1
@@ -811,11 +847,15 @@ class ShippingManagement(View):
         return await self.handle_delivery_and_pod_get(request)
 
     async def _get_packing_list(self, criteria: models.Q) -> list[Any]:
-        return await sync_to_async(list)(
+        pl = Q(container_number__order__offload_id=False)
+        criteria_pl = criteria & pl
+
+        
+        pl_list =  await sync_to_async(list)(
             PackingList.objects.prefetch_related(
                 "container_number", "container_number__order", "container_number__order__warehouse", "shipment_batch_number"
                 "container_number__order__offload_id", "container_number__order__customer_name", "pallet"
-            ).filter(criteria).annotate(
+            ).filter(criteria_pl).annotate(
                 custom_delivery_method=Case(
                     When(Q(delivery_method='暂扣留仓(HOLD)') | Q(delivery_method='暂扣留仓'), then=Concat('delivery_method', Value('-'), 'fba_id', Value('-'), 'id')),
                     default=F('delivery_method'),
@@ -877,6 +917,11 @@ class ShippingManagement(View):
                 ),
             ).distinct().order_by('container_number__order__offload_id__offload_at')
         )
+
+        pal = Q(container_number__order__offload_id=True)
+        criteria_pal = criteria & pal
+        pal_list = 'Unkown'  #没写完pallet的筛选
+        return pl_list
     
     async def _get_sharepoint_auth(self) -> ClientContext:
         return ClientContext(SP_URL).with_credentials(UserCredential(SP_USER, SP_PASS))
