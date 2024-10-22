@@ -185,7 +185,7 @@ class Palletization(View):
             AbnormalOffloadStatus.objects
             .select_related('container_number')
             .annotate(retrieval_destination_precise=Subquery(retrieval_precise_subquery))
-            .filter(is_resolved=True,confirmed_by_warehouse=False)
+            .filter(is_resolved=True, confirmed_by_warehouse=False)
             .order_by('created_at')
         )
         
@@ -221,7 +221,6 @@ class Palletization(View):
                 shipment_schduled_at__date=today
             ).distinct()
         )
-        print('预约',shipment)
         #当日+下一天的预约信息
         fleet = await sync_to_async(list)(
             Fleet.objects.filter(
@@ -229,7 +228,6 @@ class Palletization(View):
             )
         )
         #当日到港货柜
-        
         containers = await sync_to_async(list)(
             Order.objects.select_related(
                 "vessel_id", "container_number", "customer_name", "retrieval_id"

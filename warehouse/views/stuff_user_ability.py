@@ -19,6 +19,7 @@ from warehouse.models.retrieval import Retrieval
 from warehouse.models.packing_list import PackingList
 from warehouse.models.shipment import Shipment
 from warehouse.models.warehouse import ZemWarehouse
+from warehouse.models.pallet import Pallet
 from warehouse.forms.upload_file import UploadFileForm
 
 @method_decorator(login_required(login_url='login'), name='dispatch')
@@ -63,6 +64,9 @@ class StuffPower(View):
             return render(request, template, context)
         elif step == "update_shipment":
             template, context = self.update_shipment()
+            return render(request, template, context)
+        elif step == "update_pallet":
+            template, context = self.update_pallet()
             return render(request, template, context)
         else:
             self._remove_offload()
@@ -320,6 +324,30 @@ class StuffPower(View):
         }
         return self.template_1, context
     
+    def update_pallet(self) -> tuple[Any, Any]:
+        pallet = Pallet.objects.select_related(
+            "packing_list", "packing_list__container_number", "packing_list__shipment_batch_number"
+        ).all()
+        updated_pallet = []
+        cnt = 0
+        for p in pallet:
+            if p.packing_list:
+                p.destination = p.packing_list.destination
+                p.delivery_method = p.packing_list.delivery_method
+                p.container_number = p.packing_list.container_number
+                p.shipment_number = p.packing_list.shipment_batch_number
+                cnt += 1
+                updated_pallet.append(p)
+        Pallet.objects.bulk_update(
+            updated_pallet,
+            ["destination", "delivery_method", "container_number", "shipment_number"]
+        )
+        context = {
+            "pallet_updated": True,
+            "count": cnt,
+        }
+        return self.template_1, context
+
     def _format_string_datetime(self, datetime_str: str, datetime_part: str = "date") -> str|None:
         if not datetime_str:
             return None
