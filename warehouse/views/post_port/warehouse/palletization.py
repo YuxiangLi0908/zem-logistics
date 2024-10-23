@@ -589,16 +589,17 @@ class Palletization(View):
                             raise RuntimeError(f"Error opening image: {e}")
                     except base64.binascii.Error as e:
                         raise RuntimeError(f"Error decoding base64: {e}")
-                new_data = {
-                    "container_number": pl.get("container_number__container_number"),
-                    "destination": f"{pl.get('destination').replace('沃尔玛', 'WM-')}-{i}",
-                    "date": retrieval_date,
-                    "customer": customer_name,
-                    "hold": ("暂扣留仓" in pl.get("custom_delivery_method").split("-")[0]),
-                    "fba_ids": fba_ids,
-                    "barcode":new_barcode_base64,
-                    "shipping_marks": shipping_marks,
-                }
+                    new_data = {
+                        "container_number": pl.get("container_number__container_number"),
+                        "destination": f"{pl.get('destination').replace('沃尔玛', 'WM-')}-{i}",
+                        "date": retrieval_date,
+                        "customer": customer_name,
+                        "hold": ("暂扣留仓" in pl.get("custom_delivery_method").split("-")[0]),
+                        "fba_ids": fba_ids,
+                        "barcode":new_barcode_base64,
+                        "shipping_marks": shipping_marks,
+                    }
+                    data.append(new_data)
         context = {"data": data}
         template = get_template(self.template_pallet_label)
         html = template.render(context)
