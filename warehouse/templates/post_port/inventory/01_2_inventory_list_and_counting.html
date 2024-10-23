@@ -1,0 +1,49 @@
+{% extends 'post_port/inventory/01_1_inventory_list_and_upload.html' %}
+{% block warehouse_inventory_counting %}
+<div style="height: 800px; width: 50%; margin-top: .5%; margin-right: .5%; margin-bottom: 1%;">
+    <form method="post" enctype="multipart/form-data" style="height: 50%; width: 100%; font-size: 11px;" onsubmit="showLoadingBar()">
+        {% csrf_token %}
+        <div style="height: 100%; width: 100%; border: 2px solid rgb(180, 180, 180); border-radius: 12px; padding: 1%;">
+            <div style="max-height: 99%; overflow-y: scroll;">
+                <div>
+                    <b style="background-color: rgb(208, 208, 208); border-radius: 20px; font-size: 11px; display:inline-flex; color: rgb(100, 100, 100); padding: 5px;">
+                        库存盘点
+                    </b>
+                    <b style="background-color: rgb(208, 208, 208); border-radius: 20px; font-size: 11px; display:inline-flex; color: rgb(100, 100, 100); padding: 5px;">
+                        卡板 - 
+                        <span class="status-span-green-100" style="padding-top: 0; padding-bottom: 0;">库存 {{ total_pallet_cnt|floatformat:0 }}</span>
+                    </b>
+                </div>
+                <table id="inventory-list" class="table" style="font-size: 11px;">
+                    <thead>
+                        <tr>
+                            <th class="th">货柜号</th>
+                            <th class="th">目的仓库</th>
+                            <th class="th">系统卡板数</th>
+                            <th class="th">实际卡板数</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for inv in inventory_data %}
+                        <tr {% if inv.n_pallet_sys < inv.n_pallet_act %}class="tr-status-yellow"{% elif inv.n_pallet_act < inv.n_pallet_sys %}class="tr-status-red"{% endif %}>
+                            <td class="td">{{ inv.container_number }}</td>
+                            <td class="td">{{ inv.destination }}</td>
+                            <td class="td">{{ inv.n_pallet_sys|floatformat:0 }}</td>
+                            <td class="td">{{ inv.n_pallet_act|floatformat:0 }}</td>
+                            <input type="hidden" name="container_number" value="{{ inv.container_number }}">
+                            <input type="hidden" name="destination" value="{{ inv.destination }}">
+                            <input type="hidden" name="n_pallet_act" value="{{ inv.n_pallet_act }}">
+                            <input type="hidden" name="n_pallet_sys" value="{{ inv.n_pallet_sys }}">
+                            <input type="hidden" name="pallet_ids" value="{{ inv.pallet_ids }}">
+                        </tr>          
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+        </div>
+        <input type="hidden" name="step" value="confirm_counting">
+        <input type="hidden" name="warehouse" value="{{ warehouse }}">      
+        <button type="submit" class="btn btn-primary" style="width: 100px; height: 35px;">确认</button>
+    </form>
+</div>
+{% endblock %}

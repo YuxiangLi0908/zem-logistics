@@ -42,7 +42,6 @@ class Palletization(View):
     template_pallet_label = "export_file/pallet_label_template.html"
     template_pallet_abnormal_records_search = "post_port/palletization/palletization_abnormal_records_search.html"
     template_pallet_abnormal_records_display = "post_port/palletization/palletization_abnormal_records_display.html"
-
     template_pallet_daily_operation = "post_port/palletization/daily_operation.html"
 
     async def get(self, request: HttpRequest, **kwargs) -> HttpResponse:
@@ -535,7 +534,8 @@ class Palletization(View):
                     "customer": customer_name,
                     "hold": ("暂扣留仓" in pl.get("custom_delivery_method").split("-")[0]),
                     "fba_ids": fba_ids,
-                    "barcode":new_barcode_base64
+                    "barcode":new_barcode_base64,
+                    "shipping_marks": shipping_marks,
                 }
                 data.append(new_data)
         context = {"data": data}

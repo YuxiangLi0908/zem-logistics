@@ -13,6 +13,7 @@ from warehouse.views.pre_port.pre_port_dash import PrePortDash
 from warehouse.views.retrieval_schedule import ScheduleRetrieval
 from warehouse.views.palletization import Palletization as LegacyPalletization
 from warehouse.views.post_port.warehouse.palletization import Palletization
+from warehouse.views.post_port.warehouse.inventory import Inventory
 from warehouse.views.shipment_schedule import ScheduleShipment
 from warehouse.views.shipment_dispatch import ShipmentDispatch
 from warehouse.views.export_file import ExportFile
@@ -44,6 +45,7 @@ urlpatterns = [
     path('container_pickup/', ScheduleRetrieval.as_view(), name='schedule_pickup'),
     path('palletize/', Palletization.as_view(), name='palletization'),
     path('palletize/<str:pk>/', Palletization.as_view(), name='palletize_container'),
+    path('inventory/', Inventory.as_view(), name='inventory'),
     path('schedule_shipment/', ShippingManagement.as_view(), name='schedule_shipment'),
     path('fleet/', ShippingManagement.as_view(), name='fleet'),
     path('outbound/', ShippingManagement.as_view(), name='outbound'),
