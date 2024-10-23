@@ -356,13 +356,19 @@ class Palletization(View):
             destinations = [d for d in request.POST.getlist("destinations")]
             delivery_method = [d for d in request.POST.getlist("delivery_method")]
             shipment_batch_number = [d for d in request.POST.getlist("shipment_batch_number")]
+            shipping_marks = request.POST.getlist("shipping_marks")
+            fba_ids = request.POST.getlist("fba_ids")
+            ref_ids = request.POST.getlist("ref_ids")
             notes = [d for d in request.POST.getlist("note")]
             total_pallet = sum(n_pallet)
             abnormal_offloads = []
-            for n, p_a, p_r, c, w, dest, d_m, note, shipment in zip(
-                n_pallet, pcs_actual, pcs_reported, cbm, weight, destinations, delivery_method, notes, shipment_batch_number
+            for n, p_a, p_r, c, w, dest, d_m, note, shipment, shipping_mark, fba_id, ref_id in zip(
+                n_pallet, pcs_actual, pcs_reported, cbm, weight, destinations, delivery_method, 
+                notes, shipment_batch_number, shipping_marks, fba_ids, ref_ids
             ):
-                await self._split_pallet(n, p_a, p_r, c, w, dest, d_m, note, shipment, pk)  #循环遍历每个汇总的板数
+                await self._split_pallet(
+                    n, p_a, p_r, c, w, dest, d_m, note, shipment, shipping_mark, fba_id, ref_id, pk
+                )  #循环遍历每个汇总的板数
                 if p_a != p_r:
                     abnormal_offloads.append({
                         "offload": offload,
@@ -621,6 +627,9 @@ class Palletization(View):
         delivery_method: str,
         note: str,
         shipment_batch_number: str,
+        shipping_mark: str, 
+        fba_id: str, 
+        ref_id: str,
         pk: int,
         seed: int = 0
     ) -> None:
@@ -659,6 +668,9 @@ class Palletization(View):
                 "weight_lbs": weight_loaded,
                 "shipment_number": shipment,
                 "note": note,
+                "shipping_mark": shipping_mark if shipping_mark else "",
+                "fba_id": fba_id if fba_id else "",
+                "ref_id": ref_id if ref_id else "",
             })
         await sync_to_async(Pallet.objects.bulk_create)([Pallet(**d) for d in pallet_data])
 
