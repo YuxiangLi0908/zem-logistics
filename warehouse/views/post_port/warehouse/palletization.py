@@ -248,7 +248,7 @@ class Palletization(View):
         arrived_containers = []
         for o in containers:
             con_dict = {
-                "id": status.id,
+                "id": o.id,
                 "container_number": o.container_number.container_number,
                 "order_type": o.order_type,
                 "vessel_id":o.vessel_id,
