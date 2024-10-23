@@ -293,7 +293,7 @@ class ShippingManagement(View):
             container_number__order__packing_list_updloaded=True,
             shipment_batch_number__isnull=True,
             container_number__order__order_type="转运",
-            container_number__order__created_at__gte='2024-09-01',
+            # container_number__order__created_at__gte='2024-09-01',
         ) & (
             # TODOs: 考虑按照安排提柜时间筛选
             models.Q(container_number__order__vessel_id__vessel_eta__lte=datetime.now().date() + timedelta(days=7)) |
@@ -847,9 +847,7 @@ class ShippingManagement(View):
         return await self.handle_delivery_and_pod_get(request)
 
     async def _get_packing_list(self, criteria: models.Q) -> list[Any]:
-        pl = Q(container_number__order__offload_id__offload_at__isnull=True)
-        criteria_pl = criteria & pl
-        
+        criteria_pl = criteria & Q(container_number__order__offload_id__offload_at__isnull=True)
         pl_list =  await sync_to_async(list)(
             PackingList.objects.prefetch_related(
                 "container_number", "container_number__order", "container_number__order__warehouse", "shipment_batch_number"
@@ -866,7 +864,6 @@ class ShippingManagement(View):
                     output_field=CharField()
                 ),
                 str_id=Cast("id", CharField()),
-                str_plt_id=Cast("pallet__pallet_id", CharField()),
                 str_fba_id=Cast("fba_id", CharField()),
                 str_ref_id=Cast("ref_id", CharField()),
                 str_shipping_mark=Cast("shipping_mark", CharField())
@@ -883,7 +880,6 @@ class ShippingManagement(View):
                 ref_ids=StringAgg("str_ref_id", delimiter=",", distinct=True, ordering="str_ref_id"),
                 shipping_marks=StringAgg("str_shipping_mark", delimiter=",", distinct=True, ordering="str_shipping_mark"),
                 ids=StringAgg("str_id", delimiter=",", distinct=True, ordering="str_id"),
-                plt_ids=StringAgg("str_plt_id", delimiter=",", distinct=True, ordering="str_plt_id"),
                 total_pcs=Sum(
                     Case(
                         When(pallet__isnull=True, then=F("pcs")),
