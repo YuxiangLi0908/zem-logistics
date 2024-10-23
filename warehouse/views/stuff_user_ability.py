@@ -328,22 +328,22 @@ class StuffPower(View):
         pallet = Pallet.objects.select_related(
             "packing_list", "packing_list__container_number", "packing_list__shipment_batch_number"
         ).filter(
-            packing_list__container_number__order__created_at__gte='2024-08-01'
+            packing_list__container_number__order__created_at__gte='2024-09-01'
         )
         updated_pallet = []
         cnt = 0
-        for p in pallet:
-            if p.packing_list:
-                p.destination = p.packing_list.destination
-                p.delivery_method = p.packing_list.delivery_method
-                p.container_number = p.packing_list.container_number
-                p.shipment_number = p.packing_list.shipment_batch_number
-                cnt += 1
-                updated_pallet.append(p)
-        Pallet.objects.bulk_update(
-            updated_pallet,
-            ["destination", "delivery_method", "container_number", "shipment_number"]
-        )
+        # for p in pallet:
+        #     if p.packing_list:
+        #         p.destination = p.packing_list.destination
+        #         p.delivery_method = p.packing_list.delivery_method
+        #         p.container_number = p.packing_list.container_number
+        #         p.shipment_number = p.packing_list.shipment_batch_number
+        #         cnt += 1
+        #         updated_pallet.append(p)
+        # Pallet.objects.bulk_update(
+        #     updated_pallet,
+        #     ["destination", "delivery_method", "container_number", "shipment_number"]
+        # )
         context = {
             "pallet_updated": True,
             "count": cnt,
