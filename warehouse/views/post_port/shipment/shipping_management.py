@@ -90,7 +90,7 @@ class ShippingManagement(View):
         if not await self._user_authenticate(request):
             return redirect("login")
         step = request.POST.get("step")
-        print('step',step)
+        print('step-POST',step)
         if step == "warehouse":
             template, context = await self.handle_warehouse_post(request)
             return render(request, template, context)
@@ -847,9 +847,8 @@ class ShippingManagement(View):
         return await self.handle_delivery_and_pod_get(request)
 
     async def _get_packing_list(self, criteria: models.Q) -> list[Any]:
-        pl = Q(container_number__order__offload_id=False)
+        pl = Q(container_number__order__offload_id__offload_at__isnull=True)
         criteria_pl = criteria & pl
-
         
         pl_list =  await sync_to_async(list)(
             PackingList.objects.prefetch_related(
@@ -918,9 +917,36 @@ class ShippingManagement(View):
             ).distinct().order_by('container_number__order__offload_id__offload_at')
         )
 
-        pal = Q(container_number__order__offload_id=True)
+        pal = Q(container_number__order__offload_id__offload_at__isnull=False)
         criteria_pal = criteria & pal
-        pal_list = 'Unkown'  #没写完pallet的筛选
+        pal_list = await sync_to_async(list)(
+            Pallet.objects.prefetch_related(
+                "container_number"
+            ).filter(container_number__order__offload_id__isnull=False
+            ).values('container_number__container_number',
+                     'container_number__order__customer_name__zem_name',
+                     'destination',
+                     
+                     )
+        )
+        print(pal_list)
+        # pal_list =  await sync_to_async(list)(
+        #     Pallet.objects.prefetch_related(
+        #         "container_number"
+        #     ).filter(criteria_pal).annotate(
+                
+        #     ).values(
+        #         'container_number__container_number',
+        #         'container_number__order__customer_name__zem_name',
+        #         'destination',
+        #         'address',
+        #         'custom_delivery_method',
+        #         'container_number__order__offload_id__offload_at',
+        #         'schedule_status',
+        #     )
+        #     ).distinct().order_by('container_number__order__offload_id__offload_at')
+        
+
         return pl_list
     
     async def _get_sharepoint_auth(self) -> ClientContext:

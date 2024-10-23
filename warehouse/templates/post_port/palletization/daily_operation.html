@@ -4,6 +4,23 @@
 {% block content %}
     <div class="container mt-3" style="max-width: 100%;">
     <div id="mainContainer">
+        <form method="post" action="" onsubmit="showLoadingBar()">
+            {% csrf_token %}
+            <div>
+                <b style="margin-right: 5px;">选择仓点区域:</b>
+                <input type="hidden" name="step" value="warehouse_daily">
+                <select name="warehouse_filter">
+                    {% for k, v in warehouse_options %}
+                        {% if warehouse_filter == v %}
+                            <option value="{{ v }}" selected>{{ k }}</option>
+                        {% else %}
+                            <option value="{{ v }}">{{ k }}</option>
+                        {% endif %}
+                    {% endfor %}
+                </select>
+                <button type="submit">确认</button>
+            </div>
+        </form>
         <div id="exceptionHandling">
             <div style="max-height: 100%; max-width: 100%;">
                 <div><b>异常拆柜处理结果- {{ abnormal|length }}</b></div>
@@ -14,7 +31,6 @@
                     <table class="table" style="font-size: 11px" id="abnormal">
                         <thead>
                             <tr>
-                                <th>仓库</th>
                                 <th>柜号</th>
                                 <th>目的地</th>
                                 <th>派送方式</th>
@@ -26,13 +42,6 @@
                                 <th>操作指令</th>
                             </tr>
                             <tr style="position: sticky; top: 28px;">
-                                <th class="th">
-                                    <select name="warehouse_filter" onchange="filterTable(this, 0, true, 'abnormal')">
-                                        {% for k, v in warehouse_options %}
-                                            <option value="{{ v }}">{{ k }}</option>
-                                        {% endfor %}
-                                    </select>
-                                </th>
                                 <th class="th">
                                     <input type="text" id="ctnSearch" placeholder="搜索柜号..." oninput="filterTable(this, 1, true, 'abnormal')" size="13" style="font-size: 11px;">
                                 </th>
@@ -51,7 +60,6 @@
                         <tbody id="palletization-container">                       
                             {% for pl in abnormal %}
                             <tr id="palletization-row">
-                                <td class="td">{{ pl.retrieval_destination_precise }}</td>
                                 <td class="td">{{ pl.container_number }}</td>
                                 <td class="td">{{ pl.destination }}</td>
                                 <td class="td">{{ pl.deivery_method }}</td>
@@ -150,19 +158,11 @@
                 <table class="table" style="font-size: 11px" id="arrived">
                     <thead>
                         <tr>
-                            <th>仓库</th>
                             <th>柜号</th>
                             <th>订单类型</th>
                             <th>Vessel状态</th>
                         </tr>
                         <tr style="position: sticky; top: 28px;">
-                            <th class="th">
-                                <select name="warehouse_filter" onchange="filterTable(this, 0, true, 'arrived')">
-                                    {% for k, v in warehouse_options %}
-                                        <option value="{{ v }}">{{ k }}</option>
-                                    {% endfor %}
-                                </select>
-                            </th>
                             <th class="th">
                                 <input type="text" id="ctnSearch" placeholder="搜索柜号..." oninput="filterTable(this, 1, true, 'arrived')" size="13" style="font-size: 11px;">
                             </th>
@@ -173,7 +173,6 @@
                     <tbody id="palletization-container">                       
                         {% for o in arrived_containers %}
                         <tr id="palletization-row">
-                            <td class="td">{{ o.retrieval_destination_precise }}</td>
                             <td class="td">{{ o.container_number }}</td>
                             <td class="td">{{ o.order_type }}</td>
                             <td>

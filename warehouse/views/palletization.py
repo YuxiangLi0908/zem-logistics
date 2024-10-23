@@ -1,4 +1,4 @@
-import pytz
+import pytz,json
 import uuid
 import asyncio
 import multiprocessing as mp
@@ -140,6 +140,18 @@ class Palletization(View):
         asyncio.run(self.handle_warehouse_post(request))
 
     def _export_pallet_label(self, request: HttpRequest) -> HttpResponse:
+        customerInfo = request.POST.get("customerInfo")
+        if customerInfo:
+            customer_info = json.loads(customerInfo)
+            packing_list = []
+            for row in customer_info:
+                packing_list.append({
+                    'container_number__container_number': row[0].strip(),
+                    'shipment_batch_number__shipment_batch_number': row[1].strip(),
+                    'destination': row[2].strip(),
+                    'total_cbm': row[3].strip(),
+                    'total_n_pallet': row[4].strip()
+                })
         container_number = request.POST.get("container_number")
         customer_name = request.POST.get("customer_name")
         status = request.POST.get("status")
