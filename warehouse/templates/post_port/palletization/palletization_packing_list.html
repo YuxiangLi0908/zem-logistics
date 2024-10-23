@@ -1,52 +1,97 @@
 {% extends 'base.html' %}
-
 {% block content %}
 {% load static custom_filters %}
     <form method="post" style="width: 100%;">
         {% csrf_token %}
         <div class="container mt-3" style="max-width: 100%;">
+            {% if status == 'non_palletized' %}
+            <div class="text-right">
+                <button id="addRowButton" type="button" class="btn btn-primary" style="width: 100px; height: 35px;" onclick="addRowBelow()">添加行</button>
+                <button id="addRowButton" type="button" class="btn btn-primary" style="width: 100px; height: 35px;" onclick="rmLastRow()">删除行</button>            
+            </div>
+            {% endif %}
             <div style="overflow-x: auto; max-width: 100%; overflow-y: auto; max-height: 800px;">
-                <table class="table">
+                <table class="table" style="font-size: 11px">
                     <thead>
                         <tr>
                             <th class="th">货柜</th>
                             <th class="th">目的仓库</th>
+                            <th class="th">派送方式</th>
+                            {% if status == 'non_palletized' %}
                             <th class="th">唛头</th>
                             <th class="th">FBA ID</th>
                             <th class="th">REF ID</th>
-                            <th class="th">派送方式</th>
-                            <th class="th">箱数</th>
+                            <th class="th">预报箱数</th>
+                            {% endif %}
+                            <th class="th">入库箱数</th>
                             <th class="th">CBM</th>
                             <th class="th">打板数</th>
                             <th class="th">备注</th>
                         </tr>
                     </thead>
-                    <tbody>
-                        
+                    <tbody id="palletization-container">                       
                         {% for pl, pl_form in order_packing_list %}
-                        <tr>
+                        <tr id="palletization-row">
                             <td class="td">{{ pl.container_number__container_number }}</td>
                             <td class="td">{{ pl.destination }}</td>
-                            <td class="td" style="max-width: 400px; word-break: break-all;"><small>{{ pl.shipping_marks }}</small></td>
-                            <td class="td" style="max-width: 400px; word-break: break-all;"><small>{{ pl.fba_ids }}</small></td>
-                            <td class="td" style="max-width: 400px; word-break: break-all;"><small>{{ pl.ref_ids }}</small></td>
                             <td class="td">
                                 {% with first_value=pl.custom_delivery_method|split_and_get_first %}
                                     {{ first_value }}
+                                    <input type="hidden" name="delivery_method" value="{{first_value}}">
                                 {% endwith %}
                             </td>
+                            {% if status == 'non_palletized' %}
+                            <td class="td" style="max-width: 400px; word-break: break-all;"><small>{{ pl.shipping_marks }}</small></td>
+                            <td class="td" style="max-width: 400px; word-break: break-all;"><small>{{ pl.fba_ids }}</small></td>
+                            <td class="td" style="max-width: 400px; word-break: break-all;"><small>{{ pl.ref_ids }}</small></td>
                             <td class="td">{{ pl.pcs }}</td>
+                            <td class="td"><input type="number" step="1" name="pcs_actul" value="{{ pl.pcs }}" required></td>
+                            {% else %}
+                            <td class="td">{{ pl.pcs }}</td> 
+                            {% endif %}
                             <td class="td">{{ pl.cbm|floatformat:2 }}</td>
                             {% if status == 'palletized' %}
                             <td class="td">{{ pl.n_pallet }}</td> 
                             {% else %}
                             <td class="td">{{ pl_form.n_pallet }}</td> 
                             {% endif %}
-                            <td class="td">{{ pl.note }}</td> 
+                            <td class="td">{{ pl.note }}</td>
                             <input type="hidden" name="ids" value="{{pl.ids}}">
+                            <input type="hidden" name="note" value="{{pl.note}}">
+                            <input type="hidden" name="pcs_reported" value="{{pl.pcs}}">
                             <input type="hidden" name="cbms" value="{{pl.cbm}}">
+                            <input type="hidden" name="notes" value="{{pl.note}}">
+                            <input type="hidden" name="weights" value="{{pl.weight_lbs}}">
+                            <input type="hidden" name="destinations" value="{{pl.destination}}">
+                            <input type="hidden" name="container_number" value="{{pl.container_number__container_number}}">
+                            <input type="hidden" name="shipment_batch_number" value="{{pl.shipment_batch_number__shipment_batch_number}}">
                         </tr>
                         {% endfor %}
+                        {% if status == 'non_palletized' %}
+                        <tr id="palletization-row-empty" class="abnormal-palletization-row" style="display: none;">
+                            <td class="td"><input type="text" name="container_numer" value="{{ container_number }}" disabled></td>
+                            <td class="td"><input type="text" name="new_destinations" required></td>
+                            <td class="td">
+                                <select name="new_delivery_method" class="new-delivery-method" style="font-size: 13px;">
+                                    {% for k, v in delivery_method_options %}
+                                    <option value="{{ v }}">{{ k }}</option>
+                                    {% endfor %}
+                                </select>
+                            </td>
+                            {% if status == 'non_palletized' %}
+                            <td class="td"><input type="text" name="new_shipping_marks" placeholder="optional"></td>
+                            <td class="td"><input type="text" name="new_fba_ids" placeholder="optional"></td>
+                            <td class="td"><input type="text" name="new_ref_ids" placeholder="optional"></td>
+                            <td class="td"><input type="text" name="new_pcs_reported" value="0" disabled></td>
+                            <td class="td"><input type="number" step="1" name="new_pcs_actul"></td>
+                            {% else %}
+                            <td class="td"><input type="text" name="new_pcs_actul"></td>
+                            {% endif %}
+                            <td class="td"><input type="number" name="new_cbms" placeholder="optional"></td>
+                            <td class="td"><input type="number" step="1" name="new_pallets" required></td>
+                            <td class="td"><input type="text" name="new_notes"></td>
+                        </tr>
+                        {% endif %}
                     </tbody>
                 </table>
             </div>
@@ -57,9 +102,58 @@
                     <button type="submit" class="btn btn-primary" style="width: 100px; height: 35px;">返回</button>
                 {% else %}
                     <input type="hidden" name="step" value="palletize">
-                    <button type="submit" class="btn btn-primary" style="width: 100px; height: 35px;">确认</button>
+                    <button type="submit" class="btn btn-primary" style="width: 100px; height: 35px;" onclick="processForm()">确认</button>
                 {% endif %}
             </div>
         </div>
     </form>
+
+<script>
+    function addRowBelow(){
+        var table = document.getElementById('palletization-container');
+        var newRow = document.querySelector('#palletization-row-empty').cloneNode(true);
+        newRow.style.display = '';
+        newRow.id = 'palletization-row';
+        table.appendChild(newRow);
+        console.log(table);
+    };
+
+    function rmLastRow() {
+        var table = document.getElementById('palletization-container');
+        var rows = document.querySelectorAll('tr.abnormal-palletization-row');
+        console.log(rows);
+        if (rows.length > 1) {
+            table.removeChild(rows[rows.length - 1]);
+        };
+    };
+
+    function processForm() {
+        var firstEmptyRow = document.getElementById('palletization-row-empty');
+        if (firstEmptyRow && firstEmptyRow.style.display === 'none') {
+            var inputs = firstEmptyRow.querySelectorAll('input, select');
+            inputs.forEach(function(input) {
+                if (input.hasAttribute('required')) {
+                    input.removeAttribute('required');
+                };
+                input.disabled = true;
+            });
+        };
+        var deliveryMethodSelects = document.querySelectorAll('select.new-delivery-method');
+        var isValid = true;
+        deliveryMethodSelects.forEach(function(select) {
+            if (!select.disabled) {
+                if (select.value.trim() === '') {
+                isValid = false;
+                select.style.border = '2px solid red';
+                } else {
+                    select.style.border = '';
+                };
+            };
+        });
+        if (!isValid) {
+            event.preventDefault();
+            alert("请选择'派送方式'!");
+        };
+    };
+</script>
 {% endblock %}

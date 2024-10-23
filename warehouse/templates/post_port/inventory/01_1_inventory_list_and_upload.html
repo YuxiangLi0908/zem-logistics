@@ -1,0 +1,64 @@
+{% extends 'post_port/inventory/01_inventory_count_main.html' %}
+
+{% block warehouse_inventory %}
+<div style="display: flex;">
+    <div>
+        <form method="post" enctype="multipart/form-data" style="font-size: 11px;" onsubmit="showLoadingBar()">
+            {% csrf_token %}
+            导入模版: 
+            {{ inventory_counting_file_form.file }}
+            <input type="hidden" name="step" value="upload_counting_data">
+            <input type="hidden" name="warehouse" value="{{ warehouse }}">
+            <input type="hidden" name="container_number" value="{{ selected_order.container_number.container_number }}">
+            <button type="submit" class="btn btn-success" style="width: 100px; height: 35px; font-size: 12px; margin: 5px;">上传盘点数据</button>
+        </form>
+    </div>
+    <div>
+        <form method="post" action="">
+            {% csrf_token %}
+            <input type="hidden" name="step" value="download_counting_template">
+            <button type="submit" class="btn btn-success" style="width: 100px; height: 35px; font-size: 12px; margin: 5px;">下载盘点模版</button>
+        </form>
+    </div>
+</div>
+<div style="display: flex;">
+    <div style="height: 800px; width: 50%; margin-top: .5%; margin-right: .5%; margin-bottom: 1%;">
+        <div style="height: 50%; width: 100%; border: 2px solid rgb(180, 180, 180); border-radius: 12px; padding: 1%;">
+            <div style="max-height: 99%; overflow-y: scroll;">
+                <div>
+                    <b style="background-color: rgb(208, 208, 208); border-radius: 20px; font-size: 11px; display:inline-flex; color: rgb(100, 100, 100); padding: 5px;">
+                        系统库存
+                    </b>
+                    <b style="background-color: rgb(208, 208, 208); border-radius: 20px; font-size: 11px; display:inline-flex; color: rgb(100, 100, 100); padding: 5px;">
+                        卡板 - 
+                        <span class="status-span-green-100" style="padding-top: 0; padding-bottom: 0;">库存 {{ total_pallet|floatformat:0 }}</span>
+                    </b>
+                </div>
+                <table id="inventory-list" class="table" style="font-size: 11px;">
+                    <thead>
+                        <tr>
+                            <th class="th">货柜号</th>
+                            <th class="th">目的仓库</th>
+                            <th class="th">CBM</th>
+                            <th class="th">卡板数</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for c in pallet %}
+                        <tr>
+                            <td class="td">{{ c.container_number__container_number }}</td>
+                            <td class="td">{{ c.destination }}</td>
+                            <td class="td">{{ c.cbm|floatformat:2 }}</td>
+                            <td class="td">{{ c.n_pallet }}</td>
+                        </tr>          
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+    {% block warehouse_inventory_counting %}
+        
+    {% endblock %}
+</div>
+{% endblock %}

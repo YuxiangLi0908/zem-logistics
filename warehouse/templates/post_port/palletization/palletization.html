@@ -75,6 +75,32 @@
                                 {% endif %}
                             </td>
                             <td class="td">
+                                <div>
+                                    <form method="post" action="" style="display: inline-block;">
+                                        {% csrf_token %}
+                                        <input type="hidden" name="step" value="export_pallet_label">
+                                        <input type="hidden" name="status" value="non_palletized">
+                                        <input type="hidden" name="customer_name" value="{{ c.customer_name.zem_code }}">
+                                        <input type="hidden" name="container_number" value="{{ c.container_number }}">
+                                        <input type="hidden" name="n_label" value="3">
+                                        <button type="submit" class="btn btn-success" style="font-size: 13px;">
+                                            <small>托盘标(3张)</small>
+                                            <i class="bi bi-cloud-arrow-down-fill"></i>
+                                        </button>
+                                    </form>
+                                    <form method="post" action="" style="display: inline-block;">
+                                        {% csrf_token %}
+                                        <input type="hidden" name="step" value="export_pallet_label">
+                                        <input type="hidden" name="status" value="non_palletized">
+                                        <input type="hidden" name="customer_name" value="{{ c.customer_name.zem_code }}">
+                                        <input type="hidden" name="container_number" value="{{ c.container_number }}">
+                                        <input type="hidden" name="n_label" value="4">
+                                        <button type="submit" class="btn btn-success" style="font-size: 13px;">
+                                            <small>托盘标(4张)</small>
+                                            <i class="bi bi-cloud-arrow-down-fill"></i>
+                                        </button>
+                                    </form>
+                                </div>
                                 <form method="post" action="" style="display: inline-block;">
                                     {% csrf_token %}
                                     <input type="hidden" name="step" value="export_palletization_list">
@@ -85,30 +111,71 @@
                                         <i class="bi bi-cloud-arrow-down-fill"></i>
                                     </button>
                                 </form>
-                                <form method="post" action="" style="display: inline-block;">
+                                <form method="post" action="" style="display: inline-block;" id="semi_auto_label">
                                     {% csrf_token %}
                                     <input type="hidden" name="step" value="export_pallet_label">
-                                    <input type="hidden" name="status" value="non_palletized">
-                                    <input type="hidden" name="customer_name" value="{{ c.customer_name.zem_code }}">
-                                    <input type="hidden" name="container_number" value="{{ c.container_number }}">
-                                    <input type="hidden" name="n_label" value="3">
-                                    <button type="submit" class="btn btn-success" style="font-size: 13px;">
-                                        <small>托盘标(3张)</small>
-                                        <i class="bi bi-cloud-arrow-down-fill"></i>
-                                    </button>
-                                </form>
-                                <form method="post" action="" style="display: inline-block;">
-                                    {% csrf_token %}
-                                    <input type="hidden" name="step" value="export_pallet_label">
-                                    <input type="hidden" name="status" value="non_palletized">
-                                    <input type="hidden" name="customer_name" value="{{ c.customer_name.zem_code }}">
-                                    <input type="hidden" name="container_number" value="{{ c.container_number }}">
-                                    <input type="hidden" name="n_label" value="4">
-                                    <button type="submit" class="btn btn-success" style="font-size: 13px;">
-                                        <small>托盘标(4张)</small>
-                                        <i class="bi bi-cloud-arrow-down-fill"></i>
-                                    </button>
-                                </form>
+                                    <button id="editButton" type="button" class="btn btn-primary" onclick="print_label(this)" style="font-size: 11px;">托盘标手动打印</button>
+                                    <div class="popup" style="display: none; z-index:999; position: fixed; top: 50%; left: 50%; transform: translate(-50%, -50%); background-color: white; border: 1px solid gray; padding: 20px;">
+                                        <div style="text-align:right;">
+                                            <button type="button" id="add-more-btn" class="btn btn-success" style="height: 35px; font-size: 12px; margin: 5px;" onclick="addRowBelow()">
+                                                <i class="bi bi-plus-lg"></i> 添加行
+                                            </button>
+                                        </div>
+                                        <table style=" max-height:90%; overflow-y:scroll; margin: 10px; padding: 100px;" cellpadding='15' id="edit_pallet_label">
+                                            <thead>                       
+                                                <th class="th" style="text-align: center; border: 1px solid #141414">柜号</th>
+                                                <th class="th" style="text-align: center; border: 1px solid #141414">客户</th>
+                                                <th class="th" style="text-align: center; border: 1px solid #141414">唛头</th>
+                                                <th class="th" style="text-align: center; border: 1px solid #141414">fba</th>
+                                                <th class="th" style="text-align: center; border: 1px solid #141414">目的地</th>
+                                                <th class="th" style="text-align: center; border: 1px solid #141414">派送方式</th>
+                                                <th class="th" style="text-align: center; border: 1px solid #141414">板号</th>
+                                                <th class="th" style="text-align: center; border: 1px solid #141414">日期</th>
+                                                <th class="th" style="text-align: center; border: 1px solid #141414">是否扣货</th>   
+                                            </thead>
+                                            <tr id="lable-row">
+                                                <td style="text-align: center; border: 1px solid #141414; padding:10px;" data-editable="true">
+                                                    <input value="{{ c.container_number }}">
+                                                </td>
+                                                <td style="text-align: center; border: 1px solid #141414; padding:10px;" data-editable="true">
+                                                    <input value="{{ c.customer_name.zem_code }}">
+                                                </td>
+                                                <td style="text-align: center; border: 1px solid #141414; text-wrap: wrap; padding:10px;" data-editable="true">
+                                                    <input type="text">
+                                                </td>
+                                                <td style="text-align: center; border: 1px solid #141414; text-wrap: wrap; padding:10px;" data-editable="true">
+                                                    <input type="text">
+                                                </td>
+                                                <td style="text-align: center; border: 1px solid #141414; text-wrap: wrap; padding:10px;" data-editable="true">
+                                                    <input type="text">
+                                                </td>
+                                                <td style="text-align: center; border: 1px solid #141414; padding:10px;" data-editable="true">
+                                                    <select>
+                                                        <option value="卡车派送">卡车派送</option>
+                                                        <option value="客户自提">客户自提</option>
+                                                        <option value="暂扣留仓">暂扣留仓</option>
+                                                    </select>
+                                                </td>         
+                                                <td style="text-align: center; border: 1px solid #141414; padding:10px;" data-editable="true">
+                                                    <input type="text">
+                                                </td>
+                                                <td style="text-align: center; border: 1px solid #141414; padding:10px;" data-editable="true">
+                                                    <input type="date" data-editable="true">
+                                                </td>
+                                                <td style="text-align: center; border: 1px solid #141414; padding:10px;" data-editable="true">
+                                                    <select>
+                                                        <option value="是">是</option>
+                                                        <option value="否">否</option>
+                                                    </select>
+                                                </td>                                        
+                                            </tr>
+                                        </table>
+                                        <div style="text-align:right;">
+                                            <button id="confirmButton" type="button" class="btn btn-primary"  style="font-size: 11px;" onclick="editTable(false)">确认</button>
+                                        </div>
+                                    </div>
+                                    <script src="script.js"></script>
+                                </form> 
                             </td>
                         </tr>
                     {% endfor %}
@@ -146,7 +213,6 @@
                 </thead>
                 <tbody>
                     {% for c in order_palletized %}
-                    
                         <tr>
                             <td class="td">
                                 <a href="/palletize/{{c.id}}/?step=container_palletization&warehouse={{ warehouse }}">{{ c.container_number }}</a>
@@ -265,5 +331,87 @@
             });
         }
     });
+    function print_label(button) {   //用户要编辑BOL中的表时，弹出表格框
+        var popup = document.querySelector('.popup');
+        if (popup.style.display === 'none') {
+            popup.style.display = 'block';
+        } else {
+            popup.style.display = 'none';
+        }
+        //button.style.backgroundColor = 'gray';   
+    };
+    function editTable(flag){   //用户编辑时，将表格的单元格变为编辑状态，用户确认时，变为不可编辑状态，并记录单元格的内容，用于传输给视图
+        customerInfo = []
+        var table = document.getElementById('edit_pallet_label');              
+        var rows = table.getElementsByTagName('tr');
+        for (var i=1; i < rows.length; i++){      
+            var cells = rows[i].getElementsByTagName('td');
+            var rowData = [];
+            for (var j = 0; j < cells.length; j++) {
+                if (cells[j].getAttribute('data-editable') === 'true') {
+                    if (flag){
+                        if (!cells[j].getElementsByTagName('input')[0]){
+                            var content = cells[j].innerHTML;
+                            var input = document.createElement('input');
+                            input.type = 'text';
+                            input.value = content;
+                            input.size = 15;
+                            cells[j].innerHTML = '';
+                            cells[j].appendChild(input);
+                        }
+                    } else {
+                        var input = cells[j].getElementsByTagName('input')[0];
+                        if (input){
+                            var tr = rows[i];
+                            if (tr.id && tr.id.indexOf('empty')=== -1) {
+                                rowData.push(input.value);
+                            }
+                            cells[j].innerHTML = input.value;    
+                            console.log(input.value)                       
+                        } else {
+                            // 处理最后一个包含select元素的单元格
+                            var select = cells[j].getElementsByTagName('select')[0];
+                            if (select) {
+                               rowData.push(select.value);
+                            }
+                        }
+                    }
+                }
+            }
+            if (rowData.length > 0) {
+                customerInfo.push(rowData);
+            }
+        };
+        if (!flag){  
+            for (var i=1; i<rows.length; i++){
+                var rowData = {};
+                var cells = rows[i].getElementsByTagName('td');
+                for (var j = 0; j < cells.length; j++) {
+                    var cellName = 'cell' + j;
+                    rowData[cellName] = cells[j].innerHTML;
+                }
+            }
+            var jsonCustomerInfo = JSON.stringify(customerInfo);
+            var form = document.getElementById('semi_auto_label');
+            var newInput = document.createElement('input');
+            newInput.value = jsonCustomerInfo;
+            newInput.name = 'customerInfo';
+            newInput.type = 'hidden';
+            form.appendChild(newInput)
+
+            var popup = document.querySelector('.popup');
+            popup.style.display = 'none';
+            form.submit();
+        };
+        
+    };
+    function addRowBelow() {   //添加行的操作
+        var table = document.getElementById('edit_pallet_label');
+        var newRow = document.querySelector('#lable-row').cloneNode(true);
+        var newId = 'lable-row'+ Date.now();        
+        newRow.style.display = '';        
+        newRow.id = newId;
+        table.appendChild(newRow);
+    };
 </script>
 {% endblock %}

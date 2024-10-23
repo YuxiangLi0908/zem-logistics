@@ -1,0 +1,267 @@
+{% extends 'base.html' %}
+{% load static custom_filters %}     
+
+{% block content %}
+    <div class="container mt-3" style="max-width: 100%;">
+    <div id="mainContainer">
+        <form method="post" action="" onsubmit="showLoadingBar()">
+            {% csrf_token %}
+            <div>
+                <b style="margin-right: 5px;">选择仓点区域:</b>
+                <input type="hidden" name="step" value="warehouse_daily">
+                <select name="warehouse_filter">
+                    {% for k, v in warehouse_options %}
+                        {% if warehouse_filter == v %}
+                            <option value="{{ v }}" selected>{{ k }}</option>
+                        {% else %}
+                            <option value="{{ v }}">{{ k }}</option>
+                        {% endif %}
+                    {% endfor %}
+                </select>
+                <button type="submit">确认</button>
+            </div>
+        </form>
+        <div id="exceptionHandling">
+            <div style="max-height: 100%; max-width: 100%;">
+                <div><b>异常拆柜处理结果- {{ abnormal|length }}</b></div>
+            </div>
+            <form method="post" style="width: 100%;">
+                {% csrf_token %}
+                <div style="overflow-x: auto; max-width: 100%; overflow-y: auto; max-height: 800px;">
+                    <table class="table" style="font-size: 11px" id="abnormal">
+                        <thead>
+                            <tr>
+                                <th>柜号</th>
+                                <th>目的地</th>
+                                <th>派送方式</th>
+                                <th>异常记录时间</th>
+                                <th>预报箱数</th>
+                                <th>实际箱数</th>
+                                <th>是否确认</th>
+                                <th>异常原因</th>
+                                <th>操作指令</th>
+                            </tr>
+                            <tr style="position: sticky; top: 28px;">
+                                <th class="th">
+                                    <input type="text" id="ctnSearch" placeholder="搜索柜号..." oninput="filterTable(this, 1, true, 'abnormal')" size="13" style="font-size: 11px;">
+                                </th>
+                                <th class="th">
+                                    <input type="text" id="destSearch" placeholder="搜索目的地..." oninput="filterTable(this, 2, true, 'abnormal')" size="13" style="font-size: 11px;">
+                                </th>
+                                <th class="th"></th>
+                                <th class="th"></th>
+                                <th class="th"></th>
+                                <th class="th"></th>
+                                <th class="th"></th>
+                                <th class="th"></th>
+                                <th class="th"></th>
+                            </tr>
+                        </thead>
+                        <tbody id="palletization-container">                       
+                            {% for pl in abnormal %}
+                            <tr id="palletization-row">
+                                <td class="td">{{ pl.container_number }}</td>
+                                <td class="td">{{ pl.destination }}</td>
+                                <td class="td">{{ pl.deivery_method }}</td>
+                                <td class="td">
+                                    {% if pl.ddl_status == "past_due" %}
+                                    <span class="status-span-red">{{ pl.created_at }}</span>
+                                    {% else %}
+                                    {{ pl.created_at }}
+                                    {% endif %}
+                                </td>                                                
+                                <td class="td">{{ pl.pcs_reported }}</td>
+                                <td class="td">{{ pl.pcs_actual }}</td>
+                                <td class="td" style="text-align: left; cursor: pointer; display: flex; align-items: center;">
+                                    <input type="hidden" name="is_case_selected", value='off'>
+                                    <input type="checkbox" id="status-{{pl.id}}" style="display: none;" {% if pl.confirmed_by_warehouse %}checked{% endif %}>
+                                    <label 
+                                        for="status-{{pl.id}}" class="status-label" onclick="toggleStatus(event)"
+                                        style="display: flex; justify-content: center; align-items: center; width: 30px; height: 30px; border-radius: 50%; 
+                                        color: white; font-weight: bold; transition: background-color 0.3s ease; 
+                                        background-color: {% if pl.confirmed_by_warehouse %} #4CAF50 {% else %} #f44336 {% endif %}; font-size: 15px; margin-right: 10px;"
+                                    >
+                                        {% if pl.confirmed_by_warehouse %} &#10003; {% else %} &times; {% endif %}
+                                    </label>
+                                </td>  
+                                <td class="td">{{pl.abnormal_reason}}</td>
+                                <td class="td">{{pl.note}} </td>                            
+                                <input type="hidden" name="ids" value="{{ pl.id }}">
+                                <input type="hidden" name="container_number" value="{{ pl.container_number__container_number }}">
+                            </tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                <div class="text-left">
+                    <input type="hidden" name="step" value="amend_abnormal">
+                    <input type="hidden" name="confirmed_by_warehouse" value="True">
+                    <button type="submit" class="btn btn-primary" style="width: 100px; height: 35px;" onclick="processForm()">确认</button>
+                </div>
+            </form>
+        </div>
+        
+        <div id="outboundPallets">
+            <div style="max-height: 100%; max-width: 100%;">
+                <div><b>待出库托盘信息- {{ shipment|length }}- {{ fleet|length }}</b></div>
+            </div>
+            <div style="display: flex; gap: 20px; overflow - x: auto; max - width: 100%; overflow - y: auto; max - height: 800px;">  
+                <table class="table" style="font-size: 11px; width: 48%; border: 1px solid #ccc; box-sizing: border-box;">
+                    <thead> 
+                        <tr>
+                            <th>预约批次</th>
+                            <th>预约号</th>
+                            <th>总CBM</th>
+                            <th>总卡板数</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for s in shipment %}
+                        <tr>
+                            <td>{{ s.shipment_batch_number }}</td>
+                            <td>{{ s.shipment_batch_number }}</td>
+                            <td>{{ s.total_cbm }}</td>
+                            <td>{{ s.total_pallet }}</td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+                <table class="table" style="font-size: 11px; width: 48%; border: 1px solid #ccc; box - sizing: border - box;">
+                    <thead>
+                        <tr>
+                            <th>出库批次</th>
+                            <th>3rd Party Address</th>
+                            <th>carrier</th>
+                            <th>总CBM</th>
+                            <th>总卡板数</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for f in fleet %}
+                        <tr>
+                            <td>{{ f.fleet_number }}</td>
+                            <td>{{ f.third_party_address }}</td>
+                            <td>{{ f.carrier }}</td>
+                            <td>{{ f.total_cbm }}</td>
+                            <td>{{ f.total_pallet }}</td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>          
+            
+        </div>
+        <div id="arrivedGoods">
+            <div style="max-height: 100%; max-width: 100%;">
+                <div><b>到港货物信息- {{ arrived_containers|length }}</b></div>
+            </div>
+            <div style="overflow-x: auto; max-width: 100%; overflow-y: auto; max-height: 800px;">
+                <table class="table" style="font-size: 11px" id="arrived">
+                    <thead>
+                        <tr>
+                            <th>柜号</th>
+                            <th>订单类型</th>
+                            <th>Vessel状态</th>
+                        </tr>
+                        <tr style="position: sticky; top: 28px;">
+                            <th class="th">
+                                <input type="text" id="ctnSearch" placeholder="搜索柜号..." oninput="filterTable(this, 1, true, 'arrived')" size="13" style="font-size: 11px;">
+                            </th>
+                            <th class="th"></th>
+                            <th class="th"></th>
+                        </tr>
+                    </thead>
+                    <tbody id="palletization-container">                       
+                        {% for o in arrived_containers %}
+                        <tr id="palletization-row">
+                            <td class="td">{{ o.container_number }}</td>
+                            <td class="td">{{ o.order_type }}</td>
+                            <td>
+                                {% if o.retrieval_id.temp_t49_pod_arrive_at %}
+                                <span class="status-span-green-100">到港</span>
+                                {% elif o.vessel_id %}
+                                <span class="status-span-blue-100">en route</span>
+                                {% endif %}
+                            </td>                               
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+        </div>
+        
+
+<script>
+    function toggleStatus(event) {
+        const checkbox = event.target.previousElementSibling; // Get the checkbox linked to the label
+        const caseSelectInput = checkbox.previousElementSibling;
+        if (!checkbox.checked) {
+            event.target.innerHTML = '&#10003;'; // Check mark
+            event.target.style.backgroundColor = '#4CAF50'; // Green
+            caseSelectInput.value = 'on';
+        } else {
+            event.target.innerHTML = '&times;'; // Cross mark
+            event.target.style.backgroundColor = '#f44336'; // Red
+            caseSelectInput.value = 'off';
+        };
+    };
+    function processForm() {
+        var rows = document.querySelectorAll('tr#palletization-row');
+        var abnormalReasonSelect = document.querySelectorAll('select.abnormal-reason');
+        var isValid = true;
+        var isReasonEmpty = false;
+        var isNoteEmpty = false;
+        rows.forEach(row => {
+            const checkbox = row.querySelector('input[type="checkbox"]');
+            if (checkbox && checkbox.checked) {
+                const abnormalReasonSelect = row.querySelector('select[name="abnormal_reason"]');
+                const abnormalNote = row.querySelector('textarea[name="note"]');
+                if (abnormalReasonSelect && abnormalReasonSelect.value.trim() === '') {
+                    isValid = false;
+                    isReasonEmpty = true;
+                    abnormalReasonSelect.style.border = '2px solid red';
+                } else {
+                    abnormalReasonSelect.style.border = '';
+                };
+                if (abnormalNote && abnormalNote.value.trim() === '') {
+                    isValid = false;
+                    isNoteEmpty = true;
+                    abnormalNote.style.border = '2px solid red';
+                } else {
+                    abnormalNote.style.border = '';
+                };
+            };
+        });
+    };
+    function filterTable(filterInput, col_idx, trim, tableId) {
+        
+        var table = document.getElementById(tableId);      
+        var tbody = table.getElementsByTagName("tbody")[0];
+        var tr = tbody.getElementsByTagName("tr");
+
+        var filters = table.querySelectorAll('thead input[type="text"], thead select');  
+        var filterValues = Array.from(filters).map(function(filter) {  //Array.from(filters)将filters类数组对象转换为数组,map将执行函数后的结果返回一个新数组
+            return filter.value.toUpperCase().trim();                  //filter是Array.from(filters)的遍历对象
+        });
+
+        for (var i = 0; i < tr.length; i++) {
+            var row = tr[i];
+            var showRow = true;
+            for (var j = 0; j < filters.length; j++) {   //遍历多个筛选条件
+                var colIdx = j;
+                var filterValue = filterValues[j];
+                var cell = row.getElementsByTagName("td")[colIdx];
+                if (cell) {
+                    var cellText = cell.textContent || cell.innerText;
+                    var cellValue = trim ? cellText.toUpperCase().trim() : cellText.toUpperCase();
+                    if (filterValue !== "" && cellValue.indexOf(filterValue) === -1) {
+                        showRow = false;
+                        break;
+                    }
+                }
+            }
+            row.style.display = showRow ? "" : "none";
+        }
+    };
+    
+</script>
+{% endblock %}
