@@ -327,7 +327,9 @@ class StuffPower(View):
     def update_pallet(self) -> tuple[Any, Any]:
         pallet = Pallet.objects.select_related(
             "packing_list", "packing_list__container_number", "packing_list__shipment_batch_number"
-        ).all()
+        ).filter(
+            packing_list__container_number__order__created_at__gte='2024-08-01'
+        )
         updated_pallet = []
         cnt = 0
         for p in pallet:
