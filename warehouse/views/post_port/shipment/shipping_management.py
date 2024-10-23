@@ -926,7 +926,6 @@ class ShippingManagement(View):
             ).values('container_number__container_number',
                      'container_number__order__customer_name__zem_name',
                      'destination',
-                     
                      )
         )
         print(pal_list)
@@ -945,8 +944,6 @@ class ShippingManagement(View):
         #         'schedule_status',
         #     )
         #     ).distinct().order_by('container_number__order__offload_id__offload_at')
-        
-
         return pl_list
     
     async def _get_sharepoint_auth(self) -> ClientContext:

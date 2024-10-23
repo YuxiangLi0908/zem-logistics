@@ -120,32 +120,53 @@
                                             <button type="button" id="add-more-btn" class="btn btn-success" style="height: 35px; font-size: 12px; margin: 5px;" onclick="addRowBelow()">
                                                 <i class="bi bi-plus-lg"></i> 添加行
                                             </button>
-                                            <button type="button" id="add-more-btn" class="btn btn-success" style="height: 35px; font-size: 12px; margin: 5px;" onclick="editTable(true)">编辑</button>
                                         </div>
                                         <table style=" max-height:90%; overflow-y:scroll; margin: 10px; padding: 100px;" cellpadding='15' id="edit_pallet_label">
                                             <thead>                       
                                                 <th class="th" style="text-align: center; border: 1px solid #141414">柜号</th>
                                                 <th class="th" style="text-align: center; border: 1px solid #141414">客户</th>
+                                                <th class="th" style="text-align: center; border: 1px solid #141414">唛头</th>
                                                 <th class="th" style="text-align: center; border: 1px solid #141414">fba</th>
                                                 <th class="th" style="text-align: center; border: 1px solid #141414">目的地</th>
+                                                <th class="th" style="text-align: center; border: 1px solid #141414">派送方式</th>
                                                 <th class="th" style="text-align: center; border: 1px solid #141414">板号</th>
                                                 <th class="th" style="text-align: center; border: 1px solid #141414">日期</th>
                                                 <th class="th" style="text-align: center; border: 1px solid #141414">是否扣货</th>   
                                             </thead>
                                             <tr id="lable-row">
-                                                <td style="text-align: center; border: 1px solid #141414; padding:10px;" data-editable="true">{{ c.container_number }}</td>
-                                                <td style="text-align: center; border: 1px solid #141414; padding:10px;" data-editable="true">{{ c.customer_name.zem_code }}</td>
-                                                <td style="text-align: center; border: 1px solid #141414; text-wrap: wrap; padding:10px;" data-editable="true"></td>
-                                                <td style="text-align: center; border: 1px solid #141414; text-wrap: wrap; padding:10px;" data-editable="true"></td>
-                                                <td style="text-align: center; border: 1px solid #141414; padding:10px;" data-editable="true"></td>
+                                                <td style="text-align: center; border: 1px solid #141414; padding:10px;" data-editable="true">
+                                                    <input value="{{ c.container_number }}">
+                                                </td>
+                                                <td style="text-align: center; border: 1px solid #141414; padding:10px;" data-editable="true">
+                                                    <input value="{{ c.customer_name.zem_code }}">
+                                                </td>
+                                                <td style="text-align: center; border: 1px solid #141414; text-wrap: wrap; padding:10px;" data-editable="true">
+                                                    <input type="text">
+                                                </td>
+                                                <td style="text-align: center; border: 1px solid #141414; text-wrap: wrap; padding:10px;" data-editable="true">
+                                                    <input type="text">
+                                                </td>
+                                                <td style="text-align: center; border: 1px solid #141414; text-wrap: wrap; padding:10px;" data-editable="true">
+                                                    <input type="text">
+                                                </td>
+                                                <td style="text-align: center; border: 1px solid #141414; padding:10px;" data-editable="true">
+                                                    <select>
+                                                        <option value="卡车派送">卡车派送</option>
+                                                        <option value="客户自提">客户自提</option>
+                                                        <option value="暂扣留仓">暂扣留仓</option>
+                                                    </select>
+                                                </td>         
+                                                <td style="text-align: center; border: 1px solid #141414; padding:10px;" data-editable="true">
+                                                    <input type="text">
+                                                </td>
                                                 <td style="text-align: center; border: 1px solid #141414; padding:10px;" data-editable="true">
                                                     <input type="date" data-editable="true">
                                                 </td>
-                                                <td style="text - align: center; border: 1px solid #141414; padding:10px;" data-editable="true"></td>
-                                                    {% comment %} <select>
+                                                <td style="text-align: center; border: 1px solid #141414; padding:10px;" data-editable="true">
+                                                    <select>
                                                         <option value="是">是</option>
                                                         <option value="否">否</option>
-                                                    </select> {% endcomment %}
+                                                    </select>
                                                 </td>                                        
                                             </tr>
                                         </table>
@@ -192,7 +213,6 @@
                 </thead>
                 <tbody>
                     {% for c in order_palletized %}
-                    
                         <tr>
                             <td class="td">
                                 <a href="/palletize/{{c.id}}/?step=container_palletization&warehouse={{ warehouse }}">{{ c.container_number }}</a>
@@ -326,7 +346,6 @@
         var rows = table.getElementsByTagName('tr');
         for (var i=1; i < rows.length; i++){      
             var cells = rows[i].getElementsByTagName('td');
-            console.log('celss',cells);
             var rowData = [];
             for (var j = 0; j < cells.length; j++) {
                 if (cells[j].getAttribute('data-editable') === 'true') {
@@ -347,14 +366,15 @@
                             if (tr.id && tr.id.indexOf('empty')=== -1) {
                                 rowData.push(input.value);
                             }
-                            cells[j].innerHTML = input.value;                           
-                        }//else {
+                            cells[j].innerHTML = input.value;    
+                            console.log(input.value)                       
+                        } else {
                             // 处理最后一个包含select元素的单元格
-                            //var select = cells[j].getElementsByTagName('select')[0];
-                            //if (select) {
-                            //    rowData.push(select.value);
-                            //}
-                        //}
+                            var select = cells[j].getElementsByTagName('select')[0];
+                            if (select) {
+                               rowData.push(select.value);
+                            }
+                        }
                     }
                 }
             }

@@ -479,50 +479,49 @@ class Palletization(View):
         if customerInfo:
             customer_info = json.loads(customerInfo)
             packing_list = []
-            for row in customer_info:               
-                for i in range(int(row[4].strip())):
-                    i += 1
-                    date_str = row[5].strip()
-                    parts = date_str.split('-')
-                    month_day = f'{parts[1]}-{parts[2]}'
-                    #生成条形码
-                    barcode_type = 'code128'
-                    barcode_class = barcode.get_barcode_class(barcode_type)
-                    barcode_content = f"{row[0].strip()}|{row[3].strip()}-{i}|{row[1].strip()}|{month_day}"
-                    my_barcode = barcode_class(barcode_content, writer = ImageWriter()) #将条形码转换为图像形式
-                    buffer = io.BytesIO()   #创建缓冲区
-                    my_barcode.write(buffer)   #缓冲区存储图像
-                    buffer.seek(0)               
-                    barcode_base64 = base64.b64encode(buffer.read()).decode('utf-8')  #编码
+            for row in customer_info:
+                date_str = row[7].strip()
+                parts = date_str.split('-')
+                month_day = f'{parts[1]}-{parts[2]}'
+                #生成条形码
+                barcode_type = 'code128'
+                barcode_class = barcode.get_barcode_class(barcode_type)
+                barcode_content = f"{row[0].strip()}|{row[4].strip()}-{int(row[6].strip())}|{row[1].strip()}|{month_day}"
+                my_barcode = barcode_class(barcode_content, writer = ImageWriter()) #将条形码转换为图像形式
+                buffer = io.BytesIO()   #创建缓冲区
+                my_barcode.write(buffer)   #缓冲区存储图像
+                buffer.seek(0)               
+                barcode_base64 = base64.b64encode(buffer.read()).decode('utf-8')  #编码
+                try:
+                    barcode_bytes = base64.b64decode(barcode_base64)
                     try:
-                        barcode_bytes = base64.b64decode(barcode_base64)
-                        try:
-                            image = Image.open(io.BytesIO(barcode_bytes))  #打开图像
-                            width, height = image.size 
-                            new_height = int(height * 0.72)   #裁剪图像
-                            cropped_image = image.crop((0, 0, width, new_height)) #存储
-                            cropped_image = cropped_image.resize((width, 100))
-                            buffer = io.BytesIO()
-                            cropped_image.save(buffer, format='PNG')
-                            buffer.seek(0)
-                            new_barcode_base64 = base64.b64encode(buffer.read()).decode('utf-8')
-                            del image
-                            del buffer
-                        except OSError as e:
-                            raise RuntimeError(f"Error opening image: {e}")
-                    except base64.binascii.Error as e:
-                        raise RuntimeError(f"Error decoding base64: {e}")
-                    new_data = {
-                            "container_number": row[0].strip(),
-                            "destination": f"{row[3].strip()}-{i}",
-                            "date": month_day,
-                            "customer": row[1].strip(),
-                            "hold": ("暂扣留仓" if "是" in row[6].strip() else "直接发货"),
-                            "fba_ids": row[2].strip(),
-                            "barcode":new_barcode_base64
-                        }
-                    for i in range(4):
-                        data.append(new_data)
+                        image = Image.open(io.BytesIO(barcode_bytes))  #打开图像
+                        width, height = image.size 
+                        new_height = int(height * 0.72)   #裁剪图像
+                        cropped_image = image.crop((0, 0, width, new_height)) #存储
+                        cropped_image = cropped_image.resize((width, 100))
+                        buffer = io.BytesIO()
+                        cropped_image.save(buffer, format='PNG')
+                        buffer.seek(0)
+                        new_barcode_base64 = base64.b64encode(buffer.read()).decode('utf-8')
+                        del image
+                        del buffer
+                    except OSError as e:
+                        raise RuntimeError(f"Error opening image: {e}")
+                except base64.binascii.Error as e:
+                    raise RuntimeError(f"Error decoding base64: {e}")
+                new_data = {
+                    "container_number": row[0].strip(),
+                    "destination": f"{row[4].strip()}-{int(row[6].strip())}",
+                    "date": month_day,
+                    "customer": row[1].strip(),
+                    "hold": (row[8].strip() == "是"),
+                    "fba_ids": row[3].strip(),
+                    "barcode":new_barcode_base64,
+                    "shipping_marks": row[2].strip(),
+                }
+                for i in range(4):
+                    data.append(new_data)
         else:
             customer_name = request.POST.get("customer_name")
             status = request.POST.get("status")
@@ -590,7 +589,6 @@ class Palletization(View):
                             raise RuntimeError(f"Error opening image: {e}")
                     except base64.binascii.Error as e:
                         raise RuntimeError(f"Error decoding base64: {e}")
-
                 new_data = {
                     "container_number": pl.get("container_number__container_number"),
                     "destination": f"{pl.get('destination').replace('沃尔玛', 'WM-')}-{i}",
@@ -601,7 +599,6 @@ class Palletization(View):
                     "barcode":new_barcode_base64,
                     "shipping_marks": shipping_marks,
                 }
-                data.append(new_data)
         context = {"data": data}
         template = get_template(self.template_pallet_label)
         html = template.render(context)
