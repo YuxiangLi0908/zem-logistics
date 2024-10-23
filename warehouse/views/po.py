@@ -47,12 +47,16 @@ class PO(View):
         try:
             warehouse_obj = ZemWarehouse.objects.get(name=warehouse)
         except:
-            warehouse_obj = None 
+            warehouse_obj = None
         start_date = request.POST.get("start_date")
         end_date = request.POST.get("end_date")
         container_number = request.POST.get("container_number")
         container_list = container_number.split()
-        criteria = models.Q(container_number__order__warehouse__name=warehouse)
+        criteria = models.Q(
+            container_number__order__warehouse__name=warehouse,
+            container_number__order__offload_id__offload_at__isnull=True,
+            shipment_batch_number__isnull=True,
+        )
         if container_list:
             criteria &= models.Q(container_number__container_number__in=container_list)
         if start_date:
