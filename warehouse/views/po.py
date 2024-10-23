@@ -54,7 +54,6 @@ class PO(View):
         container_list = container_number.split()
         criteria = models.Q(
             container_number__order__warehouse__name=warehouse,
-            container_number__order__offload_id__offload_at__isnull=True,
             shipment_batch_number__isnull=True,
         )
         if container_list:
@@ -70,7 +69,7 @@ class PO(View):
                 models.Q(container_number__order__vessel_id__vessel_eta__lte=end_date)
             )
         packing_list = PackingList.objects.select_related(
-            "container_number", "container_number__order", "container_number__order__warehouse", "pallet"
+            "container_number", "container_number__order", "container_number__order__warehouse"
         ).filter(criteria).annotate(
             str_id=Cast("id", CharField()),
         ).values(
