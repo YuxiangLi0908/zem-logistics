@@ -1,4 +1,4 @@
-import pytz
+import pytz,json
 import uuid
 import asyncio
 import barcode
@@ -77,7 +77,6 @@ class Palletization(View):
             return render(request, template, context)
         elif step == "palletize":
             pk = kwargs.get("pk")
-            print('pk',pk)
             template, context = await self.handle_packing_list_post(request, pk)
             return render(request, template, context)
         elif step == "back":
@@ -95,6 +94,9 @@ class Palletization(View):
             return render(request, template, context)
         elif step == "abnormal_records":
             template, context = await self.handle_abnormal_records_post(request)
+            return render(request, template, context)
+        elif step == "warehouse_daily":
+            template, context = await self.handle_warehouse_daily_post(request)
             return render(request, template, context)
         else:
             return await self.get(request)
@@ -176,18 +178,17 @@ class Palletization(View):
         #拆柜异常，客服已解决货物
         retrieval_precise_subquery = Subquery(
             Retrieval.objects.filter(
-                id=OuterRef('container_number__order__retrieval_id')
+                id = OuterRef('container_number__order__retrieval_id')
             ).values('retrieval_destination_precise')[:1],
             output_field = CharField()
         )
-        all_status = await sync_to_async(list)(
-            AbnormalOffloadStatus.objects
-            .select_related('container_number')
-            .annotate(retrieval_destination_precise=Subquery(retrieval_precise_subquery))
-            .filter(is_resolved=True, confirmed_by_warehouse=False)
-            .order_by('created_at')
-        )
-        
+               
+        query = AbnormalOffloadStatus.objects.select_related('container_number').annotate(
+            retrieval_destination_precise = Subquery(retrieval_precise_subquery)
+        ).filter(is_resolved = True, confirmed_by_warehouse = False).order_by('created_at')
+        if warehouse:
+            query = query.filter(retrieval_destination_precise = warehouse)
+        all_status = await sync_to_async(list)(query)
         abnormal = []
         for status in all_status:
             status_dict = {
@@ -202,7 +203,6 @@ class Palletization(View):
                 "pcs_actual": status.pcs_actual,
                 "abnormal_reason": status.abnormal_reason,
                 "note": status.note,
-                "retrieval_destination_precise": status.retrieval_destination_precise,
                 "ddl_status": status.abnormal_status,
             }
             abnormal.append(status_dict)
@@ -212,23 +212,29 @@ class Palletization(View):
         today = current_time_cn.date()
 
         #当日+下一天的预约信息
-        shipment = await sync_to_async(list)(
-            Shipment.objects.prefetch_related(
+        query = Shipment.objects.prefetch_related(
                 "packinglist", "packinglist__container_number", "packinglist__container_number__order",
                 "packinglist__container_number__order__warehouse", "order"
             ).filter(
-                shipment_schduled_at__date=today
-            ).distinct()
-        )
-        #当日+下一天的预约信息
-        fleet = await sync_to_async(list)(
-            Fleet.objects.filter(
-                scheduled_at__date=today
+                    shipment_schduled_at__date=today              
             )
+        if warehouse:
+            query = query.filter(packinglist__container_number__order__retrieval_id__retrieval_destination_precise=warehouse).distinct()
+        shipment = await sync_to_async(list)(query)
+
+        #当日+下一天的预约信息
+        query = Fleet.objects.prefetch_related(
+            "shipment","shipment__packinglist","shipment__packinglist__container_number","shipment__packinglist__container_number__order",
+            "shipment__packinglist__container_number__order__retrieval_id"
+        ).filter(
+                scheduled_at__date=today
         )
+        if warehouse:
+            query = query.filter(shipment__packinglist__container_number__order__retrieval_id__retrieval_destination_precise=warehouse).distinct()
+        fleet = await sync_to_async(list)(query)
+        
         #当日到港货柜
-        containers = await sync_to_async(list)(
-            Order.objects.select_related(
+        query = Order.objects.select_related(
                 "vessel_id", "container_number", "customer_name", "retrieval_id"
             ).filter(
                 (
@@ -236,12 +242,13 @@ class Palletization(View):
                     models.Q(cancel_notification=False)
                 )
             )
-        )
+        if warehouse:
+            query = query.filter(retrieval_id__retrieval_destination_precise = warehouse)
+        containers = await sync_to_async(list)(query)
         arrived_containers = []
         for o in containers:
             con_dict = {
                 "id": status.id,
-                "retrieval_destination_precise":o.retrieval_id.retrieval_destination_precise,
                 "container_number": o.container_number.container_number,
                 "order_type": o.order_type,
                 "vessel_id":o.vessel_id,
@@ -253,8 +260,10 @@ class Palletization(View):
             "shipment":shipment,
             "fleet":fleet,
             "arrived_containers":arrived_containers,
-            "warehouse_options": WAREHOUSE_OPTIONS,
+            "warehouse_options": [("", ""), ("NJ-07001", "NJ-07001"), ("NJ-08817", "NJ-08817"),("SAV-31326", "SAV-31326")],
+            "warehouse_filter": warehouse,
         }
+        print('仓库',warehouse)
         return self.template_pallet_daily_operation, context
            
     async def handle_all_get(self, warehouse: str = None) -> tuple[str, dict[str, Any]]:
@@ -320,6 +329,11 @@ class Palletization(View):
     async def handle_warehosue_abnormal_post(self, request: HttpRequest) -> tuple[str, dict[str, Any]]:
         warehouse = request.POST.get("warehouse")
         template, context = await self.handle_palletization_abnormal_get(warehouse)
+        return template, context
+    
+    async def handle_warehouse_daily_post(self, request: HttpRequest) -> tuple[str, dict[str, Any]]:
+        warehouse = request.POST.get("warehouse_filter")
+        template, context = await self.handle_daily_operation_get(warehouse)
         return template, context
     
     async def handle_packing_list_post(self, request: HttpRequest, pk: int) -> tuple[str, dict[str, Any]]:
@@ -459,73 +473,123 @@ class Palletization(View):
         return await self.handle_palletization_abnormal_get(warehouse, include_all=True)
         
     async def _export_pallet_label(self, request: HttpRequest) -> HttpResponse:
-        container_number = request.POST.get("container_number")
-        customer_name = request.POST.get("customer_name")
-        status = request.POST.get("status")
-        n_label = int(request.POST.get("n_label"))
-        retrieval = await sync_to_async(Retrieval.objects.get)(
-            order__container_number__container_number=container_number
-        )
-        retrieval_date = retrieval.target_retrieval_timestamp
-        if retrieval_date:
-            retrieval_date = retrieval_date.date()
-        else:
-            retrieval_date = datetime.now().date()
-        retrieval_date = retrieval_date.strftime("%m/%d")
-        packing_list = await self._get_packing_list(container_number=container_number, status=status)
         data = []
-        for pl in packing_list:
-            cbm = pl.get("cbm")
-            remainder = cbm % 1
-            cbm = int(cbm)
-            if cbm%2:
-                cbm += (cbm%2)
-            elif remainder:
-                cbm += 2
-            cbm /= 2
-            cbm *= n_label
-            cbm = int(cbm)
-
-            if "客户自提" in pl.get("destination") or "自提" in pl.get("destination"):
-                destination = 'Cutomer_PickUp'
-                shipping_marks = pl.get("shipping_marks")
-            else:
-                destination = pl.get("destination").replace("沃尔玛", "WM-")
-                shipping_marks = ""
-
-            if "暂扣留仓" in pl.get("custom_delivery_method").split("-")[0]:
-                fba_ids = pl.get("fba_ids")
-            else:
-                fba_ids = None
-            
-            for num in range(cbm):
-                i = num // n_label + 1
-                barcode_type = 'code128'
-                barcode_class = barcode.get_barcode_class(barcode_type)
-                barcode_content = f"{pl.get('container_number__container_number')}|{destination}-{i}|{customer_name}|{retrieval_date}"
-                my_barcode = barcode_class(barcode_content, writer = ImageWriter()) #将条形码转换为图像形式
-                buffer = io.BytesIO()   #创建缓冲区
-                my_barcode.write(buffer)   #缓冲区存储图像
-                buffer.seek(0)               
-                barcode_base64 = base64.b64encode(buffer.read()).decode('utf-8')  #编码
-                try:
-                    barcode_bytes = base64.b64decode(barcode_base64)
+        container_number = request.POST.get("container_number")
+        customerInfo = request.POST.get("customerInfo")
+        if customerInfo:
+            customer_info = json.loads(customerInfo)
+            packing_list = []
+            for row in customer_info:               
+                for i in range(int(row[4].strip())):
+                    i += 1
+                    date_str = row[5].strip()
+                    parts = date_str.split('-')
+                    month_day = f'{parts[1]}-{parts[2]}'
+                    #生成条形码
+                    barcode_type = 'code128'
+                    barcode_class = barcode.get_barcode_class(barcode_type)
+                    barcode_content = f"{row[0].strip()}|{row[3].strip()}-{i}|{row[1].strip()}|{month_day}"
+                    my_barcode = barcode_class(barcode_content, writer = ImageWriter()) #将条形码转换为图像形式
+                    buffer = io.BytesIO()   #创建缓冲区
+                    my_barcode.write(buffer)   #缓冲区存储图像
+                    buffer.seek(0)               
+                    barcode_base64 = base64.b64encode(buffer.read()).decode('utf-8')  #编码
                     try:
-                        image = Image.open(io.BytesIO(barcode_bytes))  #打开图像
-                        width, height = image.size 
-                        new_height = int(height * 0.72)   #裁剪图像
-                        cropped_image = image.crop((0, 0, width, new_height)) #存储
-                        cropped_image = cropped_image.resize((width, 100))
-                        buffer = io.BytesIO()
-                        cropped_image.save(buffer, format='PNG')
-                        buffer.seek(0)
-                        new_barcode_base64 = base64.b64encode(buffer.read()).decode('utf-8')
-                        del image
-                        del buffer
-                    except OSError as e:
-                        raise RuntimeError(f"Error opening image: {e}")
-                except base64.binascii.Error as e:
-                    raise RuntimeError(f"Error decoding base64: {e}")
+                        barcode_bytes = base64.b64decode(barcode_base64)
+                        try:
+                            image = Image.open(io.BytesIO(barcode_bytes))  #打开图像
+                            width, height = image.size 
+                            new_height = int(height * 0.72)   #裁剪图像
+                            cropped_image = image.crop((0, 0, width, new_height)) #存储
+                            cropped_image = cropped_image.resize((width, 100))
+                            buffer = io.BytesIO()
+                            cropped_image.save(buffer, format='PNG')
+                            buffer.seek(0)
+                            new_barcode_base64 = base64.b64encode(buffer.read()).decode('utf-8')
+                            del image
+                            del buffer
+                        except OSError as e:
+                            raise RuntimeError(f"Error opening image: {e}")
+                    except base64.binascii.Error as e:
+                        raise RuntimeError(f"Error decoding base64: {e}")
+                    new_data = {
+                            "container_number": row[0].strip(),
+                            "destination": f"{row[3].strip()}-{i}",
+                            "date": month_day,
+                            "customer": row[1].strip(),
+                            "hold": ("暂扣留仓" if "是" in row[6].strip() else "直接发货"),
+                            "fba_ids": row[2].strip(),
+                            "barcode":new_barcode_base64
+                        }
+                    for i in range(4):
+                        data.append(new_data)
+        else:
+            customer_name = request.POST.get("customer_name")
+            status = request.POST.get("status")
+            n_label = int(request.POST.get("n_label"))
+            retrieval = await sync_to_async(Retrieval.objects.get)(
+                order__container_number__container_number=container_number
+            )
+            retrieval_date = retrieval.target_retrieval_timestamp
+            if retrieval_date:
+                retrieval_date = retrieval_date.date()
+            else:
+                retrieval_date = datetime.now().date()
+            retrieval_date = retrieval_date.strftime("%m/%d")
+            packing_list = await self._get_packing_list(container_number=container_number, status=status)
+            
+            for pl in packing_list:
+                cbm = pl.get("cbm")
+                remainder = cbm % 1
+                cbm = int(cbm)
+                if cbm%2:
+                    cbm += (cbm%2)
+                elif remainder:
+                    cbm += 2
+                cbm /= 2
+                cbm *= n_label
+                cbm = int(cbm)
+
+                if "客户自提" in pl.get("destination") or "自提" in pl.get("destination"):
+                    destination = 'Cutomer_PickUp'
+                    shipping_marks = pl.get("shipping_marks")
+                else:
+                    destination = pl.get("destination").replace("沃尔玛", "WM-")
+                    shipping_marks = ""
+
+                if "暂扣留仓" in pl.get("custom_delivery_method").split("-")[0]:
+                    fba_ids = pl.get("fba_ids")
+                else:
+                    fba_ids = None
+                
+                for num in range(cbm):
+                    i = num // n_label + 1
+                    barcode_type = 'code128'
+                    barcode_class = barcode.get_barcode_class(barcode_type)
+                    barcode_content = f"{pl.get('container_number__container_number')}|{destination}-{i}|{customer_name}|{retrieval_date}"
+                    my_barcode = barcode_class(barcode_content, writer = ImageWriter()) #将条形码转换为图像形式
+                    buffer = io.BytesIO()   #创建缓冲区
+                    my_barcode.write(buffer)   #缓冲区存储图像
+                    buffer.seek(0)               
+                    barcode_base64 = base64.b64encode(buffer.read()).decode('utf-8')  #编码
+                    try:
+                        barcode_bytes = base64.b64decode(barcode_base64)
+                        try:
+                            image = Image.open(io.BytesIO(barcode_bytes))  #打开图像
+                            width, height = image.size 
+                            new_height = int(height * 0.72)   #裁剪图像
+                            cropped_image = image.crop((0, 0, width, new_height)) #存储
+                            cropped_image = cropped_image.resize((width, 100))
+                            buffer = io.BytesIO()
+                            cropped_image.save(buffer, format='PNG')
+                            buffer.seek(0)
+                            new_barcode_base64 = base64.b64encode(buffer.read()).decode('utf-8')
+                            del image
+                            del buffer
+                        except OSError as e:
+                            raise RuntimeError(f"Error opening image: {e}")
+                    except base64.binascii.Error as e:
+                        raise RuntimeError(f"Error decoding base64: {e}")
 
                 new_data = {
                     "container_number": pl.get("container_number__container_number"),
