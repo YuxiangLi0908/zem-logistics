@@ -326,7 +326,9 @@ class StuffPower(View):
     
     def update_pallet(self) -> tuple[Any, Any]:
         pallet = Pallet.objects.select_related(
-            "packing_list", "packing_list__container_number",
+            "packing_list", 
+            # "packing_list__container_number", 
+            "packing_list__shipment_batch_number",
         ).filter(
             packing_list__container_number__order__created_at__gte='2024-09-01'
         )
@@ -336,8 +338,8 @@ class StuffPower(View):
             if p.packing_list:
                 p.destination = p.packing_list.destination
                 p.delivery_method = p.packing_list.delivery_method
-                p.container_number = p.packing_list.container_number
-                # p.shipment_number = p.packing_list.shipment_batch_number
+                # p.container_number = p.packing_list.container_number
+                p.shipment_number = p.packing_list.shipment_batch_number
                 cnt += 1
                 updated_pallet.append(p)
         Pallet.objects.bulk_update(
