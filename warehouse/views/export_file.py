@@ -27,6 +27,7 @@ from django.contrib.staticfiles import finders
 
 from warehouse.models.packing_list import PackingList
 from warehouse.models.order import Order
+from warehouse.models.pallet import Pallet
 from warehouse.utils.constants import (
     ACCT_ACH_ROUTING_NUMBER,
     ACCT_BANK_NAME,
@@ -102,29 +103,18 @@ async def export_palletization_list(request: HttpRequest) -> HttpResponse:
             n_pallet=Value("", output_field=CharField()),
         ).order_by("-cbm"))
     elif status == "palletized":
-        packing_list = await sync_to_async(list)(PackingList.objects.select_related(
-                "container_number", "pallet"
-            ).filter(container_number__container_number=container_number).annotate(
-            custom_delivery_method=Case(
-                When(Q(delivery_method='暂扣留仓(HOLD)') | Q(delivery_method='暂扣留仓'), then=Concat('delivery_method', Value('-'), 'fba_id', Value('-'), 'id')),
-                When(Q(delivery_method='客户自提') | Q(destination='客户自提'), then=Concat('delivery_method', Value('-'), 'destination',  Value('-'), 'shipping_mark')),
-                default=F('delivery_method'),
-                output_field=CharField()
-            ),
-            str_id=Cast("id", CharField()),
-            str_fba_id=Cast("fba_id", CharField()),
-            str_ref_id=Cast("ref_id", CharField()),
-            str_shipping_mark=Cast("shipping_mark", CharField()),
-        ).values(
-            "container_number__container_number", "destination", "custom_delivery_method", "note"
-        ).annotate(
-            fba_ids=StringAgg("str_fba_id", delimiter=",", distinct=True, ordering="str_fba_id"),
-            ref_ids=StringAgg("str_ref_id", delimiter=",", distinct=True, ordering="str_ref_id"),
-            shipping_marks=StringAgg("str_shipping_mark", delimiter=",", distinct=True, ordering="str_shipping_mark"),
-            pcs=Sum("pallet__pcs", output_field=IntegerField()),
-            cbm=Sum("pallet__cbm", output_field=FloatField()),
-            n_pallet=Count("pallet__pallet_id", distinct=True),
-        ).order_by("-cbm"))
+        packing_list = await sync_to_async(list)(Pallet.objects.select_related(
+                "container_number"
+            ).filter(
+                container_number__container_number=container_number
+            ).values(
+                "container_number__container_number", "delivery_method", "destination", "fba_id", "ref_id", "shipping_mark", "note"
+            ).annotate(
+                pcs=Sum("pcs", output_field=IntegerField()),
+                cbm=Sum("cbm", output_field=FloatField()),
+                n_pallet=Count("pallet_id", distinct=True),
+            ).order_by("-cbm")
+        )
     else:
         raise ValueError(f"Unknown container status: {status}\n{request.POST}")
     
