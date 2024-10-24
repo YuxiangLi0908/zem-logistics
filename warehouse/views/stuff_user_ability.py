@@ -340,12 +340,12 @@ class StuffPower(View):
                 p.destination = p.packing_list.destination
                 p.delivery_method = p.packing_list.delivery_method
                 p.container_number = p.packing_list.container_number
-                p.shipment_number = p.packing_list.shipment_batch_number
+                p.shipment_batch_number = p.packing_list.shipment_batch_number
                 cnt += 1
                 updated_pallet.append(p)
         Pallet.objects.bulk_update(
             updated_pallet,
-            ["destination", "delivery_method", "container_number", "shipment_number"]
+            ["destination", "delivery_method", "container_number", "shipment_batch_number"]
         )
         context = {
             "pallet_updated": True,

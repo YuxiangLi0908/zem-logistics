@@ -354,6 +354,8 @@ class Palletization(View):
             cbm = [float(c) for c in request.POST.getlist("cbms")]
             weight = [float(c) for c in request.POST.getlist("weights")]
             destinations = [d for d in request.POST.getlist("destinations")]
+            addresses = [d for d in request.POST.getlist("address")]
+            zipcodes = [d for d in request.POST.getlist("zipcode")]
             delivery_method = [d for d in request.POST.getlist("delivery_method")]
             shipment_batch_number = [d for d in request.POST.getlist("shipment_batch_number")]
             shipping_marks = request.POST.getlist("shipping_marks")
@@ -362,12 +364,13 @@ class Palletization(View):
             notes = [d for d in request.POST.getlist("note")]
             total_pallet = sum(n_pallet)
             abnormal_offloads = []
-            for n, p_a, p_r, c, w, dest, d_m, note, shipment, shipping_mark, fba_id, ref_id in zip(
+            for n, p_a, p_r, c, w, dest, d_m, note, shipment, shipping_mark, fba_id, ref_id, addr, zipcode in zip(
                 n_pallet, pcs_actual, pcs_reported, cbm, weight, destinations, delivery_method, 
-                notes, shipment_batch_number, shipping_marks, fba_ids, ref_ids
+                notes, shipment_batch_number, shipping_marks, fba_ids, ref_ids, addresses, zipcodes
             ):
                 await self._split_pallet(
-                    n, p_a, p_r, c, w, dest, d_m, note, shipment, shipping_mark, fba_id, ref_id, pk
+                    n, p_a, p_r, c, w, dest, d_m, note, shipment, 
+                    shipping_mark, fba_id, ref_id, addr, zipcode, pk
                 )  #循环遍历每个汇总的板数
                 if p_a != p_r:
                     abnormal_offloads.append({
@@ -630,6 +633,8 @@ class Palletization(View):
         shipping_mark: str, 
         fba_id: str, 
         ref_id: str,
+        address: str,
+        zipcode: str,
         pk: int,
         seed: int = 0
     ) -> None:
@@ -661,12 +666,14 @@ class Palletization(View):
             pallet_data.append({
                 "container_number": order_selected.container_number,
                 "destination": destination,
+                "address": address,
+                "zipcode": zipcode,
                 "delivery_method": delivery_method,
                 "pallet_id": pallet_ids[i],
                 "pcs": pallet_pcs[i],
                 "cbm": cbm_loaded,
                 "weight_lbs": weight_loaded,
-                "shipment_number": shipment,
+                "shipment_batch_number": shipment,
                 "note": note,
                 "shipping_mark": shipping_mark if shipping_mark else "",
                 "fba_id": fba_id if fba_id else "",
@@ -681,11 +688,11 @@ class Palletization(View):
         )
         shipment_list = set([pl.shipment_batch_number for pl in packing_list if pl.shipment_batch_number])
         shipment_stats = await sync_to_async(list)(Pallet.objects.select_related(
-            "shipment_number"
+            "shipment_batch_number"
         ).filter(
-            shipment_number__shipment_batch_number__in=shipment_list
+            shipment_batch_number__shipment_batch_number__in=shipment_list
         ).values(
-            "shipment_number__shipment_batch_number"
+            "shipment_batch_number__shipment_batch_number"
         ).annotate(
             total_pcs=Sum("pcs", output_field=IntegerField()),
             total_cbm=Sum("cbm", output_field=FloatField()),
@@ -693,7 +700,7 @@ class Palletization(View):
             total_n_pallet=Count('pallet_id', distinct=True, output_field=IntegerField()),
         ))
         shipment_stats = {
-            s["shipment_number__shipment_batch_number"]: {
+            s["shipment_batch_number__shipment_batch_number"]: {
                 "total_pcs": s["total_pcs"],
                 "total_cbm": s["total_cbm"],
                 "weight_lbs": s["weight_lbs"],
@@ -724,8 +731,8 @@ class Palletization(View):
                 str_ref_id=Cast("ref_id", CharField()),
                 str_shipping_mark=Cast("shipping_mark", CharField()),
             ).values(
-                "container_number__container_number", "destination", "address", "custom_delivery_method", 
-                "note", "shipment_batch_number__shipment_batch_number",
+                "container_number__container_number", "destination", "address", "zipcode",
+                "custom_delivery_method", "note", "shipment_batch_number__shipment_batch_number",
             ).annotate(
                 fba_ids=StringAgg("str_fba_id", delimiter=",", distinct=True),
                 ref_ids=StringAgg("str_ref_id", delimiter=",", distinct=True),

@@ -130,15 +130,15 @@ class Inventory(View):
     async def _get_inventory_pallet(self, warehouse: str) -> list[Pallet]:
         return await sync_to_async(list)(
             Pallet.objects.select_related(
-                "container_number", "shipment_number"
+                "container_number", "shipment_batch_number"
             ).filter(
                 models.Q(
                     models.Q(container_number__order__retrieval_id__retrieval_destination_precise=warehouse) |
                     models.Q(container_number__order__warehouse__name=warehouse)
                 ) &
                 models.Q(
-                    models.Q(shipment_number__isnull=True) |
-                    models.Q(shipment_number__is_shipped=False)
+                    models.Q(shipment_batch_number__isnull=True) |
+                    models.Q(shipment_batch_number__is_shipped=False)
                 )
             ).values(
                 "container_number__container_number", "destination", 

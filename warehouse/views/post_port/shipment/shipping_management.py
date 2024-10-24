@@ -183,32 +183,32 @@ class ShippingManagement(View):
         selected_fleet = await sync_to_async(Fleet.objects.get)(fleet_number=selected_fleet_number)
         shipment = await sync_to_async(list)(
             Pallet.objects.select_related(
-                "packing_list", "shipment_number",
-                "shipment_number__fleet_number", 
+                "packing_list", "shipment_batch_number",
+                "shipment_batch_number__fleet_number", 
                 "packing_list__container_number",
             ).filter(
-                shipment_number__fleet_number__fleet_number=selected_fleet_number
+                shipment_batch_number__fleet_number__fleet_number=selected_fleet_number
             ).annotate(
                 str_plt_id=Cast("pallet_id", CharField()),
             ).values(
-                "shipment_number__shipment_batch_number", "packing_list__container_number__container_number", 
-                "packing_list__destination", "shipment_number__appointment_id", "shipment_number__shipment_appointment",
-                "shipment_number__note",
+                "shipment_batch_number__shipment_batch_number", "packing_list__container_number__container_number", 
+                "packing_list__destination", "shipment_batch_number__appointment_id", "shipment_batch_number__shipment_appointment",
+                "shipment_batch_number__note",
             ).annotate(
                 plt_ids=StringAgg("str_plt_id", delimiter=",", distinct=True, ordering="str_plt_id"),
                 total_weight=Sum("weight_lbs", output_field=FloatField()),
                 total_cbm=Sum("cbm", output_field=FloatField()),
                 total_pallet=Count('pallet_id', distinct=True)
-            ).order_by("-shipment_number__shipment_appointment")
+            ).order_by("-shipment_batch_number__shipment_appointment")
         )
         packing_list = {}
         for s in shipment:
             pl = await sync_to_async(list)(
                 PackingList.objects.select_related("container_number").filter(
-                    shipment_batch_number__shipment_batch_number=s["shipment_number__shipment_batch_number"]
+                    shipment_batch_number__shipment_batch_number=s["shipment_batch_number__shipment_batch_number"]
                 )
             )
-            packing_list[s["shipment_number__shipment_batch_number"]] = pl
+            packing_list[s["shipment_batch_number__shipment_batch_number"]] = pl
 
         pl_fleet = await sync_to_async(list)(
             PackingList.objects.select_related(
@@ -230,8 +230,8 @@ class ShippingManagement(View):
         
         shipment_batch_numbers = []
         for s in shipment:
-            if s.get("shipment_number__shipment_batch_number") not in shipment_batch_numbers:
-                shipment_batch_numbers.append(s.get("shipment_number__shipment_batch_number"))
+            if s.get("shipment_batch_number__shipment_batch_number") not in shipment_batch_numbers:
+                shipment_batch_numbers.append(s.get("shipment_batch_number__shipment_batch_number"))
         mutable_post = request.POST.copy()
         mutable_post['name'] = request.GET.get("warehouse")
         request.POST = mutable_post
@@ -293,7 +293,7 @@ class ShippingManagement(View):
             container_number__order__packing_list_updloaded=True,
             shipment_batch_number__isnull=True,
             container_number__order__order_type="转运",
-            # container_number__order__created_at__gte='2024-09-01',
+            container_number__order__created_at__gte='2024-09-01',
         ) & (
             # TODOs: 考虑按照安排提柜时间筛选
             models.Q(container_number__order__vessel_id__vessel_eta__lte=datetime.now().date() + timedelta(days=7)) |
@@ -418,8 +418,8 @@ class ShippingManagement(View):
             plt_ids = [i.replace("'", "") for i in plt_ids]
             pallet = await sync_to_async(list)(Pallet.objects.filter(pallet_id__in=plt_ids))
             for p in pallet:
-                p.shipment_number = shipment
-            await sync_to_async(Pallet.objects.bulk_update)(pallet, ["shipment_number"])
+                p.shipment_batch_number = shipment
+            await sync_to_async(Pallet.objects.bulk_update)(pallet, ["shipment_batch_number"])
             await sync_to_async(PackingList.objects.bulk_update)(packing_list, ["shipment_batch_number"])
             mutable_post = request.POST.copy()
             mutable_post['area'] = area
@@ -737,14 +737,14 @@ class ShippingManagement(View):
             if p_schedule > p_shipped:
                 unshipped_pallet_ids += plt_id[:p_schedule-p_shipped]
         unshipped_pallet = await sync_to_async(list)(
-            Pallet.objects.select_related("shipment_number").filter(pallet_id__in=unshipped_pallet_ids)
+            Pallet.objects.select_related("shipment_batch_number").filter(pallet_id__in=unshipped_pallet_ids)
         )
         shipment_pallet = {}
         for p in unshipped_pallet:
-            if p.shipment_number.shipment_batch_number not in shipment_pallet:
-                shipment_pallet[p.shipment_number.shipment_batch_number] = [p]
+            if p.shipment_batch_number.shipment_batch_number not in shipment_pallet:
+                shipment_pallet[p.shipment_batch_number.shipment_batch_number] = [p]
             else:
-                shipment_pallet[p.shipment_number.shipment_batch_number].append(p)
+                shipment_pallet[p.shipment_batch_number.shipment_batch_number].append(p)
         updated_shipment = []
         updated_pallet = []
         sub_shipment = {s.shipment_batch_number: None for s in shipment}
@@ -782,7 +782,7 @@ class ShippingManagement(View):
                 sub_shipment = Shipment(**sub_shipment_data)
                 await sync_to_async(sub_shipment.save)()
                 for p in shipment_pallet.get(s.shipment_batch_number):
-                    p.shipment_number = sub_shipment
+                    p.shipment_batch_number = sub_shipment
                     updated_pallet.append(p)
             else:
                 s.pallet_dumpped = 0
@@ -808,7 +808,7 @@ class ShippingManagement(View):
             ]
         )
         await sync_to_async(Pallet.objects.bulk_update)(
-            updated_pallet, ["shipment_number"]
+            updated_pallet, ["shipment_batch_number"]
         )
         await sync_to_async(fleet.save)()
         return await self.handle_outbound_warehouse_search_post(request)
@@ -917,29 +917,38 @@ class ShippingManagement(View):
         criteria_pal = criteria & pal
         pal_list = await sync_to_async(list)(
             Pallet.objects.prefetch_related(
-                "container_number"
-            ).filter(container_number__order__offload_id__isnull=False
-            ).values('container_number__container_number',
-                     'container_number__order__customer_name__zem_name',
-                     'destination',
-                     )
+                "container_number", "container_number__order", "container_number__order__warehouse", "shipment_batch_number"
+                "container_number__order__offload_id", "container_number__order__customer_name",
+            ).filter(
+                criteria_pal
+            ).annotate(
+                schedule_status=Case(
+                    When(Q(container_number__order__offload_id__offload_at__lte=datetime.now().date() + timedelta(days=-7)), then=Value("past_due")),
+                    default=Value("on_time"),
+                    output_field=CharField()
+                ),
+                str_id=Cast("id", CharField()),
+            ).values(
+                'container_number__container_number',
+                'container_number__order__customer_name__zem_name',
+                'destination',
+                'address',
+                'delivery_method',
+                'container_number__order__offload_id__offload_at',
+                'schedule_status',
+            ).annotate(
+                fba_ids=F('fba_id'),
+                ref_ids=F('ref_id'),
+                shipping_marks=F('shipping_mark'),
+                ids=StringAgg("str_id", delimiter=",", distinct=True, ordering="str_id"),
+                total_pcs=Sum("pcs", output_field=IntegerField()),
+                total_cbm=Sum("cbm", output_field=IntegerField()),
+                total_weight_lbs=Sum("weight_lbs", output_field=IntegerField()),
+                total_n_pallet_act=Count("pallet_id", distinct=True),
+                label=Value("ACT"),
+            )
         )
-        print(pal_list)
-        # pal_list =  await sync_to_async(list)(
-        #     Pallet.objects.prefetch_related(
-        #         "container_number"
-        #     ).filter(criteria_pal).annotate(
-                
-        #     ).values(
-        #         'container_number__container_number',
-        #         'container_number__order__customer_name__zem_name',
-        #         'destination',
-        #         'address',
-        #         'custom_delivery_method',
-        #         'container_number__order__offload_id__offload_at',
-        #         'schedule_status',
-        #     )
-        #     ).distinct().order_by('container_number__order__offload_id__offload_at')
+        raise ValueError(pal_list)
         return pl_list
     
     async def _get_sharepoint_auth(self) -> ClientContext:
