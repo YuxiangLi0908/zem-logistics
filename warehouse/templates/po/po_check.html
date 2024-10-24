@@ -1,0 +1,170 @@
+{% extends 'base.html' %}
+{% load custom_filters %}
+{% block content %}
+
+<div style="max-height: 100%; max-width: 100%;">
+    <div><b>PO查验</b></div>
+</div>
+<div style="max-height: 100%; max-width: 100%;">
+    <div><b>一周内到港</b></div>
+</div>
+
+{% load static custom_filters %}
+    <form method="post" style="width: 100%;">
+        {% csrf_token %}
+        <div class="container mt-3" style="max-width: 100%;">
+            <div style="overflow-x: auto; max-width: 100%; overflow-y: auto; max-height: 800px;">
+                <table class="table" style="font-size: 11px">
+                    <thead>
+                        <tr>
+                            <th class="th" style="max-width: 5%; min-width: 10px; text-align: center;"></th>
+                            <th>柜号</th>
+                            <th>状态</th>
+                            <th>查询时间</th>
+                            <th>是否通知客户</th>
+                            <th>是否激活</th>
+                            <th>操作指令</th>
+                        </tr>
+                        <tr style="position: sticky; top: 28px;">
+                            <th class="th" style="max-width: 5%; min-width: 10px; text-align: center;">
+                                <input type="checkbox" id="selectAllCheckbox" onchange="toggleAllCheckboxes()">
+                            </th>
+                            <th class="th">
+                                <input type="text" id="ctnSearch" placeholder="搜索柜号..." oninput="filterTable(this, 1, true)" size="13" style="font-size: 11px;">
+                            </th>
+                            <th class="th">
+                                <input type="text" id="destSearch" placeholder="是否失效" oninput="filterTable(this, 2, true)" size="13" style="font-size: 11px;">
+                            </th>
+                            <th class="th"></th>
+                            <th class="th"></th>
+                            <th class="th"></th>
+                            <th class="th"></th>
+                        </tr>
+                    </thead>
+                    <tbody id="palletization-container">                       
+                        {% for po in po_check %}
+                        <tr id="palletization-row">
+                            <td class="td" style="max-width: 5%; min-width: 10px; text-align: center;">
+                                <input type='checkbox' name='is_selected' onclick="toggleRowBackground(this)">
+                                <input type="hidden" name="is_selected", value='off'>
+                                <input type="hidden" name="po_name", value='{{ po.container_number }}'>
+                            </td>
+                            <td class="td">{{ po.container_number }}</td>
+                            <td class="td" style="text-align: left; cursor: pointer; display: flex; align-items: center;">
+                                <input type="hidden" name="is_case_selected", value='off'>
+                                <input type="checkbox" id="status-{{po.id}}" style="display: none;" {% if po.status %}checked{% endif %}>
+                                <label 
+                                    for="status-{{pl.id}}" class="status - label" onclick="toggleStatus(event)"
+                                    style="display: flex; justify - content: center; align - items: center; width: 60px; height: 30px; border - radius: 50%; 
+                                    color: white; font - weight: bold; transition: background - color 0.3s ease; 
+                                    background - color: {% if po.status == 'true' %} #4CAF50 {% elif po.status == 'false' %} #f44336 {% else %} #9E9E9E {% endif %}; font - size: 15px; margin - right: 10px;"
+                                >
+                                    {% if po.status == 'true' %} &#10003; {% elif po.status == 'false' %} &times; {% else %}<span style="color:black;">未查验</span> {% endif %}
+                                </label>
+                            </td>
+                            <td class="td">
+                                {% if po.last_checktime %}
+                                    {{ po.last_checktime }}
+                                {% else %}
+                                    未查验
+                                {% endif %}
+                            </td>
+                            <td class="td">
+                                {% if po.is_notified %}
+                                    {{ po.is_notified }}
+                                {% else %}
+                                    未处理
+                                {% endif %}
+                            </td>                                                
+                            <td class="td">
+                                {% if po.is_active %}
+                                    {{ po.is_active }}
+                                {% else %}
+                                    未处理
+                                {% endif %}
+                            </td>
+                            <td class="td">
+                                <textarea name="note" placeholder="请输入..."></textarea>
+                            </td>  
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+        </div>
+        <input type="hidden" name="step" value="selection_check_seven">
+        <input type="hidden" name="po_name" value="{{ selected_po_name }}">
+        <button type="submit" onclick="confirmSubmit" class="btn btn-primary" style="width: 100px; height: 35px;">生成PO</button>
+    </form>
+
+<script>
+    function confirmSubmit() {
+        const checkBoxes = document.getElementsByName('is_selected');
+        for (let i = 0; i < checkBoxes.length; i+=2) {
+            if (checkBoxes[i].checked) {
+                checkBoxes[i+1].disabled = true;
+            }
+        }
+    };
+    function toggleAllCheckboxes() {
+        var selectAllCheckbox = document.getElementById('selectAllCheckbox');
+        var checkboxes = document.querySelectorAll('tbody input[type="checkbox"][name="is_selected"]');
+        
+        checkboxes.forEach(function(checkbox) {
+            var tr = checkbox.closest('tr');
+            if (tr.style.display !== 'none') {
+                checkbox.checked = selectAllCheckbox.checked;
+                if (checkbox.checked) {
+                    tr.style.backgroundColor = '#ADD8E6'; // Change to your desired color
+                } else {
+                    tr.style.backgroundColor = ''; // Reset to default color
+                }
+            }
+        });
+    };
+
+    function toggleRowBackground(checkbox) {
+        var row = checkbox.closest('tr');
+        if (checkbox.checked) {
+            row.style.backgroundColor = '#ADD8E6'; 
+        } else {
+            row.style.backgroundColor = ''; 
+        }
+    };
+
+    function toggleStatusaa(event) {
+        const checkbox = event.target.previousElementSibling;
+        const caseSelectInput = checkbox.previousElementSibling;
+        if (!checkbox.checked) {
+            if (checkbox.value === 'true') {
+                event.target.innerHTML = '&#10003;';
+                event.target.style.backgroundColor = '#4CAF50';
+                caseSelectInput.value = 'on';
+            } else if (checkbox.value === 'false') {
+                event.target.innerHTML = '&times;';
+                event.target.style.backgroundColor = '#f44336';
+                caseSelectInput.value = 'on';
+            } else {
+                event.target.innerHTML = '未查验';
+                event.target.style.backgroundColor = '#9E9E9E';
+                caseSelectInput.value = 'on';
+            }
+        } else {
+            if (checkbox.value === 'true') {
+                event.target.innerHTML = '&times;';
+                event.target.style.backgroundColor = '#f44336';
+                caseSelectInput.value = 'off';
+            } else if (checkbox.value === 'false') {
+                event.target.innerHTML = '&#10003;';
+                event.target.style.backgroundColor = '#4CAF50';
+                caseSelectInput.value = 'off';
+            } else {
+                event.target.innerHTML = '未查验';
+                event.target.style.backgroundColor = '#9E9E9E';
+                caseSelectInput.value = 'off';
+            }
+        }
+    };
+    
+</script>
+{% endblock %}
