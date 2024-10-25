@@ -95,6 +95,10 @@
                         <td class="td">
                             {% if selected_order.order_type == "直送" %}
                             <input type="text" name="retrieval_destination" style="font-size: 13px;" required>
+                            {% elif selected_order.retrieval_id.assigned_by_appt %}
+                            <input type="text" name="retrieval_destination_assigned" value="{{ selected_order.retrieval_id.retrieval_destination_precise }}" disabled>
+                            <input type="hidden" name="retrieval_destination" value="{{ selected_order.retrieval_id.retrieval_destination_precise }}">
+                            (拿约组指派)
                             {% else %}
                             <select name="retrieval_destination" id="retrieval-destination-select" style="font-size: 13px;">
                                 {% for k, v in warehouse_options %}

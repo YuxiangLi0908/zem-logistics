@@ -654,6 +654,8 @@ class Palletization(View):
             weight_actual = w * p_a / p_r
         if shipment_batch_number != "None":
             shipment = await sync_to_async(Shipment.objects.get)(shipment_batch_number=shipment_batch_number)
+            shipment.ready_to_ship = p_a == p_r
+            await sync_to_async(shipment.save)()
         else:
             shipment = None
         pallet_data = []
@@ -678,6 +680,7 @@ class Palletization(View):
                 "shipping_mark": shipping_mark if shipping_mark else "",
                 "fba_id": fba_id if fba_id else "",
                 "ref_id": ref_id if ref_id else "",
+                "ready_to_ship": p_a == p_r,
             })
         await sync_to_async(Pallet.objects.bulk_create)([Pallet(**d) for d in pallet_data])
 

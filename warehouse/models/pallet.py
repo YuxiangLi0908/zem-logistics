@@ -19,6 +19,7 @@ class Pallet(models.Model):
     pcs = models.IntegerField(null=True, blank=True)
     cbm = models.FloatField(null=True, blank=True)
     weight_lbs = models.FloatField(null=True, blank=True)
+    ready_to_ship = models.BooleanField(default=True, blank=True)
     note = models.CharField(null=True, blank=True, max_length=2000)
 
     def __str__(self):

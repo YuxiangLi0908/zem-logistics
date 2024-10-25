@@ -12,6 +12,7 @@ class Retrieval(models.Model):
     destination_port = models.CharField(max_length=255, null=True, blank=True)
     shipping_line = models.CharField(max_length=255, null=True, blank=True)
     retrieval_destination_precise = models.CharField(max_length=200, null=True, blank=True)
+    assigned_by_appt = models.BooleanField(default=False, blank=True)
     retrieval_destination_area = models.CharField(max_length=20, null=True, blank=True)
     scheduled_at = models.DateTimeField(null=True, blank=True)
     target_retrieval_timestamp = models.DateTimeField(null=True, blank=True)

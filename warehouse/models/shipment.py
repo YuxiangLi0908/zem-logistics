@@ -35,6 +35,7 @@ class Shipment(models.Model):
     pod_link = models.CharField(max_length=2000, null=True, blank=True)
     pallet_dumpped = models.FloatField(null=True, blank=True, default=0)
     fleet_number = models.ForeignKey(Fleet, null=True, blank=True, on_delete=models.SET_NULL, related_name='shipment')
+    ready_to_ship = models.BooleanField(default=True, blank=True)
 
     def __str__(self) -> str:
         return self.shipment_batch_number

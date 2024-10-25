@@ -151,7 +151,10 @@ class ShippingManagement(View):
         request.POST = mutable_post
         _, context = await self.handle_warehouse_post(request)
         shipment = await sync_to_async(Shipment.objects.get)(shipment_batch_number=batch_number)
-        packing_list_selected = await self._get_packing_list(models.Q(shipment_batch_number__shipment_batch_number=batch_number))
+        packing_list_selected = await self._get_packing_list(
+            models.Q(shipment_batch_number__shipment_batch_number=batch_number),
+            models.Q(shipment_batch_number__shipment_batch_number=batch_number),
+        )
         context.update({
             "shipment": shipment,
             "packing_list_selected": packing_list_selected,
@@ -299,7 +302,9 @@ class ShippingManagement(View):
             models.Q(container_number__order__vessel_id__vessel_eta__lte=datetime.now().date() + timedelta(days=7)) |
             models.Q(container_number__order__eta__lte=datetime.now().date() + timedelta(days=7))
         )
-        packing_list_not_scheduled = await self._get_packing_list(criteria)
+        pl_criteria = criteria & models.Q(container_number__order__offload_id__offload_at__isnull=True)
+        plt_criteria = criteria & models.Q(container_number__order__offload_id__offload_at__isnull=False)
+        packing_list_not_scheduled = await self._get_packing_list(pl_criteria, plt_criteria)
         cbm_act, cbm_est, pallet_act, pallet_est = 0, 0, 0, 0
         for pl in packing_list_not_scheduled:
             if pl.get("label") == "ACT":
@@ -331,13 +336,15 @@ class ShippingManagement(View):
         ids = [id for s, id in zip(selections, ids) if s == "on"]
         plt_ids = request.POST.getlist("plt_ids")
         plt_ids = [id for s, id in zip(selections, plt_ids) if s == "on"]
-        selected = [int(i) for id in ids for i in id.split(",")]
-        selected_plt = [str(i) for id in plt_ids for i in id.split(",")]
-        if selected:
+        selected = [int(i) for id in ids for i in id.split(",") if i]
+        selected_plt = [int(i) for id in plt_ids for i in id.split(",") if i]
+        if selected or selected_plt:
             current_time = datetime.now()
             _, context = await self.handle_warehouse_post(request)
-            criteria = models.Q(id__in=selected)
-            packing_list_selected = await self._get_packing_list(criteria)
+            packing_list_selected = await self._get_packing_list(
+                models.Q(id__in=selected),
+                models.Q(id__in=selected_plt),
+            )
             total_weight, total_cbm, total_pcs, total_pallet = .0, .0, 0, 0
             for pl in packing_list_selected:
                 total_weight += pl.get("total_weight_lbs") if pl.get("total_weight_lbs") else 0
@@ -377,6 +384,7 @@ class ShippingManagement(View):
                 "pl_ids": selected,
                 "pl_ids_raw": ids,
                 "plt_ids": selected_plt,
+                "plt_ids_raw": plt_ids,
                 "address": address,
                 "shipment_data": shipment_data,
                 "warehouse_options": self.warehouse_options,
@@ -411,14 +419,38 @@ class ShippingManagement(View):
             await sync_to_async(shipment.save)()
             pl_ids = request.POST.get("pl_ids").strip('][').split(', ')
             pl_ids = [int(i) for i in pl_ids]
-            packing_list = await sync_to_async(list)(PackingList.objects.filter(id__in=pl_ids))
+            packing_list = await sync_to_async(list)(PackingList.objects.select_related("container_number").filter(id__in=pl_ids))
+            container_number = set()
             for pl in packing_list:
                 pl.shipment_batch_number = shipment
+                container_number.add(pl.container_number.container_number)
             plt_ids = request.POST.get("plt_ids").strip('][').split(', ')
-            plt_ids = [i.replace("'", "") for i in plt_ids]
-            pallet = await sync_to_async(list)(Pallet.objects.filter(pallet_id__in=plt_ids))
+            plt_ids = [int(i) for i in plt_ids]
+            pallet = await sync_to_async(list)(Pallet.objects.select_related("container_number").filter(id__in=plt_ids))
             for p in pallet:
                 p.shipment_batch_number = shipment
+                container_number.add(p.container_number.container_number)
+            order = await sync_to_async(list)(
+                Order.objects.select_related(
+                    "retrieval_id", "warehouse", "container_number"
+                ).filter(container_number__container_number__in=container_number)
+            )
+            assigned_warehouse = request.POST.get("origin", "")
+            warehouse = await sync_to_async(ZemWarehouse.objects.get)(name=assigned_warehouse)
+            updated_order, updated_retrieval = [], []
+            for o in order:
+                if not o.warehouse or not o.retrieval_id.retrieval_destination_precise:
+                    o.warehouse = warehouse
+                    o.retrieval_id.retrieval_destination_precise = assigned_warehouse
+                    o.retrieval_id.assigned_by_appt = True
+                    updated_order.append(o)
+                    updated_retrieval.append(o.retrieval_id)
+            await sync_to_async(Order.objects.bulk_update)(
+                updated_order, ["warehouse"]
+            )
+            await sync_to_async(Retrieval.objects.bulk_update)(
+                updated_retrieval, ["retrieval_destination_precise", "assigned_by_appt"]
+            )
             await sync_to_async(Pallet.objects.bulk_update)(pallet, ["shipment_batch_number"])
             await sync_to_async(PackingList.objects.bulk_update)(packing_list, ["shipment_batch_number"])
             mutable_post = request.POST.copy()
@@ -846,110 +878,115 @@ class ShippingManagement(View):
         )
         return await self.handle_delivery_and_pod_get(request)
 
-    async def _get_packing_list(self, criteria: models.Q) -> list[Any]:
-        criteria_pl = criteria & Q(container_number__order__offload_id__offload_at__isnull=True)
-        pl_list =  await sync_to_async(list)(
-            PackingList.objects.prefetch_related(
-                "container_number", "container_number__order", "container_number__order__warehouse", "shipment_batch_number"
-                "container_number__order__offload_id", "container_number__order__customer_name", "pallet"
-            ).filter(criteria_pl).annotate(
-                custom_delivery_method=Case(
-                    When(Q(delivery_method='暂扣留仓(HOLD)') | Q(delivery_method='暂扣留仓'), then=Concat('delivery_method', Value('-'), 'fba_id', Value('-'), 'id')),
-                    default=F('delivery_method'),
-                    output_field=CharField()
-                ),
-                schedule_status=Case(
-                    When(Q(container_number__order__offload_id__offload_at__lte=datetime.now().date() + timedelta(days=-7)), then=Value("past_due")),
-                    default=Value("on_time"),
-                    output_field=CharField()
-                ),
-                str_id=Cast("id", CharField()),
-                str_fba_id=Cast("fba_id", CharField()),
-                str_ref_id=Cast("ref_id", CharField()),
-                str_shipping_mark=Cast("shipping_mark", CharField())
-            ).values(
-                'container_number__container_number',
-                'container_number__order__customer_name__zem_name',
-                'destination',
-                'address',
-                'custom_delivery_method',
-                'container_number__order__offload_id__offload_at',
-                'schedule_status',
-            ).annotate(
-                fba_ids=StringAgg("str_fba_id", delimiter=",", distinct=True, ordering="str_fba_id"),
-                ref_ids=StringAgg("str_ref_id", delimiter=",", distinct=True, ordering="str_ref_id"),
-                shipping_marks=StringAgg("str_shipping_mark", delimiter=",", distinct=True, ordering="str_shipping_mark"),
-                ids=StringAgg("str_id", delimiter=",", distinct=True, ordering="str_id"),
-                total_pcs=Sum(
-                    Case(
-                        When(pallet__isnull=True, then=F("pcs")),
-                        default=F("pallet__pcs"),
-                        output_field=IntegerField()
-                    )
-                ),
-                total_cbm=Sum(
-                    Case(
-                        When(pallet__isnull=True, then=F("cbm")),
-                        default=F("pallet__cbm"),
-                        output_field=FloatField()
-                    )
-                ),
-                total_weight_lbs=Sum(
-                    Case(
-                        When(pallet__isnull=True, then=F("total_weight_lbs")),
-                        default=F("pallet__weight_lbs"),
-                        output_field=FloatField()
-                    )
-                ),
-                total_n_pallet_act=Count("pallet__pallet_id", distinct=True),
-                total_n_pallet_est=Sum("cbm", output_field=FloatField())/2,
-                label=Max(
-                    Case(
-                        When(pallet__isnull=True, then=Value("EST")),
-                        default=Value("ACT"),
+    async def _get_packing_list(
+        self, 
+        pl_criteria: models.Q | None = None,
+        plt_criteria: models.Q | None = None,
+    ) -> list[Any]:
+        data = []
+        if plt_criteria:
+            pal_list = await sync_to_async(list)(
+                Pallet.objects.prefetch_related(
+                    "container_number", "container_number__order", "container_number__order__warehouse", "shipment_batch_number"
+                    "container_number__order__offload_id", "container_number__order__customer_name",
+                ).filter(
+                    plt_criteria
+                ).annotate(
+                    schedule_status=Case(
+                        When(Q(container_number__order__offload_id__offload_at__lte=datetime.now().date() + timedelta(days=-7)), then=Value("past_due")),
+                        default=Value("on_time"),
                         output_field=CharField()
-                    )
-                ),
-            ).distinct().order_by('container_number__order__offload_id__offload_at')
-        )
-
-        pal = Q(container_number__order__offload_id__offload_at__isnull=False)
-        criteria_pal = criteria & pal
-        pal_list = await sync_to_async(list)(
-            Pallet.objects.prefetch_related(
-                "container_number", "container_number__order", "container_number__order__warehouse", "shipment_batch_number"
-                "container_number__order__offload_id", "container_number__order__customer_name",
-            ).filter(
-                criteria_pal
-            ).annotate(
-                schedule_status=Case(
-                    When(Q(container_number__order__offload_id__offload_at__lte=datetime.now().date() + timedelta(days=-7)), then=Value("past_due")),
-                    default=Value("on_time"),
-                    output_field=CharField()
-                ),
-                str_id=Cast("id", CharField()),
-            ).values(
-                'container_number__container_number',
-                'container_number__order__customer_name__zem_name',
-                'destination',
-                'address',
-                'delivery_method',
-                'container_number__order__offload_id__offload_at',
-                'schedule_status',
-            ).annotate(
-                fba_ids=F('fba_id'),
-                ref_ids=F('ref_id'),
-                shipping_marks=F('shipping_mark'),
-                ids=StringAgg("str_id", delimiter=",", distinct=True, ordering="str_id"),
-                total_pcs=Sum("pcs", output_field=IntegerField()),
-                total_cbm=Sum("cbm", output_field=IntegerField()),
-                total_weight_lbs=Sum("weight_lbs", output_field=IntegerField()),
-                total_n_pallet_act=Count("pallet_id", distinct=True),
-                label=Value("ACT"),
+                    ),
+                    str_id=Cast("id", CharField()),
+                ).values(
+                    'container_number__container_number',
+                    'container_number__order__customer_name__zem_name',
+                    'destination',
+                    'address',
+                    'delivery_method',
+                    'container_number__order__offload_id__offload_at',
+                    'schedule_status',
+                ).annotate(
+                    custom_delivery_method=F('delivery_method'),
+                    fba_ids=F('fba_id'),
+                    ref_ids=F('ref_id'),
+                    shipping_marks=F('shipping_mark'),
+                    plt_ids=StringAgg("str_id", delimiter=",", distinct=True, ordering="str_id"),
+                    total_pcs=Sum("pcs", output_field=IntegerField()),
+                    total_cbm=Sum("cbm", output_field=IntegerField()),
+                    total_weight_lbs=Sum("weight_lbs", output_field=IntegerField()),
+                    total_n_pallet_act=Count("pallet_id", distinct=True),
+                    label=Value("ACT"),
+                )
             )
-        )
-        raise ValueError(pal_list)
-        return pl_list
+            data += pal_list
+        if pl_criteria:
+            pl_list =  await sync_to_async(list)(
+                PackingList.objects.prefetch_related(
+                    "container_number", "container_number__order", "container_number__order__warehouse", "shipment_batch_number"
+                    "container_number__order__offload_id", "container_number__order__customer_name", "pallet"
+                ).filter(pl_criteria).annotate(
+                    custom_delivery_method=Case(
+                        When(Q(delivery_method='暂扣留仓(HOLD)') | Q(delivery_method='暂扣留仓'), then=Concat('delivery_method', Value('-'), 'fba_id', Value('-'), 'id')),
+                        default=F('delivery_method'),
+                        output_field=CharField()
+                    ),
+                    schedule_status=Case(
+                        When(Q(container_number__order__offload_id__offload_at__lte=datetime.now().date() + timedelta(days=-7)), then=Value("past_due")),
+                        default=Value("on_time"),
+                        output_field=CharField()
+                    ),
+                    str_id=Cast("id", CharField()),
+                    str_fba_id=Cast("fba_id", CharField()),
+                    str_ref_id=Cast("ref_id", CharField()),
+                    str_shipping_mark=Cast("shipping_mark", CharField())
+                ).values(
+                    'container_number__container_number',
+                    'container_number__order__customer_name__zem_name',
+                    'destination',
+                    'address',
+                    'custom_delivery_method',
+                    'container_number__order__offload_id__offload_at',
+                    'schedule_status',
+                ).annotate(
+                    fba_ids=StringAgg("str_fba_id", delimiter=",", distinct=True, ordering="str_fba_id"),
+                    ref_ids=StringAgg("str_ref_id", delimiter=",", distinct=True, ordering="str_ref_id"),
+                    shipping_marks=StringAgg("str_shipping_mark", delimiter=",", distinct=True, ordering="str_shipping_mark"),
+                    ids=StringAgg("str_id", delimiter=",", distinct=True, ordering="str_id"),
+                    total_pcs=Sum(
+                        Case(
+                            When(pallet__isnull=True, then=F("pcs")),
+                            default=F("pallet__pcs"),
+                            output_field=IntegerField()
+                        )
+                    ),
+                    total_cbm=Sum(
+                        Case(
+                            When(pallet__isnull=True, then=F("cbm")),
+                            default=F("pallet__cbm"),
+                            output_field=FloatField()
+                        )
+                    ),
+                    total_weight_lbs=Sum(
+                        Case(
+                            When(pallet__isnull=True, then=F("total_weight_lbs")),
+                            default=F("pallet__weight_lbs"),
+                            output_field=FloatField()
+                        )
+                    ),
+                    total_n_pallet_act=Count("pallet__pallet_id", distinct=True),
+                    total_n_pallet_est=Sum("cbm", output_field=FloatField())/2,
+                    label=Max(
+                        Case(
+                            When(pallet__isnull=True, then=Value("EST")),
+                            default=Value("ACT"),
+                            output_field=CharField()
+                        )
+                    ),
+                ).distinct()
+            )
+            data += pl_list
+        return data
     
     async def _get_sharepoint_auth(self) -> ClientContext:
         return ClientContext(SP_URL).with_credentials(UserCredential(SP_USER, SP_PASS))

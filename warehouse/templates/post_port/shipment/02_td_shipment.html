@@ -83,7 +83,7 @@
                             {% for c in packing_list_not_scheduled %}
                             <tr>
                                 <td class="td" style="min-width: 40px; text-align: center;">
-                                    <input type='checkbox' name='is_shipment_schduled' onclick="toggleRowBackground(this)" {% if c.ids in pl_ids_raw %}checked{% endif %}>
+                                    <input type='checkbox' name='is_shipment_schduled' onclick="toggleRowBackground(this)" {% if c.ids in pl_ids_raw %}checked{% elif c.plt_ids in plt_ids_raw %}checked{% endif %}>
                                     <input type="hidden" name="is_shipment_schduled", value='off'>
                                     <input type="hidden" name="pl_ids", value='{{ c.ids }}'>
                                     <input type="hidden" name="plt_ids", value='{{ c.plt_ids }}'>
