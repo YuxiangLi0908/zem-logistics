@@ -13,7 +13,7 @@
                 <table class="table" style="font-size: 11px">
                     <thead>
                         <tr>
-                            <th class="th" style="max-width: 5%; min-width: 10px; text-align: center;"></th>
+                            <th class="th" style="max-width: 5%; min-width: 10px; text-align: center;">确认通知</th>
                             <th>柜号</th>
                             <th>packing_list</th>
                             <th>是否通知客户</th>
@@ -39,7 +39,7 @@
                             <td class="td" style="max-width: 5%; min-width: 10px; text-align: center;">
                                 <input type='checkbox' name='is_selected' onclick="toggleRowBackground(this)">
                                 <input type="hidden" name="is_selected", value='off'>
-                                <input type="hidden" name="pl_ids", value='{{ po.packing_list.id }}'>
+                                <input type="hidden" name="po_ids", value='{{ po.id }}'>
                             </td>
                             <td class="td">{{ po.container_number }}</td>
                             <td class="td">{{ po.packing_list.shipping_mark }}</td>
@@ -51,9 +51,9 @@
                                         {% else %}
                                             未通知
                                         {% endif %}
-                                    <input type="checkbox" id="notify-checkbox" style="transform: scale(1.5);margin-left:10px;" onchange="toggleNotification()">
+                                    </span>
                                 </div>
-                            <td>                         
+                            </td>                         
                             <td class="td"><input type="text"></td>
                         </tr>
                         {% endfor %}
@@ -61,8 +61,7 @@
                 </table>
             </div>
         </div>
-        <input type="hidden" name="step" value="selection_check_seven">
-        <input type="hidden" name="po_name" value="{{ selected_po_name }}">
+        <input type="hidden" name="step" value="po_invalid_save">
         <button type="submit" onclick="confirmSubmit" class="btn btn-primary" style="width: 100px; height: 35px;">保存</button>
     </form>
 

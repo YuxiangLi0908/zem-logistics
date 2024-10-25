@@ -29,7 +29,7 @@ from warehouse.forms.upload_file import UploadFileForm
 class PO(View):
     template_main = "po/po.html"
     template_po_check = "po/po_check.html"
-    template_po_check = "po/po_invalid.html"
+    template_po_invalid = "po/po_invalid.html"
 
     def get(self, request: HttpRequest) -> HttpResponse:
         step = request.GET.get("step")
@@ -39,7 +39,7 @@ class PO(View):
             return render(request, self.template_po_check, context)
         if step == "po_invalid":
             context = async_to_sync(self.handle_po_check_seven)(request)
-            return render(request, self.template_po_check, context)
+            return render(request, self.template_po_invalid, context)
         current_date = datetime.now().date()
         start_date = current_date + timedelta(days=-30)
         end_date = current_date + timedelta(days=30)
@@ -66,7 +66,24 @@ class PO(View):
         elif step == "upload_check_po":     
             context = async_to_sync(self.handle_upload_check_po_post)(request)
             return render(request, self.template_po_check, context)
+        elif step == "po_invalid_save":
+            context = async_to_sync(self.handle_upload_po_invalid_post)(request)
+            return render(request, self.template_po_invalid, context)
     
+    async def handle_upload_po_invalid_post(self, request: HttpRequest) -> tuple[Any]:
+        ids = request.POST.getlist("po_ids")
+        ids = [i.split(",") for i in ids]
+        #是否确认通知客户
+        selections = request.POST.getlist("is_selected")
+        selected = [int(i) for s, id in zip(selections, ids) for i in id if s == "on"]
+        #是否确认通知客户
+        if selected:
+            for id in selected:
+                pochecketaseven = await sync_to_async(PoCheckEtaSeven.objects.get)(id = id)
+                pochecketaseven.is_notified = True
+                await sync_to_async(pochecketaseven.save)()
+        return await self.handle_po_check_seven(request)
+
     async def handle_upload_check_po_post(self, request: HttpRequest) -> tuple[Any]:
         form = UploadFileForm(request.POST, request.FILES)
         if form.is_valid():
