@@ -138,16 +138,17 @@ async def export_palletization_list(request: HttpRequest) -> HttpResponse:
     return response
 
 def export_po_check(request: HttpRequest) -> HttpResponse:
-    containers = request.POST.getlist("po_name")
-    containers = [co.split(",") for co in containers]
+    pl_ids = request.POST.getlist("pl_ids")   
+    pls = [pl.split(",") for pl in pl_ids]
     selections = request.POST.getlist("is_selected")
-    orders = [o for s, co in zip(selections, containers) for o in co if s == "on"]
-    if orders:
+    ids = [o for s, co in zip(selections, pls) for o in co if s == "on"]
+    if ids:
         #查找柜号下的pl
-        packing_list = PackingList.objects.filter(
-            models.Q(container_number__container_number__in=orders)
-        ).values(
-        'fba_id', 'ref_id','address','zipcode','destination','delivery_method',
+        packing_list = PackingList.objects.select_related(
+            "container_number", "pallet"
+            ).filter(
+                id__in=ids).values(
+        'shipping_mark', 'fba_id', 'ref_id','address','zipcode','destination','delivery_method',
         'container_number__container_number',
         ).annotate(
         total_pcs=Sum(
@@ -182,12 +183,12 @@ def export_po_check(request: HttpRequest) -> HttpResponse:
         ),
     ).distinct().order_by("destination", "container_number__container_number")
     data = [i for i in packing_list]
-    print('data',data)
     keep = [
-            "container_number__container_number", "destination", "delivery_method", "fba_id", "ref_id", 
-            "total_cbm", "total_pcs", "total_weight_lbs", "Pallet Count", "label"
+            "container_number__container_number", "destination", "delivery_method", "shipping_mark","fba_id", "ref_id", 
+            "total_cbm", "total_pcs", "total_weight_lbs", "Pallet Count", "label","is_valid"
         ]
     df = pd.DataFrame.from_records(data)
+    df['is_valid'] = None
     def get_est_pallet(n):
         if n < 1:
             return 1

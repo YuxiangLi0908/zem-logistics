@@ -1,6 +1,8 @@
 from datetime import datetime, timedelta
 from typing import Any
 
+import pytz
+import pandas as pd
 from django.http import JsonResponse
 from django.http import HttpRequest, HttpResponse
 from django.shortcuts import render
@@ -15,22 +17,28 @@ from django.db.models.functions import Cast
 from django.contrib.postgres.aggregates import StringAgg
 
 from warehouse.models.order import Order
+from warehouse.models.container import Container
 from warehouse.models.packing_list import PackingList
 from warehouse.models.po_check_eta import PoCheckEtaSeven
 from warehouse.models.warehouse import ZemWarehouse
 from warehouse.forms.warehouse_form import ZemWarehouseForm
 from warehouse.views.export_file import export_po,export_po_check
+from warehouse.forms.upload_file import UploadFileForm
 
 @method_decorator(login_required(login_url='login'), name='dispatch')
 class PO(View):
     template_main = "po/po.html"
     template_po_check = "po/po_check.html"
+    template_po_check = "po/po_invalid.html"
 
     def get(self, request: HttpRequest) -> HttpResponse:
         step = request.GET.get("step")
         print('GET',step)
-        if step == "po_check":
+        if step == "po_to_be_check":
             context = async_to_sync(self.handle_search_eta_seven)(request)
+            return render(request, self.template_po_check, context)
+        if step == "po_invalid":
+            context = async_to_sync(self.handle_po_check_seven)(request)
             return render(request, self.template_po_check, context)
         current_date = datetime.now().date()
         start_date = current_date + timedelta(days=-30)
@@ -55,46 +63,98 @@ class PO(View):
             return export_po(request, "FULL_TABLE")
         elif step == "selection_check_seven":
             return export_po_check(request)
+        elif step == "upload_check_po":     
+            context = async_to_sync(self.handle_upload_check_po_post)(request)
+            return render(request, self.template_po_check, context)
     
-        
+    async def handle_upload_check_po_post(self, request: HttpRequest) -> tuple[Any]:
+        form = UploadFileForm(request.POST, request.FILES)
+        if form.is_valid():
+            file = request.FILES['file']
+            df = pd.read_csv(file)
+            if 'shipping_mark' in df.columns and 'is_valid' in df.columns:
+                data_pairs = [(row['BOL'], row['shipping_mark'], row['PRO'], row['PO List (use , as separator) *'], row['is_valid']) for index, row in df.iterrows()]
+            else:
+                print("Either 'PRO' or 'is_valid' column is not present in the DataFrame.")
+        for bol,mark,fba,ref,is_valid in data_pairs:
+            try:
+                if bol:
+                    container = await sync_to_async(Container.objects.get)(container_number = bol)
+                    query = models.Q(container_number=container)
+                    if mark:
+                        query &= models.Q(shipping_mark=mark)
+                    elif fba:
+                        query &= models.Q(fba_id=fba)
+                    elif ref:
+                        query &= models.Q(ref_id=ref)
+                    pochecketaseven = await sync_to_async(PoCheckEtaSeven.objects.get)(query)
+                    pochecketaseven.status = is_valid == 1
+                    cn = pytz.timezone('Asia/Shanghai')
+                    current_time_cn = datetime.now(cn)
+                    pochecketaseven.last_checktime = current_time_cn
+                    await sync_to_async(pochecketaseven.save)()
+            except PoCheckEtaSeven.DoesNotExist:
+                continue
+        return await self.handle_po_check_seven(request)
+            
     async def handle_po_check_seven(self, request: HttpRequest) -> dict[str, dict]:
         po_checks = await sync_to_async(PoCheckEtaSeven.objects.all)()
         context = {
-            "po_check":po_checks
+            "po_check":po_checks,
+            "upload_check_file": UploadFileForm(),
             }
         return context
-
+    
+    async def handle_search_po_invalid(self, request: HttpRequest)-> tuple[str, dict[str, Any]]:
+        po_checks = await sync_to_async(PoCheckEtaSeven.objects.all)()
+        context = {
+            "po_check":po_checks,
+            }
+        return context
 
     async def handle_search_eta_seven(self, request: HttpRequest)-> tuple[str, dict[str, Any]]:
         seven_days_later = datetime.now().date() + timedelta(days=7)
         # 使用Q对象构建查询条件
-        orders = Order.objects.select_related(
+        
+        orders = await sync_to_async(list)(
+            Order.objects.select_related(
                     'container_number', 'vessel_id','retrieval_id'
                     ).filter(   
                             models.Q(vessel_id__vessel_eta__lte = seven_days_later)&
                             models.Q(retrieval_id__target_retrieval_timestamp__isnull=True)&
-                            models.Q(cancel_notification__isnull=True)
+                            models.Q(cancel_notification__isnull=False)
                     )
+            )
         po_checks = []
-        async for order in orders:
+        for order in orders:
             container_number = order.container_number
-            try:
-                # 直接在查询集中查找是否存在具有相同container_number的对象
-                existing_obj = await sync_to_async(PoCheckEtaSeven.objects.get)(container_number = container_number)
-            except PoCheckEtaSeven.DoesNotExist:
-                po_check_obj = PoCheckEtaSeven(container_number = container_number)
-                po_checks.append(po_check_obj)
+            #根据柜号查找pls，因为第一次查询完pls，可能会有预报新加pl的情况
+            pls = await sync_to_async(list)(PackingList.objects.filter(container_number = order.container_number))
+            for pl in pls:
+                try:
+                    # 直接在查询集中查找是否存在具有相同container_number的对象
+                    existing_obj = await sync_to_async(PoCheckEtaSeven.objects.get)(packing_list = pl)
+                except PoCheckEtaSeven.DoesNotExist:
+                    
+                    po_check_obj = PoCheckEtaSeven(container_number = container_number, packing_list = pl)
+                    po_checks.append(po_check_obj)
         po_checks_dict = []
         for p in po_checks:
-            valid_dict = {
-                'container_number': p.container_number,
-                'status': p.status,
-                'last_checktime': p.last_checktime,
-                'is_notified': p.is_notified,
-                'is_active': p.is_active,
-                'handling_method': p.handling_method
-            }
-            po_checks_dict.append(valid_dict)
+            if ("/" not in p.packing_list.fba_id) or ("/" not in p.packing_list.ref_id):
+                valid_dict = {
+                    'container_number': p.container_number,
+                    "packing_list": p.packing_list,
+                    "destination": p.packing_list.destination,
+                    "fba_id": p.packing_list.fba_id,
+                    "ref_id": p.packing_list.ref_id,
+                    "shipping_mark": p.packing_list.shipping_mark,
+                    'status': p.status,
+                    'last_checktime': p.last_checktime,
+                    'is_notified': p.is_notified,
+                    'is_active': p.is_active,
+                    'handling_method': p.handling_method
+                }
+                po_checks_dict.append(valid_dict)
         await sync_to_async(PoCheckEtaSeven.objects.bulk_create)(
                 PoCheckEtaSeven(**p) for p in po_checks_dict
             )

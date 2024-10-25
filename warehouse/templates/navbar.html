@@ -67,7 +67,8 @@
                         <div class="dropdown-content">
                             <a href="{% url 'create_order' %}?step=order_management_list">订单列表</a>
                             <a href="{% url 'po' %}">PO导出</a>
-                            <a href="{% url 'po' %}?step=po_check">PO查验</a>
+                            <a href="{% url 'po' %}?step=po_to_be_check">PO待查验</a>
+                            <a href="{% url 'po' %}?step=po_invalid">PO失效</a>
                         </div>
                     </div>
                 </li>
