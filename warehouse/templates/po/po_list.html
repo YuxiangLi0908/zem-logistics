@@ -13,7 +13,7 @@
             导入模版:
             <input type="file" name="file">
             <input type="hidden" name="step" value="upload_check_po">
-            <input type="hidden" name="time_code" value="eta">
+            <input type="hidden" name="time_code" value="po_list">
             <button type="submit" class="btn btn-success" style="width: 100px; height: 35px; font-size: 12px; margin: 5px;">上传清单</button>
         </div>
     </form>
@@ -27,7 +27,7 @@
         <button type="submit" onclick="confirmSubmit" class="btn btn-primary" style="width: 100px; height: 35px;">生成PO</button>
         <div class="container mt-3" style="max-width: 100%;">
             <div style="overflow-x: auto; max-width: 100%; overflow-y: auto; max-height: 800px;">
-                <table class="table" style="font-size: 11px">
+                <table class="table" style="font-size: 11px" id="check-polist">
                     <thead>
                         <tr>
                             <th class="th" style="max-width: 5%; min-width: 10px; text-align: center;"></th>
@@ -44,13 +44,13 @@
                                 <input type="checkbox" id="selectAllCheckbox" onchange="toggleAllCheckboxes()">
                             </th>
                             <th class="th">
-                                <input type="text" id="ctnSearch" placeholder="搜索柜号..." oninput="filterTable(this, 1, true)" size="13" style="font-size: 11px;">
+                                <input type="text" id="containerSearch" placeholder="搜索柜号..." oninput="filterTable()" size="13" style="font-size: 11px;">
                             </th>
                             <th class="th">
-                                <input type="text" id="ctnSearch" placeholder="搜索目的地..." oninput="filterTable(this, 1, true)" size="13" style="font-size: 11px;">
+                                <input type="text" id="destinationSearch" placeholder="搜索目的地..." oninput="filterTable()" size="13" style="font-size: 11px;">
                             </th>
                             <th class="th">
-                                <input type="text" id="destSearch" placeholder="是否失效" oninput="filterTable(this, 2, true)" size="13" style="font-size: 11px;">
+                                <input type="text" id="statusSearch" placeholder="是否失效" oninput="filterTable()" size="13" style="font-size: 11px;">
                             </th>
                             <th class="th"></th>
                             <th class="th"></th>
@@ -98,9 +98,6 @@
     </form>
 
 <script>
-    document.getElementById('customButton').addEventListener('click', function () {
-        document.getElementById('fileUpload').click();
-    });
     function confirmSubmit() {
         const checkBoxes = document.getElementsByName('is_selected');
         for (let i = 0; i < checkBoxes.length; i+=2) {
@@ -134,6 +131,48 @@
             row.style.backgroundColor = ''; 
         }
     };
+    function filterTable() {
+        var containerInput, destinationInput, statusInput;
+        var containerFilter, destinationFilter, statusFilter;
+        var table, tbody, tr;
+        var containerTd, destinationTd, statusTd;
+        var i, j;
+        var containerTxtValue, destinationTxtValue, statusTxtValue;
+        containerInput = document.getElementById("containerSearch");
+        destinationInput = document.getElementById("destinationSearch");
+        statusInput = document.getElementById("statusSearch");
+        containerFilter = containerInput.value.toUpperCase();
+        destinationFilter = destinationInput.value.toUpperCase();
+        statusFilter = statusInput.value.toUpperCase();
+        table = document.getElementById("check-polist");
+        tbody = table.getElementsByTagName("tbody")[0];
+        tr = tbody.getElementsByTagName("tr");
+        var parts = containerFilter.split(/\W/);
     
+        for (i = 0; i < tr.length; i++) {
+            containerTd = tr[i].getElementsByTagName("td")[1];
+            destinationTd = tr[i].getElementsByTagName("td")[2];
+            statusTd = tr[i].getElementsByTagName("td")[3];
+            if (containerTd && destinationTd && statusTd) {
+                containerTxtValue = containerTd.textContent || containerTd.innerText;
+                destinationTxtValue = destinationTd.textContent || destinationTd.innerText;
+                statusTxtValue = statusTd.textContent || statusTd.innerText;
+                var destinationDisplayStyle = destinationTxtValue.toUpperCase().indexOf(destinationFilter) > -1? "" : "none";
+                var statusDisplayStyle = statusTxtValue.toUpperCase().indexOf(statusFilter) > -1? "" : "none";
+                var containerDisplayStyle = "none";
+                if (parts.length > 0) {
+                    for (j = 0; j < parts.length; j++) {
+                        if (containerTxtValue.toUpperCase().indexOf(parts[j]) > -1) {
+                            containerDisplayStyle = "";
+                            break;
+                        }
+                    }
+                } else {
+                    containerDisplayStyle = containerTxtValue.toUpperCase().indexOf(containerFilter) > -1? "" : "none";
+                }
+                tr[i].style.display = containerDisplayStyle === "" && statusDisplayStyle === "" && destinationDisplayStyle === ""? "" : "none";
+            }
+        }
+    };
 </script>
 {% endblock %}

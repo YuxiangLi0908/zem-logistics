@@ -36,16 +36,16 @@ class PO(View):
     def get(self, request: HttpRequest) -> HttpResponse:
         step = request.GET.get("step")
         print('GET',step)
-        if step == "po_check_eta":
+        if step == "po_check_eta": #到港前一周
             context = async_to_sync(self.handle_search_eta_seven)(request,"eta")
             return render(request, self.template_po_check_eta, context)
-        elif step == "po_check_retrieval":
+        elif step == "po_check_retrieval":#提柜前一天
             context = async_to_sync(self.handle_search_eta_seven)(request,"retrieval")
             return render(request, self.template_po_check_retrieval, context)
-        elif step == "po_invalid":
+        elif step == "po_invalid":#PO失效
             context = async_to_sync(self.handle_po_check_seven)(request,"invalid")
             return render(request, self.template_po_invalid, context)
-        elif step == "po_list":
+        elif step == "po_list":#PO总表
             context = async_to_sync(self.handle_po_check_seven)(request,"list")
             return render(request, self.template_po_list, context)
         else:
@@ -78,7 +78,9 @@ class PO(View):
             if "eta" in time_code:
                 return render(request, self.template_po_check_eta, context)
             elif "retrieval" in time_code:
-                return render(request, self.template_po_check_retrieval, context)              
+                return render(request, self.template_po_check_retrieval, context)    
+            elif "po_list" in time_code:
+                return render(request, self.template_po_list, context)
         elif step == "po_invalid_save":
             context = async_to_sync(self.handle_upload_po_invalid_post)(request)
             return render(request, self.template_po_invalid, context)

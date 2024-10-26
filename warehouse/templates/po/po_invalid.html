@@ -3,23 +3,23 @@
 {% block content %}
 
 <div style="max-height: 100%; max-width: 100%;">
-    <div><b>PO失效</b></div>
+    <div id="po-check-invalid-div"><b>PO失效</b></div>
 </div>
 {% load static custom_filters %}
     <form method="post" style="width: 100%;">
         {% csrf_token %}
         <div class="container mt-3" style="max-width: 100%;">
             <div style="overflow-x: auto; max-width: 100%; overflow-y: auto; max-height: 800px;">
-                <table class="table" style="font-size: 11px">
+                <table class="table" style="font-size: 11px" id="check-invalid">
                     <thead>
                         <tr>
                             <th class="th" style="max-width: 5%; min-width: 10px; text-align: center;">确认通知</th>
                             <th>柜号</th>
                             <th>destination</th>
+                            <th>是否通知客户</th>
                             <th>shipping_mark</th>
                             <th>fba_id</th>
-                            <th>ref_id</th>
-                            <th>是否通知客户</th>
+                            <th>ref_id</th>                           
                             <th>操作指令</th>
                         </tr>
                         <tr style="position: sticky; top: 28px;">
@@ -27,15 +27,17 @@
                                 <input type="checkbox" id="selectAllCheckbox" onchange="toggleAllCheckboxes()">
                             </th>
                             <th class="th">
-                                <input type="text" id="ctnSearch" placeholder="搜索柜号..." oninput="filterTable(this, 1, true)" size="13" style="font-size: 11px;">
+                                <input type="text" id="containerSearch" placeholder="搜索柜号..." oninput="filterTable()" size="13" style="font-size: 11px;">
                             </th>
                             <th class="th">
-                                <input type="text" id="ctnSearch" placeholder="搜索目的地..." oninput="filterTable(this, 1, true)" size="13" style="font-size: 11px;">
+                                <input type="text" id="destinationSearch" placeholder="搜索目的地..." oninput="filterTable()" size="13" style="font-size: 11px;">
+                            </th>
+                            <th class="th">
+                                <input type="text" id="notifySearch" placeholder="是否通知客户..." oninput="filterTable()" size="13" style="font-size: 11px;">
                             </th>
                             <th class="th"></th>
                             <th class="th"></th>
-                            <th class="th"></th>
-                            <th class="th"></th>
+                            <th class="th"></th>   
                             <th class="th"></th>
                         </tr>
                     </thead>
@@ -49,10 +51,7 @@
                             </td>
                             <td class="td">{{ po.container_number }}</td>
                             <td class="td">{{ po.destination }}</td>
-                            <td class="td">{{ po.shipping_mark }}</td>
-                            <td class="td">{{ po.fba_id }}</td>
-                            <td class="td">{{ po.ref_id }}</td>
-                            <td>
+                            <td id="notify-td">
                                 <div id="notification-toggle" style="display: flex; align-items: center; cursor: pointer;">
                                     <span id="notification-status" style="font-weight: bold; margin-right: 10px; margin-right:10px;">
                                         {% if po.is_notified %}
@@ -62,7 +61,10 @@
                                         {% endif %}
                                     </span>
                                 </div>
-                            </td>                         
+                            </td> 
+                            <td class="td">{{ po.shipping_mark }}</td>
+                            <td class="td">{{ po.fba_id }}</td>
+                            <td class="td">{{ po.ref_id }}</td>                                                  
                             <td class="td">
                                 {% if po and po.handling_method %}
                                     <input type="text" name="text" value="{{ po.handling_method }}"/>
@@ -77,11 +79,27 @@
             </div>
         </div>
         <input type="hidden" name="step" value="po_invalid_save">
-        <button type="submit" onclick="confirmSubmit()" class="btn btn-primary" style="width: 100px; height: 35px;">保存</button>
+        <button type="submit" onclick="confirmSubmit" class="btn btn-primary" style="width: 100px; height: 35px;">确认通知</button>
     </form>
 
 <script>
-    
+    document.addEventListener('DOMContentLoaded', function () {
+        let unCheckedCount = 0;
+        const statusTDs = document.querySelectorAll('#notify-td');
+        statusTDs.forEach(function (td) {
+            const text = td.textContent.trim();
+            if (text === '未通知') {
+                unCheckedCount++;
+            }
+        });
+        const poCheckDiv = document.getElementById('po-check-invalid-div');
+        const bElement = poCheckDiv.getElementsByTagName('b')[0];
+        const newSpan = document.createElement('span');
+        newSpan.textContent = '(待通知' + unCheckedCount + '条)';
+        newSpan.style.color = 'orange';
+        newSpan.style.fontSize = '14px';
+        bElement.appendChild(newSpan);
+    });
     function confirmSubmit() {
         const checkBoxes = document.getElementsByName('is_selected');
         for (let i = 0; i < checkBoxes.length; i+=2) {
@@ -89,22 +107,8 @@
                 checkBoxes[i+1].disabled = true;
             }
         }
-    };
-
-    function toggleNotification() {
-        const checkbox = document.getElementById('notify-checkbox');
-        const statusText = document.getElementById('notification-status');
-        checkbox.checked ? statusText.textContent = '已通知' : statusText.textContent = '未通知';
     };
       
-    function confirmSubmit() {
-        const checkBoxes = document.getElementsByName('is_selected');
-        for (let i = 0; i < checkBoxes.length; i+=2) {
-            if (checkBoxes[i].checked) {
-                checkBoxes[i+1].disabled = true;
-            }
-        }
-    };
     function toggleAllCheckboxes() {
         var selectAllCheckbox = document.getElementById('selectAllCheckbox');
         var checkboxes = document.querySelectorAll('tbody input[type="checkbox"][name="is_selected"]');
@@ -130,6 +134,48 @@
             row.style.backgroundColor = ''; 
         }
     };
+    function filterTable() {
+        var containerInput, destinationInput, notifyInput;
+        var containerFilter, destinationFilter, notifyFilter;
+        var table, tbody, tr;
+        var containerTd, destinationTd, notifyTd;
+        var i, j;
+        var containerTxtValue, destinationTxtValue, notifyTxtValue;
+        containerInput = document.getElementById("containerSearch");
+        destinationInput = document.getElementById("destinationSearch");
+        notifyInput = document.getElementById("notifySearch");
+        containerFilter = containerInput.value.toUpperCase();
+        destinationFilter = destinationInput.value.toUpperCase();
+        notifyFilter = notifyInput.value.toUpperCase();
+        table = document.getElementById("check-invalid");
+        tbody = table.getElementsByTagName("tbody")[0];
+        tr = tbody.getElementsByTagName("tr");
+        var parts = containerFilter.split(/\W/);
     
+        for (i = 0; i < tr.length; i++) {
+            containerTd = tr[i].getElementsByTagName("td")[1];
+            destinationTd = tr[i].getElementsByTagName("td")[2];
+            notifyTd = tr[i].getElementsByTagName("td")[3];
+            if (containerTd && destinationTd && notifyTd) {
+                containerTxtValue = containerTd.textContent || containerTd.innerText;
+                destinationTxtValue = destinationTd.textContent || destinationTd.innerText;
+                notifyTxtValue = notifyTd.textContent || notifyTd.innerText;
+                var destinationDisplayStyle = destinationTxtValue.toUpperCase().indexOf(destinationFilter) > -1? "" : "none";
+                var notifyDisplayStyle = notifyTxtValue.toUpperCase().indexOf(notifyFilter) > -1? "" : "none";
+                var containerDisplayStyle = "none";
+                if (parts.length > 0) {
+                    for (j = 0; j < parts.length; j++) {
+                        if (containerTxtValue.toUpperCase().indexOf(parts[j]) > -1) {
+                            containerDisplayStyle = "";
+                            break;
+                        }
+                    }
+                } else {
+                    containerDisplayStyle = containerTxtValue.toUpperCase().indexOf(containerFilter) > -1? "" : "none";
+                }
+                tr[i].style.display = containerDisplayStyle === "" && notifyDisplayStyle === "" && destinationDisplayStyle === ""? "" : "none";
+            }
+        }
+    };
 </script>
 {% endblock %}

@@ -67,8 +67,13 @@
                         <div class="dropdown-content">
                             <a href="{% url 'create_order' %}?step=order_management_list">订单列表</a>
                             <a href="{% url 'po' %}">PO导出</a>
-                            <a href="{% url 'po' %}?step=po_check_eta">PO待查验——到港前一周</a>
-                            <a href="{% url 'po' %}?step=po_check_retrieval">PO待查验——提柜前一天</a>
+                            <div class="nested-dropdown" >
+                                <a>PO查验</a>
+                                <div class="nested-dropdown-content">
+                                    <a href="{% url 'po' %}?step=po_check_eta">到港前一周</a>
+                                    <a href="{% url 'po' %}?step=po_check_retrieval">提柜前一天</a>
+                                </div>
+                            </div>                           
                             <a href="{% url 'po' %}?step=po_invalid">PO失效</a>
                             <a href="{% url 'po' %}?step=po_list">PO拿约汇总</a>
                         </div>

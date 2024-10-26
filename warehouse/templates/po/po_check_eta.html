@@ -4,7 +4,7 @@
 {% block content %}
 
 <div style="max-height: 100%; max-width: 100%;">
-    <div><b>PO查验——一周内到港</b></div>
+    <div id="po-check-eta-div"><b>PO查验——一周内到港</b></div>
 </div>
 <div style="max - height:100%;max - width:100%;overflow: hidden;">
     <form method="post" enctype="multipart/form-data" style="font - size:11px;float: right;">      
@@ -27,7 +27,7 @@
         <button type="submit" onclick="confirmSubmit" class="btn btn-primary" style="width: 100px; height: 35px;">生成PO</button>
         <div class="container mt-3" style="max-width: 100%;">
             <div style="overflow-x: auto; max-width: 100%; overflow-y: auto; max-height: 800px;">
-                <table class="table" style="font-size: 11px">
+                <table class="table" style="font-size: 11px" id="check-eta">
                     <thead>
                         <tr>
                             <th class="th" style="max-width: 5%; min-width: 10px; text-align: center;"></th>
@@ -45,13 +45,13 @@
                                 <input type="checkbox" id="selectAllCheckbox" onchange="toggleAllCheckboxes()">
                             </th>
                             <th class="th">
-                                <input type="text" id="ctnSearch" placeholder="搜索柜号..." oninput="filterTable(this, 1, true)" size="13" style="font-size: 11px;">
+                                <input type="text" id="containerSearch" placeholder="搜索柜号..." oninput="filterTable()" size="13" style="font-size: 11px;">
                             </th>
                             <th class="th">
-                                <input type="text" id="ctnSearch" placeholder="搜索目的地..." oninput="filterTable(this, 1, true)" size="13" style="font-size: 11px;">
+                                <input type="text" id="destinationSearch" placeholder="搜索目的地..." oninput="filterTable()" size="13" style="font-size: 11px;">
                             </th>
                             <th class="th">
-                                <input type="text" id="destSearch" placeholder="是否失效" oninput="filterTable(this, 2, true)" size="13" style="font-size: 11px;">
+                                <input type="text" id="statusSearch" placeholder="是否失效" oninput="filterTable()" size="13" style="font-size: 11px;">
                             </th>
                             <th class="th"></th>
                             <th class="th"></th>
@@ -70,7 +70,7 @@
                             </td>
                             <td class="td">{{ po.container_number }}</td>
                             <td class="td">{{ po.destination }}</td>
-                            <td class="td" style="text-align: left; cursor: pointer; display: flex; align-items: center;">
+                            <td class="td" id="status-td" style="text-align: left; cursor: pointer; display: flex; align-items: center;">
                                 {% if not po.last_eta_checktime and not po.last_retrieval_checktime %}
                                     <span style="color:#696969;">未查验</span>  
                                 {% else %}
@@ -108,9 +108,24 @@
     </form>
 
 <script>
-    document.getElementById('customButton').addEventListener('click', function () {
-        document.getElementById('fileUpload').click();
+    document.addEventListener('DOMContentLoaded', function () {
+        let unCheckedCount = 0;
+        const statusTDs = document.querySelectorAll('#status-td');
+        statusTDs.forEach(function (td) {
+            const text = td.textContent.trim();
+            if (text === '未查验') {
+                unCheckedCount++;
+            }
+        });
+        const poCheckDiv = document.getElementById('po-check-eta-div');
+        const bElement = poCheckDiv.getElementsByTagName('b')[0];
+        const newSpan = document.createElement('span');
+        newSpan.textContent = '(待处理' + unCheckedCount + '条)';
+        newSpan.style.color = 'orange';
+        newSpan.style.fontSize = '14px';
+        bElement.appendChild(newSpan);
     });
+    
     function confirmSubmit() {
         const checkBoxes = document.getElementsByName('is_selected');
         for (let i = 0; i < checkBoxes.length; i+=2) {
@@ -142,6 +157,50 @@
             row.style.backgroundColor = '#ADD8E6'; 
         } else {
             row.style.backgroundColor = ''; 
+        }
+    };
+
+    function filterTable() {
+        var containerInput, destinationInput, statusInput;
+        var containerFilter, destinationFilter, statusFilter;
+        var table, tbody, tr;
+        var containerTd, destinationTd, statusTd;
+        var i, j;
+        var containerTxtValue, destinationTxtValue, statusTxtValue;
+        containerInput = document.getElementById("containerSearch");
+        destinationInput = document.getElementById("destinationSearch");
+        statusInput = document.getElementById("statusSearch");
+        containerFilter = containerInput.value.toUpperCase();
+        destinationFilter = destinationInput.value.toUpperCase();
+        statusFilter = statusInput.value.toUpperCase();
+        table = document.getElementById("check-eta");
+        tbody = table.getElementsByTagName("tbody")[0];
+        tr = tbody.getElementsByTagName("tr");
+        var parts = containerFilter.split(/\W/);
+    
+        for (i = 0; i < tr.length; i++) {
+            containerTd = tr[i].getElementsByTagName("td")[1];
+            destinationTd = tr[i].getElementsByTagName("td")[2];
+            statusTd = tr[i].getElementsByTagName("td")[3];
+            if (containerTd && destinationTd && statusTd) {
+                containerTxtValue = containerTd.textContent || containerTd.innerText;
+                destinationTxtValue = destinationTd.textContent || destinationTd.innerText;
+                statusTxtValue = statusTd.textContent || statusTd.innerText;
+                var destinationDisplayStyle = destinationTxtValue.toUpperCase().indexOf(destinationFilter) > -1? "" : "none";
+                var statusDisplayStyle = statusTxtValue.toUpperCase().indexOf(statusFilter) > -1? "" : "none";
+                var containerDisplayStyle = "none";
+                if (parts.length > 0) {
+                    for (j = 0; j < parts.length; j++) {
+                        if (containerTxtValue.toUpperCase().indexOf(parts[j]) > -1) {
+                            containerDisplayStyle = "";
+                            break;
+                        }
+                    }
+                } else {
+                    containerDisplayStyle = containerTxtValue.toUpperCase().indexOf(containerFilter) > -1? "" : "none";
+                }
+                tr[i].style.display = containerDisplayStyle === "" && statusDisplayStyle === "" && destinationDisplayStyle === ""? "" : "none";
+            }
         }
     };
     
