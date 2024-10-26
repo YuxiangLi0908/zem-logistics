@@ -125,6 +125,10 @@
                         </td>
                     </tr>
                 {% endfor %}
+                <tr>
+                    <td colspan="5"></td>
+                    <td id="amount_sum" style="text-align: center;"></td>
+                </tr>
             </tbody>
         </table>
     </div>
@@ -144,4 +148,18 @@
     <input type="hidden" name="customer" value="{{ customer.accounting_name }}">
     <button type="submit" class="btn btn-success" style="width: 100px; height: 35px; margin-top: 20px;">导出 <i class="bi bi-file-earmark-pdf-fill"></i></button>
 </form>
+<script>
+    function calculateTotal() {
+        var inputs = document.querySelectorAll('input[name="amount"]');
+        var total = 0;
+        for (var i = 0; i < inputs.length; i++) {
+            var value = parseFloat(inputs[i].value);
+            if (!isNaN(value)) {
+                total += value;
+            }
+        }
+        document.getElementById('amount_sum').textContent = '$' + total.toFixed(2);
+    };
+    window.onload = calculateTotal;
+</script>
 {% endblock %}
