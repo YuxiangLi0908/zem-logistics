@@ -1,19 +1,19 @@
+
 {% extends 'base.html' %}
 {% load custom_filters %}
 {% block content %}
 
 <div style="max-height: 100%; max-width: 100%;">
-    <div><b>PO查验</b></div>
+    <div><b>PO查验——提柜前一天</b></div>
 </div>
 <div style="max - height:100%;max - width:100%;overflow: hidden;">
-    <div style="float: left;"><b>一周内到港</b></div>
-    <form method="post" enctype="multipart/form-data" style="font - size:11px;float: right;">
-        
+    <form method="post" enctype="multipart/form-data" style="font - size:11px;float: right;">      
         <div>
             {% csrf_token %}
             导入模版:
             <input type="file" name="file">
             <input type="hidden" name="step" value="upload_check_po">
+            <input type="hidden" name="time_code" value="retrieval">
             <button type="submit" class="btn btn-success" style="width: 100px; height: 35px; font-size: 12px; margin: 5px;">上传清单</button>
         </div>
     </form>
@@ -22,6 +22,9 @@
 {% load static custom_filters %}
     <form method="post" style="width: 100%;">
         {% csrf_token %}
+        <input type="hidden" name="step" value="selection_check_seven">
+        <input type="hidden" name="po_name" value="{{ selected_po_name }}">
+        <button type="submit" onclick="confirmSubmit" class="btn btn-primary" style="width: 100px; height: 35px;">生成PO</button>
         <div class="container mt-3" style="max-width: 100%;">
             <div style="overflow-x: auto; max-width: 100%; overflow-y: auto; max-height: 800px;">
                 <table class="table" style="font-size: 11px">
@@ -29,8 +32,11 @@
                         <tr>
                             <th class="th" style="max-width: 5%; min-width: 10px; text-align: center;"></th>
                             <th>柜号</th>
-                            <th>packing_list</th>
+                            <th>目的地</th>
                             <th>状态</th>
+                            <th>唛头</th>
+                            <th>fba_id</th>
+                            <th>ref_id</th>                          
                             <th>查询时间</th>
                         </tr>
                         <tr style="position: sticky; top: 28px;">
@@ -41,38 +47,44 @@
                                 <input type="text" id="ctnSearch" placeholder="搜索柜号..." oninput="filterTable(this, 1, true)" size="13" style="font-size: 11px;">
                             </th>
                             <th class="th">
-                                <input type="text" id="ctnSearch" placeholder="搜索pl..." oninput="filterTable(this, 1, true)" size="13" style="font-size: 11px;">
+                                <input type="text" id="ctnSearch" placeholder="搜索目的地..." oninput="filterTable(this, 1, true)" size="13" style="font-size: 11px;">
                             </th>
                             <th class="th">
                                 <input type="text" id="destSearch" placeholder="是否失效" oninput="filterTable(this, 2, true)" size="13" style="font-size: 11px;">
                             </th>
                             <th class="th"></th>
+                            <th class="th"></th>
+                            <th class="th"></th>
+                            <th class="th"></th>
                         </tr>
                     </thead>
                     <tbody id="palletization-container">                       
                         {% for po in po_check %}
-                        <tr id="palletization-row">
+                        <tr id="palletization-row">                         
                             <td class="td" style="max-width: 5%; min-width: 10px; text-align: center;">
                                 <input type='checkbox' name='is_selected' onclick="toggleRowBackground(this)">
                                 <input type="hidden" name="is_selected", value='off'>
                                 <input type="hidden" name="pl_ids", value='{{ po.packing_list.id }}'>
                             </td>
                             <td class="td">{{ po.container_number }}</td>
-                            <td class="td">{{ po.packing_list.shipping_mark }}</td>
+                            <td class="td">{{ po.destination }}</td>
                             <td class="td" style="text-align: left; cursor: pointer; display: flex; align-items: center;">
-                                {% if po.last_checktime %}
+                                {% if not po.last_eta_checktime and not po.last_retrieval_checktime %}
+                                    <span style="color:#696969;">未查验</span>  
+                                {% else %}
                                     {% if po.status %}
                                         <span style="color:green;">有效</span>
                                     {% else%}
                                         <span style="color:red;">失效</span>
                                     {% endif %}
-                                {% else%}
-                                    <span style="color:black;">未查验</span>                                  
-                                {% endif %}
-                            </td>                            
+                                {% endif%}
+                            </td>         
+                            <td class="td">{{ po.shipping_mark }}</td>
+                            <td class="td">{{ po.fba_id }}</td>
+                            <td class="td">{{ po.ref_id }}</td>                
                             <td class="td">
-                                {% if po.last_checktime %}
-                                    {{ po.last_checktime }}
+                                {% if po.last_retrieval_checktime %}
+                                    {{ po.last_retrieval_checktime|date:"M-j" }}
                                 {% else %}
                                     --
                                 {% endif %}
@@ -83,9 +95,6 @@
                 </table>
             </div>
         </div>
-        <input type="hidden" name="step" value="selection_check_seven">
-        <input type="hidden" name="po_name" value="{{ selected_po_name }}">
-        <button type="submit" onclick="confirmSubmit" class="btn btn-primary" style="width: 100px; height: 35px;">生成PO</button>
     </form>
 
 <script>

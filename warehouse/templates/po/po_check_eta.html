@@ -1,26 +1,44 @@
+
 {% extends 'base.html' %}
 {% load custom_filters %}
 {% block content %}
 
 <div style="max-height: 100%; max-width: 100%;">
-    <div><b>PO失效</b></div>
+    <div><b>PO查验——一周内到港</b></div>
 </div>
+<div style="max - height:100%;max - width:100%;overflow: hidden;">
+    <form method="post" enctype="multipart/form-data" style="font - size:11px;float: right;">      
+        <div>
+            {% csrf_token %}
+            导入模版:
+            <input type="file" name="file">
+            <input type="hidden" name="step" value="upload_check_po">
+            <input type="hidden" name="time_code" value="eta">
+            <button type="submit" class="btn btn-success" style="width: 100px; height: 35px; font-size: 12px; margin: 5px;">上传清单</button>
+        </div>
+    </form>
+</div>
+
 {% load static custom_filters %}
     <form method="post" style="width: 100%;">
         {% csrf_token %}
+        <input type="hidden" name="step" value="selection_check_seven">
+        <input type="hidden" name="po_name" value="{{ selected_po_name }}">
+        <button type="submit" onclick="confirmSubmit" class="btn btn-primary" style="width: 100px; height: 35px;">生成PO</button>
         <div class="container mt-3" style="max-width: 100%;">
             <div style="overflow-x: auto; max-width: 100%; overflow-y: auto; max-height: 800px;">
                 <table class="table" style="font-size: 11px">
                     <thead>
                         <tr>
-                            <th class="th" style="max-width: 5%; min-width: 10px; text-align: center;">确认通知</th>
+                            <th class="th" style="max-width: 5%; min-width: 10px; text-align: center;"></th>
                             <th>柜号</th>
-                            <th>destination</th>
-                            <th>shipping_mark</th>
+                            <th>目的地</th>
+                            <th>状态</th>
+                            <th>到港倒计时</th>
+                            <th>唛头</th>
                             <th>fba_id</th>
-                            <th>ref_id</th>
-                            <th>是否通知客户</th>
-                            <th>操作指令</th>
+                            <th>ref_id</th>                          
+                            <th>查询时间</th>
                         </tr>
                         <tr style="position: sticky; top: 28px;">
                             <th class="th" style="max-width: 5%; min-width: 10px; text-align: center;">
@@ -32,6 +50,9 @@
                             <th class="th">
                                 <input type="text" id="ctnSearch" placeholder="搜索目的地..." oninput="filterTable(this, 1, true)" size="13" style="font-size: 11px;">
                             </th>
+                            <th class="th">
+                                <input type="text" id="destSearch" placeholder="是否失效" oninput="filterTable(this, 2, true)" size="13" style="font-size: 11px;">
+                            </th>
                             <th class="th"></th>
                             <th class="th"></th>
                             <th class="th"></th>
@@ -41,33 +62,41 @@
                     </thead>
                     <tbody id="palletization-container">                       
                         {% for po in po_check %}
-                        <tr id="palletization-row">
+                        <tr id="palletization-row">                         
                             <td class="td" style="max-width: 5%; min-width: 10px; text-align: center;">
                                 <input type='checkbox' name='is_selected' onclick="toggleRowBackground(this)">
                                 <input type="hidden" name="is_selected", value='off'>
-                                <input type="hidden" name="po_ids", value='{{ po.id }}'>
+                                <input type="hidden" name="pl_ids", value='{{ po.packing_list.id }}'>
                             </td>
                             <td class="td">{{ po.container_number }}</td>
                             <td class="td">{{ po.destination }}</td>
+                            <td class="td" style="text-align: left; cursor: pointer; display: flex; align-items: center;">
+                                {% if not po.last_eta_checktime and not po.last_retrieval_checktime %}
+                                    <span style="color:#696969;">未查验</span>  
+                                {% else %}
+                                    {% if po.status %}
+                                        <span style="color:green;">有效</span>
+                                    {% else%}
+                                        <span style="color:red;">失效</span>
+                                    {% endif %}
+                                {% endif%}
+                            </td>  
+                            <td class="td">
+                                {% if po.eta_status == "past_due" %}
+                                    <span class="status-span-red">{{ po.vessel_eta|date:"M-j" }}</span>
+                                {% else %}
+                                    <span class="status-span-yellow">{{ po.vessel_eta|date:"M-j" }}</span>
+                                {% endif %}
+                            </td>
+                           
                             <td class="td">{{ po.shipping_mark }}</td>
                             <td class="td">{{ po.fba_id }}</td>
-                            <td class="td">{{ po.ref_id }}</td>
-                            <td>
-                                <div id="notification-toggle" style="display: flex; align-items: center; cursor: pointer;">
-                                    <span id="notification-status" style="font-weight: bold; margin-right: 10px; margin-right:10px;">
-                                        {% if po.is_notified %}
-                                            <span style="color:green;">已通知</span>
-                                        {% else %}
-                                            <span style="color:red;">未通知</span>
-                                        {% endif %}
-                                    </span>
-                                </div>
-                            </td>                         
+                            <td class="td">{{ po.ref_id }}</td>                
                             <td class="td">
-                                {% if po and po.handling_method %}
-                                    <input type="text" name="text" value="{{ po.handling_method }}"/>
+                                {% if po.last_eta_checktime %}
+                                    {{ po.last_eta_checktime|date:"M-j" }}
                                 {% else %}
-                                    <input type="text" name="text" value=""/>
+                                    --
                                 {% endif %}
                             </td>
                         </tr>
@@ -76,27 +105,12 @@
                 </table>
             </div>
         </div>
-        <input type="hidden" name="step" value="po_invalid_save">
-        <button type="submit" onclick="confirmSubmit()" class="btn btn-primary" style="width: 100px; height: 35px;">保存</button>
     </form>
 
 <script>
-    
-    function confirmSubmit() {
-        const checkBoxes = document.getElementsByName('is_selected');
-        for (let i = 0; i < checkBoxes.length; i+=2) {
-            if (checkBoxes[i].checked) {
-                checkBoxes[i+1].disabled = true;
-            }
-        }
-    };
-
-    function toggleNotification() {
-        const checkbox = document.getElementById('notify-checkbox');
-        const statusText = document.getElementById('notification-status');
-        checkbox.checked ? statusText.textContent = '已通知' : statusText.textContent = '未通知';
-    };
-      
+    document.getElementById('customButton').addEventListener('click', function () {
+        document.getElementById('fileUpload').click();
+    });
     function confirmSubmit() {
         const checkBoxes = document.getElementsByName('is_selected');
         for (let i = 0; i < checkBoxes.length; i+=2) {

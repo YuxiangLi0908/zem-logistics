@@ -139,9 +139,12 @@ async def export_palletization_list(request: HttpRequest) -> HttpResponse:
 
 def export_po_check(request: HttpRequest) -> HttpResponse:
     pl_ids = request.POST.getlist("pl_ids")   
+    print(pl_ids)
     pls = [pl.split(",") for pl in pl_ids]
     selections = request.POST.getlist("is_selected")
+    print(selections)
     ids = [o for s, co in zip(selections, pls) for o in co if s == "on"]
+    print("ids",ids)
     if ids:
         #查找柜号下的pl
         packing_list = PackingList.objects.select_related(
