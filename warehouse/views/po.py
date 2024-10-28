@@ -54,7 +54,7 @@ class PO(View):
         container_list = container_number.split()
         criteria = models.Q(
             container_number__order__warehouse__name=warehouse,
-            shipment_batch_number__isnull=True,
+            # shipment_batch_number__isnull=True,
         )
         if container_list:
             criteria &= models.Q(container_number__container_number__in=container_list)
