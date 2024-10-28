@@ -2,7 +2,7 @@ from django.db import models
 from datetime import datetime, timedelta
 from warehouse.models.container import Container
 from warehouse.models.offload import Offload
-
+from warehouse.models.pallet import Pallet
 
 class AbnormalOffloadStatus(models.Model):
     offload = models.ForeignKey(Offload, null=True, on_delete=models.CASCADE, related_name="offload_status")
@@ -12,7 +12,7 @@ class AbnormalOffloadStatus(models.Model):
     is_resolved = models.BooleanField(default=False)
     confirmed_by_warehouse = models.BooleanField(default=False)
     destination = models.CharField(max_length=255, null=True, blank=True)
-    deivery_method = models.CharField(max_length=255, null=True, blank=True)
+    delivery_method = models.CharField(max_length=255, null=True, blank=True)
     pcs_reported = models.IntegerField(null=True, blank=True)
     pcs_actual = models.IntegerField(null=True, blank=True)
     abnormal_reason = models.CharField(max_length=255, null=True, blank=True)
