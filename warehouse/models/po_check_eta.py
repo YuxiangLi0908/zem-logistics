@@ -14,7 +14,8 @@ class PoCheckEtaSeven(models.Model):
     destination = models.CharField(max_length=255, null=True, blank=True)
     ref_id = models.CharField(max_length=400, null=True, blank=True)
     #pl有效无效，默认是false，如果未查验的话是根据checktime去确定
-    status = models.BooleanField(default=False)   
+    last_eta_status = models.BooleanField(default=False)   
+    last_retrieval_status = models.BooleanField(default=False)   
     #最后一次查验时间，由于到港前一周的和提柜前一天的PO都要查验，所以两个时间分开存
     last_eta_checktime = models.DateTimeField(null=True, blank=True)  
     last_retrieval_checktime = models.DateTimeField(null=True, blank=True)

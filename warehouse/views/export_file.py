@@ -217,6 +217,7 @@ def export_po_check(request: HttpRequest) -> HttpResponse:
 
 def export_po(request: HttpRequest, export_format: str = "PO") -> HttpResponse:
     ids = request.POST.get("pl_ids")
+    
     ids = ids.replace("[", "").replace("]", "").split(", ")
     ids = [int(i) for i in ids]
     packing_list = PackingList.objects.select_related(

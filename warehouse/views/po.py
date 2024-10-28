@@ -37,10 +37,10 @@ class PO(View):
         step = request.GET.get("step")
         print('GET',step)
         if step == "po_check_eta": #到港前一周
-            context = async_to_sync(self.handle_search_eta_seven)(request,"eta")
+            context = async_to_sync(self.handle_po_check_seven)(request,"eta")
             return render(request, self.template_po_check_eta, context)
         elif step == "po_check_retrieval":#提柜前一天
-            context = async_to_sync(self.handle_search_eta_seven)(request,"retrieval")
+            context = async_to_sync(self.handle_po_check_seven)(request,"retrieval")
             return render(request, self.template_po_check_retrieval, context)
         elif step == "po_invalid":#PO失效
             context = async_to_sync(self.handle_po_check_seven)(request,"invalid")
@@ -79,17 +79,20 @@ class PO(View):
                 return render(request, self.template_po_check_eta, context)
             elif "retrieval" in time_code:
                 return render(request, self.template_po_check_retrieval, context)    
-            elif "po_list" in time_code:
-                return render(request, self.template_po_list, context)
         elif step == "po_invalid_save":
             context = async_to_sync(self.handle_upload_po_invalid_post)(request)
             return render(request, self.template_po_invalid, context)
+        elif step == "eta_search":
+            context = async_to_sync(self.handle_po_check_seven)(request,"list")
+            return render(request, self.template_po_list, context)
     
     async def handle_upload_po_invalid_post(self, request: HttpRequest) -> tuple[Any]:
         ids = request.POST.getlist("po_ids")
         ids = [i.split(",") for i in ids]
+        print('ids',ids)
         #是否确认通知客户
         selections = request.POST.getlist("is_selected")
+        print('selections',selections)
         selected = [int(i) for s, id in zip(selections, ids) for i in id if s == "on"]
         text = request.POST.getlist("text")
         handing = [t for s, t in zip(selections, text) if s == "on"]
@@ -125,13 +128,15 @@ class PO(View):
                     elif ref:
                         query &= models.Q(ref_id=ref)
                     pochecketaseven = await sync_to_async(PoCheckEtaSeven.objects.get)(query)
-                    pochecketaseven.status = is_valid == 1
+
                     cn = pytz.timezone('Asia/Shanghai')
                     current_time_cn = datetime.now(cn)
                     if "eta" in time_code:
                         pochecketaseven.last_eta_checktime = current_time_cn
+                        pochecketaseven.last_eta_status = is_valid == 1
                     elif "retrieval" in time_code:
                         pochecketaseven.last_retrieval_checktime = current_time_cn
+                        pochecketaseven.last_retrieval_status = is_valid == 1
                     await sync_to_async(pochecketaseven.save)()
             except PoCheckEtaSeven.DoesNotExist:
                 continue
@@ -139,20 +144,25 @@ class PO(View):
             
     async def handle_po_check_seven(self, request: HttpRequest, flag:str) -> dict[str, dict]:    
         if "eta" in flag:
-            #如果是PO查验--到港前一周的
-            po_checks = await sync_to_async(PoCheckEtaSeven.objects.filter)(time_status = True)
-            #await sync_to_async(print)('多少条柜子eta',len(po_checks))
+            #如果是PO查验--到港前一周的，只展示未查验的
+            po_checks = await sync_to_async(PoCheckEtaSeven.objects.filter)(
+                models.Q(time_status = True)&
+                models.Q(last_eta_checktime__isnull = True)
+            )
             po_checks_list = await sync_to_async(list)(po_checks)  
             await sync_to_async(print)('多少条柜子eta',len(po_checks_list))
             #先展示未查验的，然后按照vessel_eta排序        
-            po_checks_list.sort(key = lambda po: (po.last_eta_checktime is not None, po.vessel_eta))
+            po_checks_list.sort(key = lambda po: po.vessel_eta)
             context = {
                 "po_check":po_checks_list,
                 "upload_check_file": UploadFileForm(),
             }
         elif "retrieval" in flag:
-            #如果是PO查验--提柜前一天的
-            po_checks = await sync_to_async(PoCheckEtaSeven.objects.filter)(time_status = False)
+            #如果是PO查验--提柜前一天的，只展示未查验的
+            po_checks = await sync_to_async(PoCheckEtaSeven.objects.filter)(
+                models.Q(time_status = False)&
+                models.Q(last_retrieval_checktime__isnull = True)
+            )
             po_checks_list = await sync_to_async(list)(po_checks) 
             await sync_to_async(print)('多少条柜子retrieval',len(po_checks_list))          
             context = {
@@ -160,7 +170,11 @@ class PO(View):
                 "upload_check_file": UploadFileForm(),
             }
         elif "invalid" in flag:
-            query = (models.Q(last_eta_checktime__isnull=False) | models.Q(last_retrieval_checktime__isnull=False)) & models.Q(status = False)
+            #如果提柜前一天状态为失效，或者提柜前一天没有查，到港前一周查了是失效
+            query1 = models.Q(last_retrieval_checktime__isnull = False) & models.Q(last_retrieval_status = False)
+            query2 = models.Q(last_retrieval_checktime__isnull = True) & models.Q(last_eta_checktime__isnull = False) & models.Q(last_eta_status = False)
+            query = query1 | query2
+
             po_checks = await sync_to_async(PoCheckEtaSeven.objects.filter)(query)
             po_checks_list = await sync_to_async(list)(po_checks)
             await sync_to_async(print)('多少条柜子invalid',len(po_checks_list))
@@ -169,23 +183,37 @@ class PO(View):
                 "po_check":po_checks_list,
             }
         elif "list" in flag:
-            #PO
-            po_checks = await sync_to_async(PoCheckEtaSeven.objects.all)()            
+            start_date = request.POST.get("start_date")
+            end_date = request.POST.get("end_date")
+            start_date = (datetime.now().date() + timedelta(days=-15)).strftime('%Y-%m-%d') if not start_date else start_date
+            end_date = (datetime.now().date() + timedelta(days=15)).strftime('%Y-%m-%d') if not end_date else end_date
+            #全部
+            query1 = models.Q(last_retrieval_checktime__isnull = False) & models.Q(last_retrieval_status = False)
+            query2 = models.Q(last_retrieval_checktime__isnull = True) & models.Q(last_eta_checktime__isnull = False) & models.Q(last_eta_status = False)
+            query = query1 | query2
+            #1、按ETA去筛选记录，2、将失效的记录排在前面
+            po_checks = await sync_to_async(PoCheckEtaSeven.objects.filter)(
+                models.Q(vessel_eta__range=(start_date,end_date))
+            )
+            po_checks = po_checks.annotate(
+                is_match=Case(
+                    When(query, then=Value(1)),
+                    default=Value(0),
+                    output_field=IntegerField()
+                )
+            )
+            po_checks = po_checks.order_by('-is_match')
             po_checks_list = await sync_to_async(list)(po_checks)       
             await sync_to_async(print)('多少条柜子list',len(po_checks_list))  
             context = {
                 "po_check":po_checks_list,
+                "start_date": start_date,
+                "end_date": end_date,
             }
         return context
     
-    async def handle_search_po_invalid(self, request: HttpRequest)-> tuple[str, dict[str, Any]]:
-        po_checks = await sync_to_async(PoCheckEtaSeven.objects.all)()
-        context = {
-            "po_check":po_checks,
-            }
-        return context
-
-    async def handle_search_eta_seven(self, request: HttpRequest, flag:str)-> tuple[str, dict[str, Any]]:
+    #刷新数据的，现在改成了从建单时候添加数据，从修改提柜信息处修改状态
+    # async def handle_search_eta_seven(self, request: HttpRequest, flag:str)-> tuple[str, dict[str, Any]]:
         seven_days_later = datetime.now().date() + timedelta(days=7)
         #筛选所有未来要查验的柜子，条件：1、vessel_eta小于一周后的，2、未取消预报的 。然后再分类
         query = models.Q(vessel_id__vessel_eta__lte = seven_days_later) & models.Q(cancel_notification__isnull=False)       
@@ -370,8 +398,11 @@ class PO(View):
     def handle_selection_post(self, request: HttpRequest) -> HttpResponse:
         warehouse = request.POST.get("warehouse")
         ids = request.POST.getlist("pl_ids")
+        print(ids)
         ids = [i.split(",") for i in ids]
+        print('ids',ids)
         selections = request.POST.getlist("is_selected")
+        print('selections',selections)
         selected = [int(i) for s, id in zip(selections, ids) for i in id if s == "on"]
         if selected:
             packing_list = PackingList.objects.select_related(
