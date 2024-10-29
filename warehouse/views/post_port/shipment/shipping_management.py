@@ -1155,7 +1155,8 @@ class ShippingManagement(View):
         appointment_data = await sync_to_async(list)(
             Shipment.objects.filter(
                 (models.Q(origin__isnull=True) | models.Q(origin="") | models.Q(origin=warehosue)),
-                models.Q(in_use=False, is_canceled=False)
+                models.Q(in_use=False, is_canceled=False),
+                shipment_appointment__gt=datetime.now(),
             ).values(
                 "destination"
             ).annotate(
