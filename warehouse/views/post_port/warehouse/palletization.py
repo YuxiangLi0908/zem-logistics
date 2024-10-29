@@ -369,7 +369,7 @@ class Palletization(View):
             ):
                 await self._split_pallet(
                     n, p_a, p_r, c, w, dest, d_m, note, shipment, 
-                    shipping_mark, fba_id, ref_id, addr, zipcode, pk
+                    shipping_mark, fba_id, ref_id, pk, addr, zipcode,
                 )  #循环遍历每个汇总的板数
                 if p_a != p_r:
                     abnormal_offloads.append({
@@ -388,14 +388,20 @@ class Palletization(View):
                 new_destinations = request.POST.getlist("new_destinations")
                 new_delivery_method = request.POST.getlist("new_delivery_method")
                 new_pcs_actul = [int(value) for value in request.POST.getlist("new_pcs_actul")]
-                new_pallets = [int(value) for value in request.POST.getlist("new_pallets")]            
+                new_pallets = [int(value) for value in request.POST.getlist("new_pallets")]
+                shipping_marks = request.POST.getlist("new_shipping_marks")
+                fba_ids = request.POST.getlist("new_fba_ids")
+                ref_ids = request.POST.getlist("new_ref_ids")     
                 new_notes = request.POST.getlist("new_notes")
                 new_cbm = [float(value) if value else 0 for value in request.POST.getlist("new_cbms")]
                 #生成pallet
-                for n, p_a, c, dest, d_m, note in zip(
-                    new_pallets, new_pcs_actul, new_cbm, new_destinations, new_delivery_method, new_notes
+                for n, p_a, c, dest, d_m, note, shipping_mark, fba_id, ref_id in zip(
+                    new_pallets, new_pcs_actul, new_cbm, new_destinations, new_delivery_method, new_notes,
+                    shipping_marks, fba_ids, ref_ids, 
                 ):
-                    await self._split_pallet(n, p_a, 0, c, 0, dest, d_m, note, "None", pk, seed=1)  
+                    await self._split_pallet(
+                        n, p_a, 0, c, 0, dest, d_m, note, "None", shipping_mark, fba_id, ref_id, pk, seed=1
+                    )  
                     #记录异常拆柜
                     abnormal_offloads.append({
                         "offload": offload,
@@ -653,9 +659,9 @@ class Palletization(View):
         shipping_mark: str, 
         fba_id: str, 
         ref_id: str,
-        address: str,
-        zipcode: str,
         pk: int,
+        address: str | None = None,
+        zipcode: str | None = None,
         seed: int = 0
     ) -> None:
         if n == 0 or n is None:

@@ -151,6 +151,11 @@ body {
     max-width: 33%;
 }
 
+.form-row.flex-4 {
+    flex: 0 0 25%;
+    max-width: 25%;
+}
+
 .order-form-1-row {
     padding: 5px;
 }
@@ -193,6 +198,16 @@ body {
 .status-span-red-100 {
     border-radius: .25rem;
     background-color: #f9d8da;
+    color: #5c0f15;
+    padding-bottom: .125rem;
+    padding-top: .125rem;
+    padding-left: .225rem;
+    padding-right: .225rem;
+}
+
+.status-span-yellow-100 {
+    border-radius: .25rem;
+    background-color: #f8df99f8;
     color: #5c0f15;
     padding-bottom: .125rem;
     padding-top: .125rem;

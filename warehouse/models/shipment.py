@@ -5,7 +5,7 @@ from warehouse.models.fleet import Fleet
 
 
 class Shipment(models.Model):
-    shipment_batch_number = models.CharField(max_length=255, null=True)
+    shipment_batch_number = models.CharField(max_length=255, null=True, blank=True)
     master_batch_number = models.CharField(max_length=255, null=True, blank=True)
     batch = models.IntegerField(null=True, default=0)
     appointment_id = models.CharField(max_length=255, null=True, blank=True)
@@ -17,17 +17,17 @@ class Shipment(models.Model):
     is_shipment_schduled = models.BooleanField(default=False, blank=True)
     shipment_schduled_at = models.DateTimeField(null=True, blank=True)
     shipment_appointment = models.DateTimeField(null=True, blank=True)
-    is_shipped = models.BooleanField(default=False, blank=True)
+    is_shipped = models.BooleanField(default=False, null=True, blank=True)
     shipped_at = models.DateTimeField(null=True, blank=True)
-    is_full_out = models.BooleanField(default=False, blank=True)
-    is_arrived = models.BooleanField(default=False, blank=True)
+    is_full_out = models.BooleanField(default=False, null=True, blank=True)
+    is_arrived = models.BooleanField(default=False, null=True, blank=True)
     arrived_at = models.DateTimeField(null=True, blank=True)
     load_type = models.CharField(max_length=255, null=True, blank=True)
     shipment_type = models.CharField(max_length=255, null=True, blank=True)
-    total_weight = models.FloatField(null=True)
-    total_cbm = models.FloatField(null=True)
-    total_pallet = models.FloatField(null=True)
-    total_pcs = models.FloatField(null=True)
+    total_weight = models.FloatField(null=True, default=0)
+    total_cbm = models.FloatField(null=True, default=0)
+    total_pallet = models.FloatField(null=True, default=0)
+    total_pcs = models.FloatField(null=True, default=0)
     shipped_weight = models.FloatField(null=True, default=0, blank=True)
     shipped_cbm = models.FloatField(null=True, default=0, blank=True)
     shipped_pallet = models.FloatField(null=True, default=0)
@@ -36,14 +36,17 @@ class Shipment(models.Model):
     pod_link = models.CharField(max_length=2000, null=True, blank=True)
     pallet_dumpped = models.FloatField(null=True, blank=True, default=0)
     fleet_number = models.ForeignKey(Fleet, null=True, blank=True, on_delete=models.SET_NULL, related_name='shipment')
-    abnormal_palletization = models.BooleanField(default=False, blank=True)
-    po_expired = models.BooleanField(default=False, blank=True)
-    in_use = models.BooleanField(default=True, blank=True)
-    is_canceled = models.BooleanField(default=False, blank=True)
+    abnormal_palletization = models.BooleanField(default=False, null=True, blank=True)
+    po_expired = models.BooleanField(default=False, null=True, blank=True)
+    in_use = models.BooleanField(default=True, null=True, blank=True)
+    is_canceled = models.BooleanField(default=False, null=True, blank=True)
     cancelation_reason = models.CharField(max_length=2000, null=True, blank=True)
 
     def __str__(self) -> str:
-        return self.shipment_batch_number
+        if self.shipment_batch_number:
+            return self.shipment_batch_number
+        else:
+            return self.appointment_id
     
     @property
     def shipping_status(self) -> str:
@@ -51,6 +54,16 @@ class Shipment(models.Model):
         if self.shipment_appointment.date() <= today:
             return "past_due"
         elif self.shipment_appointment.date() <= today + timedelta(days=7):
+            return "need_attention"
+        else:
+            return "on_time"
+        
+    @property
+    def appointment_status(self) -> str:
+        today = datetime.now().date()
+        if self.shipment_appointment.date() <= today:
+            return "past_due"
+        elif self.shipment_appointment.date() <= today + timedelta(days=5):
             return "need_attention"
         else:
             return "on_time"

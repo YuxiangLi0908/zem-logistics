@@ -56,6 +56,7 @@ class ShippingManagement(View):
     template_outbound_departure = "post_port/shipment/04_outbound_depature_confirmation.html"
     template_delivery_and_pod = "post_port/shipment/05_delivery_and_pod.html"
     template_bol = "export_file/bol_base_template.html"
+    template_appointment_management = "post_port/shipment/06_appointment_management.html"
     area_options = {"NJ": "NJ", "SAV": "SAV"}
     warehouse_options = {"": "", "NJ-07001": "NJ-07001", "NJ-08817": "NJ-08817", "SAV-31326": "SAV-31326"}
     shipment_type_options = {"":"", "FTL/LTL":"FTL/LTL", "外配/快递":"外配/快递"}
@@ -82,6 +83,9 @@ class ShippingManagement(View):
             return render(request, template, context)
         elif step == "delivery_and_pod":
             template, context = await self.handle_delivery_and_pod_get(request)
+            return render(request, template, context)
+        elif step == "appointment_management":
+            template, context = await self.handle_appointment_management_get(request)
             return render(request, template, context)
         else:
             context = {"area_options": self.area_options}
@@ -143,6 +147,12 @@ class ShippingManagement(View):
             return render(request, template, context)
         elif step == "confirm_delivery":
             template, context = await self.handle_confirm_delivery_post(request)
+            return render(request, template, context)
+        elif step == "appointment_warehouse_search":
+            template, context = await self.handle_appointment_warehouse_search_post(request)
+            return render(request, template, context)
+        elif step == "create_empty_appointment":
+            template, context = await self.handle_create_empty_appointment_post(request)
             return render(request, template, context)
         else:
             return await self.get(request)
@@ -280,6 +290,14 @@ class ShippingManagement(View):
             "upload_file_form": UploadFileForm(required=True),
         }
         return self.template_delivery_and_pod, context
+    
+    async def handle_appointment_management_get(self, request: HttpRequest) -> tuple[str, dict[str, Any]]:
+        context = {
+            "warehouse_options": self.warehouse_options,
+            "start_date": (datetime.now().date() + timedelta(days=-7)).strftime("%Y-%m-%d"),
+            "end_date": (datetime.now().date() + timedelta(days=7)).strftime("%Y-%m-%d"),
+        }
+        return self.template_appointment_management, context
 
     async def handle_warehouse_post(self, request: HttpRequest) -> tuple[str, dict[str, Any]]:
         if request.POST.get("area"):
@@ -1089,6 +1107,101 @@ class ShippingManagement(View):
         )
         return await self.handle_delivery_and_pod_get(request)
 
+    async def handle_appointment_warehouse_search_post(self, request: HttpRequest) -> tuple[str, dict[str, Any]]:
+        warehosue = request.POST.get("warehouse")
+        start_date = request.POST.get("start_date")
+        end_date = request.POST.get("end_date")
+        pallet = await sync_to_async(list)(
+            Pallet.objects.select_related(
+                "container_number", "container_number__order__retrieval_id"
+            ).filter(
+                (
+                    models.Q(container_number__order__retrieval_id__retrieval_destination_precise=warehosue) |
+                    models.Q(container_number__order__warehouse__name=warehosue)
+                ),
+                shipment_batch_number__isnull=True,
+            ).values(
+                "destination",
+                warehouse=F("container_number__order__retrieval_id__retrieval_destination_precise"),
+            ).annotate(
+                total_cbm=Sum("cbm", output_field=IntegerField()),
+                total_pallet=Count("pallet_id", distinct=True),
+            ).order_by("-total_pallet")
+        )
+        packing_list = await sync_to_async(list)(
+            PackingList.objects.select_related(
+                "container_number", "container_number__order__retrieval_id"
+            ).filter(
+                (
+                    models.Q(container_number__order__retrieval_id__retrieval_destination_precise=warehosue) |
+                    models.Q(container_number__order__warehouse__name=warehosue)
+                ),
+                shipment_batch_number__isnull=True,
+                container_number__order__offload_id__offload_at__isnull=True,
+            ).values(
+                "destination",
+                warehouse=F("container_number__order__retrieval_id__retrieval_destination_precise"),
+            ).annotate(
+                total_cbm=Sum("cbm", output_field=IntegerField()),
+                total_pallet=Sum("cbm", output_field=FloatField())/2,
+            ).order_by("-total_pallet")
+        )
+        appointment = await sync_to_async(list)(
+            Shipment.objects.filter(
+                (models.Q(origin__isnull=True) | models.Q(origin="") | models.Q(origin=warehosue)),
+                models.Q(in_use=False, is_canceled=False)
+            ).order_by("shipment_appointment")
+        )
+        appointment_data = await sync_to_async(list)(
+            Shipment.objects.filter(
+                (models.Q(origin__isnull=True) | models.Q(origin="") | models.Q(origin=warehosue)),
+                models.Q(in_use=False, is_canceled=False)
+            ).values(
+                "destination"
+            ).annotate(
+                n_appointment=Count("appointment_id", distinct=True)
+            )
+        )
+        df_pallet = pd.DataFrame(pallet)
+        df_packing_list = pd.DataFrame(packing_list)
+        df_appointment = pd.DataFrame(appointment_data)
+        df = pd.merge(df_pallet, df_packing_list, how="outer", on=["destination", "warehouse"]).fillna(0)
+        df = df.merge(df_appointment, how="left", on=["destination"]).fillna(0)
+        df["total_cbm"] = df["total_cbm_x"] + df["total_cbm_y"]
+        df["total_pallet"] = df["total_pallet_x"] + df["total_pallet_y"]
+        df = df.drop(["total_cbm_x", "total_cbm_y", "total_pallet_x", "total_pallet_y"], axis=1)
+        df["n_appointment"] = df["n_appointment"].astype(int)
+        df["total_pallet"] = df["total_pallet"].astype(int)
+        df = df.sort_values(by="total_pallet", ascending=False)
+        context = {
+            "appointment": appointment,
+            "po_appointment_summary": df.to_dict("records"),
+            "warehouse": warehosue,
+            "warehouse_options": self.warehouse_options,
+            "upload_file_form": UploadFileForm(),
+            "start_date": start_date,
+            "end_date": end_date,
+        }
+        return self.template_appointment_management, context
+    
+    async def handle_create_empty_appointment_post(self, request: HttpRequest) -> tuple[str, dict[str, Any]]:
+        appointment_id = request.POST.get("appointment_id").strip()
+        appointment = await sync_to_async(list)(Shipment.objects.filter(appointment_id=appointment_id))
+        if appointment:
+            raise RuntimeError(f"Appointment {appointment_id} already exist!")
+        await sync_to_async(Shipment.objects.create)(**{
+            "appointment_id": appointment_id,
+            "destination": request.POST.get("destination").upper(),
+            "shipment_appointment": request.POST.get("shipment_appointment"),
+            "origin": request.POST.get("origin", None),
+            "in_use": False,
+        })
+        warehouse = request.POST.get("warehouse", "")
+        if warehouse:
+            return await self.handle_appointment_warehouse_search_post(request)
+        else:
+            return await self.handle_appointment_management_get(request)
+        
     async def _get_packing_list(
         self, 
         pl_criteria: models.Q | None = None,
