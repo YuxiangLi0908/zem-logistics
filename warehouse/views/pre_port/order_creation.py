@@ -557,6 +557,14 @@ class OrderCreation(View):
         order.cancel_notification = True
         order.cancel_time = datetime.now()  
         await sync_to_async(order.save)()
+        #如果取消预报了，po_check也要做对应处理，但是怕可能会有取消预报后又不想取消的情况，现在不在po_check表删除，把vessel_eta改成2024/1/2
+        orders = await sync_to_async(list)(PoCheckEtaSeven.objects.filter(container_number__container_number = container_number))
+        try:
+            for o in orders:
+                o.vessel_eta = datetime(2024,1,2)
+                await sync_to_async(o.save)()
+        except PoCheckEtaSeven.DoesNotExist:
+            pass
         mutable_get = request.GET.copy()
         mutable_get["container_number"] = container_number
         mutable_get["step"] = "cancel_notification"

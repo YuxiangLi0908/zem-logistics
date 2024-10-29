@@ -13,7 +13,7 @@
                 <table class="table" style="font-size: 11px" id="check-invalid">
                     <thead>
                         <tr>
-                            <th class="th" style="max-width: 5%; min-width: 10px; text-align: center;">确认通知</th>
+                            <th class="th" style="max-width: 5%; min-width: 10px; text-align: center;"></th>
                             <th>柜号</th>
                             <th>destination</th>
                             <th>是否通知客户</th>
@@ -52,16 +52,16 @@
                             <td class="td">{{ po.container_number }}</td>
                             <td class="td">{{ po.destination }}</td>
                             <td id="notify-td">
-                                <div id="notification-toggle" style="display: flex; align-items: center; cursor: pointer;">
-                                    <span id="notification-status" style="font-weight: bold; margin-right: 10px; margin-right:10px;">
-                                        {% if po.is_notified %}
-                                            <span style="color:green;">已通知</span>
-                                        {% else %}
-                                            <span style="color:red;">未通知</span>
-                                        {% endif %}
-                                    </span>
-                                </div>
-                            </td> 
+                                <input type="checkbox" id="notify-checkbox-{{ po.id }}" {% if po.is_notified %}checked{% endif %}>                              
+                                <label for="notify-checkbox-{{ po.id }}">
+                                    {% if po.is_notified %}
+                                        <span style="color:green;">已通知</span>
+                                    {% else %}
+                                        <span style="color:red;">未通知</span>
+                                    {% endif %}
+                                </label>
+                            </td>
+                            
                             <td class="td">{{ po.shipping_mark }}</td>
                             <td class="td">{{ po.fba_id }}</td>
                             <td class="td">{{ po.ref_id }}</td>                                                  
@@ -79,10 +79,22 @@
             </div>
         </div>
         <input type="hidden" name="step" value="po_invalid_save">
-        <button type="submit" onclick="confirmSubmit" class="btn btn-primary" style="width: 100px; height: 35px;">确认通知</button>
+        <button type="submit" onclick="confirmSubmit(this)" class="btn btn-primary" style="width: 100px; height: 35px;">确认通知</button>
     </form>
 
 <script>
+    let notifyChanges = {};
+    console.log('notifyChanges1',notifyChanges);
+    document.querySelectorAll('#notify-td input[type="checkbox"]').forEach((checkbox, index) => {
+        checkbox.addEventListener('change', function () {
+            let poId = this.getAttribute('id').split('-')[2];
+            if (this.checked) {
+                
+                notifyChanges[poId] = this.checked;
+            }else{}
+        });
+    });
+
     document.addEventListener('DOMContentLoaded', function () {
         let unCheckedCount = 0;
         const statusTDs = document.querySelectorAll('#notify-td');
@@ -100,13 +112,23 @@
         newSpan.style.fontSize = '14px';
         bElement.appendChild(newSpan);
     });
-    function confirmSubmit() {
+
+    
+    function confirmSubmit(Element) {
         const checkBoxes = document.getElementsByName('is_selected');
         for (let i = 0; i < checkBoxes.length; i+=2) {
             if (checkBoxes[i].checked) {
                 checkBoxes[i+1].disabled = true;
             }
         }
+        let form = Element.parentNode;
+        let hiddenInput = document.createElement('input');
+        hiddenInput.type = 'hidden';
+        hiddenInput.name ='notifyChanges';
+        hiddenInput.value = JSON.stringify(notifyChanges);
+        console.log('notifyChanges2',notifyChanges);
+        form.appendChild(hiddenInput);
+        form.submit();
     };
       
     function toggleAllCheckboxes() {

@@ -138,7 +138,7 @@ class TerminalDispatch(View):
             retrieval.actual_retrieval_timestamp = request.POST.get("target_retrieval_timestamp")
         await sync_to_async(retrieval.save)()
         #有提柜计划后，就将记录归为“提柜前一天
-        orders = await sync_to_async(list)(PoCheckEtaSeven.objects.filter(container_number = container_number))
+        orders = await sync_to_async(list)(PoCheckEtaSeven.objects.filter(container_number__container_number = container_number))
         try:
             for o in orders:
                 o.time_status = False
@@ -158,7 +158,7 @@ class TerminalDispatch(View):
         actual_ts = request.POST.get("actual_retrieval_timestamp")
         #如果是当天提柜
         if actual_ts <= today + timedelta(days=1):
-            orders = await sync_to_async(list)(PoCheckEtaSeven.objects.filter(container_number = container_number))
+            orders = await sync_to_async(list)(PoCheckEtaSeven.objects.filter(container_number__container_number = container_number))
             try:
                 for o in orders:
                     o.time_status = False

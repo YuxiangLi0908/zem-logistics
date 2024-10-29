@@ -1,7 +1,7 @@
 from datetime import datetime, timedelta
 from typing import Any
 
-import pytz
+import pytz,json
 import pandas as pd
 from django.http import JsonResponse
 from django.http import HttpRequest, HttpResponse
@@ -87,21 +87,27 @@ class PO(View):
             return render(request, self.template_po_list, context)
     
     async def handle_upload_po_invalid_post(self, request: HttpRequest) -> tuple[Any]:
+        notifyChanges = request.POST.get("notifyChanges")
         ids = request.POST.getlist("po_ids")
         ids = [i.split(",") for i in ids]
         print('ids',ids)
         #是否确认通知客户
         selections = request.POST.getlist("is_selected")
-        print('selections',selections)
         selected = [int(i) for s, id in zip(selections, ids) for i in id if s == "on"]
+        print(selected)
+        
         text = request.POST.getlist("text")
         handing = [t for s, t in zip(selections, text) if s == "on"]
         #是否确认通知客户
+        notifyChanges_str = request.POST.get("notifyChanges")
+        notifyChanges = json.loads(notifyChanges_str)
         if selected:   
-            for i in range(len(selected)):
+            for i in range(len(selected)):   
                 pochecketaseven = await sync_to_async(PoCheckEtaSeven.objects.get)(id = selected[i])
-                pochecketaseven.is_notified = True
                 pochecketaseven.handling_method = handing[i]
+                #只有在前端选中通知客户的复选框时，才更改is_notified
+                if str(selected[i]) in notifyChanges.keys():
+                    pochecketaseven.is_notified = True               
                 await sync_to_async(pochecketaseven.save)()
         return await self.handle_po_check_seven(request,"invalid")
 
