@@ -21,7 +21,8 @@ class Pallet(models.Model):
     weight_lbs = models.FloatField(null=True, blank=True)
     abnormal_palletization = models.BooleanField(default=False, blank=True)
     po_expired = models.BooleanField(default=False, blank=True)
-    note = models.CharField(null=True, blank=True, max_length=2000)
+    note = models.CharField(max_length=2000, null=True, blank=True)
+    priority = models.CharField(max_length=20, null=True, blank=True, )
 
     def __str__(self):
         return f"{self.container_number}-{self.destination}-{self.delivery_method}"

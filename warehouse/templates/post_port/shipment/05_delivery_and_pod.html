@@ -42,7 +42,7 @@
                 <tr>
                     <td class="td" style="max-width: 120px; word-break: break-all;">{{ f.fleet_number }}</td>
                     <td class="td">{{ f.carrier }}</td>
-                    <td class="td">{{ f.appointment_date|date:"M-j" }}</td>
+                    <td class="td">{{ f.appointment_datetime|date:"M-j" }}</td>
                     <td class="td">
                         {% if f.arrival_status == "past_due" %}
                         <span class="status-span-red">{{ f.departured_at|date:"M-j" }}</span>

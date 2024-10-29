@@ -40,6 +40,7 @@ class Shipment(models.Model):
     po_expired = models.BooleanField(default=False, blank=True)
     in_use = models.BooleanField(default=True, blank=True)
     is_canceled = models.BooleanField(default=False, blank=True)
+    cancelation_reason = models.CharField(max_length=2000, null=True, blank=True)
 
     def __str__(self) -> str:
         return self.shipment_batch_number

@@ -32,21 +32,37 @@
                 <tbody>
                     <tr>
                         <td class="td"><input type="text" name="carrier" value="{{ fleet.carrier }}" style="font-size: 13px;"></td>
-                        <td class="td"><input type="text" name="third_party_address" value="{{ fleet.third_party_address }}" style="font-size: 13px;"></td>
+                        <td class="td"><input type="text" name="third_party_address" value="{% if fleet.third_party_address %}{{ fleet.third_party_address }}{% endif %}" style="font-size: 13px;"></td>
                     </tr>
                 </tbody>
             </table>
-            <table id="fleet-table-1" class="table" style="font-size: 11px; overflow-x: scroll; max-width: 100%;">
+            <table id="fleet-table-2" class="table" style="font-size: 11px; overflow-x: scroll; max-width: 100%;">
                 <thead>
                     <tr>
-                        <th class="th">发车日期</th>
+                        <th class="th">车牌号</th>
+                        <th class="th">MC Number</th>
+                        <th class="th">DOT Number</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    <tr>
+                        <td class="td"><input type="text" name="license_plate" value="{% if fleet.license_plate %}{{ fleet.license_plate }}{% endif %}" style="font-size: 13px;"></td>
+                        <td class="td"><input type="text" name="motor_carrier_number" value="{% if fleet.motor_carrier_number %}{{ fleet.motor_carrier_number }}{% endif %}" style="font-size: 13px;"></td>
+                        <td class="td"><input type="text" name="dot_number" value="{% if fleet.dot_number %}{{ fleet.dot_number }}{% endif %}" style="font-size: 13px;"></td>
+                    </tr>
+                </tbody>
+            </table>
+            <table id="fleet-table-3" class="table" style="font-size: 11px; overflow-x: scroll; max-width: 100%;">
+                <thead>
+                    <tr>
+                        <th class="th">提货时间</th>
                         <th class="th">备注</th>
                     </tr>
                 </thead>
                 <tbody>
                     <tr>
-                        <td class="td"><input type="date" name="appointment_date" value="{{ fleet.appointment_date|date:'Y-m-d' }}" style="font-size: 13px;" required></td>
-                        <td class="td"><input type="text" name="note" value="{{ fleet.note }}" style="font-size: 13px;"></td>
+                        <td class="td"><input type="datetime-local" name="appointment_datetime" value="{{ fleet.appointment_datetime|date:'Y-m-d\\TH:i'  }}" style="font-size: 13px;" required></td>
+                        <td class="td"><input type="text" name="note" value="{% if fleet.note %}{{ fleet.note }}{% endif %}" style="font-size: 13px;"></td>
                     </tr>
                 </tbody>
             </table>

@@ -63,7 +63,7 @@
                             {% for s in shipment_list %}
                             <tr>
                                 <td class="td" style="min-width: 40px; text-align: center;">
-                                    <input type='checkbox' name='is_appointment_added' onclick="toggleRowBackground(this)" {% if s.id in shipment_ids %}checked{% endif %}>
+                                    <input type='checkbox' name='is_appointment_added' onclick="toggleRowBackground(this)" {% if s.id in shipment_ids %}checked{% endif %} {% if s.abnormal_palletization or s.po_expired %}disabled{% endif %}>
                                     <input type="hidden" name="is_appointment_added", value='off'>
                                     <input type="hidden" name="shipment_ids", value='{{ s.id }}'>
                                 </td>
@@ -73,7 +73,15 @@
                                     {% endif %}
                                     {{ s.shipment_batch_number }}
                                 </td>
-                                <td class="td">{{ s.destination }}</td>
+                                <td class="td">
+                                    {{ s.destination }}
+                                    {% if s.abnormal_palletization %}
+                                    <span class="status-span-red" style="padding-top: 0; padding-bottom: 0;">未解决拆柜异常</span>
+                                    {% endif %}
+                                    {% if s.po_expired %}
+                                    <span class="status-span-yellow" style="padding-top: 0; padding-bottom: 0;">PO失效</span>
+                                    {% endif %}
+                                </td>
                                 <td class="td">{{ s.appointment_id }}</td>
                                 <td class="td" style="max-width: 150px; word-break: break-all;">
                                     {% if s.shipping_status == "past_due" %}
@@ -87,7 +95,7 @@
                                 <td class="td">{{ s.total_weight|floatformat:2 }}</td>
                                 <td class="td">{{ s.total_cbm|floatformat:2 }}</td>
                                 <td class="td">{{ s.total_pallet }}</td>
-                                <td class="td" style="max-width: 150px; word-break: break-all;">{{ s.note }}</td>
+                                <td class="td" style="max-width: 150px; word-break: break-all;">{% if s.note %}{{ s.note }}{% endif %}</td>
                             </tr>
                             {% endfor %}
                         </tbody>
@@ -107,7 +115,7 @@
                         <tr>
                             <th class="th">出库批次</th>
                             <th class="th">carrier</th>
-                            <th class="th">发车时间</th>
+                            <th class="th">提货时间</th>
                             <th class="th">总重lbs</th>
                             <th class="th">总CBM</th>
                             <th class="th">总卡板数</th>
@@ -136,11 +144,11 @@
                             <td class="td">{{ f.carrier }}</td>
                             <td class="td">
                                 {% if f.departure_status == "past_due" %}
-                                <span class="status-span-red">{{ f.appointment_date|date:"M-j" }}</span>
+                                <span class="status-span-red">{{ f.appointment_datetime|date:"Y-m-d" }} {{ f.appointment_datetime|time:"H:i" }}</span>
                                 {% elif f.departure_status == "need_attention" %}
-                                <span class="status-span-yellow">{{ f.appointment_date|date:"M-j" }}</span>
+                                <span class="status-span-yellow">{{ f.appointment_datetime|date:"Y-m-d" }} {{ f.appointment_datetime|time:"H:i" }}</span>
                                 {% else %}
-                                {{ f.appointment_date|date:"M-j" }}
+                                {{ f.appointment_datetime|date:"Y-m-d" }} {{ f.appointment_datetime|time:"H:i" }}
                                 {% endif %}
                             </td>
                             <td class="td">{{ f.total_weight|floatformat:2 }}</td>

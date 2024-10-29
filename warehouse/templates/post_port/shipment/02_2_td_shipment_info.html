@@ -15,6 +15,14 @@
                     <b style="background-color: rgb(208, 208, 208); border-radius: 20px; font-size: 11px; display:inline-flex; color: rgb(100, 100, 100); padding: 5px;">
                         预约信息 - {{ shipment.shipment_batch_number }}
                     </b>
+                    <b style="font-size: 11px; display:inline-flex; padding: 5px;">
+                        {% if shipment.abnormal_palletization %}
+                        <span class="status-span-red" style="padding-top: 0; padding-bottom: 0;">拆柜异常</span>
+                        {% endif %}
+                        {% if s.po_expired %}
+                        <span class="status-span-yellow" style="padding-top: 0; padding-bottom: 0;">PO失效</span>
+                        {% endif %}
+                    </b>
                 </div>
                 <div class="text-right">
                     <input type="hidden" name="step" value="update_appointment">
@@ -82,7 +90,7 @@
                                     {% endfor %}
                                 </select>
                             </td>
-                            <td class="td"><input type="text" name="note" value="{{ shipment.note }}" style="font-size: 13px;"></td>
+                            <td class="td"><input type="text" name="note" value="{% if shipment.not %}{{ shipment.note }}{% endif %}" style="font-size: 13px;"></td>
                         </tr>
                     </tbody>
                 </table>
@@ -148,7 +156,7 @@
                     <tbody>
                         <tr>
                             <td class="td"><input type="text" name="carrier" value="{{ shipment.fleet_number.carrier }}" style="font-size: 13px;" required></td>
-                            <td class="td"><input type="date" name="appointment_date" value="{{ shipment.fleet_number.appointment_date|date:'Y-m-d' }}" style="font-size: 13px;" required></td>
+                            <td class="td"><input type="datetime-local" name="appointment_datetime" value="{{ shipment.fleet_number.appointment_datetime|date:'Y-m-d\\TH:i' }}" style="font-size: 13px;" required></td>
                         </tr>
                     </tbody>
                 </table>

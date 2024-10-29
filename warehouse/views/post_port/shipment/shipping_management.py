@@ -91,7 +91,6 @@ class ShippingManagement(View):
         if not await self._user_authenticate(request):
             return redirect("login")
         step = request.POST.get("step")
-        print('step-POST',step)
         if step == "warehouse":
             template, context = await self.handle_warehouse_post(request)
             return render(request, template, context)
@@ -302,10 +301,10 @@ class ShippingManagement(View):
                 ) &
                 models.Q(
                     is_shipped=False,
-                    # in_use=True,
-                    # is_canceled=False,
+                    in_use=True,
+                    is_canceled=False,
                 )
-            ).distinct()
+            ).distinct().order_by('-abnormal_palletization', 'shipment_appointment')
         )
         criteria = models.Q(
             container_number__order__retrieval_id__retrieval_destination_area=area,
@@ -437,7 +436,7 @@ class ShippingManagement(View):
             if shipment_type == "外配/快递":
                 fleet = Fleet(**{
                     "carrier": request.POST.get("carrier"),
-                    "appointment_date": request.POST.get("appointment_date"),
+                    "appointment_datetime": request.POST.get("appointment_datetime"),
                     "fleet_number": "FO" + current_time.strftime("%m%d%H%M%S") + str(uuid.uuid4())[:2].upper(),
                     "scheduled_at": current_time,
                     "total_weight": shipment_data["total_weight"],
@@ -616,7 +615,24 @@ class ShippingManagement(View):
             shipment = await sync_to_async(Shipment.objects.get)(shipment_batch_number=shipment_batch_number)
             if shipment.is_shipped:
                 raise RuntimeError(f"Shipment with batch number {shipment} has been shipped!")
-            await sync_to_async(shipment.delete)()
+            packing_list = await sync_to_async(list)(
+                PackingList.objects.select_related("shipment_batch_number").filter(shipment_batch_number__shipment_batch_number=shipment_batch_number)
+            )
+            pallet = await sync_to_async(list)(
+                Pallet.objects.select_related("shipment_batch_number").filter(shipment_batch_number__shipment_batch_number=shipment_batch_number)
+            )
+            for pl in packing_list:
+                pl.shipment_batch_number = None
+            for p in pallet:
+                p.shipment_batch_number = None
+            await sync_to_async(PackingList.objects.bulk_update)(
+                packing_list, ["shipment_batch_number"]
+            )
+            await sync_to_async(Pallet.objects.bulk_update)(
+                pallet, ["shipment_batch_number"]
+            )
+            shipment.is_canceled = True
+            await sync_to_async(shipment.save)()
         else:
             shipment_batch_number = request.POST.get("batch_number")
             shipment = Shipment.objects.get(shipment_batch_number=shipment_batch_number)
@@ -656,7 +672,7 @@ class ShippingManagement(View):
                 shipment.address = request.POST.get("address")
                 fleet = shipment.fleet_number
                 fleet.carrier = request.POST.get("carrier")
-                fleet.appointment_date = request.POST.get("appointment_date")
+                fleet.appointment_datetime = request.POST.get("appointment_datetime")
                 await sync_to_async(fleet.save)()
         else:
             if shipment_type == "FTL/LTL":
@@ -686,7 +702,7 @@ class ShippingManagement(View):
                 current_time = datetime.now()
                 fleet = Fleet(**{
                     "carrier": request.POST.get("carrier"),
-                    "appointment_date": request.POST.get("appointment_date"),
+                    "appointment_datetime": request.POST.get("appointment_datetime"),
                     "fleet_number": "FO" + current_time.strftime("%m%d%H%M%S") + str(uuid.uuid4())[:2].upper(),
                     "scheduled_at": current_time,
                     "total_weight": shipment.total_weight,
@@ -710,14 +726,17 @@ class ShippingManagement(View):
         shipment = await sync_to_async(list)(
             Shipment.objects.filter(
                 origin=warehouse,
-                fleet_number__isnull=True
+                fleet_number__isnull=True,
+                in_use=True,
+                is_canceled=False,
+                shipment_type='FTL/LTL',
             ).order_by("-batch", "shipment_appointment")
         )
         fleet = await sync_to_async(list)(
             Fleet.objects.filter(
                 origin=warehouse,
                 departured_at__isnull=True,
-            ).order_by("appointment_date")
+            ).order_by("appointment_datetime")
         )
         context = {
             "shipment_list": shipment,
@@ -770,8 +789,11 @@ class ShippingManagement(View):
         shipment_ids = [int(i) for i in shipment_ids]
         fleet_data.update({
             "carrier": request.POST.get("carrier", ""),
+            "license_plate": request.POST.get("license_plate", ""),
+            "motor_carrier_number": request.POST.get("motor_carrier_number", ""),
+            "dot_number": request.POST.get("dot_number", ""),
             "third_party_address": request.POST.get("third_party_address", ""),
-            "appointment_date": request.POST.get("appointment_date"),
+            "appointment_datetime": request.POST.get("appointment_datetime"),
             "scheduled_at": current_time,
             "note": request.POST.get("note", ""),
             "multipule_destination": True if len(shipment_ids) > 1 else False,
@@ -789,7 +811,7 @@ class ShippingManagement(View):
         fleet = await sync_to_async(Fleet.objects.get)(fleet_number=fleet_number)
         fleet.carrier = request.POST.get("carrier", "")
         fleet.third_party_address = request.POST.get("third_party_address", "")
-        fleet.appointment_date = request.POST.get("appointment_date")
+        fleet.appointment_datetime = request.POST.get("appointment_datetime")
         fleet.note = request.POST.get("note", "")
         await sync_to_async(fleet.save)()
         mutable_get = request.GET.copy()
@@ -817,7 +839,7 @@ class ShippingManagement(View):
             Fleet.objects.filter(
                 origin=warehouse,
                 departured_at__isnull=True,
-            ).order_by("appointment_date")
+            ).order_by("appointment_datetime")
         )
         context = {
             "warehouse": warehouse,

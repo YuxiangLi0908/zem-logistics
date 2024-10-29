@@ -483,20 +483,6 @@ class Palletization(View):
                 pallet, ["abnormal_palletization"]
             )
             await self._update_shipment_abnormal_palletization(shipment)
-            # abnormal_shipment = await sync_to_async(list)(
-            #     Shipment.objects.filter(
-            #         shipment_batch_number__in=[p.shipment_batch_number for p in shipment],
-            #         pallet__abnormal_palletization=True
-            #     )
-            # )
-            # abnormal_shipment = set(s.shipment_batch_number for s in abnormal_shipment)
-            # updated_shipment = []
-            # for s in list(shipment-abnormal_shipment):
-            #     s.abnormal_palletization = False
-            #     updated_shipment.append(s)
-            # await sync_to_async(Shipment.objects.bulk_update)(
-            #     updated_shipment, ["abnormal_palletization"]
-            # )
             return await self.handle_daily_operation_get()
         else:
             abnormal_reasons = [abnormal_reasons[i] for i in range(len(selected)) if selected[i] == "on"]

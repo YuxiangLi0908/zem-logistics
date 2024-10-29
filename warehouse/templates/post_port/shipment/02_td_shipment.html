@@ -153,7 +153,9 @@
                             <th class="th">总CBM</th>
                             <th class="th">总卡板数</th>
                             <th class="th">备注</th>
+                            {% if user.is_authenticated and user.is_staff %}
                             <th class="th">撤销预约</th>
+                            {% endif %}
                         </tr>
                         <tr style="position: sticky; top: 28px;">
                             <th class="th"><input type="text" id="shipmentSearchInput" placeholder="搜索批次号..." oninput="filterShipmentTable()" size="13" style="font-size: 11px;"></th>
@@ -164,7 +166,9 @@
                             <th class="th"></th>
                             <th class="th"></th>
                             <th class="th"></th>
+                            {% if user.is_authenticated and user.is_staff %}
                             <th class="th"></th>
+                            {% endif %}
                         </tr>
                     </thead>
                     <tbody>
@@ -189,7 +193,8 @@
                             <td class="td">{{ s.total_weight|floatformat:2 }}</td>
                             <td class="td">{{ s.total_cbm|floatformat:2 }}</td>
                             <td class="td">{{ s.total_pallet }}</td>
-                            <td class="td" style="max-width: 120px; word-break: break-all;">{{ s.note }}</td>
+                            <td class="td" style="max-width: 120px; word-break: break-all;">{% if s.not %}{{ s.note }}{% endif %}</td>
+                            {% if user.is_authenticated and user.is_staff %}
                             <td class="td">
                                 <form method="post" action="">
                                     {% csrf_token %}
@@ -200,6 +205,7 @@
                                     <button type="submit" class="btn btn-danger"><i class="bi bi-x-octagon"></i></button>
                                 </form>
                             </td>
+                            {% endif %}
                         </tr>
                         {% endfor %}
                     </tbody>
