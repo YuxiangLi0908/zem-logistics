@@ -27,6 +27,7 @@ from warehouse.models.order import Order
 from warehouse.models.invoice import Invoice, InvoiceItem, InvoiceStatement
 from warehouse.models.packing_list import PackingList
 from warehouse.models.customer import Customer
+from warehouse.models.pallet import Pallet
 from warehouse.forms.order_form import OrderForm
 from warehouse.views.export_file import export_invoice
 from warehouse.utils.constants import (
@@ -203,25 +204,30 @@ class Accounting(View):
         return self.template_invoice_management, context
     
     def handle_container_invoice_get(self, container_number: str) -> tuple[Any, Any]:
-        order = Order.objects.get(container_number__container_number=container_number)
+        order = Order.objects.select_related("offload_id").get(container_number__container_number=container_number)
         if order.order_type == "转运":
-            packing_list = PackingList.objects.select_related(
-                "container_number", "pallet"
-            ).filter(
-                container_number__container_number=container_number
-            ).values(
-                'container_number__container_number', 'destination'
-            ).annotate(
-                total_cbm=Sum("pallet__cbm", output_field=FloatField()),
-                total_n_pallet=Count('pallet__pallet_id', distinct=True),
-            ).order_by("destination", "-total_cbm")
-            for pl in packing_list:
-                if pl["total_cbm"] > 1:
-                    pl["total_n_pallet"] = round(pl["total_cbm"] / 2)
-                elif pl["total_cbm"] >= 0.6 and pl["total_cbm"] <= 1:
-                    pl["total_n_pallet"] = 0.5
-                else:
-                    pl["total_n_pallet"] = 0.25
+            if order.offload_id.offload_at == None:
+                packing_list = PackingList.objects.select_related(
+                    "container_number", "pallet"
+                ).filter(
+                    container_number__container_number=container_number
+                ).values(
+                    'container_number__container_number', 'destination'
+                ).annotate(
+                    total_cbm=Sum("pallet__cbm", output_field=FloatField()),
+                    total_n_pallet=Count('pallet__pallet_id', distinct=True),
+                ).order_by("destination", "-total_cbm")
+            else:
+                packing_list = Pallet.objects.select_related(
+                    "container_number"
+                ).filter(
+                    container_number__container_number=container_number
+                ).values(
+                    'container_number__container_number', 'destination'
+                ).annotate(
+                    total_cbm=Sum("cbm", output_field=FloatField()),
+                    total_n_pallet=Count('pallet_id', distinct=True),
+                ).order_by("destination", "-total_cbm")
         else:
             packing_list = []
         context = {
