@@ -510,7 +510,7 @@ class OrderCreation(View):
             await sync_to_async(order.save)()
         #新建pl的时候，就在po_check表新建记录
         #因为上面已经将新的packing_list存到表里，所以直接去pl表查
-        packing_list = await sync_to_async(list)(PackingList.objects.filter(container_number__container_number = container_number))
+        packing_list = await sync_to_async(list)(PackingList.objects.filter(container_number__container_number = container))
         for pl in packing_list:
             try:
                 # 直接在查询集中查找是否存在具有相同container_number的对象，如果是建单填写不应该查到pl，如果是更改数据就可能查到
@@ -526,7 +526,7 @@ class OrderCreation(View):
             except PoCheckEtaSeven.DoesNotExist:
                 #如果没查到，就建新纪录
                 po_check_dict = {
-                    'container_number': container_number,
+                    'container_number': container,
                     'vessel_eta': order.vessel_id.vessel_eta,
                     'packing_list': pl,
                     'time_status': False,
