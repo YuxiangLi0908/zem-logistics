@@ -391,7 +391,7 @@ class Palletization(View):
                 new_pallets = [int(value) for value in request.POST.getlist("new_pallets")]
                 shipping_marks = request.POST.getlist("new_shipping_marks")
                 fba_ids = request.POST.getlist("new_fba_ids")
-                ref_ids = request.POST.getlist("new_ref_ids")     
+                ref_ids = request.POST.getlist("new_ref_ids")
                 new_notes = request.POST.getlist("new_notes")
                 new_cbm = [float(value) if value else 0 for value in request.POST.getlist("new_cbms")]
                 #生成pallet
