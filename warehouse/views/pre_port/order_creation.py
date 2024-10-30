@@ -26,6 +26,7 @@ from warehouse.models.order import Order
 from warehouse.models.retrieval import Retrieval
 from warehouse.models.offload import Offload
 from warehouse.models.vessel import Vessel
+from warehouse.models.po_check_eta import PoCheckEtaSeven
 from warehouse.forms.upload_file import UploadFileForm
 from warehouse.utils.constants import (
     PACKING_LIST_TEMP_COL_MAPPING, SHIPPING_LINE_OPTIONS,
@@ -430,7 +431,7 @@ class OrderCreation(View):
     async def handle_update_order_packing_list_info_post(self, request: HttpRequest) -> tuple[Any, Any]:
         container_number = request.POST.get("container_number")
         order = await sync_to_async(
-            Order.objects.select_related("container_number","offload_id").get
+            Order.objects.select_related("container_number","offload_id","vessel_id").get
         )(container_number__container_number=container_number)
         container = order.container_number
         offload = order.offload_id
@@ -507,6 +508,36 @@ class OrderCreation(View):
             await sync_to_async(PackingList.objects.bulk_create)(pl_to_create)
             order.packing_list_updloaded = True
             await sync_to_async(order.save)()
+        #新建pl的时候，就在po_check表新建记录
+        #因为上面已经将新的packing_list存到表里，所以直接去pl表查
+        packing_list = await sync_to_async(list)(PackingList.objects.filter(container_number__container_number = container))
+        for pl in packing_list:
+            try:
+                # 直接在查询集中查找是否存在具有相同container_number的对象，如果是建单填写不应该查到pl，如果是更改数据就可能查到
+                existing_obj = await sync_to_async(PoCheckEtaSeven.objects.get)(packing_list = pl)  
+                #查到了就是更改数据，可能更改唛头、fba、ref
+                if existing_obj.shipping_mark != pl.shipping_mark:
+                    existing_obj.shipping_mark = pl.shipping_mark
+                if existing_obj.fba_id != pl.fba_id:
+                    existing_obj.fba_id = pl.fba_id
+                if existing_obj.ref_id != pl.ref_id:
+                    existing_obj.ref_id = pl.ref_id
+                await sync_to_async(existing_obj.save)()
+            except PoCheckEtaSeven.DoesNotExist:
+                #如果没查到，就建新纪录
+                po_check_dict = {
+                    'container_number': container,
+                    'vessel_eta': order.vessel_id.vessel_eta,
+                    'packing_list': pl,
+                    'time_status': False,
+                    'destination': pl.destination,
+                    'fba_id': pl.fba_id,
+                    'ref_id': pl.ref_id,
+                    'shipping_mark': pl.shipping_mark,
+                    #其他的字段用默认值
+                }
+                new_obj = PoCheckEtaSeven(**po_check_dict)
+                await sync_to_async(new_obj.save)()
         source = request.POST.get("source")
         if source == "order_management":
             mutable_get = request.GET.copy()
@@ -526,6 +557,14 @@ class OrderCreation(View):
         order.cancel_notification = True
         order.cancel_time = datetime.now()  
         await sync_to_async(order.save)()
+        #如果取消预报了，po_check也要做对应处理，但是怕可能会有取消预报后又不想取消的情况，现在不在po_check表删除，把vessel_eta改成2024/1/2
+        orders = await sync_to_async(list)(PoCheckEtaSeven.objects.filter(container_number__container_number = container_number))
+        try:
+            for o in orders:
+                o.vessel_eta = datetime(2024,1,2)
+                await sync_to_async(o.save)()
+        except PoCheckEtaSeven.DoesNotExist:
+            pass
         mutable_get = request.GET.copy()
         mutable_get["container_number"] = container_number
         mutable_get["step"] = "cancel_notification"
