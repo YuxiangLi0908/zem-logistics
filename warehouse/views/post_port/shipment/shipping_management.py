@@ -1210,12 +1210,13 @@ class ShippingManagement(View):
         df_appointment = pd.DataFrame(appointment_data)
         try:
             df = pd.merge(df_pallet, df_packing_list, how="outer", on=["destination", "warehouse"]).fillna(0)
+            df = df.merge(df_appointment, how="left", on=["destination"]).fillna(0)
+            df["total_cbm"] = df["total_cbm_x"] + df["total_cbm_y"]
+            df["total_pallet"] = df["total_pallet_x"] + df["total_pallet_y"]
+            df = df.drop(["total_cbm_x", "total_cbm_y", "total_pallet_x", "total_pallet_y"], axis=1)
         except:
-            raise ValueError(df_pallet, df_packing_list)
-        df = df.merge(df_appointment, how="left", on=["destination"]).fillna(0)
-        df["total_cbm"] = df["total_cbm_x"] + df["total_cbm_y"]
-        df["total_pallet"] = df["total_pallet_x"] + df["total_pallet_y"]
-        df = df.drop(["total_cbm_x", "total_cbm_y", "total_pallet_x", "total_pallet_y"], axis=1)
+            df = df_pallet
+            df = df.merge(df_appointment, how="left", on=["destination"]).fillna(0)
         df["n_appointment"] = df["n_appointment"].astype(int)
         df["total_pallet"] = df["total_pallet"].astype(int)
         df = df.sort_values(by="total_pallet", ascending=False)
