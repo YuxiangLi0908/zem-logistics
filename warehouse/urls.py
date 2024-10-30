@@ -26,6 +26,7 @@ from warehouse.views.quote_management import QuoteManagement
 from warehouse.views.accounting import Accounting
 from warehouse.views.shipment_status import ShipmentStatus
 from warehouse.views.post_port.shipment.shipping_management import ShippingManagement
+from warehouse.views.post_port.shipment.fleet_management import FleetManagement
 from warehouse.views.container_tracking import ContainerTracking
 from warehouse.views.terminal49_webhook import T49Webhook
 from warehouse.views.test.async_view import AsyncView
@@ -48,6 +49,7 @@ urlpatterns = [
     path('inventory/', Inventory.as_view(), name='inventory'),
     path('schedule_shipment/', ShippingManagement.as_view(), name='schedule_shipment'),
     path('fleet/', ShippingManagement.as_view(), name='fleet'),
+    path('fleet_management/', FleetManagement.as_view(), name='fleet_management'),
     path('outbound/', ShippingManagement.as_view(), name='outbound'),
     path('pod/', ShippingManagement.as_view(), name='pod'),
     path('generate_pdf/', ExportFile.as_view(), name='generate_pdf'),

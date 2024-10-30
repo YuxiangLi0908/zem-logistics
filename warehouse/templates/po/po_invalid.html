@@ -1,0 +1,203 @@
+{% extends 'base.html' %}
+{% load custom_filters %}
+{% block content %}
+
+<div style="max-height: 100%; max-width: 100%;">
+    <div id="po-check-invalid-div"><b>PO失效</b></div>
+</div>
+{% load static custom_filters %}
+    <form method="post" style="width: 100%;">
+        {% csrf_token %}
+        <div class="container mt-3" style="max-width: 100%;">
+            <div style="overflow-x: auto; max-width: 100%; overflow-y: auto; max-height: 800px;">
+                <table class="table" style="font-size: 11px" id="check-invalid">
+                    <thead>
+                        <tr>
+                            <th class="th" style="max-width: 5%; min-width: 10px; text-align: center;"></th>
+                            <th>柜号</th>
+                            <th>destination</th>
+                            <th>是否通知客户</th>
+                            <th>shipping_mark</th>
+                            <th>fba_id</th>
+                            <th>ref_id</th>                           
+                            <th>操作指令</th>
+                        </tr>
+                        <tr style="position: sticky; top: 28px;">
+                            <th class="th" style="max-width: 5%; min-width: 10px; text-align: center;">
+                                <input type="checkbox" id="selectAllCheckbox" onchange="toggleAllCheckboxes()">
+                            </th>
+                            <th class="th">
+                                <input type="text" id="containerSearch" placeholder="搜索柜号..." oninput="filterTable()" size="13" style="font-size: 11px;">
+                            </th>
+                            <th class="th">
+                                <input type="text" id="destinationSearch" placeholder="搜索目的地..." oninput="filterTable()" size="13" style="font-size: 11px;">
+                            </th>
+                            <th class="th">
+                                <input type="text" id="notifySearch" placeholder="是否通知客户..." oninput="filterTable()" size="13" style="font-size: 11px;">
+                            </th>
+                            <th class="th"></th>
+                            <th class="th"></th>
+                            <th class="th"></th>   
+                            <th class="th"></th>
+                        </tr>
+                    </thead>
+                    <tbody id="palletization-container">                       
+                        {% for po in po_check %}
+                        <tr id="palletization-row">
+                            <td class="td" style="max-width: 5%; min-width: 10px; text-align: center;">
+                                <input type='checkbox' name='is_selected' onclick="toggleRowBackground(this)">
+                                <input type="hidden" name="is_selected", value='off'>
+                                <input type="hidden" name="po_ids", value='{{ po.id }}'>
+                            </td>
+                            <td class="td">{{ po.container_number }}</td>
+                            <td class="td">{{ po.destination }}</td>
+                            <td id="notify-td">
+                                <input type="checkbox" id="notify-checkbox-{{ po.id }}" {% if po.is_notified %}checked{% endif %}>                              
+                                <label for="notify-checkbox-{{ po.id }}">
+                                    {% if po.is_notified %}
+                                        <span style="color:green;">已通知</span>
+                                    {% else %}
+                                        <span style="color:red;">未通知</span>
+                                    {% endif %}
+                                </label>
+                            </td>
+                            
+                            <td class="td">{{ po.shipping_mark }}</td>
+                            <td class="td">{{ po.fba_id }}</td>
+                            <td class="td">{{ po.ref_id }}</td>                                                  
+                            <td class="td">
+                                {% if po and po.handling_method %}
+                                    <input type="text" name="text" value="{{ po.handling_method }}"/>
+                                {% else %}
+                                    <input type="text" name="text" value=""/>
+                                {% endif %}
+                            </td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+        </div>
+        <input type="hidden" name="step" value="po_invalid_save">
+        <button type="submit" onclick="confirmSubmit(this)" class="btn btn-primary" style="width: 100px; height: 35px;">确认通知</button>
+    </form>
+
+<script>
+    let notifyChanges = {};
+    console.log('notifyChanges1',notifyChanges);
+    document.querySelectorAll('#notify-td input[type="checkbox"]').forEach((checkbox, index) => {
+        checkbox.addEventListener('change', function () {
+            let poId = this.getAttribute('id').split('-')[2];
+            if (this.checked) {
+                
+                notifyChanges[poId] = this.checked;
+            }else{}
+        });
+    });
+
+    document.addEventListener('DOMContentLoaded', function () {
+        let unCheckedCount = 0;
+        const statusTDs = document.querySelectorAll('#notify-td');
+        statusTDs.forEach(function (td) {
+            const text = td.textContent.trim();
+            if (text === '未通知') {
+                unCheckedCount++;
+            }
+        });
+        const poCheckDiv = document.getElementById('po-check-invalid-div');
+        const bElement = poCheckDiv.getElementsByTagName('b')[0];
+        const newSpan = document.createElement('span');
+        newSpan.textContent = '(待通知' + unCheckedCount + '条)';
+        newSpan.style.color = 'orange';
+        newSpan.style.fontSize = '14px';
+        bElement.appendChild(newSpan);
+    });
+
+    
+    function confirmSubmit(Element) {
+        const checkBoxes = document.getElementsByName('is_selected');
+        for (let i = 0; i < checkBoxes.length; i+=2) {
+            if (checkBoxes[i].checked) {
+                checkBoxes[i+1].disabled = true;
+            }
+        }
+        let form = Element.parentNode;
+        let hiddenInput = document.createElement('input');
+        hiddenInput.type = 'hidden';
+        hiddenInput.name ='notifyChanges';
+        hiddenInput.value = JSON.stringify(notifyChanges);
+        console.log('notifyChanges2',notifyChanges);
+        form.appendChild(hiddenInput);
+        form.submit();
+    };
+      
+    function toggleAllCheckboxes() {
+        var selectAllCheckbox = document.getElementById('selectAllCheckbox');
+        var checkboxes = document.querySelectorAll('tbody input[type="checkbox"][name="is_selected"]');
+        
+        checkboxes.forEach(function(checkbox) {
+            var tr = checkbox.closest('tr');
+            if (tr.style.display !== 'none') {
+                checkbox.checked = selectAllCheckbox.checked;
+                if (checkbox.checked) {
+                    tr.style.backgroundColor = '#ADD8E6'; // Change to your desired color
+                } else {
+                    tr.style.backgroundColor = ''; // Reset to default color
+                }
+            }
+        });
+    };
+
+    function toggleRowBackground(checkbox) {
+        var row = checkbox.closest('tr');
+        if (checkbox.checked) {
+            row.style.backgroundColor = '#ADD8E6'; 
+        } else {
+            row.style.backgroundColor = ''; 
+        }
+    };
+    function filterTable() {
+        var containerInput, destinationInput, notifyInput;
+        var containerFilter, destinationFilter, notifyFilter;
+        var table, tbody, tr;
+        var containerTd, destinationTd, notifyTd;
+        var i, j;
+        var containerTxtValue, destinationTxtValue, notifyTxtValue;
+        containerInput = document.getElementById("containerSearch");
+        destinationInput = document.getElementById("destinationSearch");
+        notifyInput = document.getElementById("notifySearch");
+        containerFilter = containerInput.value.toUpperCase();
+        destinationFilter = destinationInput.value.toUpperCase();
+        notifyFilter = notifyInput.value.toUpperCase();
+        table = document.getElementById("check-invalid");
+        tbody = table.getElementsByTagName("tbody")[0];
+        tr = tbody.getElementsByTagName("tr");
+        var parts = containerFilter.split(/\W/);
+    
+        for (i = 0; i < tr.length; i++) {
+            containerTd = tr[i].getElementsByTagName("td")[1];
+            destinationTd = tr[i].getElementsByTagName("td")[2];
+            notifyTd = tr[i].getElementsByTagName("td")[3];
+            if (containerTd && destinationTd && notifyTd) {
+                containerTxtValue = containerTd.textContent || containerTd.innerText;
+                destinationTxtValue = destinationTd.textContent || destinationTd.innerText;
+                notifyTxtValue = notifyTd.textContent || notifyTd.innerText;
+                var destinationDisplayStyle = destinationTxtValue.toUpperCase().indexOf(destinationFilter) > -1? "" : "none";
+                var notifyDisplayStyle = notifyTxtValue.toUpperCase().indexOf(notifyFilter) > -1? "" : "none";
+                var containerDisplayStyle = "none";
+                if (parts.length > 0) {
+                    for (j = 0; j < parts.length; j++) {
+                        if (containerTxtValue.toUpperCase().indexOf(parts[j]) > -1) {
+                            containerDisplayStyle = "";
+                            break;
+                        }
+                    }
+                } else {
+                    containerDisplayStyle = containerTxtValue.toUpperCase().indexOf(containerFilter) > -1? "" : "none";
+                }
+                tr[i].style.display = containerDisplayStyle === "" && notifyDisplayStyle === "" && destinationDisplayStyle === ""? "" : "none";
+            }
+        }
+    };
+</script>
+{% endblock %}

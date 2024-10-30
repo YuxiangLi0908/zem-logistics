@@ -137,7 +137,7 @@ class Palletization(View):
                         "resolved_at": status.resolved_at,
                         "is_resolved": True if status.is_resolved else False,
                         "destination": status.destination,
-                        "deivery_method": status.deivery_method,
+                        "delivery_method": status.delivery_method,
                         "pcs_reported": status.pcs_reported,
                         "pcs_actual": status.pcs_actual,
                         "abnormal_reason": status.abnormal_reason,
@@ -155,7 +155,7 @@ class Palletization(View):
                         "resolved_at": status.resolved_at,
                         "is_resolved": True if status.is_resolved else False,
                         "destination": status.destination,
-                        "deivery_method": status.deivery_method,
+                        "delivery_method": status.delivery_method,
                         "pcs_reported": status.pcs_reported,
                         "pcs_actual": status.pcs_actual,
                         "abnormal_reason": status.abnormal_reason,
@@ -182,7 +182,6 @@ class Palletization(View):
             ).values('retrieval_destination_precise')[:1],
             output_field = CharField()
         )
-               
         query = AbnormalOffloadStatus.objects.select_related('container_number').annotate(
             retrieval_destination_precise = Subquery(retrieval_precise_subquery)
         ).filter(is_resolved = True, confirmed_by_warehouse = False).order_by('created_at')
@@ -198,7 +197,7 @@ class Palletization(View):
                 "resolved_at": status.resolved_at,
                 "confirmed_by_warehouse": True if status.confirmed_by_warehouse else False,
                 "destination": status.destination,
-                "deivery_method": status.deivery_method,
+                "delivery_method": status.delivery_method,
                 "pcs_reported": status.pcs_reported,
                 "pcs_actual": status.pcs_actual,
                 "abnormal_reason": status.abnormal_reason,
@@ -379,7 +378,7 @@ class Palletization(View):
                         "created_at": current_time_cn,
                         "is_resolved": False,
                         "destination": dest,
-                        "deivery_method": d_m,
+                        "delivery_method": d_m,
                         "pcs_reported": p_r,
                         "pcs_actual": p_a,
                     })
@@ -410,7 +409,7 @@ class Palletization(View):
                         "created_at": current_time_cn,
                         "is_resolved": False,
                         "destination": dest,
-                        "deivery_method": d_m,
+                        "delivery_method": d_m,
                         "pcs_reported": 0,
                         "pcs_actual": p_a,
                     })
@@ -439,13 +438,17 @@ class Palletization(View):
             offload.devanning_fee = None
         except:
             pass
-        await sync_to_async(Pallet.objects.filter(
-            container_number__container_number=container_number
-        ).delete)()
+        pallet = await sync_to_async(list)(
+            Pallet.objects.select_related("shipment_batch_number").filter(container_number__container_number=container_number)
+        )
+        shipment = set()
+        shipment.update([p.shipment_batch_number for p in pallet if p])
+        await sync_to_async(Pallet.objects.filter(container_number__container_number=container_number).delete)()
         await sync_to_async(AbnormalOffloadStatus.objects.filter(
             container_number__container_number=container_number
         ).delete)()
         await sync_to_async(offload.save)()
+        await self._update_shipment_abnormal_palletization(shipment)
         mutable_post = request.POST.copy()
         mutable_post['name'] = order.warehouse.name
         request.POST = mutable_post
@@ -460,15 +463,32 @@ class Palletization(View):
         confirmed_by_warehouse = request.POST.getlist("confirmed_by_warehouse")     
 
         abnormal_pl_ids = [abnormal_pl_ids[i] for i in range(len(selected)) if selected[i] == "on"]
-        abnormal_records = await sync_to_async(list)(AbnormalOffloadStatus.objects.filter(id__in=abnormal_pl_ids))
+        abnormal_records = await sync_to_async(list)(
+            AbnormalOffloadStatus.objects.select_related("container_number").filter(id__in=abnormal_pl_ids)
+        )
         updated_records = []
         if confirmed_by_warehouse:
+            shipment = set()
             for record in abnormal_records:
+                pallet = await sync_to_async(list)(
+                    Pallet.objects.select_related("container_number","shipment_batch_number").filter(
+                        destination=record.destination,
+                        container_number__container_number=record.container_number.container_number,
+                        delivery_method=record.delivery_method,
+                    )
+                )
+                shipment.update([p.shipment_batch_number for p in pallet])
+                for p in pallet:
+                    p.abnormal_palletization = False
                 record.confirmed_by_warehouse = True
                 updated_records.append(record)
             await sync_to_async(AbnormalOffloadStatus.objects.bulk_update)(
                 updated_records, ["confirmed_by_warehouse"]
             )
+            await sync_to_async(Pallet.objects.bulk_update)(
+                pallet, ["abnormal_palletization"]
+            )
+            await self._update_shipment_abnormal_palletization(shipment)
             return await self.handle_daily_operation_get()
         else:
             abnormal_reasons = [abnormal_reasons[i] for i in range(len(selected)) if selected[i] == "on"]
@@ -642,7 +662,7 @@ class Palletization(View):
         pk: int,
         address: str | None = None,
         zipcode: str | None = None,
-        seed: int = 0,
+        seed: int = 0
     ) -> None:
         if n == 0 or n is None:
             return
@@ -660,6 +680,8 @@ class Palletization(View):
             weight_actual = w * p_a / p_r
         if shipment_batch_number != "None":
             shipment = await sync_to_async(Shipment.objects.get)(shipment_batch_number=shipment_batch_number)
+            shipment.abnormal_palletization = p_a != p_r
+            await sync_to_async(shipment.save)()
         else:
             shipment = None
         pallet_data = []
@@ -684,6 +706,7 @@ class Palletization(View):
                 "shipping_mark": shipping_mark if shipping_mark else "",
                 "fba_id": fba_id if fba_id else "",
                 "ref_id": ref_id if ref_id else "",
+                "abnormal_palletization": p_a != p_r,
             })
         await sync_to_async(Pallet.objects.bulk_create)([Pallet(**d) for d in pallet_data])
 
@@ -804,6 +827,23 @@ class Palletization(View):
             ).annotate(
                 shipment_scheduled_time=Min("shipment_batch_number__shipment_appointment")
             )
+        )
+    
+    async def _update_shipment_abnormal_palletization(self, shipment: set[Shipment]) -> None:
+        abnormal_shipment = await sync_to_async(list)(
+            Shipment.objects.filter(
+                shipment_batch_number__in=[p.shipment_batch_number for p in shipment if p],
+                pallet__abnormal_palletization=True
+            )
+        )
+        abnormal_shipment = set(s.shipment_batch_number for s in abnormal_shipment)
+        updated_shipment = []
+        for s in list(shipment-abnormal_shipment):
+            if s:
+                s.abnormal_palletization = False
+                updated_shipment.append(s)
+        await sync_to_async(Shipment.objects.bulk_update)(
+            updated_shipment, ["abnormal_palletization"]
         )
     
     async def _user_authenticate(self, request: HttpRequest):

@@ -1,0 +1,198 @@
+
+{% extends 'base.html' %}
+{% load custom_filters %}
+{% block content %}
+
+<div style="max-height: 100%; max-width: 100%;">
+    <div><b>PO查验总表 - {{ po_check|length }}</b></div>
+</div>
+<form method="post" action="" style="width: 80%;">
+    {% csrf_token %}
+    <div>
+        <b style="margin-right: 5px;">到港ETA:</b>
+        <input type="date" name="start_date" value="{{ start_date }}">
+        <input type="date" name="end_date" value="{{ end_date }}" style="margin-right: 5px;">
+        <input type="hidden" name="step" value="eta_search">
+        <button id="submit-btn" type="submit" class="btn btn-primary" style="width: 100px; height: 35px; margin-left: 20px;">查询</button>
+    </div>
+</form>
+{% load static custom_filters %}
+    <form method="post" style="width: 100%;">
+        {% csrf_token %}
+        <div style="right;">
+            <input type="hidden" name="step" value="selection_check_seven">
+            <input type="hidden" name="po_name" value="{{ selected_po_name }}">
+            <button type="submit" onclick="confirmSubmit" class="btn btn-primary" style="width: 100px; height: 35px;">生成PO</button>
+        </div>
+        <div class="container mt-3" style="max-width: 100%;">
+            <div style="overflow-x: auto; max-width: 100%; overflow-y: auto; max-height: 800px;">
+                <table class="table" style="font-size: 11px" id="check-polist">
+                    <thead>
+                        <tr>
+                            <th class="th" style="max-width: 5%; min-width: 10px; text-align: center;"></th>
+                            <th>柜号</th>
+                            <th>目的地</th>
+                            <th>状态</th>
+                            <th>唛头</th>
+                            <th>fba_id</th>
+                            <th>ref_id</th>   
+                            <th>到港前一周查验</th>
+                            <th>提柜前一天查验</th>                       
+                        </tr>
+                        <tr style="position: sticky; top: 28px;">
+                            <th class="th" style="max-width: 5%; min-width: 10px; text-align: center;">
+                                <input type="checkbox" id="selectAllCheckbox" onchange="toggleAllCheckboxes()">
+                            </th>
+                            <th class="th">
+                                <input type="text" id="containerSearch" placeholder="搜索柜号..." oninput="filterTable()" size="13" style="font-size: 11px;">
+                            </th>
+                            <th class="th">
+                                <input type="text" id="destinationSearch" placeholder="搜索目的地..." oninput="filterTable()" size="13" style="font-size: 11px;">
+                            </th>
+                            <th class="th">
+                                <input type="text" id="statusSearch" placeholder="是否失效" oninput="filterTable()" size="13" style="font-size: 11px;">
+                            </th>
+                            <th class="th"></th>
+                            <th class="th"></th>
+                            <th class="th"></th>
+                            <th class="th"></th>
+                            <th class="th"></th>
+                        </tr>
+                    </thead>
+                    <tbody id="palletization-container">                       
+                        {% for po in po_check %}
+                        <tr id="palletization-row">                         
+                            <td class="td" style="max-width: 5%; min-width: 10px; text-align: center;">
+                                <input type='checkbox' name='is_selected' onclick="toggleRowBackground(this)">
+                                <input type="hidden" name="is_selected", value='off'>
+                                <input type="hidden" name="pl_ids", value='{{ po.packing_list.id }}'>
+                            </td>
+                            <td class="td">{{ po.container_number }}</td>
+                            <td class="td">{{ po.destination }}</td>
+                            <td class="td" style="text-align: left; cursor: pointer; display: flex; align-items: center;">
+                                {% if not po.last_eta_checktime and not po.last_retrieval_checktime %}
+                                    <span style="color:#696969;">未查验</span>  
+                                {% else %}
+                                    {% if po.last_retrieval_checktime and not po.last_retrieval_status%}
+                                        <span style="color:green;">失效</span>
+                                    {% elif not po.last_retrieval_checktime and po.last_eta_checktime and not po.last_eta_status %}
+                                        <span style="color:green;">失效</span>
+                                    {% else%}
+                                        <span style="color:red;">有效</span>
+                                    {% endif %}
+                                {% endif%}
+                            </td>         
+                            <td class="td">{{ po.shipping_mark }}</td>
+                            <td class="td">{{ po.fba_id }}</td>
+                            <td class="td">{{ po.ref_id }}</td>  
+                            <td class="td">
+                                {% if po.last_eta_checktime %}
+                                    {% if po.last_eta_status %}
+                                        <span style="color: green; font-weight: bold;">&#10004;</span>
+                                        <span style="color: gray; margin-left: 5px;">{{ po.last_eta_checktime|date:"M-j" }}</span>
+                                    {% else %}
+                                        <span style="color: green; font-weight: bold;">&#10006;</span>
+                                        <span style="color: gray; margin-left: 5px;">{{ po.last_eta_checktime|date:"M-j" }}</span>
+                                    {% endif %}
+                                {% else %}--
+                                {% endif %}
+                            </td> 
+                            <td class="td">
+                                {% if po.last_retrieval_checktime %}
+                                    {% if po.last_retrieval_status %}
+                                        <span style="color: green; font-weight: bold;">&#10004;</span>
+                                        <span style="color: gray; margin-left: 5px;">{{ po.last_retrieval_checktime|date:"M-j" }}</span>
+                                    {% else %}
+                                        <span style="color: green; font-weight: bold;">&#10006;</span>
+                                        <span style="color: gray; margin-left: 5px;">{{ po.last_retrieval_checktime|date:"M-j" }}</span>
+                                    {% endif %}
+                                {% else %}--
+                                {% endif %}
+                            </td>              
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </form>
+
+<script>
+    function confirmSubmit() {
+        const checkBoxes = document.getElementsByName('is_selected');
+        for (let i = 0; i < checkBoxes.length; i+=2) {
+            if (checkBoxes[i].checked) {
+                checkBoxes[i+1].disabled = true;
+            }
+        }
+    };
+    function toggleAllCheckboxes() {
+        var selectAllCheckbox = document.getElementById('selectAllCheckbox');
+        var checkboxes = document.querySelectorAll('tbody input[type="checkbox"][name="is_selected"]');
+        
+        checkboxes.forEach(function(checkbox) {
+            var tr = checkbox.closest('tr');
+            if (tr.style.display !== 'none') {
+                checkbox.checked = selectAllCheckbox.checked;
+                if (checkbox.checked) {
+                    tr.style.backgroundColor = '#ADD8E6'; // Change to your desired color
+                } else {
+                    tr.style.backgroundColor = ''; // Reset to default color
+                }
+            }
+        });
+    };
+
+    function toggleRowBackground(checkbox) {
+        var row = checkbox.closest('tr');
+        if (checkbox.checked) {
+            row.style.backgroundColor = '#ADD8E6'; 
+        } else {
+            row.style.backgroundColor = ''; 
+        }
+    };
+    function filterTable() {
+        var containerInput, destinationInput, statusInput;
+        var containerFilter, destinationFilter, statusFilter;
+        var table, tbody, tr;
+        var containerTd, destinationTd, statusTd;
+        var i, j;
+        var containerTxtValue, destinationTxtValue, statusTxtValue;
+        containerInput = document.getElementById("containerSearch");
+        destinationInput = document.getElementById("destinationSearch");
+        statusInput = document.getElementById("statusSearch");
+        containerFilter = containerInput.value.toUpperCase();
+        destinationFilter = destinationInput.value.toUpperCase();
+        statusFilter = statusInput.value.toUpperCase();
+        table = document.getElementById("check-polist");
+        tbody = table.getElementsByTagName("tbody")[0];
+        tr = tbody.getElementsByTagName("tr");
+        var parts = containerFilter.split(/\W/);
+    
+        for (i = 0; i < tr.length; i++) {
+            containerTd = tr[i].getElementsByTagName("td")[1];
+            destinationTd = tr[i].getElementsByTagName("td")[2];
+            statusTd = tr[i].getElementsByTagName("td")[3];
+            if (containerTd && destinationTd && statusTd) {
+                containerTxtValue = containerTd.textContent || containerTd.innerText;
+                destinationTxtValue = destinationTd.textContent || destinationTd.innerText;
+                statusTxtValue = statusTd.textContent || statusTd.innerText;
+                var destinationDisplayStyle = destinationTxtValue.toUpperCase().indexOf(destinationFilter) > -1? "" : "none";
+                var statusDisplayStyle = statusTxtValue.toUpperCase().indexOf(statusFilter) > -1? "" : "none";
+                var containerDisplayStyle = "none";
+                if (parts.length > 0) {
+                    for (j = 0; j < parts.length; j++) {
+                        if (containerTxtValue.toUpperCase().indexOf(parts[j]) > -1) {
+                            containerDisplayStyle = "";
+                            break;
+                        }
+                    }
+                } else {
+                    containerDisplayStyle = containerTxtValue.toUpperCase().indexOf(containerFilter) > -1? "" : "none";
+                }
+                tr[i].style.display = containerDisplayStyle === "" && statusDisplayStyle === "" && destinationDisplayStyle === ""? "" : "none";
+            }
+        }
+    };
+</script>
+{% endblock %}

@@ -15,6 +15,9 @@ from warehouse.models.invoice import Invoice, InvoiceItem, InvoiceStatement
 from warehouse.models.terminal49_webhook_raw import T49Raw
 from warehouse.models.vessel import Vessel
 from warehouse.models.fleet import Fleet
+from warehouse.models.fleet_shipment_pallet import FleetShipmentPallet
+from warehouse.models.shipment_status import ShipmentStatus
+from warehouse.models.po_check_eta import PoCheckEtaSeven
 # Register your models here.
 
 admin.site.register(Clearance)
@@ -35,3 +38,6 @@ admin.site.register(InvoiceStatement)
 admin.site.register(T49Raw)
 admin.site.register(Vessel)
 admin.site.register(Fleet)
+admin.site.register(FleetShipmentPallet)
+admin.site.register(ShipmentStatus)
+admin.site.register(PoCheckEtaSeven)

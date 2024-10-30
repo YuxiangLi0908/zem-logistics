@@ -61,6 +61,7 @@
                                 <th class="th">客户</th>
                                 <th class="th">货柜号</th>
                                 <th class="th">目的仓库</th>
+                                <th class="th">所属仓库</th>
                                 <th class="th">入仓时间</th>
                                 <th class="th">CBM</th>
                                 <th class="th">卡板数</th>
@@ -77,20 +78,30 @@
                                 <th class="th"></th>
                                 <th class="th"></th>
                                 <th class="th"></th>
+                                <th class="th"></th>
                             </tr>
                         </thead>
                         <tbody>
                             {% for c in packing_list_not_scheduled %}
                             <tr>
                                 <td class="td" style="min-width: 40px; text-align: center;">
-                                    <input type='checkbox' name='is_shipment_schduled' onclick="toggleRowBackground(this)" {% if c.ids in pl_ids_raw %}checked{% endif %}>
+                                    <input type='checkbox' name='is_shipment_schduled' onclick="toggleRowBackground(this)" {% if c.ids in pl_ids_raw %}checked{% elif c.plt_ids in plt_ids_raw %}checked{% endif %} {% if c.abnormal_palletization or c.po_expired %}disabled{% endif %}>
                                     <input type="hidden" name="is_shipment_schduled", value='off'>
                                     <input type="hidden" name="pl_ids", value='{{ c.ids }}'>
                                     <input type="hidden" name="plt_ids", value='{{ c.plt_ids }}'>
                                 </td>
                                 <td class="td" style="max-width: 120px; word-break: break-all;">{{ c.container_number__order__customer_name__zem_name }}</td>
                                 <td class="td">{{ c.container_number__container_number }}</td>
-                                <td class="td">{{ c.destination }}</td>
+                                <td class="td">
+                                    {{ c.destination }}
+                                    {% if c.abnormal_palletization %}
+                                    <span class="status-span-red" style="padding-top: 0; padding-bottom: 0;">未解决拆柜异常</span>
+                                    {% endif %}
+                                    {% if c.po_expired %}
+                                    <span class="status-span-yellow" style="padding-top: 0; padding-bottom: 0;">PO失效</span>
+                                    {% endif %}
+                                </td>
+                                <td class="td">{{ c.warehouse }}</td>
                                 <td class="td">
                                     {% if c.schedule_status == 'past_due' %}
                                     <span class="status-span-red">{{ c.container_number__order__offload_id__offload_at|date:"M-j" }}</span>
@@ -145,7 +156,9 @@
                             <th class="th">总CBM</th>
                             <th class="th">总卡板数</th>
                             <th class="th">备注</th>
+                            {% if user.is_authenticated and user.is_staff %}
                             <th class="th">撤销预约</th>
+                            {% endif %}
                         </tr>
                         <tr style="position: sticky; top: 28px;">
                             <th class="th"><input type="text" id="shipmentSearchInput" placeholder="搜索批次号..." oninput="filterShipmentTable()" size="13" style="font-size: 11px;"></th>
@@ -156,7 +169,9 @@
                             <th class="th"></th>
                             <th class="th"></th>
                             <th class="th"></th>
+                            {% if user.is_authenticated and user.is_staff %}
                             <th class="th"></th>
+                            {% endif %}
                         </tr>
                     </thead>
                     <tbody>
@@ -167,13 +182,22 @@
                                     {{ s.shipment_batch_number }}
                                 </a>
                             </td>
-                            <td class="td">{{ s.destination }}</td>
+                            <td class="td">
+                                {{ s.destination }}
+                                {% if s.abnormal_palletization %}
+                                <span class="status-span-red" style="padding-top: 0; padding-bottom: 0;">未解决拆柜异常</span>
+                                {% endif %}
+                                {% if s.po_expired %}
+                                <span class="status-span-yellow" style="padding-top: 0; padding-bottom: 0;">PO失效</span>
+                                {% endif %}
+                            </td>
                             <td class="td">{{ s.appointment_id }}</td>
                             <td class="td">{{ s.shipment_appointment|date:"Y-m-d" }} {{ s.shipment_appointment|time:"H:i" }}</td>
                             <td class="td">{{ s.total_weight|floatformat:2 }}</td>
                             <td class="td">{{ s.total_cbm|floatformat:2 }}</td>
                             <td class="td">{{ s.total_pallet }}</td>
-                            <td class="td" style="max-width: 120px; word-break: break-all;">{{ s.note }}</td>
+                            <td class="td" style="max-width: 120px; word-break: break-all;">{% if s.not %}{{ s.note }}{% endif %}</td>
+                            {% if user.is_authenticated and user.is_staff %}
                             <td class="td">
                                 <form method="post" action="">
                                     {% csrf_token %}
@@ -184,6 +208,7 @@
                                     <button type="submit" class="btn btn-danger"><i class="bi bi-x-octagon"></i></button>
                                 </form>
                             </td>
+                            {% endif %}
                         </tr>
                         {% endfor %}
                     </tbody>

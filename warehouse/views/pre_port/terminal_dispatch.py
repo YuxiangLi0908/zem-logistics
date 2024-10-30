@@ -6,12 +6,13 @@ from django.http import HttpRequest, HttpResponse
 from django.shortcuts import render, redirect
 from django.views import View
 from django.db import models
-
+import pytz
 
 from warehouse.models.packing_list import PackingList
 from warehouse.models.warehouse import ZemWarehouse
 from warehouse.models.order import Order
 from warehouse.models.retrieval import Retrieval
+from warehouse.models.po_check_eta import PoCheckEtaSeven
 from warehouse.utils.constants import (
     CONTAINER_PICKUP_CARRIER, WAREHOUSE_OPTIONS, ADDITIONAL_CONTAINER
 )
@@ -136,6 +137,15 @@ class TerminalDispatch(View):
         if request.POST.get("retrieval_carrier") == "客户自提":
             retrieval.actual_retrieval_timestamp = request.POST.get("target_retrieval_timestamp")
         await sync_to_async(retrieval.save)()
+        #有提柜计划后，就将记录归为“提柜前一天
+        orders = await sync_to_async(list)(PoCheckEtaSeven.objects.filter(container_number__container_number = container_number))
+        try:
+            for o in orders:
+                o.time_status = False
+                await sync_to_async(o.save)()
+        except PoCheckEtaSeven.DoesNotExist:
+            pass
+            
         return await self.handle_all_get()
     
     async def handle_confirm_pickup_post(self, request:HttpRequest) -> tuple[Any, Any]:
@@ -144,6 +154,17 @@ class TerminalDispatch(View):
             order__container_number__container_number=container_number
         )
         retrieval.actual_retrieval_timestamp = request.POST.get("actual_retrieval_timestamp")
+        today = datetime.now()  
+        actual_ts = request.POST.get("actual_retrieval_timestamp")
+        #如果是当天提柜
+        if actual_ts <= today + timedelta(days=1):
+            orders = await sync_to_async(list)(PoCheckEtaSeven.objects.filter(container_number__container_number = container_number))
+            try:
+                for o in orders:
+                    o.time_status = False
+                    await sync_to_async(o.save)()
+            except PoCheckEtaSeven.DoesNotExist:
+                pass
         await sync_to_async(retrieval.save)()
         return await self.handle_all_get()
 

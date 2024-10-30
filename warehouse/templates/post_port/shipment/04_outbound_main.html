@@ -60,11 +60,11 @@
                             <td class="td">{{ f.carrier }}</td>
                             <td class="td">
                                 {% if f.departure_status == "past_due" %}
-                                <span class="status-span-red">{{ f.appointment_date|date:"M-j" }}</span>
+                                <span class="status-span-red">{{ f.appointment_datetime|date:"M-j" }} {{ f.appointment_datetime|time:"H:i" }}</span>
                                 {% elif f.departure_status == "need_attention" %}
-                                <span class="status-span-yellow">{{ f.appointment_date|date:"M-j" }}</span>
+                                <span class="status-span-yellow">{{ f.appointment_datetime|date:"M-j" }} {{ f.appointment_datetime|time:"H:i" }}</span>
                                 {% else %}
-                                {{ f.appointment_date|date:"M-j" }}
+                                {{ f.appointment_datetime|date:"M-j" }}  {{ f.appointment_datetime|time:"H:i" }}
                                 {% endif %}
                             </td>
                             <td class="td">{{ f.total_weight|floatformat:2 }}</td>

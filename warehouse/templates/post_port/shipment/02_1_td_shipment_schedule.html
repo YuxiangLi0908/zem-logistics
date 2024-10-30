@@ -24,67 +24,139 @@
                     <button type="submit" class="btn btn-primary" style="font-size: 11px;" onclick="checkOriginInput()">确认预约</button>
                 </div>
             </div>
-            <table id="shipment-table-1" class="table" style="font-size: 11px; overflow-x: scroll; max-width: 100%;">
+            <table id="shipment-type" class="table" style="font-size: 11px; overflow-x: scroll; max-width: 100%;">
                 <thead>
                     <tr>
-                        <th class="th">预约号</th>
-                        <th class="th">Scheduled Time</th>
-                    </tr>
-                </thead>
-                <tbody>
-                    <tr>
-                        <td class="td"><input type="text" name="appointment_id" style="font-size: 13px;"></td>
-                        <td class="td"><input type="datetime-local" name="shipment_appointment" style="font-size: 13px;" required></td>
-                    </tr>
-                </tbody>
-            </table>
-            <table id="shipment-table-2" class="table" style="font-size: 11px; overflow-x: auto; max-width: 100%;">
-                <thead>
-                    <tr>
-                        <th class="th">发货仓库</th>
-                        <th class="th">装车类型</th>
-                        <th class="th">备注</th>
+                        <th class="th">预约类型</th>
                     </tr>
                 </thead>
                 <tbody>
                     <tr>
                         <td class="td">
-                            <select name="origin" id="origin-select" style="font-size: 13px;">
-                                {% for k, v in warehouse_options.items %}
+                            <select name="shipment_type" style="font-size: 13px;" onchange="showForm(this)">
+                                {% for k, v in shipment_type_options.items %}
                                 <option value="{{ v }}">{{ k }}</option>
                                 {% endfor %}
                             </select>
                         </td>
-                        <td class="td">
-                            <select name="load_type" id="load-type-select" style="font-size: 13px;">
-                                {% for k, v in load_type_options %}
-                                <option value="{{ v }}">{{ k }}</option>
-                                {% endfor %}
-                            </select>
-                        </td>
-                        <td class="td"><input type="text" name="note" style="font-size: 13px;"></td>
                     </tr>
                 </tbody>
             </table>
-            <table id="shipment-table-3" class="table" style="font-size: 11px; overflow-x: auto; max-width: 100%;">
-                <thead>
-                    <tr>
-                        <th class="th">目的地</th>
-                        <th class="th">地址</th>
-                    </tr>
-                </thead>
-                <tbody>
-                    <tr>
-                        <td class="td"><input type="text" name="destination" value="{{ shipment_data.destination }}" style="font-size: 13px;" required></td>
-                        <td class="td"><input type="text" name="address" value="{{ address }}" style="font-size: 13px;" size="40" required></td>
-                    </tr>
-                </tbody>
-            </table>
+            <div id="FTL-LTL-form" style="display: none;">
+                <table id="shipment-table-1" class="table" style="font-size: 11px; overflow-x: scroll; max-width: 100%;">
+                    <thead>
+                        <tr>
+                            <th class="th">预约号</th>
+                            <th class="th">Scheduled Time</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        <tr>
+                            <td class="td"><input type="text" name="appointment_id" style="font-size: 13px;"></td>
+                            <td class="td"><input type="datetime-local" name="shipment_appointment" style="font-size: 13px;" required></td>
+                        </tr>
+                    </tbody>
+                </table>
+                <table id="shipment-table-2" class="table" style="font-size: 11px; overflow-x: auto; max-width: 100%;">
+                    <thead>
+                        <tr>
+                            <th class="th">发货仓库</th>
+                            <th class="th">装车类型</th>
+                            <th class="th">备注</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        <tr>
+                            <td class="td">
+                                <select name="origin" id="origin-select-1" style="font-size: 13px;">
+                                    {% for k, v in warehouse_options.items %}
+                                    <option value="{{ v }}">{{ k }}</option>
+                                    {% endfor %}
+                                </select>
+                            </td>
+                            <td class="td">
+                                <select name="load_type" id="load-type-select" style="font-size: 13px;">
+                                    {% for k, v in load_type_options %}
+                                    <option value="{{ v }}">{{ k }}</option>
+                                    {% endfor %}
+                                </select>
+                            </td>
+                            <td class="td"><input type="text" name="note" style="font-size: 13px;"></td>
+                        </tr>
+                    </tbody>
+                </table>
+                <table id="shipment-table-3" class="table" style="font-size: 11px; overflow-x: auto; max-width: 100%;">
+                    <thead>
+                        <tr>
+                            <th class="th">目的地</th>
+                            <th class="th">地址</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        <tr>
+                            <td class="td"><input type="text" name="destination" value="{{ shipment_data.destination }}" style="font-size: 13px;" required></td>
+                            <td class="td"><input type="text" name="address" value="{{ address }}" style="font-size: 13px;" size="40" required></td>
+                        </tr>
+                    </tbody>
+                </table>
+            </div>
+            <div id="other-delivery-form" style="display: none;">
+                <table id="shipment-table-1" class="table" style="font-size: 11px; overflow-x: scroll; max-width: 100%;">
+                    <thead>
+                        <tr>
+                            <th class="th">Scheduled Time</th>
+                            <th class="th">发货仓库</th>
+                            <th class="th">备注</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        <tr>
+                            <td class="td"><input type="datetime-local" name="shipment_appointment" style="font-size: 13px;" required></td>
+                            <td class="td">
+                                <select name="origin" id="origin-select-2" style="font-size: 13px;">
+                                    {% for k, v in warehouse_options.items %}
+                                    <option value="{{ v }}">{{ k }}</option>
+                                    {% endfor %}
+                                </select>
+                            </td>
+                            <td class="td"><input type="text" name="note" style="font-size: 13px;"></td>
+                        </tr>
+                    </tbody>
+                </table>
+                <table id="shipment-table-2" class="table" style="font-size: 11px; overflow-x: auto; max-width: 100%;">
+                    <thead>
+                        <tr>
+                            <th class="th">目的地</th>
+                            <th class="th">地址</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        <tr>
+                            <td class="td"><input type="text" name="destination" value="{{ shipment_data.destination }}" style="font-size: 13px;" required></td>
+                            <td class="td"><input type="text" name="address" value="{{ address }}" style="font-size: 13px;" size="40" required></td>
+                        </tr>
+                    </tbody>
+                </table>
+                <table id="shipment-table-3" class="table" style="font-size: 11px; overflow-x: auto; max-width: 100%;">
+                    <thead>
+                        <tr>
+                            <th class="th">Carrier</th>
+                            <th class="th">提货时间</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        <tr>
+                            <td class="td"><input type="text" name="carrier" style="font-size: 13px;" required></td>
+                            <td class="td"><input type="datetime-local" name="appointment_datetime" style="font-size: 13px;" required></td>
+                        </tr>
+                    </tbody>
+                </table>
+            </div>
         </form>
     </div>
 
     <b style="background-color: rgb(208, 208, 208); border-radius: 20px; font-size: 11px; display:inline-flex; color: rgb(100, 100, 100); padding: 5px;">
-        拣货单
+        PO
     </b>
 
     <div style="overflow-x: auto; max-width: 100%; overflow-y: auto; max-height: 60%;">
@@ -156,10 +228,41 @@
     };
 
     function checkOriginInput() {
-        const selectedValue = document.getElementById('origin-select').value;
+        const shipmentType = document.querySelector('select[name="shipment_type"]').value;
+        var shipmentFormFTLLTL = document.getElementById('FTL-LTL-form');
+        var shipmentFormOther = document.getElementById('other-delivery-form');
+        var originSelectValue;
+        if (shipmentType == "FTL/LTL") {
+            originSelectValue = 'origin-select-1';
+        } else if (shipmentType == "外配/快递") {
+            originSelectValue = 'origin-select-2';
+        } else {
+            originSelectValue = ''
+        };
+        const selectedValue = document.getElementById(originSelectValue).value;
         if (!selectedValue) {
             alert('请选择发货仓库！');
             event.preventDefault();
+        } else if(shipmentType == "FTL/LTL") {
+            shipmentFormOther.remove();
+        } else if (shipmentType == "外配/快递") {
+            shipmentFormFTLLTL.remove();
+        };
+    };
+
+    function showForm(select) {
+        const selectedValue = select.value;
+        var shipmentFormFTLLTL = document.getElementById('FTL-LTL-form');
+        var shipmentFormOther = document.getElementById('other-delivery-form');
+        if (selectedValue == "FTL/LTL") {
+            shipmentFormFTLLTL.style.display = 'block';
+            shipmentFormOther.style.display = 'none';
+        } else if (selectedValue == "外配/快递") {
+            shipmentFormFTLLTL.style.display = 'none';
+            shipmentFormOther.style.display = 'block';
+        } else {
+            shipmentFormFTLLTL.style.display = 'none';
+            shipmentFormOther.style.display = 'none';
         };
     };
 

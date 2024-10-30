@@ -13,7 +13,9 @@ from django.db.models import Count
 from warehouse.models.order import Order
 from warehouse.models.retrieval import Retrieval
 from warehouse.models.vessel import Vessel
+from warehouse.models.packing_list import PackingList
 from warehouse.forms.upload_file import UploadFileForm
+from warehouse.models.po_check_eta import PoCheckEtaSeven
 
 
 class PrePortTracking(View):
@@ -127,6 +129,16 @@ class PrePortTracking(View):
                             if df.loc[df["Container number"]==o.container_number.container_number, "Port of Discharge estimated time of arrival"].any()
                             else self._format_string_datetime(df.loc[df["Container number"]==o.container_number.container_number, "Port of Discharge actual time of arrival"].values[0])
                         )
+                        #修改eta的时候，对应修改po_check的eta
+                        packing_list = await sync_to_async(list)(PackingList.objects.filter(container_number__container_number = o.container_number.container_number))
+                        for pl in packing_list:
+                            try:
+                                #这里是港口追踪时候的修改，数据应该有了，但是首次
+                                existing_obj = await sync_to_async(PoCheckEtaSeven.objects.get)(packing_list = pl)  
+                                existing_obj.vessel_eta = o.vessel_id.vessel_eta
+                                await sync_to_async(existing_obj.save)()
+                            except PoCheckEtaSeven.DoesNotExist:
+                                continue
                     except:
                         pass
                     try:
