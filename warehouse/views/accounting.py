@@ -228,6 +228,13 @@ class Accounting(View):
                     total_cbm=Sum("cbm", output_field=FloatField()),
                     total_n_pallet=Count('pallet_id', distinct=True),
                 ).order_by("destination", "-total_cbm")
+            for pl in packing_list:
+                if pl["total_cbm"] > 1:
+                    pl["total_n_pallet"] = round(pl["total_cbm"] / 2)
+                elif pl["total_cbm"] >= 0.6 and pl["total_cbm"] <= 1:
+                    pl["total_n_pallet"] = 0.5
+                else:
+                    pl["total_n_pallet"] = 0.25
         else:
             packing_list = []
         context = {
