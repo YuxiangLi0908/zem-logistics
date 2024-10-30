@@ -1,13 +1,17 @@
 import ast
 import uuid
 import os,json
+import pytz
 import pandas as pd
+import numpy as np
+
 from asgiref.sync import sync_to_async
 from datetime import datetime, timedelta
+from pathlib import Path
 from typing import Any
 from xhtml2pdf import pisa
 
-from django.http import HttpRequest, HttpResponse
+from django.http import HttpRequest, HttpResponse, Http404
 from django.shortcuts import render, redirect
 from django.views import View
 from django.db import models
@@ -15,6 +19,7 @@ from django.db.models import Case, Value, CharField, F, Sum, Max, FloatField, In
 from django.db.models.functions import Concat, Cast
 from django.contrib.postgres.aggregates import StringAgg
 from django.template.loader import get_template
+from django.utils import timezone
 
 from office365.runtime.auth.user_credential import UserCredential
 from office365.sharepoint.client_context import ClientContext
@@ -153,6 +158,11 @@ class ShippingManagement(View):
             return render(request, template, context)
         elif step == "create_empty_appointment":
             template, context = await self.handle_create_empty_appointment_post(request)
+            return render(request, template, context)
+        elif step == "download_empty_appointment_template":
+            return await self.handle_download_empty_appointment_template_post()
+        elif step == "upload_and_create_empty_appointment":
+            template, context = await self.handle_upload_and_create_empty_appointment_post(request)
             return render(request, template, context)
         else:
             return await self.get(request)
@@ -433,41 +443,73 @@ class ShippingManagement(View):
         current_time = datetime.now()
         appointment_type = request.POST.get("type")
         if appointment_type == "td":
-            shipment_type = request.POST.get("shipment_type")
             shipment_data = ast.literal_eval(request.POST.get("shipment_data"))
-            if await self._shipment_exist(shipment_data["shipment_batch_number"]):
-                raise ValueError(f"Shipment {shipment_data['shipment_batch_number']} already exists!")
-            shipment_data["appointment_id"] = request.POST.get("appointment_id", None)
+            shipment_type = request.POST.get("shipment_type")
+            appointment_id = request.POST.get("appointment_id", None)
+            appointment_id = appointment_id.strip() if appointment_id else None
             try:
-                shipment_data["third_party_address"] = shipment_data["third_party_address"].strip()
+                existed_appointment = await sync_to_async(Shipment.objects.get)(appointment_id=appointment_id)
             except:
-                pass
-            shipment_data["shipment_type"] = shipment_type
-            shipment_data["load_type"] = request.POST.get("load_type", None)
-            shipment_data["note"] = request.POST.get("note", "")
-            shipment_data["shipment_appointment"] = request.POST.get("shipment_appointment", None)
-            shipment_data["shipment_schduled_at"] = current_time
-            shipment_data["is_shipment_schduled"] = True
-            shipment_data["destination"] = request.POST.get("destination", None)
-            shipment_data["address"] = request.POST.get("address", None)
-            shipment_data["origin"] = request.POST.get("origin", "")
-            if shipment_type == "外配/快递":
-                fleet = Fleet(**{
-                    "carrier": request.POST.get("carrier"),
-                    "appointment_datetime": request.POST.get("appointment_datetime"),
-                    "fleet_number": "FO" + current_time.strftime("%m%d%H%M%S") + str(uuid.uuid4())[:2].upper(),
-                    "scheduled_at": current_time,
-                    "total_weight": shipment_data["total_weight"],
-                    "total_cbm": shipment_data["total_cbm"],
-                    "total_pallet": shipment_data["total_pallet"],
-                    "total_pcs": shipment_data["total_pcs"],
-                    "origin": shipment_data["origin"]
-                })
-                await sync_to_async(fleet.save)()
-                shipment_data["fleet_number"] = fleet
-            shipment = Shipment(**shipment_data)
+                existed_appointment = None
+            if existed_appointment:
+                if existed_appointment.in_use:
+                    raise RuntimeError(f"Appointment {existed_appointment} already used by other shipment!")
+                elif existed_appointment.is_canceled:
+                    raise RuntimeError(f"Appointment {existed_appointment} already exists and is canceled!")
+                elif existed_appointment.shipment_appointment.replace(tzinfo=pytz.UTC) < timezone.now():
+                    raise RuntimeError(f"Appointment {existed_appointment} already exists and expired!")
+                elif existed_appointment.destination != request.POST.get("destination", None):
+                    raise ValueError(f"Appointment {existed_appointment} has a different destination {existed_appointment.destination} - {request.POST.get('destination', None)}!")
+                else:
+                    shipment = existed_appointment
+                    shipment.shipment_batch_number = shipment_data["shipment_batch_number"]
+                    shipment.in_use = True
+                    shipment.origin = request.POST.get("origin", "")
+                    shipment.shipment_type = shipment_type
+                    shipment.load_type = request.POST.get("load_type", None)
+                    shipment.note = request.POST.get("note", "")
+                    shipment.shipment_schduled_at = timezone.now()
+                    shipment.is_shipment_schduled = True
+                    shipment.destination = request.POST.get("destination", None)
+                    shipment.address = request.POST.get("address", None)
+                    try:
+                        shipment.third_party_address = shipment_data["third_party_address"].strip()
+                    except:
+                        pass
+            else:
+                if await self._shipment_exist(shipment_data["shipment_batch_number"]):
+                    raise ValueError(f"Shipment {shipment_data['shipment_batch_number']} already exists!")
+                shipment_data["appointment_id"] = request.POST.get("appointment_id", None)
+                try:
+                    shipment_data["third_party_address"] = shipment_data["third_party_address"].strip()
+                except:
+                    pass
+                shipment_data["shipment_type"] = shipment_type
+                shipment_data["load_type"] = request.POST.get("load_type", None)
+                shipment_data["note"] = request.POST.get("note", "")
+                shipment_data["shipment_appointment"] = request.POST.get("shipment_appointment", None)
+                shipment_data["shipment_schduled_at"] = current_time
+                shipment_data["is_shipment_schduled"] = True
+                shipment_data["destination"] = request.POST.get("destination", None)
+                shipment_data["address"] = request.POST.get("address", None)
+                shipment_data["origin"] = request.POST.get("origin", "")
+                if shipment_type == "外配/快递":
+                    fleet = Fleet(**{
+                        "carrier": request.POST.get("carrier"),
+                        "appointment_datetime": request.POST.get("appointment_datetime"),
+                        "fleet_number": "FO" + current_time.strftime("%m%d%H%M%S") + str(uuid.uuid4())[:2].upper(),
+                        "scheduled_at": current_time,
+                        "total_weight": shipment_data["total_weight"],
+                        "total_cbm": shipment_data["total_cbm"],
+                        "total_pallet": shipment_data["total_pallet"],
+                        "total_pcs": shipment_data["total_pcs"],
+                        "origin": shipment_data["origin"]
+                    })
+                    await sync_to_async(fleet.save)()
+                    shipment_data["fleet_number"] = fleet
+            if not existed_appointment:
+                shipment = Shipment(**shipment_data)
             await sync_to_async(shipment.save)()
-            
 
             container_number = set()
             pl_ids = request.POST.get("pl_ids").strip('][').split(', ')
@@ -1203,6 +1245,39 @@ class ShippingManagement(View):
         else:
             return await self.handle_appointment_management_get(request)
         
+    async def handle_download_empty_appointment_template_post(self) -> HttpResponse:
+        file_path = Path(__file__).parent.parent.parent.parent.resolve().joinpath("templates/export_file/appointment_template.xlsx")
+        if not os.path.exists(file_path):
+            raise Http404("File does not exist")
+        with open(file_path, 'rb') as file:
+            response = HttpResponse(file.read(), content_type='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet')
+            response['Content-Disposition'] = f'attachment; filename="appointment_template.xlsx"'
+            return response
+        
+    async def handle_upload_and_create_empty_appointment_post(self, request: HttpRequest) -> tuple[str, dict[str, Any]]:
+        # raise ValueError(request.POST, request.FILES)
+        form = UploadFileForm(request.POST, request.FILES)
+        if form.is_valid():
+            file = request.FILES['file']
+            df = pd.read_excel(file)
+            df["warehouse"] = df["warehouse"].astype(str)
+            data = df.to_dict("records")
+            appointment_ids = [d["appointment_id"].strip() for d in data]
+            if len(appointment_ids) != len(set(appointment_ids)):
+                raise RuntimeError("appointment id 重复！")
+            existed_shipments = await sync_to_async(list)(Shipment.objects.filter(appointment_id__in=appointment_ids))
+            if existed_shipments:
+                raise ValueError(f"Appointment {existed_shipments} already created!")
+            cleaned_data = [{
+                "appointment_id": d["appointment_id"].strip(),
+                "destination": d["destination"].upper().strip(),
+                "shipment_appointment": d["scheduled_time"],
+                "origin": d["warehouse"].upper().strip() if d["warehouse"] != "nan" else None,
+                "in_use": False,
+            } for d in data]
+            await sync_to_async(Shipment.objects.bulk_create)(Shipment(**d) for d in cleaned_data)
+        return await self.handle_appointment_warehouse_search_post(request)
+
     async def _get_packing_list(
         self, 
         pl_criteria: models.Q | None = None,
@@ -1213,7 +1288,7 @@ class ShippingManagement(View):
             pal_list = await sync_to_async(list)(
                 Pallet.objects.prefetch_related(
                     "container_number", "container_number__order", "container_number__order__warehouse", "shipment_batch_number"
-                    "container_number__order__offload_id", "container_number__order__customer_name",
+                    "container_number__order__offload_id", "container_number__order__customer_name", "container_number__order__retrieval_id"
                 ).filter(
                     plt_criteria
                 ).annotate(
@@ -1233,6 +1308,7 @@ class ShippingManagement(View):
                     'schedule_status',
                     'abnormal_palletization',
                     'po_expired',
+                    warehouse=F('container_number__order__retrieval_id__retrieval_destination_precise'),
                 ).annotate(
                     custom_delivery_method=F('delivery_method'),
                     fba_ids=F('fba_id'),
@@ -1251,7 +1327,7 @@ class ShippingManagement(View):
             pl_list =  await sync_to_async(list)(
                 PackingList.objects.prefetch_related(
                     "container_number", "container_number__order", "container_number__order__warehouse", "shipment_batch_number"
-                    "container_number__order__offload_id", "container_number__order__customer_name", "pallet"
+                    "container_number__order__offload_id", "container_number__order__customer_name", "pallet", "container_number__order__retrieval_id"
                 ).filter(pl_criteria).annotate(
                     custom_delivery_method=Case(
                         When(Q(delivery_method='暂扣留仓(HOLD)') | Q(delivery_method='暂扣留仓'), then=Concat('delivery_method', Value('-'), 'fba_id', Value('-'), 'id')),
@@ -1275,6 +1351,7 @@ class ShippingManagement(View):
                     'custom_delivery_method',
                     'container_number__order__offload_id__offload_at',
                     'schedule_status',
+                    warehouse=F('container_number__order__retrieval_id__retrieval_destination_precise'),
                 ).annotate(
                     fba_ids=StringAgg("str_fba_id", delimiter=",", distinct=True, ordering="str_fba_id"),
                     ref_ids=StringAgg("str_ref_id", delimiter=",", distinct=True, ordering="str_ref_id"),

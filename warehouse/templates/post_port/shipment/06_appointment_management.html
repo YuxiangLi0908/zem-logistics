@@ -30,8 +30,11 @@
 </div>
 
 <div style="width: 100%; display: flex; justify-content: space-between;">
-    <form id="empty-appointment-creation-form" method="post" action="" style="width: 100%;" onsubmit="showLoadingBar()">
+    <form id="empty-appointment-creation-form" method="post" enctype="multipart/form-data" action="" style="width: 100%;" onsubmit="showLoadingBar()">
         {% csrf_token %}
+        <input type="hidden" name="start_date" value="{{ start_date }}">
+        <input type="hidden" name="end_date" value="{{ end_date }}">
+        <input type="hidden" name="warehouse" value="{{ warehouse }}">
         <div style="overflow-x: auto; border: 2px solid rgb(180, 180, 180); border-radius: 12px; padding: 1%; margin-top: 1%;">
             <div class="d-flex justify-content-between">
                 <div style="width: 30%;">
@@ -175,6 +178,7 @@
         var form = document.getElementById('empty-appointment-creation-form');
         var stepInput = document.createElement('input');
         var warehouseInput = document.createElement('input');
+        form.onsubmit = showLoadingBar;
         stepInput.value = step;
         stepInput.name = 'step';
         stepInput.type = 'hidden';
@@ -191,6 +195,10 @@
             shipmentAppointmentInput.required = false;
             destinationInput.required = false;
         }; 
+        if (step == 'download_empty_appointment_template') {
+            form.onsubmit = null;
+            console.log(form);
+        };
     };
 
     function filterAppointmentTable() {
