@@ -70,10 +70,16 @@ class FleetManagement(View):
     async def handle_fleet_warehouse_search_post(self, request: HttpRequest) -> tuple[str, dict[str, Any]]:
         warehouse = request.POST.get("name")
         fleet = await sync_to_async(list)(
-            Fleet.objects.filter(
+            Fleet.objects.select_related("shipment").filter(
                 origin=warehouse,
                 is_canceled=False,
-            )
+            ).values(
+                "fleet_number", "appointment_datetime",
+            ).annotate(
+                shipment_batch_number=StringAgg("shipment__shipment_batch_number", delimiter=",", distinct=True),
+                appointment_id=StringAgg("shipment__appointment_id", delimiter=",", distinct=True),
+                destination=StringAgg("shipment__destination", delimiter=",", distinct=True),
+            ).order_by("appointment_datetime")
         )
         context = {
             "warehouse": warehouse,

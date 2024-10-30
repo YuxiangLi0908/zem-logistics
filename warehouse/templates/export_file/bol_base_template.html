@@ -94,7 +94,7 @@
                                 </td>
                             {% else %}
                                 <td style="margin-left: 5px;">
-                                    Note: {{ shipment.note }}
+                                    Note: {% if shipment.note %}{{ shipment.note }}{% endif %}
                                 </td>
                             {% endif %}
                         </tr>

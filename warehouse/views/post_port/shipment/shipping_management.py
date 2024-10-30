@@ -924,19 +924,35 @@ class ShippingManagement(View):
                 })
         else:
             packing_list = await sync_to_async(list)(
-            PackingList.objects.select_related(
-                "container_number", "shipment_batch_number", "pallet"
-            ).filter(
-                shipment_batch_number__fleet_number__fleet_number=fleet_number
-            ).values(
-                "container_number__container_number", "destination", "shipment_batch_number__shipment_batch_number",
-                "shipment_batch_number__shipment_appointment"
-            ).annotate(
-                total_weight=Sum("pallet__weight_lbs"),
-                total_cbm=Sum("pallet__cbm"),
-                total_n_pallet=Count("pallet__pallet_id", distinct=True),
-            ).order_by("-shipment_batch_number__shipment_appointment")
-        )
+                PackingList.objects.select_related(
+                    "container_number", "shipment_batch_number", "pallet"
+                ).filter(
+                    shipment_batch_number__fleet_number__fleet_number=fleet_number,
+                    container_number__order__offload_id__offload_at__isnull=True,
+                ).values(
+                    "container_number__container_number", "destination", "shipment_batch_number__shipment_batch_number",
+                    "shipment_batch_number__shipment_appointment"
+                ).annotate(
+                    total_weight=Sum("pallet__weight_lbs"),
+                    total_cbm=Sum("pallet__cbm"),
+                    total_n_pallet=Count("pallet__pallet_id", distinct=True),
+                ).order_by("-shipment_batch_number__shipment_appointment")
+            )
+            packing_list += await sync_to_async(list)(
+                Pallet.objects.select_related(
+                    "container_number", "shipment_batch_number"
+                ).filter(
+                    shipment_batch_number__fleet_number__fleet_number=fleet_number,
+                    container_number__order__offload_id__offload_at__isnull=False,
+                ).values(
+                    "container_number__container_number", "destination", "shipment_batch_number__shipment_batch_number",
+                    "shipment_batch_number__shipment_appointment"
+                ).annotate(
+                    total_weight=Sum("weight_lbs"),
+                    total_cbm=Sum("cbm"),
+                    total_n_pallet=Count("pallet_id", distinct=True),
+                ).order_by("-shipment_batch_number__shipment_appointment")
+            )
         shipment = await sync_to_async(list)(
             Shipment.objects.filter(fleet_number__fleet_number=fleet_number).order_by("-shipment_appointment")
         )
@@ -969,6 +985,7 @@ class ShippingManagement(View):
         batch_number = request.POST.get("shipment_batch_number")
         warehouse = request.POST.get("warehouse")
         customerInfo = request.POST.get("customerInfo")
+        pallet: list[Pallet] | None = None
         #进行判断，如果在前端进行了表的修改，就用修改后的表，如果没有修改，就用packing_list直接查询的
         if customerInfo:  
             customer_info = json.loads(customerInfo)
@@ -983,7 +1000,14 @@ class ShippingManagement(View):
         else:
             packing_list = await sync_to_async(list)(
                 PackingList.objects.select_related("container_number").filter(
-                    shipment_batch_number__shipment_batch_number=batch_number
+                    shipment_batch_number__shipment_batch_number=batch_number,
+                    container_number__order__offload_id__offload_at__isnull=True,
+                )
+            )
+            packing_list += await sync_to_async(list)(
+                Pallet.objects.select_related("container_number").filter(
+                    shipment_batch_number__shipment_batch_number=batch_number,
+                    container_number__order__offload_id__offload_at__isnull=False,
                 )
             )
         warehouse_obj = await sync_to_async(ZemWarehouse.objects.get)(name=warehouse) if warehouse else None
