@@ -1208,7 +1208,10 @@ class ShippingManagement(View):
         df_pallet = pd.DataFrame(pallet)
         df_packing_list = pd.DataFrame(packing_list)
         df_appointment = pd.DataFrame(appointment_data)
-        df = pd.merge(df_pallet, df_packing_list, how="outer", on=["destination", "warehouse"]).fillna(0)
+        try:
+            df = pd.merge(df_pallet, df_packing_list, how="outer", on=["destination", "warehouse"]).fillna(0)
+        except:
+            raise ValueError(df_pallet, df_packing_list)
         df = df.merge(df_appointment, how="left", on=["destination"]).fillna(0)
         df["total_cbm"] = df["total_cbm_x"] + df["total_cbm_y"]
         df["total_pallet"] = df["total_pallet_x"] + df["total_pallet_y"]
@@ -1404,4 +1407,4 @@ class ShippingManagement(View):
     async def _user_authenticate(self, request: HttpRequest):
         if await sync_to_async(lambda: request.user.is_authenticated)():
             return True
-        return False
+        return False()
