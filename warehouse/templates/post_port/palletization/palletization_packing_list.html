@@ -159,6 +159,21 @@
             event.preventDefault();
             alert("请选择'派送方式'!");
         };
+        var palletCount = document.querySelectorAll('input[name="n_pallet"]');
+        var pcsCount = document.querySelectorAll('input[name="pcs_actul"]');
+        var palletValid = true;
+        for (i = 0; i < palletCount.length; i++){
+            const p = palletCount[i].value;
+            const pcs = pcsCount[i].value;
+            if (p == 0 && pcs != 0) {
+                event.preventDefault();
+                palletCount[i].style.border = '2px solid red';
+                var palletValid = false;
+            };
+            if (!palletValid) {
+                alert("请核对打板数!");
+            }
+        };
     };
 </script>
 {% endblock %}
