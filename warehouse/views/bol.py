@@ -109,7 +109,7 @@ class BOL(View):
         packing_list = list(PackingList.objects.select_related("container_number").filter(
             shipment_batch_number__shipment_batch_number=batch_number,
         ))
-        pallet = Pallet.objects.select_related("container_number").filter(
+        pallet = list(Pallet.objects.select_related("container_number").filter(
             shipment_batch_number__shipment_batch_number=batch_number,
             container_number__order__offload_id__offload_at__isnull=True,
         ).values(
@@ -117,8 +117,8 @@ class BOL(View):
         ).annotate(
             total_cbm=Sum("cbm"),
             total_n_pallet=Count("pallet_id", distinct=True),
-        ).order_by("container_number__container_number")
-        pallet += PackingList.objects.select_related("container_number").filter(
+        ).order_by("container_number__container_number"))
+        pallet += list(PackingList.objects.select_related("container_number").filter(
             shipment_batch_number__shipment_batch_number=batch_number,
             container_number__order__offload_id__offload_at__isnull=False,
         ).values(
@@ -126,7 +126,7 @@ class BOL(View):
         ).annotate(
             total_cbm=Sum("cbm"),
             total_n_pallet=Sum("cbm")/2,
-        ).order_by("container_number__container_number")
+        ).order_by("container_number__container_number"))
         address_chinese_char = False if shipment.address.isascii() else True
         destination_chinese_char = False if shipment.destination.isascii() else True
         try:
