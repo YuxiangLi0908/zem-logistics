@@ -341,13 +341,13 @@ class StuffPower(View):
             container_number__order__created_at__lte=end_date,
         )
         p_s_mapping = {
-            f"{pl.container_number.container_number}-{pl.destination}-{pl.delivery_method}-{pl.note}": pl.shipment_batch_number
+            f"{pl.container_number.container_number.strip()}-{pl.destination.strip()}-{pl.delivery_method.strip()}-{pl.note if pl.note else ''}": pl.shipment_batch_number
             for pl in packing_list
         }
         updated_pallet = []
         cnt = 0
         for p in pallet:
-            k = f"{p.container_number.container_number}-{p.destination}-{p.delivery_method}-{p.note}"
+            k = f"{p.container_number.container_number.strip()}-{p.destination.strip()}-{p.delivery_method.strip()}-{p.note if p.note else ''}"
             if p_s_mapping.get(k):
                 p.shipment_batch_number = p_s_mapping.get(k)
                 cnt += 1
