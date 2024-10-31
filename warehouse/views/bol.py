@@ -11,6 +11,7 @@ from django.db.models import Sum, FloatField, IntegerField, Count
 
 from warehouse.models.shipment import Shipment
 from warehouse.models.packing_list import PackingList
+from warehouse.models.pallet import Pallet
 from warehouse.models.warehouse import ZemWarehouse
 from warehouse.forms.warehouse_form import ZemWarehouseForm
 from warehouse.views.export_file import export_bol
@@ -105,16 +106,22 @@ class BOL(View):
         batch_number = request.POST.get("batch_number")
         warehouse = request.POST.get("warehouse")
         shipment = Shipment.objects.get(shipment_batch_number=batch_number)
-        packing_list = PackingList.objects.select_related("container_number").filter(
-            shipment_batch_number__shipment_batch_number=batch_number
-        )
-        pallet = PackingList.objects.select_related("pallet", "container_number").filter(
-            shipment_batch_number__shipment_batch_number=batch_number
+        packing_list = list(PackingList.objects.select_related("container_number").filter(
+            shipment_batch_number__shipment_batch_number=batch_number,
+            container_number__order__offload_id__offload_at__isnull=True,
+        ))
+        packing_list += list(Pallet.objects.select_related("container_number").filter(
+            shipment_batch_number__shipment_batch_number=batch_number,
+            container_number__order__offload_id__offload_at__isnull=False,
+        ))
+        pallet = Pallet.objects.select_related("container_number").filter(
+            shipment_batch_number__shipment_batch_number=batch_number,
+            container_number__order__offload_id__offload_at__isnull=True,
         ).values(
             "container_number__container_number", "destination"
         ).annotate(
-            total_cbm=Sum("pallet__cbm"),
-            total_n_pallet=Count("pallet__pallet_id", distinct=True),
+            total_cbm=Sum("cbm"),
+            total_n_pallet=Count("pallet_id", distinct=True),
         ).order_by("container_number__container_number")
         address_chinese_char = False if shipment.address.isascii() else True
         destination_chinese_char = False if shipment.destination.isascii() else True
