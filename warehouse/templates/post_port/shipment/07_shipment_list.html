@@ -1,0 +1,86 @@
+{% extends 'base.html' %}
+{% load static %}
+
+{% block content %}
+<div><b>出仓记录</b></div>
+<form method="post" action="" onsubmit="showLoadingBar()">
+    {% csrf_token %}
+    <div style="display: flex;">
+        <div>
+            <b style="margin-right: 5px;">选择仓库:</b>
+            <select name="warehouse" id="warehouse-selection" style="font-size: 13px;">
+                {% for k, v in warehouse_options.items %}
+                <option value="{{ v }}" {% if k == warehouse %}selected{% endif %}>{{ k }}</option>
+                {% endfor %}
+            </select>
+        </div>
+        <div style="margin-left: 1%;">
+            <b style="margin-left: 5px;">预约日期:</b>
+            <input type="date" name="start_date" value="{{ start_date }}">
+            <input type="date" name="end_date" value="{{ end_date }}" style="margin-right: 5px;">
+        </div>
+        <input type="hidden" name="step" value="shipment_list_search">
+        <button id="submit-btn" type="submit" class="btn btn-primary" style="width: 100px; height: 35px; margin-left: 20px;">查询</button>    
+    </div>
+</form>
+
+<div style="width: 100%;">
+    <table id="shipment-list" class="table" style="font-size: 11px; max-height: 800px; overflow-y: scroll;">
+        <thead>
+            <tr style="position: sticky; top: 0;">
+                <th class="th">预约号</th>
+                <th class="th">批次号</th>
+                <th class="th">车次号</th>
+                <th class="th">目的地</th>
+                <th class="th">发货仓库</th>
+                <th class="th">类型</th>
+                <th class="th">Carrier</th>
+                <th class="th">Scheduled Time</th>
+                <th class="th">出库时间</th>
+                <th class="th">送达时间</th>
+            </tr>
+            <tr style="position: sticky; top: 28px;">
+                <th class="th"><input type="text" id="appointment-id-filter" placeholder="搜索预约号..." oninput="filterAppointmentTable()" size="13" style="font-size: 11px;"></th>
+                <th class="th"></th>
+                <th class="th"></th>
+                <th class="th"><input type="text" id="destination-filter" placeholder="搜索目的地..." oninput="filterAppointmentTable()" size="13" style="font-size: 11px;"></th>
+                <th class="th"></th>
+                <th class="th"></th>
+                <th class="th"></th>
+                <th class="th"></th>
+                <th class="th"></th>
+                <th class="th"></th>
+            </tr>
+        </thead>
+        <tbody>
+            {% for s in shipment %}
+            <tr>
+                <td class="td">{{ s.appointment_id|default_if_none:"" }}</td>
+                <td class="td">
+                    <a href="/shipment_management/?step=shipment_detail_display&batch_number={{ s.shipment_batch_number }}&warehouse={{ warehouse }}&start_date={{ start_date }}&end_date={{ end_date }}">
+                        {{ s.shipment_batch_number|default_if_none:"" }}
+                    </a>
+                </td>
+                <td class="td">{{ s.fleet_number.fleet_number|default_if_none:"" }}</td>
+                <td class="td">{{ s.destination|default_if_none:"" }}</td>
+                <td class="td">{{ s.origin|default_if_none:"" }}</td>
+                <td class="td">{{ s.shipment_type|default_if_none:"" }}</td>
+                <td class="td">{{ s.carrier|default_if_none:"" }}</td>
+                <td class="td">{{ s.shipment_appointment|date:"Y-m-d"|default_if_none:"" }} {{ s.shipment_appointment|time:"H:i"|default_if_none:"" }}</td>
+                <td class="td">{{ s.shipped_at|date:"Y-m-d"|default_if_none:"" }} {{ s.shipped_at|time:"H:i"|default_if_none:"" }}</td>
+                <td class="td">{{ s.arrived_at|date:"Y-m-d"|default_if_none:"" }} {{ s.arrived_at|time:"H:i"|default_if_none:"" }}</td>
+            </tr>
+            {% endfor %}
+        </tbody>
+    </table>
+</div>
+
+{% block shipment_detail_display %}
+        
+{% endblock %}
+
+{% block fleet_detail_display %}
+        
+{% endblock %}
+
+{% endblock %}

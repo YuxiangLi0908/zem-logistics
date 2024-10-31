@@ -66,7 +66,7 @@ class StuffPower(View):
             template, context = self.update_shipment()
             return render(request, template, context)
         elif step == "update_pallet":
-            template, context = self.update_pallet()
+            template, context = self.update_pallet(request)
             return render(request, template, context)
         else:
             self._remove_offload()
@@ -324,32 +324,43 @@ class StuffPower(View):
         }
         return self.template_1, context
     
-    def update_pallet(self) -> tuple[Any, Any]:
+    def update_pallet(self, request: HttpRequest) -> tuple[Any, Any]:
+        start_date = request.POST.get("start_date")
+        end_date = request.POST.get("end_date")
         pallet = Pallet.objects.select_related(
-            "packing_list", 
-            "packing_list__container_number", 
-            "packing_list__shipment_batch_number",
+            "container_number", 
+            "shipment_batch_number",
         ).filter(
-            packing_list__container_number__order__created_at__gte='2024-08-01',
-            packing_list__container_number__order__created_at__lte='2024-08-31',
+            container_number__order__created_at__gte=start_date,
+            container_number__order__created_at__lte=end_date,
         )
+        packing_list = PackingList.objects.select_related(
+            "shipment_batch_number", "container_number"
+        ).filter(
+            container_number__order__created_at__gte=start_date,
+            container_number__order__created_at__lte=end_date,
+        )
+        p_s_mapping = {
+            f"{pl.container_number.container_number}-{pl.destination}-{pl.delivery_method}-{pl.note}": pl.shipment_batch_number
+            for pl in packing_list
+        }
         updated_pallet = []
         cnt = 0
         for p in pallet:
-            if p.packing_list:
-                p.destination = p.packing_list.destination
-                p.delivery_method = p.packing_list.delivery_method
-                p.container_number = p.packing_list.container_number
-                p.shipment_batch_number = p.packing_list.shipment_batch_number
+            k = f"{p.container_number.container_number}-{p.destination}-{p.delivery_method}-{p.note}"
+            if p_s_mapping.get(k):
+                p.shipment_batch_number = p_s_mapping.get(k)
                 cnt += 1
                 updated_pallet.append(p)
         Pallet.objects.bulk_update(
             updated_pallet,
-            ["destination", "delivery_method", "container_number", "shipment_batch_number"]
+            ["shipment_batch_number"]
         )
         context = {
             "pallet_updated": True,
             "count": cnt,
+            "pallet_update_start_date": start_date,
+            "pallet_update_end_date": end_date,
         }
         return self.template_1, context
 

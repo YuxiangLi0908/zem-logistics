@@ -142,6 +142,8 @@
         {% csrf_token %}
         update pallet
         <input type="hidden" name="step" value="update_pallet">
+        <input type="date" name="start_date" value="{{ pallet_update_start_date }}">
+        <input type="date" name="end_date" value="{{ pallet_update_end_date }}">
         <button type="submit" class="btn btn-danger" style="height: 35px; font-size: 12px; margin: 5px;">
             update pallet
         </button>

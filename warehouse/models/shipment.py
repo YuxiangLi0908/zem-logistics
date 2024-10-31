@@ -41,6 +41,7 @@ class Shipment(models.Model):
     in_use = models.BooleanField(default=True, null=True, blank=True)
     is_canceled = models.BooleanField(default=False, null=True, blank=True)
     cancelation_reason = models.CharField(max_length=2000, null=True, blank=True)
+    priority = models.CharField(max_length=10, null=True, blank=True)
 
     def __str__(self) -> str:
         if self.shipment_batch_number:
@@ -61,7 +62,7 @@ class Shipment(models.Model):
     @property
     def appointment_status(self) -> str:
         today = datetime.now().date()
-        if self.shipment_appointment.date() <= today:
+        if self.shipment_appointment.date() <= today + timedelta(days=2):
             return "past_due"
         elif self.shipment_appointment.date() <= today + timedelta(days=5):
             return "need_attention"

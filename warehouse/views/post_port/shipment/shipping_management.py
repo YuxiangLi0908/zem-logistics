@@ -62,6 +62,8 @@ class ShippingManagement(View):
     template_delivery_and_pod = "post_port/shipment/05_delivery_and_pod.html"
     template_bol = "export_file/bol_base_template.html"
     template_appointment_management = "post_port/shipment/06_appointment_management.html"
+    template_shipment_list = "post_port/shipment/07_shipment_list.html"
+    template_shipment_list_shipment_display = "post_port/shipment/07_1_shipment_list_shipment_display.html"
     area_options = {"NJ": "NJ", "SAV": "SAV"}
     warehouse_options = {"": "", "NJ-07001": "NJ-07001", "NJ-08817": "NJ-08817", "SAV-31326": "SAV-31326"}
     shipment_type_options = {"":"", "FTL/LTL":"FTL/LTL", "外配/快递":"外配/快递"}
@@ -74,17 +76,14 @@ class ShippingManagement(View):
         if step == "shipment_info":
             template, context = await self.handle_shipment_info_get(request)
             return render(request, template, context)
-        # elif step == "fleet_info":
-        #     template, context = await self.handle_fleet_info_get(request)
-        #     return render(request, template, context)
-        # elif step == "fleet_depature":
-        #     template, context = await self.handle_fleet_depature_get(request)
-        #     return render(request, template, context)
-        # elif step == "delivery_and_pod":
-        #     template, context = await self.handle_delivery_and_pod_get(request)
-        #     return render(request, template, context)
+        elif step == "shipment_list":
+            template, context = await self.handle_shipment_list_get(request)
+            return render(request, template, context)
         elif step == "appointment_management":
             template, context = await self.handle_appointment_management_get(request)
+            return render(request, template, context)
+        elif step == "shipment_detail_display":
+            template, context = await self.handle_shipment_detail_display_get(request)
             return render(request, template, context)
         else:
             context = {"area_options": self.area_options}
@@ -123,6 +122,9 @@ class ShippingManagement(View):
         elif step == "upload_and_create_empty_appointment":
             template, context = await self.handle_upload_and_create_empty_appointment_post(request)
             return render(request, template, context)
+        elif step == "shipment_list_search":
+            template, context = await self.handle_shipment_list_search_post(request)
+            return render(request, template, context)
         else:
             return await self.get(request)
         
@@ -160,6 +162,42 @@ class ShippingManagement(View):
             "end_date": (datetime.now().date() + timedelta(days=7)).strftime("%Y-%m-%d"),
         }
         return self.template_appointment_management, context
+    
+    async def handle_shipment_list_get(self, request: HttpRequest) -> tuple[str, dict[str, Any]]:
+        context = {
+            "warehouse_options": self.warehouse_options,
+            "start_date": (datetime.now().date() + timedelta(days=-7)).strftime("%Y-%m-%d"),
+            "end_date": (datetime.now().date() + timedelta(days=14)).strftime("%Y-%m-%d"),
+        }
+        return self.template_shipment_list, context
+    
+    async def handle_shipment_detail_display_get(self, request: HttpRequest) -> tuple[str, dict[str, Any]]:
+        warehouse = request.GET.get("warehouse")
+        start_date = request.GET.get("start_date")
+        end_date = request.GET.get("end_date")
+        batch_number = request.GET.get("batch_number")
+        mutable_post = request.POST.copy()
+        mutable_post["warehouse"] = warehouse
+        mutable_post["start_date"] = start_date
+        mutable_post["end_date"] = end_date
+        request.POST = mutable_post
+        _, context = await self.handle_shipment_list_search_post(request)
+        shipment_selected = await sync_to_async(Shipment.objects.select_related("fleet_number").get)(shipment_batch_number=batch_number)
+        packing_list_selected = await self._get_packing_list(
+            models.Q(
+                shipment_batch_number__shipment_batch_number=batch_number,
+                container_number__order__offload_id__offload_at__isnull=True
+            ),
+            models.Q(
+                shipment_batch_number__shipment_batch_number=batch_number,
+                container_number__order__offload_id__offload_at__isnull=False
+            ),
+        )
+        context["shipment_selected"] = shipment_selected
+        context["packing_list_selected"] = packing_list_selected
+        context["shipment_type_options"] = self.shipment_type_options
+        context["load_type_options"] = LOAD_TYPE_OPTIONS
+        return self.template_shipment_list_shipment_display, context
 
     async def handle_warehouse_post(self, request: HttpRequest) -> tuple[str, dict[str, Any]]:
         if request.POST.get("area"):
@@ -173,7 +211,7 @@ class ShippingManagement(View):
         shipment = await sync_to_async(list)(
             Shipment.objects.prefetch_related(
                 "packinglist", "packinglist__container_number", "packinglist__container_number__order",
-                "packinglist__container_number__order__warehouse", "order", "pallet"
+                "packinglist__container_number__order__warehouse", "order", "pallet", "fleet_number"
             ).filter(
                 models.Q(
                     models.Q(packinglist__container_number__order__retrieval_id__retrieval_destination_area=area) |
@@ -566,6 +604,9 @@ class ShippingManagement(View):
         batch_number = request.POST.get("batch_number")
         shipment_type = request.POST.get("shipment_type")    
         shipment = await sync_to_async(Shipment.objects.select_related("fleet_number").get)(shipment_batch_number=batch_number)
+        shipment_appointment_new = request.POST.get("shipment_appointment")
+        shipment_appointment_new = datetime.strptime(shipment_appointment_new, "%Y-%m-%dT%H:%M")
+        shipment_appointment_new = shipment_appointment_new.replace(tzinfo=timezone.utc)
         if shipment_type == shipment.shipment_type:
             if shipment_type == "FTL/LTL":
                 shipment.appointment_id = request.POST.get("appointment_id")
@@ -766,6 +807,27 @@ class ShippingManagement(View):
             } for d in data]
             await sync_to_async(Shipment.objects.bulk_create)(Shipment(**d) for d in cleaned_data)
         return await self.handle_appointment_warehouse_search_post(request)
+    
+    async def handle_shipment_list_search_post(self, request: HttpRequest) -> tuple[str, dict[str, Any]]:
+        warehouse = request.POST.get("warehouse")
+        appointmnet_start_date = request.POST.get("start_date")
+        appointment_end_date = request.POST.get("end_date")
+        shipment = await sync_to_async(list)(
+            Shipment.objects.select_related("fleet_number").filter(
+                origin=warehouse,
+                shipment_appointment__gte=appointmnet_start_date,
+                shipment_appointment__lte=appointment_end_date,
+                in_use=True,
+            ).order_by("shipment_appointment")
+        )
+        context = {
+            "warehouse": warehouse,
+            "start_date": appointmnet_start_date,
+            "end_date": appointment_end_date,
+            "warehouse_options": self.warehouse_options,
+            "shipment": shipment,
+        }
+        return self.template_shipment_list, context
 
     async def _get_packing_list(
         self, 
