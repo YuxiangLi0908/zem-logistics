@@ -205,7 +205,7 @@
                                     <input type="hidden" name="type" value="td">
                                     <input type="hidden" name="shipment_batch_number" value="{{ s.shipment_batch_number }}">
                                     <input type="hidden" name="area" value="{{ area }}">
-                                    <button type="submit" class="btn btn-danger"><i class="bi bi-x-octagon"></i></button>
+                                    <button type="submit" class="btn btn-danger" onclick="checkFleet('{{ s.fleet_number }}')"><i class="bi bi-x-octagon"></i></button>
                                 </form>
                             </td>
                             {% endif %}
@@ -311,5 +311,13 @@
             });
         }
     });
+
+    function checkFleet(fleet) {
+        if (fleet != "None") {
+            console.log(fleet);
+            alert('该预约已排车，请先确认撤销车次: ' + fleet);
+            event.preventDefault();
+        }
+    };
 </script>
 {% endblock %}
