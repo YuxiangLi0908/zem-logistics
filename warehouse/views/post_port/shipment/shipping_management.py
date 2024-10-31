@@ -413,14 +413,36 @@ class ShippingManagement(View):
                 await sync_to_async(PackingList.objects.bulk_update)(packing_list, ["shipment_batch_number"])
             except:
                 pass
-           
+            
             plt_ids = request.POST.get("plt_ids").strip('][').split(', ')
             try:
                 plt_ids = [int(i) for i in plt_ids]
                 pallet = await sync_to_async(list)(Pallet.objects.select_related("container_number").filter(id__in=plt_ids))
+                pallet_container_number = [p.container_number.container_number for p in pallet]
+                packing_list = await sync_to_async(list)(
+                    PackingList.objects.select_related("shipment_batch_number").filter(container_number__container_number__in=pallet_container_number))
+                pallet_shipping_marks, pallet_fba_ids, pallet_ref_ids = [], [], []
+                updated_pl = []
                 for p in pallet:
                     p.shipment_batch_number = shipment
-                await sync_to_async(Pallet.objects.bulk_update)(pallet, ["shipment_batch_number"])     
+                    if p.shipping_mark:
+                        pallet_shipping_marks += p.shipping_mark.split(",")
+                    if p.fba_id:
+                        pallet_fba_ids += p.fba_id.split(",")
+                    if p.ref_id:
+                        pallet_ref_ids += p.ref_id.split(",")
+                for pl in packing_list:
+                    if pl.shipping_mark and pl.shipping_mark in pallet_shipping_marks:
+                        pl.shipment_batch_number = shipment
+                        updated_pl.append(pl)
+                    elif pl.fba_id and pl.fba_id in pallet_fba_ids:
+                        pl.shipment_batch_number = shipment
+                        updated_pl.append(pl)
+                    elif pl.ref_id and pl.ref_id in pallet_ref_ids:
+                        pl.shipment_batch_number = shipment
+                        updated_pl.append(pl)
+                await sync_to_async(Pallet.objects.bulk_update)(pallet, ["shipment_batch_number"])  
+                await sync_to_async(PackingList.objects.bulk_update)(updated_pl, ["shipment_batch_number"])    
             except:
                 pass
             order = await sync_to_async(list)(

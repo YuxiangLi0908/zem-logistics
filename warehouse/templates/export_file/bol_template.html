@@ -21,7 +21,7 @@
                         <tr>
                             <td style="text-align: center; border: 1px solid #141414;">{{ c.container_number__container_number }}</td>
                             <td style="text-align: center; border: 1px solid #141414;">{{ c.destination }}</td>
-                            <td style="text-align: center; border: 1px solid #141414;">{{ c.total_n_pallet }}</td>
+                            <td style="text-align: center; border: 1px solid #141414;">{{ c.total_n_pallet|floatformat:0 }}</td>
                             <td style="text-align: center; border: 1px solid #141414;">{{ c.total_cbm|floatformat:2 }}</td>
                         </tr>
                     {% endfor %}
