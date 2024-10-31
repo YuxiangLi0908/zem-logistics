@@ -3,6 +3,7 @@ from datetime import datetime, timedelta
 
 class Fleet(models.Model):
     fleet_number = models.CharField(max_length=255, null=True)
+    fleet_type = models.CharField(max_length=255, null=True, blank=True)
     origin = models.CharField(max_length=255, null=True, blank=True)
     carrier = models.CharField(max_length=100, null=True, blank=True)
     third_party_address = models.CharField(max_length=500, null=True, blank=True)
