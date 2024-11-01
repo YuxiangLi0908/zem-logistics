@@ -8,6 +8,7 @@ from django.contrib.auth.decorators import login_required
 from django.utils.decorators import method_decorator
 from django.views import View
 from django.http import HttpRequest, HttpResponse, HttpResponseForbidden
+from django.db.models import Case, Value, CharField, F, Sum, Max, FloatField, IntegerField, When, Count, Q
 from django.shortcuts import render
 from django.db import models
 
@@ -67,6 +68,9 @@ class StuffPower(View):
             return render(request, template, context)
         elif step == "update_pallet":
             template, context = self.update_pallet(request)
+            return render(request, template, context)
+        elif step == "update_shipment_stats":
+            template, context = self.update_shipment_stats(request)
             return render(request, template, context)
         else:
             self._remove_offload()
@@ -361,6 +365,86 @@ class StuffPower(View):
             "count": cnt,
             "pallet_update_start_date": start_date,
             "pallet_update_end_date": end_date,
+        }
+        return self.template_1, context
+    
+    def update_shipment_stats(self, request: HttpRequest)  -> tuple[Any, Any]:
+        start_date = request.POST.get("start_date")
+        end_date = request.POST.get("end_date")
+        shipment = Shipment.objects.filter(
+            shipment_schduled_at__gte=start_date,
+            shipment_schduled_at__lte=end_date,
+        )
+        shipment_stats_1 = Pallet.objects.select_related(
+            "shipment_batch_number", "container_number"
+        ).filter(
+            shipment_batch_number__shipment_schduled_at__gte=start_date,
+            shipment_batch_number__shipment_schduled_at__lte=end_date,
+            container_number__order__offload_id__offload_at__isnull=False,
+        ).values(
+            "shipment_batch_number__shipment_batch_number"
+        ).annotate(
+            total_pcs=Sum("pcs", output_field=IntegerField()),
+            total_cbm=Sum("cbm", output_field=FloatField()),
+            total_weight_lbs=Sum("weight_lbs", output_field=FloatField()),
+            total_n_pallet=Count("pallet_id", distinct=True),
+        )
+        shipment_stats_1 = {
+            s.get("shipment_batch_number__shipment_batch_number"): [
+                s.get("total_pcs"), s.get("total_cbm"), s.get("total_weight_lbs"), s.get("total_n_pallet")
+            ]
+            for s in shipment_stats_1
+        }
+        shipment_stats_2 = PackingList.objects.select_related(
+            "shipment_batch_number", "container_number"
+        ).filter(
+            shipment_batch_number__shipment_schduled_at__gte=start_date,
+            shipment_batch_number__shipment_schduled_at__lte=end_date,
+            container_number__order__offload_id__offload_at__isnull=True
+        ).values(
+            "shipment_batch_number__shipment_batch_number"
+        ).annotate(
+            total_pcs=Sum("pcs", output_field=IntegerField()),
+            total_cbm=Sum("cbm", output_field=FloatField()),
+            total_weight_lbs=Sum("total_weight_lbs", output_field=FloatField()),
+            total_n_pallet=Sum("cbm", output_field=FloatField())/2,
+        )
+        shipment_stats_2 = {
+            s.get("shipment_batch_number__shipment_batch_number"): [
+                s.get("total_pcs"), s.get("total_cbm"), s.get("total_weight_lbs"), 
+                1 if s.get("total_n_pallet") < 1 else (s.get("total_n_pallet")//1 + 1 if s.get("total_n_pallet")%1 >= 0.45 else s.get("total_n_pallet")//1)
+            ]
+            for s in shipment_stats_2
+        }
+        cnt = 0
+        updated_shipment = []
+        for s in shipment:
+            cnt += 1
+            pcs, cbm, weight, n = 0, 0, 0, 0
+            if s.shipment_batch_number in shipment_stats_1:
+                pcs += shipment_stats_1[s.shipment_batch_number][0]
+                cbm += shipment_stats_1[s.shipment_batch_number][1]
+                weight += shipment_stats_1[s.shipment_batch_number][2]
+                n += shipment_stats_1[s.shipment_batch_number][3]
+            if s.shipment_batch_number in shipment_stats_2:
+                pcs += shipment_stats_2[s.shipment_batch_number][0]
+                cbm += shipment_stats_2[s.shipment_batch_number][1]
+                weight += shipment_stats_2[s.shipment_batch_number][2]
+                n += shipment_stats_2[s.shipment_batch_number][3]
+            s.total_pcs = pcs
+            s.total_cbm = cbm
+            s.total_weight = weight
+            s.total_pallet = n
+            updated_shipment.append(s)
+        Shipment.objects.bulk_update(
+            updated_shipment,
+            ["total_pcs", "total_cbm", "total_weight", "total_pallet"]
+        )
+        context = {
+            "shipment_stats_updated": True,
+            "count": cnt,
+            "shipment_start_date": start_date,
+            "shipment_end_date": end_date,
         }
         return self.template_1, context
 
