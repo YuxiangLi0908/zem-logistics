@@ -889,8 +889,8 @@ class ShippingManagement(View):
                     shipping_marks=F('shipping_mark'),
                     plt_ids=StringAgg("str_id", delimiter=",", distinct=True, ordering="str_id"),
                     total_pcs=Sum("pcs", output_field=IntegerField()),
-                    total_cbm=Sum("cbm", output_field=IntegerField()),
-                    total_weight_lbs=Sum("weight_lbs", output_field=IntegerField()),
+                    total_cbm=Sum("cbm", output_field=FloatField()),
+                    total_weight_lbs=Sum("weight_lbs", output_field=FloatField()),
                     total_n_pallet_act=Count("pallet_id", distinct=True),
                     label=Value("ACT"),
                 ).order_by('container_number__order__offload_id__offload_at')

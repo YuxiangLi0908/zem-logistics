@@ -674,7 +674,7 @@ class Palletization(View):
         ]
         if p_r == 0:  #多货的货物
             cbm_actual = c
-            weight_actual = c
+            weight_actual = 0
         else:
             cbm_actual = c * p_a / p_r
             weight_actual = w * p_a / p_r
