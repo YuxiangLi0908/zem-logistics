@@ -410,6 +410,8 @@
             const date2 = new Date(Date.parse(standardizedDateString)).toDateString();
             console.log(date1)
             console.log(date2)
+            console.log(standardizedDateString)
+            console.log(originalAppointmentTime)
             if (date1 != date2) {
                 alert('该预约已排车，请先确认撤销车次: ' + fleet);
             };
