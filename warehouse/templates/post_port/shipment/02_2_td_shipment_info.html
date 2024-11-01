@@ -405,17 +405,13 @@
             event.preventDefault();
         } else if(shipmentType == "FTL/LTL") {
             const selectedAppointmentTime = shipmentFormFTLLTL.querySelector('input[name="shipment_appointment"]').value;
-            const date1 = new Date(selectedAppointmentTime).toDateString();
-            const standardizedDateString = originalAppointmentTime.replace("p.m.", "PM").replace("a.m.", "AM");
-            const date2 = new Date(Date.parse(standardizedDateString)).toDateString();
-            console.log(date1)
-            console.log(date2)
-            console.log(standardizedDateString)
-            console.log(originalAppointmentTime)
-            if (date1 != date2) {
+            const date1 = new Date(selectedAppointmentTime);
+            const standardizedDateString = originalAppointmentTime.replace("p.m.", "PM").replace("a.m.", "AM").replace("noon", "12:00 PM");
+            const date2 = new Date(Date.parse(standardizedDateString));
+            if (date1.getTime() != date2.getTime() && fleet != 'None') {
                 alert('该预约已排车，请先确认撤销车次: ' + fleet);
+                event.preventDefault();
             };
-            event.preventDefault();
             shipmentFormOther.remove();
         } else if (shipmentType == "外配/快递") {
             shipmentFormFTLLTL.remove();
