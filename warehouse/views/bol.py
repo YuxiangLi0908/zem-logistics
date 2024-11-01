@@ -111,7 +111,7 @@ class BOL(View):
         ))
         pallet = list(Pallet.objects.select_related("container_number").filter(
             shipment_batch_number__shipment_batch_number=batch_number,
-            container_number__order__offload_id__offload_at__isnull=True,
+            container_number__order__offload_id__offload_at__isnull=False,
         ).values(
             "container_number__container_number", "destination"
         ).annotate(
@@ -120,7 +120,7 @@ class BOL(View):
         ).order_by("container_number__container_number"))
         pallet += list(PackingList.objects.select_related("container_number").filter(
             shipment_batch_number__shipment_batch_number=batch_number,
-            container_number__order__offload_id__offload_at__isnull=False,
+            container_number__order__offload_id__offload_at__isnull=True,
         ).values(
             "container_number__container_number", "destination"
         ).annotate(
