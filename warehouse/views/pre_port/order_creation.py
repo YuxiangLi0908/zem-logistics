@@ -529,7 +529,7 @@ class OrderCreation(View):
                     'container_number': container,
                     'vessel_eta': order.vessel_id.vessel_eta,
                     'packing_list': pl,
-                    'time_status': False,
+                    'time_status': True,
                     'destination': pl.destination,
                     'fba_id': pl.fba_id,
                     'ref_id': pl.ref_id,
