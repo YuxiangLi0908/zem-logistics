@@ -96,8 +96,13 @@ class PO(View):
         ids = [i.split(",") for i in ids]      
         selections = request.POST.getlist("is_selected")
         selected = [int(i) for s, id in zip(selections, ids) for i in id if s == "on"]    
-        text = request.POST.getlist("text")
-        handing = [t for s, t in zip(selections, text) if s == "on"]
+        handle_text = request.POST.getlist("handle_text")
+        handing = [t for s, t in zip(selections, handle_text) if s == "on"]
+        fba_text = request.POST.getlist("fba_text")
+        fba_id = [t for s, t in zip(selections, fba_text) if s == "on"]
+        ref_text = request.POST.getlist("ref_text")
+        ref_id = [t for s, t in zip(selections, ref_text) if s == "on"]
+        
         #是否确认通知客户
         notifyChanges_str = request.POST.get("notifyChanges")
         notifyChanges = json.loads(notifyChanges_str)
@@ -108,7 +113,24 @@ class PO(View):
         if selected:   
             for i in range(len(selected)):   
                 pochecketaseven = await sync_to_async(PoCheckEtaSeven.objects.get)(id = selected[i])
-                pochecketaseven.handling_method = handing[i]
+                
+                if pochecketaseven.fba_id != fba_id[i]:
+                    #修改packing_list
+                    packing_list = await sync_to_async(lambda: pochecketaseven.packing_list)()
+                    if packing_list:
+                        packing_list.fba_id = fba_id[i]
+                        await sync_to_async(packing_list.save)()
+                    pochecketaseven.fba_id = fba_id[i]
+                    await sync_to_async(pochecketaseven.save)()
+                    pochecketaseven.fba_id = fba_id[i]
+                    
+                if pochecketaseven.ref_id != ref_id[i]:
+                    packing_list = await sync_to_async(lambda: pochecketaseven.packing_list)()
+                    if packing_list:
+                        packing_list.ref_id = ref_id[i]
+                        await sync_to_async(packing_list.save)()
+                    pochecketaseven.ref_id = ref_id[i]
+                    await sync_to_async(pochecketaseven.save)()
                 #只有在前端选中通知客户的复选框时，才更改is_notified
                 if str(selected[i]) in notifyChanges.keys():
                     pochecketaseven.is_notified = True  
@@ -119,7 +141,7 @@ class PO(View):
                         pochecketaseven.last_retrieval_status = True
                     elif pochecketaseven.last_eta_checktime:
                         pochecketaseven.last_eta_status = True
-                              
+                pochecketaseven.handling_method = handing[i]             
                 await sync_to_async(pochecketaseven.save)()
         return await self.handle_po_check_seven(request,"invalid")
 
