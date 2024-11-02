@@ -93,23 +93,16 @@ class PO(View):
     async def handle_upload_po_invalid_post(self, request: HttpRequest) -> tuple[Any]:
         notifyChanges = request.POST.get("notifyChanges")
         ids = request.POST.getlist("po_ids")
-        ids = [i.split(",") for i in ids]
-        print('ids',ids)
-       
+        ids = [i.split(",") for i in ids]      
         selections = request.POST.getlist("is_selected")
-        selected = [int(i) for s, id in zip(selections, ids) for i in id if s == "on"]
-        print(selected)
-        
+        selected = [int(i) for s, id in zip(selections, ids) for i in id if s == "on"]    
         text = request.POST.getlist("text")
         handing = [t for s, t in zip(selections, text) if s == "on"]
         #是否确认通知客户
         notifyChanges_str = request.POST.get("notifyChanges")
-        print("1",notifyChanges_str)
         notifyChanges = json.loads(notifyChanges_str)
         #是否激活
-        print(request.POST)
         notifyActive_str = request.POST.get("notifyActives")
-        print("2",notifyActive_str)
         notifyActives = json.loads(notifyActive_str)
 
         if selected:   
@@ -178,7 +171,6 @@ class PO(View):
                 models.Q(vessel_eta__gte = today)
             )
             po_checks_list = await sync_to_async(list)(po_checks)  
-            await sync_to_async(print)('多少条柜子eta',len(po_checks_list))
             #先展示未查验的，然后按照vessel_eta排序        
             po_checks_list.sort(key = lambda po: po.vessel_eta)
             context = {
@@ -192,8 +184,7 @@ class PO(View):
                 models.Q(last_retrieval_checktime__isnull = True)&
                 models.Q(vessel_eta__lte = today+timedelta(days=7))
             )
-            po_checks_list = await sync_to_async(list)(po_checks) 
-            await sync_to_async(print)('多少条柜子retrieval',len(po_checks_list))          
+            po_checks_list = await sync_to_async(list)(po_checks)         
             context = {
                 "po_check":po_checks_list,
                 "upload_check_file": UploadFileForm(),
@@ -206,7 +197,6 @@ class PO(View):
 
             po_checks = await sync_to_async(PoCheckEtaSeven.objects.filter)(query)
             po_checks_list = await sync_to_async(list)(po_checks)
-            await sync_to_async(print)('多少条柜子invalid',len(po_checks_list))
             po_checks_list.sort(key = lambda po: po.is_notified)
             context = {
                 "po_check":po_checks_list,
@@ -256,7 +246,6 @@ class PO(View):
         
         po_checks = []
         for order in orders:
-            await sync_to_async(print)('一轮筛选的柜子',order)
             container_number = order.container_number
             #根据柜号查找pls，因为第一次查询完pls，可能会有预报新加pl的情况
             pls = await sync_to_async(list)(PackingList.objects.filter(container_number = order.container_number))
@@ -265,13 +254,13 @@ class PO(View):
                     # 直接在查询集中查找是否存在具有相同container_number的对象
                     existing_obj = await sync_to_async(PoCheckEtaSeven.objects.get)(packing_list = pl)                  
                     if existing_obj.time_status:   
-                        await sync_to_async(print)('表中查到了')
+                        #await sync_to_async(print)('表中查到了')
                         #如果查到了，继续判断是不是要将时间状态从到港前一周改为提柜前一天，条件是：有提柜计划，并且没有实际提柜或者实际提柜时间早于或等于今天
                         if order.retrieval_id and order.retrieval_id.target_retrieval_timestamp:
-                            await sync_to_async(print)('有提柜计划')
+                            #await sync_to_async(print)('有提柜计划')
                             #如果没有实际提柜
                             if not order.retrieval_id.actual_retrieval_timestamp:
-                                await sync_to_async(print)('没有实际提柜')
+                                #await sync_to_async(print)('没有实际提柜')
                                 existing_obj.time_status = False
                                 await sync_to_async(existing_obj.save)()
                             else:
@@ -280,20 +269,20 @@ class PO(View):
                                 actual_ts = order.retrieval_id.actual_retrieval_timestamp.astimezone(local_tz).replace(tzinfo=None)
                                 #如果是当天提柜
                                 if actual_ts <= today + timedelta(days=1):
-                                    await sync_to_async(print)('提柜时间比较早')
+                                    #await sync_to_async(print)('提柜时间比较早')
                                     #如果有提柜计划了就改时间状态
                                     existing_obj.time_status = False
                                     await sync_to_async(existing_obj.save)()
                 except PoCheckEtaSeven.DoesNotExist:
-                    await sync_to_async(print)('表中没找到')
+                    #await sync_to_async(print)('表中没找到')
                     #if ("/" not in pl.fba_id) or ("/" not in pl.ref_id):  #听建单的同事说，亚马逊的是一定有fba和ref，沃尔玛的一定有ref
                     if "/" not in pl.ref_id:      #所以如果ref_id没有，就是私人地址、UPS什么的
-                        await sync_to_async(print)('需要进行拿约')
+                        #await sync_to_async(print)('需要进行拿约')
                         time_status = 0
                         if order.retrieval_id and order.retrieval_id.target_retrieval_timestamp:   #因为存在首次建表的情况，此时有的数据属于到港前一周，有的属于提柜前一天
-                            await sync_to_async(print)("有提柜计划")
+                            #await sync_to_async(print)("有提柜计划")
                             if not order.retrieval_id.actual_retrieval_timestamp:
-                                await sync_to_async(print)('没有实际提柜')
+                                #await sync_to_async(print)('没有实际提柜')
                                 po_check_dict = {
                                     'container_number': container_number,
                                     'customer_name':order.customer_name,
@@ -312,7 +301,7 @@ class PO(View):
                                 local_tz = pytz.timezone('Asia/Shanghai')
                                 actual_ts = order.retrieval_id.actual_retrieval_timestamp.astimezone(local_tz).replace(tzinfo=None)
                                 if actual_ts <= today + timedelta(days=1):
-                                    await sync_to_async(print)('提柜时间比较早')                                 
+                                    #await sync_to_async(print)('提柜时间比较早')                                 
                                     po_check_dict = {
                                         'container_number': container_number,
                                         'customer_name':order.customer_name,
@@ -328,7 +317,7 @@ class PO(View):
                                     po_checks.append(po_check_dict)
                                    
                         if order.retrieval_id and not order.retrieval_id.target_retrieval_timestamp:
-                            await sync_to_async(print)('没有实际提柜')
+                            #await sync_to_async(print)('没有实际提柜')
                             po_check_dict = {
                                     'container_number': container_number,
                                     'customer_name':order.customer_name,
@@ -429,11 +418,8 @@ class PO(View):
     def handle_selection_post(self, request: HttpRequest) -> HttpResponse:
         warehouse = request.POST.get("warehouse")
         ids = request.POST.getlist("pl_ids")
-        print(ids)
         ids = [i.split(",") for i in ids]
-        print('ids',ids)
         selections = request.POST.getlist("is_selected")
-        print('selections',selections)
         selected = [int(i) for s, id in zip(selections, ids) for i in id if s == "on"]
         if selected:
             packing_list = PackingList.objects.select_related(
