@@ -311,6 +311,19 @@ class ShippingManagement(View):
                 "total_pallet": total_pallet,
                 "total_pcs": total_pcs,
             }
+            unused_appointment = await sync_to_async(list)(
+                Shipment.objects.filter(
+                    in_use=False,
+                    is_canceled=False
+                )
+            )
+            unused_appointment = {
+                s.appointment_id: {
+                    "destination": s.destination.strip(),
+                    "shipment_appointment": s.shipment_appointment.replace(microsecond=0).isoformat(),
+                }
+                for s in unused_appointment
+            }
             context.update({
                 "batch_id": batch_id,
                 "packing_list_selected": packing_list_selected,
@@ -323,6 +336,7 @@ class ShippingManagement(View):
                 "warehouse_options": self.warehouse_options,
                 "load_type_options": LOAD_TYPE_OPTIONS,
                 "shipment_type_options": self.shipment_type_options,
+                "unused_appointment": json.dumps(unused_appointment),
             })
             return self.template_td_schedule, context
         else:
