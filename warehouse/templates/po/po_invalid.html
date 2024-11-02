@@ -74,13 +74,13 @@
                                 </label>
                             </td>
                             <td class="td">{{ po.shipping_mark }}</td>
-                            <td class="td">{{ po.fba_id }}</td>
-                            <td class="td">{{ po.ref_id }}</td>                                                  
+                            <td class="td"><input type="text" name="fba_text" value={{ po.fba_id }}></td>
+                            <td class="td"><input type="text" name="ref_text" value={{ po.ref_id }}></td>                                                  
                             <td class="td">
                                 {% if po and po.handling_method %}
-                                    <input type="text" name="text" value="{{ po.handling_method }}"/>
+                                    <input type="text" name="handle_text" value="{{ po.handling_method }}"/>
                                 {% else %}
-                                    <input type="text" name="text" value=""/>
+                                    <input type="text" name="handle_text" value=""/>
                                 {% endif %}
                             </td>
                         </tr>
