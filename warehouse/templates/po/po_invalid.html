@@ -17,6 +17,7 @@
                             <th>柜号</th>
                             <th>destination</th>
                             <th>是否通知客户</th>
+                            <th>激活</th>
                             <th>shipping_mark</th>
                             <th>fba_id</th>
                             <th>ref_id</th>                           
@@ -37,6 +38,7 @@
                             </th>
                             <th class="th"></th>
                             <th class="th"></th>
+                            <th class="th"></th>
                             <th class="th"></th>   
                             <th class="th"></th>
                         </tr>
@@ -55,13 +57,17 @@
                                 <input type="checkbox" id="notify-checkbox-{{ po.id }}" {% if po.is_notified %}checked{% endif %}>                              
                                 <label for="notify-checkbox-{{ po.id }}">
                                     {% if po.is_notified %}
-                                        <span style="color:green;">已通知</span>
+                                        <span style="color:green;">已通知-{{po.notified_time|date:"M-j"}}</span>
                                     {% else %}
                                         <span style="color:red;">未通知</span>
                                     {% endif %}
                                 </label>
                             </td>
-                            
+                            <td id="active-td">
+                                <input type="checkbox" id="active-checkbox-{{ po.id }}" {% if po.is_active %}checked{% endif %}>        
+                                <label for="active-checkbox-{{ po.id }}">
+                                </label>
+                            </td>
                             <td class="td">{{ po.shipping_mark }}</td>
                             <td class="td">{{ po.fba_id }}</td>
                             <td class="td">{{ po.ref_id }}</td>                                                  
@@ -79,12 +85,24 @@
             </div>
         </div>
         <input type="hidden" name="step" value="po_invalid_save">
-        <button type="submit" onclick="confirmSubmit(this)" class="btn btn-primary" style="width: 100px; height: 35px;">确认通知</button>
+        <button type="submit" onclick="confirmSubmit(this)" class="btn btn-primary" style="width: 100px; height: 35px;">保存</button>
     </form>
 
 <script>
     let notifyChanges = {};
-    console.log('notifyChanges1',notifyChanges);
+    let notifyActives = {};
+    document.querySelectorAll('#active-td input[type="checkbox"]').forEach((checkbox, index) => {
+        checkbox.addEventListener('change', function () {
+            let poId = this.getAttribute('id').split('-')[2];
+            if (this.checked) {
+                
+                notifyActives[poId] = this.checked;
+            }else{}
+        });
+    });
+
+    
+    
     document.querySelectorAll('#notify-td input[type="checkbox"]').forEach((checkbox, index) => {
         checkbox.addEventListener('change', function () {
             let poId = this.getAttribute('id').split('-')[2];
@@ -94,6 +112,7 @@
             }else{}
         });
     });
+    
 
     document.addEventListener('DOMContentLoaded', function () {
         let unCheckedCount = 0;
@@ -126,8 +145,13 @@
         hiddenInput.type = 'hidden';
         hiddenInput.name ='notifyChanges';
         hiddenInput.value = JSON.stringify(notifyChanges);
-        console.log('notifyChanges2',notifyChanges);
         form.appendChild(hiddenInput);
+
+        let hiddenInput2 = document.createElement('input');
+        hiddenInput2.type = 'hidden';
+        hiddenInput2.name ='notifyActives';
+        hiddenInput2.value = JSON.stringify(notifyActives);
+        form.appendChild(hiddenInput2);
         form.submit();
     };
       

@@ -22,6 +22,7 @@ class PoCheckEtaSeven(models.Model):
     #货物时间状态, true表示处于到港前一周, false表示提柜前一天，用于确定在待查验的哪个页面，所以PO查验总表数量=到港前一周+提柜前一天
     time_status = models.BooleanField(default=False)
     is_notified = models.BooleanField(default=False)#是否通知客户
+    notified_time = models.DateTimeField(null=True, blank=True)
     is_active = models.BooleanField(default=False)#是否激活
     handling_method = models.CharField(max_length=255, null=True, blank=True) #失效后的操作指令
 

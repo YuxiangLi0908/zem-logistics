@@ -85,13 +85,17 @@ class PO(View):
         elif step == "eta_search":
             context = async_to_sync(self.handle_po_check_seven)(request,"list")
             return render(request, self.template_po_list, context)
+        elif step == "template_check_eta":          
+            async_to_sync(self.handle_search_eta_seven)(request)
+            context = async_to_sync(self.handle_po_check_seven)(request,"eta")
+            return render(request, self.template_po_check_eta, context)
     
     async def handle_upload_po_invalid_post(self, request: HttpRequest) -> tuple[Any]:
         notifyChanges = request.POST.get("notifyChanges")
         ids = request.POST.getlist("po_ids")
         ids = [i.split(",") for i in ids]
         print('ids',ids)
-        #是否确认通知客户
+       
         selections = request.POST.getlist("is_selected")
         selected = [int(i) for s, id in zip(selections, ids) for i in id if s == "on"]
         print(selected)
@@ -100,14 +104,29 @@ class PO(View):
         handing = [t for s, t in zip(selections, text) if s == "on"]
         #是否确认通知客户
         notifyChanges_str = request.POST.get("notifyChanges")
+        print("1",notifyChanges_str)
         notifyChanges = json.loads(notifyChanges_str)
+        #是否激活
+        print(request.POST)
+        notifyActive_str = request.POST.get("notifyActives")
+        print("2",notifyActive_str)
+        notifyActives = json.loads(notifyActive_str)
+
         if selected:   
             for i in range(len(selected)):   
                 pochecketaseven = await sync_to_async(PoCheckEtaSeven.objects.get)(id = selected[i])
                 pochecketaseven.handling_method = handing[i]
                 #只有在前端选中通知客户的复选框时，才更改is_notified
                 if str(selected[i]) in notifyChanges.keys():
-                    pochecketaseven.is_notified = True               
+                    pochecketaseven.is_notified = True  
+                    today = datetime.now()
+                    pochecketaseven.notified_time = today
+                if str(selected[i]) in notifyActives.keys():
+                    if pochecketaseven.last_retrieval_checktime:
+                        pochecketaseven.last_retrieval_status = True
+                    elif pochecketaseven.last_eta_checktime:
+                        pochecketaseven.last_eta_status = True
+                              
                 await sync_to_async(pochecketaseven.save)()
         return await self.handle_po_check_seven(request,"invalid")
 
@@ -148,12 +167,15 @@ class PO(View):
                 continue
         return await self.handle_po_check_seven(request,time_code)
             
-    async def handle_po_check_seven(self, request: HttpRequest, flag:str) -> dict[str, dict]:    
+    async def handle_po_check_seven(self, request: HttpRequest, flag:str) -> dict[str, dict]:  
+        today = datetime.now()
         if "eta" in flag:
             #如果是PO查验--到港前一周的，只展示未查验的
             po_checks = await sync_to_async(PoCheckEtaSeven.objects.filter)(
                 models.Q(time_status = True)&
-                models.Q(last_eta_checktime__isnull = True)
+                models.Q(last_eta_checktime__isnull = True)&
+                models.Q(vessel_eta__lte = today+timedelta(days=7))&
+                models.Q(vessel_eta__gte = today)
             )
             po_checks_list = await sync_to_async(list)(po_checks)  
             await sync_to_async(print)('多少条柜子eta',len(po_checks_list))
@@ -167,7 +189,8 @@ class PO(View):
             #如果是PO查验--提柜前一天的，只展示未查验的
             po_checks = await sync_to_async(PoCheckEtaSeven.objects.filter)(
                 models.Q(time_status = False)&
-                models.Q(last_retrieval_checktime__isnull = True)
+                models.Q(last_retrieval_checktime__isnull = True)&
+                models.Q(vessel_eta__lte = today+timedelta(days=7))
             )
             po_checks_list = await sync_to_async(list)(po_checks) 
             await sync_to_async(print)('多少条柜子retrieval',len(po_checks_list))          
@@ -216,10 +239,11 @@ class PO(View):
                 "start_date": start_date,
                 "end_date": end_date,
             }
+        
         return context
     
-    #刷新数据的，现在改成了从建单时候添加数据，从修改提柜信息处修改状态
-    # async def handle_search_eta_seven(self, request: HttpRequest, flag:str)-> tuple[str, dict[str, Any]]:
+    #刷新数据的，现在改成了从建单时候添加数据，从修改提柜信息处修改状态  #临时加一个按钮，用于将最近要校验的PO导入po_check，因为本来是建单才会有的数据
+    async def handle_search_eta_seven(self, request: HttpRequest)-> tuple[str, dict[str, Any]]:
         seven_days_later = datetime.now().date() + timedelta(days=7)
         #筛选所有未来要查验的柜子，条件：1、vessel_eta小于一周后的，2、未取消预报的 。然后再分类
         query = models.Q(vessel_id__vessel_eta__lte = seven_days_later) & models.Q(cancel_notification__isnull=False)       
@@ -319,8 +343,6 @@ class PO(View):
         await sync_to_async(PoCheckEtaSeven.objects.bulk_create)(
                 PoCheckEtaSeven(**p) for p in po_checks
             )
-        return await self.handle_po_check_seven(request,flag)
-        
 
 
     def handle_search_post(self, request: HttpRequest) -> dict[str, Any]:
