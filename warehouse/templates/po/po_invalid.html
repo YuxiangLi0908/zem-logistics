@@ -14,6 +14,7 @@
                     <thead>
                         <tr>
                             <th class="th" style="max-width: 5%; min-width: 10px; text-align: center;"></th>
+                            <th>客户名</th>
                             <th>柜号</th>
                             <th>destination</th>
                             <th>是否通知客户</th>
@@ -26,6 +27,9 @@
                         <tr style="position: sticky; top: 28px;">
                             <th class="th" style="max-width: 5%; min-width: 10px; text-align: center;">
                                 <input type="checkbox" id="selectAllCheckbox" onchange="toggleAllCheckboxes()">
+                            </th>
+                            <th class="th">
+                                <input type="text" id="customerSearch" placeholder="搜索客户..." oninput="filterTable()" size="13" style="font-size: 11px;">
                             </th>
                             <th class="th">
                                 <input type="text" id="containerSearch" placeholder="搜索柜号..." oninput="filterTable()" size="13" style="font-size: 11px;">
@@ -51,6 +55,7 @@
                                 <input type="hidden" name="is_selected", value='off'>
                                 <input type="hidden" name="po_ids", value='{{ po.id }}'>
                             </td>
+                            <td class="td">{{ po.customer_name }}</td>
                             <td class="td">{{ po.container_number }}</td>
                             <td class="td">{{ po.destination }}</td>
                             <td id="notify-td">
@@ -181,33 +186,40 @@
         }
     };
     function filterTable() {
-        var containerInput, destinationInput, notifyInput;
-        var containerFilter, destinationFilter, notifyFilter;
+        var containerInput, destinationInput, notifyInput, customerInput;
+        var containerFilter, destinationFilter, notifyFilter, customerFilter;
         var table, tbody, tr;
-        var containerTd, destinationTd, notifyTd;
+        var containerTd, destinationTd, notifyTd, customerTd;
         var i, j;
-        var containerTxtValue, destinationTxtValue, notifyTxtValue;
+        var containerTxtValue, destinationTxtValue, notifyTxtValue, customerTxtValue;
         containerInput = document.getElementById("containerSearch");
+        customerInput = document.getElementById("customerSearch");
         destinationInput = document.getElementById("destinationSearch");
         notifyInput = document.getElementById("notifySearch");
+
         containerFilter = containerInput.value.toUpperCase();
+        customerFilter = customerInput.value.toUpperCase();
         destinationFilter = destinationInput.value.toUpperCase();
         notifyFilter = notifyInput.value.toUpperCase();
+
         table = document.getElementById("check-invalid");
         tbody = table.getElementsByTagName("tbody")[0];
         tr = tbody.getElementsByTagName("tr");
         var parts = containerFilter.split(/\W/);
     
         for (i = 0; i < tr.length; i++) {
-            containerTd = tr[i].getElementsByTagName("td")[1];
-            destinationTd = tr[i].getElementsByTagName("td")[2];
-            notifyTd = tr[i].getElementsByTagName("td")[3];
-            if (containerTd && destinationTd && notifyTd) {
+            containerTd = tr[i].getElementsByTagName("td")[2];
+            destinationTd = tr[i].getElementsByTagName("td")[3];
+            notifyTd = tr[i].getElementsByTagName("td")[4];
+            customerTd = tr[i].getElementsByTagName("td")[1];
+            if (containerTd && destinationTd && notifyTd & customerTd) {
+                customerTxtValue = customerTd.textContent || customerTd.innerText;
                 containerTxtValue = containerTd.textContent || containerTd.innerText;
                 destinationTxtValue = destinationTd.textContent || destinationTd.innerText;
                 notifyTxtValue = notifyTd.textContent || notifyTd.innerText;
                 var destinationDisplayStyle = destinationTxtValue.toUpperCase().indexOf(destinationFilter) > -1? "" : "none";
                 var notifyDisplayStyle = notifyTxtValue.toUpperCase().indexOf(notifyFilter) > -1? "" : "none";
+                var customerDisplayStyle = customerTxtValue.toUpperCase().indexOf(customerFilter) > -1? "" : "none";
                 var containerDisplayStyle = "none";
                 if (parts.length > 0) {
                     for (j = 0; j < parts.length; j++) {
@@ -219,7 +231,7 @@
                 } else {
                     containerDisplayStyle = containerTxtValue.toUpperCase().indexOf(containerFilter) > -1? "" : "none";
                 }
-                tr[i].style.display = containerDisplayStyle === "" && notifyDisplayStyle === "" && destinationDisplayStyle === ""? "" : "none";
+                tr[i].style.display = containerDisplayStyle === "" && customerDisplayStyle === "" && notifyDisplayStyle === "" && destinationDisplayStyle === ""? "" : "none";
             }
         }
     };

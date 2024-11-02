@@ -250,7 +250,7 @@ class PO(View):
         #models.Q(retrieval_id__target_retrieval_timestamp__isnull=True)
         orders = await sync_to_async(list)(
             Order.objects.select_related(
-                    'container_number', 'vessel_id','retrieval_id','offload_id'
+                    'container_number', 'vessel_id','retrieval_id','offload_id','customer_name',
                     ).filter(query)
             )
         
@@ -296,6 +296,7 @@ class PO(View):
                                 await sync_to_async(print)('没有实际提柜')
                                 po_check_dict = {
                                     'container_number': container_number,
+                                    'customer_name':order.customer_name,
                                     'vessel_eta': order.vessel_id.vessel_eta,
                                     'packing_list': pl,
                                     'time_status': False,
@@ -314,6 +315,7 @@ class PO(View):
                                     await sync_to_async(print)('提柜时间比较早')                                 
                                     po_check_dict = {
                                         'container_number': container_number,
+                                        'customer_name':order.customer_name,
                                         'vessel_eta': order.vessel_id.vessel_eta,
                                         'packing_list': pl,
                                         'time_status': False,
@@ -329,6 +331,7 @@ class PO(View):
                             await sync_to_async(print)('没有实际提柜')
                             po_check_dict = {
                                     'container_number': container_number,
+                                    'customer_name':order.customer_name,
                                     'vessel_eta': order.vessel_id.vessel_eta,
                                     'packing_list': pl,
                                     'time_status': True,

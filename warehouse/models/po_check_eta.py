@@ -2,11 +2,13 @@
 from django.db import models
 from .packing_list import PackingList
 from .container import Container
+from warehouse.models.customer import Customer
 from datetime import datetime, timedelta
 
 
 class PoCheckEtaSeven(models.Model):
     container_number = models.ForeignKey(Container, null=True, on_delete=models.CASCADE)
+    customer_name = models.ForeignKey(Customer, null=True, on_delete=models.SET_NULL)
     vessel_eta = models.DateField(null=True, blank=True)   #用于到港前一周页面进行到港时间的排序，规定紧急程度
     packing_list = models.ForeignKey(PackingList, null=True, blank=True, on_delete=models.SET_NULL)
     shipping_mark = models.CharField(max_length=400, null=True, blank=True)
