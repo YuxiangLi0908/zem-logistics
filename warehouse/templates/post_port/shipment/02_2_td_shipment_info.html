@@ -7,7 +7,7 @@
 
 {% block shipment_info %}
 <div style="height: 800px; width: 40%; border: 2px solid rgb(180, 180, 180); border-radius: 12px; padding: 1%; margin-top: .5%;">
-    <div>
+    <div style="max-height: 50%; width: 100%;">
         <form method="post" action="" style="width: 100%; overflow-x: auto; max-width: 100%;" onsubmit="showLoadingBar()">
             {% csrf_token %}
             <div style="display: flex;">
@@ -163,175 +163,179 @@
             </div>
         </form>
     </div>
-    <div>
-        <form method="post" id="alter-shipment-form" action="" style="width: 100%; overflow-x: auto; max-width: 100%;" onsubmit="showLoadingBar()">
-            {% csrf_token %}
-            <div style="display: flex;">
-                <div style="width: 60%;">
-                    <b style="background-color: rgb(208, 208, 208); border-radius: 20px; font-size: 11px; display:inline-flex; color: rgb(100, 100, 100); padding: 5px;">
-                        PO
-                    </b>
-                </div>
-                <div style="width: 40%;">
-                    <button id="editButton" type="button" class="btn btn-primary" onclick="add_po_popup(this)" style="font-size: 11px;">添加PO</button>
-                    <button id="editButton" type="submit" class="btn btn-danger" onclick="edit_remove_payload(this)" style="font-size: 11px;">移除PO</button>
-                </div>
-                <div class="popup-window" style="display: none; z-index:999; position: fixed; top: 50%; left: 50%; transform: translate(-50%, -50%); background-color: white; border: 1px solid gray; padding: 20px; max-height: 50%; overflow-y: scroll;">
-                    <div style="display: flex;">
-                        <input type="hidden" name="step" value="alter_po_shipment">
-                        <input type="hidden" name="alter_type" value="add">
-                        <input type="hidden" name="area" value="{{ area }}">
-                        <input type="hidden" name="shipment_batch_number" value="{{ shipment.shipment_batch_number }}">
-                        <button type="submit" class="btn btn-primary" onclick="edit_add_payload(this)" style="font-size: 11px; margin-right: 5px;">确认添加</button>
-                        <button id="editButton" type="button" class="btn btn-danger" onclick="add_po_popup(this)" style="font-size: 11px;">返回</button>
+    <div style="display: flex;">
+        <div style="max-height: 400px; width: 100%; margin-top: .5%; margin-right: .5%; margin-bottom: 1%;">
+            <div style="max-height: 99%; overflow-y: scroll;">
+                <form method="post" id="alter-shipment-form" action="" style="width: 100%; overflow-x: auto; max-width: 100%; max-height: 100%;" onsubmit="showLoadingBar()">
+                    {% csrf_token %}
+                    <div style="display: flex; z-index: 999;">
+                        <div style="width: 60%;">
+                            <b style="background-color: rgb(208, 208, 208); border-radius: 20px; font-size: 11px; display:inline-flex; color: rgb(100, 100, 100); padding: 5px;">
+                                PO
+                            </b>
+                        </div>
+                        <div style="width: 40%;">
+                            <button id="editButton" type="button" class="btn btn-primary" onclick="add_po_popup(this)" style="font-size: 11px;">添加PO</button>
+                            <button id="editButton" type="submit" class="btn btn-danger" onclick="edit_remove_payload(this)" style="font-size: 11px;">移除PO</button>
+                        </div>
+                        <div class="popup-window" style="display: none; z-index:999; position: fixed; top: 50%; left: 50%; transform: translate(-50%, -50%); background-color: white; border: 1px solid gray; padding: 20px; max-height: 50%; overflow-y: scroll;">
+                            <div style="display: flex;">
+                                <input type="hidden" name="step" value="alter_po_shipment">
+                                <input type="hidden" name="alter_type" value="add">
+                                <input type="hidden" name="area" value="{{ area }}">
+                                <input type="hidden" name="shipment_batch_number" value="{{ shipment.shipment_batch_number }}">
+                                <button type="submit" class="btn btn-primary" onclick="edit_add_payload(this)" style="font-size: 11px; margin-right: 5px;">确认添加</button>
+                                <button id="editButton" type="button" class="btn btn-danger" onclick="add_po_popup(this)" style="font-size: 11px;">返回</button>
+                            </div>
+                            <table id="packing-list-table-popup" class="table" style="font-size: 11px; max-height: 50%;">
+                                <thead>
+                                    <tr style="position: sticky; top: 0px;">
+                                        <th class="th" style="min-width: 40px; text-align: center;"></th>
+                                        <th class="th">客户</th>
+                                        <th class="th">货柜号</th>
+                                        <th class="th">目的仓库</th>
+                                        <th class="th">入仓时间</th>
+                                        <th class="th">CBM</th>
+                                        <th class="th">卡板数</th>
+                                        <th class="th">派送方式</th>
+                                        <th class="th">总重lbs</th>
+                                    </tr>
+                                    <tr style="position: sticky; top: 20px;">
+                                        <th class="th" style="min-width: 40px;"></th>
+                                        <th class="th"></th>
+                                        <th class="th"><input type="text" id="containerSearchInput-popup" placeholder="搜索柜号..." oninput="filterPopupTable()" size="13" style="font-size: 11px;"></th>
+                                        <th class="th"><input type="text" id="destinationSearchInput-popup" placeholder="搜索目的仓库..." oninput="filterPopupTable()" size="13" style="font-size: 11px;"></th>
+                                        <th class="th"></th>
+                                        <th class="th"></th>
+                                        <th class="th"></th>
+                                        <th class="th"></th>
+                                        <th class="th"></th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    {% for c in packing_list_not_scheduled %}
+                                    <tr>
+                                        <td class="td" style="min-width: 40px; text-align: center;">
+                                            <input type='checkbox' name='is_shipment_added' onclick="toggleRowBackground(this)" {% if c.ids in pl_ids_raw %}checked{% elif c.plt_ids in plt_ids_raw %}checked{% endif %} {% if c.abnormal_palletization or c.po_expired %}disabled{% endif %}>
+                                            <input type="hidden" name="is_shipment_added", value='off'>
+                                            <input type="hidden" name="added_pl_ids", value='{{ c.ids }}'>
+                                            <input type="hidden" name="added_plt_ids", value='{{ c.plt_ids }}'>
+                                        </td>
+                                        <td class="td" style="max-width: 120px; word-break: break-all;">{{ c.container_number__order__customer_name__zem_name }}</td>
+                                        <td class="td">{{ c.container_number__container_number }}</td>
+                                        <td class="td" name="po-destination">
+                                            {{ c.destination }}
+                                            {% if c.abnormal_palletization %}
+                                            <span class="status-span-red" style="padding-top: 0; padding-bottom: 0;">未解决拆柜异常</span>
+                                            {% endif %}
+                                            {% if c.po_expired %}
+                                            <span class="status-span-yellow" style="padding-top: 0; padding-bottom: 0;">PO失效</span>
+                                            {% endif %}
+                                        </td>
+                                        <td class="td">
+                                            {% if c.schedule_status == 'past_due' %}
+                                            <span class="status-span-red">{{ c.container_number__order__offload_id__offload_at|date:"M-j" }}</span>
+                                            {% else %}
+                                            {{ c.container_number__order__offload_id__offload_at|date:"M-j" }}
+                                            {% endif %}
+                                        </td>
+                                        <td class="td">{{ c.total_cbm|floatformat:2 }}</td>
+                                        <td class="td">
+                                            {% if c.label == "ACT" %}
+                                            <span class="status-span-green-100">ACT</span>
+                                            {{ c.total_n_pallet_act }}
+                                            {% else %}
+                                                <span class="status-span-blue-100">EST</span>
+                                                {% if c.total_n_pallet_est < 1 %}
+                                                {{ 1 }}
+                                                {% elif c.total_n_pallet_est|modulo:1 >= 0.45 %}
+                                                {{ c.total_n_pallet_est|floor_division:1|add:1|floatformat:0 }}
+                                                {% else %}
+                                                {{ c.total_n_pallet_est|floor_division:1|floatformat:0 }}
+                                                {% endif %}
+                                            {% endif %}
+                                        </td>
+                                        <td class="td">
+                                            {% with first_value=c.custom_delivery_method|split_and_get_first %}
+                                                {{ first_value }}
+                                            {% endwith %}
+                                        </td>
+                                        <td class="td">{{ c.total_weight_lbs|floatformat:2 }}</td>
+                                    </tr>
+                                    {% endfor %}
+                                </tbody>
+                            </table>
+                        </div>
                     </div>
-                    <table id="packing-list-table-popup" class="table" style="font-size: 11px; max-height: 50%;">
-                        <thead>
-                            <tr style="position: sticky; top: 0px;">
-                                <th class="th" style="min-width: 40px; text-align: center;"></th>
-                                <th class="th">客户</th>
-                                <th class="th">货柜号</th>
-                                <th class="th">目的仓库</th>
-                                <th class="th">入仓时间</th>
-                                <th class="th">CBM</th>
-                                <th class="th">卡板数</th>
-                                <th class="th">派送方式</th>
-                                <th class="th">总重lbs</th>
-                            </tr>
-                            <tr style="position: sticky; top: 20px;">
-                                <th class="th" style="min-width: 40px;"></th>
-                                <th class="th"></th>
-                                <th class="th"><input type="text" id="containerSearchInput-popup" placeholder="搜索柜号..." oninput="filterPopupTable()" size="13" style="font-size: 11px;"></th>
-                                <th class="th"><input type="text" id="destinationSearchInput-popup" placeholder="搜索目的仓库..." oninput="filterPopupTable()" size="13" style="font-size: 11px;"></th>
-                                <th class="th"></th>
-                                <th class="th"></th>
-                                <th class="th"></th>
-                                <th class="th"></th>
-                                <th class="th"></th>
-                            </tr>
-                        </thead>
-                        <tbody>
-                            {% for c in packing_list_not_scheduled %}
-                            <tr>
-                                <td class="td" style="min-width: 40px; text-align: center;">
-                                    <input type='checkbox' name='is_shipment_added' onclick="toggleRowBackground(this)" {% if c.ids in pl_ids_raw %}checked{% elif c.plt_ids in plt_ids_raw %}checked{% endif %} {% if c.abnormal_palletization or c.po_expired %}disabled{% endif %}>
-                                    <input type="hidden" name="is_shipment_added", value='off'>
-                                    <input type="hidden" name="added_pl_ids", value='{{ c.ids }}'>
-                                    <input type="hidden" name="added_plt_ids", value='{{ c.plt_ids }}'>
-                                </td>
-                                <td class="td" style="max-width: 120px; word-break: break-all;">{{ c.container_number__order__customer_name__zem_name }}</td>
-                                <td class="td">{{ c.container_number__container_number }}</td>
-                                <td class="td">
-                                    {{ c.destination }}
-                                    {% if c.abnormal_palletization %}
-                                    <span class="status-span-red" style="padding-top: 0; padding-bottom: 0;">未解决拆柜异常</span>
-                                    {% endif %}
-                                    {% if c.po_expired %}
-                                    <span class="status-span-yellow" style="padding-top: 0; padding-bottom: 0;">PO失效</span>
-                                    {% endif %}
-                                </td>
-                                <td class="td">
-                                    {% if c.schedule_status == 'past_due' %}
-                                    <span class="status-span-red">{{ c.container_number__order__offload_id__offload_at|date:"M-j" }}</span>
-                                    {% else %}
-                                    {{ c.container_number__order__offload_id__offload_at|date:"M-j" }}
-                                    {% endif %}
-                                </td>
-                                <td class="td">{{ c.total_cbm|floatformat:2 }}</td>
-                                <td class="td">
-                                    {% if c.label == "ACT" %}
-                                    <span class="status-span-green-100">ACT</span>
-                                    {{ c.total_n_pallet_act }}
-                                    {% else %}
-                                        <span class="status-span-blue-100">EST</span>
-                                        {% if c.total_n_pallet_est < 1 %}
-                                        {{ 1 }}
-                                        {% elif c.total_n_pallet_est|modulo:1 >= 0.45 %}
-                                        {{ c.total_n_pallet_est|floor_division:1|add:1|floatformat:0 }}
-                                        {% else %}
-                                        {{ c.total_n_pallet_est|floor_division:1|floatformat:0 }}
+
+                    <div style="max-height: 99%; overflow-y: scroll;">
+                        <table id="selected-packing-list-table" class="table" style="font-size: 11px; max-height: 90%; overflow-y: scroll;">
+                            <thead>
+                                <tr style="position: sticky; top: 0px;">
+                                    <th class="th" style="min-width: 20px; text-align: center;"></th>
+                                    <th class="th">客户</th>
+                                    <th class="th">货柜号</th>
+                                    <th class="th">目的仓库</th>
+                                    <th class="th">FBA_ID</th>
+                                    <th class="th">REF_ID</th>
+                                    <th class="th">重量lbs</th>
+                                    <th class="th">CBM</th>
+                                    <th class="th">卡板数</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {% for c in packing_list_selected %}
+                                <tr>
+                                    <td class="td" style="min-width: 20px; text-align: center;">
+                                        <input type='checkbox' name='is_shipment_removed' onclick="toggleRowBackground(this)">
+                                        <input type="hidden" name="is_shipment_removed", value='off'>
+                                        <input type="hidden" name="removed_pl_ids", value='{{ c.ids }}'>
+                                        <input type="hidden" name="removed_plt_ids", value='{{ c.plt_ids }}'>
+                                    </td>
+                                    <td class="td">{{ c.container_number__order__customer_name__zem_name }}</td>
+                                    <td class="td">{{ c.container_number__container_number }}</td>
+                                    <td class="td" name="po-destination">
+                                        {{ c.destination }}
+                                        {% if c.abnormal_palletization %}
+                                        <span class="status-span-red" style="padding-top: 0; padding-bottom: 0;">未解决拆柜异常</span>
                                         {% endif %}
-                                    {% endif %}
-                                </td>
-                                <td class="td">
-                                    {% with first_value=c.custom_delivery_method|split_and_get_first %}
-                                        {{ first_value }}
-                                    {% endwith %}
-                                </td>
-                                <td class="td">{{ c.total_weight_lbs|floatformat:2 }}</td>
-                            </tr>
-                            {% endfor %}
-                        </tbody>
-                    </table>
-                </div>
+                                        {% if c.po_expired %}
+                                        <span class="status-span-yellow" style="padding-top: 0; padding-bottom: 0;">PO失效</span>
+                                        {% endif %}
+                                    </td>
+                                    <td class="td" style="max-width: 120px; word-break: break-all;">{{ c.fba_ids }}</td>
+                                    <td class="td" style="max-width: 120px; word-break: break-all;">{{ c.ref_ids }}</td>
+                                    <td class="td">{{ c.total_weight_lbs|floatformat:2 }}</td>
+                                    <td class="td">{{ c.total_cbm|floatformat:2 }}</td>
+                                    <td class="td">
+                                        {% if c.label == "ACT" %}
+                                        <span class="status-span-green-100">ACT</span>
+                                        {{ c.total_n_pallet_act }}
+                                        {% else %}
+                                            <span class="status-span-blue-100">EST</span>
+                                            {% if c.total_n_pallet_est < 1 %}
+                                            {{ 1 }}
+                                            {% elif c.total_n_pallet_est|modulo:1 >= 0.45 %}
+                                            {{ c.total_n_pallet_est|floor_division:1|add:1|floatformat:0 }}
+                                            {% else %}
+                                            {{ c.total_n_pallet_est|floor_division:1|floatformat:0 }}
+                                            {% endif %}
+                                        {% endif %}
+                                    </td>
+                                </tr>          
+                                {% endfor %}
+                                <tr id="table-summary">
+                                    <td class="td" colspan="6"><b>汇总</b></td>
+                                    <td class="td">{{ shipment.total_weight|floatformat:2 }}</td>
+                                    <td class="td">{{ shipment.total_cbm|floatformat:2 }}</td>
+                                    <td class="td">{{ shipment.total_pallet|floatformat:0 }}</td>
+                                </tr>
+                            </tbody>
+                        </table>
+                    </div>
+                </form>
             </div>
-        
-            <div style="max-width: 100%; max-height: 60%; overflow-y: scroll; ">
-                <table id="selected-packing-list-table" class="table" style="font-size: 11px;">
-                    <thead>
-                        <tr>
-                            <th class="th" style="min-width: 20px; text-align: center;"></th>
-                            <th class="th">客户</th>
-                            <th class="th">货柜号</th>
-                            <th class="th">目的仓库</th>
-                            <th class="th">FBA_ID</th>
-                            <th class="th">REF_ID</th>
-                            <th class="th">重量lbs</th>
-                            <th class="th">CBM</th>
-                            <th class="th">卡板数</th>
-                        </tr>
-                    </thead>
-                    <tbody>
-                        {% for c in packing_list_selected %}
-                        <tr>
-                            <td class="td" style="min-width: 20px; text-align: center;">
-                                <input type='checkbox' name='is_shipment_removed' onclick="toggleRowBackground(this)">
-                                <input type="hidden" name="is_shipment_removed", value='off'>
-                                <input type="hidden" name="removed_pl_ids", value='{{ c.ids }}'>
-                                <input type="hidden" name="removed_plt_ids", value='{{ c.plt_ids }}'>
-                            </td>
-                            <td class="td">{{ c.container_number__order__customer_name__zem_name }}</td>
-                            <td class="td">{{ c.container_number__container_number }}</td>
-                            <td class="td">
-                                {{ c.destination }}
-                                {% if c.abnormal_palletization %}
-                                <span class="status-span-red" style="padding-top: 0; padding-bottom: 0;">未解决拆柜异常</span>
-                                {% endif %}
-                                {% if c.po_expired %}
-                                <span class="status-span-yellow" style="padding-top: 0; padding-bottom: 0;">PO失效</span>
-                                {% endif %}
-                            </td>
-                            <td class="td" style="max-width: 120px; word-break: break-all;">{{ c.fba_ids }}</td>
-                            <td class="td" style="max-width: 120px; word-break: break-all;">{{ c.ref_ids }}</td>
-                            <td class="td">{{ c.total_weight_lbs|floatformat:2 }}</td>
-                            <td class="td">{{ c.total_cbm|floatformat:2 }}</td>
-                            <td class="td">
-                                {% if c.label == "ACT" %}
-                                <span class="status-span-green-100">ACT</span>
-                                {{ c.total_n_pallet_act }}
-                                {% else %}
-                                    <span class="status-span-blue-100">EST</span>
-                                    {% if c.total_n_pallet_est < 1 %}
-                                    {{ 1 }}
-                                    {% elif c.total_n_pallet_est|modulo:1 >= 0.45 %}
-                                    {{ c.total_n_pallet_est|floor_division:1|add:1|floatformat:0 }}
-                                    {% else %}
-                                    {{ c.total_n_pallet_est|floor_division:1|floatformat:0 }}
-                                    {% endif %}
-                                {% endif %}
-                            </td>
-                        </tr>          
-                        {% endfor %}
-                        <tr id="table-summary">
-                            <td class="td" colspan="6"><b>汇总</b></td>
-                            <td class="td">{{ shipment.total_weight|floatformat:2 }}</td>
-                            <td class="td">{{ shipment.total_cbm|floatformat:2 }}</td>
-                            <td class="td">{{ shipment.total_pallet|floatformat:0 }}</td>
-                        </tr>
-                    </tbody>
-                </table>
-            </div>
-        </form>
+        </div>
     </div>
 </div>
 
@@ -416,6 +420,13 @@
         } else if (shipmentType == "外配/快递") {
             shipmentFormFTLLTL.remove();
         };
+        const destinationCells = document.querySelectorAll("#selected-packing-list-table td[name='po-destination']");
+        const destinationValues = Array.from(destinationCells, cell => cell.textContent.trim());
+        const allSame = destinationValues.every(value => value === destinationValues[0]);
+        if (!allSame) {
+            alert("请确认选中PO的目的仓是否一致！");
+            event.preventDefault();
+        };
     };
 
     function add_po_popup(button) {
@@ -441,11 +452,25 @@
 
     function edit_add_payload(button) {
         const checkBoxes = document.getElementsByName('is_shipment_added');
+        const destinationCells = document.querySelectorAll("#packing-list-table-popup td[name='po-destination']");
+        const existPODestination = document.querySelectorAll("#selected-packing-list-table td[name='po-destination']");
+        const allDestinations = Array.from(existPODestination, cell => cell.textContent.trim());
         for (let i = 0; i < checkBoxes.length; i+=2) {
             if (checkBoxes[i].checked) {
-                checkBoxes[i+1].disabled = true;
-            }
-        }
+                allDestinations.push(destinationCells[i/2].textContent.trim()); 
+            };
+        };
+        const allSame = allDestinations.every(value => value === allDestinations[0]);
+        if (!allSame) {
+            alert("请确认添加PO的目的仓与原PO是否一致！");
+            event.preventDefault();
+        } else {
+            for (let i = 0; i < checkBoxes.length; i+=2) {
+                if (checkBoxes[i].checked) {
+                    checkBoxes[i+1].disabled = true;
+                };
+            };
+        };
     };
 
     function filterPopupTable() {
