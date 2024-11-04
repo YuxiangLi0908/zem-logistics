@@ -467,6 +467,10 @@ class OrderCreation(View):
             await sync_to_async(PackingList.objects.filter(
                 container_number__container_number=container_number
             ).delete)()
+            #删除该柜号下的packinglist，也要对应删除该柜号的po_check
+            await sync_to_async(PoCheckEtaSeven.objects.filter(
+                container_number__container_number=container_number
+            ).delete)()
             pl_data = zip(
                 request.POST.getlist("product_name"),
                 request.POST.getlist("delivery_method"),

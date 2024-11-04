@@ -298,7 +298,7 @@ class PO(View):
                 except PoCheckEtaSeven.DoesNotExist:
                     #await sync_to_async(print)('表中没找到')
                     #if ("/" not in pl.fba_id) or ("/" not in pl.ref_id):  #听建单的同事说，亚马逊的是一定有fba和ref，沃尔玛的一定有ref
-                    if "/" not in pl.ref_id:      #所以如果ref_id没有，就是私人地址、UPS什么的
+                    if pl.ref_id is not None and "/" not in pl.ref_id:      #所以如果ref_id没有，就是私人地址、UPS什么的
                         #await sync_to_async(print)('需要进行拿约')
                         time_status = 0
                         if order.retrieval_id and order.retrieval_id.target_retrieval_timestamp:   #因为存在首次建表的情况，此时有的数据属于到港前一周，有的属于提柜前一天
