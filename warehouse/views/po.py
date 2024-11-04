@@ -155,31 +155,32 @@ class PO(View):
                 data_pairs = [(row['BOL'], row['shipping_mark'], row['PRO'], row['PO List (use , as separator) *'], row['is_valid']) for index, row in df.iterrows()]
             else:
                 print("Either 'PRO' or 'is_valid' column is not present in the DataFrame.")
-        for bol,mark,fba,ref,is_valid in data_pairs:
-            try:
-                if bol:
-                    #这里如果货柜表有重复会报错，应该不会有重复吧
-                    container = await sync_to_async(Container.objects.get)(container_number = bol)
-                    query = models.Q(container_number=container)
-                    if mark:
-                        query &= models.Q(shipping_mark=mark)
-                    elif fba:
-                        query &= models.Q(fba_id=fba)
-                    elif ref:
-                        query &= models.Q(ref_id=ref)
-                    pochecketaseven = await sync_to_async(PoCheckEtaSeven.objects.get)(query)
+            
+            for bol,mark,fba,ref,is_valid in data_pairs:
+                try:
+                    if bol:
+                        #这里如果货柜表有重复会报错，应该不会有重复吧
+                        container = await sync_to_async(Container.objects.get)(container_number = bol)
+                        query = models.Q(container_number=container)
+                        if mark:
+                            query &= models.Q(shipping_mark=mark)
+                        if fba:
+                            query &= models.Q(fba_id=fba)
+                        if ref:
+                            query &= models.Q(ref_id=ref)
+                        pochecketaseven = await sync_to_async(PoCheckEtaSeven.objects.get)(query)
 
-                    cn = pytz.timezone('Asia/Shanghai')
-                    current_time_cn = datetime.now(cn)
-                    if "eta" in time_code:
-                        pochecketaseven.last_eta_checktime = current_time_cn
-                        pochecketaseven.last_eta_status = is_valid == 1
-                    elif "retrieval" in time_code:
-                        pochecketaseven.last_retrieval_checktime = current_time_cn
-                        pochecketaseven.last_retrieval_status = is_valid == 1
-                    await sync_to_async(pochecketaseven.save)()
-            except PoCheckEtaSeven.DoesNotExist:
-                continue
+                        cn = pytz.timezone('Asia/Shanghai')
+                        current_time_cn = datetime.now(cn)
+                        if "eta" in time_code:
+                            pochecketaseven.last_eta_checktime = current_time_cn
+                            pochecketaseven.last_eta_status = True if is_valid.lower() == "yes" else False
+                        elif "retrieval" in time_code:
+                            pochecketaseven.last_retrieval_checktime = current_time_cn
+                            pochecketaseven.last_eta_status = True if is_valid.lower() == "yes" else False
+                        await sync_to_async(pochecketaseven.save)()
+                except PoCheckEtaSeven.DoesNotExist:
+                    continue
         return await self.handle_po_check_seven(request,time_code)
             
     async def handle_po_check_seven(self, request: HttpRequest, flag:str) -> dict[str, dict]:  
@@ -201,12 +202,15 @@ class PO(View):
             }
         elif "retrieval" in flag:
             #如果是PO查验--提柜前一天的，只展示未查验的
-            po_checks = await sync_to_async(PoCheckEtaSeven.objects.filter)(
+            po_checks = await sync_to_async(list)(PoCheckEtaSeven.objects.prefetch_related("container_number__order__retrieval_id")
+                                            .filter(
                 models.Q(time_status = False)&
                 models.Q(last_retrieval_checktime__isnull = True)&
-                models.Q(vessel_eta__lte = today+timedelta(days=7))
+                models.Q(vessel_eta__lte = today+timedelta(days=7))&
+                models.Q(container_number__order__retrieval_id__target_retrieval_timestamp__gte = today)&
+                models.Q(container_number__order__retrieval_id__target_retrieval_timestamp__lte = today)+timedelta(days=2))
             )
-            po_checks_list = await sync_to_async(list)(po_checks)         
+            po_checks_list = await sync_to_async(list)(po_checks)       
             context = {
                 "po_check":po_checks_list,
                 "upload_check_file": UploadFileForm(),
@@ -245,7 +249,6 @@ class PO(View):
             )
             po_checks = po_checks.order_by('-is_match')
             po_checks_list = await sync_to_async(list)(po_checks)       
-            await sync_to_async(print)('多少条柜子list',len(po_checks_list))  
             context = {
                 "po_check":po_checks_list,
                 "start_date": start_date,
@@ -298,7 +301,7 @@ class PO(View):
                 except PoCheckEtaSeven.DoesNotExist:
                     #await sync_to_async(print)('表中没找到')
                     #if ("/" not in pl.fba_id) or ("/" not in pl.ref_id):  #听建单的同事说，亚马逊的是一定有fba和ref，沃尔玛的一定有ref
-                    if pl.ref_id is not None and "/" not in pl.ref_id:      #所以如果ref_id没有，就是私人地址、UPS什么的
+                    if pl.ref_id is not None and "/" not in pl.ref_id and "" not in pl.ref_id:      #所以如果ref_id没有，就是私人地址、UPS什么的
                         #await sync_to_async(print)('需要进行拿约')
                         time_status = 0
                         if order.retrieval_id and order.retrieval_id.target_retrieval_timestamp:   #因为存在首次建表的情况，此时有的数据属于到港前一周，有的属于提柜前一天
