@@ -605,7 +605,7 @@ class Palletization(View):
                     barcode_content = f"{pl.get('container_number__container_number')}|{destination}-{i}|{customer_name}|{retrieval_date}"
                     my_barcode = barcode_class(barcode_content, writer = ImageWriter()) #将条形码转换为图像形式
                     buffer = io.BytesIO()   #创建缓冲区
-                    my_barcode.write(buffer)   #缓冲区存储图像
+                    my_barcode.write(buffer, options={"dpi": 600})   #缓冲区存储图像
                     buffer.seek(0)               
                     barcode_base64 = base64.b64encode(buffer.read()).decode('utf-8')  #编码
                     try:
