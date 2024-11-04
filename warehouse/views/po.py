@@ -226,8 +226,8 @@ class PO(View):
         elif "list" in flag:
             start_date = request.POST.get("start_date")
             end_date = request.POST.get("end_date")
-            start_date = (datetime.now().date() + timedelta(days=-15)).strftime('%Y-%m-%d') if not start_date else start_date
-            end_date = (datetime.now().date() + timedelta(days=15)).strftime('%Y-%m-%d') if not end_date else end_date
+            start_date = datetime.now().date().strftime('%Y-%m-%d') if not start_date else start_date
+            end_date = (datetime.now().date() + timedelta(days=7)).strftime('%Y-%m-%d') if not end_date else end_date
             #全部
             query1 = models.Q(last_retrieval_checktime__isnull = False) & models.Q(last_retrieval_status = False)
             query2 = models.Q(last_retrieval_checktime__isnull = True) & models.Q(last_eta_checktime__isnull = False) & models.Q(last_eta_status = False)
