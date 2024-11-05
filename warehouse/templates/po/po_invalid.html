@@ -5,6 +5,20 @@
 <div style="max-height: 100%; max-width: 100%;">
     <div id="po-check-invalid-div"><b>PO失效</b></div>
 </div>
+<form method="post" action="" onsubmit="showLoadingBar()">
+    {% csrf_token %}
+    <div>
+        <b style="margin-right: 5px;">所属仓:</b>
+        <select name="area">
+            {% for k, v in area_options.items %}
+            <option value="{{ v }}" {% if k == selected_area %}selected{% endif %}>{{ k }}</option>
+            {% endfor %}
+        </select>
+        <input type="hidden" name="step" value="invalid_warehouse">
+        <button type="submit">确认</button>
+    </div>
+</form>
+{% if po_check %}
 {% load static custom_filters %}
     <form method="post" style="width: 100%;">
         {% csrf_token %}
@@ -41,10 +55,18 @@
                                 <input type="text" id="notifySearch" placeholder="是否通知客户..." oninput="filterTable()" size="13" style="font-size: 11px;">
                             </th>
                             <th class="th"></th>
-                            <th class="th"></th>
-                            <th class="th"></th>
-                            <th class="th"></th>   
-                            <th class="th"></th>
+                            <th class="th">
+                                <input type="text" id="markSearch" placeholder="唛头..." oninput="filterTable()" size="13" style="font-size: 11px;">
+                            </th>
+                            <th class="th">
+                                <!--<input type="text" id="fbaSearch" placeholder="FBA..." oninput="filterTable()" size="13" style="font-size: 11px;">-->
+                            </th>
+                            <th class="th">
+                                <!--<input type="text" id="refSearch" placeholder="REF..." oninput="filterTable()" size="13" style="font-size: 11px;">-->
+                            </th>   
+                            <th class="th">
+                                <!--<input type="text" id="noteSearch" placeholder="操作指令..." oninput="filterTable()" size="13" style="font-size: 11px;">-->
+                            </th>
                         </tr>
                     </thead>
                     <tbody id="palletization-container">                       
@@ -92,8 +114,9 @@
         <input type="hidden" name="step" value="po_invalid_save">
         <button type="submit" onclick="confirmSubmit(this)" class="btn btn-primary" style="width: 100px; height: 35px;">保存</button>
     </form>
-
+{% endif %}
 <script>
+    console.log('控制台');
     let notifyChanges = {};
     let notifyActives = {};
     document.querySelectorAll('#active-td input[type="checkbox"]').forEach((checkbox, index) => {
@@ -186,21 +209,23 @@
         }
     };
     function filterTable() {
-        var containerInput, destinationInput, notifyInput, customerInput;
-        var containerFilter, destinationFilter, notifyFilter, customerFilter;
+        var containerInput, destinationInput, notifyInput, customerInput, markInput;
+        var containerFilter, destinationFilter, notifyFilter, customerFilter, markFilter;
         var table, tbody, tr;
-        var containerTd, destinationTd, notifyTd, customerTd;
+        var containerTd, destinationTd, notifyTd, customerTd, markTd;
         var i, j;
-        var containerTxtValue, destinationTxtValue, notifyTxtValue, customerTxtValue;
+        var containerTxtValue, destinationTxtValue, notifyTxtValue, customerTxtValue, markTxtValue;
         containerInput = document.getElementById("containerSearch");
         customerInput = document.getElementById("customerSearch");
         destinationInput = document.getElementById("destinationSearch");
         notifyInput = document.getElementById("notifySearch");
+        markInput = document.getElementById("markSearch");
 
         containerFilter = containerInput.value.toUpperCase();
         customerFilter = customerInput.value.toUpperCase();
         destinationFilter = destinationInput.value.toUpperCase();
         notifyFilter = notifyInput.value.toUpperCase();
+        markFilter = markInput.value.toUpperCase();
 
         table = document.getElementById("check-invalid");
         tbody = table.getElementsByTagName("tbody")[0];
@@ -212,14 +237,17 @@
             destinationTd = tr[i].getElementsByTagName("td")[3];
             notifyTd = tr[i].getElementsByTagName("td")[4];
             customerTd = tr[i].getElementsByTagName("td")[1];
-            if (containerTd && destinationTd && notifyTd & customerTd) {
+            markTd = tr[i].getElementsByTagName("td")[6];
+            if (containerTd && destinationTd && notifyTd && customerTd && markTd) {
                 customerTxtValue = customerTd.textContent || customerTd.innerText;
                 containerTxtValue = containerTd.textContent || containerTd.innerText;
                 destinationTxtValue = destinationTd.textContent || destinationTd.innerText;
                 notifyTxtValue = notifyTd.textContent || notifyTd.innerText;
+                markTxtValue = markTd.textContent || markTd.innerText;
                 var destinationDisplayStyle = destinationTxtValue.toUpperCase().indexOf(destinationFilter) > -1? "" : "none";
                 var notifyDisplayStyle = notifyTxtValue.toUpperCase().indexOf(notifyFilter) > -1? "" : "none";
                 var customerDisplayStyle = customerTxtValue.toUpperCase().indexOf(customerFilter) > -1? "" : "none";
+                var markDisplayStyle = markTxtValue.toUpperCase().indexOf(markFilter) > -1? "" : "none";
                 var containerDisplayStyle = "none";
                 if (parts.length > 0) {
                     for (j = 0; j < parts.length; j++) {
@@ -231,7 +259,7 @@
                 } else {
                     containerDisplayStyle = containerTxtValue.toUpperCase().indexOf(containerFilter) > -1? "" : "none";
                 }
-                tr[i].style.display = containerDisplayStyle === "" && customerDisplayStyle === "" && notifyDisplayStyle === "" && destinationDisplayStyle === ""? "" : "none";
+                tr[i].style.display = containerDisplayStyle === "" && customerDisplayStyle === "" && notifyDisplayStyle === ""  && markDisplayStyle === "" && destinationDisplayStyle === ""? "" : "none";
             }
         }
     };

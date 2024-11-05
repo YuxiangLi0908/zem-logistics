@@ -32,21 +32,22 @@ class PO(View):
     template_po_check_retrieval = "po/po_check_retrieval.html"
     template_po_invalid = "po/po_invalid.html"
     template_po_list = "po/po_list.html"
+    area_options = {"NJ": "NJ", "SAV": "SAV"}
 
     def get(self, request: HttpRequest) -> HttpResponse:
         step = request.GET.get("step")
         print('GET',step)
         if step == "po_check_eta": #到港前一周
-            context = async_to_sync(self.handle_po_check_seven)(request,"eta")
+            context = {"area_options": self.area_options}
             return render(request, self.template_po_check_eta, context)
         elif step == "po_check_retrieval":#提柜前一天
-            context = async_to_sync(self.handle_po_check_seven)(request,"retrieval")
+            context = {"area_options": self.area_options}
             return render(request, self.template_po_check_retrieval, context)
         elif step == "po_invalid":#PO失效
-            context = async_to_sync(self.handle_po_check_seven)(request,"invalid")
+            context = {"area_options": self.area_options}
             return render(request, self.template_po_invalid, context)
         elif step == "po_list":#PO总表
-            context = async_to_sync(self.handle_po_check_seven)(request,"list")
+            context = {"area_options": self.area_options}
             return render(request, self.template_po_list, context)
         else:
             current_date = datetime.now().date()
@@ -89,6 +90,18 @@ class PO(View):
             async_to_sync(self.handle_search_eta_seven)(request)
             context = async_to_sync(self.handle_po_check_seven)(request,"eta")
             return render(request, self.template_po_check_eta, context)
+        elif step == "eta_warehouse":
+            context = async_to_sync(self.handle_po_check_seven)(request,"eta")
+            return render(request, self.template_po_check_eta, context)
+        elif step == "retrieval_warehouse":
+            context = async_to_sync(self.handle_po_check_seven)(request,"retrieval")
+            return render(request, self.template_po_check_retrieval, context)
+        elif step == "invalid_warehouse":
+            context = async_to_sync(self.handle_po_check_seven)(request,"invalid")
+            return render(request, self.template_po_invalid, context)
+        elif step == "list_warehouse":
+            context = async_to_sync(self.handle_po_check_seven)(request,"list")
+            return render(request, self.template_po_list, context)
     
     async def handle_upload_po_invalid_post(self, request: HttpRequest) -> tuple[Any]:
         notifyChanges = request.POST.get("notifyChanges")
@@ -153,6 +166,7 @@ class PO(View):
             df = pd.read_csv(file)
             if 'shipping_mark' in df.columns and 'is_valid' in df.columns:
                 data_pairs = [(row['BOL'], row['shipping_mark'], row['PRO'], row['PO List (use , as separator) *'], row['is_valid']) for index, row in df.iterrows()]
+                print(data_pairs)
             else:
                 print("Either 'PRO' or 'is_valid' column is not present in the DataFrame.")
             
@@ -162,12 +176,13 @@ class PO(View):
                         #这里如果货柜表有重复会报错，应该不会有重复吧
                         container = await sync_to_async(Container.objects.get)(container_number = bol)
                         query = models.Q(container_number=container)
-                        if mark:
+                        if not pd.isnull(mark) and mark != '':
                             query &= models.Q(shipping_mark=mark)
-                        if fba:
+                        if not pd.isnull(fba) and fba != '':
                             query &= models.Q(fba_id=fba)
-                        if ref:
+                        if not pd.isnull(ref) and ref != '':
                             query &= models.Q(ref_id=ref)
+                        await sync_to_async(print)(query)
                         pochecketaseven = await sync_to_async(PoCheckEtaSeven.objects.get)(query)
 
                         cn = pytz.timezone('Asia/Shanghai')
@@ -194,44 +209,62 @@ class PO(View):
     async def handle_po_check_seven(self, request: HttpRequest, flag:str) -> dict[str, dict]:  
         today = datetime.now()
         if "eta" in flag:
-            #如果是PO查验--到港前一周的，只展示未查验的
-            po_checks = await sync_to_async(PoCheckEtaSeven.objects.filter)(
+            query = (
                 models.Q(last_eta_checktime__isnull = True)&
                 models.Q(vessel_eta__lte = today+timedelta(days=7))&
                 models.Q(vessel_eta__gte = today)
             )
+            if request.POST.get("area"):
+                area = request.POST.get("area")
+                query &= models.Q(container_number__order__retrieval_id__retrieval_destination_area=area)
+            #如果是PO查验--到港前一周的，只展示未查验的
+            po_checks = await sync_to_async(PoCheckEtaSeven.objects.filter)(query)
             po_checks_list = await sync_to_async(list)(po_checks)  
             #先展示未查验的，然后按照vessel_eta排序        
             po_checks_list.sort(key = lambda po: po.vessel_eta)
             context = {
                 "po_check":po_checks_list,
                 "upload_check_file": UploadFileForm(),
+                "selected_area": area,
+                "area_options": self.area_options,
             }
         elif "retrieval" in flag:
-            #如果是PO查验--提柜前一天的，只展示未查验的
-            po_checks = await sync_to_async(list)(PoCheckEtaSeven.objects.prefetch_related("container_number__order__retrieval_id")
-                                            .filter(
+            query = (
                 models.Q(last_retrieval_checktime__isnull = True)&
                 models.Q(vessel_eta__lte = today+timedelta(days=7))&
                 models.Q(container_number__order__retrieval_id__target_retrieval_timestamp__gte = today)&
                 models.Q(container_number__order__retrieval_id__target_retrieval_timestamp__lte = today+timedelta(days=2))
-            ))
+            )
+            if request.POST.get("area"):
+                area = request.POST.get("area")
+                query &= models.Q(container_number__order__retrieval_id__retrieval_destination_area=area)
+            #如果是PO查验--提柜前一天的，只展示未查验的
+            po_checks = await sync_to_async(list)(PoCheckEtaSeven.objects.prefetch_related("container_number__order__retrieval_id")
+                                            .filter(query)
+            )
             po_checks_list = await sync_to_async(list)(po_checks)       
             context = {
                 "po_check":po_checks_list,
                 "upload_check_file": UploadFileForm(),
+                "selected_area": area,
+                "area_options": self.area_options,
             }
         elif "invalid" in flag:
             #如果提柜前一天状态为失效，或者提柜前一天没有查，到港前一周查了是失效
             query1 = models.Q(last_retrieval_checktime__isnull = False) & models.Q(last_retrieval_status = False)
             query2 = models.Q(last_retrieval_checktime__isnull = True) & models.Q(last_eta_checktime__isnull = False) & models.Q(last_eta_status = False)
             query = query1 | query2
-
+            if request.POST.get("area"):
+                area = request.POST.get("area")
+                query &= models.Q(container_number__order__retrieval_id__retrieval_destination_area=area)
+            print('失效的查询',query)
             po_checks = await sync_to_async(PoCheckEtaSeven.objects.filter)(query)
             po_checks_list = await sync_to_async(list)(po_checks)
             po_checks_list.sort(key = lambda po: po.is_notified)
             context = {
                 "po_check":po_checks_list,
+                "selected_area": area,
+                "area_options": self.area_options,
             }
         elif "list" in flag:
             start_date = request.POST.get("start_date")
@@ -242,6 +275,9 @@ class PO(View):
             query1 = models.Q(last_retrieval_checktime__isnull = False) & models.Q(last_retrieval_status = False)
             query2 = models.Q(last_retrieval_checktime__isnull = True) & models.Q(last_eta_checktime__isnull = False) & models.Q(last_eta_status = False)
             query = query1 | query2
+            if request.POST.get("area"):
+                area = request.POST.get("area")
+                query &= models.Q(container_number__order__retrieval_id__retrieval_destination_area=area)
             #1、按ETA去筛选记录，2、将失效的记录排在前面
             po_checks = await sync_to_async(PoCheckEtaSeven.objects.filter)(
                 models.Q(vessel_eta__range=(start_date,end_date))
@@ -259,6 +295,8 @@ class PO(View):
                 "po_check":po_checks_list,
                 "start_date": start_date,
                 "end_date": end_date,
+                "selected_area": area,
+                "area_options": self.area_options,
             }
         
         return context

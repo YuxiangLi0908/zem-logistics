@@ -18,7 +18,20 @@
         </div>
     </form>
 </div>
-
+<form method="post" action="" onsubmit="showLoadingBar()">
+    {% csrf_token %}
+    <div>
+        <b style="margin-right: 5px;">所属仓:</b>
+        <select name="area">
+            {% for k, v in area_options.items %}
+            <option value="{{ v }}" {% if k == selected_area %}selected{% endif %}>{{ k }}</option>
+            {% endfor %}
+        </select>
+        <input type="hidden" name="step" value="eta_warehouse">
+        <button type="submit">确认</button>
+    </div>
+</form>
+{% if po_check %}
 {% load static custom_filters %}
     <form method="post" style="width: 100%;">
         {% csrf_token %}
@@ -114,7 +127,7 @@
         <button type="submit" class="btn btn-primary" style="width: 100px; height: 35px;">刷新数据</button>
     </form>
     {% endif %}
-
+{% endif %}
 <script>
     function confirmSubmit() {
         const checkBoxes = document.getElementsByName('is_selected');
