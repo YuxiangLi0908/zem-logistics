@@ -282,7 +282,7 @@
         const selectedCells = [];
         for (let i = 0; i < checkBoxes.length; i+=2) {
             if (checkBoxes[i].checked) {
-                selectedCells.push(destinationCells[i/2].textContent.trim().replace('沃尔玛','').replace('-','')); 
+                selectedCells.push(destinationCells[i/2].textContent.trim().replace("沃尔玛", "").replace("-", "")); 
             };
         };
         const allSame = selectedCells.every(value => value === selectedCells[0]);

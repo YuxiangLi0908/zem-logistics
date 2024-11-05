@@ -8,7 +8,7 @@
         <input type="text" name="fleet_number" value="{{ fleet_number }}">
         <b style="margin-right: 5px;">预约批次:</b>
         <input type="text" name="batch_number" value="{{ batch_number }}">
-        <input type="hidden" name="step" value="fleet_delivery_search">
+        <input type="hidden" name="step" value="fleet_pod_search">
         <button type="submit">确认</button>
     </div>
 </form>
@@ -23,16 +23,16 @@
         <thead>
             <tr style="position: sticky; top: 0;">
                 <th class="th">出库批次</th>
+                <th class="th">预约批次</th>
+                <th class="th">预约号</th>
                 <th class="th">Carrier</th>
                 <th class="th">预约发车日期</th>
                 <th class="th">实际发车日期</th>
                 <th class="th">总重lbs</th>
                 <th class="th">总CBM</th>
                 <th class="th">总卡板数</th>
-                <th class="th">一提两卸</th>
                 <th class="th">备注</th>
                 <th class="th">POD上传</th>
-                <th class="th">实际送达时间</th>
             </tr>
         </thead>
         <tbody>
@@ -40,33 +40,29 @@
             <form id="pod-form" method="post" enctype="multipart/form-data" action="" style="overflow-x: auto; max-width: 100%; max-height: 98%; overflow-y: scroll;">
                 {% csrf_token %}
                 <tr>
-                    <td class="td" style="max-width: 120px; word-break: break-all;">{{ f.fleet_number }}</td>
-                    <td class="td">{{ f.carrier }}</td>
-                    <td class="td">{{ f.appointment_datetime|date:"M-j" }}</td>
+                    <td class="td" style="max-width: 120px; word-break: break-all;">{{ f.fleet_number.fleet_number }}</td>
+                    <td class="td">{{ f.shipment_batch_number }}</td>
+                    <td class="td">{{ f.appointment_id|default_if_none:"" }}</td>
+                    <td class="td">{{ f.carrier|default_if_none:"" }}</td>
+                    <td class="td">{{ f.fleet_number.appointment_datetime|date:"M-j" }}</td>
                     <td class="td">
                         {% if f.arrival_status == "past_due" %}
-                        <span class="status-span-red">{{ f.departured_at|date:"M-j" }}</span>
+                        <span class="status-span-red">{{ f.fleet_number.departured_at|date:"M-j" }}</span>
                         {% elif f.arrival_status == "need_attention" %}
-                        <span class="status-span-yellow">{{ f.departured_at|date:"M-j" }}</span>
+                        <span class="status-span-yellow">{{ f.fleet_number.departured_at|date:"M-j" }}</span>
                         {% else %}
-                        {{ f.departured_at|date:"M-j" }}
+                        {{ f.fleet_number.departured_at|date:"M-j" }}
                         {% endif %}
                     </td>
-                    <td class="td">{{ f.total_weight|floatformat:2 }}</td>
-                    <td class="td">{{ f.total_cbm|floatformat:2 }}</td>
-                    <td class="td">{{ f.total_pallet|floatformat:0 }}</td>
+                    <td class="td">{{ f.shipped_weight|floatformat:2 }}</td>
+                    <td class="td">{{ f.shipped_cbm|floatformat:2 }}</td>
+                    <td class="td">{{ f.shipped_pallet|floatformat:0 }}</td>
+                    <td class="td" style="max-width: 120px; word-break: break-all;">{{ f.note|default_if_none:"" }}</td>
                     <td class="td">
-                        {% if f.multipule_destination %}
-                        <i class="bi bi-check-square-fill" style="color: rgba(34, 153, 84, 0.873); font-size: 15px"></i>
-                        {% endif %}
-                    </td>
-                    <td class="td" style="max-width: 120px; word-break: break-all;">{{ f.note }}</td>
-                    <td class="td">{{ upload_file_form.file }}</td>
-                    <td class="td">
-                        <input type="datetime-local" name="arrived_at" style="font-size: 13px;" required>
-                        <input type="hidden" name="step" value="confirm_delivery">
-                        <input type="hidden" name="fleet_number" value="{{ f.fleet_number }}">
-                        <button type="submit" class="btn btn-success" style="font-size: 11px;">确认送达</button>
+                        {{ upload_file_form.file }}
+                        <input type="hidden" name="step" value="pod_upload">
+                        <input type="hidden" name="shipment_batch_number" value="{{ f.shipment_batch_number }}">
+                        <button type="submit" class="btn btn-success" style="font-size: 11px;">上传</button>
                     </td>
                 </tr>            
             </form>    

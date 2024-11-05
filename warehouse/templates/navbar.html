@@ -60,7 +60,7 @@
                                 <div class="nested-dropdown-content">
                                     <a href="{% url 'schedule_shipment' %}?step=appointment_management">备约</a>
                                     <a href="{% url 'schedule_shipment' %}">预约出库</a>
-                                    <!-- <a href="#">预约异常</a> -->
+                                    <a href="#">异常预约</a>
                                 </div>
                             </div>
                             <div class="nested-dropdown">
@@ -69,7 +69,8 @@
                                     <a href="{% url 'fleet_management' %}?step=fleet">排车</a>
                                     <!-- <a href="#">车次异常</a> -->
                                     <a href="{% url 'outbound' %}?step=outbound">出库管理</a>
-                                    <a href="{% url 'pod' %}?step=delivery_and_pod">确认送达</a>
+                                    <a href="{% url 'outbound' %}?step=delivery_and_pod">确认送达</a>
+                                    <a href="{% url 'pod' %}?step=pod_upload">POD上传</a>
                                 </div>
                             </div>
                             <div class="nested-dropdown">

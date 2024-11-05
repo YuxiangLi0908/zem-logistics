@@ -243,7 +243,7 @@
 
         const selectedValue = document.getElementById(originSelectValue).value;
         const destinationCells = document.querySelectorAll("#selected-packing-list-table td[name='po-destination']");
-        const destinationValues = Array.from(destinationCells, cell => cell.textContent.trim().replace('沃尔玛','').replace('-',''));
+        const destinationValues = Array.from(destinationCells, cell => cell.textContent.trim().replace("沃尔玛", "").replace("-", ""));
         const allSame = destinationValues.every(value => value === destinationValues[0]);
         console.log(destinationValues)
         if (!allSame) {
@@ -295,7 +295,7 @@
             const date = new Date(unusedAppointment[appointmentId]['shipment_appointment']);
             const formattedDate = date.toISOString().slice(0, 16);
             appointmentTimeInput.value = formattedDate;
-            if (destinationInput.value.replace('沃尔玛','').replace('-','') != unusedAppointment[appointmentId]['destination'].replace('沃尔玛','').replace('-','')) {
+            if (destinationInput.value.replace("沃尔玛", "").replace("-", "") != unusedAppointment[appointmentId]['destination'].replace("沃尔玛", "").replace("-", "")) {
                 alert("PO目的地(" + destinationInput.value + ")与预约(" + appointmentId + ")目的地(" + unusedAppointment[appointmentId]['destination']+ ")不一致！");
                 destinationCheck.value = false;
             };

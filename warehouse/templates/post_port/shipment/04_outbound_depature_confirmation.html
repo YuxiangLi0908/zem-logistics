@@ -139,8 +139,8 @@
                                 </a>
                             </td>
                             <td class="td">{{ s.shipment_batch_number__appointment_id }}</td>
-                            <td class="td">{{ s.packing_list__container_number__container_number }}</td>
-                            <td class="td">{{ s.packing_list__destination }}</td>
+                            <td class="td">{{ s.container_number__container_number }}</td>
+                            <td class="td">{{ s.destination }}</td>
                             <td class="td">{{ s.shipment_batch_number__shipment_appointment|date:"Y-m-d" }} {{ s.shipment_batch_number__shipment_appointment|time:"H:i" }}</td>
                             <td class="td" style="max-width: 120px; word-break: break-all;">{{ s.shipment_batch_number__note }}</td>
                             <td class="td">
