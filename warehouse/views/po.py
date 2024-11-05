@@ -320,8 +320,6 @@ class PO(View):
                 PoCheckEtaSeven(**p) for p in po_checks
             )
         return await self.handle_po_check_seven(request,flag)
-        
-
 
     def handle_search_post(self, request: HttpRequest) -> dict[str, Any]:
         warehouse = None if request.POST.get("name")=="N/A(直送)" else request.POST.get("name")

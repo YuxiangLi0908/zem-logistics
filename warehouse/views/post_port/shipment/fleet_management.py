@@ -657,35 +657,22 @@ class FleetManagement(View):
         return await self.handle_outbound_warehouse_search_post(request)
     
     async def handle_confirm_delivery_post(self, request: HttpRequest) -> tuple[str, dict[str, Any]]:
-        conn = await self._get_sharepoint_auth()
-        pod_form = UploadFileForm(request.POST, request.FILES)
         arrived_at = request.POST.get("arrived_at")
         fleet_number = request.POST.get("fleet_number")
         fleet = await sync_to_async(Fleet.objects.get)(fleet_number=fleet_number)
         shipment = await sync_to_async(list)(
             Shipment.objects.filter(fleet_number__fleet_number=fleet_number)
         )
-        if pod_form.is_valid():
-            file = request.FILES['file']
-            file_extension = os.path.splitext(file.name)[1]
-            file_path = os.path.join(SP_DOC_LIB, f"{SYSTEM_FOLDER}/pod/{APP_ENV}")
-            sp_folder = conn.web.get_folder_by_server_relative_url(file_path)
-            resp = sp_folder.upload_file(f"{fleet_number}{file_extension}", file).execute_query()
-            link = resp.share_link(SharingLinkKind.OrganizationView).execute_query().value.to_json()["sharingLinkInfo"]["Url"]
-        else:
-            raise ValueError("invalid file uploaded.")
         fleet.arrived_at = arrived_at
-        fleet.pod_link = link
         updated_shipment = []
         for s in shipment:
             s.arrived_at = arrived_at
             s.is_arrived = True
-            s.pod_link = link
             updated_shipment.append(s)
         await sync_to_async(fleet.save)()
         await sync_to_async(Shipment.objects.bulk_update)(
             updated_shipment,
-            ["arrived_at", "is_arrived", "pod_link"]
+            ["arrived_at", "is_arrived"]
         )
         return await self.handle_delivery_and_pod_get(request)
 
