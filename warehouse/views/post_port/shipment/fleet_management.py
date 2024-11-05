@@ -168,8 +168,8 @@ class FleetManagement(View):
             ).annotate(
                 str_plt_id=Cast("pallet_id", CharField()),
             ).values(
-                "shipment_batch_number__shipment_batch_number", "packing_list__container_number__container_number", 
-                "packing_list__destination", "shipment_batch_number__appointment_id", "shipment_batch_number__shipment_appointment",
+                "shipment_batch_number__shipment_batch_number", "container_number__container_number", 
+                "destination", "shipment_batch_number__appointment_id", "shipment_batch_number__shipment_appointment",
                 "shipment_batch_number__note",
             ).annotate(
                 plt_ids=StringAgg("str_plt_id", delimiter=",", distinct=True, ordering="str_plt_id"),
