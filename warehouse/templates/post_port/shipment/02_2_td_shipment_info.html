@@ -61,7 +61,7 @@
                     </thead>
                     <tbody>
                         <tr>
-                            <td class="td"><input type="text" name="appointment_id" value="{{ shipment.appointment_id }}" style="font-size: 13px;" required></td>
+                            <td class="td"><input type="text" name="appointment_id" value="{{ shipment.appointment_id }}" style="font-size: 13px;"></td>
                             <td class="td"><input type="datetime-local" name="shipment_appointment" value="{{ shipment.shipment_appointment|date:'Y-m-d\\TH:i'  }}" style="font-size: 13px;" required></td>
                         </tr>
                     </tbody>
@@ -426,6 +426,7 @@
         if (!allSame) {
             alert("请确认选中PO的目的仓是否一致！");
             event.preventDefault();
+            return
         };
     };
 
