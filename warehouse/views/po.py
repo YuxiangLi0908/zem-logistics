@@ -175,9 +175,17 @@ class PO(View):
                         if "eta" in time_code:
                             pochecketaseven.last_eta_checktime = current_time_cn
                             pochecketaseven.last_eta_status = True if is_valid.lower() == "yes" else False
+                            #如果要撤销查询，隐藏方法
+                            if  "restore" in is_valid:
+                               pochecketaseven.last_eta_checktime = None
+                               pochecketaseven.last_eta_status = False
+                               
                         elif "retrieval" in time_code:
                             pochecketaseven.last_retrieval_checktime = current_time_cn
-                            pochecketaseven.last_eta_status = True if is_valid.lower() == "yes" else False
+                            pochecketaseven.last_retrieval_status = True if is_valid.lower() == "yes" else False
+                            if  "restore" in is_valid:
+                               pochecketaseven.last_retrieval_checktime = None
+                               pochecketaseven.last_retrieval_status = False
                         await sync_to_async(pochecketaseven.save)()
                 except PoCheckEtaSeven.DoesNotExist:
                     continue
@@ -188,7 +196,6 @@ class PO(View):
         if "eta" in flag:
             #如果是PO查验--到港前一周的，只展示未查验的
             po_checks = await sync_to_async(PoCheckEtaSeven.objects.filter)(
-                models.Q(time_status = True)&
                 models.Q(last_eta_checktime__isnull = True)&
                 models.Q(vessel_eta__lte = today+timedelta(days=7))&
                 models.Q(vessel_eta__gte = today)
@@ -204,7 +211,6 @@ class PO(View):
             #如果是PO查验--提柜前一天的，只展示未查验的
             po_checks = await sync_to_async(list)(PoCheckEtaSeven.objects.prefetch_related("container_number__order__retrieval_id")
                                             .filter(
-                models.Q(time_status = False)&
                 models.Q(last_retrieval_checktime__isnull = True)&
                 models.Q(vessel_eta__lte = today+timedelta(days=7))&
                 models.Q(container_number__order__retrieval_id__target_retrieval_timestamp__gte = today)&
