@@ -16,6 +16,20 @@
         <button id="submit-btn" type="submit" class="btn btn-primary" style="width: 100px; height: 35px; margin-left: 20px;">查询</button>
     </div>
 </form>
+<form method="post" action="" onsubmit="showLoadingBar()">
+    {% csrf_token %}
+    <div>
+        <b style="margin-right: 5px;">所属仓:</b>
+        <select name="area">
+            {% for k, v in area_options.items %}
+            <option value="{{ v }}" {% if k == selected_area %}selected{% endif %}>{{ k }}</option>
+            {% endfor %}
+        </select>
+        <input type="hidden" name="step" value="list_warehouse">
+        <button type="submit">确认</button>
+    </div>
+</form>
+{% if po_check %}
 {% load static custom_filters %}
     <form method="post" style="width: 100%;">
         {% csrf_token %}
@@ -37,7 +51,8 @@
                             <th>fba_id</th>
                             <th>ref_id</th>   
                             <th>到港前一周校验</th>
-                            <th>提柜前一天校验</th>                       
+                            <th>提柜前一天校验</th>   
+                            <th>操作指令</th>                       
                         </tr>
                         <tr style="position: sticky; top: 28px;">
                             <th class="th" style="max-width: 5%; min-width: 10px; text-align: center;">
@@ -52,6 +67,7 @@
                             <th class="th">
                                 <input type="text" id="statusSearch" placeholder="是否失效" oninput="filterTable()" size="13" style="font-size: 11px;">
                             </th>
+                            <th class="th"></th>
                             <th class="th"></th>
                             <th class="th"></th>
                             <th class="th"></th>
@@ -108,7 +124,10 @@
                                     {% endif %}
                                 {% else %}--
                                 {% endif %}
-                            </td>              
+                            </td>      
+                            <td>
+                                {{po.handling_method}}
+                            </td>        
                         </tr>
                         {% endfor %}
                     </tbody>
@@ -116,7 +135,7 @@
             </div>
         </div>
     </form>
-
+{% endif %}
 <script>
     function confirmSubmit() {
         const checkBoxes = document.getElementsByName('is_selected');
