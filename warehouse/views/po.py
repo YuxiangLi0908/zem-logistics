@@ -208,8 +208,8 @@ class PO(View):
                 models.Q(last_retrieval_checktime__isnull = True)&
                 models.Q(vessel_eta__lte = today+timedelta(days=7))&
                 models.Q(container_number__order__retrieval_id__target_retrieval_timestamp__gte = today)&
-                models.Q(container_number__order__retrieval_id__target_retrieval_timestamp__lte = today)+timedelta(days=2))
-            )
+                models.Q(container_number__order__retrieval_id__target_retrieval_timestamp__lte = today+timedelta(days=2))
+            ))
             po_checks_list = await sync_to_async(list)(po_checks)       
             context = {
                 "po_check":po_checks_list,
