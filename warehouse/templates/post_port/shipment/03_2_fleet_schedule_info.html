@@ -18,7 +18,7 @@
                     <input type="hidden" name="step" value="update_fleet">
                     <input type="hidden" name="fleet_number" value="{{ fleet.fleet_number }}">
                     <input type="hidden" name="warehouse" value="{{ warehouse }}">
-                    <button type="submit" onclick="confirmSubmit()" class="btn btn-primary" style="font-size: 11px;">更新出库批次</button>
+                    <button type="submit" onclick="checkFleetForm()" class="btn btn-primary" style="font-size: 11px;">更新出库批次</button>
          
                 </div>
             </div>
@@ -31,7 +31,13 @@
                 </thead>
                 <tbody>
                     <tr>
-                        <td class="td"><input type="text" name="carrier" value="{{ fleet.carrier }}" style="font-size: 13px;"></td>
+                        <td class="td">
+                            <select name="carrier" style="font-size: 13px;">
+                                {% for k, v in carrier_options.items %}
+                                <option value="{{ v }}" {% if k == fleet.carrier %}selected{% endif %}>{{ k }}</option>
+                                {% endfor %}
+                            </select>
+                        </td>
                         <td class="td"><input type="text" name="third_party_address" value="{% if fleet.third_party_address %}{{ fleet.third_party_address }}{% endif %}" style="font-size: 13px;"></td>
                     </tr>
                 </tbody>
@@ -132,5 +138,14 @@
     };
 
     toggleAllCheckboxes();
+
+    function checkFleetForm() {
+        const carrier = document.querySelector('select[name="carrier"]').value;
+        if (!carrier) {
+            alert('请选择carrier！');
+            event.preventDefault();
+            return;
+        };
+    };
 </script>
 {% endblock %}

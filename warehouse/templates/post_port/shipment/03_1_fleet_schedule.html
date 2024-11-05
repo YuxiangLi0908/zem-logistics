@@ -19,7 +19,7 @@
                     <input type="hidden" name="fleet_data" value="{{ fleet_data }}">
                     <input type="hidden" name="selected_ids" value="{{ shipment_ids }}">
                     <input type="hidden" name="warehouse" value="{{ warehouse }}">
-                    <button type="submit" onclick="confirmSubmit()" class="btn btn-primary" style="font-size: 11px;">确认</button>
+                    <button type="submit" class="btn btn-primary" style="font-size: 11px;" onclick="checkFleetForm()">确认</button>
          
                 </div>
             </div>
@@ -32,7 +32,13 @@
                 </thead>
                 <tbody>
                     <tr>
-                        <td class="td"><input type="text" name="carrier" style="font-size: 13px;" required></td>
+                        <td class="td">
+                            <select name="carrier" style="font-size: 13px;">
+                                {% for k, v in carrier_options.items %}
+                                <option value="{{ v }}">{{ k }}</option>
+                                {% endfor %}
+                            </select>
+                        </td>
                         <td class="td"><input type="text" name="third_party_address" style="font-size: 13px;"></td>
                     </tr>
                 </tbody>
@@ -133,5 +139,14 @@
     };
 
     toggleAllCheckboxes();
+
+    function checkFleetForm() {
+        const carrier = document.querySelector('select[name="carrier"]').value;
+        if (!carrier) {
+            alert('请选择carrier！');
+            event.preventDefault();
+            return;
+        };
+    };
 </script>
 {% endblock %}
