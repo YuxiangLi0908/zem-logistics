@@ -148,28 +148,13 @@ def export_po_check(request: HttpRequest) -> HttpResponse:
             "container_number", "pallet"
             ).filter(
                 id__in=ids).values(
-        'shipping_mark', 'fba_id', 'ref_id','address','zipcode','destination','delivery_method',
+        'shipping_mark', 'fba_id', 'ref_id','address','zipcode',
         'container_number__container_number',
-        ).annotate(
-        total_pcs=Sum(
+        ).annotate(total_pcs=Sum(
             Case(
                 When(pallet__isnull=True, then=F("pcs")),
                 default=F("pallet__pcs"),
                 output_field=IntegerField()
-            )
-        ),
-        total_cbm=Sum(
-            Case(
-                When(pallet__isnull=True, then=F("cbm")),
-                default=F("pallet__cbm"),
-                output_field=FloatField()
-            )
-        ),
-        total_weight_lbs=Sum(
-            Case(
-                When(pallet__isnull=True, then=F("total_weight_lbs")),
-                default=F("pallet__weight_lbs"),
-                output_field=FloatField()
             )
         ),
         total_n_pallet_act=Count("pallet__pallet_id", distinct=True),
@@ -184,8 +169,8 @@ def export_po_check(request: HttpRequest) -> HttpResponse:
     ).distinct().order_by("destination", "container_number__container_number")
     data = [i for i in packing_list]
     keep = [
-            "container_number__container_number", "destination", "delivery_method", "shipping_mark","fba_id", "ref_id", 
-            "total_cbm", "total_pcs", "total_weight_lbs", "Pallet Count", "label","is_valid"
+            "shipping_mark", "container_number__container_number", "fba_id", "ref_id", 
+            "total_pcs", "Pallet Count", "label","is_valid"
         ]
     df = pd.DataFrame.from_records(data)
     df['is_valid'] = None

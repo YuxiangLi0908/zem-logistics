@@ -4,7 +4,7 @@
 {% block content %}
 
 <div style="max-height: 100%; max-width: 100%;">
-    <div><b>PO查验总表 - {{ po_check|length }}</b></div>
+    <div><b>PO校验总表 - {{ po_check|length }}</b></div>
 </div>
 <form method="post" action="" style="width: 80%;">
     {% csrf_token %}
@@ -36,8 +36,8 @@
                             <th>唛头</th>
                             <th>fba_id</th>
                             <th>ref_id</th>   
-                            <th>到港前一周查验</th>
-                            <th>提柜前一天查验</th>                       
+                            <th>到港前一周校验</th>
+                            <th>提柜前一天校验</th>                       
                         </tr>
                         <tr style="position: sticky; top: 28px;">
                             <th class="th" style="max-width: 5%; min-width: 10px; text-align: center;">
@@ -71,7 +71,7 @@
                             <td class="td">{{ po.destination }}</td>
                             <td class="td" style="text-align: left; cursor: pointer; display: flex; align-items: center;">
                                 {% if not po.last_eta_checktime and not po.last_retrieval_checktime %}
-                                    <span style="color:#696969;">未查验</span>  
+                                    <span style="color:#696969;">未校验</span>  
                                 {% else %}
                                     {% if po.last_retrieval_checktime and not po.last_retrieval_status%}
                                         <span style="color:green;">失效</span>

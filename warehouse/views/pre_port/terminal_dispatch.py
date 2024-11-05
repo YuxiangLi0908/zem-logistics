@@ -156,6 +156,7 @@ class TerminalDispatch(View):
         retrieval.actual_retrieval_timestamp = request.POST.get("actual_retrieval_timestamp")
         today = datetime.now()  
         actual_ts = request.POST.get("actual_retrieval_timestamp")
+        actual_ts = datetime.strptime(actual_ts, '%Y-%m-%dT%H:%M')
         #如果是当天提柜
         if actual_ts <= today + timedelta(days=1):
             orders = await sync_to_async(list)(PoCheckEtaSeven.objects.filter(container_number__container_number = container_number))

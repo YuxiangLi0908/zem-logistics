@@ -14,9 +14,11 @@
                     <thead>
                         <tr>
                             <th class="th" style="max-width: 5%; min-width: 10px; text-align: center;"></th>
+                            <th>客户名</th>
                             <th>柜号</th>
                             <th>destination</th>
                             <th>是否通知客户</th>
+                            <th>激活</th>
                             <th>shipping_mark</th>
                             <th>fba_id</th>
                             <th>ref_id</th>                           
@@ -27,6 +29,9 @@
                                 <input type="checkbox" id="selectAllCheckbox" onchange="toggleAllCheckboxes()">
                             </th>
                             <th class="th">
+                                <input type="text" id="customerSearch" placeholder="搜索客户..." oninput="filterTable()" size="13" style="font-size: 11px;">
+                            </th>
+                            <th class="th">
                                 <input type="text" id="containerSearch" placeholder="搜索柜号..." oninput="filterTable()" size="13" style="font-size: 11px;">
                             </th>
                             <th class="th">
@@ -35,6 +40,7 @@
                             <th class="th">
                                 <input type="text" id="notifySearch" placeholder="是否通知客户..." oninput="filterTable()" size="13" style="font-size: 11px;">
                             </th>
+                            <th class="th"></th>
                             <th class="th"></th>
                             <th class="th"></th>
                             <th class="th"></th>   
@@ -49,27 +55,32 @@
                                 <input type="hidden" name="is_selected", value='off'>
                                 <input type="hidden" name="po_ids", value='{{ po.id }}'>
                             </td>
+                            <td class="td">{{ po.customer_name }}</td>
                             <td class="td">{{ po.container_number }}</td>
                             <td class="td">{{ po.destination }}</td>
                             <td id="notify-td">
                                 <input type="checkbox" id="notify-checkbox-{{ po.id }}" {% if po.is_notified %}checked{% endif %}>                              
                                 <label for="notify-checkbox-{{ po.id }}">
                                     {% if po.is_notified %}
-                                        <span style="color:green;">已通知</span>
+                                        <span style="color:green;">已通知-{{po.notified_time|date:"M-j"}}</span>
                                     {% else %}
                                         <span style="color:red;">未通知</span>
                                     {% endif %}
                                 </label>
                             </td>
-                            
+                            <td id="active-td">
+                                <input type="checkbox" id="active-checkbox-{{ po.id }}" {% if po.is_active %}checked{% endif %}>        
+                                <label for="active-checkbox-{{ po.id }}">
+                                </label>
+                            </td>
                             <td class="td">{{ po.shipping_mark }}</td>
-                            <td class="td">{{ po.fba_id }}</td>
-                            <td class="td">{{ po.ref_id }}</td>                                                  
+                            <td class="td"><input type="text" name="fba_text" value={{ po.fba_id }}></td>
+                            <td class="td"><input type="text" name="ref_text" value={{ po.ref_id }}></td>                                                  
                             <td class="td">
                                 {% if po and po.handling_method %}
-                                    <input type="text" name="text" value="{{ po.handling_method }}"/>
+                                    <input type="text" name="handle_text" value="{{ po.handling_method }}"/>
                                 {% else %}
-                                    <input type="text" name="text" value=""/>
+                                    <input type="text" name="handle_text" value=""/>
                                 {% endif %}
                             </td>
                         </tr>
@@ -79,12 +90,24 @@
             </div>
         </div>
         <input type="hidden" name="step" value="po_invalid_save">
-        <button type="submit" onclick="confirmSubmit(this)" class="btn btn-primary" style="width: 100px; height: 35px;">确认通知</button>
+        <button type="submit" onclick="confirmSubmit(this)" class="btn btn-primary" style="width: 100px; height: 35px;">保存</button>
     </form>
 
 <script>
     let notifyChanges = {};
-    console.log('notifyChanges1',notifyChanges);
+    let notifyActives = {};
+    document.querySelectorAll('#active-td input[type="checkbox"]').forEach((checkbox, index) => {
+        checkbox.addEventListener('change', function () {
+            let poId = this.getAttribute('id').split('-')[2];
+            if (this.checked) {
+                
+                notifyActives[poId] = this.checked;
+            }else{}
+        });
+    });
+
+    
+    
     document.querySelectorAll('#notify-td input[type="checkbox"]').forEach((checkbox, index) => {
         checkbox.addEventListener('change', function () {
             let poId = this.getAttribute('id').split('-')[2];
@@ -94,6 +117,7 @@
             }else{}
         });
     });
+    
 
     document.addEventListener('DOMContentLoaded', function () {
         let unCheckedCount = 0;
@@ -126,8 +150,13 @@
         hiddenInput.type = 'hidden';
         hiddenInput.name ='notifyChanges';
         hiddenInput.value = JSON.stringify(notifyChanges);
-        console.log('notifyChanges2',notifyChanges);
         form.appendChild(hiddenInput);
+
+        let hiddenInput2 = document.createElement('input');
+        hiddenInput2.type = 'hidden';
+        hiddenInput2.name ='notifyActives';
+        hiddenInput2.value = JSON.stringify(notifyActives);
+        form.appendChild(hiddenInput2);
         form.submit();
     };
       
@@ -157,33 +186,40 @@
         }
     };
     function filterTable() {
-        var containerInput, destinationInput, notifyInput;
-        var containerFilter, destinationFilter, notifyFilter;
+        var containerInput, destinationInput, notifyInput, customerInput;
+        var containerFilter, destinationFilter, notifyFilter, customerFilter;
         var table, tbody, tr;
-        var containerTd, destinationTd, notifyTd;
+        var containerTd, destinationTd, notifyTd, customerTd;
         var i, j;
-        var containerTxtValue, destinationTxtValue, notifyTxtValue;
+        var containerTxtValue, destinationTxtValue, notifyTxtValue, customerTxtValue;
         containerInput = document.getElementById("containerSearch");
+        customerInput = document.getElementById("customerSearch");
         destinationInput = document.getElementById("destinationSearch");
         notifyInput = document.getElementById("notifySearch");
+
         containerFilter = containerInput.value.toUpperCase();
+        customerFilter = customerInput.value.toUpperCase();
         destinationFilter = destinationInput.value.toUpperCase();
         notifyFilter = notifyInput.value.toUpperCase();
+
         table = document.getElementById("check-invalid");
         tbody = table.getElementsByTagName("tbody")[0];
         tr = tbody.getElementsByTagName("tr");
         var parts = containerFilter.split(/\W/);
     
         for (i = 0; i < tr.length; i++) {
-            containerTd = tr[i].getElementsByTagName("td")[1];
-            destinationTd = tr[i].getElementsByTagName("td")[2];
-            notifyTd = tr[i].getElementsByTagName("td")[3];
-            if (containerTd && destinationTd && notifyTd) {
+            containerTd = tr[i].getElementsByTagName("td")[2];
+            destinationTd = tr[i].getElementsByTagName("td")[3];
+            notifyTd = tr[i].getElementsByTagName("td")[4];
+            customerTd = tr[i].getElementsByTagName("td")[1];
+            if (containerTd && destinationTd && notifyTd & customerTd) {
+                customerTxtValue = customerTd.textContent || customerTd.innerText;
                 containerTxtValue = containerTd.textContent || containerTd.innerText;
                 destinationTxtValue = destinationTd.textContent || destinationTd.innerText;
                 notifyTxtValue = notifyTd.textContent || notifyTd.innerText;
                 var destinationDisplayStyle = destinationTxtValue.toUpperCase().indexOf(destinationFilter) > -1? "" : "none";
                 var notifyDisplayStyle = notifyTxtValue.toUpperCase().indexOf(notifyFilter) > -1? "" : "none";
+                var customerDisplayStyle = customerTxtValue.toUpperCase().indexOf(customerFilter) > -1? "" : "none";
                 var containerDisplayStyle = "none";
                 if (parts.length > 0) {
                     for (j = 0; j < parts.length; j++) {
@@ -195,7 +231,7 @@
                 } else {
                     containerDisplayStyle = containerTxtValue.toUpperCase().indexOf(containerFilter) > -1? "" : "none";
                 }
-                tr[i].style.display = containerDisplayStyle === "" && notifyDisplayStyle === "" && destinationDisplayStyle === ""? "" : "none";
+                tr[i].style.display = containerDisplayStyle === "" && customerDisplayStyle === "" && notifyDisplayStyle === "" && destinationDisplayStyle === ""? "" : "none";
             }
         }
     };
