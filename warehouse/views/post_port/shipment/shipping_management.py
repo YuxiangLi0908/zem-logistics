@@ -85,6 +85,9 @@ class ShippingManagement(View):
         elif step == "shipment_detail_display":
             template, context = await self.handle_shipment_detail_display_get(request)
             return render(request, template, context)
+        elif step == "shipment_exceptions":
+            template, context = await self.handle_shipment_exceptions_get(request)
+            return render(request, template, context)
         else:
             context = {"area_options": self.area_options}
             return render(request, self.template_main, context)
@@ -198,6 +201,9 @@ class ShippingManagement(View):
         context["shipment_type_options"] = self.shipment_type_options
         context["load_type_options"] = LOAD_TYPE_OPTIONS
         return self.template_shipment_list_shipment_display, context
+    
+    async def handle_shipment_exceptions_get(self, request: HttpRequest) -> tuple[str, dict[str, Any]]:
+        pass
 
     async def handle_warehouse_post(self, request: HttpRequest) -> tuple[str, dict[str, Any]]:
         if request.POST.get("area"):

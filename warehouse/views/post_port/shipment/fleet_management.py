@@ -135,6 +135,9 @@ class FleetManagement(View):
         elif step == "pod_upload":
             template, context = await self.handle_pod_upload_post(request)
             return render(request, template, context)
+        elif step == "abnormal_fleet":
+            template, context = await self.handle_abnormal_fleet_post(request)
+            return render(request, template, context)
         else:
             return await self.get(request)
     
@@ -160,24 +163,54 @@ class FleetManagement(View):
         selected_fleet = await sync_to_async(Fleet.objects.get)(fleet_number=selected_fleet_number)
         shipment = await sync_to_async(list)(
             Pallet.objects.select_related(
-                "packing_list", "shipment_batch_number",
+                "shipment_batch_number",
                 "shipment_batch_number__fleet_number", 
-                "packing_list__container_number",
+                "container_number",
+                "container_number__order__offload_id"
             ).filter(
-                shipment_batch_number__fleet_number__fleet_number=selected_fleet_number
-            ).annotate(
-                str_plt_id=Cast("pallet_id", CharField()),
+                shipment_batch_number__fleet_number__fleet_number=selected_fleet_number,
+                container_number__order__offload_id__offload_at__isnull=False
             ).values(
                 "shipment_batch_number__shipment_batch_number", "container_number__container_number", 
                 "destination", "shipment_batch_number__appointment_id", "shipment_batch_number__shipment_appointment",
                 "shipment_batch_number__note",
             ).annotate(
-                plt_ids=StringAgg("str_plt_id", delimiter=",", distinct=True, ordering="str_plt_id"),
+                plt_ids=StringAgg("pallet_id", delimiter=",", distinct=True, ordering="pallet_id"),
                 total_weight=Sum("weight_lbs", output_field=FloatField()),
                 total_cbm=Sum("cbm", output_field=FloatField()),
                 total_pallet=Count('pallet_id', distinct=True)
             ).order_by("-shipment_batch_number__shipment_appointment")
         )
+        shipment_pl = await sync_to_async(list)(
+            PackingList.objects.select_related(
+                "shipment_batch_number",
+                "shipment_batch_number__fleet_number", 
+                "container_number",
+                "container_number__order__offload_id"
+            ).annotate(
+                str_id=Cast("id", CharField()),
+            ).filter(
+                shipment_batch_number__fleet_number__fleet_number=selected_fleet_number,
+                container_number__order__offload_id__offload_at__isnull=True
+            ).values(
+                "shipment_batch_number__shipment_batch_number", "container_number__container_number", 
+                "destination", "shipment_batch_number__appointment_id", "shipment_batch_number__shipment_appointment",
+                "shipment_batch_number__note",
+            ).annotate(
+                pl_ids=StringAgg("str_id", delimiter=",", distinct=True, ordering="str_id"),
+                total_weight=Sum("total_weight_lbs", output_field=FloatField()),
+                total_cbm=Sum("cbm", output_field=FloatField()),
+                total_pallet=Sum("cbm", output_field=FloatField())/2,
+            ).order_by("-shipment_batch_number__shipment_appointment")
+        )
+        for s in shipment_pl:
+            if s["total_pallet"] < 1:
+                s["total_pallet"] = 1
+            elif s["total_pallet"]%1 >= 0.45:
+                s["total_pallet"] = int(s["total_pallet"]//1 + 1)
+            else:
+                s["total_pallet"] = int(s["total_pallet"]//1)
+        shipment += shipment_pl
         packing_list = {}
         for s in shipment:
             pl = await sync_to_async(list)(
@@ -227,7 +260,8 @@ class FleetManagement(View):
         batch_number = request.GET.get("batch_number", "")
         criteria = models.Q(
             departured_at__isnull=False,
-            arrived_at__isnull=True
+            arrived_at__isnull=True,
+            is_canceled=False,
         )
         if fleet_number:
             criteria &= models.Q(fleet_number=fleet_number)
@@ -275,7 +309,7 @@ class FleetManagement(View):
         criteria = models.Q(
             models.Q(models.Q(pod_link__isnull=True) | models.Q(pod_link="")),
             shipped_at__isnull=False,
-            arrived_at__isnull=True,
+            arrived_at__isnull=False,
         )
         if fleet_number:
             criteria &= models.Q(fleet_number__fleet_number=fleet_number)
@@ -308,6 +342,7 @@ class FleetManagement(View):
             Fleet.objects.filter(
                 origin=warehouse,
                 departured_at__isnull=True,
+                is_canceled=False,
             ).order_by("appointment_datetime")
         )
         context = {
@@ -411,6 +446,7 @@ class FleetManagement(View):
             Fleet.objects.filter(
                 origin=warehouse,
                 departured_at__isnull=True,
+                is_canceled=False,
             ).order_by("appointment_datetime")
         )
         context = {
@@ -694,6 +730,30 @@ class FleetManagement(View):
         shipment.pod_uploaded_at = timezone.now()
         await sync_to_async(shipment.save)()
         return await self.handle_pod_upload_get(request)
+    
+    async def handle_abnormal_fleet_post(self, request: HttpRequest) -> tuple[str, dict[str, Any]]:
+        status = request.POST.get("abnormal_status", "").strip()
+        description = request.POST.get("abnormal_description", "").strip()
+        fleet_number = request.POST.get("fleet_number")
+        fleet = await sync_to_async(Fleet.objects.get)(fleet_number=fleet_number)
+        shipment = await sync_to_async(list)(
+            Shipment.objects.filter(fleet_number__fleet_number=fleet_number)
+        )
+        fleet.is_canceled = True
+        fleet.status = "Exception"
+        fleet.status_description = f"{status}-{description}"
+        
+        for s in shipment:
+            if not s.previous_fleets:
+                s.previous_fleets = fleet_number
+            else:
+                s.previous_fleets += f",{fleet_number}"
+            s.status = "Exception"
+            s.status_description = f"{status}-{description}"
+            s.fleet_number = None
+            await sync_to_async(s.save)()
+        await sync_to_async(fleet.save)()
+        return await self.handle_delivery_and_pod_get(request)
         
     # async def handle_fleet_warehouse_search_post(self, request: HttpRequest) -> tuple[str, dict[str, Any]]:
     #     warehouse = request.POST.get("name")
