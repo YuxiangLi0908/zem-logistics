@@ -61,7 +61,7 @@
                     </thead>
                     <tbody>
                         <tr>
-                            <td class="td"><input type="text" name="appointment_id" value="{{ shipment.appointment_id }}" style="font-size: 13px;" required></td>
+                            <td class="td"><input type="text" name="appointment_id" value="{{ shipment.appointment_id }}" style="font-size: 13px;"></td>
                             <td class="td"><input type="datetime-local" name="shipment_appointment" value="{{ shipment.shipment_appointment|date:'Y-m-d\\TH:i'  }}" style="font-size: 13px;" required></td>
                         </tr>
                     </tbody>
@@ -421,11 +421,12 @@
             shipmentFormFTLLTL.remove();
         };
         const destinationCells = document.querySelectorAll("#selected-packing-list-table td[name='po-destination']");
-        const destinationValues = Array.from(destinationCells, cell => cell.textContent.trim());
+        const destinationValues = Array.from(destinationCells, cell => cell.textContent.trim().replace('沃尔玛','').replace('-',''));
         const allSame = destinationValues.every(value => value === destinationValues[0]);
         if (!allSame) {
             alert("请确认选中PO的目的仓是否一致！");
             event.preventDefault();
+            return
         };
     };
 
@@ -454,10 +455,10 @@
         const checkBoxes = document.getElementsByName('is_shipment_added');
         const destinationCells = document.querySelectorAll("#packing-list-table-popup td[name='po-destination']");
         const existPODestination = document.querySelectorAll("#selected-packing-list-table td[name='po-destination']");
-        const allDestinations = Array.from(existPODestination, cell => cell.textContent.trim());
+        const allDestinations = Array.from(existPODestination, cell => cell.textContent.trim().replace('沃尔玛','').replace('-',''));
         for (let i = 0; i < checkBoxes.length; i+=2) {
             if (checkBoxes[i].checked) {
-                allDestinations.push(destinationCells[i/2].textContent.trim()); 
+                allDestinations.push(destinationCells[i/2].textContent.trim()).replace('沃尔玛','').replace('-',''); 
             };
         };
         const allSame = allDestinations.every(value => value === allDestinations[0]);
