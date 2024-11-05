@@ -119,6 +119,8 @@
                     <thead>
                         <tr>
                             <th class="th">出库批次</th>
+                            <th class="th">预约批次</th>
+                            <th class="th">ISA</th>
                             <th class="th">carrier</th>
                             <th class="th">提货时间</th>
                             <th class="th">总重lbs</th>
@@ -128,7 +130,9 @@
                             <th class="th">撤销批次</th>
                         </tr>
                         <tr style="position: sticky; top: 28px;">
-                            <th class="th"><input type="text" id="fleetSearchInput" placeholder="搜索批次号..." oninput="filterFleetTable()" size="13" style="font-size: 11px;"></th>
+                            <th class="th"><input type="text" id="fleetSearchInput" placeholder="搜索出库批次..." oninput="filterFleetTable()" size="13" style="font-size: 11px;"></th>
+                            <th class="th"><input type="text" id="fleetShipmentSearchInput" placeholder="搜索预约批次..." oninput="filterFleetTable()" size="13" style="font-size: 11px;"></th>
+                            <th class="th"><input type="text" id="appointmentSearchInput" placeholder="搜索ISA..." oninput="filterFleetTable()" size="13" style="font-size: 11px;"></th>
                             <th class="th"><input type="text" id="carrierSearchInput" placeholder="搜索carrier..." oninput="filterFleetTable()" size="13" style="font-size: 11px;"></th>
                             <th class="th"></th>
                             <th class="th"></th>
@@ -146,6 +150,8 @@
                                     {{ f.fleet_number }}
                                 </a>
                             </td>
+                            <td class="td">{{ f.shipment_batch_numbers }}</td>
+                            <td class="td">{{ f.appointment_ids }}</td>
                             <td class="td">{{ f.carrier }}</td>
                             <td class="td">
                                 {% if f.departure_status == "past_due" %}
@@ -213,20 +219,28 @@
 
     function filterFleetTable() {
         var fleetInput = document.getElementById("fleetSearchInput").value.toUpperCase();
+        var shipmentInput = document.getElementById("fleetShipmentSearchInput").value.toUpperCase();
+        var appointmentInput = document.getElementById("appointmentSearchInput").value.toUpperCase();
         var carrierInput = document.getElementById("carrierSearchInput").value.toUpperCase();
         tr = document.querySelectorAll("#fleet-table tbody tr");
 
         for (i = 0; i < tr.length; i++) {
             var fleetTd = tr[i].getElementsByTagName("td")[0];
-            var carrierTd = tr[i].getElementsByTagName("td")[1];
-            if (fleetTd && carrierTd) {
+            var shipmentTd = tr[i].getElementsByTagName("td")[1];
+            var appointmentTd = tr[i].getElementsByTagName("td")[2];
+            var carrierTd = tr[i].getElementsByTagName("td")[3];
+            if (fleetTd && shipmentTd && appointmentTd && carrierTd) {
                 var fleetTxtValue = fleetTd.textContent.trim();
+                var shipmentTxtValue = shipmentTd.textContent.trim();
+                var appointmentTxtValue = appointmentTd.textContent.trim();
                 var carrierTxtValue = carrierTd.textContent.trim();
 
                 var fleetDisplayStyle = fleetTxtValue.toUpperCase().indexOf(fleetInput) > -1 ? "" : "none";
+                var shipmentDisplayStyle = shipmentTxtValue.toUpperCase().indexOf(shipmentInput) > -1 ? "" : "none";
+                var appointmentDisplayStyle = appointmentTxtValue.toUpperCase().indexOf(appointmentInput) > -1 ? "" : "none";
                 var carrierDisplayStyle = carrierTxtValue.toUpperCase().indexOf(carrierInput) > -1 ? "" : "none";
 
-                tr[i].style.display = fleetDisplayStyle === "" && carrierDisplayStyle === "" ? "" : "none";
+                tr[i].style.display = fleetDisplayStyle === "" && shipmentDisplayStyle === "" && appointmentDisplayStyle === "" && carrierDisplayStyle === "" ? "" : "none";
             }
         };
     }

@@ -59,6 +59,7 @@ class FleetManagement(View):
     warehouse_options = {"": "", "NJ-07001": "NJ-07001", "NJ-08817": "NJ-08817", "SAV-31326": "SAV-31326"}
     shipment_type_options = {"":"", "FTL/LTL":"FTL/LTL", "外配/快递":"外配/快递"}
     abnormal_fleet_options = {"":"", "司机未按时提货":"司机未按时提货", "送仓被拒收":"送仓被拒收", "未送达":"未送达", "其它":"其它"}
+    carrier_options = {"":"", "Arm-AMF":"Arm-AMF", "Zem-AMF":"Zem-AMF", "ASH":"ASH", "Arm":"Arm", "ZEM":"ZEM"}
 
     async def get(self, request: HttpRequest) -> HttpResponse:
         if not await self._user_authenticate(request):
@@ -154,6 +155,7 @@ class FleetManagement(View):
         context.update({
             "fleet": fleet,
             "shipment": shipment,
+            "carrier_options": self.carrier_options,
         })
         return self.template_fleet_schedule_info, context
     
@@ -343,6 +345,11 @@ class FleetManagement(View):
                 origin=warehouse,
                 departured_at__isnull=True,
                 is_canceled=False,
+            ).prefetch_related(
+                "shipment"
+            ).annotate(
+                shipment_batch_numbers=StringAgg("shipment__shipment_batch_number", delimiter=","),
+                appointment_ids=StringAgg("shipment__appointment_id", delimiter=","),
             ).order_by("appointment_datetime")
         )
         context = {
@@ -384,6 +391,7 @@ class FleetManagement(View):
                 "fleet_number": fleet_number,
                 "shipment_selected": shipment_selected,
                 "fleet_data": fleet_data,
+                "carrier_options": self.carrier_options,
             })
             return self.template_fleet_schedule, context
         else:
