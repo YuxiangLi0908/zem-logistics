@@ -3,7 +3,7 @@ import uuid
 import os,json
 import pandas as pd
 from asgiref.sync import sync_to_async
-from datetime import datetime, timedelta
+from datetime import datetime
 from typing import Any
 from xhtml2pdf import pisa
 
@@ -11,8 +11,8 @@ from django.http import HttpRequest, HttpResponse
 from django.shortcuts import render, redirect
 from django.views import View
 from django.db import models
-from django.db.models import Case, Value, CharField, F, Sum, Max, FloatField, IntegerField, When, Count, Q
-from django.db.models.functions import Concat, Cast
+from django.db.models import CharField, Sum, FloatField, Count
+from django.db.models.functions import Cast
 from django.contrib.postgres.aggregates import StringAgg
 from django.template.loader import get_template
 from django.utils import timezone
@@ -21,22 +21,15 @@ from office365.runtime.auth.user_credential import UserCredential
 from office365.sharepoint.client_context import ClientContext
 from office365.sharepoint.sharing.links.kind import SharingLinkKind
 
-from warehouse.models.retrieval import Retrieval
-from warehouse.models.order import Order
 from warehouse.models.packing_list import PackingList
 from warehouse.models.pallet import Pallet
 from warehouse.models.shipment import Shipment
 from warehouse.models.fleet import Fleet
 from warehouse.models.warehouse import ZemWarehouse
 from warehouse.forms.warehouse_form import ZemWarehouseForm
-from warehouse.forms.shipment_form import ShipmentForm
-from warehouse.forms.packling_list_form import PackingListForm
-from warehouse.views.export_file import export_palletization_list
 from warehouse.forms.upload_file import UploadFileForm
 from warehouse.utils.constants import (
-    amazon_fba_locations,
     APP_ENV,
-    LOAD_TYPE_OPTIONS,
     SP_USER,
     SP_PASS,
     SP_URL,
@@ -783,6 +776,9 @@ class FleetManagement(View):
     #         "warehouse_form": ZemWarehouseForm(initial={"name": warehouse})
     #     }
     #     return self.template_fleet_warehouse_search, context
+
+    async def _get_sharepoint_auth(self) -> ClientContext:
+        return ClientContext(SP_URL).with_credentials(UserCredential(SP_USER, SP_PASS))
 
     async def _user_authenticate(self, request: HttpRequest):
         if await sync_to_async(lambda: request.user.is_authenticated)():
