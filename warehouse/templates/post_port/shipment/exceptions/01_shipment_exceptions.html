@@ -1,0 +1,255 @@
+{% extends 'base.html' %}
+
+{% block content %}
+<div><b>待处理异常预约</b></div>
+
+<div style="height: 800px; width: 100%; border: 2px solid rgb(180, 180, 180); border-radius: 12px; padding: 1%;">
+    <table id="" class="table" style="font-size: 11px; max-height: 99%; overflow-y: scroll;">
+        <thead>
+            <tr style="position: sticky; top: 30px;">
+                <th class="th">预约批次</th>
+                <th class="th">Appointment ID</th>
+                <th class="th">异常车次</th>
+                <th class="th">目的仓库</th>
+                <th class="th">预约时间</th>
+                <th class="th">出库时间</th>
+                <th class="th">CBM</th>
+                <th class="th">卡板数</th>
+                <th class="th">总重lbs</th>
+                <th class="th">异常</th>
+                <th class="th">处理异常</th>
+            </tr>
+            <tr style="position: sticky; top: 52px;">
+                <th class="th"><input type="text" id="containerSearchInput" placeholder="搜索柜号..." oninput="filterTable()" size="13" style="font-size: 11px;"></th>
+                <th class="th"><input type="text" id="containerSearchInput" placeholder="搜索柜号..." oninput="filterTable()" size="13" style="font-size: 11px;"></th>
+                <th class="th"><input type="text" id="destinationSearchInput" placeholder="搜索目的仓库..." oninput="filterTable()" size="13" style="font-size: 11px;"></th>
+                <th class="th"><input type="text" id="containerSearchInput" placeholder="搜索柜号..." oninput="filterTable()" size="13" style="font-size: 11px;"></th>
+                <th class="th"></th>
+                <th class="th"></th>
+                <th class="th"></th>
+                <th class="th"></th>
+                <th class="th"></th>
+                <th class="th"></th>
+                <th class="th"></th>
+            </tr>
+        </thead>
+        <tbody>
+            {% for s in shipment %}
+            <tr>
+                <td class="td">{{ s.shipment_batch_number }}</td>
+                <td class="td">{{ s.appointment_id }}</td>
+                <td class="td">{{ s.previous_fleets }}</td>
+                <td class="td">{{ s.destination }}</td>
+                <td class="td">
+                    {% if s.shipping_status == 'past_due' %}
+                    <span class="status-span-red" style="padding-top: 0; padding-bottom: 0;">{{ s.shipment_appointment|date:"Y-m-d" }} {{ s.shipment_appointment|time:"H:i" }}</span>
+                    {% else %}
+                    {{ s.shipment_appointment|date:"Y-m-d" }} {{ s.shipment_appointment|time:"H:i" }}
+                    {% endif %}
+                </td>
+                <td class="td">{{ s.shipped_at|date:"Y-m-d" }} {{ s.shipped_at|time:"H:i" }}</td>
+                <td class="td">{{ s.shipped_cbm|floatformat:2 }}</td>
+                <td class="td">{{ s.shipped_pallet|floatformat:0 }}</td>
+                <td class="td">{{ s.shipped_weight|floatformat:2 }}</td>
+                <td class="td">{{ s.status_description }}</td>
+                <td class="td">
+                    <button type="submit" class="btn btn-primary" style="font-size: 13px;" onclick="newShipment('{{ s.shipment_batch_number }}')">
+                        <small>换约</small>
+                    </button>
+                    <form method="post" action="" style="display: inline-block;">
+                        {% csrf_token %}
+                        <input type="hidden" name="step" value="fix_shipment_exceptions">
+                        <input type="hidden" name="shipment_batch_number" value="{{ s.shipment_batch_number }}">
+                        <input type="hidden" name="solution" value="keep_old">
+                        <button type="submit" class="btn btn-success" style="font-size: 13px;">
+                            <small>正常</small>
+                        </button>
+                    </form>
+                </td>
+            </tr>
+            {% endfor %}
+        </tbody>
+    </table>
+    <div class="popup-window" style="display: none; z-index:999; position: fixed; top: 50%; left: 50%; transform: translate(-50%, -50%); background-color: white; border: 1px solid gray; padding: 20px; max-height: 50%; overflow-y: scroll;">
+        <form method="post" action="" style="width: 100%; overflow-x: auto; max-width: 100%;" onsubmit="showLoadingBar()">
+            {% csrf_token %}
+            <input type="hidden" name="step" value="fix_shipment_exceptions">
+            <input type="hidden" name="shipment_batch_number" value="">
+            <input type="hidden" name="solution" value="create_new">
+            <button type="submit" class="btn btn-success" style="font-size: 13px;" onclick="modifyPayload()">
+                <small>确认换约</small>
+            </button>
+            <table id="shipment-type" class="table" style="font-size: 11px; overflow-x: scroll; max-width: 100%;">
+                <thead>
+                    <tr>
+                        <th class="th">预约类型</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    <tr>
+                        <td class="td">
+                            <select name="shipment_type" style="font-size: 13px;" onchange="showForm(this)">
+                                {% for k, v in shipment_type_options.items %}
+                                <option value="{{ v }}">{{ k }}</option>
+                                {% endfor %}
+                            </select>
+                        </td>
+                    </tr>
+                </tbody>
+            </table>
+            <div id="FTL-LTL-form" style="display: none;">
+                <table id="shipment-table-1" class="table" style="font-size: 11px; overflow-x: scroll; max-width: 100%;">
+                    <thead>
+                        <tr>
+                            <th class="th">预约号</th>
+                            <th class="th">Scheduled Time</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        <tr>
+                            <td class="td"><input type="text" name="appointment_id" style="font-size: 13px;" required></td>
+                            <td class="td"><input type="datetime-local" name="shipment_appointment" style="font-size: 13px;" required></td>
+                        </tr>
+                    </tbody>
+                </table>
+                <table id="shipment-table-2" class="table" style="font-size: 11px; overflow-x: auto; max-width: 100%;">
+                    <thead>
+                        <tr>
+                            <th class="th">发货仓库/地址</th>
+                            <th class="th">装车类型</th>
+                            <th class="th">备注</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        <tr>
+                            <td class="td">
+                                <input type="text" name="origin" required>
+                            </td>
+                            <td class="td">
+                                <select name="load_type" id="load-type-select" style="font-size: 13px;">
+                                    {% for k, v in load_type_options %}
+                                    <option value="{{ v }}">{{ k }}</option>
+                                    {% endfor %}
+                                </select>
+                            </td>
+                            <td class="td"><input type="text" name="note" style="font-size: 13px;"></td>
+                        </tr>
+                    </tbody>
+                </table>
+                <table id="shipment-table-3" class="table" style="font-size: 11px; overflow-x: auto; max-width: 100%;">
+                    <thead>
+                        <tr>
+                            <th class="th">目的地</th>
+                            <th class="th">地址</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        <tr>
+                            <td class="td"><input type="text" name="destination" value="{{ shipment_data.destination }}" style="font-size: 13px;" required></td>
+                            <td class="td"><input type="text" name="address" value="{{ address }}" style="font-size: 13px;" size="40" required></td>
+                        </tr>
+                    </tbody>
+                </table>
+            </div>
+            <div id="other-delivery-form" style="display: none;">
+                <table id="shipment-table-1" class="table" style="font-size: 11px; overflow-x: scroll; max-width: 100%;">
+                    <thead>
+                        <tr>
+                            <th class="th">Scheduled Time</th>
+                            <th class="th">发货仓库/地址</th>
+                            <th class="th">备注</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        <tr>
+                            <td class="td"><input type="datetime-local" name="shipment_appointment" style="font-size: 13px;" required></td>
+                            <td class="td"><input type="text" name="origin" required></td>
+                            <td class="td"><input type="text" name="note" style="font-size: 13px;"></td>
+                        </tr>
+                    </tbody>
+                </table>
+                <table id="shipment-table-2" class="table" style="font-size: 11px; overflow-x: auto; max-width: 100%;">
+                    <thead>
+                        <tr>
+                            <th class="th">目的地</th>
+                            <th class="th">地址</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        <tr>
+                            <td class="td"><input type="text" name="destination" value="{{ shipment_data.destination }}" style="font-size: 13px;" required></td>
+                            <td class="td"><input type="text" name="address" value="{{ address }}" style="font-size: 13px;" size="40" required></td>
+                        </tr>
+                    </tbody>
+                </table>
+                <table id="shipment-table-3" class="table" style="font-size: 11px; overflow-x: auto; max-width: 100%;">
+                    <thead>
+                        <tr>
+                            <th class="th">Carrier</th>
+                            <th class="th">提货时间</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        <tr>
+                            <td class="td"><input type="text" name="carrier" style="font-size: 13px;" required></td>
+                            <td class="td"><input type="datetime-local" name="appointment_datetime" style="font-size: 13px;" required></td>
+                        </tr>
+                    </tbody>
+                </table>
+            </div>
+        </form>
+    </div>
+</div>
+
+<script>
+    const unusedAppointment = JSON.parse('{{ unused_appointment|safe }}');
+    const shipmentData = JSON.parse('{{ shipment_data|safe }}');
+
+    function newShipment(shipmentBatchNumber) {
+        var popup = document.querySelector('.popup-window');
+        var batchNumberInput = document.querySelector('.popup-window input[name="shipment_batch_number"]');
+        if (popup.style.display === 'none') {
+            popup.style.display = 'block';
+            batchNumberInput.value = shipmentBatchNumber;
+        } else {
+            popup.style.display = 'none';
+            batchNumberInput.value = '';
+        };
+    };
+
+    function showForm(select) {
+        const selectedValue = select.value;
+        const batchNumber = document.querySelector('.popup-window input[name="shipment_batch_number"]').value;
+        var shipmentFormFTLLTL = document.getElementById('FTL-LTL-form');
+        var shipmentFormOther = document.getElementById('other-delivery-form');
+        if (selectedValue == "FTL/LTL") {
+            shipmentFormFTLLTL.querySelector('input[name="address"]').value = shipmentData[batchNumber]['address'];
+            shipmentFormFTLLTL.querySelector('input[name="destination"]').value = shipmentData[batchNumber]['destination'];
+            shipmentFormFTLLTL.querySelector('input[name="note"]').value = shipmentData[batchNumber]['note'];
+            shipmentFormFTLLTL.style.display = 'block';
+            shipmentFormOther.style.display = 'none';
+        } else if (selectedValue == "外配/快递") {
+            shipmentFormOther.querySelector('input[name="address"]').value = shipmentData[batchNumber]['address'];
+            shipmentFormOther.querySelector('input[name="destination"]').value = shipmentData[batchNumber]['destination'];
+            shipmentFormOther.querySelector('input[name="note"]').value = shipmentData[batchNumber]['note'];
+            shipmentFormFTLLTL.style.display = 'none';
+            shipmentFormOther.style.display = 'block';
+        } else {
+            shipmentFormFTLLTL.style.display = 'none';
+            shipmentFormOther.style.display = 'none';
+        };
+    };
+
+    function modifyPayload() {
+        const shipmentType = document.querySelector('select[name="shipment_type"]').value;
+        var shipmentFormFTLLTL = document.getElementById('FTL-LTL-form');
+        var shipmentFormOther = document.getElementById('other-delivery-form');
+
+        if(shipmentType == "FTL/LTL") {
+            shipmentFormOther.remove();
+        } else if (shipmentType == "外配/快递") {
+            shipmentFormFTLLTL.remove();
+        };
+    };
+</script>
+{% endblock %}
