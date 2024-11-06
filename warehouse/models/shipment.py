@@ -34,6 +34,7 @@ class Shipment(models.Model):
     shipped_pcs = models.FloatField(null=True, default=0, blank=True)
     note = models.CharField(max_length=1000, null=True, blank=True)
     pod_link = models.CharField(max_length=2000, null=True, blank=True)
+    pod_uploaded_at = models.DateTimeField(null=True, blank=True)
     pallet_dumpped = models.FloatField(null=True, blank=True, default=0)
     fleet_number = models.ForeignKey(Fleet, null=True, blank=True, on_delete=models.SET_NULL, related_name='shipment')
     abnormal_palletization = models.BooleanField(default=False, null=True, blank=True)
@@ -42,6 +43,9 @@ class Shipment(models.Model):
     is_canceled = models.BooleanField(default=False, null=True, blank=True)
     cancelation_reason = models.CharField(max_length=2000, null=True, blank=True)
     priority = models.CharField(max_length=10, null=True, blank=True)
+    status = models.CharField(max_length=20, null=True, blank=True)
+    status_description = models.CharField(max_length=1000, null=True, blank=True)
+    previous_fleets = models.CharField(max_length=1000, null=True, blank=True)
 
     def __str__(self) -> str:
         if self.shipment_batch_number:

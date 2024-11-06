@@ -25,8 +25,11 @@ class Fleet(models.Model):
     shipped_pcs = models.FloatField(null=True, default=0, blank=True)
     multipule_destination = models.BooleanField(default=False, null=True, blank=True)
     pod_link = models.CharField(max_length=2000, null=True, blank=True)
+    pod_uploaded_at = models.DateTimeField(null=True, blank=True)
     is_canceled = models.BooleanField(default=False, null=True, blank=True)
     cancelation_reason = models.CharField(max_length=2000, null=True, blank=True)
+    status = models.CharField(max_length=20, null=True, blank=True)
+    status_description = models.CharField(max_length=1000, null=True, blank=True)
 
     def __str__(self) -> str:
         return self.fleet_number

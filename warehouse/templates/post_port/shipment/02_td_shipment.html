@@ -92,7 +92,7 @@
                                 </td>
                                 <td class="td" style="max-width: 120px; word-break: break-all;">{{ c.container_number__order__customer_name__zem_name }}</td>
                                 <td class="td">{{ c.container_number__container_number }}</td>
-                                <td class="td">
+                                <td class="td" name="po-destination">
                                     {{ c.destination }}
                                     {% if c.abnormal_palletization %}
                                     <span class="status-span-red" style="padding-top: 0; padding-bottom: 0;">未解决拆柜异常</span>
@@ -274,16 +274,29 @@
                 tr[i].style.display = shipmentDisplayStyle === "" && destDisplayStyle === "" && appIdDisplayStyle === "" ? "" : "none";
             }
         };
-    }
+    };
 
     function confirmSubmit() {
         const checkBoxes = document.getElementsByName('is_shipment_schduled');
+        const destinationCells = document.getElementsByName('po-destination');
+        const selectedCells = [];
         for (let i = 0; i < checkBoxes.length; i+=2) {
             if (checkBoxes[i].checked) {
-                checkBoxes[i+1].disabled = true;
-            }
-        }
-    }
+                selectedCells.push(destinationCells[i/2].textContent.trim().replace("沃尔玛", "").replace("-", "")); 
+            };
+        };
+        const allSame = selectedCells.every(value => value === selectedCells[0]);
+        if (!allSame) {
+            alert("请确认选中PO的目的仓是否一致！");
+            event.preventDefault();
+        } else {
+            for (let i = 0; i < checkBoxes.length; i+=2) {
+                if (checkBoxes[i].checked) {
+                    checkBoxes[i+1].disabled = true;
+                };
+            };
+        };
+    };
 
     function toggleRowBackground(checkbox) {
         var row = checkbox.closest('tr');

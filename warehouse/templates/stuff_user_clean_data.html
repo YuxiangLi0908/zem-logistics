@@ -152,4 +152,20 @@
     <b>Successfully update {{ count }} pallets!</b>
     {% endif %}
 </div>
+
+<div>
+    <form method="post" enctype="multipart/form-data" style="font-size: 11px;">
+        {% csrf_token %}
+        update shipment stats
+        <input type="hidden" name="step" value="update_shipment_stats">
+        <input type="date" name="start_date" value="{{ shipment_start_date }}">
+        <input type="date" name="end_date" value="{{ shipment_end_date }}">
+        <button type="submit" class="btn btn-danger" style="height: 35px; font-size: 12px; margin: 5px;">
+            update shipment stats
+        </button>
+    </form>
+    {% if shipment_stats_updated %}
+    <b>Successfully update {{ count }} shipment!</b>
+    {% endif %}
+</div>
 {% endblock %}

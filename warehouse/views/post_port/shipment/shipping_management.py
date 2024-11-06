@@ -85,6 +85,9 @@ class ShippingManagement(View):
         elif step == "shipment_detail_display":
             template, context = await self.handle_shipment_detail_display_get(request)
             return render(request, template, context)
+        elif step == "shipment_exceptions":
+            template, context = await self.handle_shipment_exceptions_get(request)
+            return render(request, template, context)
         else:
             context = {"area_options": self.area_options}
             return render(request, self.template_main, context)
@@ -198,6 +201,9 @@ class ShippingManagement(View):
         context["shipment_type_options"] = self.shipment_type_options
         context["load_type_options"] = LOAD_TYPE_OPTIONS
         return self.template_shipment_list_shipment_display, context
+    
+    async def handle_shipment_exceptions_get(self, request: HttpRequest) -> tuple[str, dict[str, Any]]:
+        pass
 
     async def handle_warehouse_post(self, request: HttpRequest) -> tuple[str, dict[str, Any]]:
         if request.POST.get("area"):
@@ -311,6 +317,19 @@ class ShippingManagement(View):
                 "total_pallet": total_pallet,
                 "total_pcs": total_pcs,
             }
+            unused_appointment = await sync_to_async(list)(
+                Shipment.objects.filter(
+                    in_use=False,
+                    is_canceled=False
+                )
+            )
+            unused_appointment = {
+                s.appointment_id: {
+                    "destination": s.destination.strip(),
+                    "shipment_appointment": s.shipment_appointment.replace(microsecond=0).isoformat(),
+                }
+                for s in unused_appointment
+            }
             context.update({
                 "batch_id": batch_id,
                 "packing_list_selected": packing_list_selected,
@@ -323,6 +342,7 @@ class ShippingManagement(View):
                 "warehouse_options": self.warehouse_options,
                 "load_type_options": LOAD_TYPE_OPTIONS,
                 "shipment_type_options": self.shipment_type_options,
+                "unused_appointment": json.dumps(unused_appointment),
             })
             return self.template_td_schedule, context
         else:
@@ -889,8 +909,8 @@ class ShippingManagement(View):
                     shipping_marks=F('shipping_mark'),
                     plt_ids=StringAgg("str_id", delimiter=",", distinct=True, ordering="str_id"),
                     total_pcs=Sum("pcs", output_field=IntegerField()),
-                    total_cbm=Sum("cbm", output_field=IntegerField()),
-                    total_weight_lbs=Sum("weight_lbs", output_field=IntegerField()),
+                    total_cbm=Sum("cbm", output_field=FloatField()),
+                    total_weight_lbs=Sum("weight_lbs", output_field=FloatField()),
                     total_n_pallet_act=Count("pallet_id", distinct=True),
                     label=Value("ACT"),
                 ).order_by('container_number__order__offload_id__offload_at')
