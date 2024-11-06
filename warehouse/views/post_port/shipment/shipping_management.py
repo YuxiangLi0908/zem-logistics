@@ -64,6 +64,7 @@ class ShippingManagement(View):
     template_appointment_management = "post_port/shipment/06_appointment_management.html"
     template_shipment_list = "post_port/shipment/07_shipment_list.html"
     template_shipment_list_shipment_display = "post_port/shipment/07_1_shipment_list_shipment_display.html"
+    template_shipment_exceptions = "post_port/shipment/exceptions/01_shipment_exceptions.html"
     area_options = {"NJ": "NJ", "SAV": "SAV"}
     warehouse_options = {"": "", "NJ-07001": "NJ-07001", "NJ-08817": "NJ-08817", "SAV-31326": "SAV-31326"}
     shipment_type_options = {"":"", "FTL/LTL":"FTL/LTL", "外配/快递":"外配/快递"}
@@ -127,6 +128,9 @@ class ShippingManagement(View):
             return render(request, template, context)
         elif step == "shipment_list_search":
             template, context = await self.handle_shipment_list_search_post(request)
+            return render(request, template, context)
+        elif step == "fix_shipment_exceptions":
+            template, context = await self.handle_fix_shipment_exceptions_post(request)
             return render(request, template, context)
         else:
             return await self.get(request)
@@ -203,7 +207,45 @@ class ShippingManagement(View):
         return self.template_shipment_list_shipment_display, context
     
     async def handle_shipment_exceptions_get(self, request: HttpRequest) -> tuple[str, dict[str, Any]]:
-        pass
+        shipment = await sync_to_async(list)(
+            Shipment.objects.filter(
+                status="Exception",
+                is_canceled=False,
+            ).order_by('shipment_appointment')
+        )
+        shipment_data = {
+            s.shipment_batch_number: {
+                "origin": s.origin,
+                "load_type": s.load_type,
+                "note": s.note,
+                "destination": s.destination,
+                "address": s.address,
+                "origin": s.origin,
+            }
+            for s in shipment
+        }
+        unused_appointment = await sync_to_async(list)(
+            Shipment.objects.filter(
+                in_use=False,
+                is_canceled=False
+            )
+        )
+        unused_appointment = {
+            s.appointment_id: {
+                "destination": s.destination.strip(),
+                "shipment_appointment": s.shipment_appointment.replace(microsecond=0).isoformat(),
+            }
+            for s in unused_appointment
+        }
+        context = {
+            "shipment": shipment,
+            "shipment_type_options": self.shipment_type_options,
+            "unused_appointment": json.dumps(unused_appointment),
+            "shipment_data": json.dumps(shipment_data),
+            "warehouse_options": self.warehouse_options,
+            "load_type_options": LOAD_TYPE_OPTIONS,
+        }
+        return self.template_shipment_exceptions, context
 
     async def handle_warehouse_post(self, request: HttpRequest) -> tuple[str, dict[str, Any]]:
         if request.POST.get("area"):
@@ -870,6 +912,121 @@ class ShippingManagement(View):
             "shipment": shipment,
         }
         return self.template_shipment_list, context
+    
+    async def handle_fix_shipment_exceptions_post(self, request: HttpRequest) -> tuple[str, dict[str, Any]]:
+        solution = request.POST.get("solution")
+        shipment_batch_number = request.POST.get("shipment_batch_number")
+        if solution == "keep_old":
+            shipment = await sync_to_async(Shipment.objects.get)(shipment_batch_number=shipment_batch_number)
+            shipment.status = ""
+            shipment.priority = "P0"
+            shipment.is_shipped = False
+            shipment.shipped_at = None
+            await sync_to_async(shipment.save)()
+        else:
+            old_shipment = await sync_to_async(Shipment.objects.get)(shipment_batch_number=shipment_batch_number)
+            shipment_type = request.POST.get("shipment_type")
+            appointment_id = request.POST.get("appointment_id", None)
+            appointment_id = appointment_id.strip() if appointment_id else None
+            try:
+                existed_appointment = await sync_to_async(Shipment.objects.get)(appointment_id=appointment_id)
+            except:
+                existed_appointment = None
+            if existed_appointment:
+                if existed_appointment.in_use:
+                    raise RuntimeError(f"Appointment {existed_appointment} already used by other shipment!")
+                elif existed_appointment.is_canceled:
+                    raise RuntimeError(f"Appointment {existed_appointment} already exists and is canceled!")
+                elif existed_appointment.shipment_appointment.replace(tzinfo=pytz.UTC) < timezone.now():
+                    raise RuntimeError(f"Appointment {existed_appointment} already exists and expired!")
+                elif existed_appointment.destination != request.POST.get("destination", None):
+                    raise ValueError(f"Appointment {existed_appointment} has a different destination {existed_appointment.destination} - {request.POST.get('destination', None)}!")
+                else:
+                    shipment = existed_appointment
+                    shipment.shipment_batch_number = request.POST.get("shipment_batch_number").strip().split('_')[0] + f"_{shipment.batch + 1}"
+                    shipment.in_use = True
+                    shipment.origin = request.POST.get("origin", "").strip()
+                    shipment.shipment_type = shipment_type
+                    shipment.load_type = request.POST.get("load_type", "").strip()
+                    shipment.note = request.POST.get("note", "").strip()
+                    shipment.shipment_schduled_at = timezone.now()
+                    shipment.is_shipment_schduled = True
+                    shipment.destination = request.POST.get("destination", "").strip()
+                    shipment.address = request.POST.get("address", "").strip()
+                    shipment.master_batch_number = old_shipment.shipment_batch_number
+                    shipment.total_weight = old_shipment.total_weight
+                    shipment.total_cbm = old_shipment.total_cbm
+                    shipment.total_pallet = old_shipment.total_pallet
+                    shipment.total_pcs = old_shipment.total_pcs
+                    shipment.shipped_weight = old_shipment.shipped_weight
+                    shipment.shipped_cbm = old_shipment.shipped_cbm
+                    shipment.shipped_pallet = old_shipment.shipped_pallet
+                    shipment.shipped_pcs = old_shipment.shipped_pcs
+                    shipment.pallet_dumpped = old_shipment.pallet_dumpped
+                    shipment.previous_fleets = old_shipment.previous_fleets
+                    try:
+                        shipment.third_party_address = request.POST.get("third_party_address").strip()
+                    except:
+                        pass
+            else:
+                current_time = timezone.now()
+                shipment_data = {}
+                shipment_data["appointment_id"] = request.POST.get("appointment_id", "").strip()
+                shipment_data["third_party_address"] = request.POST.get("third_party_address", "").strip()
+                shipment_data["shipment_type"] = shipment_type
+                shipment_data["load_type"] = request.POST.get("load_type", "").strip()
+                shipment_data["note"] = request.POST.get("note", "").strip()
+                shipment_data["shipment_appointment"] = request.POST.get("shipment_appointment", None)
+                shipment_data["shipment_schduled_at"] = current_time
+                shipment_data["is_shipment_schduled"] = True
+                shipment_data["destination"] = request.POST.get("destination", "").strip()
+                shipment_data["address"] = request.POST.get("address", "").strip()
+                shipment_data["origin"] = request.POST.get("origin", "").strip()
+                shipment_data["master_batch_number"] = old_shipment.shipment_batch_number
+                shipment_data["shipment_batch_number"] = request.POST.get("shipment_batch_number").strip().split('_')[0] + f"_{old_shipment.batch + 1}"
+                shipment_data["total_weight"] = old_shipment.total_weight
+                shipment_data["total_cbm"] = old_shipment.total_cbm
+                shipment_data["total_pallet"] = old_shipment.total_pallet
+                shipment_data["total_pcs"] = old_shipment.total_pcs
+                shipment_data["shipped_weight"] = old_shipment.shipped_weight
+                shipment_data["shipped_cbm"] = old_shipment.shipped_cbm
+                shipment_data["shipped_pallet"] = old_shipment.shipped_pallet
+                shipment_data["shipped_pcs"] = old_shipment.shipped_pcs
+                shipment_data["pallet_dumpped"] = old_shipment.pallet_dumpped
+                shipment_data["previous_fleets"] = old_shipment.previous_fleets
+                if shipment_type == "外配/快递":
+                    fleet = Fleet(**{
+                        "carrier": request.POST.get("carrier"),
+                        "fleet_type": shipment_type,
+                        "appointment_datetime": request.POST.get("appointment_datetime"),
+                        "fleet_number": "FO" + current_time.strftime("%m%d%H%M%S") + str(uuid.uuid4())[:2].upper(),
+                        "scheduled_at": current_time,
+                        "total_weight": old_shipment.shipped_weight,
+                        "total_cbm": old_shipment.shipped_cbm,
+                        "total_pallet": old_shipment.shipped_pallet,
+                        "total_pcs": old_shipment.shipped_pcs,
+                        "origin": request.POST.get("origin", "").strip()
+                    })
+                    await sync_to_async(fleet.save)()
+                    shipment_data["fleet_number"] = fleet
+            if not existed_appointment:
+                shipment = Shipment(**shipment_data)
+            await sync_to_async(shipment.save)()
+            packing_list = await sync_to_async(list)(
+                PackingList.objects.select_related("shipment_batch_number").filter(shipment_batch_number__shipment_batch_number=shipment_batch_number)
+            )
+            pallet = await sync_to_async(list)(
+                Pallet.objects.select_related("shipment_batch_number").filter(shipment_batch_number__shipment_batch_number=shipment_batch_number)
+            )
+            for pl in packing_list:
+                pl.shipment_batch_number = shipment
+            for p in pallet:
+                p.shipment_batch_number = shipment
+            await sync_to_async(PackingList.objects.bulk_update)(packing_list, ["shipment_batch_number"])
+            await sync_to_async(Pallet.objects.bulk_update)(pallet, ["shipment_batch_number"])
+            old_shipment.is_canceled = True
+            await sync_to_async(old_shipment.save)()
+        return await self.handle_shipment_exceptions_get(request)
 
     async def _get_packing_list(
         self, 
