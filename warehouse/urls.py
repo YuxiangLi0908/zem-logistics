@@ -25,6 +25,7 @@ from warehouse.views.stuff_user_ability import StuffPower
 from warehouse.views.quote_management import QuoteManagement
 from warehouse.views.accounting import Accounting
 from warehouse.views.shipment_status import ShipmentStatus
+from warehouse.views.post_port.posport_dash import PostportDash
 from warehouse.views.post_port.shipment.shipping_management import ShippingManagement
 from warehouse.views.post_port.shipment.fleet_management import FleetManagement
 from warehouse.views.container_tracking import ContainerTracking
@@ -52,6 +53,7 @@ urlpatterns = [
     path('fleet_management/', FleetManagement.as_view(), name='fleet_management'),
     path('outbound/', FleetManagement.as_view(), name='outbound'),
     path('pod/', FleetManagement.as_view(), name='pod'),
+    path('post_port_summary/', PostportDash.as_view(), name='post_port_summary'),
     path('generate_pdf/', ExportFile.as_view(), name='generate_pdf'),
     path('customer_management/', CustomerManagement.as_view(), name='customer_management'),
     path('customer_management/<str:name>/', CustomerManagement.as_view(), name='customer_management'),

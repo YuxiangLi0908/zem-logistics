@@ -11,12 +11,15 @@
 <form id="warehouse-form" method="post" action="">
     {% csrf_token %}
     <div>
-        <b style="margin-right: 5px;">所属仓:</b>
+        <b style="margin-right: 5px;">所属仓: </b>
         <select name="area">
             {% for k, v in area_options.items %}
             <option value="{{ v }}" {% if k == selected_area %}selected{% endif %}>{{ k }}</option>
             {% endfor %}
         </select>
+        <b style="margin-right: 5px;">ETA: </b>
+        <input type="date" name="start_date" value="{{ start_date }}">
+        <input type="date" name="end_date" value="{{ end_date }}">
         <input type="hidden" name="step" value="summary_warehouse">
         <button type="submit">确认</button>
     </div>
@@ -26,7 +29,7 @@
 <form method="post" style="width: 100%;">
     {% if packing_list %}
     {% csrf_token %}
-        <div style="right;">
+        <div style="right: auto;">
             <input type="hidden" name="step" value="export_report">
             <button type="submit" onclick="confirmSubmit()" class="btn btn-primary" style="width: 100px; height: 35px;">导出报表</button>
         </div>
@@ -39,22 +42,32 @@
                     <th class="th">客户</th>
                     <th class="th">货柜号</th>
                     <th class="th">仓点</th>
-                    
-                    <th class="th">入仓时间</th>
+                    <th class="th">派送方式</th>
                     <th class="th">CBM</th>
                     <th class="th">卡板数</th>
-                    <th class="th">预约时间</th>
-                    <th class="th">派送方式</th>
                     <th class="th">总重lbs</th>
+                    <th class="th">ETA</th>
+                    <th class="th">提柜时间</th>
+                    <th class="th">入仓时间</th>
+                    <th class="th">预约批次</th>
+                    <th class="th">预约号</th>
+                    <th class="th">预约时间</th>
+                    <th class="th">发货时间</th>
+                    <th class="th">送达时间</th>
                 </tr>
                 <tr style="position: sticky; top: 52px;">                  
-                    <th class="th" style="min-width: 40px;">
+                    <th class="th" style="min-width: 40px; text-align: center;">
                         <input type="checkbox" id="selectAllCheckbox" onchange="toggleAllCheckboxes()">
                     </th>
                     <th class="th"><input type="text" id="destinationSearchInput" placeholder="搜索目的仓库..." oninput="filterTable()" size="13" style="font-size: 11px;"></th>
                     <th class="th"></th>
                     <th class="th"><input type="text" id="containerSearchInput" placeholder="搜索柜号..." oninput="filterTable()" size="13" style="font-size: 11px;"></th>
-                    
+                    <th class="th"></th>
+                    <th class="th"></th>
+                    <th class="th"></th>
+                    <th class="th"></th>
+                    <th class="th"></th>
+                    <th class="th"></th>
                     <th class="th"></th>
                     <th class="th"></th>
                     <th class="th"></th>
@@ -85,13 +98,10 @@
                             <span class="status-span-yellow" style="padding-top: 0; padding-bottom: 0;">PO失效</span>
                         {% endif %}
                     </td>
-                    
                     <td class="td">
-                        {% if c.schedule_status == 'past_due' %}
-                            <span class="status-span-red">{{ c.container_number__order__offload_id__offload_at|date:"M-j" }}</span>
-                        {% else %}
-                            {{ c.container_number__order__offload_id__offload_at|date:"M-j" }}
-                        {% endif %}
+                        {% with first_value=c.custom_delivery_method|split_and_get_first %}
+                            {{ first_value }}
+                        {% endwith %}
                     </td>
                     <td class="td">{{ c.total_cbm|floatformat:2 }}</td>
                     <td class="td">
@@ -109,15 +119,28 @@
                             {% endif %}
                         {% endif %}
                     </td>
-                    <td class="td">
-                        
-                    </td>
-                    <td class="td">
-                        {% with first_value=c.custom_delivery_method|split_and_get_first %}
-                            {{ first_value }}
-                        {% endwith %}
-                    </td>
                     <td class="td">{{ c.total_weight_lbs|floatformat:2 }}</td>
+                    <td class="td">{{ c.container_number__order__vessel_id__vessel_eta|date:"M-j" }}</td>
+                    <td class="td">
+                        {% if c.container_number__order__retrieval_id__actual_retrieval_timestamp %}
+                        {{ c.container_number__order__retrieval_id__actual_retrieval_timestamp|date:"M-j" }}
+                        {% elif c.container_number__order__retrieval_id__target_retrieval_timestamp %}
+                        <span class="status-span-blue-100">EST</span>
+                        {{ c.container_number__order__retrieval_id__target_retrieval_timestamp|date:"M-j" }}
+                        {% endif %}
+                    </td>
+                    <td class="td">{{ c.container_number__order__offload_id__offload_at|date:"M-j" }}</td>
+                    <td class="td">{{ c.shipment_batch_number__shipment_batch_number|default_if_none:"" }}</td>
+                    <td class="td">{{ c.shipment_batch_number__appointment_id|default_if_none:"" }}</td>
+                    <td class="td">
+                        {{ c.shipment_batch_number__shipment_appointment|date:"Y-m-d" }} {{ c.shipment_batch_number__shipment_appointment|time:"H:i" }}
+                    </td>
+                    <td class="td">
+                        {{ c.shipment_batch_number__shipped_at|date:"Y-m-d" }} {{ c.shipment_batch_number__shipped_at|time:"H:i" }}
+                    </td>
+                    <td class="td">
+                        {{ c.shipment_batch_number__arrived_at|date:"Y-m-d" }} {{ c.shipment_batch_number__arrived_at|time:"H:i" }}
+                    </td>
                 </tr>
                 {% endfor %}
             </tbody>
