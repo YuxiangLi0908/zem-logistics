@@ -120,7 +120,11 @@
                                 {% endif %}
                             </td>      
                             <td>
-                                {{po.handling_method}}
+                                {% if po.handling_method %}
+                                    {{po.handling_method}}
+                                {% else %}
+                                    
+                                {% endif %}
                             </td>        
                         </tr>
                         {% endfor %}
