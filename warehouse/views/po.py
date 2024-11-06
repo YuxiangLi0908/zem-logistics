@@ -15,6 +15,7 @@ from django.db import models
 from django.db.models import Sum, FloatField, IntegerField, Count, Case, When, F, Max, CharField, Value
 from django.db.models.functions import Cast
 from django.contrib.postgres.aggregates import StringAgg
+from django.core.exceptions import ObjectDoesNotExist
 
 from warehouse.models.order import Order
 from warehouse.models.container import Container
@@ -171,8 +172,8 @@ class PO(View):
                 print("Either 'PRO' or 'is_valid' column is not present in the DataFrame.")
             
             for bol,mark,fba,ref,is_valid in data_pairs:
-                try:
-                    if bol:
+                if bol:
+                    try:
                         #这里如果货柜表有重复会报错，应该不会有重复吧
                         container = await sync_to_async(Container.objects.get)(container_number = bol)
                         query = models.Q(container_number=container)
@@ -182,28 +183,30 @@ class PO(View):
                             query &= models.Q(fba_id=fba)
                         if not pd.isnull(ref) and ref != '':
                             query &= models.Q(ref_id=ref)
-                        await sync_to_async(print)(query)
-                        pochecketaseven = await sync_to_async(PoCheckEtaSeven.objects.get)(query)
+                        try:
+                            pochecketaseven = await sync_to_async(PoCheckEtaSeven.objects.get)(query)
 
-                        cn = pytz.timezone('Asia/Shanghai')
-                        current_time_cn = datetime.now(cn)
-                        if "eta" in time_code:
-                            pochecketaseven.last_eta_checktime = current_time_cn
-                            pochecketaseven.last_eta_status = True if is_valid.lower() == "yes" else False
-                            #如果要撤销查询，隐藏方法
-                            if  "restore" in is_valid:
-                               pochecketaseven.last_eta_checktime = None
-                               pochecketaseven.last_eta_status = False
-                               
-                        elif "retrieval" in time_code:
-                            pochecketaseven.last_retrieval_checktime = current_time_cn
-                            pochecketaseven.last_retrieval_status = True if is_valid.lower() == "yes" else False
-                            if  "restore" in is_valid:
-                               pochecketaseven.last_retrieval_checktime = None
-                               pochecketaseven.last_retrieval_status = False
-                        await sync_to_async(pochecketaseven.save)()
-                except PoCheckEtaSeven.DoesNotExist:
-                    continue
+                            cn = pytz.timezone('Asia/Shanghai')
+                            current_time_cn = datetime.now(cn)
+                            if "eta" in time_code:
+                                pochecketaseven.last_eta_checktime = current_time_cn
+                                pochecketaseven.last_eta_status = True if is_valid.lower() == "yes" else False
+                                #如果要撤销查询，隐藏方法
+                                if  "restore" in is_valid:
+                                    pochecketaseven.last_eta_checktime = None
+                                    pochecketaseven.last_eta_status = False
+                                
+                            elif "retrieval" in time_code:
+                                pochecketaseven.last_retrieval_checktime = current_time_cn
+                                pochecketaseven.last_retrieval_status = True if is_valid.lower() == "yes" else False
+                                if  "restore" in is_valid:
+                                    pochecketaseven.last_retrieval_checktime = None
+                                    pochecketaseven.last_retrieval_status = False
+                            await sync_to_async(pochecketaseven.save)()
+                        except PoCheckEtaSeven.DoesNotExist:
+                            continue
+                    except Container.DoesNotExist:
+                        continue
         return await self.handle_po_check_seven(request,time_code)
             
     async def handle_po_check_seven(self, request: HttpRequest, flag:str) -> dict[str, dict]:  
@@ -257,7 +260,6 @@ class PO(View):
             if request.POST.get("area"):
                 area = request.POST.get("area")
                 query &= models.Q(container_number__order__retrieval_id__retrieval_destination_area=area)
-            print('失效的查询',query)
             po_checks = await sync_to_async(PoCheckEtaSeven.objects.filter)(query)
             po_checks_list = await sync_to_async(list)(po_checks)
             po_checks_list.sort(key = lambda po: po.is_notified)
@@ -276,8 +278,10 @@ class PO(View):
             query2 = models.Q(last_retrieval_checktime__isnull = True) & models.Q(last_eta_checktime__isnull = False) & models.Q(last_eta_status = False)
             query = query1 | query2
             if request.POST.get("area"):
-                area = request.POST.get("area")
-                query &= models.Q(container_number__order__retrieval_id__retrieval_destination_area=area)
+                area = request.POST.get("area")             
+            else:
+                area = "NJ"
+            query &= models.Q(container_number__order__retrieval_id__retrieval_destination_area=area)
             #1、按ETA去筛选记录，2、将失效的记录排在前面
             po_checks = await sync_to_async(PoCheckEtaSeven.objects.filter)(
                 models.Q(vessel_eta__range=(start_date,end_date))

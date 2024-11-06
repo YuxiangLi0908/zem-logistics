@@ -14,6 +14,7 @@
             <input type="file" name="file">
             <input type="hidden" name="step" value="upload_check_po">
             <input type="hidden" name="time_code" value="retrieval">
+            <input type="hidden" id="hidden_area" name="area">
             <button type="submit" class="btn btn-success" style="width: 100px; height: 35px; font-size: 12px; margin: 5px;">上传清单</button>
         </div>
     </form>
@@ -22,7 +23,7 @@
     {% csrf_token %}
     <div>
         <b style="margin-right: 5px;">所属仓:</b>
-        <select name="area">
+        <select name="area" id="area_select">
             {% for k, v in area_options.items %}
             <option value="{{ v }}" {% if k == selected_area %}selected{% endif %}>{{ k }}</option>
             {% endfor %}
@@ -111,7 +112,10 @@
     </form>
 {% endif %}
 <script>
-
+    document.querySelector('.btn.btn-success').addEventListener('click', function () {
+        var areaValue = document.getElementById('area_select').value;
+        document.getElementById('hidden_area').value = areaValue;
+    });
     function confirmSubmit() {
         const checkBoxes = document.getElementsByName('is_selected');
         for (let i = 0; i < checkBoxes.length; i+=2) {
