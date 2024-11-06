@@ -1,0 +1,196 @@
+{% extends 'base.html' %}
+{% load static %}
+{% load static custom_tags %}
+{% load static custom_filters %}
+{% load static custom_mod %}
+{% load static custom_floor_division %}
+
+{% block content %}
+<div><b>报表汇总</b></div>
+
+<form id="warehouse-form" method="post" action="">
+    {% csrf_token %}
+    <div>
+        <b style="margin-right: 5px;">所属仓:</b>
+        <select name="area">
+            {% for k, v in area_options.items %}
+            <option value="{{ v }}" {% if k == selected_area %}selected{% endif %}>{{ k }}</option>
+            {% endfor %}
+        </select>
+        <input type="hidden" name="step" value="summary_warehouse">
+        <button type="submit">确认</button>
+    </div>
+</form>
+
+
+<form method="post" style="width: 100%;">
+    {% if packing_list %}
+    {% csrf_token %}
+        <div style="right;">
+            <input type="hidden" name="step" value="export_report">
+            <button type="submit" onclick="confirmSubmit()" class="btn btn-primary" style="width: 100px; height: 35px;">导出报表</button>
+        </div>
+    <div>   
+        <table id="packing-list-table" class="table" style="font-size: 11px; max-height: 90%; overflow-y: scroll;">
+            <thead>
+                <tr style="position: sticky; top: 30px;">
+                    <th class="th" style="min-width: 40px; text-align: center;"></th>
+                    <th class="th">所属仓库</th>
+                    <th class="th">客户</th>
+                    <th class="th">货柜号</th>
+                    <th class="th">仓点</th>
+                    
+                    <th class="th">入仓时间</th>
+                    <th class="th">CBM</th>
+                    <th class="th">卡板数</th>
+                    <th class="th">预约时间</th>
+                    <th class="th">派送方式</th>
+                    <th class="th">总重lbs</th>
+                </tr>
+                <tr style="position: sticky; top: 52px;">                  
+                    <th class="th" style="min-width: 40px;">
+                        <input type="checkbox" id="selectAllCheckbox" onchange="toggleAllCheckboxes()">
+                    </th>
+                    <th class="th"><input type="text" id="destinationSearchInput" placeholder="搜索目的仓库..." oninput="filterTable()" size="13" style="font-size: 11px;"></th>
+                    <th class="th"></th>
+                    <th class="th"><input type="text" id="containerSearchInput" placeholder="搜索柜号..." oninput="filterTable()" size="13" style="font-size: 11px;"></th>
+                    
+                    <th class="th"></th>
+                    <th class="th"></th>
+                    <th class="th"></th>
+                    <th class="th"></th>
+                    <th class="th"></th>
+                    <th class="th"></th>
+                    <th class="th"></th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for c in packing_list %}
+                <tr>
+                    <td class="td" style="min-width: 40px; text-align: center;">
+                        <input type='checkbox' name='is_selected' onclick="toggleRowBackground(this)">
+                        <input type="hidden" name="is_selected", value='off'>
+                        <input type="hidden" name="pl_ids", value='{{ c.ids }}'>
+                        <input type="hidden" name="plt_ids", value='{{ c.plt_ids }}'>
+                    </td>
+                    <td class="td">{{ c.warehouse }}</td>
+                    <td class="td" style="max-width: 120px; word-break: break-all;">{{ c.container_number__order__customer_name__zem_name }}</td>
+                    <td class="td">{{ c.container_number__container_number }}</td>
+                    <td class="td" name="po-destination">
+                        {{ c.destination }}
+                        {% if c.abnormal_palletization %}
+                            <span class="status-span-red" style="padding-top: 0; padding-bottom: 0;">未解决拆柜异常</span>
+                        {% endif %}
+                        {% if c.po_expired %}
+                            <span class="status-span-yellow" style="padding-top: 0; padding-bottom: 0;">PO失效</span>
+                        {% endif %}
+                    </td>
+                    
+                    <td class="td">
+                        {% if c.schedule_status == 'past_due' %}
+                            <span class="status-span-red">{{ c.container_number__order__offload_id__offload_at|date:"M-j" }}</span>
+                        {% else %}
+                            {{ c.container_number__order__offload_id__offload_at|date:"M-j" }}
+                        {% endif %}
+                    </td>
+                    <td class="td">{{ c.total_cbm|floatformat:2 }}</td>
+                    <td class="td">
+                        {% if c.label == "ACT" %}
+                            <span class="status-span-green-100">ACT</span>
+                            {{ c.total_n_pallet_act }}
+                        {% else %}
+                            <span class="status-span-blue-100">EST</span>
+                            {% if c.total_n_pallet_est < 1 %}
+                                {{ 1 }}
+                            {% elif c.total_n_pallet_est|modulo:1 >= 0.45 %}
+                                {{ c.total_n_pallet_est|floor_division:1|add:1|floatformat:0 }}
+                            {% else %}
+                                {{ c.total_n_pallet_est|floor_division:1|floatformat:0 }}
+                            {% endif %}
+                        {% endif %}
+                    </td>
+                    <td class="td">
+                        
+                    </td>
+                    <td class="td">
+                        {% with first_value=c.custom_delivery_method|split_and_get_first %}
+                            {{ first_value }}
+                        {% endwith %}
+                    </td>
+                    <td class="td">{{ c.total_weight_lbs|floatformat:2 }}</td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    {% endif %}
+    </div>
+</form>
+
+<script>
+    function confirmSubmit() {
+        const checkBoxes = document.getElementsByName('is_selected');
+        for (let i = 0; i < checkBoxes.length; i+=2) {
+            if (checkBoxes[i].checked) {
+                checkBoxes[i+1].disabled = true;
+            }
+        }
+    };
+    function toggleAllCheckboxes() {
+        var selectAllCheckbox = document.getElementById('selectAllCheckbox');
+        var checkboxes = document.querySelectorAll('tbody input[type="checkbox"][name="is_selected"]');
+        
+        checkboxes.forEach(function(checkbox) {
+            var tr = checkbox.closest('tr');
+            if (tr.style.display !== 'none') {
+                checkbox.checked = selectAllCheckbox.checked;
+                if (checkbox.checked) {
+                    tr.style.backgroundColor = '#ADD8E6'; // Change to your desired color
+                } else {
+                    tr.style.backgroundColor = ''; // Reset to default color
+                }
+            }
+        });
+    };
+
+    function toggleRowBackground(checkbox) {
+        var row = checkbox.closest('tr');
+        if (checkbox.checked) {
+            row.style.backgroundColor = '#ADD8E6'; 
+        } else {
+            row.style.backgroundColor = ''; 
+        }
+    };
+
+    function filterTable(filterInput, col_idx, trim) {
+        var table = filterInput.closest('table');
+        var tbody = table.getElementsByTagName("tbody")[0];
+        var tr = tbody.getElementsByTagName("tr");
+
+        var filters = document.querySelectorAll('thead input[type="text"], thead select');
+        var filterValues = Array.from(filters).map(function(filter) {
+            return filter.value.toUpperCase().trim();
+        });
+
+        for (var i = 0; i < tr.length; i++) {
+            var row = tr[i];
+            var showRow = true;
+            for (var j = 0; j < filters.length; j++) {
+                var colIdx = j;
+                var filterValue = filterValues[j];
+                var cell = row.getElementsByTagName("td")[colIdx];
+                if (cell) {
+                    var cellText = cell.textContent || cell.innerText;
+                    var cellValue = trim ? cellText.toUpperCase().trim() : cellText.toUpperCase();
+                    if (filterValue !== "" && cellValue.indexOf(filterValue) === -1) {
+                        showRow = false;
+                        break;
+                    }
+                }
+            }
+            row.style.display = showRow ? "" : "none";
+        }
+    };
+</script>
+{% endblock %}
+
+            
