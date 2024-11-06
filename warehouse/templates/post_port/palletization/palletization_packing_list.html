@@ -92,7 +92,7 @@
                             {% else %}
                             <td class="td"><input type="text" name="new_pcs_actul"></td>
                             {% endif %}
-                            <td class="td"><input type="number" name="new_cbms" placeholder="optional"></td>
+                            <td class="td"><input type="number" name="new_cbms" step="0.01" placeholder="optional"></td>
                             <td class="td"><input type="number" step="1" name="new_pallets" required></td>
                             <td class="td"><input type="text" name="new_notes"></td>
                         </tr>
@@ -166,13 +166,16 @@
             const p = palletCount[i].value;
             const pcs = pcsCount[i].value;
             if (p == 0 && pcs != 0) {
-                event.preventDefault();
                 palletCount[i].style.border = '2px solid red';
                 var palletValid = false;
+            } else {
+                palletCount[i].style.border = '';
             };
-            if (!palletValid) {
-                alert("请核对打板数!");
-            }
+        };
+        if (!palletValid) {
+            alert("请核对打板数!");
+            event.preventDefault();
+            return
         };
     };
 </script>

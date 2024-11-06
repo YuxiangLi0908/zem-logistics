@@ -615,4 +615,3 @@ class PO(View):
                 "est_pallet": 0,
                 "total_pallet": agg_pl[0]["total_n_pallet_act"],
             }
-        
