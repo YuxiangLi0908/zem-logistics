@@ -105,7 +105,6 @@ class PO(View):
             return render(request, self.template_po_list, context)
     
     async def handle_upload_po_invalid_post(self, request: HttpRequest) -> tuple[Any]:
-        await sync_to_async(print)(request.POST)
         notifyChanges = request.POST.get("notifyChanges")
         ids = request.POST.getlist("po_ids")
         ids = [i.split(",") for i in ids]      
