@@ -1,4 +1,5 @@
 
+
 {% extends 'base.html' %}
 {% load custom_filters %}
 {% block content %}
@@ -13,20 +14,14 @@
         <input type="date" name="start_date" value="{{ start_date }}">
         <input type="date" name="end_date" value="{{ end_date }}" style="margin-right: 5px;">
         <input type="hidden" name="step" value="eta_search">
-        <button id="submit-btn" type="submit" class="btn btn-primary" style="width: 100px; height: 35px; margin-left: 20px;">查询</button>
-    </div>
-</form>
-<form method="post" action="" onsubmit="showLoadingBar()">
-    {% csrf_token %}
-    <div>
+        <input type="hidden" id="hidden_area" name="area">
         <b style="margin-right: 5px;">所属仓:</b>
-        <select name="area">
+        <select name="area" id="area_select">
             {% for k, v in area_options.items %}
             <option value="{{ v }}" {% if k == selected_area %}selected{% endif %}>{{ k }}</option>
             {% endfor %}
         </select>
-        <input type="hidden" name="step" value="list_warehouse">
-        <button type="submit">确认</button>
+        <button id="submit-btn" type="submit" class="btn btn-primary" style="width: 100px; height: 35px; margin-left: 20px;">查询</button>
     </div>
 </form>
 {% if po_check %}
