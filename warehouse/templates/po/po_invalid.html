@@ -10,7 +10,7 @@
     {% csrf_token %}
     <div>
         <b style="margin-right: 5px;">所属仓:</b>
-        <select name="area">
+        <select name="area" id="area_select">
             {% for k, v in area_options.items %}
             <option value="{{ v }}" {% if k == selected_area %}selected{% endif %}>{{ k }}</option>
             {% endfor %}
@@ -113,11 +113,14 @@
             </div>
         </div>
         <input type="hidden" name="step" value="po_invalid_save">
+        <input type="hidden" id="hidden_area" name="area">
         <button type="submit" onclick="confirmSubmit(this)" class="btn btn-primary" style="width: 100px; height: 35px;">保存</button>
     </form>
 {% endif %}
 <script>
-    console.log('控制台');
+    
+    
+    
     let notifyChanges = {};
     let notifyActives = {};
     document.querySelectorAll('#active-td input[type="checkbox"]').forEach((checkbox, index) => {
@@ -142,6 +145,10 @@
         });
     });
     
+    document.querySelector('.btn.btn-primary').addEventListener('click', function () {
+        var areaValue = document.getElementById('area_select').value;
+        document.getElementById('hidden_area').value = areaValue;
+    });
 
     document.addEventListener('DOMContentLoaded', function () {
         let unCheckedCount = 0;
