@@ -448,6 +448,11 @@ class FleetManagement(View):
                 origin=warehouse,
                 departured_at__isnull=True,
                 is_canceled=False,
+            ).prefetch_related(
+                "shipment"
+            ).annotate(
+                shipment_batch_numbers=StringAgg("shipment__shipment_batch_number", delimiter=","),
+                appointment_ids=StringAgg("shipment__appointment_id", delimiter=","),
             ).order_by("appointment_datetime")
         )
         context = {
