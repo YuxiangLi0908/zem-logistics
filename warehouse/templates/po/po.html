@@ -45,6 +45,7 @@
                     <th class="th">重量lbs</th>
                     <th class="th">卡板数</th>
                     <th class="th">是否预估板数</th>
+                    <th class="th">校验情况</th>
                 </tr>
                 <tr style="position: sticky; top: 28px;">
                     <th class="th" style="max-width: 5%; min-width: 10px; text-align: center;">
@@ -52,6 +53,7 @@
                     </th>
                     <th class="th" style="min-width: 60px;"><input type="text" id="containerSearchInput" placeholder="搜索柜号..." oninput="filterTable()" style="min-width: 80px; font-size: 10px;"></th>
                     <th class="th" style="min-width: 60px;"><input type="text" id="destinationSearchInput" placeholder="搜索目的地..." oninput="filterTable()" style="min-width: 80px; font-size: 10px;"></th>
+                    <th class="th"></th>
                     <th class="th"></th>
                     <th class="th"></th>
                     <th class="th"></th>
@@ -96,6 +98,17 @@
                             实际
                         {% else %}
                             预估
+                        {% endif %}
+                    </td>
+                    <td class="td">
+                        {% if s.check == "失效" %}
+                            <span style="color:red;"><b>失效</b></span>
+                        {% elif s.check == "有效" %}
+                            <span style="color:green;">有效</span>
+                        {% elif s.check == "未校验" %}
+                            <span style="color:red;">未校验</span> 
+                        {% else %}
+                            <span style="color:black;">{{ s.check }}</span> 
                         {% endif %}
                     </td>
                 </tr>

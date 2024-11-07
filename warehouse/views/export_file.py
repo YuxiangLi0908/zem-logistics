@@ -24,10 +24,12 @@ from django.forms import model_to_dict
 from django.template.loader import get_template
 from django.conf import settings
 from django.contrib.staticfiles import finders
+from django.core.exceptions import ObjectDoesNotExist,MultipleObjectsReturned
 
 from warehouse.models.packing_list import PackingList
 from warehouse.models.order import Order
 from warehouse.models.pallet import Pallet
+from warehouse.models.po_check_eta import PoCheckEtaSeven
 from warehouse.utils.constants import (
     ACCT_ACH_ROUTING_NUMBER,
     ACCT_BANK_NAME,
@@ -213,7 +215,7 @@ def export_po(request: HttpRequest, export_format: str = "PO") -> HttpResponse:
         id__in=ids
     ).values(
         'fba_id', 'ref_id','address','zipcode','destination','delivery_method',
-        'container_number__container_number',
+        'container_number__container_number',"shipping_mark"
     ).annotate(
         total_pcs=Sum(
             Case(
@@ -246,13 +248,34 @@ def export_po(request: HttpRequest, export_format: str = "PO") -> HttpResponse:
             )
         ),
     ).distinct().order_by("destination", "container_number__container_number")
+    for p in packing_list:
+        try:
+            pl = PoCheckEtaSeven.objects.get(
+                container_number__container_number = p['container_number__container_number'],
+                shipping_mark = p['shipping_mark'],
+                fba_id = p['fba_id'],
+                ref_id = p['ref_id']
+            )
+            
+            if not pl.last_eta_checktime and not pl.last_retrieval_checktime:
+                p['check'] = '未校验'
+            elif pl.last_retrieval_checktime and not pl.last_retrieval_status:
+                p['check'] = '失效'
+            elif not pl.last_retrieval_checktime and pl.last_eta_checktime and not pl.last_eta_status:
+                p['check'] = '失效'
+            else:
+                p['check'] = '有效'
+        except PoCheckEtaSeven.DoesNotExist:
+            p['check'] =  '未找到记录'
+        except MultipleObjectsReturned:
+            p['check'] =  "唛头FBA_REF重复"
     data = [i for i in packing_list]
     if export_format == "PO":
-        keep = ["fba_id", "container_number__container_number", "ref_id", "Pallet Count", "total_pcs", "label"]
+        keep = ["fba_id", "container_number__container_number", "ref_id", "Pallet Count", "total_pcs", "label","check"]
     elif export_format == "FULL_TABLE":
         keep = [
             "container_number__container_number", "destination", "delivery_method", "fba_id", "ref_id", 
-            "total_cbm", "total_pcs", "total_weight_lbs", "Pallet Count", "label"
+            "total_cbm", "total_pcs", "total_weight_lbs", "Pallet Count", "label","check"
         ]
     else:
         raise ValueError(f"unknown export_format option: {export_format}")
