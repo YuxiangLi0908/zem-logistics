@@ -117,7 +117,7 @@ class PrePortTracking(View):
                     models.Q(retrieval_id__actual_retrieval_timestamp__isnull=True)
                 )
             )
-            t49_container_numbers = df["Container number"].to_list()
+            t49_container_numbers = df["Container"].to_list()
             vessels = []
             retrievals = []
             orders_updated = []
@@ -125,9 +125,9 @@ class PrePortTracking(View):
                 if o.container_number.container_number in t49_container_numbers:
                     try:
                         o.vessel_id.vessel_eta = (
-                            self._format_string_datetime(df.loc[df["Container number"]==o.container_number.container_number, "Port of Discharge estimated time of arrival"].values[0])
-                            if df.loc[df["Container number"]==o.container_number.container_number, "Port of Discharge estimated time of arrival"].any()
-                            else self._format_string_datetime(df.loc[df["Container number"]==o.container_number.container_number, "Port of Discharge actual time of arrival"].values[0])
+                            self._format_string_datetime(df.loc[df["Container"]==o.container_number.container_number, "POD ETA"].values[0])
+                            if df.loc[df["Container"]==o.container_number.container_number, "POD ETA"].any()
+                            else self._format_string_datetime(df.loc[df["Container"]==o.container_number.container_number, "POD ATA"].values[0])
                         )
                         #修改eta的时候，对应修改po_check的eta
                         packing_list = await sync_to_async(list)(PackingList.objects.filter(container_number__container_number = o.container_number.container_number))
@@ -143,16 +143,16 @@ class PrePortTracking(View):
                         pass
                     try:
                         o.vessel_id.origin_port = (
-                            df.loc[df["Container number"]==o.container_number.container_number, "Port of Lading"].values[0]
-                            if df.loc[df["Container number"]==o.container_number.container_number, "Port of Lading"].any()
+                            df.loc[df["Container"]==o.container_number.container_number, "POL"].values[0]
+                            if df.loc[df["Container"]==o.container_number.container_number, "POL"].any()
                             else ""
                         )
                     except:
                         pass
                     try:
                         o.retrieval_id.temp_t49_lfd = (
-                            self._format_string_datetime(df.loc[df["Container number"]==o.container_number.container_number, "Current last free day at the POD terminal"].values[0])
-                            if df.loc[df["Container number"]==o.container_number.container_number, "Current last free day at the POD terminal"].any()
+                            self._format_string_datetime(df.loc[df["Container"]==o.container_number.container_number, "POD LFD"].values[0])
+                            if df.loc[df["Container"]==o.container_number.container_number, "POD LFD"].any()
                             else None
                         )
                     except:
@@ -160,49 +160,65 @@ class PrePortTracking(View):
                     try:
                         o.retrieval_id.temp_t49_available_for_pickup = (
                             True 
-                            if df.loc[df["Container number"]==o.container_number.container_number, "Available for pickup"].values[0] == "Yes"
+                            if df.loc[df["Container"]==o.container_number.container_number, "POD Availability"].values[0] == "Avail"
                             else False
                         )
                     except:
                         pass
                     try:
                         o.retrieval_id.temp_t49_pod_arrive_at = (
-                            self._format_string_datetime(df.loc[df["Container number"]==o.container_number.container_number, "Port of Discharge arrival time"].values[0], "datetime")
-                            if df.loc[df["Container number"]==o.container_number.container_number, "Port of Discharge arrival time"].any()
+                            self._format_string_datetime(df.loc[df["Container"]==o.container_number.container_number, "POD Arrival"].values[0], "datetime")
+                            if df.loc[df["Container"]==o.container_number.container_number, "POD Arrival"].any()
                             else None
                         )
                     except:
                         pass
                     try:
                         o.retrieval_id.temp_t49_pod_discharge_at = (
-                            self._format_string_datetime(df.loc[df["Container number"]==o.container_number.container_number, "Port of Discharge discharged event"].values[0], "datetime")
-                            if df.loc[df["Container number"]==o.container_number.container_number, "Port of Discharge discharged event"].any()
+                            self._format_string_datetime(df.loc[df["Container"]==o.container_number.container_number, "POD Discharged"].values[0], "datetime")
+                            if df.loc[df["Container"]==o.container_number.container_number, "POD Discharged"].any()
                             else None
                         )
                     except:
                         pass
                     try:
-                        o.retrieval_id.temp_t49_hold_status = (
-                            True 
-                            if df.loc[df["Container number"]==o.container_number.container_number, "Holds at POD status (0)"].values[0] == "Hold"
-                            else False
-                        )
+                        columns_to_check = [
+                            "POD Holds: freight",
+                            "POD Holds: customs",
+                            "POD Holds: USDA",
+                            "POD Holds: VACIS",
+                            "POD Holds: other",
+                            "POD Holds: TMF"
+                        ]
+                        o.retrieval_id.temp_t49_hold_status = df.loc[df["Container"]==o.container_number.container_number, columns_to_check].eq("Yes").any(axis=1).values[0]
                     except:
                         pass
                     try:
                         o.retrieval_id.master_bill_of_lading =(
-                            df.loc[df["Container number"]==o.container_number.container_number, "Shipment number"].values[0]
-                            if df.loc[df["Container number"]==o.container_number.container_number, "Shipment number"].any()
+                            df.loc[df["Container"]==o.container_number.container_number, "Shipment"].values[0]
+                            if df.loc[df["Container"]==o.container_number.container_number, "Shipment"].any()
                             else None
                         )
                     except:
                         pass
                     try:
                         o.retrieval_id.origin_port = (
-                            df.loc[df["Container number"]==o.container_number.container_number, "Port of Lading"].values[0]
-                            if df.loc[df["Container number"]==o.container_number.container_number, "Port of Lading"].any()
+                            df.loc[df["Container"]==o.container_number.container_number, "POL"].values[0]
+                            if df.loc[df["Container"]==o.container_number.container_number, "POL"].any()
                             else None
                         )
+                    except:
+                        pass
+                    try:
+                        o.retrieval_id.empty_returned_at = (
+                            self._format_string_datetime(df.loc[df["Container"]==o.container_number.container_number, "Empty Returned"].values[0])
+                            if df.loc[df["Container"]==o.container_number.container_number, "Empty Returned"].any()
+                            else None
+                        )
+                    except:
+                        pass
+                    try:
+                        o.retrieval_id.empty_returned = df.loc[df["Container"]==o.container_number.container_number, "Empty Returned"].any()
                     except:
                         pass
                     o.retrieval_id.destination_port = o.vessel_id.destination_port
@@ -219,7 +235,8 @@ class PrePortTracking(View):
                 retrievals,
                 [
                     "temp_t49_lfd", "temp_t49_available_for_pickup", "temp_t49_pod_arrive_at", "temp_t49_pod_discharge_at",
-                    "temp_t49_hold_status", "master_bill_of_lading", "origin_port", "destination_port", "shipping_line"
+                    "temp_t49_hold_status", "master_bill_of_lading", "origin_port", "destination_port", "shipping_line",
+                    "empty_returned_at", "empty_returned"
                 ]
             )
             await sync_to_async(Order.objects.bulk_update)(
