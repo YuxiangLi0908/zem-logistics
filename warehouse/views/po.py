@@ -15,7 +15,7 @@ from django.db import models
 from django.db.models import Sum, FloatField, IntegerField, Count, Case, When, F, Max, CharField, Value
 from django.db.models.functions import Cast
 from django.contrib.postgres.aggregates import StringAgg
-from django.core.exceptions import ObjectDoesNotExist
+from django.core.exceptions import ObjectDoesNotExist,MultipleObjectsReturned
 
 from warehouse.models.order import Order
 from warehouse.models.container import Container
@@ -167,7 +167,6 @@ class PO(View):
             df = pd.read_csv(file)
             if 'shipping_mark' in df.columns and 'is_valid' in df.columns:
                 data_pairs = [(row['BOL'], row['shipping_mark'], row['PRO'], row['PO List (use , as separator) *'], row['is_valid']) for index, row in df.iterrows()]
-                print(data_pairs)
             else:
                 print("Either 'PRO' or 'is_valid' column is not present in the DataFrame.")
             
@@ -277,15 +276,15 @@ class PO(View):
             query1 = models.Q(last_retrieval_checktime__isnull = False) & models.Q(last_retrieval_status = False)
             query2 = models.Q(last_retrieval_checktime__isnull = True) & models.Q(last_eta_checktime__isnull = False) & models.Q(last_eta_status = False)
             query = query1 | query2
+
+            criteria = models.Q(vessel_eta__range=(start_date,end_date))
             if request.POST.get("area"):
                 area = request.POST.get("area")             
             else:
                 area = "NJ"
-            query &= models.Q(container_number__order__retrieval_id__retrieval_destination_area=area)
+            criteria &= models.Q(container_number__order__retrieval_id__retrieval_destination_area=area)
             #1、按ETA去筛选记录，2、将失效的记录排在前面
-            po_checks = await sync_to_async(PoCheckEtaSeven.objects.filter)(
-                models.Q(vessel_eta__range=(start_date,end_date))
-            )
+            po_checks = await sync_to_async(PoCheckEtaSeven.objects.filter)(criteria)
             po_checks = po_checks.annotate(
                 is_match=Case(
                     When(query, then=Value(1)),
@@ -442,7 +441,7 @@ class PO(View):
             str_id=Cast("id", CharField()),
         ).values(
             'fba_id', 'ref_id','address','zipcode','destination','delivery_method',
-            'container_number__container_number',
+            'container_number__container_number', 'shipping_mark'
         ).annotate(
             ids=StringAgg("str_id", delimiter=",", distinct=True),
             total_pcs=Sum(
@@ -476,6 +475,27 @@ class PO(View):
                 )
             ),
         ).distinct().order_by("destination", "container_number__container_number")
+        for p in packing_list:
+            try:
+                pl = PoCheckEtaSeven.objects.get(
+                    container_number__container_number = p['container_number__container_number'],
+                    shipping_mark = p['shipping_mark'],
+                    fba_id = p['fba_id'],
+                    ref_id = p['ref_id']
+                )
+                
+                if not pl.last_eta_checktime and not pl.last_retrieval_checktime:
+                    p['check'] = '未校验'
+                elif pl.last_retrieval_checktime and not pl.last_retrieval_status:
+                    p['check'] = '失效'
+                elif not pl.last_retrieval_checktime and pl.last_eta_checktime and not pl.last_eta_status:
+                    p['check'] = '失效'
+                else:
+                    p['check'] = '有效'
+            except PoCheckEtaSeven.DoesNotExist:
+                p['check'] =  '未找到记录'
+            except MultipleObjectsReturned:
+                p['check'] =  "唛头FBA_REF重复"
         context = {
             "packing_list": packing_list,
             "warehouse_form": ZemWarehouseForm(initial={"name": request.POST.get("name")}),
@@ -568,7 +588,6 @@ class PO(View):
                 total_n_pallet_est=Sum("cbm", output_field=FloatField())/2,
                 
             ).order_by("label")
-            
             summary = self._get_pl_agg_summary(agg_pl)
             context = {
                 "selected_packing_list": packing_list,
