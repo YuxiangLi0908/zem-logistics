@@ -303,7 +303,7 @@ def export_po(request: HttpRequest, export_format: str = "PO") -> HttpResponse:
             "total_weight_lbs": "WEIGHT(LBS)",
         }, axis=1)
     response = HttpResponse(content_type="text/csv")
-    response['Content-Disposition'] = f"attachment; filename=PO.csv"
+    response['Content-Disposition'] = f"attachment; filename=PO.xlsx"
     df.to_csv(path_or_buf=response, index=False)
     return response
 
