@@ -125,9 +125,9 @@ class PostportDash(View):
                     else:
                         n_pallet = n_pallet_est//1
                 if pl.get("container_number__order__retrieval_id__actual_retrieval_timestamp"):
-                    retrieval_datetime = pl.get("container_number__order__retrieval_id__actual_retrieval_timestamp")
+                    retrieval_datetime = pl.get("container_number__order__retrieval_id__actual_retrieval_timestamp").strftime('%Y-%m-%d %H:%M:%S')
                 elif pl.get("container_number__order__retrieval_id__target_retrieval_timestamp"):
-                    retrieval_datetime = pl.get("container_number__order__retrieval_id__target_retrieval_timestamp")
+                    retrieval_datetime = pl.get("container_number__order__retrieval_id__target_retrieval_timestamp").strftime('%Y-%m-%d %H:%M:%S')
                 else:
                     retrieval_datetime = ""
                 data.append({
@@ -141,17 +141,17 @@ class PostportDash(View):
                     "总重lbs": pl.get("total_weight_lbs"),
                     "ETA": pl.get("container_number__order__vessel_id__vessel_eta"),
                     "提柜时间": retrieval_datetime,
-                    "入仓时间": pl.get("container_number__order__offload_id__offload_at"),
+                    "入仓时间": pl.get("container_number__order__offload_id__offload_at").strftime('%Y-%m-%d %H:%M:%S') if pl.get("container_number__order__offload_id__offload_at") else "",
                     "预约批次": pl.get("shipment_batch_number__shipment_batch_number"),
                     "预约号": pl.get("shipment_batch_number__appointment_id"),
-                    "预约时间": pl.get("shipment_batch_number__shipment_appointment"),
-                    "发货时间": pl.get("shipment_batch_number__shipped_at"),
-                    "送达时间": pl.get("shipment_batch_number__arrived_at"),
+                    "预约时间": pl.get("shipment_batch_number__shipment_appointment").strftime('%Y-%m-%d %H:%M:%S') if pl.get("shipment_batch_number__shipment_appointment") else "",
+                    "发货时间": pl.get("shipment_batch_number__shipped_at").strftime('%Y-%m-%d %H:%M:%S') if pl.get("shipment_batch_number__shipped_at") else "",
+                    "送达时间": pl.get("shipment_batch_number__arrived_at").strftime('%Y-%m-%d %H:%M:%S') if pl.get("shipment_batch_number__arrived_at") else "",
                 })
             df = pd.DataFrame(data)
-            response = HttpResponse(content_type="text/csv")
-            response['Content-Disposition'] = f"attachment; filename=PO.csv"
-            df.to_csv(path_or_buf=response, index=False)
+            response = HttpResponse(content_type='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet')
+            response['Content-Disposition'] = f"attachment; filename=PO.xlsx"
+            df.to_excel(excel_writer=response, index=False, columns=df.columns)
             return response
         else:
             return self.handle_summary_table_get(request)
