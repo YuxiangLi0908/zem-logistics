@@ -67,7 +67,6 @@
                                 <a>车次管理</a>
                                 <div class="nested-dropdown-content">
                                     <a href="{% url 'fleet_management' %}?step=fleet">排车</a>
-                                    <!-- <a href="#">车次异常</a> -->
                                     <a href="{% url 'outbound' %}?step=outbound">出库管理</a>
                                     <a href="{% url 'outbound' %}?step=delivery_and_pod">确认送达</a>
                                     <a href="{% url 'pod' %}?step=pod_upload">POD上传</a>
@@ -76,6 +75,7 @@
                             <div class="nested-dropdown">
                                 <a>表格导出</a>
                                 <div class="nested-dropdown-content">
+                                    <a href="{% url 'post_port_summary' %}?step=summary_table">报表导出</a>
                                     <a href="{% url 'po' %}">PO导出</a>
                                     <a href="{% url 'bol' %}">BOL导出</a>
                                 </div>
@@ -150,16 +150,6 @@
                                     <a href="{% url 'async_view' %}?step=sync" target="_blank">sync</a>
                                 </div>
                             </div>
-                            <!-- <div class="nested-dropdown" >
-                                <a>港前(Beta)</a>
-                                <div class="nested-dropdown-content">
-                                    <a href="{% url 'create_order' %}?step=all">港前订单管理</a>
-                                    <a href="{% url 'pre_port_tracking' %}?step=all">港前订单追踪</a>
-                                    <a href="{% url 'terminal_dispatch' %}?step=all">港口调度</a>
-                                    <a href="{% url 'contaier_pickup_status' %}?step=all">货柜状态追踪</a>
-                                    <a href="{% url 'contaier_pre_port_summary_dash' %}?step=all">货柜进度汇总</a>
-                                </div>
-                            </div> -->
                             <div class="nested-dropdown" >
                                 <a>港前(legacy)</a>
                                 <div class="nested-dropdown-content">

@@ -195,11 +195,16 @@ def export_po_check(request: HttpRequest) -> HttpResponse:
     response['Content-Disposition'] = f"attachment; filename=PO.csv"
     df.to_csv(path_or_buf=response, index=False)
     return response
-        
+
+def export_report(request: HttpRequest, export_format: str = "PO") -> HttpResponse:
+    pl_ids = request.POST.getlist("pl_ids")   
+    pls = [pl.split(",") for pl in pl_ids]
+    selections = request.POST.getlist("is_selected")
+    ids = [o for s, co in zip(selections, pls) for o in co if s == "on"]
+    return {'stauts':'ok'}
 
 def export_po(request: HttpRequest, export_format: str = "PO") -> HttpResponse:
-    ids = request.POST.get("pl_ids")
-    
+    ids = request.POST.get("pl_ids")  
     ids = ids.replace("[", "").replace("]", "").split(", ")
     ids = [int(i) for i in ids]
     packing_list = PackingList.objects.select_related(
