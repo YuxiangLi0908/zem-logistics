@@ -1100,6 +1100,9 @@ class ShippingManagement(View):
                     'schedule_status',
                     'abnormal_palletization',
                     'po_expired',
+                    target_retrieval_timestamp=F('container_number__order__retrieval_id__target_retrieval_timestamp'),
+                    target_retrieval_timestamp_lower=F('container_number__order__retrieval_id__target_retrieval_timestamp_lower'),
+                    temp_t49_pickup=F('container_number__order__retrieval_id__temp_t49_available_for_pickup'),
                     warehouse=F('container_number__order__retrieval_id__retrieval_destination_precise'),
                 ).annotate(
                     custom_delivery_method=F('delivery_method'),
@@ -1143,7 +1146,10 @@ class ShippingManagement(View):
                     'custom_delivery_method',
                     'container_number__order__offload_id__offload_at',
                     'schedule_status',
+                    target_retrieval_timestamp=F('container_number__order__retrieval_id__target_retrieval_timestamp'),
+                    target_retrieval_timestamp_lower=F('container_number__order__retrieval_id__target_retrieval_timestamp_lower'),
                     warehouse=F('container_number__order__retrieval_id__retrieval_destination_precise'),
+                    temp_t49_pickup=F('container_number__order__retrieval_id__temp_t49_available_for_pickup'),
                 ).annotate(
                     fba_ids=StringAgg("str_fba_id", delimiter=",", distinct=True, ordering="str_fba_id"),
                     ref_ids=StringAgg("str_ref_id", delimiter=",", distinct=True, ordering="str_ref_id"),

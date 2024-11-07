@@ -16,6 +16,7 @@ class Retrieval(models.Model):
     retrieval_destination_area = models.CharField(max_length=20, null=True, blank=True)
     scheduled_at = models.DateTimeField(null=True, blank=True)
     target_retrieval_timestamp = models.DateTimeField(null=True, blank=True)
+    target_retrieval_timestamp_lower = models.DateTimeField(null=True, blank=True)
     actual_retrieval_timestamp = models.DateTimeField(null=True, blank=True)
     trucking_fee = models.FloatField(null=True, blank=True)
     chassis_fee = models.FloatField(null=True, blank=True)

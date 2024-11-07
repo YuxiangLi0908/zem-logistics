@@ -24,7 +24,7 @@
                         </tr>
                         <tr style="position: sticky; top: 28px;">
                             <th class="th">
-                                <input type="text" id="ctnSearch" placeholder="搜索仓库/地址..." oninput="filterTable(this, 0, true)" size="13" style="font-size: 11px;">
+                                <input type="text" id="ctnSearch" placeholder="搜索地址..." oninput="filterTable(this, 0, true)" size="8" style="font-size: 11px;">
                             </th>
                             <th class="th">
                                 <input type="text" id="ctnSearch" placeholder="搜索柜号..." oninput="filterTable(this, 1, true)" size="13" style="font-size: 11px;">
@@ -79,7 +79,7 @@
                         </tr>
                         <tr style="position: sticky; top: 28px;">
                             <th class="th">
-                                <input type="text" id="ctnSearch" placeholder="搜索仓库/地址..." oninput="filterTable(this, 0, true)" size="13" style="font-size: 11px;">
+                                <input type="text" id="ctnSearch" placeholder="搜索地址..." oninput="filterTable(this, 0, true)" size="8" style="font-size: 11px;">
                             </th>
                             <th class="th">
                                 <input type="text" id="ctnSearch" placeholder="搜索柜号..." oninput="filterTable(this, 1, true)" size="13" style="font-size: 11px;">
@@ -111,13 +111,19 @@
                                 {% endif %}
                             </td>
                             <td class="td">
-                                {% if o.retrieval_id.pickup_schedule_status == "past_due" %}
-                                <span class="status-span-red">{{ o.retrieval_id.target_retrieval_timestamp|date:"M-j" }} {{ o.retrieval_id.target_retrieval_timestamp|time:"H:i" }}</span>
-                                {% elif o.retrieval_id.pickup_schedule_status == "need_attention" %}
-                                <span class="status-span-yellow">{{ o.retrieval_id.target_retrieval_timestamp|date:"M-j" }} {{ o.retrieval_id.target_retrieval_timestamp|time:"H:i" }}</span>
+                                {% if not o.retrieval_id.target_retrieval_timestamp and not o.retrieval_id.target_retrieval_timestamp_lower%}
+                                    <span class="status-span-red">没有预约提柜！<span>
                                 {% else %}
-                                {{ o.retrieval_id.target_retrieval_timestamp|date:"M-j" }} {{ o.retrieval_id.target_retrieval_timestamp|time:"H:i" }}
+                                    {% if o.retrieval_id.pickup_schedule_status == "past_due" %}
+                                        <span class="status-span-red">{{ o.retrieval_id.target_retrieval_timestamp|date:"M-j" }}</span> ~ <span class="status-span-red">{{ o.retrieval_id.target_retrieval_timestamp_lower|date:"M-j" }}</span>
+                                    {% elif o.retrieval_id.pickup_schedule_status == "need_attention" %}
+                                        <span class="status-span-yellow">{{ o.retrieval_id.target_retrieval_timestamp|date:"M-j" }}</span> ~ <span class="status-span-yellow">{{ o.retrieval_id.target_retrieval_timestamp_lower|date:"M-j" }}</span>
+                                    {% else %}
+                                        {{ o.retrieval_id.target_retrieval_timestamp|date:"M-j" }}</span> ~ {{ o.retrieval_id.target_retrieval_timestamp_lower|date:"M-j" }}</span>
+                                    {% endif %}
                                 {% endif %}
+                                
+
                             </td>
                         </tr>
                         {% endfor %}

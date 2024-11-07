@@ -63,6 +63,8 @@
                                 <th class="th">目的仓库</th>
                                 <th class="th">所属仓库</th>
                                 <th class="th">入仓时间</th>
+                                <th class="th">预计提柜</th>
+                                <th class="th">是否放行</th>
                                 <th class="th">CBM</th>
                                 <th class="th">卡板数</th>
                                 <th class="th">派送方式</th>
@@ -77,8 +79,10 @@
                                 <th class="th"></th>
                                 <th class="th"></th>
                                 <th class="th"></th>
+                                <th class="th" style="color: red; font - weight: bold;"></th>
+                                <th class="th" style="color: red; font - weight: bold;"></th>
                                 <th class="th"></th>
-                                <th class="th"></th>
+                                <th class="th" style="color: red; font-weight: bold;"></th>
                             </tr>
                         </thead>
                         <tbody>
@@ -109,7 +113,26 @@
                                     {{ c.container_number__order__offload_id__offload_at|date:"M-j" }}
                                     {% endif %}
                                 </td>
-                                <td class="td">{{ c.total_cbm|floatformat:2 }}</td>
+                                <td class="td">                          
+                                    {% if c.target_retrieval_timestamp %}
+                                        {{ c.target_retrieval_timestamp|date:"M-j"  }} ~ {{ c.target_retrieval_timestamp_lower|date:"M-j"  }}
+                                    {% else %}
+                                    {% endif %}
+                                </td>
+                                <td class="td">
+                                    <label 
+                                        for="status-{{c.id}}" class="status-label"
+                                        style="display: flex; justify-content: center; align-items: center; width: 30px; height: 30px; border-radius: 50%; 
+                                        color: white; font-weight: bold; transition: background-color 0.3s ease; 
+                                        background-color: {% if c.temp_t49_pickup %} #4CAF50 {% else %} #f44336 {% endif %}; font-size: 15px; margin-right: 10px;"
+                                    >
+                                    {% if c.temp_t49_pickup %}
+                                        &#10004;
+                                    {% else  %}
+                                        &#10008;
+                                    {% endif %}
+                                </td>
+                                <td class="td" name ="total_cbm">{{ c.total_cbm|floatformat:2 }}</td>
                                 <td class="td">
                                     {% if c.label == "ACT" %}
                                     <span class="status-span-green-100">ACT</span>
@@ -305,6 +328,46 @@
         } else {
             row.style.backgroundColor = ''; // Reset to default color
         }
+    };
+
+    document.addEventListener('DOMContentLoaded', function () {
+        calculateTotal();
+    });    
+    
+    function calculateTotal(){
+        var table = document.getElementById('packing-list-table');
+        var sumRow = table.getElementsByTagName('thead')[0].getElementsByTagName('tr')[1];
+        var checkboxes = table.querySelectorAll('input[type="checkbox"]');
+        checkboxes.forEach(function (checkbox) {
+            checkbox.addEventListener('change', function () {
+                var cbmSum = 0;
+                var palletSum = 0;
+                var weightSum = 0;
+                checkboxes.forEach(function (cb) {
+                    if (cb.checked) {
+                        var row = cb.closest('tr');
+                        var cbm = parseFloat(row.cells[8].textContent);
+
+                        var pallet = row.cells[9].textContent;
+                        pallet = pallet.replace(/(ACT|EST)\s*/g, '').trim();                        
+                        pallet = parseInt(pallet);
+                        var weight = parseFloat(row.cells[11].textContent);
+                        palletSum += pallet;
+
+                        cbmSum += cbm;
+                        cbmSum = cbmSum.toFixed(2);
+                        cbmSum = parseFloat(cbmSum);
+                        
+                        weightSum += weight;
+                        weightSum = weightSum.toFixed(2);
+                        weightSum = parseFloat(weightSum);
+                    }
+                });
+                sumRow.cells[8].textContent = cbmSum;
+                sumRow.cells[9].textContent = palletSum;
+                sumRow.cells[11].textContent = weightSum;
+            });
+        });
     };
 
     function showLoadingBar() {

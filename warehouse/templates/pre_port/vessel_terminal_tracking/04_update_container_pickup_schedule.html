@@ -111,7 +111,7 @@
                             {% endif %}
                         </th>
                         <th class="th">供应商</th>
-                        <th class="th">预约时间</th>
+                        <th class="th">预约时间范围</th>
                         <th class="th">提柜备注</th>
                     </tr>
                 </thead>
@@ -139,7 +139,10 @@
                                 {% endfor %}
                             </select>
                         </td>
-                        <td class="td"><input type="datetime-local" name="target_retrieval_timestamp" value="{{ selected_order.retrieval_id.target_retrieval_timestamp|date:'Y-m-d\\TH:i' }}" style="font-size: 13px;" required></td>
+                        <td class="td">
+                            <input type="datetime-local" name="target_retrieval_timestamp" value="{{ selected_order.retrieval_id.target_retrieval_timestamp|date:'Y-m-d\\TH:i' }}" style="font-size: 13px;">
+                            <input type="datetime-local" name="target_retrieval_timestamp_lower" value="{{ selected_order.retrieval_id.target_retrieval_timestamp_lower|date:'Y-m-d\\TH:i' }}" style="font-size: 13px;">
+                        </td>
                         <td class="td"><input type="text" name="note" value="{{ selected_order.retrieval_id.note }}" style="font-size: 13px;"></td>
                     </tr>
                 </tbody>
