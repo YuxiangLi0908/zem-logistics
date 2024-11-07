@@ -242,34 +242,34 @@ def export_po(request: HttpRequest, export_format: str = "PO") -> HttpResponse:
             )
         ),
     ).distinct().order_by("destination", "container_number__container_number")
-    # for p in packing_list:
-    #     try:
-    #         pl = PoCheckEtaSeven.objects.get(
-    #             container_number__container_number = p['container_number__container_number'],
-    #             shipping_mark = p['shipping_mark'],
-    #             fba_id = p['fba_id'],
-    #             ref_id = p['ref_id']
-    #         )
+    for p in packing_list:
+        try:
+            pl = PoCheckEtaSeven.objects.get(
+                container_number__container_number = p['container_number__container_number'],
+                shipping_mark = p['shipping_mark'],
+                fba_id = p['fba_id'],
+                ref_id = p['ref_id']
+            )
             
-    #         if not pl.last_eta_checktime and not pl.last_retrieval_checktime:
-    #             p['check'] = '未校验'
-    #         elif pl.last_retrieval_checktime and not pl.last_retrieval_status:
-    #             p['check'] = '失效'
-    #         elif not pl.last_retrieval_checktime and pl.last_eta_checktime and not pl.last_eta_status:
-    #             p['check'] = '失效'
-    #         else:
-    #             p['check'] = '有效'
-    #     except PoCheckEtaSeven.DoesNotExist:
-    #         p['check'] =  '未找到记录'
-    #     except MultipleObjectsReturned:
-    #         p['check'] =  "唛头FBA_REF重复"
+            if not pl.last_eta_checktime and not pl.last_retrieval_checktime:
+                p['check'] = '未校验'
+            elif pl.last_retrieval_checktime and not pl.last_retrieval_status:
+                p['check'] = '失效'
+            elif not pl.last_retrieval_checktime and pl.last_eta_checktime and not pl.last_eta_status:
+                p['check'] = '失效'
+            else:
+                p['check'] = '有效'
+        except PoCheckEtaSeven.DoesNotExist:
+            p['check'] =  '未找到记录'
+        except MultipleObjectsReturned:
+            p['check'] =  "唛头FBA_REF重复"
     data = [i for i in packing_list]
     if export_format == "PO":
-        keep = ["fba_id", "container_number__container_number", "ref_id", "Pallet Count", "total_pcs", "label"]
+        keep = ["fba_id", "container_number__container_number", "ref_id", "Pallet Count", "total_pcs", "label", "check"]
     elif export_format == "FULL_TABLE":
         keep = [
             "container_number__container_number", "destination", "delivery_method", "fba_id", "ref_id", 
-            "total_cbm", "total_pcs", "total_weight_lbs", "Pallet Count", "label",
+            "total_cbm", "total_pcs", "total_weight_lbs", "Pallet Count", "label", "check"
         ]
     else:
         raise ValueError(f"unknown export_format option: {export_format}")
@@ -296,9 +296,9 @@ def export_po(request: HttpRequest, export_format: str = "PO") -> HttpResponse:
             "total_cbm": "CBM",
             "total_weight_lbs": "WEIGHT(LBS)",
         }, axis=1)
-    response = HttpResponse(content_type="text/csv")
-    response['Content-Disposition'] = f"attachment; filename=PO.csv"
-    df.to_csv(path_or_buf=response, index=False)
+    response = HttpResponse(content_type='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet')
+    response['Content-Disposition'] = f"attachment; filename=PO.xlsx"
+    df.to_excel(excel_writer=response, index=False, columns=df.columns)
     return response
 
 def export_do(request: HttpRequest) -> HttpResponse:
