@@ -55,14 +55,14 @@
                     <th class="th">发货时间</th>
                     <th class="th">送达时间</th>
                 </tr>
-                <tr style="position: sticky; top: 52px;">                  
+                <tr style="position: sticky; top: 52px;" id="packing-list-table-filter">                  
                     <th class="th" style="min-width: 40px; text-align: center;">
                         <input type="checkbox" id="selectAllCheckbox" onchange="toggleAllCheckboxes()">
                     </th>
-                    <th class="th"><input type="text" id="destinationSearchInput" placeholder="搜索目的仓库..." oninput="filterTable()" size="13" style="font-size: 11px;"></th>
-                    <th class="th"></th>
-                    <th class="th"><input type="text" id="containerSearchInput" placeholder="搜索柜号..." oninput="filterTable()" size="13" style="font-size: 11px;"></th>
-                    <th class="th"></th>
+                    <th class="th"><input type="text" id="destinationSearchInput" placeholder="搜索目的仓库..." oninput="filterTable(this, 1, true)" size="13" style="font-size: 11px;"></th>
+                    <th class="th"><input type="text" id="containerSearchInput" placeholder="搜索客户..." oninput="filterTable(this, 2, true)" size="13" style="font-size: 11px;"></th>
+                    <th class="th"><input type="text" id="containerSearchInput" placeholder="搜索柜号..." oninput="filterTable(this, 3, true)" size="13" style="font-size: 11px;"></th>
+                    <th class="th"><input type="text" id="containerSearchInput" placeholder="搜索仓点..." oninput="filterTable(this, 4, true)" size="13" style="font-size: 11px;"></th>
                     <th class="th"></th>
                     <th class="th"></th>
                     <th class="th"></th>
@@ -184,7 +184,7 @@
         }
     };
 
-    function filterTable(filterInput, col_idx, trim) {
+    function filterTable(filterInput, colIdx, trim) {
         var table = filterInput.closest('table');
         var tbody = table.getElementsByTagName("tbody")[0];
         var tr = tbody.getElementsByTagName("tr");
@@ -192,15 +192,21 @@
         var filters = document.querySelectorAll('thead input[type="text"], thead select');
         var filterValues = Array.from(filters).map(function(filter) {
             return filter.value.toUpperCase().trim();
-        });
-
+        });  
+        const filterRow = document.getElementById("packing-list-table-filter");
+        const filterIndices = [];
+        for (let i = 0; i < filterRow.children.length; i++) {
+            const inputElement = filterRow.children[i].querySelector("input:not(#selectAllCheckbox)");
+            if (inputElement) {
+                filterIndices.push(i);
+            }
+        };
         for (var i = 0; i < tr.length; i++) {
             var row = tr[i];
             var showRow = true;
-            for (var j = 0; j < filters.length; j++) {
-                var colIdx = j;
+            for (var j = 0; j < filterIndices.length; j++) {
                 var filterValue = filterValues[j];
-                var cell = row.getElementsByTagName("td")[colIdx];
+                var cell = row.getElementsByTagName("td")[filterIndices[j]];
                 if (cell) {
                     var cellText = cell.textContent || cell.innerText;
                     var cellValue = trim ? cellText.toUpperCase().trim() : cellText.toUpperCase();
@@ -211,7 +217,7 @@
                 }
             }
             row.style.display = showRow ? "" : "none";
-        }
+        };
     };
 </script>
 {% endblock %}
