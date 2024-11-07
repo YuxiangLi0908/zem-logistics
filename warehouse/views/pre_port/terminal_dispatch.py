@@ -54,7 +54,7 @@ class TerminalDispatch(View):
             template, context = await self.handle_confirm_pickup_post(request)
             return await sync_to_async(render)(request, template, context)
         
-    async def handle_all_get(self) -> tuple[Any, Any]:
+    async def handle_all_get(self) -> tuple[Any, Any]:   
         current_date = datetime.now().date()
         orders_not_scheduled = await sync_to_async(list)(
             Order.objects.select_related(
@@ -63,7 +63,8 @@ class TerminalDispatch(View):
                 (
                     models.Q(add_to_t49=True) &
                     models.Q(retrieval_id__actual_retrieval_timestamp__isnull=True) &
-                    models.Q(retrieval_id__target_retrieval_timestamp__isnull=True) &
+                    models.Q(retrieval_id__retrieval_destination_precise__isnull=True) &
+                    models.Q(retrieval_id__retrieval_carrier__isnull=True) &
                     models.Q(vessel_id__vessel_eta__lte=datetime.now() + timedelta(weeks=2)) &
                     models.Q(cancel_notification=False)        
                 ) &
@@ -80,7 +81,8 @@ class TerminalDispatch(View):
                 (
                     models.Q(add_to_t49=True) &
                     models.Q(retrieval_id__actual_retrieval_timestamp__isnull=True) &
-                    models.Q(retrieval_id__target_retrieval_timestamp__isnull=False) &
+                    models.Q(retrieval_id__retrieval_destination_precise__isnull=False) &
+                    models.Q(retrieval_id__retrieval_carrier__isnull=False) &
                     models.Q(cancel_notification=False)
                 ) &
                 (
@@ -131,11 +133,25 @@ class TerminalDispatch(View):
         retrieval = order.retrieval_id
         retrieval.retrieval_destination_precise = destination
         retrieval.retrieval_carrier = request.POST.get("retrieval_carrier").strip()
-        retrieval.target_retrieval_timestamp = request.POST.get("target_retrieval_timestamp")
-        retrieval.note = request.POST.get("note").strip()
+        if request.POST.get("target_retrieval_timestamp"):
+            retrieval.target_retrieval_timestamp = request.POST.get("target_retrieval_timestamp")
+        else:
+            retrieval.target_retrieval_timestamp = None
+        if request.POST.get("target_retrieval_timestamp_lower"):
+            retrieval.target_retrieval_timestamp_lower = request.POST.get("target_retrieval_timestamp_lower")
+        else:
+            retrieval.target_retrieval_timestamp_lower = None
+        retrieval.note = request.POST.get("note", "").strip()
         retrieval.scheduled_at = datetime.now()
         if request.POST.get("retrieval_carrier") == "客户自提":
-            retrieval.actual_retrieval_timestamp = request.POST.get("target_retrieval_timestamp")
+            if request.POST.get("target_retrieval_timestamp"):
+                retrieval.target_retrieval_timestamp = request.POST.get("target_retrieval_timestamp")
+            else:
+                retrieval.target_retrieval_timestamp = None
+            if request.POST.get("target_retrieval_timestamp_lower"):
+                retrieval.target_retrieval_timestamp_lower = request.POST.get("target_retrieval_timestamp_lower")
+            else:
+                retrieval.target_retrieval_timestamp_lower = None 
         await sync_to_async(retrieval.save)()
         #有提柜计划后，就将记录归为“提柜前一天
         orders = await sync_to_async(list)(PoCheckEtaSeven.objects.filter(container_number__container_number = container_number))
