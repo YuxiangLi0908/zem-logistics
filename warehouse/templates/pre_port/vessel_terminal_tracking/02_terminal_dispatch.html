@@ -111,15 +111,33 @@
                                 {% endif %}
                             </td>
                             <td class="td">
-                                {% if not o.retrieval_id.target_retrieval_timestamp and not o.retrieval_id.target_retrieval_timestamp_lower%}
-                                    <span class="status-span-red">没有预约提柜！<span>
+                                {% if not o.retrieval_id.target_retrieval_timestamp and not o.retrieval_id.target_retrieval_timestamp_lower %}
+                                    <span class="status-span-red">没有预约提柜时间！<span>
                                 {% else %}
                                     {% if o.retrieval_id.pickup_schedule_status == "past_due" %}
-                                        <span class="status-span-red">{{ o.retrieval_id.target_retrieval_timestamp|date:"M-j" }}</span> ~ <span class="status-span-red">{{ o.retrieval_id.target_retrieval_timestamp_lower|date:"M-j" }}</span>
+                                        {% if o.retrieval_id.target_retrieval_timestamp and o.retrieval_id.target_retrieval_timestamp_lower %}
+                                        <span class="status-span-red">{{ o.retrieval_id.target_retrieval_timestamp_lower|date:"M-j" }}</span> ~ <span class="status-span-red">{{ o.retrieval_id.target_retrieval_timestamp|date:"M-j" }}</span>
+                                        {% elif o.retrieval_id.target_retrieval_timestamp %}
+                                        <span class="status-span-red">{{ o.retrieval_id.target_retrieval_timestamp|date:"M-j" }}</span>
+                                        {% else %}
+                                        <span class="status-span-red">{{ o.retrieval_id.target_retrieval_timestamp_lower|date:"M-j" }}</span>
+                                        {% endif %}
                                     {% elif o.retrieval_id.pickup_schedule_status == "need_attention" %}
-                                        <span class="status-span-yellow">{{ o.retrieval_id.target_retrieval_timestamp|date:"M-j" }}</span> ~ <span class="status-span-yellow">{{ o.retrieval_id.target_retrieval_timestamp_lower|date:"M-j" }}</span>
+                                        {% if o.retrieval_id.target_retrieval_timestamp and o.retrieval_id.target_retrieval_timestamp_lower %}
+                                        <span class="status-span-yellow">{{ o.retrieval_id.target_retrieval_timestamp_lower|date:"M-j" }}</span> ~ <span class="status-span-yellow">{{ o.retrieval_id.target_retrieval_timestamp|date:"M-j" }}</span>
+                                        {% elif o.retrieval_id.target_retrieval_timestamp %}
+                                        <span class="status-span-yellow">{{ o.retrieval_id.target_retrieval_timestamp|date:"M-j" }}</span>
+                                        {% else %}
+                                        <span class="status-span-yellow">{{ o.retrieval_id.target_retrieval_timestamp_lower|date:"M-j" }}</span>
+                                        {% endif %}
                                     {% else %}
-                                        {{ o.retrieval_id.target_retrieval_timestamp|date:"M-j" }}</span> ~ {{ o.retrieval_id.target_retrieval_timestamp_lower|date:"M-j" }}</span>
+                                        {% if o.retrieval_id.target_retrieval_timestamp and o.retrieval_id.target_retrieval_timestamp_lower %}
+                                        {{ o.retrieval_id.target_retrieval_timestamp_lower|date:"M-j" }} ~ {{ o.retrieval_id.target_retrieval_timestamp|date:"M-j" }}
+                                        {% elif o.retrieval_id.target_retrieval_timestamp %}
+                                        {{ o.retrieval_id.target_retrieval_timestamp|date:"M-j" }}
+                                        {% else %}
+                                        {{ o.retrieval_id.target_retrieval_timestamp_lower|date:"M-j" }}
+                                        {% endif %}
                                     {% endif %}
                                 {% endif %}
                                 
@@ -167,9 +185,16 @@
         var rows = Array.from(tbody.getElementsByTagName("tr"));
     
         rows.sort(function (a, b) {
-            var dateA = new Date(a.cells[4].innerText); // ETA of row 'a'
-            var dateB = new Date(b.cells[4].innerText); // ETA of row 'b'
-            return dateA - dateB; // Ascending order
+            if (a.cells[5].innerText.indexOf("没有预约提柜时间！") > -1) {
+                return -1;
+            } else if (b.cells[5].innerText.indexOf("没有预约提柜时间！") > -1)
+            {
+                return -1;
+            } else {
+                var dateA = new Date(a.cells[5].innerText.split("~")[0]); // ETA of row 'a'
+                var dateB = new Date(b.cells[5].innerText.split("~")[0]); // ETA of row 'b'
+                return dateA - dateB; // Ascending order
+            }
         });
     
         while (tbody.firstChild) {

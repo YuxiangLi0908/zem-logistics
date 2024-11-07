@@ -22,7 +22,7 @@
                         <td class="td">
                             <input type="hidden" name="step" value="confirm_pickup">
                             <input type="hidden" name="container_number" value="{{ container_number }}">
-                            <button id="schedule-pickup-btn" type="submit" class="btn btn-primary" style="height: 30px; margin-left: 20px; font-size: 13px;">
+                            <button id="schedule-pickup-btn" type="submit" class="btn btn-primary" style="height: 30px; margin-left: 20px; font-size: 13px;" onclick="checkSchedule()">
                                 确认提柜
                             </button>
                         </td>
@@ -140,8 +140,8 @@
                             </select>
                         </td>
                         <td class="td">
-                            <input type="datetime-local" name="target_retrieval_timestamp" value="{{ selected_order.retrieval_id.target_retrieval_timestamp|date:'Y-m-d\\TH:i' }}" style="font-size: 13px;">
                             <input type="datetime-local" name="target_retrieval_timestamp_lower" value="{{ selected_order.retrieval_id.target_retrieval_timestamp_lower|date:'Y-m-d\\TH:i' }}" style="font-size: 13px;">
+                            <input type="datetime-local" name="target_retrieval_timestamp" value="{{ selected_order.retrieval_id.target_retrieval_timestamp|date:'Y-m-d\\TH:i' }}" style="font-size: 13px;">
                         </td>
                         <td class="td"><input type="text" name="note" value="{{ selected_order.retrieval_id.note }}" style="font-size: 13px;"></td>
                     </tr>
@@ -174,6 +174,17 @@
         var carrierValue = carrierOption.value;
         if (!carrierValue) {
             alert('请选择Carrier!');
+            event.preventDefault();
+        };
+    };
+
+    function checkSchedule() {
+        const scheduleLower = document.querySelector("input[name='target_retrieval_timestamp_lower']");
+        const scheduleUpper = document.querySelector("input[name='target_retrieval_timestamp']");
+        if (!scheduleLower.value && !scheduleUpper.value) {
+            scheduleLower.style.border = '2px solid red';
+            scheduleUpper.style.border = '2px solid red';
+            alert('预约时间不能全为空!');
             event.preventDefault();
         };
     };
