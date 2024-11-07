@@ -39,4 +39,7 @@ class Order(models.Model):
         ]
     
     def __str__(self) -> str:
-        return self.customer_name.zem_name + " - " + self.container_number.container_number
+        if self.customer_name.zem_name:
+            return self.customer_name.zem_name + " - " + self.container_number.container_number
+        else:
+            return self.container_number.container_number
