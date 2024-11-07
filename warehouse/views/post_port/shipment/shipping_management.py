@@ -471,7 +471,10 @@ class ShippingManagement(View):
                 pallet = await sync_to_async(list)(Pallet.objects.select_related("container_number").filter(id__in=plt_ids))
                 pallet_container_number = [p.container_number.container_number for p in pallet]
                 packing_list = await sync_to_async(list)(
-                    PackingList.objects.select_related("shipment_batch_number").filter(container_number__container_number__in=pallet_container_number))
+                    PackingList.objects.select_related("shipment_batch_number").filter(
+                        container_number__container_number__in=pallet_container_number
+                    )
+                )
                 pallet_shipping_marks, pallet_fba_ids, pallet_ref_ids = [], [], []
                 updated_pl = []
                 for p in pallet:
@@ -563,13 +566,38 @@ class ShippingManagement(View):
                 plt_ids = [id for s, id in zip(selections, plt_ids) if s == "on"]
                 plt_ids = [int(i) for id in plt_ids for i in id.split(",") if i]
                 pallet = await sync_to_async(list)(Pallet.objects.select_related("container_number").filter(id__in=plt_ids))
+                pallet_container_number = [p.container_number.container_number for p in pallet]
+                packing_list = await sync_to_async(list)(
+                    PackingList.objects.select_related("shipment_batch_number").filter(
+                        container_number__container_number__in=pallet_container_number
+                    )
+                )
+                pallet_shipping_marks, pallet_fba_ids, pallet_ref_ids = [], [], []
+                updated_pl = []
                 for p in pallet:
                     p.shipment_batch_number = shipment
                     shipment.total_weight += p.weight_lbs
                     shipment.total_pcs += p.pcs
                     shipment.total_cbm += p.cbm
+                    if p.shipping_mark:
+                        pallet_shipping_marks += p.shipping_mark.split(",")
+                    if p.fba_id:
+                        pallet_fba_ids += p.fba_id.split(",")
+                    if p.ref_id:
+                        pallet_ref_ids += p.ref_id.split(",")
+                for pl in packing_list:
+                    if pl.shipping_mark and pl.shipping_mark in pallet_shipping_marks:
+                        pl.shipment_batch_number = shipment
+                        updated_pl.append(pl)
+                    elif pl.fba_id and pl.fba_id in pallet_fba_ids:
+                        pl.shipment_batch_number = shipment
+                        updated_pl.append(pl)
+                    elif pl.ref_id and pl.ref_id in pallet_ref_ids:
+                        pl.shipment_batch_number = shipment
+                        updated_pl.append(pl)
                 shipment.total_pallet += len(set([p.pallet_id for p in pallet]))
-                await sync_to_async(Pallet.objects.bulk_update)(pallet, ["shipment_batch_number"])     
+                await sync_to_async(Pallet.objects.bulk_update)(pallet, ["shipment_batch_number"])
+                await sync_to_async(PackingList.objects.bulk_update)(updated_pl, ["shipment_batch_number"])    
             except:
                 pass
             order = await sync_to_async(list)(
@@ -614,13 +642,38 @@ class ShippingManagement(View):
                 plt_ids = [id for s, id in zip(selections, plt_ids) if s == "on"]
                 plt_ids = [int(i) for id in plt_ids for i in id.split(",") if i]
                 pallet = await sync_to_async(list)(Pallet.objects.select_related("container_number").filter(id__in=plt_ids))
+                pallet_container_number = [p.container_number.container_number for p in pallet]
+                packing_list = await sync_to_async(list)(
+                    PackingList.objects.select_related("shipment_batch_number").filter(
+                        container_number__container_number__in=pallet_container_number
+                    )
+                )
+                pallet_shipping_marks, pallet_fba_ids, pallet_ref_ids = [], [], []
+                updated_pl = []
                 for p in pallet:
                     p.shipment_batch_number = None
                     shipment.total_weight -= p.weight_lbs
                     shipment.total_pcs -= p.pcs
                     shipment.total_cbm -= p.cbm
+                    if p.shipping_mark:
+                        pallet_shipping_marks += p.shipping_mark.split(",")
+                    if p.fba_id:
+                        pallet_fba_ids += p.fba_id.split(",")
+                    if p.ref_id:
+                        pallet_ref_ids += p.ref_id.split(",")
+                for pl in packing_list:
+                    if pl.shipping_mark and pl.shipping_mark in pallet_shipping_marks:
+                        pl.shipment_batch_number = None
+                        updated_pl.append(pl)
+                    elif pl.fba_id and pl.fba_id in pallet_fba_ids:
+                        pl.shipment_batch_number = None
+                        updated_pl.append(pl)
+                    elif pl.ref_id and pl.ref_id in pallet_ref_ids:
+                        pl.shipment_batch_number = None
+                        updated_pl.append(pl)
                 shipment.total_pallet -= len(set([p.pallet_id for p in pallet]))
-                await sync_to_async(Pallet.objects.bulk_update)(pallet, ["shipment_batch_number"])     
+                await sync_to_async(Pallet.objects.bulk_update)(pallet, ["shipment_batch_number"])
+                await sync_to_async(PackingList.objects.bulk_update)(updated_pl, ["shipment_batch_number"]) 
             except:
                 pass
         else:
