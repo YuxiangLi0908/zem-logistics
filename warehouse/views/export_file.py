@@ -200,8 +200,7 @@ def export_po_check(request: HttpRequest) -> HttpResponse:
         
 
 def export_po(request: HttpRequest, export_format: str = "PO") -> HttpResponse:
-    ids = request.POST.get("pl_ids")
-    
+    ids = request.POST.get("pl_ids")  
     ids = ids.replace("[", "").replace("]", "").split(", ")
     ids = [int(i) for i in ids]
     packing_list = PackingList.objects.select_related(
@@ -243,34 +242,34 @@ def export_po(request: HttpRequest, export_format: str = "PO") -> HttpResponse:
             )
         ),
     ).distinct().order_by("destination", "container_number__container_number")
-    for p in packing_list:
-        try:
-            pl = PoCheckEtaSeven.objects.get(
-                container_number__container_number = p['container_number__container_number'],
-                shipping_mark = p['shipping_mark'],
-                fba_id = p['fba_id'],
-                ref_id = p['ref_id']
-            )
+    # for p in packing_list:
+    #     try:
+    #         pl = PoCheckEtaSeven.objects.get(
+    #             container_number__container_number = p['container_number__container_number'],
+    #             shipping_mark = p['shipping_mark'],
+    #             fba_id = p['fba_id'],
+    #             ref_id = p['ref_id']
+    #         )
             
-            if not pl.last_eta_checktime and not pl.last_retrieval_checktime:
-                p['check'] = '未校验'
-            elif pl.last_retrieval_checktime and not pl.last_retrieval_status:
-                p['check'] = '失效'
-            elif not pl.last_retrieval_checktime and pl.last_eta_checktime and not pl.last_eta_status:
-                p['check'] = '失效'
-            else:
-                p['check'] = '有效'
-        except PoCheckEtaSeven.DoesNotExist:
-            p['check'] =  '未找到记录'
-        except MultipleObjectsReturned:
-            p['check'] =  "唛头FBA_REF重复"
+    #         if not pl.last_eta_checktime and not pl.last_retrieval_checktime:
+    #             p['check'] = '未校验'
+    #         elif pl.last_retrieval_checktime and not pl.last_retrieval_status:
+    #             p['check'] = '失效'
+    #         elif not pl.last_retrieval_checktime and pl.last_eta_checktime and not pl.last_eta_status:
+    #             p['check'] = '失效'
+    #         else:
+    #             p['check'] = '有效'
+    #     except PoCheckEtaSeven.DoesNotExist:
+    #         p['check'] =  '未找到记录'
+    #     except MultipleObjectsReturned:
+    #         p['check'] =  "唛头FBA_REF重复"
     data = [i for i in packing_list]
     if export_format == "PO":
-        keep = ["fba_id", "container_number__container_number", "ref_id", "Pallet Count", "total_pcs", "label","check"]
+        keep = ["fba_id", "container_number__container_number", "ref_id", "Pallet Count", "total_pcs", "label"]
     elif export_format == "FULL_TABLE":
         keep = [
             "container_number__container_number", "destination", "delivery_method", "fba_id", "ref_id", 
-            "total_cbm", "total_pcs", "total_weight_lbs", "Pallet Count", "label","check"
+            "total_cbm", "total_pcs", "total_weight_lbs", "Pallet Count", "label"
         ]
     else:
         raise ValueError(f"unknown export_format option: {export_format}")
