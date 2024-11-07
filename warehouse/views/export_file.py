@@ -271,11 +271,11 @@ def export_po(request: HttpRequest, export_format: str = "PO") -> HttpResponse:
             p['check'] =  "唛头FBA_REF重复"
     data = [i for i in packing_list]
     if export_format == "PO":
-        keep = ["fba_id", "container_number__container_number", "ref_id", "Pallet Count", "total_pcs", "label","check"]
+        keep = ["fba_id", "container_number__container_number", "ref_id", "Pallet Count", "total_pcs", "label", "check"]
     elif export_format == "FULL_TABLE":
         keep = [
             "container_number__container_number", "destination", "delivery_method", "fba_id", "ref_id", 
-            "total_cbm", "total_pcs", "total_weight_lbs", "Pallet Count", "label","check"
+            "total_cbm", "total_pcs", "total_weight_lbs", "Pallet Count", "label", "check"
         ]
     else:
         raise ValueError(f"unknown export_format option: {export_format}")
@@ -302,9 +302,9 @@ def export_po(request: HttpRequest, export_format: str = "PO") -> HttpResponse:
             "total_cbm": "CBM",
             "total_weight_lbs": "WEIGHT(LBS)",
         }, axis=1)
-    response = HttpResponse(content_type="text/csv")
+    response = HttpResponse(content_type='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet')
     response['Content-Disposition'] = f"attachment; filename=PO.xlsx"
-    df.to_csv(path_or_buf=response, index=False)
+    df.to_excel(excel_writer=response, index=False, columns=df.columns)
     return response
 
 def export_do(request: HttpRequest) -> HttpResponse:
