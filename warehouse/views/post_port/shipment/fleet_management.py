@@ -263,7 +263,10 @@ class FleetManagement(View):
         if batch_number:
             criteria &= models.Q(shipment__shipment_batch_number=batch_number)
         fleet = await sync_to_async(list)(
-            Fleet.objects.filter(criteria).order_by("departured_at")
+            Fleet.objects.prefetch_related("shipment").filter(criteria).annotate(
+                shipment_batch_numbers=StringAgg("shipment__shipment_batch_number", delimiter=","),
+                appointment_ids=StringAgg("shipment__appointment_id", delimiter=","),
+            ).order_by("departured_at")
         )
         fleet_numbers = [f.fleet_number for f in fleet]
         shipment = await sync_to_async(list)(
