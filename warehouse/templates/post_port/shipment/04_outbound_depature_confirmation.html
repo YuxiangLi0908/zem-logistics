@@ -159,7 +159,7 @@
                                 <input type="number" name="actual_shipped_pallet" step=1 max="{{ s.total_pallet }}" required>
                             </td>
                             <input type="hidden" name="batch_number" value="{{ s.shipment_batch_number__shipment_batch_number }}">
-                            <input type="hidden" name="pl_ids" value="{{ s.ids }}">
+                            <input type="hidden" name="pl_ids" value="{{ s.pl_ids }}">
                             <input type="hidden" name="plt_ids" value="{{ s.plt_ids }}">
                         </tr>
                         {% endfor %}
