@@ -137,6 +137,7 @@ class PostportDash(View):
                     "派送方式": pl.get("custom_delivery_method").split("-")[0],
                     "CBM": pl.get("total_cbm"),
                     "卡板数": n_pallet,
+                    "箱数": pl.get("pcs"),
                     "总重lbs": pl.get("total_weight_lbs"),
                     "ETA": pl.get("container_number__order__vessel_id__vessel_eta"),
                     "提柜时间": retrieval_datetime,
