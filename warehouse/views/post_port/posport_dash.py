@@ -77,7 +77,6 @@ class PostportDash(View):
         plt_criteria = criteria & models.Q(container_number__order__offload_id__offload_at__isnull=False)
         packing_list = await self._get_packing_list(pl_criteria, plt_criteria)
         cbm_act, cbm_est, pallet_act, pallet_est = 0, 0, 0, 0
-        await sync_to_async(print)('长度为',len(packing_list))
         for pl in packing_list:
             if pl.get("label") == "ACT":
                 cbm_act += pl.get("total_cbm")
@@ -138,6 +137,7 @@ class PostportDash(View):
                     "派送方式": pl.get("custom_delivery_method").split("-")[0],
                     "CBM": pl.get("total_cbm"),
                     "卡板数": n_pallet,
+                    "箱数": pl.get("pcs"),
                     "总重lbs": pl.get("total_weight_lbs"),
                     "ETA": pl.get("container_number__order__vessel_id__vessel_eta"),
                     "提柜时间": retrieval_datetime,
@@ -191,6 +191,7 @@ class PostportDash(View):
                 'po_expired',
                 "fba_id",
                 "ref_id",
+                "pcs",
                 "shipping_mark",
                 "shipment_batch_number__shipment_batch_number",
                 "shipment_batch_number__appointment_id",
@@ -233,7 +234,6 @@ class PostportDash(View):
         #             p['check'] = "不对应"
         data += pal_list
         if pl_criteria:
-            await sync_to_async(print)("有这个条件")
             pl_list =  await sync_to_async(list)(
                 PackingList.objects.prefetch_related(
                     "container_number", "container_number__order", "container_number__order__warehouse", "shipment_batch_number",
@@ -265,6 +265,7 @@ class PostportDash(View):
                     'container_number__order__retrieval_id__actual_retrieval_timestamp',
                     'container_number__order__vessel_id__vessel_eta',
                     'schedule_status',
+                    "pcs",
                     "shipment_batch_number__shipment_batch_number",
                     "shipment_batch_number__appointment_id",
                     "shipment_batch_number__shipment_appointment",
@@ -327,8 +328,6 @@ class PostportDash(View):
             #     except MultipleObjectsReturned:
             #         p['check'] = "不对应"
             data += pl_list
-        else:
-            await sync_to_async(print)("没有")
         return data
     
     async def _user_authenticate(self, request: HttpRequest):

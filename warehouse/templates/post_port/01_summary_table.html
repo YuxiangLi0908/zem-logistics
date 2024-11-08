@@ -45,6 +45,7 @@
                     <th class="th">派送方式</th>
                     <th class="th">CBM</th>
                     <th class="th">卡板数</th>
+                    <th class="th">箱数</th>
                     <th class="th">总重lbs</th>
                     <th class="th">ETA</th>
                     <th class="th">提柜时间</th>
@@ -63,6 +64,7 @@
                     <th class="th"><input type="text" id="containerSearchInput" placeholder="搜索客户..." oninput="filterTable(this, 2, true)" size="13" style="font-size: 11px;"></th>
                     <th class="th"><input type="text" id="containerSearchInput" placeholder="搜索柜号..." oninput="filterTable(this, 3, true)" size="13" style="font-size: 11px;"></th>
                     <th class="th"><input type="text" id="containerSearchInput" placeholder="搜索仓点..." oninput="filterTable(this, 4, true)" size="13" style="font-size: 11px;"></th>
+                    <th class="th"></th>
                     <th class="th"></th>
                     <th class="th"></th>
                     <th class="th"></th>
@@ -119,6 +121,7 @@
                             {% endif %}
                         {% endif %}
                     </td>
+                    <td class="td">{{ c.pcs }}</td>
                     <td class="td">{{ c.total_weight_lbs|floatformat:2 }}</td>
                     <td class="td">{{ c.container_number__order__vessel_id__vessel_eta|date:"M-j" }}</td>
                     <td class="td">
