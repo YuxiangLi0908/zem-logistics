@@ -260,9 +260,15 @@ def export_po(request: HttpRequest, export_format: str = "PO") -> HttpResponse:
             if not pl.last_eta_checktime and not pl.last_retrieval_checktime:
                 p['check'] = '未校验'
             elif pl.last_retrieval_checktime and not pl.last_retrieval_status:
-                p['check'] = '失效'
+                if pl.handling_method:
+                        p['check'] = '失效,'+str(pl.handling_method)
+                else:
+                    p['check'] = '失效未处理'
             elif not pl.last_retrieval_checktime and pl.last_eta_checktime and not pl.last_eta_status:
-                p['check'] = '失效'
+                if pl.handling_method:
+                        p['check'] = '失效,'+str(pl.handling_method)
+                else:
+                    p['check'] = '失效未处理'
             else:
                 p['check'] = '有效'
         except PoCheckEtaSeven.DoesNotExist:
