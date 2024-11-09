@@ -228,7 +228,7 @@ class OrderCreation(View):
         packing_list = await sync_to_async(list)(PackingList.objects.filter(
             models.Q(container_number__container_number=container_number)
         ))
-        
+        offload = order.offload_id
         context = {
             "selected_order": order,
             "packing_list": packing_list,
@@ -241,6 +241,7 @@ class OrderCreation(View):
             "container_type": self.container_type,
             "customers": customers,
             "area": self.area,
+            "offload_at":offload.offload_at,
         }
         context["carrier_options"] = CONTAINER_PICKUP_CARRIER
         context["warehouse_options"] = [(k, v) for k, v in WAREHOUSE_OPTIONS if k not in ["N/A(直送)", "Empty"]]
