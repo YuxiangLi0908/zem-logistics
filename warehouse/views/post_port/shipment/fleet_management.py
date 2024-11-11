@@ -35,6 +35,7 @@ from warehouse.utils.constants import (
     SP_URL,
     SP_DOC_LIB,
     SYSTEM_FOLDER,
+    DELIVERY_METHOD_OPTIONS
 )
 
 
@@ -106,6 +107,8 @@ class FleetManagement(View):
             return await self.handle_export_packing_list_post(request)
         elif step == "export_bol":
             return await self.handle_export_bol_post(request)
+        elif step == "add_pallet":
+            return await self.handle_add_pallet(request)
         elif step == "fleet_departure":
             template, context = await self.handle_fleet_departure_post(request)
             return render(request, template, context)
@@ -135,6 +138,52 @@ class FleetManagement(View):
         else:
             return await self.get(request)
     
+    def get_shipment_batch_number(other,pt):
+        return pt.shipment_batch_number
+        
+    async def handle_add_pallet(self, request: HttpRequest) -> HttpRequest:
+        customerInfo = request.POST.get("customerInfo")  #柜号、目的地、板数
+        await sync_to_async(print)(customerInfo)
+        if customerInfo:
+            customer_info = json.loads(customerInfo)
+            #先找到对应的所有pallet
+            for row in customer_info:
+                await sync_to_async(print)(row)
+                pallets = await sync_to_async(list)(Pallet.objects.filter(
+                    container_number__container_number=row[1].strip(),
+                    destination = row[2].strip(),
+                    delivery_method = row[3].strip(),
+                ))
+                num = int(row[4].strip())
+                shipments = await sync_to_async(Shipment.objects.get)(shipment_batch_number = row[0].strip())
+                #将pallet加到shipment里，首先遍历pallet，关联shipment，然后查找shipment增加总重、cbm和板数
+                for pt in pallets:
+                    sbn = await sync_to_async(lambda x: self.get_shipment_batch_number(x))(pt)
+                    if sbn:
+                        #要加塞的柜子已经有约了
+                        message = '要加塞的柜子已经有约了'
+                        response = sync_to_async(HttpResponse)(message)
+                        return await response
+                        #return HttpResponse('要加塞的柜子已经有约了')
+                    if num:  #因为不知道走的是哪个板数，就默认按查找顺序排
+                        num -= 1
+                    else:
+                        break
+                    pt.shipment_batch_number = shipments
+                    await sync_to_async(pt.save)()
+                    shipments.total_cbm += pt.cbm
+                    shipments.total_pallet += 1
+                    shipments.total_pcs += pt.pcs
+                    shipments.total_weight += pt.weight_lbs
+                await sync_to_async(shipments.save)()        
+        return self.handle_fleet_depature_get(request)
+        message = "已加塞成功"
+        async_response = sync_to_async(HttpResponse)(message)
+        return await async_response
+        #return await self.handle_fleet_depature_get(request)
+
+
+
     async def handle_fleet_info_get(self, request: HttpRequest) -> tuple[str, dict[str, Any]]:
         fleet_number = request.GET.get("fleet_number")
         mutable_post = request.POST.copy()
@@ -165,14 +214,12 @@ class FleetManagement(View):
             ).filter(
                 shipment_batch_number__fleet_number__fleet_number=selected_fleet_number,
                 container_number__order__offload_id__offload_at__isnull=False
-            ).annotate(
-                str_id=Cast("id", CharField()),
             ).values(
                 "shipment_batch_number__shipment_batch_number", "container_number__container_number", 
                 "destination", "shipment_batch_number__appointment_id", "shipment_batch_number__shipment_appointment",
                 "shipment_batch_number__note",
             ).annotate(
-                plt_ids=StringAgg("str_id", delimiter=",", distinct=True, ordering="str_id"),
+                plt_ids=StringAgg("pallet_id", delimiter=",", distinct=True, ordering="pallet_id"),
                 total_weight=Sum("weight_lbs", output_field=FloatField()),
                 total_cbm=Sum("cbm", output_field=FloatField()),
                 total_pallet=Count('pallet_id', distinct=True)
@@ -249,6 +296,7 @@ class FleetManagement(View):
             "shipment_batch_numbers": shipment_batch_numbers,
             "packing_list": packing_list,
             "pl_fleet":pl_fleet,
+            "delivery_options" : DELIVERY_METHOD_OPTIONS
         })
         return self.template_outbound_departure, context
     
@@ -265,10 +313,7 @@ class FleetManagement(View):
         if batch_number:
             criteria &= models.Q(shipment__shipment_batch_number=batch_number)
         fleet = await sync_to_async(list)(
-            Fleet.objects.prefetch_related("shipment").filter(criteria).annotate(
-                shipment_batch_numbers=StringAgg("shipment__shipment_batch_number", delimiter=","),
-                appointment_ids=StringAgg("shipment__appointment_id", delimiter=","),
-            ).order_by("departured_at")
+            Fleet.objects.filter(criteria).order_by("departured_at")
         )
         fleet_numbers = [f.fleet_number for f in fleet]
         shipment = await sync_to_async(list)(
@@ -622,9 +667,8 @@ class FleetManagement(View):
         for plt_id, p_schedule, p_shipped in zip(plt_ids, scheduled_pallet, actual_shipped_pallet):
             if p_schedule > p_shipped:
                 unshipped_pallet_ids += plt_id[:p_schedule-p_shipped]
-                unshipped_pallet_ids = [int(i) for i in unshipped_pallet_ids]
         unshipped_pallet = await sync_to_async(list)(
-            Pallet.objects.select_related("shipment_batch_number").filter(id__in=unshipped_pallet_ids)
+            Pallet.objects.select_related("shipment_batch_number").filter(pallet_id__in=unshipped_pallet_ids)
         )
         shipment_pallet = {}
         for p in unshipped_pallet:
@@ -632,6 +676,7 @@ class FleetManagement(View):
                 shipment_pallet[p.shipment_batch_number.shipment_batch_number] = [p]
             else:
                 shipment_pallet[p.shipment_batch_number.shipment_batch_number].append(p)
+        # raise ValueError(shipment_pallet)
         updated_shipment = []
         updated_pallet = []
         sub_shipment = {s.shipment_batch_number: None for s in shipment}
@@ -663,7 +708,6 @@ class FleetManagement(View):
                     "is_shipment_schduled": s.is_shipment_schduled,
                     "shipment_schduled_at": s.shipment_schduled_at,
                     "shipment_appointment": s.shipment_appointment,
-                    "shipment_type": s.shipment_type,
                     "load_type": s.load_type,
                     "total_weight": dumped_weight,
                     "total_cbm": dumped_cbm,
