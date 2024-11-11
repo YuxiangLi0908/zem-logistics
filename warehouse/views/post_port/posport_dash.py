@@ -333,4 +333,4 @@ class PostportDash(View):
     async def _user_authenticate(self, request: HttpRequest):
         if await sync_to_async(lambda: request.user.is_authenticated)():
             return True
-        return False()
+        return False

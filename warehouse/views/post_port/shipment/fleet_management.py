@@ -165,12 +165,14 @@ class FleetManagement(View):
             ).filter(
                 shipment_batch_number__fleet_number__fleet_number=selected_fleet_number,
                 container_number__order__offload_id__offload_at__isnull=False
+            ).annotate(
+                str_id=Cast("id", CharField()),
             ).values(
                 "shipment_batch_number__shipment_batch_number", "container_number__container_number", 
                 "destination", "shipment_batch_number__appointment_id", "shipment_batch_number__shipment_appointment",
                 "shipment_batch_number__note",
             ).annotate(
-                plt_ids=StringAgg("pallet_id", delimiter=",", distinct=True, ordering="pallet_id"),
+                plt_ids=StringAgg("str_id", delimiter=",", distinct=True, ordering="str_id"),
                 total_weight=Sum("weight_lbs", output_field=FloatField()),
                 total_cbm=Sum("cbm", output_field=FloatField()),
                 total_pallet=Count('pallet_id', distinct=True)
@@ -263,7 +265,10 @@ class FleetManagement(View):
         if batch_number:
             criteria &= models.Q(shipment__shipment_batch_number=batch_number)
         fleet = await sync_to_async(list)(
-            Fleet.objects.filter(criteria).order_by("departured_at")
+            Fleet.objects.prefetch_related("shipment").filter(criteria).annotate(
+                shipment_batch_numbers=StringAgg("shipment__shipment_batch_number", delimiter=","),
+                appointment_ids=StringAgg("shipment__appointment_id", delimiter=","),
+            ).order_by("departured_at")
         )
         fleet_numbers = [f.fleet_number for f in fleet]
         shipment = await sync_to_async(list)(
@@ -617,8 +622,9 @@ class FleetManagement(View):
         for plt_id, p_schedule, p_shipped in zip(plt_ids, scheduled_pallet, actual_shipped_pallet):
             if p_schedule > p_shipped:
                 unshipped_pallet_ids += plt_id[:p_schedule-p_shipped]
+                unshipped_pallet_ids = [int(i) for i in unshipped_pallet_ids]
         unshipped_pallet = await sync_to_async(list)(
-            Pallet.objects.select_related("shipment_batch_number").filter(pallet_id__in=unshipped_pallet_ids)
+            Pallet.objects.select_related("shipment_batch_number").filter(id__in=unshipped_pallet_ids)
         )
         shipment_pallet = {}
         for p in unshipped_pallet:
@@ -626,7 +632,6 @@ class FleetManagement(View):
                 shipment_pallet[p.shipment_batch_number.shipment_batch_number] = [p]
             else:
                 shipment_pallet[p.shipment_batch_number.shipment_batch_number].append(p)
-        # raise ValueError(shipment_pallet)
         updated_shipment = []
         updated_pallet = []
         sub_shipment = {s.shipment_batch_number: None for s in shipment}
@@ -658,6 +663,7 @@ class FleetManagement(View):
                     "is_shipment_schduled": s.is_shipment_schduled,
                     "shipment_schduled_at": s.shipment_schduled_at,
                     "shipment_appointment": s.shipment_appointment,
+                    "shipment_type": s.shipment_type,
                     "load_type": s.load_type,
                     "total_weight": dumped_weight,
                     "total_cbm": dumped_cbm,
