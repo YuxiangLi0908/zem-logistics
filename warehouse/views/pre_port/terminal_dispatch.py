@@ -170,6 +170,9 @@ class TerminalDispatch(View):
             order__container_number__container_number=container_number
         )
         retrieval.actual_retrieval_timestamp = request.POST.get("actual_retrieval_timestamp")
+        #填了实际提柜但是没有写预计提柜的，就默认预计提柜时间为实际提柜时间
+        retrieval.target_retrieval_timestamp_lower = request.POST.get("target_retrieval_timestamp_lower")
+        retrieval.target_retrieval_timestamp = request.POST.get("target_retrieval_timestamp")
         today = datetime.now()  
         actual_ts = request.POST.get("actual_retrieval_timestamp")
         actual_ts = datetime.strptime(actual_ts, '%Y-%m-%dT%H:%M')

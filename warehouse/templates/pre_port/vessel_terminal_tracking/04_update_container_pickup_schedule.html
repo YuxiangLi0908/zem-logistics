@@ -22,7 +22,7 @@
                         <td class="td">
                             <input type="hidden" name="step" value="confirm_pickup">
                             <input type="hidden" name="container_number" value="{{ container_number }}">
-                            <button id="schedule-pickup-btn" type="submit" class="btn btn-primary" style="height: 30px; margin-left: 20px; font-size: 13px;" onclick="checkSchedule()">
+                            <button id="schedule-pickup-btn" type="submit" class="btn btn-primary" style="height: 30px; margin-left: 20px; font-size: 13px;">
                                 确认提柜
                             </button>
                         </td>
@@ -178,15 +178,5 @@
         };
     };
 
-    function checkSchedule() {
-        const scheduleLower = document.querySelector("input[name='target_retrieval_timestamp_lower']");
-        const scheduleUpper = document.querySelector("input[name='target_retrieval_timestamp']");
-        if (!scheduleLower.value && !scheduleUpper.value) {
-            scheduleLower.style.border = '2px solid red';
-            scheduleUpper.style.border = '2px solid red';
-            alert('预约时间不能全为空!');
-            event.preventDefault();
-        };
-    };
 </script>
 {% endblock %}
