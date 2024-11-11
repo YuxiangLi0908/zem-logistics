@@ -54,7 +54,7 @@ class ShippingManagement(View):
     template_shipment_list = "post_port/shipment/07_shipment_list.html"
     template_shipment_list_shipment_display = "post_port/shipment/07_1_shipment_list_shipment_display.html"
     template_shipment_exceptions = "post_port/shipment/exceptions/01_shipment_exceptions.html"
-    area_options = {"NJ": "NJ", "SAV": "SAV"}
+    area_options = {"NJ": "NJ", "SAV": "SAV", "NJ/SAV":"NJ/SAV"}
     warehouse_options = {"": "", "NJ-07001": "NJ-07001", "NJ-08817": "NJ-08817", "SAV-31326": "SAV-31326"}
     shipment_type_options = {"":"", "FTL/LTL":"FTL/LTL", "外配/快递":"外配/快递"}
 
@@ -245,15 +245,26 @@ class ShippingManagement(View):
             area = request.GET.get("warehouse")[:2]
         else:
             area = None
+        if request.POST.get("area"):
+            area = request.POST.get("area")       
+        if area == 'NJ/SAV':          
+            criteria = (
+                models.Q(packinglist__container_number__order__retrieval_id__retrieval_destination_area="NJ") |
+                models.Q(packinglist__container_number__order__retrieval_id__retrieval_destination_area="SAV") |
+                models.Q(pallet__container_number__order__retrieval_id__retrieval_destination_area="NJ") |
+                models.Q(pallet__container_number__order__retrieval_id__retrieval_destination_area="SAV")
+            )
+        else:
+            criteria = (
+                models.Q(packinglist__container_number__order__retrieval_id__retrieval_destination_area=area) |
+                models.Q(pallet__container_number__order__retrieval_id__retrieval_destination_area=area)
+            )
         shipment = await sync_to_async(list)(
             Shipment.objects.prefetch_related(
                 "packinglist", "packinglist__container_number", "packinglist__container_number__order",
                 "packinglist__container_number__order__warehouse", "order", "pallet", "fleet_number"
             ).filter(
-                models.Q(
-                    models.Q(packinglist__container_number__order__retrieval_id__retrieval_destination_area=area) |
-                    models.Q(pallet__container_number__order__retrieval_id__retrieval_destination_area=area)
-                ) &
+                criteria &
                 models.Q(
                     is_shipped=False,
                     in_use=True,
@@ -261,8 +272,12 @@ class ShippingManagement(View):
                 )
             ).distinct().order_by('-abnormal_palletization', 'shipment_appointment')
         )
-        criteria = models.Q(
-            container_number__order__retrieval_id__retrieval_destination_area=area,
+        if area == 'NJ/SAV': 
+            criteria_p = (models.Q(container_number__order__retrieval_id__retrieval_destination_area="NJ")|
+            models.Q(container_number__order__retrieval_id__retrieval_destination_area="SAV"))
+        else:
+            criteria_p = (models.Q(container_number__order__retrieval_id__retrieval_destination_area=area))
+        criteria_p &= models.Q(
             container_number__order__packing_list_updloaded=True,
             shipment_batch_number__isnull=True,
             container_number__order__order_type="转运",
@@ -272,8 +287,8 @@ class ShippingManagement(View):
             models.Q(container_number__order__vessel_id__vessel_eta__lte=datetime.now().date() + timedelta(days=7)) |
             models.Q(container_number__order__eta__lte=datetime.now().date() + timedelta(days=7))
         )
-        pl_criteria = criteria & models.Q(container_number__order__offload_id__offload_at__isnull=True)
-        plt_criteria = criteria & models.Q(container_number__order__offload_id__offload_at__isnull=False)
+        pl_criteria = criteria_p & models.Q(container_number__order__offload_id__offload_at__isnull=True)
+        plt_criteria = criteria_p & models.Q(container_number__order__offload_id__offload_at__isnull=False)
         packing_list_not_scheduled = await self._get_packing_list(pl_criteria, plt_criteria)
         cbm_act, cbm_est, pallet_act, pallet_est = 0, 0, 0, 0
         for pl in packing_list_not_scheduled:
