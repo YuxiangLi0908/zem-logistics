@@ -280,8 +280,8 @@ class ShippingManagement(View):
         #ETA过滤
         start_date = request.POST.get("start_date")
         end_date = request.POST.get("end_date")
-        start_date = (datetime.now().date() + timedelta(days=-30)).strftime('%Y-%m-%d') if not start_date else start_date
-        end_date = (datetime.now().date() + timedelta(days=30)).strftime('%Y-%m-%d') if not end_date else end_date
+        start_date = (datetime.now().date() + timedelta(days=-15)).strftime('%Y-%m-%d') if not start_date else start_date
+        end_date = (datetime.now().date() + timedelta(days=15)).strftime('%Y-%m-%d') if not end_date else end_date
         
         criteria_p &= models.Q(
             container_number__order__packing_list_updloaded=True,
