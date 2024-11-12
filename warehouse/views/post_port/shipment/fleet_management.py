@@ -11,6 +11,7 @@ from django.http import HttpRequest, HttpResponse
 from django.shortcuts import render, redirect
 from django.views import View
 from django.db import models
+from django.http import JsonResponse
 from django.db.models import CharField, Sum, FloatField, Count
 from django.db.models.functions import Cast
 from django.contrib.postgres.aggregates import StringAgg
@@ -141,46 +142,60 @@ class FleetManagement(View):
     def get_shipment_batch_number(other,pt):
         return pt.shipment_batch_number
         
-    async def handle_add_pallet(self, request: HttpRequest) -> HttpRequest:
-        customerInfo = request.POST.get("customerInfo")  #柜号、目的地、板数
-        await sync_to_async(print)(customerInfo)
-        if customerInfo:
-            customer_info = json.loads(customerInfo)
-            #先找到对应的所有pallet
-            for row in customer_info:
-                await sync_to_async(print)(row)
-                pallets = await sync_to_async(list)(Pallet.objects.filter(
-                    container_number__container_number=row[1].strip(),
-                    destination = row[2].strip(),
-                    delivery_method = row[3].strip(),
-                ))
-                num = int(row[4].strip())
-                shipments = await sync_to_async(Shipment.objects.get)(shipment_batch_number = row[0].strip())
-                #将pallet加到shipment里，首先遍历pallet，关联shipment，然后查找shipment增加总重、cbm和板数
-                for pt in pallets:
-                    sbn = await sync_to_async(lambda x: self.get_shipment_batch_number(x))(pt)
-                    if sbn:
-                        #要加塞的柜子已经有约了
-                        message = '要加塞的柜子已经有约了'
-                        response = sync_to_async(HttpResponse)(message)
-                        return await response
-                        #return HttpResponse('要加塞的柜子已经有约了')
-                    if num:  #因为不知道走的是哪个板数，就默认按查找顺序排
-                        num -= 1
-                    else:
-                        break
-                    pt.shipment_batch_number = shipments
-                    await sync_to_async(pt.save)()
-                    shipments.total_cbm += pt.cbm
-                    shipments.total_pallet += 1
-                    shipments.total_pcs += pt.pcs
-                    shipments.total_weight += pt.weight_lbs
-                await sync_to_async(shipments.save)()        
-        return self.handle_fleet_depature_get(request)
-        message = "已加塞成功"
-        async_response = sync_to_async(HttpResponse)(message)
-        return await async_response
-        #return await self.handle_fleet_depature_get(request)
+    async def handle_add_pallet(self, request: HttpRequest) -> JsonResponse:
+        shipment = request.POST.getlist("shipment")
+        container = request.POST.getlist("container")
+        destination = request.POST.getlist("destination")
+        delivery_method = request.POST.getlist("delivery_method")
+        pallet = request.POST.getlist("pallet")
+        
+        try:
+            if shipment and container and destination and delivery_method and pallet:
+                length = len(shipment)
+               
+                #先找到对应的所有pallet
+                for i in range(length):
+                    await sync_to_async(print)(container[i],destination[i],delivery_method[i])
+                    pallets = await sync_to_async(list)(Pallet.objects.filter(
+                        container_number__container_number=container[i].strip(),
+                        destination = destination[i].strip(),
+                        #怕有暂扣留仓的，所以这里派送方式也做了查找
+                        delivery_method = delivery_method[i].strip(),
+                    ))
+                    if not pallets:
+                        return HttpResponse(container[i]+'的卡板没查到')
+                    num = int(pallet[i].strip())
+                    try:
+                        #找到柜子要加的约
+                        shipments = await sync_to_async(Shipment.objects.get)(shipment_batch_number = shipment[i].strip())
+                    except Exception as e:
+                        #防止约有异常
+                        return HttpResponse(e)
+                    await sync_to_async(print)("pallets",pallets)
+                    #将pallet加到shipment里，首先遍历pallet，关联shipment，然后查找shipment增加总重、cbm和板数
+                    for pt in pallets:
+                        #看下这个板子是不是有约了，直接if pt.shipment_batch_number会报错，所以用这种写法
+                        sbn = await sync_to_async(lambda x: self.get_shipment_batch_number(x))(pt)
+                        await sync_to_async(print)(sbn)
+                        if sbn:
+                            #要加塞的柜子已经有约了，如果可以直接改柜子的约，这里再进行下一步处理
+                            return HttpResponse(container[i]+'柜子已经有约了')                          
+                        if num:  #因为不知道走的是哪个板数，就默认按查找顺序排，比如原本有3个板子，只加塞了2个，就只处理查找到的前2个
+                            num -= 1
+                        else:
+                            break
+                        pt.shipment_batch_number = shipments  #给板子绑定预约批次
+                        await sync_to_async(pt.save)()
+                        #该预约批次加上这个板子的cbm等参数
+                        shipments.total_cbm += pt.cbm  
+                        shipments.total_pallet += 1
+                        shipments.total_pcs += pt.pcs
+                        shipments.total_weight += pt.weight_lbs
+                    await sync_to_async(print)("约保存了")
+                    await sync_to_async(shipments.save)()        
+            return HttpResponse('已加塞成功')
+        except Exception as e:
+            return HttpResponse(e)
 
 
 
