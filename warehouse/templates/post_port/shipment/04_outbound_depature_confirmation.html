@@ -108,7 +108,7 @@
                         <button id="confirmButton" type="button" class="btn btn-primary"  style="font-size: 11px;" onclick="editTable('BOL', false, '{{ batch_number }}')">确认</button>
                     </div>
                 </div>
-                <script src="script.js"></script>
+                {% comment %} <script src="script.js"></script> {% endcomment %}
             </form>
             {% endfor %}
         </div>
@@ -156,13 +156,18 @@
                                 <input type="hidden" name="scheduled_pallet" value="{{ s.total_pallet }}">
                             </td>
                             <td class="td">
-                                <input type="number" name="actual_shipped_pallet" step=1 max="{{ s.total_pallet }}" required>
+                                <input type="number" name="actual_shipped_pallet" step=1 max="{{ s.total_pallet }}" value="{{ s.total_pallet }}" required>
                             </td>
                             <input type="hidden" name="batch_number" value="{{ s.shipment_batch_number__shipment_batch_number }}">
                             <input type="hidden" name="pl_ids" value="{{ s.pl_ids }}">
                             <input type="hidden" name="plt_ids" value="{{ s.plt_ids }}">
                         </tr>
                         {% endfor %}
+                        <tr id="amount-total-row">
+                            <td colspan="9"></td>
+                            <td class="td"><input type="number" id="pallet-total" disabled></td>
+                            <td colspan="1"></td>
+                        </tr>
                     </tbody>
                 </table>
                 <table id="fleet-departure-table" class="table" style="font-size: 11px; max-height: 90%; overflow-y: scroll;">
@@ -191,6 +196,19 @@
 
 
 <script>
+    window.addEventListener('load', function () {
+        const inputs = document.querySelectorAll('input[name="actual_shipped_pallet"]');
+        let sum = 0;
+        inputs.forEach((input) => {
+          sum += parseInt(input.value);
+        });
+        console.log(sum);
+        const amountTotalInput = document.getElementById('pallet-total');
+        amountTotalInput.value = sum;
+    });
+
+    
+
     function editBOL(button, batch_number) {   //用户要编辑BOL中的表时，弹出表格框
         var popup = document.querySelector('.popup-' + batch_number);
         if (popup.style.display === 'none') {
