@@ -635,6 +635,7 @@ class Palletization(View):
                         "fba_ids": fba_ids,
                         "barcode":new_barcode_base64,
                         "shipping_marks": shipping_marks,
+                        "pcs": pl.get("pcs")
                     }
                     data.append(new_data)
         context = {"data": data}
