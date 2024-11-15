@@ -3,13 +3,13 @@
 <style>
     @page {
             size: portrait; 
-            margin: 20mm;
+            margin:20mm;
         }
     
     @media print {
         .page-break {
             page-break-before: always;
-            justify-content: left;
+            {% comment %} justify-content: left; {% endcomment %}
             {% comment %} align-items: center; {% endcomment %}
             {% comment %} min-height: 100%; {% endcomment %}
             margin:10px;
@@ -22,8 +22,8 @@
         .text-container {           
             {% comment %} height: 100%; {% endcomment %}
             padding-top: 10px;
-            text-align:left;
-            padding-left: 0;
+            {% comment %} text-align:left; {% endcomment %}
+            {% comment %} padding-left: 0; {% endcomment %}
         }
 
         .text-container.right {
@@ -37,21 +37,19 @@
             line-height: 3;
             font-family: Times New Roman;
             margin-bottom: 0;
-            text-align: left;
             
         }
         .small-text.center{
             font-size: 50px;
             font-family: Times New Roman;
             margin-bottom: 0;
-            text-align: center;
         }
         .huge-text {
             font-size: 100px;
             font-family: Times New Roman;             
             text-align: center;  
             margin-bottom: -10px;
-            padding-left: 30px;   
+            {% comment %} padding-left: 30px;    {% endcomment %}
             padding-right: 30px;  
         }   
         .table {
@@ -66,31 +64,22 @@
 <div class="page-break {% if forloop.first %}first-page{% endif %}">
     <div class="text-container">       
         
-        <p class="small-text">Pallet ID Barcode</p>
-        <img src="data:image/png;base64,{{ d.barcode }}">
+        <p class="small-text" style="text-align: left;">Pallet ID Barcode</p>
+        <img style="text-align:center; width:450px; height: 100px;" src="data:image/png;base64,{{ d.barcode }}">
         
         <table border="none">
             <tr style="border-top: 1px solid black;">
-                <td class="small-text"><i>House ID</i></td>
-            </tr>
-            <tr>
-                <td class="small-text center">107660-31</td>
-            </tr>
-        </table>
-        
-        <table border="none">
-            <tr style="border-top: 1px solid black;">
-                <td colspan="2" class="small-text" style="border-right: 1px solid black;"><i>Customer</i></td>
+                <td colspan="2" class="small-text" style="border-right: 1px solid black; text-align: left;"><i>Customer</i></td>
                 <td class="small-text" style="text-align: center;"><i>Date</i></td>
             </tr>
             <tr style="border-bottom: 1px solid black;">
-                <td colspan="2" class="small-text" style="border-right: 1px solid black; "><b>{{d.customer}}</b></td>
+                <td colspan="2" class="small-text" style="border-right: 1px solid black; text-align: center;"><b>{{d.customer}}</b></td>
                 <td class="small-text" style="text-align: center;"><b>{{d.date}}</b></td>
             </tr>
         </table>
         <table border="none">
             <tr>
-                <td class="small-text"><i>Container No.</i></td>
+                <td class="small-text" style="text-align: left;"><i>Container No.</i></td>
             </tr>
             <tr style="border-bottom: 1px solid black;">
                 <td class="small-text center">
