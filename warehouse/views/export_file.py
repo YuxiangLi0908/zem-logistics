@@ -315,8 +315,7 @@ def export_po(request: HttpRequest, export_format: str = "PO") -> HttpResponse:
 
 def export_do(request: HttpRequest) -> HttpResponse:
     selected_orders = json.loads(request.POST.get('selectedOrders', '[]'))
- 
-    if len(selected_orders) > 1:
+    if selected_orders:
         # 创建一个BytesIO对象来保存ZIP文件，我理解是前后端导出pdf只能响应一次，所以实现不了一次导出多个pdf，就将多个pdf合并为一个压缩包
         zip_buffer = BytesIO()
         with zipfile.ZipFile(zip_buffer, 'w', zipfile.ZIP_DEFLATED) as zip_file:
@@ -330,7 +329,8 @@ def export_do(request: HttpRequest) -> HttpResponse:
         zip_buffer.close()
         return response
     else:
-        pdf_response = export_do_branch(selected_orders[0])
+        selected_orders = request.POST.get("container_number")
+        pdf_response = export_do_branch(selected_orders)
         return pdf_response
 
     
