@@ -1,25 +1,33 @@
 {% block content %}
+{% load custom_filters %}
 <style>
     @page {
-            size: landscape; /* Set page orientation to landscape */
+            size: portrait; 
+            margin:20mm;
         }
-
+    body {
+        margin: 0;
+        font-family: Times New Roman;
+    }
+    
     @media print {
         .page-break {
             page-break-before: always;
-            justify-content: center;
-            align-items: center;
-            min-height: 100%;
+            {% comment %} justify-content: left; {% endcomment %}
+            {% comment %} align-items: center; {% endcomment %}
+            {% comment %} min-height: 100%; {% endcomment %}
+            margin:10px 0;
         }
 
         .page-break.first-page {
             page-break-before: auto;
         }
 
-        .text-container {
-            text-align: center;
-            height: 100%;
-            padding-top: 60px;
+        .text-container {           
+            {% comment %} height: 100%; {% endcomment %}
+            padding-top: 10px;
+            {% comment %} text-align:left; {% endcomment %}
+            {% comment %} padding-left: 0; {% endcomment %}
         }
 
         .text-container.right {
@@ -27,45 +35,30 @@
             height: 100%;
             padding-right: 10px;
         }
-
+        
         .small-text {
+            font-size: 40px;
+            line-height: 3;
+            margin-bottom: 0;
+            
+        }
+        .small-text.center{
             font-size: 50px;
-            font-family: STSong-Light;
-            padding-top: -10px;
-            padding-bottom: -10px;
-            margin-top: -10px;
-            margin-bottom: -10px;
+            margin-bottom: 0;
+            text-align: center;  
         }
-
-        .small-text.smaller {
-            font-size: 25px;
-            font-family: STSong-Light;
-            padding-top: -5px;
-            padding-bottom: -5px;
-            margin-top: -5px;
-            margin-bottom: -5px;
-        }
-
         .huge-text {
-            font-size: 100px;
-            font-family: STSong-Light;
-            padding: -20px;
-            margin: -20px;
-        }
-
-        .huge-text.larger {
-            font-size: 120px;
-            font-family: STSong-Light;
-            padding: -20px;
-            margin: -20px;
-        }
-
-        .huge-text.extra-large {
-            font-size: 200px;
-            font-family: STSong-Light;
-            padding: -20px;
-            margin: -20px;
-        }
+            font-size: 100px;        
+            text-align: center;  
+            margin-bottom: -10px;
+            {% comment %} padding-left: 30px;    {% endcomment %}
+            padding-right: 30px;  
+        }   
+        .table {
+            border-collapse: collapse;  
+        }   
+        
+    
         
     }
 </style>
@@ -73,24 +66,52 @@
 <body>
 {% for d in data %}
 <div class="page-break {% if forloop.first %}first-page{% endif %}">
-    <div class="text-container">
-        <br>
-        {% if d.hold %}
-            <img src="data:image/png;base64,{{ d.barcode }}">
-            <p class="huge-text" style="margin-top: 10px;">{{ d.container_number }}</p>
-            <p class="huge-text extra-large"><b>{{ d.destination }}</b></p>
-            <p class="huge-text"><b>!!! HOLD !!!</b></p>
-            <p class="small-text smaller" style="overflow-wrap: break-word;"><b>{{ d.fba_ids }}</b></p>
-        {% else %}
-            <img src="data:image/png;base64,{{ d.barcode }}">
-            <p class="huge-text larger">{{ d.container_number }}</p>
-            <p class="huge-text extra-large"><b>{{ d.destination }}</b></p>
-            <p class="huge-text" style="overflow-wrap: break-word;"><b>{{ d.shipping_marks }}</b></p>
-        {% endif %}
-    </div>
-    <div class="text-container right">
-        <p class="small-text">{{ d.customer }} {{ d.date }}</p>
-    </div>
+    <div class="text-container">       
+        
+        <p class="small-text" style="text-align: left;">Pallet ID Barcode</p>
+        <img style="text-align:center; width:450px; height: 100px;" src="data:image/png;base64,{{ d.barcode }}">
+        
+        <table border="none">
+            <tr style="border-top: 1px solid black;">
+                <td colspan="2" class="small-text" style="border-right: 1px solid black; text-align: left;"><i>Customer</i></td>
+                <td class="small-text" style="text-align: center;"><i>Date</i></td>
+            </tr>
+            <tr style="border-bottom: 1px solid black;">
+                <td colspan="2" class="small-text" style="border-right: 1px solid black; text-align: center;"><b>{{d.customer}}</b></td>
+                <td class="small-text" style="text-align: center;"><b>{{d.date}}</b></td>
+            </tr>
+        </table>
+        <table border="none">
+            <tr>
+                <td class="small-text" style="text-align: left;"><i>Container No.</i></td>
+            </tr>
+            <tr style="border-bottom: 1px solid black;">
+                <td class="small-text center">
+                    <span class="small-text center">{{ d.container_number|slice_string:'front' }}</span>
+                    &nbsp;&nbsp;                    
+                    <span class="huge-text"><b>{{ d.container_number|slice_string:'back' }}</b></span>
+                </td>
+            </tr>
+        </table>
+
+        <table border="none">
+            <tr>
+                <td class="small-text"><i>Ship To</i></td>
+            </tr>
+            <tr style="border-bottom: 1px solid black;">
+                <td class="small-text center">
+                    <p style="font-size: 120px; text-align: center;"><b>{{ d.destination }}</b><p>
+                </td>
+            </tr>
+        </table>
+        
+        
+        <table border="none">
+            <tr style="border-bottom: 1px solid black;">
+                <td colspan="2" class="small-text">Qty</td>
+                <td class="small-text" style="padding-top:10px; text-align:right;">/{{ d.pcs }}</td>
+            </tr>
+        </table>
 </div>
 {% endfor %}
 </body>
