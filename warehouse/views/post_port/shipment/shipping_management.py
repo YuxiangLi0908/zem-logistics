@@ -277,15 +277,24 @@ class ShippingManagement(View):
             models.Q(container_number__order__retrieval_id__retrieval_destination_area="SAV"))
         else:
             criteria_p = (models.Q(container_number__order__retrieval_id__retrieval_destination_area=area))
+        #ETA过滤
+        start_date = request.POST.get("start_date")
+        end_date = request.POST.get("end_date")
+        start_date = (datetime.now().date() + timedelta(days=-15)).strftime('%Y-%m-%d') if not start_date else start_date
+        end_date = (datetime.now().date() + timedelta(days=15)).strftime('%Y-%m-%d') if not end_date else end_date
+        
         criteria_p &= models.Q(
             container_number__order__packing_list_updloaded=True,
             shipment_batch_number__isnull=True,
             container_number__order__order_type="转运",
             container_number__order__created_at__gte='2024-09-01',
         ) & (
-            # TODOs: 考虑按照安排提柜时间筛选
-            models.Q(container_number__order__vessel_id__vessel_eta__lte=datetime.now().date() + timedelta(days=7)) |
-            models.Q(container_number__order__eta__lte=datetime.now().date() + timedelta(days=7))
+            models.Q(   
+                    container_number__order__vessel_id__vessel_eta__gte=start_date,
+                    container_number__order__vessel_id__vessel_eta__lte=end_date,
+                ) 
+            # models.Q(container_number__order__vessel_id__vessel_eta__lte=datetime.now().date() + timedelta(days=7)) |
+            # models.Q(container_number__order__eta__lte=datetime.now().date() + timedelta(days=7))
         )
         pl_criteria = criteria_p & models.Q(container_number__order__offload_id__offload_at__isnull=True)
         plt_criteria = criteria_p & models.Q(container_number__order__offload_id__offload_at__isnull=False)
@@ -312,6 +321,8 @@ class ShippingManagement(View):
             "cbm_est": cbm_est,
             "pallet_act": pallet_act,
             "pallet_est": pallet_est,
+            "start_date": start_date,
+            "end_date": end_date,
         }
         return self.template_td, context
         

@@ -17,6 +17,9 @@
             <option value="{{ v }}" {% if k == area %}selected{% endif %}>{{ k }}</option>
             {% endfor %}
         </select>
+        <b style="margin-right: 5px;">ETA:</b>
+        <input type="date" name="start_date" value="{{ start_date }}">
+        <input type="date" name="end_date" value="{{ end_date }}" style="margin-right: 5px;">
         <input type="hidden" name="step" value="warehouse">
         <button type="submit">确认</button>
     </div>
@@ -264,17 +267,30 @@
         table = document.getElementById("packing-list-table");
         tbody = table.getElementsByTagName("tbody")[0];
         tr = tbody.getElementsByTagName("tr");
+        var parts = containerFilter.split(/\W/);  //按照除字母数字（柜号）外的字符分组
+        for (var i = 0; i < parts.length; i++) {
+            var part = parts[i];  
+        }
 
         for (i = 0; i < tr.length; i++) {
-            containerTd = tr[i].getElementsByTagName("td")[2]; // Index 1 corresponds to the container_number__container_number column
-            destinationTd = tr[i].getElementsByTagName("td")[3]; // Index 2 corresponds to the destination column
+            containerTd = tr[i].getElementsByTagName("td")[2]; 
+            destinationTd = tr[i].getElementsByTagName("td")[3]; 
             if (containerTd && destinationTd) {
                 containerTxtValue = containerTd.textContent || containerTd.innerText;
                 destinationTxtValue = destinationTd.textContent || destinationTd.innerText;
-                var containerDisplayStyle = containerTxtValue.toUpperCase().indexOf(containerFilter) > -1 ? "" : "none";
                 var destinationDisplayStyle = destinationTxtValue.toUpperCase().indexOf(destinationFilter) > -1 ? "" : "none";
-
-                // Set display style based on both container and destination filters
+                var containerDisplayStyle = "none";
+                if (parts.length >0){              //如果一次输入多个柜号，则分开处理柜号的显示属性
+                    for(var j=0;j<parts.length;j++){
+                        if(containerTxtValue.toUpperCase().indexOf(parts[j]) > -1){
+                            var containerDisplayStyle = "";
+                            break;
+                        }
+                    }
+                }else{
+                    containerDisplayStyle = containerTxtValue.toUpperCase().indexOf(containerFilter) > -1 ? "" : "none";
+                }
+                
                 tr[i].style.display = containerDisplayStyle === "" && destinationDisplayStyle === "" ? "" : "none";
             }
         }

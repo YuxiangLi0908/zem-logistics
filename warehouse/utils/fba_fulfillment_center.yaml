@@ -1593,6 +1593,11 @@ RYY2:
   location: 1250 Cassville White Road
   state: GA
   zipcode: '30184'
+Walmart-NJ3:
+  city: Pedricktown
+  location: 3 Sorbello Rd
+  state: NJ
+  zipcode: '08067'
 沃尔玛-NJ3:
   city: Pedricktown
   location: 3 Sorbello Rd
@@ -1613,6 +1618,11 @@ WMM-NJ3:
   location: 3 Sorbello Rd
   state: NJ
   zipcode: '08067'
+Walmart-PHL4N:
+  city: Shippensbure
+  location: 1410 United Dr
+  state: PA
+  zipcode: '17257'
 沃尔玛PHL4N:
   city: Shippensbure
   location: 1410 United Dr
@@ -1633,6 +1643,11 @@ WMM-PHL4N:
   location: 1410 United Dr
   state: PA
   zipcode: '17257'
+Walmart-MCO1:
+  city: Davenport
+  location: 5100 NORTH RIDGE TRAIL
+  state: FL
+  zipcode: '33897'
 沃尔玛MCO1:
   city: Davenport
   location: 5100 NORTH RIDGE TRAIL
@@ -1653,6 +1668,11 @@ WMM-MCO1:
   location: 5100 NORTH RIDGE TRAIL
   state: FL
   zipcode: '33897'
+Walmart-ATL1:
+  city: Atlanta
+  location: 6055 Derrick Industrial Pkwy
+  state: GA
+  zipcode: '30349'
 沃尔玛ATL1:
   city: Atlanta
   location: 6055 Derrick Industrial Pkwy
@@ -1693,6 +1713,11 @@ WMM-ATL1:
   location: 6055 Derrick Industrial Pkwy
   state: GA
   zipcode: '30349'
+Walmart-ATL2:
+  city: Carrollton
+  location: 3101 N. Highway 27
+  state: GA
+  zipcode: '30117'
 沃尔玛ATL2:
   city: Carrollton
   location: 3101 N. Highway 27
@@ -1733,6 +1758,11 @@ WMM-ATL2:
   location: 3101 N. Highway 27
   state: GA
   zipcode: '30117'
+Walmart-ATL3:
+  city: Pendergrass
+  location: 445 Valentine Industrial Parkway
+  state: GA
+  zipcode: '30567'
 沃尔玛ATL3:
   city: Pendergrass
   location: 445 Valentine Industrial Parkway
@@ -1773,6 +1803,11 @@ WMM-ATL3:
   location: 445 Valentine Industrial Parkway
   state: GA
   zipcode: '30567'
+Walmart-MEM1:
+  city: Olive Branch
+  location: 9200 Alexander Rd
+  state: MS
+  zipcode: '38654'
 沃尔玛MEM1:
   city: Olive Branch
   location: 9200 Alexander Rd

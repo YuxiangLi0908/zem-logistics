@@ -14,6 +14,9 @@
             <option value="{{ v }}" {% if k == selected_area %}selected{% endif %}>{{ k }}</option>
             {% endfor %}
         </select>
+        <b style="margin-right: 5px;">ETA:</b>
+        <input type="date" name="start_date" value="{{ start_date }}">
+        <input type="date" name="end_date" value="{{ end_date }}" style="margin-right: 5px;">
         <input type="hidden" name="step" value="warehouse">
         <button type="submit">确认</button>
     </div>
