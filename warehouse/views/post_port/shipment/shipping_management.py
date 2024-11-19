@@ -833,12 +833,13 @@ class ShippingManagement(View):
         end_date = request.POST.get("end_date")
         pallet = await sync_to_async(list)(
             Pallet.objects.select_related(
-                "container_number", "container_number__order__retrieval_id"
+                "container_number", "container_number__order","container_number__order__retrieval_id"
             ).filter(
                 (
                     models.Q(container_number__order__retrieval_id__retrieval_destination_precise=warehosue) |
                     models.Q(container_number__order__warehouse__name=warehosue)
                 ),
+                container_number__order__created_at__gte = '2024-10-15',
                 shipment_batch_number__isnull=True,
             ).values(
                 "destination",
@@ -850,12 +851,15 @@ class ShippingManagement(View):
         )
         packing_list = await sync_to_async(list)(
             PackingList.objects.select_related(
-                "container_number", "container_number__order__retrieval_id"
+                "container_number", "container_number__order__retrieval_id","container_number__order__vessel_id"
             ).filter(
                 (
                     models.Q(container_number__order__retrieval_id__retrieval_destination_precise=warehosue) |
                     models.Q(container_number__order__warehouse__name=warehosue)
+                       
                 ),
+                container_number__order__vessel_id__vessel_eta__gte=start_date,
+                container_number__order__vessel_id__vessel_eta__lte=end_date,
                 shipment_batch_number__isnull=True,
                 container_number__order__offload_id__offload_at__isnull=True,
             ).values(
