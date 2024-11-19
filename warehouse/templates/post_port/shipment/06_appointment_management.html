@@ -104,7 +104,7 @@
                     <tr style="position: sticky; top: 28px;">
                         <th class="th"><input type="text" id="appointment-id-filter" placeholder="搜索预约号..." oninput="filterAppointmentTable()" size="13" style="font-size: 11px;"></th>
                         <th class="th"><input type="text" id="destination-filter" placeholder="搜索目的地..." oninput="filterAppointmentTable()" size="13" style="font-size: 11px;"></th>
-                        <th class="th"></th>
+                        <th class="th"><input type="text" id="status-filter" placeholder="搜索预约状态..." oninput="filterAppointmentTable()" size="13" style="font-size: 11px;"></th>
                         <th class="th"></th>
                     </tr>
                 </thead>
@@ -204,19 +204,23 @@
     function filterAppointmentTable() {
         var appointmentInput = document.getElementById("appointment-id-filter").value.toUpperCase();
         var destInput = document.getElementById("destination-filter").value.toUpperCase();
+        var statusInput = document.getElementById("status-filter").value.toUpperCase();
         tr = document.querySelectorAll("#appointment-table tbody tr");
 
         for (i = 0; i < tr.length; i++) {
             var appointmentTd = tr[i].getElementsByTagName("td")[0];
             var destTd = tr[i].getElementsByTagName("td")[1];
-            if (appointmentTd && destTd) {
+            var statusTd = tr[i].getElementsByTagName("td")[2];
+            if (appointmentTd && destTd && statusTd) {
                 var appointmentTxtValue = appointmentTd.textContent.trim();
                 var destTxtValue = destTd.textContent.trim();
+                var statusTxtValue = statusTd.textContent.trim();
 
                 var appointmentDisplayStyle = appointmentTxtValue.toUpperCase().indexOf(appointmentInput) > -1 ? "" : "none";
                 var destDisplayStyle = destTxtValue.toUpperCase().indexOf(destInput) > -1 ? "" : "none";
+                var statusDisplayStyle = statusTxtValue.toUpperCase().indexOf(statusInput) > -1 ? "" : "none";
 
-                tr[i].style.display = appointmentDisplayStyle === "" && destDisplayStyle === "" ? "" : "none";
+                tr[i].style.display = appointmentDisplayStyle === "" && destDisplayStyle === "" && statusDisplayStyle === "" ? "": "none";
             }
         };
     };
