@@ -121,23 +121,26 @@ class ShippingManagement(View):
         elif step == "fix_shipment_exceptions":
             template, context = await self.handle_fix_shipment_exceptions_post(request)
             return render(request, template, context)
-        elif step == "scheduled_time_modify":
-            template, context = await self.handle_schedule_time(request)
+        elif step == "appointment_time_modify":
+            template, context = await self.handle_appointment_time(request)
             return render(request, template, context)
         else:
             return await self.get(request)
         
-    async def handle_schedule_time(self, request: HttpRequest) -> tuple[str, dict[str, Any]]:
+    async def handle_appointment_time(self, request: HttpRequest) -> tuple[str, dict[str, Any]]:
         
         appointmentId = request.POST.get("appointmentId")
-        scheduledTime = request.POST.get("scheduledTime")
+        appointmentTime = request.POST.get("appointmentTime")
+        print(appointmentTime)
         shipment = await sync_to_async(Shipment.objects.get)(appointment_id=appointmentId)
-        scheduledTimes = datetime.strptime(scheduledTime, '%Y-%m-%dT%H:%M')
+        appointmentTimes = datetime.strptime(appointmentTime, '%Y-%m-%dT%H:%M')
+        print(appointmentTimes)
         cn_timezone = pytz.timezone('Asia/Shanghai')
-        scheduledTime = cn_timezone.localize(scheduledTimes)
-        shipment.shipment_appointment =  scheduledTime
+        appointmentTime = cn_timezone.localize(appointmentTimes)
+        print(appointmentTime)
+        shipment.shipment_appointment =  appointmentTime
         await sync_to_async(shipment.save)()
-        return await self.handle_warehouse_post(request)
+        return await self.handle_appointment_warehouse_search_post(request)
 
     async def handle_shipment_info_get(self, request: HttpRequest) -> tuple[str, dict[str, Any]]:
         batch_number = request.GET.get("batch_number")

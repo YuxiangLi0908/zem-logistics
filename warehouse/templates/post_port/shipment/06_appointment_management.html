@@ -16,8 +16,8 @@
         </div>
         <div style="margin-left: 1%;">
             <b style="margin-left: 5px;">ETA:</b>
-            <input type="date" name="start_date" value="{{ start_date }}">
-            <input type="date" name="end_date" value="{{ end_date }}" style="margin-right: 5px;">
+            <input type="date" name="start_date" value="{{ start_date }}" id="start_date">
+            <input type="date" name="end_date" value="{{ end_date }}" id="end_date" style="margin-right: 5px;">
         </div>
         <input type="hidden" name="step" value="appointment_warehouse_search">
         <button id="submit-btn" type="submit" class="btn btn-primary" style="width: 100px; height: 35px; margin-left: 20px;">查询</button>    
@@ -116,18 +116,32 @@
                         <td class="td">
                             {% if s.appointment_status == 'past_due' %}
                             <span class="status-span-red">已过期</span>
-                            <span class="status-span-red-100">{{ s.shipment_appointment|date:"Y-m-d" }} {{ s.shipment_appointment|time:"H:i" }}</span>
+                            <span class="status-span-red-100" id="appointment_{{ forloop.counter }}" data-original-value="{{ s.shipment_appointment|date:"Y-m-d" }} {{ s.shipment_appointment|time:"H:i" }}">{{ s.shipment_appointment|date:"Y-m-d" }} {{ s.shipment_appointment|time:"H:i" }}</span>
                             {% elif s.appointment_status == 'need_attention' %}
                             <span class="status-span-yellow">即将过期</span>
-                            <span class="status-span-yellow-100">{{ s.shipment_appointment|date:"Y-m-d" }} {{ s.shipment_appointment|time:"H:i" }}</span>
+                            <span class="status-span-yellow-100" id="appointment_{{ forloop.counter }}" data-original-value="{{ s.shipment_appointment|date:"Y-m-d" }} {{ s.shipment_appointment|time:"H:i" }}">{{ s.shipment_appointment|date:"Y-m-d" }} {{ s.shipment_appointment|time:"H:i" }}</span>
                             {% else %}
-                            {{ s.shipment_appointment|date:"Y-m-d" }} {{ s.shipment_appointment|time:"H:i" }}
+                            <span id="appointment_{{ forloop.counter }}" data-original-value="{{ s.shipment_appointment|date:"Y-m-d" }} {{ s.shipment_appointment|time:"H:i" }}">{{ s.shipment_appointment|date:"Y-m-d" }} {{ s.shipment_appointment|time:"H:i" }}</span>
                             {% endif %}
+                            <button class="btn btn-danger btn-sm" style="font-size: .75rem; padding: .25rem .5rem; line-height:1.5; border-radius: .2rem;" onclick="editAppointment(this, '{{ s.appointment_id }}', '{{ forloop.counter }}')">编辑</button>
+                            <input type="text" type="datetime-local" id="editAppointmentInput_{{ forloop.counter }}" style="display: none;" >
+                            <button class="btn btn-success btn-sm" id="confirm_{{ forloop.counter }}" onclick="confirmAppointment(this, '{{ s.appointment_id }}', '{{ forloop.counter }}')" style="display: none;">确认</button>
+
                         </td>
                         <td class="td">{% if s.origin %}{{ s.origin }}{% endif %}</tb>
                     </tr>
                     {% endfor %}
             </table>
+            <form id="hiddenForm" method="post" action="" style="display: none;">
+                {% csrf_token %}
+                <input type="hidden" id="appointmentId" name="appointmentId">
+                <input style="display:none;" id="appointmentTime" name="appointmentTime">
+                <input type="hidden" id="warehouse" name="warehouse">
+                <input type="hidden" id="start_date" name="start_date">
+                <input type="hidden" id="end_date" name="end_date">
+                <input type="hidden" name="step" value="appointment_time_modify">
+                <button type="submit">提交</button>
+            </form>
         </div>
         <div style="width: 60%; overflow-x: auto; border: 2px solid rgb(180, 180, 180); border-radius: 12px; padding: 1%; margin-top: 1%; max-height: 600px;">
             <b style="background-color: rgb(208, 208, 208); border-radius: 20px; font-size: 12px; display:inline-flex; color: rgb(100, 100, 100); padding: 4px;">
@@ -244,5 +258,39 @@
             }
         }
     };
+
+    function editAppointment(button, appointmentId, counter) {
+        var span = document.getElementById('appointment_' + counter);
+        var input = document.getElementById('editAppointmentInput_' + counter);
+        var confirmButton = document.getElementById('confirm_' + counter); 
+        
+        button.style.display = 'none';
+        span.style.display = 'none';
+        input.style.display = 'inline-block'; 
+        input.style.width = '150px';
+        confirmButton.style.display = 'inline-block'; 
+        input.focus(); 
+        input.type = 'datetime-local';
+        input.value = span.dataset.originalValue; 
+        document.getElementById('hiddenForm').appointmentId.value = appointmentId;
+    
+        
+    }
+    
+    function confirmAppointment(button, appointmentId, counter) {
+        var input = document.getElementById('editAppointmentInput_' + counter);
+        var newTime = input.value; 
+    
+        document.getElementById('hiddenForm').appointmentTime.value = newTime;
+        document.getElementById('hiddenForm').appointmentId.value = appointmentId;
+        
+        var selectElement = document.getElementById('warehouse-selection');
+        document.getElementById('hiddenForm').warehouse.value = selectElement.value;
+        var ETAsElement = document.getElementById('start_date');
+        document.getElementById('hiddenForm').start_date.value = ETAsElement.value;
+        var ETAeElement = document.getElementById('end_date');
+        document.getElementById('hiddenForm').end_date.value = ETAeElement.value;
+        document.getElementById('hiddenForm').submit();
+    }
 </script>
 {% endblock %}
