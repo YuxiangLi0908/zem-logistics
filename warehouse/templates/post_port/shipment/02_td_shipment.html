@@ -12,7 +12,7 @@
     {% csrf_token %}
     <div>
         <b style="margin-right: 5px;">所属仓:</b>
-        <select name="area">
+        <select name="area" id="areaSelect">
             {% for k, v in area_options.items %}
             <option value="{{ v }}" {% if k == area %}selected{% endif %}>{{ k }}</option>
             {% endfor %}
@@ -223,7 +223,13 @@
                                 {% endif %}
                             </td>
                             <td class="td">{{ s.appointment_id }}</td>
-                            <td class="td">{{ s.shipment_appointment|date:"Y-m-d" }} {{ s.shipment_appointment|time:"H:i" }}</td>
+                            <td class="td">
+                                <span id="scheduledTime_{{ forloop.counter }}" data-original-value="{{ s.shipment_appointment|date:'Y-m-d' }} {{ s.shipment_appointment|time:'H:i' }}">{{ s.shipment_appointment|date:"Y-m-d" }} {{ s.shipment_appointment|time:"H:i" }}</span>
+                                <button class="btn btn-danger btn-sm" style="font-size: .75rem; padding: .25rem .5rem; line-height:1.5; border-radius: .2rem;" onclick="editScheduledTime(this, '{{ s.appointment_id }}', '{{ forloop.counter }}')">编辑</button>
+                                <input type="text" type="datetime-local" id="editScheduledTimeInput_{{ forloop.counter }}" style="display: none;" >
+                                <button class="btn btn-success btn-sm" id="confirm_{{ forloop.counter }}" onclick="confirmScheduledTime(this, '{{ s.appointment_id }}', '{{ forloop.counter }}')" style="display: none;">确认</button>
+                            </td>                                            
+                            {% comment %} <td class="td">{{ s.shipment_appointment|date:"Y-m-d" }} {{ s.shipment_appointment|time:"H:i" }}</td> {% endcomment %}
                             <td class="td">{{ s.total_weight|floatformat:2 }}</td>
                             <td class="td">{{ s.total_cbm|floatformat:2 }}</td>
                             <td class="td">{{ s.total_pallet }}</td>
@@ -244,6 +250,14 @@
                         {% endfor %}
                     </tbody>
                 </table>
+                <form id="hiddenForm" method="post" action="" style="display: none;">
+                    {% csrf_token %}
+                    <input type="hidden" id="appointmentId" name="appointmentId">
+                    <input style="display:none;" id="scheduledTime" name="scheduledTime">
+                    <input type="hidden" id="area" name="area">
+                    <input type="hidden" name="step" value="scheduled_time_modify">
+                    <button type="submit">提交</button>
+                </form>
             </div>
         </div>
     </div>
@@ -416,5 +430,37 @@
             event.preventDefault();
         }
     };
+
+
+    
+    function editScheduledTime(button, appointmentId, counter) {
+        var span = document.getElementById('scheduledTime_' + counter);
+        var input = document.getElementById('editScheduledTimeInput_' + counter);
+        var confirmButton = document.getElementById('confirm_' + counter); 
+        
+        button.style.display = 'none';
+        span.style.display = 'none';
+        input.style.display = 'inline-block'; 
+        input.style.width = '150px';
+        confirmButton.style.display = 'inline-block'; 
+        input.focus(); 
+        input.type = 'datetime-local';
+        input.value = span.dataset.originalValue; 
+        document.getElementById('hiddenForm').appointmentId.value = appointmentId;
+    
+        
+    }
+    
+    function confirmScheduledTime(button, appointmentId, counter) {
+        var input = document.getElementById('editScheduledTimeInput_' + counter);
+        var newTime = input.value; 
+    
+        document.getElementById('hiddenForm').scheduledTime.value = newTime;
+        document.getElementById('hiddenForm').appointmentId.value = appointmentId;
+        var selectElement = document.getElementById('areaSelect');
+        document.getElementById('hiddenForm').area.value = selectElement.value;
+        document.getElementById('hiddenForm').submit();
+    }
+    
 </script>
 {% endblock %}

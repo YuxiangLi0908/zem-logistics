@@ -121,9 +121,24 @@ class ShippingManagement(View):
         elif step == "fix_shipment_exceptions":
             template, context = await self.handle_fix_shipment_exceptions_post(request)
             return render(request, template, context)
+        elif step == "scheduled_time_modify":
+            template, context = await self.handle_schedule_time(request)
+            return render(request, template, context)
         else:
             return await self.get(request)
         
+    async def handle_schedule_time(self, request: HttpRequest) -> tuple[str, dict[str, Any]]:
+        
+        appointmentId = request.POST.get("appointmentId")
+        scheduledTime = request.POST.get("scheduledTime")
+        shipment = await sync_to_async(Shipment.objects.get)(appointment_id=appointmentId)
+        scheduledTimes = datetime.strptime(scheduledTime, '%Y-%m-%dT%H:%M')
+        cn_timezone = pytz.timezone('Asia/Shanghai')
+        scheduledTime = cn_timezone.localize(scheduledTimes)
+        shipment.shipment_appointment =  scheduledTime
+        await sync_to_async(shipment.save)()
+        return await self.handle_warehouse_post(request)
+
     async def handle_shipment_info_get(self, request: HttpRequest) -> tuple[str, dict[str, Any]]:
         batch_number = request.GET.get("batch_number")
         mutable_post = request.POST.copy()
