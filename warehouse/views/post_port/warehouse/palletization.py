@@ -532,6 +532,7 @@ class Palletization(View):
                 destination = f"{row[4].strip()}-{int(row[6].strip())}"
                 shipping_marks = row[2].strip()
                 if "客户自提" in destination or "自提" in destination:
+                    destination = pl.get("destination")
                     marks = row[2].strip()
                     if marks:
                         array = marks.split(",")             
@@ -592,6 +593,7 @@ class Palletization(View):
                 cbm = int(cbm)
 
                 if "客户自提" in pl.get("destination") or "自提" in pl.get("destination"):
+                    destination = pl.get("destination")
                     marks = pl.get("shipping_marks")
                     if marks:
                         array = marks.split(",")             
@@ -612,7 +614,7 @@ class Palletization(View):
                     fba_ids = pl.get("fba_ids")
                 else:
                     fba_ids = None
-                cbm =2
+                
                 for num in range(cbm):
                     i = num // n_label + 1
                     barcode_type = 'code128'
