@@ -532,7 +532,7 @@ class Palletization(View):
                 destination = f"{row[4].strip()}-{int(row[6].strip())}"
                 shipping_marks = row[2].strip()
                 if "客户自提" in destination or "自提" in destination:
-                    destination = pl.get("destination")
+                    destination = "Self_PickUp"
                     marks = row[2].strip()
                     if marks:
                         array = marks.split(",")             
@@ -555,7 +555,7 @@ class Palletization(View):
                     fba_ids = None
                 new_data = {
                     "container_number": row[0].strip(),
-                    "destination": f"{row[4].strip()}-{int(row[6].strip())}",
+                    "destination": destination,
                     "date": month_day,
                     "customer": row[1].strip(),
                     "hold": (row[8].strip() == "是"),
@@ -593,7 +593,7 @@ class Palletization(View):
                 cbm = int(cbm)
 
                 if "客户自提" in pl.get("destination") or "自提" in pl.get("destination"):
-                    destination = pl.get("destination")
+                    destination = "Self_PickUp"
                     marks = pl.get("shipping_marks")
                     if marks:
                         array = marks.split(",")             
@@ -646,7 +646,7 @@ class Palletization(View):
                     
                     new_data = {
                         "container_number": pl.get("container_number__container_number"),
-                        "destination": f"{pl.get('destination').replace('沃尔玛', 'WM-')}-{i}",
+                        "destination": destination,
                         "date": retrieval_date,
                         "customer": customer_name,
                         "hold": ("暂扣留仓" in pl.get("custom_delivery_method").split("-")[0]),
