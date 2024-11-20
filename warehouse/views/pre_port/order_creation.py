@@ -468,10 +468,6 @@ class OrderCreation(View):
             await sync_to_async(PackingList.objects.filter(
                 container_number__container_number=container_number
             ).delete)()
-            #删除该柜号下的packinglist，也要对应删除该柜号的po_check
-            await sync_to_async(PoCheckEtaSeven.objects.filter(
-                container_number__container_number=container_number
-            ).delete)()
             pl_data = zip(
                 request.POST.getlist("product_name"),
                 request.POST.getlist("delivery_method"),
@@ -513,23 +509,15 @@ class OrderCreation(View):
             await sync_to_async(PackingList.objects.bulk_create)(pl_to_create)
             order.packing_list_updloaded = True
             await sync_to_async(order.save)()
-        #新建pl的时候，就在po_check表新建记录
+        #查找新建的pl，和现在的pocheck比较，如果内容没有变化，pocheck该记录不变，如果有变化就对应修改
+
         #因为上面已经将新的packing_list存到表里，所以直接去pl表查
         packing_list = await sync_to_async(list)(PackingList.objects.filter(container_number__container_number = container))
-        for pl in packing_list:
-            try:
-                # 直接在查询集中查找是否存在具有相同container_number的对象，如果是建单填写不应该查到pl，如果是更改数据就可能查到
-                existing_obj = await sync_to_async(PoCheckEtaSeven.objects.get)(packing_list = pl)  
-                #查到了就是更改数据，可能更改唛头、fba、ref
-                if existing_obj.shipping_mark != pl.shipping_mark:
-                    existing_obj.shipping_mark = pl.shipping_mark
-                if existing_obj.fba_id != pl.fba_id:
-                    existing_obj.fba_id = pl.fba_id
-                if existing_obj.ref_id != pl.ref_id:
-                    existing_obj.ref_id = pl.ref_id
-                await sync_to_async(existing_obj.save)()
-            except PoCheckEtaSeven.DoesNotExist:
-                #如果没查到，就建新纪录
+        po_checks = await sync_to_async(list)(PoCheckEtaSeven.objects.filter(container_number__container_number = container))
+        if len(po_checks) == 0:
+            print("没有这个柜号")
+            #po_check没有这个柜子，直接新建
+            for pl in packing_list:
                 po_check_dict = {
                     'container_number': container,
                     'vessel_eta': order.vessel_id.vessel_eta,
@@ -543,6 +531,62 @@ class OrderCreation(View):
                 }
                 new_obj = PoCheckEtaSeven(**po_check_dict)
                 await sync_to_async(new_obj.save)()
+        else:
+            for pl in packing_list:
+                #flag_num用来表示该pl是否在po_check中找到相同的记录，如果没找到，就在po_check新建这条，如果找到，就让po指向pl
+                flag_num = 0               
+                for po in po_checks:
+                    if (pl.shipping_mark == po.shipping_mark) and (pl.fba_id == po.fba_id) and (pl.ref_id == po.ref_id) and (pl.fba_id == po.fba_id) and (pl.destination == po.destination):                     
+                        flag_num = 1
+                        #这里的判断是因为，pl和po判断相同的标准是唛头fba和目的地ref，可能pl中有多条这三个条件相同给的
+                        #但是对于po_check表来说，是用来验证po的ref的，而且po_check只存了这三个关键信息表示pl，所以po_check无所谓指向具体的哪一条pl
+                        #只要唛头fba目的地ref相同就行了，所以这里，每次遇到第一个po和pl相同且po没有指向pl，就令po指向这条pl
+                        if bool(po.packing_list) == 0:
+                            po.packing_list = pl
+                            await sync_to_async(po.save)()
+                            break                                  
+                if flag_num == 0:
+                    #如果po_check表没有这条po，新建这一条
+                    po_check_dict = {
+                        'container_number': container,
+                        'vessel_eta': order.vessel_id.vessel_eta,
+                        'packing_list': pl,
+                        'time_status': True,
+                        'destination': pl.destination,
+                        'fba_id': pl.fba_id,
+                        'ref_id': pl.ref_id,
+                        'shipping_mark': pl.shipping_mark,
+                        #其他的字段用默认值
+                    }
+                    new_obj = PoCheckEtaSeven(**po_check_dict)
+                    await sync_to_async(new_obj.save)()
+                
+            try:
+                #对于po_check没有指向pl的，就删除
+                queryset = await sync_to_async(PoCheckEtaSeven.objects.filter)(
+                    container_number__container_number = container,
+                    packing_list = None
+                )
+                for obj in await sync_to_async(list)(queryset):
+                    # 对每个对象执行删除操作
+                    await sync_to_async(obj.delete)()
+            except PoCheckEtaSeven.DoesNotExist:
+                await sync_to_async(print)("不存在")
+
+            # try:
+            #     # 直接在查询集中查找是否存在具有相同container_number的对象，如果是建单填写不应该查到pl，如果是更改数据就可能查到
+            #     existing_obj = await sync_to_async(PoCheckEtaSeven.objects.get)(packing_list = pl)  
+            #     print("查到了")
+            #     #查到了就是更改数据，可能更改唛头、fba、ref
+            #     # if existing_obj.shipping_mark != pl.shipping_mark:
+            #     #     existing_obj.shipping_mark = pl.shipping_mark
+            #     # if existing_obj.fba_id != pl.fba_id:
+            #     #     existing_obj.fba_id = pl.fba_id
+            #     # if existing_obj.ref_id != pl.ref_id:
+            #     #     existing_obj.ref_id = pl.ref_id
+            #     # await sync_to_async(existing_obj.save)()
+            # except PoCheckEtaSeven.DoesNotExist:
+            #     print("没查到")
         source = request.POST.get("source")
         if source == "order_management":
             mutable_get = request.GET.copy()
