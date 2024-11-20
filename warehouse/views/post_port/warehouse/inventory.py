@@ -3,6 +3,7 @@ import uuid
 import asyncio
 import sys
 import os
+import json
 import pandas as pd
 from PIL import Image
 from barcode.writer import ImageWriter
@@ -25,6 +26,7 @@ from django.template.loader import get_template
 
 from warehouse.models.retrieval import Retrieval
 from warehouse.models.order import Order
+from warehouse.models.container import Container
 from warehouse.models.offload_status import AbnormalOffloadStatus
 from warehouse.models.packing_list import PackingList
 from warehouse.models.fleet import Fleet
@@ -38,6 +40,7 @@ from warehouse.utils.constants import DELIVERY_METHOD_OPTIONS, WAREHOUSE_OPTIONS
 
 
 class Inventory(View):
+    template_inventory_management_main = "post_port/inventory/01_inventory_management_main.html"
     template_counting_main = "post_port/inventory/01_inventory_count_main.html"
     template_inventory_list_and_upload = "post_port/inventory/01_1_inventory_list_and_upload.html"
     template_inventory_list_and_counting = "post_port/inventory/01_2_inventory_list_and_counting.html"
@@ -56,14 +59,15 @@ class Inventory(View):
             template, context = await self.handle_counting_get()
             return render(request, template, context)
         else:
-            pass
+            template, context = await self.handle_inventory_management_get()
+            return render(request, template, context)
 
     async def post(self, request: HttpRequest, **kwargs) -> HttpRequest:
         if not await self._user_authenticate(request):
             return redirect("login")
         step = request.POST.get("step")
         if step == "warehouse":
-            template, context = await self.handle_counting_warehouse_post(request)
+            template, context = await self.handle_warehouse_post(request)
             return render(request, template, context)
         elif step == "upload_counting_data":
             template, context = await self.handle_upload_counting_data_post(request)
@@ -73,27 +77,39 @@ class Inventory(View):
             return render(request, template, context)
         elif step == "download_counting_template":
             return await self.handle_download_counting_template_post()
+        elif step == "repalletize":
+            template, context = await self.handle_repalletize_post(request)
+            return render(request, template, context)
         else:
             pass
 
     async def handle_counting_get(self) -> tuple[str, dict[str, Any]]:
         context = {"warehouse_options": self.warehouse_options}
         return self.template_counting_main, context
+
+    async def handle_inventory_management_get(self) ->  tuple[str, dict[str, Any]]:
+        context = {"warehouse_options": self.warehouse_options}
+        return self.template_inventory_management_main, context
     
-    async def handle_counting_warehouse_post(self, request: HttpRequest) -> tuple[str, dict[str, Any]]:
+    async def handle_warehouse_post(self, request: HttpRequest) -> tuple[str, dict[str, Any]]:
         warehouse = request.POST.get("warehouse")
         pallet = await self._get_inventory_pallet(warehouse)
+        pallet_json = {
+            p.get("plt_ids"): {k: round(v, 2) if isinstance(v, float) else v for k, v in p.items()}
+            for p in pallet
+        }
         total_cbm = sum([p.get("cbm") for p in pallet])
         total_pallet = sum([p.get("n_pallet") for p in pallet])
         context = {
             "warehouse": warehouse,
             "warehouse_options": self.warehouse_options,
+            "delivery_method_options": DELIVERY_METHOD_OPTIONS,
             "pallet": pallet,
             "total_cbm": total_cbm,
             "total_pallet": total_pallet,
-            "inventory_counting_file_form": UploadFileForm(),
+            "pallet_json": json.dumps(pallet_json)
         }
-        return self.template_inventory_list_and_upload, context
+        return self.template_inventory_management_main, context
     
     async def handle_upload_counting_data_post(self, request: HttpRequest) -> tuple[str, dict[str, Any]]:
         form = UploadFileForm(request.POST, request.FILES)
@@ -126,28 +142,59 @@ class Inventory(View):
             response = HttpResponse(file.read(), content_type='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet')
             response['Content-Disposition'] = f'attachment; filename="inventory_counting_template.xlsx"'
             return response
+
+    async def handle_repalletize_post(self, request: HttpRequest) -> tuple[str, dict[str, Any]]:
+        plt_ids = request.POST.get("plt_ids")
+        plt_ids = [int(i) for i in plt_ids.split(",")]
+        old_pallet = await sync_to_async(list)(Pallet.filter(id__in=plt_ids))
+        container_number = request.POST.get("container")
+        container = await sync_to_async(Container.objects.get)(container_number=container_number)
+        total_weight = float(request.POST.get("weight"))
+        total_cbm = float(request.POST.get("cbm"))
+        warehouse = request.POST.get("warehouse").upper().strip()
+        # data of new pallets
+        destinations = request.POST.getlist("destination_repalletize")
+        delivery_methods = request.POST.getlist("delivery_method_repalletize")
+        shipping_marks = request.POST.getlist("shipping_mark_repalletize")
+        fba_ids = request.POST.getlist("fba_id_repalletize")
+        ref_ids = request.POST.getlist("ref_id_repalletize")
+        pcses = request.POST.getlist("pcs_repalletize")
+        n_pallets = request.POST.getlist("n_pallet_repalletize")
+        notes = request.POST.getlist("note_repalletize")
+        # create new pallets
+        
+        # delete old pallets
+
+        raise ValueError(request.POST, plt_ids)
         
     async def _get_inventory_pallet(self, warehouse: str) -> list[Pallet]:
         return await sync_to_async(list)(
-            Pallet.objects.select_related(
-                "container_number", "shipment_batch_number"
+            Pallet.objects.prefetch_related(
+                "container_number", "shipment_batch_number", "container_number__order__customer_name"
             ).filter(
-                models.Q(
-                    models.Q(container_number__order__retrieval_id__retrieval_destination_precise=warehouse) |
-                    models.Q(container_number__order__warehouse__name=warehouse)
-                ) &
+                models.Q(location=warehouse) &
                 models.Q(
                     models.Q(shipment_batch_number__isnull=True) |
                     models.Q(shipment_batch_number__is_shipped=False)
                 )
-            ).values(
-                "container_number__container_number", "destination", 
             ).annotate(
-                pallet_ids=StringAgg("pallet_id", delimiter=",", distinct=True, ordering="pallet_id"),
+                str_id=Cast('id', CharField())
+            ).values(
+                "destination", "delivery_method", "shipping_mark", "fba_id", "ref_id", "note",
+                customer_name=F("container_number__order__customer_name__zem_name"),
+                container=F("container_number__container_number"),
+                shipment=F("shipment_batch_number__shipment_batch_number"),
+                appointment_id=F("shipment_batch_number__appointment_id")
+            ).annotate(
+                # shipping_marks=StringAgg("shipping_mark", delimiter=",", distinct=True, ordering="shipping_mark"),
+                # fba_ids=StringAgg("fba_id", delimiter=",", distinct=True, ordering="fba_id"),
+                # ref_ids=StringAgg("ref_id", delimiter=",", distinct=True, ordering="ref_id"),
+                plt_ids=StringAgg("str_id", delimiter=",", distinct=True, ordering="str_id"),
                 pcs=Sum("pcs", output_field=IntegerField()),
                 cbm=Sum("cbm", output_field=FloatField()),
+                weight=Sum("weight_lbs", output_field=FloatField()),
                 n_pallet=Count('pallet_id', distinct=True),
-            )
+            ).order_by("-n_pallet")
         )
 
     async def _user_authenticate(self, request: HttpRequest):
