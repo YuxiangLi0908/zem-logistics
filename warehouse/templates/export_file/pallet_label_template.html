@@ -3,7 +3,7 @@
 <style>
     @page {
             size: portrait; 
-            margin:20mm;
+            margin: 15mm;
         }
     body {
         margin: 0;
@@ -29,16 +29,10 @@
             {% comment %} text-align:left; {% endcomment %}
             {% comment %} padding-left: 0; {% endcomment %}
         }
-
-        .text-container.right {
-            text-align: right;
-            height: 100%;
-            padding-right: 10px;
-        }
         
         .small-text {
             font-size: 40px;
-            line-height: 3;
+            line-height: 2;
             margin-bottom: 0;
             
         }
@@ -57,7 +51,6 @@
         .table {
             border-collapse: collapse;  
         }   
-        
     
         
     }
@@ -67,9 +60,14 @@
 {% for d in data %}
 <div class="page-break {% if forloop.first %}first-page{% endif %}">
     <div class="text-container">       
-        
-        <p class="small-text" style="text-align: left;">Pallet ID Barcode</p>
-        <img style="text-align:center; width:450px; height: 100px;" src="data:image/png;base64,{{ d.barcode }}">
+        <table border="none">
+            <tr>
+                <td class="small-text" style="text-align: left;">Pallet ID Barcode</td>
+            </tr>
+            <tr>
+                <td style="text-align:center;"><img style="width:600px; height: 150px; margin-bottom: 0; padding-bottom:0;" src="data:image/png;base64,{{ d.barcode }}"></td>
+            </tr>
+        </table>
         
         <table border="none">
             <tr style="border-top: 1px solid black;">
@@ -100,11 +98,90 @@
             </tr>
             <tr style="border-bottom: 1px solid black;">
                 <td class="small-text center">
-                    <p style="font-size: 120px; text-align: center;"><b>{{ d.destination }}</b><p>
+                    {% if "客户自提" in d.destination %}
+                        <p style="font-size: 100px; text-align: center; font-family: '宋体'; margin:0;"><b>
+                            {% if d.hold %}
+                                <p style="font-size:80px;">Self_PickUp(HOLD)
+                            {% else %}
+                                Customer_PickUp
+                            {% endif %}
+                            </b></p>
+                    {% else %}
+                        <p style="font-size: 100px; text-align: center; font-family:Times New Roman; margin:0;"><b>
+                            {% if d.hold %}
+                                {{ d.destination }}(HOLD)
+                            {% else %}
+                                {{ d.destination }}
+                            {% endif %}
+                            </b></p>
+                    {% endif %}
                 </td>
             </tr>
         </table>
-        
+        {% if d.hold %}
+            <table border="none">
+                <tr>
+                    {% if d.shipping_marks %}
+                    <td class="small-text" style="font-size:30px;"><i>FBA</i></td>
+                    {% else %}
+                    <td class="small-text"><i>FBA</i></td>
+                    {% endif %}
+                </tr>
+                <tr style="border-bottom: 1px solid black;">
+                    <td>       
+                        {% if "/" in d.fba_ids %}    
+                            {% if d.shipping_marks %}    
+                            <p class="small-text" style="overflow-wrap: break-word; text-align: center; font-size:30px;">None</p>
+                            {% else %}
+                            <p class="small-text" style="overflow-wrap: break-word; text-align: center;">None</p>
+                            {% endif %}
+                        {% else %}
+                            {% if d.shipping_marks %}    
+                            <p class="small-text" style="overflow-wrap: break-word; text-align: center; font-size:30px;">{{ d.fba_ids }}</p>
+                            {% else %}
+                            <p class="small-text" style="overflow-wrap: break-word; text-align: center; ">{{ d.fba_ids }}</p>
+                            {% endif %}
+                        {% endif %}
+                    </td>
+                </tr>
+            </table>
+        {% endif %}
+        {% if d.shipping_marks %}
+            <table border="none">
+                <tr>
+                    {% if d.hold %}
+                        <td class="small-text" style="font-size:30px;"><i>Shipping Mark</i></td>
+                    {% else %}
+                        <td class="small-text"><i>Shipping Mark</i></td>
+                    {% endif %}
+                </tr>
+                <tr style="border-bottom: 1px solid black;">
+                    <td id="shippingMarkCell">               
+                        {% if "," not in d.shipping_marks %}
+                            {% if d.hold %}
+                            <p style="font-size: 30px; text-align: center;">{{ d.shipping_marks|slice_string:'front' }}<p>
+                            {% else %}
+                            <p style="font-size: 50px; text-align: center;">{{ d.shipping_marks|slice_string:'front' }}<p>
+                            {% endif %}
+                        {% elif "2" in d.shipping_marks|slice_string:'back' %}
+                            {% if d.hold %}
+                            <p style="font-size: 20px; text-align: center;">{{ d.shipping_marks|slice_string:'front' }}<p>
+                            {% else %}
+                            <p style="font-size: 35px; text-align: center;">{{ d.shipping_marks|slice_string:'front' }}<p>
+                            {% endif %}
+                        {% elif "3" in d.shipping_marks|slice_string:'back' %}
+                            {% if d.hold %}
+                            <p style="font-size: 20px; text-align: center;">{{ d.shipping_marks|slice_string:'front' }}<p>
+                            {% else %}
+                            <p style="font-size: 10px; text-align: center;">{{ d.shipping_marks|slice_string:'front' }}<p>
+                            {% endif %}    
+                        {% else %}
+                            <p style="font-size: 10px; text-align: center;">{{ d.shipping_marks|slice_string:'front' }}<p>
+                        {% endif %}
+                    </td>
+                </tr>
+            </table>
+        {% endif %}
         
         <table border="none">
             <tr style="border-bottom: 1px solid black;">
