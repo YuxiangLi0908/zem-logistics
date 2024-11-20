@@ -98,12 +98,12 @@
             </tr>
             <tr style="border-bottom: 1px solid black;">
                 <td class="small-text center">
-                    {% if "客户自提" in d.destination %}
+                    {% if "自提" in d.destination %}
                         <p style="font-size: 100px; text-align: center; font-family: '宋体'; margin:0;"><b>
                             {% if d.hold %}
                                 <p style="font-size:80px;">Self_PickUp(HOLD)
                             {% else %}
-                                Customer_PickUp
+                                <p style="font-size:80px;">Self_PickUp
                             {% endif %}
                             </b></p>
                     {% else %}
