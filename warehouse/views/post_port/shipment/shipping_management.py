@@ -131,13 +131,10 @@ class ShippingManagement(View):
         
         appointmentId = request.POST.get("appointmentId")
         appointmentTime = request.POST.get("appointmentTime")
-        print(appointmentTime)
         shipment = await sync_to_async(Shipment.objects.get)(appointment_id=appointmentId)
         appointmentTimes = datetime.strptime(appointmentTime, '%Y-%m-%dT%H:%M')
-        print(appointmentTimes)
         cn_timezone = pytz.timezone('Asia/Shanghai')
         appointmentTime = cn_timezone.localize(appointmentTimes)
-        print(appointmentTime)
         shipment.shipment_appointment =  appointmentTime
         await sync_to_async(shipment.save)()
         return await self.handle_appointment_warehouse_search_post(request)
