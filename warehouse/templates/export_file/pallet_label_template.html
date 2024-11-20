@@ -98,23 +98,14 @@
             </tr>
             <tr style="border-bottom: 1px solid black;">
                 <td class="small-text center">
-                    {% if "自提" in d.destination %}
-                        <p style="font-size: 100px; text-align: center; font-family: '宋体'; margin:0;"><b>
-                            {% if d.hold %}
-                                <p style="font-size:80px;">Self_PickUp(HOLD)
-                            {% else %}
-                                <p style="font-size:80px;">Self_PickUp
-                            {% endif %}
-                            </b></p>
-                    {% else %}
-                        <p style="font-size: 100px; text-align: center; font-family:Times New Roman; margin:0;"><b>
-                            {% if d.hold %}
-                                {{ d.destination }}(HOLD)
-                            {% else %}
-                                {{ d.destination }}
-                            {% endif %}
-                            </b></p>
-                    {% endif %}
+                    <p style="font-size: 100px; text-align: center; font-family:Times New Roman; margin:0;"><b>
+                        {% if d.hold %}
+                            <p style="font-size: 80px;">{{ d.destination }}(HOLD)</p>
+                        {% else %}
+                            {{ d.destination }}
+                        {% endif %}
+                        </b>
+                    </p>
                 </td>
             </tr>
         </table>
