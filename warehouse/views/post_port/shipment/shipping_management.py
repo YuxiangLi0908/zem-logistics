@@ -131,7 +131,6 @@ class ShippingManagement(View):
         appointmentId = request.POST.get("appointmentId")
         appointmentTime = request.POST.get("appointmentTime")
         appointmentTime = datetime.strptime(appointmentTime, "%Y-%m-%dT%H:%M")
-        raise ValueError(appointmentTime)
         shipment = await sync_to_async(Shipment.objects.get)(appointment_id=appointmentId)
         shipment.shipment_appointment = appointmentTime
         await sync_to_async(shipment.save)()
