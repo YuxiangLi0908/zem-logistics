@@ -8,6 +8,7 @@ from asgiref.sync import sync_to_async
 from datetime import datetime, timedelta
 from pathlib import Path
 from typing import Any
+from dateutil.parser import parse
 
 from django.http import HttpRequest, HttpResponse, Http404
 from django.shortcuts import render, redirect
@@ -130,9 +131,9 @@ class ShippingManagement(View):
     async def handle_appointment_time(self, request: HttpRequest) -> tuple[str, dict[str, Any]]:
         appointmentId = request.POST.get("appointmentId")
         appointmentTime = request.POST.get("appointmentTime")
-        appointmentTime = datetime.strptime(appointmentTime, "%Y-%m-%dT%H:%M")
+        naive_datetime = parse(appointmentTime).replace(tzinfo=None)
         shipment = await sync_to_async(Shipment.objects.get)(appointment_id=appointmentId)
-        shipment.shipment_appointment = appointmentTime
+        shipment.shipment_appointment = naive_datetime
         await sync_to_async(shipment.save)()
         return await self.handle_appointment_warehouse_search_post(request)
 
