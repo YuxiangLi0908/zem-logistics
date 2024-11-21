@@ -79,7 +79,7 @@ async def export_palletization_list(request: HttpRequest) -> HttpResponse:
     status = request.POST.get("status")
     container_number = request.POST.get("container_number")
     if status == "non_palletized":
-        cn = pytz.timezone('UTC')
+        cn = pytz.timezone('Asia/Shanghai')
         current_time_cn = datetime.now(cn).strftime("%Y-%m-%d %H:%M:%S")
         packing_list = await sync_to_async(list)(PackingList.objects.select_related(
                 "container_number", "pallet"
