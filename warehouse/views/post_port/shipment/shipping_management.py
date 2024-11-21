@@ -129,9 +129,9 @@ class ShippingManagement(View):
         
     async def handle_appointment_time(self, request: HttpRequest) -> tuple[str, dict[str, Any]]:
         appointmentId = request.POST.get("appointmentId")
-        appointmentTime = request.POST.get("appointmentTime")
+        appointmentTime = request.POST.get("appointmentTime").strptime(frontend_input, "%Y-%m-%d %H:%M:%S")
         shipment = await sync_to_async(Shipment.objects.get)(appointment_id=appointmentId)
-        shipment.shipment_appointment =  appointmentTime
+        shipment.shipment_appointment = appointmentTime
         await sync_to_async(shipment.save)()
         return await self.handle_appointment_warehouse_search_post(request)
 
