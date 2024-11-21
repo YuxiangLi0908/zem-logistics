@@ -146,11 +146,12 @@ class Inventory(View):
     async def handle_repalletize_post(self, request: HttpRequest) -> tuple[str, dict[str, Any]]:
         plt_ids = request.POST.get("plt_ids")
         plt_ids = [int(i) for i in plt_ids.split(",")]
-        old_pallet = await sync_to_async(list)(Pallet.filter(id__in=plt_ids))
+        old_pallet = await sync_to_async(list)(Pallet.objects.filter(id__in=plt_ids))
         container_number = request.POST.get("container")
         container = await sync_to_async(Container.objects.get)(container_number=container_number)
         total_weight = float(request.POST.get("weight"))
         total_cbm = float(request.POST.get("cbm"))
+        total_pcs = int(request.POST.get("pcs"))
         warehouse = request.POST.get("warehouse").upper().strip()
         # data of new pallets
         destinations = request.POST.getlist("destination_repalletize")
@@ -161,11 +162,32 @@ class Inventory(View):
         pcses = request.POST.getlist("pcs_repalletize")
         n_pallets = request.POST.getlist("n_pallet_repalletize")
         notes = request.POST.getlist("note_repalletize")
+        pcses = [int(i) for i in pcses]
+        n_pallets = [int(i) for i in n_pallets]
         # create new pallets
-        
+        new_pallets = []
+        for dest, dm, sm, fba, ref, p, n, note in zip(
+            destinations, delivery_methods, shipping_marks, fba_ids, ref_ids, pcses, n_pallets, notes
+        ):
+            new_pallets += [{
+                "pallet_id": str(uuid.uuid3(uuid.NAMESPACE_DNS, str(uuid.uuid4()) + dest + dm + str(i))),
+                "container_number": container,
+                "destination": dest,
+                # "address": address,
+                # "zipcode": zipcode,
+                "delivery_method": dm,
+                "pcs": p,
+                "cbm": total_cbm * n / total_pcs,
+                "weight_lbs": total_weight * n / total_pcs,
+                "note": note,
+                "shipping_mark": sm if sm else "",
+                "fba_id": fba if fba else "",
+                "ref_id": ref if ref else "",
+                "location": old_pallet[0].get("location"),
+            } for i in range(n)]
         # delete old pallets
 
-        raise ValueError(request.POST, plt_ids)
+        raise ValueError(request.POST, plt_ids, n_pallets)
         
     async def _get_inventory_pallet(self, warehouse: str) -> list[Pallet]:
         return await sync_to_async(list)(
@@ -181,6 +203,7 @@ class Inventory(View):
                 str_id=Cast('id', CharField())
             ).values(
                 "destination", "delivery_method", "shipping_mark", "fba_id", "ref_id", "note",
+                "address", "zipcode",
                 customer_name=F("container_number__order__customer_name__zem_name"),
                 container=F("container_number__container_number"),
                 shipment=F("shipment_batch_number__shipment_batch_number"),

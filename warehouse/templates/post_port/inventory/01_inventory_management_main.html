@@ -179,6 +179,8 @@
                                 <th class="th">客户</th>
                                 <th class="th">柜号</th>
                                 <th class="th">目的地</th>
+                                <th class="th">地址</th>
+                                <th class="th">邮编</th>
                                 <th class="th">派送方式</th>
                                 <th class="th">唛头</th>
                                 <th class="th">FBA</th>
@@ -195,6 +197,8 @@
                                 <td class="td" name="customer_name"></td>
                                 <td class="td" name="container"></td>
                                 <td class="td" name="destination"></td>
+                                <td class="td" name="address"></td>
+                                <td class="td" name="zipcode"></td>
                                 <td class="td" name="delivery_method"></td>
                                 <td class="td" name="shipping_mark"></td>
                                 <td class="td" name="fba_id"></td>
@@ -214,6 +218,8 @@
                             <tr>
                                 <th class="th">目的地</th>
                                 <th class="th">派送方式</th>
+                                <th class="th">地址</th>
+                                <th class="th">邮编</th>
                                 <th class="th">唛头(用逗号,分隔)</th>
                                 <th class="th">FBA(用逗号,分隔)</th>
                                 <th class="th">REF(用逗号,分隔) </th>
@@ -232,6 +238,8 @@
                                         {% endfor %}
                                     </select>
                                 </td>
+                                <td class="td"><input type="text" name="address_repalletize" value=""></td>
+                                <td class="td"><input type="text" name="zipcode_repalletize" value=""></td>
                                 <td class="td"><input type="text" name="shipping_mark_repalletize" value=""></td>
                                 <td class="td"><input type="text" name="fba_id_repalletize" value=""></td>
                                 <td class="td"><input type="text" name="ref_id_repalletize" value=""></td>
