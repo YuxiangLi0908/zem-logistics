@@ -61,8 +61,7 @@
                     <div style="text-align:right;">
                         <button id="confirmButton" type="button" class="btn btn-primary"  style="font-size: 11px;" onclick="editTable('fleet', false, '{{ selected_fleet.fleet_number }}')">确认</button>
                     </div>
-                </div>
-                
+                </div>              
             </form>
             {% for batch_number in shipment_batch_numbers %}
             <form method="post" action="" style="display: inline-block;" id="exportBOL-{{ batch_number }}">
@@ -111,6 +110,54 @@
                 {% comment %} <script src="script.js"></script> {% endcomment %}
             </form>
             {% endfor %}
+            <!--处理加塞的柜子-->
+            <form method="post" action="" style="display: inline-block; float:right;" id="exportPallet-add">
+                {% csrf_token %}
+                <input type="hidden" name="step" value="add_pallet">
+                <button id="editButton" type="button" class="btn btn-primary" onclick="editBOL(this, 'pallet')" style="font-size: 14px; font-weight: bold; color:white; background-color:#dc3545;padding: 10px 20px;">加塞</button>
+                <div class="popup-pallet" style="display: none; z-index:999; position: fixed; top: 50%; left: 50%; transform: translate(-50%, -50%); background-color: white; border: 1px solid gray; padding: 20px;">
+                    <div style="text-align:right;">
+                        <button type="button" id="add-more-btn" class="btn btn-success" style="height: 35px; font-size: 12px; margin: 5px;" onclick="addRowBelow('pallet','')">
+                            <i class="bi bi-plus-lg"></i> 添加行
+                        </button>
+                        <button type="button" id="add-more-btn" class="btn btn-success" style="height: 35px; font-size: 12px; margin: 5px;">编辑</button>
+                    </div>
+                <form>
+                    <table style=" max-height:90%; overflow-y:scroll; margin: 10px; padding: 100px;" cellpadding='15' id="add-pallet">
+                        <thead>                       
+                            <th class="th" style="text-align: center; border: 1px solid #141414">shipment</th>
+                            <th class="th" style="text-align: center; border: 1px solid #141414">Container</th>
+                            <th class="th" style="text-align: center; border: 1px solid #141414">Destination</th>
+                            <th class="th" style="text-align: center; border: 1px solid #141414">delivery_method</th>
+                            <th class="th" style="text-align: center; border: 1px solid #141414">Pallet</th>  
+                        </thead>
+                        <tr id="add-pallet-row" >
+                            <td id="targetTd" style="text-align: center; border: 1px solid #141414; padding:10px;">
+                            </td>
+                            <td style="text-align: center; border: 1px solid #141414; padding:10px;">
+                                <input type="text" name="container">
+                            </td>
+                            <td style="text-align: center; border: 1px solid #141414; text-wrap: wrap; padding:10px;">
+                                <input type="text" name="destination">
+                            </td>
+                            <td class="td">
+                                <select name="delivery_method"  class="delivery-method">
+                                {% for k, v in delivery_options %}
+                                <option value="{{ v }}">{{ k }}</option>
+                                {% endfor %}
+                                </select>
+                            </td>
+                            <td style="text-align: center; border: 1px solid #141414; text-wrap: wrap; padding:10px;">
+                                <input type="text" name="pallet">
+                            </td>
+                        </tr> 
+                    </table>
+                    <div style="text-align:right;">
+                        <button id="confirmAddPallet" type="submit" class="btn btn-primary"  style="font-size: 11px;">确认</button>
+                    </div>
+                </form>
+                </div>
+            </form>
         </div>
         <div style="overflow-x: auto; max-width: 100%; overflow-y: auto; max-height: 60%;">
             <form method="post" action="" style="width: 100%;">
@@ -133,7 +180,7 @@
                     <tbody>
                         {% for s in shipment %}
                         <tr>
-                            <td class="td" style="max-width: 120px; word-break: break-all;">
+                            <td class="td" style="max-width: 120px; word-break: break-all;" id ="s_batch_number">
                                 <a href="/schedule_shipment/?step=shipment_info&batch_number={{ s.shipment_batch_number__shipment_batch_number }}&warehouse={{ warehouse }}" target="_blank">
                                     {{ s.shipment_batch_number__shipment_batch_number }}
                                 </a>
@@ -159,7 +206,7 @@
                                 <input type="number" name="actual_shipped_pallet" step=1 max="{{ s.total_pallet }}" value="{{ s.total_pallet }}" required>
                             </td>
                             <input type="hidden" name="batch_number" value="{{ s.shipment_batch_number__shipment_batch_number }}">
-                            <input type="hidden" name="pl_ids" value="{{ s.pl_ids }}">
+                            <input type="hidden" name="pl_ids" value="{{ s.ids }}">
                             <input type="hidden" name="plt_ids" value="{{ s.plt_ids }}">
                         </tr>
                         {% endfor %}
@@ -191,12 +238,43 @@
             </form>
         </div>
     </div>
+    <div id="message-container"></div>
 </div>
 
 
 
 <script>
-    window.addEventListener('load', function () {
+    //因为一个出库批次可能对应多个预约批次，所以这里获取改出库批次下的所有预约批次，然后工作人员在加塞的时候，针对加塞的柜子选择是哪个约，如果该出库批次就一个约，就默认给定这一个约
+    function autoShipment(){
+        const aElements = document.querySelectorAll('td[id=s_batch_number] a');
+        const uniqueValues = [];
+        aElements.forEach((aElement) => {
+            if (!uniqueValues.includes(aElement.textContent)) {
+                uniqueValues.push(aElement.textContent);
+            }
+        });
+        const targetTd = document.getElementById('targetTd');
+        if (uniqueValues.length === 1) {
+            const input = document.createElement('input');
+            input.type = 'hidden';
+            input.name = 'shipment';
+            input.value = uniqueValues[0];
+            targetTd.textContent = uniqueValues[0];
+            targetTd.appendChild(input);
+        } else {
+            const select = document.createElement('select');
+            select.name = 'shipment';
+            uniqueValues.forEach((value) => {
+                const option = document.createElement('option');
+                option.value = value;
+                option.textContent = value;
+                select.appendChild(option);
+            });
+            targetTd.appendChild(select);
+        }
+    };
+
+  window.addEventListener('load', function () {
         const inputs = document.querySelectorAll('input[name="actual_shipped_pallet"]');
         let sum = 0;
         inputs.forEach((input) => {
@@ -207,8 +285,6 @@
         amountTotalInput.value = sum;
     });
 
-    
-
     function editBOL(button, batch_number) {   //用户要编辑BOL中的表时，弹出表格框
         var popup = document.querySelector('.popup-' + batch_number);
         if (popup.style.display === 'none') {
@@ -216,21 +292,79 @@
         } else {
             popup.style.display = 'none';
         }
+        if (batch_number == "pallet") {
+            autoShipment();
+        }
         //button.style.backgroundColor = 'gray';   
     };
+
+    function getCookie(name) {
+        let cookieValue = null;
+        if (document.cookie && document.cookie!== '') {
+            const cookies = document.cookie.split(';');
+            for (let i = 0; i < cookies.length; i++) {
+                const cookie = cookies[i].trim();
+                // Does this cookie string begin with the name we want?
+                if (cookie.substring(0, name.length + 1) === (name + '=')) {
+                    cookieValue = decodeURIComponent(cookie.substring(name.length + 1));
+                    break;
+                }
+            }
+        }
+        return cookieValue;
+    }
+    async function sendPostRequest() {
+        const csrfToken = getCookie('csrftoken');
+        try {
+            const response = await fetch('/fleet_management/', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'X-CSRFToken': csrfToken,
+                },
+            });
+            console.log("status-code",response.ok);
+            if (response.ok) {
+                const data = await response.text();
+                alert(data);
+            } else {
+                const errorData = await response.text();
+                alert('Error:', errorData);
+            }
+        } catch (error) {
+            alert('Error:', error);
+        }
+    }
+
+    
+
+    function addPallet(){
+        var table = document.getElementById('exportPallet-add');
+        let tableData = [];
+        var rows = table.getElementsByTagName('tr');
+        for (var i=0; i<rows.length; i++){
+            var rowData = [];
+            var cells = rows[i].cells;
+            for(var j=0; j< cells.length; j++){
+                rowData.push(cells[j].innerText);
+            }
+            tableData.push(rowData);
+        }
+        var form = document.getElementById('add-pallet');
+    };
+
+    
     function editTable(name, flag, batch_number){   //用户编辑时，将表格的单元格变为编辑状态，用户确认时，变为不可编辑状态，并记录单元格的内容，用于传输给视图
         customerInfo = []
         if (name === 'BOL') {
             var table = document.getElementById('BOL-container-' + batch_number);
             var form = document.getElementById('exportBOL-' + batch_number);
-        }else {
+        }else if (name == "fleet") {
             var table = document.getElementById('fleet-container-' + batch_number);
             var form = document.getElementById('exportfleet-' + batch_number);
         }
-       
         var rows = table.getElementsByTagName('tr');
-        for (var i=1; i < rows.length; i++){
-            
+        for (var i=1; i < rows.length; i++){      
             var cells = rows[i].getElementsByTagName('td');
             var rowData = [];
             for (var j = 0; j < cells.length; j++) {
@@ -286,13 +420,18 @@
         if (name === 'BOL') {
             var table = document.getElementById('BOL-container-' + batch_number);
             var newRow = document.querySelector('#BOL-row-empty-'+ batch_number).cloneNode(true);
-            var newId = 'fleet-row-'+ Date.now();
-        }          
-        else {
-            var table = document.getElementById('fleet-container-' + batch_number);
-            var newRow = document.querySelector('#fleet-row-empty-'+ batch_number).cloneNode(true);
             var newId = 'BOL-row-'+ Date.now();
         }          
+        else if (name == "fleet") {
+            var table = document.getElementById('fleet-container-' + batch_number);
+            var newRow = document.querySelector('#fleet-row-empty-'+ batch_number).cloneNode(true);
+            var newId = 'fleet-row-'+ Date.now();
+        }
+        else if (name == "pallet"){ 
+            var table = document.getElementById('add-pallet');
+            var newRow = document.querySelector('#add-pallet-row').cloneNode(true);
+            var newId = 'add-pallet'+ Date.now();
+        }      
         newRow.style.display = '';        
         newRow.id = newId;
         table.appendChild(newRow);
