@@ -1848,6 +1848,51 @@ WMM-MEM1:
   location: 9200 Alexander Rd
   state: MS
   zipcode: '38654'
+Walmart-HGR6:
+  city: Hagerstown
+  location: 55 W Oak Ridge Dr
+  state: MD
+  zipcode: '21740'
+沃尔玛HGR6:
+  city: Hagerstown
+  location: 55 W Oak Ridge Dr
+  state: MD
+  zipcode: '21740'
+HGR6沃尔玛:
+  city: Hagerstown
+  location: 55 W Oak Ridge Dr
+  state: MD
+  zipcode: '21740'
+WMHGR6:
+  city: Hagerstown
+  location: 55 W Oak Ridge Dr
+  state: MD
+  zipcode: '21740'
+WMMHGR6:
+  city: Hagerstown
+  location: 55 W Oak Ridge Dr
+  state: MD
+  zipcode: '21740'
+沃尔玛-HGR6:
+  city: Hagerstown
+  location: 55 W Oak Ridge Dr
+  state: MD
+  zipcode: '21740'
+HGR6-沃尔玛:
+  city: Hagerstown
+  location: 55 W Oak Ridge Dr
+  state: MD
+  zipcode: '21740'
+WM-HGR6:
+  city: Hagerstown
+  location: 55 W Oak Ridge Dr
+  state: MD
+  zipcode: '21740'
+WMM-HGR6:
+  city: Hagerstown
+  location: 55 W Oak Ridge Dr
+  state: MD
+  zipcode: '21740'
 BNA6:
   city: Clarksville
   location: 3875 Guthrie Hwy
@@ -1873,3 +1918,8 @@ TMB8:
   location: 27505 SW 132nd Ave
   state: FL
   zipcode: '33032'
+HGR6:
+  city: Hagerstown
+  location: 55 W Oak Ridge Dr
+  state: MD
+  zipcode: '21740'
