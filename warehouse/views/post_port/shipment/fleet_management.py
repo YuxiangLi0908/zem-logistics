@@ -3,7 +3,7 @@ import uuid
 import os,json
 import pandas as pd
 from asgiref.sync import sync_to_async
-from datetime import datetime
+from datetime import datetime, timedelta
 from typing import Any
 from xhtml2pdf import pisa
 
@@ -12,7 +12,8 @@ from django.shortcuts import render, redirect
 from django.views import View
 from django.db import models
 from django.http import JsonResponse
-from django.db.models import CharField, Sum, FloatField, Count
+from django.db.models import CharField, Sum, FloatField, Count, Case, Value, F, Max, IntegerField, When, Q
+from django.db.models.functions import Concat, Cast
 from django.db.models.functions import Cast
 from django.contrib.postgres.aggregates import StringAgg
 from django.template.loader import get_template
@@ -60,6 +61,7 @@ class FleetManagement(View):
         if not await self._user_authenticate(request):
             return redirect("login")
         step = request.GET.get("step")
+        print("GET",step)
         if step == "outbound":
             context = {"warehouse_form": ZemWarehouseForm()}
             return render(request, self.template_outbound, context)
@@ -86,6 +88,7 @@ class FleetManagement(View):
         if not await self._user_authenticate(request):
             return redirect("login")
         step = request.POST.get("step")
+        print("POST",step)
         if step == "fleet_warehouse_search":
             template, context = await self.handle_fleet_warehouse_search_post(request)
             return render(request, template, context)
@@ -146,10 +149,10 @@ class FleetManagement(View):
         container = request.POST.getlist("container")
         destination = request.POST.getlist("destination")
         delivery_method = request.POST.getlist("delivery_method")
-        pallet = request.POST.getlist("pallet")
+        pallet = request.POST.getlist("pallet_add")
         
         try:
-            if shipment and container and destination and delivery_method and pallet:
+            if shipment and container and destination and delivery_method:
                 length = len(shipment)
                
                 #先找到对应的所有pallet
@@ -296,13 +299,44 @@ class FleetManagement(View):
         )
         
         shipment_batch_numbers = []
+        destinations = []
         for s in shipment:
             if s.get("shipment_batch_number__shipment_batch_number") not in shipment_batch_numbers:
                 shipment_batch_numbers.append(s.get("shipment_batch_number__shipment_batch_number"))
+            destination = s.get("destination")
+            lower_destination = destination.lower()
+            if "walmart-" in lower_destination:
+                new_destination = destination.replace("walmart", "")
+                destinations.append(new_destination)
+            else:
+                if destination not in destinations:
+                    destinations.append(destination)
         mutable_post = request.POST.copy()
         mutable_post['name'] = request.GET.get("warehouse")
         request.POST = mutable_post
         _, context = await self.handle_outbound_warehouse_search_post(request)
+        #记录可能加塞的柜子，筛选条件：同一个目的地且未出库的柜子
+        criteria_pl = models.Q(
+            models.Q(
+                shipment_batch_number__fleet_number__fleet_number__isnull=True
+            ) | models.Q(
+                shipment_batch_number__fleet_number__fleet_number__isnull=False,
+                shipment_batch_number__fleet_number__departured_at__isnull=False
+            ),
+            destination__in = destinations,
+            container_number__order__offload_id__offload_at__isnull=True,
+        )
+        criteria_plt = models.Q(
+            models.Q(
+                shipment_batch_number__fleet_number__fleet_number__isnull=True
+            ) | models.Q(
+                shipment_batch_number__fleet_number__fleet_number__isnull=False,
+                shipment_batch_number__fleet_number__departured_at__isnull=False
+            ),
+            destination__in = destinations,
+            container_number__order__offload_id__offload_at__isnull=False,
+        )
+        plt_unshipped = await self._get_packing_list(criteria_pl,criteria_plt)
         context.update({
             "selected_fleet": selected_fleet,
             "shipment": shipment,
@@ -310,8 +344,10 @@ class FleetManagement(View):
             "shipment_batch_numbers": shipment_batch_numbers,
             "packing_list": packing_list,
             "pl_fleet":pl_fleet,
+            "plt_unshipped":plt_unshipped,
             "delivery_options" : DELIVERY_METHOD_OPTIONS
         })
+        
         return self.template_outbound_departure, context
     
     async def handle_delivery_and_pod_get(self, request: HttpRequest) -> tuple[str, dict[str, Any]]:
@@ -849,7 +885,131 @@ class FleetManagement(View):
     #         "warehouse_form": ZemWarehouseForm(initial={"name": warehouse})
     #     }
     #     return self.template_fleet_warehouse_search, context
-
+    async def _get_packing_list(
+        self, 
+        pl_criteria: models.Q | None = None,
+        plt_criteria: models.Q | None = None,
+    ) -> list[Any]:
+        data = []
+        if plt_criteria:
+            pal_list = await sync_to_async(list)(
+                Pallet.objects.prefetch_related(
+                    "container_number", "container_number__order", "container_number__order__warehouse", "shipment_batch_number"
+                    "container_number__order__offload_id", "container_number__order__customer_name", "container_number__order__retrieval_id"
+                ).filter(
+                    plt_criteria
+                ).annotate(
+                    schedule_status=Case(
+                        When(Q(container_number__order__offload_id__offload_at__lte=datetime.now().date() + timedelta(days=-7)), then=Value("past_due")),
+                        default=Value("on_time"),
+                        output_field=CharField()
+                    ),
+                    str_id=Cast("id", CharField()),
+                ).values(
+                    'shipment_batch_number__shipment_batch_number',
+                    'shipment_batch_number__appointment_id',
+                    'shipment_batch_number__shipment_appointment',
+                    'container_number__container_number',
+                    'container_number__order__customer_name__zem_name',
+                    'destination',
+                    'address',
+                    'delivery_method',
+                    'container_number__order__offload_id__offload_at',
+                    'schedule_status',
+                    'abnormal_palletization',
+                    'po_expired',
+                    target_retrieval_timestamp=F('container_number__order__retrieval_id__target_retrieval_timestamp'),
+                    target_retrieval_timestamp_lower=F('container_number__order__retrieval_id__target_retrieval_timestamp_lower'),
+                    temp_t49_pickup=F('container_number__order__retrieval_id__temp_t49_available_for_pickup'),
+                    warehouse=F('container_number__order__retrieval_id__retrieval_destination_precise'),
+                ).annotate(
+                    custom_delivery_method=F('delivery_method'),
+                    fba_ids=F('fba_id'),
+                    ref_ids=F('ref_id'),
+                    shipping_marks=F('shipping_mark'),
+                    plt_ids=StringAgg("str_id", delimiter=",", distinct=True, ordering="str_id"),
+                    total_pcs=Sum("pcs", output_field=IntegerField()),
+                    total_cbm=Sum("cbm", output_field=FloatField()),
+                    total_weight_lbs=Sum("weight_lbs", output_field=FloatField()),
+                    total_n_pallet_act=Count("pallet_id", distinct=True),
+                    label=Value("ACT"),
+                ).order_by('container_number__order__offload_id__offload_at')
+            )
+            data += pal_list
+        if pl_criteria:
+            pl_list =  await sync_to_async(list)(
+                PackingList.objects.prefetch_related(
+                    "container_number", "container_number__order", "container_number__order__warehouse", "shipment_batch_number"
+                    "container_number__order__offload_id", "container_number__order__customer_name", "pallet", "container_number__order__retrieval_id"
+                ).filter(pl_criteria).annotate(
+                    custom_delivery_method=Case(
+                        When(Q(delivery_method='暂扣留仓(HOLD)') | Q(delivery_method='暂扣留仓'), then=Concat('delivery_method', Value('-'), 'fba_id', Value('-'), 'id')),
+                        default=F('delivery_method'),
+                        output_field=CharField()
+                    ),
+                    schedule_status=Case(
+                        When(Q(container_number__order__offload_id__offload_at__lte=datetime.now().date() + timedelta(days=-7)), then=Value("past_due")),
+                        default=Value("on_time"),
+                        output_field=CharField()
+                    ),
+                    str_id=Cast("id", CharField()),
+                    str_fba_id=Cast("fba_id", CharField()),
+                    str_ref_id=Cast("ref_id", CharField()),
+                    str_shipping_mark=Cast("shipping_mark", CharField())
+                ).values(
+                    'shipment_batch_number__shipment_batch_number',
+                    'shipment_batch_number__appointment_id',
+                    'shipment_batch_number__shipment_appointment',
+                    'container_number__container_number',
+                    'container_number__order__customer_name__zem_name',
+                    'destination',
+                    'address',
+                    'custom_delivery_method',
+                    'container_number__order__offload_id__offload_at',
+                    'schedule_status',
+                    target_retrieval_timestamp=F('container_number__order__retrieval_id__target_retrieval_timestamp'),
+                    target_retrieval_timestamp_lower=F('container_number__order__retrieval_id__target_retrieval_timestamp_lower'),
+                    warehouse=F('container_number__order__retrieval_id__retrieval_destination_precise'),
+                    temp_t49_pickup=F('container_number__order__retrieval_id__temp_t49_available_for_pickup'),
+                ).annotate(
+                    fba_ids=StringAgg("str_fba_id", delimiter=",", distinct=True, ordering="str_fba_id"),
+                    ref_ids=StringAgg("str_ref_id", delimiter=",", distinct=True, ordering="str_ref_id"),
+                    shipping_marks=StringAgg("str_shipping_mark", delimiter=",", distinct=True, ordering="str_shipping_mark"),
+                    ids=StringAgg("str_id", delimiter=",", distinct=True, ordering="str_id"),
+                    total_pcs=Sum(
+                        Case(
+                            When(pallet__isnull=True, then=F("pcs")),
+                            default=F("pallet__pcs"),
+                            output_field=IntegerField()
+                        )
+                    ),
+                    total_cbm=Sum(
+                        Case(
+                            When(pallet__isnull=True, then=F("cbm")),
+                            default=F("pallet__cbm"),
+                            output_field=FloatField()
+                        )
+                    ),
+                    total_weight_lbs=Sum(
+                        Case(
+                            When(pallet__isnull=True, then=F("total_weight_lbs")),
+                            default=F("pallet__weight_lbs"),
+                            output_field=FloatField()
+                        )
+                    ),
+                    total_n_pallet_act=Count("pallet__pallet_id", distinct=True),
+                    total_n_pallet_est=Sum("cbm", output_field=FloatField())/2,
+                    label=Max(
+                        Case(
+                            When(pallet__isnull=True, then=Value("EST")),
+                            default=Value("ACT"),
+                            output_field=CharField()
+                        )
+                    ),
+                ).distinct()
+            )
+            data += pl_list
+        return data
     async def _get_sharepoint_auth(self) -> ClientContext:
         return ClientContext(SP_URL).with_credentials(UserCredential(SP_USER, SP_PASS))
 

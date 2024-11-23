@@ -115,47 +115,51 @@
                 {% csrf_token %}
                 <input type="hidden" name="step" value="add_pallet">
                 <button id="editButton" type="button" class="btn btn-primary" onclick="editBOL(this, 'pallet')" style="font-size: 14px; font-weight: bold; color:white; background-color:#dc3545;padding: 10px 20px;">加塞</button>
-                <div class="popup-pallet" style="display: none; z-index:999; position: fixed; top: 50%; left: 50%; transform: translate(-50%, -50%); background-color: white; border: 1px solid gray; padding: 20px;">
-                    <div style="text-align:right;">
-                        <button type="button" id="add-more-btn" class="btn btn-success" style="height: 35px; font-size: 12px; margin: 5px;" onclick="addRowBelow('pallet','')">
-                            <i class="bi bi-plus-lg"></i> 添加行
-                        </button>
-                        <button type="button" id="add-more-btn" class="btn btn-success" style="height: 35px; font-size: 12px; margin: 5px;">编辑</button>
+                <div class="popup-pallet" style="display: none; z-index:999; position: fixed; top: 50%; left: 50%; transform: translate(-50%, -50%); background-color: white; border: 1px solid gray; padding: 20px; max-height: 50%; overflow-y: scroll;">
+                    <div style="display: flex;">
+                        <button type="submit" class="btn btn-primary" style="font-size: 11px; margin-right: 5px;">确认添加</button>
+                        <button id="editButton" type="button" class="btn btn-danger" onclick="editBOL(this, 'pallet')" style="font-size: 11px;">返回</button>
                     </div>
-                <form>
-                    <table style=" max-height:90%; overflow-y:scroll; margin: 10px; padding: 100px;" cellpadding='15' id="add-pallet">
-                        <thead>                       
-                            <th class="th" style="text-align: center; border: 1px solid #141414">shipment</th>
-                            <th class="th" style="text-align: center; border: 1px solid #141414">Container</th>
-                            <th class="th" style="text-align: center; border: 1px solid #141414">Destination</th>
-                            <th class="th" style="text-align: center; border: 1px solid #141414">delivery_method</th>
-                            <th class="th" style="text-align: center; border: 1px solid #141414">Pallet</th>  
+                    <table id="packing-list-table-popup" class="table" style="font-size: 11px; max-height: 50%;">
+                        <thead>
+                            <tr style="position: sticky; top: 0px;">
+                                <th class="th" style="min-width: 40px; text-align: center;"></th>
+                                <th class="th" style="text-align: center; border: 1px solid #141414">预约批次</th>
+                                <th class="th" style="text-align: center; border: 1px solid #141414">柜号</th>
+                                <th class="th" style="text-align: center; border: 1px solid #141414">目的地</th>
+                                <th class="th" style="text-align: center; border: 1px solid #141414">派送方式</th>  
+                                <th class="th" style="text-align: center; border: 1px solid #141414">实际板数</th>  
+                                <th class="th" style="text-align: center; border: 1px solid #141414">加塞板数</th>  
+                            </tr>
+                            <tr style="position: sticky; top: 20px;">
+                                <th class="th" style="min-width: 40px;"></th>
+                                <th class="th"></th>
+                                <th class="th"><input type="text" id="containerSearchInput-popup" placeholder="搜索柜号..." oninput="filterPopupTable()" size="13" style="font-size: 11px;"></th>
+                                <th class="th"><input type="text" id="destinationSearchInput-popup" placeholder="搜索目的仓库..." oninput="filterPopupTable()" size="13" style="font-size: 11px;"></th>
+                                <th class="th"></th>
+                                <th class="th"></th>
+                                <th class="th"></th>
+                            </tr>
                         </thead>
-                        <tr id="add-pallet-row" >
-                            <td id="targetTd" style="text-align: center; border: 1px solid #141414; padding:10px;">
-                            </td>
-                            <td style="text-align: center; border: 1px solid #141414; padding:10px;">
-                                <input type="text" name="container">
-                            </td>
-                            <td style="text-align: center; border: 1px solid #141414; text-wrap: wrap; padding:10px;">
-                                <input type="text" name="destination">
-                            </td>
-                            <td class="td">
-                                <select name="delivery_method"  class="delivery-method">
-                                {% for k, v in delivery_options %}
-                                <option value="{{ v }}">{{ k }}</option>
-                                {% endfor %}
-                                </select>
-                            </td>
-                            <td style="text-align: center; border: 1px solid #141414; text-wrap: wrap; padding:10px;">
-                                <input type="text" name="pallet">
-                            </td>
-                        </tr> 
+                        <tbody>
+                            {% for plt in plt_unshipped %}
+                            <tr>
+                                <td class="td" style="min-width: 40px; text-align: center;">
+                                    <input type='checkbox' name='is_shipment_added' onclick="toggleRowBackground(this)" {% if c.ids in pl_ids_raw %}checked{% elif c.plt_ids in plt_ids_raw %}checked{% endif %} {% if c.abnormal_palletization or c.po_expired %}disabled{% endif %}>
+                                    <input type="hidden" name="is_shipment_added", value='off'>
+                                    <input type="hidden" name="added_pl_ids", value='{{ c.ids }}'>
+                                    <input type="hidden" name="added_plt_ids", value='{{ c.plt_ids }}'>
+                                </td>
+                                <td class="td" style="max-width: 120px; word-break: break-all;" name="shipment">{{ plt.shipment_batch_number__shipment_batch_number }}</td>
+                                <td class="td" style="max-width: 120px; word-break: break-all;" name="container">{{ plt.container_number__container_number }}</td>
+                                <td class="td" style="max-width: 120px; word-break: break-all;" name="destination">{{ plt.destination }}</td>
+                                <td class="td" style="max-width: 120px; word-break: break-all;" name="delivery_method">{{ plt.delivery_method }}</td>
+                                <td class="td" style="max-width: 120px; word-break: break-ala;">{{ plt.total_n_pallet_act }}</td>
+                                <td class="td"><input value='{{ plt.total_n_pallet_act }}' name="pallet_add"></td>
+                            </tr>
+                            {% endfor %}
+                        </tbody>
                     </table>
-                    <div style="text-align:right;">
-                        <button id="confirmAddPallet" type="submit" class="btn btn-primary"  style="font-size: 11px;">确认</button>
-                    </div>
-                </form>
                 </div>
             </form>
         </div>
@@ -244,7 +248,7 @@
 
 
 <script>
-    //因为一个出库批次可能对应多个预约批次，所以这里获取改出库批次下的所有预约批次，然后工作人员在加塞的时候，针对加塞的柜子选择是哪个约，如果该出库批次就一个约，就默认给定这一个约
+    //因为一个出库批次可能对应多个预约批次，所以这里获取该出库批次下的所有预约批次，然后工作人员在加塞的时候，针对加塞的柜子选择是哪个约，如果该出库批次就一个约，就默认给定这一个约
     function autoShipment(){
         const aElements = document.querySelectorAll('td[id=s_batch_number] a');
         const uniqueValues = [];
@@ -274,7 +278,7 @@
         }
     };
 
-  window.addEventListener('load', function () {
+    window.addEventListener('load', function () {
         const inputs = document.querySelectorAll('input[name="actual_shipped_pallet"]');
         let sum = 0;
         inputs.forEach((input) => {
