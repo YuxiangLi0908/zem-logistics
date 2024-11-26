@@ -111,13 +111,16 @@
             </form>
             {% endfor %}
             <!--处理加塞的柜子-->
+            {% if selected_fleet.fleet_type != "客户自提" %}  
             <form method="post" action="" style="display: inline-block; float:right;" id="exportPallet-add">
                 {% csrf_token %}
-                <input type="hidden" name="step" value="add_pallet">
                 <button id="editButton" type="button" class="btn btn-primary" onclick="editBOL(this, 'pallet')" style="font-size: 14px; font-weight: bold; color:white; background-color:#dc3545;padding: 10px 20px;">加塞</button>
                 <div class="popup-pallet" style="display: none; z-index:999; position: fixed; top: 50%; left: 50%; transform: translate(-50%, -50%); background-color: white; border: 1px solid gray; padding: 20px; max-height: 50%; overflow-y: scroll;">
                     <div style="display: flex;">
-                        <button type="submit" class="btn btn-primary" style="font-size: 11px; margin-right: 5px;">确认添加</button>
+                        <input type="hidden" name="step" value="add_pallet">
+                        <input type="hidden" name="fleet_number" value={{ selected_fleet.fleet_number }}>
+                        <input type="hidden" name="warehouse" value= {{ warehouse }}>
+                        <button type="submit" class="btn btn-primary" onclick="edit_add_payload(this)" style="font-size: 11px; margin-right: 5px;">确认添加</button>
                         <button id="editButton" type="button" class="btn btn-danger" onclick="editBOL(this, 'pallet')" style="font-size: 11px;">返回</button>
                     </div>
                     <table id="packing-list-table-popup" class="table" style="font-size: 11px; max-height: 50%;">
@@ -145,23 +148,26 @@
                             {% for plt in plt_unshipped %}
                             <tr>
                                 <td class="td" style="min-width: 40px; text-align: center;">
-                                    <input type='checkbox' name='is_shipment_added' onclick="toggleRowBackground(this)" {% if c.ids in pl_ids_raw %}checked{% elif c.plt_ids in plt_ids_raw %}checked{% endif %} {% if c.abnormal_palletization or c.po_expired %}disabled{% endif %}>
-                                    <input type="hidden" name="is_shipment_added", value='off'>
-                                    <input type="hidden" name="added_pl_ids", value='{{ c.ids }}'>
-                                    <input type="hidden" name="added_plt_ids", value='{{ c.plt_ids }}'>
+                                    <input type='checkbox' name='is_plt_added' onclick="toggleRowBackground(this)" {% if c.ids in pl_ids_raw %}checked{% elif c.plt_ids in plt_ids_raw %}checked{% endif %} {% if c.abnormal_palletization or c.po_expired %}disabled{% endif %}>
+                                    <input type="hidden" name="is_plt_added", value='off'>
+                                    <input type="hidden" name="added_plt_ids", value='{{ plt.plt_ids }}'>
+                                    <input type="hidden" name="container", value='{{ plt.container_number__container_number }}'>
+                                    <input type="hidden" name="destination", value='{{ plt.destination }}'>
+                                    <input type="hidden" name="pallets", value='{{ plt.total_n_pallet_act }}'>
                                 </td>
-                                <td class="td" style="max-width: 120px; word-break: break-all;" name="shipment">{{ plt.shipment_batch_number__shipment_batch_number }}</td>
-                                <td class="td" style="max-width: 120px; word-break: break-all;" name="container">{{ plt.container_number__container_number }}</td>
-                                <td class="td" style="max-width: 120px; word-break: break-all;" name="destination">{{ plt.destination }}</td>
-                                <td class="td" style="max-width: 120px; word-break: break-all;" name="delivery_method">{{ plt.delivery_method }}</td>
+                                <td class="td" style="max-width: 120px; word-break: break-all;">{{ plt.shipment_batch_number__shipment_batch_number }}</td>
+                                <td class="td" style="max-width: 120px; word-break: break-all;">{{ plt.container_number__container_number }}</td>
+                                <td class="td" style="max-width: 120px; word-break: break-all;">{{ plt.destination }}</td>
+                                <td class="td" style="max-width: 120px; word-break: break-all;">{{ plt.delivery_method }}</td>
                                 <td class="td" style="max-width: 120px; word-break: break-ala;">{{ plt.total_n_pallet_act }}</td>
-                                <td class="td"><input value='{{ plt.total_n_pallet_act }}' name="pallet_add"></td>
+                                <td class="td"><input value='{{ plt.total_n_pallet_act }} ' name="pallet_add"></td>
                             </tr>
                             {% endfor %}
                         </tbody>
                     </table>
                 </div>
             </form>
+            {% endif %}
         </div>
         <div style="overflow-x: auto; max-width: 100%; overflow-y: auto; max-height: 60%;">
             <form method="post" action="" style="width: 100%;">
@@ -217,7 +223,6 @@
                         <tr id="amount-total-row">
                             <td colspan="9"></td>
                             <td class="td"><input type="number" id="pallet-total" disabled></td>
-                            <td colspan="1"></td>
                         </tr>
                     </tbody>
                 </table>
@@ -440,6 +445,37 @@
         newRow.id = newId;
         table.appendChild(newRow);
     };
-    
+    function toggleAllCheckboxes() {
+        var checkboxes = document.querySelectorAll('tbody input[type="checkbox"][name="is_plt_added"]');
+        
+        checkboxes.forEach(function(checkbox) {
+            var tr = checkbox.closest('tr');
+            if (tr.style.display !== 'none') {
+                if (checkbox.checked) {
+                    tr.style.backgroundColor = '#ADD8E6'; 
+                } else {
+                    tr.style.backgroundColor = ''; 
+                }
+            }
+        });
+    };
+
+    function toggleRowBackground(checkbox) {
+        var row = checkbox.closest('tr');
+        if (checkbox.checked) {
+            row.style.backgroundColor = '#ADD8E6'; 
+        } else {
+            row.style.backgroundColor = '';
+        }
+    };
+
+    function edit_add_payload(button) {
+        const checkBoxes = document.getElementsByName('is_plt_added');
+        for (let i = 0; i < checkBoxes.length; i+=2) {
+            if (checkBoxes[i].checked) {
+                checkBoxes[i+1].disabled = true;
+            };
+        };
+    };
 </script>
 {% endblock %}

@@ -23,6 +23,8 @@ from office365.runtime.auth.user_credential import UserCredential
 from office365.sharepoint.client_context import ClientContext
 from office365.sharepoint.sharing.links.kind import SharingLinkKind
 
+from warehouse.models.retrieval import Retrieval
+from warehouse.models.order import Order
 from warehouse.models.packing_list import PackingList
 from warehouse.models.pallet import Pallet
 from warehouse.models.shipment import Shipment
@@ -112,7 +114,8 @@ class FleetManagement(View):
         elif step == "export_bol":
             return await self.handle_export_bol_post(request)
         elif step == "add_pallet":
-            return await self.handle_add_pallet(request)
+            template, context = await self.handle_add_pallet(request)
+            return render(request, template, context)
         elif step == "fleet_departure":
             template, context = await self.handle_fleet_departure_post(request)
             return render(request, template, context)
@@ -145,59 +148,126 @@ class FleetManagement(View):
         return pt.shipment_batch_number
         
     async def handle_add_pallet(self, request: HttpRequest) -> JsonResponse:
-        shipment = request.POST.getlist("shipment")
-        container = request.POST.getlist("container")
-        destination = request.POST.getlist("destination")
-        delivery_method = request.POST.getlist("delivery_method")
-        pallet = request.POST.getlist("pallet_add")
+        selections = request.POST.getlist("is_plt_added")
+        on_positions = [i for i, v in enumerate(selections) if v == 'on']
+
+        pallet_add = request.POST.getlist("pallet_add")       
+        pallet_adds = [id for s, id in zip(selections, pallet_add) if s == "on"]
+        pallet_adds = [int(pallet) for pallet in pallet_adds]
+        total_pallet = sum(pallet_adds)
+
+        destinations = request.POST.getlist("destination")  
+        pallets = request.POST.getlist("pallets")         
+        container_numbers = request.POST.getlist("container")
+        plt_id = request.POST.getlist("added_plt_ids")
+        results = []
+        des = set() 
+        for p in on_positions:
+            result = {}
+            result["destination"] = destinations[p]
+            des.add(result["destination"])
+            result["pallet_add"] = int(pallet_add[p])
+            result["container_number"] = container_numbers[p]
+            result["pallets"] = int(pallets[p])
+            pid_list = [int(i) for i in plt_id[p].split(",") if i]            
+            result["ids"] = pid_list
+            results.append(result)
+        print("results",results)
+        #将总重、cbm、pallet、pcs加到出库批次里
+        total_weight, total_cbm, total_pcs = .0, .0, 0
+             
         
-        try:
-            if shipment and container and destination and delivery_method:
-                length = len(shipment)
+        plt_ids = [id for s, id in zip(selections, plt_id) if s == "on"]
+        plt_ids = [int(i) for id in plt_ids for i in id.split(",") if i]
+        print("原plt_ids",plt_ids)
+        Utilized_pallet_ids = []
+        for r in range(len(results)):   
+            if results[r]["pallet_add"] < results[r]["pallets"]:             
+                Utilized_pallet_ids += results[r]["ids"][:results[r]["pallets"]-results[r]["pallet_add"]+1]
+                Utilized_pallet_ids = [int(i) for i in Utilized_pallet_ids]    
+                results[r]["ids"] = Utilized_pallet_ids      
+        print("去掉甩板的plt_ids",results)
+        pallet = await sync_to_async(list)(Pallet.objects.select_related("container_number").filter(id__in=Utilized_pallet_ids))
+        for plt in pallet:
+            total_weight += plt.weight_lbs
+            total_pcs += plt.pcs
+            total_cbm += plt.cbm
+             
+        #查找该出库批次,将重量等信息加到出库批次上
+        fleet_number = request.POST.get("fleet_number")
+        fleet = await sync_to_async(Fleet.objects.get)(fleet_number = fleet_number)
+        print("原出库批次重量",fleet.total_weight,fleet.total_pcs,fleet.total_cbm,fleet.total_pallet)
+        fleet.total_weight += total_weight
+        fleet.total_pcs += total_pcs
+        fleet.total_cbm += total_cbm
+        fleet.total_pallet += total_pallet
+        print("现出库批次重量",fleet.total_weight,fleet.total_pcs,fleet.total_cbm,fleet.total_pallet)
+        await sync_to_async(fleet.save)()
+
+        #查找该出库批次下的约，把加塞的柜子板数加到同一个目的地的约
+        shipments = await sync_to_async(list)(
+            Shipment.objects.select_related(
+                "fleet_number"
+            ).filter(
+                destination__in = des,
+                fleet_number__fleet_number = fleet_number,
+            )
+        )
+        #和添加PO的过程相同
+        await self.handle_alter_po_shipment_post(results,shipments)
+        mutable_get = request.GET.copy()
+        mutable_get['warehouse'] = request.POST.get("warehouse")
+        mutable_get['fleet_number'] = fleet_number
+        request.GET = mutable_get
+        return await self.handle_fleet_depature_get(request)
+        
+        # try:
+        #     if shipment and container and destination and delivery_method:
+        #         length = len(shipment)
                
-                #先找到对应的所有pallet
-                for i in range(length):
-                    await sync_to_async(print)(container[i],destination[i],delivery_method[i])
-                    pallets = await sync_to_async(list)(Pallet.objects.filter(
-                        container_number__container_number=container[i].strip(),
-                        destination = destination[i].strip(),
-                        #怕有暂扣留仓的，所以这里派送方式也做了查找
-                        delivery_method = delivery_method[i].strip(),
-                    ))
-                    if not pallets:
-                        return HttpResponse(container[i]+'的卡板没查到')
-                    num = int(pallet[i].strip())
-                    try:
-                        #找到柜子要加的约
-                        shipments = await sync_to_async(Shipment.objects.get)(shipment_batch_number = shipment[i].strip())
-                    except Exception as e:
-                        #防止约有异常
-                        return HttpResponse(e)
-                    await sync_to_async(print)("pallets",pallets)
-                    #将pallet加到shipment里，首先遍历pallet，关联shipment，然后查找shipment增加总重、cbm和板数
-                    for pt in pallets:
-                        #看下这个板子是不是有约了，直接if pt.shipment_batch_number会报错，所以用这种写法
-                        sbn = await sync_to_async(lambda x: self.get_shipment_batch_number(x))(pt)
-                        await sync_to_async(print)(sbn)
-                        if sbn:
-                            #要加塞的柜子已经有约了，如果可以直接改柜子的约，这里再进行下一步处理
-                            return HttpResponse(container[i]+'柜子已经有约了')                          
-                        if num:  #因为不知道走的是哪个板数，就默认按查找顺序排，比如原本有3个板子，只加塞了2个，就只处理查找到的前2个
-                            num -= 1
-                        else:
-                            break
-                        pt.shipment_batch_number = shipments  #给板子绑定预约批次
-                        await sync_to_async(pt.save)()
-                        #该预约批次加上这个板子的cbm等参数
-                        shipments.total_cbm += pt.cbm  
-                        shipments.total_pallet += 1
-                        shipments.total_pcs += pt.pcs
-                        shipments.total_weight += pt.weight_lbs
-                    await sync_to_async(print)("约保存了")
-                    await sync_to_async(shipments.save)()        
-            return HttpResponse('已加塞成功')
-        except Exception as e:
-            return HttpResponse(e)
+        #         #先找到对应的所有pallet
+        #         for i in range(length):
+        #             await sync_to_async(print)(container[i],destination[i],delivery_method[i])
+        #             pallets = await sync_to_async(list)(Pallet.objects.filter(
+        #                 container_number__container_number=container[i].strip(),
+        #                 destination = destination[i].strip(),
+        #                 #怕有暂扣留仓的，所以这里派送方式也做了查找
+        #                 delivery_method = delivery_method[i].strip(),
+        #             ))
+        #             if not pallets:
+        #                 return HttpResponse(container[i]+'的卡板没查到')
+        #             num = int(pallet[i].strip())
+        #             try:
+        #                 #找到柜子要加的约
+        #                 shipments = await sync_to_async(Shipment.objects.get)(shipment_batch_number = shipment[i].strip())
+        #             except Exception as e:
+        #                 #防止约有异常
+        #                 return HttpResponse(e)
+        #             await sync_to_async(print)("pallets",pallets)
+        #             #将pallet加到shipment里，首先遍历pallet，关联shipment，然后查找shipment增加总重、cbm和板数
+        #             for pt in pallets:
+        #                 #看下这个板子是不是有约了，直接if pt.shipment_batch_number会报错，所以用这种写法
+        #                 sbn = await sync_to_async(lambda x: self.get_shipment_batch_number(x))(pt)
+        #                 await sync_to_async(print)(sbn)
+        #                 if sbn:
+        #                     #要加塞的柜子已经有约了，如果可以直接改柜子的约，这里再进行下一步处理
+        #                     return HttpResponse(container[i]+'柜子已经有约了')                          
+        #                 if num:  #因为不知道走的是哪个板数，就默认按查找顺序排，比如原本有3个板子，只加塞了2个，就只处理查找到的前2个
+        #                     num -= 1
+        #                 else:
+        #                     break
+        #                 pt.shipment_batch_number = shipments  #给板子绑定预约批次
+        #                 await sync_to_async(pt.save)()
+        #                 #该预约批次加上这个板子的cbm等参数
+        #                 shipments.total_cbm += pt.cbm  
+        #                 shipments.total_pallet += 1
+        #                 shipments.total_pcs += pt.pcs
+        #                 shipments.total_weight += pt.weight_lbs
+        #             await sync_to_async(print)("约保存了")
+        #             await sync_to_async(shipments.save)()        
+        #     return HttpResponse('已加塞成功')
+        # except Exception as e:
+        #     return HttpResponse(e)
     
     async def handle_fleet_info_get(self, request: HttpRequest) -> tuple[str, dict[str, Any]]:
         fleet_number = request.GET.get("fleet_number")
@@ -315,28 +385,23 @@ class FleetManagement(View):
         mutable_post['name'] = request.GET.get("warehouse")
         request.POST = mutable_post
         _, context = await self.handle_outbound_warehouse_search_post(request)
-        #记录可能加塞的柜子，筛选条件：同一个目的地且未出库的柜子
-        criteria_pl = models.Q(
-            models.Q(
-                shipment_batch_number__fleet_number__fleet_number__isnull=True
-            ) | models.Q(
-                shipment_batch_number__fleet_number__fleet_number__isnull=False,
-                shipment_batch_number__fleet_number__departured_at__isnull=False
-            ),
-            destination__in = destinations,
-            container_number__order__offload_id__offload_at__isnull=True,
-        )
+
+        #记录可能加塞的柜子，筛选条件：同一个目的地且未出库或甩板的柜子，可能没有预约批次
         criteria_plt = models.Q(
             models.Q(
                 shipment_batch_number__fleet_number__fleet_number__isnull=True
             ) | models.Q(
                 shipment_batch_number__fleet_number__fleet_number__isnull=False,
-                shipment_batch_number__fleet_number__departured_at__isnull=False
+                shipment_batch_number__fleet_number__departured_at__isnull=True
+            ),models.Q(
+                container_number__order__warehouse__name = warehouse
+            ) | models.Q(
+                container_number__order__retrieval_id__retrieval_destination_precise = warehouse
             ),
             destination__in = destinations,
             container_number__order__offload_id__offload_at__isnull=False,
         )
-        plt_unshipped = await self._get_packing_list(criteria_pl,criteria_plt)
+        plt_unshipped = await self._get_packing_list(criteria_plt,selected_fleet_number)
         context.update({
             "selected_fleet": selected_fleet,
             "shipment": shipment,
@@ -463,6 +528,7 @@ class FleetManagement(View):
         selected_ids = [int(id) for s, id in zip(selections, ids) if s == "on"]
         if selected_ids:
             current_time = datetime.now()
+            #加载出库批次管理原状态信息
             _, context = await self.handle_fleet_warehouse_search_post(request)
             fleet_number = "F" + current_time.strftime("%m%d%H%M%S") + str(uuid.uuid4())[:2].upper()
             shipment_selected = await sync_to_async(list)(
@@ -887,17 +953,17 @@ class FleetManagement(View):
     #     return self.template_fleet_warehouse_search, context
     async def _get_packing_list(
         self, 
-        pl_criteria: models.Q | None = None,
         plt_criteria: models.Q | None = None,
+        selected_fleet_number: str|None = None
     ) -> list[Any]:
         data = []
         if plt_criteria:
             pal_list = await sync_to_async(list)(
                 Pallet.objects.prefetch_related(
-                    "container_number", "container_number__order", "container_number__order__warehouse", "shipment_batch_number"
+                    "container_number", "container_number__order", "container_number__order__warehouse", "shipment_batch_number","shipment_batch_number__fleet_number",
                     "container_number__order__offload_id", "container_number__order__customer_name", "container_number__order__retrieval_id"
                 ).filter(
-                    plt_criteria
+                    plt_criteria,                 
                 ).annotate(
                     schedule_status=Case(
                         When(Q(container_number__order__offload_id__offload_at__lte=datetime.now().date() + timedelta(days=-7)), then=Value("past_due")),
@@ -907,6 +973,7 @@ class FleetManagement(View):
                     str_id=Cast("id", CharField()),
                 ).values(
                     'shipment_batch_number__shipment_batch_number',
+                    'shipment_batch_number__fleet_number__fleet_number',
                     'shipment_batch_number__appointment_id',
                     'shipment_batch_number__shipment_appointment',
                     'container_number__container_number',
@@ -935,85 +1002,79 @@ class FleetManagement(View):
                     label=Value("ACT"),
                 ).order_by('container_number__order__offload_id__offload_at')
             )
-            data += pal_list
-        if pl_criteria:
-            pl_list =  await sync_to_async(list)(
-                PackingList.objects.prefetch_related(
-                    "container_number", "container_number__order", "container_number__order__warehouse", "shipment_batch_number"
-                    "container_number__order__offload_id", "container_number__order__customer_name", "pallet", "container_number__order__retrieval_id"
-                ).filter(pl_criteria).annotate(
-                    custom_delivery_method=Case(
-                        When(Q(delivery_method='暂扣留仓(HOLD)') | Q(delivery_method='暂扣留仓'), then=Concat('delivery_method', Value('-'), 'fba_id', Value('-'), 'id')),
-                        default=F('delivery_method'),
-                        output_field=CharField()
-                    ),
-                    schedule_status=Case(
-                        When(Q(container_number__order__offload_id__offload_at__lte=datetime.now().date() + timedelta(days=-7)), then=Value("past_due")),
-                        default=Value("on_time"),
-                        output_field=CharField()
-                    ),
-                    str_id=Cast("id", CharField()),
-                    str_fba_id=Cast("fba_id", CharField()),
-                    str_ref_id=Cast("ref_id", CharField()),
-                    str_shipping_mark=Cast("shipping_mark", CharField())
-                ).values(
-                    'shipment_batch_number__shipment_batch_number',
-                    'shipment_batch_number__appointment_id',
-                    'shipment_batch_number__shipment_appointment',
-                    'container_number__container_number',
-                    'container_number__order__customer_name__zem_name',
-                    'destination',
-                    'address',
-                    'custom_delivery_method',
-                    'container_number__order__offload_id__offload_at',
-                    'schedule_status',
-                    target_retrieval_timestamp=F('container_number__order__retrieval_id__target_retrieval_timestamp'),
-                    target_retrieval_timestamp_lower=F('container_number__order__retrieval_id__target_retrieval_timestamp_lower'),
-                    warehouse=F('container_number__order__retrieval_id__retrieval_destination_precise'),
-                    temp_t49_pickup=F('container_number__order__retrieval_id__temp_t49_available_for_pickup'),
-                ).annotate(
-                    fba_ids=StringAgg("str_fba_id", delimiter=",", distinct=True, ordering="str_fba_id"),
-                    ref_ids=StringAgg("str_ref_id", delimiter=",", distinct=True, ordering="str_ref_id"),
-                    shipping_marks=StringAgg("str_shipping_mark", delimiter=",", distinct=True, ordering="str_shipping_mark"),
-                    ids=StringAgg("str_id", delimiter=",", distinct=True, ordering="str_id"),
-                    total_pcs=Sum(
-                        Case(
-                            When(pallet__isnull=True, then=F("pcs")),
-                            default=F("pallet__pcs"),
-                            output_field=IntegerField()
-                        )
-                    ),
-                    total_cbm=Sum(
-                        Case(
-                            When(pallet__isnull=True, then=F("cbm")),
-                            default=F("pallet__cbm"),
-                            output_field=FloatField()
-                        )
-                    ),
-                    total_weight_lbs=Sum(
-                        Case(
-                            When(pallet__isnull=True, then=F("total_weight_lbs")),
-                            default=F("pallet__weight_lbs"),
-                            output_field=FloatField()
-                        )
-                    ),
-                    total_n_pallet_act=Count("pallet__pallet_id", distinct=True),
-                    total_n_pallet_est=Sum("cbm", output_field=FloatField())/2,
-                    label=Max(
-                        Case(
-                            When(pallet__isnull=True, then=Value("EST")),
-                            default=Value("ACT"),
-                            output_field=CharField()
-                        )
-                    ),
-                ).distinct()
-            )
-            data += pl_list
+            for pal in pal_list:
+                if pal["shipment_batch_number__fleet_number__fleet_number"] != selected_fleet_number:
+                    data.append(pal) 
+            print(data)
         return data
+    
+    async def handle_alter_po_shipment_post(self, result: str, shipment: str):
+        #result是加塞的表格，plt_id,目的地，原板数，出库板数，柜号
+        for p in result:
+            for s in shipment:
+                if p["destination"] == s.destination:
+                    #将该条记录加到约里
+                    Utilized_pallets = await sync_to_async(list)(Pallet.objects.select_related("container_number").filter(id__in=p["ids"]))
+                    pallet_container_number = [p.container_number.container_number for p in Utilized_pallets]
+                    packing_list = await sync_to_async(list)(
+                        PackingList.objects.select_related("shipment_batch_number").filter(
+                            container_number__container_number__in=pallet_container_number
+                        )
+                    )
+                    pallet_shipping_marks, pallet_fba_ids, pallet_ref_ids = [], [], []
+                    updated_pl = []
+                    for plt in Utilized_pallets:
+                        plt.shipment_batch_number = s
+                        s.total_weight += plt.weight_lbs
+                        s.total_pcs += plt.pcs
+                        s.total_cbm += plt.cbm
+                        if plt.shipping_mark:
+                            pallet_shipping_marks += plt.shipping_mark.split(",")
+                        if plt.fba_id:
+                            pallet_fba_ids += plt.fba_id.split(",")
+                        if plt.ref_id:
+                            pallet_ref_ids += plt.ref_id.split(",")
+                    for pl in packing_list:
+                        pl.shipment_batch_number = s
+                        if pl.shipping_mark and pl.shipping_mark in pallet_shipping_marks:
+                            pl.shipment_batch_number = s
+                            updated_pl.append(pl)
+                        elif pl.fba_id and pl.fba_id in pallet_fba_ids:
+                            pl.shipment_batch_number = s
+                            updated_pl.append(pl)
+                        elif pl.ref_id and pl.ref_id in pallet_ref_ids:
+                            pl.shipment_batch_number = s
+                            updated_pl.append(pl)
+                    s.total_pallet += p["pallets"]
+                    await sync_to_async(Pallet.objects.bulk_update)(Utilized_pallets, ["shipment_batch_number"])
+                    await sync_to_async(PackingList.objects.bulk_update)(updated_pl, ["shipment_batch_number"]) 
+                    order = await sync_to_async(list)(
+                        Order.objects.select_related(
+                            "retrieval_id", "warehouse", "container_number"
+                        ).filter(container_number__container_number__in=p["container_number"])
+                    )
+                    assigned_warehouse = s.origin
+                    warehouse = await sync_to_async(ZemWarehouse.objects.get)(name=assigned_warehouse)
+                    updated_order, updated_retrieval = [], []
+                    for o in order:
+                        if not o.warehouse or not o.retrieval_id.retrieval_destination_precise:
+                            o.warehouse = warehouse
+                            o.retrieval_id.retrieval_destination_precise = assigned_warehouse
+                            o.retrieval_id.assigned_by_appt = True
+                            updated_order.append(o)
+                            updated_retrieval.append(o.retrieval_id)
+                    await sync_to_async(Order.objects.bulk_update)(
+                        updated_order, ["warehouse"]
+                    )
+                    await sync_to_async(Retrieval.objects.bulk_update)(
+                        updated_retrieval, ["retrieval_destination_precise", "assigned_by_appt"]
+                    )
+        
+    
     async def _get_sharepoint_auth(self) -> ClientContext:
         return ClientContext(SP_URL).with_credentials(UserCredential(SP_USER, SP_PASS))
 
     async def _user_authenticate(self, request: HttpRequest):
         if await sync_to_async(lambda: request.user.is_authenticated)():
             return True
-        return False
+        return False,
