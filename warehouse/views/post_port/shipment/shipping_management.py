@@ -424,7 +424,6 @@ class ShippingManagement(View):
         appointment_type = request.POST.get("type")
         if appointment_type == "td":
             shipment_data = ast.literal_eval(request.POST.get("shipment_data"))
-            print("shipment_data",shipment_data)
             shipment_type = request.POST.get("shipment_type")
             appointment_id = request.POST.get("appointment_id", None)
             appointment_id = appointment_id.strip() if appointment_id else None
@@ -807,11 +806,30 @@ class ShippingManagement(View):
                 shipment.destination = request.POST.get("destination")
                 shipment.address = request.POST.get("address")
                 fleet = shipment.fleet_number
-                fleet.carrier = request.POST.get("carrier")
-                fleet.appointment_datetime = request.POST.get("appointment_datetime")
+                #测试发现甩板的约没有车次
+                if fleet:
+                    fleet.carrier = request.POST.get("carrier")
+                    fleet.appointment_datetime = request.POST.get("appointment_datetime")
+                    
+                    await sync_to_async(fleet.save)()
+                else:
+                    current_time = datetime.now()
+                    fleet = Fleet(**{
+                        "carrier": request.POST.get("carrier"),
+                        "fleet_type": shipment_type,
+                        "appointment_datetime": request.POST.get("appointment_datetime"),
+                        "fleet_number": "FO" + current_time.strftime("%m%d%H%M%S") + str(uuid.uuid4())[:2].upper(),
+                        "scheduled_at": current_time,
+                        "total_weight": shipment.total_weight,
+                        "total_cbm": shipment.total_cbm,
+                        "total_pallet": shipment.total_pallet,
+                        "total_pcs": shipment.total_pcs,
+                        "origin": shipment.origin,
+                    })
+                    await sync_to_async(fleet.save)()
+                    shipment.fleet_number = fleet
                 shipment.ARM_BOL = request.POST.get("ARM_BOL")
                 shipment.ARM_PRO = request.POST.get("ARM_PRO")
-                await sync_to_async(fleet.save)()
         else:
             if shipment_type == "FTL":
                 shipment.shipment_type = shipment_type

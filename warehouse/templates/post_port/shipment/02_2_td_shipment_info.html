@@ -169,8 +169,8 @@
                     </thead>
                     <tbody>
                         <tr>
-                            <td class="td"><input type="text" name="arm_bol" style="font-size: 13px;"></td>
-                            <td class="td"><input type="text" name="arm_pro" style="font-size: 13px;"></td>
+                            <td class="td"><input type="text" name="ARM_BOL" value="{{ shipment.ARM_BOL}}" style="font-size: 13px;"></td>
+                            <td class="td"><input type="text" name="ARM_pro" value="{{ shipment.ARM_PRO}}" style="font-size: 13px;"></td>
                         </tr>
                     </tbody>
                 </table>
@@ -186,11 +186,11 @@
                     </thead>
                     <tbody>
                         <tr>
-                            <td class="td"><input type="datetime-local" name="shipment_appointment" style="font-size: 13px;"></td>
+                            <td class="td"><input type="datetime-local" name="shipment_appointment" value="{{ shipment.shipment_appointment|date:'Y-m-d\\TH:i'  }}" style="font-size: 13px;"></td>
                             <td class="td">
                                 <select name="origin" id="origin-select-3" style="font-size: 13px;">
                                     {% for k, v in warehouse_options.items %}
-                                    <option value="{{ v }}">{{ k }}</option>
+                                    <option value="{{ v }}" {% if k == shipment.origin %}selected{% endif %}>{{ k }}</option>
                                     {% endfor %}
                                 </select>
                             </td>
@@ -207,8 +207,8 @@
                     </thead>
                     <tbody>
                         <tr>
-                            <td class="td"><input type="text" name="destination" value="{{ shipment_data.destination }}" style="font-size: 13px;" required></td>
-                            <td class="td"><input type="text" name="address" value="{{ address }}" style="font-size: 13px;" size="40" required></td>
+                            <td class="td"><input type="text" name="destination" value="{{ shipment.destination }}" style="font-size: 13px;" required></td>
+                            <td class="td"><input type="text" name="address" value="{{ shipment.address }}" style="font-size: 13px;" size="40" required></td>
                         </tr>
                     </tbody>
                 </table>
@@ -221,8 +221,8 @@
                     </thead>
                     <tbody>
                         <tr>
-                            <td class="td"><input type="text" name="carrier" style="font-size: 13px;" required></td>
-                            <td class="td"><input type="datetime-local" name="appointment_datetime" style="font-size: 13px;" required></td>
+                            <td class="td"><input type="text" name="carrier" value="{{ shipment.fleet_number.carrier }}" style="font-size: 13px;" required></td>
+                            <td class="td"><input type="datetime-local" name="appointment_datetime" value="{{ shipment.fleet_number.appointment_datetime|date:'Y-m-d\\TH:i' }}" style="font-size: 13px;" required></td>
                         </tr>
                     </tbody>
                 </table>
@@ -235,8 +235,8 @@
                     </thead>
                     <tbody>
                         <tr>
-                            <td class="td"><input type="text" name="arm_bol" style="font-size: 13px;" required></td>
-                            <td class="td"><input type="text" name="arm_pro" style="font-size: 13px;" required></td>
+                            <td class="td"><input type="text" name="ARM_BOL" value="{{ shipment.ARM_BOL}}" style="font-size: 13px;" required></td>
+                            <td class="td"><input type="text" name="ARM_PRO" value="{{ shipment.ARM_PRO}}" style="font-size: 13px;" required></td>
                         </tr>
                     </tbody>
                 </table>
@@ -500,7 +500,7 @@
         } else if (shipmentType == "LTL/外配/快递") {
             console.log("LTL");
             originSelectValue = 'origin-select-2';
-        } else if (hipmentType == "客户自提") {
+        } else if (shipmentType == "客户自提") {
             originSelectValue = 'origin-select-3';
         } else {
             originSelectValue = ''
