@@ -130,11 +130,15 @@ class ShippingManagement(View):
         
     async def handle_appointment_time(self, request: HttpRequest) -> tuple[str, dict[str, Any]]:
         appointmentId = request.POST.get("appointmentId")
-        appointmentTime = request.POST.get("appointmentTime")
-        naive_datetime = parse(appointmentTime).replace(tzinfo=None)
         shipment = await sync_to_async(Shipment.objects.get)(appointment_id=appointmentId)
-        shipment.shipment_appointment = naive_datetime
-        await sync_to_async(shipment.save)()
+        operation = request.POST.get("operation")
+        if operation == "edit":
+            appointmentTime = request.POST.get("appointmentTime")
+            naive_datetime = parse(appointmentTime).replace(tzinfo=None)       
+            shipment.shipment_appointment = naive_datetime
+            await sync_to_async(shipment.save)()
+        elif operation == "delete":
+            await sync_to_async(shipment.delete)()
         return await self.handle_appointment_warehouse_search_post(request)
 
     async def handle_shipment_info_get(self, request: HttpRequest) -> tuple[str, dict[str, Any]]:
