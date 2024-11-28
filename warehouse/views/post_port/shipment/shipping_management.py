@@ -432,6 +432,7 @@ class ShippingManagement(View):
             except:
                 existed_appointment = None
             if existed_appointment:
+                print("预约号已存在")
                 if existed_appointment.in_use:
                     raise RuntimeError(f"Appointment {existed_appointment} already used by other shipment!")
                 elif existed_appointment.is_canceled:
@@ -460,7 +461,7 @@ class ShippingManagement(View):
                     except:
                         pass
             else:
-                
+                print("预约号不存在")
                 if await self._shipment_exist(shipment_data["shipment_batch_number"]):
                     raise ValueError(f"Shipment {shipment_data['shipment_batch_number']} already exists!")
                 shipment_data["appointment_id"] = request.POST.get("appointment_id", None)
