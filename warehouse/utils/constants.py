@@ -26,7 +26,8 @@ SHIPPING_LINE_OPTIONS = [
     ('OOCL', 'OOCL'),
     ('Wan Hai Lines', 'Wan Hai Lines'),
     ('Yangming', 'Yangming'),
-    ('Zim Line', 'Zim Line')
+    ('Zim Line', 'Zim Line'),
+    ('HEDE', 'HEDE')
  ]
 
 CONTAINER_PICKUP_CARRIER = [
