@@ -55,7 +55,7 @@ class ShippingManagement(View):
     template_shipment_list = "post_port/shipment/07_shipment_list.html"
     template_shipment_list_shipment_display = "post_port/shipment/07_1_shipment_list_shipment_display.html"
     template_shipment_exceptions = "post_port/shipment/exceptions/01_shipment_exceptions.html"
-    area_options = {"NJ": "NJ", "SAV": "SAV", "NJ/SAV":"NJ/SAV"}
+    area_options = {"NJ": "NJ", "SAV": "SAV", "LA":"LA", "NJ/SAV/LA":"NJ/SAV/LA"}
     warehouse_options = {"": "", "NJ-07001": "NJ-07001", "NJ-08817": "NJ-08817", "SAV-31326": "SAV-31326"}
     shipment_type_options = {"":"", "FTL/LTL":"FTL/LTL", "外配/快递":"外配/快递"}
 
@@ -268,8 +268,10 @@ class ShippingManagement(View):
             criteria = (
                 models.Q(packinglist__container_number__order__retrieval_id__retrieval_destination_area="NJ") |
                 models.Q(packinglist__container_number__order__retrieval_id__retrieval_destination_area="SAV") |
+                models.Q(packinglist__container_number__order__retrieval_id__retrieval_destination_area="LA") |
                 models.Q(pallet__container_number__order__retrieval_id__retrieval_destination_area="NJ") |
-                models.Q(pallet__container_number__order__retrieval_id__retrieval_destination_area="SAV")
+                models.Q(pallet__container_number__order__retrieval_id__retrieval_destination_area="SAV") |
+                models.Q(pallet__container_number__order__retrieval_id__retrieval_destination_area="LA")
             )
         else:
             criteria = (

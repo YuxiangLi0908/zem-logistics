@@ -48,7 +48,7 @@ class FleetManagement(View):
     template_pod_upload = "post_port/shipment/05_2_delivery_and_pod.html"
     template_bol = "export_file/bol_base_template.html"
     template_abnormal_fleet_warehouse_search = "post_port/shipment/abnormal/01_fleet_management_main.html"
-    area_options = {"NJ": "NJ", "SAV": "SAV"}
+    area_options = {"NJ": "NJ", "SAV": "SAV", "LA":"LA"}
     warehouse_options = {"": "", "NJ-07001": "NJ-07001", "NJ-08817": "NJ-08817", "SAV-31326": "SAV-31326"}
     shipment_type_options = {"":"", "FTL/LTL":"FTL/LTL", "外配/快递":"外配/快递"}
     abnormal_fleet_options = {"":"", "司机未按时提货":"司机未按时提货", "送仓被拒收":"送仓被拒收", "未送达":"未送达", "其它":"其它"}
