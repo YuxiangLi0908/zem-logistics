@@ -35,7 +35,7 @@
                 <button class="nav-link active" onclick="showSection(this, 'inventory-summary-sec')"><b>库存汇总</b></button>
             </li>
             <li class="nav-item">
-                <button class="nav-link" onclick="showSection(this, 'warehouse-special-process-sec')"><b>仓库特操</b></button>
+                <button class="nav-link" onclick="showSection(this, 'warehouse-special-process-sec')"><b>库内操作</b></button>
             </li>
             <li class="nav-item">
                 <button class="nav-link" onclick="showSection(this, 'order-packing-list-info-sec')"><b>库存盘点</b></button>
@@ -132,7 +132,7 @@
                 {% for p in pallet %}
                 <tr>
                     <td class="td" style="min-width: 40px; text-align: center;">
-                        {% if not p.shipment_batch_number %}
+                        {% if not p.shipment %}
                         <button id="" type="button" class="btn btn-primary" onclick="showPopup('{{ p.plt_ids }}', 'repalletize-popup-window')" style="font-size: 11px;">分拣</button>
                         {% endif %}
                     </td>
@@ -141,8 +141,8 @@
                     <td class="td">{{ p.destination }}</td>
                     <td class="td">{{ p.delivery_method }}</td>
                     <td class="td">{{ p.shipping_mark }}</td>
-                    <td class="td">{{ p.fba_id }}</td>
-                    <td class="td">{{ p.ref_id }}</td>
+                    <td class="td">{{ p.fba_id|default_if_none:"" }}</td>
+                    <td class="td">{{ p.ref_id|default_if_none:"" }}</td>
                     <td class="td">{{ p.weight|floatformat:2 }}</td>
                     <td class="td">{{ p.pcs|floatformat:0 }}</td>
                     <td class="td">{{ p.cbm|floatformat:2 }}</td>

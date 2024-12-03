@@ -95,7 +95,7 @@ class Inventory(View):
         warehouse = request.POST.get("warehouse")
         pallet = await self._get_inventory_pallet(warehouse)
         pallet_json = {
-            p.get("plt_ids"): {k: round(v, 2) if isinstance(v, float) else v for k, v in p.items()}
+            p.get("plt_ids"): {k: round(v, 2) if isinstance(v, float) else (v if v else '') for k, v in p.items()}
             for p in pallet
         }
         total_cbm = sum([p.get("cbm") for p in pallet])
@@ -156,6 +156,8 @@ class Inventory(View):
         # data of new pallets
         destinations = request.POST.getlist("destination_repalletize")
         delivery_methods = request.POST.getlist("delivery_method_repalletize")
+        addresses = request.POST.getlist("address_repalletize")
+        zipcodes = request.POST.getlist("zipcode_repalletize")
         shipping_marks = request.POST.getlist("shipping_mark_repalletize")
         fba_ids = request.POST.getlist("fba_id_repalletize")
         ref_ids = request.POST.getlist("ref_id_repalletize")
@@ -166,28 +168,33 @@ class Inventory(View):
         n_pallets = [int(i) for i in n_pallets]
         # create new pallets
         new_pallets = []
-        for dest, dm, sm, fba, ref, p, n, note in zip(
-            destinations, delivery_methods, shipping_marks, fba_ids, ref_ids, pcses, n_pallets, notes
+        for dest, dm, addr, zipcode, sm, fba, ref, p, n, note in zip(
+            destinations, delivery_methods, addresses, zipcodes, shipping_marks,
+            fba_ids, ref_ids, pcses, n_pallets, notes
         ):
+            # TODO: find a better way to allocate cbm and weight
             new_pallets += [{
                 "pallet_id": str(uuid.uuid3(uuid.NAMESPACE_DNS, str(uuid.uuid4()) + dest + dm + str(i))),
                 "container_number": container,
                 "destination": dest,
-                # "address": address,
-                # "zipcode": zipcode,
+                "address": addr,
+                "zipcode": zipcode,
                 "delivery_method": dm,
                 "pcs": p,
-                "cbm": total_cbm * n / total_pcs,
-                "weight_lbs": total_weight * n / total_pcs,
+                "cbm": total_cbm * p / total_pcs,
+                "weight_lbs": total_weight * p / total_pcs,
                 "note": note,
                 "shipping_mark": sm if sm else "",
                 "fba_id": fba if fba else "",
                 "ref_id": ref if ref else "",
-                "location": old_pallet[0].get("location"),
+                "location": old_pallet[0].location,
             } for i in range(n)]
+        await sync_to_async(Pallet.objects.bulk_create)(
+            Pallet(**p) for p in new_pallets
+        )
         # delete old pallets
-
-        raise ValueError(request.POST, plt_ids, n_pallets)
+        await sync_to_async(Pallet.objects.filter(id__in=plt_ids).delete)()
+        return await self.handle_warehouse_post(request)
         
     async def _get_inventory_pallet(self, warehouse: str) -> list[Pallet]:
         return await sync_to_async(list)(
