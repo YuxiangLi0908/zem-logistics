@@ -33,7 +33,7 @@ class PO(View):
     template_po_check_retrieval = "po/po_check_retrieval.html"
     template_po_invalid = "po/po_invalid.html"
     template_po_list = "po/po_list.html"
-    area_options = {"NJ": "NJ", "SAV": "SAV", "LA":"LA"}
+    area_options = {"NJ": "NJ", "SAV": "SAV", "LA":"LA","LB":"LB"}
 
     def get(self, request: HttpRequest) -> HttpResponse:
         step = request.GET.get("step")
