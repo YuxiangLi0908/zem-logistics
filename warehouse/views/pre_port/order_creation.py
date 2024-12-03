@@ -443,6 +443,13 @@ class OrderCreation(View):
             packing_list = await sync_to_async(list)(PackingList.objects.filter(
                 container_number__container_number=container_number
             ))
+            destination_list = request.POST.getlist("destination")
+            for idx, destination in enumerate(destination_list):
+                if "WALMART" in destination.upper():
+                    parts = destination.split('-')
+                    destination_list[idx] = "Walmart-" + parts[1]
+                else:
+                    destination_list[idx] = destination.upper().strip() 
             for pl in packing_list:
                 idx = pl_id_idx_mapping[pl.id]
                 pl.product_name = request.POST.getlist("product_name")[idx]
@@ -450,7 +457,8 @@ class OrderCreation(View):
                 pl.shipping_mark = request.POST.getlist("shipping_mark")[idx]
                 pl.fba_id = request.POST.getlist("fba_id")[idx]
                 pl.ref_id = request.POST.getlist("ref_id")[idx]
-                pl.destination = request.POST.getlist("destination")[idx].upper().strip()
+                
+                pl.destination = destination_list
                 pl.contact_name = request.POST.getlist("contact_name")[idx]
                 pl.contact_method = request.POST.getlist("contact_method")[idx]
                 pl.address = request.POST.getlist("address")[idx]
@@ -468,13 +476,20 @@ class OrderCreation(View):
             await sync_to_async(PackingList.objects.filter(
                 container_number__container_number=container_number
             ).delete)()
+            destination_list = request.POST.getlist("destination")
+            for idx, destination in enumerate(destination_list):
+                if "WALMART" in destination.upper():
+                    parts = destination.split('-')
+                    destination_list[idx] = "Walmart-" + parts[1]
+                else:
+                    destination_list[idx] = destination.upper().strip() 
             pl_data = zip(
                 request.POST.getlist("product_name"),
                 request.POST.getlist("delivery_method"),
                 request.POST.getlist("shipping_mark"),
                 request.POST.getlist("fba_id"),
                 request.POST.getlist("ref_id"),
-                [d.upper().strip() for d in request.POST.getlist("destination")],
+                destination_list,
                 request.POST.getlist("contact_name"),
                 request.POST.getlist("contact_method"),
                 request.POST.getlist("address"),
@@ -515,7 +530,6 @@ class OrderCreation(View):
         packing_list = await sync_to_async(list)(PackingList.objects.filter(container_number__container_number = container))
         po_checks = await sync_to_async(list)(PoCheckEtaSeven.objects.filter(container_number__container_number = container))
         if len(po_checks) == 0:
-            print("没有这个柜号")
             #po_check没有这个柜子，直接新建
             for pl in packing_list:
                 po_check_dict = {
