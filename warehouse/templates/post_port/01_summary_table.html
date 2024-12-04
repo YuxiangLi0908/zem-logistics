@@ -43,6 +43,7 @@
                     <th class="th">货柜号</th>
                     <th class="th">仓点</th>
                     <th class="th">派送方式</th>
+                    <th class="th">唛头</th>
                     <th class="th">CBM</th>
                     <th class="th">卡板数</th>
                     <th class="th">箱数</th>
@@ -64,6 +65,7 @@
                     <th class="th"><input type="text" id="containerSearchInput" placeholder="搜索客户..." oninput="filterTable(this, 2, true)" size="13" style="font-size: 11px;"></th>
                     <th class="th"><input type="text" id="containerSearchInput" placeholder="搜索柜号..." oninput="filterTable(this, 3, true)" size="13" style="font-size: 11px;"></th>
                     <th class="th"><input type="text" id="containerSearchInput" placeholder="搜索仓点..." oninput="filterTable(this, 4, true)" size="13" style="font-size: 11px;"></th>
+                    <th class="th"></th>
                     <th class="th"></th>
                     <th class="th"></th>
                     <th class="th"></th>
@@ -105,6 +107,7 @@
                             {{ first_value }}
                         {% endwith %}
                     </td>
+                    <td class="td">{{ c.shipping_mark }}</td>
                     <td class="td">{{ c.total_cbm|floatformat:2 }}</td>
                     <td class="td">
                         {% if c.label == "ACT" %}
