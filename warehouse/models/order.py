@@ -30,6 +30,11 @@ class Order(models.Model):
     packing_list_updloaded = models.BooleanField(default=False)
     cancel_notification = models.BooleanField(default=False)
     cancel_time = models.DateField(null=True, blank=True)
+    #标记当前账单状态
+    invoice_status = models.CharField(max_length=255, null=True)
+    #标记当前状态是否被上一步驳回
+    invoice_reject = models.BooleanField(default=False)
+    invoice_reject_reason = models.CharField(max_length=255, null=True)
 
     class Meta:
         indexes = [

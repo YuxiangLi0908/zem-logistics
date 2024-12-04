@@ -1,0 +1,167 @@
+{% extends 'base.html' %}
+
+{% block content %}
+<div  style="display: inline-block; width: 100%; margin: 0; padding: 0; max-width: 100%;">
+    <p style="text-align:center;"><b>{{ invoice_preports.invoice_number }}</b></p>
+</div>
+<div style="overflow-y: auto; max-height: 100%; width: 70%; border: 2px solid rgb(180, 180, 180); border-radius: 12px; padding: 1%; margin: 1%;">
+    <form method="post" action="">
+        {% csrf_token %}
+            <div>
+                <label for="chassis_days">提拆/打托缠膜:</label>
+                <input type="number" id="pickup" name="pickup" value="{{ invoice_preports.pickup }}"> ({{warehouse}})
+            </div>
+            <div>
+                <label for="chassis_days">托架费 (45$/天):</label>
+                <input type="number" id="chassis" name="chassis" min="0">
+            </div>
+            <div>
+                <label for="chassis_split_count">托架提取费(150$/柜):</label>
+                <input type="number" id="chassis_split" name="chassis_split" min="0">
+            </div>
+            <div>
+                <label for="prepull">预提费 (150$/柜):</label>
+                <input type="number" id="prepull" name="prepull" min="0">
+            </div>
+            <div>
+                <label for="chassis_split_count">货柜放置费(150$/柜):</label>
+                <input type="number" id="yard_storage" name="yard_storage" min="0">
+            </div>
+            <div>
+                <label for="chassis_split_count">操作处理费(50/柜):</label>
+                <input type="number" id="handling_fee" name="handling_fee" min="0">
+            </div>
+            <div>
+                {% if contaienr_type == "20GP" %}
+                    <label for="chassis_split_count">码头(20$/柜):</label>
+                {% else %}
+                    <label for="chassis_split_count">码头(40$/柜):</label>
+                {% endif %}
+                <input type="number" id="pier_pass" name="pier_pass" min="0">
+            </div>
+            <div>
+                <label for="chassis_split_count">港口拥堵费(75$/小时):</label>
+                <input type="number" id="congestion_fee" name="congestion_fee" min="0">
+            </div>
+            
+            <div>
+                <label for="hanging_crane">吊柜费:</label>
+                <input type="number" id="hanging_crane" name="hanging_crane" value="300" >
+                
+            </div>
+            <div>
+                <label for="chassis_split_count">空跑费(150$/柜):</label>
+                <input type="number" id="dry_run" name="dry_run" min="0">
+            </div>
+            <div>
+                <label for="chassis_split_count">查验费(250$/柜):</label>
+                <input type="number" id="exam_fee" name="exam_fee" min="0">
+            </div>
+            <div>
+                <label for="chassis_split_count">危险品(300$/柜):</label>
+                <input type="number" id="hazmat" name="hazmat" min="0">
+            </div>
+            <div>
+                <label for="chassis_split_count">超重费(300$/柜):</label>
+                <input type="number" id="over_weight" name="over_weight" min="0">
+            </div>
+            <div>
+                <label for="chassis_split_count">加急费(200$/柜):</label>
+                <input type="number" id="urgent_fee" name="urgent_fee" min="0">
+            </div>
+            <div>
+                <label for="chassis_split_count">其他服务:</label>
+                <input type="number" id="other_serive" name="other_serive" min="0">
+            </div>
+            <div>
+                <label for="chassis_split_count">港内滞期费:</label>
+                <input type="number" id="demurrage" name="demurrage" min="0">
+            </div>
+            <div>
+                <label for="chassis_split_count">港外滞期费:</label>
+                <input type="number" id="per_diem" name="per_diem" min="0">
+            </div>
+            <div>
+                <label for="chassis_split_count">二次提货:</label>
+                <input type="number" id="second_pickup" name="second_pickup" min="0">
+            </div>
+            <div>
+                <label for="total_amount">Total Amount:</label>
+                <span id="total_amount">0</span> $
+            </div>
+        <input type="hidden" name="step" value="preport_save">
+        <input type="hidden" name="invoice_number" value="{{ invoice_preports.invoice_number }}">
+        <button type="button" onclick="validateForm()">校验</button>
+        <button type="submit" class="btn btn-primary" style="width: 150px; height: 35px;">确认</button>
+    </form>
+</div>
+
+<script>
+    function setupTotalCalculator() {
+        const inputs = document.querySelectorAll('input[type="number"]');
+        const totalAmountSpan = document.getElementById('total_amount');
+        function calculateTotal() {
+            let total = 0;
+            inputs.forEach(input => {
+                const value = parseFloat(input.value);
+                if (!isNaN(value)) {
+                    total += value;
+                }
+            });
+            totalAmountSpan.textContent = total;
+        }
+        inputs.forEach(input => {
+            input.addEventListener('input', calculateTotal);
+        });
+        calculateTotal();
+        return calculateTotal;   
+    }
+       
+    // 在页面加载时调用这个函数   
+    window.onload = function () {
+        const calculateTotal = setupTotalCalculator();
+        // 如果需要在其他地方调用计算总和的函数，可以使用calculateTotal变量   
+    };   
+    function validateForm() {
+        console.log("校验规范性");
+        const form = document.querySelector('form');
+        const inputs = form.querySelectorAll('input[type="number"]');
+        const labels = form.querySelectorAll('label');
+        // 定义金额要求的映射关系
+        const amountRequirements = {
+            "托架费 (45$/天)": 45,
+            "托架提取费(150$/柜)": 150,
+            "预提费 (150$/柜)": 150,
+            "货柜放置费(150$/柜)": 150,
+            "操作处理费(50/柜)": 50,
+            "码头(20$/柜)": 20,
+            "码头(40$/柜)": 40,
+            "港口拥堵费(75$/小时)": 75,
+            "吊柜费:": 300, 
+            "空跑费(150$/柜)": 150,
+            "查验费(250$/柜)": 250,
+            "危险品(300$/柜)": 300,
+            "超重费(300$/柜)": 300,
+            "加急费(200$/柜)": 200,
+            "港内滞期费:": 1,
+            "港外滞期费:": 1,
+            "二次提货:": 1
+        };
+        for (let i = 0; i < inputs.length; i++) {
+            const input = inputs[i];
+            const labelText = labels[i].textContent.trim();
+            const requiredAmount = amountRequirements[labelText];
+            console.log(requiredAmount);
+            console.log(input.value);
+            if (requiredAmount && input.value!== "") {
+                const value = parseFloat(input.value);
+                if (isNaN(value) || value % requiredAmount!== 0) {
+                    alert('输入值不符合要求，请按照' + labelText + '的金额要求填写');
+                    hasError = true;
+                }
+            }
+        }
+        
+    }   
+</script>
+{% endblock %}

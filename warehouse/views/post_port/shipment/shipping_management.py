@@ -55,8 +55,8 @@ class ShippingManagement(View):
     template_shipment_list = "post_port/shipment/07_shipment_list.html"
     template_shipment_list_shipment_display = "post_port/shipment/07_1_shipment_list_shipment_display.html"
     template_shipment_exceptions = "post_port/shipment/exceptions/01_shipment_exceptions.html"
-    area_options = {"NJ": "NJ", "SAV": "SAV", "LA":"LA", "NJ/SAV/LA":"NJ/SAV/LA"}
-    warehouse_options = {"": "", "NJ-07001": "NJ-07001", "NJ-08817": "NJ-08817", "SAV-31326": "SAV-31326"}
+    area_options = {"NJ": "NJ", "SAV": "SAV", "LA":"LA","LB":"LB", "NJ/SAV/LA/LB":"NJ/SAV/LA/LB"}
+    warehouse_options = {"": "", "NJ-07001": "NJ-07001", "NJ-08817": "NJ-08817", "SAV-31326": "SAV-31326","LA-91761":"LA-91761","LB-91761":"LB-91761"}
     shipment_type_options = {"":"", "FTL/LTL":"FTL/LTL", "外配/快递":"外配/快递"}
 
     async def get(self, request: HttpRequest) -> HttpResponse:

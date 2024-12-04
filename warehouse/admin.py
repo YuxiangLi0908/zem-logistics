@@ -18,6 +18,7 @@ from warehouse.models.fleet import Fleet
 from warehouse.models.fleet_shipment_pallet import FleetShipmentPallet
 from warehouse.models.shipment_status import ShipmentStatus
 from warehouse.models.po_check_eta import PoCheckEtaSeven
+from warehouse.models.invoice_details import InvoicePreport
 # Register your models here.
 
 admin.site.register(Clearance)
@@ -41,3 +42,4 @@ admin.site.register(Fleet)
 admin.site.register(FleetShipmentPallet)
 admin.site.register(ShipmentStatus)
 admin.site.register(PoCheckEtaSeven)
+admin.site.register(InvoicePreport)

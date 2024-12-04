@@ -130,6 +130,24 @@
                                 <a>账单</a>
                                 <div class="nested-dropdown-content">
                                     <a href="{% url 'accounting' %}?step=invoice">货柜账单</a>
+                                    <a>账单录入</a>                                
+                                    <div class="nested-dropdown-content">
+                                        <a>整柜直送</a>
+                                        <a>拆送</a>
+                                        <div class="nested-dropdown-content">
+                                            <a href="{% url 'accounting' %}?step=invoice_preport">提拆柜</a>
+                                            <a href="{% url 'accounting' %}?step=invoice_warehouse">库内操作</a>
+                                            <a>派送</a>
+                                                <div class="nested-dropdown-content">
+                                                    <a href="{% url 'accounting' %}?step=invoice_delivery_local">本地派送</a>
+                                                    <a href="{% url 'accounting' %}?step=invoice_delivery_amazon">亚马逊派送</a>
+                                                    <a href="{% url 'accounting' %}?step=invoice_delivery_other">组合柜派送</a>
+                                                </div>
+                                            </a>
+                                        </div>
+                                    </div>
+                                    <a href="{% url 'accounting' %}?step=invoice_review">账单审核</a>
+                                    <a href="{% url 'accounting' %}?step=invoice_confirm">账单确认</a>
                                 </div>
                             </div>
                         </div>

@@ -7,6 +7,9 @@ import pandas as pd
 from io import BytesIO
 from datetime import datetime, timedelta
 from typing import Any
+from asgiref.sync import sync_to_async
+from asgiref.sync import async_to_sync
+
 
 from office365.runtime.auth.user_credential import UserCredential
 from office365.sharepoint.client_context import ClientContext
@@ -25,6 +28,7 @@ from django.db.models import Sum, FloatField, Count
 
 from warehouse.models.order import Order
 from warehouse.models.invoice import Invoice, InvoiceItem, InvoiceStatement
+from warehouse.models.invoice_details import InvoicePreport
 from warehouse.models.packing_list import PackingList
 from warehouse.models.customer import Customer
 from warehouse.models.pallet import Pallet
@@ -42,7 +46,8 @@ from warehouse.utils.constants import (
     ACCT_BENEFICIARY_ACCOUNT,
     ACCT_BENEFICIARY_ADDRESS,
     ACCT_BENEFICIARY_NAME,
-    ACCT_SWIFT_CODE
+    ACCT_SWIFT_CODE,
+    PICKUP_FEE
 )
 
 
@@ -54,25 +59,51 @@ class Accounting(View):
     template_invoice_statement = "accounting/invoice_statement.html"
     template_invoice_container = "accounting/invoice_container.html"
     template_invoice_container_edit = "accounting/invoice_container_edit.html"
+    template_invoice_preport = "accounting/invoice_preport.html"
+    template_invoice_preport_edit = "accounting/invoice_preport_edit.html"
     allowed_group = "accounting"
 
     def get(self, request: HttpRequest) -> HttpResponse:
-        if not self._validate_user_group(request.user):
-            return HttpResponseForbidden("You are not authenticated to access this page!")
+        # if not self._validate_user_group(request.user):
+        #     return HttpResponseForbidden("You are not authenticated to access this page!")
 
         step = request.GET.get("step", None)
+        print("GET",step)
         if step == "pallet_data":
             template, context = self.handle_pallet_data_get()
             return render(request, template, context)
         elif step == "pl_data":
             template, context = self.handle_pl_data_get()
             return render(request, template, context)
-        elif step == "invoice":
+        elif step == "invoice_preport":  #提拆柜账单录入
+            if self.validate_user_invoice_preport(request.user): 
+                template, context = self.handle_invoice_preport_get(request)
+                return render(request, template, context)      
+            else:
+                return HttpResponseForbidden("You are not authenticated to access this page!")
+            
+        elif step == "invoice_review":
+            if not self.validate_user_invoice_review(request.user): 
+                template, context = self.handle_invoice_review_get()
+                return render(request, template, context)      
+            else:
+                return HttpResponseForbidden("You are not authenticated to access this page!")
+        elif step == "invoice_confirm":
+            if not self.validate_user_invoice_confirm(request.user): 
+                template, context = self.handle_invoice_confirm_get()
+                return render(request, template, context)      
+            else:
+                return HttpResponseForbidden("You are not authenticated to access this page!")
+        elif step == "invoice":  
             template, context = self.handle_invoice_get()
             return render(request, template, context)
         elif step == "container_invoice":
             container_number = request.GET.get("container_number")
             template, context = self.handle_container_invoice_get(container_number)
+            return render(request, template, context)
+        elif step == "container_preport":
+            container_number = request.GET.get("container_number")
+            template, context = self.handle_container_invoice_preport_get(container_number)
             return render(request, template, context)
         elif step == "container_invoice_edit":
             container_number = request.GET.get("container_number")
@@ -81,6 +112,7 @@ class Accounting(View):
         elif step == "container_invoice_delete":
             template, context = self.handle_container_invoice_delete_get(request)
             return render(request, template, context)
+
         else:
             raise ValueError(f"unknow request {step}")
         
@@ -89,6 +121,7 @@ class Accounting(View):
             return HttpResponseForbidden("You are not authenticated to access this page!")
 
         step = request.POST.get("step", None)
+        print("POST",step)
         if step == "pallet_data_search":
             start_date = request.POST.get("start_date")
             end_date = request.POST.get("end_date")
@@ -105,7 +138,10 @@ class Accounting(View):
         elif step == "pl_data_export":
             return self.handle_pl_data_export_post(request)
         elif step == "invoice_order_search":
-            template, context = self.handle_invoice_order_search_post(request)
+            template, context = self.handle_invoice_order_search_post(request,"old")
+            return render(request, template, context)
+        elif step == "invoice_order_preport":
+            template, context = self.handle_invoice_order_search_post(request,"preport")
             return render(request, template, context)
         elif step == "invoice_order_select":
             return self.handle_invoice_order_select_post(request)
@@ -203,6 +239,76 @@ class Accounting(View):
         }
         return self.template_invoice_management, context
     
+    def handle_invoice_preport_get(self, 
+        request: HttpRequest,
+        start_date: str = None,
+        end_date: str = None,
+        customer: str = None,       
+    ) -> tuple[Any, Any]:
+        #拆送——港前提拆柜费
+        current_date = datetime.now().date()
+        start_date = (current_date + timedelta(days=-30)).strftime('%Y-%m-%d') if not start_date else start_date
+        end_date = current_date.strftime('%Y-%m-%d') if not end_date else end_date
+        criteria = models.Q(
+            models.Q(created_at__gte=start_date),
+            models.Q(created_at__lte=end_date)
+        )
+        if customer:
+            criteria &= models.Q(customer_name__zem_name=customer)
+        #查找未操作过的
+        order = Order.objects.select_related(
+            "invoice_id", "customer_name", "container_number", "invoice_id__statement_id"
+            ).filter(
+                criteria,
+                invoice_status="unrecorded"
+                )
+        #查找操作过但被驳回的
+        order_reject = Order.objects.filter(
+                criteria,
+                invoice_status="record_preport",
+                invoice_reject="True")
+        context = {
+            "order":order,
+            "order_form":OrderForm(),
+            "order_reject":order_reject,
+            "start_date":start_date,
+            "end_date":end_date,
+            "customer": customer
+        }
+        return self.template_invoice_preport, context
+
+    def handle_container_invoice_preport_get(self, container_number: str) -> tuple[Any, Any]:
+        order = Order.objects.select_related("retrieval_id","container_number").get(container_number__container_number=container_number)
+        if order.order_type == "转运":
+            #查看仓库和柜型，计算提拆费
+            warehouse = order.retrieval_id.retrieval_destination_area
+            container_type = order.container_number.container_type
+            pickup_key = (warehouse,container_type)
+            if pickup_key in PICKUP_FEE:               
+                pickup_fee = PICKUP_FEE[pickup_key]
+
+            invoice = Invoice.objects.select_related("customer", "container_number").get(
+                container_number__container_number=container_number
+            )
+
+            invoice_preports = InvoicePreport.objects.filter(invoice_number__invoice_number=invoice.invoice_number)
+
+            if not invoice_preports.exists():
+                invoice_content = InvoicePreport(**{
+                    "invoice_number": invoice,
+                    "pickup": pickup_fee,
+                    "container_type":container_type
+                })
+                invoice_content.save()
+            invoice_preports = InvoicePreport.objects.get(invoice_number__invoice_number=invoice.invoice_number)
+            context = {
+                "warehouse": warehouse,
+                "invoice_preports":invoice_preports
+            }
+            
+            return self.template_invoice_preport_edit, context
+
+
     def handle_container_invoice_get(self, container_number: str) -> tuple[Any, Any]:
         order = Order.objects.select_related("offload_id").get(container_number__container_number=container_number)
         if order.order_type == "转运":
@@ -316,7 +422,7 @@ class Accounting(View):
         df.to_excel(excel_writer=response, index=False, columns=df.columns)
         return response
     
-    def handle_invoice_order_search_post(self, request: HttpRequest) -> tuple[Any, Any]:
+    def handle_invoice_order_search_post(self, request: HttpRequest,status) -> tuple[Any, Any]:
         start_date = request.POST.get("start_date")
         end_date = request.POST.get("end_date")
         order_form = OrderForm(request.POST)
@@ -324,7 +430,10 @@ class Accounting(View):
             customer = order_form.cleaned_data.get("customer_name")
         else:
             customer = None
-        return self.handle_invoice_get(start_date, end_date, customer)
+        if status == "preport":
+            return self.handle_invoice_preport_get(request, start_date, end_date, customer)
+        else:
+            return self.handle_invoice_get(start_date, end_date, customer)
 
     def handle_invoice_order_select_post(self, request: HttpRequest) -> HttpResponse:
         selected_orders = json.loads(request.POST.get('selectedOrders', '[]'))
@@ -373,7 +482,7 @@ class Accounting(View):
         invoice = Invoice(**{
             "invoice_number": invoice_data["invoice_number"],
             "invoice_date": invoice_data["invoice_date"],
-            "invoice_link": invoice_data["invoice_link"],
+            #"invoice_link": invoice_data["invoice_link"],
             "customer": context["order"].customer_name,
             "container_number": context["order"].container_number,
             "total_amount": invoice_data["total_amount"],
@@ -591,14 +700,14 @@ class Accounting(View):
         excel_file = io.BytesIO()  #创建一个BytesIO对象
         workbook.save(excel_file)  #将workbook保存到BytesIO中
         excel_file.seek(0)         #将文件指针移动到文件开头
-        invoice_link = self._upload_excel_to_sharepoint(excel_file, "invoice", f"INVOICE-{context['container_number']}.xlsx")
+        #invoice_link = self._upload_excel_to_sharepoint(excel_file, "invoice", f"INVOICE-{context['container_number']}.xlsx")
 
         worksheet['A9'].font = Font(color="00FFFFFF")
         worksheet['A9'].fill = PatternFill(start_color="00000000", end_color="00000000", fill_type="solid")
         invoice_data = {
             "invoice_number": invoice_number,
             "invoice_date": current_date.strftime('%Y-%m-%d'),
-            "invoice_link": invoice_link,
+            #"invoice_link": invoice_link,
             "total_amount": total_amount,
         }
         return workbook, invoice_data
@@ -632,11 +741,28 @@ class Accounting(View):
         file_path = os.path.join(SP_DOC_LIB, f"{SYSTEM_FOLDER}/{schema}/{APP_ENV}/{file_name}")
         conn.web.get_file_by_server_relative_url(file_path).delete_object().execute_query()
 
+    #按照权限分组，有三个分组：客服组（添加账单详情）、组长组（确认客服组操作）、财务组（确认账单）
     def _validate_user_group(self, user: User) -> bool:
         if user.groups.filter(name=self.allowed_group).exists():
             return True
         else:
             return False
+    def validate_user_invoice_preport(self, user: User) -> bool:
+        if user.is_staff or user.groups.filter(name="invoice_preport").exists():
+            return True
+        else:
+            return False
+        
+    def validate_user_invoice_review(self, user: User) -> bool:
+        if user.groups.filter(name="invoice_review").exists() or user.is_staff:
+            return True
+        else:
+            return False
+    def validate_user_invoice_confirm(self, user: User) -> bool:
+        if user.groups.filter(name="invoice_confirm").exists() or user.is_staff:
+            return True
+        else:
+            return False 
         
     def _check_invoice_exist(self, container_number: str) -> bool:
-        return Invoice.objects.filter(container_number__container_number=container_number).exists()
+        return Invoice.objects.filter(container_number__container_number=container_number).exists()()
