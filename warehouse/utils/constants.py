@@ -27,7 +27,8 @@ SHIPPING_LINE_OPTIONS = [
     ('Wan Hai Lines', 'Wan Hai Lines'),
     ('Yangming', 'Yangming'),
     ('Zim Line', 'Zim Line'),
-    ('HEDE', 'HEDE')
+    ('HEDE', 'HEDE'),
+    ('SML', 'SML')
  ]
 
 CONTAINER_PICKUP_CARRIER = [
