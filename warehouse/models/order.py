@@ -34,7 +34,7 @@ class Order(models.Model):
     invoice_status = models.CharField(max_length=255, null=True)
     #标记当前状态是否被上一步驳回
     invoice_reject = models.BooleanField(default=False)
-    invoice_reject_reason = models.CharField(max_length=255, null=True)
+    invoice_reject_reason = models.CharField(max_length=255, null=True, blank=True)
 
     class Meta:
         indexes = [

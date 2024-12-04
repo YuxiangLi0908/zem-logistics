@@ -31,3 +31,27 @@ class InvoicePreport(models.Model):
 
     def __str__(self) -> str:
         return str(self.invoice_number) 
+
+class InvoiceWarehouse(models.Model):
+    invoice_number = models.ForeignKey(Invoice, on_delete=models.CASCADE)
+    sorting = models.FloatField(null=True, blank=True)
+    intercept = models.FloatField(null=True, blank=True)
+    po_activation = models.FloatField(null=True, blank=True)
+    self_pickup = models.FloatField(null=True, blank=True)
+    re_pallet = models.FloatField(null=True, blank=True)
+    handling = models.FloatField(null=True, blank=True)
+    counting = models.FloatField(null=True, blank=True)
+    warehouse_rent = models.FloatField(null=True, blank=True)
+    specified_labeling = models.FloatField(null=True, blank=True)
+    inner_outer_box = models.FloatField(null=True, blank=True)
+    inner_outer_box_label = models.FloatField(null=True, blank=True)
+    pallet_label = models.FloatField(null=True, blank=True)
+    open_close_box = models.FloatField(null=True, blank=True)
+    destroy = models.FloatField(null=True, blank=True)
+    take_photo = models.FloatField(null=True, blank=True)
+    take_video = models.FloatField(null=True, blank=True)
+    repeated_operation_fee = models.FloatField(null=True, blank=True)
+    amount = models.FloatField(null=True, blank=True)
+
+    def __str__(self) -> str:
+        return str(self.invoice_number) 

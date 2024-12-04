@@ -9,90 +9,99 @@
         {% csrf_token %}
             <div>
                 <label for="chassis_days">提拆/打托缠膜:</label>
-                <input type="number" id="pickup" name="pickup" value="{{ invoice_preports.pickup }}"> ({{warehouse}})
+                <input type="number" id="pickup" name="pickup" value="{{ invoice_preports.pickup }}" disabled> ({{warehouse}})
             </div>
             <div>
-                <label for="chassis_days">托架费 (45$/天):</label>
-                <input type="number" id="chassis" name="chassis" min="0">
+                <label for="chassis_days">托架费</label>(45$/天):
+                <input type="number" id="chassis" name="chassis" min="0" value="{{ invoice_preports.chassis }}">
             </div>
             <div>
-                <label for="chassis_split_count">托架提取费(150$/柜):</label>
-                <input type="number" id="chassis_split" name="chassis_split" min="0">
+                <label for="chassis_split_count">托架提取费</label>(150$/柜):
+                <input type="number" id="chassis_split" name="chassis_split" min="0" value="{{ invoice_preports.chassis_split }}">
             </div>
             <div>
-                <label for="prepull">预提费 (150$/柜):</label>
-                <input type="number" id="prepull" name="prepull" min="0">
+                <label for="prepull">预提费</label>(150$/柜):
+                <input type="number" id="prepull" name="prepull" min="0" value="{{ invoice_preports.prepull }}">
             </div>
             <div>
-                <label for="chassis_split_count">货柜放置费(150$/柜):</label>
-                <input type="number" id="yard_storage" name="yard_storage" min="0">
+                <label for="chassis_split_count">货柜放置费</label>(150$/柜):
+                <input type="number" id="yard_storage" name="yard_storage" min="0" value="{{ invoice_preports.yard_storage }}">
             </div>
             <div>
-                <label for="chassis_split_count">操作处理费(50/柜):</label>
-                <input type="number" id="handling_fee" name="handling_fee" min="0">
+                <label for="chassis_split_count">操作处理费</label>(50/柜):
+                <input type="number" id="handling_fee" name="handling_fee" min="0" value="{{ invoice_preports.handling_fee }}">
             </div>
             <div>
                 {% if contaienr_type == "20GP" %}
-                    <label for="chassis_split_count">码头(20$/柜):</label>
+                    <label for="chassis_split_count">码头</label>(20$/柜):
                 {% else %}
-                    <label for="chassis_split_count">码头(40$/柜):</label>
+                    <label for="chassis_split_count">码头</label>(40$/柜):
                 {% endif %}
-                <input type="number" id="pier_pass" name="pier_pass" min="0">
+                <input type="number" id="pier_pass" name="pier_pass" min="0" value="{{ invoice_preports.pier_pass }}">
             </div>
             <div>
-                <label for="chassis_split_count">港口拥堵费(75$/小时):</label>
-                <input type="number" id="congestion_fee" name="congestion_fee" min="0">
+                <label for="chassis_split_count">港口拥堵费</label>(75$/小时):
+                <input type="number" id="congestion_fee" name="congestion_fee" min="0" value="{{ invoice_preports.congestion_fee }}">
             </div>
             
             <div>
-                <label for="hanging_crane">吊柜费:</label>
-                <input type="number" id="hanging_crane" name="hanging_crane" value="300" >
+                <label for="hanging_crane">吊柜费</label>:
+                <input type="number" id="hanging_crane" name="hanging_crane" value="300" disabled>
                 
             </div>
             <div>
-                <label for="chassis_split_count">空跑费(150$/柜):</label>
-                <input type="number" id="dry_run" name="dry_run" min="0">
+                <label for="chassis_split_count">空跑费</label>(150$/柜):
+                <input type="number" id="dry_run" name="dry_run" min="0" value="{{ invoice_preports.dry_run }}">
             </div>
             <div>
-                <label for="chassis_split_count">查验费(250$/柜):</label>
-                <input type="number" id="exam_fee" name="exam_fee" min="0">
+                <label for="chassis_split_count">查验费</label>(250$/柜):
+                <input type="number" id="exam_fee" name="exam_fee" min="0" value="{{ invoice_preports.exam_fee }}">
             </div>
             <div>
-                <label for="chassis_split_count">危险品(300$/柜):</label>
-                <input type="number" id="hazmat" name="hazmat" min="0">
+                <label for="chassis_split_count">危险品</label>(300$/柜):
+                <input type="number" id="hazmat" name="hazmat" min="0" value="{{ invoice_preports.hazmat }}">
             </div>
             <div>
-                <label for="chassis_split_count">超重费(300$/柜):</label>
-                <input type="number" id="over_weight" name="over_weight" min="0">
+                <label for="chassis_split_count">超重费</label>(300$/柜):
+                <input type="number" id="over_weight" name="over_weight" min="0" value="{{ invoice_preports.over_weight }}">
             </div>
             <div>
-                <label for="chassis_split_count">加急费(200$/柜):</label>
-                <input type="number" id="urgent_fee" name="urgent_fee" min="0">
+                <label for="chassis_split_count">加急费</label>(200$/柜):
+                <input type="number" id="urgent_fee" name="urgent_fee" min="0" value="{{ invoice_preports.urgent_fee }}">
             </div>
             <div>
-                <label for="chassis_split_count">其他服务:</label>
-                <input type="number" id="other_serive" name="other_serive" min="0">
+                <label for="chassis_split_count">其他服务</label>:
+                <input type="number" id="other_serive" name="other_serive" min="0" value="{{ invoice_preports.other_serive }}">
             </div>
             <div>
-                <label for="chassis_split_count">港内滞期费:</label>
-                <input type="number" id="demurrage" name="demurrage" min="0">
+                <label for="chassis_split_count">港内滞期费</label>:
+                <input type="number" id="demurrage" name="demurrage" min="0" value="{{ invoice_preports.demurrage }}">
             </div>
             <div>
-                <label for="chassis_split_count">港外滞期费:</label>
-                <input type="number" id="per_diem" name="per_diem" min="0">
+                <label for="chassis_split_count">港外滞期费</label>:
+                <input type="number" id="per_diem" name="per_diem" min="0" value="{{ invoice_preports.per_diem }}">
             </div>
             <div>
-                <label for="chassis_split_count">二次提货:</label>
-                <input type="number" id="second_pickup" name="second_pickup" min="0">
+                <label for="chassis_split_count">二次提货</label>:
+                <input type="number" id="second_pickup" name="second_pickup" min="0" value="{{ invoice_preports.second_pickup }}">
             </div>
             <div>
                 <label for="total_amount">Total Amount:</label>
                 <span id="total_amount">0</span> $
             </div>
         <input type="hidden" name="step" value="preport_save">
+        <input type="hidden" name="warehouse" value="{{warehouse}}">
+        <input type="hidden" name="container_number" value="{{ container_number }}">
         <input type="hidden" name="invoice_number" value="{{ invoice_preports.invoice_number }}">
-        <button type="button" onclick="validateForm()">校验</button>
-        <button type="submit" class="btn btn-primary" style="width: 150px; height: 35px;">确认</button>
+        {% if "invoice_preport" in groups or "staff" in groups %}
+            <button type="submit" class="btn btn-primary" style="width: 150px; height: 35px;" onclick="validateForm()">确认</button>
+        {% endif %}
+        {% if "invoice_preport_leader" in groups or "staff" in groups %}
+            <input type="hidden" name="pending" id="pending">
+            <button type="submit" class="btn btn-primary" style="width: 150px; height: 35px;" onclick="pendingTrue()">审核通过</button>
+            <button type="submit" class="btn btn-primary" style="width: 150px; height: 35px;" onclick="pendingFalse()">审核不通过</button>
+            <input type="text" placeholder="审核失败原因" name="invoice_reject_reason">
+        {% endif %}
     </form>
 </div>
 
@@ -123,45 +132,52 @@
         // 如果需要在其他地方调用计算总和的函数，可以使用calculateTotal变量   
     };   
     function validateForm() {
-        console.log("校验规范性");
         const form = document.querySelector('form');
         const inputs = form.querySelectorAll('input[type="number"]');
         const labels = form.querySelectorAll('label');
         // 定义金额要求的映射关系
         const amountRequirements = {
-            "托架费 (45$/天)": 45,
-            "托架提取费(150$/柜)": 150,
-            "预提费 (150$/柜)": 150,
-            "货柜放置费(150$/柜)": 150,
-            "操作处理费(50/柜)": 50,
-            "码头(20$/柜)": 20,
-            "码头(40$/柜)": 40,
-            "港口拥堵费(75$/小时)": 75,
-            "吊柜费:": 300, 
-            "空跑费(150$/柜)": 150,
-            "查验费(250$/柜)": 250,
-            "危险品(300$/柜)": 300,
-            "超重费(300$/柜)": 300,
-            "加急费(200$/柜)": 200,
-            "港内滞期费:": 1,
-            "港外滞期费:": 1,
-            "二次提货:": 1
+            "托架费": 45,
+            "托架提取费": 150,
+            "预提费": 150,
+            "货柜放置费": 150,
+            "操作处理费": 50,
+            "码头": 20,
+            "码头": 40,
+            "港口拥堵费": 75,
+            "吊柜费": 300, 
+            "空跑费": 150,
+            "查验费": 250,
+            "危险品": 300,
+            "超重费": 300,
+            "加急费": 200,
+            "港内滞期费": 1,
+            "港外滞期费": 1,
+            "二次提货": 1
         };
         for (let i = 0; i < inputs.length; i++) {
             const input = inputs[i];
+            
             const labelText = labels[i].textContent.trim();
             const requiredAmount = amountRequirements[labelText];
-            console.log(requiredAmount);
-            console.log(input.value);
             if (requiredAmount && input.value!== "") {
                 const value = parseFloat(input.value);
                 if (isNaN(value) || value % requiredAmount!== 0) {
-                    alert('输入值不符合要求，请按照' + labelText + '的金额要求填写');
+                    alert('输入值不符合要求，请按照"' + labelText + '"的金额要求填写');
                     hasError = true;
                 }
             }
-        }
-        
-    }   
+        }       
+    };
+    function pendingTrue(){
+        validateForm();
+        const pendingInput = document.getElementById('pending');
+        pendingInput.value = "True";
+    };
+    function pendingFalse(){
+        validateForm();
+        const pendingInput = document.getElementById('pending');
+        pendingInput.value = "False";
+    };
 </script>
 {% endblock %}
