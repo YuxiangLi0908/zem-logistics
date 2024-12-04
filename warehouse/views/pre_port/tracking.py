@@ -126,7 +126,7 @@ class PrePortTracking(View):
                     try:
                         o.vessel_id.vessel_eta = (
                             self._format_string_datetime(df.loc[df["Container"]==o.container_number.container_number, "POD ETA"].values[0])
-                            if df.loc[df["Container"]==o.container_number.container_number, "POD ETA"].any()
+                            if df.loc[df["Container"]==o.container_number.container_number, "POD Arrival"].any()
                             else self._format_string_datetime(df.loc[df["Container"]==o.container_number.container_number, "POD ATA"].values[0])
                         )
                         #修改eta的时候，对应修改po_check的eta
