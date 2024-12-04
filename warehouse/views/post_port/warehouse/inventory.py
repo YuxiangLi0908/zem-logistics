@@ -41,6 +41,7 @@ from warehouse.utils.constants import DELIVERY_METHOD_OPTIONS, WAREHOUSE_OPTIONS
 
 class Inventory(View):
     template_inventory_management_main = "post_port/inventory/01_inventory_management_main.html"
+    template_inventory_po_update = "post_port/inventory/02_inventory_po_update.html"
     template_counting_main = "post_port/inventory/01_inventory_count_main.html"
     template_inventory_list_and_upload = "post_port/inventory/01_1_inventory_list_and_upload.html"
     template_inventory_list_and_counting = "post_port/inventory/01_2_inventory_list_and_counting.html"
@@ -79,6 +80,9 @@ class Inventory(View):
             return await self.handle_download_counting_template_post()
         elif step == "repalletize":
             template, context = await self.handle_repalletize_post(request)
+            return render(request, template, context)
+        elif step == "update_po_page":
+            template, context = await self.handle_update_po_page_post(request)
             return render(request, template, context)
         elif step == "update_po":
             template, context = await self.handle_update_po_post(request)
@@ -199,25 +203,63 @@ class Inventory(View):
         await sync_to_async(Pallet.objects.filter(id__in=plt_ids).delete)()
         return await self.handle_warehouse_post(request)
     
+    async def handle_update_po_page_post(self, request: HttpRequest) -> tuple[str, dict[str, Any]]:
+        warehouse = request.POST.get("warehouse")
+        plt_ids = request.POST.get("plt_ids")
+        plt_ids = [int(i) for i in plt_ids.split(",")]
+        # pallet = await sync_to_async(list)(Pallet.objects.select_related("container_number").filter(id__in=plt_ids))
+        pallet = await self._get_inventory_pallet(warehouse, models.Q(id__in=plt_ids))
+        container_number = pallet[0].get("container")
+        shipping_mark = pallet[0].get("shipping_mark").split(",")
+        fba_id = pallet[0].get("fba_id").split(",")
+        ref_id = pallet[0].get("ref_id").split(",")
+        # criteria = models.Q(
+        #     container_number__container_number=container_number,
+        #     destination=pallet[0].get("destination"),
+        #     # delivery_method=pallet[0].get("delivery_method"),
+        # )
+        criteria = models.Q()
+        if shipping_mark:
+            criteria &= models.Q(shipping_mark__in=shipping_mark)
+        if fba_id:
+            criteria &= models.Q(fba_id__in=fba_id)
+        if ref_id:
+            criteria &= models.Q(ref_id__in=ref_id)
+        packing_list = await sync_to_async(list)(PackingList.objects.filter(criteria))
+        pl_ids = ",".join([str(pl.id) for pl in packing_list])
+        context = {
+            "packing_list": packing_list,
+            "pallet": pallet[0],
+            "warehouse": warehouse,
+            "delivery_method_options": DELIVERY_METHOD_OPTIONS,
+            "plt_ids": ",".join([str(i) for i in plt_ids]),
+            # "pl_ids": pl_ids,
+        }
+        return self.template_inventory_po_update, context
+    
     async def handle_update_po_post(self, request: HttpRequest) -> tuple[str, dict[str, Any]]:
         plt_ids = request.POST.get("plt_ids")
         plt_ids = [int(i) for i in plt_ids.split(",")]
-        destination_new = request.POST.get("destination_new").strip()
-        address_new = request.POST.get("address_new").strip()
-        zipcode_new = request.POST.get("zipcode_new").strip()
-        delivery_method_new = request.POST.get("delivery_method_new")
-        shipping_mark_new = request.POST.get("shipping_mark_new").strip()
-        fba_id_new = request.POST.get("fba_id_new").strip()
-        ref_id_new = request.POST.get("ref_id_new").strip()
-        note_new = request.POST.get("note_new").strip()
+        pl_ids = request.POST.getlist("pl_ids")
+        pl_ids = [int(i) for i in pl_ids]
+        destination_new = request.POST.get("destination").strip()
+        address_new = request.POST.get("address").strip()
+        zipcode_new = request.POST.get("zipcode").strip()
+        delivery_method_new = request.POST.get("delivery_method")
+        note_new = request.POST.get("note").strip()
+        shipping_mark = request.POST.getlist("shipping_mark")
+        fba_id = request.POST.getlist("fba_id")
+        ref_id = request.POST.getlist("ref_id")
+        shipping_mark_new = request.POST.getlist("shipping_mark_new")
+        fba_id_new = request.POST.getlist("fba_id_new")
+        ref_id_new = request.POST.getlist("ref_id_new")
         pallet = await sync_to_async(list)(Pallet.objects.filter(id__in=plt_ids))
+        packing_list = await sync_to_async(list)(PackingList.objects.filter(id__in=pl_ids))
         data_old = [
-            pallet[0].destination, pallet[0].address, pallet[0].zipcode, pallet[0].delivery_method, 
-            pallet[0].shipping_mark, pallet[0].fba_id, pallet[0].ref_id, pallet[0].note, 
+            pallet[0].destination, pallet[0].address, pallet[0].zipcode, pallet[0].delivery_method, pallet[0].note, 
         ]
         data_new = [
-            destination_new, address_new, zipcode_new, delivery_method_new, 
-            shipping_mark_new, fba_id_new, ref_id_new, note_new, 
+            destination_new, address_new, zipcode_new, delivery_method_new, note_new, 
         ]
         if any(old != new for old, new in zip(data_old, data_new)):
             for p in pallet:
@@ -225,29 +267,56 @@ class Inventory(View):
                 p.address = address_new
                 p.zipcode = zipcode_new
                 p.delivery_method = delivery_method_new
-                p.shipping_mark = shipping_mark_new
-                p.fba_id = fba_id_new
-                p.ref_id = ref_id_new
                 p.note = note_new
+            for pl in packing_list:
+                pl.destination = destination_new
+                pl.address = address_new
+                pl.zipcode = zipcode_new
+                pl.delivery_method = delivery_method_new
             await sync_to_async(Pallet.objects.bulk_update)(
-                pallet,
-                [
-                    "destination", "address", "zipcode", "delivery_method", 
-                    "shipping_mark", "fba_id", "ref_id", "note"
-                ]
+                pallet, ["destination", "address", "zipcode", "delivery_method", "note"]
+            )
+            await sync_to_async(PackingList.objects.bulk_update)(
+                packing_list, ["destination", "address", "zipcode", "delivery_method"]
+            )
+        for pl_id, sm, fba, ref, sm_new, fba_new, ref_new in zip(
+            pl_ids, shipping_mark, fba_id, ref_id, shipping_mark_new, fba_id_new, ref_id_new
+        ):
+            if sm != sm_new or fba != fba_new or ref != ref_new:
+                packing_list = await sync_to_async(PackingList.objects.get)(id=pl_id)
+                packing_list.shipping_mark = sm_new
+                packing_list.fba_id = fba_new
+                packing_list.ref_id = ref_new
+                for p in pallet:
+                    p.shipping_mark = p.shipping_mark.replace(sm, sm_new)
+                    p.fba_id = p.fba_id.replace(fba, fba_new)
+                    p.ref_id = p.ref_id.replace(ref, ref_new)
+                await sync_to_async(packing_list.save)()
+            await sync_to_async(Pallet.objects.bulk_update)(
+                pallet, ["shipping_mark", "fba_id", "ref_id"]
             )
         return await self.handle_warehouse_post(request)
         
-    async def _get_inventory_pallet(self, warehouse: str) -> list[Pallet]:
-        return await sync_to_async(list)(
-            Pallet.objects.prefetch_related(
-                "container_number", "shipment_batch_number", "container_number__order__customer_name"
-            ).filter(
+    async def _get_inventory_pallet(self, warehouse: str, criteria: models.Q | None = None) -> list[Pallet]:
+        if criteria:
+            criteria &= models.Q(location=warehouse) 
+            criteria &= models.Q(
+                models.Q(shipment_batch_number__isnull=True) |
+                models.Q(shipment_batch_number__is_shipped=False)
+            )
+        else:
+            criteria = models.Q(
                 models.Q(location=warehouse) &
                 models.Q(
                     models.Q(shipment_batch_number__isnull=True) |
                     models.Q(shipment_batch_number__is_shipped=False)
                 )
+            )
+        return await sync_to_async(list)(
+            Pallet.objects.prefetch_related(
+                "container_number", "shipment_batch_number", "container_number__order__customer_name"
+            ).filter(
+                criteria
             ).annotate(
                 str_id=Cast('id', CharField())
             ).values(

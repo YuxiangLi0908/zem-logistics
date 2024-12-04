@@ -94,7 +94,7 @@
         <table class="table" id="inventory-summary-table" style="font-size: 11px; max-height: 95%; overflow-y: scroll;">
             <thead>
                 <tr style="position: sticky; top: 0px;">
-                    <th class="th" style="min-width: 200px;"></th>
+                    <th class="th" style="min-width: 150px;"></th>
                     <th class="th">客户</th>
                     <th class="th">柜号</th>
                     <th class="th">目的地</th>
@@ -133,8 +133,17 @@
                 <tr>
                     <td class="td" style="min-width: 40px; text-align: center;">
                         {% if not p.shipment %}
-                        <button id="" type="button" class="btn btn-primary" onclick="showRepalletizePopup('{{ p.plt_ids }}', 'repalletize-popup-window')" style="font-size: 11px;">分拣</button>
-                        <button id="" type="button" class="btn btn-primary" onclick="showPoUpdatePopup('{{ p.plt_ids }}', 'po-update-popup-window')" style="font-size: 11px; background-color:rgb(35, 189, 11); border-color:rgb(35, 189, 11);">更新PO</button>
+                        <div style="display: flex;">
+                            <button id="" type="button" class="btn btn-primary" onclick="showRepalletizePopup('{{ p.plt_ids }}', 'repalletize-popup-window')" style="font-size: 11px;">分拣</button>
+                            <!-- <button id="" type="button" class="btn btn-primary" onclick="showPoUpdatePopup('{{ p.plt_ids }}', 'po-update-popup-window')" style="font-size: 11px; background-color:rgb(35, 189, 11); border-color:rgb(35, 189, 11);">更新PO</button> -->
+                            <form method="post" action="">
+                                {% csrf_token %}
+                                <input type="hidden" name="plt_ids" value="{{ p.plt_ids }}">
+                                <input type="hidden" name="step" value="update_po_page">
+                                <input type="hidden" name="warehouse" value="{{ warehouse }}">
+                                <button type="submit" class="btn btn-primary" style="font-size: 11px; background-color:rgb(35, 189, 11); border-color:rgb(35, 189, 11);">更新PO</button>
+                            </form>
+                        </div>
                         {% endif %}
                     </td>
                     <td class="td">{{ p.customer_name }}</td>
