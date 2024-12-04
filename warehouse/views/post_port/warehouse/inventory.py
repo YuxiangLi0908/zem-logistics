@@ -80,8 +80,11 @@ class Inventory(View):
         elif step == "repalletize":
             template, context = await self.handle_repalletize_post(request)
             return render(request, template, context)
+        elif step == "update_po":
+            template, context = await self.handle_update_po_post(request)
+            return render(request, template, context)
         else:
-            pass
+            raise ValueError(f"Unknown step {request.POST.get('step')}")
 
     async def handle_counting_get(self) -> tuple[str, dict[str, Any]]:
         context = {"warehouse_options": self.warehouse_options}
@@ -194,6 +197,45 @@ class Inventory(View):
         )
         # delete old pallets
         await sync_to_async(Pallet.objects.filter(id__in=plt_ids).delete)()
+        return await self.handle_warehouse_post(request)
+    
+    async def handle_update_po_post(self, request: HttpRequest) -> tuple[str, dict[str, Any]]:
+        plt_ids = request.POST.get("plt_ids")
+        plt_ids = [int(i) for i in plt_ids.split(",")]
+        destination_new = request.POST.get("destination_new").strip()
+        address_new = request.POST.get("address_new").strip()
+        zipcode_new = request.POST.get("zipcode_new").strip()
+        delivery_method_new = request.POST.get("delivery_method_new")
+        shipping_mark_new = request.POST.get("shipping_mark_new").strip()
+        fba_id_new = request.POST.get("fba_id_new").strip()
+        ref_id_new = request.POST.get("ref_id_new").strip()
+        note_new = request.POST.get("note_new").strip()
+        pallet = await sync_to_async(list)(Pallet.objects.filter(id__in=plt_ids))
+        data_old = [
+            pallet[0].destination, pallet[0].address, pallet[0].zipcode, pallet[0].delivery_method, 
+            pallet[0].shipping_mark, pallet[0].fba_id, pallet[0].ref_id, pallet[0].note, 
+        ]
+        data_new = [
+            destination_new, address_new, zipcode_new, delivery_method_new, 
+            shipping_mark_new, fba_id_new, ref_id_new, note_new, 
+        ]
+        if any(old != new for old, new in zip(data_old, data_new)):
+            for p in pallet:
+                p.destination = destination_new
+                p.address = address_new
+                p.zipcode = zipcode_new
+                p.delivery_method = delivery_method_new
+                p.shipping_mark = shipping_mark_new
+                p.fba_id = fba_id_new
+                p.ref_id = ref_id_new
+                p.note = note_new
+            await sync_to_async(Pallet.objects.bulk_update)(
+                pallet,
+                [
+                    "destination", "address", "zipcode", "delivery_method", 
+                    "shipping_mark", "fba_id", "ref_id", "note"
+                ]
+            )
         return await self.handle_warehouse_post(request)
         
     async def _get_inventory_pallet(self, warehouse: str) -> list[Pallet]:
