@@ -17,7 +17,6 @@
     </form>
 </div>
 <hr class="Dashed" style="margin-top: 10px; margin-bottom: 10px;">
-{% if "invoice_preport" in groups or "staff" in groups %}
 <div style="display: flex; max-height: 720px;">
     <div style="overflow-y: auto; max-height: 100%; width: 30%; border: 2px solid rgb(180, 180, 180); border-radius: 12px; padding: 1%; margin: 1%;">
         {% if order %}
@@ -43,7 +42,7 @@
                             <tr>
                                 <td class="td">{{ c.customer_name.zem_name }}</td>
                                 <td class="td">
-                                    <a href="/accounting/?step=container_preport&container_number={{ c.container_number }}&order_type={{ c.order_type }}" target="_blank">{{ c.container_number }}</a>
+                                    <a href="/accounting/?step=container_warehouse&container_number={{ c.container_number }}&order_type={{ c.order_type }}" target="_blank">{{ c.container_number }}</a>
                                 </td>
                                 <td class="td">{{ c.created_at|date:"Y-m-d" }}</td>
                             </tr>
@@ -55,7 +54,6 @@
         {% endif %}
     </div>
 </div>
-{% endif %}
 <script>
     
     function filterTable(filterInput, col_idx, trim) {
