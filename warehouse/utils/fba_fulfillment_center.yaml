@@ -1923,3 +1923,48 @@ HGR6:
   location: 55 W Oak Ridge Dr
   state: MD
   zipcode: '21740'
+Walmart-PHL1S:
+  city: Bethlehem
+  location: 3215 Commerce Center Blvd
+  state: PA
+  zipcode: '18015'
+沃尔玛PHL1S:
+  city: Bethlehem
+  location: 3215 Commerce Center Blvd
+  state: PA
+  zipcode: '18015'
+PHL1S沃尔玛:
+  city: Bethlehem
+  location: 3215 Commerce Center Blvd
+  state: PA
+  zipcode: '18015'
+WMPHL1S:
+  city: Bethlehem
+  location: 3215 Commerce Center Blvd
+  state: PA
+  zipcode: '18015'
+WMMPHL1S:
+  city: Bethlehem
+  location: 3215 Commerce Center Blvd
+  state: PA
+  zipcode: '18015'
+沃尔玛-PHL1S:
+  city: Bethlehem
+  location: 3215 Commerce Center Blvd
+  state: PA
+  zipcode: '18015'
+PHL1S-沃尔玛:
+  city: Bethlehem
+  location: 3215 Commerce Center Blvd
+  state: PA
+  zipcode: '18015'
+WM-PHL1S:
+  city: Bethlehem
+  location: 3215 Commerce Center Blvd
+  state: PA
+  zipcode: '18015'
+WMM-PHL1S:
+  city: Bethlehem
+  location: 3215 Commerce Center Blvd
+  state: PA
+  zipcode: '18015'
