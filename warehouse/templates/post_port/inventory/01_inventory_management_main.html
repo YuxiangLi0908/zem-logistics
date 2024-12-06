@@ -99,9 +99,9 @@
                     <th class="th">柜号</th>
                     <th class="th">目的地</th>
                     <th class="th">派送方式</th>
-                    <th class="th">唛头</th>
-                    <th class="th">FBA</th>
-                    <th class="th">REF</th>
+                    <th class="th" style="max-width: 200px; word-break: break-all;">唛头</th>
+                    <th class="th" style="max-width: 200px; word-break: break-all;">FBA</th>
+                    <th class="th" style="max-width: 200px; word-break: break-all;">REF</th>
                     <th class="th">weight(lbs)</th>
                     <th class="th">pcs</th>
                     <th class="th">cbm</th>
@@ -150,9 +150,9 @@
                     <td class="td">{{ p.container }}</td>
                     <td class="td">{{ p.destination }}</td>
                     <td class="td">{{ p.delivery_method }}</td>
-                    <td class="td">{{ p.shipping_mark }}</td>
-                    <td class="td">{{ p.fba_id|default_if_none:"" }}</td>
-                    <td class="td">{{ p.ref_id|default_if_none:"" }}</td>
+                    <td class="td" style="max-width: 200px; word-break: break-all;">{{ p.shipping_mark }}</td>
+                    <td class="td" style="max-width: 200px; word-break: break-all;">{{ p.fba_id|default_if_none:"" }}</td>
+                    <td class="td" style="max-width: 200px; word-break: break-all;">{{ p.ref_id|default_if_none:"" }}</td>
                     <td class="td">{{ p.weight|floatformat:2 }}</td>
                     <td class="td">{{ p.pcs|floatformat:0 }}</td>
                     <td class="td">{{ p.cbm|floatformat:2 }}</td>
@@ -262,79 +262,6 @@
                 </div>
             </form>
         </div>
-        <div class="po-update-popup-window" style="display: none; z-index:999; position: fixed; top: 50%; left: 50%; transform: translate(-50%, -50%); background-color: white; border: 1px solid gray; padding: 10px; max-height: 50%; overflow-y: scroll; max-width: 90%; overflow-x: scroll;">
-            <form method="post" action="" style="width: 100%; overflow-x: scroll; max-width: 100%; max-height: 100%;" onsubmit="showLoadingBar()">
-                {% csrf_token %}
-                <div>
-                    <div id="form-input">
-                        <input type="hidden" name="plt_ids" value="">
-                        <input type="hidden" name="shipping_mark" value="">
-                        <input type="hidden" name="fba_id" value="">
-                        <input type="hidden" name="ref_id" value="">
-                    </div>
-                    <input type="hidden" name="step" value="update_po">
-                    <input type="hidden" name="warehouse" value="{{ warehouse }}">
-                    <button type="submit" class="btn btn-success" style="font-size: 11px;" onclick="checkPoUpdateForm()">更新PO</button>
-                    <button type="button" class="btn btn-danger" style="font-size: 11px;" onclick="closePopupWindow('po-update-popup-window')">关闭</button>
-                    <div id="new-pallets">
-                        <table class="table" id="new-pallets-1" style="font-size: 11px; width: 100%;">
-                            <thead>
-                                <tr>
-                                    <th class="th">客户</th>
-                                    <th class="th">柜号</th>
-                                    <th class="th">目的地</th>
-                                    <th class="th">地址</th>
-                                    <th class="th">邮编</th>
-                                    <th class="th">派送方式</th>
-                                    <th class="th">weight(lbs)</th>
-                                    <th class="th">pcs</th>
-                                    <th class="th">cbm</th>
-                                    <th class="th">卡板数</th>
-                                </tr>
-                            </thead>
-                            <tbody>
-                                <tr>
-                                    <td class="td" name="customer_name"></td>
-                                    <td class="td" name="container"></td>
-                                    <td class="td"><input name="destination" value="" required></td>
-                                    <td class="td"><input name="address" value=""></td>
-                                    <td class="td"><input name="zipcode" value=""></td>
-                                    <td class="td">
-                                        <select name="delivery_method">
-                                            {% for k, v in delivery_method_options %}
-                                            <option value="{{ v }}">{{ k }}</option>
-                                            {% endfor %}
-                                        </select>
-                                    </td>
-                                    <td class="td" name="weight"></td>
-                                    <td class="td" name="pcs"></td>
-                                    <td class="td" name="cbm"></td>
-                                    <td class="td" name="n_pallet"></td>
-                                </tr>
-                            </tbody>
-                        </table>
-                        <table class="table" id="new-pallets-2" style="font-size: 11px; width: 100%;">
-                            <thead>
-                                <tr>
-                                    <th class="th">唛头(用逗号,分隔)</th>
-                                    <th class="th">FBA(用逗号,分隔)</th>
-                                    <th class="th">REF(用逗号,分隔)</th>
-                                    <th class="th">备注</th>
-                                </tr>
-                            </thead>
-                            <tbody>
-                                <tr>
-                                    <td class="td"><textarea name="shipping_mark" cols="45" rows="20" value=""></textarea></td>
-                                    <td class="td"><textarea name="fba_id" cols="45" rows="20" value=""></textarea></td>
-                                    <td class="td"><textarea name="ref_id" cols="45" rows="20" value=""></textarea></td>
-                                    <td class="td"><textarea name="note" rows="20" value=""></textarea></td>
-                                </tr>
-                            </tbody>
-                        </table>
-                    </div>
-                </div>
-            </form>
-        </div>
     </div>
 </div>
 
@@ -383,41 +310,6 @@
             popupWindow.style.display = 'none';
             tds.forEach(td => {
                 td.textContent = '';
-            });
-            inputs.forEach(input => {
-                input.value = '';
-            });
-        };
-    };
-
-    function showPoUpdatePopup(pltIds, popupClass) {
-        var popupWindow = document.querySelector("." + popupClass);
-        var tds = popupWindow.querySelectorAll("td");
-        var inputs = popupWindow.querySelectorAll("input:not([name='csrfmiddlewaretoken']):not([name='step']):not([name='warehouse']), textarea");
-        var selects = popupWindow.querySelectorAll("select");
-        if (popupWindow.style.display === 'none') {
-            popupWindow.style.display = 'block';
-            tds.forEach(td => {
-                if (td.getAttribute('name')) {
-                    td.textContent = palletData[pltIds][td.getAttribute('name')];
-                };
-            });
-            inputs.forEach(input => {
-                input.value = palletData[pltIds][input.getAttribute('name')];
-            });
-            selects.forEach(select => {
-                for (let option of select.options) {
-                    if (option.value == palletData[pltIds]['delivery_method']) {
-                        option.selected = true;
-                    };
-                };
-            });
-        } else {
-            popupWindow.style.display = 'none';
-            tds.forEach(td => {
-                if (td.getAttribute('name')) {
-                    td.textContent = '';
-                };
             });
             inputs.forEach(input => {
                 input.value = '';
@@ -484,32 +376,6 @@
                 });
             };
         };
-    };
-
-    function checkPoUpdateForm() {
-        var popupWindow = document.querySelector(".po-update-popup-window");
-        var newPallets = popupWindow.querySelector("#new-pallets");
-        var inputs = newPallets.querySelectorAll("input");
-        var selects = newPallets.querySelectorAll("select");
-        var textareas = newPallets.querySelectorAll("textarea");
-        const deliverySelect = popupWindow.querySelector("select[name='delivery_method']");
-        if (!deliverySelect.value) {
-            alert('请选择派送方式！');
-            deliverySelect.style.border = '2px solid red';
-            event.preventDefault();
-            return ;
-        } else {
-            deliverySelect.style.border = '';
-        };
-        inputs.forEach(input => {
-            input.name += '_new';
-        });
-        selects.forEach(select => {
-            select.name += '_new';
-        });
-        textareas.forEach(textarea => {
-            textarea.name += '_new';
-        });
     };
 
     function checkRequiredFields() {
