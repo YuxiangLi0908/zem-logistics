@@ -103,10 +103,16 @@ class Inventory(View):
     async def handle_warehouse_post(self, request: HttpRequest) -> tuple[str, dict[str, Any]]:
         warehouse = request.POST.get("warehouse")
         pallet = await self._get_inventory_pallet(warehouse)
-        pallet_json = {
-            p.get("plt_ids"): {k: round(v, 2) if isinstance(v, float) else (v if v else '') for k, v in p.items()}
-            for p in pallet
-        }
+        pallet_json = {}
+        for p in pallet:
+            if p.get("plt_ids"):
+                pallet_json[p.get("plt_ids")] = {
+                    k: round(v, 2) if isinstance(v, float) else (v if v else '') for k, v in p.items()
+                }
+        # pallet_json = {
+        #     p.get("plt_ids"): {k: round(v, 2) if isinstance(v, float) else (v if v else '') for k, v in p.items()}
+        #     for p in pallet
+        # }
         total_cbm = sum([p.get("cbm") for p in pallet])
         total_pallet = sum([p.get("n_pallet") for p in pallet])
         context = {
