@@ -18,7 +18,7 @@ from warehouse.models.pallet import Pallet
 
 class PostportDash(View):
     template_main_dash = "post_port//01_summary_table.html"
-    area_options = {"NJ": "NJ", "SAV": "SAV", "LA":"LA","LB":"LB"}
+    area_options = {"NJ": "NJ", "SAV": "SAV", "LA":"LA"}
 
     async def get(self, request: HttpRequest) -> HttpResponse:
         if not await self._user_authenticate(request):
@@ -132,12 +132,12 @@ class PostportDash(View):
                 data.append({
                     "所属仓库": pl.get("warehouse"),
                     "客户": pl.get("container_number__order__customer_name__zem_name"),
-                    "货柜号": pl.get("destination"),
-                    "仓点": pl.get("container_number__order__customer_name__zem_name"),
+                    "货柜号": pl.get("container_number__container_number"),
+                    "仓点": pl.get("destination"),
                     "派送方式": pl.get("custom_delivery_method").split("-")[0],
                     "CBM": pl.get("total_cbm"),
                     "卡板数": n_pallet,
-                    "箱数": pl.get("pcs"),
+                    "箱数": pl.get("total_pcs"),
                     "总重lbs": pl.get("total_weight_lbs"),
                     "ETA": pl.get("container_number__order__vessel_id__vessel_eta"),
                     "提柜时间": retrieval_datetime,
