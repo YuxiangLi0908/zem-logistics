@@ -99,9 +99,9 @@
                     <th class="th">柜号</th>
                     <th class="th">目的地</th>
                     <th class="th">派送方式</th>
-                    <th class="th" style="max-width: 400px; word-break: break-all;">唛头</th>
-                    <th class="th" style="max-width: 400px; word-break: break-all;">FBA</th>
-                    <th class="th" style="max-width: 400px; word-break: break-all;">REF</th>
+                    <th class="th" style="min-width: 300px; max-width: 400px; word-break: break-all;">唛头</th>
+                    <th class="th" style="min-width: 300px; max-width: 400px; word-break: break-all;">FBA</th>
+                    <th class="th" style="min-width: 300px; max-width: 400px; word-break: break-all;">REF</th>
                     <th class="th">weight(lbs)</th>
                     <th class="th">pcs</th>
                     <th class="th">cbm</th>
@@ -150,9 +150,9 @@
                     <td class="td">{{ p.container }}</td>
                     <td class="td">{{ p.destination }}</td>
                     <td class="td">{{ p.delivery_method }}</td>
-                    <td class="td" style="max-width: 400px; word-break: break-all;">{{ p.shipping_mark }}</td>
-                    <td class="td" style="max-width: 400px; word-break: break-all;">{{ p.fba_id|default_if_none:"" }}</td>
-                    <td class="td" style="max-width: 400px; word-break: break-all;">{{ p.ref_id|default_if_none:"" }}</td>
+                    <td class="td" style="min-width: 300px; max-width: 400px; word-break: break-all;">{{ p.shipping_mark }}</td>
+                    <td class="td" style="min-width: 300px; max-width: 400px; word-break: break-all;">{{ p.fba_id|default_if_none:"" }}</td>
+                    <td class="td" style="min-width: 300px; max-width: 400px; word-break: break-all;">{{ p.ref_id|default_if_none:"" }}</td>
                     <td class="td">{{ p.weight|floatformat:2 }}</td>
                     <td class="td">{{ p.pcs|floatformat:0 }}</td>
                     <td class="td">{{ p.cbm|floatformat:2 }}</td>
