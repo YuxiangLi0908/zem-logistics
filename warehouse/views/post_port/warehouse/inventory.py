@@ -105,7 +105,7 @@ class Inventory(View):
         for p in pallet:
             if p.get("plt_ids"):
                 pallet_json[p.get("plt_ids")] = {
-                    k: round(v, 2) if isinstance(v, float) else (v if v else '') for k, v in p.items()
+                    k: round(v, 2) if isinstance(v, float) else (str(v) if v != 'None' and v else '') for k, v in p.items()
                 }
         # pallet_json = {
         #     p.get("plt_ids"): {k: round(v, 2) if isinstance(v, float) else (v if v else '') for k, v in p.items()}
@@ -120,7 +120,7 @@ class Inventory(View):
             "pallet": pallet,
             "total_cbm": total_cbm,
             "total_pallet": total_pallet,
-            "pallet_json": json.dumps(pallet_json)
+            "pallet_json": json.dumps(pallet_json, ensure_ascii=False)
         }
         return self.template_inventory_management_main, context
     
