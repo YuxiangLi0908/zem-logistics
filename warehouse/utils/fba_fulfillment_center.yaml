@@ -1968,3 +1968,93 @@ WMM-PHL1S:
   location: 3215 Commerce Center Blvd
   state: PA
   zipcode: '18015'
+Walmart-PHL5S:
+  city: GREENCASTLE
+  location: 1915 EBBERTS SPG CT
+  state: PA
+  zipcode: '17225'
+沃尔玛PHL5S:
+  city: GREENCASTLE
+  location: 1915 EBBERTS SPG CT
+  state: PA
+  zipcode: '17225'
+PHL5S沃尔玛:
+  city: GREENCASTLE
+  location: 1915 EBBERTS SPG CT
+  state: PA
+  zipcode: '17225'
+WMPHL5S:
+  city: GREENCASTLE
+  location: 1915 EBBERTS SPG CT
+  state: PA
+  zipcode: '17225'
+WMMPHL5S:
+  city: GREENCASTLE
+  location: 1915 EBBERTS SPG CT
+  state: PA
+  zipcode: '17225'
+沃尔玛-PHL5S:
+  city: GREENCASTLE
+  location: 1915 EBBERTS SPG CT
+  state: PA
+  zipcode: '17225'
+PHL5S-沃尔玛:
+  city: GREENCASTLE
+  location: 1915 EBBERTS SPG CT
+  state: PA
+  zipcode: '17225'
+WM-PHL5S:
+  city: GREENCASTLE
+  location: 1915 EBBERTS SPG CT
+  state: PA
+  zipcode: '17225'
+WMM-PHL5S:
+  city: GREENCASTLE
+  location: 1915 EBBERTS SPG CT
+  state: PA
+  zipcode: '17225'
+Walmart-PHL:
+  city: Shippensburg
+  location: 1410 United Dr
+  state: PA
+  zipcode: '17257'
+沃尔玛PHL:
+  city: Shippensburg
+  location: 1410 United Dr
+  state: PA
+  zipcode: '17257'
+PHL沃尔玛:
+  city: Shippensburg
+  location: 1410 United Dr
+  state: PA
+  zipcode: '17257'
+WMPHL:
+  city: Shippensburg
+  location: 1410 United Dr
+  state: PA
+  zipcode: '17257'
+WMMPHL:
+  city: Shippensburg
+  location: 1410 United Dr
+  state: PA
+  zipcode: '17257'
+沃尔玛-PHL:
+  city: Shippensburg
+  location: 1410 United Dr
+  state: PA
+  zipcode: '17257'
+PHL-沃尔玛:
+  city: Shippensburg
+  location: 1410 United Dr
+  state: PA
+  zipcode: '17257'
+WM-PHL:
+  city: Shippensburg
+  location: 1410 United Dr
+  state: PA
+  zipcode: '17257'
+WMM-PHL:
+  city: Shippensburg
+  location: 1410 United Dr
+  state: PA
+  zipcode: '17257'
