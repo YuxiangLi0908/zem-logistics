@@ -88,6 +88,7 @@
             <div>
                 <label for="total_amount">Total Amount:</label>
                 <span id="total_amount">0</span> $
+                <input type="hidden" name="amount" id="amount"> 
             </div>
         <input type="hidden" name="step" value="preport_save">
         <input type="hidden" name="warehouse" value="{{warehouse}}">
@@ -126,10 +127,8 @@
         return calculateTotal;   
     }
        
-    // 在页面加载时调用这个函数   
     window.onload = function () {
         const calculateTotal = setupTotalCalculator();
-        // 如果需要在其他地方调用计算总和的函数，可以使用calculateTotal变量   
     };   
     function validateForm() {
         const form = document.querySelector('form');
@@ -164,10 +163,14 @@
                 const value = parseFloat(input.value);
                 if (isNaN(value) || value % requiredAmount!== 0) {
                     alert('输入值不符合要求，请按照"' + labelText + '"的金额要求填写');
-                    hasError = true;
+                    event.preventDefault();
                 }
-            }
-        }       
+            }      
+        }    
+        const totalAmountSpan = document.getElementById('total_amount');
+        const AmountInput = document.getElementById('amount');  
+        AmountInput.value = totalAmountSpan.textContent;
+         
     };
     function pendingTrue(){
         validateForm();

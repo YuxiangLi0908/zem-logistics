@@ -28,7 +28,7 @@ from django.db.models import Sum, FloatField, Count
 
 from warehouse.models.order import Order
 from warehouse.models.invoice import Invoice, InvoiceItem, InvoiceStatement
-from warehouse.models.invoice_details import InvoicePreport
+from warehouse.models.invoice_details import InvoicePreport,InvoiceWarehouse
 from warehouse.models.packing_list import PackingList
 from warehouse.models.customer import Customer
 from warehouse.models.pallet import Pallet
@@ -112,6 +112,10 @@ class Accounting(View):
             container_number = request.GET.get("container_number")
             template, context = self.handle_container_invoice_preport_get(container_number,request)
             return render(request, template, context)
+        elif step == "container_warehouse":
+            container_number = request.GET.get("container_number")
+            template, context = self.handle_container_invoice_warehouse_get(container_number,request)
+            return render(request, template, context)
         elif step == "container_invoice_edit":
             container_number = request.GET.get("container_number")
             template, context = self.handle_container_invoice_edit_get(container_number)
@@ -163,6 +167,9 @@ class Accounting(View):
             return self.handle_container_invoice_edit_post(request)
         elif step =="preport_save":
             template, context = self.handle_invoice_preport_save_post(request)
+            return render(request, template, context)
+        elif step == "warehouse_save":
+            template, context = self.handle_invoice_warehouse_save_post(request)
             return render(request, template, context)
         else:
             raise ValueError(f"unknow request {step}")
@@ -327,16 +334,54 @@ class Accounting(View):
                 criteria,
                 invoice_status="record_warehouse"
                 )
+        invoice_warehouses = InvoiceWarehouse.objects.select_related(
+            'invoice_number__order',"invoice_number__order__customer_name"
+        ).filter(
+            models.Q(invoice_number__order__customer_name__zem_name=customer) &
+            models.Q(invoice_number__order__created_at__gte=start_date)   &
+            models.Q(invoice_number__order__created_at__lte=end_date)
+        )
+        print("所有",invoice_warehouses)
         context = {
             "order":order,
+            "invoice_warehouses":invoice_warehouses,
             "order_form":OrderForm(),
             "start_date":start_date,
             "end_date":end_date,
-            "customer": customer
+            "customer": customer,
         }
-        print(order)
         return self.template_invoice_warehouse, context
         
+
+    def handle_invoice_warehouse_save_post(self,request:HttpRequest) -> tuple[Any, Any]:
+        data = request.POST.copy()
+        container_number = data.get("container_number")
+        invoice = Invoice.objects.select_related("container_number").get(
+                container_number__container_number=container_number
+            )
+
+        invoice_warehouse = InvoiceWarehouse.objects.filter(invoice_number__invoice_number = invoice.invoice_number)
+        if not invoice_warehouse.exists():
+            invoice_content = InvoiceWarehouse(**{
+                "invoice_number": invoice,
+            })
+            invoice_content.save()
+        invoice_warehouse = InvoiceWarehouse.objects.get(invoice_number__invoice_number = invoice.invoice_number)
+        for k,v in data.items():         
+            if k not in ['csrfmiddlewaretoken','step','warehouse','container_number','invoice_number'] and v:
+                setattr(invoice_warehouse, k, v)
+        invoice_warehouse.save()
+        invoice_warehouse = InvoiceWarehouse.objects.get(invoice_number__invoice_number=invoice.invoice_number)
+        order = Order.objects.select_related("retrieval_id","container_number").get(container_number__container_number=container_number)
+        order.invoice_status = "record_delivery"
+        order.save()
+        context = {         
+            "warehouse": data.get("warehouse"),
+            "invoice_warehouse":invoice_warehouse,
+            "container_number":container_number,
+            "invoice":invoice
+        }     
+        return self.template_invoice_warehouse_edit, context
 
 
     def handle_invoice_preport_save_post(self,request:HttpRequest) -> tuple[Any, Any]:
@@ -375,7 +420,21 @@ class Accounting(View):
             "groups":groups
         }     
         return self.template_invoice_preport_edit, context
+
+    def handle_container_invoice_warehouse_get(self, container_number: str,request: HttpRequest) -> tuple[Any, Any]:
+        order = Order.objects.select_related("retrieval_id","container_number").get(container_number__container_number=container_number)
+        warehouse = order.retrieval_id.retrieval_destination_area
+        invoice = Invoice.objects.select_related("customer", "container_number").get(
+            container_number__container_number=container_number
+        )
+
+        context = {
+            "warehouse":warehouse,
+            "invoice":invoice,
+            "container_number":container_number,
+        }
         
+        return self.template_invoice_warehouse_edit, context
 
     def handle_container_invoice_preport_get(self, container_number: str,request: HttpRequest) -> tuple[Any, Any]:
         order = Order.objects.select_related("retrieval_id","container_number").get(container_number__container_number=container_number)
@@ -386,17 +445,34 @@ class Accounting(View):
             pickup_key = (warehouse,container_type)
             if pickup_key in PICKUP_FEE:               
                 pickup_fee = PICKUP_FEE[pickup_key]
-            invoice = Invoice.objects.select_related("customer", "container_number").get(
-                container_number__container_number=container_number
-            )
+            try:
+                invoice = Invoice.objects.select_related("customer", "container_number").get(
+                    container_number__container_number=container_number
+                )
+            except Invoice.DoesNotExist:
+                    order = Order.objects.select_related("customer_name", "container_number").get(
+                        container_number__container_number=container_number
+                    )
+                    current_date = datetime.now().date()
+                    order_id = str(order.id)
+                    customer_id = order.customer_name.id
+                    invoice = Invoice(**{
+                        "invoice_number":f"{current_date.strftime('%Y-%m-%d').replace('-', '')}C{customer_id}{order_id}",
+                        "invoice_date": current_date.strftime('%Y-%m-%d'),
+                        #"invoice_link": invoice_data["invoice_link"],
+                        "customer": order.customer_name,
+                        "container_number": order.container_number,
+                        "total_amount": 0,
+                    })
+                    invoice.save()
+                    order.invoice_id = invoice
+                    order.save()
 
             invoice_preports = InvoicePreport.objects.filter(invoice_number__invoice_number=invoice.invoice_number)
-
             if not invoice_preports.exists():
                 invoice_content = InvoicePreport(**{
                     "invoice_number": invoice,
                     "pickup": pickup_fee,
-                    "container_type":container_type
                 })
                 invoice_content.save()
             invoice_preports = InvoicePreport.objects.get(invoice_number__invoice_number=invoice.invoice_number)

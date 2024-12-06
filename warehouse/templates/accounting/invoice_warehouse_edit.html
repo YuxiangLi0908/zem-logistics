@@ -2,90 +2,83 @@
 
 {% block content %}
 <div  style="display: inline-block; width: 100%; margin: 0; padding: 0; max-width: 100%;">
-    <p style="text-align:center;"><b>{{ invoice_preports.invoice_number }}</b></p>
+    <p style="text-align:center;"><b>{{ invoice }}</b></p>
 </div>
 <div style="overflow-y: auto; max-height: 100%; width: 70%; border: 2px solid rgb(180, 180, 180); border-radius: 12px; padding: 1%; margin: 1%;">
     <form method="post" action="">
         {% csrf_token %}
             <div>
                 <label for="chassis_days">分拣费</label>($1.5/箱):
-                <input type="number" id="sorting" name="sorting" disabled> ({{warehouse}})
+                <input type="number" id="sorting" name="sorting" value="{{ invoice_warehouse.sorting}}">
             </div>
             <div>
                 <label for="chassis_days">拦截费</label>($50/票):
-                <input type="number" id="intercept" name="intercept" min="0">
+                <input type="number" id="intercept" name="intercept" min="0" value="{{ invoice_warehouse.intercept}}">
             </div>
             <div>
-                <label for="chassis_split_count">亚马逊PO激活</label>(成功$35/PO，未激活成功$15/PO):
-                <input type="number" id="po_activation" name="po_activation" min="0">
+                <label for="chassis_split_count">亚马逊PO激活</label>(成功$35/PO，未成功$15/PO):
+                <input type="number" id="po_activation" name="po_activation" min="0" value="{{ invoice_warehouse.po_activation}}">
             </div>
             <div>
                 <label for="prepull">客户自提</label>($10/托):
-                <input type="number" id="self_pickup" name="self_pickup" min="0">
+                <input type="number" id="self_pickup" name="self_pickup" min="0" value="{{ invoice_warehouse.self_pickup}}">
             </div>
             <div>
                 <label for="chassis_split_count">重新打板</label>($15/板):
-                <input type="number" id="re_pallet" name="re_pallet" min="0">
+                <input type="number" id="re_pallet" name="re_pallet" min="0" value="{{ invoice_warehouse.re_pallet}}">
             </div>
             <div>
                 <label for="chassis_split_count">货品清点费</label>($0.5/箱):
-                <input type="number" id="counting" name="counting" min="0">
+                <input type="number" id="counting" name="counting" min="0" value="{{ invoice_warehouse.counting}}">
             </div>
             <div>
                 <label for="chassis_split_count">仓租</label>($1/天/卡板):
-                <input type="number" id="warehouse_rent" name="warehouse_rent" min="0">
+                <input type="number" id="warehouse_rent" name="warehouse_rent" min="0" value="{{ invoice_warehouse.warehouse_rent}}">
             </div>
             <div>
                 <label for="chassis_split_count">指定贴标</label>($1.5/件):
-                <input type="number" id="specified_labeling" name="specified_labeling" min="0">
+                <input type="number" id="specified_labeling" name="specified_labeling" min="0" value="{{ invoice_warehouse.specified_labeling}}">
             </div>
             
             <div>
                 <label for="hanging_crane">内外箱</label>($0.5/标):
-                <input type="number" id="inner_outer_box" name="inner_outer_box">
+                <input type="number" id="inner_outer_box" name="inner_outer_box" value="{{ invoice_warehouse.inner_outer_box}}">
                 
             </div>
             <div>
                 <label for="chassis_split_count">托盘标签</label>($0.5/张,1托盘4张):
-                <input type="number" id="pallet_label" name="pallet_label" min="0">
+                <input type="number" id="pallet_label" name="pallet_label" min="0" value="{{ invoice_warehouse.pallet_label}}">
             </div>
             <div>
                 <label for="chassis_split_count">开封箱</label>($1/箱):
-                <input type="number" id="open_close_box" name="open_close_box" min="0">
+                <input type="number" id="open_close_box" name="open_close_box" min="0" value="{{ invoice_warehouse.open_close_box}}">
             </div>
             <div>
                 <label for="chassis_split_count">销毁</label>(毛重*2.2，$0.5/LB):
-                <input type="number" id="destroy" name="destroy" min="0">
+                <input type="number" id="destroy" name="destroy" min="0" value="{{ invoice_warehouse.destroy}}">
             </div>
             <div>
                 <label for="chassis_split_count">拍照</label>($1/张，最低$5):
-                <input type="number" id="take_photo" name="take_photo" min="0">
+                <input type="number" id="take_photo" name="take_photo" min="0" value="{{ invoice_warehouse.take_photo}}">
             </div>
             <div>
                 <label for="chassis_split_count">拍视频</label>(5min per $15):
-                <input type="number" id="take_video" name="take_video" min="0">
+                <input type="number" id="take_video" name="take_video" min="0" value="{{ invoice_warehouse.take_video}}">
             </div>
             <div>
                 <label for="chassis_split_count">重复操作费</label>($50-$500):
-                <input type="number" id="repeated_operation_fee" name="repeated_operation_fee" min="0">
+                <input type="number" id="repeated_operation_fee" name="repeated_operation_fee" min="0" value="{{ invoice_warehouse.repeated_operation_fee}}">
             </div>
             <div>
                 <label for="total_amount">Total Amount:</label>
                 <span id="total_amount">0</span> $
+                <input type="hidden" name="amount" id="amount" value="{{ invoice_warehouse.amount}}"> 
             </div>
         <input type="hidden" name="step" value="warehouse_save">
         <input type="hidden" name="warehouse" value="{{warehouse}}">
         <input type="hidden" name="container_number" value="{{ container_number }}">
         <input type="hidden" name="invoice_number" value="{{ invoice_preports.invoice_number }}">
-        {% if "invoice_preport" in groups or "staff" in groups %}
-            <button type="submit" class="btn btn-primary" style="width: 150px; height: 35px;" onclick="validateForm()">确认</button>
-        {% endif %}
-        {% if "invoice_preport_leader" in groups or "staff" in groups %}
-            <input type="hidden" name="pending" id="pending">
-            <button type="submit" class="btn btn-primary" style="width: 150px; height: 35px;" onclick="pendingTrue()">审核通过</button>
-            <button type="submit" class="btn btn-primary" style="width: 150px; height: 35px;" onclick="pendingFalse()">审核不通过</button>
-            <input type="text" placeholder="审核失败原因" name="invoice_reject_reason">
-        {% endif %}
+        <button type="submit" class="btn btn-primary" style="width: 150px; height: 35px;" onclick="validateForm()">确认</button>
     </form>
 </div>
 
@@ -112,7 +105,6 @@
        
     window.onload = function () {
         const calculateTotal = setupTotalCalculator();
-        // 如果需要在其他地方调用计算总和的函数，可以使用calculateTotal变量   
     };   
     function validateForm() {
         const form = document.querySelector('form');
@@ -133,7 +125,7 @@
             "销毁": 1,
             "拍照": 1,
             "拍视频": 15,
-            "重复操作费": (min:50,max:500),
+            "重复操作费": (50-500),
         };
         for (let i = 0; i < inputs.length; i++) {
             const input = inputs[i];
@@ -143,19 +135,23 @@
             if (requiredAmount && input.value!== "") {
                 if (labelText === "重复操作费") {
                     const value = parseFloat(input.value);
-                    if (isNaN(value) || value < requiredAmount.min || value > requiredAmount.max) {
+                    if (isNaN(value) || value < 50 || value > 500) {
                         alert('输入值不符合要求，请按照"' + labelText + '"的金额要求填写（50 - 500）');
-                        return;
+                        event.preventDefault();
                     }
                 }else{
                     const value = parseFloat(input.value);
                     if (isNaN(value) || value % requiredAmount!== 0) {
                         alert('输入值不符合要求，请按照"' + labelText + '"的金额要求填写');
-                        hasError = true;
+                        event.preventDefault();
                     }
                 }             
             }
-        }       
+        }
+        const totalAmountSpan = document.getElementById('total_amount');
+        const AmountInput = document.getElementById('amount');  
+        AmountInput.value = totalAmountSpan.textContent;  
+        
     };
 </script>
 {% endblock %}
