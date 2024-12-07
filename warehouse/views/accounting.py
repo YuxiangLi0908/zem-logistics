@@ -334,17 +334,9 @@ class Accounting(View):
                 criteria,
                 invoice_status="record_warehouse"
                 )
-        invoice_warehouses = InvoiceWarehouse.objects.select_related(
-            'invoice_number__order',"invoice_number__order__customer_name"
-        ).filter(
-            models.Q(invoice_number__order__customer_name__zem_name=customer) &
-            models.Q(invoice_number__order__created_at__gte=start_date)   &
-            models.Q(invoice_number__order__created_at__lte=end_date)
-        )
-        print("所有",invoice_warehouses)
+        
         context = {
             "order":order,
-            "invoice_warehouses":invoice_warehouses,
             "order_form":OrderForm(),
             "start_date":start_date,
             "end_date":end_date,
