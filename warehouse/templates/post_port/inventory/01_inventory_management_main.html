@@ -38,7 +38,7 @@
                 <button class="nav-link" onclick="showSection(this, 'warehouse-special-process-sec')"><b>库内操作</b></button>
             </li>
             <li class="nav-item">
-                <button class="nav-link" onclick="showSection(this, 'order-packing-list-info-sec')"><b>库存盘点</b></button>
+                <button class="nav-link" onclick="showSection(this, 'inventory-counting-sec')"><b>库存盘点</b></button>
             </li>
             <!-- <li class="nav-item">
                 <button class="nav-link" onclick="showSection(this, 'order-retrieval-info-sec')"><b>库存调度</b></button>
@@ -262,6 +262,54 @@
                 </div>
             </form>
         </div>
+    </div>
+    <div id="inventory-counting-sec" style="display: none;">
+        <form method="post" action="" onsubmit="showLoadingBar()" style="max-height: 98%; overflow-y: scroll;">
+            {% csrf_token %}
+            <input type="hidden" name="step" value="counting">
+            <input type="hidden" name="warehouse" value="{{ warehouse }}">
+            <button type="submit" class="btn btn-success" style="font-size: 11px;">更新库存</button>
+            <table class="table" id="inventory-summary-table" style="font-size: 11px; max-height: 95%; overflow-y: scroll;">
+                <thead>
+                    <tr>
+                        <th class="th">客户</th>
+                        <th class="th">柜号</th>
+                        <th class="th">目的地</th>
+                        <th class="th">派送方式</th>
+                        <th class="th">weight(lbs)</th>
+                        <th class="th">pcs</th>
+                        <th class="th">cbm</th>
+                        <th class="th">库存卡板数</th>
+                        <th class="th">盘点卡板数</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for p in pallet %}
+                    <tr>
+                        <input type="hidden" name="plt_ids" value="{{ p.plt_ids }}">
+                        <td class="td">{{ p.customer_name }}</td>
+                        <td class="td">{{ p.container }}</td>
+                        <td class="td">{{ p.destination }}</td>
+                        <td class="td">
+                            {% if '客户自提' in p.delivery_method %}
+                            {{ p.delivery_method }} - {{ p.shipping_mark }}
+                            {% else %}
+                            {{ p.delivery_method }}
+                            {% endif %}
+                        </td>
+                        <td class="td">{{ p.weight|floatformat:2 }}</td>
+                        <td class="td">{{ p.pcs|floatformat:0 }}</td>
+                        <td class="td">{{ p.cbm|floatformat:2 }}</td>
+                        <td class="td">
+                            <input type="hidden" name="n_pallet" value="{{ p.n_pallet }}">
+                            {{ p.n_pallet|floatformat:0 }}
+                        </td>
+                        <td class="td"><input name="counted_n_pallet" type="number" step="1" min="0" max="{{ p.n_pallet|floatformat:0 }}" value="{{ p.n_pallet|floatformat:0 }}"></td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </form>
     </div>
 </div>
 

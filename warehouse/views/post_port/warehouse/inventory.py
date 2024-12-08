@@ -88,6 +88,9 @@ class Inventory(View):
         elif step == "update_po":
             template, context = await self.handle_update_po_post(request)
             return render(request, template, context)
+        elif step == "counting":
+            template, context = await self.handle_counting_post(request)
+            return render(request, template, context)
         else:
             raise ValueError(f"Unknown step {request.POST.get('step')}")
 
@@ -306,6 +309,43 @@ class Inventory(View):
                 pallet, ["shipping_mark", "fba_id", "ref_id"]
             )
         return await self.handle_warehouse_post(request)
+    
+    async def handle_counting_post(self, request: HttpRequest) -> tuple[str, dict[str, Any]]:
+        warehouse = request.POST.get("warehouse")
+        plt_ids = request.POST.getlist("plt_ids")
+        n_pallet = [int(i) for i in request.POST.getlist("n_pallet")]
+        counted_n_pallet = [int(i) for i in request.POST.getlist("counted_n_pallet")]
+        current_datetime = datetime.now()
+        shipment = Shipment(
+            shipment_batch_number=f"库存盘点-{warehouse}-{current_datetime.date()}",
+            origin=warehouse,
+            is_shipped=True,
+            shipped_at=current_datetime,
+            is_full_out=True,
+            is_arrived=True,
+            arrived_at=current_datetime,
+            shipment_type="库存盘点",
+            in_use=False,
+            is_canceled=True,
+        )
+        await sync_to_async(shipment.save)()
+        updated_pallets = []
+        for ids, n, n_counted in zip(plt_ids, n_pallet, counted_n_pallet):
+            if n > n_counted:
+                pallet_ids = [int(i) for i in ids.split(",")]
+                pallet = await sync_to_async(list)(Pallet.objects.filter(id__in=pallet_ids))
+                diff = n - n_counted
+                for p in pallet[:diff]:
+                    p.shipment_batch_number = shipment
+                    updated_pallets.append(p)
+        if updated_pallets:
+            await sync_to_async(Pallet.objects.bulk_update)(
+                updated_pallets, ["shipment_batch_number"]
+            )
+        else:
+            await sync_to_async(shipment.delete)()
+        return await self.handle_warehouse_post(request)
+
         
     async def _get_inventory_pallet(self, warehouse: str, criteria: models.Q | None = None) -> list[Pallet]:
         if criteria:
