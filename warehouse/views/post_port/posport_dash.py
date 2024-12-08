@@ -191,7 +191,6 @@ class PostportDash(View):
                 'po_expired',
                 "fba_id",
                 "ref_id",
-                "pcs",
                 "shipping_mark",
                 "shipment_batch_number__shipment_batch_number",
                 "shipment_batch_number__appointment_id",
