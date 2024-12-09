@@ -168,4 +168,22 @@
     <b>Successfully update {{ count }} shipment!</b>
     {% endif %}
 </div>
+
+<div>
+    <form method="post" enctype="multipart/form-data" style="font-size: 11px;">
+        {% csrf_token %}
+        Update Inventory
+        {{ pre_port_t49_tracking.file }}
+        <input type="hidden" name="step" value="update_inventory">
+        仓库: <input name="warehouse" value="">
+        Pallet_end_date: <input type="date" name="pallet_end_date">
+        <button type="submit" class="btn btn-danger" style="height: 35px; font-size: 12px; margin: 5px;">
+            <i class="bi bi-cloud-arrow-up-fill"></i> 上传
+        </button>
+    </form>
+    
+    {% if inventory_updated %}
+    <b>Successfully update {{ count }} pallet!</b>
+    {% endif %}
+</div>
 {% endblock %}
