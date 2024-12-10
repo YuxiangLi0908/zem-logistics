@@ -462,10 +462,10 @@ class StuffPower(View):
             container_number = df["container"].tolist()
             pallet = Pallet.objects.select_related("shipment_batch_number").filter(
                 models.Q(
-                    models.Q(shipment_batch_number__isnull=True) |
-                    models.Q(shipment_batch_number__is_shipped=False)
+                    models.Q(location=warehouse)|
+                    models.Q(container_number__order__warehouse__name=warehouse)
                 ),
-                location=warehouse,
+                shipment_batch_number__isnull=True,
                 container_number__order__offload_id__offload_at__lte=pallet_end_date,
             ).exclude(container_number__container_number__in=container_number)
             cnt = len(pallet)
