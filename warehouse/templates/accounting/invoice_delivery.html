@@ -1,0 +1,81 @@
+{% extends 'base.html' %}
+
+{% block content %}
+<div><b>订单查询</b></div>
+<div style="width: 100%; display: flex; justify-content: space-between;">
+    <form method="post" action="" style="width: 80%;">
+        {% csrf_token %}
+        <div>
+            <b style="margin-right: 5px;">客户:</b>
+            {{ order_form.customer_name }}
+            <b style="margin-right: 5px; margin-left: 10px;">建单时间:</b>
+            <input type="date" name="start_date" value="{{ start_date }}">
+            <input type="date" name="end_date" value="{{ end_date }}" style="margin-right: 5px;">
+            <input type="hidden" name="step" value="invoice_order_delivery">
+            <button id="submit-btn" type="submit" class="btn btn-primary" style="width: 100px; height: 35px; margin-left: 20px;">查询</button>
+        </div>
+    </form>
+</div>
+<hr class="Dashed" style="margin-top: 10px; margin-bottom: 10px;">
+<div style="display: flex; max-height: 720px;">
+    <div style="overflow-y: auto; max-height: 100%; width: 30%; border: 2px solid rgb(180, 180, 180); border-radius: 12px; padding: 1%; margin: 1%;">
+        {% if order %}
+        <div><b>待开账单</b></div>
+        <form method="post" action="">
+            {% csrf_token %}
+            <div style="overflow-x: auto; max-width: 100%; overflow-y: auto; max-height: 600px;">
+                <table class="table" id="order-table" style="font-size: 13px;">
+                    <thead>
+                        <tr style="position: sticky; top: 0;">
+                            <th class="th">客户</th>
+                            <th class="th">货柜号</th>
+                            <th class="th">建单日期</th>
+                        </tr>
+                        <tr style="position: sticky; top: 28px;">
+                            <th class="th"></th>
+                            <th class="th"><input type="text" id="containerSearchInput" placeholder="搜索柜号..." oninput="filterTable(this, 1)" size="16" style="font-size: 14px;"></th>
+                            <th class="th"></th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for c in order %}
+                            <tr>
+                                <td class="td">{{ c.customer_name.zem_name }}</td>
+                                <td class="td">
+                                    <a href="/accounting/?step=container_delivery&container_number={{ c.container_number }}&order_type={{ c.order_type }}" target="_blank">{{ c.container_number }}</a>
+                                </td>
+                                <td class="td">{{ c.created_at|date:"Y-m-d" }}</td>
+                            </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+        </form>
+        {% endif %}
+    </div>
+</div>
+
+<script>
+    
+    function filterTable(filterInput, col_idx, trim) {
+        var containerInput, containerFilter, table, tbody, tr, containerTd, i, containerTxtValue;
+        containerFilter = filterInput.value.toUpperCase();
+        var table = filterInput.closest('table');
+        tbody = table.getElementsByTagName("tbody")[0];
+        tr = tbody.getElementsByTagName("tr");
+
+        for (i = 0; i < tr.length; i++) {
+            containerTd = tr[i].getElementsByTagName("td")[col_idx];
+            if (containerTd) {
+                containerTxtValue = containerTd.textContent || containerTd.innerText;
+                containerTxtValue = trim ? containerTxtValue.toUpperCase().trim() : containerTxtValue.toUpperCase()
+                var containerDisplayStyle_1 = containerTxtValue.indexOf(containerFilter) > -1 ? "" : "none";
+                var containerDisplayStyle_2 = containerFilter.indexOf(containerTxtValue) > -1 ? "" : "none";
+                
+                tr[i].style.display = containerDisplayStyle_1 === "" || containerDisplayStyle_2 === "" ? "" : "none";
+            }
+        }
+    };
+
+</script>
+{% endblock %}

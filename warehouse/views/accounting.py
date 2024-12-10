@@ -47,7 +47,10 @@ from warehouse.utils.constants import (
     ACCT_BENEFICIARY_ADDRESS,
     ACCT_BENEFICIARY_NAME,
     ACCT_SWIFT_CODE,
-    PICKUP_FEE
+    PICKUP_FEE,
+    LOCAL_DELIVERY,NJ_AMAZON_DELIVERY,NJ_COMBINA,
+    SAV_AMAZON_DELIVERY,SAV_COMBINA,
+    LA_AMAZON_DELIVERY,LA_COMBINA
 )
 
 
@@ -63,6 +66,8 @@ class Accounting(View):
     template_invoice_preport_edit = "accounting/invoice_preport_edit.html"
     template_invoice_warehouse = "accounting/invoice_warehouse.html"
     template_invoice_warehouse_edit = "accounting/invoice_warehouse_edit.html"
+    template_invoice_delivery = "accounting/invoice_delivery.html"
+    template_invoice_delievery_edit = "accounting/invoice_delivery_edit.html"
     allowed_group = "accounting"
 
     def get(self, request: HttpRequest) -> HttpResponse:
@@ -86,6 +91,12 @@ class Accounting(View):
         elif step == "invoice_warehouse": #库内账单录入
             if self.validate_user_invoice_warehouse(request.user): 
                 template, context = self.handle_invoice_warehouse_get(request)
+                return render(request, template, context) 
+            else:
+                return HttpResponseForbidden("You are not authenticated to access this page!")
+        elif step == "invoice_delivery":
+            if self.validate_user_invoice_delivery(request.user): 
+                template, context = self.handle_invoice_delivery_get(request)
                 return render(request, template, context) 
             else:
                 return HttpResponseForbidden("You are not authenticated to access this page!")
@@ -115,6 +126,10 @@ class Accounting(View):
         elif step == "container_warehouse":
             container_number = request.GET.get("container_number")
             template, context = self.handle_container_invoice_warehouse_get(container_number,request)
+            return render(request, template, context)
+        elif step =="container_delivery":
+            container_number = request.GET.get("container_number")
+            template, context = self.handle_container_invoice_delivery_get(container_number,request)
             return render(request, template, context)
         elif step == "container_invoice_edit":
             container_number = request.GET.get("container_number")
@@ -156,6 +171,9 @@ class Accounting(View):
             return render(request, template, context)
         elif step == "invoice_order_warehouse":
             template, context = self.handle_invoice_order_search_post(request,"warehouse")
+            return render(request, template, context)
+        elif step == "invoice_order_delivery":
+            template, context = self.handle_invoice_order_search_post(request,"delivery")
             return render(request, template, context)
         elif step == "invoice_order_select":
             return self.handle_invoice_order_select_post(request)
@@ -343,8 +361,39 @@ class Accounting(View):
             "customer": customer,
         }
         return self.template_invoice_warehouse, context
-        
 
+    def handle_invoice_delivery_get(self,
+        request: HttpRequest,
+        start_date: str = None,
+        end_date: str = None,
+        customer: str = None
+    )-> tuple[Any, Any]:   
+         #库内操作费
+        current_date = datetime.now().date()
+        start_date = (current_date + timedelta(days=-30)).strftime('%Y-%m-%d') if not start_date else start_date
+        end_date = current_date.strftime('%Y-%m-%d') if not end_date else end_date
+        criteria = models.Q(
+            models.Q(created_at__gte=start_date),
+            models.Q(created_at__lte=end_date)
+        )
+        if customer:
+            criteria &= models.Q(customer_name__zem_name=customer)
+        #查找未操作过的
+        order = Order.objects.select_related(
+            "invoice_id", "customer_name", "container_number", "invoice_id__statement_id"
+            ).filter(
+                criteria,
+                invoice_status="record_delivery"
+                )
+        context = {
+            "order":order,
+            "order_form":OrderForm(),
+            "start_date":start_date,
+            "end_date":end_date,
+            "customer": customer,
+        }
+        return self.template_invoice_delivery, context
+    
     def handle_invoice_warehouse_save_post(self,request:HttpRequest) -> tuple[Any, Any]:
         data = request.POST.copy()
         container_number = data.get("container_number")
@@ -427,6 +476,85 @@ class Accounting(View):
         }
         
         return self.template_invoice_warehouse_edit, context
+
+    def handle_container_invoice_delivery_get(self,container_number: str,request: HttpRequest) -> tuple[Any, Any]:
+        order = Order.objects.select_related("retrieval_id","container_number").get(container_number__container_number=container_number)
+        #把pallet根据本地、亚马逊、沃尔玛和组合柜做区分
+        pallet =Pallet.objects.prefetch_related(
+                "container_number", "container_number__order", "container_number__order__warehouse", "shipment_batch_number"
+                "container_number__order__offload_id", "container_number__order__customer_name", "container_number__order__retrieval_id"
+            ).filter(
+                container_number__container_number=container_number
+            ).values(
+                'container_number__container_number',
+                'destination',
+                'zipcode',
+                'address',
+                'delivery_method'
+            ).annotate(                
+                total_cbm=Sum("cbm", output_field=FloatField()),
+                total_weight_lbs=Sum("weight_lbs", output_field=FloatField()),
+                total_n_pallet=Count("pallet_id", distinct=True)
+            )
+        print("板子",pallet)
+        warehouse = order.retrieval_id.retrieval_destination_area
+        if warehouse == 'NJ':
+            selected_amazon = NJ_AMAZON_DELIVERY   
+            selected_local = LOCAL_DELIVERY
+            selected_combina = NJ_COMBINA
+        elif warehouse == 'SAV':
+            selected_amazon = SAV_AMAZON_DELIVERY  
+            selected_combina = SAV_COMBINA
+            selected_local = None
+        elif warehouse == 'LA':
+            selected_amazon = LA_AMAZON_DELIVERY 
+            selected_combina = LA_COMBINA
+            selected_local = None
+        amazon = []
+        local = []
+        combine = []
+        for plt in pallet:
+            destination = plt["destination"].split('-')[1] if '-' in plt["destination"] else plt["destination"] 
+            found = False
+            for k,v in selected_amazon.items():
+                if destination in v:
+                    plt["cost"] = k
+                    plt["total_cost"] = int(k)*int(plt["total_n_pallet"])
+                    amazon.append(plt)
+                    found = True
+                    break
+            if found:
+                continue
+            for k,v in selected_combina.items():
+                if destination in v:
+                    plt["cost"] = k
+                    combine.append(plt)
+                    found = True
+                    break
+            if found:
+                continue
+            if selected_local:
+                for k,v in selected_local.imtes():
+                    plt["cost"] = k
+                    local.append(plt)
+                    break
+        
+        
+        invoice = Invoice.objects.select_related("customer", "container_number").get(
+            container_number__container_number=container_number
+        )
+
+        context = {
+            "warehouse":warehouse,
+            "invoice":invoice,
+            "container_number":container_number,
+            "amazon":amazon,
+            "local":local,
+            "combine":combine
+        }
+        
+        return self.template_invoice_delievery_edit, context
+
 
     def handle_container_invoice_preport_get(self, container_number: str,request: HttpRequest) -> tuple[Any, Any]:
         order = Order.objects.select_related("retrieval_id","container_number").get(container_number__container_number=container_number)
@@ -606,6 +734,8 @@ class Accounting(View):
             return self.handle_invoice_preport_get(request, start_date, end_date, customer)
         elif status == "warehouse":
             return self.handle_invoice_warehouse_get(request, start_date, end_date, customer)
+        elif status == "delivery":
+            return self.handle_invoice_delivery_get(request, start_date, end_date, customer)
         else:
             return self.handle_invoice_get(start_date, end_date, customer)
 
@@ -930,6 +1060,12 @@ class Accounting(View):
             return False
 
     def validate_user_invoice_warehouse(self, user: User) -> bool:
+        if user.is_staff or user.groups.filter(name="invoice_warehouse").exists():
+            return True
+        else:
+            return False
+    
+    def validate_user_invoice_delivery(self, user:User)-> bool:
         if user.is_staff or user.groups.filter(name="invoice_warehouse").exists():
             return True
         else:
