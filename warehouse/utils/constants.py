@@ -26,7 +26,9 @@ SHIPPING_LINE_OPTIONS = [
     ('OOCL', 'OOCL'),
     ('Wan Hai Lines', 'Wan Hai Lines'),
     ('Yangming', 'Yangming'),
-    ('Zim Line', 'Zim Line')
+    ('Zim Line', 'Zim Line'),
+    ('HEDE', 'HEDE'),
+    ('SML', 'SML')
  ]
 
 CONTAINER_PICKUP_CARRIER = [
@@ -69,8 +71,8 @@ DELIVERY_METHOD_OPTIONS = [
 
 WAREHOUSE_OPTIONS = [
     ("", ""), ("NJ-07001", "NJ-07001"), ("NJ-08817", "NJ-08817"),
-    ("SAV-31326", "SAV-31326"), ("N/A(直送)", "N/A(直送)"), 
-    ("Empty", "Empty"),
+    ("SAV-31326", "SAV-31326"), ("LA-91761", "LA-91761"),("LB-91761", "LB-91761"),
+    ("N/A(直送)", "N/A(直送)"), ("Empty", "Empty"),
 ]
 
 CARRIER_OPTIONS = [
@@ -86,6 +88,21 @@ QUOTE_PLATFORM_OPTIONS = [
     ("Coyote", "Coyote"), ("报价表", "报价表"), ("整柜直送", "整柜直送"),
 ]
 
+PICKUP_FEE = {
+    ('LA', '20GP'): 1350.00,
+    ('LA', '40HQ/GP'): 1450.00,
+    ('LA', '45HQ/GP'): 1550.00,
+    ('NJ', '20GP'): 1350.00,
+    ('NJ', '40HQ/GP'): 1450.00,
+    ('NJ', '45HQ/GP'): 1550.00,
+    ('SAV', '20'): 1400.00,
+    ('SAV', '40HQ/GP'): 1500.00,
+    ('SAV', '45HQ/GP'): 1550.00,
+    ('ST LOUIS', '20GP'): 1400.00,
+    ('ST LOUIS', '40HQ/GP'): 1500.00,
+    ('ST LOUIS', '45HQ/GP'): 1550.00,
+
+}
 PACKING_LIST_TEMP_COL_MAPPING = {
     "唛头": "shipping_mark",
     "品名": "product_name",

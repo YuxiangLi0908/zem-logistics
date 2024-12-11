@@ -120,13 +120,11 @@
         newRow.style.display = '';
         newRow.id = 'palletization-row';
         table.appendChild(newRow);
-        console.log(table);
     };
 
     function rmLastRow() {
         var table = document.getElementById('palletization-container');
         var rows = document.querySelectorAll('tr.abnormal-palletization-row');
-        console.log(rows);
         if (rows.length > 1) {
             table.removeChild(rows[rows.length - 1]);
         };
@@ -148,8 +146,8 @@
         deliveryMethodSelects.forEach(function(select) {
             if (!select.disabled) {
                 if (select.value.trim() === '') {
-                isValid = false;
-                select.style.border = '2px solid red';
+                    isValid = false;
+                    select.style.border = '2px solid red';
                 } else {
                     select.style.border = '';
                 };

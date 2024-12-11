@@ -55,7 +55,7 @@ class ShippingManagement(View):
     template_shipment_list = "post_port/shipment/07_shipment_list.html"
     template_shipment_list_shipment_display = "post_port/shipment/07_1_shipment_list_shipment_display.html"
     template_shipment_exceptions = "post_port/shipment/exceptions/01_shipment_exceptions.html"
-    area_options = {"NJ": "NJ", "SAV": "SAV", "NJ/SAV":"NJ/SAV"}
+    area_options = {"NJ": "NJ", "SAV": "SAV", "LA":"LA", "NJ/SAV/LA":"NJ/SAV/LA"}
     warehouse_options = {"": "", "NJ-07001": "NJ-07001", "NJ-08817": "NJ-08817", "SAV-31326": "SAV-31326"}
     shipment_type_options = {"":"", "FTL":"FTL", "LTL/外配/快递":"LTL/外配/快递","客户自提":"客户自提"}
 
@@ -131,10 +131,15 @@ class ShippingManagement(View):
         
     async def handle_appointment_time(self, request: HttpRequest) -> tuple[str, dict[str, Any]]:
         appointmentId = request.POST.get("appointmentId")
-        appointmentTime = request.POST.get("appointmentTime")
         shipment = await sync_to_async(Shipment.objects.get)(appointment_id=appointmentId)
-        shipment.shipment_appointment =  appointmentTime
-        await sync_to_async(shipment.save)()
+        operation = request.POST.get("operation")
+        if operation == "edit":
+            appointmentTime = request.POST.get("appointmentTime")
+            naive_datetime = parse(appointmentTime).replace(tzinfo=None)       
+            shipment.shipment_appointment = naive_datetime
+            await sync_to_async(shipment.save)()
+        elif operation == "delete":
+            await sync_to_async(shipment.delete)()
         return await self.handle_appointment_warehouse_search_post(request)
 
     async def handle_shipment_info_get(self, request: HttpRequest) -> tuple[str, dict[str, Any]]:
@@ -264,8 +269,10 @@ class ShippingManagement(View):
             criteria = (
                 models.Q(packinglist__container_number__order__retrieval_id__retrieval_destination_area="NJ") |
                 models.Q(packinglist__container_number__order__retrieval_id__retrieval_destination_area="SAV") |
+                models.Q(packinglist__container_number__order__retrieval_id__retrieval_destination_area="LA") |
                 models.Q(pallet__container_number__order__retrieval_id__retrieval_destination_area="NJ") |
-                models.Q(pallet__container_number__order__retrieval_id__retrieval_destination_area="SAV")
+                models.Q(pallet__container_number__order__retrieval_id__retrieval_destination_area="SAV") |
+                models.Q(pallet__container_number__order__retrieval_id__retrieval_destination_area="LA")
             )
         else:
             criteria = (

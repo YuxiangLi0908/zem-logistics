@@ -28,7 +28,7 @@ from warehouse.views.export_file import export_bol,export_report
 class BOL(View):
     template_main = "bol.html"
     template_summary = "summary_table.html"
-    area_options = {"NJ": "NJ", "SAV": "SAV"}
+    area_options = {"NJ": "NJ", "SAV": "SAV", "LA":"LA","LB":"LB"}
 
     def get(self, request: HttpRequest) -> HttpResponse:
         step = request.GET.get("step", None)
