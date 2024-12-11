@@ -24,6 +24,7 @@ class Pallet(models.Model):
     note = models.CharField(max_length=2000, null=True, blank=True)
     priority = models.CharField(max_length=20, null=True, blank=True)
     location = models.CharField(max_length=100, null=True, blank=True)
+    delivery_type = models.CharField(max_length=100, null=True, blank=True)
 
     def __str__(self):
         return f"{self.container_number}-{self.destination}-{self.delivery_method}"

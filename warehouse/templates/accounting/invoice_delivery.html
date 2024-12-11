@@ -30,10 +30,12 @@
                             <th class="th">客户</th>
                             <th class="th">货柜号</th>
                             <th class="th">建单日期</th>
+                            <th class="th">仓点</th>
                         </tr>
                         <tr style="position: sticky; top: 28px;">
                             <th class="th"></th>
                             <th class="th"><input type="text" id="containerSearchInput" placeholder="搜索柜号..." oninput="filterTable(this, 1)" size="16" style="font-size: 14px;"></th>
+                            <th class="th"></th>
                             <th class="th"></th>
                         </tr>
                     </thead>
@@ -45,6 +47,9 @@
                                     <a href="/accounting/?step=container_delivery&container_number={{ c.container_number }}&order_type={{ c.order_type }}" target="_blank">{{ c.container_number }}</a>
                                 </td>
                                 <td class="td">{{ c.created_at|date:"Y-m-d" }}</td>
+                                <td class="td">
+                                    <a id="detailButton{{ forloop.counter }}" onclick="setupDetailButtons()" href="#">详情</a>                              
+                                </td>
                             </tr>
                         {% endfor %}
                     </tbody>

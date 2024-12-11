@@ -18,6 +18,9 @@ from office365.sharepoint.sharing.links.kind import SharingLinkKind
 import openpyxl
 from openpyxl.styles import Alignment, Border, Font, PatternFill, Side, numbers
 from django.http import HttpRequest, HttpResponse, HttpResponseForbidden
+from django.contrib.postgres.aggregates import StringAgg
+from django.db.models.functions import Cast
+from django.db.models import CharField
 from django.shortcuts import render
 from django.contrib.auth.decorators import login_required
 from django.contrib.auth.models import User
@@ -188,6 +191,9 @@ class Accounting(View):
             return render(request, template, context)
         elif step == "warehouse_save":
             template, context = self.handle_invoice_warehouse_save_post(request)
+            return render(request, template, context)
+        elif step == "add_delivery_type":
+            template, context = self.handle_invoice_delivery_type_save(request)
             return render(request, template, context)
         else:
             raise ValueError(f"unknow request {step}")
@@ -462,6 +468,21 @@ class Accounting(View):
         }     
         return self.template_invoice_preport_edit, context
 
+    def handle_invoice_delivery_type_save(self, request: HttpRequest) -> tuple[Any, Any]:
+        delivery_type = request.POST.get("alter_type")
+        selections = request.POST.getlist("is_type_added")
+        plt_ids = request.POST.getlist("added_plt_ids")
+        plt_ids = request.POST.getlist("added_plt_ids")
+        plt_ids = [id for s, id in zip(selections, plt_ids) if s == "on"]
+        plt_ids = [int(i) for id in plt_ids for i in id.split(",") if i]
+        pallet = (Pallet.objects.filter(id__in=plt_ids))
+        for p in pallet:
+            p.delivery_type = delivery_type
+        Pallet.objects.bulk_update(pallet, ["delivery_type"])
+        container_number = request.POST.get("container_number")
+        return self.handle_container_invoice_delivery_get(container_number,request)
+
+
     def handle_container_invoice_warehouse_get(self, container_number: str,request: HttpRequest) -> tuple[Any, Any]:
         order = Order.objects.select_related("retrieval_id","container_number").get(container_number__container_number=container_number)
         warehouse = order.retrieval_id.retrieval_destination_area
@@ -485,18 +506,25 @@ class Accounting(View):
                 "container_number__order__offload_id", "container_number__order__customer_name", "container_number__order__retrieval_id"
             ).filter(
                 container_number__container_number=container_number
+            ).annotate(
+                str_id=Cast("id", CharField()),
             ).values(
                 'container_number__container_number',
                 'destination',
                 'zipcode',
                 'address',
-                'delivery_method'
-            ).annotate(                
+                'delivery_method',
+                'delivery_type',
+            ).annotate(  
+                ids=StringAgg("str_id", delimiter=",", distinct=True, ordering="str_id"),              
                 total_cbm=Sum("cbm", output_field=FloatField()),
                 total_weight_lbs=Sum("weight_lbs", output_field=FloatField()),
                 total_n_pallet=Count("pallet_id", distinct=True)
             )
-        print("板子",pallet)
+        invoice = Invoice.objects.select_related("customer", "container_number").get(
+                container_number__container_number=container_number
+            )
+            
         warehouse = order.retrieval_id.retrieval_destination_area
         if warehouse == 'NJ':
             selected_amazon = NJ_AMAZON_DELIVERY   
@@ -510,49 +538,57 @@ class Accounting(View):
             selected_amazon = LA_AMAZON_DELIVERY 
             selected_combina = LA_COMBINA
             selected_local = None
+        
         amazon = []
         local = []
         combine = []
         for plt in pallet:
             destination = plt["destination"].split('-')[1] if '-' in plt["destination"] else plt["destination"] 
-            found = False
-            for k,v in selected_amazon.items():
-                if destination in v:
-                    plt["cost"] = k
-                    plt["total_cost"] = int(k)*int(plt["total_n_pallet"])
-                    amazon.append(plt)
-                    found = True
-                    break
-            if found:
-                continue
-            for k,v in selected_combina.items():
-                if destination in v:
-                    plt["cost"] = k
-                    combine.append(plt)
-                    found = True
-                    break
-            if found:
-                continue
-            if selected_local:
-                for k,v in selected_local.imtes():
-                    plt["cost"] = k
-                    local.append(plt)
-                    break
-        
-        
-        invoice = Invoice.objects.select_related("customer", "container_number").get(
-            container_number__container_number=container_number
-        )
+            if plt["delivery_type"] == "amazon":             
+                for k,v in selected_amazon.items():
+                    if destination in v:
+                        plt["cost"] = k
+                        plt["total_cost"] = int(k)*int(plt["total_n_pallet"])
+                        break
+                amazon.append(plt)
+                
+            elif plt["delivery_type"] == "local":              
+                for k,v in selected_local.items():
+                    if plt["zipcode"] in v:
+                        n_pallet = int(plt["total_n_pallet"])
+                        costs = k.split(",")
+                        if n_pallet <= 5:
+                            cost = int(costs[0])
+                        elif n_pallet >= 5:
+                            cost = int(costs[1])
+                        plt["cost"] = cost
+                        print(cost,n_pallet,costs,costs[2])
+                        plt["total_cost"] = max(cost*n_pallet,int(costs[2]))
+                        break
+                local.append(plt)
+
+            elif plt["delivery_type"] == "combine":          
+                container_type = order.container_number.container_type
+                for k,v in selected_combina.items():
+                    if destination in v:
+                        cost = k.split(",")
+                        if "45HQ/GP" in container_type:
+                            plt["cost"] = int(cost[1])                    
+                            plt["total_cost"] = int(cost[1])
+                        elif "40HQ/GP" in container_type:
+                            plt["cost"] = int(cost[0])
+                            plt["total_cost"] = int(cost[0])
+                combine.append(plt)
 
         context = {
             "warehouse":warehouse,
             "invoice":invoice,
             "container_number":container_number,
+            "pallet":pallet,
             "amazon":amazon,
             "local":local,
             "combine":combine
         }
-        
         return self.template_invoice_delievery_edit, context
 
 
