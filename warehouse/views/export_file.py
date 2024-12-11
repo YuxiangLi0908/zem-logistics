@@ -172,7 +172,7 @@ def export_po_check(request: HttpRequest) -> HttpResponse:
     data = [i for i in packing_list]
     keep = [
             "shipping_mark", "container_number__container_number", "fba_id", "ref_id", 
-            "total_pcs", "Pallet Count", "label","is_valid"
+            "total_pcs", "Pallet Count", "label","is_valid","act","est","total_n_pallet_act","total_n_pallet_est"
         ]
     df = pd.DataFrame.from_records(data)
     df['is_valid'] = None
