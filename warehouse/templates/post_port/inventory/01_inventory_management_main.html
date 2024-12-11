@@ -37,9 +37,11 @@
             <li class="nav-item">
                 <button class="nav-link" onclick="showSection(this, 'warehouse-special-process-sec')"><b>库内操作</b></button>
             </li>
+            {% if user.is_authenticated and user.is_staff %}
             <li class="nav-item">
                 <button class="nav-link" onclick="showSection(this, 'inventory-counting-sec')"><b>库存盘点</b></button>
             </li>
+            {% endif %}
             <!-- <li class="nav-item">
                 <button class="nav-link" onclick="showSection(this, 'order-retrieval-info-sec')"><b>库存调度</b></button>
             </li> -->
