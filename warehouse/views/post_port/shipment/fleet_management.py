@@ -255,7 +255,6 @@ class FleetManagement(View):
                 total_pallet=Count('pallet_id', distinct=True)
             )
         )
-       
         shipment = await sync_to_async(list)(
             Pallet.objects.select_related(
                 "shipment_batch_number",
@@ -331,7 +330,6 @@ class FleetManagement(View):
                 total_n_pallet=Count("pallet__pallet_id", distinct=True),
             ).order_by("-shipment_batch_number__shipment_appointment")
         )
-        
         shipment_batch_numbers = []
         destinations = []
         for s in shipment:
@@ -349,7 +347,6 @@ class FleetManagement(View):
         mutable_post['name'] = request.GET.get("warehouse")
         request.POST = mutable_post
         _, context = await self.handle_outbound_warehouse_search_post(request)
-
         #记录可能加塞的柜子，筛选条件：同一个目的地且未出库或甩板的柜子，可能没有预约批次
         criteria_plt = models.Q(
             models.Q(
