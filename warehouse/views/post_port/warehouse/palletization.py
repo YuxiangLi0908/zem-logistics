@@ -49,7 +49,6 @@ class Palletization(View):
             return redirect("login")
         pk = kwargs.get("pk", None)
         step = request.GET.get("step", None)
-        print('GET step',step)
         if step == "container_palletization":
             template, context = await self.handle_container_palletization_get(request, pk)
             return render(request, template, context)

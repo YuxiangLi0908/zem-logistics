@@ -46,6 +46,8 @@ class Shipment(models.Model):
     status = models.CharField(max_length=20, null=True, blank=True)
     status_description = models.CharField(max_length=1000, null=True, blank=True)
     previous_fleets = models.CharField(max_length=1000, null=True, blank=True)
+    ARM_BOL = models.CharField(max_length=255, null=True, blank=True)
+    ARM_PRO = models.CharField(max_length=255, null=True, blank=True)
 
     def __str__(self) -> str:
         if self.shipment_batch_number:

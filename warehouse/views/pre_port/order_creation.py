@@ -585,12 +585,11 @@ class OrderCreation(View):
                     # 对每个对象执行删除操作
                     await sync_to_async(obj.delete)()
             except PoCheckEtaSeven.DoesNotExist:
-                await sync_to_async(print)("不存在")
+                raise ValueError("不存在")
 
             # try:
             #     # 直接在查询集中查找是否存在具有相同container_number的对象，如果是建单填写不应该查到pl，如果是更改数据就可能查到
             #     existing_obj = await sync_to_async(PoCheckEtaSeven.objects.get)(packing_list = pl)  
-            #     print("查到了")
             #     #查到了就是更改数据，可能更改唛头、fba、ref
             #     # if existing_obj.shipping_mark != pl.shipping_mark:
             #     #     existing_obj.shipping_mark = pl.shipping_mark
@@ -600,7 +599,7 @@ class OrderCreation(View):
             #     #     existing_obj.ref_id = pl.ref_id
             #     # await sync_to_async(existing_obj.save)()
             # except PoCheckEtaSeven.DoesNotExist:
-            #     print("没查到")
+            #     raise ValueError("没查到")
         source = request.POST.get("source")
         if source == "order_management":
             mutable_get = request.GET.copy()
