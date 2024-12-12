@@ -267,8 +267,8 @@
                         </table>
                     </div>
                 </form>
-            <!-- {% elif selected_fleet.fleet_type != "FTL" %}  
-            <form method="post" action="" enctype="multipart/form-data" style="display: inline-block; float:right;" id="bol-pro-upload">
+            {% elif selected_fleet.fleet_type != "FTL" %}
+            <!-- <form method="post" action="" enctype="multipart/form-data" style="display: inline-block; float:right;" id="bol-pro-upload">
                 {% csrf_token %}
                 <input type="hidden" name="step" value="upload_ARM_LABEL">
                 <input type="hidden" name="fleet_number" value="{{ selected_fleet.fleet_number }}">
@@ -278,8 +278,9 @@
                 <input type="hidden" name="customerInfo" id="customerInfo">
                 <input type="file" name="files" accept=".pdf" multiple>
                 <button type="submit">上传BOL/LABEL</button>        
-            </form> -->
+            </form>        -->
             {% endif %}
+            
         </div>
         <div style="overflow-x: auto; max-width: 100%; overflow-y: auto; max-height: 60%;">
             <form method="post" action="" style="width: 100%;">
@@ -361,8 +362,6 @@
     </div>
     <div id="message-container"></div>
 </div>
-
-
 
 <script>
     function filterAddPallet() {
