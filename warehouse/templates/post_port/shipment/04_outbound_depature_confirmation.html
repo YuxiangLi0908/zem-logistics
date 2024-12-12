@@ -255,7 +255,7 @@
                                         <input type="hidden" name="destination", value='{{ plt.destination }}'>
                                         <input type="hidden" name="pallets", value='{{ plt.total_n_pallet_act }}'>
                                     </td>
-                                    <td class="td" style="max-width: 120px; word-break: break-all;">{{ plt.shipment_batch_number__shipment_batch_number }}</td>
+                                    <td class="td" style="max-width: 120px; word-break: break-all;">{{ plt.shipment_batch_number__shipment_batch_number|default_if_none:"" }}</td>
                                     <td class="td" style="max-width: 120px; word-break: break-all;">{{ plt.container_number__container_number }}</td>
                                     <td class="td" style="max-width: 120px; word-break: break-all;">{{ plt.destination }}</td>
                                     <td class="td" style="max-width: 120px; word-break: break-all;">{{ plt.delivery_method }}</td>

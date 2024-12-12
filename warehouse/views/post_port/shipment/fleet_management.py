@@ -153,18 +153,14 @@ class FleetManagement(View):
             return render(request, template, context)
         else:
             return await self.get(request)
-    def get_shipment_batch_number(other,pt):
-        return pt.shipment_batch_number
         
-    async def handle_add_pallet(self, request: HttpRequest) -> JsonResponse:
+    async def handle_add_pallet(self, request: HttpRequest) -> tuple[str, dict[str, Any]]:
         selections = request.POST.getlist("is_plt_added")
         on_positions = [i for i, v in enumerate(selections) if v == 'on']
-
         pallet_add = request.POST.getlist("pallet_add")       
         pallet_adds = [id for s, id in zip(selections, pallet_add) if s == "on"]
         pallet_adds = [int(pallet) for pallet in pallet_adds]
         total_pallet = sum(pallet_adds)
-
         destinations = request.POST.getlist("destination")  
         pallets = request.POST.getlist("pallets")         
         container_numbers = request.POST.getlist("container")
@@ -183,8 +179,6 @@ class FleetManagement(View):
             results.append(result)
         #将总重、cbm、pallet、pcs加到出库批次里
         total_weight, total_cbm, total_pcs = .0, .0, 0
-             
-        
         plt_ids = [id for s, id in zip(selections, plt_id) if s == "on"]
         plt_ids = [int(i) for id in plt_ids for i in id.split(",") if i]
         Utilized_pallet_ids = []
@@ -224,64 +218,7 @@ class FleetManagement(View):
         mutable_get['fleet_number'] = fleet_number
         request.GET = mutable_get
         return await self.handle_fleet_depature_get(request)
-        
     
-    def get_shipment_batch_number(other,pt):
-        return pt.shipment_batch_number
-        
-    async def handle_add_pallet(self, request: HttpRequest) -> JsonResponse:
-        shipment = request.POST.getlist("shipment")
-        container = request.POST.getlist("container")
-        destination = request.POST.getlist("destination")
-        delivery_method = request.POST.getlist("delivery_method")
-        pallet = request.POST.getlist("pallet")
-        
-        try:
-            if shipment and container and destination and delivery_method and pallet:
-                length = len(shipment)
-               
-                #先找到对应的所有pallet
-                for i in range(length):
-                    pallets = await sync_to_async(list)(Pallet.objects.filter(
-                        container_number__container_number=container[i].strip(),
-                        destination = destination[i].strip(),
-                        #怕有暂扣留仓的，所以这里派送方式也做了查找
-                        delivery_method = delivery_method[i].strip(),
-                    ))
-                    if not pallets:
-                        return HttpResponse(container[i]+'的卡板没查到')
-                    num = int(pallet[i].strip())
-                    try:
-                        #找到柜子要加的约
-                        shipments = await sync_to_async(Shipment.objects.get)(shipment_batch_number = shipment[i].strip())
-                    except Exception as e:
-                        #防止约有异常
-                        return HttpResponse(e)
-                    #将pallet加到shipment里，首先遍历pallet，关联shipment，然后查找shipment增加总重、cbm和板数
-                    for pt in pallets:
-                        #看下这个板子是不是有约了，直接if pt.shipment_batch_number会报错，所以用这种写法
-                        sbn = await sync_to_async(lambda x: self.get_shipment_batch_number(x))(pt)
-                        if sbn:
-                            #要加塞的柜子已经有约了，如果可以直接改柜子的约，这里再进行下一步处理
-                            return HttpResponse(container[i]+'柜子已经有约了')                          
-                        if num:  #因为不知道走的是哪个板数，就默认按查找顺序排，比如原本有3个板子，只加塞了2个，就只处理查找到的前2个
-                            num -= 1
-                        else:
-                            break
-                        pt.shipment_batch_number = shipments  #给板子绑定预约批次
-                        await sync_to_async(pt.save)()
-                        #该预约批次加上这个板子的cbm等参数
-                        shipments.total_cbm += pt.cbm  
-                        shipments.total_pallet += 1
-                        shipments.total_pcs += pt.pcs
-                        shipments.total_weight += pt.weight_lbs
-                    await sync_to_async(shipments.save)()        
-            return HttpResponse('已加塞成功')
-        except Exception as e:
-            return HttpResponse(e)
-
-
-
     async def handle_fleet_info_get(self, request: HttpRequest) -> tuple[str, dict[str, Any]]:
         fleet_number = request.GET.get("fleet_number")
         mutable_post = request.POST.copy()
@@ -440,7 +377,6 @@ class FleetManagement(View):
             "plt_unshipped":plt_unshipped,
             "delivery_options" : DELIVERY_METHOD_OPTIONS
         })
-        
         return self.template_outbound_departure, context
     
     async def handle_delivery_and_pod_get(self, request: HttpRequest) -> tuple[str, dict[str, Any]]:
@@ -450,7 +386,7 @@ class FleetManagement(View):
             departured_at__isnull=False,
             arrived_at__isnull=True,
             is_canceled=False,
-            fleet_type="FTL"  #LTL和客户自提的不需要确认送达
+            fleet_type__in=["FTL", "LTL/外配/快递"]  #LTL和客户自提的不需要确认送达
         )
         if fleet_number:
             criteria &= models.Q(fleet_number=fleet_number)
@@ -571,6 +507,7 @@ class FleetManagement(View):
                 total_pallet += s.total_pallet
             fleet_data = {
                 "fleet_number": fleet_number,
+                "fleet_type": shipment_selected[0].shipment_type,
                 "origin": request.POST.get("warehouse"),
                 "total_weight": total_weight,
                 "total_cbm": total_cbm,
@@ -997,7 +934,7 @@ class FleetManagement(View):
         if arm_pickup:   
             #有两个文件，BOL和LEBAL，BOL需要在后面加一个拣货单
             df =pd.DataFrame(arm_pickup[1:],columns = arm_pickup[0])  
-            files = request.FILES.getlist('files')  
+            files = request.FILES.getlist('files')
             if files:
                 for file in files:
                     base_filename = os.path.splitext(file.name)[0]
@@ -1053,7 +990,6 @@ class FleetManagement(View):
             mutable_get['fleet_number'] = fleet_number
             request.GET = mutable_get
             return await self.handle_fleet_depature_get(request)
- 
     
     async def handle_abnormal_fleet_post(self, request: HttpRequest) -> tuple[str, dict[str, Any]]:
         status = request.POST.get("abnormal_status", "").strip()
