@@ -263,19 +263,19 @@ class ShippingManagement(View):
             area = None
         if request.POST.get("area"):
             area = request.POST.get("area")       
-        if area == 'NJ/SAV':          
+        if area == 'NJ/SAV/LA':          
             criteria = (
                 models.Q(packinglist__container_number__order__retrieval_id__retrieval_destination_area="NJ") |
                 models.Q(packinglist__container_number__order__retrieval_id__retrieval_destination_area="SAV") |
                 models.Q(packinglist__container_number__order__retrieval_id__retrieval_destination_area="LA") |
-                models.Q(pallet__container_number__order__retrieval_id__retrieval_destination_area="NJ") |
-                models.Q(pallet__container_number__order__retrieval_id__retrieval_destination_area="SAV") |
-                models.Q(pallet__container_number__order__retrieval_id__retrieval_destination_area="LA")
+                models.Q(pallet__location__startswith="NJ") |
+                models.Q(pallet__location__startswith="SAV") |
+                models.Q(pallet__location__startswith="LA")
             )
         else:
             criteria = (
                 models.Q(packinglist__container_number__order__retrieval_id__retrieval_destination_area=area) |
-                models.Q(pallet__container_number__order__retrieval_id__retrieval_destination_area=area)
+                models.Q(pallet__location__startswith=area)
             )
         shipment = await sync_to_async(list)(
             Shipment.objects.prefetch_related(
@@ -290,32 +290,39 @@ class ShippingManagement(View):
                 )
             ).distinct().order_by('-abnormal_palletization', 'shipment_appointment')
         )
-        if area == 'NJ/SAV': 
-            criteria_p = (models.Q(container_number__order__retrieval_id__retrieval_destination_area="NJ")|
-            models.Q(container_number__order__retrieval_id__retrieval_destination_area="SAV"))
-        else:
-            criteria_p = (models.Q(container_number__order__retrieval_id__retrieval_destination_area=area))
         #ETA过滤
         start_date = request.POST.get("start_date")
         end_date = request.POST.get("end_date")
         start_date = (datetime.now().date() + timedelta(days=-15)).strftime('%Y-%m-%d') if not start_date else start_date
         end_date = (datetime.now().date() + timedelta(days=15)).strftime('%Y-%m-%d') if not end_date else end_date
         
-        criteria_p &= models.Q(
+        criteria_p = models.Q(
             container_number__order__packing_list_updloaded=True,
             shipment_batch_number__isnull=True,
             container_number__order__order_type="转运",
             container_number__order__created_at__gte='2024-09-01',
-        ) & (
-            models.Q(   
-                    container_number__order__vessel_id__vessel_eta__gte=start_date,
-                    container_number__order__vessel_id__vessel_eta__lte=end_date,
-                ) 
-            # models.Q(container_number__order__vessel_id__vessel_eta__lte=datetime.now().date() + timedelta(days=7)) |
-            # models.Q(container_number__order__eta__lte=datetime.now().date() + timedelta(days=7))
+        ) 
+        pl_criteria = criteria_p & models.Q(
+            container_number__order__vessel_id__vessel_eta__gte=start_date,
+            container_number__order__vessel_id__vessel_eta__lte=end_date,
+            container_number__order__offload_id__offload_at__isnull=True
         )
-        pl_criteria = criteria_p & models.Q(container_number__order__offload_id__offload_at__isnull=True)
-        plt_criteria = criteria_p & models.Q(container_number__order__offload_id__offload_at__isnull=False)
+        plt_criteria = criteria_p & models.Q(
+            container_number__order__offload_id__offload_at__isnull=False
+        )
+        if area == 'NJ/SAV/LA':
+            pl_criteria &= models.Q(
+                container_number__order__retrieval_id__retrieval_destination_area__in=["NJ", "SAV", "LA"]
+            )
+            plt_criteria &= models.Q(
+                container_number__order__retrieval_id__retrieval_destination_area__in=["NJ", "SAV", "LA"]
+            )
+        else:
+            pl_criteria &= models.Q(
+                container_number__order__retrieval_id__retrieval_destination_area=area
+            )
+            plt_criteria &= models.Q(location__startswith=area)
+
         packing_list_not_scheduled = await self._get_packing_list(pl_criteria, plt_criteria)
         cbm_act, cbm_est, pallet_act, pallet_est = 0, 0, 0, 0
         for pl in packing_list_not_scheduled:
