@@ -242,6 +242,7 @@ class OrderCreation(View):
             "customers": customers,
             "area": self.area,
             "offload_at":offload.offload_at,
+            "cancel_access": await sync_to_async(request.user.groups.filter(name="create_order").exists)(),
         }
         context["carrier_options"] = CONTAINER_PICKUP_CARRIER
         context["warehouse_options"] = [(k, v) for k, v in WAREHOUSE_OPTIONS if k not in ["N/A(直送)", "Empty"]]

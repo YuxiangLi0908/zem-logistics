@@ -24,7 +24,7 @@
                 <button class="nav-link" onclick="showSection(this, 'order-export-sec')"><b>表格导出</b></button>
             </li>
             {% if user.is_authenticated %}
-                {% comment %} {% if user.is_staff or user.groups.filter(create_order).exists()%} {% endcomment %}
+                {% if user.is_staff or cancel_access %}
                 <form method="post" action="">
                     {% csrf_token %}
                     <input type="hidden" name="step" value="cancel_notification">
@@ -32,7 +32,7 @@
                     <button id="submit-btn-update-basic-info" onclick="confirmSubmit(this)" type="submit" class="btn btn-primary" style="width: 90px; height: 30px; margin-left: 20px; font-size: 13px;">
                     <b>取消预报</b></button>
                 </form>
-                {% comment %} {% endif %} {% endcomment %}
+                {% endif %}
             {% endif %}
 
         </ul>
