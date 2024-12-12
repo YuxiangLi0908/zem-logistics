@@ -64,9 +64,10 @@ class PrePortTracking(View):
             Order.objects.select_related(
                 "vessel_id", "container_number", "customer_name", "retrieval_id", "offload_id"
             ).filter(
-                models.Q(add_to_t49=True) &
-                models.Q(retrieval_id__actual_retrieval_timestamp__isnull=True) &
-                models.Q(cancel_notification=False)
+                add_to_t49=True,
+                retrieval_id__actual_retrieval_timestamp__isnull=True,
+                cancel_notification=False,
+                created_at__gte='2024-10-01',
             )
         )
         context = {
