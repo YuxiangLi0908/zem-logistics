@@ -242,7 +242,6 @@ class FleetManagement(View):
                
                 #先找到对应的所有pallet
                 for i in range(length):
-                    await sync_to_async(print)(container[i],destination[i],delivery_method[i])
                     pallets = await sync_to_async(list)(Pallet.objects.filter(
                         container_number__container_number=container[i].strip(),
                         destination = destination[i].strip(),
@@ -258,12 +257,10 @@ class FleetManagement(View):
                     except Exception as e:
                         #防止约有异常
                         return HttpResponse(e)
-                    await sync_to_async(print)("pallets",pallets)
                     #将pallet加到shipment里，首先遍历pallet，关联shipment，然后查找shipment增加总重、cbm和板数
                     for pt in pallets:
                         #看下这个板子是不是有约了，直接if pt.shipment_batch_number会报错，所以用这种写法
                         sbn = await sync_to_async(lambda x: self.get_shipment_batch_number(x))(pt)
-                        await sync_to_async(print)(sbn)
                         if sbn:
                             #要加塞的柜子已经有约了，如果可以直接改柜子的约，这里再进行下一步处理
                             return HttpResponse(container[i]+'柜子已经有约了')                          
@@ -278,7 +275,6 @@ class FleetManagement(View):
                         shipments.total_pallet += 1
                         shipments.total_pcs += pt.pcs
                         shipments.total_weight += pt.weight_lbs
-                    await sync_to_async(print)("约保存了")
                     await sync_to_async(shipments.save)()        
             return HttpResponse('已加塞成功')
         except Exception as e:

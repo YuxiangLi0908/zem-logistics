@@ -19,7 +19,7 @@ openpyxl = "^3.1.2"
 shortuuid = "^1.0.13"
 office365-rest-python-client = "^2.5.8"
 python-barcode = "^0.15.1"
-matplotlib = "^3.9.2"
+matplotlib = "^3.9.3"
 pypdf2 = "^3.0.1"
 
 

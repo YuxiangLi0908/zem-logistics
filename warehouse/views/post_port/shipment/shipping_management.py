@@ -63,7 +63,6 @@ class ShippingManagement(View):
         if not await self._user_authenticate(request):
             return redirect("login")
         step = request.GET.get("step", None)
-        print('step',step)
         if step == "shipment_info":
             template, context = await self.handle_shipment_info_get(request)
             return render(request, template, context)
@@ -87,7 +86,6 @@ class ShippingManagement(View):
         if not await self._user_authenticate(request):
             return redirect("login")
         step = request.POST.get("step")
-        print("POST",step)
         if step == "warehouse":
             template, context = await self.handle_warehouse_post(request)
             return render(request, template, context)
@@ -420,6 +418,8 @@ class ShippingManagement(View):
                 "load_type_options": LOAD_TYPE_OPTIONS,
                 "shipment_type_options": self.shipment_type_options,
                 "unused_appointment": json.dumps(unused_appointment),
+                "start_date": request.POST.get("start_date"),
+                "end_date": request.POST.get("end_date"),
             })
             return self.template_td_schedule, context
         else:
@@ -439,7 +439,6 @@ class ShippingManagement(View):
             except:
                 existed_appointment = None
             if existed_appointment:
-                print("预约号已存在")
                 if existed_appointment.in_use:
                     raise RuntimeError(f"Appointment {existed_appointment} already used by other shipment!")
                 elif existed_appointment.is_canceled:
@@ -468,7 +467,6 @@ class ShippingManagement(View):
                     except:
                         pass
             else:
-                print("预约号不存在")
                 if await self._shipment_exist(shipment_data["shipment_batch_number"]):
                     raise ValueError(f"Shipment {shipment_data['shipment_batch_number']} already exists!")
                 shipment_data["appointment_id"] = request.POST.get("appointment_id", None)
