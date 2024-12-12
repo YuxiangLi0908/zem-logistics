@@ -3,6 +3,11 @@
 {% block content %}
 <div  style="display: inline-block; width: 100%; margin: 0; padding: 0; max-width: 100%;">
     <p style="text-align:center;"><b>{{ invoice }}</b></p>
+    <form method="post" action="">
+        <button id="editButton" type="button" class="btn btn-primary" onclick="AmountForm()" style="font-size: 11px;">账单确认</button>
+        <input type="hidden" name="step" value="update_delivery_invoice">
+        <input type="hidden" name="type" value="amount">
+        <input type="number" name="total" value="">
 </div>
     
     <form method="post" action="">
@@ -15,7 +20,7 @@
                 <button type="submit" class="btn btn-primary" onclick="add_delivery_plt(this)" style="font-size: 11px; margin-right: 5px;">确认添加</button>
                 <button id="editButton" type="button" class="btn btn-danger" onclick="add_delivery(this)" style="font-size: 11px;">返回</button>
             </div>
-            <table class="table" id="invoice-table" style="font-size: 13px;">
+            <table class="table" id="add-delivery" style="font-size: 13px;">
                 <thead>
                     <tr style="position: sticky; top: 0;">
                         <th class="th" style="min-width: 40px;"></th>
@@ -39,7 +44,7 @@
                         <td class="td"><input type="text" name="delivery_type" value="{{ plt.delivery_type }}" disabled></td>
                         <td class="td"><input type="text" name="destination" value="{{ plt.destination }}"></td>
                         <td class="td"><input type="number" name="cbm" step = 0.01 value="{{ plt.total_cbm|floatformat:2 }}"></td>
-                        <td class="td"><input type="number" name="weight_lbs" step = 0.01 value="{{ plt.total_weight_lbs }}" oninput="updateAmount(this)"></td>
+                        <td class="td"><input type="number" name="weight_lbs" step = 0.01 value="{{ plt.total_weight_lbs }}"></td>
                         <td class="td"><input type="number" name="zipcode" step = 0.01 value="{{ plt.zipcode|floatformat:2 }}"></td>
                     </tr>
                     {% endfor %}
@@ -49,104 +54,217 @@
     </form>
     
     <form method="post" action="">
-        <button id="editButton" type="button" class="btn btn-primary" onclick="add_delivery(this)" style="font-size: 11px;">亚马逊派送</button>
-        {% if amazon %}
-            <table class="table" id="invoice-table" style="font-size: 13px">
-                <thead>
-                    <tr style="position: sticky; top: 0;">
-                        <th class="th" style="min-width: 40px;"></th>
-                        <th class="th">价格</th>
-                        <th class="th">目的地</th>
-                        <th class="th">CBM</th>
-                        <th class="th">重量</th>
-                        <th class="th">邮编</th>
-                    </tr>
-                </thead>
-                <tbody>
-                    {% for plt in amazon %}
-                    <tr draggable="true" id="pallet-{{ plt.id }}">
-                        <td class="td" style="min-width: 40px; text-align: center;">
-                            <input type='checkbox' onclick="toggleRowBackground(this)">
-                            <input type="hidden" name="added_plt_ids", value='{{ plt.ids }}'>
-                        </td>
-                        <td class="td"><input type="text" name="total_n_pallet" value="{{ plt.total_cost }}">
-                        ({{ plt.total_n_pallet }}板，${{ plt.cost }}/板)
-                        </td>
-                        <td class="td"><input type="text" name="destination" value="{{ plt.destination }}"></td>
-                        <td class="td"><input type="number" name="cbm" step = 0.01 value="{{ plt.total_cbm|floatformat:2 }}"></td>
-                        <td class="td"><input type="number" name="weight_lbs" step = 0.01 value="{{ plt.total_weight_lbs }}" oninput="updateAmount(this)"></td>
-                        <td class="td"><input type="number" name="zipcode" step = 0.01 value="{{ plt.zipcode|floatformat:2 }}"></td>
-                    </tr>
-                    {% endfor %}
-                </tbody>
-            </table>
-        {% endif %}
-        {% if warehouse == "NJ" %}
-            <button id="editButton" type="button" class="btn btn-primary" onclick="add_delivery(this)" style="font-size: 11px;">本地派送</button>
-            {% if local %}
-                <table class="table" id="invoice-table" style="font-size: 13px;">
+        {% csrf_token %}
+        <div style="margin:auto; max-height: 800px;max-width:1500px;margin-bottom:50px;">
+            <button id="editButton" type="button" class="btn btn-primary" onclick="add_delivery(this)" style="font-size: 11px;">亚马逊派送</button>
+            {% if amazon %}
+                <table class="table" id="amazon-table" style="font-size: 13px">
                     <thead>
                         <tr style="position: sticky; top: 0;">
-                            <th class="th" style="min-width: 40px;"></th>
                             <th class="th">价格</th>
                             <th class="th">目的地</th>
                             <th class="th">CBM</th>
                             <th class="th">重量</th>
-                            <th class="th">邮编</th>
                         </tr>
                     </thead>
                     <tbody>
-                        {% for plt in local %}
+                        {% for plt in amazon %}
                         <tr draggable="true" id="pallet-{{ plt.id }}">
-                            <td class="td" style="min-width: 40px; text-align: center;">
-                                <input type='checkbox' onclick="toggleRowBackground(this)">
-                                <input type="hidden" name="added_plt_ids", value='{{ plt.ids }}'>
+                            <td class="td">
+                                <input type="number" id="amazon_cost" name="cost" value="{{ plt.total_cost }}" oninput="updateAmazon(this)">
+                                ({{ plt.total_n_pallet }}板，${{ plt.cost }}/板)
+                                <input type="hidden" name="plt_ids" value="{{ plt.ids }}">
                             </td>
-                            <td class="td"><input type="text" name="total_n_pallet" value="{{ plt.total_cost }}"></td>
                             <td class="td"><input type="text" name="destination" value="{{ plt.destination }}"></td>
                             <td class="td"><input type="number" name="cbm" step = 0.01 value="{{ plt.total_cbm|floatformat:2 }}"></td>
-                            <td class="td"><input type="number" name="weight_lbs" step = 0.01 value="{{ plt.total_weight_lbs }}" oninput="updateAmount(this)"></td>
-                            <td class="td"><input type="number" name="zipcode" step = 0.01 value="{{ plt.zipcode|floatformat:2 }}"></td>
+                            <td class="td"><input type="number" name="weight_lbs" step = 0.01 value="{{ plt.total_weight_lbs }}"></td>
                         </tr>
                         {% endfor %}
+                        <tr>
+                            <td class="td">
+                                <input type="number" id="amazon_total" name="total" value=""></td>
+                            <td colspan="3"></td>
+                        </tr>
                     </tbody>
                 </table>
+                <div class="text-left" style="float:right;">
+                    <input type="hidden" name="step" value="update_delivery_invoice">
+                    <input type="hidden" name="type" value="amazon_amount">                  
+                    <input type="hidden" name="container_number" value={{ container_number }}>
+                    <button type="submit" class="btn btn-primary" style="width: 100px; height: 35px;" onclick="processForm('amazon-table')">确认</button>
+                </div>
             {% endif %}
-        {% endif %}
-        <button id="editButton" type="button" class="btn btn-primary" onclick="add_delivery(this)" style="font-size: 11px;">组合柜派送</button>
-        {% if combine %}
-            <table class="table" id="invoice-table" style="font-size: 13px;">
-                <thead>
-                    <tr style="position: sticky; top: 0;">
-                        <th class="th" style="min-width: 40px;"></th>
-                        <th class="th">价格</th>
-                        <th class="th">目的地</th>
-                        <th class="th">CBM</th>
-                        <th class="th">重量</th>
-                        <th class="th">邮编</th>
-                    </tr>
-                </thead>
-                <tbody>
-                    {% for plt in combine %}
-                    <tr draggable="true" id="pallet-{{ plt.id }}">
-                        <td class="td" style="min-width: 40px; text-align: center;">
-                            <input type='checkbox' onclick="toggleRowBackground(this)">
-                            <input type="hidden" name="added_plt_ids", value='{{ plt.ids }}'>
-                        </td>
-                        <td class="td"><input type="text" name="total_n_pallet" value="{{ plt.total_cost }}"></td>
-                        <td class="td"><input type="text" name="destination" value="{{ plt.destination }}"></td>
-                        <td class="td"><input type="number" name="cbm" step = 0.01 value="{{ plt.total_cbm|floatformat:2 }}"></td>
-                        <td class="td"><input type="number" name="weight_lbs" step = 0.01 value="{{ plt.total_weight_lbs }}" oninput="updateAmount(this)"></td>
-                        <td class="td"><input type="number" name="zipcode" step = 0.01 value="{{ plt.zipcode|floatformat:2 }}"></td>
-                    </tr>
-                    {% endfor %}
-                </tbody>
-            </table>
-        {% endif %}
+        </div>
+    </form>
+    <form method="post" action="">
+        {% csrf_token %}
+        <div style="margin:auto; max-height: 800px;max-width:1500px;margin-bottom:50px;">
+            {% if warehouse != "SAV" %}
+                <button id="editButton" type="button" class="btn btn-primary" onclick="add_delivery(this)" style="font-size: 11px;">本地派送</button>
+                {% if local %}
+                    <table class="table" id="local-table" style="font-size: 13px;">
+                        <thead>
+                            <tr style="position: sticky; top: 0;">
+                                <th class="th">价格</th>
+                                <th class="th">目的地</th>
+                                <th class="th">CBM</th>
+                                <th class="th">重量</th>
+                                <th class="th">邮编</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {% for plt in local %}
+                            <tr draggable="true" id="pallet-{{ plt.id }}">
+                                <td class="td">
+                                    <input type="number" id="local_cost" name="cost" value="{{ plt.total_cost }}" oninput="updateLocal(this)">
+                                    {% if warehouse == "NJ" %}
+                                        ({{ plt.total_n_pallet }}板，${{ plt.cost }}/板)
+                                    {% else %}
+                                        (按距离收费)
+                                    {% endif %}
+                                    <input type="hidden" name="plt_ids" value="{{ plt.ids }}">
+                                </td>
+                                <td class="td"><input type="text" name="destination" value="{{ plt.destination }}"></td>
+                                <td class="td"><input type="number" name="cbm" step = 0.01 value="{{ plt.total_cbm|floatformat:2 }}"></td>
+                                <td class="td"><input type="number" name="weight_lbs" step = 0.01 value="{{ plt.total_weight_lbs }}"></td>
+                                <td class="td"><input type="number" name="zipcode" step = 0.01 value="{{ plt.zipcode|floatformat:2 }}"></td>
+                            </tr>
+                            {% endfor %}
+                            <tr>
+                                <td class="td"><input type="number" id="local_total" name="total" disabled></td>
+                                <td colspan="4"></td>
+                            </tr>
+                        </tbody>
+                    </table>
+                    <div class="text-left" style="float:right;">
+                        <input type="hidden" name="step" value="update_delivery_invoice">
+                        <input type="hidden" name="type" value="local_amount">
+                        <input type="hidden" name="container_number" value={{ container_number }}>
+                        <button type="submit" class="btn btn-primary" style="width: 100px; height: 35px;" onclick="processForm('local-table')">确认</button>
+                    </div>
+                {% endif %}
+            {% endif %}
+        </div>
+    </form>
+    <form method="post" action="">
+        {% csrf_token %}
+        <div style="margin:auto; max-height: 800px;max-width:1500px;">
+            <button id="editButton" type="button" class="btn btn-primary" onclick="add_delivery(this)" style="font-size: 11px;">组合柜派送</button>
+            {% if combine %}
+                <table class="table" id="combine-table" style="font-size: 13px;">
+                    <thead>
+                        <tr style="position: sticky; top: 0;">
+                            <th class="th">价格</th>
+                            <th class="th">目的地</th>
+                            <th class="th">CBM</th>
+                            <th class="th">重量</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for plt in combine %}
+                        <tr draggable="true" id="pallet-{{ plt.id }}">
+                            <td class="td">
+                                <input type="number" id="combine_cost" name="cost" value="{{ plt.total_cost }}" oninput="updateCombine(this)">
+                                ({{ plt.total_n_pallet }}板，一口价${{ plt.cost }})
+                                <input type="hidden" name="plt_ids" value="{{ plt.ids }}">
+                            </td>
+                            <td class="td"><input type="text" name="destination" value="{{ plt.destination }}"></td>
+                            <td class="td"><input type="number" name="cbm" step = 0.01 value="{{ plt.total_cbm|floatformat:2 }}"></td>
+                            <td class="td"><input type="number" name="weight_lbs" step = 0.01 value="{{ plt.total_weight_lbs }}"></td>
+                        </tr>
+                        {% endfor %}
+                        <tr>
+                            <td class="td"><input type="number" id="combine_total" name="total" disabled></td>
+                            <td colspan="3"></td>
+                        </tr>
+                    </tbody>
+                </table>
+                <div class="text-left" style="float:right;">
+                    <input type="hidden" name="step" value="update_delivery_invoice">
+                    <input type="hidden" name="type" value="combine_amount">
+                    <input type="hidden" name="container_number" value={{ container_number }}>
+                    <button type="submit" class="btn btn-primary" style="width: 100px; height: 35px;" onclick="processForm('combine-table')">确认</button>
+                </div>
+            {% endif %}      
+        </div>
     </form>
 
     
 <script>
+    window.onload = function () {
+        let amazon_total = 0;
+        let local_total = 0;
+        let combine_total = 0;
+        var rows = document.querySelectorAll('#amazon-table tbody tr:not(:last-child)');
+        for (var i = 0; i < rows.length; i++) {
+            var costInput = rows[i].querySelector('input[id="amazon_cost"]');
+            var costValue = parseFloat(costInput.value);
+            if (!isNaN(costValue)) {
+                amazon_total += costValue;
+            }
+        }
+        document.getElementById('amazon_total').value = amazon_total; 
+
+        var rows = document.querySelectorAll('#local-table tbody tr:not(:last-child)');
+        for (var i = 0; i < rows.length; i++) {
+            var costInput = rows[i].querySelector('input[id="local_cost"]');
+            var costValue = parseFloat(costInput.value);
+            if (!isNaN(costValue)) {
+                local_total += costValue;
+            }
+        }
+        document.getElementById('local_total').value = local_total; 
+
+        var rows = document.querySelectorAll('#combine-table tbody tr:not(:last-child)');
+        for (var i = 0; i < rows.length; i++) {
+            var costInput = rows[i].querySelector('input[id="combine_cost"]');
+            var costValue = parseFloat(costInput.value);
+            if (!isNaN(costValue)) {
+                combine_total += costValue;
+            }
+        }
+        document.getElementById('combine_total').value = combine_total; 
+
+    }
+    function updateAmazon(numberInput) {
+        const amountInputs = document.querySelectorAll('input[id="amazon_cost"]');
+        const amountAmazon = document.getElementById('amazon_total');
+        let total = 0;
+        amountInputs.forEach(function (input) {
+            const value = parseFloat(input.value);
+            if (!isNaN(value)) {
+                total += value;
+            }
+        });
+        amountAmazon.value = total.toFixed(2);
+    };
+
+    function updateLocal(numberInput) {
+        const amountInputs = document.querySelectorAll('input[id="local_cost"]');
+        const amountLocal = document.getElementById('local_total');
+        let total = 0;
+        amountInputs.forEach(function (input) {
+            const value = parseFloat(input.value);
+            if (!isNaN(value)) {
+                total += value;
+            }
+        });
+        amountLocal.value = total.toFixed(2);
+    };
+
+    function updateCombine(numberInput) {
+        const amountInputs = document.querySelectorAll('input[id="combine_cost"]');
+        const amountCombine = document.getElementById('combine_total');
+        let total = 0;
+        amountInputs.forEach(function (input) {
+            const value = parseFloat(input.value);
+            if (!isNaN(value)) {
+                total += value;
+            }
+        });
+        amountCombine.value = total.toFixed(2);
+    };
+
     function add_delivery_plt(button) {
         const checkBoxes = document.getElementsByName('is_type_added');
         for (let i = 0; i < checkBoxes.length; i+=2) {
@@ -189,5 +307,37 @@
             row.remove();
         });
     };
+    function processForm(tableId) {
+        var table = document.getElementById(tableId);
+        var tbody = table.getElementsByTagName('tbody')[0];
+        var rows = tbody.getElementsByTagName('tr');
+        for (var i = 0; i < rows.length - 1; i++) {
+            var cost = rows[i].getElementsByTagName('td')[0];
+            var input = cost.getElementsByTagName('input')[0];
+            if (input.value === "") {
+                input.focus();
+                event.preventDefault();
+                alert('不能为空！');          
+            }
+        }       
+    };
+    function AmountForm() {
+        var costInputs = document.querySelectorAll('input[name="cost"]');
+        for (var i = 0; i < costInputs.length; i++) {
+            if (costInputs[i].value === '') {
+                costInputs.focus();
+                event.preventDefault();
+                alert('不能为空！');
+                break;
+            }
+        }       
+        var totalInputs = document.querySelectorAll('input[name="total"]');
+        var sum = 0;
+        for (var j = 0; j < totalInputs.length; j++) {
+            sum += parseInt(totalInputs[j].value);
+        }
+        var amountInput = document.querySelector('input[name="amount"]');
+        amountInput.value = sum;
+    }
 </script>
 {% endblock %}

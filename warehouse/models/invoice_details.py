@@ -54,4 +54,5 @@ class InvoiceWarehouse(models.Model):
     amount = models.FloatField(null=True, blank=True)
 
     def __str__(self) -> str:
-        return str(self.invoice_number) 
+        return str(self.invoice_number)
+
