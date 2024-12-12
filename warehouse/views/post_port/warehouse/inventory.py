@@ -108,15 +108,10 @@ class Inventory(View):
         warehouse = request.POST.get("warehouse")
         pallet = await self._get_inventory_pallet(warehouse)
         pallet_json = {}
-        # for p in pallet:
-        #     if p.get("plt_ids"):
-        #         pallet_json[p.get("plt_ids")] = {
-        #             k: round(v, 2) if isinstance(v, float) or isinstance(v, int) else (re.sub(r'[\x00-\x1F\x7F\t]', ' ', v) if v != 'None' and v else '') for k, v in p.items()
-        #         }
         pallet_json = {
             p.get("plt_ids"): {
                 k: round(v, 2) if isinstance(v, float) or isinstance(v, int)
-                else (re.sub(r'[\x00-\x1F\x7F\t]', ' ', v) if v != 'None' and v else '') for k, v in p.items()
+                else (re.sub(r'[\x00-\x1F\x7F\t"]', ' ', v) if v != 'None' and v else '') for k, v in p.items()
             }
             for p in pallet
         }
