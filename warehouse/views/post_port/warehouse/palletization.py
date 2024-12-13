@@ -258,7 +258,7 @@ class Palletization(View):
             "shipment":shipment,
             "fleet":fleet,
             "arrived_containers":arrived_containers,
-            "warehouse_options": [("", ""), ("NJ-07001", "NJ-07001"), ("NJ-08817", "NJ-08817"),("SAV-31326", "SAV-31326"),("LA-91761", "LA-91761"),("LB-91761", "LB-91761")],
+            "warehouse_options": [("", ""), ("NJ-07001", "NJ-07001"), ("NJ-08817", "NJ-08817"),("SAV-31326", "SAV-31326"),("LA-91761", "LA-91761"),],
             "warehouse_filter": warehouse,
         }
         return self.template_pallet_daily_operation, context

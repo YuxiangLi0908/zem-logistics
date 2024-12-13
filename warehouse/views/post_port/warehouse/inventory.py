@@ -52,7 +52,6 @@ class Inventory(View):
         "NJ-08817": "NJ-08817",
         "SAV-31326": "SAV-31326",
         "LA-91761":"LA-91761",
-        "LB-91761":"LB-91761"
     }
 
     async def get(self, request: HttpRequest, **kwargs) -> HttpResponse:
