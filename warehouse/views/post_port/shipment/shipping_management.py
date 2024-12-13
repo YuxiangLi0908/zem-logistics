@@ -895,17 +895,14 @@ class ShippingManagement(View):
         return await self.handle_shipment_info_get(request)
 
     async def handle_appointment_warehouse_search_post(self, request: HttpRequest) -> tuple[str, dict[str, Any]]:
-        warehosue = request.POST.get("warehouse")
+        warehouse = request.POST.get("warehouse")
         start_date = request.POST.get("start_date")
         end_date = request.POST.get("end_date")
         pallet = await sync_to_async(list)(
             Pallet.objects.select_related(
                 "container_number", "container_number__order","container_number__order__retrieval_id"
             ).filter(
-                (
-                    models.Q(container_number__order__retrieval_id__retrieval_destination_precise=warehosue) |
-                    models.Q(container_number__order__warehouse__name=warehosue)
-                ),
+                location=warehouse,
                 container_number__order__created_at__gte = '2024-09-01',
                 shipment_batch_number__isnull=True,
             ).values(
@@ -921,8 +918,8 @@ class ShippingManagement(View):
                 "container_number", "container_number__order__retrieval_id","container_number__order__vessel_id"
             ).filter(
                 (
-                    models.Q(container_number__order__retrieval_id__retrieval_destination_precise=warehosue) |
-                    models.Q(container_number__order__warehouse__name=warehosue)
+                    models.Q(container_number__order__retrieval_id__retrieval_destination_precise=warehouse) |
+                    models.Q(container_number__order__warehouse__name=warehouse)
                        
                 ),
                 container_number__order__created_at__gte = '2024-09-01',
@@ -940,13 +937,13 @@ class ShippingManagement(View):
         )
         appointment = await sync_to_async(list)(
             Shipment.objects.filter(
-                (models.Q(origin__isnull=True) | models.Q(origin="") | models.Q(origin=warehosue)),
+                (models.Q(origin__isnull=True) | models.Q(origin="") | models.Q(origin=warehouse)),
                 models.Q(in_use=False, is_canceled=False)
             ).order_by("shipment_appointment")
         )
         appointment_data = await sync_to_async(list)(
             Shipment.objects.filter(
-                (models.Q(origin__isnull=True) | models.Q(origin="") | models.Q(origin=warehosue)),
+                (models.Q(origin__isnull=True) | models.Q(origin="") | models.Q(origin=warehouse)),
                 models.Q(in_use=False, is_canceled=False),
                 shipment_appointment__gt=datetime.now(),
             ).values(
@@ -973,7 +970,7 @@ class ShippingManagement(View):
         context = {
             "appointment": appointment,
             "po_appointment_summary": df.to_dict("records"),
-            "warehouse": warehosue,
+            "warehouse": warehouse,
             "warehouse_options": self.warehouse_options,
             "upload_file_form": UploadFileForm(),
             "start_date": start_date,
