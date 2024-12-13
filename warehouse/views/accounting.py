@@ -1,5 +1,5 @@
 import io
-import math
+import math,re
 import os,json
 import openpyxl.workbook
 import openpyxl.worksheet
@@ -54,7 +54,7 @@ from warehouse.utils.constants import (
     PICKUP_FEE,
     LOCAL_DELIVERY,NJ_AMAZON_DELIVERY,NJ_COMBINA,
     SAV_AMAZON_DELIVERY,SAV_COMBINA,
-    LA_AMAZON_DELIVERY,LA_COMBINA
+    LA_AMAZON_DELIVERY,LA_COMBINA,DIRECT_CONTAINER
 )
 
 
@@ -74,6 +74,8 @@ class Accounting(View):
     template_invoice_delievery_edit = "accounting/invoice_delivery_edit.html"
     template_invoice_confirm = "accounting/invoice_confirm.html"
     template_invoice_confirm_edit = "accounting/invoice_confirm_edit.html"
+    template_invoice_direct = "accounting/invoice_direct.html"
+    template_invoice_direct_edit = "accounting/invoice_direct_edit.html"
     allowed_group = "accounting"
 
     def get(self, request: HttpRequest) -> HttpResponse:
@@ -81,13 +83,18 @@ class Accounting(View):
         #     return HttpResponseForbidden("You are not authenticated to access this page!")
 
         step = request.GET.get("step", None)
-        print("GET",step)
         if step == "pallet_data":
             template, context = self.handle_pallet_data_get()
             return render(request, template, context)
         elif step == "pl_data":
             template, context = self.handle_pl_data_get()
             return render(request, template, context)
+        elif step == "invoice_direct":
+            if self.validate_user_invoice_direct(request.user): 
+                template, context = self.handle_invoice_direct_get(request)
+                return render(request, template, context)      
+            else:
+                return HttpResponseForbidden("You are not authenticated to access this page!")
         elif step == "invoice_preport":  #提拆柜账单录入
             if self.validate_user_invoice_preport(request.user): 
                 template, context = self.handle_invoice_preport_get(request)
@@ -119,6 +126,9 @@ class Accounting(View):
             container_number = request.GET.get("container_number")
             template, context = self.handle_container_invoice_get(container_number)
             return render(request, template, context)
+        elif step == "container_direct":
+            template, context = self.handle_container_invoice_direct_get(request)
+            return render(request, template, context)
         elif step == "container_preport":
             template, context = self.handle_container_invoice_preport_get(request)
             return render(request, template, context)
@@ -147,7 +157,6 @@ class Accounting(View):
             return HttpResponseForbidden("You are not authenticated to access this page!")
 
         step = request.POST.get("step", None)
-        print("POST",step)
         if step == "pallet_data_search":
             start_date = request.POST.get("start_date")
             end_date = request.POST.get("end_date")
@@ -165,6 +174,9 @@ class Accounting(View):
             return self.handle_pl_data_export_post(request)
         elif step == "invoice_order_search":
             template, context = self.handle_invoice_order_search_post(request,"old")
+            return render(request, template, context)
+        elif step == "invoice_order_direct":
+            template, context = self.handle_invoice_order_search_post(request,"direct")
             return render(request, template, context)
         elif step == "invoice_order_preport":
             template, context = self.handle_invoice_order_search_post(request,"preport")
@@ -186,6 +198,9 @@ class Accounting(View):
             return self.handle_create_container_invoice_post(request)
         elif step == "container_invoice_edit":
             return self.handle_container_invoice_edit_post(request)
+        elif step == "direct_save":
+            template, context = self.handle_invoice_direct_save_post(request)
+            return render(request, template, context)
         elif step =="preport_save":
             template, context = self.handle_invoice_preport_save_post(request)
             return render(request, template, context)
@@ -289,6 +304,49 @@ class Accounting(View):
         }
         return self.template_invoice_management, context
     
+    def handle_invoice_direct_get(self, 
+        request: HttpRequest,
+        start_date: str = None,
+        end_date: str = None,
+        customer: str = None      
+    ) -> tuple[Any, Any]:
+        current_date = datetime.now().date()
+        start_date = (current_date + timedelta(days=-30)).strftime('%Y-%m-%d') if not start_date else start_date
+        end_date = current_date.strftime('%Y-%m-%d') if not end_date else end_date
+        criteria = models.Q(
+            models.Q(created_at__gte=start_date),
+            models.Q(created_at__lte=end_date)
+        )
+        if customer:
+            criteria &= models.Q(customer_name__zem_name=customer)
+        #查找直送，没有生成账单的柜子
+        order = Order.objects.select_related(
+            "customer_name", "container_number",
+            ).filter(
+                criteria,
+                order_type = "直送",
+                invoice_status="unrecorded"
+            )
+        status = ['toBeConfirmed','confirmed']
+        previous_order = Order.objects.select_related(
+            "customer_name", "container_number", "invoice_id"
+            ).values(
+                "invoice_status","container_number__container_number","customer_name__zem_name","created_at"
+            ).filter(
+                criteria,
+                order_type = "直送",
+                invoice_status__in=status
+            )
+        context = {
+            "order":order,
+            "order_form":OrderForm(),
+            "previous_order":previous_order,
+            "start_date":start_date,
+            "end_date":end_date,
+            "customer": customer
+        }
+        return self.template_invoice_direct, context
+
     #港前账单，待开账单、已开账单、驳回账单
     def handle_invoice_preport_get(self, 
         request: HttpRequest,
@@ -314,6 +372,7 @@ class Accounting(View):
             "invoice_id", "customer_name", "container_number", "invoice_id__statement_id"
             ).filter(
                 criteria,
+                order_type = "转运",
                 invoice_status="unrecorded"
                 )
         #查找操作过但被驳回的
@@ -426,7 +485,7 @@ class Accounting(View):
         previous_order = Order.objects.select_related(
             "invoice_id", "customer_name", "container_number", "invoice_id__statement_id"
             ).values(
-                "container_number__container_number","customer_name__zem_name","created_at","invoice_id__invoice_date"
+                "container_number__container_number","customer_name__zem_name","created_at","invoice_id__invoice_date","order_type"
             ).filter(
                 criteria,
                 models.Q(invoice_status='confirmed')
@@ -518,6 +577,29 @@ class Accounting(View):
         order.save()  
         return self.handle_invoice_warehouse_get(request)
 
+    def handle_invoice_direct_save_post(self,request:HttpRequest) -> tuple[Any, Any]:
+        data = request.POST.copy()
+        container_number = data.get("container_number")
+        invoice = Invoice.objects.select_related("container_number").get(
+                container_number__container_number=container_number
+            )
+        direct_amount = request.POST.get("amount")
+        invoice_preports = InvoicePreport.objects.get(invoice_number__invoice_number = invoice.invoice_number)
+        for k,v in data.items():         
+            if k not in ['csrfmiddlewaretoken','step','warehouse','container_number','invoice_number'] and v:
+                setattr(invoice_preports, k, v)
+        invoice_preports.save()
+        invoice_preports = InvoicePreport.objects.get(invoice_number__invoice_number=invoice.invoice_number)
+        #账单状态记录
+        order = Order.objects.select_related("retrieval_id","container_number").get(container_number__container_number=container_number)
+        order.invoice_status="toBeConfirmed"
+        order.save()
+        invoice = Invoice.objects.get(container_number__container_number=container_number)
+        invoice.direct_amount = direct_amount
+        invoice.save()
+        return self.handle_invoice_direct_get(request)
+
+
 
     def handle_invoice_preport_save_post(self,request:HttpRequest) -> tuple[Any, Any]:
         data = request.POST.copy()
@@ -529,7 +611,9 @@ class Accounting(View):
         #提拆柜表费用记录
         invoice_preports = InvoicePreport.objects.get(invoice_number__invoice_number = invoice.invoice_number)
         for k,v in data.items():         
-            if k not in ['csrfmiddlewaretoken','step','warehouse','container_number','invoice_number','pending',"invoice_reject_reason"] and v:
+            if k not in ['csrfmiddlewaretoken','step','warehouse','container_number','invoice_number','pending',"invoice_reject_reason"]:
+                if not v:
+                    v = 0
                 setattr(invoice_preports, k, v)
         invoice_preports.save()
         invoice_preports = InvoicePreport.objects.get(invoice_number__invoice_number=invoice.invoice_number)
@@ -579,7 +663,7 @@ class Accounting(View):
             p.delivery_type = delivery_type
         Pallet.objects.bulk_update(pallet, ["delivery_type"])
         container_number = request.POST.get("container_number")
-        return self.handle_container_invoice_delivery_get(container_number,request)
+        return self.handle_container_invoice_delivery_get(request)
 
     def handle_invoice_confirm_save(self, request: HttpRequest) -> tuple[Any, Any]:
         container_number = request.POST.get("container_number")
@@ -627,7 +711,7 @@ class Accounting(View):
                 pallet[0].price_quote = first_price
                 Pallet.objects.bulk_update(pallet, ["price_quote"])   
         container_number = request.POST.get("container_number")
-        return self.handle_invoice_delivery_get(request)
+        return self.handle_container_invoice_delivery_get(request)
 
 
     def handle_container_invoice_warehouse_get(self, request: HttpRequest) -> tuple[Any, Any]:
@@ -660,46 +744,57 @@ class Accounting(View):
         invoice = Invoice.objects.get(
             container_number__container_number=container_number
         )
+        order = Order.objects.select_related("container_number").get(container_number__container_number=container_number)
         invoice_preports = InvoicePreport.objects.get(invoice_number__invoice_number=invoice.invoice_number)
-        invoice_warehouse = InvoiceWarehouse.objects.get(invoice_number__invoice_number=invoice.invoice_number)
-        pallet =Pallet.objects.prefetch_related(
-                "container_number"
-            ).filter(
-                container_number__container_number=container_number
-            ).annotate(
-                str_id=Cast("id", CharField()),
-            ).values(
-                'destination',
-                'zipcode',
-                'address',
-                'delivery_method',
-                'delivery_type',
-            ).annotate(  
-                ids=StringAgg("str_id", delimiter=",", distinct=True, ordering="str_id"),    
-                total_cost=Sum("price_quote",output_field=IntegerField()),   
-                total_cbm=Sum("cbm", output_field=FloatField()),
-                total_weight_lbs=Sum("weight_lbs", output_field=FloatField()),
-                total_n_pallet=Count("pallet_id", distinct=True)
-            )
-        amazon = []
-        local = []
-        combine = []
-        for plt in pallet:
-            if plt["delivery_type"] == "amazon":
-                amazon.append(plt)
-            elif plt["delivery_type"] == "local":
-                local.append(plt)
-            elif plt["delivery_type"] == "combine":
-                combine.append(plt)
-        context = {
-            "invoice":invoice,
-            "invoice_preports":invoice_preports,
-            "invoice_warehouse":invoice_warehouse,
-            "amazon":amazon,
-            "local":local,
-            "combine":combine,
-            "container_number":container_number
-        }
+        if order.order_type == "转运":         
+            invoice_warehouse = InvoiceWarehouse.objects.get(invoice_number__invoice_number=invoice.invoice_number)
+            pallet =Pallet.objects.prefetch_related(
+                    "container_number"
+                ).filter(
+                    container_number__container_number=container_number
+                ).annotate(
+                    str_id=Cast("id", CharField()),
+                ).values(
+                    'destination',
+                    'zipcode',
+                    'address',
+                    'delivery_method',
+                    'delivery_type',
+                ).annotate(  
+                    ids=StringAgg("str_id", delimiter=",", distinct=True, ordering="str_id"),    
+                    total_cost=Sum("price_quote",output_field=IntegerField()),   
+                    total_cbm=Sum("cbm", output_field=FloatField()),
+                    total_weight_lbs=Sum("weight_lbs", output_field=FloatField()),
+                    total_n_pallet=Count("pallet_id", distinct=True)
+                )
+            amazon = []
+            local = []
+            combine = []
+            for plt in pallet:
+                if plt["delivery_type"] == "amazon":
+                    amazon.append(plt)
+                elif plt["delivery_type"] == "local":
+                    local.append(plt)
+                elif plt["delivery_type"] == "combine":
+                    combine.append(plt)
+            context = {
+                "invoice":invoice,
+                "order_type":order.order_type,
+                "invoice_preports":invoice_preports,
+                "invoice_warehouse":invoice_warehouse,
+                "amazon":amazon,
+                "local":local,
+                "combine":combine,
+                "container_number":container_number
+            }
+        elif order.order_type == "直送":
+            context = {
+                "invoice":invoice,
+                "order_type":order.order_type,
+                "invoice_preports":invoice_preports,
+                "container_number":container_number
+            }
+
         return self.template_invoice_confirm_edit, context
 
 
@@ -800,99 +895,152 @@ class Accounting(View):
         }
         return self.template_invoice_delievery_edit, context
 
+    def handle_container_invoice_direct_get(self, request: HttpRequest) -> tuple[Any, Any]:
+        container_number = request.GET.get("container_number")
+        order = Order.objects.select_related("retrieval_id","container_number").get(container_number__container_number=container_number)
+        warehouse = order.retrieval_id.retrieval_destination_area
+        try:
+            invoice = Invoice.objects.select_related("customer", "container_number").get(
+                container_number__container_number=container_number
+            )
+        except Invoice.DoesNotExist:
+            #没有账单就创建
+            order = Order.objects.select_related("customer_name", "container_number").get(
+                container_number__container_number=container_number
+            )
+            current_date = datetime.now().date()
+            order_id = str(order.id)
+            customer_id = order.customer_name.id
+            invoice = Invoice(**{
+                "invoice_number":f"{current_date.strftime('%Y-%m-%d').replace('-', '')}C{customer_id}{order_id}",
+                #"invoice_date": current_date.strftime('%Y-%m-%d'),
+                #"invoice_link": invoice_data["invoice_link"],
+                "customer": order.customer_name,
+                "container_number": order.container_number,
+                "delivery_amount":0
+            })
+            invoice.save()
+            order.invoice_id = invoice
+            order.save()
+        destination = order.retrieval_id.retrieval_destination_area
+        new_destination = destination.replace(' ', '')
+        second_delivery = 0 
+        if new_destination in ["ONT8","LGB8","LAX9","SBD2","SBD3","KRB1"]:
+            second_delivery = 750
+        elif new_destination in ["GYR2","GYR3","GYR3","PHX5","PHX7","SMF3","SCK1","SCK4","SJC7","OAK3","LAS1","LAS3"]:
+            second_delivery = 1750
 
+        try:
+            invoice_preports = InvoicePreport.objects.get(invoice_number__invoice_number=invoice.invoice_number)
+        except InvoicePreport.DoesNotExist:    
+            #获取直送柜子的提拆柜费用
+            #如果之前没有录过费用，就根据报价表生成提+派送费用
+            pickup_fee = 0
+            for k,v in DIRECT_CONTAINER.items():
+                if new_destination in v:
+                    pickup_fee = k
+            invoice_content = InvoicePreport(**{
+                "invoice_number": invoice,
+                "pickup": pickup_fee,
+            })
+            invoice_content.save()
+            invoice_preports = InvoicePreport.objects.get(invoice_number__invoice_number=invoice.invoice_number)
+        context = {
+            "warehouse": warehouse,
+            "invoice_preports":invoice_preports,
+            "container_number":container_number,
+            "second_delivery":second_delivery
+        }
+        return self.template_invoice_direct_edit, context
+    
     def handle_container_invoice_preport_get(self, request: HttpRequest) -> tuple[Any, Any]:
         container_number = request.GET.get("container_number")
         order = Order.objects.select_related("retrieval_id","container_number").get(container_number__container_number=container_number)
-        if order.order_type == "转运":
-            #查看仓库和柜型，计算提拆费
-            warehouse = order.retrieval_id.retrieval_destination_area
-            container_type = order.container_number.container_type
-            pickup_key = (warehouse,container_type)
-            if pickup_key in PICKUP_FEE:               
-                pickup_fee = PICKUP_FEE[pickup_key]
-            try:
-                invoice = Invoice.objects.select_related("customer", "container_number").get(
-                    container_number__container_number=container_number
-                )
-            except Invoice.DoesNotExist:
-                #没有账单就创建
-                order = Order.objects.select_related("customer_name", "container_number").get(
-                    container_number__container_number=container_number
-                )
-                current_date = datetime.now().date()
-                order_id = str(order.id)
-                customer_id = order.customer_name.id
-                invoice = Invoice(**{
-                    "invoice_number":f"{current_date.strftime('%Y-%m-%d').replace('-', '')}C{customer_id}{order_id}",
-                    #"invoice_date": current_date.strftime('%Y-%m-%d'),
-                    #"invoice_link": invoice_data["invoice_link"],
-                    "customer": order.customer_name,
-                    "container_number": order.container_number,
-                    "preport_amount": 0,
-                    "warehouse_amount": 0,
-                    "delivery_amount": 0,
-                })
-                invoice.save()
-                order.invoice_id = invoice
-                order.save()
-
-            invoice_preports = InvoicePreport.objects.filter(invoice_number__invoice_number=invoice.invoice_number)
-            if not invoice_preports.exists():
-                invoice_content = InvoicePreport(**{
-                    "invoice_number": invoice,
-                    "pickup": pickup_fee,
-                })
-                invoice_content.save()
+        #查看仓库和柜型，计算提拆费
+        warehouse = order.retrieval_id.retrieval_destination_area
+        container_type = order.container_number.container_type
+        pickup_key = (warehouse,container_type)
+        if pickup_key in PICKUP_FEE:               
+            pickup_fee = PICKUP_FEE[pickup_key]
+        try:
+            invoice = Invoice.objects.select_related("customer", "container_number").get(
+                container_number__container_number=container_number
+            )
+        except Invoice.DoesNotExist:
+            #没有账单就创建
+            order = Order.objects.select_related("customer_name", "container_number").get(
+                container_number__container_number=container_number
+            )
+            current_date = datetime.now().date()
+            order_id = str(order.id)
+            customer_id = order.customer_name.id
+            invoice = Invoice(**{
+                "invoice_number":f"{current_date.strftime('%Y-%m-%d').replace('-', '')}C{customer_id}{order_id}",
+                #"invoice_date": current_date.strftime('%Y-%m-%d'),
+                #"invoice_link": invoice_data["invoice_link"],
+                "customer": order.customer_name,
+                "container_number": order.container_number,
+                "preport_amount": 0,
+                "warehouse_amount": 0,
+                "delivery_amount": 0,
+            })
+            invoice.save()
+            order.invoice_id = invoice
+            order.save()
+        try:
             invoice_preports = InvoicePreport.objects.get(invoice_number__invoice_number=invoice.invoice_number)
-            groups = [group.name for group in request.user.groups.all()]
-            if request.user.is_staff:
-                groups.append("staff")
-            context = {
-                "warehouse": warehouse,
-                "reject_reason": order.invoice_reject_reason,
-                "invoice_preports":invoice_preports,
-                "container_number":container_number,
-                "groups":groups
-            }
-            
-            return self.template_invoice_preport_edit, context
+        except InvoicePreport.DoesNotExist:
+            invoice_content = InvoicePreport(**{
+                "invoice_number": invoice,
+                "pickup": pickup_fee,
+            })
+            invoice_content.save()
+            invoice_preports = InvoicePreport.objects.get(invoice_number__invoice_number=invoice.invoice_number)
+        groups = [group.name for group in request.user.groups.all()]
+        if request.user.is_staff:
+            groups.append("staff")
+        context = {
+            "warehouse": warehouse,
+            "reject_reason": order.invoice_reject_reason,
+            "invoice_preports":invoice_preports,
+            "container_number":container_number,
+            "groups":groups
+        }
+        
+        return self.template_invoice_preport_edit, context
 
 
     def handle_container_invoice_get(self, container_number: str) -> tuple[Any, Any]:
         order = Order.objects.select_related("offload_id").get(container_number__container_number=container_number)
-        if order.order_type == "转运":
-            if order.offload_id.offload_at == None:
-                packing_list = PackingList.objects.select_related(
-                    "container_number", "pallet"
-                ).filter(
-                    container_number__container_number=container_number
-                ).values(
-                    'container_number__container_number', 'destination'
-                ).annotate(
-                    total_cbm=Sum("pallet__cbm", output_field=FloatField()),
-                    total_n_pallet=Count('pallet__pallet_id', distinct=True),
-                ).order_by("destination", "-total_cbm")
-            else:
-                packing_list = Pallet.objects.select_related(
-                    "container_number"
-                ).filter(
-                    container_number__container_number=container_number
-                ).values(
-                    'container_number__container_number', 'destination'
-                ).annotate(
-                    total_cbm=Sum("cbm", output_field=FloatField()),
-                    total_n_pallet=Count('pallet_id', distinct=True),
-                ).order_by("destination", "-total_cbm")
-            for pl in packing_list:
-                if pl["total_cbm"] > 1:
-                    pl["total_n_pallet"] = round(pl["total_cbm"] / 2)
-                elif pl["total_cbm"] >= 0.6 and pl["total_cbm"] <= 1:
-                    pl["total_n_pallet"] = 0.5
-                else:
-                    pl["total_n_pallet"] = 0.25
+        if order.offload_id.offload_at == None:
+            packing_list = PackingList.objects.select_related(
+                "container_number", "pallet"
+            ).filter(
+                container_number__container_number=container_number
+            ).values(
+                'container_number__container_number', 'destination'
+            ).annotate(
+                total_cbm=Sum("pallet__cbm", output_field=FloatField()),
+                total_n_pallet=Count('pallet__pallet_id', distinct=True),
+            ).order_by("destination", "-total_cbm")
         else:
-            packing_list = []
+            packing_list = Pallet.objects.select_related(
+                "container_number"
+            ).filter(
+                container_number__container_number=container_number
+            ).values(
+                'container_number__container_number', 'destination'
+            ).annotate(
+                total_cbm=Sum("cbm", output_field=FloatField()),
+                total_n_pallet=Count('pallet_id', distinct=True),
+            ).order_by("destination", "-total_cbm")
+        for pl in packing_list:
+            if pl["total_cbm"] > 1:
+                pl["total_n_pallet"] = round(pl["total_cbm"] / 2)
+            elif pl["total_cbm"] >= 0.6 and pl["total_cbm"] <= 1:
+                pl["total_n_pallet"] = 0.5
+            else:
+                pl["total_n_pallet"] = 0.25
         context = {
             "order": order,
             "packing_list": packing_list,
@@ -980,7 +1128,9 @@ class Accounting(View):
             customer = order_form.cleaned_data.get("customer_name")
         else:
             customer = None
-        if status == "preport":
+        if status == "direct":
+            return self.handle_invoice_direct_get(request, start_date, end_date, customer)
+        elif status == "preport":
             return self.handle_invoice_preport_get(request, start_date, end_date, customer)
         elif status == "warehouse":
             return self.handle_invoice_warehouse_get(request, start_date, end_date, customer)
@@ -1303,6 +1453,12 @@ class Accounting(View):
             return True
         else:
             return False
+    def validate_user_invoice_direct(self, user: User) -> bool:
+        if user.is_staff or user.groups.filter(name="invoice_direct").exists():
+            return True
+        else:
+            return False
+        
     def validate_user_invoice_preport(self, user: User) -> bool:
         if user.is_staff or user.groups.filter(name="invoice_preport").exists():
             return True

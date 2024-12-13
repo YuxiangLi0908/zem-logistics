@@ -25,6 +25,7 @@ class Invoice(models.Model):
     preport_amount = models.FloatField(null=True, blank=True)
     warehouse_amount = models.FloatField(null=True, blank=True)
     delivery_amount = models.FloatField(null=True, blank=True)
+    direct_amount = models.FloatField(null=True, blank=True)
     statement_id = models.ForeignKey(InvoiceStatement, null=True, blank=True, on_delete=models.SET_NULL)
     received_amount = models.FloatField(null=True, blank=True)
 

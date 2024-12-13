@@ -12,6 +12,7 @@
         <button id="editButton" type="submit" class="btn btn-primary" onclick="AmountForm()" style="background-color:green; font-size: 13px; padding:10px 20px; margin-right:80px;">账单确认</button>  
     </form>
 <div>
+{% if order_type == "转运" %}
 <div style="display: flex; max-height: 720px;">
     <div style="overflow-y: auto; max-height: 100%; width: 25%; border: 2px solid rgb(180, 180, 180); border-radius: 12px; padding: 1%; margin: 1%;">
         <div><b>提拆柜费用总计——{{ invoice.preport_amount }}</b></div>
@@ -251,7 +252,63 @@
         </div> 
         {% endif %}  
 <div>
-
+{% else %}
+<div style="overflow-y: auto; max-height: 100%; width: 60%; border: 2px solid rgb(180, 180, 180); border-radius: 12px; padding: 1%; margin: 1%;">
+    <div><b>直送费用总计——{{ invoice.direct_amount }}</b></div>
+    <form method="post" action="">
+        {% csrf_token %}
+            <div>
+                <label for="chassis_days">提+派送:</label>
+                <input type="number" id="pickup" name="pickup" value="{{ invoice_preports.pickup }}" disabled> 
+            </div>
+            <div>
+                <label for="chassis_split_count">查验费</label>(350$/柜):
+                <input type="number" id="exam_fee" name="exam_fee" min="0" value="{{ invoice_preports.exam_fee }}">
+            </div>
+            <div>
+                <label for="chassis_split_count">二次派送</label>
+                ({% if second_delivery %} {{ second_delivery }}{% endif %}):
+                <input type="number" id="second_pickup" name="second_pickup" min="0" value="{{ invoice_preports.second_pickup }}">
+            </div>
+            <div>
+                <label for="chassis_split_count">滞港费</label>($35/票代收):
+                <input type="number" id="demurrage" name="demurrage" min="0" value="{{ invoice_preports.demurrage }}">
+            </div>
+            <div>
+                <label for="chassis_split_count">滞箱费</label>($35/票代收):
+                <input type="number" id="per_diem" name="per_diem" min="0" value="{{ invoice_preports.per_diem }}">
+            </div>
+            <div>
+                <label for="chassis_split_count">港口拥堵费</label>(75$/小时):
+                <input type="number" id="congestion_fee" name="congestion_fee" min="0" value="{{ invoice_preports.congestion_fee }}">
+            </div>
+            <div>
+                <label for="chassis_days">车架费</label>(45$/天):
+                <input type="number" id="chassis" name="chassis" min="0" value="{{ invoice_preports.chassis }}">
+            </div>
+            <div>
+                <label for="prepull">预提费</label>(200$/柜):
+                <input type="number" id="prepull" name="prepull" min="0" value="{{ invoice_preports.prepull }}">
+            </div>
+            <div>
+                <label for="chassis_split_count">货柜储存费</label>(50$/柜):
+                <input type="number" id="yard_storage" name="yard_storage" min="0" value="{{ invoice_preports.yard_storage }}">
+            </div>
+            <div>
+                <label for="chassis_split_count">等待费</label>(2小时免费，超出$85/小时):
+                <input type="number" id="handling_fee" name="handling_fee" min="0" value="{{ invoice_preports.handling_fee }}">
+            </div>
+            <div>
+                <label for="chassis_split_count">车架分离费</label>(150$/柜):
+                <input type="number" id="chassis_split" name="chassis_split" min="0" value="{{ invoice_preports.chassis_split }}">
+            </div>
+            <div>
+                <label for="chassis_split_count">超重费</label>(200$/柜):
+                <input type="number" id="over_weight" name="over_weight" min="0" value="{{ invoice_preports.over_weight }}">
+            </div>
+    </form>
+</div>
+{% endif %}
 
 <script>
     window.onload = function () {

@@ -4,9 +4,7 @@ from django.db import models
 from warehouse.models.customer import Customer
 from warehouse.models.container import Container
 from warehouse.models.invoice import Invoice
-
-
-
+    
 class InvoicePreport(models.Model):
     invoice_number = models.ForeignKey(Invoice, on_delete=models.CASCADE)
     pickup = models.FloatField(null=True, blank=True)
