@@ -7,10 +7,8 @@
     <form method="post" action="" style="display: flex; justify-content: space-between;">
         {% csrf_token %}
         <p style="text-align:center; margin:0 auto;"><b>{{ invoice }}</b></p>
-        <input type="hidden" name="step" value="update_delivery_invoice">
-        <input type="hidden" name="type" value="amount">
-        <input type="hidden" name="amount" value="">
-        <input type="hidden" name="container_number" value={{ container_number }}>
+        <input type="hidden" name="step" value="confirm_save">
+        <input type="hidden" name="container_number" value="{{ container_number }}">
         <button id="editButton" type="submit" class="btn btn-primary" onclick="AmountForm()" style="background-color:green; font-size: 13px; padding:10px 20px; margin-right:80px;">账单确认</button>  
     </form>
 <div>
@@ -171,7 +169,7 @@
         <div><b>派送费用总计——{{ invoice.delivery_amount }}</b></div>
         {% if amazon %}
         <div style="border-bottom: 1px solid #ccc; margin-top: 5px;padding-bottom: 5px;text-align:center">
-            <b>亚马逊派送——</b>
+            <b>亚马逊派送——<label id="amazon_amount"></label></b>
             <table class="table" id="amazon-table" style="font-size: 13px">
                 <thead>
                     <tr style="position: sticky; top: 0;">
@@ -198,7 +196,7 @@
         {% endif %}
         {% if local %}
         <div style="border-bottom: 1px solid #ccc; margin-top: 5px;padding-bottom: 5px;text-align:center">
-            <b>本地派送</b>
+            <b>本地派送——<label id="local_amount"></label></b>
             <table class="table" id="local-table" style="font-size: 13px;">
                 <thead>
                     <tr style="position: sticky; top: 0;">
@@ -227,7 +225,7 @@
         {% endif %}
         {% if combine %}
         <div style="border-bottom: 1px solid #ccc; margin-top: 5px;padding-bottom: 5px;text-align:center">
-            <b>组合柜派送</b>
+            <b>组合柜派送——<label id="combine_amount"></label></b>
             <table class="table" id="combine-table" style="font-size: 13px;">
                 <thead>
                     <tr style="position: sticky; top: 0;">
@@ -253,5 +251,43 @@
         </div> 
         {% endif %}  
 <div>
+
+
+<script>
+    window.onload = function () {
+        var amazon_total = 0;
+        var rows = document.querySelectorAll('#amazon-table tbody tr');
+        for (var i = 0; i < rows.length; i++) {
+            var costInput = rows[i].querySelector('input[id="amazon_cost"]');
+            var costValue = parseFloat(costInput.value);
+            if (!isNaN(costValue)) {
+                amazon_total += costValue;
+            }
+        }      
+        document.getElementById('amazon_amount').textContent = amazon_total; 
+
+        var local_total = 0;
+        var rows = document.querySelectorAll('#local-table tbody tr');
+        for (var i = 0; i < rows.length; i++) {
+            var costInput = rows[i].querySelector('input[id="local_cost"]');
+            var costValue = parseFloat(costInput.value);
+            if (!isNaN(costValue)) {
+                local_total += costValue;
+            }
+        }      
+        document.getElementById('local_amount').textContent = local_total; 
+
+        var combine_total = 0;
+        var rows = document.querySelectorAll('#combine-table tbody tr');
+        for (var i = 0; i < rows.length; i++) {
+            var costInput = rows[i].querySelector('input[id="combine_cost"]');
+            var costValue = parseFloat(costInput.value);
+            if (!isNaN(costValue)) {
+                combine_total += costValue;
+            }
+        }      
+        document.getElementById('combine_amount').textContent = combine_total; 
+    };   
+</script>
 
 {% endblock%}

@@ -136,6 +136,13 @@ LA_COMBINA = {
     "5100,5600":"PSC2",
 }
 
+DIRECT_CONTAINER = {
+    "LA": {
+        "1450":"ONT8,LGB8,LAX9,SBD1,LGB9,XLX7",
+        "2450":"GYR2,GYR3",
+        "2400":"LAS1,LAS6",
+    }
+}
 
 ORDER_TYPES = {
     "TD": "转运",

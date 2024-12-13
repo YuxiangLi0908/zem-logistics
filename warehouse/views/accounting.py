@@ -120,16 +120,13 @@ class Accounting(View):
             template, context = self.handle_container_invoice_get(container_number)
             return render(request, template, context)
         elif step == "container_preport":
-            container_number = request.GET.get("container_number")
-            template, context = self.handle_container_invoice_preport_get(container_number,request)
+            template, context = self.handle_container_invoice_preport_get(request)
             return render(request, template, context)
         elif step == "container_warehouse":
-            container_number = request.GET.get("container_number")
-            template, context = self.handle_container_invoice_warehouse_get(container_number,request)
+            template, context = self.handle_container_invoice_warehouse_get(request)
             return render(request, template, context)
         elif step =="container_delivery":
-            container_number = request.GET.get("container_number")
-            template, context = self.handle_container_invoice_delivery_get(container_number,request)
+            template, context = self.handle_container_invoice_delivery_get(request)
             return render(request, template, context)
         elif step == "container_confirm":
             template, context = self.handle_container_invoice_confirm_get(request)
@@ -178,6 +175,9 @@ class Accounting(View):
         elif step == "invoice_order_delivery":
             template, context = self.handle_invoice_order_search_post(request,"delivery")
             return render(request, template, context)
+        elif step == "invoice_order_confirm":
+            template, context = self.handle_invoice_order_search_post(request,"confirm")
+            return render(request, template, context)
         elif step == "invoice_order_select":
             return self.handle_invoice_order_select_post(request)
         elif step == "export_invoice":
@@ -197,6 +197,9 @@ class Accounting(View):
             return render(request, template, context)
         elif step == "update_delivery_invoice":
             template, context = self.handle_invoice_delivery_save(request)
+            return render(request, template, context)
+        elif step == "confirm_save":
+            template, context = self.handle_invoice_confirm_save(request)
             return render(request, template, context)
         else:
             raise ValueError(f"unknow request {step}")
@@ -423,10 +426,10 @@ class Accounting(View):
         previous_order = Order.objects.select_related(
             "invoice_id", "customer_name", "container_number", "invoice_id__statement_id"
             ).values(
-                "invoice_status","container_number__container_number","customer_name__zem_name","created_at"
+                "container_number__container_number","customer_name__zem_name","created_at","invoice_id__invoice_date"
             ).filter(
                 criteria,
-                models.Q(invoice_status__in='confirmed')
+                models.Q(invoice_status='confirmed')
                 )
         context = {
             "order":order,
@@ -512,14 +515,8 @@ class Accounting(View):
         invoice_warehouse = InvoiceWarehouse.objects.get(invoice_number__invoice_number=invoice.invoice_number)
         order = Order.objects.select_related("retrieval_id","container_number").get(container_number__container_number=container_number)
         order.invoice_status = "record_delivery"
-        order.save()
-        context = {         
-            "warehouse": data.get("warehouse"),
-            "invoice_warehouse":invoice_warehouse,
-            "container_number":container_number,
-            "invoice":invoice
-        }     
-        return self.template_invoice_warehouse_edit, context
+        order.save()  
+        return self.handle_invoice_warehouse_get(request)
 
 
     def handle_invoice_preport_save_post(self,request:HttpRequest) -> tuple[Any, Any]:
@@ -529,7 +526,6 @@ class Accounting(View):
                 container_number__container_number=container_number
             )
         preport_amount = request.POST.get("amount")
-        print(request.POST)
         #提拆柜表费用记录
         invoice_preports = InvoicePreport.objects.get(invoice_number__invoice_number = invoice.invoice_number)
         for k,v in data.items():         
@@ -569,7 +565,7 @@ class Accounting(View):
             "reject_reason":data.get("invoice_reject_reason"),
             "groups":groups
         }     
-        return self.template_invoice_preport_edit, context
+        return self.handle_invoice_preport_get(request)
 
     def handle_invoice_delivery_type_save(self, request: HttpRequest) -> tuple[Any, Any]:
         delivery_type = request.POST.get("alter_type")
@@ -584,6 +580,17 @@ class Accounting(View):
         Pallet.objects.bulk_update(pallet, ["delivery_type"])
         container_number = request.POST.get("container_number")
         return self.handle_container_invoice_delivery_get(container_number,request)
+
+    def handle_invoice_confirm_save(self, request: HttpRequest) -> tuple[Any, Any]:
+        container_number = request.POST.get("container_number")
+        order = Order.objects.select_related("retrieval_id","container_number").get(container_number__container_number=container_number)
+        order.invoice_status = "confirmed"
+        order.save()
+        invoice = Invoice.objects.get(container_number__container_number=container_number)
+        current_date = datetime.now().date()
+        invoice.invoice_date = current_date.strftime('%Y-%m-%d')
+        invoice.save()
+        return self.handle_invoice_confirm_get(request)
 
     def handle_invoice_delivery_save(self, request: HttpRequest) -> tuple[Any, Any]:
         container_number = request.POST.get("container_number")
@@ -618,14 +625,13 @@ class Accounting(View):
                 for plt in pallet:
                     plt.price_quote = per_price
                 pallet[0].price_quote = first_price
-                Pallet.objects.bulk_update(pallet, ["price_quote"])
-               
-        
+                Pallet.objects.bulk_update(pallet, ["price_quote"])   
         container_number = request.POST.get("container_number")
-        return self.handle_container_invoice_delivery_get(container_number,request)
+        return self.handle_invoice_delivery_get(request)
 
 
-    def handle_container_invoice_warehouse_get(self, container_number: str,request: HttpRequest) -> tuple[Any, Any]:
+    def handle_container_invoice_warehouse_get(self, request: HttpRequest) -> tuple[Any, Any]:
+        container_number = request.GET.get("container_number")
         order = Order.objects.select_related("retrieval_id","container_number").get(container_number__container_number=container_number)
         warehouse = order.retrieval_id.retrieval_destination_area
         invoice = Invoice.objects.select_related("customer", "container_number").get(
@@ -657,8 +663,7 @@ class Accounting(View):
         invoice_preports = InvoicePreport.objects.get(invoice_number__invoice_number=invoice.invoice_number)
         invoice_warehouse = InvoiceWarehouse.objects.get(invoice_number__invoice_number=invoice.invoice_number)
         pallet =Pallet.objects.prefetch_related(
-                "container_number", "container_number__order", "container_number__order__warehouse", "shipment_batch_number"
-                "container_number__order__offload_id", "container_number__order__customer_name", "container_number__order__retrieval_id"
+                "container_number"
             ).filter(
                 container_number__container_number=container_number
             ).annotate(
@@ -693,12 +698,13 @@ class Accounting(View):
             "amazon":amazon,
             "local":local,
             "combine":combine,
-            "container_number":"container_number"
+            "container_number":container_number
         }
         return self.template_invoice_confirm_edit, context
 
 
-    def handle_container_invoice_delivery_get(self,container_number: str,request: HttpRequest) -> tuple[Any, Any]:
+    def handle_container_invoice_delivery_get(self,request: HttpRequest) -> tuple[Any, Any]:
+        container_number = request.GET.get("container_number")
         order = Order.objects.select_related("retrieval_id","container_number").get(container_number__container_number=container_number)
         #把pallet根据本地、亚马逊、沃尔玛和组合柜做区分
         pallet =Pallet.objects.prefetch_related(
@@ -795,7 +801,8 @@ class Accounting(View):
         return self.template_invoice_delievery_edit, context
 
 
-    def handle_container_invoice_preport_get(self, container_number: str,request: HttpRequest) -> tuple[Any, Any]:
+    def handle_container_invoice_preport_get(self, request: HttpRequest) -> tuple[Any, Any]:
+        container_number = request.GET.get("container_number")
         order = Order.objects.select_related("retrieval_id","container_number").get(container_number__container_number=container_number)
         if order.order_type == "转运":
             #查看仓库和柜型，计算提拆费
@@ -818,7 +825,7 @@ class Accounting(View):
                 customer_id = order.customer_name.id
                 invoice = Invoice(**{
                     "invoice_number":f"{current_date.strftime('%Y-%m-%d').replace('-', '')}C{customer_id}{order_id}",
-                    "invoice_date": current_date.strftime('%Y-%m-%d'),
+                    #"invoice_date": current_date.strftime('%Y-%m-%d'),
                     #"invoice_link": invoice_data["invoice_link"],
                     "customer": order.customer_name,
                     "container_number": order.container_number,
@@ -979,6 +986,8 @@ class Accounting(View):
             return self.handle_invoice_warehouse_get(request, start_date, end_date, customer)
         elif status == "delivery":
             return self.handle_invoice_delivery_get(request, start_date, end_date, customer)
+        elif status == "confirm":
+            return self.handle_invoice_confirm_get(request, start_date, end_date, customer)
         else:
             return self.handle_invoice_get(start_date, end_date, customer)
 
