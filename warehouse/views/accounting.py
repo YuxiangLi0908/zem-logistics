@@ -16,6 +16,7 @@ from office365.runtime.auth.user_credential import UserCredential
 from office365.sharepoint.client_context import ClientContext
 from office365.sharepoint.sharing.links.kind import SharingLinkKind
 
+
 import openpyxl
 from openpyxl.styles import Alignment, Border, Font, PatternFill, Side, numbers
 from django.http import HttpRequest, HttpResponse, HttpResponseForbidden
@@ -29,6 +30,7 @@ from django.views import View
 from django.utils.decorators import method_decorator
 from django.db import models
 from django.db.models import Sum, FloatField, IntegerField, Count
+from django.db.models import Case, When, F, Value
 
 from warehouse.models.order import Order
 from warehouse.models.invoice import Invoice, InvoiceItem, InvoiceStatement
@@ -485,11 +487,21 @@ class Accounting(View):
         previous_order = Order.objects.select_related(
             "invoice_id", "customer_name", "container_number", "invoice_id__statement_id"
             ).values(
-                "container_number__container_number","customer_name__zem_name","created_at","invoice_id__invoice_date","order_type"
+                "container_number__container_number","customer_name__zem_name","created_at","invoice_id__invoice_date","order_type",
+                "invoice_id__preport_amount","invoice_id__warehouse_amount","invoice_id__delivery_amount","invoice_id__direct_amount",
+                "invoice_id__invoice_number"
             ).filter(
                 criteria,
                 models.Q(invoice_status='confirmed')
                 )
+        previous_order = previous_order.annotate(
+            total_amount=Case(
+                When(order_type='转运', then=F('invoice_id__preport_amount') + F('invoice_id__warehouse_amount') + F('invoice_id__delivery_amount')),
+                When(order_type='直送', then=F('invoice_id__direct_amount')),
+                default=Value(0),
+                output_field=IntegerField()
+            )   
+        )
         context = {
             "order":order,
             "previous_order":previous_order,
@@ -911,10 +923,11 @@ class Accounting(View):
             current_date = datetime.now().date()
             order_id = str(order.id)
             customer_id = order.customer_name.id
+            workbook, invoice_data = self._generate_invoice_excel(context)
             invoice = Invoice(**{
                 "invoice_number":f"{current_date.strftime('%Y-%m-%d').replace('-', '')}C{customer_id}{order_id}",
                 #"invoice_date": current_date.strftime('%Y-%m-%d'),
-                #"invoice_link": invoice_data["invoice_link"],
+                "invoice_link": invoice_data["invoice_link"],
                 "customer": order.customer_name,
                 "container_number": order.container_number,
                 "delivery_amount":0
@@ -974,10 +987,11 @@ class Accounting(View):
             current_date = datetime.now().date()
             order_id = str(order.id)
             customer_id = order.customer_name.id
+            workbook, invoice_data = self._generate_invoice_excel(context)
             invoice = Invoice(**{
                 "invoice_number":f"{current_date.strftime('%Y-%m-%d').replace('-', '')}C{customer_id}{order_id}",
                 #"invoice_date": current_date.strftime('%Y-%m-%d'),
-                #"invoice_link": invoice_data["invoice_link"],
+                "invoice_link": invoice_data["invoice_link"],
                 "customer": order.customer_name,
                 "container_number": order.container_number,
                 "preport_amount": 0,
@@ -1188,7 +1202,7 @@ class Accounting(View):
         invoice = Invoice(**{
             "invoice_number": invoice_data["invoice_number"],
             "invoice_date": invoice_data["invoice_date"],
-            #"invoice_link": invoice_data["invoice_link"],
+            "invoice_link": invoice_data["invoice_link"],
             "customer": context["order"].customer_name,
             "container_number": context["order"].container_number,
             "total_amount": invoice_data["total_amount"],
@@ -1406,14 +1420,14 @@ class Accounting(View):
         excel_file = io.BytesIO()  #创建一个BytesIO对象
         workbook.save(excel_file)  #将workbook保存到BytesIO中
         excel_file.seek(0)         #将文件指针移动到文件开头
-        #invoice_link = self._upload_excel_to_sharepoint(excel_file, "invoice", f"INVOICE-{context['container_number']}.xlsx")
+        invoice_link = self._upload_excel_to_sharepoint(excel_file, "invoice", f"INVOICE-{context['container_number']}.xlsx")
 
         worksheet['A9'].font = Font(color="00FFFFFF")
         worksheet['A9'].fill = PatternFill(start_color="00000000", end_color="00000000", fill_type="solid")
         invoice_data = {
             "invoice_number": invoice_number,
             "invoice_date": current_date.strftime('%Y-%m-%d'),
-            #"invoice_link": invoice_link,
+            "invoice_link": invoice_link,
             "total_amount": total_amount,
         }
         return workbook, invoice_data

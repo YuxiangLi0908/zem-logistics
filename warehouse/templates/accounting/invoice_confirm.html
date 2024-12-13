@@ -68,13 +68,21 @@
                             <th class="th">客户</th>
                             <th class="th">货柜号</th>
                             <th class="th">订单类型</th>
-                            <th class="th">建单时间</th>
-                            <th class="th">生成时间</th>
+                            <th class="th">INVOICE #</th>
+                            <th class="th">建单日期</th>
+                            <th class="th">账单日期</th>
+                            <th class="th">应收金额</th>
+                            <th class="th">操作</th>                          
+                            <th class="th">STMT #</th>
                             
                         </tr>
                         <tr style="position: sticky; top: 28px;">
                             <th class="th"></th>
                             <th class="th"><input type="text" id="containerSearchInput" placeholder="搜索柜号..." oninput="filterTable(this, 1)" size="16" style="font-size: 14px;"></th>
+                            <th class="th"></th>
+                            <th class="th"></th>
+                            <th class="th"></th>
+                            <th class="th"></th>
                             <th class="th"></th>
                             <th class="th"></th>
                             <th class="th"></th>
@@ -88,8 +96,28 @@
                                     <a href="/accounting/?step=container_confirm&container_number={{ c.container_number__container_number }}" target="_blank">{{ c.container_number__container_number }}</a>
                                 </td>
                                 <td class="td">{{ c.order_type }}</td>
+                                <td class="td">{{ c.invoice_id__invoice_number }}</td>
                                 <td class="td">{{ c.created_at|date:"Y-m-d" }}</td>
                                 <td class="td">{{ c.invoice_id__invoice_date|date:"Y-m-d" }}</td>
+                                <td class="td">{{ c.total_amount|floatformat:"2g" }}</td>
+                                <td class="td">
+                                    <a href="{{ c.invoice_id.invoice_link }}" target="_blank" style="margin-right: 10px;">
+                                        <i class="bi bi-file-earmark-bar-graph-fill"></i>
+                                    </a>
+                                    <a href="#" onclick="confirmDelete(event, '{{ c.container_number }}', '{{ c.invoice_id__invoice_number }}')">
+                                        <i class="bi bi-x-circle-fill" style="color: rgb(203, 67, 53);"></i>
+                                    </a>
+                                    
+                                </td>
+                                <td class="td">
+                                    {% if c.invoice_id.statement_id %}
+                                        <a href="{{ c.invoice_id.statement_id.statement_link }}" target="_blank">
+                                            {{ c.invoice_id.statement_id.invoice_statement_id }}
+                                        </a>
+                                    {% else %}
+                                        <div> </div>
+                                    {% endif %}
+                                </td>
                             </tr>
                         {% endfor %}
                     </tbody>
@@ -118,6 +146,14 @@
                 
                 tr[i].style.display = containerDisplayStyle_1 === "" || containerDisplayStyle_2 === "" ? "" : "none";
             }
+        }
+    };
+
+    function confirmDelete(event, containerNumber, invoiceNumber) {
+        event.preventDefault();
+        const confirmation = confirm(`确认删除${containerNumber}的invoice${invoiceNumber}?`);
+        if (confirmation) {
+            window.location.href = `/accounting/?step=container_invoice_delete&invoice_number=${invoiceNumber}`;
         }
     };
 
