@@ -72,6 +72,8 @@ class Accounting(View):
     template_invoice_warehouse_edit = "accounting/invoice_warehouse_edit.html"
     template_invoice_delivery = "accounting/invoice_delivery.html"
     template_invoice_delievery_edit = "accounting/invoice_delivery_edit.html"
+    template_invoice_confirm = "accounting/invoice_confirm.html"
+    template_invoice_confirm_edit = "accounting/invoice_confirm_edit.html"
     allowed_group = "accounting"
 
     def get(self, request: HttpRequest) -> HttpResponse:
@@ -104,15 +106,9 @@ class Accounting(View):
                 return render(request, template, context) 
             else:
                 return HttpResponseForbidden("You are not authenticated to access this page!")
-        elif step == "invoice_review":
-            if not self.validate_user_invoice_review(request.user): 
-                template, context = self.handle_invoice_review_get()
-                return render(request, template, context)      
-            else:
-                return HttpResponseForbidden("You are not authenticated to access this page!")
         elif step == "invoice_confirm":
-            if not self.validate_user_invoice_confirm(request.user): 
-                template, context = self.handle_invoice_confirm_get()
+            if self.validate_user_invoice_confirm(request.user): 
+                template, context = self.handle_invoice_confirm_get(request)
                 return render(request, template, context)      
             else:
                 return HttpResponseForbidden("You are not authenticated to access this page!")
@@ -134,6 +130,9 @@ class Accounting(View):
         elif step =="container_delivery":
             container_number = request.GET.get("container_number")
             template, context = self.handle_container_invoice_delivery_get(container_number,request)
+            return render(request, template, context)
+        elif step == "container_confirm":
+            template, context = self.handle_container_invoice_confirm_get(request)
             return render(request, template, context)
         elif step == "container_invoice_edit":
             container_number = request.GET.get("container_number")
@@ -319,6 +318,7 @@ class Accounting(View):
                 criteria,
                 invoice_status="record_preport",
                 invoice_reject="True")
+    
         #查找已操作过的，给港前组长看
         order_pending = Order.objects.select_related(
             "invoice_id", "customer_name", "container_number", "invoice_id__statement_id"
@@ -326,6 +326,16 @@ class Accounting(View):
                 criteria,
                 invoice_status="record_preport",
                 invoice_reject ="False"
+                )
+        #查找历史操作过的
+        status = ['record_warehouse','record_delivery','toBeConfirmed','confirmed']
+        previous_order = Order.objects.select_related(
+            "invoice_id", "customer_name", "container_number", "invoice_id__statement_id"
+            ).values(
+                "invoice_status","container_number__container_number","customer_name__zem_name","created_at"
+            ).filter(
+                criteria,
+                models.Q(invoice_status__in=status)
                 )
         groups = [group.name for group in request.user.groups.all()]
         if request.user.is_staff:
@@ -335,6 +345,7 @@ class Accounting(View):
             "order_form":OrderForm(),
             "order_reject":order_reject,
             "order_pending":order_pending,
+            "previous_order":previous_order,
             "start_date":start_date,
             "end_date":end_date,
             "customer": customer,
@@ -365,15 +376,15 @@ class Accounting(View):
                 criteria,
                 invoice_status="record_warehouse"
                 )
-        print("order",order)
         #查找历史操作过的
-        status = ['unrecorded','record_preport','record_warehouse']
-        exclude_criteria = models.Q(invoice_status__in=status)
+        status = ['record_delivery','toBeConfirmed','confirmed']
         previous_order = Order.objects.select_related(
             "invoice_id", "customer_name", "container_number", "invoice_id__statement_id"
+            ).values(
+                "invoice_status","container_number__container_number","customer_name__zem_name","created_at"
             ).filter(
                 criteria,
-                ~exclude_criteria
+                models.Q(invoice_status__in=status)
                 )
         context = {
             "order":order,
@@ -384,6 +395,49 @@ class Accounting(View):
             "previous_order":previous_order
         }
         return self.template_invoice_warehouse, context
+
+    def handle_invoice_confirm_get(self,
+        request: HttpRequest,
+        start_date: str = None,
+        end_date: str = None,
+        customer: str = None
+    )-> tuple[Any, Any]:   
+        
+        current_date = datetime.now().date()
+        start_date = (current_date + timedelta(days=-30)).strftime('%Y-%m-%d') if not start_date else start_date
+        end_date = current_date.strftime('%Y-%m-%d') if not end_date else end_date
+        criteria = models.Q(
+            models.Q(created_at__gte=start_date),
+            models.Q(created_at__lte=end_date)
+        )
+        if customer:
+            criteria &= models.Q(customer_name__zem_name=customer)
+        #客服录入完毕的账单
+        order = Order.objects.select_related(
+            "invoice_id", "customer_name", "container_number", "invoice_id__statement_id"
+            ).filter(
+                criteria,
+                invoice_status="toBeConfirmed"
+                )
+        #已确认的账单
+        previous_order = Order.objects.select_related(
+            "invoice_id", "customer_name", "container_number", "invoice_id__statement_id"
+            ).values(
+                "invoice_status","container_number__container_number","customer_name__zem_name","created_at"
+            ).filter(
+                criteria,
+                models.Q(invoice_status__in='confirmed')
+                )
+        context = {
+            "order":order,
+            "previous_order":previous_order,
+            "order_form":OrderForm(),
+            "start_date":start_date,
+            "end_date":end_date,
+            "customer": customer,
+        }
+        return self.template_invoice_confirm, context
+
 
     def handle_invoice_delivery_get(self,
         request: HttpRequest,
@@ -408,8 +462,19 @@ class Accounting(View):
                 criteria,
                 invoice_status="record_delivery"
                 )
+        #查找历史操作过的
+        status = ['toBeConfirmed','confirmed']
+        previous_order = Order.objects.select_related(
+            "invoice_id", "customer_name", "container_number", "invoice_id__statement_id"
+            ).values(
+                "invoice_status","container_number__container_number","customer_name__zem_name","created_at"
+            ).filter(
+                criteria,
+                models.Q(invoice_status__in=status)
+                )
         context = {
             "order":order,
+            "previous_order":previous_order,
             "order_form":OrderForm(),
             "start_date":start_date,
             "end_date":end_date,
@@ -424,7 +489,7 @@ class Accounting(View):
                 container_number__container_number=container_number
             )
         #库内费用表记录
-        warehouse_amount = 0
+        warehouse_amount = request.POST.get("amount")
         invoice_warehouse = InvoiceWarehouse.objects.filter(invoice_number__invoice_number = invoice.invoice_number)
         if not invoice_warehouse.exists():
             invoice_content = InvoiceWarehouse(**{
@@ -435,7 +500,6 @@ class Accounting(View):
         for k,v in data.items():         
             if k not in ['csrfmiddlewaretoken','step','warehouse','container_number','invoice_number'] and v:
                 setattr(invoice_warehouse, k, v)
-                warehouse_amount += float(v)
         invoice_warehouse.save()
 
         #提拆柜记录到invoice表
@@ -464,22 +528,15 @@ class Accounting(View):
         invoice = Invoice.objects.select_related("container_number").get(
                 container_number__container_number=container_number
             )
-        preport_amount = 0
+        preport_amount = request.POST.get("amount")
+        print(request.POST)
         #提拆柜表费用记录
         invoice_preports = InvoicePreport.objects.get(invoice_number__invoice_number = invoice.invoice_number)
         for k,v in data.items():         
             if k not in ['csrfmiddlewaretoken','step','warehouse','container_number','invoice_number','pending',"invoice_reject_reason"] and v:
                 setattr(invoice_preports, k, v)
-                preport_amount += float(v)
         invoice_preports.save()
         invoice_preports = InvoicePreport.objects.get(invoice_number__invoice_number=invoice.invoice_number)
-
-        #提拆柜记录到invoice表
-        invoice = Invoice.objects.select_related("container_number").get(
-            container_number__container_number=container_number
-        )
-        invoice.preport_amount = preport_amount
-        invoice.save()
 
         #账单状态记录
         order = Order.objects.select_related("retrieval_id","container_number").get(container_number__container_number=container_number)
@@ -487,6 +544,12 @@ class Accounting(View):
             #审核通过，进入库内账单录入
             order.invoice_status = "record_warehouse"
             order.invoice_reject = "False"
+            #提拆柜记录到invoice表
+            invoice = Invoice.objects.select_related("container_number").get(
+                container_number__container_number=container_number
+            )
+            invoice.preport_amount = preport_amount
+            invoice.save()
         elif data.get("pending") == "False":
             #审核失败，驳回账单
             order.invoice_reject = "True"
@@ -503,6 +566,7 @@ class Accounting(View):
             "warehouse": data.get("warehouse"),
             "invoice_preports":invoice_preports,
             "container_number":container_number,
+            "reject_reason":data.get("invoice_reject_reason"),
             "groups":groups
         }     
         return self.template_invoice_preport_edit, context
@@ -522,8 +586,9 @@ class Accounting(View):
         return self.handle_container_invoice_delivery_get(container_number,request)
 
     def handle_invoice_delivery_save(self, request: HttpRequest) -> tuple[Any, Any]:
+        container_number = request.POST.get("container_number")
         type_value = request.POST.get("type")
-        total = request.POST.get("total")
+        total = request.POST.get("amount")
         invoice = Invoice.objects.select_related("customer", "container_number").get(
             container_number__container_number=container_number
         )
@@ -532,6 +597,7 @@ class Accounting(View):
             invoice.delivery_amount = total
             order = Order.objects.select_related("retrieval_id","container_number").get(container_number__container_number=container_number)
             order.invoice_status = "toBeConfirmed"
+            order.save()
             invoice.save()
             
         else:
@@ -539,7 +605,6 @@ class Accounting(View):
             cost = request.POST.getlist("cost")
             total = sum(int(num) for num in cost)
             #首先把每一行的价格，分开赋值给每一个板子
-            container_number = request.POST.get("container_number")
             id_list = request.POST.getlist("plt_ids")
             for ids in id_list:
                 selected_ids = ids.split(',')
@@ -554,20 +619,7 @@ class Accounting(View):
                     plt.price_quote = per_price
                 pallet[0].price_quote = first_price
                 Pallet.objects.bulk_update(pallet, ["price_quote"])
-            #然后把总数赋值给invoice
-            invoice = Invoice.objects.select_related("customer", "container_number").get(
-                container_number__container_number=container_number
-            )
-            
-            type_mapping = {
-                "combine_amount": "combine_amount",
-                "local_amount": "local_amount",
-                "amazon_amount": "amazon_amount"   
-            } 
-            if type_value in type_mapping:
-                setattr(invoice, type_mapping[type_value], total)
-            invoice.save()
-       
+               
         
         container_number = request.POST.get("container_number")
         return self.handle_container_invoice_delivery_get(container_number,request)
@@ -579,14 +631,72 @@ class Accounting(View):
         invoice = Invoice.objects.select_related("customer", "container_number").get(
             container_number__container_number=container_number
         )
-
+        try:
+            invoice_warehouse = InvoiceWarehouse.objects.get(invoice_number__invoice_number=invoice.invoice_number)
+        except InvoiceWarehouse.DoesNotExist:
+            context = {
+                "warehouse":warehouse,
+                "invoice":invoice,
+                "container_number":container_number,
+            }
+            return self.template_invoice_warehouse_edit, context
         context = {
             "warehouse":warehouse,
+            "invoice_warehouse":invoice_warehouse,
             "invoice":invoice,
             "container_number":container_number,
         }
         
         return self.template_invoice_warehouse_edit, context
+    
+    def handle_container_invoice_confirm_get(self,request: HttpRequest) -> tuple[Any, Any]:
+        container_number = request.GET.get("container_number")
+        invoice = Invoice.objects.get(
+            container_number__container_number=container_number
+        )
+        invoice_preports = InvoicePreport.objects.get(invoice_number__invoice_number=invoice.invoice_number)
+        invoice_warehouse = InvoiceWarehouse.objects.get(invoice_number__invoice_number=invoice.invoice_number)
+        pallet =Pallet.objects.prefetch_related(
+                "container_number", "container_number__order", "container_number__order__warehouse", "shipment_batch_number"
+                "container_number__order__offload_id", "container_number__order__customer_name", "container_number__order__retrieval_id"
+            ).filter(
+                container_number__container_number=container_number
+            ).annotate(
+                str_id=Cast("id", CharField()),
+            ).values(
+                'destination',
+                'zipcode',
+                'address',
+                'delivery_method',
+                'delivery_type',
+            ).annotate(  
+                ids=StringAgg("str_id", delimiter=",", distinct=True, ordering="str_id"),    
+                total_cost=Sum("price_quote",output_field=IntegerField()),   
+                total_cbm=Sum("cbm", output_field=FloatField()),
+                total_weight_lbs=Sum("weight_lbs", output_field=FloatField()),
+                total_n_pallet=Count("pallet_id", distinct=True)
+            )
+        amazon = []
+        local = []
+        combine = []
+        for plt in pallet:
+            if plt["delivery_type"] == "amazon":
+                amazon.append(plt)
+            elif plt["delivery_type"] == "local":
+                local.append(plt)
+            elif plt["delivery_type"] == "combine":
+                combine.append(plt)
+        context = {
+            "invoice":invoice,
+            "invoice_preports":invoice_preports,
+            "invoice_warehouse":invoice_warehouse,
+            "amazon":amazon,
+            "local":local,
+            "combine":combine,
+            "container_number":"container_number"
+        }
+        return self.template_invoice_confirm_edit, context
+
 
     def handle_container_invoice_delivery_get(self,container_number: str,request: HttpRequest) -> tuple[Any, Any]:
         order = Order.objects.select_related("retrieval_id","container_number").get(container_number__container_number=container_number)
@@ -615,7 +725,6 @@ class Accounting(View):
         invoice = Invoice.objects.select_related("customer", "container_number").get(
                 container_number__container_number=container_number
             )
-            
         warehouse = order.retrieval_id.retrieval_destination_area
         if warehouse == 'NJ':
             selected_amazon = NJ_AMAZON_DELIVERY   
@@ -634,7 +743,6 @@ class Accounting(View):
         local = []
         combine = []
         for plt in pallet:       
-            print(plt)   
             destination = plt["destination"].split('-')[1] if '-' in plt["destination"] else plt["destination"] 
             if plt["delivery_type"] == "amazon":                           
                 for k,v in selected_amazon.items():
@@ -701,23 +809,26 @@ class Accounting(View):
                     container_number__container_number=container_number
                 )
             except Invoice.DoesNotExist:
-                    order = Order.objects.select_related("customer_name", "container_number").get(
-                        container_number__container_number=container_number
-                    )
-                    current_date = datetime.now().date()
-                    order_id = str(order.id)
-                    customer_id = order.customer_name.id
-                    invoice = Invoice(**{
-                        "invoice_number":f"{current_date.strftime('%Y-%m-%d').replace('-', '')}C{customer_id}{order_id}",
-                        "invoice_date": current_date.strftime('%Y-%m-%d'),
-                        #"invoice_link": invoice_data["invoice_link"],
-                        "customer": order.customer_name,
-                        "container_number": order.container_number,
-                        "total_amount": 0,
-                    })
-                    invoice.save()
-                    order.invoice_id = invoice
-                    order.save()
+                #没有账单就创建
+                order = Order.objects.select_related("customer_name", "container_number").get(
+                    container_number__container_number=container_number
+                )
+                current_date = datetime.now().date()
+                order_id = str(order.id)
+                customer_id = order.customer_name.id
+                invoice = Invoice(**{
+                    "invoice_number":f"{current_date.strftime('%Y-%m-%d').replace('-', '')}C{customer_id}{order_id}",
+                    "invoice_date": current_date.strftime('%Y-%m-%d'),
+                    #"invoice_link": invoice_data["invoice_link"],
+                    "customer": order.customer_name,
+                    "container_number": order.container_number,
+                    "preport_amount": 0,
+                    "warehouse_amount": 0,
+                    "delivery_amount": 0,
+                })
+                invoice.save()
+                order.invoice_id = invoice
+                order.save()
 
             invoice_preports = InvoicePreport.objects.filter(invoice_number__invoice_number=invoice.invoice_number)
             if not invoice_preports.exists():
@@ -732,6 +843,7 @@ class Accounting(View):
                 groups.append("staff")
             context = {
                 "warehouse": warehouse,
+                "reject_reason": order.invoice_reject_reason,
                 "invoice_preports":invoice_preports,
                 "container_number":container_number,
                 "groups":groups
@@ -1197,18 +1309,13 @@ class Accounting(View):
             return False
     
     def validate_user_invoice_delivery(self, user:User)-> bool:
-        if user.is_staff or user.groups.filter(name="invoice_warehouse").exists():
+        if user.is_staff or user.groups.filter(name="invoice_delivery").exists():
             return True
         else:
             return False
         
-    def validate_user_invoice_review(self, user: User) -> bool:
-        if user.groups.filter(name="invoice_review").exists() or user.is_staff:
-            return True
-        else:
-            return False
     def validate_user_invoice_confirm(self, user: User) -> bool:
-        if user.groups.filter(name="invoice_confirm").exists() or user.is_staff:
+        if user.is_staff or user.groups.filter(name="invoice_confirm").exists():
             return True
         else:
             return False 

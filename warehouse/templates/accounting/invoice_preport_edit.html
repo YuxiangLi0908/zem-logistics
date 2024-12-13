@@ -1,6 +1,7 @@
 {% extends 'base.html' %}
 
 {% block content %}
+<div><h4><b>提拆柜订单编辑</b></h4></div>
 <div  style="display: inline-block; width: 100%; margin: 0; padding: 0; max-width: 100%;">
     <p style="text-align:center;"><b>{{ invoice_preports.invoice_number }}</b></p>
 </div>
@@ -101,7 +102,7 @@
             <input type="hidden" name="pending" id="pending">
             <button type="submit" class="btn btn-primary" style="width: 150px; height: 35px;" onclick="pendingTrue()">审核通过</button>
             <button type="submit" class="btn btn-primary" style="width: 150px; height: 35px;" onclick="pendingFalse()">审核不通过</button>
-            <input type="text" placeholder="审核失败原因" name="invoice_reject_reason">
+            <input type="text" placeholder="审核失败原因" name="invoice_reject_reason" value ={{ reject_reason }}>
         {% endif %}
     </form>
 </div>

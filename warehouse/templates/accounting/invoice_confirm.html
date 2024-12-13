@@ -1,7 +1,7 @@
 {% extends 'base.html' %}
 
 {% block content %}
-<div><h4><b>提拆柜订单管理</b></h4></div>
+<div><h4><b>待确认订单管理</b></h4></div>
 <div style="width: 100%; display: flex; justify-content: space-between;">
     <form method="post" action="" style="width: 80%;">
         {% csrf_token %}
@@ -11,17 +11,16 @@
             <b style="margin-right: 5px; margin-left: 10px;">建单时间:</b>
             <input type="date" name="start_date" value="{{ start_date }}">
             <input type="date" name="end_date" value="{{ end_date }}" style="margin-right: 5px;">
-            <input type="hidden" name="step" value="invoice_order_preport">
+            <input type="hidden" name="step" value="invoice_order_delivery">
             <button id="submit-btn" type="submit" class="btn btn-primary" style="width: 100px; height: 35px; margin-left: 20px;">查询</button>
         </div>
     </form>
 </div>
 <hr class="Dashed" style="margin-top: 10px; margin-bottom: 10px;">
-{% if "invoice_preport" in groups or "staff" in groups %}
 <div style="display: flex; max-height: 720px;">
     <div style="overflow-y: auto; max-height: 100%; width: 40%; border: 2px solid rgb(180, 180, 180); border-radius: 12px; padding: 1%; margin: 1%;">
-        {% if order %}
         <div><b>待开账单</b></div>
+        {% if order %}       
         <form method="post" action="">
             {% csrf_token %}
             <div style="overflow-x: auto; max-width: 100%; overflow-y: auto; max-height: 600px;">
@@ -31,10 +30,12 @@
                             <th class="th">客户</th>
                             <th class="th">货柜号</th>
                             <th class="th">建单日期</th>
+                            <th class="th">仓点</th>
                         </tr>
                         <tr style="position: sticky; top: 28px;">
                             <th class="th"></th>
                             <th class="th"><input type="text" id="containerSearchInput" placeholder="搜索柜号..." oninput="filterTable(this, 1)" size="16" style="font-size: 14px;"></th>
+                            <th class="th"></th>
                             <th class="th"></th>
                         </tr>
                     </thead>
@@ -43,89 +44,12 @@
                             <tr>
                                 <td class="td">{{ c.customer_name.zem_name }}</td>
                                 <td class="td">
-                                    <a href="/accounting/?step=container_preport&container_number={{ c.container_number }}&order_type={{ c.order_type }}" target="_blank">{{ c.container_number }}</a>
+                                    <a href="/accounting/?step=container_confirm&container_number={{ c.container_number }}&order_type={{ c.order_type }}" target="_blank">{{ c.container_number }}</a>
                                 </td>
                                 <td class="td">{{ c.created_at|date:"Y-m-d" }}</td>
-                            </tr>
-                        {% endfor %}
-                    </tbody>
-                </table>
-            </div>
-        </form>
-        {% endif %}
-    </div>
-
-    <div style="overflow-y: auto; max-height: 100%; width: 60%; border: 2px solid rgb(180, 180, 180); border-radius: 12px; padding: 1%; margin: 1%;">
-        {% if order_reject %}
-        <div><b>驳回账单</b></div>
-        <form method="post" action="">
-            {% csrf_token %}
-            <div style="overflow-x: auto; max-width: 100%; overflow-y: auto; max-height: 600px;">
-                <table class="table" id="order-table" style="font-size: 13px;">
-                    <thead>
-                        <tr style="position: sticky; top: 0;">
-                            <th class="th">客户</th>
-                            <th class="th">货柜号</th>
-                            <th class="th">驳回原因</th>
-                            <th class="th">建单日期</th>
-                        </tr>
-                        <tr style="position: sticky; top: 28px;">
-                            <th class="th"></th>
-                            <th class="th"><input type="text" id="containerSearchInput" placeholder="搜索柜号..." oninput="filterTable(this, 1)" size="16" style="font-size: 14px;"></th>
-                            <th class="th"></th>
-                            <th class="th"></th>
-                        </tr>
-                    </thead>
-                    <tbody>
-                        {% for c in order_reject %}
-                            <tr>
-                                <td class="td">{{ c.customer_name.zem_name }}</td>
                                 <td class="td">
-                                    <a href="/accounting/?step=container_preport&container_number={{ c.container_number }}&order_type={{ c.order_type }}" target="_blank">{{ c.container_number }}</a>
+                                    <a id="detailButton{{ forloop.counter }}" onclick="setupDetailButtons()" href="#">详情</a>                              
                                 </td>
-                                <td class="td">{{ c.invoice_reject_reason }}</td>
-                                <td class="td">{{ c.created_at|date:"Y-m-d" }}</td>
-                            </tr>
-                        {% endfor %}
-                    </tbody>
-                </table>
-            </div>
-        </form>
-        {% endif %}
-    </div>
-</div>
-{% endif %}
-<br>
-<hr class="Dashed" style="margin-top: 10px; margin-bottom: 10px;">
-{% if "invoice_preport_leader" in groups or "staff" in groups %}
-<div style="display: flex; max-height: 720px;">   
-    <div style="overflow-y: auto; max-height: 100%; width: 40%; border: 2px solid rgb(180, 180, 180); border-radius: 12px; padding: 1%; margin: 1%;">
-        <div><b>待审核账单</b></div>
-        {% if order_pending %}     
-        <form method="post" action="">
-            {% csrf_token %}
-            <div style="overflow-x: auto; max-width: 100%; overflow-y: auto; max-height: 600px;">
-                <table class="table" id="order-table" style="font-size: 13px;">
-                    <thead>
-                        <tr style="position: sticky; top: 0;">
-                            <th class="th">客户</th>
-                            <th class="th">货柜号</th>
-                            <th class="th">建单日期</th>
-                        </tr>
-                        <tr style="position: sticky; top: 28px;">
-                            <th class="th"></th>
-                            <th class="th"><input type="text" id="containerSearchInput" placeholder="搜索柜号..." oninput="filterTable(this, 1)" size="16" style="font-size: 14px;"></th>
-                            <th class="th"></th>
-                        </tr>
-                    </thead>
-                    <tbody>
-                        {% for c in order_pending %}
-                            <tr>
-                                <td class="td">{{ c.customer_name.zem_name }}</td>
-                                <td class="td">
-                                    <a href="/accounting/?step=container_preport&container_number={{ c.container_number }}&order_type={{ c.order_type }}" target="_blank">{{ c.container_number }}</a>
-                                </td>
-                                <td class="td">{{ c.created_at|date:"Y-m-d" }}</td>
                             </tr>
                         {% endfor %}
                     </tbody>
@@ -135,8 +59,8 @@
         {% endif %}
     </div>
     <div style="overflow-y: auto; max-height: 100%; width: 60%; border: 2px solid rgb(180, 180, 180); border-radius: 12px; padding: 1%; margin: 1%;">
-        {% if previous_order %}
-        <div><b>历史账单</b></div>
+        <div><b>已开账单</b></div>
+        {% if previous_order %}       
         <form method="post" action="">
             {% csrf_token %}
             <div style="overflow-x: auto; max-width: 100%; overflow-y: auto; max-height: 600px;">
@@ -145,8 +69,9 @@
                         <tr style="position: sticky; top: 0;">
                             <th class="th">客户</th>
                             <th class="th">货柜号</th>
-                            <th class="th">账单状态</th>
-                            <th class="th">建单日期</th>
+                            <th class="th">状态</th>
+                            <th class="th">仓点</th>
+                            
                         </tr>
                         <tr style="position: sticky; top: 28px;">
                             <th class="th"></th>
@@ -160,22 +85,18 @@
                             <tr>
                                 <td class="td">{{ c.customer_name__zem_name }}</td>
                                 <td class="td">
-                                    <a href="/accounting/?step=container_preport&container_number={{ c.container_number__container_number }}&order_type={{ c.order_type }}" target="_blank">{{ c.container_number__container_number }}</a>
+                                    <a href="/accounting/?step=container_confirm&container_number={{ c.container_number__container_number }}&order_type={{ c.order_type }}" target="_blank">{{ c.container_number__container_number }}</a>
                                 </td>
+                                <td class="td">{{ c.created_at|date:"Y-m-d" }}</td>
                                 <td class="td">
-                                    {% if c.invoice_status == 'record_warehouse' %}
-                                        仓库内账单待确认
-                                    {% elif c.invoice_status == 'record_delivery' %}
-                                        派送账单待确认 
-                                    {% elif c.invoice_status == 'toBeConfirmed' %}
-                                        财务待确认  
+                                    {% if c.invoice_status == 'toBeConfirmed' %}
+                                        财务待确认
                                     {% elif c.invoice_status == 'confirmed' %}
                                         账单已开 
                                     {% else %}
-                                        {{ c.invoice_status }} 
+                                        {{ c.invoice_status }}
                                     {% endif %}
                                 </td>
-                                <td class="td">{{ c.created_at|date:"Y-m-d" }}</td>
                             </tr>
                         {% endfor %}
                     </tbody>
@@ -184,7 +105,7 @@
         </form>
         {% endif %}
     </div>
-{% endif %}
+</div>
 <script>
     
     function filterTable(filterInput, col_idx, trim) {
