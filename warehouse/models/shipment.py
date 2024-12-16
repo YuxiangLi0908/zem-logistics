@@ -23,7 +23,6 @@ class Shipment(models.Model):
     is_arrived = models.BooleanField(default=False, null=True, blank=True)
     arrived_at = models.DateTimeField(null=True, blank=True)
     load_type = models.CharField(max_length=255, null=True, blank=True)
-    shipment_account = models.CharField(max_length=255, null=True, blank=True)
     shipment_type = models.CharField(max_length=255, null=True, blank=True)
     total_weight = models.FloatField(null=True, default=0)
     total_cbm = models.FloatField(null=True, default=0)
