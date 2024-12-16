@@ -54,6 +54,8 @@
                         </div>
                         <input type="hidden" name="step" value="selection">
                         <input type="hidden" name="area" value="{{ area }}">
+                        <input type="hidden" name="start_date" value="{{ start_date }}">
+                        <input type="hidden" name="end_date" value="{{ end_date }}" style="margin-right: 5px;">
                         <button type="submit" onclick="confirmSubmit()" class="btn btn-primary" style="font-size: 11px;">预约出库批次</button>
                     </div>
                     
@@ -92,7 +94,7 @@
                             {% for c in packing_list_not_scheduled %}
                             <tr>
                                 <td class="td" style="min-width: 40px; text-align: center;">
-                                    <input type='checkbox' name='is_shipment_schduled' onclick="toggleRowBackground(this)" {% if c.ids in pl_ids_raw %}checked{% elif c.plt_ids in plt_ids_raw %}checked{% endif %} {% if c.abnormal_palletization or c.po_expired %}disabled{% endif %}>
+                                    <input type='checkbox' name='is_shipment_schduled' onclick="toggleRowBackground(this)" {% if c.ids in pl_ids_raw %}checked{% elif c.plt_ids in plt_ids_raw %}checked{% endif %} {% if c.abnormal_palletization or c.po_expired or 'HOLD' in c.custom_delivery_method.upper %}disabled{% endif %}>
                                     <input type="hidden" name="is_shipment_schduled", value='off'>
                                     <input type="hidden" name="pl_ids", value='{{ c.ids }}'>
                                     <input type="hidden" name="plt_ids", value='{{ c.plt_ids }}'>

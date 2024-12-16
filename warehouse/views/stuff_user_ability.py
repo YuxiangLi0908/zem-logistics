@@ -72,6 +72,9 @@ class StuffPower(View):
         elif step == "update_shipment_stats":
             template, context = self.update_shipment_stats(request)
             return render(request, template, context)
+        elif step == "update_inventory":
+            template, context = self.update_inventory(request)
+            return render(request, template, context)
         else:
             self._remove_offload()
             self._remove_clearance()
@@ -445,6 +448,46 @@ class StuffPower(View):
             "count": cnt,
             "shipment_start_date": start_date,
             "shipment_end_date": end_date,
+        }
+        return self.template_1, context
+    
+    def update_inventory(self, request: HttpRequest)  -> tuple[Any, Any]:
+        form = UploadFileForm(request.POST, request.FILES)
+        warehouse = request.POST.get("warehouse")
+        pallet_end_date = request.POST.get("pallet_end_date")
+        current_datetime = datetime.now()
+        if form.is_valid():
+            file = request.FILES['file']
+            df = pd.read_csv(file)
+            container_number = df["container"].tolist()
+            pallet = Pallet.objects.select_related("shipment_batch_number").filter(
+                models.Q(
+                    models.Q(location=warehouse)|
+                    models.Q(container_number__order__warehouse__name=warehouse)
+                ),
+                shipment_batch_number__isnull=True,
+                container_number__order__offload_id__offload_at__lte=pallet_end_date,
+            ).exclude(container_number__container_number__in=container_number)
+            cnt = len(pallet)
+            if pallet:
+                shipment = Shipment(
+                    shipment_batch_number=f"库存盘点-{warehouse}-{current_datetime}",
+                    origin=warehouse,
+                    is_shipped=True,
+                    shipped_at=current_datetime,
+                    is_full_out=True,
+                    is_arrived=True,
+                    arrived_at=current_datetime,
+                    shipment_type="库存盘点",
+                    in_use=False,
+                    is_canceled=True,
+                )
+                shipment.save()
+                pallet.update(shipment_batch_number=shipment)
+        context = {
+            "inventory_updated": True,
+            "count": cnt,
+            "pre_port_t49_tracking": UploadFileForm(),
         }
         return self.template_1, context
 

@@ -1,0 +1,83 @@
+{% extends 'base.html' %}
+
+{% block content %}
+<div id="loading-bar">
+    <div class="spinner"></div>
+    <p>Loading, please wait...</p>
+</div>
+
+<form method="post" action="" onsubmit="showLoadingBar()">
+    {% csrf_token %}
+    <input type="hidden" name="step" value="update_po">
+    <input type="hidden" name="warehouse" value="{{ warehouse }}">
+    <input type="hidden" name="plt_ids" value="{{ plt_ids }}">
+    <!-- <input type="hidden" name="pl_ids" value="{{ pl_ids }}"> -->
+    <button type="submit" class="btn btn-success" style="font-size: 11px;">更新PO</button>
+    <table class="table" id="pallets-info" style="font-size: 11px; width: 100%;">
+        <thead>
+            <th class="th">客户</th>
+            <th class="th">柜号</th>
+            <th class="th">目的地</th>
+            <th class="th">地址</th>
+            <th class="th">邮编</th>
+            <th class="th">派送方式</th>
+            <th class="th">weight(lbs)</th>
+            <th class="th">pcs</th>
+            <th class="th">cbm</th>
+            <th class="th">卡板数</th>
+            <th class="th">备注</th>
+        </thead>
+        <tbody>
+            <td class="td">{{ pallet.customer_name }}</td>
+            <td class="td">{{ pallet.container }}</td>
+            <td class="td"><input name="destination" value="{{ pallet.destination }}" required></td>
+            <td class="td"><input name="address" value="{{ pallet.address }}"></td>
+            <td class="td"><input name="zipcode" value="{{ pallet.zipcode }}"></td>
+            <td class="td">
+                <select name="delivery_method">
+                    {% for k, v in delivery_method_options %}
+                    <option value="{{ v }}" {%if k == pallet.delivery_method %}selected{% endif %}>{{ k }}</option>
+                    {% endfor %}
+                </select>
+            </td>
+            <td class="td">{{ pallet.weight }}</td>
+            <td class="td">{{ pallet.pcs }}</td>
+            <td class="td">{{ pallet.cbm }}</td>
+            <td class="td">{{ pallet.n_pallet }}</td>
+            <td class="td"><input name="note" value="{{ pallet.note }}"></td>
+        </tbody>
+    </table>
+    <table class="table" id="po-info" style="font-size: 11px; width: 100%;">
+        <thead>
+            <th class="th">唛头</th>
+            <th class="th">FBA</th>
+            <th class="th">REF</th>
+        </thead>
+        <tbody>
+            {% for pl in packing_list%}
+            <tr>
+                <input type="hidden" name="pl_ids" value="{{ pl.id }}">
+                <td class="td">
+                    <input name="shipping_mark_new" value="{{ pl.shipping_mark }}">
+                    <input type="hidden" name="shipping_mark" value="{{ pl.shipping_mark }}">
+                </td>
+                <td class="td">
+                    <input name="fba_id_new" value="{{ pl.fba_id }}">
+                    <input type="hidden" name="fba_id" value="{{ pl.fba_id }}">
+                </td>
+                <td class="td">
+                    <input name="ref_id_new" value="{{ pl.ref_id }}">
+                    <input type="hidden" name="ref_id" value="{{ pl.ref_id }}">
+                </td>
+            </tr>
+            {% endfor %}
+        </tbody>
+    </table>
+</form>
+
+<script>
+    function showLoadingBar() {
+        document.getElementById('loading-bar').style.display = 'block';
+    };
+</script>
+{% endblock %}

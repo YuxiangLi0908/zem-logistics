@@ -180,7 +180,8 @@ SHIPPING_LINE_OPTIONS = [
     ('Wan Hai Lines', 'Wan Hai Lines'),
     ('Yangming', 'Yangming'),
     ('Zim Line', 'Zim Line'),
-    ('HEDE', 'HEDE')
+    ('HEDE', 'HEDE'),
+    ('SML', 'SML')
  ]
 
 CONTAINER_PICKUP_CARRIER = [
@@ -223,7 +224,7 @@ DELIVERY_METHOD_OPTIONS = [
 
 WAREHOUSE_OPTIONS = [
     ("", ""), ("NJ-07001", "NJ-07001"), ("NJ-08817", "NJ-08817"),
-    ("SAV-31326", "SAV-31326"), ("LA-91761", "LA-91761"),("LB-91761", "LB-91761"),
+    ("SAV-31326", "SAV-31326"), ("LA-91761", "LA-91761"),
     ("N/A(直送)", "N/A(直送)"), ("Empty", "Empty"),
 ]
 

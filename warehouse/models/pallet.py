@@ -5,7 +5,7 @@ from .shipment import Shipment
 
 
 class Pallet(models.Model):
-    packing_list = models.ForeignKey(PackingList, null=True, blank=True, on_delete=models.CASCADE)
+    packing_list = models.ForeignKey(PackingList, null=True, blank=True, on_delete=models.CASCADE) #do not use, will be deleted in future
     container_number = models.ForeignKey(Container, null=True, on_delete=models.CASCADE)
     shipment_batch_number = models.ForeignKey(Shipment, null=True, blank=True, on_delete=models.SET_NULL, related_name='pallet')
     destination = models.CharField(max_length=255, null=True, blank=True)

@@ -47,7 +47,6 @@ class PrePortDash(View):
         if not await self._user_authenticate(request):
             return redirect("login")
         step = request.POST.get("step", None)
-        print("step",step)
         #根据建单时间和ETA进行筛选       
         if step == "search_orders":
             start_date = request.POST.get("start_date")
