@@ -64,9 +64,7 @@
                             <th class="th">预约号</th>
                             <th class="th">目的地</th>
                             <th class="th">Scheduled Time</th>
-                            <th class="th">装车类型</th>
                             <th class="th">发货仓库</th>
-                            <th class="th">预约账号</th>
                         </tr>
                     </thead>
                     <tbody>
@@ -75,26 +73,12 @@
                             <td class="td"><input type="text" name="destination" style="font-size: 13px;" required></td>
                             <td class="td"><input type="datetime-local" name="shipment_appointment" style="font-size: 13px;" required></td>
                             <td class="td">
-                                <select name="load_type" id="load-type-select" style="font-size: 13px;">
-                                    {% for k, v in load_type_options %}
-                                    <option value="{{ v }}">{{ k }}</option>
-                                    {% endfor %}
-                                </select>
-                            </td>
-                            <td class="td">
                                 <select name="origin" id="origin-select" style="font-size: 13px;">
                                     {% for k, v in warehouse_options.items %}
                                     <option value="{{ v }}">{{ k }}</option>
                                     {% endfor %}
                                 </select>
-                            </td>
-                            <td class="td">
-                                <select name="shipment_account" id="shipment-account-select" style="font-size: 13px;">
-                                    {% for k, v in account_options.items %}
-                                    <option value="{{ v }}">{{ k }}</option>
-                                    {% endfor %}
-                                </select>
-                            </td>
+                            </tb>
                         </tr>
                     </tbody>
                 </table>
@@ -105,7 +89,7 @@
 
 <div>
     <div style="width: 100%; display: flex; justify-content: space-between;">
-        <div style="width: 50%; overflow-x: auto; border: 2px solid rgb(180, 180, 180); border-radius: 12px; padding: 1%; margin-top: 1%; margin-right: 1%; max-height: 600px;">
+        <div style="width: 40%; overflow-x: auto; border: 2px solid rgb(180, 180, 180); border-radius: 12px; padding: 1%; margin-top: 1%; margin-right: 1%; max-height: 600px;">
             <b style="background-color: rgb(208, 208, 208); border-radius: 20px; font-size: 12px; display:inline-flex; color: rgb(100, 100, 100); padding: 4px;">
                 未使用预约
             </b>
@@ -115,16 +99,12 @@
                         <th class="th">预约号</th>
                         <th class="th">目的地</th>
                         <th class="th">Scheduled Time</th>
-                        <th class="th">装车类型</th>
                         <th class="th">发货仓库</th>
-                        <th class="th">预约账号</th>
                     </tr>
                     <tr style="position: sticky; top: 28px;">
                         <th class="th"><input type="text" id="appointment-id-filter" placeholder="搜索预约号..." oninput="filterAppointmentTable()" size="13" style="font-size: 11px;"></th>
                         <th class="th"><input type="text" id="destination-filter" placeholder="搜索目的地..." oninput="filterAppointmentTable()" size="13" style="font-size: 11px;"></th>
                         <th class="th"><input type="text" id="status-filter" placeholder="搜索预约状态..." oninput="filterAppointmentTable()" size="13" style="font-size: 11px;"></th>
-                        <th class="th"></th>
-                        <th class="th"></th>
                         <th class="th"></th>
                     </tr>
                 </thead>
@@ -154,21 +134,7 @@
                             <button class="btn btn-success btn-sm" id="confirm_{{ forloop.counter }}" onclick="confirmAppointment(this, '{{ s.appointment_id }}', '{{ forloop.counter }}')" style="display: none;">确认</button>
 
                         </td>
-                        <td class="td">
-                            <select name="load_type" id="load-type-select" style="font-size: 13px;">
-                                {% for k, v in load_type_options %}
-                                <option value="{{ v }}">{{ k }}</option>
-                                {% endfor %}
-                            </select>
-                        </td>
-                        <td class="td">{% if s.origin %}{{ s.origin }}{% endif %}</td>
-                        <td class="td">
-                            <select name="shipment_account" id="shipment-account-select" style="font-size: 13px;">
-                                {% for k, v in account_options.items %}
-                                <option value="{{ v }}" {% if k == s.shipment_account %}selected{% endif %}>{{ k }}</option>
-                                {% endfor %}
-                            </select>
-                        </td>
+                        <td class="td">{% if s.origin %}{{ s.origin }}{% endif %}</tb>
                     </tr>
                     {% endfor %}
             </table>
@@ -184,7 +150,7 @@
                 <button type="submit">提交</button>
             </form>
         </div>
-        <div style="width: 50%; overflow-x: auto; border: 2px solid rgb(180, 180, 180); border-radius: 12px; padding: 1%; margin-top: 1%; max-height: 600px;">
+        <div style="width: 60%; overflow-x: auto; border: 2px solid rgb(180, 180, 180); border-radius: 12px; padding: 1%; margin-top: 1%; max-height: 600px;">
             <b style="background-color: rgb(208, 208, 208); border-radius: 20px; font-size: 12px; display:inline-flex; color: rgb(100, 100, 100); padding: 4px;">
                 PO与预约匹配情况
             </b>
