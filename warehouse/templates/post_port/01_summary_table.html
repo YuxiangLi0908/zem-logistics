@@ -64,7 +64,7 @@
                     <th class="th"><input type="text" id="containerSearchInput" placeholder="搜索客户..." oninput="filterTable(this, 2, true)" size="13" style="font-size: 11px;"></th>
                     <th class="th"><input type="text" id="containerSearchInput" placeholder="搜索柜号..." oninput="filterTable(this, 3, true)" size="13" style="font-size: 11px;"></th>
                     <th class="th"><input type="text" id="containerSearchInput" placeholder="搜索仓点..." oninput="filterTable(this, 4, true)" size="13" style="font-size: 11px;"></th>
-                    <th class="th"></th>
+                    <th class="th"><input type="text" id="deliverySearchInput" placeholder="搜索派送..." oninput="filterTable(this, 5, true)" size="13" style="font-size: 11px;"></th>
                     <th class="th"></th>
                     <th class="th"></th>
                     <th class="th"></th>
@@ -81,7 +81,7 @@
             </thead>
             <tbody>
                 {% for c in packing_list %}
-                <tr>
+                <tr id="amount-total-row">
                     <td class="td" style="min-width: 40px; text-align: center;">
                         <input type='checkbox' name='is_selected' onclick="toggleRowBackground(this)">
                         <input type="hidden" name="is_selected", value='off'>
@@ -121,7 +121,7 @@
                             {% endif %}
                         {% endif %}
                     </td>
-                    <td class="td">{{ c.pcs }}</td>
+                    <td class="td">{{ c.total_pcs }}</td>
                     <td class="td">{{ c.total_weight_lbs|floatformat:2 }}</td>
                     <td class="td">{{ c.container_number__order__vessel_id__vessel_eta|date:"M-j" }}</td>
                     <td class="td">
@@ -144,8 +144,15 @@
                     <td class="td">
                         {{ c.shipment_batch_number__arrived_at|date:"Y-m-d" }} {{ c.shipment_batch_number__arrived_at|time:"H:i" }}
                     </td>
-                </tr>
+                </tr>               
                 {% endfor %}
+                <tr>
+                    <td colspan="6"></td>
+                    <td><input type="number" id="cbm-total" disabled></td>
+                    <td></td>
+                    <td><input type="number" id="pcs-total" disabled></td>
+                    <td colspan="9"></td>       
+                </tr>
             </tbody>
         </table>
     {% endif %}
@@ -153,6 +160,36 @@
 </form>
 
 <script>
+    window.onload = function () {
+        updateTotals();   
+    };
+    function updateTotals(){
+        let cbmTotal = 0;
+        let pcsTotal = 0;
+        const table = document.getElementById('packing-list-table');
+        const rows = table.getElementsByTagName('tr');
+        
+        for (let i = 2; i < rows.length-1; i++) {
+            const row = rows[i];
+            if (row.style.display!== 'none') {
+                const cells = row.getElementsByTagName('td');
+
+                const cbmValue = parseFloat(cells[6].innerText);
+                const pcsValue = parseFloat(cells[8].innerText);
+                if (!isNaN(cbmValue)) {
+                    cbmTotal += cbmValue;
+                }
+                if (!isNaN(pcsValue)) {
+                    pcsTotal += pcsValue;
+                }
+            }
+        }
+        const cbmTotalInput = document.getElementById('cbm-total');
+        
+        cbmTotalInput.value = cbmTotal.toFixed(2);
+        const pcsTotalInput = document.getElementById('pcs-total');
+        pcsTotalInput.value = pcsTotal.toFixed(2);
+    };
     function confirmSubmit() {
         const checkBoxes = document.getElementsByName('is_selected');
         for (let i = 0; i < checkBoxes.length; i+=2) {
@@ -204,7 +241,7 @@
                 filterIndices.push(i);
             }
         };
-        for (var i = 0; i < tr.length; i++) {
+        for (var i = 0; i < tr.length-1; i++) {
             var row = tr[i];
             var showRow = true;
             for (var j = 0; j < filterIndices.length; j++) {
@@ -221,6 +258,7 @@
             }
             row.style.display = showRow ? "" : "none";
         };
+        updateTotals();
     };
 </script>
 {% endblock %}

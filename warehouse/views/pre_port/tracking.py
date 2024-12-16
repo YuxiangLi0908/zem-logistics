@@ -64,9 +64,10 @@ class PrePortTracking(View):
             Order.objects.select_related(
                 "vessel_id", "container_number", "customer_name", "retrieval_id", "offload_id"
             ).filter(
-                models.Q(add_to_t49=True) &
-                models.Q(retrieval_id__actual_retrieval_timestamp__isnull=True) &
-                models.Q(cancel_notification=False)
+                add_to_t49=True,
+                retrieval_id__actual_retrieval_timestamp__isnull=True,
+                cancel_notification=False,
+                created_at__gte='2024-10-01',
             )
         )
         context = {
@@ -126,7 +127,7 @@ class PrePortTracking(View):
                     try:
                         o.vessel_id.vessel_eta = (
                             self._format_string_datetime(df.loc[df["Container"]==o.container_number.container_number, "POD ETA"].values[0])
-                            if df.loc[df["Container"]==o.container_number.container_number, "POD ETA"].any()
+                            if df.loc[df["Container"]==o.container_number.container_number, "POD Arrival"].any()
                             else self._format_string_datetime(df.loc[df["Container"]==o.container_number.container_number, "POD ATA"].values[0])
                         )
                         #修改eta的时候，对应修改po_check的eta

@@ -55,15 +55,14 @@ class ShippingManagement(View):
     template_shipment_list = "post_port/shipment/07_shipment_list.html"
     template_shipment_list_shipment_display = "post_port/shipment/07_1_shipment_list_shipment_display.html"
     template_shipment_exceptions = "post_port/shipment/exceptions/01_shipment_exceptions.html"
-    area_options = {"NJ": "NJ", "SAV": "SAV", "LA":"LA","LB":"LB", "NJ/SAV/LA/LB":"NJ/SAV/LA/LB"}
-    warehouse_options = {"": "", "NJ-07001": "NJ-07001", "NJ-08817": "NJ-08817", "SAV-31326": "SAV-31326","LA-91761":"LA-91761","LB-91761":"LB-91761"}
-    shipment_type_options = {"":"", "FTL/LTL":"FTL/LTL", "外配/快递":"外配/快递"}
+    area_options = {"NJ": "NJ", "SAV": "SAV", "LA":"LA", "NJ/SAV/LA":"NJ/SAV/LA"}
+    warehouse_options = {"": "", "NJ-07001": "NJ-07001", "NJ-08817": "NJ-08817", "SAV-31326": "SAV-31326"}
+    shipment_type_options = {"":"", "FTL":"FTL", "LTL/外配/快递":"LTL/外配/快递","客户自提":"客户自提"}
 
     async def get(self, request: HttpRequest) -> HttpResponse:
         if not await self._user_authenticate(request):
             return redirect("login")
         step = request.GET.get("step", None)
-        print('step',step)
         if step == "shipment_info":
             template, context = await self.handle_shipment_info_get(request)
             return render(request, template, context)
@@ -261,22 +260,20 @@ class ShippingManagement(View):
         elif request.GET.get("warehouse"):
             area = request.GET.get("warehouse")[:2]
         else:
-            area = None
-        if request.POST.get("area"):
-            area = request.POST.get("area")       
-        if area == 'NJ/SAV':          
+            area = None   
+        if area == 'NJ/SAV/LA':          
             criteria = (
                 models.Q(packinglist__container_number__order__retrieval_id__retrieval_destination_area="NJ") |
                 models.Q(packinglist__container_number__order__retrieval_id__retrieval_destination_area="SAV") |
                 models.Q(packinglist__container_number__order__retrieval_id__retrieval_destination_area="LA") |
-                models.Q(pallet__container_number__order__retrieval_id__retrieval_destination_area="NJ") |
-                models.Q(pallet__container_number__order__retrieval_id__retrieval_destination_area="SAV") |
-                models.Q(pallet__container_number__order__retrieval_id__retrieval_destination_area="LA")
+                models.Q(pallet__location__startswith="NJ") |
+                models.Q(pallet__location__startswith="SAV") |
+                models.Q(pallet__location__startswith="LA")
             )
         else:
             criteria = (
                 models.Q(packinglist__container_number__order__retrieval_id__retrieval_destination_area=area) |
-                models.Q(pallet__container_number__order__retrieval_id__retrieval_destination_area=area)
+                models.Q(pallet__location__startswith=area)
             )
         shipment = await sync_to_async(list)(
             Shipment.objects.prefetch_related(
@@ -291,32 +288,39 @@ class ShippingManagement(View):
                 )
             ).distinct().order_by('-abnormal_palletization', 'shipment_appointment')
         )
-        if area == 'NJ/SAV': 
-            criteria_p = (models.Q(container_number__order__retrieval_id__retrieval_destination_area="NJ")|
-            models.Q(container_number__order__retrieval_id__retrieval_destination_area="SAV"))
-        else:
-            criteria_p = (models.Q(container_number__order__retrieval_id__retrieval_destination_area=area))
         #ETA过滤
         start_date = request.POST.get("start_date")
         end_date = request.POST.get("end_date")
         start_date = (datetime.now().date() + timedelta(days=-15)).strftime('%Y-%m-%d') if not start_date else start_date
         end_date = (datetime.now().date() + timedelta(days=15)).strftime('%Y-%m-%d') if not end_date else end_date
         
-        criteria_p &= models.Q(
+        criteria_p = models.Q(
             container_number__order__packing_list_updloaded=True,
             shipment_batch_number__isnull=True,
             container_number__order__order_type="转运",
             container_number__order__created_at__gte='2024-09-01',
-        ) & (
-            models.Q(   
-                    container_number__order__vessel_id__vessel_eta__gte=start_date,
-                    container_number__order__vessel_id__vessel_eta__lte=end_date,
-                ) 
-            # models.Q(container_number__order__vessel_id__vessel_eta__lte=datetime.now().date() + timedelta(days=7)) |
-            # models.Q(container_number__order__eta__lte=datetime.now().date() + timedelta(days=7))
+        ) 
+        pl_criteria = criteria_p & models.Q(
+            container_number__order__vessel_id__vessel_eta__gte=start_date,
+            container_number__order__vessel_id__vessel_eta__lte=end_date,
+            container_number__order__offload_id__offload_at__isnull=True
         )
-        pl_criteria = criteria_p & models.Q(container_number__order__offload_id__offload_at__isnull=True)
-        plt_criteria = criteria_p & models.Q(container_number__order__offload_id__offload_at__isnull=False)
+        plt_criteria = criteria_p & models.Q(
+            container_number__order__offload_id__offload_at__isnull=False
+        )
+        if area == 'NJ/SAV/LA':
+            pl_criteria &= models.Q(
+                container_number__order__retrieval_id__retrieval_destination_area__in=["NJ", "SAV", "LA"]
+            )
+            plt_criteria &= models.Q(
+                container_number__order__retrieval_id__retrieval_destination_area__in=["NJ", "SAV", "LA"]
+            )
+        else:
+            pl_criteria &= models.Q(
+                container_number__order__retrieval_id__retrieval_destination_area=area
+            )
+            plt_criteria &= models.Q(location__startswith=area)
+
         packing_list_not_scheduled = await self._get_packing_list(pl_criteria, plt_criteria)
         cbm_act, cbm_est, pallet_act, pallet_est = 0, 0, 0, 0
         for pl in packing_list_not_scheduled:
@@ -419,6 +423,8 @@ class ShippingManagement(View):
                 "load_type_options": LOAD_TYPE_OPTIONS,
                 "shipment_type_options": self.shipment_type_options,
                 "unused_appointment": json.dumps(unused_appointment),
+                "start_date": request.POST.get("start_date"),
+                "end_date": request.POST.get("end_date"),
             })
             return self.template_td_schedule, context
         else:
@@ -458,6 +464,9 @@ class ShippingManagement(View):
                     shipment.is_shipment_schduled = True
                     shipment.destination = request.POST.get("destination", None)
                     shipment.address = request.POST.get("address", None)
+                    #LTL的需要存ARM-BOL和ARM-PRO
+                    arm_fields = ['ARM_BOL', 'ARM_PRO']
+                    shipment_data.update({field: request.POST.get(field) for field in arm_fields if request.POST.get(field)})
                     try:
                         shipment.third_party_address = shipment_data["third_party_address"].strip()
                     except:
@@ -470,20 +479,26 @@ class ShippingManagement(View):
                     shipment_data["third_party_address"] = shipment_data["third_party_address"].strip()
                 except:
                     pass
+                shipmentappointment = request.POST.get("shipment_appointment", None)
+                if shipmentappointment:
+                    shipment_appointment = parse(shipmentappointment).replace(tzinfo=None)
                 shipment_data["shipment_type"] = shipment_type
                 shipment_data["load_type"] = request.POST.get("load_type", None)
                 shipment_data["note"] = request.POST.get("note", "")
-                shipment_data["shipment_appointment"] = request.POST.get("shipment_appointment", None)
+                shipment_data["shipment_appointment"] = shipment_appointment
                 shipment_data["shipment_schduled_at"] = current_time
                 shipment_data["is_shipment_schduled"] = True
                 shipment_data["destination"] = request.POST.get("destination", None)
                 shipment_data["address"] = request.POST.get("address", None)
                 shipment_data["origin"] = request.POST.get("origin", "")
-                if shipment_type == "外配/快递":
+                
+                if shipment_type != "FTL":
+                    appointmentTime = request.POST.get("appointment_datetime")
+                    appoint_datetime = parse(appointmentTime).replace(tzinfo=None)
                     fleet = Fleet(**{
                         "carrier": request.POST.get("carrier"),
                         "fleet_type": shipment_type,
-                        "appointment_datetime": request.POST.get("appointment_datetime"),
+                        "appointment_datetime": appoint_datetime,
                         "fleet_number": "FO" + current_time.strftime("%m%d%H%M%S") + str(uuid.uuid4())[:2].upper(),
                         "scheduled_at": current_time,
                         "total_weight": shipment_data["total_weight"],
@@ -494,6 +509,9 @@ class ShippingManagement(View):
                     })
                     await sync_to_async(fleet.save)()
                     shipment_data["fleet_number"] = fleet
+                    #LTL的需要存ARM-BOL和ARM-PRO
+                    arm_fields = ['ARM_BOL', 'ARM_PRO']
+                    shipment_data.update({field: request.POST.get(field) for field in arm_fields if request.POST.get(field)})
             if not existed_appointment:
                 shipment = Shipment(**shipment_data)
             await sync_to_async(shipment.save)()
@@ -578,6 +596,9 @@ class ShippingManagement(View):
             shipment.note = note
             shipment.is_shipment_schduled = True
             shipment.shipment_schduled_at = current_time
+            #LTL的需要存ARM-BOL和ARM-PRO
+            arm_fields = ['ARM_BOL', 'ARM_PRO']
+            shipment.update({field: request.POST.get(field) for field in arm_fields if request.POST.get(field)})
             shipment.save()
             mutable_post = request.POST.copy()
             mutable_post['area'] = warehouse
@@ -779,7 +800,7 @@ class ShippingManagement(View):
         shipment_appointment_new = datetime.strptime(shipment_appointment_new, "%Y-%m-%dT%H:%M")
         shipment_appointment_new = shipment_appointment_new.replace(tzinfo=timezone.utc)
         if shipment_type == shipment.shipment_type:
-            if shipment_type == "FTL/LTL":
+            if shipment_type == "FTL":
                 shipment.appointment_id = request.POST.get("appointment_id")
                 shipment.origin = request.POST.get("origin")
                 shipment.carrier = request.POST.get("carrier")
@@ -789,18 +810,39 @@ class ShippingManagement(View):
                 shipment.note = request.POST.get("note")
                 shipment.destination = request.POST.get("destination")
                 shipment.address = request.POST.get("address")
-            elif shipment_type == "外配/快递":
+            elif shipment_type != "FTL":
                 shipment.origin = request.POST.get("origin")
                 shipment.shipment_appointment = request.POST.get("shipment_appointment")
                 shipment.note = request.POST.get("note")
                 shipment.destination = request.POST.get("destination")
                 shipment.address = request.POST.get("address")
                 fleet = shipment.fleet_number
-                fleet.carrier = request.POST.get("carrier")
-                fleet.appointment_datetime = request.POST.get("appointment_datetime")
-                await sync_to_async(fleet.save)()
+                #测试发现甩板的约没有车次
+                if fleet:
+                    fleet.carrier = request.POST.get("carrier")
+                    fleet.appointment_datetime = request.POST.get("appointment_datetime")
+                    
+                    await sync_to_async(fleet.save)()
+                else:
+                    current_time = datetime.now()
+                    fleet = Fleet(**{
+                        "carrier": request.POST.get("carrier"),
+                        "fleet_type": shipment_type,
+                        "appointment_datetime": request.POST.get("appointment_datetime"),
+                        "fleet_number": "FO" + current_time.strftime("%m%d%H%M%S") + str(uuid.uuid4())[:2].upper(),
+                        "scheduled_at": current_time,
+                        "total_weight": shipment.total_weight,
+                        "total_cbm": shipment.total_cbm,
+                        "total_pallet": shipment.total_pallet,
+                        "total_pcs": shipment.total_pcs,
+                        "origin": shipment.origin,
+                    })
+                    await sync_to_async(fleet.save)()
+                    shipment.fleet_number = fleet
+                shipment.ARM_BOL = request.POST.get("ARM_BOL")
+                shipment.ARM_PRO = request.POST.get("ARM_PRO")
         else:
-            if shipment_type == "FTL/LTL":
+            if shipment_type == "FTL":
                 shipment.shipment_type = shipment_type
                 shipment.appointment_id = request.POST.get("appointment_id")
                 shipment.origin = request.POST.get("origin")
@@ -813,8 +855,10 @@ class ShippingManagement(View):
                 shipment.address = request.POST.get("address")
                 fleet = shipment.fleet_number
                 shipment.fleet_number = None
+                shipment.ARM_BOL = None
+                shipment.ARM_PRO = None
                 await sync_to_async(fleet.delete)()
-            elif shipment_type == "外配/快递":
+            elif shipment_type != "FTL":
                 shipment.shipment_type = shipment_type
                 shipment.origin = request.POST.get("origin")
                 shipment.shipment_appointment = request.POST.get("shipment_appointment")
@@ -824,6 +868,8 @@ class ShippingManagement(View):
                 shipment.appointment_id = ""
                 shipment.load_type = ""
                 shipment.third_party_address = ""
+                shipment.ARM_BOL = request.POST.get("ARM_BOL")
+                shipment.ARM_PRO = request.POST.get("ARM_PRO")
                 current_time = datetime.now()
                 fleet = Fleet(**{
                     "carrier": request.POST.get("carrier"),
@@ -847,17 +893,14 @@ class ShippingManagement(View):
         return await self.handle_shipment_info_get(request)
 
     async def handle_appointment_warehouse_search_post(self, request: HttpRequest) -> tuple[str, dict[str, Any]]:
-        warehosue = request.POST.get("warehouse")
+        warehouse = request.POST.get("warehouse")
         start_date = request.POST.get("start_date")
         end_date = request.POST.get("end_date")
         pallet = await sync_to_async(list)(
             Pallet.objects.select_related(
                 "container_number", "container_number__order","container_number__order__retrieval_id"
             ).filter(
-                (
-                    models.Q(container_number__order__retrieval_id__retrieval_destination_precise=warehosue) |
-                    models.Q(container_number__order__warehouse__name=warehosue)
-                ),
+                location=warehouse,
                 container_number__order__created_at__gte = '2024-09-01',
                 shipment_batch_number__isnull=True,
             ).values(
@@ -873,8 +916,8 @@ class ShippingManagement(View):
                 "container_number", "container_number__order__retrieval_id","container_number__order__vessel_id"
             ).filter(
                 (
-                    models.Q(container_number__order__retrieval_id__retrieval_destination_precise=warehosue) |
-                    models.Q(container_number__order__warehouse__name=warehosue)
+                    models.Q(container_number__order__retrieval_id__retrieval_destination_precise=warehouse) |
+                    models.Q(container_number__order__warehouse__name=warehouse)
                        
                 ),
                 container_number__order__created_at__gte = '2024-09-01',
@@ -892,13 +935,13 @@ class ShippingManagement(View):
         )
         appointment = await sync_to_async(list)(
             Shipment.objects.filter(
-                (models.Q(origin__isnull=True) | models.Q(origin="") | models.Q(origin=warehosue)),
+                (models.Q(origin__isnull=True) | models.Q(origin="") | models.Q(origin=warehouse)),
                 models.Q(in_use=False, is_canceled=False)
             ).order_by("shipment_appointment")
         )
         appointment_data = await sync_to_async(list)(
             Shipment.objects.filter(
-                (models.Q(origin__isnull=True) | models.Q(origin="") | models.Q(origin=warehosue)),
+                (models.Q(origin__isnull=True) | models.Q(origin="") | models.Q(origin=warehouse)),
                 models.Q(in_use=False, is_canceled=False),
                 shipment_appointment__gt=datetime.now(),
             ).values(
@@ -925,7 +968,7 @@ class ShippingManagement(View):
         context = {
             "appointment": appointment,
             "po_appointment_summary": df.to_dict("records"),
-            "warehouse": warehosue,
+            "warehouse": warehouse,
             "warehouse_options": self.warehouse_options,
             "upload_file_form": UploadFileForm(),
             "start_date": start_date,
@@ -938,9 +981,14 @@ class ShippingManagement(View):
         appointment = await sync_to_async(list)(Shipment.objects.filter(appointment_id=appointment_id))
         if appointment:
             raise RuntimeError(f"Appointment {appointment_id} already exist!")
+        if "Walmart" in request.POST.get("destination"):
+            destination = request.POST.get("destination")
+        else:
+            destination = request.POST.get("destination").upper()
+        
         await sync_to_async(Shipment.objects.create)(**{
             "appointment_id": appointment_id,
-            "destination": request.POST.get("destination").upper(),
+            "destination": destination,
             "shipment_appointment": request.POST.get("shipment_appointment"),
             "origin": request.POST.get("origin", None),
             "in_use": False,
