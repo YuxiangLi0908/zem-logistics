@@ -972,9 +972,13 @@ class ShippingManagement(View):
             df = df.drop(["total_cbm_x", "total_cbm_y", "total_pallet_x", "total_pallet_y"], axis=1)
         except:
             df = df_pallet
-            df = df.merge(df_appointment, how="left", on=["destination"]).fillna(0)
-        df["n_appointment"] = df["n_appointment"].astype(int)
-        df["total_pallet"] = df["total_pallet"].astype(int)
+            try:
+                df = df.merge(df_appointment, how="left", on=["destination"]).fillna(0)
+                df["n_appointment"] = df["n_appointment"].astype(int)
+                df["total_pallet"] = df["total_pallet"].astype(int)
+            except:
+                df["n_appointment"] = 0
+                df["total_pallet"] = 0
         df = df.sort_values(by="total_pallet", ascending=False)
         context = {
             "appointment": appointment,
