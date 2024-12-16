@@ -20,3 +20,4 @@ class Migration(migrations.Migration):
             name='container_number',
         ),
     ]
+

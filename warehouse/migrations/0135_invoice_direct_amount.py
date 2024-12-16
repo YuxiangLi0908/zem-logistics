@@ -16,3 +16,4 @@ class Migration(migrations.Migration):
             field=models.FloatField(blank=True, null=True),
         ),
     ]
+
