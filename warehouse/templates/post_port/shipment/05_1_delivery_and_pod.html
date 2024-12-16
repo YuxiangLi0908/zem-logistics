@@ -8,6 +8,12 @@
         <input type="text" name="fleet_number" value="{{ fleet_number }}">
         <b style="margin-right: 5px;">预约批次:</b>
         <input type="text" name="batch_number" value="{{ batch_number }}">
+        <b style="margin-right: 5px;">所属仓:</b>
+        <select name="area">
+            {% for k, v in warehouse_options.items %}
+            <option value="{{ v }}" {% if k == area %}selected{% endif %}>{{ k }}</option>
+            {% endfor %}
+        </select>
         <input type="hidden" name="step" value="fleet_delivery_search">
         <button type="submit">确认</button>
     </div>

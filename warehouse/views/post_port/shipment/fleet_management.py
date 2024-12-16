@@ -379,6 +379,7 @@ class FleetManagement(View):
     async def handle_delivery_and_pod_get(self, request: HttpRequest) -> tuple[str, dict[str, Any]]:
         fleet_number = request.GET.get("fleet_number", "")
         batch_number = request.GET.get("batch_number", "")
+        area = request.POST.get('area') or None
         criteria = models.Q(
             departured_at__isnull=False,
             arrived_at__isnull=True,
@@ -389,6 +390,8 @@ class FleetManagement(View):
             criteria &= models.Q(fleet_number=fleet_number)
         if batch_number:
             criteria &= models.Q(shipment__shipment_batch_number=batch_number)
+        if area:
+            criteria &= models.Q(origin=area)
         fleet = await sync_to_async(list)(
             Fleet.objects.prefetch_related("shipment").filter(criteria).annotate(
                 shipment_batch_numbers=StringAgg("shipment__shipment_batch_number", delimiter=","),
@@ -425,6 +428,8 @@ class FleetManagement(View):
             "fleet": fleet,
             "abnormal_fleet_options": self.abnormal_fleet_options,
             "shipment": json.dumps(shipment_fleet_dict),
+            "warehouse_options": self.warehouse_options,
+            "area": area
         }
         return self.template_delivery_and_pod, context
     

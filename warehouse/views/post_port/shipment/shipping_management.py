@@ -260,9 +260,7 @@ class ShippingManagement(View):
         elif request.GET.get("warehouse"):
             area = request.GET.get("warehouse")[:2]
         else:
-            area = None
-        if request.POST.get("area"):
-            area = request.POST.get("area")       
+            area = None   
         if area == 'NJ/SAV/LA':          
             criteria = (
                 models.Q(packinglist__container_number__order__retrieval_id__retrieval_destination_area="NJ") |
