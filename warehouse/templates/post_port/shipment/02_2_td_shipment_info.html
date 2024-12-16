@@ -37,6 +37,7 @@
                 <thead>
                     <tr>
                         <th class="th">预约类型</th>
+                        <th class="th">预约账号</th>
                     </tr>
                 </thead>
                 <tbody>
@@ -48,6 +49,13 @@
                                 {% endfor %}
                             </select>
                         </td>
+                        <td class="td">
+                            <select name="shipment_account" id="shipment-account-select" style="font-size: 13px;">
+                                {% for k, v in account_options.items %}
+                                <option value="{{ v }}" {% if k == shipment.shipment_account %}selected{% endif %}>{{ k }}</option>
+                                {% endfor %}
+                            </select>
+                        </tb>
                     </tr>
                 </tbody>
             </table>
