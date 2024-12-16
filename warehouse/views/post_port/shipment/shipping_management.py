@@ -981,9 +981,14 @@ class ShippingManagement(View):
         appointment = await sync_to_async(list)(Shipment.objects.filter(appointment_id=appointment_id))
         if appointment:
             raise RuntimeError(f"Appointment {appointment_id} already exist!")
+        if "Walmart" in request.POST.get("destination"):
+            destination = request.POST.get("destination")
+        else:
+            destination = request.POST.get("destination").upper()
+        
         await sync_to_async(Shipment.objects.create)(**{
             "appointment_id": appointment_id,
-            "destination": request.POST.get("destination").upper(),
+            "destination": destination,
             "shipment_appointment": request.POST.get("shipment_appointment"),
             "origin": request.POST.get("origin", None),
             "in_use": False,
