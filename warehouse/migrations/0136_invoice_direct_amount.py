@@ -6,7 +6,7 @@ from django.db import migrations, models
 class Migration(migrations.Migration):
 
     dependencies = [
-        ('warehouse', '0134_rename_amazon_amount_invoice_delivery_amount_and_more'),
+        ('warehouse', '0135_rename_amazon_amount_invoice_delivery_amount_and_more'),
     ]
 
     operations = [
