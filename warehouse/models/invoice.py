@@ -22,6 +22,7 @@ class Invoice(models.Model):
     invoice_link = models.CharField(max_length=2000, null=True, blank=True)
     customer = models.ForeignKey(Customer, null=True, blank=True, on_delete=models.SET_NULL)
     container_number = models.ForeignKey(Container, null=True, blank=True, on_delete=models.SET_NULL)
+    total_amount = models.FloatField(null=True, blank=True)
     statement_id = models.ForeignKey(InvoiceStatement, null=True, blank=True, on_delete=models.SET_NULL)
     received_amount = models.FloatField(null=True, blank=True)
 
