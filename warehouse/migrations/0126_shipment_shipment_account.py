@@ -14,5 +14,5 @@ class Migration(migrations.Migration):
             model_name='shipment',
             name='shipment_account',
             field=models.CharField(blank=True, max_length=255, null=True),
-        ),
+        ), 
     ]

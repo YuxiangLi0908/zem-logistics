@@ -1304,7 +1304,7 @@ class ShippingManagement(View):
         if await sync_to_async(list)(Shipment.objects.filter(shipment_batch_number=batch_number)):
             return True
         else:
-            return False
+            return False 
         
     async def _user_authenticate(self, request: HttpRequest):
         if await sync_to_async(lambda: request.user.is_authenticated)():
