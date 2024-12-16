@@ -47,12 +47,20 @@
                 <table id="shipment-table-1" class="table" style="font-size: 11px; overflow-x: scroll; max-width: 100%;">
                     <thead>
                         <tr>
+                            <th class="th">预约账号</th>
                             <th class="th">预约号</th>
                             <th class="th">Scheduled Time</th>
                         </tr>
                     </thead>
                     <tbody>
                         <tr>
+                            <td class="td">
+                                <select name="shipment_account" id="shipment-account-select" style="font-size: 13px;">
+                                    {% for k, v in account_options.items %}
+                                    <option value="{{ v }}" {% if k == shipment.shipment_account %}selected{% endif %}>{{ k }}</option>
+                                    {% endfor %}
+                                </select>
+                            </tb>
                             <td class="td"><input type="text" name="appointment_id" style="font-size: 13px;" oninput="checkAppointment(this)"></td>
                             <td class="td"><input type="datetime-local" name="shipment_appointment" style="font-size: 13px;" required></td>
                         </tr>

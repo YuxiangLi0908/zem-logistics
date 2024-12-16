@@ -56,7 +56,8 @@ class ShippingManagement(View):
     template_shipment_list_shipment_display = "post_port/shipment/07_1_shipment_list_shipment_display.html"
     template_shipment_exceptions = "post_port/shipment/exceptions/01_shipment_exceptions.html"
     area_options = {"NJ": "NJ", "SAV": "SAV", "LA":"LA", "NJ/SAV/LA":"NJ/SAV/LA"}
-    warehouse_options = {"": "", "NJ-07001": "NJ-07001", "NJ-08817": "NJ-08817", "SAV-31326": "SAV-31326"}
+    warehouse_options = {"": "", "NJ-07001": "NJ-07001", "NJ-08817": "NJ-08817", "SAV-31326": "SAV-31326","LA-91761": "LA-91761"}
+    account_options = {"": "", "Carrier Central1": "Carrier Central1", "Carrier Central2": "Carrier Central2", "ZEM-AMF": "ZEM-AMF", "ARM-AMF": "ARM-AMF"}
     shipment_type_options = {"":"", "FTL":"FTL", "LTL/外配/快递":"LTL/外配/快递","客户自提":"客户自提"}
 
     async def get(self, request: HttpRequest) -> HttpResponse:
@@ -161,6 +162,7 @@ class ShippingManagement(View):
             "shipment": shipment,
             "packing_list_selected": packing_list_selected,
             "load_type_options": LOAD_TYPE_OPTIONS,
+            "account_options": self.account_options,
             "warehouse": request.GET.get("warehouse"),
             "warehouse_options": self.warehouse_options,
             "shipment_type_options": self.shipment_type_options,
@@ -169,7 +171,9 @@ class ShippingManagement(View):
     
     async def handle_appointment_management_get(self, request: HttpRequest) -> tuple[str, dict[str, Any]]:
         context = {
+            "load_type_options": LOAD_TYPE_OPTIONS,
             "warehouse_options": self.warehouse_options,
+            "account_options": self.account_options,
             "start_date": (datetime.now().date() + timedelta(days=-7)).strftime("%Y-%m-%d"),
             "end_date": (datetime.now().date() + timedelta(days=7)).strftime("%Y-%m-%d"),
         }
@@ -260,7 +264,9 @@ class ShippingManagement(View):
         elif request.GET.get("warehouse"):
             area = request.GET.get("warehouse")[:2]
         else:
-            area = None   
+            area = None
+        if request.POST.get("area"):
+            area = request.POST.get("area")       
         if area == 'NJ/SAV/LA':          
             criteria = (
                 models.Q(packinglist__container_number__order__retrieval_id__retrieval_destination_area="NJ") |
@@ -794,7 +800,7 @@ class ShippingManagement(View):
     
     async def handle_update_appointment_post(self, request: HttpRequest) -> tuple[str, dict[str, Any]]:
         batch_number = request.POST.get("batch_number")
-        shipment_type = request.POST.get("shipment_type")    
+        shipment_type = request.POST.get("shipment_type")     
         shipment = await sync_to_async(Shipment.objects.select_related("fleet_number").get)(shipment_batch_number=batch_number)
         shipment_appointment_new = request.POST.get("shipment_appointment")
         shipment_appointment_new = datetime.strptime(shipment_appointment_new, "%Y-%m-%dT%H:%M")
@@ -802,6 +808,7 @@ class ShippingManagement(View):
         if shipment_type == shipment.shipment_type:
             if shipment_type == "FTL":
                 shipment.appointment_id = request.POST.get("appointment_id")
+                shipment.shipment_account = request.POST.get("shipment_account")
                 shipment.origin = request.POST.get("origin")
                 shipment.carrier = request.POST.get("carrier")
                 shipment.third_party_address = request.POST.get("third_party_address")
@@ -811,6 +818,7 @@ class ShippingManagement(View):
                 shipment.destination = request.POST.get("destination")
                 shipment.address = request.POST.get("address")
             elif shipment_type != "FTL":
+                shipment.shipment_account = request.POST.get("shipment_account")
                 shipment.origin = request.POST.get("origin")
                 shipment.shipment_appointment = request.POST.get("shipment_appointment")
                 shipment.note = request.POST.get("note")
@@ -845,6 +853,7 @@ class ShippingManagement(View):
             if shipment_type == "FTL":
                 shipment.shipment_type = shipment_type
                 shipment.appointment_id = request.POST.get("appointment_id")
+                shipment.shipment_account = request.POST.get("shipment_account")
                 shipment.origin = request.POST.get("origin")
                 shipment.carrier = request.POST.get("carrier")
                 shipment.third_party_address = request.POST.get("third_party_address")
@@ -860,6 +869,7 @@ class ShippingManagement(View):
                 await sync_to_async(fleet.delete)()
             elif shipment_type != "FTL":
                 shipment.shipment_type = shipment_type
+                shipment.shipment_account = request.POST.get("shipment_account")
                 shipment.origin = request.POST.get("origin")
                 shipment.shipment_appointment = request.POST.get("shipment_appointment")
                 shipment.note = request.POST.get("note")
@@ -973,6 +983,8 @@ class ShippingManagement(View):
             "upload_file_form": UploadFileForm(),
             "start_date": start_date,
             "end_date": end_date,
+            "load_type_options": LOAD_TYPE_OPTIONS,
+            "account_options": self.account_options
         }
         return self.template_appointment_management, context
     
@@ -981,16 +993,13 @@ class ShippingManagement(View):
         appointment = await sync_to_async(list)(Shipment.objects.filter(appointment_id=appointment_id))
         if appointment:
             raise RuntimeError(f"Appointment {appointment_id} already exist!")
-        if "Walmart" in request.POST.get("destination"):
-            destination = request.POST.get("destination")
-        else:
-            destination = request.POST.get("destination").upper()
-        
         await sync_to_async(Shipment.objects.create)(**{
             "appointment_id": appointment_id,
-            "destination": destination,
+            "destination": request.POST.get("destination").upper(),
             "shipment_appointment": request.POST.get("shipment_appointment"),
+            "load_type": request.POST.get("load_type"),
             "origin": request.POST.get("origin", None),
+            "shipment_account":request.POST.get("shipment_account",None),
             "in_use": False,
         })
         warehouse = request.POST.get("warehouse", "")
@@ -1295,7 +1304,7 @@ class ShippingManagement(View):
         if await sync_to_async(list)(Shipment.objects.filter(shipment_batch_number=batch_number)):
             return True
         else:
-            return False
+            return False 
         
     async def _user_authenticate(self, request: HttpRequest):
         if await sync_to_async(lambda: request.user.is_authenticated)():
