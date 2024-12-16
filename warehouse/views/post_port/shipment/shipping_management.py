@@ -431,6 +431,7 @@ class ShippingManagement(View):
                 "unused_appointment": json.dumps(unused_appointment),
                 "start_date": request.POST.get("start_date"),
                 "end_date": request.POST.get("end_date"),
+                "account_options": self.account_options,
             })
             return self.template_td_schedule, context
         else:
