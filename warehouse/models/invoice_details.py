@@ -54,3 +54,10 @@ class InvoiceWarehouse(models.Model):
     def __str__(self) -> str:
         return str(self.invoice_number)
 
+class InvoiceDelivery(models.Model):
+    invoice_number = models.ForeignKey(Invoice, on_delete=models.CASCADE)
+    
+    amount = models.FloatField(null=True, blank=True)
+
+    def __str__(self) -> str:
+        return str(self.invoice_number)

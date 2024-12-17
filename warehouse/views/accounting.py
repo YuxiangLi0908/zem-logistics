@@ -85,6 +85,7 @@ class Accounting(View):
         #     return HttpResponseForbidden("You are not authenticated to access this page!")
 
         step = request.GET.get("step", None)
+        print("GET",step)
         if step == "pallet_data":
             template, context = self.handle_pallet_data_get()
             return render(request, template, context)
@@ -159,6 +160,7 @@ class Accounting(View):
             return HttpResponseForbidden("You are not authenticated to access this page!")
 
         step = request.POST.get("step", None)
+        print("POST",step)
         if step == "pallet_data_search":
             start_date = request.POST.get("start_date")
             end_date = request.POST.get("end_date")
@@ -362,7 +364,8 @@ class Accounting(View):
         end_date = current_date.strftime('%Y-%m-%d') if not end_date else end_date
         criteria = models.Q(
             models.Q(created_at__gte=start_date),
-            models.Q(created_at__lte=end_date)
+            models.Q(created_at__lte=end_date),
+            models.Q(order_type="转运")
         )
         if customer:
             criteria &= models.Q(customer_name__zem_name=customer)
@@ -429,7 +432,8 @@ class Accounting(View):
         end_date = current_date.strftime('%Y-%m-%d') if not end_date else end_date
         criteria = models.Q(
             models.Q(created_at__gte=start_date),
-            models.Q(created_at__lte=end_date)
+            models.Q(created_at__lte=end_date),
+            models.Q(order_type="转运")
         )
         if customer:
             criteria &= models.Q(customer_name__zem_name=customer)
@@ -525,7 +529,8 @@ class Accounting(View):
         end_date = current_date.strftime('%Y-%m-%d') if not end_date else end_date
         criteria = models.Q(
             models.Q(created_at__gte=start_date),
-            models.Q(created_at__lte=end_date)
+            models.Q(created_at__lte=end_date),
+            models.Q(order_type="转运")
         )
         if customer:
             criteria &= models.Q(customer_name__zem_name=customer)
@@ -812,8 +817,11 @@ class Accounting(View):
 
     def handle_container_invoice_delivery_get(self,request: HttpRequest) -> tuple[Any, Any]:
         container_number = request.GET.get("container_number")
+        invoice = Invoice.objects.select_related("customer", "container_number").get(
+                container_number__container_number=container_number
+            )
         order = Order.objects.select_related("retrieval_id","container_number").get(container_number__container_number=container_number)
-        #把pallet根据本地、亚马逊、沃尔玛和组合柜做区分
+        #把pallet汇总
         pallet =Pallet.objects.prefetch_related(
                 "container_number", "container_number__order", "container_number__order__warehouse", "shipment_batch_number"
                 "container_number__order__offload_id", "container_number__order__customer_name", "container_number__order__retrieval_id"
@@ -835,67 +843,71 @@ class Accounting(View):
                 total_weight_lbs=Sum("weight_lbs", output_field=FloatField()),
                 total_n_pallet=Count("pallet_id", distinct=True)
             )
-        invoice = Invoice.objects.select_related("customer", "container_number").get(
-                container_number__container_number=container_number
-            )
-        warehouse = order.retrieval_id.retrieval_destination_area
-        if warehouse == 'NJ':
-            selected_amazon = NJ_AMAZON_DELIVERY   
-            selected_local = LOCAL_DELIVERY
-            selected_combina = NJ_COMBINA
-        elif warehouse == 'SAV':
-            selected_amazon = SAV_AMAZON_DELIVERY  
-            selected_combina = SAV_COMBINA
-            selected_local = None
-        elif warehouse == 'LA':
-            selected_amazon = LA_AMAZON_DELIVERY 
-            selected_combina = LA_COMBINA
-            selected_local = None
-        
         amazon = []
         local = []
         combine = []
-        for plt in pallet:       
-            destination = plt["destination"].split('-')[1] if '-' in plt["destination"] else plt["destination"] 
-            if plt["delivery_type"] == "amazon":                           
-                for k,v in selected_amazon.items():
-                    if destination in v:
-                        plt["cost"] = k
-                        if not plt["total_cost"]:
-                            plt["total_cost"] = int(k)*int(plt["total_n_pallet"])
-                        break
-                amazon.append(plt)      
+        #先查询是不是有Invoice_delivery表了
+        try:
+            invoice_delivery = InvoiceDelivery.objects.filter(invoice_number__invoice_number=invoice.invoice_number)
+        except InvoiceDelivery.DoesNotExist:
+            invoice_delivery = []
+            #该柜子没有建表的情况下，系统再根据报表单汇总派送方式
+            warehouse = order.retrieval_id.retrieval_destination_area
+            if warehouse == 'NJ':
+                selected_amazon = NJ_AMAZON_DELIVERY   
+                selected_local = LOCAL_DELIVERY
+                selected_combina = NJ_COMBINA
+            elif warehouse == 'SAV':
+                selected_amazon = SAV_AMAZON_DELIVERY  
+                selected_combina = SAV_COMBINA
+                selected_local = None
+            elif warehouse == 'LA':
+                selected_amazon = LA_AMAZON_DELIVERY 
+                selected_combina = LA_COMBINA
+                selected_local = None
+            
+            
+            for plt in pallet:       
+                destination = plt["destination"].split('-')[1] if '-' in plt["destination"] else plt["destination"] 
+                if plt["delivery_type"] == "amazon":                           
+                    for k,v in selected_amazon.items():
+                        if destination in v:
+                            plt["cost"] = k
+                            if not plt["total_cost"]:
+                                plt["total_cost"] = int(k)*int(plt["total_n_pallet"])
+                            break
+                    amazon.append(plt)      
 
-            elif plt["delivery_type"] == "local":                   
-                if selected_local: #NJ的          
-                    for k,v in selected_local.items():
-                        if plt["zipcode"] in v:
-                            n_pallet = int(plt["total_n_pallet"])
-                            costs = k.split(",")
-                            if n_pallet <= 5:
-                                cost = int(costs[0])
-                            elif n_pallet >= 5:
-                                cost = int(costs[1])
-                            plt["cost"] = cost
-                            if not plt["total_cost"]:   
-                                plt["total_cost"] = max(cost*n_pallet,int(costs[2]))
-                            break               
-                local.append(plt)
+                elif plt["delivery_type"] == "local":                   
+                    if selected_local: #NJ的          
+                        for k,v in selected_local.items():
+                            if plt["zipcode"] in v:
+                                n_pallet = int(plt["total_n_pallet"])
+                                costs = k.split(",")
+                                if n_pallet <= 5:
+                                    cost = int(costs[0])
+                                elif n_pallet >= 5:
+                                    cost = int(costs[1])
+                                plt["cost"] = cost
+                                if not plt["total_cost"]:   
+                                    plt["total_cost"] = max(cost*n_pallet,int(costs[2]))
+                                break               
+                    local.append(plt)
 
-            elif plt["delivery_type"] == "combine":                           
-                container_type = order.container_number.container_type
-                for k,v in selected_combina.items():
-                    if destination in v:
-                        cost = k.split(",")
-                        if "45HQ/GP" in container_type:
-                            plt["cost"] = int(cost[1])    
-                            if not plt["total_cost"]:                 
-                                plt["total_cost"] = int(cost[1])
-                        elif "40HQ/GP" in container_type:
-                            plt["cost"] = int(cost[0])
-                            if not plt["total_cost"]: 
-                                plt["total_cost"] = int(cost[0])
-                combine.append(plt)
+                elif plt["delivery_type"] == "combine":                           
+                    container_type = order.container_number.container_type
+                    for k,v in selected_combina.items():
+                        if destination in v:
+                            cost = k.split(",")
+                            if "45HQ/GP" in container_type:
+                                plt["cost"] = int(cost[1])    
+                                if not plt["total_cost"]:                 
+                                    plt["total_cost"] = int(cost[1])
+                            elif "40HQ/GP" in container_type:
+                                plt["cost"] = int(cost[0])
+                                if not plt["total_cost"]: 
+                                    plt["total_cost"] = int(cost[0])
+                    combine.append(plt)
         context = {
             "warehouse":warehouse,
             "invoice":invoice,
@@ -903,7 +915,8 @@ class Accounting(View):
             "pallet":pallet,
             "amazon":amazon,
             "local":local,
-            "combine":combine
+            "combine":combine,
+            "invoice_delivery":invoice_delivery
         }
         return self.template_invoice_delievery_edit, context
 
