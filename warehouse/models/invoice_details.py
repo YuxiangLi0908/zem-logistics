@@ -55,9 +55,12 @@ class InvoiceWarehouse(models.Model):
         return str(self.invoice_number)
 
 class InvoiceDelivery(models.Model):
+    invoice_delivery = models.CharField(max_length=200, null=True, blank=True)
     invoice_number = models.ForeignKey(Invoice, on_delete=models.CASCADE)
-    
-    amount = models.FloatField(null=True, blank=True)
-
+    type = models.CharField(max_length=200, null=True, blank=True)
+    destination = models.CharField(max_length=200, null=True, blank=True)
+    total_cbm = models.FloatField(null=True, blank=True)
+    total_weight_lbs = models.FloatField(null=True, blank=True)
+    total_cost = models.FloatField(null=True, blank=True)
     def __str__(self) -> str:
-        return str(self.invoice_number)
+        return str(self.invoice_delivery)

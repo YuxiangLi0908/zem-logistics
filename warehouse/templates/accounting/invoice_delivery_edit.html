@@ -50,7 +50,7 @@
                 </table>
                 <div class="text-left" style="float:right;">
                     <input type="hidden" name="step" value="update_delivery_invoice">
-                    <input type="hidden" name="type" value="amazon_amount">                  
+                    <input type="hidden" name="type" value="amazon">                  
                     <input type="hidden" name="container_number" value={{ container_number }}>
                     <button type="submit" class="btn btn-primary" style="width: 100px; height: 35px;" onclick="processForm('amazon-table')">确认</button>
                 </div>
@@ -76,7 +76,7 @@
                             </tr>
                         </thead>
                         <tbody>
-                            {% for plt in local %}
+                            {% for plt in local %} 
                             <tr draggable="true" id="pallet-{{ plt.id }}">
                                 <td class="td">
                                     <input type="number" id="local_cost" name="cost" value="{{ plt.total_cost }}" oninput="updateLocal(this)">
@@ -85,7 +85,7 @@
                                     {% else %}
                                         (按距离收费)
                                     {% endif %}
-                                    <input type="hidden" name="plt_ids" value="{{ plt.ids }}">
+                                    <input type="text" name="plt_ids" value="{{ plt.ids }}">
                                 </td>
                                 <td class="td"><input type="text" name="destination" value="{{ plt.destination }}"></td>
                                 <td class="td"><input type="number" name="cbm" step = 0.01 value="{{ plt.total_cbm|floatformat:2 }}"></td>
@@ -101,7 +101,7 @@
                     </table>
                     <div class="text-left" style="float:right;">
                         <input type="hidden" name="step" value="update_delivery_invoice">
-                        <input type="hidden" name="type" value="local_amount">
+                        <input type="hidden" name="type" value="local">
                         <input type="hidden" name="container_number" value={{ container_number }}>
                         <button type="submit" class="btn btn-primary" style="width: 100px; height: 35px;" onclick="processForm('local-table')">确认</button>
                     </div>
@@ -146,7 +146,7 @@
                 </table>
                 <div class="text-left" style="float:right;">
                     <input type="hidden" name="step" value="update_delivery_invoice">
-                    <input type="hidden" name="type" value="combine_amount">
+                    <input type="hidden" name="type" value="combine">
                     <input type="hidden" name="container_number" value={{ container_number }}>
                     <button type="submit" class="btn btn-primary" style="width: 100px; height: 35px;" onclick="processForm('combine-table')">确认</button>
                 </div>
