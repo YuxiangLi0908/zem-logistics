@@ -61,17 +61,33 @@
                 <table name="appointment-creation-form" class="table" style="font-size: 11px;">
                     <thead>
                         <tr>
+                            <th class="th">预约账号</th>
                             <th class="th">预约号</th>
                             <th class="th">目的地</th>
                             <th class="th">Scheduled Time</th>
+                            <th class="th">装车类型</th>
                             <th class="th">发货仓库</th>
                         </tr>
                     </thead>
                     <tbody>
                         <tr>
+                            <td class="td">
+                                <select name="shipment_account" id="shipment-account-select" style="font-size: 13px;">
+                                    {% for k, v in account_options.items %}
+                                    <option value="{{ v }}">{{ k }}</option>
+                                    {% endfor %}
+                                </select>
+                            </td>
                             <td class="td"><input type="text" name="appointment_id" style="font-size: 13px;" required></td>
                             <td class="td"><input type="text" name="destination" style="font-size: 13px;" required></td>
                             <td class="td"><input type="datetime-local" name="shipment_appointment" style="font-size: 13px;" required></td>
+                            <td class="td">
+                                <select name="load_type" id="load-type-select" style="font-size: 13px;">
+                                    {% for k, v in load_type_options %}
+                                    <option value="{{ v }}">{{ k }}</option>
+                                    {% endfor %}
+                                </select>
+                            </td>
                             <td class="td">
                                 <select name="origin" id="origin-select" style="font-size: 13px;">
                                     {% for k, v in warehouse_options.items %}
@@ -96,21 +112,32 @@
             <table id="appointment-table" class="table" style="font-size: 11px; overflow-y: scroll;">
                 <thead>
                     <tr style="position: sticky; top: 0;">
+                        <th class="th">预约账号</th>
                         <th class="th">预约号</th>
                         <th class="th">目的地</th>
                         <th class="th">Scheduled Time</th>
+                        <th class="th">装车类型</th>
                         <th class="th">发货仓库</th>
                     </tr>
                     <tr style="position: sticky; top: 28px;">
+                        <th class="th"></th>
                         <th class="th"><input type="text" id="appointment-id-filter" placeholder="搜索预约号..." oninput="filterAppointmentTable()" size="13" style="font-size: 11px;"></th>
                         <th class="th"><input type="text" id="destination-filter" placeholder="搜索目的地..." oninput="filterAppointmentTable()" size="13" style="font-size: 11px;"></th>
                         <th class="th"><input type="text" id="status-filter" placeholder="搜索预约状态..." oninput="filterAppointmentTable()" size="13" style="font-size: 11px;"></th>
+                        <th class="th"></th>
                         <th class="th"></th>
                     </tr>
                 </thead>
                 <tbody>
                     {% for s in appointment %}
                     <tr>
+                        <td class="td">
+                            <select name="shipment_account" id="shipment-account-select" style="font-size: 13px;">
+                                {% for k, v in account_options.items %}
+                                <option value="{{ v }}" {% if k == s.shipment_account %}selected{% endif %}>{{ k }}</option>
+                                {% endfor %}
+                            </select>
+                        </td>
                         <td class="td">{{ s.appointment_id }}</td>
                         <td class="td">{{ s.destination }}</td>
                         <td class="td">
@@ -132,7 +159,13 @@
                             {% comment %} <button class="btn btn-danger btn-sm" style="font-size: .75rem; padding: .25rem .5rem; line-height:1.5; border-radius: .2rem;" onclick="editAppointment(this, '{{ s.appointment_id }}', '{{ forloop.counter }}')">编辑</button> {% endcomment %}
                             <input type="text" type="datetime-local" id="editAppointmentInput_{{ forloop.counter }}" style="display: none;" >
                             <button class="btn btn-success btn-sm" id="confirm_{{ forloop.counter }}" onclick="confirmAppointment(this, '{{ s.appointment_id }}', '{{ forloop.counter }}')" style="display: none;">确认</button>
-
+                        </td>
+                        <td class="td">
+                            <select name="load_type" id="load-type-select" style="font-size: 13px;">
+                                {% for k, v in load_type_options %}
+                                <option value="{{ v }}" {% if k == s.load_type %}selected{% endif %}>{{ k }}</option>
+                                {% endfor %}
+                            </select>
                         </td>
                         <td class="td">{% if s.origin %}{{ s.origin }}{% endif %}</tb>
                     </tr>
@@ -229,9 +262,9 @@
         tr = document.querySelectorAll("#appointment-table tbody tr");
 
         for (i = 0; i < tr.length; i++) {
-            var appointmentTd = tr[i].getElementsByTagName("td")[0];
-            var destTd = tr[i].getElementsByTagName("td")[1];
-            var statusTd = tr[i].getElementsByTagName("td")[2];
+            var appointmentTd = tr[i].getElementsByTagName("td")[1];
+            var destTd = tr[i].getElementsByTagName("td")[2];
+            var statusTd = tr[i].getElementsByTagName("td")[3];
             if (appointmentTd && destTd && statusTd) {
                 var appointmentTxtValue = appointmentTd.textContent.trim();
                 var destTxtValue = destTd.textContent.trim();

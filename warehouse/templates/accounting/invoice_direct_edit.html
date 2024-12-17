@@ -1,0 +1,143 @@
+{% extends 'base.html' %}
+
+{% block content %}
+<div><h4><b>提拆柜订单编辑</b></h4></div>
+<div  style="display: inline-block; width: 100%; margin: 0; padding: 0; max-width: 100%;">
+    <p style="text-align:center;"><b>{{ invoice_preports.invoice_number }}</b></p>
+</div>
+<div style="overflow-y: auto; max-height: 100%; width: 60%; border: 2px solid rgb(180, 180, 180); border-radius: 12px; padding: 1%; margin: 1%;">
+    <form method="post" action="">
+        {% csrf_token %}
+            <div>
+                <label for="chassis_days">提+派送:</label>
+                <input type="number" id="pickup" name="pickup" value="{{ invoice_preports.pickup }}" disabled> 
+            </div>
+            <div>
+                <label for="chassis_split_count">查验费</label>(350$/柜):
+                <input type="number" id="exam_fee" name="exam_fee" min="0" value="{{ invoice_preports.exam_fee }}">
+            </div>
+            <div>
+                <label for="chassis_split_count">二次派送</label>
+                {% if second_delivery %}( {{ second_delivery }}){% endif %}:
+                <input type="number" id="second_pickup" name="second_pickup" min="0" value="{{ invoice_preports.second_pickup }}">
+            </div>
+            <div>
+                <label for="chassis_split_count">滞港费</label>($35/票代收):
+                <input type="number" id="demurrage" name="demurrage" min="0" value="{{ invoice_preports.demurrage }}">
+            </div>
+            <div>
+                <label for="chassis_split_count">滞箱费</label>($35/票代收):
+                <input type="number" id="per_diem" name="per_diem" min="0" value="{{ invoice_preports.per_diem }}">
+            </div>
+            <div>
+                <label for="chassis_split_count">港口拥堵费</label>(75$/小时):
+                <input type="number" id="congestion_fee" name="congestion_fee" min="0" value="{{ invoice_preports.congestion_fee }}">
+            </div>
+            <div>
+                <label for="chassis_days">车架费</label>(45$/天):
+                <input type="number" id="chassis" name="chassis" min="0" value="{{ invoice_preports.chassis }}">
+            </div>
+            <div>
+                <label for="prepull">预提费</label>(200$/柜):
+                <input type="number" id="prepull" name="prepull" min="0" value="{{ invoice_preports.prepull }}">
+            </div>
+            <div>
+                <label for="chassis_split_count">货柜储存费</label>(50$/柜):
+                <input type="number" id="yard_storage" name="yard_storage" min="0" value="{{ invoice_preports.yard_storage }}">
+            </div>
+            <div>
+                <label for="chassis_split_count">等待费</label>(2小时免费，超出$85/小时):
+                <input type="number" id="handling_fee" name="handling_fee" min="0" value="{{ invoice_preports.handling_fee }}">
+            </div>
+            <div>
+                <label for="chassis_split_count">车架分离费</label>(150$/柜):
+                <input type="number" id="chassis_split" name="chassis_split" min="0" value="{{ invoice_preports.chassis_split }}">
+            </div>
+            <div>
+                <label for="chassis_split_count">超重费</label>(200$/柜):
+                <input type="number" id="over_weight" name="over_weight" min="0" value="{{ invoice_preports.over_weight }}">
+            </div>
+            
+            <div>
+                <label for="total_amount">Total Amount:</label>
+                <span id="total_amount">0</span> $
+                <input type="hidden" name="amount" id="amount"> 
+            </div>
+        <input type="hidden" name="step" value="direct_save">
+        <input type="hidden" name="warehouse" value="{{warehouse}}">
+        <input type="hidden" name="container_number" value="{{ container_number }}">
+        <input type="hidden" name="invoice_number" value="{{ invoice_preports.invoice_number }}">
+        <button type="submit" class="btn btn-primary" style="width: 150px; height: 35px;" onclick="validateForm()">确认</button>
+    </form>
+</div>
+
+<script>
+    function setupTotalCalculator() {
+        const inputs = document.querySelectorAll('input[type="number"]');
+        const totalAmountSpan = document.getElementById('total_amount');
+        function calculateTotal() {
+            let total = 0;
+            inputs.forEach(input => {
+                const value = parseFloat(input.value);
+                if (!isNaN(value)) {
+                    total += value;
+                }
+            });
+            totalAmountSpan.textContent = total;
+        }
+        inputs.forEach(input => {
+            input.addEventListener('input', calculateTotal);
+        });
+        calculateTotal();
+        return calculateTotal;   
+    }
+       
+    window.onload = function () {
+        const calculateTotal = setupTotalCalculator();
+    };   
+    function validateForm() {
+        const form = document.querySelector('form');
+        const inputs = form.querySelectorAll('input[type="number"]');
+        const labels = form.querySelectorAll('label');
+        // 定义金额要求的映射关系
+        const amountRequirements = {
+            "查验费": 350,
+            "滞港费": 35,
+            "滞箱费": 35,
+            "港口拥堵费": 75,
+            "车架费": 45,
+            "预提费": 200,
+            "货柜储存费": 50,
+            "车架分离费": 150,
+            "超重费": 200, 
+        };
+        for (let i = 0; i < inputs.length; i++) {
+            const input = inputs[i];
+            
+            const labelText = labels[i].textContent.trim();
+            const requiredAmount = amountRequirements[labelText];
+            if (requiredAmount && input.value!== "") {
+                const value = parseFloat(input.value);
+                if (isNaN(value) || value % requiredAmount!== 0) {
+                    alert('输入值不符合要求，请按照"' + labelText + '"的金额要求填写');
+                    event.preventDefault();
+                }
+            }      
+        }    
+        const totalAmountSpan = document.getElementById('total_amount');
+        const AmountInput = document.getElementById('amount');  
+        AmountInput.value = totalAmountSpan.textContent;
+         
+    };
+    function pendingTrue(){
+        validateForm();
+        const pendingInput = document.getElementById('pending');
+        pendingInput.value = "True";
+    };
+    function pendingFalse(){
+        validateForm();
+        const pendingInput = document.getElementById('pending');
+        pendingInput.value = "False";
+    };
+</script>
+{% endblock %}

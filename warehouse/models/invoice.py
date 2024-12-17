@@ -23,6 +23,10 @@ class Invoice(models.Model):
     customer = models.ForeignKey(Customer, null=True, blank=True, on_delete=models.SET_NULL)
     container_number = models.ForeignKey(Container, null=True, blank=True, on_delete=models.SET_NULL)
     total_amount = models.FloatField(null=True, blank=True)
+    preport_amount = models.FloatField(null=True, blank=True)
+    warehouse_amount = models.FloatField(null=True, blank=True)
+    delivery_amount = models.FloatField(null=True, blank=True)
+    direct_amount = models.FloatField(null=True, blank=True)
     statement_id = models.ForeignKey(InvoiceStatement, null=True, blank=True, on_delete=models.SET_NULL)
     received_amount = models.FloatField(null=True, blank=True)
 

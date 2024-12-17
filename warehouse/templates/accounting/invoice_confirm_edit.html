@@ -1,0 +1,350 @@
+
+{% extends 'base.html' %}
+
+{% block content %}
+<div><h4><b>财务订单确认</b></h4></div>
+<div  style="display: inline-block; width: 100%; margin: 0; padding: 0; max-width: 100%;">   
+    <form method="post" action="" style="display: flex; justify-content: space-between;">
+        {% csrf_token %}
+        <p style="text-align:center; margin:0 auto;"><b>{{ invoice }}</b></p>
+        <input type="hidden" name="step" value="confirm_save">
+        <input type="hidden" name="container_number" value="{{ container_number }}">
+        <button id="editButton" type="submit" class="btn btn-primary" onclick="AmountForm()" style="background-color:green; font-size: 13px; padding:10px 20px; margin-right:80px;">账单确认</button>  
+    </form>
+<div>
+{% if order_type == "转运" %}
+<div style="display: flex; max-height: 720px;">
+    <div style="overflow-y: auto; max-height: 100%; width: 25%; border: 2px solid rgb(180, 180, 180); border-radius: 12px; padding: 1%; margin: 1%;">
+        <div><b>提拆柜费用总计——{{ invoice.preport_amount }}</b></div>
+        <form method="post" action="">
+            {% csrf_token %}
+                <div>
+                    <label for="chassis_days">提拆/打托缠膜:</label>
+                    <input type="number" id="pickup" name="pickup" value="{{ invoice_preports.pickup }}" disabled> 
+                </div>
+                <div>
+                    <label for="chassis_days">托架费</label>(45$/天):
+                    <input type="number" id="chassis" name="chassis" min="0" value="{{ invoice_preports.chassis }}" disabled>
+                </div>
+                <div>
+                    <label for="chassis_split_count">托架提取费</label>(150$/柜):
+                    <input type="number" id="chassis_split" name="chassis_split" min="0" value="{{ invoice_preports.chassis_split }}" disabled>
+                </div>
+                <div>
+                    <label for="prepull">预提费</label>(150$/柜):
+                    <input type="number" id="prepull" name="prepull" min="0" value="{{ invoice_preports.prepull }}" disabled>
+                </div>
+                <div>
+                    <label for="chassis_split_count">货柜放置费</label>(150$/柜):
+                    <input type="number" id="yard_storage" name="yard_storage" min="0" value="{{ invoice_preports.yard_storage }}" disabled>
+                </div>
+                <div>
+                    <label for="chassis_split_count">操作处理费</label>(50/柜):
+                    <input type="number" id="handling_fee" name="handling_fee" min="0" value="{{ invoice_preports.handling_fee }}" disabled>
+                </div>
+                <div>
+                    {% if contaienr_type == "20GP" %}
+                        <label for="chassis_split_count">码头</label>(20$/柜):
+                    {% else %}
+                        <label for="chassis_split_count">码头</label>(40$/柜):
+                    {% endif %}
+                    <input type="number" id="pier_pass" name="pier_pass" min="0" value="{{ invoice_preports.pier_pass }}" disabled>
+                </div>
+                <div>
+                    <label for="chassis_split_count">港口拥堵费</label>(75$/小时):
+                    <input type="number" id="congestion_fee" name="congestion_fee" min="0" value="{{ invoice_preports.congestion_fee }}" disabled>
+                </div>
+                
+                <div>
+                    <label for="hanging_crane">吊柜费</label>:
+                    <input type="number" id="hanging_crane" name="hanging_crane" value="300" disabled>
+                    
+                </div>
+                <div>
+                    <label for="chassis_split_count">空跑费</label>(150$/柜):
+                    <input type="number" id="dry_run" name="dry_run" min="0" value="{{ invoice_preports.dry_run }}" disabled>
+                </div>
+                <div>
+                    <label for="chassis_split_count">查验费</label>(250$/柜):
+                    <input type="number" id="exam_fee" name="exam_fee" min="0" value="{{ invoice_preports.exam_fee }}" disabled>
+                </div>
+                <div>
+                    <label for="chassis_split_count">危险品</label>(300$/柜):
+                    <input type="number" id="hazmat" name="hazmat" min="0" value="{{ invoice_preports.hazmat }}" disabled>
+                </div>
+                <div>
+                    <label for="chassis_split_count">超重费</label>(300$/柜):
+                    <input type="number" id="over_weight" name="over_weight" min="0" value="{{ invoice_preports.over_weight }}" disabled>
+                </div>
+                <div>
+                    <label for="chassis_split_count">加急费</label>(200$/柜):
+                    <input type="number" id="urgent_fee" name="urgent_fee" min="0" value="{{ invoice_preports.urgent_fee }}" disabled>
+                </div>
+                <div>
+                    <label for="chassis_split_count">其他服务</label>:
+                    <input type="number" id="other_serive" name="other_serive" min="0" value="{{ invoice_preports.other_serive }}" disabled>
+                </div>
+                <div>
+                    <label for="chassis_split_count">港内滞期费</label>:
+                    <input type="number" id="demurrage" name="demurrage" min="0" value="{{ invoice_preports.demurrage }}" disabled>
+                </div>
+                <div>
+                    <label for="chassis_split_count">港外滞期费</label>:
+                    <input type="number" id="per_diem" name="per_diem" min="0" value="{{ invoice_preports.per_diem }}" disabled>
+                </div>
+                <div>
+                    <label for="chassis_split_count">二次提货</label>:
+                    <input type="number" id="second_pickup" name="second_pickup" min="0" value="{{ invoice_preports.second_pickup }}" disabled>
+                </div>
+        </form>
+    </div>
+    <div style="overflow-y: auto; max-height: 100%; width: 25%; border: 2px solid rgb(180, 180, 180); border-radius: 12px; padding: 1%; margin: 1%;">
+        <div><b>仓库费用总计——{{ invoice.warehouse_amount }}</b></div>
+        <form method="post" action="">
+            {% csrf_token %}
+                <div>
+                    <label for="chassis_days">分拣费</label>($1.5/箱):
+                    <input type="number" id="sorting" name="sorting" value="{{ invoice_warehouse.sorting}}" disabled>
+                </div>
+                <div>
+                    <label for="chassis_days">拦截费</label>($50/票):
+                    <input type="number" id="intercept" name="intercept" min="0" value="{{ invoice_warehouse.intercept}}" disabled>
+                </div>
+                <div>
+                    <label for="chassis_split_count">亚马逊PO激活</label>(成功$35/PO，未成功$15/PO):
+                    <input type="number" id="po_activation" name="po_activation" min="0" value="{{ invoice_warehouse.po_activation}}" disabled>
+                </div>
+                <div>
+                    <label for="prepull">客户自提</label>($10/托):
+                    <input type="number" id="self_pickup" name="self_pickup" min="0" value="{{ invoice_warehouse.self_pickup}}" disabled>
+                </div>
+                <div>
+                    <label for="chassis_split_count">重新打板</label>($15/板):
+                    <input type="number" id="re_pallet" name="re_pallet" min="0" value="{{ invoice_warehouse.re_pallet}}" disabled>
+                </div>
+                <div>
+                    <label for="chassis_split_count">货品清点费</label>($0.5/箱):
+                    <input type="number" id="counting" name="counting" min="0" value="{{ invoice_warehouse.counting}}" disabled>
+                </div>
+                <div>
+                    <label for="chassis_split_count">仓租</label>($1/天/卡板):
+                    <input type="number" id="warehouse_rent" name="warehouse_rent" min="0" value="{{ invoice_warehouse.warehouse_rent}}" disabled>
+                </div>
+                <div>
+                    <label for="chassis_split_count">指定贴标</label>($1.5/件):
+                    <input type="number" id="specified_labeling" name="specified_labeling" min="0" value="{{ invoice_warehouse.specified_labeling}}" disabled>
+                </div>
+                
+                <div>
+                    <label for="hanging_crane">内外箱</label>($0.5/标):
+                    <input type="number" id="inner_outer_box" name="inner_outer_box" value="{{ invoice_warehouse.inner_outer_box}}" disabled>
+                    
+                </div>
+                <div>
+                    <label for="chassis_split_count">托盘标签</label>($0.5/张,1托盘4张):
+                    <input type="number" id="pallet_label" name="pallet_label" min="0" value="{{ invoice_warehouse.pallet_label}}" disabled>
+                </div>
+                <div>
+                    <label for="chassis_split_count">开封箱</label>($1/箱):
+                    <input type="number" id="open_close_box" name="open_close_box" min="0" value="{{ invoice_warehouse.open_close_box}}" disabled>
+                </div>
+                <div>
+                    <label for="chassis_split_count">销毁</label>(毛重*2.2，$0.5/LB):
+                    <input type="number" id="destroy" name="destroy" min="0" value="{{ invoice_warehouse.destroy}}" disabled>
+                </div>
+                <div>
+                    <label for="chassis_split_count">拍照</label>($1/张，最低$5):
+                    <input type="number" id="take_photo" name="take_photo" min="0" value="{{ invoice_warehouse.take_photo}}" disabled>
+                </div>
+                <div>
+                    <label for="chassis_split_count">拍视频</label>(5min per $15):
+                    <input type="number" id="take_video" name="take_video" min="0" value="{{ invoice_warehouse.take_video}}" disabled>
+                </div>
+                <div>
+                    <label for="chassis_split_count">重复操作费</label>($50-$500):
+                    <input type="number" id="repeated_operation_fee" name="repeated_operation_fee" min="0" value="{{ invoice_warehouse.repeated_operation_fee}}" disabled>
+                </div>
+        </form>
+    </div>
+    <div style="overflow-y: auto; max-height: 100%; width: 50%; border: 2px solid rgb(180, 180, 180); border-radius: 12px; padding: 1%; margin: 1%;">
+        <div><b>派送费用总计——{{ invoice.delivery_amount }}</b></div>
+        {% if amazon %}
+        <div style="border-bottom: 1px solid #ccc; margin-top: 5px;padding-bottom: 5px;text-align:center">
+            <b>亚马逊派送——<label id="amazon_amount"></label></b>
+            <table class="table" id="amazon-table" style="font-size: 13px">
+                <thead>
+                    <tr style="position: sticky; top: 0;">
+                        <th class="th">价格</th>
+                        <th class="th">目的地</th>
+                        <th class="th">CBM</th>
+                        <th class="th">重量</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for plt in amazon %}
+                    <tr draggable="true" id="pallet-{{ plt.id }}">
+                        <td class="td">
+                            <input type="number" id="amazon_cost" name="cost" value="{{ plt.total_cost }}" oninput="updateAmazon(this)">
+                        </td>
+                        <td class="td"><input type="text" name="destination" value="{{ plt.destination }}"></td>
+                        <td class="td"><input type="number" name="cbm" step = 0.01 value="{{ plt.total_cbm|floatformat:2 }}"></td>
+                        <td class="td"><input type="number" name="weight_lbs" step = 0.01 value="{{ plt.total_weight_lbs }}"></td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+        {% endif %}
+        {% if local %}
+        <div style="border-bottom: 1px solid #ccc; margin-top: 5px;padding-bottom: 5px;text-align:center">
+            <b>本地派送——<label id="local_amount"></label></b>
+            <table class="table" id="local-table" style="font-size: 13px;">
+                <thead>
+                    <tr style="position: sticky; top: 0;">
+                        <th class="th">价格</th>
+                        <th class="th">目的地</th>
+                        <th class="th">CBM</th>
+                        <th class="th">重量</th>
+                        <th class="th">邮编</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for plt in local %}
+                    <tr draggable="true" id="pallet-{{ plt.id }}">
+                        <td class="td">
+                            <input type="number" id="local_cost" name="cost" value="{{ plt.total_cost }}" oninput="updateLocal(this)">
+                        </td>
+                        <td class="td"><input type="text" name="destination" value="{{ plt.destination }}"></td>
+                        <td class="td"><input type="number" name="cbm" step = 0.01 value="{{ plt.total_cbm|floatformat:2 }}"></td>
+                        <td class="td"><input type="number" name="weight_lbs" step = 0.01 value="{{ plt.total_weight_lbs }}"></td>
+                        <td class="td"><input type="number" name="zipcode" step = 0.01 value="{{ plt.zipcode|floatformat:2 }}"></td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+        {% endif %}
+        {% if combine %}
+        <div style="border-bottom: 1px solid #ccc; margin-top: 5px;padding-bottom: 5px;text-align:center">
+            <b>组合柜派送——<label id="combine_amount"></label></b>
+            <table class="table" id="combine-table" style="font-size: 13px;">
+                <thead>
+                    <tr style="position: sticky; top: 0;">
+                        <th class="th">价格</th>
+                        <th class="th">目的地</th>
+                        <th class="th">CBM</th>
+                        <th class="th">重量</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for plt in combine %}
+                    <tr draggable="true" id="pallet-{{ plt.id }}">
+                        <td class="td">
+                            <input type="number" id="combine_cost" name="cost" value="{{ plt.total_cost }}" oninput="updateCombine(this)">
+                        </td>
+                        <td class="td"><input type="text" name="destination" value="{{ plt.destination }}"></td>
+                        <td class="td"><input type="number" name="cbm" step = 0.01 value="{{ plt.total_cbm|floatformat:2 }}"></td>
+                        <td class="td"><input type="number" name="weight_lbs" step = 0.01 value="{{ plt.total_weight_lbs }}"></td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div> 
+        {% endif %}  
+<div>
+{% else %}
+<div style="overflow-y: auto; max-height: 100%; width: 60%; border: 2px solid rgb(180, 180, 180); border-radius: 12px; padding: 1%; margin: 1%;">
+    <div><b>直送费用总计——{{ invoice.direct_amount }}</b></div>
+    <form method="post" action="">
+        {% csrf_token %}
+            <div>
+                <label for="chassis_days">提+派送:</label>
+                <input type="number" id="pickup" name="pickup" value="{{ invoice_preports.pickup }}" disabled> 
+            </div>
+            <div>
+                <label for="chassis_split_count">查验费</label>(350$/柜):
+                <input type="number" id="exam_fee" name="exam_fee" min="0" value="{{ invoice_preports.exam_fee }}">
+            </div>
+            <div>
+                <label for="chassis_split_count">二次派送</label>
+                ({% if second_delivery %} {{ second_delivery }}{% endif %}):
+                <input type="number" id="second_pickup" name="second_pickup" min="0" value="{{ invoice_preports.second_pickup }}">
+            </div>
+            <div>
+                <label for="chassis_split_count">滞港费</label>($35/票代收):
+                <input type="number" id="demurrage" name="demurrage" min="0" value="{{ invoice_preports.demurrage }}">
+            </div>
+            <div>
+                <label for="chassis_split_count">滞箱费</label>($35/票代收):
+                <input type="number" id="per_diem" name="per_diem" min="0" value="{{ invoice_preports.per_diem }}">
+            </div>
+            <div>
+                <label for="chassis_split_count">港口拥堵费</label>(75$/小时):
+                <input type="number" id="congestion_fee" name="congestion_fee" min="0" value="{{ invoice_preports.congestion_fee }}">
+            </div>
+            <div>
+                <label for="chassis_days">车架费</label>(45$/天):
+                <input type="number" id="chassis" name="chassis" min="0" value="{{ invoice_preports.chassis }}">
+            </div>
+            <div>
+                <label for="prepull">预提费</label>(200$/柜):
+                <input type="number" id="prepull" name="prepull" min="0" value="{{ invoice_preports.prepull }}">
+            </div>
+            <div>
+                <label for="chassis_split_count">货柜储存费</label>(50$/柜):
+                <input type="number" id="yard_storage" name="yard_storage" min="0" value="{{ invoice_preports.yard_storage }}">
+            </div>
+            <div>
+                <label for="chassis_split_count">等待费</label>(2小时免费，超出$85/小时):
+                <input type="number" id="handling_fee" name="handling_fee" min="0" value="{{ invoice_preports.handling_fee }}">
+            </div>
+            <div>
+                <label for="chassis_split_count">车架分离费</label>(150$/柜):
+                <input type="number" id="chassis_split" name="chassis_split" min="0" value="{{ invoice_preports.chassis_split }}">
+            </div>
+            <div>
+                <label for="chassis_split_count">超重费</label>(200$/柜):
+                <input type="number" id="over_weight" name="over_weight" min="0" value="{{ invoice_preports.over_weight }}">
+            </div>
+    </form>
+</div>
+{% endif %}
+
+<script>
+    window.onload = function () {
+        var amazon_total = 0;
+        var rows = document.querySelectorAll('#amazon-table tbody tr');
+        for (var i = 0; i < rows.length; i++) {
+            var costInput = rows[i].querySelector('input[id="amazon_cost"]');
+            var costValue = parseFloat(costInput.value);
+            if (!isNaN(costValue)) {
+                amazon_total += costValue;
+            }
+        }      
+        document.getElementById('amazon_amount').textContent = amazon_total; 
+
+        var local_total = 0;
+        var rows = document.querySelectorAll('#local-table tbody tr');
+        for (var i = 0; i < rows.length; i++) {
+            var costInput = rows[i].querySelector('input[id="local_cost"]');
+            var costValue = parseFloat(costInput.value);
+            if (!isNaN(costValue)) {
+                local_total += costValue;
+            }
+        }      
+        document.getElementById('local_amount').textContent = local_total; 
+
+        var combine_total = 0;
+        var rows = document.querySelectorAll('#combine-table tbody tr');
+        for (var i = 0; i < rows.length; i++) {
+            var costInput = rows[i].querySelector('input[id="combine_cost"]');
+            var costValue = parseFloat(costInput.value);
+            if (!isNaN(costValue)) {
+                combine_total += costValue;
+            }
+        }      
+        document.getElementById('combine_amount').textContent = combine_total; 
+    };   
+</script>
+
+{% endblock%}
