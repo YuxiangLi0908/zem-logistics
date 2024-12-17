@@ -1500,4 +1500,4 @@ class Accounting(View):
             return False 
         
     def _check_invoice_exist(self, container_number: str) -> bool:
-        return Invoice.objects.filter(container_number__container_number=container_number).exists()()
+        return Invoice.objects.filter(container_number__container_number=container_number).exists()
