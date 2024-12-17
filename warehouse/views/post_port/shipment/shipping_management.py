@@ -1042,6 +1042,8 @@ class ShippingManagement(View):
                 "shipment_appointment": d["scheduled_time"],
                 "origin": d["warehouse"].upper().strip() if d["warehouse"] != "nan" else None,
                 "in_use": False,
+                "load_type": d["load_type"].strip(),
+                "shipment_account": d["shipment_account"].strip()
             } for d in data]
             await sync_to_async(Shipment.objects.bulk_create)(Shipment(**d) for d in cleaned_data)
         return await self.handle_appointment_warehouse_search_post(request)
