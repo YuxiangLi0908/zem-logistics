@@ -68,6 +68,7 @@
                                 <th class="th">目的仓库</th>
                                 <th class="th">所属仓库</th>
                                 <th class="th">是否放行</th>
+                                <th class="th">ETA</th>
                                 <th class="th">预计提柜</th>
                                 <th class="th">入仓时间</th>
                                 <th class="th">CBM</th>
@@ -80,6 +81,7 @@
                                 <th class="th"></th>
                                 <th class="th"><input type="text" id="containerSearchInput" placeholder="搜索柜号..." oninput="filterTable()" size="13" style="font-size: 11px;"></th>
                                 <th class="th"><input type="text" id="destinationSearchInput" placeholder="搜索目的仓库..." oninput="filterTable()" size="13" style="font-size: 11px;"></th>
+                                <th class="th"></th>
                                 <th class="th"></th>
                                 <th class="th"></th>
                                 <th class="th"></th>
@@ -124,7 +126,8 @@
                                         &#10008;
                                     {% endif %}
                                 </td>
-                                <td class="td">                          
+                                <td class="td">{{ c.eta|date:"M-j" }}</td>
+                                <td class="td">
                                     {% if c.target_retrieval_timestamp_lower and c.target_retrieval_timestamp %}
                                         {{ c.target_retrieval_timestamp_lower|date:"M-j" }} ~ {{ c.target_retrieval_timestamp|date:"M-j" }}
                                     {% elif c.target_retrieval_timestamp %}

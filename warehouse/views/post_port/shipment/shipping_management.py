@@ -253,6 +253,7 @@ class ShippingManagement(View):
             "shipment_data": json.dumps(shipment_data),
             "warehouse_options": self.warehouse_options,
             "load_type_options": LOAD_TYPE_OPTIONS,
+            "account_options": self.account_options,
         }
         return self.template_shipment_exceptions, context
 
@@ -1131,6 +1132,7 @@ class ShippingManagement(View):
                 shipment_data["third_party_address"] = request.POST.get("third_party_address", "").strip()
                 shipment_data["shipment_type"] = shipment_type
                 shipment_data["load_type"] = request.POST.get("load_type", "").strip()
+                shipment_data["shipment_account"] = request.POST.get("shipment_account", "").strip()
                 shipment_data["note"] = request.POST.get("note", "").strip()
                 shipment_data["shipment_appointment"] = request.POST.get("shipment_appointment", None)
                 shipment_data["shipment_schduled_at"] = current_time
@@ -1150,7 +1152,9 @@ class ShippingManagement(View):
                 shipment_data["shipped_pcs"] = old_shipment.shipped_pcs
                 shipment_data["pallet_dumpped"] = old_shipment.pallet_dumpped
                 shipment_data["previous_fleets"] = old_shipment.previous_fleets
-                if shipment_type == "外配/快递":
+                if shipment_type == "LTL/外配/快递":
+                    shipment_data["arm_bol"] = request.POST.get("arm_bol", "").strip()
+                    shipment_data["arm_pro"] = request.POST.get("arm_pro", "").strip()
                     fleet = Fleet(**{
                         "carrier": request.POST.get("carrier"),
                         "fleet_type": shipment_type,
@@ -1194,7 +1198,8 @@ class ShippingManagement(View):
             pal_list = await sync_to_async(list)(
                 Pallet.objects.prefetch_related(
                     "container_number", "container_number__order", "container_number__order__warehouse", "shipment_batch_number"
-                    "container_number__order__offload_id", "container_number__order__customer_name", "container_number__order__retrieval_id"
+                    "container_number__order__offload_id", "container_number__order__customer_name", "container_number__order__retrieval_id",
+                    "container_number__order__vessel_id"
                 ).filter(
                     plt_criteria
                 ).annotate(
@@ -1214,11 +1219,13 @@ class ShippingManagement(View):
                     'schedule_status',
                     'abnormal_palletization',
                     'po_expired',
+                    'container_number__order__vessel_id__vessel_eta',
                     target_retrieval_timestamp=F('container_number__order__retrieval_id__target_retrieval_timestamp'),
                     target_retrieval_timestamp_lower=F('container_number__order__retrieval_id__target_retrieval_timestamp_lower'),
                     temp_t49_pickup=F('container_number__order__retrieval_id__temp_t49_available_for_pickup'),
                     warehouse=F('container_number__order__retrieval_id__retrieval_destination_precise'),
                 ).annotate(
+                    eta=F('container_number__order__vessel_id__vessel_eta'),
                     custom_delivery_method=F('delivery_method'),
                     fba_ids=F('fba_id'),
                     ref_ids=F('ref_id'),
