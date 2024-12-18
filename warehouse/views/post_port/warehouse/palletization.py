@@ -49,6 +49,7 @@ class Palletization(View):
             return redirect("login")
         pk = kwargs.get("pk", None)
         step = request.GET.get("step", None)
+        print("GET",step)
         if step == "container_palletization":
             template, context = await self.handle_container_palletization_get(request, pk)
             return render(request, template, context)
@@ -68,6 +69,7 @@ class Palletization(View):
         if not await self._user_authenticate(request):
             return redirect("login")
         step = request.POST.get("step")
+        print("POST",step)
         if step == "warehouse":
             template, context = await self.handle_warehouse_post(request)
             return render(request, template, context)
@@ -312,6 +314,7 @@ class Palletization(View):
         for pl in packing_list:
             pl_form = PackingListForm(initial={"n_pallet": pl["n_pallet"]})
             order_packing_list.append((pl, pl_form))
+        print(packing_list)
         context["warehouse"] = request.GET.get("warehouse", None)
         context["order_packing_list"] = order_packing_list
         context["delivery_method_options"] = DELIVERY_METHOD_OPTIONS
@@ -767,7 +770,7 @@ class Palletization(View):
                 str_shipping_mark=Cast("shipping_mark", CharField()),
             ).values(
                 "container_number__container_number", "destination", "address", "zipcode",
-                "custom_delivery_method", "note", "shipment_batch_number__shipment_batch_number",
+                "custom_delivery_method", "note", "shipment_batch_number__shipment_batch_number"
             ).annotate(
                 fba_ids=StringAgg("str_fba_id", delimiter=",", distinct=True),
                 ref_ids=StringAgg("str_ref_id", delimiter=",", distinct=True),
@@ -777,12 +780,15 @@ class Palletization(View):
                 cbm=Sum("cbm", output_field=FloatField()),
                 n_pallet=Count('pallet__pallet_id', distinct=True),
                 weight_lbs=Sum("total_weight_lbs", output_field=FloatField()),
+                plt_ids=StringAgg("str_id", delimiter=",", distinct=True, ordering="str_id"),
             ).order_by("-cbm"))
         elif status == "palletized":
             return await sync_to_async(list)(Pallet.objects.select_related(
                 "container_number"
             ).filter(
                 container_number__container_number=container_number
+            ).annotate(
+                str_id=Cast("id", CharField()),
             ).values(
                 "container_number__container_number", "destination", "note",
                 custom_delivery_method=F("delivery_method"),
@@ -790,6 +796,7 @@ class Palletization(View):
                 pcs=Sum("pcs", output_field=IntegerField()),
                 cbm=Sum("cbm", output_field=FloatField()),
                 n_pallet=Count('pallet_id', distinct=True),
+                ids=StringAgg("str_id", delimiter=",", distinct=True, ordering="str_id"),
             ).order_by("-cbm"))
         else:
             raise ValueError(f"invalid status: {status}")

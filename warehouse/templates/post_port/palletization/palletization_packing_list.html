@@ -31,9 +31,15 @@
                     </thead>
                     <tbody id="palletization-container">                       
                         {% for pl, pl_form in order_packing_list %}
-                        <tr id="palletization-row">
+                        <tr id="palletization-row"> 
                             <td class="td">{{ pl.container_number__container_number }}</td>
+                            {% if status == 'non_palletized' %}
                             <td class="td">{{ pl.destination }}</td>
+                            {% elif status == 'palletized' %}
+                            <td id="destination - {{ pl.id }}" class="td">
+                                <a href="#" onclick="showPallet({{ pl }})">{{ pl.destination }}</a>
+                            </td>
+                            {% endif %}
                             <td class="td">
                                 {% with first_value=pl.custom_delivery_method|split_and_get_first %}
                                     {{ first_value }}
@@ -112,8 +118,80 @@
             </div>
         </div>
     </form>
+    <form method="post" action="" style="display: inline-block; float:right;" id="exportPallet-add">
+        {% csrf_token %}
+        <div class="popup-editPallet" style="display: none; z-index:999; position: fixed; top: 50%; left: 50%; transform: translate(-50%, -50%); background-color: white; border: 1px solid gray; padding: 20px; max-height: 50%; overflow-y: scroll;">
+            <div style="display: flex;">
+                <input type="hidden" name="step" value="edit_pallet">
+                <input type="text" name="plt_ids" id="plt_ids" value="">
+                <input type="hidden" name="warehouse" value="{{ warehouse }}">
+                <button type="submit" class="btn btn-primary" onclick="edit_add_payload(this)" style="font-size: 11px; margin-right: 5px;">确认添加</button>
+                <button id="editButton" type="button" class="btn btn-danger" onclick="showPallet(this)" style="font-size: 11px;">返回</button>
+            </div>
+            <table id="edit-pallet-table" class="table" style="font-size: 11px; max-height: 50%;">
+                <thead>
+                    <tr style="position: sticky; top: 0px;">
+                        <th class="th" style="min-width: 40px; text-align: center;"></th>
+                        <th class="th" style="text-align: center; border: 1px solid #141414">pallet_id</th>
+                        <th class="th" style="text-align: center; border: 1px solid #141414">长</th>
+                        <th class="th" style="text-align: center; border: 1px solid #141414">宽</th>
+                        <th class="th" style="text-align: center; border: 1px solid #141414">高</th>  
+                        <th class="th" style="text-align: center; border: 1px solid #141414">箱数</th>   
+                    </tr>
+                    <tr style="position: sticky; top: 20px;">
+                        <th class="th" style="min-width: 40px;"></th>
+                        <th class="th"></th>
+                        <th class="th"></th>
+                        <th class="th"></th>
+                        <th class="th"></th>
+                        <th class="th"></th>
+                        <th class="th"></th>
+                    </tr>
+                </thead>
+                <tbody>
+                    
+                    <tr>
+                        <td class="td" style="min-width: 40px; text-align: center;">
+                            <input type='checkbox' name='is_plt_added' onclick="toggleRowBackground(this)" {% if c.ids in pl_ids_raw %}checked{% elif c.plt_ids in plt_ids_raw %}checked{% endif %} {% if c.abnormal_palletization or c.po_expired %}disabled{% endif %}>
+                            <input type="hidden" name="is_plt_added", value='off'>
+                            <input type="hidden" name="added_plt_ids", value='{{ plt.plt_ids }}'>
+                            <input type="hidden" name="container", value='{{ plt.container_number__container_number }}'>
+                            <input type="hidden" name="destination", value='{{ plt.destination }}'>
+                            <input type="hidden" name="pallets", value='{{ plt.total_n_pallet_act }}'>
+                        </td>
+                    </tr>
+                    
+                </tbody>
+            </table>
+        </div>
+    </form>
 
 <script>
+    function showPallet(button) {   //用户要编辑BOL中的表时，弹出表格框
+        var popup = document.querySelector('.popup-editPallet');
+        if (popup.style.display === 'none') {
+            popup.style.display = 'block';
+        } else {
+            popup.style.display = 'none';
+        }
+        var inputElement = document.getElementById('plt_ids');
+        plt_ids = button.ids;
+        inputElement.value = plt_ids
+        //var idsArray = plt_ids.split(',');
+        //console.log('长度',idsArray);
+        console.log(plt_ids);
+        var tableBody = document.getElementById('edit-pallet-table').getElementsByTagName('tbody')[0];
+        tableBody.innerHTML = '';
+        for (var i = 0; i < 5; i++) {
+            var row = document.createElement('tr');
+            var cell = document.createElement('td');
+            cell.textContent = '';
+            row.appendChild(cell);
+            tableBody.appendChild(row);
+        }
+        
+        
+    };
     function addRowBelow(){
         var table = document.getElementById('palletization-container');
         var newRow = document.querySelector('#palletization-row-empty').cloneNode(true);
