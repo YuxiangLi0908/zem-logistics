@@ -1243,7 +1243,8 @@ class ShippingManagement(View):
             pl_list =  await sync_to_async(list)(
                 PackingList.objects.prefetch_related(
                     "container_number", "container_number__order", "container_number__order__warehouse", "shipment_batch_number"
-                    "container_number__order__offload_id", "container_number__order__customer_name", "pallet", "container_number__order__retrieval_id"
+                    "container_number__order__offload_id", "container_number__order__customer_name", "pallet", "container_number__order__retrieval_id",
+                    "container_number__order__vessel_id"
                 ).filter(pl_criteria).annotate(
                     custom_delivery_method=Case(
                         When(Q(delivery_method='暂扣留仓(HOLD)') | Q(delivery_method='暂扣留仓'), then=Concat('delivery_method', Value('-'), 'fba_id', Value('-'), 'id')),
@@ -1267,11 +1268,13 @@ class ShippingManagement(View):
                     'custom_delivery_method',
                     'container_number__order__offload_id__offload_at',
                     'schedule_status',
+                    'container_number__order__vessel_id__vessel_eta',
                     target_retrieval_timestamp=F('container_number__order__retrieval_id__target_retrieval_timestamp'),
                     target_retrieval_timestamp_lower=F('container_number__order__retrieval_id__target_retrieval_timestamp_lower'),
                     warehouse=F('container_number__order__retrieval_id__retrieval_destination_precise'),
                     temp_t49_pickup=F('container_number__order__retrieval_id__temp_t49_available_for_pickup'),
                 ).annotate(
+                    eta=F('container_number__order__vessel_id__vessel_eta'),
                     fba_ids=StringAgg("str_fba_id", delimiter=",", distinct=True, ordering="str_fba_id"),
                     ref_ids=StringAgg("str_ref_id", delimiter=",", distinct=True, ordering="str_ref_id"),
                     shipping_marks=StringAgg("str_shipping_mark", delimiter=",", distinct=True, ordering="str_shipping_mark"),
