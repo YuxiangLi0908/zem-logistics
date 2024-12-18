@@ -1198,7 +1198,8 @@ class ShippingManagement(View):
             pal_list = await sync_to_async(list)(
                 Pallet.objects.prefetch_related(
                     "container_number", "container_number__order", "container_number__order__warehouse", "shipment_batch_number"
-                    "container_number__order__offload_id", "container_number__order__customer_name", "container_number__order__retrieval_id"
+                    "container_number__order__offload_id", "container_number__order__customer_name", "container_number__order__retrieval_id",
+                    "container_number__order__vessel_id"
                 ).filter(
                     plt_criteria
                 ).annotate(
@@ -1218,11 +1219,13 @@ class ShippingManagement(View):
                     'schedule_status',
                     'abnormal_palletization',
                     'po_expired',
+                    'container_number__order__vessel_id__vessel_eta',
                     target_retrieval_timestamp=F('container_number__order__retrieval_id__target_retrieval_timestamp'),
                     target_retrieval_timestamp_lower=F('container_number__order__retrieval_id__target_retrieval_timestamp_lower'),
                     temp_t49_pickup=F('container_number__order__retrieval_id__temp_t49_available_for_pickup'),
                     warehouse=F('container_number__order__retrieval_id__retrieval_destination_precise'),
                 ).annotate(
+                    eta=F('container_number__order__vessel_id__vessel_eta'),
                     custom_delivery_method=F('delivery_method'),
                     fba_ids=F('fba_id'),
                     ref_ids=F('ref_id'),
