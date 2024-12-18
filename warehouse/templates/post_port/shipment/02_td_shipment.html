@@ -373,12 +373,12 @@
                 checkboxes.forEach(function (cb) {
                     if (cb.checked) {
                         var row = cb.closest('tr');
-                        var cbm = parseFloat(row.cells[8].textContent);
+                        var cbm = parseFloat(row.cells[9].textContent);
 
-                        var pallet = row.cells[9].textContent;
+                        var pallet = row.cells[10].textContent;
                         pallet = pallet.replace(/(ACT|EST)\s*/g, '').trim();                        
                         pallet = parseInt(pallet);
-                        var weight = parseFloat(row.cells[11].textContent);
+                        var weight = parseFloat(row.cells[12].textContent);
                         palletSum += pallet;
 
                         cbmSum += cbm;
@@ -390,9 +390,9 @@
                         weightSum = parseFloat(weightSum);
                     }
                 });
-                sumRow.cells[8].textContent = cbmSum;
-                sumRow.cells[9].textContent = palletSum;
-                sumRow.cells[11].textContent = weightSum;
+                sumRow.cells[9].textContent = cbmSum;
+                sumRow.cells[10].textContent = palletSum;
+                sumRow.cells[12].textContent = weightSum;
             });
         });
     };
