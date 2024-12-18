@@ -253,6 +253,7 @@ class ShippingManagement(View):
             "shipment_data": json.dumps(shipment_data),
             "warehouse_options": self.warehouse_options,
             "load_type_options": LOAD_TYPE_OPTIONS,
+            "account_options": self.account_options,
         }
         return self.template_shipment_exceptions, context
 
@@ -1131,6 +1132,7 @@ class ShippingManagement(View):
                 shipment_data["third_party_address"] = request.POST.get("third_party_address", "").strip()
                 shipment_data["shipment_type"] = shipment_type
                 shipment_data["load_type"] = request.POST.get("load_type", "").strip()
+                shipment_data["shipment_account"] = request.POST.get("shipment_account", "").strip()
                 shipment_data["note"] = request.POST.get("note", "").strip()
                 shipment_data["shipment_appointment"] = request.POST.get("shipment_appointment", None)
                 shipment_data["shipment_schduled_at"] = current_time
@@ -1150,7 +1152,9 @@ class ShippingManagement(View):
                 shipment_data["shipped_pcs"] = old_shipment.shipped_pcs
                 shipment_data["pallet_dumpped"] = old_shipment.pallet_dumpped
                 shipment_data["previous_fleets"] = old_shipment.previous_fleets
-                if shipment_type == "外配/快递":
+                if shipment_type == "LTL/外配/快递":
+                    shipment_data["arm_bol"] = request.POST.get("arm_bol", "").strip()
+                    shipment_data["arm_pro"] = request.POST.get("arm_pro", "").strip()
                     fleet = Fleet(**{
                         "carrier": request.POST.get("carrier"),
                         "fleet_type": shipment_type,

@@ -101,13 +101,21 @@
                 <table id="shipment-table-1" class="table" style="font-size: 11px; overflow-x: scroll; max-width: 100%;">
                     <thead>
                         <tr>
+                            <th class="th">预约账号</th>
                             <th class="th">预约号</th>
                             <th class="th">Scheduled Time</th>
                         </tr>
                     </thead>
                     <tbody>
                         <tr>
-                            <td class="td"><input type="text" name="appointment_id" style="font-size: 13px;" required></td>
+                            <td class="td">
+                                <select name="shipment_account" id="shipment-account-select" style="font-size: 13px;">
+                                    {% for k, v in account_options.items %}
+                                    <option value="{{ v }}" {% if k == shipment.shipment_account %}selected{% endif %}>{{ k }}</option>
+                                    {% endfor %}
+                                </select>
+                            </tb>
+                            <td class="td"><input type="text" name="appointment_id" style="font-size: 13px;" oninput="checkAppointment(this)"></td>
                             <td class="td"><input type="datetime-local" name="shipment_appointment" style="font-size: 13px;" required></td>
                         </tr>
                     </tbody>
@@ -115,7 +123,7 @@
                 <table id="shipment-table-2" class="table" style="font-size: 11px; overflow-x: auto; max-width: 100%;">
                     <thead>
                         <tr>
-                            <th class="th">发货仓库/地址</th>
+                            <th class="th">发货仓库</th>
                             <th class="th">装车类型</th>
                             <th class="th">备注</th>
                         </tr>
@@ -123,7 +131,11 @@
                     <tbody>
                         <tr>
                             <td class="td">
-                                <input type="text" name="origin" required>
+                                <select name="origin" id="origin-select-1" style="font-size: 13px;">
+                                    {% for k, v in warehouse_options.items %}
+                                    <option value="{{ v }}">{{ k }}</option>
+                                    {% endfor %}
+                                </select>
                             </td>
                             <td class="td">
                                 <select name="load_type" id="load-type-select" style="font-size: 13px;">
@@ -155,15 +167,21 @@
                 <table id="shipment-table-1" class="table" style="font-size: 11px; overflow-x: scroll; max-width: 100%;">
                     <thead>
                         <tr>
-                            <th class="th">Scheduled Time</th>
-                            <th class="th">发货仓库/地址</th>
+                            <th class="th">Scheduled Time（预计到仓）</th>
+                            <th class="th">发货仓库</th>
                             <th class="th">备注</th>
                         </tr>
                     </thead>
                     <tbody>
                         <tr>
-                            <td class="td"><input type="datetime-local" name="shipment_appointment" style="font-size: 13px;" required></td>
-                            <td class="td"><input type="text" name="origin" required></td>
+                            <td class="td"><input type="datetime-local" name="shipment_appointment" style="font-size: 13px;"></td>
+                            <td class="td">
+                                <select name="origin" id="origin-select-2" style="font-size: 13px;">
+                                    {% for k, v in warehouse_options.items %}
+                                    <option value="{{ v }}">{{ k }}</option>
+                                    {% endfor %}
+                                </select>
+                            </td>
                             <td class="td"><input type="text" name="note" style="font-size: 13px;"></td>
                         </tr>
                     </tbody>
@@ -196,6 +214,20 @@
                         </tr>
                     </tbody>
                 </table>
+                <table id="shipment-table-4" class="table" style="font-size: 11px; overflow-x: auto; max-width: 100%;">
+                    <thead>
+                        <tr>
+                            <th class="th">ARM-BOL</th>
+                            <th class="th">ARM-PRO</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        <tr>
+                            <td class="td"><input type="text" name="arm_bol" style="font-size: 13px;" required></td>
+                            <td class="td"><input type="text" name="arm_pro" style="font-size: 13px;" required></td>
+                        </tr>
+                    </tbody>
+                </table>
             </div>
         </form>
     </div>
@@ -222,13 +254,13 @@
         const batchNumber = document.querySelector('.popup-window input[name="shipment_batch_number"]').value;
         var shipmentFormFTLLTL = document.getElementById('FTL-LTL-form');
         var shipmentFormOther = document.getElementById('other-delivery-form');
-        if (selectedValue == "FTL/LTL") {
+        if (selectedValue == "FTL") {
             shipmentFormFTLLTL.querySelector('input[name="address"]').value = shipmentData[batchNumber]['address'];
             shipmentFormFTLLTL.querySelector('input[name="destination"]').value = shipmentData[batchNumber]['destination'];
             shipmentFormFTLLTL.querySelector('input[name="note"]').value = shipmentData[batchNumber]['note'];
             shipmentFormFTLLTL.style.display = 'block';
             shipmentFormOther.style.display = 'none';
-        } else if (selectedValue == "外配/快递") {
+        } else if (selectedValue == "LTL/外配/快递") {
             shipmentFormOther.querySelector('input[name="address"]').value = shipmentData[batchNumber]['address'];
             shipmentFormOther.querySelector('input[name="destination"]').value = shipmentData[batchNumber]['destination'];
             shipmentFormOther.querySelector('input[name="note"]').value = shipmentData[batchNumber]['note'];
@@ -245,9 +277,9 @@
         var shipmentFormFTLLTL = document.getElementById('FTL-LTL-form');
         var shipmentFormOther = document.getElementById('other-delivery-form');
 
-        if(shipmentType == "FTL/LTL") {
+        if(shipmentType == "FTL") {
             shipmentFormOther.remove();
-        } else if (shipmentType == "外配/快递") {
+        } else if (shipmentType == "LTL/外配/快递") {
             shipmentFormFTLLTL.remove();
         };
     };
