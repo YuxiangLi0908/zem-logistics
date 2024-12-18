@@ -684,21 +684,15 @@ class FleetManagement(View):
             for row in customer_info:
                 packing_list.append({
                     'container_number': row[0].strip(),
-                    'fba_id': row[1].strip(),
-                    'ref_id': row[2].strip(),
-                    'pcs': row[3].strip()
+                    'shipping_mark': row[1].strip(),
+                    'fba_id': row[2].strip(),
+                    'ref_id': row[3].strip(),
+                    'pcs': row[4].strip()
                 })
         else:
             packing_list = await sync_to_async(list)(
                 PackingList.objects.select_related("container_number").filter(
                     shipment_batch_number__shipment_batch_number=batch_number,
-                    container_number__order__offload_id__offload_at__isnull=True,
-                )
-            )
-            packing_list += await sync_to_async(list)(
-                Pallet.objects.select_related("container_number").filter(
-                    shipment_batch_number__shipment_batch_number=batch_number,
-                    container_number__order__offload_id__offload_at__isnull=False,
                 )
             )
         warehouse_obj = await sync_to_async(ZemWarehouse.objects.get)(name=warehouse) if warehouse else None

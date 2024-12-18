@@ -185,6 +185,7 @@
                         <table style=" margin: 10px; padding: 100px;" cellpadding='15' id="BOL-container-{{ batch_number }}">
                             <thead>                       
                                 <th class="th" style="text-align: center; border: 1px solid #141414">Container</th>
+                                <th class="th" style="text-align: center; border: 1px solid #141414">Shipping Mark</th>
                                 <th class="th" style="text-align: center; border: 1px solid #141414">Shipment ID</th>
                                 <th class="th" style="text-align: center; border: 1px solid #141414">Ref ID</th>
                                 <th class="th" style="text-align: center; border: 1px solid #141414">Qty</th>   
@@ -192,6 +193,7 @@
                             {% for c in packing_list|get:batch_number %}
                             <tr id="BOL-row">
                                 <td style="text-align: center; border: 1px solid #141414; padding:10px;" data-editable="true">{{ c.container_number }}</td>
+                                <td style="text-align: center; border: 1px solid #141414; text-wrap: wrap; padding:10px;" data-editable="true">{{ c.shipping_mark }}</td>
                                 <td style="text-align: center; border: 1px solid #141414; text-wrap: wrap; padding:10px;" data-editable="true">{{ c.fba_id }}</td>
                                 <td style="text-align: center; border: 1px solid #141414; text-wrap: wrap; padding:10px;" data-editable="true">{{ c.ref_id }}</td>
                                 <td style="text-align: center; border: 1px solid #141414; padding:10px;" data-editable="true">{{ c.pcs }}</td>
@@ -199,6 +201,7 @@
                             {% endfor %}
                             <tr id="BOL-row-empty-{{ batch_number }}" style="display: none;">
                                 <td style="text-align: center; border: 1px solid #141414; padding:10px;" data-editable="true"></td>
+                                <td style="text-align: center; border: 1px solid #141414; text-wrap: wrap; padding:10px;" data-editable="true"></td>
                                 <td style="text-align: center; border: 1px solid #141414; text-wrap: wrap; padding:10px;" data-editable="true"></td>
                                 <td style="text-align: center; border: 1px solid #141414; text-wrap: wrap; padding:10px;" data-editable="true"></td>
                                 <td style="text-align: center; border: 1px solid #141414; padding:10px;" data-editable="true"></td>
