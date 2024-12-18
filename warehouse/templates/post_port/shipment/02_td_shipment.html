@@ -77,7 +77,9 @@
                                 <th class="th">总重lbs</th>
                             </tr>
                             <tr style="position: sticky; top: 52px;">
-                                <th class="th" style="min-width: 40px;"></th>
+                                <th class="th" style="min-width: 40px; text-align: center;">
+                                    <input type="checkbox" id="selectAllCheckbox" onchange="toggleAllCheckboxes()">
+                                </th>
                                 <th class="th"></th>
                                 <th class="th"><input type="text" id="containerSearchInput" placeholder="搜索柜号..." oninput="filterTable()" size="13" style="font-size: 11px;"></th>
                                 <th class="th"><input type="text" id="destinationSearchInput" placeholder="搜索目的仓库..." oninput="filterTable()" size="13" style="font-size: 11px;"></th>
@@ -357,6 +359,23 @@
         }
     };
 
+    function toggleAllCheckboxes() {
+        var selectAllCheckbox = document.getElementById('selectAllCheckbox');
+        var checkboxes = document.querySelectorAll('tbody input[type="checkbox"][name="is_shipment_schduled"]');
+        
+        checkboxes.forEach(function(checkbox) {
+            var tr = checkbox.closest('tr');
+            if (tr.style.display !== 'none' && !checkbox.disabled) {
+                checkbox.checked = selectAllCheckbox.checked;
+                if (checkbox.checked) {
+                    tr.style.backgroundColor = '#ADD8E6'; // Change to your desired color
+                } else {
+                    tr.style.backgroundColor = ''; // Reset to default color
+                }
+            }
+        });
+    };
+
     document.addEventListener('DOMContentLoaded', function () {
         calculateTotal();
     });    
@@ -399,7 +418,7 @@
 
     function showLoadingBar() {
         document.getElementById('loading-bar').style.display = 'block';
-    }
+    };
 
     // Hide loading bar when page is fully loaded
     window.onload = function() {
