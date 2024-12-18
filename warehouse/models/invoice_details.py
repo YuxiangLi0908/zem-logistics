@@ -59,6 +59,7 @@ class InvoiceDelivery(models.Model):
     invoice_number = models.ForeignKey(Invoice, on_delete=models.CASCADE)
     type = models.CharField(max_length=200, null=True, blank=True)
     destination = models.CharField(max_length=200, null=True, blank=True)
+    zipcode = models.CharField(max_length=200, null=True, blank=True)
     total_cbm = models.FloatField(null=True, blank=True)
     total_weight_lbs = models.FloatField(null=True, blank=True)
     total_cost = models.FloatField(null=True, blank=True)
