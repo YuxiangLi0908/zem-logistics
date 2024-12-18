@@ -1,7 +1,7 @@
 {% extends 'base.html' %}
 
 {% block content %}
-<div><h4><b>派送订单编辑</b></h4></div>
+<div><h4><b>派送订单编辑——总计<span id="total_amount">0</span> $</b></h4></div>
 <div  style="display: inline-block; width: 100%; margin: 0; padding: 0; max-width: 100%;">
     <p style="text-align:center;"><b>{{ invoice }}</b></p>
     <form method="post" action="">
@@ -57,8 +57,8 @@
             {% endif %}
         </div>
     </form>
-<div>
-    <div>   
+</div>
+<div>   
     <form method="post" action="">
         {% csrf_token %}
         <div style="margin:auto; max-height: 800px;max-width:1500px;margin-bottom:50px;">
@@ -77,7 +77,7 @@
                         {% for plt in walmart %}
                         <tr draggable="true" id="pallet-{{ plt.id }}">
                             <td class="td">
-                                <input type="number" id="walmart_cost" name="cost" value="{{ plt.total_cost }}" oninput="updateAmazon(this)">
+                                <input type="number" id="walmart_cost" name="cost" value="{{ plt.total_cost }}" oninput="updateWalmart(this)">
                                 ({{ plt.total_n_pallet }}板，${{ plt.cost }}/板)
                                 <input type="hidden" name="plt_ids" value="{{ plt.plt_ids }}">
                             </td>
@@ -102,7 +102,7 @@
             {% endif %}
         </div>
     </form>
-<div>
+</div>
 <div>
     <form method="post" action="">
         {% csrf_token %}
@@ -251,58 +251,70 @@
         let local_total = 0;
         let combine_total = 0;
         let walmart_total = 0;
+        let total_amount = 0;
         var rows = document.querySelectorAll('#amazon-table tbody tr:not(:last-child)');
-        for (var i = 0; i < rows.length; i++) {
-            var costInput = rows[i].querySelector('input[id="amazon_cost"]');
-            console.log("amazon_cost",costInput);
-            var costValue = parseFloat(costInput.value);
-            if (!isNaN(costValue)) {
-                amazon_total += costValue;
-            }
-        }      
+        if (rows.length !== 0){
+            for (var i = 0; i < rows.length; i++) {
+                var costInput = rows[i].querySelector('input[id="amazon_cost"]');
+                var costValue = parseFloat(costInput.value);
+                if (!isNaN(costValue)) {
+                    amazon_total += costValue;
+                }
+            }               
+            document.getElementById('amazon_total').value = amazon_total; 
+            total_amount += amazon_total;
+        }
         
-        aaa = document.getElementById('amazon_total');
-        console.log("amazon_total",aaa);
-        //document.getElementById('amazon_total').value = amazon_total; 
 
         var rows = document.querySelectorAll('#walmart-table tbody tr:not(:last-child)');
-        for (var i = 0; i < rows.length; i++) {
-            var costInput = rows[i].querySelector('input[id="walmart_cost"]');
-            var costValue = parseFloat(costInput.value);
-            if (!isNaN(costValue)) {
-                walmart_total += costValue;
-            }
-        }      
-        console.log(walmart_total);
-        //document.getElementById('amazon_total').value = walmart_total; 
+        if (rows.length !== 0){
+            for (var i = 0; i < rows.length; i++) {
+                var costInput = rows[i].querySelector('input[id="walmart_cost"]');
+                var costValue = parseFloat(costInput.value);
+                if (!isNaN(costValue)) {
+                    walmart_total += costValue;
+                }
+            }      
+            document.getElementById('walmart_total').value = walmart_total;
+            total_amount += walmart_total;
+        }
+         
 
         var rows = document.querySelectorAll('#combine-table tbody tr:not(:last-child)');
-        for (var i = 0; i < rows.length; i++) {
-            var costInput = rows[i].querySelector('input[id="combine_cost"]');
-            var costValue = parseFloat(costInput.value);
-            if (!isNaN(costValue)) {
-                combine_total += costValue;
+        if (rows.length !== 0){
+            for (var i = 0; i < rows.length; i++) {
+                var costInput = rows[i].querySelector('input[id="combine_cost"]');
+                var costValue = parseFloat(costInput.value);
+                if (!isNaN(costValue)) {
+                    combine_total += costValue;
+                }
             }
+            document.getElementById('combine_total').value = combine_total;
+            total_amount += combine_total;
         }
-        //document.getElementById('combine_total').value = combine_total; 
+         
         
         var rows = document.querySelectorAll('#local-table tbody tr:not(:last-child)');
-        for (var i = 0; i < rows.length; i++) {
-            var costInput = rows[i].querySelector('input[id="local_cost"]');
-            var costValue = parseFloat(costInput.value);
-            if (!isNaN(costValue)) {
-                local_total += costValue;
+        if (rows.length !== 0){
+            for (var i = 0; i < rows.length; i++) {
+                var costInput = rows[i].querySelector('input[id="local_cost"]');
+                var costValue = parseFloat(costInput.value);
+                if (!isNaN(costValue)) {
+                    local_total += costValue;
+                }
             }
+            document.getElementById('local_total').value = local_total;
+            total_amount += local_total;
         }
-        //document.getElementById('local_total').value = local_total; 
-        
+         
+        const totalAmountSpan = document.getElementById('total_amount');
+        totalAmountSpan.textContent = total_amount;
         
 
-    }
+    };
     function updateAmazon(numberInput) {
         const amountInputs = document.querySelectorAll('input[id="amazon_cost"]');
         const amountAmazon = document.getElementById('amazon_total');
-        console.log("amountAmazon",amountAmazon);
         let total = 0;
         amountInputs.forEach(function (input) {
             const value = parseFloat(input.value);
@@ -311,8 +323,50 @@
             }
         });
         amountAmazon.value = total.toFixed(2);
+        updateTotal();
+        
+    };
+    
+    function updateTotal() {
+        const amountAmazon = document.getElementById('amazon_total');      
+        const amountWalmart = document.getElementById('walmart_total');
+        const amountLocal = document.getElementById('local_total');
+        const amountCombine = document.getElementById('combine_total');
+        let total_amount = 0;
+        if (amountAmazon && amountAmazon.value) {
+            amazonValue = parseFloat(amountAmazon.value);
+            total_amount += amazonValue;
+        }
+        if (amountWalmart && amountWalmart.value) {
+            walmartValue = parseFloat(amountWalmart.value);
+            total_amount += walmartValue;
+        }
+        if (amountLocal && amountLocal.value) {
+            localValue = parseFloat(amountLocal.value);
+            total_amount += localValue;
+        }
+        if (amountCombine && amountCombine.value) {
+            combineValue = parseFloat(amountCombine.value);
+            total_amount += combineValue;
+        }
+        
+        const totalAmountSpan = document.getElementById('total_amount');
+        totalAmountSpan.textContent = total_amount;
     };
 
+    function updateWalmart(numberInput) {
+        const amountInputs = document.querySelectorAll('input[id="walmart_cost"]');
+        const amountWalmart = document.getElementById('walmart_total');
+        let total = 0;
+        amountInputs.forEach(function (input) {
+            const value = parseFloat(input.value);
+            if (!isNaN(value)) {
+                total += value;
+            }
+        });
+        amountWalmart.value = total.toFixed(2);
+        updateTotal();
+    };
     function updateLocal(numberInput) {
         const amountInputs = document.querySelectorAll('input[id="local_cost"]');
         const amountLocal = document.getElementById('local_total');
@@ -324,6 +378,7 @@
             }
         });
         amountLocal.value = total.toFixed(2);
+        updateTotal();
     };
 
     function updateCombine(numberInput) {
@@ -337,6 +392,7 @@
             }
         });
         amountCombine.value = total.toFixed(2);
+        updateTotal();
     };
 
     function add_delivery_plt(button) {
@@ -401,12 +457,13 @@
         var costInputs = document.querySelectorAll('input[name="cost"]');
         for (var i = 0; i < costInputs.length; i++) {
             if (costInputs[i].value === '') {
-                costInputs.focus();
+                costInputs[i].focus();
                 event.preventDefault();
                 alert('不能为空！');
                 break;
             }
         }       
+        
         var totalInputs = document.querySelectorAll('input[name="total"]');
         var sum = 0;
         for (var j = 0; j < totalInputs.length; j++) {

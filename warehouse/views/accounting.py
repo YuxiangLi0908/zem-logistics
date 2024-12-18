@@ -85,7 +85,6 @@ class Accounting(View):
         #     return HttpResponseForbidden("You are not authenticated to access this page!")
 
         step = request.GET.get("step", None)
-        print("GET",step)
         if step == "pallet_data":
             template, context = self.handle_pallet_data_get()
             return render(request, template, context)
@@ -160,7 +159,6 @@ class Accounting(View):
             return HttpResponseForbidden("You are not authenticated to access this page!")
 
         step = request.POST.get("step", None)
-        print("POST",step)
         if step == "pallet_data_search":
             start_date = request.POST.get("start_date")
             end_date = request.POST.get("end_date")
@@ -744,11 +742,8 @@ class Accounting(View):
             
         else:
             #记录其中一种派送方式到invoice_delivery表
-            print(request.POST)
             plt_ids = request.POST.getlist("plt_ids")
-            print(plt_ids)
             new_plt_ids = [ast.literal_eval(sub_plt_id) for sub_plt_id in plt_ids] 
-            print(new_plt_ids)
             cost = request.POST.getlist("cost")
             #将前端的每一条记录存为invoice_delivery的一条
             for i in range(len((new_plt_ids))):
@@ -756,7 +751,6 @@ class Accounting(View):
                 pallet = Pallet.objects.filter(  
                         id__in=ids                
                     )
-                print(pallet)
                 #因为每一条记录中所有的板子都是对应一条invoice_delivery，建表的时候就是这样存的，所以取其中一个的外键就可以
                 pallet_obj = pallet[0]
                 invoice_content = pallet_obj.invoice_delivery
@@ -994,7 +988,6 @@ class Accounting(View):
                                 plt["total_cost"] = int(k)*int(plt["total_n_pallet"])
                             break
                     walmart.append(plt)
-                print("walmart",walmart)
         context = {
             "warehouse":warehouse,
             "invoice":invoice,
