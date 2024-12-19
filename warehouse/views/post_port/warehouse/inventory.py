@@ -219,14 +219,12 @@ class Inventory(View):
         # pallet = await sync_to_async(list)(Pallet.objects.select_related("container_number").filter(id__in=plt_ids))
         pallet = await self._get_inventory_pallet(warehouse, models.Q(id__in=plt_ids))
         container_number = pallet[0].get("container")
-        shipping_mark = pallet[0].get("shipping_mark").split(",")
-        fba_id = pallet[0].get("fba_id").split(",")
-        ref_id = pallet[0].get("ref_id").split(",")
-        # criteria = models.Q(
-        #     container_number__container_number=container_number,
-        #     destination=pallet[0].get("destination"),
-        #     # delivery_method=pallet[0].get("delivery_method"),
-        # )
+        shipping_mark = pallet[0].get("shipping_mark")
+        fba_id = pallet[0].get("fba_id")
+        ref_id = pallet[0].get("ref_id")
+        shipping_mark = shipping_mark.split(",") if shipping_mark else ""
+        fba_id = fba_id.split(",") if fba_id else ""
+        ref_id = ref_id.split(",") if ref_id else ""
         criteria = models.Q()
         if shipping_mark:
             criteria &= models.Q(shipping_mark__in=shipping_mark)
