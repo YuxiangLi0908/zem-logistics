@@ -65,6 +65,12 @@
                             <small>正常</small>
                         </button>
                     </form>
+                    <form method="post" action="" style="display: inline-block;">
+                        {% csrf_token %}
+                        <input type="hidden" name="step" value="cancel_abnormal_appointment">
+                        <input type="hidden" name="batch_number" value="{{ s.shipment_batch_number }}">
+                        <button type="submit" class="btn btn-danger" style="font-size: 13px;"><i class="bi bi-x-octagon"></i></button>
+                    </form>
                 </td>
             </tr>
             {% endfor %}
