@@ -453,13 +453,13 @@ class ShippingManagement(View):
                 existed_appointment = None
             if existed_appointment:
                 if existed_appointment.in_use:
-                    raise RuntimeError(f"Appointment {existed_appointment} already used by other shipment!")
+                    raise RuntimeError(f"ISA {appointment_id} already used by other shipment!")
                 elif existed_appointment.is_canceled:
-                    raise RuntimeError(f"Appointment {existed_appointment} already exists and is canceled!")
+                    raise RuntimeError(f"ISA {appointment_id} already exists and is canceled!")
                 elif existed_appointment.shipment_appointment.replace(tzinfo=pytz.UTC) < timezone.now():
-                    raise RuntimeError(f"Appointment {existed_appointment} already exists and expired!")
+                    raise RuntimeError(f"ISA {appointment_id} already exists and expired!")
                 elif existed_appointment.destination != request.POST.get("destination", None):
-                    raise ValueError(f"Appointment {existed_appointment} has a different destination {existed_appointment.destination} - {request.POST.get('destination', None)}!")
+                    raise ValueError(f"ISA {appointment_id} has a different destination {existed_appointment.destination} - {request.POST.get('destination', None)}!")
                 else:
                     shipment = existed_appointment
                     shipment.shipment_batch_number = shipment_data["shipment_batch_number"]
@@ -472,6 +472,7 @@ class ShippingManagement(View):
                     shipment.is_shipment_schduled = True
                     shipment.destination = request.POST.get("destination", None)
                     shipment.address = request.POST.get("address", None)
+                    shipment.shipment_account = request.POST.get("shipment_account", "").strip()
                     #LTL的需要存ARM-BOL和ARM-PRO
                     arm_fields = ['ARM_BOL', 'ARM_PRO']
                     shipment_data.update({field: request.POST.get(field) for field in arm_fields if request.POST.get(field)})
@@ -499,7 +500,7 @@ class ShippingManagement(View):
                 shipment_data["destination"] = request.POST.get("destination", None)
                 shipment_data["address"] = request.POST.get("address", None)
                 shipment_data["origin"] = request.POST.get("origin", "")
-                
+                shipment_data["shipment_account"] = request.POST.get("shipment_account", "").strip()
                 if shipment_type != "FTL":
                     appointmentTime = request.POST.get("appointment_datetime")
                     appoint_datetime = parse(appointmentTime).replace(tzinfo=None)

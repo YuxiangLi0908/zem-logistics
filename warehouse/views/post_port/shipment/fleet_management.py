@@ -532,24 +532,28 @@ class FleetManagement(View):
         fleet_data = ast.literal_eval(request.POST.get("fleet_data"))
         shipment_ids = request.POST.get("selected_ids").strip('][').split(', ')
         shipment_ids = [int(i) for i in shipment_ids]
-        fleet_data.update({
-            "carrier": request.POST.get("carrier", ""),
-            "license_plate": request.POST.get("license_plate", ""),
-            "motor_carrier_number": request.POST.get("motor_carrier_number", ""),
-            "dot_number": request.POST.get("dot_number", ""),
-            "third_party_address": request.POST.get("third_party_address", ""),
-            "appointment_datetime": request.POST.get("appointment_datetime"),
-            "scheduled_at": current_time,
-            "note": request.POST.get("note", ""),
-            "multipule_destination": True if len(shipment_ids) > 1 else False,
-        })
-        fleet = Fleet(**fleet_data)
-        await sync_to_async(fleet.save)()
-        shipment = await sync_to_async(list)(Shipment.objects.filter(id__in=shipment_ids))
-        for s in shipment:
-            s.fleet_number = fleet
-        await sync_to_async(Shipment.objects.bulk_update)(shipment, ["fleet_number"])
-        return await self.handle_fleet_warehouse_search_post(request)
+        try:
+            await sync_to_async(Fleet.objects.get)(fleet_number=fleet_data["fleet_number"])
+            return await self.handle_fleet_warehouse_search_post(request)
+        except:
+            fleet_data.update({
+                "carrier": request.POST.get("carrier", ""),
+                "license_plate": request.POST.get("license_plate", ""),
+                "motor_carrier_number": request.POST.get("motor_carrier_number", ""),
+                "dot_number": request.POST.get("dot_number", ""),
+                "third_party_address": request.POST.get("third_party_address", ""),
+                "appointment_datetime": request.POST.get("appointment_datetime"),
+                "scheduled_at": current_time,
+                "note": request.POST.get("note", ""),
+                "multipule_destination": True if len(shipment_ids) > 1 else False,
+            })
+            fleet = Fleet(**fleet_data)
+            await sync_to_async(fleet.save)()
+            shipment = await sync_to_async(list)(Shipment.objects.filter(id__in=shipment_ids))
+            for s in shipment:
+                s.fleet_number = fleet
+            await sync_to_async(Shipment.objects.bulk_update)(shipment, ["fleet_number"])
+            return await self.handle_fleet_warehouse_search_post(request)
 
     async def handle_update_fleet_post(self, request: HttpRequest) -> tuple[str, dict[str, Any]]:
         fleet_number = request.POST.get("fleet_number")
