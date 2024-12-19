@@ -2,6 +2,7 @@ from django.db import models
 from .container import Container
 from .packing_list import PackingList
 from .shipment import Shipment
+from .invoice_details import InvoiceDelivery
 
 
 class Pallet(models.Model):
@@ -24,8 +25,7 @@ class Pallet(models.Model):
     note = models.CharField(max_length=2000, null=True, blank=True)
     priority = models.CharField(max_length=20, null=True, blank=True)
     location = models.CharField(max_length=100, null=True, blank=True)
-    delivery_type = models.CharField(max_length=100, null=True, blank=True)
-    price_quote = models.IntegerField(null=True, blank=True)
+    invoice_delivery = models.ForeignKey(InvoiceDelivery,null=True, blank=True, on_delete=models.SET_NULL,related_name='pallet_delivery')
 
     def __str__(self):
         return f"{self.container_number}-{self.destination}-{self.delivery_method}"
