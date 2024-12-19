@@ -3,10 +3,10 @@
 {% block content %}
 <div><b>待处理异常预约</b></div>
 
-<div style="height: 800px; width: 100%; border: 2px solid rgb(180, 180, 180); border-radius: 12px; padding: 1%;">
+<div style="height: 800px; width: 100%; overflow-y: scroll; border: 2px solid rgb(180, 180, 180); border-radius: 12px; padding: 1%;">
     <table id="" class="table" style="font-size: 11px; max-height: 99%; overflow-y: scroll;">
         <thead>
-            <tr style="position: sticky; top: 30px;">
+            <tr style="position: sticky; top: 0px;">
                 <th class="th">预约批次</th>
                 <th class="th">Appointment ID</th>
                 <th class="th">异常车次</th>
@@ -19,7 +19,7 @@
                 <th class="th">异常</th>
                 <th class="th">处理异常</th>
             </tr>
-            <tr style="position: sticky; top: 52px;">
+            <tr style="position: sticky; top: 22px;">
                 <th class="th"><input type="text" id="containerSearchInput" placeholder="搜索柜号..." oninput="filterTable()" size="13" style="font-size: 11px;"></th>
                 <th class="th"><input type="text" id="containerSearchInput" placeholder="搜索柜号..." oninput="filterTable()" size="13" style="font-size: 11px;"></th>
                 <th class="th"><input type="text" id="destinationSearchInput" placeholder="搜索目的仓库..." oninput="filterTable()" size="13" style="font-size: 11px;"></th>
