@@ -36,9 +36,13 @@
                             {% if status == 'non_palletized' %}
                             <td class="td">{{ pl.destination }}</td>
                             {% elif status == 'palletized' %}
-                            <td id="destination - {{ pl.id }}" class="td">
-                                <a href="#" onclick="showPallet({{ pl }})">{{ pl.destination }}</a>
-                            </td>
+                                {% if " " in pl.destination or "自提" in pl.destination %}
+                                <td id="destination - {{ pl.id }}" class="td">
+                                    <a href="#" onclick="showPallet({{ pl }})">{{ pl.destination }}</a>
+                                </td>
+                                {% else %}
+                                <td class="td">{{ pl.destination }}</td>
+                                {% endif%}
                             {% endif %}
                             <td class="td">
                                 {% with first_value=pl.custom_delivery_method|split_and_get_first %}
@@ -121,52 +125,99 @@
     <form method="post" action="" style="display: inline-block; float:right;" id="exportPallet-add">
         {% csrf_token %}
         <div class="popup-editPallet" style="display: none; z-index:999; position: fixed; top: 50%; left: 50%; transform: translate(-50%, -50%); background-color: white; border: 1px solid gray; padding: 20px; max-height: 50%; overflow-y: scroll;">
-            <div style="display: flex;">
-                <input type="hidden" name="step" value="edit_pallet">
-                <input type="text" name="plt_ids" id="plt_ids" value="">
-                <input type="hidden" name="warehouse" value="{{ warehouse }}">
-                <button type="submit" class="btn btn-primary" onclick="edit_add_payload(this)" style="font-size: 11px; margin-right: 5px;">确认添加</button>
-                <button id="editButton" type="button" class="btn btn-danger" onclick="showPallet(this)" style="font-size: 11px;">返回</button>
+            <div style="display: flex; align-items: center; margin-top:10px; margin: 20px 0;">
+                <!-- 新添加的靠左按钮 -->
+                <button type="submit" class="btn btn-primary" onclick="shipment_combine(this)" style="font-size: 13px;">出库绑定</button>         
+                <div style="flex-grow: 1;"></div>          
+                <div style="display: flex;">
+                    <input type="hidden" name="step" value="edit_pallet">
+                    <input type="hidden" name="warehouse" value="{{ warehouse }}">
+                    <input type="hidden" name="container_number" value="{{ container_number }}">
+                    <input type="hidden" name="pk" value="{{ pk }}">
+                    <button type="submit" class="btn btn-primary" onclick="edit_add_payload(this)" style="font-size: 13px; margin-right: 5px;">确认添加</button>
+                    <button id="editButton" type="button" class="btn btn-danger" onclick="showPallet(this)" style="font-size: 13px;">返回</button>
+                </div>   
             </div>
+            
             <table id="edit-pallet-table" class="table" style="font-size: 11px; max-height: 50%;">
                 <thead>
                     <tr style="position: sticky; top: 0px;">
                         <th class="th" style="min-width: 40px; text-align: center;"></th>
                         <th class="th" style="text-align: center; border: 1px solid #141414">pallet_id</th>
+                        <th class="th" style="text-align: center; border: 1px solid #141414">板号</th>
                         <th class="th" style="text-align: center; border: 1px solid #141414">长</th>
                         <th class="th" style="text-align: center; border: 1px solid #141414">宽</th>
                         <th class="th" style="text-align: center; border: 1px solid #141414">高</th>  
                         <th class="th" style="text-align: center; border: 1px solid #141414">箱数</th>   
                     </tr>
-                    <tr style="position: sticky; top: 20px;">
-                        <th class="th" style="min-width: 40px;"></th>
-                        <th class="th"></th>
-                        <th class="th"></th>
-                        <th class="th"></th>
-                        <th class="th"></th>
-                        <th class="th"></th>
-                        <th class="th"></th>
-                    </tr>
                 </thead>
-                <tbody>
-                    
+                <tbody>                  
                     <tr>
                         <td class="td" style="min-width: 40px; text-align: center;">
-                            <input type='checkbox' name='is_plt_added' onclick="toggleRowBackground(this)" {% if c.ids in pl_ids_raw %}checked{% elif c.plt_ids in plt_ids_raw %}checked{% endif %} {% if c.abnormal_palletization or c.po_expired %}disabled{% endif %}>
+                            <input type='checkbox' name='is_plt_added' onclick="toggleRowBackground(this)">
                             <input type="hidden" name="is_plt_added", value='off'>
-                            <input type="hidden" name="added_plt_ids", value='{{ plt.plt_ids }}'>
-                            <input type="hidden" name="container", value='{{ plt.container_number__container_number }}'>
-                            <input type="hidden" name="destination", value='{{ plt.destination }}'>
-                            <input type="hidden" name="pallets", value='{{ plt.total_n_pallet_act }}'>
                         </td>
+                        <td><input type="number" name="id" value=''></td>
+                        <td><input type="text" name="number" value=''></td>
+                        <td><input type="number" name="length" value=''></td>
+                        <td><input type="number" name="width" value=''></td>
+                        <td><input type="number" name="height" value=''></td>
+                        <td><input type="number" name="pcs" value=''></td>
                     </tr>
-                    
                 </tbody>
             </table>
         </div>
     </form>
 
 <script>
+
+    function edit_add_payload(button){  //这里不知道为啥改个名就执行不了
+        var tbody = document.getElementById('edit-pallet-table').getElementsByTagName('tbody')[0];
+        var rows = tbody.getElementsByTagName('tr');
+        for (var i = 0; i < rows.length; i++) {
+            var cells = rows[i].getElementsByTagName('td');
+            for (var j = 0; j < cells.length; j++) {
+                var input = cells[j].getElementsByTagName('input')[0];
+                if (input.value === '') {
+                    input.focus();
+                    event.preventDefault();
+                    alert('不能为空！');
+                    return true;
+                }
+            }
+        }
+    }
+
+    function toggleRowBackground(checkbox) {
+        var row = checkbox.closest('tr');
+        if (checkbox.checked) {
+            row.style.backgroundColor = '#ADD8E6'; 
+        } else {
+            row.style.backgroundColor = '';
+        }
+    };
+
+    function shipment_combine(button) {
+        edit_add_payload(button)
+        var form = button.closest('form');
+        var stepInput = form.querySelector('input[name="step"]');
+        stepInput.value = 'shipment_combine';
+        const checkBoxes = document.getElementsByName('is_shipment');
+        var newArray = [];
+        for (let i = 1; i < checkBoxes.length; i+=2) {
+            if (checkBoxes[i].checked) {
+                newArray.push('on');
+            }else{
+                newArray.push('off');
+            };
+        };
+        var hiddenInput = document.createElement('input');
+        hiddenInput.type = 'hidden';
+        hiddenInput.name = 'is_shipment_on';
+        hiddenInput.value = JSON.stringify(newArray);
+        form.appendChild(hiddenInput);   
+        
+    }
     function showPallet(button) {   //用户要编辑BOL中的表时，弹出表格框
         var popup = document.querySelector('.popup-editPallet');
         if (popup.style.display === 'none') {
@@ -174,21 +225,57 @@
         } else {
             popup.style.display = 'none';
         }
-        var inputElement = document.getElementById('plt_ids');
+        
         plt_ids = button.ids;
-        inputElement.value = plt_ids
-        //var idsArray = plt_ids.split(',');
-        //console.log('长度',idsArray);
-        console.log(plt_ids);
+        lengths = button.length;
+        width = button.width;
+
+        var idsArray = plt_ids.split(',');
+        var lengthArray = lengths.split(',');
+        var widthArray = width.split(',');
+        var heightArray = button.height.split(',');
+        var numberArray = button.number.split(',');
+        console.log(numberArray);
+        var pcsArray = button.n_pcs.split(',');
         var tableBody = document.getElementById('edit-pallet-table').getElementsByTagName('tbody')[0];
         tableBody.innerHTML = '';
-        for (var i = 0; i < 5; i++) {
+        for (var i = 0; i < idsArray.length; i++) {
             var row = document.createElement('tr');
-            var cell = document.createElement('td');
-            cell.textContent = '';
-            row.appendChild(cell);
+            for (var j = 0; j < 7; j++) {
+                var cell = document.createElement('td');
+                var input = document.createElement('input');
+                input.type = 'number';
+                input.name = ['is_shipment','id','number','length','width','height','pcs'][j];
+                if ( j === 0 ) {
+                    input.type = 'checkbox';
+                    input.addEventListener('click', function () {
+                        toggleRowBackground(this);
+                    });
+                    var hiddenInput = document.createElement('input');
+                    hiddenInput.type = 'hidden';
+                    hiddenInput.name = 'is_shipment';
+                    hiddenInput.value = 'off';
+                    cell.appendChild(hiddenInput);
+                }else if ( j === 1 ) {
+                    input.value = idsArray[i];
+                    input.readonly = false;
+                }else if (j === 2) {
+                    input.value = numberArray[i];
+                }else if (j === 3) {
+                    input.value = lengthArray[i];
+                }else if (j === 4){
+                    input.value = widthArray[i];
+                }else if (j === 5){
+                    input.value = heightArray[i];
+                }else if (j === 6){
+                    input.value = pcsArray[i];
+                    
+                }            
+                cell.appendChild(input);
+                row.appendChild(cell);
+            }
             tableBody.appendChild(row);
-        }
+        };
         
         
     };
