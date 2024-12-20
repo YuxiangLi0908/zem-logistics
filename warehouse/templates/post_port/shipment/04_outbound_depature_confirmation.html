@@ -175,7 +175,7 @@
                         <i class="bi bi-cloud-arrow-down-fill"></i>
                     </button>
                     <button id="editButton" type="button" class="btn btn-primary" onclick="editBOL(this, '{{ batch_number }}')" style="font-size: 11px;">编辑</button>
-                    <div class="popup-{{ batch_number }}" style="overflow-y: scroll; display: none; z-index:999; position: fixed; top: 50%; left: 50%; transform: translate(-50%, -50%); background-color: white; border: 1px solid gray; padding: 20px;">
+                    <div class="popup-{{ batch_number }}" style="max-height:70%; overflow-y: scroll; display: none; z-index:999; position: fixed; top: 50%; left: 50%; transform: translate(-50%, -50%); background-color: white; border: 1px solid gray; padding: 20px;">
                         <div style="text-align:right;">
                             <button type="button" id="add-more-btn" class="btn btn-success" style="height: 35px; font-size: 12px; margin: 5px;" onclick="addRowBelow('BOL','{{ batch_number }}')">
                                 <i class="bi bi-plus-lg"></i> 添加行
