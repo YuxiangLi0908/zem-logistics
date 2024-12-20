@@ -58,7 +58,7 @@ class ShippingManagement(View):
     area_options = {"NJ": "NJ", "SAV": "SAV", "LA":"LA", "NJ/SAV/LA":"NJ/SAV/LA"}
     warehouse_options = {"": "", "NJ-07001": "NJ-07001", "NJ-08817": "NJ-08817", "SAV-31326": "SAV-31326","LA-91761": "LA-91761"}
     account_options = {"": "", "Carrier Central1": "Carrier Central1", "Carrier Central2": "Carrier Central2", "ZEM-AMF": "ZEM-AMF", "ARM-AMF": "ARM-AMF","walmart":"walmart"}
-    shipment_type_options = {"":"", "FTL":"FTL", "LTL/外配/快递":"LTL/外配/快递","客户自提":"客户自提"}
+    shipment_type_options = {"":"", "FTL":"FTL", "LTL": "LTL", "外配/快递":"外配/快递","客户自提":"客户自提"}
 
     async def get(self, request: HttpRequest) -> HttpResponse:
         if not await self._user_authenticate(request):
@@ -494,6 +494,8 @@ class ShippingManagement(View):
                 shipmentappointment = request.POST.get("shipment_appointment", None)
                 if shipmentappointment:
                     shipment_appointment = parse(shipmentappointment).replace(tzinfo=None)
+                else:
+                    shipment_appointment = None
                 shipment_data["shipment_type"] = shipment_type
                 shipment_data["load_type"] = request.POST.get("load_type", None)
                 shipment_data["note"] = request.POST.get("note", "")
@@ -808,9 +810,9 @@ class ShippingManagement(View):
         batch_number = request.POST.get("batch_number")
         shipment_type = request.POST.get("shipment_type")     
         shipment = await sync_to_async(Shipment.objects.select_related("fleet_number").get)(shipment_batch_number=batch_number)
-        shipment_appointment_new = request.POST.get("shipment_appointment")
-        shipment_appointment_new = datetime.strptime(shipment_appointment_new, "%Y-%m-%dT%H:%M")
-        shipment_appointment_new = shipment_appointment_new.replace(tzinfo=timezone.utc)
+        shipment_appointment = request.POST.get("shipment_appointment")
+        if not shipment_appointment:
+            shipment_appointment = None
         if shipment_type == shipment.shipment_type:
             if shipment_type == "FTL":
                 shipment.appointment_id = request.POST.get("appointment_id")
@@ -819,14 +821,15 @@ class ShippingManagement(View):
                 shipment.carrier = request.POST.get("carrier")
                 shipment.third_party_address = request.POST.get("third_party_address")
                 shipment.load_type = request.POST.get("load_type")
-                shipment.shipment_appointment = request.POST.get("shipment_appointment")
+                shipment.shipment_appointment = shipment_appointment
                 shipment.note = request.POST.get("note")
                 shipment.destination = request.POST.get("destination")
                 shipment.address = request.POST.get("address")
             elif shipment_type != "FTL":
-                shipment.shipment_account = request.POST.get("shipment_account")
+                shipment.appointment_id = request.POST.get("appointment_id", "")
+                shipment.shipment_account = request.POST.get("shipment_account", "")
                 shipment.origin = request.POST.get("origin")
-                shipment.shipment_appointment = request.POST.get("shipment_appointment")
+                shipment.shipment_appointment = shipment_appointment
                 shipment.note = request.POST.get("note")
                 shipment.destination = request.POST.get("destination")
                 shipment.address = request.POST.get("address")
@@ -835,7 +838,6 @@ class ShippingManagement(View):
                 if fleet:
                     fleet.carrier = request.POST.get("carrier")
                     fleet.appointment_datetime = request.POST.get("appointment_datetime")
-                    
                     await sync_to_async(fleet.save)()
                 else:
                     current_time = datetime.now()
@@ -864,7 +866,7 @@ class ShippingManagement(View):
                 shipment.carrier = request.POST.get("carrier")
                 shipment.third_party_address = request.POST.get("third_party_address")
                 shipment.load_type = request.POST.get("load_type")
-                shipment.shipment_appointment = request.POST.get("shipment_appointment")
+                shipment.shipment_appointment = shipment_appointment
                 shipment.note = request.POST.get("note")
                 shipment.destination = request.POST.get("destination")
                 shipment.address = request.POST.get("address")
@@ -877,11 +879,11 @@ class ShippingManagement(View):
                 shipment.shipment_type = shipment_type
                 shipment.shipment_account = request.POST.get("shipment_account")
                 shipment.origin = request.POST.get("origin")
-                shipment.shipment_appointment = request.POST.get("shipment_appointment")
+                shipment.shipment_appointment = shipment_appointment
                 shipment.note = request.POST.get("note")
                 shipment.destination = request.POST.get("destination")
                 shipment.address = request.POST.get("address")
-                shipment.appointment_id = ""
+                shipment.appointment_id = request.POST.get("appointment_id", "")
                 shipment.load_type = ""
                 shipment.third_party_address = ""
                 shipment.ARM_BOL = request.POST.get("ARM_BOL")
@@ -900,6 +902,8 @@ class ShippingManagement(View):
                     "origin": shipment.origin,
                 })
                 await sync_to_async(fleet.save)()
+                if shipment.fleet_number:
+                    await sync_to_async(shipment.fleet_number.delete)()
                 shipment.fleet_number = fleet
         await sync_to_async(shipment.save)()
         mutable_get = request.GET.copy()
@@ -1156,7 +1160,7 @@ class ShippingManagement(View):
                 shipment_data["shipped_pcs"] = old_shipment.shipped_pcs
                 shipment_data["pallet_dumpped"] = old_shipment.pallet_dumpped
                 shipment_data["previous_fleets"] = old_shipment.previous_fleets
-                if shipment_type == "LTL/外配/快递":
+                if shipment_type in ["LTL", "外配/快递"]:
                     shipment_data["arm_bol"] = request.POST.get("arm_bol", "").strip()
                     shipment_data["arm_pro"] = request.POST.get("arm_pro", "").strip()
                     fleet = Fleet(**{
