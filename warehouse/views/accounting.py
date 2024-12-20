@@ -363,7 +363,7 @@ class Accounting(View):
         criteria = models.Q(
             models.Q(created_at__gte=start_date),
             models.Q(created_at__lte=end_date),
-            models.Q(order_type="转运")
+            models.Q(order_type="转运"),
         )
         if customer:
             criteria &= models.Q(customer_name__zem_name=customer)
@@ -374,10 +374,12 @@ class Accounting(View):
         order = Order.objects.select_related(
             "invoice_id", "customer_name", "container_number", "invoice_id__statement_id"
             ).filter(
-                criteria,
-                order_type = "转运",
-                invoice_status="unrecorded"
-                )
+                criteria & models.Q(
+                    models.Q(invoice_status="unrecorded") |
+                    models.Q(invoice_status="") |
+                    models.Q(invoice_status__isnull=True)
+                ),
+            )
         #查找操作过但被驳回的
         order_reject = Order.objects.filter(
                 criteria,
@@ -700,8 +702,7 @@ class Accounting(View):
                 "total_weight_lbs": total_weight_lbs[i],
             })
             invoice_content.save()
-            invoice_content = InvoiceDelivery.objects.get(id = invoice_content.id)
-            
+            updated_pallets = []
             for plt in pallet:
                 try:
                     invoice_delivery = plt.invoice_delivery
@@ -711,7 +712,8 @@ class Accounting(View):
                     pass
                 #pallet指向InvoiceDelivery表
                 plt.invoice_delivery = invoice_content
-                plt.save()
+                updated_pallets.append(plt)
+            Pallet.objects.abulk_update(updated_pallets, ["invoice_delivery"])
         return self.handle_container_invoice_delivery_get(request)
 
     def handle_invoice_confirm_save(self, request: HttpRequest) -> tuple[Any, Any]:
@@ -840,8 +842,8 @@ class Accounting(View):
         warehouse = order.retrieval_id.retrieval_destination_area
         #把pallet汇总
         pallet =Pallet.objects.prefetch_related(
-                "container_number", "container_number__order", "container_number__order__warehouse", "shipment_batch_number"
-                "container_number__order__offload_id", "container_number__order__customer_name", "container_number__order__retrieval_id"
+                "container_number", "container_number__order", "container_number__order__warehouse", "shipment_batch_number",
+                "container_number__order__offload_id", "container_number__order__customer_name", "container_number__order__retrieval_id",
             ).select_related(
                 'invoice_delivery'
             ).filter(
@@ -965,7 +967,6 @@ class Accounting(View):
                                     plt["total_cost"] = max(cost*n_pallet,int(costs[2]))
                                 break               
                     local.append(plt)
-
                 elif plt["delivery_type"] == "combine":                           
                     container_type = order.container_number.container_type
                     for k,v in selected_combina.items():
@@ -1084,8 +1085,8 @@ class Accounting(View):
             workbook, invoice_data = self._generate_invoice_excel(context)
             invoice = Invoice(**{
                 "invoice_number":f"{current_date.strftime('%Y-%m-%d').replace('-', '')}C{customer_id}{order_id}",
-                #"invoice_date": current_date.strftime('%Y-%m-%d'),
-                "invoice_link": invoice_data["invoice_link"],
+                # "invoice_date": current_date.strftime('%Y-%m-%d'),
+                # "invoice_link": invoice_data["invoice_link"],
                 "customer": order.customer_name,
                 "container_number": order.container_number,
                 "preport_amount": 0,
