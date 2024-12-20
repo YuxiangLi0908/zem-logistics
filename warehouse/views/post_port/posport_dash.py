@@ -52,29 +52,23 @@ class PostportDash(View):
         area = request.POST.get("area")
         start_date = request.POST.get("start_date")
         end_date = request.POST.get("end_date")
+        start_date = (datetime.now().date() + timedelta(days=-7)).strftime('%Y-%m-%d') if not start_date else start_date
+        end_date = (datetime.now().date() + timedelta(days=7)).strftime('%Y-%m-%d') if not end_date else end_date
         criteria = models.Q(
-            container_number__order__retrieval_id__retrieval_destination_area=area,
             container_number__order__packing_list_updloaded=True,
-            # shipment_batch_number__isnull=True,
             container_number__order__order_type="转运",
             container_number__order__created_at__gte='2024-09-01',
-        ) & (
-            # TODOs: 考虑按照安排提柜时间筛选
-            models.Q(container_number__order__vessel_id__vessel_eta__lte=datetime.now().date() + timedelta(days=7)) |
-            models.Q(container_number__order__eta__lte=datetime.now().date() + timedelta(days=7))
+        ) 
+        pl_criteria = criteria & models.Q(
+            container_number__order__vessel_id__vessel_eta__gte=start_date,
+            container_number__order__vessel_id__vessel_eta__lte=end_date,
+            container_number__order__offload_id__offload_at__isnull=True,
+            container_number__order__retrieval_id__retrieval_destination_area=area
         )
-        if start_date:
-            criteria &= (
-                models.Q(container_number__order__vessel_id__vessel_eta__gte=start_date) |
-                models.Q(container_number__order__eta__gte=start_date)
-            )
-        if end_date:
-            criteria &= (
-                models.Q(container_number__order__vessel_id__vessel_eta__lte=end_date) |
-                models.Q(container_number__order__eta__lte=end_date)
-            )
-        pl_criteria = criteria & models.Q(container_number__order__offload_id__offload_at__isnull=True)
-        plt_criteria = criteria & models.Q(container_number__order__offload_id__offload_at__isnull=False)
+        plt_criteria = criteria & models.Q(
+            container_number__order__offload_id__offload_at__isnull=False,
+            location__startswith=area
+        )
         packing_list = await self._get_packing_list(pl_criteria, plt_criteria)
         cbm_act, cbm_est, pallet_act, pallet_est = 0, 0, 0, 0
         for pl in packing_list:
@@ -189,9 +183,6 @@ class PostportDash(View):
                 'schedule_status',
                 'abnormal_palletization',
                 'po_expired',
-                "fba_id",
-                "ref_id",
-                "shipping_mark",
                 "shipment_batch_number__shipment_batch_number",
                 "shipment_batch_number__appointment_id",
                 "shipment_batch_number__shipment_appointment",

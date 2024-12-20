@@ -207,7 +207,7 @@
                     <tr>
                         <td class="td">{{ s.destination }}</td>
                         <td class="td">{{ s.n_appointment }}</td>
-                        <td class="td">{{ s.total_pallet }}</td>
+                        <td class="td">{{ s.total_pallet|floatformat:0 }}</td>
                         <td class="td">{{ s.total_cbm }}</tb>
                     </tr>
                     {% endfor %}
