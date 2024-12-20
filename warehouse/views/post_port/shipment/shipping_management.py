@@ -125,6 +125,9 @@ class ShippingManagement(View):
         elif step == "appointment_time_modify":
             template, context = await self.handle_appointment_time(request)
             return render(request, template, context)
+        elif step == "cancel_abnormal_appointment":
+            template, context = await self.handle_cancel_abnormal_appointment_post(request)
+            return render(request, template, context)
         else:
             return await self.get(request)
         
@@ -1187,6 +1190,29 @@ class ShippingManagement(View):
             await sync_to_async(Pallet.objects.bulk_update)(pallet, ["shipment_batch_number"])
             old_shipment.is_canceled = True
             await sync_to_async(old_shipment.save)()
+        return await self.handle_shipment_exceptions_get(request)
+    
+    async def handle_cancel_abnormal_appointment_post(self, request: HttpRequest) -> tuple[str, dict[str, Any]]:
+        shipment_batch_number = request.POST.get("batch_number")
+        shipment = await sync_to_async(Shipment.objects.get)(shipment_batch_number=shipment_batch_number)
+        packing_list = await sync_to_async(list)(
+            PackingList.objects.select_related("shipment_batch_number").filter(shipment_batch_number__shipment_batch_number=shipment_batch_number)
+        )
+        pallet = await sync_to_async(list)(
+            Pallet.objects.select_related("shipment_batch_number").filter(shipment_batch_number__shipment_batch_number=shipment_batch_number)
+        )
+        for pl in packing_list:
+            pl.shipment_batch_number = None
+        for p in pallet:
+            p.shipment_batch_number = None
+        await sync_to_async(PackingList.objects.bulk_update)(
+            packing_list, ["shipment_batch_number"]
+        )
+        await sync_to_async(Pallet.objects.bulk_update)(
+            pallet, ["shipment_batch_number"]
+        )
+        shipment.is_canceled = True
+        await sync_to_async(shipment.save)()
         return await self.handle_shipment_exceptions_get(request)
 
     async def _get_packing_list(
