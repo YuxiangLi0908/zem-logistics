@@ -104,7 +104,7 @@ else:
         'ENGINE': 'django.db.backends.postgresql_psycopg2',
         'NAME': 'zem', 
         'USER': 'postgres',
-        'PASSWORD': os.environ.get("POSTGRESQL_PWD"),
+        'PASSWORD': "123456",
         'HOST': '127.0.0.1', 
         'PORT': '5432',
     }

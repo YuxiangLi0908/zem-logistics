@@ -126,8 +126,7 @@
         {% csrf_token %}
         <div class="popup-editPallet" style="display: none; z-index:999; position: fixed; top: 50%; left: 50%; transform: translate(-50%, -50%); background-color: white; border: 1px solid gray; padding: 20px; max-height: 50%; overflow-y: scroll;">
             <div style="display: flex; align-items: center; margin-top:10px; margin: 20px 0;">
-                <!-- 新添加的靠左按钮 -->
-                <button type="submit" class="btn btn-primary" onclick="shipment_combine(this)" style="font-size: 13px;">出库绑定</button>         
+                <!-- 新添加的靠左按钮 -->    
                 <div style="flex-grow: 1;"></div>          
                 <div style="display: flex;">
                     <input type="hidden" name="step" value="edit_pallet">
@@ -142,7 +141,6 @@
             <table id="edit-pallet-table" class="table" style="font-size: 11px; max-height: 50%;">
                 <thead>
                     <tr style="position: sticky; top: 0px;">
-                        <th class="th" style="min-width: 40px; text-align: center;"></th>
                         <th class="th" style="text-align: center; border: 1px solid #141414">pallet_id</th>
                         <th class="th" style="text-align: center; border: 1px solid #141414">板号</th>
                         <th class="th" style="text-align: center; border: 1px solid #141414">长</th>
@@ -153,10 +151,6 @@
                 </thead>
                 <tbody>                  
                     <tr>
-                        <td class="td" style="min-width: 40px; text-align: center;">
-                            <input type='checkbox' name='is_plt_added' onclick="toggleRowBackground(this)">
-                            <input type="hidden" name="is_plt_added", value='off'>
-                        </td>
                         <td><input type="number" name="id" value=''></td>
                         <td><input type="text" name="number" value=''></td>
                         <td><input type="number" name="length" value=''></td>
@@ -174,8 +168,14 @@
     function edit_add_payload(button){  //这里不知道为啥改个名就执行不了
         var tbody = document.getElementById('edit-pallet-table').getElementsByTagName('tbody')[0];
         var rows = tbody.getElementsByTagName('tr');
+        var idArray = [];
+        var numberArray = [];
         for (var i = 0; i < rows.length; i++) {
             var cells = rows[i].getElementsByTagName('td');
+            var inputElement1 = cells[0].getElementsByTagName('input')[0];
+            idArray.push(inputElement1.value);
+            var inputElement2 = cells[1].getElementsByTagName('input')[0];
+            numberArray.push(inputElement2.value);
             for (var j = 0; j < cells.length; j++) {
                 var input = cells[j].getElementsByTagName('input')[0];
                 if (input.value === '') {
@@ -185,39 +185,25 @@
                     return true;
                 }
             }
-        }
-    }
-
-    function toggleRowBackground(checkbox) {
-        var row = checkbox.closest('tr');
-        if (checkbox.checked) {
-            row.style.backgroundColor = '#ADD8E6'; 
-        } else {
-            row.style.backgroundColor = '';
-        }
-    };
-
-    function shipment_combine(button) {
-        edit_add_payload(button)
-        var form = button.closest('form');
-        var stepInput = form.querySelector('input[name="step"]');
-        stepInput.value = 'shipment_combine';
-        const checkBoxes = document.getElementsByName('is_shipment');
-        var newArray = [];
-        for (let i = 1; i < checkBoxes.length; i+=2) {
-            if (checkBoxes[i].checked) {
-                newArray.push('on');
-            }else{
-                newArray.push('off');
-            };
         };
+        console.log(idArray);
+        console.log(numberArray);
+        var form = button.closest('form');
         var hiddenInput = document.createElement('input');
         hiddenInput.type = 'hidden';
-        hiddenInput.name = 'is_shipment_on';
-        hiddenInput.value = JSON.stringify(newArray);
-        form.appendChild(hiddenInput);   
-        
+        hiddenInput.name = 'id';
+        hiddenInput.value = idArray;
+
+        var hiddenInput2 = document.createElement('input');
+        hiddenInput2.type = 'hidden';
+        hiddenInput2.name = 'number';
+        hiddenInput2.value = numberArray;
+        console.log(hiddenInput);
+        console.log(hiddenInput2);
+        form.appendChild(hiddenInput); 
+        form.appendChild(hiddenInput2); 
     }
+
     function showPallet(button) {   //用户要编辑BOL中的表时，弹出表格框
         var popup = document.querySelector('.popup-editPallet');
         if (popup.style.display === 'none') {
@@ -235,39 +221,35 @@
         var widthArray = width.split(',');
         var heightArray = button.height.split(',');
         var numberArray = button.number.split(',');
-        console.log(numberArray);
+        if (numberArray.length === 1){
+            numberArray = [];
+            for (var i = 0; i < idsArray.length; i++) {
+                numberArray.push(i + 1);
+            }   
+        }
         var pcsArray = button.n_pcs.split(',');
         var tableBody = document.getElementById('edit-pallet-table').getElementsByTagName('tbody')[0];
         tableBody.innerHTML = '';
         for (var i = 0; i < idsArray.length; i++) {
             var row = document.createElement('tr');
-            for (var j = 0; j < 7; j++) {
+            for (var j = 0; j < 6; j++) {
                 var cell = document.createElement('td');
                 var input = document.createElement('input');
                 input.type = 'number';
-                input.name = ['is_shipment','id','number','length','width','height','pcs'][j];
+                input.name = ['id','number','length','width','height','pcs'][j];
                 if ( j === 0 ) {
-                    input.type = 'checkbox';
-                    input.addEventListener('click', function () {
-                        toggleRowBackground(this);
-                    });
-                    var hiddenInput = document.createElement('input');
-                    hiddenInput.type = 'hidden';
-                    hiddenInput.name = 'is_shipment';
-                    hiddenInput.value = 'off';
-                    cell.appendChild(hiddenInput);
-                }else if ( j === 1 ) {
                     input.value = idsArray[i];
-                    input.readonly = false;
-                }else if (j === 2) {
+                    input.disabled = true;
+                }else if (j === 1) {
                     input.value = numberArray[i];
-                }else if (j === 3) {
+                    input.disabled = true;
+                }else if (j === 2) {
                     input.value = lengthArray[i];
-                }else if (j === 4){
+                }else if (j === 3){
                     input.value = widthArray[i];
-                }else if (j === 5){
+                }else if (j === 4){
                     input.value = heightArray[i];
-                }else if (j === 6){
+                }else if (j === 5){
                     input.value = pcsArray[i];
                     
                 }            

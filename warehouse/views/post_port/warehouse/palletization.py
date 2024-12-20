@@ -344,36 +344,46 @@ class Palletization(View):
     
     async def handle_shipment_combine_post(self, request: HttpRequest) -> tuple[str, dict[str, Any]]:
         selections = request.POST.getlist("is_shipment_on")
-        print(request.POST)
         selectionsArray = json.loads(selections[0])
         ids = request.POST.getlist("id")         
-        ids = [id for s, id in zip(selectionsArray, ids) if s == "on"]
-        sequence_number = request.POST.getlist("number")    
+        ids = [i for s, i in zip(selectionsArray, ids) if s == "on"]
+        numbers = request.POST.getlist("number")    
         max_number = 0 
-        for number in sequence_number:
-            if '-' in number:
-                parts = number.split('-')
+        for n in numbers:
+            if '-' in n:
+                parts = n.split('-')
                 max_number = max(max_number,int(parts[1]))
-        
+        pallets = []
         for i in range(len(ids)):
             plt_id = int(ids[i])
             pallet = await sync_to_async(Pallet.objects.get)(id=plt_id)
             number = pallet.sequence_number
-            new_sequence_number = str(number)+'-'+str(max_number+1)
-            pallet.sequence_number = new_sequence_number
-            print(pallet)
-            await sync_to_async(pallet.save)()
-        return await self.handle_edit_pallet_post(request)
+            await sync_to_async(print)(str(number)+'-'+str(max_number+1))
+            pallet.sequence_number = str(str(number)+'-'+str(max_number+1))
+            await sync_to_async(print)(pallet.sequence_number)
+            pallets.append(pallet)
+        await sync_to_async(Pallet.objects.bulk_update)(
+            pallets,
+            ["sequence_number"]
+        )
+        request.GET.warehouse = request.POST.get("warehouse")
+        request.GET.step = "container_palletization"
+        request.GET.container_number = request.POST.get("container_number")
+        pk = request.POST.get("pk")
+        return await self.handle_container_palletization_get(request,pk)
 
 
     async def handle_edit_pallet_post(self, request: HttpRequest) -> tuple[str, dict[str, Any]]:
         #将pallet信息存储，包括长宽高和件数
-        plt_ids = request.POST.getlist("id")
+        plt_ids = request.POST.getlist("id")[0]
+        plt_ids = plt_ids.split(',')
         length = request.POST.getlist("length")
         width = request.POST.getlist("width")
         height = request.POST.getlist("height")
         pcs = request.POST.getlist("pcs")
-        number = request.POST.getlist("number")
+        number = request.POST.getlist("number")[0]
+        number = number.split(',')
+        pallets = []
         for i in range(len(plt_ids)):
             plt_id = int(plt_ids[i])
             pallet = await sync_to_async(Pallet.objects.get)(id=plt_id)
@@ -382,7 +392,12 @@ class Palletization(View):
             pallet.height = height[i]
             pallet.pcs = pcs[i]
             pallet.sequence_number = number[i]
-            await sync_to_async(pallet.save)()
+            pallets.append(pallet)
+            
+        await sync_to_async(Pallet.objects.bulk_update)(
+            pallets,
+            ["length","width","height","pcs","sequence_number"]
+        )
         request.GET.warehouse = request.POST.get("warehouse")
         request.GET.step = "container_palletization"
         request.GET.container_number = request.POST.get("container_number")
