@@ -177,7 +177,9 @@
                         <thead>
                             <tr>
                                 <th style="text-align: center; border: 1px solid #141414; padding-top: 1px;">Container</th>
+                                {% if is_private_warehouse %}
                                 <th style="text-align: center; border: 1px solid #141414; padding-top: 1px;">Shipping Mark</th>
+                                {% endif %}
                                 <th style="text-align: center; border: 1px solid #141414; padding-top: 1px;">Shipment ID</th>
                                 <th style="text-align: center; border: 1px solid #141414; padding-top: 1px;">Ref ID</th>
                                 <th style="text-align: center; border: 1px solid #141414; padding-top: 1px;">Qty</th>
@@ -187,7 +189,9 @@
                             {% for c in packing_list %}
                                 <tr>
                                     <td style="text-align: center; border: 1px solid #141414; padding-top: 1px;">{{ c.container_number }}</td>
+                                    {% if is_private_warehouse %}
                                     <td style="text-align: center; border: 1px solid #141414; text-wrap: wrap; padding-top: 1px;">{{ c.shipping_mark }}</td>
+                                    {% endif %}
                                     <td style="text-align: center; border: 1px solid #141414; text-wrap: wrap; padding-top: 1px;">{{ c.fba_id }}</td>
                                     <td style="text-align: center; border: 1px solid #141414; text-wrap: wrap; padding-top: 1px;">{{ c.ref_id }}</td>
                                     <td style="text-align: center; border: 1px solid #141414; padding-top: 1px;">{{ c.pcs }}</td>

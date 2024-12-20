@@ -1,3 +1,4 @@
+import re
 from datetime import datetime, timedelta
 from typing import Any
 
@@ -347,6 +348,7 @@ class BOL(View):
         ).order_by("container_number__container_number"))
         address_chinese_char = False if shipment.address.isascii() else True
         destination_chinese_char = False if shipment.destination.isascii() else True
+        is_private_warehouse = True if re.search(r'([A-Z]{2})[-,\s]?(\d{5})', shipment.destination.upper()) else False
         try:
             note_chinese_char = False if shipment.note.isascii() else True
         except:
@@ -360,5 +362,6 @@ class BOL(View):
             "address_chinese_char": address_chinese_char,
             "destination_chinese_char": destination_chinese_char,
             "note_chinese_char": note_chinese_char,
+            "is_private_warehouse": is_private_warehouse,
         }
         return context
