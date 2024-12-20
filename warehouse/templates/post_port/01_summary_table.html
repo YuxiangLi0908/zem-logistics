@@ -102,7 +102,11 @@
                     </td>
                     <td class="td">
                         {% with first_value=c.custom_delivery_method|split_and_get_first %}
+                            {% if first_value == '客户自提' %}
+                            {{ first_value }} - {{ c.shipping_marks }}
+                            {% else %}
                             {{ first_value }}
+                            {% endif %}
                         {% endwith %}
                     </td>
                     <td class="td">{{ c.total_cbm|floatformat:2 }}</td>

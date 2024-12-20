@@ -1,6 +1,7 @@
 import ast
 import uuid
 import os,json,io
+import re
 import pandas as pd
 from asgiref.sync import sync_to_async
 from datetime import datetime, timedelta
@@ -709,6 +710,7 @@ class FleetManagement(View):
             note_chinese_char = False if shipment.note.isascii() else True
         except:
             note_chinese_char = False
+        is_private_warehouse = True if re.search(r'([A-Z]{2})[-,\s]?(\d{5})', shipment.destination.upper()) else False
         context = {
             "warehouse": warehouse_obj.address,
             "batch_number": batch_number,
@@ -718,6 +720,7 @@ class FleetManagement(View):
             "address_chinese_char": address_chinese_char,
             "destination_chinese_char": destination_chinese_char,
             "note_chinese_char": note_chinese_char,
+            "is_private_warehouse": is_private_warehouse,
         }
         template = get_template(self.template_bol)
         html = template.render(context)
