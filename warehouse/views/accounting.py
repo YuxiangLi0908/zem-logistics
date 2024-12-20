@@ -1082,7 +1082,8 @@ class Accounting(View):
             current_date = datetime.now().date()
             order_id = str(order.id)
             customer_id = order.customer_name.id
-            workbook, invoice_data = self._generate_invoice_excel(context)
+            # TODOs: upload invoice to onedrive
+            # workbook, invoice_data = self._generate_invoice_excel(context)
             invoice = Invoice(**{
                 "invoice_number":f"{current_date.strftime('%Y-%m-%d').replace('-', '')}C{customer_id}{order_id}",
                 # "invoice_date": current_date.strftime('%Y-%m-%d'),
