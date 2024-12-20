@@ -384,7 +384,7 @@ class FleetManagement(View):
             departured_at__isnull=False,
             arrived_at__isnull=True,
             is_canceled=False,
-            fleet_type__in=["FTL", "LTL/外配/快递"]  #LTL和客户自提的不需要确认送达
+            fleet_type__in=["FTL", "LTL", "外配/快递"]  #LTL和客户自提的不需要确认送达
         )
         if fleet_number:
             criteria &= models.Q(fleet_number=fleet_number)
