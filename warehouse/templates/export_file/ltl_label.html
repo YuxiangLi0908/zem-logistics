@@ -1,7 +1,7 @@
 {% load static %}
    
 {% block content %}   
-<img src="{% static 'img/zem_logo_small.jpg' %}">
+
 <style>
     @page {
         size: portrait; 
@@ -13,6 +13,13 @@
         font-size:18px;
     }
     @media print {
+        .page-break {
+            page-break-before: always;
+           
+        }
+        .page-break.first-page {
+            page-break-before: auto;
+        }
        .text-container {
             padding-top: 10px;
         }
@@ -27,21 +34,25 @@
         .table {
             border-collapse: collapse;  
         }
-        .td {
-            padding-bottom: 1px; /* 调整这里的数值来改变行间距 */
+        .right-align-td {
+            text-align: center;
         }
+        
     }   
 </style>   
 <body>
-   
-<img src="{% static 'img/wh.jpg' %}">
-<div>
+{% for d in data %}
+<div class="page-break {% if forloop.first %}first-page{% endif %}">
     <div class="text-container">
         <table>
             <tr>
                 <td> 
                     <b class="larger-text">SHIPPER</b>
                     <br>ZEM RINCON<br>1001 Trade Center Pkwy<br>Rincon,GA,31326<br>ken 929-329-4323<br>office@zemlogistics.com
+                </td>
+                <td class="right-align-td"><b style="font-size:40px;">{{ d.fraction }}</b></td>
+                <td>
+                    <img style="width:2000px;height:1600px;" src="{% static 'img/zem_logo_small.jpg' %}">
                 </td>
             </tr>
         </table>
@@ -58,7 +69,12 @@
         <table>
             <tr>
                 <td> 
-                    <b class="larger-text">PRO#:</b>{{data.arm_pro}}
+                    <b class="larger-text">PRO#:</b>{{d.arm_pro}}
+                </td>
+            </tr>
+            <tr>
+                <td style="text-align:center;">
+                    <img style="width:450px; height: 100px; margin-bottom: 0; padding-bottom:0;" src="data:image/png;base64,{{ d.barcode }}">
                 </td>
             </tr>
         </table>
@@ -76,5 +92,7 @@
     <table>
         <td><div style="text-align:center;">* Put 2-4 labels on each pallet/HU</div> </td>
     </table>
+</div>
+{% endfor %}
 </body>
 {% endblock %}

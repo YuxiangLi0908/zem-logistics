@@ -1,6 +1,9 @@
 import ast
 import uuid
-import os,json,io
+import barcode
+import os,json,io,base64
+from PIL import Image
+from barcode.writer import ImageWriter
 import pandas as pd
 from asgiref.sync import sync_to_async
 from datetime import datetime, timedelta
@@ -882,7 +885,24 @@ class FleetManagement(View):
     async def _export_label(self, request: HttpRequest) -> HttpResponse:
         arm_pro = request.POST.get("arm_pro")
         container_number = request.POST.get("container_number")
-        context = {"data": {"arm_pro": arm_pro}}
+        #生成条形码
+        barcode_type = 'code128'
+        barcode_class = barcode.get_barcode_class(barcode_type)
+        barcode_content = f"{arm_pro}"
+        my_barcode = barcode_class(barcode_content, writer = ImageWriter()) #将条形码转换为图像形式
+        buffer = io.BytesIO()   #创建缓冲区
+        my_barcode.write(buffer, options={"dpi": 600})   #缓冲区存储图像
+        buffer.seek(0)               
+        image = Image.open(buffer)  
+        width, height = image.size  
+        new_height = int(height * 0.7)  
+        cropped_image = image.crop((0, 0, width, new_height)) 
+        new_buffer = io.BytesIO()
+        cropped_image.save(new_buffer, format='PNG')
+  
+        barcode_base64 = base64.b64encode(new_buffer.getvalue()).decode('utf-8')
+        data = [{"arm_pro": arm_pro, "barcode": barcode_base64, "fraction": f"{i + 1}/3"} for i, _ in enumerate(range(3))]
+        context = {"data": data}
         template = get_template(self.template_ltl_label)
         html = template.render(context)
         response = HttpResponse(content_type="application/pdf")
