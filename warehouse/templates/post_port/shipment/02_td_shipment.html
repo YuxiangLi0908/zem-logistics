@@ -143,10 +143,15 @@
                                     {% endif %}
                                 </td>
                                 <td class="td" name ="total_cbm">{{ c.total_cbm|floatformat:2 }}</td>
-                                <td class="td">
+                                <td class="td" style="width:80px;">
                                     {% if c.label == "ACT" %}
                                     <span class="status-span-green-100">ACT</span>
                                     {{ c.total_n_pallet_act }}
+                                        {% if " " in c.destination %}
+                                        ,<b>{{ c.n_pcs }}</b>件<br>{{ c.length }}*{{ c.width }}*{{ c.height }}
+                                        {% else %}
+                                        
+                                        {% endif %}
                                     {% else %}
                                         <span class="status-span-blue-100">EST</span>
                                         {% if c.total_n_pallet_est < 1 %}

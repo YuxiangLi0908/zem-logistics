@@ -381,8 +381,9 @@ class Palletization(View):
         width = request.POST.getlist("width")
         height = request.POST.getlist("height")
         pcs = request.POST.getlist("pcs")
-        number = request.POST.getlist("number")[0]
-        number = number.split(',')
+        if request.POST.getlist("number"):
+            number = request.POST.getlist("number")[0]
+            number = number.split(',')
         pallets = []
         for i in range(len(plt_ids)):
             plt_id = int(plt_ids[i])
@@ -391,7 +392,8 @@ class Palletization(View):
             pallet.width = width[i]
             pallet.height = height[i]
             pallet.pcs = pcs[i]
-            pallet.sequence_number = number[i]
+            if request.POST.getlist("number"):
+                pallet.sequence_number = number[i]
             pallets.append(pallet)
             
         await sync_to_async(Pallet.objects.bulk_update)(

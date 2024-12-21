@@ -1,0 +1,80 @@
+{% load static %}
+   
+{% block content %}   
+<img src="{% static 'img/zem_logo_small.jpg' %}">
+<style>
+    @page {
+        size: portrait; 
+        margin: 15mm;
+    }
+    body {
+        margin: 0;
+        font-family: Times New Roman;
+        font-size:18px;
+    }
+    @media print {
+       .text-container {
+            padding-top: 10px;
+        }
+        .larger-text {
+            font-size: 24px;
+        }      
+        .bottom-left-text {
+            position: absolute;
+            bottom: 20px; 
+            left: 20px; 
+        }  
+        .table {
+            border-collapse: collapse;  
+        }
+        .td {
+            padding-bottom: 1px; /* 调整这里的数值来改变行间距 */
+        }
+    }   
+</style>   
+<body>
+   
+<img src="{% static 'img/wh.jpg' %}">
+<div>
+    <div class="text-container">
+        <table>
+            <tr>
+                <td> 
+                    <b class="larger-text">SHIPPER</b>
+                    <br>ZEM RINCON<br>1001 Trade Center Pkwy<br>Rincon,GA,31326<br>ken 929-329-4323<br>office@zemlogistics.com
+                </td>
+            </tr>
+        </table>
+        <hr>
+        <table>
+            <tr>
+                <td> 
+                    <b class="larger-text">CONSIGNEE</b>
+                    <br>GA warehouse<br>4300 Hunter Road<br>Union City,GA,30349<br>Sam 5166287888
+                </td>
+            </tr>
+        </table>
+        <hr>
+        <table>
+            <tr>
+                <td> 
+                    <b class="larger-text">PRO#:</b>{{data.arm_pro}}
+                </td>
+            </tr>
+        </table>
+        <hr>
+        <table>
+            <tr>
+                <td> 
+                    <b class="larger-text">Carrier PRO#: </b>{{data.arm_pro}}<br><br>
+                    <b class="larger-text">Bill Of Lading#: 30003141</b>{{data.arm_pro}}
+                </td>
+            </tr>
+        </table>
+    </div>
+    <hr style="border:none;">
+    <table>
+        <td><div style="text-align:center;">* Put 2-4 labels on each pallet/HU</div> </td>
+    </table>
+</body>
+{% endblock %}

@@ -289,7 +289,7 @@ PACKING_LIST_TEMP_COL_MAPPING = {
 }
 
 file_path = Path(__file__).parent.resolve().joinpath("fba_fulfillment_center.yaml")
-with open(file_path, "r",encoding='utf8') as f:
+with open(file_path, "r") as f:
     amazon_fba_locations = yaml.safe_load(f)
 
 SP_USER = os.environ.get("MS_SP_USER")

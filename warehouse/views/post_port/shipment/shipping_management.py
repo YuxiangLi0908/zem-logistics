@@ -1238,6 +1238,7 @@ class ShippingManagement(View):
                     height=StringAgg("str_height", delimiter=",", ordering="str_height"),
                     n_pcs=StringAgg("str_pcs", delimiter=",", ordering="str_pcs"),
                 ).order_by('container_number__order__offload_id__offload_at')
+                .order_by('sequence_number')
             )
             data += pal_list
         if pl_criteria:

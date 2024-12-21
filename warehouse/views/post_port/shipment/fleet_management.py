@@ -60,6 +60,7 @@ class FleetManagement(View):
     template_delivery_and_pod = "post_port/shipment/05_1_delivery_and_pod.html"
     template_pod_upload = "post_port/shipment/05_2_delivery_and_pod.html"
     template_bol = "export_file/bol_base_template.html"
+    template_ltl_label= "export_file/ltl_label.html"
     template_abnormal_fleet_warehouse_search = "post_port/shipment/abnormal/01_fleet_management_main.html"
     area_options = {"NJ": "NJ", "SAV": "SAV", "LA":"LA"}
     warehouse_options = {"": "", "NJ-07001": "NJ-07001", "NJ-08817": "NJ-08817", "SAV-31326": "SAV-31326","LA-91761":"LA-91761"}
@@ -71,6 +72,7 @@ class FleetManagement(View):
         if not await self._user_authenticate(request):
             return redirect("login")
         step = request.GET.get("step")
+        print("GET",step)
         if step == "outbound":
             context = {"warehouse_form": ZemWarehouseForm()}
             return render(request, self.template_outbound, context)
@@ -97,6 +99,7 @@ class FleetManagement(View):
         if not await self._user_authenticate(request):
             return redirect("login")
         step = request.POST.get("step")
+        print("POST",step)
         if step == "fleet_warehouse_search":
             template, context = await self.handle_fleet_warehouse_search_post(request)
             return render(request, template, context)
@@ -151,6 +154,8 @@ class FleetManagement(View):
         elif step == "upload_ARM_LABEL":
             template, context = await self.handle_label_upload_post(request)
             return render(request, template, context)
+        elif step == "download_LABEL":
+            return await self._export_label(request) 
         else:
             return await self.get(request)
         
@@ -873,6 +878,19 @@ class FleetManagement(View):
         shipment.pod_uploaded_at = timezone.now()
         await sync_to_async(shipment.save)()
         return await self.handle_pod_upload_get(request)
+    
+    async def _export_label(self, request: HttpRequest) -> HttpResponse:
+        arm_pro = request.POST.get("arm_pro")
+        container_number = request.POST.get("container_number")
+        context = {"data": {"arm_pro": arm_pro}}
+        template = get_template(self.template_ltl_label)
+        html = template.render(context)
+        response = HttpResponse(content_type="application/pdf")
+        response['Content-Disposition'] = f'attachment; filename="pallet_label_{container_number}.pdf"'
+        pisa_status = pisa.CreatePDF(html, dest=response)
+        if pisa_status.err:
+            raise ValueError('Error during PDF generation: %s' % pisa_status.err, content_type='text/plain')
+        return response
     
     #上传LTL和客户自提的BOL文件和LEBAL文件
     async def handle_label_upload_post(self, request: HttpRequest) -> tuple[str, dict[str, Any]]:

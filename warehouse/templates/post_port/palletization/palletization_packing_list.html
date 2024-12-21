@@ -142,7 +142,7 @@
                 <thead>
                     <tr style="position: sticky; top: 0px;">
                         <th class="th" style="text-align: center; border: 1px solid #141414">pallet_id</th>
-                        <th class="th" style="text-align: center; border: 1px solid #141414">板号</th>
+                        <th class="th" style="text-align: center; border: 1px solid #141414">板号</th>                      
                         <th class="th" style="text-align: center; border: 1px solid #141414">长</th>
                         <th class="th" style="text-align: center; border: 1px solid #141414">宽</th>
                         <th class="th" style="text-align: center; border: 1px solid #141414">高</th>  
@@ -169,13 +169,18 @@
         var tbody = document.getElementById('edit-pallet-table').getElementsByTagName('tbody')[0];
         var rows = tbody.getElementsByTagName('tr');
         var idArray = [];
-        var numberArray = [];
+        if (tbody.rows[0].cells.length === 6){
+            var numberArray = [];
+        }
+        
         for (var i = 0; i < rows.length; i++) {
             var cells = rows[i].getElementsByTagName('td');
             var inputElement1 = cells[0].getElementsByTagName('input')[0];
             idArray.push(inputElement1.value);
-            var inputElement2 = cells[1].getElementsByTagName('input')[0];
-            numberArray.push(inputElement2.value);
+            if (tbody.rows[0].cells.length === 6){
+                var inputElement2 = cells[1].getElementsByTagName('input')[0];
+                numberArray.push(inputElement2.value);
+            }           
             for (var j = 0; j < cells.length; j++) {
                 var input = cells[j].getElementsByTagName('input')[0];
                 if (input.value === '') {
@@ -186,22 +191,20 @@
                 }
             }
         };
-        console.log(idArray);
-        console.log(numberArray);
         var form = button.closest('form');
         var hiddenInput = document.createElement('input');
         hiddenInput.type = 'hidden';
         hiddenInput.name = 'id';
         hiddenInput.value = idArray;
-
-        var hiddenInput2 = document.createElement('input');
-        hiddenInput2.type = 'hidden';
-        hiddenInput2.name = 'number';
-        hiddenInput2.value = numberArray;
-        console.log(hiddenInput);
-        console.log(hiddenInput2);
         form.appendChild(hiddenInput); 
-        form.appendChild(hiddenInput2); 
+        if (tbody.rows[0].cells.length === 6){
+            var hiddenInput2 = document.createElement('input');
+            hiddenInput2.type = 'hidden';
+            hiddenInput2.name = 'number';
+            hiddenInput2.value = numberArray;
+            form.appendChild(hiddenInput2); 
+        }
+        
     }
 
     function showPallet(button) {   //用户要编辑BOL中的表时，弹出表格框
@@ -212,52 +215,88 @@
             popup.style.display = 'none';
         }
         
-        plt_ids = button.ids;
-        lengths = button.length;
-        width = button.width;
-
+        const plt_ids = button.ids;
+        const lengths = button.length;
+        const width = button.width;
         var idsArray = plt_ids.split(',');
         var lengthArray = lengths.split(',');
         var widthArray = width.split(',');
         var heightArray = button.height.split(',');
-        var numberArray = button.number.split(',');
-        if (numberArray.length === 1){
-            numberArray = [];
-            for (var i = 0; i < idsArray.length; i++) {
-                numberArray.push(i + 1);
-            }   
-        }
+        
         var pcsArray = button.n_pcs.split(',');
         var tableBody = document.getElementById('edit-pallet-table').getElementsByTagName('tbody')[0];
         tableBody.innerHTML = '';
-        for (var i = 0; i < idsArray.length; i++) {
-            var row = document.createElement('tr');
-            for (var j = 0; j < 6; j++) {
-                var cell = document.createElement('td');
-                var input = document.createElement('input');
-                input.type = 'number';
-                input.name = ['id','number','length','width','height','pcs'][j];
-                if ( j === 0 ) {
-                    input.value = idsArray[i];
-                    input.disabled = true;
-                }else if (j === 1) {
-                    input.value = numberArray[i];
-                    input.disabled = true;
-                }else if (j === 2) {
-                    input.value = lengthArray[i];
-                }else if (j === 3){
-                    input.value = widthArray[i];
-                }else if (j === 4){
-                    input.value = heightArray[i];
-                }else if (j === 5){
-                    input.value = pcsArray[i];
-                    
-                }            
-                cell.appendChild(input);
-                row.appendChild(cell);
+        if (button.destination.includes('自提')) {
+            var theadTr = document.getElementById('edit-pallet-table').getElementsByTagName('thead')[0].getElementsByTagName('tr')[0];
+            var secondTh = theadTr.getElementsByTagName('th')[1];
+            secondTh.style.display = 'none';
+            for (var i = 0; i < idsArray.length; i++) {
+                var row = document.createElement('tr');
+                for (var j = 0; j < 5; j++) {
+                    var cell = document.createElement('td');
+                    var input = document.createElement('input');
+                    input.type = 'number';
+                    input.name = ['id','length','width','height','pcs'][j];
+                    if ( j === 0 ) {
+                        input.value = idsArray[i];
+                        input.disabled = true;
+                    }else if (j === 1) {
+                        input.value = lengthArray[i];
+                    }else if (j === 2){
+                        input.value = widthArray[i];
+                    }else if (j === 3){
+                        input.value = heightArray[i];
+                    }else if (j === 4){
+                        input.value = pcsArray[i];
+                        
+                    }            
+                    cell.appendChild(input);
+                    row.appendChild(cell);
+                }
+                tableBody.appendChild(row);
+            };
+            
+        }else{
+            var numberArray = button.number.split(',');
+            if (numberArray.length === 1){
+                numberArray = [];
+                for (var i = 0; i < idsArray.length; i++) {
+                    numberArray.push(i + 1);
+                }   
             }
-            tableBody.appendChild(row);
-        };
+            var theadTr = document.getElementById('edit-pallet-table').getElementsByTagName('thead')[0].getElementsByTagName('tr')[0];
+            var secondTh = theadTr.getElementsByTagName('th')[1];
+            secondTh.style.display = '';
+            for (var i = 0; i < idsArray.length; i++) {
+                var row = document.createElement('tr');
+                for (var j = 0; j < 6; j++) {
+                    var cell = document.createElement('td');
+                    var input = document.createElement('input');
+                    input.type = 'number';
+                    input.name = ['id','number','length','width','height','pcs'][j];
+                    if ( j === 0 ) {
+                        input.value = idsArray[i];
+                        input.disabled = true;
+                    }else if (j === 1) {
+                        input.value = numberArray[i];
+                        input.disabled = true;
+                    }else if (j === 2) {
+                        input.value = lengthArray[i];
+                    }else if (j === 3){
+                        input.value = widthArray[i];
+                    }else if (j === 4){
+                        input.value = heightArray[i];
+                    }else if (j === 5){
+                        input.value = pcsArray[i];
+                        
+                    }            
+                    cell.appendChild(input);
+                    row.appendChild(cell);
+                }
+                tableBody.appendChild(row);
+            };
+        }
+        
         
         
     };
