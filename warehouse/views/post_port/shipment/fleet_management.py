@@ -39,7 +39,7 @@ from warehouse.models.fleet import Fleet
 from warehouse.models.warehouse import ZemWarehouse
 from warehouse.forms.warehouse_form import ZemWarehouseForm
 from warehouse.forms.upload_file import UploadFileForm
-from warehouse.views.export_file import export_palletization_list
+from warehouse.views.export_file import export_palletization_list, link_callback
 from warehouse.utils.constants import (
     APP_ENV,
     SP_USER,
@@ -887,7 +887,7 @@ class FleetManagement(View):
         html = template.render(context)
         response = HttpResponse(content_type="application/pdf")
         response['Content-Disposition'] = f'attachment; filename="pallet_label_{container_number}.pdf"'
-        pisa_status = pisa.CreatePDF(html, dest=response)
+        pisa_status = pisa.CreatePDF(html, dest=response, link_callback=link_callback)
         if pisa_status.err:
             raise ValueError('Error during PDF generation: %s' % pisa_status.err, content_type='text/plain')
         return response
