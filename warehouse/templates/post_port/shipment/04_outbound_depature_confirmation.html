@@ -124,14 +124,16 @@
                     </button>
                     <button type="button" id="add-more-btn" class="btn btn-success" style="height: 35px; font-size: 12px; margin: 5px;" onclick="editTable('arm_pickup', true, '{{ selected_fleet.fleet_number }}')">编辑</button>
                 </div>                 
-                <table style=" max-height:90%; overflow-y:scroll; margin: 10px; padding: 100px;" cellpadding='15' id="arm_pickup-container-{{ selected_fleet.fleet_number }}">
+                <table style=" max-height:90%; max-width:90%; overflow-y:scroll; margin: 10px; padding: 100px;" cellpadding='15' id="arm_pickup-container-{{ selected_fleet.fleet_number }}">
                     <thead>                       
                         <th class="th" style="text-align: center; border: 1px solid #141414">柜号</th>
-                        <th class="th" style="text-align: center; border: 1px solid #141414">邮编</th>
+                        <th class="th" style="text-align: center; border: 1px solid #141414">目的地</th>
                         <th class="th" style="text-align: center; border: 1px solid #141414">唛头</th>
                         <th class="th" style="text-align: center; border: 1px solid #141414">ARM_BOL</th>
                         <th class="th" style="text-align: center; border: 1px solid #141414">板数</th> 
-                        <th class="th" style="text-align: center; border: 1px solid #141414">箱数</th>   
+                        <th class="th" style="text-align: center; border: 1px solid #141414">箱数</th>  
+                        <th class="th" style="text-align: center; border: 1px solid #141414">重量</th> 
+                        <th class="th" style="text-align: center; border: 1px solid #141414">cbm</th> 
                         <th class="th" style="text-align: center; border: 1px solid #141414">Carrier</th>  
                         <th class="th" style="text-align: center; border: 1px solid #141414">提仓时间</th>  
                     </thead>
@@ -143,8 +145,10 @@
                         <td style="text-align: center; border: 1px solid #141414; text-wrap: wrap; padding:10px;" data-editable="true">{{ s.shipment_batch_number__ARM_BOL }}</td>
                         <td style="text-align: center; border: 1px solid #141414; padding:10px;" data-editable="true">{{ s.total_pallet }}</td>
                         <td style="text-align: center; border: 1px solid #141414; padding:10px;" data-editable="true">{{ s.total_pcs }}</td>
+                        <td style="text-align: center; border: 1px solid #141414; padding:10px;" data-editable="true">{{ s.total_weight }}</td>
+                        <td style="text-align: center; border: 1px solid #141414; padding:10px;" data-editable="true">{{ s.total_cbm }}</td>
                         <td style="text-align: center; border: 1px solid #141414; padding:10px;" data-editable="true">{{ s.shipment_batch_number__fleet_number__carrier }}</td>
-                        <td style="text-align: center; border: 1px solid #141414; padding:10px;" data-editable="true">{{ s.shipment_batch_number__fleet_number__appointment_datetime }}</td>
+                        <td style="text-align: center; border: 1px solid #141414; padding:10px;" data-editable="true">{{ s.shipment_batch_number__fleet_number__appointment_datetime|date:"Y-m-d H:i:s" }}</td>
                     </tr>
                     {% endfor %}
                     <tr id="arm_pickup-row-empty-{{ selected_fleet.fleet_number }}" style="display: none;">
@@ -152,6 +156,8 @@
                         <td style="text-align: center; border: 1px solid #141414; text-wrap: wrap; padding:10px;" data-editable="true"></td>
                         <td style="text-align: center; border: 1px solid #141414; text-wrap: wrap; padding:10px;" data-editable="true"></td>
                         <td style="text-align: center; border: 1px solid #141414; text-wrap: wrap; padding:10px;" data-editable="true"></td>
+                        <td style="text-align: center; border: 1px solid #141414; padding:10px;" data-editable="true"></td>
+                        <td style="text-align: center; border: 1px solid #141414; padding:10px;" data-editable="true"></td>
                         <td style="text-align: center; border: 1px solid #141414; padding:10px;" data-editable="true"></td>
                         <td style="text-align: center; border: 1px solid #141414; padding:10px;" data-editable="true"></td>
                         <td style="text-align: center; border: 1px solid #141414; padding:10px;" data-editable="true"></td>
@@ -268,17 +274,16 @@
                 </div>
             </form>
         {% elif selected_fleet.fleet_type != "FTL" %}
-            <form method="post" action="" style="display: inline-block;" id="exportfleet-{{ selected_fleet.fleet_number }}">
+            <form method="post" action="" style="display: inline-block;" id="download_ltl_label">
                 {% csrf_token %}
                 <input type="hidden" name="step" value="download_LABEL">
-                <input type="hidden" name="container_number" value="TLLU4512489">
-                <input type="hidden" name="arm_pro" value="12345">
+                <input type="hidden" name="fleet_number" value="{{ selected_fleet.fleet_number }}">
                 <button type="submit" class="btn btn-success" style="font-size: 15px;">
                     <small>LBAEL</small>
                     <i class="bi bi-cloud-arrow-down-fill"></i>
                 </button>
             </form>
-            <form method="post" action="" style="display: inline-block;" id="exportfleet-{{ selected_fleet.fleet_number }}">
+            <form method="post" action="" style="display: inline-block;" id="download_ltl_bol">
                 {% csrf_token %}
                 <input type="hidden" name="step" value="download_LTL_BOL">
                 <input type="hidden" name="fleet_number" value="{{ selected_fleet.fleet_number }}">
@@ -503,9 +508,8 @@
             newInput.name = 'customerInfo';
             newInput.type = 'hidden';
             if (name == "arm_pickup" || name == "self_pickup") {
-                var inputElement = document.getElementById('customerInfo');
-                inputElement.value = jsonCustomerInfo;
-
+                var form = document.getElementById('download_ltl_bol');
+                form.appendChild(newInput)
             } else {
                 form.appendChild(newInput)
             }

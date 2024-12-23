@@ -48,7 +48,7 @@
             <tr>
                 <td> 
                     <b class="larger-text">SHIPPER</b>
-                    <br>ZEM RINCON<br>1001 Trade Center Pkwy<br>Rincon,GA,31326<br>ken 929-329-4323<br>office@zemlogistics.com
+                    <br>ZEM RINCON<br>1001 Trade Center Pkwy<br>Rincon,GA,31326<br>ken &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;929-329-4323<br>office@zemlogistics.com
                 </td>
                 <td class="right-align-td"><b style="font-size:40px;">{{ d.fraction }}</b></td>
                 <td>
@@ -61,7 +61,7 @@
             <tr>
                 <td> 
                     <b class="larger-text">CONSIGNEE</b>
-                    <br>GA warehouse<br>4300 Hunter Road<br>Union City,GA,30349<br>Sam 5166287888
+                    <br>GA warehouse<br>4300 Hunter Road<br>Union City,GA,30349<br>Sam &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;5166287888
                 </td>
             </tr>
         </table>
@@ -79,16 +79,19 @@
             </tr>
         </table>
         <hr>
-        <table>
+        <table style="width:120%;">
             <tr>
-                <td> 
-                    <b class="larger-text">Carrier PRO#: </b>{{data.arm_pro}}<br><br>
-                    <b class="larger-text">Bill Of Lading#: 30003141</b>{{data.arm_pro}}
+                <td style="width:60%;"> 
+                    <b class="larger-text">Carrier PRO#: </b>{{d.arm_pro}}<br><br>
+                    <b class="larger-text">Bill Of Lading#:</b>{{d.arm_pro}}
+                </td>
+                <td style="width:60%;">
+                    <img style="width:200px;height:auto;" src="{% static 'img/'|add:d.carrier|add:'.jpg' %}">
                 </td>
             </tr>
         </table>
     </div>
-    <hr style="border:none;">
+    <br><br><br>
     <table>
         <td><div style="text-align:center;">* Put 2-4 labels on each pallet/HU</div> </td>
     </table>
