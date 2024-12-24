@@ -66,10 +66,10 @@ class BOL(View):
         if request.POST.get("area"):
             area = request.POST.get("area")
             criteria = models.Q(
+                (models.Q(container_number__order__order_type="转运") | models.Q(container_number__order__order_type="转运组合")),
                 container_number__order__retrieval_id__retrieval_destination_area=area,
                 container_number__order__packing_list_updloaded=True,
                 shipment_batch_number__isnull=True,
-                container_number__order__order_type="转运",
                 container_number__order__created_at__gte='2024-09-01',
             ) & (
                 # TODOs: 考虑按照安排提柜时间筛选

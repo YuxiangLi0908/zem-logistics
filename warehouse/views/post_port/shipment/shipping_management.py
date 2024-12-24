@@ -305,9 +305,9 @@ class ShippingManagement(View):
         end_date = (datetime.now().date() + timedelta(days=15)).strftime('%Y-%m-%d') if not end_date else end_date
         
         criteria_p = models.Q(
+            (models.Q(container_number__order__order_type="转运") | models.Q(container_number__order__order_type="转运组合")),
             container_number__order__packing_list_updloaded=True,
-            shipment_batch_number__isnull=True,
-            container_number__order__order_type="转运",
+            shipment_batch_number__isnull=True,          
             container_number__order__created_at__gte='2024-09-01',
         ) 
         pl_criteria = criteria_p & models.Q(

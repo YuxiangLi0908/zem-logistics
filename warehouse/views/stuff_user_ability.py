@@ -130,8 +130,9 @@ class StuffPower(View):
         order_pl_count = Order.objects.select_related(
             "container_number"
         ).filter(
-            models.Q(created_at__gte="2024-07-01") &
-            models.Q(order_type="转运")
+            (models.Q(order_type="转运") | models.Q(order_type="转运组合")),
+            models.Q(created_at__gte="2024-07-01")
+            
         ).values(
             "container_number__container_number"
         ).annotate(

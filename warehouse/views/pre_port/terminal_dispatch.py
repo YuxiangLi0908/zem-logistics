@@ -126,7 +126,7 @@ class TerminalDispatch(View):
         order = await sync_to_async(Order.objects.select_related("retrieval_id").get)(
             models.Q(container_number__container_number=container_number)
         )
-        if order_type == "转运":
+        if order_type == "转运" or order_type == "转运组合":
             warehouse = await sync_to_async(ZemWarehouse.objects.get)(name=destination)
             order.warehouse = warehouse
             await sync_to_async(order.save)()
