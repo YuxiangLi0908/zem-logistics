@@ -355,9 +355,11 @@ class OrderCreation(View):
                 retrieval.retrieval_destination_area = request.POST.get("area")
                 order.packing_list_updloaded = False
             else:
-                # TD to DD
-                offload.offload_required = False
-                retrieval.retrieval_destination_area = request.POST.get("destination").upper().strip()
+                if input_order_type == "直送":
+                    # TD/转运组合 to DD
+                    offload.offload_required = False
+                    retrieval.retrieval_destination_area = request.POST.get("destination").upper().strip()
+                
         await sync_to_async(offload.save)()
         await sync_to_async(retrieval.save)()
         await sync_to_async(container.save)()
