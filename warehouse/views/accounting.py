@@ -361,9 +361,9 @@ class Accounting(View):
         start_date = (current_date + timedelta(days=-30)).strftime('%Y-%m-%d') if not start_date else start_date
         end_date = current_date.strftime('%Y-%m-%d') if not end_date else end_date
         criteria = models.Q(
+            (models.Q(order_type="转运") | models.Q(order_type="转运组合")),
             models.Q(created_at__gte=start_date),
             models.Q(created_at__lte=end_date),
-            models.Q(order_type="转运"),
         )
         if customer:
             criteria &= models.Q(customer_name__zem_name=customer)
@@ -431,9 +431,10 @@ class Accounting(View):
         start_date = (current_date + timedelta(days=-30)).strftime('%Y-%m-%d') if not start_date else start_date
         end_date = current_date.strftime('%Y-%m-%d') if not end_date else end_date
         criteria = models.Q(
+            (models.Q(order_type="转运") | models.Q(order_type="转运组合")),
             models.Q(created_at__gte=start_date),
             models.Q(created_at__lte=end_date),
-            models.Q(order_type="转运")
+            
         )
         if customer:
             criteria &= models.Q(customer_name__zem_name=customer)
@@ -501,6 +502,7 @@ class Accounting(View):
         previous_order = previous_order.annotate(
             total_amount=Case(
                 When(order_type='转运', then=F('invoice_id__preport_amount') + F('invoice_id__warehouse_amount') + F('invoice_id__delivery_amount')),
+                When(order_type='转运组合', then=F('invoice_id__preport_amount') + F('invoice_id__warehouse_amount') + F('invoice_id__delivery_amount')),
                 When(order_type='直送', then=F('invoice_id__direct_amount')),
                 default=Value(0),
                 output_field=IntegerField()
@@ -528,9 +530,10 @@ class Accounting(View):
         start_date = (current_date + timedelta(days=-30)).strftime('%Y-%m-%d') if not start_date else start_date
         end_date = current_date.strftime('%Y-%m-%d') if not end_date else end_date
         criteria = models.Q(
+            (models.Q(order_type="转运") | models.Q(order_type="转运组合")),
             models.Q(created_at__gte=start_date),
             models.Q(created_at__lte=end_date),
-            models.Q(order_type="转运")
+            
         )
         if customer:
             criteria &= models.Q(customer_name__zem_name=customer)
@@ -794,7 +797,7 @@ class Accounting(View):
         )
         order = Order.objects.select_related("container_number").get(container_number__container_number=container_number)
         invoice_preports = InvoicePreport.objects.get(invoice_number__invoice_number=invoice.invoice_number)
-        if order.order_type == "转运":         
+        if order.order_type == "转运" or order.order_type == "转运组合":         
             invoice_warehouse = InvoiceWarehouse.objects.get(invoice_number__invoice_number=invoice.invoice_number)
             invoice_delivery = InvoiceDelivery.objects.filter(invoice_number__invoice_number=invoice.invoice_number)
             

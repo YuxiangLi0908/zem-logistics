@@ -113,14 +113,12 @@
                 <table id="shipment-table-1" class="table" style="font-size: 11px; overflow-x: scroll; max-width: 100%;">
                     <thead>
                         <tr>
-                            <th class="th">Scheduled Time（预计到仓）</th>
                             <th class="th">发货仓库</th>
                             <th class="th">备注</th>
                         </tr>
                     </thead>
                     <tbody>
                         <tr>
-                            <td class="td"><input type="datetime-local" name="shipment_appointment" style="font-size: 13px;"></td>
                             <td class="td">
                                 <select name="origin" id="origin-select-2" style="font-size: 13px;">
                                     {% for k, v in warehouse_options.items %}
@@ -247,14 +245,12 @@
                 <table id="shipment-table-1" class="table" style="font-size: 11px; overflow-x: scroll; max-width: 100%;">
                     <thead>
                         <tr>
-                            <th class="th">Scheduled Time</th>
                             <th class="th">发货仓库</th>
                             <th class="th">备注</th>
                         </tr>
                     </thead>
                     <tbody>
                         <tr>
-                            <td class="td"><input type="datetime-local" name="shipment_appointment" style="font-size: 13px;"></td>
                             <td class="td">
                                 <select name="origin" id="origin-select-4" style="font-size: 13px;">
                                     {% for k, v in warehouse_options.items %}
@@ -487,7 +483,7 @@
             const date = new Date(unusedAppointment[appointmentId]['shipment_appointment']);
             const formattedDate = date.toISOString().slice(0, 16);
             appointmentTimeInput.value = formattedDate;
-            if (destinationInput.value.replace("Walmart", "").replace("-", "") != unusedAppointment[appointmentId]['destination'].replace("Walmart", "").replace("-", "")) {
+            if (destinationInput.value.replace("Walmart", "").replace("-", "") != unusedAppointment[appointmentId]['destination'].replace("Walmart", "").replace("WALMART","").replace("-", "")) {         
                 alert("PO目的地(" + destinationInput.value + ")与预约(" + appointmentId + ")目的地(" + unusedAppointment[appointmentId]['destination']+ ")不一致！");
                 destinationCheck.value = false;
             };

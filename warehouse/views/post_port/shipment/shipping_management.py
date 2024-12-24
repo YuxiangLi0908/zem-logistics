@@ -64,6 +64,7 @@ class ShippingManagement(View):
         if not await self._user_authenticate(request):
             return redirect("login")
         step = request.GET.get("step", None)
+        print("GET",step)
         if step == "shipment_info":
             template, context = await self.handle_shipment_info_get(request)
             return render(request, template, context)
@@ -87,6 +88,7 @@ class ShippingManagement(View):
         if not await self._user_authenticate(request):
             return redirect("login")
         step = request.POST.get("step")
+        print("POST",step)
         if step == "warehouse":
             template, context = await self.handle_warehouse_post(request)
             return render(request, template, context)
@@ -305,9 +307,9 @@ class ShippingManagement(View):
         end_date = (datetime.now().date() + timedelta(days=15)).strftime('%Y-%m-%d') if not end_date else end_date
         
         criteria_p = models.Q(
+            (models.Q(container_number__order__order_type="转运") | models.Q(container_number__order__order_type="转运组合")),
             container_number__order__packing_list_updloaded=True,
-            shipment_batch_number__isnull=True,
-            container_number__order__order_type="转运",
+            shipment_batch_number__isnull=True,          
             container_number__order__created_at__gte='2024-09-01',
         ) 
         pl_criteria = criteria_p & models.Q(
@@ -461,7 +463,7 @@ class ShippingManagement(View):
                     raise RuntimeError(f"ISA {appointment_id} already exists and is canceled!")
                 elif existed_appointment.shipment_appointment.replace(tzinfo=pytz.UTC) < timezone.now():
                     raise RuntimeError(f"ISA {appointment_id} already exists and expired!")
-                elif existed_appointment.destination != request.POST.get("destination", None):
+                elif existed_appointment.destination.replace("Walmart", "").replace("WALMART","").replace("-", "") != request.POST.get("destination", None).replace("Walmart", "").replace("WALMART","").replace("-", ""):
                     raise ValueError(f"ISA {appointment_id} has a different destination {existed_appointment.destination} - {request.POST.get('destination', None)}!")
                 else:
                     shipment = existed_appointment
@@ -473,7 +475,7 @@ class ShippingManagement(View):
                     shipment.note = request.POST.get("note", "")
                     shipment.shipment_schduled_at = timezone.now()
                     shipment.is_shipment_schduled = True
-                    shipment.destination = request.POST.get("destination", None)
+                    shipment.destination = request.POST.get("destination", None).replace("WALMART","Walmart")
                     shipment.address = request.POST.get("address", None)
                     shipment.shipment_account = request.POST.get("shipment_account", "").strip()
                     #LTL的需要存ARM-BOL和ARM-PRO
@@ -823,7 +825,7 @@ class ShippingManagement(View):
                 shipment.load_type = request.POST.get("load_type")
                 shipment.shipment_appointment = shipment_appointment
                 shipment.note = request.POST.get("note")
-                shipment.destination = request.POST.get("destination")
+                shipment.destination = request.POST.get("destination").replace("WALMART","Walmart")
                 shipment.address = request.POST.get("address")
             elif shipment_type != "FTL":
                 shipment.appointment_id = request.POST.get("appointment_id", "")
@@ -831,7 +833,7 @@ class ShippingManagement(View):
                 shipment.origin = request.POST.get("origin")
                 shipment.shipment_appointment = shipment_appointment
                 shipment.note = request.POST.get("note")
-                shipment.destination = request.POST.get("destination")
+                shipment.destination = request.POST.get("destination").replace("WALMART","Walmart")
                 shipment.address = request.POST.get("address")
                 fleet = shipment.fleet_number
                 #测试发现甩板的约没有车次
@@ -868,7 +870,7 @@ class ShippingManagement(View):
                 shipment.load_type = request.POST.get("load_type")
                 shipment.shipment_appointment = shipment_appointment
                 shipment.note = request.POST.get("note")
-                shipment.destination = request.POST.get("destination")
+                shipment.destination = request.POST.get("destination").replace("WALMART","Walmart")
                 shipment.address = request.POST.get("address")
                 fleet = shipment.fleet_number
                 shipment.fleet_number = None
@@ -881,7 +883,7 @@ class ShippingManagement(View):
                 shipment.origin = request.POST.get("origin")
                 shipment.shipment_appointment = shipment_appointment
                 shipment.note = request.POST.get("note")
-                shipment.destination = request.POST.get("destination")
+                shipment.destination = request.POST.get("destination").replace("WALMART","Walmart")
                 shipment.address = request.POST.get("address")
                 shipment.appointment_id = request.POST.get("appointment_id", "")
                 shipment.load_type = ""
@@ -1116,7 +1118,7 @@ class ShippingManagement(View):
                     shipment.note = request.POST.get("note", "").strip()
                     shipment.shipment_schduled_at = timezone.now()
                     shipment.is_shipment_schduled = True
-                    shipment.destination = request.POST.get("destination", "").strip()
+                    shipment.destination = request.POST.get("destination", "").replace("WALMART","Walmart").strip()
                     shipment.address = request.POST.get("address", "").strip()
                     shipment.master_batch_number = old_shipment.shipment_batch_number
                     shipment.total_weight = old_shipment.total_weight

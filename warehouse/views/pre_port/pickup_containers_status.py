@@ -60,11 +60,11 @@ class ContainerPickupStatus(View):
                 "vessel_id", "container_number", "customer_name", "retrieval_id", "offload_id"
             ).filter(
                 (
+                    (models.Q(container_number__order__order_type="转运") | models.Q(container_number__order__order_type="转运组合"))&
                     models.Q(add_to_t49=True) &
                     models.Q(retrieval_id__actual_retrieval_timestamp__isnull=False) &
                     models.Q(retrieval_id__arrive_at_destination=True) &
                     models.Q(offload_id__offload_at__isnull=True) &
-                    models.Q(order_type="转运") &
                     models.Q(cancel_notification=False)
                 ) &
                 (

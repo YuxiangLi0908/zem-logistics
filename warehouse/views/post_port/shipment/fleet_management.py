@@ -72,6 +72,7 @@ class FleetManagement(View):
         if not await self._user_authenticate(request):
             return redirect("login")
         step = request.GET.get("step")
+        print("GET",step)
         if step == "outbound":
             context = {"warehouse_form": ZemWarehouseForm()}
             return render(request, self.template_outbound, context)
@@ -98,6 +99,7 @@ class FleetManagement(View):
         if not await self._user_authenticate(request):
             return redirect("login")
         step = request.POST.get("step")
+        print("POST",step)
         if step == "fleet_warehouse_search":
             template, context = await self.handle_fleet_warehouse_search_post(request)
             return render(request, template, context)
@@ -818,6 +820,11 @@ class FleetManagement(View):
             fleet_shipped_pallet += s.shipped_pallet
             fleet_shipped_pcs += s.shipped_pcs
             updated_shipment.append(s)
+            if s.shipment_type == "客户自提":
+                s.arrived_at = departured_at
+                s.is_arrived = True
+        if fleet.fleet_type == "客户自提":
+            fleet.arrived_at = departured_at
         fleet.departured_at = departured_at
         fleet.shipped_weight = fleet_shipped_weight
         fleet.shipped_cbm = fleet_shipped_cbm
@@ -827,7 +834,7 @@ class FleetManagement(View):
             updated_shipment,
             [
                 "shipped_pallet", "shipped_weight", "shipped_cbm", "shipped_pcs", "is_shipped", 
-                "shipped_at", "pallet_dumpped", "is_full_out"
+                "shipped_at", "pallet_dumpped", "is_full_out","arrived_at","is_arrived"
             ]
         )
         await sync_to_async(Pallet.objects.bulk_update)(

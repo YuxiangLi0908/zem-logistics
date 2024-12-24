@@ -241,7 +241,7 @@ class OrderCreationLegacy(View):
     def _create_offload_obejct(self, order_data: dict[str, Any]) -> Offload:
         offload_data = {
             "offload_id": order_data["offload_id"],
-            "offload_required": True if order_data["order_type"]=="转运" else False,
+            "offload_required": True if order_data["order_type"] in ("转运","转运组合") else False,
         }
         return self._create_model_object(Offload, offload_data)
     

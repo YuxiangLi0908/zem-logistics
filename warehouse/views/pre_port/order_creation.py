@@ -280,12 +280,12 @@ class OrderCreation(View):
         container = Container(**container_data)
         retrieval_data = {
             "retrieval_id": retrieval_id,
-            "retrieval_destination_area": area if order_type=="转运" else destination,
+            "retrieval_destination_area": area if order_type in("转运","转运组合") else destination,
         }
         retrieval = Retrieval(**retrieval_data)
         offload_data = {
             "offload_id": offload_id,
-            "offload_required": True if order_type=="转运" else False,
+            "offload_required": True if order_type in("转运","转运组合") else False,
         }
         offload = Offload(**offload_data)
         order_data = {
