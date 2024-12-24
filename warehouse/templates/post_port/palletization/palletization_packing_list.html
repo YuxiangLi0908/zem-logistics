@@ -146,7 +146,8 @@
                         <th class="th" style="text-align: center; border: 1px solid #141414">长</th>
                         <th class="th" style="text-align: center; border: 1px solid #141414">宽</th>
                         <th class="th" style="text-align: center; border: 1px solid #141414">高</th>  
-                        <th class="th" style="text-align: center; border: 1px solid #141414">箱数</th>   
+                        <th class="th" style="text-align: center; border: 1px solid #141414">箱数</th>  
+                        <th class="th" style="text-align: center; border: 1px solid #141414">重量</th>  
                     </tr>
                 </thead>
                 <tbody>                  
@@ -169,7 +170,7 @@
         var tbody = document.getElementById('edit-pallet-table').getElementsByTagName('tbody')[0];
         var rows = tbody.getElementsByTagName('tr');
         var idArray = [];
-        if (tbody.rows[0].cells.length === 6){
+        if (tbody.rows[0].cells.length === 7){
             var numberArray = [];
         }
         
@@ -177,7 +178,7 @@
             var cells = rows[i].getElementsByTagName('td');
             var inputElement1 = cells[0].getElementsByTagName('input')[0];
             idArray.push(inputElement1.value);
-            if (tbody.rows[0].cells.length === 6){
+            if (tbody.rows[0].cells.length === 7){
                 var inputElement2 = cells[1].getElementsByTagName('input')[0];
                 numberArray.push(inputElement2.value);
             }           
@@ -188,6 +189,16 @@
                     event.preventDefault();
                     alert('不能为空！');
                     return true;
+                }
+                if (input.name === 'weight') {
+                    console.log(input.value);
+                    var value = parseFloat(input.value);
+                    if (isNaN(value)) {
+                        input.focus();
+                        event.preventDefault();
+                        alert('请输入有效的数字');
+                        return true;
+                    }
                 }
             }
         };
@@ -224,6 +235,7 @@
         var heightArray = button.height.split(',');
         
         var pcsArray = button.n_pcs.split(',');
+        var weightArray = button.weight.split(',');
         var tableBody = document.getElementById('edit-pallet-table').getElementsByTagName('tbody')[0];
         tableBody.innerHTML = '';
         if (button.destination.includes('自提')) {
@@ -232,11 +244,11 @@
             secondTh.style.display = 'none';
             for (var i = 0; i < idsArray.length; i++) {
                 var row = document.createElement('tr');
-                for (var j = 0; j < 5; j++) {
+                for (var j = 0; j < 6; j++) {
                     var cell = document.createElement('td');
                     var input = document.createElement('input');
-                    input.type = 'number';
-                    input.name = ['id','length','width','height','pcs'][j];
+                    input.type = 'number';                
+                    input.name = ['id','length','width','height','pcs','weight'][j];
                     if ( j === 0 ) {
                         input.value = idsArray[i];
                         input.disabled = true;
@@ -247,9 +259,11 @@
                     }else if (j === 3){
                         input.value = heightArray[i];
                     }else if (j === 4){
-                        input.value = pcsArray[i];
-                        
-                    }            
+                        input.value = pcsArray[i];      
+                    }else if (j === 5){
+                        input.type = 'text'; 
+                        input.value = parseFloat(weightArray[i]).toFixed(2);     
+                    }           
                     cell.appendChild(input);
                     row.appendChild(cell);
                 }
@@ -269,11 +283,11 @@
             secondTh.style.display = '';
             for (var i = 0; i < idsArray.length; i++) {
                 var row = document.createElement('tr');
-                for (var j = 0; j < 6; j++) {
+                for (var j = 0; j < 7; j++) {
                     var cell = document.createElement('td');
                     var input = document.createElement('input');
                     input.type = 'number';
-                    input.name = ['id','number','length','width','height','pcs'][j];
+                    input.name = ['id','number','length','width','height','pcs','weight'][j];
                     if ( j === 0 ) {
                         input.value = idsArray[i];
                         input.disabled = true;
@@ -287,9 +301,12 @@
                     }else if (j === 4){
                         input.value = heightArray[i];
                     }else if (j === 5){
-                        input.value = pcsArray[i];
-                        
-                    }            
+                        input.value = pcsArray[i];                      
+                    }else if (j === 6){
+                        input.type = 'text'; 
+                        input.value = parseFloat(weightArray[i]).toFixed(2);   
+                        console.log(parseFloat(weightArray[i]).toFixed(2));                    
+                    }          
                     cell.appendChild(input);
                     row.appendChild(cell);
                 }

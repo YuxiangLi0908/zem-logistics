@@ -110,7 +110,7 @@
                     <button id="confirmButton" type="button" class="btn btn-primary"  style="font-size: 11px;" onclick="editTable('self_pickup', false, '{{ selected_fleet.fleet_number }}')">确认</button>
                 </div>
             </div>              
-        {% else %}
+        {% elelif selected_fleet.fleet_type == "LTL" %}
         <div style="overflow-x: auto; max-width: 100%; overflow-y: auto; max-height: 20%; margin: 5px;">
             <button type="submit" class="btn btn-success" style="font-size: 15px;">
                 <small>拣货单</small>

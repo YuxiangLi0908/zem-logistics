@@ -76,7 +76,6 @@ class FleetManagement(View):
         if not await self._user_authenticate(request):
             return redirect("login")
         step = request.GET.get("step")
-        print("GET",step)
         if step == "outbound":
             context = {"warehouse_form": ZemWarehouseForm()}
             return render(request, self.template_outbound, context)
@@ -103,7 +102,6 @@ class FleetManagement(View):
         if not await self._user_authenticate(request):
             return redirect("login")
         step = request.POST.get("step")
-        print("POST",step)
         if step == "fleet_warehouse_search":
             template, context = await self.handle_fleet_warehouse_search_post(request)
             return render(request, template, context)
@@ -932,7 +930,6 @@ class FleetManagement(View):
         cropped_image.save(new_buffer, format='PNG')
   
         barcode_base64 = base64.b64encode(new_buffer.getvalue()).decode('utf-8')
-        print(carrier)
         data = [{"arm_pro": arm_pro, "barcode": barcode_base64, "carrier":carrier, "fraction": f"{i + 1}/3"} for i, _ in enumerate(range(3))]
         context = {"data": data}
         template = get_template(self.template_ltl_label)
@@ -945,7 +942,6 @@ class FleetManagement(View):
         return response
     
     async def _export_ltl_bol(self, request: HttpRequest) -> HttpResponse:
-        print(request.POST)
         customerInfo = request.POST.get("customerInfo")
         if customerInfo and customerInfo != '[]':
             customer_info = json.loads(customerInfo)
@@ -968,8 +964,7 @@ class FleetManagement(View):
             for row in arm_pickup[1:]:
                 row_dict = dict(zip(keys, row))
                 arm_pickup_dict_list.append(row_dict)
-            arm_pickup = arm_pickup_dict_list
-            print(arm_pickup)      
+            arm_pickup = arm_pickup_dict_list   
         else:  #没有就从数据库查      
             fleet_number = request.POST.get("fleet_number")
             arm_pickup = await sync_to_async(list)(

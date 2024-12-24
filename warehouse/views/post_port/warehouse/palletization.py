@@ -49,7 +49,6 @@ class Palletization(View):
             return redirect("login")
         pk = kwargs.get("pk", None)
         step = request.GET.get("step", None)
-        print("GET",step)
         if step == "container_palletization":
             template, context = await self.handle_container_palletization_get(request, pk)
             return render(request, template, context)
@@ -69,7 +68,6 @@ class Palletization(View):
         if not await self._user_authenticate(request):
             return redirect("login")
         step = request.POST.get("step")
-        print("POST",step)
         if step == "warehouse":
             template, context = await self.handle_warehouse_post(request)
             return render(request, template, context)
@@ -101,9 +99,6 @@ class Palletization(View):
             return render(request, template, context)
         elif step == "edit_pallet":
             template, context = await self.handle_edit_pallet_post(request)
-            return render(request, template, context)
-        elif step == "shipment_combine":
-            template, context = await self.handle_shipment_combine_post(request)
             return render(request, template, context)
         else:
             return await self.get(request)
@@ -341,36 +336,6 @@ class Palletization(View):
         warehouse = request.POST.get("warehouse_filter")
         template, context = await self.handle_daily_operation_get(warehouse)
         return template, context
-    
-    async def handle_shipment_combine_post(self, request: HttpRequest) -> tuple[str, dict[str, Any]]:
-        selections = request.POST.getlist("is_shipment_on")
-        selectionsArray = json.loads(selections[0])
-        ids = request.POST.getlist("id")         
-        ids = [i for s, i in zip(selectionsArray, ids) if s == "on"]
-        numbers = request.POST.getlist("number")    
-        max_number = 0 
-        for n in numbers:
-            if '-' in n:
-                parts = n.split('-')
-                max_number = max(max_number,int(parts[1]))
-        pallets = []
-        for i in range(len(ids)):
-            plt_id = int(ids[i])
-            pallet = await sync_to_async(Pallet.objects.get)(id=plt_id)
-            number = pallet.sequence_number
-            await sync_to_async(print)(str(number)+'-'+str(max_number+1))
-            pallet.sequence_number = str(str(number)+'-'+str(max_number+1))
-            await sync_to_async(print)(pallet.sequence_number)
-            pallets.append(pallet)
-        await sync_to_async(Pallet.objects.bulk_update)(
-            pallets,
-            ["sequence_number"]
-        )
-        request.GET.warehouse = request.POST.get("warehouse")
-        request.GET.step = "container_palletization"
-        request.GET.container_number = request.POST.get("container_number")
-        pk = request.POST.get("pk")
-        return await self.handle_container_palletization_get(request,pk)
 
 
     async def handle_edit_pallet_post(self, request: HttpRequest) -> tuple[str, dict[str, Any]]:
@@ -381,6 +346,7 @@ class Palletization(View):
         width = request.POST.getlist("width")
         height = request.POST.getlist("height")
         pcs = request.POST.getlist("pcs")
+        weight = request.POST.getlist("weight")
         if request.POST.getlist("number"):
             number = request.POST.getlist("number")[0]
             number = number.split(',')
@@ -392,13 +358,15 @@ class Palletization(View):
             pallet.width = width[i]
             pallet.height = height[i]
             pallet.pcs = pcs[i]
+            pallet.weight_lbs = weight[i]
+            pallet.cbm = round(float(length[i]) * float(width[i]) * float(height[i]) * 0.0254*0.0254*0.0254, 5)
             if request.POST.getlist("number"):
                 pallet.sequence_number = number[i]
             pallets.append(pallet)
             
         await sync_to_async(Pallet.objects.bulk_update)(
             pallets,
-            ["length","width","height","pcs","sequence_number"]
+            ["length","width","height","pcs","weight_lbs","cbm","sequence_number"]
         )
         request.GET.warehouse = request.POST.get("warehouse")
         request.GET.step = "container_palletization"
@@ -864,6 +832,7 @@ class Palletization(View):
                 str_height=Cast("height", CharField()),
                 str_pcs=Cast("pcs",CharField()),
                 str_number=Cast("sequence_number",CharField()),
+                str_weight=Cast("weight_lbs",CharField()),
             ).values(
                 "container_number__container_number", "destination", "note",
                 custom_delivery_method=F("delivery_method"),
@@ -877,6 +846,7 @@ class Palletization(View):
                 height=StringAgg("str_height", delimiter=",", ordering="str_height"),
                 n_pcs=StringAgg("str_pcs", delimiter=",", ordering="str_pcs"),
                 number=StringAgg("str_number", delimiter=",", ordering="str_number"),
+                weight=StringAgg("str_weight", delimiter=",", ordering="str_weight"),
             ).order_by("-cbm"))
         else:
             raise ValueError(f"invalid status: {status}")
