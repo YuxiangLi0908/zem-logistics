@@ -1,7 +1,14 @@
 import ast
 import uuid
+<<<<<<< HEAD
 import os,json,io
 import re
+=======
+import barcode
+import os,json,io,base64
+from PIL import Image
+from barcode.writer import ImageWriter
+>>>>>>> 1ae398f7455d69e5f7e7b80fa8115e0bf4301184
 import pandas as pd
 from asgiref.sync import sync_to_async
 from datetime import datetime, timedelta
@@ -40,7 +47,7 @@ from warehouse.models.fleet import Fleet
 from warehouse.models.warehouse import ZemWarehouse
 from warehouse.forms.warehouse_form import ZemWarehouseForm
 from warehouse.forms.upload_file import UploadFileForm
-from warehouse.views.export_file import export_palletization_list
+from warehouse.views.export_file import export_palletization_list, link_callback
 from warehouse.utils.constants import (
     APP_ENV,
     SP_USER,
@@ -61,6 +68,8 @@ class FleetManagement(View):
     template_delivery_and_pod = "post_port/shipment/05_1_delivery_and_pod.html"
     template_pod_upload = "post_port/shipment/05_2_delivery_and_pod.html"
     template_bol = "export_file/bol_base_template.html"
+    template_ltl_label= "export_file/ltl_label.html"
+    template_ltl_bol = "export_file/ltl_bol.html"
     template_abnormal_fleet_warehouse_search = "post_port/shipment/abnormal/01_fleet_management_main.html"
     area_options = {"NJ": "NJ", "SAV": "SAV", "LA":"LA"}
     warehouse_options = {"": "", "NJ-07001": "NJ-07001", "NJ-08817": "NJ-08817", "SAV-31326": "SAV-31326","LA-91761":"LA-91761"}
@@ -154,6 +163,10 @@ class FleetManagement(View):
         elif step == "upload_ARM_LABEL":
             template, context = await self.handle_label_upload_post(request)
             return render(request, template, context)
+        elif step == "download_LABEL":
+            return await self._export_ltl_label(request) 
+        elif step == "download_LTL_BOL":
+            return await self._export_ltl_bol(request)
         else:
             return await self.get(request)
         
@@ -255,7 +268,9 @@ class FleetManagement(View):
                 "shipment_batch_number__fleet_number__appointment_datetime"
             ).annotate(
                 total_pcs=Count('pcs', distinct=True),
-                total_pallet=Count('pallet_id', distinct=True)
+                total_pallet=Count('pallet_id', distinct=True),
+                total_weight=Count('weight_lbs'),
+                total_cbm=Count('cbm')
             )
         )
         shipment = await sync_to_async(list)(
@@ -270,7 +285,7 @@ class FleetManagement(View):
             ).values(
                 "shipment_batch_number__shipment_batch_number", "container_number__container_number", 
                 "destination", "shipment_batch_number__appointment_id", "shipment_batch_number__shipment_appointment",
-                "shipment_batch_number__note",
+                "shipment_batch_number__note","shipment_batch_number__fleet_number__carrier","shipment_batch_number__ARM_PRO"
             ).annotate(
                 plt_ids=StringAgg("pallet_id", delimiter=",", distinct=True, ordering="pallet_id"),
                 total_weight=Sum("weight_lbs", output_field=FloatField()),
@@ -881,6 +896,157 @@ class FleetManagement(View):
         shipment.pod_uploaded_at = timezone.now()
         await sync_to_async(shipment.save)()
         return await self.handle_pod_upload_get(request)
+    
+    async def _export_ltl_label(self, request: HttpRequest) -> HttpResponse:
+        fleet_number = request.POST.get("fleet_number")
+        arm_pickup = await sync_to_async(list)(
+            Pallet.objects.select_related(
+                "container_number__container_number","shipment_batch_number__fleet_number"
+            ).filter(
+                shipment_batch_number__fleet_number__fleet_number=fleet_number
+            ).values(
+                "container_number__container_number","shipment_batch_number__shipment_appointment",
+                "shipment_batch_number__ARM_PRO","shipment_batch_number__fleet_number__carrier",
+                "shipment_batch_number__fleet_number__appointment_datetime","destination","shipping_mark"
+            ).annotate(
+                total_pcs=Count('pcs'),
+                total_pallet=Count('pallet_id', distinct=True),
+                total_weight=Count('weight_lbs'),
+                total_cbm=Count('cbm')
+            )
+        )
+        for arm in arm_pickup:
+            arm_pro = arm["shipment_batch_number__ARM_PRO"]
+            carrier = arm["shipment_batch_number__fleet_number__carrier"]
+            pickup_time = arm["shipment_batch_number__shipment_appointment"]
+            container_number = arm["container_number__container_number"]
+            destination = arm["destination"]
+            shipping_mark = arm["shipping_mark"]
+        pickup_time_str = str(pickup_time)
+        date_str = datetime.strptime(pickup_time_str[:19], '%Y-%m-%d %H:%M:%S')
+        pickup_time = date_str.strftime('%Y-%m-%d')
+
+        #生成条形码
+        barcode_type = 'code128'
+        barcode_class = barcode.get_barcode_class(barcode_type)
+        barcode_content = f"{arm_pro}"
+        my_barcode = barcode_class(barcode_content, writer = ImageWriter()) #将条形码转换为图像形式
+        buffer = io.BytesIO()   #创建缓冲区
+        my_barcode.write(buffer, options={"dpi": 600})   #缓冲区存储图像
+        buffer.seek(0)               
+        image = Image.open(buffer)  
+        width, height = image.size  
+        new_height = int(height * 0.7)  
+        cropped_image = image.crop((0, 0, width, new_height)) 
+        new_buffer = io.BytesIO()
+        cropped_image.save(new_buffer, format='PNG')
+  
+        barcode_base64 = base64.b64encode(new_buffer.getvalue()).decode('utf-8')
+        data = [{"arm_pro": arm_pro, "barcode": barcode_base64, "carrier":carrier, "fraction": f"{i + 1}/3"} for i, _ in enumerate(range(3))]
+        context = {"data": data}
+        template = get_template(self.template_ltl_label)
+        html = template.render(context)
+        response = HttpResponse(content_type="application/pdf")
+        response['Content-Disposition'] = f'attachment; filename="{pickup_time}+{container_number}+{destination}+{shipping_mark}+LABEL.pdf"'
+        pisa_status = pisa.CreatePDF(html, dest=response, link_callback=link_callback)
+        if pisa_status.err:
+            raise ValueError('Error during PDF generation: %s' % pisa_status.err, content_type='text/plain')
+        return response
+    
+    async def _export_ltl_bol(self, request: HttpRequest) -> HttpResponse:
+        customerInfo = request.POST.get("customerInfo")
+        if customerInfo and customerInfo != '[]':
+            customer_info = json.loads(customerInfo)
+            arm_pickup = [['container_number__container_number','destination','shipping_mark','shipment_batch_number__ARM_PRO','total_pallet','total_pcs','total_weight','total_cbm','shipment_batch_number__fleet_number__carrier','shipment_batch_number__shipment_appointment']]
+            for row in customer_info:
+                arm_pickup.append([
+                    row[0].strip(),
+                    row[1].strip(),
+                    row[2].strip(),
+                    row[3].strip(), 
+                    int(row[4].strip()),
+                    int(row[5].strip()),
+                    float(row[6].strip()),
+                    float(row[7].strip()),
+                    row[8].strip(),
+                    row[9].strip()
+                ])
+            keys = arm_pickup[0]
+            arm_pickup_dict_list = []   
+            for row in arm_pickup[1:]:
+                row_dict = dict(zip(keys, row))
+                arm_pickup_dict_list.append(row_dict)
+            arm_pickup = arm_pickup_dict_list   
+        else:  #没有就从数据库查      
+            fleet_number = request.POST.get("fleet_number")
+            arm_pickup = await sync_to_async(list)(
+                Pallet.objects.select_related(
+                    "container_number__container_number","shipment_batch_number__fleet_number"
+                ).filter(
+                    shipment_batch_number__fleet_number__fleet_number=fleet_number
+                ).values(
+                    "container_number__container_number","shipment_batch_number__shipment_appointment",
+                    "shipment_batch_number__ARM_PRO","shipment_batch_number__fleet_number__carrier",
+                    "shipment_batch_number__fleet_number__appointment_datetime","destination","shipping_mark"
+                ).annotate(
+                    total_pcs=Count('pcs'),
+                    total_pallet=Count('pallet_id', distinct=True),
+                    total_weight=Count('weight_lbs'),
+                    total_cbm=Count('cbm')
+                )
+            )
+        pallet = 0
+        pcs = 0
+        weight = 0.0
+        cbm = 0.0
+        for arm in arm_pickup:
+            arm_pro = arm["shipment_batch_number__ARM_PRO"]
+            carrier = arm["shipment_batch_number__fleet_number__carrier"]
+            pickup_time = arm["shipment_batch_number__shipment_appointment"]
+            pallet += arm["total_pallet"]
+            pcs += arm["total_pcs"]
+            weight += arm["total_weight"]
+            cbm += arm["total_cbm"]
+            container_number = arm["container_number__container_number"]
+            destination = arm["destination"]
+            shipping_mark = arm["shipping_mark"]
+        pickup_time_str = str(pickup_time)
+        date_str = datetime.strptime(pickup_time_str[:19], '%Y-%m-%d %H:%M:%S')
+        pickup_time = date_str.strftime('%Y-%m-%d')
+        #生成条形码
+        barcode_type = 'code128'
+        barcode_class = barcode.get_barcode_class(barcode_type)
+        barcode_content = f"{arm_pro}"
+        my_barcode = barcode_class(barcode_content, writer = ImageWriter()) #将条形码转换为图像形式
+        buffer = io.BytesIO()   #创建缓冲区
+        my_barcode.write(buffer, options={"dpi": 600})   #缓冲区存储图像
+        buffer.seek(0)               
+        image = Image.open(buffer)  
+        width, height = image.size  
+        new_height = int(height * 0.7)  
+        cropped_image = image.crop((0, 0, width, new_height)) 
+        new_buffer = io.BytesIO()
+        cropped_image.save(new_buffer, format='PNG')
+  
+        barcode_base64 = base64.b64encode(new_buffer.getvalue()).decode('utf-8')
+        context = {
+            "arm_pro": arm_pro, 
+            "carrier":carrier,
+            "pickup_time":pickup_time, 
+            "pallet":pallet,
+            "pcs":pcs,
+            "weight":weight,
+            "cbm":cbm,
+            "barcode": barcode_base64
+            }
+        template = get_template(self.template_ltl_bol)
+        html = template.render(context)
+        response = HttpResponse(content_type="application/pdf")
+        response['Content-Disposition'] = f'attachment; filename="{pickup_time}+{container_number}+{destination}+{shipping_mark}+BOL.pdf"'
+        pisa_status = pisa.CreatePDF(html, dest=response, link_callback=link_callback)
+        if pisa_status.err:
+            raise ValueError('Error during PDF generation: %s' % pisa_status.err, content_type='text/plain')
+        return response
     
     #上传LTL和客户自提的BOL文件和LEBAL文件
     async def handle_label_upload_post(self, request: HttpRequest) -> tuple[str, dict[str, Any]]:

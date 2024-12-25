@@ -1,0 +1,179 @@
+{% load static %}
+{% block content %}
+<style>
+    @media print {
+        .page-break {
+            page-break-before: always;
+        }
+        .container {
+            display:flex;
+            flex-direction:row;
+            {% comment %} align-items:center;
+            justify-content:center;
+            flex-wrap: nowrap; {% endcomment %}
+        }
+        .table {
+            border-collapse:separate;
+            border-spacing: 0;
+        }
+        .larger-text {
+            font-size: 24px;
+        }  
+        .medium-text {
+            font-size: 18px;
+        } 
+        .checkbox-like {
+            position: relative;
+            padding-left: 25px;
+            cursor: pointer;
+          }
+         .checkbox-like::before {
+            content: "";
+            position: absolute;
+            left: 0;
+            top: 0;
+            width: 15px;
+            height: 15px;
+            border: 1px solid #000;
+            background-color: #fff;
+          }
+          .rectangle {
+            width: 200px; 
+            height: 100px; 
+            
+         }
+    }
+</style>
+
+<div style="font-size: 13px;">
+    <table style="width: 100%;">
+        <tr style="border-bottom: 1px solid black;">
+            <td style="width: 30%;">
+                <img style="width:200px;" src="{% static 'img/zem_logo_small.jpg' %}">
+            </td>
+            <td style="width: 40%; text-align:center; padding-top:35px;">
+                <h1><b>BILL OF LADING</b></h1>
+            </td>
+            <td style="width: 30%;"></td>
+        </tr>
+    </table>
+    <table style="width: 120%;">
+        <tr>
+            <td style="width: 55%; padding:5px; border-bottom: 1px solid black;"> 
+                <b class="larger-text">SHIPPER</b>
+                <br>ZEM RINCON<br>1001 Trade Center Pkwy<br>Rincon,GA,31326<br>ken &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;929-329-4323<br>office@zemlogistics.com
+            </td>
+            <td style="width:10%;"></td>
+            <td style="width: 55%; text-align:center; border-bottom: 1px solid black;">
+                <img style="width:250px; height:60px; padding-bottom:5px;" src="data:image/png;base64,{{ barcode }}">
+                <br><br><b class="larger-text">PRO#:{{arm_pro}}</b>
+            </td>
+        </tr>
+    </table>
+    <table style="width: 120%;">
+        <tr>
+            <td style="width: 55%; padding:5px; border-bottom: 1px solid black;"> 
+                <b class="larger-text">CONSIGNEE</b>
+                <br>GA warehouse<br>4300 Hunter Road<br>Union City,GA,30349<br>Sam &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;5166287888
+            </td>
+            <td style="width:10%;">             
+            </td>
+            <td style="width: 55%; text-align:center; border-bottom: 1px solid black; padding-top:5px;">
+                <img style="width:100px;height:auto;" src="{% static 'img/'|add:carrier|add:'.jpg' %}">
+                <br>
+                <b class="medium-text">carrier</b>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;{{ carrier }}
+                <br>
+                <b class="medium-text">Pickup date</b>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;{{ pickup_time }}               
+            </td>
+        </tr>
+    </table>
+    <table style="width: 120%;">
+        <tr>
+            <td style="width: 55%; padding:5px;"> 
+                <b class="larger-text"> PICKUP REMARKS</b>
+                <br>Ready from <b>09:00 AM</b> to <b>05:30 PM</b>
+            </td>
+            <td style="width:10%;"></td>
+            <td style="width: 55%; text-align:center;">   
+                <b class="larger-text"> DELIVERY REMARKS</b>
+                <br>Ready from <b>09:00 AM</b> to <b>05:30 PM</b>            
+            </td>
+        </tr>
+    </table>
+    <div style="padding:20px;">
+        <b style="text-align:center;">Accessorials:</b>
+    <div>
+    <table style="width: 120%; border: 1px solid black; padding:5px;">
+        <tr>
+            <td style="width:25%;"> Total H/U: <b>{{ pallet }}</b></td>
+            <td style="width:25%;"> Total Pkg: <b>{{ pcs }}</b></td>
+            <td style="width:45%;"> Shipment Total Weight: <b>{{ weight }} lbs</b></td>
+            <td style="width:25%;"> Cube: <b>{{ cbm }} FT³</b></td>
+        </tr>
+    </table>
+</div>
+<br><br>
+<div style="font-size: 12px;">
+    <div style="padding-bottom:0;">
+        <b>* Put 2-4 labels on each pallet/HU</b><br>
+        * Weights are total for number of handling units stated. Do not multiply weight by number of handling units.<br>
+        <b> THIS SHIPMENT HAS A PREASSIGNED PRO#and BARCODE DO NOTAPPLY PROSTICKER</b>
+    </div>
+    <table style="width: 120%; border-top:1px solid black; padding:5px;">
+        <tr>
+            <td style="width:40%; border-right:1px solid black; padding:5px;">
+                <b class="medium-text"> Shipper signature/date</b><br><br>
+                This is to certify that the above-named<br>
+                materials are properly classified,<br>
+                described,packaged, marked and labeled,<br>
+                and are in proper condition for transportation<br>
+                according to the applicable regulations of<br>
+                the Department of Transportation.
+            </td>
+            <td style="width:20%;">
+                <b class="medium-text"> Trailer Loaded:</b><br>
+                <span class="checkbox-like">By Shipper</span>
+                <span class="checkbox-like">By Driver</span>
+            </td>
+            <td style="width:20%;">
+                <b class="medium-text"> Freight Counted:</b><br>
+                <span class="checkbox-like">By Shipper</span>
+                <span class="checkbox-like">By Driver/Pallets said to contain</span>
+                <span class="checkbox-like">By Driver/Pieces</span>
+            </td>
+            <td style="width:40%;border-left:1px solid black; padding:5px;">
+                <b class="medium-text"> Carrier signature/date</b><br><br>
+                Carrier acknowledges receipt of packages<br>
+                and required placards / Carriers certifies<br>
+                emergency response information was made<br>
+                available and / or carrier has the DOT<br>
+                emergency response guidebook or equivalent<br>
+                documentation in the vechicle.
+            </td>
+        </tr>
+    </table>
+    <table style="width: 120%; font-size:13px;border-bottom:1px solid black; text-align:left; padding: 5px;">
+        <tr>
+            <td style="width:40%;">Signature__________________ <br><br>Date     __________________ 
+            </td>
+            <td style="width:20%;">
+                <b>  H/U Count:</b><br>
+                <div class="rectangle"></div>  
+            </td>
+            <td style="width:20%;">
+                <b>  Piece Count:</b><br>
+                
+            </td>
+            <td style="width:40%;">
+                Signature__________________ <br><br>
+                Date     __________________ 
+            </td>
+        </tr>
+    </table>
+    <span style="font-size:12px; padding-top:0;">NOTE: Liability Limitation for loss or damage in this shipment may be applicable. See 49 U.S.C. 14706(c)(1)(A) and (B)</span>
+</div>
+
+{% block packing_list_section %}
+        
+{% endblock %}
+{% endblock %}

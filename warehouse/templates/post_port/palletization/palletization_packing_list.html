@@ -31,9 +31,19 @@
                     </thead>
                     <tbody id="palletization-container">                       
                         {% for pl, pl_form in order_packing_list %}
-                        <tr id="palletization-row">
+                        <tr id="palletization-row"> 
                             <td class="td">{{ pl.container_number__container_number }}</td>
+                            {% if status == 'non_palletized' %}
                             <td class="td">{{ pl.destination }}</td>
+                            {% elif status == 'palletized' %}
+                                {% if " " in pl.destination or "自提" in pl.destination %}
+                                <td id="destination - {{ pl.id }}" class="td">
+                                    <a href="#" onclick="showPallet({{ pl }})">{{ pl.destination }}</a>
+                                </td>
+                                {% else %}
+                                <td class="td">{{ pl.destination }}</td>
+                                {% endif%}
+                            {% endif %}
                             <td class="td">
                                 {% with first_value=pl.custom_delivery_method|split_and_get_first %}
                                     {{ first_value }}
@@ -112,8 +122,201 @@
             </div>
         </div>
     </form>
+    <form method="post" action="" style="display: inline-block; float:right;" id="exportPallet-add">
+        {% csrf_token %}
+        <div class="popup-editPallet" style="display: none; z-index:999; position: fixed; top: 50%; left: 50%; transform: translate(-50%, -50%); background-color: white; border: 1px solid gray; padding: 20px; max-height: 50%; overflow-y: scroll;">
+            <div style="display: flex; align-items: center; margin-top:10px; margin: 20px 0;">
+                <!-- 新添加的靠左按钮 -->    
+                <div style="flex-grow: 1;"></div>          
+                <div style="display: flex;">
+                    <input type="hidden" name="step" value="edit_pallet">
+                    <input type="hidden" name="warehouse" value="{{ warehouse }}">
+                    <input type="hidden" name="container_number" value="{{ container_number }}">
+                    <input type="hidden" name="pk" value="{{ pk }}">
+                    <button type="submit" class="btn btn-primary" onclick="edit_add_payload(this)" style="font-size: 13px; margin-right: 5px;">确认添加</button>
+                    <button id="editButton" type="button" class="btn btn-danger" onclick="showPallet(this)" style="font-size: 13px;">返回</button>
+                </div>   
+            </div>
+            
+            <table id="edit-pallet-table" class="table" style="font-size: 11px; max-height: 50%;">
+                <thead>
+                    <tr style="position: sticky; top: 0px;">
+                        <th class="th" style="text-align: center; border: 1px solid #141414">pallet_id</th>
+                        <th class="th" style="text-align: center; border: 1px solid #141414">板号</th>                      
+                        <th class="th" style="text-align: center; border: 1px solid #141414">长</th>
+                        <th class="th" style="text-align: center; border: 1px solid #141414">宽</th>
+                        <th class="th" style="text-align: center; border: 1px solid #141414">高</th>  
+                        <th class="th" style="text-align: center; border: 1px solid #141414">箱数</th>  
+                        <th class="th" style="text-align: center; border: 1px solid #141414">重量</th>  
+                    </tr>
+                </thead>
+                <tbody>                  
+                    <tr>
+                        <td><input type="number" name="id" value=''></td>
+                        <td><input type="text" name="number" value=''></td>
+                        <td><input type="number" name="length" value=''></td>
+                        <td><input type="number" name="width" value=''></td>
+                        <td><input type="number" name="height" value=''></td>
+                        <td><input type="number" name="pcs" value=''></td>
+                    </tr>
+                </tbody>
+            </table>
+        </div>
+    </form>
 
 <script>
+
+    function edit_add_payload(button){  //这里不知道为啥改个名就执行不了
+        var tbody = document.getElementById('edit-pallet-table').getElementsByTagName('tbody')[0];
+        var rows = tbody.getElementsByTagName('tr');
+        var idArray = [];
+        if (tbody.rows[0].cells.length === 7){
+            var numberArray = [];
+        }
+        
+        for (var i = 0; i < rows.length; i++) {
+            var cells = rows[i].getElementsByTagName('td');
+            var inputElement1 = cells[0].getElementsByTagName('input')[0];
+            idArray.push(inputElement1.value);
+            if (tbody.rows[0].cells.length === 7){
+                var inputElement2 = cells[1].getElementsByTagName('input')[0];
+                numberArray.push(inputElement2.value);
+            }           
+            for (var j = 0; j < cells.length; j++) {
+                var input = cells[j].getElementsByTagName('input')[0];
+                if (input.value === '') {
+                    input.focus();
+                    event.preventDefault();
+                    alert('不能为空！');
+                    return true;
+                }
+                if (input.name === 'weight') {
+                    console.log(input.value);
+                    var value = parseFloat(input.value);
+                    if (isNaN(value)) {
+                        input.focus();
+                        event.preventDefault();
+                        alert('请输入有效的数字');
+                        return true;
+                    }
+                }
+            }
+        };
+        var form = button.closest('form');
+        var hiddenInput = document.createElement('input');
+        hiddenInput.type = 'hidden';
+        hiddenInput.name = 'id';
+        hiddenInput.value = idArray;
+        form.appendChild(hiddenInput); 
+        if (tbody.rows[0].cells.length === 6){
+            var hiddenInput2 = document.createElement('input');
+            hiddenInput2.type = 'hidden';
+            hiddenInput2.name = 'number';
+            hiddenInput2.value = numberArray;
+            form.appendChild(hiddenInput2); 
+        }
+        
+    }
+
+    function showPallet(button) {   //用户要编辑BOL中的表时，弹出表格框
+        var popup = document.querySelector('.popup-editPallet');
+        if (popup.style.display === 'none') {
+            popup.style.display = 'block';
+        } else {
+            popup.style.display = 'none';
+        }
+        
+        const plt_ids = button.ids;
+        const lengths = button.length;
+        const width = button.width;
+        var idsArray = plt_ids.split(',');
+        var lengthArray = lengths.split(',');
+        var widthArray = width.split(',');
+        var heightArray = button.height.split(',');
+        
+        var pcsArray = button.n_pcs.split(',');
+        var weightArray = button.weight.split(',');
+        var tableBody = document.getElementById('edit-pallet-table').getElementsByTagName('tbody')[0];
+        tableBody.innerHTML = '';
+        if (button.destination.includes('自提')) {
+            var theadTr = document.getElementById('edit-pallet-table').getElementsByTagName('thead')[0].getElementsByTagName('tr')[0];
+            var secondTh = theadTr.getElementsByTagName('th')[1];
+            secondTh.style.display = 'none';
+            for (var i = 0; i < idsArray.length; i++) {
+                var row = document.createElement('tr');
+                for (var j = 0; j < 6; j++) {
+                    var cell = document.createElement('td');
+                    var input = document.createElement('input');
+                    input.type = 'number';                
+                    input.name = ['id','length','width','height','pcs','weight'][j];
+                    if ( j === 0 ) {
+                        input.value = idsArray[i];
+                        input.disabled = true;
+                    }else if (j === 1) {
+                        input.value = lengthArray[i];
+                    }else if (j === 2){
+                        input.value = widthArray[i];
+                    }else if (j === 3){
+                        input.value = heightArray[i];
+                    }else if (j === 4){
+                        input.value = pcsArray[i];      
+                    }else if (j === 5){
+                        input.type = 'text'; 
+                        input.value = parseFloat(weightArray[i]).toFixed(2);     
+                    }           
+                    cell.appendChild(input);
+                    row.appendChild(cell);
+                }
+                tableBody.appendChild(row);
+            };
+            
+        }else{
+            var numberArray = button.number.split(',');
+            if (numberArray.length === 1){
+                numberArray = [];
+                for (var i = 0; i < idsArray.length; i++) {
+                    numberArray.push(i + 1);
+                }   
+            }
+            var theadTr = document.getElementById('edit-pallet-table').getElementsByTagName('thead')[0].getElementsByTagName('tr')[0];
+            var secondTh = theadTr.getElementsByTagName('th')[1];
+            secondTh.style.display = '';
+            for (var i = 0; i < idsArray.length; i++) {
+                var row = document.createElement('tr');
+                for (var j = 0; j < 7; j++) {
+                    var cell = document.createElement('td');
+                    var input = document.createElement('input');
+                    input.type = 'number';
+                    input.name = ['id','number','length','width','height','pcs','weight'][j];
+                    if ( j === 0 ) {
+                        input.value = idsArray[i];
+                        input.disabled = true;
+                    }else if (j === 1) {
+                        input.value = numberArray[i];
+                        input.disabled = true;
+                    }else if (j === 2) {
+                        input.value = lengthArray[i];
+                    }else if (j === 3){
+                        input.value = widthArray[i];
+                    }else if (j === 4){
+                        input.value = heightArray[i];
+                    }else if (j === 5){
+                        input.value = pcsArray[i];                      
+                    }else if (j === 6){
+                        input.type = 'text'; 
+                        input.value = parseFloat(weightArray[i]).toFixed(2);   
+                        console.log(parseFloat(weightArray[i]).toFixed(2));                    
+                    }          
+                    cell.appendChild(input);
+                    row.appendChild(cell);
+                }
+                tableBody.appendChild(row);
+            };
+        }
+        
+        
+        
+    };
     function addRowBelow(){
         var table = document.getElementById('palletization-container');
         var newRow = document.querySelector('#palletization-row-empty').cloneNode(true);

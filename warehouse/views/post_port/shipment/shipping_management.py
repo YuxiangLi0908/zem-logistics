@@ -1242,6 +1242,10 @@ class ShippingManagement(View):
                         output_field=CharField()
                     ),
                     str_id=Cast("id", CharField()),
+                    str_length=Cast("length", CharField()),
+                    str_width=Cast("width", CharField()),
+                    str_height=Cast("height", CharField()),
+                    str_pcs=Cast("pcs",CharField())
                 ).values(
                     'container_number__container_number',
                     'container_number__order__customer_name__zem_name',
@@ -1269,7 +1273,12 @@ class ShippingManagement(View):
                     total_weight_lbs=Sum("weight_lbs", output_field=FloatField()),
                     total_n_pallet_act=Count("pallet_id", distinct=True),
                     label=Value("ACT"),
+                    length=StringAgg("str_length", delimiter=",", ordering="str_length"),
+                    width=StringAgg("str_width", delimiter=",", ordering="str_width"),
+                    height=StringAgg("str_height", delimiter=",", ordering="str_height"),
+                    n_pcs=StringAgg("str_pcs", delimiter=",", ordering="str_pcs"),
                 ).order_by('container_number__order__offload_id__offload_at')
+                .order_by('sequence_number')
             )
             data += pal_list
         if pl_criteria:

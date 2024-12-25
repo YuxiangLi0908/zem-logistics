@@ -1,0 +1,101 @@
+{% load static %}
+   
+{% block content %}   
+
+<style>
+    @page {
+        size: portrait; 
+        margin: 15mm;
+    }
+    body {
+        margin: 0;
+        font-family: Times New Roman;
+        font-size:18px;
+    }
+    @media print {
+        .page-break {
+            page-break-before: always;
+           
+        }
+        .page-break.first-page {
+            page-break-before: auto;
+        }
+       .text-container {
+            padding-top: 10px;
+        }
+        .larger-text {
+            font-size: 24px;
+        }      
+        .bottom-left-text {
+            position: absolute;
+            bottom: 20px; 
+            left: 20px; 
+        }  
+        .table {
+            border-collapse: collapse;  
+        }
+        .right-align-td {
+            text-align: center;
+        }
+        
+    }   
+</style>   
+<body>
+{% for d in data %}
+<div class="page-break {% if forloop.first %}first-page{% endif %}">
+    <div class="text-container">
+        <table>
+            <tr>
+                <td> 
+                    <b class="larger-text">SHIPPER</b>
+                    <br>ZEM RINCON<br>1001 Trade Center Pkwy<br>Rincon,GA,31326<br>ken &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;929-329-4323<br>office@zemlogistics.com
+                </td>
+                <td class="right-align-td"><b style="font-size:40px;">{{ d.fraction }}</b></td>
+                <td>
+                    <img style="width:2000px;height:1600px;" src="{% static 'img/zem_logo_small.jpg' %}">
+                </td>
+            </tr>
+        </table>
+        <hr>
+        <table>
+            <tr>
+                <td> 
+                    <b class="larger-text">CONSIGNEE</b>
+                    <br>GA warehouse<br>4300 Hunter Road<br>Union City,GA,30349<br>Sam &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;5166287888
+                </td>
+            </tr>
+        </table>
+        <hr>
+        <table>
+            <tr>
+                <td> 
+                    <b class="larger-text">PRO#:</b>{{d.arm_pro}}
+                </td>
+            </tr>
+            <tr>
+                <td style="text-align:center;">
+                    <img style="width:450px; height: 100px; margin-bottom: 0; padding-bottom:0;" src="data:image/png;base64,{{ d.barcode }}">
+                </td>
+            </tr>
+        </table>
+        <hr>
+        <table style="width:120%;">
+            <tr>
+                <td style="width:60%;"> 
+                    <b class="larger-text">Carrier PRO#: </b>{{d.arm_pro}}<br><br>
+                    <b class="larger-text">Bill Of Lading#:</b>{{d.arm_pro}}
+                </td>
+                <td style="width:60%;">
+                    <img style="width:200px;height:auto;" src="{% static 'img/'|add:d.carrier|add:'.jpg' %}">
+                </td>
+            </tr>
+        </table>
+    </div>
+    <br><br><br>
+    <table>
+        <td><div style="text-align:center;">* Put 2-4 labels on each pallet/HU</div> </td>
+    </table>
+</div>
+{% endfor %}
+</body>
+{% endblock %}
