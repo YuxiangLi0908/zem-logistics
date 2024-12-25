@@ -2063,3 +2063,8 @@ LBE1:
   location: 165 GLENN FOX RD
   state: PA
   zipcode: '15672'
+WBW2:
+  city: OLYPHANT
+  location: 1300 Corporate Way
+  state: PA
+  zipcode: '18447' 
