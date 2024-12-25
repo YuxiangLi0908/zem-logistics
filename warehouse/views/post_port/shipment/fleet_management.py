@@ -66,7 +66,7 @@ class FleetManagement(View):
     warehouse_options = {"": "", "NJ-07001": "NJ-07001", "NJ-08817": "NJ-08817", "SAV-31326": "SAV-31326","LA-91761":"LA-91761"}
     shipment_type_options = {"":"", "FTL/LTL":"FTL/LTL", "外配/快递":"外配/快递"}
     abnormal_fleet_options = {"":"", "司机未按时提货":"司机未按时提货", "送仓被拒收":"送仓被拒收", "未送达":"未送达", "其它":"其它"}
-    carrier_options = {"":"", "Arm-AMF":"Arm-AMF", "Zem-AMF":"Zem-AMF", "ASH":"ASH", "Arm":"Arm", "ZEM":"ZEM"}
+    carrier_options = {"":"", "Arm-AMF":"Arm-AMF", "Zem-AMF":"Zem-AMF", "ASH":"ASH", "Arm":"Arm", "ZEM":"ZEM", "LiFeng":"LiFeng"}
 
     async def get(self, request: HttpRequest) -> HttpResponse:
         if not await self._user_authenticate(request):
