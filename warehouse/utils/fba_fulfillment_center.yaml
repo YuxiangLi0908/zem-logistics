@@ -2068,3 +2068,8 @@ WBW2:
   location: 1300 Corporate Way
   state: PA
   zipcode: '18447' 
+IUSP:
+  city: Hesperia
+  location: 8140 Caliente Rd
+  state: CA
+  zipcode: '92344'
