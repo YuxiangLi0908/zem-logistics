@@ -172,26 +172,27 @@
     </table>
     <span style="font-size:12px; padding-top:0;">NOTE: Liability Limitation for loss or damage in this shipment may be applicable. See 49 U.S.C. 14706(c)(1)(A) and (B)</span>
 </div>
-
-<table style="border:1px solid black;">
+<br><br>
+<span style="text-align:center; font-size:24px;"><b>Pickup List</b></span>
+<table style="border:1px solid black; text-align:left; padding: 5px; border-collapse: collapse;">
     <thead>
-        <td>container number</td>
-        <td>destination</td>
-        <td>shipping_mark</td>
-        <td>pallets</td>
-        <td>pcs</td>
-        <td>carrier</td>
-        <td>pickup time</td>
+        <th>container number</th>
+        <th>destination</th>
+        <th>shipping_mark</th>
+        <th>pallets</th>
+        <th>pcs</th>
+        <th>carrier</th>
+        <th>pickup time</th>
     </thead>
     {% for p in arm_pickup %}
-    <tr>
+    <tr style="width:100%; text-align:center;">
         <td>{{ p.container_number__container_number }}</td>
         <td>{{ p.destination }}</td>
         <td>{{ p.shipping_mark }}</td>
         <td>{{ p.total_pallet }}</td>
         <td>{{ p.total_pcs }}</td>
         <td>{{ p.shipment_batch_number__fleet_number__carrier }}</td>
-        <td>{{ p.shipment_batch_number__shipment_appointment|date:'Y-m-d\\TH:i' }}</td>
+        <td>{{ p.shipment_batch_number__shipment_appointment|date:'m-d\ H:i' }}</td>
     </tr>
     {% endfor %}
 </table>
