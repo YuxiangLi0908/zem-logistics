@@ -134,6 +134,7 @@
                         <th class="th">MBL</th>
                         <th class="th">码头</th>
                         <th class="th">ETA</th>
+                        <th class="th">ETD</th>
                     </tr>
                 </thead>
                 <tbody>
@@ -167,6 +168,9 @@
                         </td>
                         <td class="td">
                             <input type="date" name="eta" {%if vessel %}value="{{ vessel.vessel_eta|date:'Y-m-d' }}"{% endif %} required>
+                        </td>
+                        <td class="td">
+                            <input type="date" name="etd" {%if vessel %}value="{{ vessel.vessel_etd|date:'Y-m-d' }}"{% endif %} required>
                         </td>
                     </tr>
                 </tbody>
