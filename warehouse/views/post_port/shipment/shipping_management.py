@@ -813,7 +813,7 @@ class ShippingManagement(View):
         shipment_type = request.POST.get("shipment_type")     
         shipment = await sync_to_async(Shipment.objects.select_related("fleet_number").get)(shipment_batch_number=batch_number)
         shipment_appointment = request.POST.get("shipment_appointment")
-        print("appointment时间",shipment_appointment)
+        appointment_datetime = request.POST.get("appointment_datetime")
         if not shipment_appointment:
             shipment_appointment = None
         if shipment_type == shipment.shipment_type:

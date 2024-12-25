@@ -1007,7 +1007,6 @@ class FleetManagement(View):
             destination = arm["destination"]
             shipping_mark = arm["shipping_mark"]
         pickup_time_str = str(pickup_time)
-        print(pickup_time_str)
         date_str = datetime.strptime(pickup_time_str[:19], '%Y-%m-%d %H:%M:%S')
         pickup_time = date_str.strftime('%Y-%m-%d')
         #生成条形码
@@ -1027,7 +1026,6 @@ class FleetManagement(View):
   
         barcode_base64 = base64.b64encode(new_buffer.getvalue()).decode('utf-8')
         #增加一个拣货单的表格
-        excel_bytes = await self._ltl_pickup_excel(arm_pickup)
         context = {
             "arm_pro": arm_pro, 
             "carrier":carrier,
@@ -1037,7 +1035,7 @@ class FleetManagement(View):
             "weight":weight,
             "cbm":cbm,
             "barcode": barcode_base64,
-            "pick_excel": excel_bytes
+            "arm_pickup": arm_pickup
             }
         template = get_template(self.template_ltl_bol)
         html = template.render(context)
@@ -1047,33 +1045,6 @@ class FleetManagement(View):
         if pisa_status.err:
             raise ValueError('Error during PDF generation: %s' % pisa_status.err, content_type='text/plain')
         return response
-    
-    async def _ltl_pickup_excel(arm_pickup) -> Any:
-        new_list = []
-        for p in arm_pickup:
-            new_list.append(p["container_number__container_number"],p["destination"],p["shipping_mark"],p["total_pallet"],p["total_pcs"],p["shipment_batch_number__fleet_number__carrier"],p["shipment_batch_number__shipment_appointment"])
-            arm_pickup = [['柜号','邮编','唛头','板数','箱数','carrier','提仓时间']] + new_list
-        df =pd.DataFrame(arm_pickup[1:],columns = arm_pickup[0])
-        # 需要加拣货单
-        fig, ax = plt.subplots(figsize=(10.4, 14.9))
-        ax.axis('tight')
-        ax.axis('off')
-        fig.subplots_adjust(top=1.5)
-        the_table = ax.table(cellText=df.values, colLabels=df.columns, loc='upper center', cellLoc='center')
-        #规定拣货单的表格大小
-        for pos, cell in the_table.get_celld().items():
-            cell.set_fontsize(20)
-            if pos[0]!= 0:  
-                cell.set_height(0.03)
-            else:
-                cell.set_height(0.02)
-            if pos[1] == 0 or pos[1] == 1 or pos[1] == 2:  
-                cell.set_width(0.2)
-            else:
-                cell.set_width(0.1)
-        buf = io.BytesIO()
-        fig.savefig(buf, format='pdf', bbox_inches='tight')
-        return buf.getvalue()
     
     #上传LTL和客户自提的BOL文件和LEBAL文件
     async def handle_label_upload_post(self, request: HttpRequest) -> tuple[str, dict[str, Any]]:
