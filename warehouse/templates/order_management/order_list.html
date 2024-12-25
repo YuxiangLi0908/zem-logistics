@@ -46,6 +46,7 @@
                     <th class="th">取消预报</th>
                     <th class="th" style="min-width: 140px;">入仓仓库</th>
                     <th class="th" style="min-width: 140px;">ETA</th>
+                    <th class="th" style="min-width: 140px;">ETD</th>
                     <th class="th">订单类型</th>
                     <th class="th">柜型</th>
                     <th class="th" style="min-width: 140px;">船/航空公司</th>
@@ -61,6 +62,7 @@
                     <th class="th"><input type="text" id="customerSearchInput" placeholder="搜索客户..." oninput="filterTable()"></th>
                     <th class="th"><input type="text" id="containerSearchInput" placeholder="搜索柜号..." oninput="filterTable()"></th>
                     <th class="th"><input type="text" id="forcastSearchInput" placeholder="取消状态" oninput="filterTable()" style="width:60px;"></th>
+                    <th class="th"></th>
                     <th class="th"></th>
                     <th class="th"></th>
                     <th class="th"></th>
@@ -100,7 +102,14 @@
                         {% else  %}
                             {{o.eta}}
                         {% endif %}
-                    </td>                 
+                    </td>   
+                    <td class="td">
+                        {% if o.vessel_id %}
+                            {{o.vessel_id.vessel_etd}}
+                        {% else  %}
+                            {{o.etd}}
+                        {% endif %}
+                    </td>               
                     <td class="td">{{ o.order_type }}</td>
                     <td class="td">{{ o.container_number.container_type }}</td>
                     <td class="td">{{ o.vessel_id.shipping_line }}</td>
