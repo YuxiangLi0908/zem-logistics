@@ -813,6 +813,7 @@ class ShippingManagement(View):
         shipment_type = request.POST.get("shipment_type")     
         shipment = await sync_to_async(Shipment.objects.select_related("fleet_number").get)(shipment_batch_number=batch_number)
         shipment_appointment = request.POST.get("shipment_appointment")
+        print("appointment时间",shipment_appointment)
         if not shipment_appointment:
             shipment_appointment = None
         if shipment_type == shipment.shipment_type:
@@ -823,7 +824,8 @@ class ShippingManagement(View):
                 shipment.carrier = request.POST.get("carrier")
                 shipment.third_party_address = request.POST.get("third_party_address")
                 shipment.load_type = request.POST.get("load_type")
-                shipment.shipment_appointment = shipment_appointment
+                shipment.shipment_schduled_at = shipment_appointment
+                shipment.shipment_appointment = request.POST.get("appointment_datetime")
                 shipment.note = request.POST.get("note")
                 shipment.destination = request.POST.get("destination").replace("WALMART","Walmart")
                 shipment.address = request.POST.get("address")
@@ -831,7 +833,7 @@ class ShippingManagement(View):
                 shipment.appointment_id = request.POST.get("appointment_id", "")
                 shipment.shipment_account = request.POST.get("shipment_account", "")
                 shipment.origin = request.POST.get("origin")
-                shipment.shipment_appointment = shipment_appointment
+                shipment.shipment_appointment = request.POST.get("appointment_datetime")
                 shipment.note = request.POST.get("note")
                 shipment.destination = request.POST.get("destination").replace("WALMART","Walmart")
                 shipment.address = request.POST.get("address")
@@ -868,6 +870,7 @@ class ShippingManagement(View):
                 shipment.carrier = request.POST.get("carrier")
                 shipment.third_party_address = request.POST.get("third_party_address")
                 shipment.load_type = request.POST.get("load_type")
+                shipment.shipment_schduled_at = shipment_appointment
                 shipment.shipment_appointment = shipment_appointment
                 shipment.note = request.POST.get("note")
                 shipment.destination = request.POST.get("destination").replace("WALMART","Walmart")
@@ -881,7 +884,7 @@ class ShippingManagement(View):
                 shipment.shipment_type = shipment_type
                 shipment.shipment_account = request.POST.get("shipment_account")
                 shipment.origin = request.POST.get("origin")
-                shipment.shipment_appointment = shipment_appointment
+                shipment.shipment_appointment = request.POST.get("appointment_datetime")
                 shipment.note = request.POST.get("note")
                 shipment.destination = request.POST.get("destination").replace("WALMART","Walmart")
                 shipment.address = request.POST.get("address")
