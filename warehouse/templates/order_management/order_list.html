@@ -1,15 +1,17 @@
 {% extends 'base.html' %}
 
 {% block content %}
-<div style="width: 100%; display: flex; justify-content: space-between; background-color:white; position: fixed;">
-    <div><b>订单列表</b></div>
-    <br>
+<div><b>订单列表</b></div>
+<div style="width: 100%; display: flex; justify-content: space-between;">
     <form method="post" action="" style="width: 80%;">
         {% csrf_token %}
         <div>
             <b style="margin-right: 5px;">ETA:</b>
-            <input type="date" name="start_date" value="{{ start_date }}">
-            <input type="date" name="end_date" value="{{ end_date }}" style="margin-right: 5px;">
+            <input type="date" name="start_date_eta" value="{{ start_date_eta }}">
+            <input type="date" name="end_date_eta" value="{{ end_date_eta }}" style="margin-right: 5px;">
+            <b style="margin-right: 5px;">ETD:</b>
+            <input type="date" name="start_date_etd" value="{{ start_date_etd }}">
+            <input type="date" name="end_date_etd" value="{{ end_date_etd }}" style="margin-right: 5px;">
             <input type="hidden" name="step" value="order_management_search">
             <button id="submit-btn" type="submit" class="btn btn-primary" style="width: 100px; height: 35px; margin-left: 20px;">查询</button>
         </div>
@@ -21,7 +23,7 @@
             <button type="submit" onclick="exportForecast(this)" class="btn btn-primary" style="width: 100px; height: 35px;">导出预报</button>           
         </div>
     </form>
-    <form method="post" enctype="multipart/form-data" style="display: inline-block; margin-left: 10px;">
+    <form method="post" enctype="multipart/form-data" style="display: inline-block; margin-left: 250px;">
         <div id="do-export" style="width: 100%;" class="text-right">          
             {% csrf_token %}
             <input type="hidden" name="step" value="export_do">
@@ -33,8 +35,10 @@
         {% csrf_token %}
         <div class="text-right">
             <input type="hidden" name="step" value="delete_order">
-            <input type="hidden" name="start_date" value="{{ start_date }}">
-            <input type="hidden" name="end_date" value="{{ end_date }}">
+            <input type="hidden" name="start_date_eta" value="{{ start_date_eta }}">
+            <input type="hidden" name="end_date_eta" value="{{ end_date_eta }}">
+            <input type="hidden" name="start_date_etd" value="{{ start_date_etd }}">
+            <input type="hidden" name="end_date_etd" value="{{ end_date_etd }}">
             <button type="submit" onclick="confirmSubmit(this)" class="btn btn-danger" style="width: 100px; height: 35px;">删除订单</button>
         </div>
     </form>
@@ -42,96 +46,97 @@
 </div>
 <hr class="Dashed" style="margin-top: 10px; margin-bottom: 10px;">
 
-<form method="post" action="" style="width: 100%;" id="myForm">
-    {% csrf_token %}
-    <div style="overflow-x: auto; width: 100%; overflow-y: auto; max-height: 100%;">
-        <table id="order-table" class="table" style="font-size: 12px; width: 100%;">
-            <thead>
-                <tr style="position: sticky; top: 0;">
-                    <th class="th" style="max-width: 2%; min-width: 10px; text-align: center;"></th>                   
-                    <th class="th">客户</th>
-                    <th class="th">柜号</th>
-                    <th class="th">取消预报</th>
-                    <th class="th" style="min-width: 140px;">入仓仓库</th>
-                    <th class="th" style="min-width: 140px;">ETA</th>
-                    <th class="th" style="min-width: 140px;">ETD</th>
-                    <th class="th">订单类型</th>
-                    <th class="th">柜型</th>
-                    <th class="th" style="min-width: 140px;">船/航空公司</th>
-                    <th class="th">MBL</th>
-                    <th class="th" style="min-width: 140px;">始发港</th>
-                    <th class="th" style="min-width: 140px;">到达港</th>
-                    <th class="th" style="min-width: 240px;">创建时间</th>
-                </tr>
-                <tr style="position: sticky; top: 28px;">
-                    <th class="th" style="max-width: 2%; min-width: 10px; text-align: center;">
-                        <input type="checkbox" id="selectAll">
-                    </th>
-                    <th class="th"><input type="text" id="customerSearchInput" placeholder="搜索客户..." oninput="filterTable()"></th>
-                    <th class="th"><input type="text" id="containerSearchInput" placeholder="搜索柜号..." oninput="filterTable()"></th>
-                    <th class="th"><input type="text" id="forcastSearchInput" placeholder="取消状态" oninput="filterTable()" style="width:60px;"></th>
-                    <th class="th"></th>
-                    <th class="th"></th>
-                    <th class="th"></th>
-                    <th class="th"></th>
-                    <th class="th"></th>
-                    <th class="th"></th>
-                    <th class="th"></th>
-                    <th class="th"></th>
-                    <th class="th"></th>
-                    <th class="th"></th>
-                </tr>
-            </thead>
-            <tbody>
-                {% for o in orders %}
-                <tr>
-                    <td class="td" style="max-width: 2%; min-width: 10px; text-align: center;">
-                        <input type='checkbox' name='is_order_selected_click' onclick="toggleRowBackground(this)">
-                        <input type="hidden" name="is_order_selected", value='off'>
-                        <input type="hidden" name="order_id", value='{{ o.order_id }}'>
-                    </td>
-                    <td class="td">{{ o.customer_name }}</td>
-                    <td class="td">
-                        <a href="/create_order/?step=order_management_container&container_number={{ o.container_number }}" target="_blank">
-                            {{ o.container_number }}
-                        </a>
-                    </td>
-                    <td class="td">
-                        {% if o.cancel_notification %}
-                            {{"已取消"}}
-                        {% else  %}
-                            {{"未取消"}}
-                        {% endif %}
-                    </td>  
-                    <td class="td">{{ o.warehouse }}</td>
-                    <td class="td">
-                        {% if o.vessel_id %}
-                            {{o.vessel_id.vessel_eta}}
-                        {% else  %}
-                            {{o.eta}}
-                        {% endif %}
-                    </td>   
-                    <td class="td">
-                        {% if o.vessel_id %}
-                            {{o.vessel_id.vessel_etd}}
-                        {% else  %}
-                            {{o.etd}}
-                        {% endif %}
-                    </td>               
-                    <td class="td">{{ o.order_type }}</td>
-                    <td class="td">{{ o.container_number.container_type }}</td>
-                    <td class="td">{{ o.vessel_id.shipping_line }}</td>
-                    <td class="td">{{ o.vessel_id.master_bill_of_lading }}</td>
-                    <td class="td">{{ o.vessel_id.origin_port }}</td>
-                    <td class="td">{{ o.vessel_id.destination_port }}</td>
-                    <td class="td">{{ o.created_at }}</td>
-                </tr>
-                {% endfor %}
-            </tbody>
-        </table>
-    </div>
-    <hr class="Dashed" style="margin-top: 10px; margin-bottom: 10px; width: 100%;">
-</form>
+<div style="max-height: 100%; width: 100%; border: 2px solid rgb(180, 180, 180); border-radius: 12px; padding: 1%; margin-top: 1%; margin-left: .5%;">
+    <form method="post" action="" style="width: 100%;" id="myForm">
+        {% csrf_token %}
+        <div style="overflow-x: auto; max-width: 100%; overflow-y: auto; max-height: 650px;">
+            <table id="order-table" class="table" style="font-size: 12px; width: 100%;">
+                <thead>
+                    <tr style="position: sticky; top: 0;">
+                        <th class="th" style="max-width: 2%; min-width: 10px; text-align: center;"></th>                   
+                        <th class="th">客户</th>
+                        <th class="th">柜号</th>
+                        <th class="th">取消预报</th>
+                        <th class="th" style="min-width: 110px;">入仓仓库</th>
+                        <th class="th" style="min-width: 110px;">ETA</th>
+                        <th class="th" style="min-width: 110px;">ETD</th>
+                        <th class="th">订单类型</th>
+                        <th class="th">柜型</th>
+                        <th class="th" style="min-width: 140px;">船/航空公司</th>
+                        <th class="th">MBL</th>
+                        <th class="th" style="min-width: 140px;">始发港</th>
+                        <th class="th" style="min-width: 140px;">到达港</th>
+                        <th class="th" style="min-width: 150px;">创建时间</th>
+                    </tr>
+                    <tr style="position: sticky; top: 28px;">
+                        <th class="th" style="max-width: 2%; min-width: 10px; text-align: center;">
+                            <input type="checkbox" id="selectAll">
+                        </th>
+                        <th class="th"><input type="text" style="width:110px;" id="customerSearchInput" placeholder="搜索客户..." oninput="filterTable()"></th>
+                        <th class="th"><input type="text" style="width:110px;" id="containerSearchInput" placeholder="搜索柜号..." oninput="filterTable()"></th>
+                        <th class="th"><input type="text" id="forcastSearchInput" placeholder="取消状态" oninput="filterTable()" style="width:60px;"></th>
+                        <th class="th"></th>
+                        <th class="th"></th>
+                        <th class="th"></th>
+                        <th class="th"></th>
+                        <th class="th"></th>
+                        <th class="th"></th>
+                        <th class="th"></th>
+                        <th class="th"></th>
+                        <th class="th"></th>
+                        <th class="th"></th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for o in orders %}
+                    <tr>
+                        <td class="td" style="max-width: 2%; min-width: 10px; text-align: center;">
+                            <input type='checkbox' name='is_order_selected_click' onclick="toggleRowBackground(this)">
+                            <input type="hidden" name="is_order_selected", value='off'>
+                            <input type="hidden" name="order_id", value='{{ o.order_id }}'>
+                        </td>
+                        <td class="td">{{ o.customer_name }}</td>
+                        <td class="td">
+                            <a href="/create_order/?step=order_management_container&container_number={{ o.container_number }}" target="_blank">
+                                {{ o.container_number }}
+                            </a>
+                        </td>
+                        <td class="td">
+                            {% if o.cancel_notification %}
+                                {{"已取消"}}
+                            {% else  %}
+                                {{"未取消"}}
+                            {% endif %}
+                        </td>  
+                        <td class="td">{{ o.warehouse }}</td>
+                        <td class="td">
+                            {% if o.vessel_id %}
+                                {{o.vessel_id.vessel_eta}}
+                            {% else  %}
+                                {{o.eta}}
+                            {% endif %}
+                        </td>   
+                        <td class="td">
+                            {% if o.vessel_id %}
+                                {{o.vessel_id.vessel_etd}}
+                            {% else  %}
+                                {{o.etd}}
+                            {% endif %}
+                        </td>               
+                        <td class="td">{{ o.order_type }}</td>
+                        <td class="td">{{ o.container_number.container_type }}</td>
+                        <td class="td">{{ o.vessel_id.shipping_line }}</td>
+                        <td class="td">{{ o.vessel_id.master_bill_of_lading }}</td>
+                        <td class="td">{{ o.vessel_id.origin_port }}</td>
+                        <td class="td">{{ o.vessel_id.destination_port }}</td>
+                        <td class="td">{{ o.created_at }}</td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </form>
+</div>
 
 <script>
     document.addEventListener('DOMContentLoaded', function () {
