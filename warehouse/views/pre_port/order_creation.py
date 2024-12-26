@@ -89,9 +89,11 @@ class OrderCreation(View):
         elif step == "download_template":
             return await self.handle_download_template_post()
         elif step == "order_management_search":
-            start_date = request.POST.get("start_date")
-            end_date = request.POST.get("end_date")
-            template, context = await self.handle_order_management_list_get(start_date, end_date)
+            start_date_eta = request.POST.get("start_date_eta")
+            end_date_eta = request.POST.get("end_date_eta")
+            start_date_etd = request.POST.get("start_date_etd")
+            end_date_etd = request.POST.get("end_date_etd")
+            template, context = await self.handle_order_management_list_get(start_date_eta, end_date_eta, start_date_etd, end_date_etd)
             return await sync_to_async(render)(request, template, context)
         elif step == "export_do":
             return await sync_to_async(export_do)(request)
@@ -112,7 +114,7 @@ class OrderCreation(View):
                 Order.objects.select_related(
                     "vessel_id", "container_number", "customer_name", "retrieval_id "
                 ).values(
-                    "container_number__container_number", "customer_name__zem_code", "vessel_id__vessel_eta", "cancel_time", "created_at",
+                    "container_number__container_number", "customer_name__zem_code", "vessel_id__vessel_eta","vessel_id__vessel_etd", "cancel_time", "created_at",
                     "retrieval_id__retrieval_carrier", "vessel_id__destination_port","vessel_id__master_bill_of_lading"
                 ).filter(
                     models.Q(container_number__container_number__in=selected_orders)
@@ -134,13 +136,14 @@ class OrderCreation(View):
                 "vessel_id__master_bill_of_lading":"MBL",
                 "vessel_id__destination_port":"destination_port",
                 "vessel_id__vessel_eta": "ETA",
+                "vessel_id__vessel_etd": "ETD",
                 "retrieval_id__retrieval_carrier": "carrier",
             },
             axis=1
         )
         
         response = HttpResponse(content_type="text/csv")
-        response['Content-Disposition'] = f"attachment; filename=cancel_notification.csv"
+        response['Content-Disposition'] = f"attachment; filename=forecast.csv"
         df.to_csv(path_or_buf=response, index=False, encoding='utf-8-sig')
         return response
             
@@ -198,23 +201,39 @@ class OrderCreation(View):
         context["packing_list_upload_form"] = UploadFileForm()
         return self.template_order_create_supplement, context
     
-    async def handle_order_management_list_get(self, start_date: str = None, end_date: str = None) -> tuple[Any, Any]:
-        start_date = (datetime.now().date() + timedelta(days=-30)).strftime('%Y-%m-%d') if not start_date else start_date
-        end_date = (datetime.now().date() + timedelta(days=30)).strftime('%Y-%m-%d') if not end_date else end_date
+    async def handle_order_management_list_get(self, start_date_eta: str = None, end_date_eta: str = None, start_date_etd: str = None, end_date_etd: str = None) -> tuple[Any, Any]:
+        start_date_eta = (datetime.now().date() + timedelta(days=-30)).strftime('%Y-%m-%d') if not start_date_eta and not start_date_etd else start_date_eta
+        end_date_eta = (datetime.now().date() + timedelta(days=30)).strftime('%Y-%m-%d') if not end_date_eta and not end_date_etd else end_date_eta
+        criteria = None
+        if start_date_eta and end_date_eta:
+            criteria = models.Q(
+                vessel_id__vessel_eta__gte=start_date_eta,
+                vessel_id__vessel_eta__lte=end_date_eta
+            )
+        if start_date_etd and end_date_etd:
+            if criteria == None:
+                criteria = models.Q(
+                    vessel_id__vessel_etd__gte=start_date_etd,
+                    vessel_id__vessel_etd__lte=end_date_etd
+                )
+            else:
+                criteria &= models.Q(
+                    vessel_id__vessel_etd__gte=start_date_etd,
+                    vessel_id__vessel_etd__lte=end_date_etd
+                )
         orders = await sync_to_async(list)(
             Order.objects.select_related(
                 "vessel_id", "container_number", "customer_name", "retrieval_id", "offload_id", "warehouse"
             ).filter(
-                models.Q(   #订单列表中显示所有已建单的数据
-                    created_at__gte=start_date,
-                    created_at__lte=end_date,
-                ) 
+                criteria
             )
         )
         context = {
             "orders": orders,
-            "start_date": start_date,
-            "end_date": end_date,
+            "start_date_eta": start_date_eta,
+            "end_date_eta": end_date_eta,
+            "start_date_etd": start_date_etd,
+            "end_date_etd":end_date_etd
         }
         return self.template_order_list, context
     
@@ -695,9 +714,11 @@ class OrderCreation(View):
             await sync_to_async(Order.objects.filter(
                 container_number__container_number=order_number
             ).delete)()
-        start_date = request.POST.get("start_date")
-        end_date = request.POST.get("end_date")
-        return await self.handle_order_management_list_get(start_date,end_date)
+        start_date_eta = request.POST.get("start_date_eta")
+        end_date_eta = request.POST.get("end_date_eta")
+        start_date_etd = request.POST.get("start_date_etd")
+        end_date_etd = request.POST.get("end_date_etd")
+        return await self.handle_order_management_list_get(start_date_eta,end_date_eta,start_date_etd,end_date_etd)
         
 
     async def _user_authenticate(self, request: HttpRequest):
