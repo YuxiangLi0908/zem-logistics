@@ -114,7 +114,7 @@ class OrderCreation(View):
                 Order.objects.select_related(
                     "vessel_id", "container_number", "customer_name", "retrieval_id "
                 ).values(
-                    "container_number__container_number", "customer_name__zem_code", "vessel_id__vessel_eta", "cancel_time", "created_at",
+                    "container_number__container_number", "customer_name__zem_code", "vessel_id__vessel_eta","vessel_id__vessel_etd", "cancel_time", "created_at",
                     "retrieval_id__retrieval_carrier", "vessel_id__destination_port","vessel_id__master_bill_of_lading"
                 ).filter(
                     models.Q(container_number__container_number__in=selected_orders)
@@ -136,13 +136,14 @@ class OrderCreation(View):
                 "vessel_id__master_bill_of_lading":"MBL",
                 "vessel_id__destination_port":"destination_port",
                 "vessel_id__vessel_eta": "ETA",
+                "vessel_id__vessel_etd": "ETD",
                 "retrieval_id__retrieval_carrier": "carrier",
             },
             axis=1
         )
         
         response = HttpResponse(content_type="text/csv")
-        response['Content-Disposition'] = f"attachment; filename=cancel_notification.csv"
+        response['Content-Disposition'] = f"attachment; filename=forecast.csv"
         df.to_csv(path_or_buf=response, index=False, encoding='utf-8-sig')
         return response
             
