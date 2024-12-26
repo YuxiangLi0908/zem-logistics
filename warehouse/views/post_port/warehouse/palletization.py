@@ -457,10 +457,10 @@ class Palletization(View):
     async def handle_amend_abnormal_post(self, request: HttpRequest) -> tuple[str, dict[str, Any]]:
         warehouse = request.POST.get("warehouse")
         selected = request.POST.getlist("is_case_selected")
-        abnormal_pl_ids = request.POST.getlist("ids")       
+        abnormal_pl_ids = request.POST.getlist("ids")    
         abnormal_reasons = request.POST.getlist("abnormal_reason")
         notes = request.POST.getlist("note")
-        confirmed_by_warehouse = request.POST.getlist("confirmed_by_warehouse")     
+        confirmed_by_warehouse = request.POST.getlist("confirmed_by_warehouse")   
 
         abnormal_pl_ids = [abnormal_pl_ids[i] for i in range(len(selected)) if selected[i] == "on"]
         abnormal_records = await sync_to_async(list)(
@@ -482,12 +482,13 @@ class Palletization(View):
                     p.abnormal_palletization = False
                 record.confirmed_by_warehouse = True
                 updated_records.append(record)
+                await sync_to_async(Pallet.objects.bulk_update)(
+                    pallet, ["abnormal_palletization"]
+                )
             await sync_to_async(AbnormalOffloadStatus.objects.bulk_update)(
                 updated_records, ["confirmed_by_warehouse"]
             )
-            await sync_to_async(Pallet.objects.bulk_update)(
-                pallet, ["abnormal_palletization"]
-            )
+            
             await self._update_shipment_abnormal_palletization(shipment)
             return await self.handle_daily_operation_get()
         else:
@@ -501,6 +502,8 @@ class Palletization(View):
             await sync_to_async(AbnormalOffloadStatus.objects.bulk_update)(
                 updated_records, ["is_resolved", "abnormal_reason", "note"]
             )
+            if warehouse == 'None':
+                warehouse = ''
             return await self.handle_palletization_abnormal_get(warehouse)
     
     async def handle_abnormal_records_post(self, request: HttpRequest) -> tuple[str, dict[str, Any]]:
