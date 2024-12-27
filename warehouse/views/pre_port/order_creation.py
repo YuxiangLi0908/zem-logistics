@@ -26,6 +26,8 @@ from warehouse.models.order import Order
 from warehouse.models.retrieval import Retrieval
 from warehouse.models.offload import Offload
 from warehouse.models.vessel import Vessel
+from warehouse.models.pallet import Pallet
+from warehouse.models.packing_list import PackingList
 from warehouse.models.po_check_eta import PoCheckEtaSeven
 from warehouse.forms.upload_file import UploadFileForm
 from warehouse.utils.constants import (
@@ -706,14 +708,37 @@ class OrderCreation(View):
             response['Content-Disposition'] = f'attachment; filename="zem_packing_list_template.xlsx"'
             return response
 
-    async def handle_delete_order_post(self, request: HttpRequest) -> tuple[Any, Any]:           
-        selected_orders = json.loads(request.POST.get('selectedOrders', '[]'))
-        selected_orders = list(set(selected_orders))
-        #在这里进行订单删除操作，例如：
-        for order_number in selected_orders:
-            await sync_to_async(Order.objects.filter(
-                container_number__container_number=order_number
-            ).delete)()
+    async def handle_delete_order_post(self, request: HttpRequest) -> tuple[Any, Any]:    
+        #临时修改系统pallet的数据库
+        pallets = await sync_to_async(list)(
+            Pallet.objects.filter(
+                destination='TPA3 TO HSV1',
+                packing_list_id__isnull=True
+            )
+        )
+        
+        for pallet in pallets:
+            packing_lists = await sync_to_async(list)(
+                PackingList.objects.filter(
+                    models.Q(shipping_mark__in=[mark for mark in pallet.shipping_mark.split(',') if mark.strip()]),
+                    models.Q(fba_id__in=[fba for fba in pallet.fba_id.split(',') if fba.strip()]),
+                    models.Q(ref_id__in=[ref for ref in pallet.ref_id.split(',') if ref.strip()]),
+                    container_number_id=pallet.container_number_id,
+                )
+            )
+            if packing_lists.exists():
+                
+                pallet.destination = packing_lists.first().destination
+                pallet.packinglist = packing_lists.first()
+                pallet.save()
+
+        # selected_orders = json.loads(request.POST.get('selectedOrders', '[]'))
+        # selected_orders = list(set(selected_orders))
+        # #在这里进行订单删除操作，例如：
+        # for order_number in selected_orders:
+        #     await sync_to_async(Order.objects.filter(
+        #         container_number__container_number=order_number
+        #     ).delete)()
         start_date_eta = request.POST.get("start_date_eta")
         end_date_eta = request.POST.get("end_date_eta")
         start_date_etd = request.POST.get("start_date_etd")
