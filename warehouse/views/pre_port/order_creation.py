@@ -726,10 +726,9 @@ class OrderCreation(View):
                     container_number_id=pallet.container_number_id,
                 )
             )
-            if packing_lists.exists():
-                
-                pallet.destination = packing_lists.first().destination
-                pallet.packinglist = packing_lists.first()
+            if not packing_lists:
+                pallet.destination = packing_lists[0].destination
+                pallet.packinglist = packing_lists[0]
                 pallet.save()
 
         # selected_orders = json.loads(request.POST.get('selectedOrders', '[]'))
