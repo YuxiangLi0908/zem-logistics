@@ -726,7 +726,8 @@ class OrderCreation(View):
                     container_number_id=pallet.container_number_id,
                 )
             )
-            if not packing_lists:
+            if len(packing_lists) > 1:
+                len_pl = len(packing_lists)
                 pallet.destination = packing_lists[0].destination
                 pallet.packinglist = packing_lists[0]
                 pallet.save()
