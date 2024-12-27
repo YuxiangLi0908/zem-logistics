@@ -730,7 +730,7 @@ class OrderCreation(View):
                 len_pl = len(packing_lists)
                 pallet.destination = packing_lists[0].destination
                 pallet.packinglist = packing_lists[0]
-                pallet.save()
+                await sync_to_async(pallet.save)()
 
         # selected_orders = json.loads(request.POST.get('selectedOrders', '[]'))
         # selected_orders = list(set(selected_orders))
