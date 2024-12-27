@@ -721,8 +721,8 @@ class OrderCreation(View):
             packing_lists = await sync_to_async(list)(
                 PackingList.objects.filter(
                     models.Q(shipping_mark__in=[mark for mark in pallet.shipping_mark.split(',') if mark.strip()]),
-                    models.Q(fba_id__in=[fba for fba in pallet.fba_id.split(',') if fba.strip()]),
                     models.Q(ref_id__in=[ref for ref in pallet.ref_id.split(',') if ref.strip()]),
+                    fba_id__isnull=True,
                     container_number_id=pallet.container_number_id,
                 )
             )
