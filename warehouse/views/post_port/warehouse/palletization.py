@@ -354,6 +354,7 @@ class Palletization(View):
             destinations = [d for d in request.POST.getlist("destinations")]
             addresses = [d for d in request.POST.getlist("address")]
             zipcodes = [d for d in request.POST.getlist("zipcode")]
+            contact_names = [d for d in request.POST.getlist("contact_name")]
             delivery_method = [d for d in request.POST.getlist("delivery_method")]
             shipment_batch_number = [d for d in request.POST.getlist("shipment_batch_number")]
             shipping_marks = request.POST.getlist("shipping_marks")
@@ -362,13 +363,13 @@ class Palletization(View):
             notes = [d for d in request.POST.getlist("note")]
             total_pallet = sum(n_pallet)
             abnormal_offloads = []
-            for n, p_a, p_r, c, w, dest, d_m, note, shipment, shipping_mark, fba_id, ref_id, addr, zipcode in zip(
+            for n, p_a, p_r, c, w, dest, d_m, note, shipment, shipping_mark, fba_id, ref_id, addr, zipcode, contact_name in zip(
                 n_pallet, pcs_actual, pcs_reported, cbm, weight, destinations, delivery_method, 
-                notes, shipment_batch_number, shipping_marks, fba_ids, ref_ids, addresses, zipcodes
+                notes, shipment_batch_number, shipping_marks, fba_ids, ref_ids, addresses, zipcodes,contact_names
             ):
                 await self._split_pallet(
                     order_selected, n, p_a, p_r, c, w, dest, d_m, note, shipment, 
-                    shipping_mark, fba_id, ref_id, pk, addr, zipcode,
+                    shipping_mark, fba_id, ref_id, pk, addr, zipcode, contact_name
                 )  #循环遍历每个汇总的板数
                 if p_a != p_r:
                     abnormal_offloads.append({
@@ -670,6 +671,7 @@ class Palletization(View):
         pk: int,
         address: str | None = None,
         zipcode: str | None = None,
+        contact_name: str | None = None,
         seed: int = 0
     ) -> None:
         if n == 0 or n is None:
@@ -701,6 +703,7 @@ class Palletization(View):
                 "destination": destination,
                 "address": address,
                 "zipcode": zipcode,
+                "contact_name": contact_name,
                 "delivery_method": delivery_method,
                 "pallet_id": pallet_ids[i],
                 "pcs": pallet_pcs[i],
@@ -766,7 +769,7 @@ class Palletization(View):
                 str_ref_id=Cast("ref_id", CharField()),
                 str_shipping_mark=Cast("shipping_mark", CharField()),
             ).values(
-                "container_number__container_number", "destination", "address", "zipcode",
+                "container_number__container_number", "destination", "address", "zipcode","contact_name",
                 "custom_delivery_method", "note", "shipment_batch_number__shipment_batch_number",
             ).annotate(
                 fba_ids=StringAgg("str_fba_id", delimiter=",", distinct=True),
