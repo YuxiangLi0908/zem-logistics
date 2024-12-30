@@ -13,6 +13,7 @@ class Pallet(models.Model):
     address = models.CharField(max_length=2000, null=True, blank=True)
     zipcode = models.CharField(max_length=20, null=True, blank=True)
     delivery_method = models.CharField(max_length=255, null=True, blank=True)
+    contact_name = models.CharField(max_length=255, null=True, blank=True)
     pallet_id = models.CharField(max_length=255, null=True, blank=True)
     shipping_mark = models.CharField(max_length=2000, null=True, blank=True)
     fba_id = models.CharField(max_length=2000, null=True, blank=True)
