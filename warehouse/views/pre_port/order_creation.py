@@ -215,17 +215,18 @@ class OrderCreation(View):
                 created_at__gte=start_date_eta,
                 created_at__lte=end_date_eta
             )
-        if start_date_etd and end_date_etd:
-            if criteria == None:
-                criteria = models.Q(
-                    vessel_id__vessel_etd__gte=start_date_etd,
-                    vessel_id__vessel_etd__lte=end_date_etd
-                )
-            else:
-                criteria &= models.Q(
-                    vessel_id__vessel_etd__gte=start_date_etd,
-                    vessel_id__vessel_etd__lte=end_date_etd
-                )
+        if start_date_etd:
+            if end_date_etd:
+                if criteria == None:
+                    criteria = models.Q(
+                        vessel_id__vessel_etd__gte=start_date_etd,
+                        vessel_id__vessel_etd__lte=end_date_etd
+                    )
+                else:
+                    criteria &= models.Q(
+                        vessel_id__vessel_etd__gte=start_date_etd,
+                        vessel_id__vessel_etd__lte=end_date_etd
+                    )
         orders = await sync_to_async(list)(
             Order.objects.select_related(
                 "vessel_id", "container_number", "customer_name", "retrieval_id", "offload_id", "warehouse"
@@ -487,7 +488,7 @@ class OrderCreation(View):
                 pl.fba_id = request.POST.getlist("fba_id")[idx]
                 pl.ref_id = request.POST.getlist("ref_id")[idx]
                 
-                pl.destination = destination_list
+                pl.destination = destination_list[idx]
                 pl.contact_name = request.POST.getlist("contact_name")[idx]
                 pl.contact_method = request.POST.getlist("contact_method")[idx]
                 pl.address = request.POST.getlist("address")[idx]
@@ -584,7 +585,9 @@ class OrderCreation(View):
                         #这里的判断是因为，pl和po判断相同的标准是唛头fba和目的地ref，可能pl中有多条这三个条件相同给的
                         #但是对于po_check表来说，是用来验证po的ref的，而且po_check只存了这三个关键信息表示pl，所以po_check无所谓指向具体的哪一条pl
                         #只要唛头fba目的地ref相同就行了，所以这里，每次遇到第一个po和pl相同且po没有指向pl，就令po指向这条pl
-                        if bool(po.packing_list) == 0:
+                        check_packing_list = sync_to_async(lambda: bool(po.packing_list) == 0)
+                        is_empty = await check_packing_list()
+                        if is_empty:
                             po.packing_list = pl
                             await sync_to_async(po.save)()
                             break                                  
@@ -712,39 +715,17 @@ class OrderCreation(View):
             return response
 
     async def handle_delete_order_post(self, request: HttpRequest) -> tuple[Any, Any]:    
-        #临时修改系统pallet的数据库
-        pallets = await sync_to_async(list)(
-            Pallet.objects.filter(
-                destination='TPA3 TO HSV1',
-                packing_list_id__isnull=True
-            )
-        )
-        
-        for pallet in pallets:
-            packing_lists = await sync_to_async(list)(
-                PackingList.objects.filter(
-                    models.Q(shipping_mark__in=[mark for mark in pallet.shipping_mark.split(',') if mark.strip()]),
-                    models.Q(ref_id__in=[ref for ref in pallet.ref_id.split(',') if ref.strip()]),
-                    container_number_id=pallet.container_number_id,
-                )
-            )
-            if len(packing_lists) > 1:
-                len_pl = len(packing_lists)
-                pallet.destination = packing_lists[0].destination
-                pallet.packinglist = packing_lists[0]
-                await sync_to_async(pallet.save)()
-
-        # selected_orders = json.loads(request.POST.get('selectedOrders', '[]'))
-        # selected_orders = list(set(selected_orders))
-        # #在这里进行订单删除操作，例如：
-        # for order_number in selected_orders:
-        #     await sync_to_async(Order.objects.filter(
-        #         container_number__container_number=order_number
-        #     ).delete)()
+        selected_orders = json.loads(request.POST.get('selectedOrders', '[]'))
+        selected_orders = list(set(selected_orders))
+        #在这里进行订单删除操作，例如：
+        for order_number in selected_orders:
+            await sync_to_async(Order.objects.filter(
+                container_number__container_number=order_number
+            ).delete)()
         start_date_eta = request.POST.get("start_date_eta")
         end_date_eta = request.POST.get("end_date_eta")
-        start_date_etd = request.POST.get("start_date_etd")
-        end_date_etd = request.POST.get("end_date_etd")
+        start_date_etd = request.POST.get("start_date_etd") if request.POST.get("start_date_etd") and request.POST.get("start_date_etd") != "None" else ""
+        end_date_etd = request.POST.get("end_date_etd") if request.POST.get("end_date_etd") and request.POST.get("end_date_etd") != "None" else ""
         return await self.handle_order_management_list_get(start_date_eta,end_date_eta,start_date_etd,end_date_etd)
         
 
