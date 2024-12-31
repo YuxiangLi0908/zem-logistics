@@ -2073,3 +2073,13 @@ IUSP:
   location: 8140 Caliente Rd
   state: CA
   zipcode: '92344'
+IUSQ:
+  city: REDLANDS
+  location: 2125 W San Bernardino Ave
+  state: CA
+  zipcode: '92374'
+GEU3:
+  city: BUCKEYE
+  location: 18900 W McDowell Road
+  state: AZ
+  zipcode: '85326'
