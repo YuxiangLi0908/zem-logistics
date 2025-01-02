@@ -444,15 +444,30 @@ class FleetManagement(View):
     async def handle_pod_upload_get(self, request: HttpRequest) -> tuple[str, dict[str, Any]]:
         fleet_number = request.GET.get("fleet_number", "")
         batch_number = request.GET.get("batch_number", "")
+
+        area = request.POST.get('area') or None
+        arrived_at = request.POST.get("arrived_at")
+        
         criteria = models.Q(
             models.Q(models.Q(pod_link__isnull=True) | models.Q(pod_link="")),
             shipped_at__isnull=False,
             arrived_at__isnull=False,
-        )
+            shipment_schduled_at__gte='2024-12-01'
+        )       
         if fleet_number:
             criteria &= models.Q(fleet_number__fleet_number=fleet_number)
         if batch_number:
             criteria &= models.Q(shipment_batch_number=batch_number)
+        if area:
+            criteria &= models.Q(origin=area)
+        if arrived_at:
+            arrived_at = datetime.strptime(arrived_at, '%Y-%m-%d')
+            criteria &= models.Q(
+                arrived_at__year=arrived_at.year,
+                arrived_at__month=arrived_at.month,
+                arrived_at__day=arrived_at.day,
+            )
+            arrived_at = arrived_at.strftime('%Y-%m-%d')
         shipment = await sync_to_async(list)(
             Shipment.objects.select_related("fleet_number").filter(criteria).order_by("shipped_at")
         )
@@ -461,6 +476,9 @@ class FleetManagement(View):
             "batch_number": batch_number,
             "fleet": shipment,
             "upload_file_form": UploadFileForm(required=True),
+            "warehouse_options": self.warehouse_options,
+            "area":area,
+            "arrived_at":arrived_at
         }
         return self.template_pod_upload, context
     
