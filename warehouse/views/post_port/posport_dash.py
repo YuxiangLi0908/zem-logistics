@@ -66,6 +66,8 @@ class PostportDash(View):
             container_number__order__retrieval_id__retrieval_destination_area=area
         )
         plt_criteria = criteria & models.Q(
+            container_number__order__vessel_id__vessel_eta__gte=start_date,
+            container_number__order__vessel_id__vessel_eta__lte=end_date,
             container_number__order__offload_id__offload_at__isnull=False,
             location__startswith=area
         )

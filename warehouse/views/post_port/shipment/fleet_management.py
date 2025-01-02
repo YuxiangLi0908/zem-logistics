@@ -407,13 +407,17 @@ class FleetManagement(View):
         )
         shipment_fleet_dict = {}
         for s in shipment:
+            if s.shipment_appointment is None:
+                shipment_appointment = ""
+            else:
+                shipment_appointment = s.shipment_appointment.replace(microsecond=0).isoformat()
             if s.fleet_number.fleet_number not in shipment_fleet_dict:
                 shipment_fleet_dict[s.fleet_number.fleet_number] = [{
                     "shipment_batch_number": s.shipment_batch_number,
                     "appointment_id": s.appointment_id,
                     "destination": s.destination,
                     "carrier": s.carrier,
-                    "shipment_appointment": s.shipment_appointment.replace(microsecond=0).isoformat(),
+                    "shipment_appointment": shipment_appointment,
                     "origin": s.origin,
                 }]
             else:
@@ -422,9 +426,10 @@ class FleetManagement(View):
                     "appointment_id": s.appointment_id,
                     "destination": s.destination,
                     "carrier": s.carrier,
-                    "shipment_appointment": s.shipment_appointment.replace(microsecond=0).isoformat(),
+                    "shipment_appointment": shipment_appointment,
                     "origin": s.origin,
                 })
+            
         context = {
             "fleet_number": fleet_number,
             "batch_number": batch_number,
