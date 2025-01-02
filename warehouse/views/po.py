@@ -177,14 +177,15 @@ class PO(View):
                     container = await sync_to_async(Container.objects.get)(container_number = bol)
                     query = models.Q(container_number=container)
                     if not pd.isnull(mark) and mark != '':
-                        query &= models.Q(shipping_mark=mark)
+                        if 'FFAU6134817' not in bol:
+                            query &= models.Q(shipping_mark=mark)
                     if not pd.isnull(fba) and fba != '':
                         query &= models.Q(fba_id=fba)
                     if not pd.isnull(ref) and ref != '':
                         query &= models.Q(ref_id=ref)
                     #try:
                     pochecketaseven = await sync_to_async(PoCheckEtaSeven.objects.get)(query)
-
+                    
                     cn = pytz.timezone('Asia/Shanghai')
                     current_time_cn = datetime.now(cn)
                     if "eta" in time_code:
