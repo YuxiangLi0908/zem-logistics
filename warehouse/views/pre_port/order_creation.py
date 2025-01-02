@@ -114,10 +114,10 @@ class OrderCreation(View):
         selected_orders = list(set(selected_orders))
         orders = await sync_to_async(list)(
                 Order.objects.select_related(
-                    "vessel_id", "container_number", "customer_name", "retrieval_id "
+                    "vessel_id", "container_number", "customer_name", "retrieval_id", "warehouse"
                 ).values(
                     "container_number__container_number", "customer_name__zem_code", "vessel_id__vessel_eta","vessel_id__vessel_etd", "cancel_time", "created_at",
-                    "retrieval_id__retrieval_carrier", "vessel_id__destination_port","vessel_id__master_bill_of_lading"
+                    "retrieval_id__retrieval_carrier", "vessel_id__destination_port","vessel_id__master_bill_of_lading","warehouse__name","container_number__container_type"
                 ).filter(
                     models.Q(container_number__container_number__in=selected_orders)
                 ) 
@@ -140,6 +140,7 @@ class OrderCreation(View):
                 "vessel_id__vessel_eta": "ETA",
                 "vessel_id__vessel_etd": "ETD",
                 "retrieval_id__retrieval_carrier": "carrier",
+                "container_number__container_type":"container_type"
             },
             axis=1
         )

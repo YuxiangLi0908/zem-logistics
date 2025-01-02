@@ -83,6 +83,8 @@
                         {{ upload_file_form.file }}
                         <input type="hidden" name="step" value="pod_upload">
                         <input type="hidden" name="shipment_batch_number" value="{{ f.shipment_batch_number }}">
+                        <input type="hidden" name="area" value="{{ area }}">
+                        <input type="hidden" name="arrived_at" value="{{ arrived_at }}">
                         <button type="submit" class="btn btn-success" style="font-size: 11px;">上传</button>
                     </td>
                 </tr>            
