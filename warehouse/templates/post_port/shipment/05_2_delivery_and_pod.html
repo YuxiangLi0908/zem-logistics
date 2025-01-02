@@ -1,6 +1,6 @@
 {% extends 'base.html' %}
 {% block content %}
-<div><b>确认送达</b></div>
+<div><b>POD上传</b></div>
 <form method="post" action="">
     {% csrf_token %}
     <div>
@@ -8,6 +8,14 @@
         <input type="text" name="fleet_number" value="{{ fleet_number }}">
         <b style="margin-right: 5px;">预约批次:</b>
         <input type="text" name="batch_number" value="{{ batch_number }}">
+        <b style="margin-right: 5px;">所属仓:</b>
+        <select name="area">
+            {% for k, v in warehouse_options.items %}
+            <option value="{{ v }}" {% if k == area %}selected{% endif %}>{{ k }}</option>
+            {% endfor %}
+        </select>
+        <b style="margin-right: 5px;">送达时间:</b>
+        <input type="date" name="arrived_at" value="{{ arrived_at }}">
         <input type="hidden" name="step" value="fleet_pod_search">
         <button type="submit">确认</button>
     </div>
@@ -16,7 +24,7 @@
 <div id="loading-bar">
     <div class="spinner"></div>
     <p>Loading, please wait...</p>
-</div
+</div>
 
 <div style="max-height: 800px;">
     <table id="shipment-table" class="table" style="font-size: 11px; max-height: 95%; overflow-y: scroll;">
