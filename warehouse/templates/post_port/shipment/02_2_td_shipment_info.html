@@ -229,7 +229,7 @@
                     <tbody>
                         <tr>
                             <td class="td"><input type="text" name="carrier" value="{{ shipment.fleet_number.carrier }}" style="font-size: 13px;" required></td>
-                            <td class="td"><input type="datetime-local" name="appointment_datetime" value="{{ shipment.fleet_number.appointment_datetime|date:'Y-m-d\\TH:i' }}" style="font-size: 13px;" required></td>
+                            <td class="td"><input type="datetime-local" name="appointment_datetime" value="{{ shipment.fleet_number.appointment_datetime|date:'Y-m-d\\TH:i' }}" style="font-size: 13px;"></td>
                             <td class="td"><input type="text" name="note" value="{{ shipment.note }}" style="font-size: 13px;"></td>
                         </tr>
                     </tbody>
