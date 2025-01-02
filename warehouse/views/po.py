@@ -172,40 +172,40 @@ class PO(View):
             
             for bol,mark,fba,ref,is_valid in data_pairs:
                 if bol:
-                    try:
-                        #这里如果货柜表有重复会报错，应该不会有重复吧
-                        container = await sync_to_async(Container.objects.get)(container_number = bol)
-                        query = models.Q(container_number=container)
-                        if not pd.isnull(mark) and mark != '':
-                            query &= models.Q(shipping_mark=mark)
-                        if not pd.isnull(fba) and fba != '':
-                            query &= models.Q(fba_id=fba)
-                        if not pd.isnull(ref) and ref != '':
-                            query &= models.Q(ref_id=ref)
-                        try:
-                            pochecketaseven = await sync_to_async(PoCheckEtaSeven.objects.get)(query)
+                    #try:
+                    #这里如果货柜表有重复会报错，应该不会有重复吧
+                    container = await sync_to_async(Container.objects.get)(container_number = bol)
+                    query = models.Q(container_number=container)
+                    if not pd.isnull(mark) and mark != '':
+                        query &= models.Q(shipping_mark=mark)
+                    if not pd.isnull(fba) and fba != '':
+                        query &= models.Q(fba_id=fba)
+                    if not pd.isnull(ref) and ref != '':
+                        query &= models.Q(ref_id=ref)
+                    #try:
+                    pochecketaseven = await sync_to_async(PoCheckEtaSeven.objects.get)(query)
 
-                            cn = pytz.timezone('Asia/Shanghai')
-                            current_time_cn = datetime.now(cn)
-                            if "eta" in time_code:
-                                pochecketaseven.last_eta_checktime = current_time_cn
-                                pochecketaseven.last_eta_status = True if is_valid.lower() == "yes" else False
-                                #如果要撤销查询，隐藏方法
-                                if  "restore" in is_valid:
-                                    pochecketaseven.last_eta_checktime = None
-                                    pochecketaseven.last_eta_status = False
-                                
-                            elif "retrieval" in time_code:
-                                pochecketaseven.last_retrieval_checktime = current_time_cn
-                                pochecketaseven.last_retrieval_status = True if is_valid.lower() == "yes" else False
-                                if  "restore" in is_valid:
-                                    pochecketaseven.last_retrieval_checktime = None
-                                    pochecketaseven.last_retrieval_status = False
-                            await sync_to_async(pochecketaseven.save)()
-                        except PoCheckEtaSeven.DoesNotExist:
-                            continue
-                    except Container.DoesNotExist:
-                        continue
+                    cn = pytz.timezone('Asia/Shanghai')
+                    current_time_cn = datetime.now(cn)
+                    if "eta" in time_code:
+                        pochecketaseven.last_eta_checktime = current_time_cn
+                        pochecketaseven.last_eta_status = True if is_valid.lower() == "yes" else False
+                        #如果要撤销查询，隐藏方法
+                        if  "restore" in is_valid:
+                            pochecketaseven.last_eta_checktime = None
+                            pochecketaseven.last_eta_status = False
+                        
+                    elif "retrieval" in time_code:
+                        pochecketaseven.last_retrieval_checktime = current_time_cn
+                        pochecketaseven.last_retrieval_status = True if is_valid.lower() == "yes" else False
+                        if  "restore" in is_valid:
+                            pochecketaseven.last_retrieval_checktime = None
+                            pochecketaseven.last_retrieval_status = False
+                    await sync_to_async(pochecketaseven.save)()
+                        # except PoCheckEtaSeven.DoesNotExist:
+                        #     continue
+                    # except Container.DoesNotExist:
+                    #     continue
         return await self.handle_po_check_seven(request,time_code)
             
     async def handle_po_check_seven(self, request: HttpRequest, flag:str) -> dict[str, dict]:  

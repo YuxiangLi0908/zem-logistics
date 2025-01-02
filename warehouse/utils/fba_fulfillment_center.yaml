@@ -2083,3 +2083,8 @@ GEU3:
   location: 18900 W McDowell Road
   state: AZ
   zipcode: '85326'
+HIA1:
+  city: IDDLETOWN
+  location: 3327 E Harrisburg Pik
+  state: PA
+  zipcode: '17057'
