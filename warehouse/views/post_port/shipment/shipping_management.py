@@ -510,7 +510,7 @@ class ShippingManagement(View):
                 shipment_data["shipment_account"] = request.POST.get("shipment_account", "").strip()
                 if shipment_type != "FTL":
                     appointmentTime = request.POST.get("appointment_datetime")
-                    appoint_datetime = parse(appointmentTime).replace(tzinfo=None)
+                    appoint_datetime = parse(appointmentTime).replace(tzinfo=None) if appointmentTime else None
                     fleet = Fleet(**{
                         "carrier": request.POST.get("carrier"),
                         "fleet_type": shipment_type,
