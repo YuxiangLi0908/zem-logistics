@@ -485,9 +485,9 @@ class OrderCreation(View):
                 idx = pl_id_idx_mapping[pl.id]
                 pl.product_name = request.POST.getlist("product_name")[idx]
                 pl.delivery_method = request.POST.getlist("delivery_method")[idx]
-                pl.shipping_mark = request.POST.getlist("shipping_mark")[idx]
-                pl.fba_id = request.POST.getlist("fba_id")[idx]
-                pl.ref_id = request.POST.getlist("ref_id")[idx]
+                pl.shipping_mark = request.POST.getlist("shipping_mark")[idx].strip()
+                pl.fba_id = request.POST.getlist("fba_id")[idx].strip()
+                pl.ref_id = request.POST.getlist("ref_id")[idx].strip()
                 
                 pl.destination = destination_list[idx]
                 pl.contact_name = request.POST.getlist("contact_name")[idx]
@@ -537,9 +537,9 @@ class OrderCreation(View):
                     container_number=container,
                     product_name=d[0],
                     delivery_method=d[1],
-                    shipping_mark=d[2],
-                    fba_id=d[3],
-                    ref_id=d[4],
+                    shipping_mark=d[2].strip(),
+                    fba_id=d[3].strip(),
+                    ref_id=d[4].strip(),
                     destination=d[5],
                     contact_name=d[6],
                     contact_method=d[7],
