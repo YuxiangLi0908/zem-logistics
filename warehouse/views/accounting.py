@@ -263,7 +263,7 @@ class Accounting(View):
         if container_number:
             criteria &= models.Q(container_number__container_number=container_number)
         pl_data = PackingList.objects.select_related("container_number").filter(criteria).values(
-            'container_number__container_number', 'destination', 'delivery_method', 'cbm', 'pcs', 'total_weight_kg'
+            'container_number__container_number', 'destination', 'delivery_method', 'cbm', 'pcs', 'total_weight_kg','total_weight_lbs'
         ).order_by("container_number__container_number", "destination")
         context = {
             "start_date": start_date,
@@ -1225,6 +1225,7 @@ class Accounting(View):
                 "CBM": d["cbm"],
                 "箱数": d["pcs"],
                 "总重KG": d["total_weight_kg"],
+                "总重lbs": d["total_weight_lbs"],
             } for d in context["pl_data"]
         ]
         df = pd.DataFrame.from_records(data)
