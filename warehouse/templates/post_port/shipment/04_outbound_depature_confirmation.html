@@ -66,223 +66,254 @@
             </form>            
         {% elif selected_fleet.fleet_type == "客户自提" %}
         <div style="overflow-x: auto; max-width: 100%; overflow-y: auto; max-height: 20%; margin: 5px;">
-            <button type="submit" class="btn btn-success" style="font-size: 15px;">
-                <small>拣货单</small>
-                <i class="bi bi-cloud-arrow-down-fill"></i>
-            </button>
-            <button id="editButton" type="button" class="btn btn-primary" onclick="editBOL(this, '{{ selected_fleet.fleet_number }}')" style="font-size: 11px;">编辑</button>
-            <div class="popup-{{ selected_fleet.fleet_number }}" style="display: none; z-index:999; position: fixed; top: 50%; left: 50%; transform: translate(-50%, -50%); background-color: white; border: 1px solid gray; padding: 20px;">              
-                <div style="text-align:right;">
-                    <button type="button" id="add-more-btn" class="btn btn-success" style="height: 35px; font-size: 12px; margin: 5px;" onclick="addRowBelow('self_pickup','{{ selected_fleet.fleet_number }}')">
-                        <i class="bi bi-plus-lg"></i> 添加行
-                    </button>
-                    <button type="button" id="add-more-btn" class="btn btn-success" style="height: 35px; font-size: 12px; margin: 5px;" onclick="editTable('self_pickup', true, '{{ selected_fleet.fleet_number }}')">编辑</button>
-                </div> 
-                <table style=" max-height:90%; overflow-y:scroll; margin: 10px; padding: 100px;" cellpadding='15' id="self_pickup-container-{{ selected_fleet.fleet_number }}">
-                    <thead>                       
-                        <th class="th" style="text-align: center; border: 1px solid #141414">柜号</th>
-                        <th class="th" style="text-align: center; border: 1px solid #141414">邮编</th>
-                        <th class="th" style="text-align: center; border: 1px solid #141414">唛头</th>
-                        <th class="th" style="text-align: center; border: 1px solid #141414">板数</th> 
-                        <th class="th" style="text-align: center; border: 1px solid #141414">箱数</th>   
-                        <th class="th" style="text-align: center; border: 1px solid #141414">Carrier</th>  
-                    </thead>
-                    {% for s in arm_pickup %}
-                    <tr id="self_pickup-row">
-                        <td style="text-align: center; border: 1px solid #141414; padding:10px;" data-editable="true">{{ s.container_number__container_number }}</td>
-                        <td style="text-align: center; border: 1px solid #141414; text-wrap: wrap; padding:10px;" data-editable="true">{{ s.zipcode }}</td>
-                        <td style="text-align: center; border: 1px solid #141414; text-wrap: wrap; padding:10px;" data-editable="true">{{ s.shipping_mark }}</td>
-                        <td style="text-align: center; border: 1px solid #141414; padding:10px;" data-editable="true">{{ s.total_pallet }}</td>
-                        <td style="text-align: center; border: 1px solid #141414; padding:10px;" data-editable="true">{{ s.total_pcs }}</td>
-                        <td style="text-align: center; border: 1px solid #141414; padding:10px;" data-editable="true">{{ s.shipment_batch_number__fleet_number__carrier }}</td>
-                    </tr>
-                    <tr id="self_pickup-row-empty-{{ selected_fleet.fleet_number }}" style="display: none;">
-                        <td style="text-align: center; border: 1px solid #141414; padding:10px;" data-editable="true"></td>
-                        <td style="text-align: center; border: 1px solid #141414; text-wrap: wrap; padding:10px;" data-editable="true"></td>
-                        <td style="text-align: center; border: 1px solid #141414; text-wrap: wrap; padding:10px;" data-editable="true"></td>
-                        <td style="text-align: center; border: 1px solid #141414; text-wrap: wrap; padding:10px;" data-editable="true"></td>
-                        <td style="text-align: center; border: 1px solid #141414; padding:10px;" data-editable="true"></td>
-                        <td style="text-align: center; border: 1px solid #141414; padding:10px;" data-editable="true"></td>
-                    </tr>  
-                    {% endfor %}
-                </table>
-                <div style="text-align:right;">
-                    <button id="confirmButton" type="button" class="btn btn-primary"  style="font-size: 11px;" onclick="editTable('self_pickup', false, '{{ selected_fleet.fleet_number }}')">确认</button>
-                </div>
-            </div>              
-        {% else %}
+            <form method="post" action="" style="display: inline-block;" id="exportfleet-{{ selected_fleet.fleet_number }}">
+                {% csrf_token %}
+                <input type="hidden" name="step" value="export_packing_list">
+                <input type="hidden" name="fleet_number" value="{{ selected_fleet.fleet_number }}">
+                <button type="submit" class="btn btn-success" style="font-size: 15px;">
+                    <small>拣货单</small>
+                    <i class="bi bi-cloud-arrow-down-fill"></i>
+                </button>
+                <button id="editButton" type="button" class="btn btn-primary" onclick="editBOL(this, '{{ selected_fleet.fleet_number }}')" style="font-size: 11px;">编辑</button>
+                <div class="popup-{{ selected_fleet.fleet_number }}" style="display: none; z-index:999; position: fixed; top: 50%; left: 50%; transform: translate(-50%, -50%); background-color: white; border: 1px solid gray; padding: 20px;">              
+                    <div style="text-align:right;">
+                        <button type="button" id="add-more-btn" class="btn btn-success" style="height: 35px; font-size: 12px; margin: 5px;" onclick="addRowBelow('self_pickup','{{ selected_fleet.fleet_number }}')">
+                            <i class="bi bi-plus-lg"></i> 添加行
+                        </button>
+                        <button type="button" id="add-more-btn" class="btn btn-success" style="height: 35px; font-size: 12px; margin: 5px;" onclick="editTable('self_pickup', true, '{{ selected_fleet.fleet_number }}')">编辑</button>
+                    </div> 
+                    <table style=" max-height:90%; overflow-y:scroll; margin: 10px; padding: 100px;" cellpadding='15' id="self_pickup-container-{{ selected_fleet.fleet_number }}">
+                        <thead>                       
+                            <th class="th" style="text-align: center; border: 1px solid #141414">柜号</th>
+                            <th class="th" style="text-align: center; border: 1px solid #141414">邮编</th>
+                            <th class="th" style="text-align: center; border: 1px solid #141414">唛头</th>
+                            <th class="th" style="text-align: center; border: 1px solid #141414">板数</th> 
+                            <th class="th" style="text-align: center; border: 1px solid #141414">箱数</th>   
+                            <th class="th" style="text-align: center; border: 1px solid #141414">Carrier</th>  
+                        </thead>
+                        {% for s in arm_pickup %}
+                        <tr id="self_pickup-row">
+                            <td style="text-align: center; border: 1px solid #141414; padding:10px;" data-editable="true">{{ s.container_number__container_number }}</td>
+                            <td style="text-align: center; border: 1px solid #141414; text-wrap: wrap; padding:10px;" data-editable="true">{{ s.zipcode }}</td>
+                            <td style="text-align: center; border: 1px solid #141414; text-wrap: wrap; padding:10px;" data-editable="true">{{ s.shipping_mark }}</td>
+                            <td style="text-align: center; border: 1px solid #141414; padding:10px;" data-editable="true">{{ s.total_pallet }}</td>
+                            <td style="text-align: center; border: 1px solid #141414; padding:10px;" data-editable="true">{{ s.total_pcs }}</td>
+                            <td style="text-align: center; border: 1px solid #141414; padding:10px;" data-editable="true">{{ s.shipment_batch_number__fleet_number__carrier }}</td>
+                        </tr>
+                        <tr id="self_pickup-row-empty-{{ selected_fleet.fleet_number }}" style="display: none;">
+                            <td style="text-align: center; border: 1px solid #141414; padding:10px;" data-editable="true"></td>
+                            <td style="text-align: center; border: 1px solid #141414; text-wrap: wrap; padding:10px;" data-editable="true"></td>
+                            <td style="text-align: center; border: 1px solid #141414; text-wrap: wrap; padding:10px;" data-editable="true"></td>
+                            <td style="text-align: center; border: 1px solid #141414; text-wrap: wrap; padding:10px;" data-editable="true"></td>
+                            <td style="text-align: center; border: 1px solid #141414; padding:10px;" data-editable="true"></td>
+                            <td style="text-align: center; border: 1px solid #141414; padding:10px;" data-editable="true"></td>
+                        </tr>  
+                        {% endfor %}
+                    </table>
+                    <div style="text-align:right;">
+                        <button id="confirmButton" type="button" class="btn btn-primary"  style="font-size: 11px;" onclick="editTable('self_pickup', false, '{{ selected_fleet.fleet_number }}')">确认</button>
+                    </div>
+                </div>      
+            </form>        
+        {% elif selected_fleet.fleet_type == "LTL" %}
         <div style="overflow-x: auto; max-width: 100%; overflow-y: auto; max-height: 20%; margin: 5px;">
-            <button type="submit" class="btn btn-success" style="font-size: 15px;">
-                <small>拣货单</small>
-                <i class="bi bi-cloud-arrow-down-fill"></i>
-            </button>
-            <button id="editButton" type="button" class="btn btn-primary" onclick="editBOL(this, '{{ selected_fleet.fleet_number }}')" style="font-size: 11px;">编辑</button>
-            <div class="popup-{{ selected_fleet.fleet_number }}" style="display: none; z-index:999; position: fixed; top: 50%; left: 50%; transform: translate(-50%, -50%); background-color: white; border: 1px solid gray; padding: 20px;">
-                <div style="text-align:right;">
-                    <button type="button" id="add-more-btn" class="btn btn-success" style="height: 35px; font-size: 12px; margin: 5px;" onclick="addRowBelow('arm_pickup','{{ selected_fleet.fleet_number }}')">
-                        <i class="bi bi-plus-lg"></i> 添加行
-                    </button>
-                    <button type="button" id="add-more-btn" class="btn btn-success" style="height: 35px; font-size: 12px; margin: 5px;" onclick="editTable('arm_pickup', true, '{{ selected_fleet.fleet_number }}')">编辑</button>
-                </div>                 
-                <table style=" max-height:90%; overflow-y:scroll; margin: 10px; padding: 100px;" cellpadding='15' id="arm_pickup-container-{{ selected_fleet.fleet_number }}">
-                    <thead>                       
-                        <th class="th" style="text-align: center; border: 1px solid #141414">柜号</th>
-                        <th class="th" style="text-align: center; border: 1px solid #141414">邮编</th>
-                        <th class="th" style="text-align: center; border: 1px solid #141414">唛头</th>
-                        <th class="th" style="text-align: center; border: 1px solid #141414">ARM_BOL</th>
-                        <th class="th" style="text-align: center; border: 1px solid #141414">板数</th> 
-                        <th class="th" style="text-align: center; border: 1px solid #141414">箱数</th>   
-                        <th class="th" style="text-align: center; border: 1px solid #141414">Carrier</th>  
-                        <th class="th" style="text-align: center; border: 1px solid #141414">提仓时间</th>  
-                    </thead>
-                    {% for s in arm_pickup %}
-                    <tr id="arm_pickup-row">
-                        <td style="text-align: center; border: 1px solid #141414; padding:10px;" data-editable="true">{{ s.container_number__container_number }}</td>
-                        <td style="text-align: center; border: 1px solid #141414; text-wrap: wrap; padding:10px;" data-editable="true">{{ s.zipcode }}</td>
-                        <td style="text-align: center; border: 1px solid #141414; text-wrap: wrap; padding:10px;" data-editable="true">{{ s.shipping_mark }}</td>
-                        <td style="text-align: center; border: 1px solid #141414; text-wrap: wrap; padding:10px;" data-editable="true">{{ s.shipment_batch_number__ARM_BOL }}</td>
-                        <td style="text-align: center; border: 1px solid #141414; padding:10px;" data-editable="true">{{ s.total_pallet }}</td>
-                        <td style="text-align: center; border: 1px solid #141414; padding:10px;" data-editable="true">{{ s.total_pcs }}</td>
-                        <td style="text-align: center; border: 1px solid #141414; padding:10px;" data-editable="true">{{ s.shipment_batch_number__fleet_number__carrier }}</td>
-                        <td style="text-align: center; border: 1px solid #141414; padding:10px;" data-editable="true">{{ s.shipment_batch_number__fleet_number__appointment_datetime }}</td>
-                    </tr>
-                    {% endfor %}
-                    <tr id="arm_pickup-row-empty-{{ selected_fleet.fleet_number }}" style="display: none;">
-                        <td style="text-align: center; border: 1px solid #141414; padding:10px;" data-editable="true"></td>
-                        <td style="text-align: center; border: 1px solid #141414; text-wrap: wrap; padding:10px;" data-editable="true"></td>
-                        <td style="text-align: center; border: 1px solid #141414; text-wrap: wrap; padding:10px;" data-editable="true"></td>
-                        <td style="text-align: center; border: 1px solid #141414; text-wrap: wrap; padding:10px;" data-editable="true"></td>
-                        <td style="text-align: center; border: 1px solid #141414; padding:10px;" data-editable="true"></td>
-                        <td style="text-align: center; border: 1px solid #141414; padding:10px;" data-editable="true"></td>
-                        <td style="text-align: center; border: 1px solid #141414; padding:10px;" data-editable="true"></td>
-                        <td style="text-align: center; border: 1px solid #141414; padding:10px;" data-editable="true"></td>
-                    </tr>  
-                </table>
-                <div style="text-align:right;">
-                    <button id="confirmButton" type="button" class="btn btn-primary"  style="font-size: 11px;" onclick="editTable('arm_pickup', false, '{{ selected_fleet.fleet_number }}')">确认</button>
+            <form method="post" action="" style="display: inline-block;" id="exportfleet-{{ selected_fleet.fleet_number }}">
+                {% csrf_token %}
+                <input type="hidden" name="step" value="export_packing_list">
+                <input type="hidden" name="fleet_number" value="{{ selected_fleet.fleet_number }}">
+                <button type="submit" class="btn btn-success" style="font-size: 15px;">
+                    <small>拣货单</small>
+                    <i class="bi bi-cloud-arrow-down-fill"></i>
+                </button>
+                <button id="editButton" type="button" class="btn btn-primary" onclick="editBOL(this, '{{ selected_fleet.fleet_number }}')" style="font-size: 11px;">编辑</button>
+                <div class="popup-{{ selected_fleet.fleet_number }}" style="display: none; z-index:999; position: fixed; top: 50%; left: 50%; transform: translate(-50%, -50%); background-color: white; border: 1px solid gray; padding: 20px;">
+                    <div style="text-align:right;">
+                        <button type="button" id="add-more-btn" class="btn btn-success" style="height: 35px; font-size: 12px; margin: 5px;" onclick="addRowBelow('arm_pickup','{{ selected_fleet.fleet_number }}')">
+                            <i class="bi bi-plus-lg"></i> 添加行
+                        </button>
+                        <button type="button" id="add-more-btn" class="btn btn-success" style="height: 35px; font-size: 12px; margin: 5px;" onclick="editTable('arm_pickup', true, '{{ selected_fleet.fleet_number }}')">编辑</button>
+                    </div>                 
+                    <table style=" max-height:90%; max-width:90%; overflow-y:scroll; margin: 10px; padding: 100px;" cellpadding='15' id="arm_pickup-container-{{ selected_fleet.fleet_number }}">
+                        <thead>                       
+                            <th class="th" style="text-align: center; border: 1px solid #141414">柜号</th>
+                            <th class="th" style="text-align: center; border: 1px solid #141414">目的地</th>
+                            <th class="th" style="text-align: center; border: 1px solid #141414">唛头</th>
+                            <th class="th" style="text-align: center; border: 1px solid #141414">ARM_BOL</th>
+                            <th class="th" style="text-align: center; border: 1px solid #141414">板数</th> 
+                            <th class="th" style="text-align: center; border: 1px solid #141414">箱数</th>  
+                            <th class="th" style="text-align: center; border: 1px solid #141414">重量</th> 
+                            <th class="th" style="text-align: center; border: 1px solid #141414">cbm</th> 
+                            <th class="th" style="text-align: center; border: 1px solid #141414">Carrier</th>  
+                            <th class="th" style="text-align: center; border: 1px solid #141414">提仓时间</th>  
+                        </thead>
+                        {% for s in arm_pickup %}
+                        <tr id="arm_pickup-row">
+                            <td style="text-align: center; border: 1px solid #141414; padding:10px;" data-editable="true">{{ s.container_number__container_number }}</td>
+                            <td style="text-align: center; border: 1px solid #141414; text-wrap: wrap; padding:10px;" data-editable="true">{{ s.zipcode }}</td>
+                            <td style="text-align: center; border: 1px solid #141414; text-wrap: wrap; padding:10px;" data-editable="true">{{ s.shipping_mark }}</td>
+                            <td style="text-align: center; border: 1px solid #141414; text-wrap: wrap; padding:10px;" data-editable="true">{{ s.shipment_batch_number__ARM_BOL }}</td>
+                            <td style="text-align: center; border: 1px solid #141414; padding:10px;" data-editable="true">{{ s.total_pallet }}</td>
+                            <td style="text-align: center; border: 1px solid #141414; padding:10px;" data-editable="true">{{ s.total_pcs }}</td>
+                            <td style="text-align: center; border: 1px solid #141414; padding:10px;" data-editable="true">{{ s.total_weight }}</td>
+                            <td style="text-align: center; border: 1px solid #141414; padding:10px;" data-editable="true">{{ s.total_cbm }}</td>
+                            <td style="text-align: center; border: 1px solid #141414; padding:10px;" data-editable="true">{{ s.shipment_batch_number__fleet_number__carrier }}</td>
+                            <td style="text-align: center; border: 1px solid #141414; padding:10px;" data-editable="true">{{ s.shipment_batch_number__fleet_number__appointment_datetime|date:"Y-m-d H:i:s" }}</td>
+                        </tr>
+                        {% endfor %}
+                        <tr id="arm_pickup-row-empty-{{ selected_fleet.fleet_number }}" style="display: none;">
+                            <td style="text-align: center; border: 1px solid #141414; padding:10px;" data-editable="true"></td>
+                            <td style="text-align: center; border: 1px solid #141414; text-wrap: wrap; padding:10px;" data-editable="true"></td>
+                            <td style="text-align: center; border: 1px solid #141414; text-wrap: wrap; padding:10px;" data-editable="true"></td>
+                            <td style="text-align: center; border: 1px solid #141414; text-wrap: wrap; padding:10px;" data-editable="true"></td>
+                            <td style="text-align: center; border: 1px solid #141414; padding:10px;" data-editable="true"></td>
+                            <td style="text-align: center; border: 1px solid #141414; padding:10px;" data-editable="true"></td>
+                            <td style="text-align: center; border: 1px solid #141414; padding:10px;" data-editable="true"></td>
+                            <td style="text-align: center; border: 1px solid #141414; padding:10px;" data-editable="true"></td>
+                            <td style="text-align: center; border: 1px solid #141414; padding:10px;" data-editable="true"></td>
+                            <td style="text-align: center; border: 1px solid #141414; padding:10px;" data-editable="true"></td>
+                        </tr>  
+                    </table>
+                    <div style="text-align:right;">
+                        <button id="confirmButton" type="button" class="btn btn-primary"  style="font-size: 11px;" onclick="editTable('arm_pickup', false, '{{ selected_fleet.fleet_number }}')">确认</button>
+                    </div>
+                </div>     
+            </form>         
+        {% endif %}
+        {% if selected_fleet.fleet_type == "FTL" %}
+            {% for batch_number in shipment_batch_numbers %}
+            <form method="post" action="" style="display: inline-block;" id="exportBOL-{{ batch_number }}">
+                {% csrf_token %}
+                <input type="hidden" name="step" value="export_bol">
+                <input type="hidden" name="shipment_batch_number" value="{{ batch_number }}">
+                <input type="hidden" name="warehouse" value="{{ warehouse }}">
+                <button type="submit" class="btn btn-success" style="font-size: 15px;">
+                    <small>BOL- {{ batch_number }}</small>
+                    <i class="bi bi-cloud-arrow-down-fill"></i>
+                </button>
+                <button id="editButton" type="button" class="btn btn-primary" onclick="editBOL(this, '{{ batch_number }}')" style="font-size: 11px;">编辑</button>
+                <div class="popup-{{ batch_number }}" style="overflow-y: scroll; display: none; z-index:999; position: fixed; top: 50%; left: 50%; transform: translate(-50%, -50%); background-color: white; border: 1px solid gray; padding: 20px;">
+                    <div style="text-align:right;">
+                        <button type="button" id="add-more-btn" class="btn btn-success" style="height: 35px; font-size: 12px; margin: 5px;" onclick="addRowBelow('BOL','{{ batch_number }}')">
+                            <i class="bi bi-plus-lg"></i> 添加行
+                        </button>
+                        <button type="button" id="add-more-btn" class="btn btn-success" style="height: 35px; font-size: 12px; margin: 5px;" onclick="editTable('BOL', true, '{{ batch_number }}')">编辑</button>
+                    </div>
+                    <table style=" margin: 10px; padding: 100px;" cellpadding='15' id="BOL-container-{{ batch_number }}">
+                        <thead>                       
+                            <th class="th" style="text-align: center; border: 1px solid #141414">Container</th>
+                            <th class="th" style="text-align: center; border: 1px solid #141414">Shipment ID</th>
+                            <th class="th" style="text-align: center; border: 1px solid #141414">Ref ID</th>
+                            <th class="th" style="text-align: center; border: 1px solid #141414">Qty</th>   
+                        </thead>
+                        {% for c in packing_list|get:batch_number %}
+                        <tr id="BOL-row">
+                            <td style="text-align: center; border: 1px solid #141414; padding:10px;" data-editable="true">{{ c.container_number }}</td>
+                            <td style="text-align: center; border: 1px solid #141414; text-wrap: wrap; padding:10px;" data-editable="true">{{ c.fba_id }}</td>
+                            <td style="text-align: center; border: 1px solid #141414; text-wrap: wrap; padding:10px;" data-editable="true">{{ c.ref_id }}</td>
+                            <td style="text-align: center; border: 1px solid #141414; padding:10px;" data-editable="true">{{ c.pcs }}</td>
+                        </tr>
+                        {% endfor %}
+                        <tr id="BOL-row-empty-{{ batch_number }}" style="display: none;">
+                            <td style="text-align: center; border: 1px solid #141414; padding:10px;" data-editable="true"></td>
+                            <td style="text-align: center; border: 1px solid #141414; text-wrap: wrap; padding:10px;" data-editable="true"></td>
+                            <td style="text-align: center; border: 1px solid #141414; text-wrap: wrap; padding:10px;" data-editable="true"></td>
+                            <td style="text-align: center; border: 1px solid #141414; padding:10px;" data-editable="true"></td>
+                        </tr> 
+                    </table>
+                    <div style="text-align:right;">
+                        <button id="confirmButton" type="button" class="btn btn-primary"  style="font-size: 11px;" onclick="editTable('BOL', false, '{{ batch_number }}')">确认</button>
+                    </div>
                 </div>
-            </div>              
-            {% endif %}
-            {% if selected_fleet.fleet_type == "FTL" %}
-                {% for batch_number in shipment_batch_numbers %}
-                <form method="post" action="" style="display: inline-block;" id="exportBOL-{{ batch_number }}">
-                    {% csrf_token %}
-                    <input type="hidden" name="step" value="export_bol">
-                    <input type="hidden" name="shipment_batch_number" value="{{ batch_number }}">
-                    <input type="hidden" name="warehouse" value="{{ warehouse }}">
-                    <button type="submit" class="btn btn-success" style="font-size: 15px;">
-                        <small>BOL-{{ batch_number }}</small>
-                        <i class="bi bi-cloud-arrow-down-fill"></i>
-                    </button>
-                    <button id="editButton" type="button" class="btn btn-primary" onclick="editBOL(this, '{{ batch_number }}')" style="font-size: 11px;">编辑</button>
-                    <div class="popup-{{ batch_number }}" style="max-height:70%; overflow-y: scroll; display: none; z-index:999; position: fixed; top: 50%; left: 50%; transform: translate(-50%, -50%); background-color: white; border: 1px solid gray; padding: 20px;">
-                        <div style="text-align:right;">
-                            <button type="button" id="add-more-btn" class="btn btn-success" style="height: 35px; font-size: 12px; margin: 5px;" onclick="addRowBelow('BOL','{{ batch_number }}')">
-                                <i class="bi bi-plus-lg"></i> 添加行
-                            </button>
-                            <button type="button" id="add-more-btn" class="btn btn-success" style="height: 35px; font-size: 12px; margin: 5px;" onclick="editTable('BOL', true, '{{ batch_number }}')">编辑</button>
-                        </div>
-                        <table style=" margin: 10px; padding: 100px;" cellpadding='15' id="BOL-container-{{ batch_number }}">
-                            <thead>                       
-                                <th class="th" style="text-align: center; border: 1px solid #141414">Container</th>
-                                <th class="th" style="text-align: center; border: 1px solid #141414">Shipping Mark</th>
-                                <th class="th" style="text-align: center; border: 1px solid #141414">Shipment ID</th>
-                                <th class="th" style="text-align: center; border: 1px solid #141414">Ref ID</th>
-                                <th class="th" style="text-align: center; border: 1px solid #141414">Qty</th>   
-                            </thead>
-                            {% for c in packing_list|get:batch_number %}
-                            <tr id="BOL-row">
-                                <td style="text-align: center; border: 1px solid #141414; padding:10px;" data-editable="true">{{ c.container_number }}</td>
-                                <td style="text-align: center; border: 1px solid #141414; text-wrap: wrap; padding:10px;" data-editable="true">{{ c.shipping_mark }}</td>
-                                <td style="text-align: center; border: 1px solid #141414; text-wrap: wrap; padding:10px;" data-editable="true">{{ c.fba_id }}</td>
-                                <td style="text-align: center; border: 1px solid #141414; text-wrap: wrap; padding:10px;" data-editable="true">{{ c.ref_id }}</td>
-                                <td style="text-align: center; border: 1px solid #141414; padding:10px;" data-editable="true">{{ c.pcs }}</td>
+                {% comment %} <script src="script.js"></script> {% endcomment %}
+            </form>
+            {% endfor %}
+            <!--处理加塞的柜子-->
+            <form method="post" action="" style="display: inline-block; float:right;" id="exportPallet-add">
+                {% csrf_token %}
+                <button id="editButton" type="button" class="btn btn-primary" onclick="editBOL(this, 'pallet')" style="font-size: 14px; font-weight: bold; color:white; background-color:#dc3545;padding: 10px 20px;">加塞</button>
+                <div class="popup-pallet" style="display: none; z-index:999; position: fixed; top: 50%; left: 50%; transform: translate(-50%, -50%); background-color: white; border: 1px solid gray; padding: 20px; max-height: 50%; overflow-y: scroll;">
+                    <div style="display: flex;">
+                        <input type="hidden" name="step" value="add_pallet">
+                        <input type="hidden" name="fleet_number" value="{{ selected_fleet.fleet_number }}">
+                        <input type="hidden" name="warehouse" value="{{ warehouse }}">
+                        <button type="submit" class="btn btn-primary" onclick="edit_add_payload(this)" style="font-size: 11px; margin-right: 5px;">确认添加</button>
+                        <button id="editButton" type="button" class="btn btn-danger" onclick="editBOL(this, 'pallet')" style="font-size: 11px;">返回</button>
+                    </div>
+                    <table id="packing-list-table-add" class="table" style="font-size: 11px; max-height: 50%;">
+                        <thead>
+                            <tr style="position: sticky; top: 0px;">
+                                <th class="th" style="min-width: 40px; text-align: center;"></th>
+                                <th class="th" style="text-align: center; border: 1px solid #141414">预约批次</th>
+                                <th class="th" style="text-align: center; border: 1px solid #141414">柜号</th>
+                                <th class="th" style="text-align: center; border: 1px solid #141414">目的地</th>
+                                <th class="th" style="text-align: center; border: 1px solid #141414">派送方式</th>  
+                                <th class="th" style="text-align: center; border: 1px solid #141414">实际板数</th>  
+                                <th class="th" style="text-align: center; border: 1px solid #141414">加塞板数</th>  
+                            </tr>
+                            <tr style="position: sticky; top: 20px;">
+                                <th class="th" style="min-width: 40px;"></th>
+                                <th class="th"></th>
+                                <th class="th"><input type="text" id="containerSearchInput" placeholder="搜索柜号..." oninput="filterAddPallet()" size="13" style="font-size: 11px;"></th>
+                                <th class="th"><input type="text" id="destinationSearchInput" placeholder="搜索目的仓库..." oninput="filterAddPallet()" size="13" style="font-size: 11px;"></th>
+                                <th class="th"></th>
+                                <th class="th"></th>
+                                <th class="th"></th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {% for plt in plt_unshipped %}
+                            <tr>
+                                <td class="td" style="min-width: 40px; text-align: center;">
+                                    <input type='checkbox' name='is_plt_added' onclick="toggleRowBackground(this)" {% if c.ids in pl_ids_raw %}checked{% elif c.plt_ids in plt_ids_raw %}checked{% endif %} {% if c.abnormal_palletization or c.po_expired %}disabled{% endif %}>
+                                    <input type="hidden" name="is_plt_added", value='off'>
+                                    <input type="hidden" name="added_plt_ids", value='{{ plt.plt_ids }}'>
+                                    <input type="hidden" name="container", value='{{ plt.container_number__container_number }}'>
+                                    <input type="hidden" name="destination", value='{{ plt.destination }}'>
+                                    <input type="hidden" name="pallets", value='{{ plt.total_n_pallet_act }}'>
+                                </td>
+                                <td class="td" style="max-width: 120px; word-break: break-all;">{{ plt.shipment_batch_number__shipment_batch_number|default_if_none:"" }}</td>
+                                <td class="td" style="max-width: 120px; word-break: break-all;">{{ plt.container_number__container_number }}</td>
+                                <td class="td" style="max-width: 120px; word-break: break-all;">{{ plt.destination }}</td>
+                                <td class="td" style="max-width: 120px; word-break: break-all;">{{ plt.delivery_method }}</td>
+                                <td class="td" style="max-width: 120px; word-break: break-ala;">{{ plt.total_n_pallet_act }}</td>
+                                <td class="td"><input value='{{ plt.total_n_pallet_act }} ' name="pallet_add"></td>
                             </tr>
                             {% endfor %}
-                            <tr id="BOL-row-empty-{{ batch_number }}" style="display: none;">
-                                <td style="text-align: center; border: 1px solid #141414; padding:10px;" data-editable="true"></td>
-                                <td style="text-align: center; border: 1px solid #141414; text-wrap: wrap; padding:10px;" data-editable="true"></td>
-                                <td style="text-align: center; border: 1px solid #141414; text-wrap: wrap; padding:10px;" data-editable="true"></td>
-                                <td style="text-align: center; border: 1px solid #141414; text-wrap: wrap; padding:10px;" data-editable="true"></td>
-                                <td style="text-align: center; border: 1px solid #141414; padding:10px;" data-editable="true"></td>
-                            </tr> 
-                        </table>
-                        <div style="text-align:right;">
-                            <button id="confirmButton" type="button" class="btn btn-primary"  style="font-size: 11px;" onclick="editTable('BOL', false, '{{ batch_number }}')">确认</button>
-                        </div>
-                    </div>
-                    {% comment %} <script src="script.js"></script> {% endcomment %}
-                </form>
-                {% endfor %}
-                <!--处理加塞的柜子-->
-                <form method="post" action="" style="display: inline-block; float:right;" id="exportPallet-add">
-                    {% csrf_token %}
-                    <button id="editButton" type="button" class="btn btn-primary" onclick="editBOL(this, 'pallet')" style="font-size: 14px; font-weight: bold; color:white; background-color:#dc3545;padding: 10px 20px;">加塞</button>
-                    <div class="popup-pallet" style="display: none; z-index:999; position: fixed; top: 50%; left: 50%; transform: translate(-50%, -50%); background-color: white; border: 1px solid gray; padding: 20px; max-height: 50%; overflow-y: scroll;">
-                        <div style="display: flex;">
-                            <input type="hidden" name="step" value="add_pallet">
-                            <input type="hidden" name="fleet_number" value="{{ selected_fleet.fleet_number }}">
-                            <input type="hidden" name="warehouse" value="{{ warehouse }}">
-                            <button type="submit" class="btn btn-primary" onclick="edit_add_payload(this)" style="font-size: 11px; margin-right: 5px;">确认添加</button>
-                            <button id="editButton" type="button" class="btn btn-danger" onclick="editBOL(this, 'pallet')" style="font-size: 11px;">返回</button>
-                        </div>
-                        <table id="packing-list-table-add" class="table" style="font-size: 11px; max-height: 50%;">
-                            <thead>
-                                <tr style="position: sticky; top: 0px;">
-                                    <th class="th" style="min-width: 40px; text-align: center;"></th>
-                                    <th class="th" style="text-align: center; border: 1px solid #141414">预约批次</th>
-                                    <th class="th" style="text-align: center; border: 1px solid #141414">柜号</th>
-                                    <th class="th" style="text-align: center; border: 1px solid #141414">目的地</th>
-                                    <th class="th" style="text-align: center; border: 1px solid #141414">派送方式</th>  
-                                    <th class="th" style="text-align: center; border: 1px solid #141414">实际板数</th>  
-                                    <th class="th" style="text-align: center; border: 1px solid #141414">加塞板数</th>  
-                                </tr>
-                                <tr style="position: sticky; top: 20px;">
-                                    <th class="th" style="min-width: 40px;"></th>
-                                    <th class="th"></th>
-                                    <th class="th"><input type="text" id="containerSearchInput" placeholder="搜索柜号..." oninput="filterAddPallet()" size="13" style="font-size: 11px;"></th>
-                                    <th class="th"><input type="text" id="destinationSearchInput" placeholder="搜索目的仓库..." oninput="filterAddPallet()" size="13" style="font-size: 11px;"></th>
-                                    <th class="th"></th>
-                                    <th class="th"></th>
-                                    <th class="th"></th>
-                                </tr>
-                            </thead>
-                            <tbody>
-                                {% for plt in plt_unshipped %}
-                                <tr>
-                                    <td class="td" style="min-width: 40px; text-align: center;">
-                                        <input type='checkbox' name='is_plt_added' onclick="toggleRowBackground(this)" {% if c.ids in pl_ids_raw %}checked{% elif c.plt_ids in plt_ids_raw %}checked{% endif %} {% if c.abnormal_palletization or c.po_expired %}disabled{% endif %}>
-                                        <input type="hidden" name="is_plt_added", value='off'>
-                                        <input type="hidden" name="added_plt_ids", value='{{ plt.plt_ids }}'>
-                                        <input type="hidden" name="container", value='{{ plt.container_number__container_number }}'>
-                                        <input type="hidden" name="destination", value='{{ plt.destination }}'>
-                                        <input type="hidden" name="pallets", value='{{ plt.total_n_pallet_act }}'>
-                                    </td>
-                                    <td class="td" style="max-width: 120px; word-break: break-all;">{{ plt.shipment_batch_number__shipment_batch_number|default_if_none:"" }}</td>
-                                    <td class="td" style="max-width: 120px; word-break: break-all;">{{ plt.container_number__container_number }}</td>
-                                    <td class="td" style="max-width: 120px; word-break: break-all;">{{ plt.destination }}</td>
-                                    <td class="td" style="max-width: 120px; word-break: break-all;">{{ plt.delivery_method }}</td>
-                                    <td class="td" style="max-width: 120px; word-break: break-ala;">{{ plt.total_n_pallet_act }}</td>
-                                    <td class="td"><input value='{{ plt.total_n_pallet_act }} ' name="pallet_add"></td>
-                                </tr>
-                                {% endfor %}
-                            </tbody>
-                        </table>
-                    </div>
-                </form>
-            {% elif selected_fleet.fleet_type != "FTL" %}
-            <!-- <form method="post" action="" enctype="multipart/form-data" style="display: inline-block; float:right;" id="bol-pro-upload">
+                        </tbody>
+                    </table>
+                </div>
+            </form>
+        {% elif selected_fleet.fleet_type == "LTL" %}
+            <form method="post" action="" style="display: inline-block;" id="download_ltl_label">
                 {% csrf_token %}
-                <input type="hidden" name="step" value="upload_ARM_LABEL">
+                <input type="hidden" name="step" value="download_LABEL">
                 <input type="hidden" name="fleet_number" value="{{ selected_fleet.fleet_number }}">
-                <input type="hidden" name="fleet_type" value="{{ selected_fleet.fleet_type }}">
-                <input type="hidden" name="warehouse" value="{{ warehouse }}">
-                <input type="hidden" name="pl_fleet" value="{{ pl_fleet }}">
-                <input type="hidden" name="customerInfo" id="customerInfo">
-                <input type="file" name="files" accept=".pdf" multiple>
-                <button type="submit">上传BOL/LABEL</button>        
-            </form>        -->
-            {% endif %}
+                <button type="submit" class="btn btn-success" style="font-size: 15px;">
+                    <small>LBAEL</small>
+                    <i class="bi bi-cloud-arrow-down-fill"></i>
+                </button>
+            </form>
+            <form method="post" action="" style="display: inline-block;" id="download_ltl_bol">
+                {% csrf_token %}
+                <input type="hidden" name="step" value="download_LTL_BOL">
+                <input type="hidden" name="fleet_number" value="{{ selected_fleet.fleet_number }}">
+                <button type="submit" class="btn btn-success" style="font-size: 15px;">
+                    <small>LTL-BOL</small>
+                    <i class="bi bi-cloud-arrow-down-fill"></i>
+                </button>
+            </form>
+        <!-- <form method="post" action="" enctype="multipart/form-data" style="display: inline-block; float:right;" id="bol-pro-upload">
+            {% csrf_token %}
+            <input type="hidden" name="step" value="upload_ARM_LABEL">
+            <input type="hidden" name="fleet_number" value="{{ selected_fleet.fleet_number }}">
+            <input type="hidden" name="fleet_type" value="{{ selected_fleet.fleet_type }}">
+            <input type="hidden" name="warehouse" value="{{ warehouse }}">
+            <input type="hidden" name="pl_fleet" value="{{ pl_fleet }}">
+            <input type="hidden" name="customerInfo" id="customerInfo">
+            <input type="file" name="files" accept=".pdf" multiple>
+            <button type="submit">上传BOL/LABEL</button>        
+        </form>        -->
+        {% endif %}
             
         </div>
         <div style="overflow-x: auto; max-width: 100%; overflow-y: auto; max-height: 60%;">
@@ -487,9 +518,8 @@
             newInput.name = 'customerInfo';
             newInput.type = 'hidden';
             if (name == "arm_pickup" || name == "self_pickup") {
-                var inputElement = document.getElementById('customerInfo');
-                inputElement.value = jsonCustomerInfo;
-
+                var form = document.getElementById('download_ltl_bol');
+                form.appendChild(newInput)
             } else {
                 form.appendChild(newInput)
             }
