@@ -524,14 +524,23 @@
         var newPCSSum = 0;
 
         for (i = 1; i < newShippingMark.length; i++) {
-            if (!newShippingMarkArray.includes(newShippingMark[i].value)) {
-                newShippingMarkArray.push(newShippingMark[i].value);
+            var shippingMarkValues = newShippingMark[i].value.trim().split(",");
+            for (j = 0; j < shippingMarkValues.length; j++) {
+                if (!newShippingMarkArray.includes(shippingMarkValues[j])) {
+                    newShippingMarkArray.push(shippingMarkValues[j]);
+                };
             };
-            if (!newFBAArray.includes(newFBA[i].value)) {
-                newFBAArray.push(newFBA[i].value);
+            var FBAValues = newFBA[i].value.trim().split(",");
+            for (j = 0; j < FBAValues.length; j++) {
+                if (!newFBAArray.includes(FBAValues[j])) {
+                    newFBAArray.push(FBAValues[j]);
+                };
             };
-            if (!newREFArray.includes(newREF[i].value)) {
-                newREFArray.push(newREF[i].value);
+            var REFValues = newREF[i].value.trim().split(",");
+            for (j = 0; j < REFValues.length; j++) {
+                if (!newREFArray.includes(REFValues[j])) {
+                    newREFArray.push(REFValues[j]);
+                };
             };
             newPCSSum += parseInt(newPCS[i].value);
         };
