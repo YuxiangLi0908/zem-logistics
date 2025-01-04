@@ -1195,8 +1195,8 @@ class Accounting(View):
             models.Q(offload_id__offload_required=True) &
             models.Q(offload_id__offload_at__isnull=False) &
             models.Q(retrieval_id__actual_retrieval_timestamp__isnull=False) &
-            models.Q(eta__gte=start_date) &
-            models.Q(eta__lte=end_date)
+            models.Q(offload_id__offload_at__gte=start_date) &
+            models.Q(offload_id__offload_at__lte=end_date)
         ).order_by("offload_id__offload_at")
         data = [
             {
