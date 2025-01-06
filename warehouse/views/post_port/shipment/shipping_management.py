@@ -143,6 +143,7 @@ class ShippingManagement(View):
             shipment.shipment_appointment = naive_datetime
             await sync_to_async(shipment.save)()
         elif operation == "delete":
+            shipment.is_canceled = True
             await sync_to_async(shipment.delete)()
         return await self.handle_appointment_warehouse_search_post(request)
 
@@ -813,7 +814,6 @@ class ShippingManagement(View):
         shipment_type = request.POST.get("shipment_type")     
         shipment = await sync_to_async(Shipment.objects.select_related("fleet_number").get)(shipment_batch_number=batch_number)
         shipment_appointment = request.POST.get("shipment_appointment")
-        appointment_datetime = request.POST.get("appointment_datetime")
         if not shipment_appointment:
             shipment_appointment = None
         if shipment_type == shipment.shipment_type:
@@ -824,8 +824,8 @@ class ShippingManagement(View):
                 shipment.carrier = request.POST.get("carrier")
                 shipment.third_party_address = request.POST.get("third_party_address")
                 shipment.load_type = request.POST.get("load_type")
-                shipment.shipment_schduled_at = shipment_appointment
-                shipment.shipment_appointment = request.POST.get("appointment_datetime")
+                shipment.shipment_schduled_at = timezone.now()
+                shipment.shipment_appointment = shipment_appointment
                 shipment.note = request.POST.get("note")
                 shipment.destination = request.POST.get("destination").replace("WALMART","Walmart")
                 shipment.address = request.POST.get("address")
@@ -833,7 +833,8 @@ class ShippingManagement(View):
                 shipment.appointment_id = request.POST.get("appointment_id", "")
                 shipment.shipment_account = request.POST.get("shipment_account", "")
                 shipment.origin = request.POST.get("origin")
-                shipment.shipment_appointment = request.POST.get("appointment_datetime")
+                shipment.shipment_schduled_at = timezone.now()
+                shipment.shipment_appointment = shipment_appointment
                 shipment.note = request.POST.get("note")
                 shipment.destination = request.POST.get("destination").replace("WALMART","Walmart")
                 shipment.address = request.POST.get("address")
@@ -841,14 +842,14 @@ class ShippingManagement(View):
                 #测试发现甩板的约没有车次
                 if fleet:
                     fleet.carrier = request.POST.get("carrier")
-                    fleet.appointment_datetime = request.POST.get("appointment_datetime")
+                    fleet.appointment_datetime = request.POST.get("shipment_appointment")
                     await sync_to_async(fleet.save)()
                 else:
                     current_time = datetime.now()
                     fleet = Fleet(**{
                         "carrier": request.POST.get("carrier"),
                         "fleet_type": shipment_type,
-                        "appointment_datetime": request.POST.get("appointment_datetime"),
+                        "appointment_datetime": request.POST.get("shipment_appointment"),
                         "fleet_number": "FO" + current_time.strftime("%m%d%H%M%S") + str(uuid.uuid4())[:2].upper(),
                         "scheduled_at": current_time,
                         "total_weight": shipment.total_weight,
@@ -870,7 +871,7 @@ class ShippingManagement(View):
                 shipment.carrier = request.POST.get("carrier")
                 shipment.third_party_address = request.POST.get("third_party_address")
                 shipment.load_type = request.POST.get("load_type")
-                shipment.shipment_schduled_at = shipment_appointment
+                shipment.shipment_schduled_at = timezone.now()
                 shipment.shipment_appointment = shipment_appointment
                 shipment.note = request.POST.get("note")
                 shipment.destination = request.POST.get("destination").replace("WALMART","Walmart")
@@ -884,7 +885,7 @@ class ShippingManagement(View):
                 shipment.shipment_type = shipment_type
                 shipment.shipment_account = request.POST.get("shipment_account")
                 shipment.origin = request.POST.get("origin")
-                shipment.shipment_appointment = request.POST.get("appointment_datetime")
+                shipment.shipment_appointment = request.POST.get("shipment_appointment")
                 shipment.note = request.POST.get("note")
                 shipment.destination = request.POST.get("destination").replace("WALMART","Walmart")
                 shipment.address = request.POST.get("address")
@@ -897,7 +898,7 @@ class ShippingManagement(View):
                 fleet = Fleet(**{
                     "carrier": request.POST.get("carrier"),
                     "fleet_type": shipment_type,
-                    "appointment_datetime": request.POST.get("appointment_datetime"),
+                    "appointment_datetime": request.POST.get("shipment_appointment"),
                     "fleet_number": "FO" + current_time.strftime("%m%d%H%M%S") + str(uuid.uuid4())[:2].upper(),
                     "scheduled_at": current_time,
                     "total_weight": shipment.total_weight,
