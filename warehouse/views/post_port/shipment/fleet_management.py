@@ -896,22 +896,22 @@ class FleetManagement(View):
         return await self.handle_delivery_and_pod_get(request)
 
     async def handle_pod_upload_post(self, request: HttpRequest) -> tuple[str, dict[str, Any]]:
-        # conn = await self._get_sharepoint_auth()
-        # pod_form = UploadFileForm(request.POST, request.FILES)
-        # shipment_batch_number = request.POST.get("shipment_batch_number")
-        # shipment = await sync_to_async(Shipment.objects.get)(shipment_batch_number=shipment_batch_number)
-        # if pod_form.is_valid():
-        #     file = request.FILES['file']
-        #     file_extension = os.path.splitext(file.name)[1]
-        #     file_path = os.path.join(SP_DOC_LIB, f"{SYSTEM_FOLDER}/pod/{APP_ENV}")
-        #     sp_folder = conn.web.get_folder_by_server_relative_url(file_path)
-        #     resp = sp_folder.upload_file(f"{shipment_batch_number}{file_extension}", file).execute_query()
-        #     link = resp.share_link(SharingLinkKind.OrganizationView).execute_query().value.to_json()["sharingLinkInfo"]["Url"]
-        # else:
-        #     raise ValueError("invalid file uploaded.")
-        # shipment.pod_link = link
-        # shipment.pod_uploaded_at = timezone.now()
-        # await sync_to_async(shipment.save)()
+        conn = await self._get_sharepoint_auth()
+        pod_form = UploadFileForm(request.POST, request.FILES)
+        shipment_batch_number = request.POST.get("shipment_batch_number")
+        shipment = await sync_to_async(Shipment.objects.get)(shipment_batch_number=shipment_batch_number)
+        if pod_form.is_valid():
+            file = request.FILES['file']
+            file_extension = os.path.splitext(file.name)[1]
+            file_path = os.path.join(SP_DOC_LIB, f"{SYSTEM_FOLDER}/pod/{APP_ENV}")
+            sp_folder = conn.web.get_folder_by_server_relative_url(file_path)
+            resp = sp_folder.upload_file(f"{shipment_batch_number}{file_extension}", file).execute_query()
+            link = resp.share_link(SharingLinkKind.OrganizationView).execute_query().value.to_json()["sharingLinkInfo"]["Url"]
+        else:
+            raise ValueError("invalid file uploaded.")
+        shipment.pod_link = link
+        shipment.pod_uploaded_at = timezone.now()
+        await sync_to_async(shipment.save)()
         return await self.handle_pod_upload_get(request)
     
     async def _export_ltl_label(self, request: HttpRequest) -> HttpResponse:
