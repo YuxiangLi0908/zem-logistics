@@ -162,7 +162,7 @@
                     <tbody>
                         <tr>
                             <td class="td"><input type="text" name="carrier" value="{{ shipment.fleet_number.carrier }}" style="font-size: 13px;" required></td>
-                            <td class="td"><input type="datetime-local" name="appointment_datetime" value="{{ shipment.fleet_number.appointment_datetime|date:'Y-m-d\\TH:i' }}" style="font-size: 13px;" required></td>
+                            <td class="td"><input type="datetime-local" name="shipment_appointment" value="{{ shipment.shipment_appointment|date:'Y-m-d\\TH:i' }}" style="font-size: 13px;" required></td>
                         </tr>
                     </tbody>
                 </table>
