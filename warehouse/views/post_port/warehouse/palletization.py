@@ -347,6 +347,7 @@ class Palletization(View):
         height = request.POST.getlist("height")
         pcs = request.POST.getlist("pcs")
         weight = request.POST.getlist("weight")
+        destination = request.POST.getlist("destination") if request.POST.getlist("destination") else False
         pallets = []
         for i in range(len(plt_ids)):
             plt_id = int(plt_ids[i])
@@ -357,7 +358,8 @@ class Palletization(View):
             pallet.pcs = pcs[i]
             pallet.weight_lbs = weight[i]
             pallet.cbm = round(float(length[i]) * float(width[i]) * float(height[i]) * 0.0254*0.0254*0.0254, 5)
-            pallet.sequence_number = i    
+            if destination:
+                pallet.sequence_number = i+1
             pallets.append(pallet)
             
         await sync_to_async(Pallet.objects.bulk_update)(
