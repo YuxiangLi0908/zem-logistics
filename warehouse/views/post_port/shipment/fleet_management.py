@@ -471,7 +471,7 @@ class FleetManagement(View):
             criteria &= models.Q(shipment_batch_number=batch_number)
         if area:
             criteria &= models.Q(origin=area)
-        if arrived_at and arrived_at is not None:
+        if arrived_at and arrived_at is not None and arrived_at!= '':
             arrived_at = datetime.strptime(arrived_at, '%Y-%m-%d')
             criteria &= models.Q(
                 arrived_at__year=arrived_at.year,
@@ -934,6 +934,7 @@ class FleetManagement(View):
                 total_cbm=Count('cbm')
             )
         )
+        print(arm_pickup)
         for arm in arm_pickup:
             arm_pro = arm["shipment_batch_number__ARM_PRO"]
             carrier = arm["shipment_batch_number__fleet_number__carrier"]
