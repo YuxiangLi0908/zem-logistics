@@ -64,7 +64,6 @@ class ShippingManagement(View):
         if not await self._user_authenticate(request):
             return redirect("login")
         step = request.GET.get("step", None)
-        print("GET",step)
         if step == "shipment_info":
             template, context = await self.handle_shipment_info_get(request)
             return render(request, template, context)
@@ -88,7 +87,6 @@ class ShippingManagement(View):
         if not await self._user_authenticate(request):
             return redirect("login")
         step = request.POST.get("step")
-        print("POST",step)
         if step == "warehouse":
             template, context = await self.handle_warehouse_post(request)
             return render(request, template, context)
@@ -479,9 +477,12 @@ class ShippingManagement(View):
                     shipment.destination = request.POST.get("destination", None).replace("WALMART","Walmart")
                     shipment.address = request.POST.get("address", None)
                     shipment.shipment_account = request.POST.get("shipment_account", "").strip()
+                    if shipment_type != "FTL": #非FTL的，界面提货时间
+                        shipmentappointment = request.POST.get("shipment_appointment", None)
+                        shipment.shipment_appointment = shipmentappointment
                     #LTL的需要存ARM-BOL和ARM-PRO
-                    arm_fields = ['ARM_BOL', 'ARM_PRO']
-                    shipment_data.update({field: request.POST.get(field) for field in arm_fields if request.POST.get(field)})
+                    shipment.ARM_BOL = request.POST.get("arm_bol") if request.POST.get("arm_bol") else ""
+                    shipment.ARM_PRO = request.POST.get("arm_pro") if request.POST.get("arm_bol") else ""
                     try:
                         shipment.third_party_address = shipment_data["third_party_address"].strip()
                     except:
@@ -502,7 +503,6 @@ class ShippingManagement(View):
                 shipment_data["shipment_type"] = shipment_type
                 shipment_data["load_type"] = request.POST.get("load_type", None)
                 shipment_data["note"] = request.POST.get("note", "")
-                shipment_data["shipment_appointment"] = shipment_appointment
                 shipment_data["shipment_schduled_at"] = current_time
                 shipment_data["is_shipment_schduled"] = True
                 shipment_data["destination"] = request.POST.get("destination", None)
@@ -510,12 +510,11 @@ class ShippingManagement(View):
                 shipment_data["origin"] = request.POST.get("origin", "")
                 shipment_data["shipment_account"] = request.POST.get("shipment_account", "").strip()
                 if shipment_type != "FTL":
-                    appointmentTime = request.POST.get("appointment_datetime")
-                    appoint_datetime = parse(appointmentTime).replace(tzinfo=None) if appointmentTime else None
+                    shipment_data["shipment_appointment"] = shipment_appointment  #界面的提货时间
                     fleet = Fleet(**{
                         "carrier": request.POST.get("carrier"),
                         "fleet_type": shipment_type,
-                        "appointment_datetime": shipment_appointment,
+                        "appointment_datetime": shipment_appointment, #车次的提货时间=约的提货时间
                         "fleet_number": "FO" + current_time.strftime("%m%d%H%M%S") + str(uuid.uuid4())[:2].upper(),
                         "scheduled_at": current_time,
                         "total_weight": shipment_data["total_weight"],
@@ -527,8 +526,8 @@ class ShippingManagement(View):
                     await sync_to_async(fleet.save)()
                     shipment_data["fleet_number"] = fleet
                     #LTL的需要存ARM-BOL和ARM-PRO
-                    arm_fields = ['ARM_BOL', 'ARM_PRO']
-                    shipment_data.update({field: request.POST.get(field) for field in arm_fields if request.POST.get(field)})
+                    shipment_data["ARM_BOL"] = request.POST.get("arm_bol") if request.POST.get("arm_bol") else ""
+                    shipment_data["ARM_PRO"] = request.POST.get("arm_pro") if request.POST.get("arm_bol") else ""
             if not existed_appointment:
                 shipment = Shipment(**shipment_data)
             await sync_to_async(shipment.save)()
@@ -609,13 +608,13 @@ class ShippingManagement(View):
             shipment_appointment = request.POST.get("shipment_appointment")
             note = request.POST.get("note")
             shipment = Shipment.objects.get(shipment_batch_number=batch_number)
-            shipment.shipment_appointment = shipment_appointment
+            shipment.shipment_appointment = parse(shipment_appointment).replace(tzinfo=None)
             shipment.note = note
             shipment.is_shipment_schduled = True
             shipment.shipment_schduled_at = current_time
             #LTL的需要存ARM-BOL和ARM-PRO
-            arm_fields = ['ARM_BOL', 'ARM_PRO']
-            shipment.update({field: request.POST.get(field) for field in arm_fields if request.POST.get(field)})
+            shipment.ARM_BOL = request.POST.get("arm_bol") if request.POST.get("arm_bol") else ""
+            shipment.ARM_PRO = request.POST.get("arm_pro") if request.POST.get("arm_bol") else ""
             shipment.save()
             mutable_post = request.POST.copy()
             mutable_post['area'] = warehouse
@@ -825,7 +824,7 @@ class ShippingManagement(View):
                 shipment.third_party_address = request.POST.get("third_party_address")
                 shipment.load_type = request.POST.get("load_type")
                 shipment.shipment_schduled_at = timezone.now()
-                shipment.shipment_appointment = shipment_appointment
+                shipment.shipment_appointment = shipment_appointment #界面的schedule_time
                 shipment.note = request.POST.get("note")
                 shipment.destination = request.POST.get("destination").replace("WALMART","Walmart")
                 shipment.address = request.POST.get("address")
@@ -842,14 +841,14 @@ class ShippingManagement(View):
                 #测试发现甩板的约没有车次
                 if fleet:
                     fleet.carrier = request.POST.get("carrier")
-                    fleet.appointment_datetime = request.POST.get("shipment_appointment")
+                    fleet.appointment_datetime = shipment_appointment
                     await sync_to_async(fleet.save)()
                 else:
                     current_time = datetime.now()
                     fleet = Fleet(**{
                         "carrier": request.POST.get("carrier"),
                         "fleet_type": shipment_type,
-                        "appointment_datetime": request.POST.get("shipment_appointment"),
+                        "appointment_datetime": shipment_appointment,
                         "fleet_number": "FO" + current_time.strftime("%m%d%H%M%S") + str(uuid.uuid4())[:2].upper(),
                         "scheduled_at": current_time,
                         "total_weight": shipment.total_weight,
@@ -860,8 +859,8 @@ class ShippingManagement(View):
                     })
                     await sync_to_async(fleet.save)()
                     shipment.fleet_number = fleet
-                shipment.ARM_BOL = request.POST.get("ARM_BOL")
-                shipment.ARM_PRO = request.POST.get("ARM_PRO")
+                shipment.ARM_BOL = request.POST.get("arm_bol") if request.POST.get("arm_bol") else ''
+                shipment.ARM_PRO = request.POST.get("arm_pro") if request.POST.get("arm_pro") else ''
         else:
             if shipment_type == "FTL":
                 shipment.shipment_type = shipment_type
@@ -885,20 +884,20 @@ class ShippingManagement(View):
                 shipment.shipment_type = shipment_type
                 shipment.shipment_account = request.POST.get("shipment_account")
                 shipment.origin = request.POST.get("origin")
-                shipment.shipment_appointment = request.POST.get("shipment_appointment")
+                shipment.shipment_appointment = shipment_appointment
                 shipment.note = request.POST.get("note")
                 shipment.destination = request.POST.get("destination").replace("WALMART","Walmart")
                 shipment.address = request.POST.get("address")
                 shipment.appointment_id = request.POST.get("appointment_id", "")
                 shipment.load_type = ""
                 shipment.third_party_address = ""
-                shipment.ARM_BOL = request.POST.get("ARM_BOL")
-                shipment.ARM_PRO = request.POST.get("ARM_PRO")
+                shipment.ARM_BOL = request.POST.get("arm_bol") if request.POST.get("arm_bol") else ''
+                shipment.ARM_PRO = request.POST.get("arm_pro") if request.POST.get("arm_pro") else ''
                 current_time = datetime.now()
                 fleet = Fleet(**{
                     "carrier": request.POST.get("carrier"),
                     "fleet_type": shipment_type,
-                    "appointment_datetime": request.POST.get("shipment_appointment"),
+                    "appointment_datetime": shipment_appointment,
                     "fleet_number": "FO" + current_time.strftime("%m%d%H%M%S") + str(uuid.uuid4())[:2].upper(),
                     "scheduled_at": current_time,
                     "total_weight": shipment.total_weight,
@@ -1135,6 +1134,26 @@ class ShippingManagement(View):
                     shipment.shipped_pcs = old_shipment.shipped_pcs
                     shipment.pallet_dumpped = old_shipment.pallet_dumpped
                     shipment.previous_fleets = old_shipment.previous_fleets
+                    if shipment_type != "FTL":
+                        shipmentappointment = request.POST.get("shipment_appointment")
+                        shipment_appointment = parse(shipmentappointment).replace(tzinfo=None)
+                        fleet = Fleet(**{
+                            "carrier": request.POST.get("carrier"),
+                            "fleet_type": shipment_type,
+                            "appointment_datetime": shipment_appointment, #车次的提货时间=约的提货时间
+                            "fleet_number": "FO" + current_time.strftime("%m%d%H%M%S") + str(uuid.uuid4())[:2].upper(),
+                            "scheduled_at": current_time,
+                            "total_weight": shipment_data["total_weight"],
+                            "total_cbm": shipment_data["total_cbm"],
+                            "total_pallet": shipment_data["total_pallet"],
+                            "total_pcs": shipment_data["total_pcs"],
+                            "origin": shipment_data["origin"]
+                        })
+                        await sync_to_async(fleet.save)()
+                        shipment.fleet_number = fleet
+                        #LTL的需要存ARM-BOL和ARM-PRO
+                        shipment.ARM_BOL = request.POST.get("arm_bol") if request.POST.get("arm_bol") else ""
+                        shipment.ARM_PRO = request.POST.get("arm_pro") if request.POST.get("arm_bol") else ""
                     try:
                         shipment.third_party_address = request.POST.get("third_party_address").strip()
                     except:
@@ -1167,8 +1186,8 @@ class ShippingManagement(View):
                 shipment_data["pallet_dumpped"] = old_shipment.pallet_dumpped
                 shipment_data["previous_fleets"] = old_shipment.previous_fleets
                 if shipment_type in ["LTL", "外配/快递"]:
-                    shipment_data["arm_bol"] = request.POST.get("arm_bol", "").strip()
-                    shipment_data["arm_pro"] = request.POST.get("arm_pro", "").strip()
+                    shipment_data["ARM_BOL"] = request.POST.get("arm_bol", "").strip()
+                    shipment_data["ARM_PRO"] = request.POST.get("arm_pro", "").strip()
                     fleet = Fleet(**{
                         "carrier": request.POST.get("carrier"),
                         "fleet_type": shipment_type,
