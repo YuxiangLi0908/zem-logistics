@@ -469,7 +469,7 @@ class FleetManagement(View):
             criteria &= models.Q(shipment_batch_number=batch_number)
         if area:
             criteria &= models.Q(origin=area)
-        if arrived_at and arrived_at is not None and arrived_at!= '':
+        if arrived_at and arrived_at is not None and arrived_at!= '' and arrived_at != 'None':
             arrived_at = datetime.strptime(arrived_at, '%Y-%m-%d')
             criteria &= models.Q(
                 arrived_at__year=arrived_at.year,
