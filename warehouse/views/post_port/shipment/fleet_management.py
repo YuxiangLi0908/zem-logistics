@@ -77,7 +77,6 @@ class FleetManagement(View):
         if not await self._user_authenticate(request):
             return redirect("login")
         step = request.GET.get("step")
-        print("GET",step)
         if step == "outbound":
             context = {"warehouse_form": ZemWarehouseForm()}
             return render(request, self.template_outbound, context)
@@ -104,7 +103,6 @@ class FleetManagement(View):
         if not await self._user_authenticate(request):
             return redirect("login")
         step = request.POST.get("step")
-        print("POST",step)
         if step == "fleet_warehouse_search":
             template, context = await self.handle_fleet_warehouse_search_post(request)
             return render(request, template, context)
@@ -471,7 +469,7 @@ class FleetManagement(View):
             criteria &= models.Q(shipment_batch_number=batch_number)
         if area:
             criteria &= models.Q(origin=area)
-        if arrived_at and arrived_at is not None:
+        if arrived_at and arrived_at is not None and arrived_at!= '':
             arrived_at = datetime.strptime(arrived_at, '%Y-%m-%d')
             criteria &= models.Q(
                 arrived_at__year=arrived_at.year,
