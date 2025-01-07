@@ -138,26 +138,36 @@
                             <th class="th" style="text-align: center; border: 1px solid #141414">柜号</th>
                             <th class="th" style="text-align: center; border: 1px solid #141414">目的地</th>
                             <th class="th" style="text-align: center; border: 1px solid #141414">唛头</th>
-                            <th class="th" style="text-align: center; border: 1px solid #141414">ARM_BOL</th>
+                            <th class="th" style="text-align: center; border: 1px solid #141414">BOL</th>
                             <th class="th" style="text-align: center; border: 1px solid #141414">板数</th> 
                             <th class="th" style="text-align: center; border: 1px solid #141414">箱数</th>  
-                            <th class="th" style="text-align: center; border: 1px solid #141414">重量</th> 
-                            <th class="th" style="text-align: center; border: 1px solid #141414">cbm</th> 
                             <th class="th" style="text-align: center; border: 1px solid #141414">Carrier</th>  
-                            <th class="th" style="text-align: center; border: 1px solid #141414">提仓时间</th>  
+                            <th class="th" style="text-align: center; border: 1px solid #141414">address</th> 
+                            <th class="th" style="text-align: center; border: 1px solid #141414">公司名</th> 
+                            <th class="th" style="text-align: center; border: 1px solid #141414">街道</th> 
+                            <th class="th" style="text-align: center; border: 1px solid #141414">城市</th> 
+                            <th class="th" style="text-align: center; border: 1px solid #141414">联系人</th> 
+                            {% if '自提' in selected_fleet.fleet_number%}
+                                <th class="th" style="text-align: center; border: 1px solid #141414">提货时间</th>  
+                            {% endif %}
                         </thead>
                         {% for s in arm_pickup %}
                         <tr id="arm_pickup-row">
                             <td style="text-align: center; border: 1px solid #141414; padding:10px;" data-editable="true">{{ s.container_number__container_number }}</td>
                             <td style="text-align: center; border: 1px solid #141414; text-wrap: wrap; padding:10px;" data-editable="true">{{ s.zipcode }}</td>
-                            <td style="text-align: center; border: 1px solid #141414; text-wrap: wrap; padding:10px;" data-editable="true">{{ s.shipping_mark }}</td>
-                            <td style="text-align: center; border: 1px solid #141414; text-wrap: wrap; padding:10px;" data-editable="true">{{ s.shipment_batch_number__ARM_BOL }}</td>
+                            <td style="text-align: center; border: 1px solid #141414; word-wrap: wrap; padding:10px;" data-editable="true">{{ s.shipping_mark }}</td>
+                            <td style="text-align: center; border: 1px solid #141414; word-wrap: break-word; padding:10px;" data-editable="true">{{ s.shipment_batch_number__ARM_BOL }}</td>
                             <td style="text-align: center; border: 1px solid #141414; padding:10px;" data-editable="true">{{ s.total_pallet }}</td>
                             <td style="text-align: center; border: 1px solid #141414; padding:10px;" data-editable="true">{{ s.total_pcs }}</td>
-                            <td style="text-align: center; border: 1px solid #141414; padding:10px;" data-editable="true">{{ s.total_weight }}</td>
-                            <td style="text-align: center; border: 1px solid #141414; padding:10px;" data-editable="true">{{ s.total_cbm }}</td>
                             <td style="text-align: center; border: 1px solid #141414; padding:10px;" data-editable="true">{{ s.shipment_batch_number__fleet_number__carrier }}</td>
+                            <td style="text-align: center; border: 1px solid #141414; padding:10px;" data-editable="true">{{ s.address }}</td>
+                            <td style="text-align: center; border: 1px solid #141414; padding:10px;" data-editable="true"></td>
+                            <td style="text-align: center; border: 1px solid #141414; padding:10px;" data-editable="true"></td>
+                            <td style="text-align: center; border: 1px solid #141414; padding:10px;" data-editable="true"></td>
+                            <td style="text-align: center; border: 1px solid #141414; padding:10px;" data-editable="true"></td>
+                            {% if '自提' in selected_fleet.fleet_number%}
                             <td style="text-align: center; border: 1px solid #141414; padding:10px;" data-editable="true">{{ s.shipment_batch_number__fleet_number__appointment_datetime|date:"Y-m-d H:i:s" }}</td>
+                            {% endif %}
                         </tr>
                         {% endfor %}
                         <tr id="arm_pickup-row-empty-{{ selected_fleet.fleet_number }}" style="display: none;">
@@ -171,6 +181,11 @@
                             <td style="text-align: center; border: 1px solid #141414; padding:10px;" data-editable="true"></td>
                             <td style="text-align: center; border: 1px solid #141414; padding:10px;" data-editable="true"></td>
                             <td style="text-align: center; border: 1px solid #141414; padding:10px;" data-editable="true"></td>
+                            <td style="text-align: center; border: 1px solid #141414; padding:10px;" data-editable="true"></td>
+                            <td style="text-align: center; border: 1px solid #141414; padding:10px;" data-editable="true"></td>
+                            {% if '自提' in selected_fleet.fleet_number%}
+                            <td style="text-align: center; border: 1px solid #141414; padding:10px;" data-editable="true"></td>
+                            {% endif %}
                         </tr>  
                     </table>
                     <div style="text-align:right;">
@@ -297,6 +312,7 @@
                 {% csrf_token %}
                 <input type="hidden" name="step" value="download_LTL_BOL">
                 <input type="hidden" name="fleet_number" value="{{ selected_fleet.fleet_number }}">
+                <input type="hidden" name="warehouse" value="{{ selected_fleet.origin }}">
                 <button type="submit" class="btn btn-success" style="font-size: 15px;">
                     <small>LTL-BOL</small>
                     <i class="bi bi-cloud-arrow-down-fill"></i>

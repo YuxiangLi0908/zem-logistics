@@ -257,9 +257,9 @@ class FleetManagement(View):
             ).filter(
                 shipment_batch_number__fleet_number__fleet_number=selected_fleet_number
             ).values(
-                "container_number__container_number","zipcode","shipping_mark",
+                "container_number__container_number","zipcode","shipping_mark","destination",
                 "shipment_batch_number__ARM_BOL","shipment_batch_number__fleet_number__carrier",
-                "shipment_batch_number__fleet_number__appointment_datetime"
+                "shipment_batch_number__fleet_number__appointment_datetime","address"
             ).annotate(
                 total_pcs=Count('pcs', distinct=True),
                 total_pallet=Count('pallet_id', distinct=True),
@@ -267,6 +267,19 @@ class FleetManagement(View):
                 total_cbm=Count('cbm')
             )
         )
+        for arm in arm_pickup:
+            marks = arm["shipping_mark"]
+            if marks:
+                array = marks.split(",")             
+                if len(array) > 2:
+                    parts = []
+                    for i in range(0, len(array), 2):
+                        part = ",".join(array[i:i+2])
+                        parts.append(part)
+                    new_marks = "\n".join(parts)
+                else:
+                    new_marks = marks
+            arm["shipping_mark"] = new_marks
         shipment = await sync_to_async(list)(
             Pallet.objects.select_related(
                 "shipment_batch_number",
@@ -975,22 +988,45 @@ class FleetManagement(View):
     
     async def _export_ltl_bol(self, request: HttpRequest) -> HttpResponse:
         customerInfo = request.POST.get("customerInfo")
+        warehouse = request.POST.get("warehouse")       
         if customerInfo and customerInfo != '[]':
-            customer_info = json.loads(customerInfo)
-            arm_pickup = [['container_number__container_number','destination','shipping_mark','shipment_batch_number__ARM_PRO','total_pallet','total_pcs','total_weight','total_cbm','shipment_batch_number__fleet_number__carrier','shipment_batch_number__shipment_appointment']]
-            for row in customer_info:
-                arm_pickup.append([
-                    row[0].strip(),
-                    row[1].strip(),
-                    row[2].strip(),
-                    row[3].strip(), 
-                    int(row[4].strip()),
-                    int(row[5].strip()),
-                    float(row[6].strip()),
-                    float(row[7].strip()),
-                    row[8].strip(),
-                    row[9].strip()
-                ])
+            customerInfo = json.loads(customerInfo)
+            if len(customerInfo[0]) == 12:
+                flag = True
+            else:
+                flag = False  #表示客户自提
+            if flag:
+                arm_pickup = [['container_number__container_number','destination','shipping_mark','shipment_batch_number__ARM_PRO','total_pallet','total_pcs','shipment_batch_number__fleet_number__carrier']]
+            else:
+                arm_pickup = [['container_number__container_number','destination','shipping_mark','shipment_batch_number__ARM_PRO','total_pallet','total_pcs','shipment_batch_number__fleet_number__carrier','shipment_batch_number__shipment_appointment']]
+            for row in customerInfo:
+                contact_name=row[11].strip().split(',')
+                contact = {"company":row[8].strip(),
+                           "Road":row[9].strip(),
+                           "city":row[10].strip(),
+                           "name":contact_name[0],
+                           "phone":contact_name[1]}
+                if len(row) == 12:
+                    arm_pickup.append([
+                        row[0].strip(),
+                        row[1].strip(),
+                        row[2].strip(),
+                        row[3].strip(), 
+                        int(row[4].strip()),
+                        int(row[5].strip()),
+                        row[6].strip()
+                    ])
+                elif len(row) == 13:
+                    arm_pickup.append([
+                        row[0].strip(),
+                        row[1].strip(),
+                        row[2].strip(),
+                        row[3].strip(), 
+                        int(row[4].strip()),
+                        int(row[5].strip()),
+                        row[6].strip(),
+                        row[12].strip()
+                    ])
             keys = arm_pickup[0]
             arm_pickup_dict_list = []   
             for row in arm_pickup[1:]:
@@ -1015,6 +1051,7 @@ class FleetManagement(View):
                     total_cbm=Count('cbm')
                 )
             )
+        
         pallet = 0
         pcs = 0
         weight = 0.0
@@ -1023,11 +1060,10 @@ class FleetManagement(View):
         for arm in arm_pickup:
             arm_pro = arm["shipment_batch_number__ARM_PRO"]
             carrier = arm["shipment_batch_number__fleet_number__carrier"]
-            pickup_time = arm["shipment_batch_number__shipment_appointment"]
+            if not flag:
+                pickup_time = arm["shipment_batch_number__shipment_appointment"]
             pallet += arm["total_pallet"]
             pcs += arm["total_pcs"]
-            weight += arm["total_weight"]
-            cbm += arm["total_cbm"]
             container_number = arm["container_number__container_number"]
             destination = arm["destination"]
             shipping_mark += arm["shipping_mark"]
@@ -1044,9 +1080,10 @@ class FleetManagement(View):
                 else:
                     new_marks = marks
             arm["shipping_mark"] = new_marks
-        pickup_time_str = str(pickup_time)
-        date_str = datetime.strptime(pickup_time_str[:19], '%Y-%m-%d %H:%M:%S')
-        pickup_time = date_str.strftime('%Y-%m-%d')
+        if not flag:
+            pickup_time_str = str(pickup_time)
+            date_str = datetime.strptime(pickup_time_str[:19], '%Y-%m-%d %H:%M:%S')
+            pickup_time = date_str.strftime('%Y-%m-%d')
         #生成条形码
         
         barcode_type = 'code128'
@@ -1069,20 +1106,28 @@ class FleetManagement(View):
         barcode_base64 = base64.b64encode(new_buffer.getvalue()).decode('utf-8')
         #增加一个拣货单的表格
         context = {
+            "warehouse":warehouse,
             "arm_pro": arm_pro, 
             "carrier":carrier,
-            "pickup_time":pickup_time, 
             "pallet":pallet,
             "pcs":pcs,
             "weight":weight,
             "cbm":cbm,
             "barcode": barcode_base64,
-            "arm_pickup": arm_pickup
+            "arm_pickup": arm_pickup,
+            "contact":contact,
+            "flag" :flag,
+            "contact":contact
             }
+        if not flag:
+            context["pickup_time"] = pickup_time
         template = get_template(self.template_ltl_bol)
         html = template.render(context)
         response = HttpResponse(content_type="application/pdf")
-        response['Content-Disposition'] = f'attachment; filename="{pickup_time}+{container_number}+{destination}+{shipping_mark}+BOL.pdf"'
+        if not flag:
+            response['Content-Disposition'] = f'attachment; filename="{pickup_time}+{container_number}+{destination}+{shipping_mark}+BOL.pdf"'
+        else:
+            response['Content-Disposition'] = f'attachment; filename="{container_number}+{destination}+{shipping_mark}+BOL.pdf"'
         pisa_status = pisa.CreatePDF(html, dest=response, link_callback=link_callback)
         if pisa_status.err:
             raise ValueError('Error during PDF generation: %s' % pisa_status.err, content_type='text/plain')

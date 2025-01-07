@@ -64,8 +64,12 @@
     <table style="width: 120%;">
         <tr>
             <td style="width: 55%; padding:5px; border-bottom: 1px solid black;"> 
-                <b class="larger-text">SHIPPER</b>
+                <b class="larger-text">SHIPPER</b>{{warehouse}}
+                {% if "SAV-31326" == warehouse %}
                 <br>ZEM RINCON<br>1001 Trade Center Pkwy<br>Rincon,GA,31326<br>ken &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;929-329-4323<br>office@zemlogistics.com
+                {% elif "LA-91761" == warehouse %}
+                <br>ZEM RINCON<br>5450E Francis St Ontario<br>CA,91761,United States<br>Eric &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;6265507790<br>office@zemlogistics.com
+                {% endif %}
             </td>
             <td style="width:10%;"></td>
             <td style="width: 55%; text-align:center; border-bottom: 1px solid black;">
@@ -78,7 +82,7 @@
         <tr>
             <td style="width: 55%; padding:5px; border-bottom: 1px solid black;"> 
                 <b class="larger-text">CONSIGNEE</b>
-                <br>GA warehouse<br>4300 Hunter Road<br>Union City,GA,30349<br>Sam &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;5166287888
+                <br>{{ contact.company }}<br>{{ contact.Road }}<br>{{ contact.city }}<br>{{ contact.name }} &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;{{ contact.phone }}
             </td>
             <td style="width:10%;">             
             </td>
@@ -186,7 +190,9 @@
         <th style="width: 13.1%;">pallets</th>
         <th style="width: 13.1%">pcs</th>
         <th style="width: 12.9%;">carrier</th>
+        {% if flag %}
         <th style="width: 14.3%;">pickup time</th>
+        {% endif %}
     </thead>
     {% for p in arm_pickup %}
     <trstyle="text-align:center;">
@@ -196,7 +202,9 @@
         <td style="text-align:center;">{{ p.total_pallet }}</td>
         <td style="text-align:center;">{{ p.total_pcs }}</td>
         <td style="text-align:center;">{{ p.shipment_batch_number__fleet_number__carrier }}</td>
+        {% if flag %}
         <td style="text-align:center;">{{ p.shipment_batch_number__shipment_appointment|date:'m-d\ H:i' }}</td>
+        {% endif %}
     </tr>
     {% endfor %}
 </table>
