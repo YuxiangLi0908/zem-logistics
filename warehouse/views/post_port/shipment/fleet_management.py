@@ -467,7 +467,7 @@ class FleetManagement(View):
             criteria &= models.Q(fleet_number__fleet_number=fleet_number)
         if batch_number:
             criteria &= models.Q(shipment_batch_number=batch_number)
-        if area:
+        if area and area is not None and area != 'None':
             criteria &= models.Q(origin=area)
         if arrived_at and arrived_at is not None and arrived_at!= '' and arrived_at != 'None':
             arrived_at = datetime.strptime(arrived_at, '%Y-%m-%d')
@@ -1031,9 +1031,13 @@ class FleetManagement(View):
         date_str = datetime.strptime(pickup_time_str[:19], '%Y-%m-%d %H:%M:%S')
         pickup_time = date_str.strftime('%Y-%m-%d')
         #生成条形码
+        
         barcode_type = 'code128'
         barcode_class = barcode.get_barcode_class(barcode_type)
-        barcode_content = f"{arm_pro}"
+        if arm_pro =='' or arm_pro =='None' or arm_pro==None:
+            barcode_content = f"{container_number}|{shipping_mark}"
+        else:
+            barcode_content = f"{arm_pro}"
         my_barcode = barcode_class(barcode_content, writer = ImageWriter()) #将条形码转换为图像形式
         buffer = io.BytesIO()   #创建缓冲区
         my_barcode.write(buffer, options={"dpi": 600})   #缓冲区存储图像
