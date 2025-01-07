@@ -42,6 +42,10 @@
             height: 100px; 
             
          }
+         .wrap-text {
+            word-wrap: break-word;
+            word-break: break-all;
+        }
     }
 </style>
 
@@ -174,21 +178,21 @@
 </div>
 <br><br>
 <span style="text-align:center; font-size:24px;"><b>Pickup List</b></span>
-<table style="border:1px solid black; text-align:left; padding: 5px; border-collapse: collapse;">
+<table style="width: 100%; border:1px solid black; text-align:left; padding: 5px; table-layout: fixed;">
     <thead>
-        <th>container number</th>
-        <th>destination</th>
-        <th>shipping_mark</th>
-        <th>pallets</th>
-        <th>pcs</th>
-        <th>carrier</th>
-        <th>pickup time</th>
+        <th style="width: 14.3%;">container number</th>
+        <th style="width: 14.3%;">destination</th>
+        <th style="width: 16.2%;">shipping_mark</th>
+        <th style="width: 14%;">pallets</th>
+        <th style="width: 14%">pcs</th>
+        <th style="width: 12.9%;">carrier</th>
+        <th style="width: 14.3%;">pickup time</th>
     </thead>
     {% for p in arm_pickup %}
-    <tr style="width:100%; text-align:center;">
-        <td>{{ p.container_number__container_number }}</td>
+    <trstyle="text-align:center;">
+        <td >{{ p.container_number__container_number }}</td>
         <td>{{ p.destination }}</td>
-        <td>{{ p.shipping_mark }}</td>
+        <td style="word-break:break-all;">{{ p.shipping_mark }}</td>
         <td>{{ p.total_pallet }}</td>
         <td>{{ p.total_pcs }}</td>
         <td>{{ p.shipment_batch_number__fleet_number__carrier }}</td>
