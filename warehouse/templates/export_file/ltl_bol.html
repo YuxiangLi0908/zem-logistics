@@ -178,8 +178,9 @@
 </div>
 <br><br>
 <span style="text-align:center; font-size:24px;"><b>Pickup List</b></span>
+
 <table style="width: 100%; border:1px solid black; text-align:left; padding: 5px; table-layout: fixed;">
-    <thead>
+    <thead> 
         <th style="width: 14.3%;">container number</th>
         <th style="width: 14.3%;">destination</th>
         <th style="width: 16.2%;">shipping_mark</th>
@@ -190,14 +191,15 @@
     </thead>
     {% for p in arm_pickup %}
     <trstyle="text-align:center;">
-        <td >{{ p.container_number__container_number }}</td>
-        <td>{{ p.destination }}</td>
+        <td style="text-align:center;">{{ p.container_number__container_number }}</td>
+        <td style="text-align:center;">{{ p.destination }}</td>
         <td style="word-break:break-all;">{{ p.shipping_mark }}</td>
-        <td>{{ p.total_pallet }}</td>
-        <td>{{ p.total_pcs }}</td>
-        <td>{{ p.shipment_batch_number__fleet_number__carrier }}</td>
-        <td>{{ p.shipment_batch_number__shipment_appointment|date:'m-d\ H:i' }}</td>
+        <td style="text-align:center;">{{ p.total_pallet }}</td>
+        <td style="text-align:center;">{{ p.total_pcs }}</td>
+        <td style="text-align:center;">{{ p.shipment_batch_number__fleet_number__carrier }}</td>
+        <td style="text-align:center;">{{ p.shipment_batch_number__shipment_appointment|date:'m-d\ H:i' }}</td>
     </tr>
     {% endfor %}
+    {{ arm_pickup }}
 </table>
 {% endblock %}
