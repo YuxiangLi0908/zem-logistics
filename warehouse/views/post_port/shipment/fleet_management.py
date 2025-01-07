@@ -1034,7 +1034,7 @@ class FleetManagement(View):
             marks = arm["shipping_mark"]
             if marks:
                 array = marks.split(",")                   
-                if len(array) > 2:
+                if len(array) > 1:
                     parts = []
                     for i in range(0, len(array)):
                         part = ",".join(array[i:i+1])
