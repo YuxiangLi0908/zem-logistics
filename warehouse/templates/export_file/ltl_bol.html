@@ -79,11 +79,7 @@
             <td style="width:10%;">             
             </td>
             <td style="width: 55%; text-align:center; border-bottom: 1px solid black; padding-top:5px;">
-                {% if not static('img/'|add:carrier|add:'.jpg') %}
-                    {{ carrier}}
-                {% else %}
-                    <img style="width:100px;height:auto;" src="{% static 'img/'|add:carrier|add:'.jpg' %}">
-                {% endif %}
+                <img style="width:100px;height:auto;" src="{% static 'img/'|add:carrier|add:'.jpg' %}">
                 <br>
                 <b class="medium-text">carrier</b>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;{{ carrier }}
                 <br>
