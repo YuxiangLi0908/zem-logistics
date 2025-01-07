@@ -946,7 +946,10 @@ class FleetManagement(View):
         #生成条形码
         barcode_type = 'code128'
         barcode_class = barcode.get_barcode_class(barcode_type)
-        barcode_content = f"{arm_pro}"
+        if arm_pro =='' or arm_pro =='None' or arm_pro==None:
+            barcode_content = f"{container_number}|{shipping_mark}"
+        else:
+            barcode_content = f"{arm_pro}"
         my_barcode = barcode_class(barcode_content, writer = ImageWriter()) #将条形码转换为图像形式
         buffer = io.BytesIO()   #创建缓冲区
         my_barcode.write(buffer, options={"dpi": 600})   #缓冲区存储图像
@@ -1016,6 +1019,7 @@ class FleetManagement(View):
         pcs = 0
         weight = 0.0
         cbm = 0.0
+        shipping_mark = ''
         for arm in arm_pickup:
             arm_pro = arm["shipment_batch_number__ARM_PRO"]
             carrier = arm["shipment_batch_number__fleet_number__carrier"]
@@ -1026,7 +1030,20 @@ class FleetManagement(View):
             cbm += arm["total_cbm"]
             container_number = arm["container_number__container_number"]
             destination = arm["destination"]
-            shipping_mark = arm["shipping_mark"]
+            shipping_mark += arm["shipping_mark"]
+            marks = arm["shipping_mark"]
+            if marks:
+                array = marks.split(",")                   
+                if len(array) > 2:
+                    parts = []
+                    for i in range(0, len(array)):
+                        part = ",".join(array[i:i+1])
+                        parts.append(part)
+                    new_marks = "\n".join(parts)
+                    new_marks = new_marks
+                else:
+                    new_marks = marks
+            arm["shipping_mark"] = new_marks
         pickup_time_str = str(pickup_time)
         date_str = datetime.strptime(pickup_time_str[:19], '%Y-%m-%d %H:%M:%S')
         pickup_time = date_str.strftime('%Y-%m-%d')
