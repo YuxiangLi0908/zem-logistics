@@ -29,6 +29,7 @@ class Pallet(models.Model):
     note = models.CharField(max_length=2000, null=True, blank=True)
     priority = models.CharField(max_length=20, null=True, blank=True)
     location = models.CharField(max_length=100, null=True, blank=True)
+    contact_name = models.CharField(max_length=255, null=True, blank=True)
     invoice_delivery = models.ForeignKey(InvoiceDelivery,null=True, blank=True, on_delete=models.SET_NULL,related_name='pallet_delivery')
 
     def __str__(self):
