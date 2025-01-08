@@ -443,6 +443,7 @@ class ShippingManagement(View):
             return await self.handle_warehouse_post(request)
         
     async def handle_appointment_post(self, request: HttpRequest) -> tuple[str, dict[str, Any]]:
+        print('确认预约',request.POST)
         area = request.POST.get("area")
         current_time = datetime.now()
         appointment_type = request.POST.get("type")
@@ -477,9 +478,8 @@ class ShippingManagement(View):
                     shipment.destination = request.POST.get("destination", None).replace("WALMART","Walmart")
                     shipment.address = request.POST.get("address", None)
                     shipment.shipment_account = request.POST.get("shipment_account", "").strip()
-                    if shipment_type != "FTL": #非FTL的，界面提货时间
-                        shipmentappointment = request.POST.get("shipment_appointment", None)
-                        shipment.shipment_appointment = shipmentappointment
+                    shipmentappointment = request.POST.get("shipment_appointment", None)
+                    shipment.shipment_appointment = shipmentappointment
                     #LTL的需要存ARM-BOL和ARM-PRO
                     shipment.ARM_BOL = request.POST.get("arm_bol") if request.POST.get("arm_bol") else ""
                     shipment.ARM_PRO = request.POST.get("arm_pro") if request.POST.get("arm_bol") else ""
@@ -509,8 +509,8 @@ class ShippingManagement(View):
                 shipment_data["address"] = request.POST.get("address", None)
                 shipment_data["origin"] = request.POST.get("origin", "")
                 shipment_data["shipment_account"] = request.POST.get("shipment_account", "").strip()
-                if shipment_type != "FTL":
-                    shipment_data["shipment_appointment"] = shipment_appointment  #界面的提货时间
+                shipment_data["shipment_appointment"] = shipment_appointment  #界面的提货时间
+                if shipment_type != "FTL":                 
                     fleet = Fleet(**{
                         "carrier": request.POST.get("carrier"),
                         "fleet_type": shipment_type,
