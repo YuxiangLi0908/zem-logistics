@@ -102,7 +102,7 @@
             <input type="hidden" name="pending" id="pending">
             <button type="submit" class="btn btn-primary" style="width: 150px; height: 35px;" onclick="pendingTrue()">审核通过</button>
             <button type="submit" class="btn btn-primary" style="width: 150px; height: 35px;" onclick="pendingFalse()">审核不通过</button>
-            <input type="text" placeholder="审核失败原因" name="invoice_reject_reason" value ={{ reject_reason }}>
+            <input type="text" placeholder="审核失败原因" name="invoice_reject_reason" value ="{{ reject_reason|default_if_none:'' }}">
         {% endif %}
     </form>
 </div>
@@ -157,7 +157,6 @@
         };
         for (let i = 0; i < inputs.length; i++) {
             const input = inputs[i];
-            
             const labelText = labels[i].textContent.trim();
             const requiredAmount = amountRequirements[labelText];
             if (requiredAmount && input.value!== "") {

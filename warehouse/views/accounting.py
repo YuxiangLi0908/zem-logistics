@@ -633,7 +633,7 @@ class Accounting(View):
             )
         preport_amount = request.POST.get("amount")
         #提拆柜表费用记录
-        invoice_preports = InvoicePreport.objects.get(invoice_number__invoice_number = invoice.invoice_number)
+        invoice_preports = InvoicePreport.objects.get(invoice_number__invoice_number=invoice.invoice_number)
         for k,v in data.items():         
             if k not in ['csrfmiddlewaretoken','step','warehouse','container_number','invoice_number','pending',"invoice_reject_reason"]:
                 if not v:
@@ -694,9 +694,7 @@ class Accounting(View):
         for i in range(len((plt_ids))):
             ids = plt_ids[i].split(',')
             ids = [int(id) for id in ids]
-            pallet = Pallet.objects.filter(  
-                    id__in=ids                
-                )           
+            pallet = Pallet.objects.filter(id__in=ids)           
             current_date = datetime.now().date()
             invoice_delivery = f"{current_date.strftime('%Y-%m-%d').replace('-', '')}-{delivery_type}-{destination[i]}-{len(pallet)}"
             invoice_content = InvoiceDelivery(**{
@@ -790,7 +788,6 @@ class Accounting(View):
             "invoice":invoice,
             "container_number":container_number,
         }
-        
         return self.template_invoice_warehouse_edit, context
     
     def handle_container_invoice_confirm_get(self,request: HttpRequest) -> tuple[Any, Any]:
@@ -1016,18 +1013,14 @@ class Accounting(View):
                 container_number__container_number=container_number
             )
         except Invoice.DoesNotExist:
-            #没有账单就创建
             order = Order.objects.select_related("customer_name", "container_number").get(
                 container_number__container_number=container_number
             )
             current_date = datetime.now().date()
             order_id = str(order.id)
             customer_id = order.customer_name.id
-            workbook, invoice_data = self._generate_invoice_excel(context)
             invoice = Invoice(**{
                 "invoice_number":f"{current_date.strftime('%Y-%m-%d').replace('-', '')}C{customer_id}{order_id}",
-                #"invoice_date": current_date.strftime('%Y-%m-%d'),
-                "invoice_link": invoice_data["invoice_link"],
                 "customer": order.customer_name,
                 "container_number": order.container_number,
                 "delivery_amount":0
@@ -1036,7 +1029,7 @@ class Accounting(View):
             order.invoice_id = invoice
             order.save()
         destination = order.retrieval_id.retrieval_destination_area
-        new_destination = destination.replace(' ', '')
+        new_destination = destination.replace(' ', '') if destination else ''
         second_delivery = 0 
         if new_destination in ["ONT8","LGB8","LAX9","SBD2","SBD3","KRB1"]:
             second_delivery = 750
@@ -1052,12 +1045,11 @@ class Accounting(View):
             for k,v in DIRECT_CONTAINER.items():
                 if new_destination in v:
                     pickup_fee = k
-            invoice_content = InvoicePreport(**{
+            invoice_preports = InvoicePreport(**{
                 "invoice_number": invoice,
                 "pickup": pickup_fee,
             })
-            invoice_content.save()
-            invoice_preports = InvoicePreport.objects.get(invoice_number__invoice_number=invoice.invoice_number)
+            invoice_preports.save()
         context = {
             "warehouse": warehouse,
             "invoice_preports":invoice_preports,
@@ -1087,12 +1079,8 @@ class Accounting(View):
             current_date = datetime.now().date()
             order_id = str(order.id)
             customer_id = order.customer_name.id
-            # TODOs: upload invoice to onedrive
-            # workbook, invoice_data = self._generate_invoice_excel(context)
             invoice = Invoice(**{
                 "invoice_number":f"{current_date.strftime('%Y-%m-%d').replace('-', '')}C{customer_id}{order_id}",
-                # "invoice_date": current_date.strftime('%Y-%m-%d'),
-                # "invoice_link": invoice_data["invoice_link"],
                 "customer": order.customer_name,
                 "container_number": order.container_number,
                 "preport_amount": 0,
@@ -1105,11 +1093,11 @@ class Accounting(View):
         try:
             invoice_preports = InvoicePreport.objects.get(invoice_number__invoice_number=invoice.invoice_number)
         except InvoicePreport.DoesNotExist:
-            invoice_content = InvoicePreport(**{
+            invoice_preports = InvoicePreport(**{
                 "invoice_number": invoice,
                 "pickup": pickup_fee,
             })
-            invoice_content.save()
+            invoice_preports.save()
             invoice_preports = InvoicePreport.objects.get(invoice_number__invoice_number=invoice.invoice_number)
         groups = [group.name for group in request.user.groups.all()]
         if request.user.is_staff:
@@ -1121,7 +1109,6 @@ class Accounting(View):
             "container_number":container_number,
             "groups":groups
         }
-        
         return self.template_invoice_preport_edit, context
 
     def handle_container_invoice_get(self, container_number: str) -> tuple[Any, Any]:
