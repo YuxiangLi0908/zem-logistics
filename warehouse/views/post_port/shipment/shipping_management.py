@@ -443,7 +443,6 @@ class ShippingManagement(View):
             return await self.handle_warehouse_post(request)
         
     async def handle_appointment_post(self, request: HttpRequest) -> tuple[str, dict[str, Any]]:
-        print('确认预约',request.POST)
         area = request.POST.get("area")
         current_time = datetime.now()
         appointment_type = request.POST.get("type")
