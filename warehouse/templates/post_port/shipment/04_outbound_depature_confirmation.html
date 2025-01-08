@@ -138,15 +138,12 @@
                             <th class="th" style="text-align: center; border: 1px solid #141414">柜号</th>
                             <th class="th" style="text-align: center; border: 1px solid #141414">目的地</th>
                             <th class="th" style="text-align: center; border: 1px solid #141414">唛头</th>
-                            <th class="th" style="text-align: center; border: 1px solid #141414">BOL</th>
+                            <th class="th" style="text-align: center; border: 1px solid #141414">PRO</th>
                             <th class="th" style="text-align: center; border: 1px solid #141414">板数</th> 
                             <th class="th" style="text-align: center; border: 1px solid #141414">箱数</th>  
                             <th class="th" style="text-align: center; border: 1px solid #141414">Carrier</th>  
                             <th class="th" style="text-align: center; border: 1px solid #141414">address</th> 
-                            <th class="th" style="text-align: center; border: 1px solid #141414">公司名</th> 
-                            <th class="th" style="text-align: center; border: 1px solid #141414">街道</th> 
-                            <th class="th" style="text-align: center; border: 1px solid #141414">城市</th> 
-                            <th class="th" style="text-align: center; border: 1px solid #141414">联系人</th> 
+                            <th class="th" style="text-align: center; border: 1px solid #141414">地址详情</th> 
                             {% if '自提' in selected_fleet.fleet_number%}
                                 <th class="th" style="text-align: center; border: 1px solid #141414">提货时间</th>  
                             {% endif %}
@@ -156,14 +153,11 @@
                             <td style="text-align: center; border: 1px solid #141414; padding:10px;" data-editable="true">{{ s.container_number__container_number }}</td>
                             <td style="text-align: center; border: 1px solid #141414; text-wrap: wrap; padding:10px;" data-editable="true">{{ s.zipcode }}</td>
                             <td style="text-align: center; border: 1px solid #141414; word-wrap: wrap; padding:10px;" data-editable="true">{{ s.shipping_mark }}</td>
-                            <td style="text-align: center; border: 1px solid #141414; word-wrap: break-word; padding:10px;" data-editable="true">{{ s.shipment_batch_number__ARM_BOL }}</td>
+                            <td style="text-align: center; border: 1px solid #141414; word-wrap: break-word; padding:10px;" data-editable="true">{{ s.shipment_batch_number__ARM_PRO }}</td>
                             <td style="text-align: center; border: 1px solid #141414; padding:10px;" data-editable="true">{{ s.total_pallet }}</td>
                             <td style="text-align: center; border: 1px solid #141414; padding:10px;" data-editable="true">{{ s.total_pcs }}</td>
                             <td style="text-align: center; border: 1px solid #141414; padding:10px;" data-editable="true">{{ s.shipment_batch_number__fleet_number__carrier }}</td>
                             <td style="text-align: center; border: 1px solid #141414; padding:10px;" data-editable="true">{{ s.address }}</td>
-                            <td style="text-align: center; border: 1px solid #141414; padding:10px;" data-editable="true"></td>
-                            <td style="text-align: center; border: 1px solid #141414; padding:10px;" data-editable="true"></td>
-                            <td style="text-align: center; border: 1px solid #141414; padding:10px;" data-editable="true"></td>
                             <td style="text-align: center; border: 1px solid #141414; padding:10px;" data-editable="true"></td>
                             {% if '自提' in selected_fleet.fleet_number%}
                             <td style="text-align: center; border: 1px solid #141414; padding:10px;" data-editable="true">{{ s.shipment_batch_number__fleet_number__appointment_datetime|date:"Y-m-d H:i:s" }}</td>
@@ -175,9 +169,6 @@
                             <td style="text-align: center; border: 1px solid #141414; text-wrap: wrap; padding:10px;" data-editable="true"></td>
                             <td style="text-align: center; border: 1px solid #141414; text-wrap: wrap; padding:10px;" data-editable="true"></td>
                             <td style="text-align: center; border: 1px solid #141414; text-wrap: wrap; padding:10px;" data-editable="true"></td>
-                            <td style="text-align: center; border: 1px solid #141414; padding:10px;" data-editable="true"></td>
-                            <td style="text-align: center; border: 1px solid #141414; padding:10px;" data-editable="true"></td>
-                            <td style="text-align: center; border: 1px solid #141414; padding:10px;" data-editable="true"></td>
                             <td style="text-align: center; border: 1px solid #141414; padding:10px;" data-editable="true"></td>
                             <td style="text-align: center; border: 1px solid #141414; padding:10px;" data-editable="true"></td>
                             <td style="text-align: center; border: 1px solid #141414; padding:10px;" data-editable="true"></td>

@@ -991,7 +991,7 @@ class FleetManagement(View):
         warehouse = request.POST.get("warehouse")       
         if customerInfo and customerInfo != '[]':
             customerInfo = json.loads(customerInfo)
-            if len(customerInfo[0]) == 12:
+            if len(customerInfo[0]) == 9:
                 flag = True
             else:
                 flag = False  #表示客户自提
@@ -999,14 +999,17 @@ class FleetManagement(View):
                 arm_pickup = [['container_number__container_number','destination','shipping_mark','shipment_batch_number__ARM_PRO','total_pallet','total_pcs','shipment_batch_number__fleet_number__carrier']]
             else:
                 arm_pickup = [['container_number__container_number','destination','shipping_mark','shipment_batch_number__ARM_PRO','total_pallet','total_pcs','shipment_batch_number__fleet_number__carrier','shipment_batch_number__shipment_appointment']]
-            for row in customerInfo:
-                contact_name=row[11].strip().split(',')
-                contact = {"company":row[8].strip(),
-                           "Road":row[9].strip(),
-                           "city":row[10].strip(),
-                           "name":contact_name[0],
-                           "phone":contact_name[1]}
-                if len(row) == 12:
+            for row in customerInfo:              
+                contact = row[8]
+                contact = re.sub('[\u4e00-\u9fff]', ' ', contact) 
+                contact = re.sub(r'\uFF0C', ',', contact)
+                new_contact = contact.split(';')
+                contact = {"company":new_contact[0].strip(),
+                           "Road":new_contact[1].strip(),
+                           "city":new_contact[2].strip(),
+                           "name":new_contact[3],
+                           "phone":new_contact[4]}
+                if flag:
                     arm_pickup.append([
                         row[0].strip(),
                         row[1].strip(),
@@ -1016,7 +1019,7 @@ class FleetManagement(View):
                         int(row[5].strip()),
                         row[6].strip()
                     ])
-                elif len(row) == 13:
+                else:
                     arm_pickup.append([
                         row[0].strip(),
                         row[1].strip(),
@@ -1025,7 +1028,7 @@ class FleetManagement(View):
                         int(row[4].strip()),
                         int(row[5].strip()),
                         row[6].strip(),
-                        row[12].strip()
+                        row[9].strip()
                     ])
             keys = arm_pickup[0]
             arm_pickup_dict_list = []   
@@ -1076,7 +1079,6 @@ class FleetManagement(View):
                         part = ",".join(array[i:i+1])
                         parts.append(part)
                     new_marks = "\n".join(parts)
-                    new_marks = new_marks
                 else:
                     new_marks = marks
             arm["shipping_mark"] = new_marks
@@ -1115,7 +1117,7 @@ class FleetManagement(View):
             "cbm":cbm,
             "barcode": barcode_base64,
             "arm_pickup": arm_pickup,
-            "contact":contact,
+            "contact":new_contact,
             "flag" :flag,
             "contact":contact
             }
