@@ -1145,7 +1145,7 @@ class FleetManagement(View):
         #如果在界面输入了，就用界面添加后的值
         if customerInfo and customerInfo != '[]':
             customer_info = json.loads(customerInfo)
-            arm_pickup = [['柜号','邮编','唛头','BOL号','板数','箱数','carrier','提仓时间']]
+            arm_pickup = [['container_number','zipcode','shipping_mark','BOL','pallet','pcs','carrier','pickup_time']]
             for row in customer_info:
                 arm_pickup.append([
                     row[0].strip(),
@@ -1176,7 +1176,7 @@ class FleetManagement(View):
                 new_list = []
                 for p in arm_pickup:
                     new_list.append([p["container_number__container_number"],p["zipcode"],p["shipping_mark"],p["shipment_batch_number__ARM_BOL"],p["total_pallet"],p["total_pcs"],p["shipment_batch_number__fleet_number__carrier"],p["shipment_batch_number__fleet_number__appointment_datetime"]])
-                arm_pickup = [['柜号','邮编','唛头','BOL号','板数','箱数','carrier','提仓时间']] + new_list 
+                arm_pickup = [['container_number','zipcode','shipping_mark','BOL','pallet','pcs','carrier','pickup_time']] + new_list 
         month_day = arm_pickup[1][-1].strftime('%m%d')
         file_name = f"{month_day}-{arm_pickup[1][0]}-{arm_pickup[1][2]}"
         #BOL需要在后面加一个拣货单
@@ -1186,22 +1186,23 @@ class FleetManagement(View):
             for file in files:
                 #文件有固定的命名格式，第一个-后面的是日期，需要将文件放到指令目录下按照日期存放
                 # 需要加拣货单
-                fig, ax = plt.subplots(figsize=(9.5, 8.5))
+                fig, ax = plt.subplots(figsize=(10.4, 14.9))
                 ax.axis('tight')
                 ax.axis('off')
                 fig.subplots_adjust(top=1.5)
+                #title_text = ax.text(0.5, 1.1, 'PickUP List', fontsize=30, ha='center', va='center', transform=ax.transAxes)
                 the_table = ax.table(cellText=df.values, colLabels=df.columns, loc='upper center', cellLoc='center')
                 #规定拣货单的表格大小
                 for pos, cell in the_table.get_celld().items():
-                    cell.set_fontsize(20)
+                    cell.set_fontsize(100)
                     if pos[0]!= 0:  
-                        cell.set_height(0.03)
-                    else:
                         cell.set_height(0.02)
-                    if pos[1] == 0 or pos[1] == 1 or pos[1] == 2:  
-                        cell.set_width(0.2)
                     else:
-                        cell.set_width(0.1)
+                        cell.set_height(0.015)
+                    if pos[1] == 0 or pos[1] == 1 or pos[1] == 2:  
+                        cell.set_width(0.15)
+                    else:
+                        cell.set_width(0.08)
                 buf = io.BytesIO()
                 fig.savefig(buf, format='pdf', bbox_inches='tight')
                 buf.seek(0)
