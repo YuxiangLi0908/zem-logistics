@@ -83,7 +83,6 @@ class Accounting(View):
     def get(self, request: HttpRequest) -> HttpResponse:
         # if not self._validate_user_group(request.user):
         #     return HttpResponseForbidden("You are not authenticated to access this page!")
-
         step = request.GET.get("step", None)
         print("GET",step)
         if step == "pallet_data":
@@ -122,7 +121,7 @@ class Accounting(View):
                 return render(request, template, context)      
             else:
                 return HttpResponseForbidden("You are not authenticated to access this page!")
-        elif step == "invoice":  
+        elif step == "invoice":
             template, context = self.handle_invoice_get()
             return render(request, template, context)
         elif step == "container_invoice":
@@ -160,7 +159,6 @@ class Accounting(View):
             return HttpResponseForbidden("You are not authenticated to access this page!")
 
         step = request.POST.get("step", None)
-        print("POST",step)
         if step == "pallet_data_search":
             start_date = request.POST.get("start_date")
             end_date = request.POST.get("end_date")
@@ -327,9 +325,14 @@ class Accounting(View):
         order = Order.objects.select_related(
             "customer_name", "container_number",
             ).filter(
+                models.Q(
+                    models.Q(invoice_status="unrecorded") |
+                    models.Q(invoice_status="") |
+                    models.Q(invoice_status__exact="") |
+                    models.Q(invoice_status__isnull=True)
+                ),
                 criteria,
                 order_type = "直送",
-                invoice_status="unrecorded"
             )
         status = ['toBeConfirmed','confirmed']
         previous_order = Order.objects.select_related(
@@ -379,6 +382,7 @@ class Accounting(View):
                 criteria & models.Q(
                     models.Q(invoice_status="unrecorded") |
                     models.Q(invoice_status="") |
+                    models.Q(invoice_status__exact="") |
                     models.Q(invoice_status__isnull=True)
                 ),
             )
@@ -621,8 +625,6 @@ class Accounting(View):
         invoice.save()
         return self.handle_invoice_direct_get(request)
 
-
-
     def handle_invoice_preport_save_post(self,request:HttpRequest) -> tuple[Any, Any]:
         data = request.POST.copy()
         container_number = data.get("container_number")
@@ -766,7 +768,6 @@ class Accounting(View):
                 invoice_content.save()
         return self.handle_container_invoice_delivery_get(request)
 
-
     def handle_container_invoice_warehouse_get(self, request: HttpRequest) -> tuple[Any, Any]:
         container_number = request.GET.get("container_number")
         order = Order.objects.select_related("retrieval_id","container_number").get(container_number__container_number=container_number)
@@ -836,7 +837,6 @@ class Accounting(View):
             }
 
         return self.template_invoice_confirm_edit, context
-
 
     def handle_container_invoice_delivery_get(self,request: HttpRequest) -> tuple[Any, Any]:
         container_number = request.GET.get("container_number")
@@ -1073,7 +1073,7 @@ class Accounting(View):
         warehouse = order.retrieval_id.retrieval_destination_area
         container_type = order.container_number.container_type
         pickup_key = (warehouse,container_type)
-        if pickup_key in PICKUP_FEE:               
+        if pickup_key in PICKUP_FEE:
             pickup_fee = PICKUP_FEE[pickup_key]
         try:
             invoice = Invoice.objects.select_related("customer", "container_number").get(
@@ -1123,7 +1123,6 @@ class Accounting(View):
         }
         
         return self.template_invoice_preport_edit, context
-
 
     def handle_container_invoice_get(self, container_number: str) -> tuple[Any, Any]:
         order = Order.objects.select_related("offload_id").get(container_number__container_number=container_number)
