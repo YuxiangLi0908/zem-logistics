@@ -1,7 +1,7 @@
 {% extends 'base.html' %}
 
 {% block content %}
-<div><h4><b>待确认订单管理</b></h4></div>
+<div><b>待确认账单</b></div>
 <div style="width: 100%; display: flex; justify-content: space-between;">
     <form method="post" action="" style="width: 80%;">
         {% csrf_token %}
@@ -101,7 +101,7 @@
                                 <td class="td">{{ c.invoice_id__invoice_date|date:"Y-m-d" }}</td>
                                 <td class="td">{{ c.total_amount|floatformat:"2g" }}</td>
                                 <td class="td">
-                                    <a href="{{ c.invoice_id.invoice_link }}" target="_blank" style="margin-right: 10px;">
+                                    <a href="{{ c.invoice_id__invoice_link }}" target="_blank" style="margin-right: 10px;">
                                         <i class="bi bi-file-earmark-bar-graph-fill"></i>
                                     </a>
                                     <a href="#" onclick="confirmDelete(event, '{{ c.container_number }}', '{{ c.invoice_id__invoice_number }}')">

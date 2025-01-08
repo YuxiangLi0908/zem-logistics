@@ -1,7 +1,7 @@
 {% extends 'base.html' %}
 
 {% block content %}
-<div><h4><b>派送订单编辑——总计<span id="total_amount">0</span> $</b></h4></div>
+<div><h4><b>派送订单编辑——总计 $<span id="total_amount">0</span></b></h4></div>
 <div  style="display: inline-block; width: 100%; margin: 0; padding: 0; max-width: 100%;">
     <p style="text-align:center;"><b>{{ invoice }}</b></p>
     <form method="post" action="">
@@ -35,6 +35,7 @@
                                 <input type="number" id="amazon_cost" name="cost" value="{{ plt.total_cost }}" oninput="updateAmazon(this)">
                                 ({{ plt.total_n_pallet }}板，${{ plt.cost }}/板)
                                 <input type="hidden" name="plt_ids" value="{{ plt.plt_ids }}">
+                                <input type="hidden" name="total_pallet" value="{{ plt.total_n_pallet }}">
                             </td>
                             <td class="td"><input type="text" name="destination" value="{{ plt.destination }}"></td>
                             <td class="td"><input type="number" name="cbm" step = 0.01 value="{{ plt.total_cbm|floatformat:2 }}"></td>
@@ -80,6 +81,7 @@
                                 <input type="number" id="walmart_cost" name="cost" value="{{ plt.total_cost }}" oninput="updateWalmart(this)">
                                 ({{ plt.total_n_pallet }}板，${{ plt.cost }}/板)
                                 <input type="hidden" name="plt_ids" value="{{ plt.plt_ids }}">
+                                <input type="hidden" name="total_pallet" value="{{ plt.total_n_pallet }}">
                             </td>
                             <td class="td"><input type="text" name="destination" value="{{ plt.destination }}"></td>
                             <td class="td"><input type="number" name="cbm" step = 0.01 value="{{ plt.total_cbm|floatformat:2 }}"></td>
@@ -131,6 +133,7 @@
                                         (按距离收费)
                                     {% endif %}
                                     <input type="hidden" name="plt_ids" value="{{ plt.plt_ids }}">
+                                    <input type="hidden" name="total_pallet" value="{{ plt.total_n_pallet }}">
                                 </td>
                                 <td class="td"><input type="text" name="destination" value="{{ plt.destination }}"></td>
                                 <td class="td"><input type="number" name="cbm" step = 0.01 value="{{ plt.total_cbm|floatformat:2 }}"></td>
@@ -177,6 +180,7 @@
                                 <input type="number" id="combine_cost" name="cost" value="{{ plt.total_cost }}" oninput="updateCombine(this)">
                                 ({{ plt.total_n_pallet }}板，一口价${{ plt.cost }})
                                 <input type="hidden" name="plt_ids" value="{{ plt.plt_ids }}">
+                                <input type="hidden" name="total_pallet" value="{{ plt.total_n_pallet }}">
                             </td>
                             <td class="td"><input type="text" name="destination" value="{{ plt.destination }}"></td>
                             <td class="td"><input type="number" name="cbm" step = 0.01 value="{{ plt.total_cbm|floatformat:2 }}"></td>
@@ -230,13 +234,14 @@
                             <input type='checkbox' name='is_type_added' onclick="toggleRowBackground(this)" {% if plt.delivery %}checked{% endif %}>
                             <input type="hidden" name="is_type_added", value='off'>
                             <input type="hidden" name="added_plt_ids", value='{{ plt.ids }}'>
+                            <input type="hidden" name="total_pallet" value="{{ plt.total_n_pallet }}">
                         </td>
                         <td class="td"><input type="text" name="total_n_pallet" value="{{ plt.total_n_pallet }}" disabled></td>
-                        <td class="td"><input type="text" name="delivery_type" value="{{ plt.invoice_delivery__type }}" disabled></td>
+                        <td class="td"><input type="text" name="delivery_type" value="{{ plt.invoice_delivery__type|default_if_none:'' }}" disabled></td>
                         <td class="td"><input type="text" name="destination" value="{{ plt.destination }}"></td>
                         <td class="td"><input type="number" name="cbm" step = 0.01 value="{{ plt.total_cbm|floatformat:2 }}"></td>
                         <td class="td"><input type="number" name="weight_lbs" step = 0.01 value="{{ plt.total_weight_lbs|floatformat:2 }}"></td>
-                        <td class="td"><input type="text" name="zipcode" step = 0.01 value="{{ plt.zipcode }}"></td>
+                        <td class="td"><input type="text" name="zipcode" step = 0.01 value="{{ plt.zipcode|default_if_none:'' }}"></td>
                     </tr>
                     {% endfor %}
                 </tbody>
