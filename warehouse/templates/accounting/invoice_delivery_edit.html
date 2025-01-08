@@ -51,7 +51,7 @@
                 <div class="text-left" style="float:right;">
                     <input type="hidden" name="step" value="update_delivery_invoice">
                     <input type="hidden" name="type" value="amazon">                  
-                    <input type="hidden" name="container_number" value={{ container_number }}>
+                    <input type="hidden" name="container_number" value="{{ container_number }}">
                     <button type="submit" class="btn btn-primary" style="width: 100px; height: 35px;" onclick="processForm('amazon-table')">确认</button>
                 </div>
             {% endif %}
@@ -192,7 +192,7 @@
                 <div class="text-left" style="float:right;">
                     <input type="hidden" name="step" value="update_delivery_invoice">
                     <input type="hidden" name="type" value="combine">
-                    <input type="hidden" name="container_number" value={{ container_number }}>
+                    <input type="hidden" name="container_number" value="{{ container_number }}">
                     <button type="submit" class="btn btn-primary" style="width: 100px; height: 35px;" onclick="processForm('combine-table')">确认</button>
                 </div>
             {% endif %}      
@@ -207,7 +207,7 @@
             <div style="display: flex;">
                 <input type="hidden" name="step" value="add_delivery_type">
                 <input type="hidden" id="alter_type" name="alter_type">
-                <input type="hidden" name="container_number" value={{ container_number }}>
+                <input type="hidden" name="container_number" value="{{ container_number }}">
                 <button type="submit" class="btn btn-primary" onclick="add_delivery_plt(this)" style="font-size: 11px; margin-right: 5px;">确认添加</button>
                 <button id="editButton" type="button" class="btn btn-danger" onclick="add_delivery(this)" style="font-size: 11px;">返回</button>
             </div>
@@ -421,7 +421,7 @@
             type.value = 'combine';
         } else if (text === '沃尔玛派送') {
             type.value = 'walmart';
-        } 
+        }
     };
 
     function toggleRowBackground(checkbox) {

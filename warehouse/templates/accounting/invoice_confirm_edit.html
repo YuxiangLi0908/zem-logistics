@@ -184,11 +184,38 @@
                     {% for plt in amazon %}
                     <tr draggable="true" id="pallet-{{ plt.id }}">
                         <td class="td">
-                            <input type="number" id="amazon_cost" name="cost" value="{{ plt.total_cost }}" oninput="updateAmazon(this)">
+                            <input type="number" id="amazon_cost" name="cost" value="{{ plt.total_cost }}" oninput="updateAmazon(this)" disabled>
                         </td>
-                        <td class="td"><input type="text" name="destination" value="{{ plt.destination }}"></td>
-                        <td class="td"><input type="number" name="cbm" step = 0.01 value="{{ plt.total_cbm|floatformat:2 }}"></td>
-                        <td class="td"><input type="number" name="weight_lbs" step = 0.01 value="{{ plt.total_weight_lbs }}"></td>
+                        <td class="td"><input type="text" name="destination" value="{{ plt.destination }}" disabled></td>
+                        <td class="td"><input type="number" name="cbm" step = 0.01 value="{{ plt.total_cbm|floatformat:2 }}" disabled></td>
+                        <td class="td"><input type="number" name="weight_lbs" step = 0.01 value="{{ plt.total_weight_lbs }}" disabled></td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+        {% endif %}
+        {% if walmart %}
+        <div style="border-bottom: 1px solid #ccc; margin-top: 5px;padding-bottom: 5px;text-align:center">
+            <b>沃尔玛派送——<label id="walmart_amount"></label></b>
+            <table class="table" id="walmart-table" style="font-size: 13px">
+                <thead>
+                    <tr style="position: sticky; top: 0;">
+                        <th class="th">价格</th>
+                        <th class="th">目的地</th>
+                        <th class="th">CBM</th>
+                        <th class="th">重量</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for plt in walmart %}
+                    <tr draggable="true" id="pallet-{{ plt.id }}">
+                        <td class="td">
+                            <input type="number" id="walmart_cost" name="cost" value="{{ plt.total_cost }}" oninput="updateAmazon(this)" disabled>
+                        </td>
+                        <td class="td"><input type="text" name="destination" value="{{ plt.destination }}" disabled></td>
+                        <td class="td"><input type="number" name="cbm" step = 0.01 value="{{ plt.total_cbm|floatformat:2 }}" disabled></td>
+                        <td class="td"><input type="number" name="weight_lbs" step = 0.01 value="{{ plt.total_weight_lbs }}" disabled></td>
                     </tr>
                     {% endfor %}
                 </tbody>
@@ -212,12 +239,12 @@
                     {% for plt in local %}
                     <tr draggable="true" id="pallet-{{ plt.id }}">
                         <td class="td">
-                            <input type="number" id="local_cost" name="cost" value="{{ plt.total_cost }}" oninput="updateLocal(this)">
+                            <input type="number" id="local_cost" name="cost" value="{{ plt.total_cost }}" oninput="updateLocal(this)" disabled>
                         </td>
-                        <td class="td"><input type="text" name="destination" value="{{ plt.destination }}"></td>
-                        <td class="td"><input type="number" name="cbm" step = 0.01 value="{{ plt.total_cbm|floatformat:2 }}"></td>
-                        <td class="td"><input type="number" name="weight_lbs" step = 0.01 value="{{ plt.total_weight_lbs }}"></td>
-                        <td class="td"><input type="number" name="zipcode" step = 0.01 value="{{ plt.zipcode|floatformat:2 }}"></td>
+                        <td class="td"><input type="text" name="destination" value="{{ plt.destination }}" disabled></td>
+                        <td class="td"><input type="number" name="cbm" step = 0.01 value="{{ plt.total_cbm|floatformat:2 }}" disabled></td>
+                        <td class="td"><input type="number" name="weight_lbs" step = 0.01 value="{{ plt.total_weight_lbs }}" disabled></td>
+                        <td class="td"><input type="number" name="zipcode" step = 0.01 value="{{ plt.zipcode|floatformat:2 }}" disabled></td>
                     </tr>
                     {% endfor %}
                 </tbody>
@@ -240,11 +267,11 @@
                     {% for plt in combine %}
                     <tr draggable="true" id="pallet-{{ plt.id }}">
                         <td class="td">
-                            <input type="number" id="combine_cost" name="cost" value="{{ plt.total_cost }}" oninput="updateCombine(this)">
+                            <input type="number" id="combine_cost" name="cost" value="{{ plt.total_cost }}" oninput="updateCombine(this)" disabled>
                         </td>
-                        <td class="td"><input type="text" name="destination" value="{{ plt.destination }}"></td>
-                        <td class="td"><input type="number" name="cbm" step = 0.01 value="{{ plt.total_cbm|floatformat:2 }}"></td>
-                        <td class="td"><input type="number" name="weight_lbs" step = 0.01 value="{{ plt.total_weight_lbs }}"></td>
+                        <td class="td"><input type="text" name="destination" value="{{ plt.destination }}" disabled></td>
+                        <td class="td"><input type="number" name="cbm" step = 0.01 value="{{ plt.total_cbm|floatformat:2 }}" disabled></td>
+                        <td class="td"><input type="number" name="weight_lbs" step = 0.01 value="{{ plt.total_weight_lbs }}" disabled></td>
                     </tr>
                     {% endfor %}
                 </tbody>
@@ -320,8 +347,20 @@
             if (!isNaN(costValue)) {
                 amazon_total += costValue;
             }
-        }      
+        }
+        document.getElementById('amazon_amount').textContent = amazon_total;
+
+        var walmart = 0;
+        var rows = document.querySelectorAll('#walmart-table tbody tr');
+        for (var i = 0; i < rows.length; i++) {
+            var costInput = rows[i].querySelector('input[id="walmart_cost"]');
+            var costValue = parseFloat(costInput.value);
+            if (!isNaN(costValue)) {
+                walmart += costValue;
+            }
+        }
         document.getElementById('amazon_amount').textContent = amazon_total; 
+
 
         var local_total = 0;
         var rows = document.querySelectorAll('#local-table tbody tr');
@@ -331,7 +370,7 @@
             if (!isNaN(costValue)) {
                 local_total += costValue;
             }
-        }      
+        }
         document.getElementById('local_amount').textContent = local_total; 
 
         var combine_total = 0;
@@ -342,7 +381,7 @@
             if (!isNaN(costValue)) {
                 combine_total += costValue;
             }
-        }      
+        }
         document.getElementById('combine_amount').textContent = combine_total; 
     };   
 </script>
