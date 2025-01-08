@@ -641,7 +641,6 @@ class Accounting(View):
                 setattr(invoice_preports, k, v)
         invoice_preports.save()
         invoice_preports = InvoicePreport.objects.get(invoice_number__invoice_number=invoice.invoice_number)
-
         #账单状态记录
         order = Order.objects.select_related("retrieval_id","container_number").get(container_number__container_number=container_number)
         if data.get("pending") == "True":
@@ -657,7 +656,7 @@ class Accounting(View):
         elif data.get("pending") == "False":
             #审核失败，驳回账单
             order.invoice_reject = "True"
-            order.invoice_reject_reason = data.get("invoice_reject_reason")
+            order.invoice_reject_reason = data.get("invoice_reject_reason", "")
         else:
             #提拆柜录入完毕
             order.invoice_status = "record_preport"

@@ -64,4 +64,4 @@ class InvoiceDelivery(models.Model):
     total_weight_lbs = models.FloatField(null=True, blank=True)
     total_cost = models.FloatField(null=True, blank=True)
     def __str__(self) -> str:
-        return str(self.invoice_delivery)
+        return str(self.invoice_number) + ' - ' + str(self.destination)
