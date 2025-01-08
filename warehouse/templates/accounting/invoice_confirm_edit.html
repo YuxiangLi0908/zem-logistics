@@ -290,48 +290,48 @@
             </div>
             <div>
                 <label for="chassis_split_count">查验费</label>(350$/柜):
-                <input type="number" id="exam_fee" name="exam_fee" min="0" value="{{ invoice_preports.exam_fee }}">
+                <input type="number" id="exam_fee" name="exam_fee" min="0" value="{{ invoice_preports.exam_fee }}" disabled>
             </div>
             <div>
                 <label for="chassis_split_count">二次派送</label>
                 ({% if second_delivery %} {{ second_delivery }}{% endif %}):
-                <input type="number" id="second_pickup" name="second_pickup" min="0" value="{{ invoice_preports.second_pickup }}">
+                <input type="number" id="second_pickup" name="second_pickup" min="0" value="{{ invoice_preports.second_pickup }}" disabled>
             </div>
             <div>
                 <label for="chassis_split_count">滞港费</label>($35/票代收):
-                <input type="number" id="demurrage" name="demurrage" min="0" value="{{ invoice_preports.demurrage }}">
+                <input type="number" id="demurrage" name="demurrage" min="0" value="{{ invoice_preports.demurrage }}" disabled>
             </div>
             <div>
                 <label for="chassis_split_count">滞箱费</label>($35/票代收):
-                <input type="number" id="per_diem" name="per_diem" min="0" value="{{ invoice_preports.per_diem }}">
+                <input type="number" id="per_diem" name="per_diem" min="0" value="{{ invoice_preports.per_diem }}" disabled>
             </div>
             <div>
                 <label for="chassis_split_count">港口拥堵费</label>(75$/小时):
-                <input type="number" id="congestion_fee" name="congestion_fee" min="0" value="{{ invoice_preports.congestion_fee }}">
+                <input type="number" id="congestion_fee" name="congestion_fee" min="0" value="{{ invoice_preports.congestion_fee }}" disabled>
             </div>
             <div>
                 <label for="chassis_days">车架费</label>(45$/天):
-                <input type="number" id="chassis" name="chassis" min="0" value="{{ invoice_preports.chassis }}">
+                <input type="number" id="chassis" name="chassis" min="0" value="{{ invoice_preports.chassis }}" disabled>
             </div>
             <div>
                 <label for="prepull">预提费</label>(200$/柜):
-                <input type="number" id="prepull" name="prepull" min="0" value="{{ invoice_preports.prepull }}">
+                <input type="number" id="prepull" name="prepull" min="0" value="{{ invoice_preports.prepull }}" disabled>
             </div>
             <div>
                 <label for="chassis_split_count">货柜储存费</label>(50$/柜):
-                <input type="number" id="yard_storage" name="yard_storage" min="0" value="{{ invoice_preports.yard_storage }}">
+                <input type="number" id="yard_storage" name="yard_storage" min="0" value="{{ invoice_preports.yard_storage }}" disabled>
             </div>
             <div>
                 <label for="chassis_split_count">等待费</label>(2小时免费，超出$85/小时):
-                <input type="number" id="handling_fee" name="handling_fee" min="0" value="{{ invoice_preports.handling_fee }}">
+                <input type="number" id="handling_fee" name="handling_fee" min="0" value="{{ invoice_preports.handling_fee }}" disabled>
             </div>
             <div>
                 <label for="chassis_split_count">车架分离费</label>(150$/柜):
-                <input type="number" id="chassis_split" name="chassis_split" min="0" value="{{ invoice_preports.chassis_split }}">
+                <input type="number" id="chassis_split" name="chassis_split" min="0" value="{{ invoice_preports.chassis_split }}" disabled>
             </div>
             <div>
                 <label for="chassis_split_count">超重费</label>(200$/柜):
-                <input type="number" id="over_weight" name="over_weight" min="0" value="{{ invoice_preports.over_weight }}">
+                <input type="number" id="over_weight" name="over_weight" min="0" value="{{ invoice_preports.over_weight }}" disabled>
             </div>
     </form>
 </div>
