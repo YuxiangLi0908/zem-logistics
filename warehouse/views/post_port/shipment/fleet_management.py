@@ -988,7 +988,8 @@ class FleetManagement(View):
     
     async def _export_ltl_bol(self, request: HttpRequest) -> HttpResponse:
         customerInfo = request.POST.get("customerInfo")
-        warehouse = request.POST.get("warehouse")       
+        warehouse = request.POST.get("warehouse") 
+        contact_flag = False  #表示地址栏空出来，客服手动P上去      
         if customerInfo and customerInfo != '[]':
             customerInfo = json.loads(customerInfo)
             if len(customerInfo[0]) == 9:
@@ -1000,9 +1001,7 @@ class FleetManagement(View):
             else:
                 arm_pickup = [['container_number__container_number','destination','shipping_mark','shipment_batch_number__ARM_PRO','total_pallet','total_pcs','shipment_batch_number__fleet_number__carrier','shipment_batch_number__shipment_appointment']]
             for row in customerInfo:  
-                if row[8] == "":
-                    contact_flag = False 
-                else:
+                if row[8] != "":
                     contact_flag = True           
                     contact = row[8]
                     contact = re.sub('[\u4e00-\u9fff]', ' ', contact) 

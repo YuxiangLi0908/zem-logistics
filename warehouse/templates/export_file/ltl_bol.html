@@ -69,6 +69,8 @@
                 ZEM RINCON<br>1001 Trade Center Pkwy<br>Rincon,GA,31326<br>ken &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;929-329-4323<br>office@zemlogistics.com
                 {% elif "LA-91761" == warehouse %}
                 ZEM RINCON<br>5450E Francis St Ontario<br>CA,91761,United States<br>Eric &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;6265507790<br>office@zemlogistics.com
+                {% else %}
+                <br><br><br><br>
                 {% endif %}
             </td>
             <td style="width:10%;"></td>
@@ -115,10 +117,12 @@
     <div style="padding:20px;">
         <b style="text-align:center;">Accessorials:</b>
     <div>
-    <table style="width: 120%; border: 1px solid black; padding:5px;">
+    <table style="width: 100%; padding:6px; font-size:16px;">
         <tr>
-            <td style="width:60%; text-align:center;"> Pallet: <b>{{ pallet }}</b></td>
-            <td style="width:60%; text-align:center;"> Pcs: <b>{{ pcs }}</b></td>
+            <td style="width:20%; border:none;"></td>
+            <td style="width:30%; text-align:center; border: 1px solid black;"> Pallet: <b>{{ pallet }}</b></td>
+            <td style="width:30%; text-align:center; border: 1px solid black;"> Pcs: <b>{{ pcs }}</b></td>
+            <td style="width:20%; border:none;"></td>
         </tr>
     </table>
 </div>
@@ -184,6 +188,32 @@
 </div>
 <br><br>
 <b><span style="text-align:center; display:block; font-size:24px;">Pickup List</span></b>
+{% if flag %}
+<table style="width: 100%; text-align:left; padding: 5px; table-layout: fixed;">
+    <thead> 
+        <th style="width: 7.1%; border: none;"></th>
+        <th style="width: 14.3%; border:1px solid black;">container number</th>
+        <th style="width: 14.3%; border:1px solid black;">destination</th>
+        <th style="width: 18%; border:1px solid black;">shipping_mark</th>
+        <th style="width: 13.1%; border:1px solid black;">pallets</th>
+        <th style="width: 13.1%; border:1px solid black;">pcs</th>
+        <th style="width: 12.9%; border:1px solid black;">carrier</th>
+        <th style="width: 7.1%; border: none;"></th>
+    </thead>
+    {% for p in arm_pickup %}
+    <trstyle="text-align:center;">
+        <th style="width: 7.1%; border: none;"></th>
+        <td style="text-align:center; border:1px solid black;">{{ p.container_number__container_number }}</td>
+        <td style="text-align:center; border:1px solid black;">{{ p.destination }}</td>
+        <td style="word-break:break-all; border:1px solid black;">{{ p.shipping_mark }}</td>
+        <td style="text-align:center; border:1px solid black;">{{ p.total_pallet }}</td>
+        <td style="text-align:center; border:1px solid black;">{{ p.total_pcs }}</td>
+        <td style="text-align:center; border:1px solid black;">{{ p.shipment_batch_number__fleet_number__carrier }}</td>
+        <th style="width: 7.1%; border: none;"></th>
+    </tr>
+    {% endfor %}
+</table>
+{% else %}
 <table style="width: 100%; border:1px solid black; text-align:left; padding: 5px; table-layout: fixed;">
     <thead> 
         <th style="width: 14.3%;">container number</th>
@@ -192,9 +222,7 @@
         <th style="width: 13.1%;">pallets</th>
         <th style="width: 13.1%">pcs</th>
         <th style="width: 12.9%;">carrier</th>
-        {% if not flag %}
         <th style="width: 14.3%;">pickup time</th>
-        {% endif %}
     </thead>
     {% for p in arm_pickup %}
     <trstyle="text-align:center;">
@@ -204,10 +232,9 @@
         <td style="text-align:center;">{{ p.total_pallet }}</td>
         <td style="text-align:center;">{{ p.total_pcs }}</td>
         <td style="text-align:center;">{{ p.shipment_batch_number__fleet_number__carrier }}</td>
-        {% if not flag %}
         <td style="text-align:center;">{{ p.shipment_batch_number__shipment_appointment|date:'m-d\ H:i' }}</td>
-        {% endif %}
     </tr>
     {% endfor %}
 </table>
+{% endif %}
 {% endblock %}
