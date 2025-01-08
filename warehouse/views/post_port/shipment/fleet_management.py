@@ -989,18 +989,19 @@ class FleetManagement(View):
     async def _export_ltl_bol(self, request: HttpRequest) -> HttpResponse:
         customerInfo = request.POST.get("customerInfo")
         warehouse = request.POST.get("warehouse") 
-        contact_flag = False  #表示地址栏空出来，客服手动P上去      
+        contact_flag = False  #表示地址栏空出来，客服手动P上去  
+        flag = True   #表示LTL，否则表示客户自提
+        contact = {}    
         if customerInfo and customerInfo != '[]':
             customerInfo = json.loads(customerInfo)
-            if len(customerInfo[0]) == 9:
-                flag = True
-            else:
+            if len(customerInfo[0]) != 9:
                 flag = False  #表示客户自提
             if flag:
                 arm_pickup = [['container_number__container_number','destination','shipping_mark','shipment_batch_number__ARM_PRO','total_pallet','total_pcs','shipment_batch_number__fleet_number__carrier']]
             else:
                 arm_pickup = [['container_number__container_number','destination','shipping_mark','shipment_batch_number__ARM_PRO','total_pallet','total_pcs','shipment_batch_number__fleet_number__carrier','shipment_batch_number__shipment_appointment']]
-            for row in customerInfo:  
+            for row in customerInfo: 
+                print ('地址是否要填',row[8]) 
                 if row[8] != "":
                     contact_flag = True           
                     contact = row[8]
@@ -1049,14 +1050,17 @@ class FleetManagement(View):
                 ).values(
                     "container_number__container_number","shipment_batch_number__shipment_appointment",
                     "shipment_batch_number__ARM_PRO","shipment_batch_number__fleet_number__carrier",
-                    "shipment_batch_number__fleet_number__appointment_datetime","destination","shipping_mark"
+                    "shipment_batch_number__fleet_number__appointment_datetime",
+                    "shipment_batch_number__fleet_number__fleet_type","destination","shipping_mark"
                 ).annotate(
-                    total_pcs=Count('pcs'),
+                    total_pcs=Sum('pcs'),
                     total_pallet=Count('pallet_id', distinct=True),
-                    total_weight=Count('weight_lbs'),
-                    total_cbm=Count('cbm')
+                    total_weight=Sum('weight_lbs'),
+                    total_cbm=Sum('cbm')
                 )
             )
+            if "自提" in arm_pickup[0]["shipment_batch_number__fleet_number__fleet_type"]:
+                flag = False
         
         pallet = 0
         pcs = 0
@@ -1092,7 +1096,7 @@ class FleetManagement(View):
         barcode_type = 'code128'
         barcode_class = barcode.get_barcode_class(barcode_type)
         if arm_pro =='' or arm_pro =='None' or arm_pro==None:
-            barcode_content = f"{container_number}|{shipping_mark}"
+            barcode_content = f"{container_number}|{destination}"
         else:
             barcode_content = f"{arm_pro}"
         my_barcode = barcode_class(barcode_content, writer = ImageWriter()) #将条形码转换为图像形式
@@ -1116,7 +1120,6 @@ class FleetManagement(View):
             "pcs":pcs,
             "barcode": barcode_base64,
             "arm_pickup": arm_pickup,
-            "contact":new_contact,
             "flag" :flag,
             "contact":contact,
             "contact_flag":contact_flag
