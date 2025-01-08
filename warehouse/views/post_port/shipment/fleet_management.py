@@ -999,16 +999,20 @@ class FleetManagement(View):
                 arm_pickup = [['container_number__container_number','destination','shipping_mark','shipment_batch_number__ARM_PRO','total_pallet','total_pcs','shipment_batch_number__fleet_number__carrier']]
             else:
                 arm_pickup = [['container_number__container_number','destination','shipping_mark','shipment_batch_number__ARM_PRO','total_pallet','total_pcs','shipment_batch_number__fleet_number__carrier','shipment_batch_number__shipment_appointment']]
-            for row in customerInfo:              
-                contact = row[8]
-                contact = re.sub('[\u4e00-\u9fff]', ' ', contact) 
-                contact = re.sub(r'\uFF0C', ',', contact)
-                new_contact = contact.split(';')
-                contact = {"company":new_contact[0].strip(),
-                           "Road":new_contact[1].strip(),
-                           "city":new_contact[2].strip(),
-                           "name":new_contact[3],
-                           "phone":new_contact[4]}
+            for row in customerInfo:  
+                if row[8] == "":
+                    contact_flag = False 
+                else:
+                    contact_flag = True           
+                    contact = row[8]
+                    contact = re.sub('[\u4e00-\u9fff]', ' ', contact) 
+                    contact = re.sub(r'\uFF0C', ',', contact)
+                    new_contact = contact.split(';')
+                    contact = {"company":new_contact[0].strip(),
+                            "Road":new_contact[1].strip(),
+                            "city":new_contact[2].strip(),
+                            "name":new_contact[3],
+                            "phone":new_contact[4]}
                 if flag:
                     arm_pickup.append([
                         row[0].strip(),
@@ -1115,7 +1119,8 @@ class FleetManagement(View):
             "arm_pickup": arm_pickup,
             "contact":new_contact,
             "flag" :flag,
-            "contact":contact
+            "contact":contact,
+            "contact_flag":contact_flag
             }
         if not flag:
             context["pickup_time"] = pickup_time
