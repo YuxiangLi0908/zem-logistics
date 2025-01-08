@@ -261,10 +261,10 @@ class FleetManagement(View):
                 "shipment_batch_number__ARM_BOL","shipment_batch_number__fleet_number__carrier",
                 "shipment_batch_number__fleet_number__appointment_datetime","address"
             ).annotate(
-                total_pcs=Count('pcs', distinct=True),
+                total_pcs=Sum('pcs', distinct=True),
                 total_pallet=Count('pallet_id', distinct=True),
-                total_weight=Count('weight_lbs'),
-                total_cbm=Count('cbm')
+                total_weight=Sum('weight_lbs'),
+                total_cbm=Sum('cbm')
             )
         )
         for arm in arm_pickup:
@@ -939,10 +939,10 @@ class FleetManagement(View):
                 "shipment_batch_number__ARM_PRO","shipment_batch_number__fleet_number__carrier",
                 "shipment_batch_number__fleet_number__appointment_datetime","destination","shipping_mark"
             ).annotate(
-                total_pcs=Count('pcs'),
+                total_pcs=Sum('pcs'),
                 total_pallet=Count('pallet_id', distinct=True),
-                total_weight=Count('weight_lbs'),
-                total_cbm=Count('cbm')
+                total_weight=Sum('weight_lbs'),
+                total_cbm=Sum('cbm')
             )
         )
         for arm in arm_pickup:
@@ -1057,8 +1057,6 @@ class FleetManagement(View):
         
         pallet = 0
         pcs = 0
-        weight = 0.0
-        cbm = 0.0
         shipping_mark = ''
         for arm in arm_pickup:
             arm_pro = arm["shipment_batch_number__ARM_PRO"]
@@ -1113,8 +1111,6 @@ class FleetManagement(View):
             "carrier":carrier,
             "pallet":pallet,
             "pcs":pcs,
-            "weight":weight,
-            "cbm":cbm,
             "barcode": barcode_base64,
             "arm_pickup": arm_pickup,
             "contact":new_contact,
