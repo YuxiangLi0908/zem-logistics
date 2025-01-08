@@ -12,6 +12,7 @@ from typing import Any
 from xhtml2pdf import pisa
 
 from django.http import HttpRequest, HttpResponse
+from django.http import StreamingHttpResponse
 from django.shortcuts import render, redirect
 from django.views import View
 from django.db import models
@@ -154,9 +155,8 @@ class FleetManagement(View):
         elif step == "abnormal_fleet":
             template, context = await self.handle_abnormal_fleet_post(request)
             return render(request, template, context)
-        elif step == "upload_ARM_LABEL":
-            template, context = await self.handle_label_upload_post(request)
-            return render(request, template, context)
+        elif step == "upload_ARM_BOL":
+            return await self.handle_bol_upload_post(request)
         elif step == "download_LABEL":
             return await self._export_ltl_label(request) 
         elif step == "download_LTL_BOL":
@@ -1138,39 +1138,25 @@ class FleetManagement(View):
             raise ValueError('Error during PDF generation: %s' % pisa_status.err, content_type='text/plain')
         return response
     
-    #上传LTL和客户自提的BOL文件和LEBAL文件
-    async def handle_label_upload_post(self, request: HttpRequest) -> tuple[str, dict[str, Any]]:
+    #上传客户自提的BOL文件
+    async def handle_bol_upload_post(self, request: HttpRequest)-> HttpResponse:
         fleet_number = request.POST.get("fleet_number")
-        fleet_type = request.POST.get("fleet_type")
         customerInfo = request.POST.get("customerInfo")  
         #如果在界面输入了，就用界面添加后的值
         if customerInfo and customerInfo != '[]':
             customer_info = json.loads(customerInfo)
-            if fleet_type == "客户自提":
-                arm_pickup = [['柜号','邮编','唛头','板数','箱数','carrier']]
-                for row in customer_info:
-                   
-                    arm_pickup.append([
-                        row[0].strip(),                       
-                        row[1].strip(),
-                        row[2].strip(),
-                        row[3].strip(),
-                        row[4].strip(),
-                        row[5].strip()
-                    ])
-            else:
-                arm_pickup = [['柜号','邮编','唛头','BOL号','板数','箱数','carrier','提仓时间']]
-                for row in customer_info:
-                    arm_pickup.append([
-                        row[0].strip(),
-                        row[1].strip(),
-                        row[2].strip(),
-                        row[3].strip(), 
-                        row[4].strip(),
-                        row[5].strip(),
-                        row[6].strip(),
-                        row[7].strip()
-                    ])
+            arm_pickup = [['柜号','邮编','唛头','BOL号','板数','箱数','carrier','提仓时间']]
+            for row in customer_info:
+                arm_pickup.append([
+                    row[0].strip(),
+                    row[1].strip(),
+                    row[2].strip(),
+                    row[3].strip(), 
+                    row[4].strip(),
+                    row[5].strip(),
+                    row[6].strip(),
+                    row[7].strip()
+                ])
         else:  #没有就从数据库查
             arm_pickup = await sync_to_async(list)(
                 Pallet.objects.select_related(
@@ -1187,75 +1173,59 @@ class FleetManagement(View):
                 )
             )
             if arm_pickup:
-                if arm_pickup[0]["shipment_batch_number__fleet_number__fleet_type"] == "客户自提":
-                    new_list = []
-                    for p in arm_pickup:
-                        new_list.append([p["container_number__container_number"],p["zipcode"],p["shipping_mark"],p["total_pallet"],p["total_pcs"],p["shipment_batch_number__fleet_number__carrier"]])
-                    arm_pickup = [['柜号','邮编','唛头','板数','箱数','carrier']] + new_list
-                else:
-                    new_list = []
-                    for p in arm_pickup:
-                        new_list.append(p["container_number__container_number"],p["zipcode"],p["shipping_mark"],p["shipment_batch_number__ARM_BOL"],p["total_pallet"],p["total_pcs"],p["shipment_batch_number__fleet_number__carrier"],p["shipment_batch_number__fleet_number__appointment_datetime"])
-                    arm_pickup = [['柜号','邮编','唛头','BOL号','板数','箱数','carrier','提仓时间']] + new_list
-        if arm_pickup:   
-            #有两个文件，BOL和LEBAL，BOL需要在后面加一个拣货单
-            df =pd.DataFrame(arm_pickup[1:],columns = arm_pickup[0])  
-            files = request.FILES.getlist('files')
-            if files:
-                for file in files:
-                    base_filename = os.path.splitext(file.name)[0]
-                    #文件有固定的命名格式，第一个-后面的是日期，需要将文件放到指令目录下按照日期存放
-                    assing_date = base_filename.split('-')
-                    assing_date = assing_date[1].replace('.','')
-                    if file.name.endswith('BOL.pdf'):
-                        # 需要加拣货单
-                        fig, ax = plt.subplots(figsize=(10.4, 14.9))
-                        ax.axis('tight')
-                        ax.axis('off')
-                        fig.subplots_adjust(top=1.5)
-                        the_table = ax.table(cellText=df.values, colLabels=df.columns, loc='upper center', cellLoc='center')
-                        #规定拣货单的表格大小
-                        for pos, cell in the_table.get_celld().items():
-                            cell.set_fontsize(20)
-                            if pos[0]!= 0:  
-                                cell.set_height(0.03)
-                            else:
-                                cell.set_height(0.02)
-                            if pos[1] == 0 or pos[1] == 1 or pos[1] == 2:  
-                                cell.set_width(0.2)
-                            else:
-                                cell.set_width(0.1)
-                        buf = io.BytesIO()
-                        fig.savefig(buf, format='pdf', bbox_inches='tight')
-                        buf.seek(0)
-                        merger = PdfMerger()
-                        temp_pdf_io = io.BytesIO(file.read())
-                        temp_pdf_reader = PdfReader(temp_pdf_io)
-                        merger.append(temp_pdf_reader)
-                        buf.seek(0)
-                        merger.append(PdfReader(buf))
-                        output_buf = io.BytesIO()
-                        merger.write(output_buf)
-                        output_buf.seek(0)
-                        new_file = output_buf
-                    if file.name.endswith('LABEL.pdf'): 
-                        #LABEL文件原样上传
-                        new_file = file
-
-                    #下面这四行代码不准确，需要更新存放的地址，不知道怎么写地址
-                    #上传位置 ，ZEM LOGISTICS PUBLIC/文档//General/OP/BOL指令/日期BOL，这里日期是上面读取文件名获取的assing_date
-                    file_path = os.path.join(SP_DOC_LIB, f"{SYSTEM_FOLDER}/pod/{APP_ENV}")
-                    #连接云盘
-                    sp_folder = conn.web.get_folder_by_server_relative_url(file_path)
-                    #上传操作
-                    resp = sp_folder.upload_file(f"{base_filename}.pdf", new_file).execute_query()
-                    #返回存储地址
-                    link = resp.share_link(SharingLinkKind.OrganizationView).execute_query().value.to_json()["sharingLinkInfo"]["Url"]         
-            mutable_get = request.GET.copy()
-            mutable_get['warehouse'] = request.POST.get("warehouse")
-            mutable_get['fleet_number'] = fleet_number
-            request.GET = mutable_get
-            return await self.handle_fleet_depature_get(request)
+                new_list = []
+                for p in arm_pickup:
+                    new_list.append([p["container_number__container_number"],p["zipcode"],p["shipping_mark"],p["shipment_batch_number__ARM_BOL"],p["total_pallet"],p["total_pcs"],p["shipment_batch_number__fleet_number__carrier"],p["shipment_batch_number__fleet_number__appointment_datetime"]])
+                arm_pickup = [['柜号','邮编','唛头','BOL号','板数','箱数','carrier','提仓时间']] + new_list 
+        month_day = arm_pickup[1][-1].strftime('%m%d')
+        file_name = f"{month_day}-{arm_pickup[1][0]}-{arm_pickup[1][2]}"
+        #BOL需要在后面加一个拣货单
+        df =pd.DataFrame(arm_pickup[1:],columns = arm_pickup[0])  
+        files = request.FILES.getlist('files')
+        if files:
+            for file in files:
+                #文件有固定的命名格式，第一个-后面的是日期，需要将文件放到指令目录下按照日期存放
+                # 需要加拣货单
+                fig, ax = plt.subplots(figsize=(9.5, 8.5))
+                ax.axis('tight')
+                ax.axis('off')
+                fig.subplots_adjust(top=1.5)
+                the_table = ax.table(cellText=df.values, colLabels=df.columns, loc='upper center', cellLoc='center')
+                #规定拣货单的表格大小
+                for pos, cell in the_table.get_celld().items():
+                    cell.set_fontsize(20)
+                    if pos[0]!= 0:  
+                        cell.set_height(0.03)
+                    else:
+                        cell.set_height(0.02)
+                    if pos[1] == 0 or pos[1] == 1 or pos[1] == 2:  
+                        cell.set_width(0.2)
+                    else:
+                        cell.set_width(0.1)
+                buf = io.BytesIO()
+                fig.savefig(buf, format='pdf', bbox_inches='tight')
+                buf.seek(0)
+                merger = PdfMerger()
+                temp_pdf_io = io.BytesIO(file.read())
+                temp_pdf_reader = PdfReader(temp_pdf_io)
+                merger.append(temp_pdf_reader)
+                buf.seek(0)
+                merger.append(PdfReader(buf))
+                output_buf = io.BytesIO()
+                merger.write(output_buf)
+                output_buf.seek(0)
+                # merger.close()
+        
+        #print(type(new_file),type(file_name))
+        response = HttpResponse(output_buf.getvalue(),content_type="application/pdf")
+        #response = StreamingHttpResponse(new_file, content_type="application/pdf")
+        response['Content-Disposition'] = f'attachment; filename="{file_name}.pdf"'
+        # 将合并后的PDF内容写入响应
+        #response.write(output_buf)
+        return response
+        if pisa_status.err:
+            raise ValueError('Error during PDF generation: %s' % pisa_status.err, content_type='text/plain')
+        return response   
     
     async def handle_abnormal_fleet_post(self, request: HttpRequest) -> tuple[str, dict[str, Any]]:
         status = request.POST.get("abnormal_status", "").strip()

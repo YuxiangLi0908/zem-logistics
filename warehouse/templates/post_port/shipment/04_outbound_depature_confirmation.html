@@ -309,17 +309,18 @@
                     <i class="bi bi-cloud-arrow-down-fill"></i>
                 </button>
             </form>
-        <!-- <form method="post" action="" enctype="multipart/form-data" style="display: inline-block; float:right;" id="bol-pro-upload">
+        {% elif selected_fleet.fleet_type == "客户自提" %}
+        <form method="post" action="" enctype="multipart/form-data" style="display: inline-block; float:right;" id="bol-pro-upload">
             {% csrf_token %}
-            <input type="hidden" name="step" value="upload_ARM_LABEL">
+            <input type="hidden" name="step" value="upload_ARM_BOL">
             <input type="hidden" name="fleet_number" value="{{ selected_fleet.fleet_number }}">
             <input type="hidden" name="fleet_type" value="{{ selected_fleet.fleet_type }}">
             <input type="hidden" name="warehouse" value="{{ warehouse }}">
             <input type="hidden" name="pl_fleet" value="{{ pl_fleet }}">
             <input type="hidden" name="customerInfo" id="customerInfo">
             <input type="file" name="files" accept=".pdf" multiple>
-            <button type="submit">上传BOL/LABEL</button>        
-        </form>        -->
+            <button type="submit">上传BOL</button>        
+        </form>
         {% endif %}
             
         </div>
