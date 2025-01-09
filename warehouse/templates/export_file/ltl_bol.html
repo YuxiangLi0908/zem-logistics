@@ -188,7 +188,6 @@
 </div>
 <br><br>
 <b><span style="text-align:center; display:block; font-size:24px;">Pickup List</span></b>
-{% if flag %}
 <table style="width: 100%; text-align:left; padding: 5px; table-layout: fixed;">
     <thead> 
         <th style="width: 7.1%; border: none;"></th>
@@ -213,28 +212,5 @@
     </tr>
     {% endfor %}
 </table>
-{% else %}
-<table style="width: 100%; border:1px solid black; text-align:left; padding: 5px; table-layout: fixed;">
-    <thead> 
-        <th style="width: 14.3%;">container number</th>
-        <th style="width: 14.3%;">destination</th>
-        <th style="width: 18%;">shipping_mark</th>
-        <th style="width: 13.1%;">pallets</th>
-        <th style="width: 13.1%">pcs</th>
-        <th style="width: 12.9%;">carrier</th>
-        <th style="width: 14.3%;">pickup time</th>
-    </thead>
-    {% for p in arm_pickup %}
-    <trstyle="text-align:center;">
-        <td style="text-align:center;">{{ p.container_number__container_number }}</td>
-        <td style="text-align:center;">{{ p.destination }}</td>
-        <td style="word-break:break-all;">{{ p.shipping_mark }}</td>
-        <td style="text-align:center;">{{ p.total_pallet }}</td>
-        <td style="text-align:center;">{{ p.total_pcs }}</td>
-        <td style="text-align:center;">{{ p.shipment_batch_number__fleet_number__carrier }}</td>
-        <td style="text-align:center;">{{ p.shipment_batch_number__shipment_appointment|date:'m-d\ H:i' }}</td>
-    </tr>
-    {% endfor %}
 </table>
-{% endif %}
 {% endblock %}
