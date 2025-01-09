@@ -47,7 +47,7 @@
             
             <div>
                 <label for="hanging_crane">吊柜费</label>:
-                <input type="number" id="hanging_crane" name="hanging_crane" value="300" disabled>
+                <input type="number" id="hanging_crane" name="hanging_crane" min="0" value="{{ invoice_preports.hanging_crane }}">
                 
             </div>
             <div>
@@ -145,7 +145,7 @@
             "码头": 20,
             "码头": 40,
             "港口拥堵费": 75,
-            "吊柜费": 300, 
+            "吊柜费": 1, 
             "空跑费": 150,
             "查验费": 250,
             "危险品": 300,

@@ -229,7 +229,7 @@
                 </thead>
                 <tbody>
                     {% for plt in pallet %}
-                    <tr draggable="true" id="pallet-{{ plt.id }}">
+                    <tr draggable="true" id="pallet-{{ plt.id }}" style="{% if not plt.invoice_delivery__type %}background-color: rgba(0, 123, 255, 0.5); color: white;{% endif %}">
                         <td class="td" style="min-width: 40px; text-align: center;">
                             <input type='checkbox' name='is_type_added' onclick="toggleRowBackground(this)" {% if plt.delivery %}checked{% endif %}>
                             <input type="hidden" name="is_type_added", value='off'>

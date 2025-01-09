@@ -922,7 +922,7 @@ class Accounting(View):
             total_cbm=Sum("cbm", output_field=FloatField()),
             total_weight_lbs=Sum("weight_lbs", output_field=FloatField()),
             total_n_pallet=Count("pallet_id", distinct=True)
-        )
+        ).order_by(F('invoice_delivery__type').asc(nulls_first=True)) 
         amazon = []
         local = []
         combine = []

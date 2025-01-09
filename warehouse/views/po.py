@@ -181,10 +181,11 @@ class PO(View):
                     if not pd.isnull(fba) and fba != '':
                         query &= models.Q(fba_id=fba)
                     if not pd.isnull(ref) and ref != '':
-                        query &= models.Q(ref_id=ref)
-                    #try:
-                    pochecketaseven = await sync_to_async(PoCheckEtaSeven.objects.get)(query)
-
+                        query &= models.Q(ref_id=ref)                 
+                    try:
+                        pochecketaseven = await sync_to_async(PoCheckEtaSeven.objects.get)(query)
+                    except:
+                        raise RuntimeError(f"{query}找不到!")               
                     cn = pytz.timezone('Asia/Shanghai')
                     current_time_cn = datetime.now(cn)
                     if "eta" in time_code:
