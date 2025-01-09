@@ -12,7 +12,6 @@ from typing import Any
 from xhtml2pdf import pisa
 
 from django.http import HttpRequest, HttpResponse
-from django.http import StreamingHttpResponse
 from django.shortcuts import render, redirect
 from django.views import View
 from django.db import models
@@ -31,8 +30,7 @@ matplotlib.use('Agg')
 matplotlib.rcParams['font.size'] = 100
 import matplotlib.pyplot as plt
 plt.rcParams['font.sans-serif'] = ['SimHei']
-
-from matplotlib.backends.backend_pdf import PdfPages
+import matplotlib.pyplot as plt
 from PyPDF2 import PdfMerger, PdfReader
 
 from warehouse.models.retrieval import Retrieval
@@ -155,7 +153,7 @@ class FleetManagement(View):
         elif step == "abnormal_fleet":
             template, context = await self.handle_abnormal_fleet_post(request)
             return render(request, template, context)
-        elif step == "upload_ARM_BOL":
+        elif step == "upload_SELF_BOL":
             return await self.handle_bol_upload_post(request)
         elif step == "download_LABEL":
             return await self._export_ltl_label(request) 
@@ -990,18 +988,11 @@ class FleetManagement(View):
         customerInfo = request.POST.get("customerInfo")
         warehouse = request.POST.get("warehouse") 
         contact_flag = False  #表示地址栏空出来，客服手动P上去  
-        flag = True   #表示LTL，否则表示客户自提
         contact = {}    
         if customerInfo and customerInfo != '[]':
             customerInfo = json.loads(customerInfo)
-            if len(customerInfo[0]) != 9:
-                flag = False  #表示客户自提
-            if flag:
-                arm_pickup = [['container_number__container_number','destination','shipping_mark','shipment_batch_number__ARM_PRO','total_pallet','total_pcs','shipment_batch_number__fleet_number__carrier']]
-            else:
-                arm_pickup = [['container_number__container_number','destination','shipping_mark','shipment_batch_number__ARM_PRO','total_pallet','total_pcs','shipment_batch_number__fleet_number__carrier','shipment_batch_number__shipment_appointment']]
+            arm_pickup = [['container_number__container_number','destination','shipping_mark','shipment_batch_number__ARM_PRO','total_pallet','total_pcs','shipment_batch_number__fleet_number__carrier']]
             for row in customerInfo: 
-                print ('地址是否要填',row[8]) 
                 if row[8] != "":
                     contact_flag = True           
                     contact = row[8]
@@ -1013,27 +1004,15 @@ class FleetManagement(View):
                             "city":new_contact[2].strip(),
                             "name":new_contact[3],
                             "phone":new_contact[4]}
-                if flag:
-                    arm_pickup.append([
-                        row[0].strip(),
-                        row[1].strip(),
-                        row[2].strip(),
-                        row[3].strip(), 
-                        int(row[4].strip()),
-                        int(row[5].strip()),
-                        row[6].strip()
-                    ])
-                else:
-                    arm_pickup.append([
-                        row[0].strip(),
-                        row[1].strip(),
-                        row[2].strip(),
-                        row[3].strip(), 
-                        int(row[4].strip()),
-                        int(row[5].strip()),
-                        row[6].strip(),
-                        row[9].strip()
-                    ])
+                arm_pickup.append([
+                    row[0].strip(),
+                    row[1].strip(),
+                    row[2].strip(),
+                    row[3].strip(), 
+                    int(row[4].strip()),
+                    int(row[5].strip()),
+                    row[6].strip()
+                ])
             keys = arm_pickup[0]
             arm_pickup_dict_list = []   
             for row in arm_pickup[1:]:
@@ -1059,8 +1038,6 @@ class FleetManagement(View):
                     total_cbm=Sum('cbm')
                 )
             )
-            if "自提" in arm_pickup[0]["shipment_batch_number__fleet_number__fleet_type"]:
-                flag = False
         
         pallet = 0
         pcs = 0
@@ -1068,8 +1045,6 @@ class FleetManagement(View):
         for arm in arm_pickup:
             arm_pro = arm["shipment_batch_number__ARM_PRO"]
             carrier = arm["shipment_batch_number__fleet_number__carrier"]
-            if not flag:
-                pickup_time = arm["shipment_batch_number__shipment_appointment"]
             pallet += arm["total_pallet"]
             pcs += arm["total_pcs"]
             container_number = arm["container_number__container_number"]
@@ -1087,10 +1062,6 @@ class FleetManagement(View):
                 else:
                     new_marks = marks
             arm["shipping_mark"] = new_marks
-        if not flag:
-            pickup_time_str = str(pickup_time)
-            date_str = datetime.strptime(pickup_time_str[:19], '%Y-%m-%d %H:%M:%S')
-            pickup_time = date_str.strftime('%Y-%m-%d')
         #生成条形码
         
         barcode_type = 'code128'
@@ -1120,19 +1091,13 @@ class FleetManagement(View):
             "pcs":pcs,
             "barcode": barcode_base64,
             "arm_pickup": arm_pickup,
-            "flag" :flag,
             "contact":contact,
             "contact_flag":contact_flag
             }
-        if not flag:
-            context["pickup_time"] = pickup_time
         template = get_template(self.template_ltl_bol)
         html = template.render(context)
         response = HttpResponse(content_type="application/pdf")
-        if not flag:
-            response['Content-Disposition'] = f'attachment; filename="{pickup_time}+{container_number}+{destination}+{shipping_mark}+BOL.pdf"'
-        else:
-            response['Content-Disposition'] = f'attachment; filename="{container_number}+{destination}+{shipping_mark}+BOL.pdf"'
+        response['Content-Disposition'] = f'attachment; filename="{container_number}+{destination}+{shipping_mark}+BOL.pdf"'
         pisa_status = pisa.CreatePDF(html, dest=response, link_callback=link_callback)
         if pisa_status.err:
             raise ValueError('Error during PDF generation: %s' % pisa_status.err, content_type='text/plain')
@@ -1145,7 +1110,7 @@ class FleetManagement(View):
         #如果在界面输入了，就用界面添加后的值
         if customerInfo and customerInfo != '[]':
             customer_info = json.loads(customerInfo)
-            arm_pickup = [['container_number','zipcode','shipping_mark','BOL','pallet','pcs','carrier','pickup_time']]
+            arm_pickup = [['container_number','zipcode','shipping_mark','pallet','pcs','carrier','pickup_time']]
             for row in customer_info:
                 arm_pickup.append([
                     row[0].strip(),
@@ -1154,9 +1119,13 @@ class FleetManagement(View):
                     row[3].strip(), 
                     row[4].strip(),
                     row[5].strip(),
-                    row[6].strip(),
-                    row[7].strip()
+                    row[6].strip()
                 ])
+                pickup_time = row[6].strip()
+            pickup_time = pickup_time.split('-') 
+            pickup_time_date = pickup_time[2].split(' ')
+            file_name = f"{pickup_time[1]}-{pickup_time_date[0]}"
+            print('filename',file_name)
         else:  #没有就从数据库查
             arm_pickup = await sync_to_async(list)(
                 Pallet.objects.select_related(
@@ -1176,9 +1145,9 @@ class FleetManagement(View):
                 new_list = []
                 for p in arm_pickup:
                     new_list.append([p["container_number__container_number"],p["zipcode"],p["shipping_mark"],p["shipment_batch_number__ARM_BOL"],p["total_pallet"],p["total_pcs"],p["shipment_batch_number__fleet_number__carrier"],p["shipment_batch_number__fleet_number__appointment_datetime"]])
-                arm_pickup = [['container_number','zipcode','shipping_mark','BOL','pallet','pcs','carrier','pickup_time']] + new_list 
-        month_day = arm_pickup[1][-1].strftime('%m%d')
-        file_name = f"{month_day}-{arm_pickup[1][0]}-{arm_pickup[1][2]}"
+                arm_pickup = [['柜号','zipcode','shipping_mark','BOL','pallet','pcs','carrier','pickup_time']] + new_list 
+            month_day = arm_pickup[1][-1].strftime('%m%d')
+            file_name = f"{month_day}-{arm_pickup[1][0]}-{arm_pickup[1][2]}"
         #BOL需要在后面加一个拣货单
         df =pd.DataFrame(arm_pickup[1:],columns = arm_pickup[0])  
         files = request.FILES.getlist('files')
@@ -1190,11 +1159,10 @@ class FleetManagement(View):
                 ax.axis('tight')
                 ax.axis('off')
                 fig.subplots_adjust(top=1.5)
-                #title_text = ax.text(0.5, 1.1, 'PickUP List', fontsize=30, ha='center', va='center', transform=ax.transAxes)
                 the_table = ax.table(cellText=df.values, colLabels=df.columns, loc='upper center', cellLoc='center')
                 #规定拣货单的表格大小
                 for pos, cell in the_table.get_celld().items():
-                    cell.set_fontsize(100)
+                    cell.set_fontsize(20)
                     if pos[0]!= 0:  
                         cell.set_height(0.02)
                     else:

@@ -90,6 +90,7 @@
                             <th class="th" style="text-align: center; border: 1px solid #141414">板数</th> 
                             <th class="th" style="text-align: center; border: 1px solid #141414">箱数</th>   
                             <th class="th" style="text-align: center; border: 1px solid #141414">Carrier</th>  
+                            <th class="th" style="text-align: center; border: 1px solid #141414">提货时间</th>
                         </thead>
                         {% for s in arm_pickup %}
                         <tr id="self_pickup-row">
@@ -99,12 +100,14 @@
                             <td style="text-align: center; border: 1px solid #141414; padding:10px;" data-editable="true">{{ s.total_pallet }}</td>
                             <td style="text-align: center; border: 1px solid #141414; padding:10px;" data-editable="true">{{ s.total_pcs }}</td>
                             <td style="text-align: center; border: 1px solid #141414; padding:10px;" data-editable="true">{{ s.shipment_batch_number__fleet_number__carrier }}</td>
+                            <td style="text-align: center; border: 1px solid #141414; padding:10px;" data-editable="true">{{ s.shipment_batch_number__fleet_number__appointment_datetime|date:"Y-m-d H:i:s" }}</td>
                         </tr>
                         <tr id="self_pickup-row-empty-{{ selected_fleet.fleet_number }}" style="display: none;">
                             <td style="text-align: center; border: 1px solid #141414; padding:10px;" data-editable="true"></td>
                             <td style="text-align: center; border: 1px solid #141414; text-wrap: wrap; padding:10px;" data-editable="true"></td>
                             <td style="text-align: center; border: 1px solid #141414; text-wrap: wrap; padding:10px;" data-editable="true"></td>
                             <td style="text-align: center; border: 1px solid #141414; text-wrap: wrap; padding:10px;" data-editable="true"></td>
+                            <td style="text-align: center; border: 1px solid #141414; padding:10px;" data-editable="true"></td>
                             <td style="text-align: center; border: 1px solid #141414; padding:10px;" data-editable="true"></td>
                             <td style="text-align: center; border: 1px solid #141414; padding:10px;" data-editable="true"></td>
                         </tr>  
@@ -144,9 +147,6 @@
                             <th class="th" style="text-align: center; border: 1px solid #141414">Carrier</th>  
                             <th class="th" style="text-align: center; border: 1px solid #141414">address</th> 
                             <th class="th" style="text-align: center; border: 1px solid #141414">地址详情</th> 
-                            {% if '自提' in selected_fleet.fleet_number%}
-                                <th class="th" style="text-align: center; border: 1px solid #141414">提货时间</th>  
-                            {% endif %}
                         </thead>
                         {% for s in arm_pickup %}
                         <tr id="arm_pickup-row">
@@ -159,9 +159,6 @@
                             <td style="text-align: center; border: 1px solid #141414; padding:10px;" data-editable="true">{{ s.shipment_batch_number__fleet_number__carrier }}</td>
                             <td style="text-align: center; border: 1px solid #141414; padding:10px;" data-editable="true">{{ s.address }}</td>
                             <td style="text-align: center; border: 1px solid #141414; padding:10px;" data-editable="true"></td>
-                            {% if '自提' in selected_fleet.fleet_number%}
-                            <td style="text-align: center; border: 1px solid #141414; padding:10px;" data-editable="true">{{ s.shipment_batch_number__fleet_number__appointment_datetime|date:"Y-m-d H:i:s" }}</td>
-                            {% endif %}
                         </tr>
                         {% endfor %}
                         <tr id="arm_pickup-row-empty-{{ selected_fleet.fleet_number }}" style="display: none;">
@@ -174,9 +171,6 @@
                             <td style="text-align: center; border: 1px solid #141414; padding:10px;" data-editable="true"></td>
                             <td style="text-align: center; border: 1px solid #141414; padding:10px;" data-editable="true"></td>
                             <td style="text-align: center; border: 1px solid #141414; padding:10px;" data-editable="true"></td>
-                            {% if '自提' in selected_fleet.fleet_number%}
-                            <td style="text-align: center; border: 1px solid #141414; padding:10px;" data-editable="true"></td>
-                            {% endif %}
                         </tr>  
                     </table>
                     <div style="text-align:right;">
@@ -310,9 +304,9 @@
                 </button>
             </form>
         {% elif selected_fleet.fleet_type == "客户自提" %}
-        <form method="post" action="" enctype="multipart/form-data" style="display: inline-block; float:right;" id="bol-pro-upload">
+        <form method="post" action="" enctype="multipart/form-data" style="display: inline-block; float:right;" id="self-bol-upload">
             {% csrf_token %}
-            <input type="hidden" name="step" value="upload_ARM_BOL">
+            <input type="hidden" name="step" value="upload_SELF_BOL">
             <input type="hidden" name="fleet_number" value="{{ selected_fleet.fleet_number }}">
             <input type="hidden" name="fleet_type" value="{{ selected_fleet.fleet_type }}">
             <input type="hidden" name="warehouse" value="{{ warehouse }}">
@@ -525,9 +519,12 @@
             newInput.value = jsonCustomerInfo;
             newInput.name = 'customerInfo';
             newInput.type = 'hidden';
-            if (name == "arm_pickup" || name == "self_pickup") {
+            if (name == "arm_pickup"){
                 var form = document.getElementById('download_ltl_bol');
                 form.appendChild(newInput)
+            }else if (name == "self_pickup") {
+                var form = document.getElementById('self-bol-upload');
+                form.appendChild(newInput)              
             } else {
                 form.appendChild(newInput)
             }
