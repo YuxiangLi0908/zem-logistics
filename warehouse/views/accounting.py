@@ -732,7 +732,10 @@ class Accounting(View):
                 if isinstance(field, models.FloatField) and field.name != 'amount':
                     value = getattr(invoice_preport, field.name)                    
                     if value not in [None, 0]:
-                        description.append(field.verbose_name)
+                        if field.verbose_name == "操作处理费":
+                            description.append("等待费")
+                        else:
+                            description.append(field.verbose_name)
                         warehouse_code.append("")
                         cbm.append("")
                         qty.append("")
