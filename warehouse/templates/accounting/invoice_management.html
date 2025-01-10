@@ -196,7 +196,6 @@
                 selectedOrders.splice(index, 1);
             }
         }
-        console.log('选中的值',selectedOrders)
     };
 
     function confirmSubmit(Element) {
@@ -212,14 +211,12 @@
             form.appendChild(hiddenInput);
             form.submit();
         }
-        
         const checkBoxes = document.getElementsByName('is_order_selected');
         for (let i = 0; i < checkBoxes.length; i+=1) {
             if (checkBoxes[i].checked) {
                 checkBoxes[i+1].disabled = true;
             }
         }
-        
     };
 
     function confirmDelete(event, containerNumber, invoiceNumber) {
