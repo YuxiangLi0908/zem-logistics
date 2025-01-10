@@ -1125,7 +1125,6 @@ class FleetManagement(View):
             pickup_time = pickup_time.split('-') 
             pickup_time_date = pickup_time[2].split(' ')
             file_name = f"{pickup_time[1]}-{pickup_time_date[0]}"
-            print('filename',file_name)
         else:  #没有就从数据库查
             arm_pickup = await sync_to_async(list)(
                 Pallet.objects.select_related(
