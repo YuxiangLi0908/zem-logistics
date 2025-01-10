@@ -533,80 +533,26 @@ class OrderCreation(View):
                 request.POST.getlist("note"),
                 strict=True,
             )
-            pl_to_create = []   
-            for d in pl_data:
-                if ',' not in d[3]:
-                    pl_to_create.append(
-                        PackingList(
-                            container_number=container,
-                            product_name=d[0],
-                            delivery_method=d[1],
-                            shipping_mark=d[2].strip(),
-                            fba_id=d[3],
-                            ref_id=d[4],
-                            destination=d[5],
-                            contact_name=d[6],
-                            contact_method=d[7],
-                            address=d[8],
-                            zipcode=d[9],
-                            pcs=d[10],
-                            total_weight_kg=d[11],
-                            total_weight_lbs=d[12],
-                            cbm=d[13],
-                            note=d[14],
-                        )
-                    )
-                else:
-                    fba_ids = [fba_id.strip() for fba_id in d[3].split(',') if fba_id.strip()]
-                    ref_id_pieces = [ref_id.strip() for ref_id in d[4].split(',') if ref_id.strip()]
-                    total_pieces = sum(int(ref_id.split('-')[1]) for ref_id in ref_id_pieces) #分母
-                    t_weight_kg = Decimal(d[11])   
-                    t_weight_lbs = Decimal(d[12])   
-                    t_cbm = Decimal(d[13])   
-                    sum_weight_kg = Decimal('0.0')   
-                    sum_weight_lbs = Decimal('0.0')   
-                    sum_cbm = Decimal('0.0')
-                    num_list = [0.0,0.0,0.0]
-                    old_num = [Decimal(str(num)) for num in num_list]
-                    total_pieces = sum(int(ref_id.split('-')[1]) for ref_id in ref_id_pieces)
-                    
-                    for i, ref_id in enumerate(ref_id_pieces):
-                        ref_id_parts = ref_id.split('-')
-                        ref_id_value = ref_id_parts[0]
-                        piece_count = Decimal(ref_id_parts[1])
-                        ratio = piece_count / total_pieces
-                        fba_id = fba_ids[i] if i < len(fba_ids) else ''
-                        if i == len(ref_id_pieces) - 1:
-                            sum_weight_kg = t_weight_kg - old_num[0]
-                            sum_weight_lbs = t_weight_lbs - old_num[1]
-                            sum_cbm = t_cbm - old_num[2]
-                        else:
-                            old_num[0] += round(t_weight_kg * ratio, 2)
-                            sum_weight_kg = round(t_weight_kg * ratio, 2)
-                            old_num[1] = round(t_weight_lbs * ratio, 2)
-                            sum_weight_lbs = round(t_weight_lbs * ratio, 2)
-                            old_num[2] = round(t_cbm * ratio, 2)
-                            sum_cbm = round(t_cbm * ratio, 2)                      
-                        pl_to_create.append(
-                            PackingList(
-                                container_number=container,
-                                product_name=d[0],
-                                delivery_method=d[1],
-                                shipping_mark=d[2].strip(),
-                                fba_id=fba_id,
-                                ref_id=ref_id_value,
-                                destination=d[5],
-                                contact_name=d[6],
-                                contact_method=d[7],
-                                address=d[8],
-                                zipcode=d[9],
-                                pcs=piece_count,
-                                total_weight_kg=sum_weight_kg ,
-                                total_weight_lbs=sum_weight_lbs,
-                                cbm=sum_cbm,
-                                note=d[14],
-                            )
-                        )
+            pl_to_create = [
+                PackingList(
+                    container_number=container,
+                    product_name=d[0],
+                    delivery_method=d[1],
+                    shipping_mark=d[2].strip(),
+                    fba_id=d[3].strip(),
+                    ref_id=d[4].strip(),
+                    destination=d[5],
+                    contact_name=d[6],
+                    contact_method=d[7],
+                    address=d[8],
+                    zipcode=d[9],
+                    pcs=d[10],
+                    total_weight_kg=d[11],
+                    total_weight_lbs=d[12],
+                    cbm=d[13],
+                    note=d[14],
+                ) for d in pl_data
+            ]
             await sync_to_async(PackingList.objects.bulk_create)(pl_to_create)
             order.packing_list_updloaded = True
             await sync_to_async(order.save)()
