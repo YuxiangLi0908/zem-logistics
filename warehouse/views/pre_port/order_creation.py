@@ -566,7 +566,8 @@ class OrderCreation(View):
                     sum_weight_kg = Decimal('0.0')   
                     sum_weight_lbs = Decimal('0.0')   
                     sum_cbm = Decimal('0.0')
-                    old_num = [0.0,0.0,0.0]
+                    num_list = [0.0,0.0,0.0]
+                    old_num = [Decimal(str(num)) for num in num_list]
                     total_pieces = sum(int(ref_id.split('-')[1]) for ref_id in ref_id_pieces)
                     
                     for i, ref_id in enumerate(ref_id_pieces):
