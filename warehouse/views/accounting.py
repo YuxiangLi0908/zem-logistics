@@ -499,7 +499,8 @@ class Accounting(View):
         ).values(
             "container_number__container_number","customer_name__zem_name","created_at","invoice_id__invoice_date","order_type",
             "invoice_id__preport_amount","invoice_id__warehouse_amount","invoice_id__delivery_amount","invoice_id__direct_amount",
-            "invoice_id__invoice_number","invoice_id__invoice_link"
+            "invoice_id__invoice_number","invoice_id__invoice_link", "invoice_id__statement_id__invoice_statement_id",
+            "invoice_id__statement_id__statement_link"
         ).filter(
             criteria,
             models.Q(invoice_status='confirmed')
@@ -522,7 +523,6 @@ class Accounting(View):
             "customer": customer,
         }
         return self.template_invoice_confirm, context
-
 
     def handle_invoice_delivery_get(self,
         request: HttpRequest,
@@ -732,7 +732,10 @@ class Accounting(View):
                 if isinstance(field, models.FloatField) and field.name != 'amount':
                     value = getattr(invoice_preport, field.name)                    
                     if value not in [None, 0]:
-                        description.append(field.verbose_name)
+                        if field.verbose_name == "操作处理费":
+                            description.append("等待费")
+                        else:
+                            description.append(field.verbose_name)
                         warehouse_code.append("")
                         cbm.append("")
                         qty.append("")
