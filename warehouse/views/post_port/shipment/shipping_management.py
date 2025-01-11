@@ -90,6 +90,9 @@ class ShippingManagement(View):
         if step == "warehouse":
             template, context = await self.handle_warehouse_post(request)
             return render(request, template, context)
+        elif step == "overshipment":
+            template, context = await self.handle_over_shipment_post(request)
+            return render(request, template, context)
         elif step == "selection":
             template, context = await self.handle_selection_post(request)
             return render(request, template, context)
@@ -261,6 +264,106 @@ class ShippingManagement(View):
         }
         return self.template_shipment_exceptions, context
 
+    async def handle_over_shipment_post(self, request: HttpRequest) -> tuple[str, dict[str, Any]]:
+        if request.POST.get("area"):
+            area = request.POST.get("area")
+        elif request.POST.get("warehouse"):
+            area = request.POST.get("warehouse")[:2]
+        elif request.GET.get("warehouse"):
+            area = request.GET.get("warehouse")[:2]
+        else:
+            area = None
+        if request.POST.get("area"):
+            area = request.POST.get("area")       
+        if area == 'NJ/SAV/LA':          
+            criteria = (
+                models.Q(packinglist__container_number__order__retrieval_id__retrieval_destination_area="NJ") |
+                models.Q(packinglist__container_number__order__retrieval_id__retrieval_destination_area="SAV") |
+                models.Q(packinglist__container_number__order__retrieval_id__retrieval_destination_area="LA") |
+                models.Q(pallet__location__startswith="NJ") |
+                models.Q(pallet__location__startswith="SAV") |
+                models.Q(pallet__location__startswith="LA")
+            )
+        else:
+            criteria = (
+                models.Q(packinglist__container_number__order__retrieval_id__retrieval_destination_area=area) |
+                models.Q(pallet__location__startswith=area)
+            )
+        shipment = await sync_to_async(list)(
+            Shipment.objects.prefetch_related(
+                "packinglist", "packinglist__container_number", "packinglist__container_number__order",
+                "packinglist__container_number__order__warehouse", "order", "pallet", "fleet_number"
+            ).filter(
+                criteria &
+                models.Q(
+                    is_shipped=True,
+                    in_use=True,
+                    is_canceled=False,
+                )
+            ).distinct().order_by('-abnormal_palletization', 'shipment_appointment')
+        )
+        #ETA过滤
+        start_date = request.POST.get("start_date")
+        end_date = request.POST.get("end_date")
+        start_date = (datetime.now().date() + timedelta(days=-15)).strftime('%Y-%m-%d') if not start_date else start_date
+        end_date = (datetime.now().date() + timedelta(days=15)).strftime('%Y-%m-%d') if not end_date else end_date
+        
+        criteria_p = models.Q(
+            (models.Q(container_number__order__order_type="转运") | models.Q(container_number__order__order_type="转运组合")),
+            container_number__order__packing_list_updloaded=True,
+            shipment_batch_number__isnull=True,          
+            container_number__order__created_at__gte='2024-09-01',
+        ) 
+        pl_criteria = criteria_p & models.Q(
+            container_number__order__vessel_id__vessel_eta__gte=start_date,
+            container_number__order__vessel_id__vessel_eta__lte=end_date,
+            container_number__order__offload_id__offload_at__isnull=True
+        )
+        plt_criteria = criteria_p & models.Q(
+            container_number__order__offload_id__offload_at__isnull=False
+        )
+        if area == 'NJ/SAV/LA':
+            pl_criteria &= models.Q(
+                container_number__order__retrieval_id__retrieval_destination_area__in=["NJ", "SAV", "LA"]
+            )
+            plt_criteria &= models.Q(
+                container_number__order__retrieval_id__retrieval_destination_area__in=["NJ", "SAV", "LA"]
+            )
+        else:
+            pl_criteria &= models.Q(
+                container_number__order__retrieval_id__retrieval_destination_area=area
+            )
+            plt_criteria &= models.Q(location__startswith=area)
+
+        packing_list_not_scheduled = await self._get_packing_list(pl_criteria, plt_criteria)
+        cbm_act, cbm_est, pallet_act, pallet_est = 0, 0, 0, 0
+        for pl in packing_list_not_scheduled:
+            if pl.get("label") == "ACT":
+                cbm_act += pl.get("total_cbm")
+                pallet_act += pl.get("total_n_pallet_act")
+            else:
+                cbm_est += pl.get("total_cbm")
+                if pl.get("total_n_pallet_est") < 1:
+                    pallet_est += 1
+                elif pl.get("total_n_pallet_est")%1 >= 0.45:
+                    pallet_est += int(pl.get("total_n_pallet_est") // 1 + 1)
+                else:
+                    pallet_est += int(pl.get("total_n_pallet_est") // 1)
+        context = {
+            "shipment_list": shipment,
+            "area_options": self.area_options,
+            "area": area,
+            "packing_list_not_scheduled": packing_list_not_scheduled,
+            "cbm_act": cbm_act,
+            "cbm_est": cbm_est,
+            "pallet_act": pallet_act,
+            "pallet_est": pallet_est,
+            "start_date": start_date,
+            "end_date": end_date,
+        }
+        return self.template_td, context
+    
+    
     async def handle_warehouse_post(self, request: HttpRequest) -> tuple[str, dict[str, Any]]:
         if request.POST.get("area"):
             area = request.POST.get("area")
