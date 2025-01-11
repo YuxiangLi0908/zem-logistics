@@ -228,7 +228,7 @@ class PO(View):
                 PoCheckEtaSeven.objects.select_related(
                     "container_number", "container_number__order","container_number__order__customer_name"
                 ).values(
-                    *all_fields, "container_number__order__customer_name__zem_name"
+                    *all_fields, "container_number__container_number","container_number__order__customer_name__zem_name"
                 ).filter(query) 
             )
             # po_checks = await sync_to_async(PoCheckEtaSeven.objects.filter)( models.Q(last_eta_checktime__isnull = True))
