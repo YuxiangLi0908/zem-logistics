@@ -82,7 +82,7 @@
                             <td class="td" style="max-width: 5%; min-width: 10px; text-align: center;">
                                 <input type='checkbox' name='is_selected' onclick="toggleRowBackground(this)">
                                 <input type="hidden" name="is_selected", value='off'>
-                                <input type="hidden" name="pl_ids", value='{{ po.packing_list.id }}'>
+                                <input type="hidden" name="pl_ids", value='{{ po.packing_list }}'>
                             </td>
                             <td class="td">{{ po.container_number__order__customer_name__zem_name }}</td>
                             <td class="td">{{ po.container_number__container_number }}</td>
