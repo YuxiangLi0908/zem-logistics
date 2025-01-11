@@ -85,7 +85,7 @@
                                 <input type="hidden" name="pl_ids", value='{{ po.packing_list.id }}'>
                             </td>
                             <td class="td">{{ po.container_number__order__customer_name__zem_name }}</td>
-                            <td class="td">{{ po.container_number }}</td>
+                            <td class="td">{{ po.container_number__container_number }}</td>
                             <td class="td">{{ po.destination }}</td>
                             <td class="td" id="status-td" style="text-align: left; cursor: pointer; display: flex; align-items: center;">
                                 {% if not po.last_eta_checktime and not po.last_retrieval_checktime %}
