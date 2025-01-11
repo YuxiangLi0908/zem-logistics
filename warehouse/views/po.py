@@ -229,7 +229,7 @@ class PO(View):
                     "container_number", "container_number__order","container_number__order__customer_name"
                 ).values(
                     *all_fields, "container_number__order__customer_name__zem_name"
-                ).filter(models.Q(last_eta_checktime__isnull = True)) 
+                ).filter(query) 
             )
             # po_checks = await sync_to_async(PoCheckEtaSeven.objects.filter)( models.Q(last_eta_checktime__isnull = True))
             # po_checks_list = await sync_to_async(list)(po_checks)  
