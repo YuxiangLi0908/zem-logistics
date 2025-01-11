@@ -45,6 +45,7 @@
                     <thead>
                         <tr>
                             <th class="th" style="max-width: 5%; min-width: 10px; text-align: center;"></th>
+                            <th>客户</th>
                             <th>柜号</th>
                             <th>目的地</th>
                             <th>状态</th>
@@ -58,6 +59,7 @@
                             <th class="th" style="max-width: 5%; min-width: 10px; text-align: center;">
                                 <input type="checkbox" id="selectAllCheckbox" onchange="toggleAllCheckboxes()">
                             </th>
+                            <th class="th"></th>
                             <th class="th">
                                 <input type="text" id="containerSearch" placeholder="搜索柜号..." oninput="filterTable()" size="13" style="font-size: 11px;">
                             </th>
@@ -82,6 +84,7 @@
                                 <input type="hidden" name="is_selected", value='off'>
                                 <input type="hidden" name="pl_ids", value='{{ po.packing_list.id }}'>
                             </td>
+                            <td class="td">{{ po.container_number__order__customer_name__zem_name }}</td>
                             <td class="td">{{ po.container_number }}</td>
                             <td class="td">{{ po.destination }}</td>
                             <td class="td" id="status-td" style="text-align: left; cursor: pointer; display: flex; align-items: center;">
@@ -193,9 +196,9 @@
         var parts = containerFilter.split(/\W/);
     
         for (i = 0; i < tr.length; i++) {
-            containerTd = tr[i].getElementsByTagName("td")[1];
-            destinationTd = tr[i].getElementsByTagName("td")[2];
-            statusTd = tr[i].getElementsByTagName("td")[3];
+            containerTd = tr[i].getElementsByTagName("td")[2];
+            destinationTd = tr[i].getElementsByTagName("td")[3];
+            statusTd = tr[i].getElementsByTagName("td")[4];
             if (containerTd && destinationTd && statusTd) {
                 containerTxtValue = containerTd.textContent || containerTd.innerText;
                 destinationTxtValue = destinationTd.textContent || destinationTd.innerText;

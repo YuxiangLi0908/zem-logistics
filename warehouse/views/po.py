@@ -92,6 +92,7 @@ class PO(View):
             context = async_to_sync(self.handle_po_check_seven)(request,"eta")
             return render(request, self.template_po_check_eta, context)
         elif step == "eta_warehouse":
+            print('step,eta')
             context = async_to_sync(self.handle_po_check_seven)(request,"eta")
             return render(request, self.template_po_check_eta, context)
         elif step == "retrieval_warehouse":
@@ -178,7 +179,7 @@ class PO(View):
                     query = models.Q(container_number=container)
                     if not pd.isnull(mark) and mark != '':
                         query &= models.Q(shipping_mark=mark)
-                    if ',' not in fba:
+                    if ',' not in fba or '-' not in fba:
                         if not pd.isnull(fba) and fba != '':
                             query &= models.Q(fba_id=fba)
                         if not pd.isnull(ref) and ref != '':
@@ -218,14 +219,22 @@ class PO(View):
                 models.Q(vessel_eta__lte = today+timedelta(days=7))&
                 models.Q(vessel_eta__gte = today)
             )
-            if request.POST.get("area"):
-                area = request.POST.get("area")
-                query &= models.Q(container_number__order__retrieval_id__retrieval_destination_area=area)
+            area = request.POST.get("area")
+            query &= models.Q(container_number__order__retrieval_id__retrieval_destination_area=area)
+                
             #如果是PO查验--到港前一周的，只展示未查验的
-            po_checks = await sync_to_async(PoCheckEtaSeven.objects.filter)(query)
-            po_checks_list = await sync_to_async(list)(po_checks)  
+            all_fields = [field.name for field in PoCheckEtaSeven._meta.fields]
+            po_checks_list = await sync_to_async(list)(
+                PoCheckEtaSeven.objects.select_related(
+                    "container_number", "container_number__order","container_number__order__customer_name"
+                ).values(
+                    *all_fields, "container_number__order__customer_name__zem_name"
+                ).filter(models.Q(last_eta_checktime__isnull = True)) 
+            )
+            # po_checks = await sync_to_async(PoCheckEtaSeven.objects.filter)( models.Q(last_eta_checktime__isnull = True))
+            # po_checks_list = await sync_to_async(list)(po_checks)  
             #先展示未查验的，然后按照vessel_eta排序        
-            po_checks_list.sort(key = lambda po: po.vessel_eta)
+            #po_checks_list.sort(key = lambda po: po.vessel_eta)
             context = {
                 "po_check":po_checks_list,
                 "upload_check_file": UploadFileForm(),
