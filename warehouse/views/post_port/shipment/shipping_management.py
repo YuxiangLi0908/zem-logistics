@@ -1387,6 +1387,7 @@ class ShippingManagement(View):
                     'abnormal_palletization',
                     'po_expired',
                     'container_number__order__vessel_id__vessel_eta',
+                    'sequence_number', 
                     target_retrieval_timestamp=F('container_number__order__retrieval_id__target_retrieval_timestamp'),
                     target_retrieval_timestamp_lower=F('container_number__order__retrieval_id__target_retrieval_timestamp_lower'),
                     temp_t49_pickup=F('container_number__order__retrieval_id__temp_t49_available_for_pickup'),
