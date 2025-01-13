@@ -26,6 +26,7 @@
                             <th class="th">入库箱数</th>
                             <th class="th">CBM</th>
                             <th class="th">打板数</th>
+                            <th class="th">PO_ID</th>
                             <th class="th">备注</th>
                         </tr>
                     </thead>
@@ -65,6 +66,7 @@
                             {% else %}
                             <td class="td">{{ pl_form.n_pallet }}</td> 
                             {% endif %}
+                            <td class="td">{{ pl.PO_ID }}</td>
                             <td class="td">{{ pl.note }}</td>
                             <input type="hidden" name="ids" value="{{pl.ids}}">
                             <input type="hidden" name="shipping_marks" value="{{pl.shipping_marks}}">

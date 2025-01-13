@@ -4,6 +4,8 @@ import asyncio
 import barcode
 import io,base64
 import sys
+import random
+import string
 from PIL import Image
 from barcode.writer import ImageWriter
 from asgiref.sync import sync_to_async
@@ -737,6 +739,9 @@ class Palletization(View):
         pallet_pcs = [p_a // n for _ in range(n)]
         for i in range(p_a % n):
             pallet_pcs[i] += 1
+        #归类相同的柜子，给一个编号
+        today = datetime.now().strftime("%y%m%d")
+        PO_ID = today + ''.join(random.choices(string.ascii_letters + string.digits, k=3))
         for i in range(n):
             cbm_loaded = cbm_actual * pallet_pcs[i] / p_a
             weight_loaded = weight_actual * pallet_pcs[i] / p_a
@@ -758,6 +763,7 @@ class Palletization(View):
                 "ref_id": ref_id if ref_id else "",
                 "abnormal_palletization": p_a != p_r,
                 "location": order.warehouse.name,
+                "PO_ID":PO_ID
             })
         await sync_to_async(Pallet.objects.bulk_create)([Pallet(**d) for d in pallet_data])
 
@@ -812,7 +818,7 @@ class Palletization(View):
                 str_shipping_mark=Cast("shipping_mark", CharField()),
             ).values(
                 "container_number__container_number", "destination", "address", "zipcode", "contact_name",
-                "custom_delivery_method", "note", "shipment_batch_number__shipment_batch_number"
+                "custom_delivery_method", "note", "shipment_batch_number__shipment_batch_number","PO_ID"
             ).annotate(
                 fba_ids=StringAgg("str_fba_id", delimiter=",", distinct=True),
                 ref_ids=StringAgg("str_ref_id", delimiter=",", distinct=True),
@@ -838,7 +844,7 @@ class Palletization(View):
                 str_number=Cast("sequence_number",CharField()),
                 str_weight=Cast("weight_lbs",CharField()),
             ).values(
-                "container_number__container_number", "destination", "note",
+                "container_number__container_number", "destination", "note","PO_ID",
                 custom_delivery_method=F("delivery_method"),
             ).annotate(
                 pcs=Sum("pcs", output_field=IntegerField()),
