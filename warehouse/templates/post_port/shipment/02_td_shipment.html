@@ -153,7 +153,7 @@
                                     {% if c.label == "ACT" %}
                                     <span class="status-span-green-100">ACT</span>
                                     {{ c.total_n_pallet_act }}
-                                        {% if c.sequence_number %}
+                                        {% if c.sequence_number %} 
                                         ,<b>{{ c.n_pcs }}</b>件<br>{{ c.length }}*{{ c.width }}*{{ c.height }}
                                         {% else %}
                                         
