@@ -560,13 +560,13 @@ class ShippingManagement(View):
                 existed_appointment = None
             if existed_appointment:
                 if existed_appointment.in_use:
-                    raise RuntimeError(f"ISA {appointment_id} already used by other shipment!")
+                    raise RuntimeError(f"ISA {appointment_id} 已经登记过了!")
                 elif existed_appointment.is_canceled:
                     raise RuntimeError(f"ISA {appointment_id} already exists and is canceled!")
                 elif existed_appointment.shipment_appointment.replace(tzinfo=pytz.UTC) < timezone.now():
-                    raise RuntimeError(f"ISA {appointment_id} already exists and expired!")
+                    raise RuntimeError(f"ISA {appointment_id} 预约时间小于当前时间，已过期!")
                 elif existed_appointment.destination.replace("Walmart", "").replace("WALMART","").replace("-", "") != request.POST.get("destination", None).replace("Walmart", "").replace("WALMART","").replace("-", ""):
-                    raise ValueError(f"ISA {appointment_id} has a different destination {existed_appointment.destination} - {request.POST.get('destination', None)}!")
+                    raise ValueError(f"ISA {appointment_id} 登记的目的地是 {existed_appointment.destination} ，此次登记的目的地是 {request.POST.get('destination', None)}!")
                 else:
                     shipment = existed_appointment
                     shipment.shipment_batch_number = shipment_data["shipment_batch_number"]
@@ -591,17 +591,16 @@ class ShippingManagement(View):
                         pass
             else:
                 if await self._shipment_exist(shipment_data["shipment_batch_number"]):
-                    raise ValueError(f"Shipment {shipment_data['shipment_batch_number']} already exists!")
+                    raise ValueError(f"约批次 {shipment_data['shipment_batch_number']} 已经存在!")
                 shipment_data["appointment_id"] = request.POST.get("appointment_id", None)
                 try:
                     shipment_data["third_party_address"] = shipment_data["third_party_address"].strip()
                 except:
                     pass
-                shipmentappointment = request.POST.get("shipment_appointment", None)
-                if shipmentappointment:
-                    shipment_appointment = parse(shipmentappointment).replace(tzinfo=None)
+                if shipment_type == "外配/快递":
+                    shipmentappointment = request.POST.get("shipment_est_arrival", None)
                 else:
-                    shipment_appointment = None
+                    shipmentappointment = request.POST.get("shipment_appointment", None)
                 shipment_data["shipment_type"] = shipment_type
                 shipment_data["load_type"] = request.POST.get("load_type", None)
                 shipment_data["note"] = request.POST.get("note", "")
@@ -611,12 +610,12 @@ class ShippingManagement(View):
                 shipment_data["address"] = request.POST.get("address", None)
                 shipment_data["origin"] = request.POST.get("origin", "")
                 shipment_data["shipment_account"] = request.POST.get("shipment_account", "").strip()
-                shipment_data["shipment_appointment"] = shipment_appointment  #界面的提货时间
+                shipment_data["shipment_appointment"] = shipment_appointment  #FTL和外配快递的scheduled time表示预计到仓时间，LTL和客户自提的提货时间
                 if shipment_type != "FTL":                 
                     fleet = Fleet(**{
                         "carrier": request.POST.get("carrier"),
                         "fleet_type": shipment_type,
-                        "appointment_datetime": shipment_appointment, #车次的提货时间=约的提货时间
+                        "appointment_datetime": request.POST.get("shipment_appointment", None), #车次的提货时间
                         "fleet_number": "FO" + current_time.strftime("%m%d%H%M%S") + str(uuid.uuid4())[:2].upper(),
                         "scheduled_at": current_time,
                         "total_weight": shipment_data["total_weight"],
