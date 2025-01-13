@@ -179,11 +179,11 @@ class PO(View):
                     query = models.Q(container_number=container)
                     if not pd.isnull(mark) and mark != '':
                         query &= models.Q(shipping_mark=mark)
-                    if ',' not in fba or '-' not in fba:
-                        if not pd.isnull(fba) and fba != '':
+                    if not pd.isnull(fba) and fba != '':
+                        if ',' not in fba or '-' not in fba:
                             query &= models.Q(fba_id=fba)
-                        if not pd.isnull(ref) and ref != '':
-                            query &= models.Q(ref_id=ref)                 
+                            if not pd.isnull(ref) and ref != '':
+                                query &= models.Q(ref_id=ref)                 
                     try:
                         pochecketaseven = await sync_to_async(PoCheckEtaSeven.objects.get)(query)
                     except:
