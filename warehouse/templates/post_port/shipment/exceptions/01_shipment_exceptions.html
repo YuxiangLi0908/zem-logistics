@@ -213,8 +213,8 @@
                     </thead>
                     <tbody>
                         <tr>
-                            <td class="td"><input type="text" name="carrier" style="font-size: 13px;" required></td>
-                            <td class="td"><input type="datetime-local" name="appointment_datetime" style="font-size: 13px;" required></td>
+                            <td class="td"><input type="text" name="carrier" value="{{ shipment.fleet_number.carrier|date:'Y-m-d\\TH:i' }}" style="font-size: 13px;" required></td>
+                            <td class="td"><input type="datetime-local" name="shipment_appointment" value="{{ shipment.fleet_number.appointment_datetime|date:'Y-m-d\\TH:i' }}" style="font-size: 13px;" required></td>
                         </tr>
                     </tbody>
                 </table>
@@ -227,8 +227,8 @@
                     </thead>
                     <tbody>
                         <tr>
-                            <td class="td"><input type="text" name="arm_bol" style="font-size: 13px;" required></td>
-                            <td class="td"><input type="text" name="arm_pro" style="font-size: 13px;" required></td>
+                            <td class="td"><input type="text" name="arm_bol" style="font-size: 13px;"></td>
+                            <td class="td"><input type="text" name="arm_pro" style="font-size: 13px;"></td>
                         </tr>
                     </tbody>
                 </table>
@@ -245,7 +245,7 @@
                     <tbody>
                         <tr>
                             <td class="td"><input type="text" name="appointment_id" value="{{ shipment.appointment_id }}" style="font-size: 13px;"></td>
-                            <td class="td"><input type="datetime-local" name="shipment_appointment" value="{{ shipment.shipment_appointment|date:'Y-m-d\\TH:i'  }}" style="font-size: 13px;"></td>
+                            <td class="td"><input type="datetime-local" name="shipment_est_arrival" value="{{ shipment.shipment_appointment|date:'Y-m-d\\TH:i'  }}" style="font-size: 13px;"></td>
                             <td class="td">
                                 <select name="origin" id="origin-select-3" style="font-size: 13px;">
                                     {% for k, v in warehouse_options.items %}
@@ -281,8 +281,72 @@
                     <tbody>
                         <tr>
                             <td class="td"><input type="text" name="carrier" value="{{ shipment.fleet_number.carrier }}" style="font-size: 13px;" required></td>
-                            <td class="td"><input type="datetime-local" name="shipment_appointment" value="{{ shipment.shipment_appointment|date:'Y-m-d\\TH:i' }}" style="font-size: 13px;" required></td>
+                            <td class="td"><input type="datetime-local" name="shipment_appointment" value="{{ shipment.fleet_number.appointment_datetime|date:'Y-m-d\\TH:i' }}" style="font-size: 13px;" required></td>
                             <td class="td"><input type="text" name="note" value="{{ shipment.note }}" style="font-size: 13px;"></td>
+                        </tr>
+                    </tbody>
+                </table>
+                <table id="shipment-table-4" class="table" style="font-size: 11px; overflow-x: auto; max-width: 100%;">
+                    <thead>
+                        <tr>
+                            <th class="th">ARM-BOL</th>
+                            <th class="th">ARM-PRO</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        <tr>
+                            <td class="td"><input type="text" name="arm_bol" value="{{ shipment.ARM_BOL|default_if_none:'' }}" style="font-size: 13px;"></td>
+                            <td class="td"><input type="text" name="arm_pro" value="{{ shipment.ARM_PRO|default_if_none:'' }}" style="font-size: 13px;"></td>
+                        </tr>
+                    </tbody>
+                </table>
+            </div>
+            <div id="self-pick-form" style="display: none;">
+                <table id="shipment-table-1" class="table" style="font-size: 11px; overflow-x: scroll; max-width: 100%;">
+                    <thead>
+                        <tr>
+                            <th class="th">发货仓库</th>
+                            <th class="th">备注</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        <tr>
+                            <td class="td">
+                                <select name="origin" id="origin-select-4" style="font-size: 13px;">
+                                    {% for k, v in warehouse_options.items %}
+                                    <option value="{{ v }}" {% if k == shipment.origin %}selected{% endif %}>{{ k }}</option>
+                                    {% endfor %}
+                                </select>
+                            </td>
+                            <td class="td"><input type="text" name="note" style="font-size: 13px;"></td>
+                        </tr>
+                    </tbody>
+                </table>
+                <table id="shipment-table-2" class="table" style="font-size: 11px; overflow-x: auto; max-width: 100%;">
+                    <thead>
+                        <tr>
+                            <th class="th">目的地</th>
+                            <th class="th">地址</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        <tr>
+                            <td class="td"><input type="text" name="destination" value="{{ shipment.destination }}" style="font-size: 13px;" required></td>
+                            <td class="td"><input type="text" name="address" value="{{ shipment.address }}" style="font-size: 13px;" size="40" required></td>
+                        </tr>
+                    </tbody>
+                </table>
+                <table id="shipment-table-3" class="table" style="font-size: 11px; overflow-x: auto; max-width: 100%;">
+                    <thead>
+                        <tr>
+                            <th class="th">Carrier</th>
+                            <th class="th">提货时间</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        <tr>
+                            <td class="td"><input type="text" name="carrier" value="{{ shipment.fleet_number.carrier }}" style="font-size: 13px;" required></td>
+                            <td class="td"><input type="datetime-local" name="shipment_appointment" value="{{ shipment.fleet_number.appointment_datetime|date:'Y-m-d\\TH:i' }}" style="font-size: 13px;" required></td>
                         </tr>
                     </tbody>
                 </table>
