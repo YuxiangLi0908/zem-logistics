@@ -380,7 +380,7 @@ class Palletization(View):
         ).get)(pk=pk)
         offload = order_selected.offload_id
         container = order_selected.container_number
-        newForcast = request.POST.getlist("new_destinations")    
+        additional_pallets = request.POST.getlist("new_destinations")    
         warehouse = order_selected.warehouse.name     
         if not offload.offload_at:
             cn = pytz.timezone('Asia/Shanghai')
@@ -423,7 +423,7 @@ class Palletization(View):
                         "pcs_reported": p_r,
                         "pcs_actual": p_a,
                     })
-            if newForcast:
+            if additional_pallets:
                 #如果有多货的情况，因为前端目前新增行的时候通过clone id="palletization-row-empty"的行，所以会增加input，值为空，所以下面就进行了去重工作
                 #计划是把多货的打板和正常预报的货一起做，但是因为多的input比较乱的插入在input中，不太好去重，所以就把新增的新命名了，然后直接去重
                 new_destinations = request.POST.getlist("new_destinations")
