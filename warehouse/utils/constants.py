@@ -234,6 +234,16 @@ DELIVERY_METHOD_OPTIONS = [
     ("TNT", "TNT"),
 ]
 
+DELIVERY_METHOD_CODE = {
+    "卡车派送": "T",
+    "整柜直送": "D",
+    "UPS": "UP",
+    "FEDEX": "FD",
+    "DHL": "DH",
+    "DPD": "DP",
+    "TNT": "TN"
+}
+
 WAREHOUSE_OPTIONS = [
     ("", ""), ("NJ-07001", "NJ-07001"), ("NJ-08817", "NJ-08817"),
     ("SAV-31326", "SAV-31326"), ("LA-91761", "LA-91761"),
