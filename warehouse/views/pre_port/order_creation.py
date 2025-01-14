@@ -530,12 +530,12 @@ class OrderCreation(View):
                 po_id: str = ""
                 po_id_seg: str = ""
                 po_id_hkey: str = ""
-                if dm in dm in ["暂扣留仓(HOLD)", "暂扣留仓"]:
+                if dm in ["暂扣留仓(HOLD)", "暂扣留仓"]:
                     po_id_hkey = f"{dm}-{fba}"
-                    po_id_seg = f"H{fba[-4:]}" if fba else f"S{random.choices(string.ascii_letters.upper() + string.digits, k=4)}"
+                    po_id_seg = f"H{fba[-4:]}" if fba else f"H{''.join(random.choices(string.ascii_letters.upper() + string.digits, k=4))}"
                 elif dm == "客户自提" or dest == "客户自提":
                     po_id_hkey = f"{dm}-{dest}-{sm}"
-                    po_id_seg = f"S{sm[-4:]}" if sm else f"S{random.choices(string.ascii_letters.upper() + string.digits, k=4)}"
+                    po_id_seg = f"S{sm[-4:]}" if sm else f"S{''.join(random.choices(string.ascii_letters.upper() + string.digits, k=4))}"
                 else:
                     po_id_hkey = f"{dm}-{dest}"
                     po_id_seg = f"{DELIVERY_METHOD_CODE.get(dm, 'UN')}{dest.replace(' ', '').split('-')[-1]}"
@@ -544,8 +544,8 @@ class OrderCreation(View):
                 else:
                     po_id = f"{container_number[-4:]}{po_id_seg}{seq_num}"
                     po_id_hash[po_id_hkey] = po_id
+                    seq_num += 1
                 po_ids.append(po_id)
-                seq_num += 1
             del po_id_hash, po_id, po_id_seg, po_id_hkey
             pl_data = zip(
                 request.POST.getlist("product_name"),

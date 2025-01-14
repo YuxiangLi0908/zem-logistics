@@ -34,7 +34,7 @@ from warehouse.models.shipment import Shipment
 from warehouse.forms.warehouse_form import ZemWarehouseForm
 from warehouse.forms.packling_list_form import PackingListForm
 from warehouse.views.export_file import export_palletization_list
-from warehouse.utils.constants import DELIVERY_METHOD_OPTIONS, WAREHOUSE_OPTIONS
+from warehouse.utils.constants import DELIVERY_METHOD_CODE, DELIVERY_METHOD_OPTIONS, WAREHOUSE_OPTIONS
 
 
 class Palletization(View):
@@ -402,15 +402,17 @@ class Palletization(View):
             fba_ids = request.POST.getlist("fba_ids")
             ref_ids = request.POST.getlist("ref_ids")
             notes = [d for d in request.POST.getlist("note")]
+            po_ids = request.POST.getlist("po_ids")
             total_pallet = sum(n_pallet)
             abnormal_offloads = []
-            for n, p_a, p_r, c, w, dest, d_m, note, shipment, shipping_mark, fba_id, ref_id, addr, zipcode, contact_name in zip(
+            for n, p_a, p_r, c, w, dest, d_m, note, shipment, shipping_mark, fba_id, ref_id, addr, zipcode, contact_name, po_id in zip(
                 n_pallet, pcs_actual, pcs_reported, cbm, weight, destinations, delivery_method, 
-                notes, shipment_batch_number, shipping_marks, fba_ids, ref_ids, addresses, zipcodes, contact_names
+                notes, shipment_batch_number, shipping_marks, fba_ids, ref_ids, addresses, zipcodes, contact_names,
+                po_ids
             ):
                 await self._split_pallet(
                     order_selected, n, p_a, p_r, c, w, dest, d_m, note, shipment, 
-                    shipping_mark, fba_id, ref_id, pk, addr, zipcode, contact_name,
+                    shipping_mark, fba_id, ref_id, po_id, pk, addr, zipcode, contact_name,
                 )  #循环遍历每个汇总的板数
                 if p_a != p_r:
                     abnormal_offloads.append({
@@ -435,14 +437,26 @@ class Palletization(View):
                 ref_ids = request.POST.getlist("new_ref_ids")
                 new_notes = request.POST.getlist("new_notes")
                 new_cbm = [float(value) if value else 0 for value in request.POST.getlist("new_cbms")]
+                #生成新的PO_ID
+                new_po_ids = []
+                seq_num = 0
+                for dm, dest in zip(new_delivery_method, new_destinations):
+                    if dm in ["暂扣留仓(HOLD)", "暂扣留仓"]:
+                        po_id_seg = f"H{''.join(random.choices(string.ascii_letters.upper() + string.digits, k=4))}"
+                    elif dm == "客户自提" or dest == "客户自提":
+                        po_id_seg = f"S{''.join(random.choices(string.ascii_letters.upper() + string.digits, k=4))}"
+                    else:
+                        po_id_seg = f"{DELIVERY_METHOD_CODE.get(dm, 'UN')}{''.join(random.choices(string.ascii_letters.upper() + string.digits, k=4))}"
+                    new_po_ids.append(f"A{container.container_number[-4:]}{po_id_seg}{seq_num}")
+                    seq_num += 1
                 #生成pallet
-                for n, p_a, c, dest, d_m, note, shipping_mark, fba_id, ref_id in zip(
+                for n, p_a, c, dest, d_m, note, shipping_mark, fba_id, ref_id, po_id in zip(
                     new_pallets, new_pcs_actul, new_cbm, new_destinations, new_delivery_method, new_notes,
-                    shipping_marks, fba_ids, ref_ids, 
+                    shipping_marks, fba_ids, ref_ids, new_po_ids
                 ):
                     await self._split_pallet(
                         order_selected, n, p_a, 0, c, 0, dest, d_m, note, "None", 
-                        shipping_mark, fba_id, ref_id, pk, seed=1
+                        shipping_mark, fba_id, ref_id, po_id, pk, seed=1
                     )  
                     #记录异常拆柜
                     abnormal_offloads.append({
@@ -712,6 +726,7 @@ class Palletization(View):
         shipping_mark: str, 
         fba_id: str, 
         ref_id: str,
+        po_id: str,
         pk: int,
         address: str | None = None,
         zipcode: str | None = None,
@@ -739,9 +754,6 @@ class Palletization(View):
         pallet_pcs = [p_a // n for _ in range(n)]
         for i in range(p_a % n):
             pallet_pcs[i] += 1
-        #归类相同的柜子，给一个编号
-        today = datetime.now().strftime("%y%m%d")
-        PO_ID = today + ''.join(random.choices(string.ascii_letters + string.digits, k=3))
         for i in range(n):
             cbm_loaded = cbm_actual * pallet_pcs[i] / p_a
             weight_loaded = weight_actual * pallet_pcs[i] / p_a
@@ -763,7 +775,7 @@ class Palletization(View):
                 "ref_id": ref_id if ref_id else "",
                 "abnormal_palletization": p_a != p_r,
                 "location": order.warehouse.name,
-                "PO_ID":PO_ID
+                "PO_ID":po_id,
             })
         await sync_to_async(Pallet.objects.bulk_create)([Pallet(**d) for d in pallet_data])
 
