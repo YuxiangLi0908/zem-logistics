@@ -52,13 +52,19 @@ class PostportDash(View):
         area = request.POST.get("area")
         start_date = request.POST.get("start_date")
         end_date = request.POST.get("end_date")
-        start_date = (datetime.now().date() + timedelta(days=-7)).strftime('%Y-%m-%d') if not start_date else start_date
-        end_date = (datetime.now().date() + timedelta(days=7)).strftime('%Y-%m-%d') if not end_date else end_date
+        container_number = request.POST.get("container_number") if request.POST.get("container_number") else None
+        shipment_batch_number = request.POST.get("shipment_batch_number") if request.POST.get("shipment_batch_number") else None
+        start_date = (datetime.now().date() + timedelta(days=-4)).strftime('%Y-%m-%d') if not start_date else start_date
+        end_date = (datetime.now().date() + timedelta(days=3)).strftime('%Y-%m-%d') if not end_date else end_date
         criteria = models.Q(
             (models.Q(container_number__order__order_type="转运") | models.Q(container_number__order__order_type="转运组合")),
             container_number__order__packing_list_updloaded=True,
             container_number__order__created_at__gte='2024-09-01',
         ) 
+        if container_number:
+            criteria &= models.Q(container_number__container_number=container_number)
+        if shipment_batch_number:
+            criteria &= models.Q(shipment_batch_number__shipment_batch_number=shipment_batch_number)
         pl_criteria = criteria & models.Q(
             container_number__order__vessel_id__vessel_eta__gte=start_date,
             container_number__order__vessel_id__vessel_eta__lte=end_date,
@@ -92,6 +98,10 @@ class PostportDash(View):
             "start_date": start_date,
             "end_date": end_date,
         }
+        if container_number:
+            context["container_number"] = container_number
+        if shipment_batch_number:
+            context["shipment_batch_number"] = shipment_batch_number
         return self.template_main_dash, context
     
     async def handle_export_report_post(self, request: HttpRequest) -> HttpResponse:
