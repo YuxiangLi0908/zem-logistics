@@ -253,6 +253,7 @@ class Inventory(View):
         address_new = request.POST.get("address").strip()
         zipcode_new = request.POST.get("zipcode").strip()
         delivery_method_new = request.POST.get("delivery_method")
+        location_new = request.POST.get("location")
         note_new = request.POST.get("note").strip()
         shipping_mark = request.POST.getlist("shipping_mark")
         fba_id = request.POST.getlist("fba_id")
@@ -263,25 +264,28 @@ class Inventory(View):
         pallet = await sync_to_async(list)(Pallet.objects.filter(id__in=plt_ids))
         packing_list = await sync_to_async(list)(PackingList.objects.filter(id__in=pl_ids))
         data_old = [
-            pallet[0].destination, pallet[0].address, pallet[0].zipcode, pallet[0].delivery_method, pallet[0].note, 
+            pallet[0].destination, pallet[0].address, pallet[0].zipcode, pallet[0].delivery_method, pallet[0].location,pallet[0].note, 
         ]
         data_new = [
-            destination_new, address_new, zipcode_new, delivery_method_new, note_new, 
+            destination_new, address_new, zipcode_new, delivery_method_new, location_new,note_new, 
         ]
         if any(old != new for old, new in zip(data_old, data_new)):
+            
             for p in pallet:
                 p.destination = destination_new
                 p.address = address_new
                 p.zipcode = zipcode_new
                 p.delivery_method = delivery_method_new
+                p.location = location_new
                 p.note = note_new
             for pl in packing_list:
                 pl.destination = destination_new
                 pl.address = address_new
                 pl.zipcode = zipcode_new
                 pl.delivery_method = delivery_method_new
+            
             await sync_to_async(Pallet.objects.bulk_update)(
-                pallet, ["destination", "address", "zipcode", "delivery_method", "note"]
+                pallet, ["destination", "address", "zipcode", "delivery_method", "location", "note"]
             )
             await sync_to_async(PackingList.objects.bulk_update)(
                 packing_list, ["destination", "address", "zipcode", "delivery_method"]
@@ -365,7 +369,7 @@ class Inventory(View):
                 str_id=Cast('id', CharField())
             ).values(
                 "destination", "delivery_method", "shipping_mark", "fba_id", "ref_id", "note",
-                "address", "zipcode",
+                "address", "zipcode","location",
                 customer_name=F("container_number__order__customer_name__zem_name"),
                 container=F("container_number__container_number"),
                 shipment=F("shipment_batch_number__shipment_batch_number"),
