@@ -9,17 +9,12 @@ from asgiref.sync import sync_to_async
 from pathlib import Path
 from datetime import datetime, timedelta
 from typing import Any
-import pytz
 import chardet
 
 from django.http import HttpRequest, HttpResponse, Http404
 from django.shortcuts import render, redirect
 from django.views import View
 from django.db import models
-from django.core.cache import cache
-from django.db.models import Count
-from decimal import Decimal
-
 
 from warehouse.models.customer import Customer
 from warehouse.models.container import Container
@@ -29,7 +24,6 @@ from warehouse.models.order import Order
 from warehouse.models.retrieval import Retrieval
 from warehouse.models.offload import Offload
 from warehouse.models.vessel import Vessel
-from warehouse.models.pallet import Pallet
 from warehouse.models.packing_list import PackingList
 from warehouse.models.po_check_eta import PoCheckEtaSeven
 from warehouse.forms.upload_file import UploadFileForm
@@ -37,6 +31,7 @@ from warehouse.utils.constants import (
     PACKING_LIST_TEMP_COL_MAPPING, SHIPPING_LINE_OPTIONS, DELIVERY_METHOD_CODE,
     DELIVERY_METHOD_OPTIONS, ADDITIONAL_CONTAINER,CONTAINER_PICKUP_CARRIER,WAREHOUSE_OPTIONS
 )
+
 
 class OrderCreation(View):
     # template_main = 'pre_port/create_order/01_order_creation_and_management.html'

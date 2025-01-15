@@ -2,8 +2,6 @@ import uuid
 import os
 import re
 import json
-import random
-import string
 import pandas as pd
 
 from asgiref.sync import sync_to_async
@@ -24,7 +22,7 @@ from warehouse.models.packing_list import PackingList
 from warehouse.models.pallet import Pallet
 from warehouse.models.shipment import Shipment
 from warehouse.forms.upload_file import UploadFileForm
-from warehouse.utils.constants import DELIVERY_METHOD_CODE, DELIVERY_METHOD_OPTIONS
+from warehouse.utils.constants import DELIVERY_METHOD_OPTIONS
 
 
 class Inventory(View):
