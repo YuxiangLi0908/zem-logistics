@@ -55,6 +55,7 @@ class ShippingManagement(View):
     template_shipment_list = "post_port/shipment/07_shipment_list.html"
     template_shipment_list_shipment_display = "post_port/shipment/07_1_shipment_list_shipment_display.html"
     template_shipment_exceptions = "post_port/shipment/exceptions/01_shipment_exceptions.html"
+    template_batch_shipment = "post_port/shipment/08_batch_shipment.html"
     area_options = {"NJ": "NJ", "SAV": "SAV", "LA":"LA", "NJ/SAV/LA":"NJ/SAV/LA"}
     warehouse_options = {"": "", "NJ-07001": "NJ-07001", "NJ-08817": "NJ-08817", "SAV-31326": "SAV-31326","LA-91761": "LA-91761"}
     account_options = {"": "", "Carrier Central1": "Carrier Central1", "Carrier Central2": "Carrier Central2", "ZEM-AMF": "ZEM-AMF", "ARM-AMF": "ARM-AMF","walmart":"walmart"}
@@ -79,6 +80,8 @@ class ShippingManagement(View):
         elif step == "shipment_exceptions":
             template, context = await self.handle_shipment_exceptions_get(request)
             return render(request, template, context)
+        elif step == "batch_shipment":        
+            return render(request, self.template_batch_shipment)
         else:
             context = {"area_options": self.area_options}
             return render(request, self.template_main, context)
@@ -131,6 +134,9 @@ class ShippingManagement(View):
         elif step == "cancel_abnormal_appointment":
             template, context = await self.handle_cancel_abnormal_appointment_post(request)
             return render(request, template, context)
+        elif step == "upload_batch_shipment":
+            template, context = await self.handle_batch_shipment_get(request)
+            return render(request,template, context)
         else:
             return await self.get(request)
         
@@ -185,7 +191,7 @@ class ShippingManagement(View):
             "end_date": (datetime.now().date() + timedelta(days=7)).strftime("%Y-%m-%d"),
         }
         return self.template_appointment_management, context
-    
+
     async def handle_shipment_list_get(self, request: HttpRequest) -> tuple[str, dict[str, Any]]:
         context = {
             "warehouse_options": self.warehouse_options,
@@ -363,7 +369,245 @@ class ShippingManagement(View):
         }
         return self.template_td, context
     
+    async def handle_batch_shipment_get(self, request: HttpRequest) -> tuple[str, dict[str, Any]]:
+        form = UploadFileForm(request.POST, request.FILES)
+        if form.is_valid():
+            file = request.FILES['file']
+            df = pd.read_excel(file)
+            df = df.rename(columns={
+                '车次编号': 'fleet_serial',
+                '提货时间': 'appointment_datetime',
+                'ISA': 'ISA',
+                '约批次号': 'appointment_batch_number',
+                '送仓时间': 'shipment_appointment',
+                '柜号': 'container_number',
+                '目的地': 'destination',
+                '板数': 'pallets',
+                'cbm': 'cbm',
+                'PO_ID': 'PO_ID',
+                'carrier': 'carrier',
+                '备注':'note',
+                '成本价': 'cost_price',
+                '预约账号':'shipment_account',
+                '装车类型':'load_type',
+                '发货仓库':'warehouse'
+            })
+            data = df.to_dict(orient='records')
+            result = {}
+            sum_fleet = []
+            sum_ISA = []
+            for item in data:
+                fleet_serial = item['fleet_serial']
+                if not pd.isnull(fleet_serial):
+                    #说明是一个新的车次，那约肯定也是新的
+                    sum_fleet.append(fleet_serial)  
+                    sum_ISA.append(item['ISA'])
+                    #记录最近一次的约和ISA
+                    last_fleet = fleet_serial
+                    last_ISA = int(item['ISA'])                                  
+                    #构建一个车次的字典
+                    result[fleet_serial] = {
+                        'appointment_datetime': item['appointment_datetime'],
+                        int(item['ISA']):{
+                            'appointment_batch_number':item['appointment_batch_number'],
+                            'shipment_appointment':item['shipment_appointment'],
+                            'carrier':item['carrier'],
+                            'note':item['note'],
+                            'cost_price':item['cost_price'],
+                            'shipment_account':item['shipment_account'],
+                            'load_type':item['load_type'],
+                            'warehouse':item['warehouse'],
+                            item['PO_ID']:{
+                                'container_number':item['container_number'],
+                                'destination':item['destination'],
+                                'pallets':item['pallets'],
+                                'cbm':item['cbm']
+                            }
+                        }
+                    }
+                else:
+                    #说明该行前面已建了该车次的信息                 
+                    if not pd.isnull(item['ISA']):
+                        ISA = int(item['ISA'])
+                        #说明是一行新的预约批次
+                        last_ISA = ISA
+                        result[last_fleet][ISA]={
+                            'appointment_batch_number':item['appointment_batch_number'],
+                            'shipment_appointment':item['shipment_appointment'],
+                            'carrier':item['carrier'],
+                            'note':item['note'],
+                            'cost_price':item['cost_price'],
+                            'shipment_account':item['shipment_account'],
+                            'load_type':item['load_type'],
+                            'warehouse':item['warehouse'],
+                            item['PO_ID']:{
+                                'container_number':item['container_number'],
+                                'destination':item['destination'],
+                                'pallets':item['pallets'],
+                                'cbm':item['cbm']
+                            }
+                        }
+                    else:
+                        #说明该行只有柜号 目的地 板数cbm
+                        PO_ID = item['PO_ID']
+                        result[last_fleet][last_ISA][PO_ID]={
+                            'container_number':item['container_number'],
+                            'destination':item['destination'],
+                            'pallets':item['pallets'],
+                            'cbm':item['cbm']
+                        }
+            #构建完数据，开始预约
+            await self.handle_batch_shipment_create(result)
+        context = {
+            "shipment_list":[1,2,3]
+        }
+        return self.template_batch_shipment, context
     
+    async def handle_batch_shipment_create(self, result: dict) -> str:
+        exclude_keys = {'appointment_batch_number','shipment_appointment', 'carrier', 'note', 'cost_price'}
+        for fleet,fleet_value in result.items():
+            #创建车的批次
+            if isinstance(fleet_value, dict) and fleet_value:
+                for ISA,ISA_value in fleet_value.items():                   
+                    add_po = []
+                    if isinstance(ISA_value, dict) and ISA_value:
+                        for key in ISA_value.keys():
+                            if key not in exclude_keys:
+                                add_po.append(key)
+                        #add_po中，就是一个预约批次要加的板子
+                        packing_list_selected = await self._get_packing_list(
+                            models.Q(PO_ID__in=add_po),
+                            models.Q(POD_ID__in=add_po),
+                        )
+                        
+                        total_weight, total_cbm, total_pcs, total_pallet = .0, .0, 0, 0
+                        for pl in packing_list_selected:
+                            total_weight += pl.get("total_weight_lbs") if pl.get("total_weight_lbs") else 0
+                            total_cbm += pl.get("total_cbm") if pl.get("total_cbm") else 0
+                            total_pcs += pl.get("total_pcs") if pl.get("total_pcs") else 0
+                            if pl.get("label") == "ACT":
+                                total_pallet += pl.get("total_n_pallet_act")
+                            else:
+                                if pl.get("total_n_pallet_est < 1"):
+                                    total_pallet += 1
+                                elif pl.get("total_n_pallet_est")%1 >= 0.45:
+                                    total_pallet += int(pl.get("total_n_pallet_est") // 1 + 1)
+                                else:
+                                    total_pallet += int(pl.get("total_n_pallet_est") // 1)
+                        destination = packing_list_selected[0].get("destination", "RDM")
+                        
+                        address = amazon_fba_locations.get(destination, None) #查找亚马逊地址中是否有该地址
+                        if destination in amazon_fba_locations: 
+                            fba = amazon_fba_locations[destination]
+                            address = f"{fba['location']}, {fba['city']} {fba['state']}, {fba['zipcode']}"
+                        else:
+                            address, zipcode = str(packing_list_selected[0].get("address")), str(packing_list_selected[0].get('zipcode'))
+                            if zipcode.lower() not in address.lower():   #如果不在亚马逊地址中，就从packing_list_selected的第一个元素获取地址和编码，转为字符串类型
+                                address += f", {zipcode}"                              
+                        shipment_data = {
+                            "shipment_batch_number": result[fleet_value][ISA]["shipment_batch_number"],
+                            "destination": destination,
+                            "total_weight": total_weight,
+                            "total_cbm": total_cbm,
+                            "total_pallet": total_pallet,
+                            "total_pcs": total_pcs,
+                            "add_po":add_po,
+                            "shipment_batch_number":result[fleet_value][ISA],
+                            'shipment_account':result[fleet_value][ISA]['shipment_account'],
+                            'load_type':result[fleet_value][ISA]['load_type'],
+                            'warehouse':result[fleet_value][ISA]['warehouse'],
+                        }
+                    else:
+                        fleet.appointment_datetime = ISA_value
+            else:
+                fleet.zem = fleet_value
+        return "123"
+    
+    async def handle_batch_shipment_temp(self, request: HttpRequest) -> str:
+        current_time = datetime.now()
+        batch_id = destination + current_time.strftime("%m%d%H%M%S") + str(uuid.uuid4())[:2].upper()
+        batch_id = batch_id.replace(" ", "").upper()
+        shipment_data = ast.literal_eval(request.POST.get("shipment_data"))
+        shipment_type = request.POST.get("shipment_type")
+        appointment_id = request.POST.get("appointment_id", None)
+        appointment_id = appointment_id.strip() if appointment_id else None
+        try:
+            existed_appointment = await sync_to_async(Shipment.objects.get)(appointment_id=appointment_id)
+        except:
+            existed_appointment = None
+        if existed_appointment:
+            if existed_appointment.in_use:
+                raise RuntimeError(f"ISA {appointment_id} 已经登记过了!")
+            elif existed_appointment.is_canceled:
+                raise RuntimeError(f"ISA {appointment_id} already exists and is canceled!")
+            elif existed_appointment.shipment_appointment.replace(tzinfo=pytz.UTC) < timezone.now():
+                raise RuntimeError(f"ISA {appointment_id} 预约时间小于当前时间，已过期!")
+            elif existed_appointment.destination.replace("Walmart", "").replace("WALMART","").replace("-", "") != request.POST.get("destination", None).replace("Walmart", "").replace("WALMART","").replace("-", ""):
+                raise ValueError(f"ISA {appointment_id} 登记的目的地是 {existed_appointment.destination} ，此次登记的目的地是 {request.POST.get('destination', None)}!")
+            else:
+                shipment = existed_appointment
+                shipment.shipment_batch_number = shipment_data["shipment_batch_number"]
+                shipment.in_use = True
+                shipment.origin = request.POST.get("origin", "")
+                shipment.shipment_type = shipment_type
+                shipment.load_type = request.POST.get("load_type", None)
+                shipment.note = request.POST.get("note", "")
+                shipment.shipment_schduled_at = timezone.now()
+                shipment.is_shipment_schduled = True
+                shipment.destination = request.POST.get("destination", None).replace("WALMART","Walmart")
+                shipment.address = request.POST.get("address", None)
+                shipment.shipment_account = request.POST.get("shipment_account", "").strip()
+                shipmentappointment = request.POST.get("shipment_appointment", None)
+                shipment.shipment_appointment = shipmentappointment
+                #LTL的需要存ARM-BOL和ARM-PRO
+                shipment.ARM_BOL = request.POST.get("arm_bol") if request.POST.get("arm_bol") else ""
+                shipment.ARM_PRO = request.POST.get("arm_pro") if request.POST.get("arm_bol") else ""
+                try:
+                    shipment.third_party_address = shipment_data["third_party_address"].strip()
+                except:
+                    pass
+        else:
+            if await self._shipment_exist(shipment_data["shipment_batch_number"]):
+                raise ValueError(f"约批次 {shipment_data['shipment_batch_number']} 已经存在!")
+            shipment_data["appointment_id"] = request.POST.get("appointment_id", None)
+            try:
+                shipment_data["third_party_address"] = shipment_data["third_party_address"].strip()
+            except:
+                pass
+            if shipment_type == "外配/快递":
+                shipmentappointment = request.POST.get("shipment_est_arrival", None)
+            else:
+                shipmentappointment = request.POST.get("shipment_appointment", None)
+            shipment_data["shipment_type"] = shipment_type
+            shipment_data["load_type"] = request.POST.get("load_type", None)
+            shipment_data["note"] = request.POST.get("note", "")
+            shipment_data["shipment_schduled_at"] = current_time
+            shipment_data["is_shipment_schduled"] = True
+            shipment_data["destination"] = request.POST.get("destination", None)
+            shipment_data["address"] = request.POST.get("address", None)
+            shipment_data["origin"] = request.POST.get("origin", "")
+            shipment_data["shipment_account"] = request.POST.get("shipment_account", "").strip()
+            shipment_data["shipment_appointment"] = shipmentappointment  #FTL和外配快递的scheduled time表示预计到仓时间，LTL和客户自提的提货时间
+            if shipment_type != "FTL":                 
+                fleet = Fleet(**{
+                    "carrier": request.POST.get("carrier"),
+                    "fleet_type": shipment_type,
+                    "appointment_datetime": request.POST.get("shipment_appointment", None), #车次的提货时间
+                    "fleet_number": "FO" + current_time.strftime("%m%d%H%M%S") + str(uuid.uuid4())[:2].upper(),
+                    "scheduled_at": current_time,
+                    "total_weight": shipment_data["total_weight"],
+                    "total_cbm": shipment_data["total_cbm"],
+                    "total_pallet": shipment_data["total_pallet"],
+                    "total_pcs": shipment_data["total_pcs"],
+                    "origin": shipment_data["origin"]
+                })
+                await sync_to_async(fleet.save)()
+                shipment_data["fleet_number"] = fleet
+                #LTL的需要存ARM-BOL和ARM-PRO
+                shipment_data["ARM_BOL"] = request.POST.get("arm_bol") if request.POST.get("arm_bol") else ""
+                shipment_data["ARM_PRO"] = request.POST.get("arm_pro") if request.POST.get("arm_bol") else ""
+        return self.template_batch_shipment, context
+
     async def handle_warehouse_post(self, request: HttpRequest) -> tuple[str, dict[str, Any]]:
         if request.POST.get("area"):
             area = request.POST.get("area")

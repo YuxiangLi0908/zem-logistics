@@ -1,0 +1,199 @@
+{% extends 'base.html' %}
+
+{% block content %}
+<div><b>预约出库</b></div>
+<div style="max - height:100%;max - width:100%;overflow: hidden;">
+    <form method="post" enctype="multipart/form-data" style="font - size:11px;float: right;">      
+        <div>
+            {% csrf_token %}
+            导入模版:
+            <input type="file" name="file">
+            <input type="hidden" name="step" value="upload_batch_shipment">
+            <button type="submit" class="btn btn-success" style="width: 100px; height: 35px; font-size: 12px; margin: 5px;">上传预约表</button>
+        </div>
+    </form>
+</div>
+<hr class="Dashed" style="margin-top: 10px; margin-bottom: 10px;">
+{% if batch_shipment%}
+<div style="display: flex; max-height: 720px;">
+    <div style="overflow-y: auto; max-height: 100%; width: 40%; border: 2px solid rgb(180, 180, 180); border-radius: 12px; padding: 1%; margin: 1%;">
+        <div>
+            <b style="background-color: rgb(208, 208, 208); border-radius: 20px; font-size: 11px; display:inline-flex; color: rgb(100, 100, 100); padding: 5px;">
+                预约批次 - {{ shipment_list|length }}
+            </b>
+        </div>
+        <div style="max-height: 95%; overflow-y: scroll;">
+            <table id="shipment-table" class="table" style="font-size: 11px; max-height: 90%; overflow-y: scroll;">
+                <thead>
+                    <tr>
+                        <th class="th">预约批次</th>
+                        <th class="th">目的地</th>
+                        <th class="th">预约号</th>
+                        <th class="th">Scheduled Time</th>
+                        <th class="th">总重lbs</th>
+                        <th class="th">总CBM</th>
+                        <th class="th">总卡板数</th>
+                        <th class="th">备注</th>
+                        {% if user.is_authenticated and user.is_staff %}
+                        <th class="th">撤销预约</th>
+                        {% endif %}
+                    </tr>
+                    <tr style="position: sticky; top: 28px;">
+                        <th class="th"><input type="text" id="shipmentSearchInput" placeholder="搜索批次号..." oninput="filterShipmentTable()" size="13" style="font-size: 11px;"></th>
+                        <th class="th"><input type="text" id="destSearchInput" placeholder="搜索目的地..." oninput="filterShipmentTable()" size="13" style="font-size: 11px;"></th>
+                        <th class="th"><input type="text" id="appIdSearchInput" placeholder="搜索预约号..." oninput="filterShipmentTable()" size="13" style="font-size: 11px;"></th>
+                        <th class="th"></th>
+                        <th class="th"></th>
+                        <th class="th"></th>
+                        <th class="th"></th>
+                        <th class="th"></th>
+                        {% if user.is_authenticated and user.is_staff %}
+                        <th class="th"></th>
+                        {% endif %}
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for s in shipment_list %}
+                    <tr>
+                        <td class="td" style="max-width: 120px; word-break: break-all;">
+                            <a href="/schedule_shipment/?step=shipment_info&batch_number={{ s.shipment_batch_number }}&area={{ area }}">
+                                {{ s.shipment_batch_number }}
+                            </a>
+                        </td>
+                        <td class="td">
+                            {{ s.destination }}
+                            {% if s.abnormal_palletization %}
+                            <span class="status-span-red" style="padding-top: 0; padding-bottom: 0;">未解决拆柜异常</span>
+                            {% endif %}
+                            {% if s.po_expired %}
+                            <span class="status-span-yellow" style="padding-top: 0; padding-bottom: 0;">PO失效</span>
+                            {% endif %}
+                        </td>
+                        <td class="td">{{ s.appointment_id }}</td>
+                                                        
+                        <td class="td">{{ s.shipment_appointment|date:"Y-m-d" }} {{ s.shipment_appointment|time:"H:i" }}</td>
+                        <td class="td">{{ s.total_weight|floatformat:2 }}</td>
+                        <td class="td">{{ s.total_cbm|floatformat:2 }}</td>
+                        <td class="td">{{ s.total_pallet }}</td>
+                        <td class="td" style="max-width: 120px; word-break: break-all;">{% if s.not %}{{ s.note }}{% endif %}</td>
+                        {% if user.is_authenticated and user.is_staff %}
+                        <td class="td">
+                            <form method="post" action="">
+                                {% csrf_token %}
+                                <input type="hidden" name="step" value="cancel">
+                                <input type="hidden" name="type" value="td">
+                                <input type="hidden" name="shipment_batch_number" value="{{ s.shipment_batch_number }}">
+                                <input type="hidden" name="area" value="{{ area }}">
+                                <button type="submit" class="btn btn-danger" onclick="checkFleet('{{ s.fleet_number }}')"><i class="bi bi-x-octagon"></i></button>
+                            </form>
+                        </td>
+                        {% endif %}
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </div>
+    <div style="overflow-y: auto; max-height: 100%; width: 60%; border: 2px solid rgb(180, 180, 180); border-radius: 12px; padding: 1%; margin: 1%;">
+        <div>
+            <b style="background-color: rgb(208, 208, 208); border-radius: 20px; font-size: 11px; display:inline-flex; color: rgb(100, 100, 100); padding: 5px;">
+                异常约 - {{ 1|length }}
+            </b>
+        </div>
+    </div>
+</div>
+{% endif %}
+
+
+<script>
+    var selectedOrders = []; //存储选中的柜号
+    //全选的操作
+    document.getElementById('selectAll').addEventListener('click', function () {
+        var checkboxes = document.getElementsByName('is_order_selected_click');
+        for (var i = 0; i < checkboxes.length; i++) {
+            tr = checkboxes[i].parentNode.parentNode;   //当其他字段通过筛选过滤时，过滤掉的display='none'，全选时应该去掉该柜号
+            if(tr.style.display === ""){
+                checkboxes[i].checked = this.checked;
+                let row = checkboxes[i].parentNode.parentNode;
+                if (this.checked){                   
+                    row.style.backgroundColor = '#ADD8E6'; // Change to your desired color
+                    let OrderElement = row.children[2];
+                    let Orders = OrderElement? OrderElement.textContent : '';
+                    if(!selectedOrders.includes(Orders)){
+                        selectedOrders.push(Orders.trim());
+                    }                 
+                }else{
+                    row.style.backgroundColor = '';
+                }
+            }
+        }
+    });
+    function filterTable(filterInput, col_idx, trim) {
+        var containerInput, containerFilter, table, tbody, tr, containerTd, i, containerTxtValue;
+        containerFilter = filterInput.value.toUpperCase();
+        var table = filterInput.closest('table');
+        tbody = table.getElementsByTagName("tbody")[0];
+        tr = tbody.getElementsByTagName("tr");
+
+        for (i = 0; i < tr.length; i++) {
+            containerTd = tr[i].getElementsByTagName("td")[col_idx];
+            if (containerTd) {
+                containerTxtValue = containerTd.textContent || containerTd.innerText;
+                containerTxtValue = trim ? containerTxtValue.toUpperCase().trim() : containerTxtValue.toUpperCase()
+                var containerDisplayStyle_1 = containerTxtValue.indexOf(containerFilter) > -1 ? "" : "none";
+                var containerDisplayStyle_2 = containerFilter.indexOf(containerTxtValue) > -1 ? "" : "none";
+                // Set display style based on both container and customer filters
+                tr[i].style.display = containerDisplayStyle_1 === "" || containerDisplayStyle_2 === "" ? "" : "none";
+            }
+        }
+    };
+
+    function toggleRowBackground(checkbox) {
+        let row = checkbox.parentNode.parentNode;
+        let OrderElement = row.children[2];      
+        let Orders = OrderElement? OrderElement.textContent : '';
+        //var tr = checkbox.parentNode;
+        if (checkbox.checked) {
+            // 将选中行的container_number添加到数组中
+            selectedOrders.push(Orders.trim());
+            row.style.backgroundColor = '#ADD8E6'; // Change to your desired color
+        } else {
+            // 如果取消选中，从数组中移除对应的container_number
+            row.style.backgroundColor = ''; // Reset to default color
+            let index = selectedOrders.indexOf(Orders.trim());
+            if (index > -1) {
+                selectedOrders.splice(index, 1);
+            }
+        }
+    };
+
+    function confirmSubmit(Element) {
+        if (selectedOrders.length === 0){
+            alert('未选中数据！');
+            return;
+        }else{
+            let form = Element.parentNode;
+            let hiddenInput = document.createElement('input');
+            hiddenInput.type = 'hidden';
+            hiddenInput.name ='selectedOrders';
+            hiddenInput.value = JSON.stringify(selectedOrders);            
+            form.appendChild(hiddenInput);
+            form.submit();
+        }
+        const checkBoxes = document.getElementsByName('is_order_selected');
+        for (let i = 0; i < checkBoxes.length; i+=1) {
+            if (checkBoxes[i].checked) {
+                checkBoxes[i+1].disabled = true;
+            }
+        }
+    };
+
+    function confirmDelete(event, containerNumber, invoiceNumber) {
+        event.preventDefault();
+        const confirmation = confirm(`确认删除${containerNumber}的invoice: ${invoiceNumber}?`);
+        if (confirmation) {
+            window.location.href = `/accounting/?step=container_invoice_delete&invoice_number=${invoiceNumber}`;
+        }
+    };
+</script>
+{% endblock %}
