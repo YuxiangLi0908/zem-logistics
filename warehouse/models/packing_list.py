@@ -27,5 +27,10 @@ class PackingList(models.Model):
     quote_id = models.ForeignKey(Quote, null=True, blank=True, on_delete=models.SET_NULL)
     PO_ID = models.CharField(max_length=20, null=True, blank=True)
 
+    class Meta:
+        indexes = [
+            models.Index(fields=['PO_ID']),
+        ]
+
     def __str__(self):
         return f"{self.container_number}-{self.destination}-{self.shipping_mark if self.shipping_mark else 'no_mt'}-{self.fba_id if self.fba_id else 'no_fba'}"
