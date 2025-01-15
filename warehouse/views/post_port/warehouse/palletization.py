@@ -364,7 +364,6 @@ class Palletization(View):
                 pallet.sequence_number = i+1
                 pallet.PO_ID = f"{pallet.PO_ID}_{i+1}"
             pallets.append(pallet)
-            
         await sync_to_async(Pallet.objects.bulk_update)(
             pallets,
             ["length", "width", "height", "pcs", "weight_lbs", "cbm", "sequence_number", "PO_ID"]
