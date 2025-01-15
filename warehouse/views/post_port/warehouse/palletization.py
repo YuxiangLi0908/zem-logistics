@@ -362,11 +362,12 @@ class Palletization(View):
             pallet.cbm = round(float(length[i]) * float(width[i]) * float(height[i]) * 0.0254*0.0254*0.0254, 5)
             if destination:
                 pallet.sequence_number = i+1
+                pallet.PO_ID = f"{pallet.PO_ID}_{i+1}"
             pallets.append(pallet)
             
         await sync_to_async(Pallet.objects.bulk_update)(
             pallets,
-            ["length","width","height","pcs","weight_lbs","cbm","sequence_number"]
+            ["length", "width", "height", "pcs", "weight_lbs", "cbm", "sequence_number", "PO_ID"]
         )
         request.GET.warehouse = request.POST.get("warehouse")
         request.GET.step = "container_palletization"
@@ -405,12 +406,13 @@ class Palletization(View):
             po_ids = request.POST.getlist("po_ids")
             total_pallet = sum(n_pallet)
             abnormal_offloads = []
+            pallet_data = []
             for n, p_a, p_r, c, w, dest, d_m, note, shipment, shipping_mark, fba_id, ref_id, addr, zipcode, contact_name, po_id in zip(
                 n_pallet, pcs_actual, pcs_reported, cbm, weight, destinations, delivery_method, 
                 notes, shipment_batch_number, shipping_marks, fba_ids, ref_ids, addresses, zipcodes, contact_names,
                 po_ids
             ):
-                await self._split_pallet(
+                pallet_data += await self._split_pallet(
                     order_selected, n, p_a, p_r, c, w, dest, d_m, note, shipment, 
                     shipping_mark, fba_id, ref_id, po_id, pk, addr, zipcode, contact_name,
                 )  #循环遍历每个汇总的板数
@@ -454,7 +456,7 @@ class Palletization(View):
                     new_pallets, new_pcs_actul, new_cbm, new_destinations, new_delivery_method, new_notes,
                     shipping_marks, fba_ids, ref_ids, new_po_ids
                 ):
-                    await self._split_pallet(
+                    pallet_data += await self._split_pallet(
                         order_selected, n, p_a, 0, c, 0, dest, d_m, note, "None", 
                         shipping_mark, fba_id, ref_id, po_id, pk, seed=1
                     )  
@@ -473,6 +475,9 @@ class Palletization(View):
             offload.offload_at = current_time_cn
             await sync_to_async(offload.save)()
             await self._update_shipment_stats(ids)
+            await sync_to_async(Pallet.objects.bulk_create)(
+                Pallet(**d) for d in pallet_data
+            )
             await sync_to_async(AbnormalOffloadStatus.objects.bulk_create)(
                 AbnormalOffloadStatus(**d) for d in abnormal_offloads
             )
@@ -732,7 +737,7 @@ class Palletization(View):
         zipcode: str | None = None,
         contact_name: str | None = None,
         seed: int = 0
-    ) -> None:
+    ) -> list[dict[str, Any]]:
         if n == 0 or n is None:
             return
         pallet_ids = [
@@ -777,7 +782,7 @@ class Palletization(View):
                 "location": order.warehouse.name,
                 "PO_ID":po_id,
             })
-        await sync_to_async(Pallet.objects.bulk_create)([Pallet(**d) for d in pallet_data])
+        return pallet_data
 
     async def _update_shipment_stats(self, ids: list[Any]) -> None:
         ids = [int(j) for i in ids for j in i]
