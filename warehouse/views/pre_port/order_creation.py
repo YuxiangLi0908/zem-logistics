@@ -3,6 +3,8 @@ import os
 import pandas as pd
 import numpy as np
 import json
+import random
+import string
 from asgiref.sync import sync_to_async
 from pathlib import Path
 from datetime import datetime, timedelta
@@ -32,7 +34,7 @@ from warehouse.models.packing_list import PackingList
 from warehouse.models.po_check_eta import PoCheckEtaSeven
 from warehouse.forms.upload_file import UploadFileForm
 from warehouse.utils.constants import (
-    PACKING_LIST_TEMP_COL_MAPPING, SHIPPING_LINE_OPTIONS,
+    PACKING_LIST_TEMP_COL_MAPPING, SHIPPING_LINE_OPTIONS, DELIVERY_METHOD_CODE,
     DELIVERY_METHOD_OPTIONS, ADDITIONAL_CONTAINER,CONTAINER_PICKUP_CARRIER,WAREHOUSE_OPTIONS
 )
 
@@ -489,7 +491,6 @@ class OrderCreation(View):
                 pl.shipping_mark = request.POST.getlist("shipping_mark")[idx].strip()
                 pl.fba_id = request.POST.getlist("fba_id")[idx].strip()
                 pl.ref_id = request.POST.getlist("ref_id")[idx].strip()
-                
                 pl.destination = destination_list[idx]
                 pl.contact_name = request.POST.getlist("contact_name")[idx]
                 pl.contact_method = request.POST.getlist("contact_method")[idx]
@@ -514,7 +515,38 @@ class OrderCreation(View):
                     parts = destination.split('-')
                     destination_list[idx] = "Walmart-" + parts[1]
                 else:
-                    destination_list[idx] = destination.upper().strip() 
+                    destination_list[idx] = destination.upper().strip()
+            # Generate PO_ID
+            po_ids = []
+            po_id_hash = {}
+            seq_num = 1
+            for dm, sm, fba, dest in zip(
+                request.POST.getlist("delivery_method"),
+                request.POST.getlist("shipping_mark"),
+                request.POST.getlist("fba_id"),
+                destination_list,
+                strict=True,
+            ):
+                po_id: str = ""
+                po_id_seg: str = ""
+                po_id_hkey: str = ""
+                if dm in ["暂扣留仓(HOLD)", "暂扣留仓"]:
+                    po_id_hkey = f"{dm}-{fba}"
+                    po_id_seg = f"H{fba[-4:]}" if fba else f"H{''.join(random.choices(string.ascii_letters.upper() + string.digits, k=4))}"
+                elif dm == "客户自提" or dest == "客户自提":
+                    po_id_hkey = f"{dm}-{dest}-{sm}"
+                    po_id_seg = f"S{sm[-4:]}" if sm else f"S{''.join(random.choices(string.ascii_letters.upper() + string.digits, k=4))}"
+                else:
+                    po_id_hkey = f"{dm}-{dest}"
+                    po_id_seg = f"{DELIVERY_METHOD_CODE.get(dm, 'UN')}{dest.replace(' ', '').split('-')[-1]}"
+                if po_id_hkey in po_id_hash:
+                    po_id = po_id_hash.get(po_id_hkey)
+                else:
+                    po_id = f"{container_number[-4:]}{po_id_seg}{seq_num}"
+                    po_id_hash[po_id_hkey] = po_id
+                    seq_num += 1
+                po_ids.append(po_id)
+            del po_id_hash, po_id, po_id_seg, po_id_hkey
             pl_data = zip(
                 request.POST.getlist("product_name"),
                 request.POST.getlist("delivery_method"),
@@ -531,6 +563,7 @@ class OrderCreation(View):
                 request.POST.getlist("total_weight_lbs"),
                 request.POST.getlist("cbm"),
                 request.POST.getlist("note"),
+                po_ids,
                 strict=True,
             )
             pl_to_create = [
@@ -551,6 +584,7 @@ class OrderCreation(View):
                     total_weight_lbs=d[12],
                     cbm=d[13],
                     note=d[14],
+                    PO_ID=d[15],
                 ) for d in pl_data
             ]
             await sync_to_async(PackingList.objects.bulk_create)(pl_to_create)

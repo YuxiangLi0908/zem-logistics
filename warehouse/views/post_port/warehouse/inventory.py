@@ -1,43 +1,30 @@
-import pytz
 import uuid
-import asyncio
-import sys
 import os
 import re
 import json
+import random
+import string
 import pandas as pd
-from PIL import Image
-from barcode.writer import ImageWriter
+
 from asgiref.sync import sync_to_async
 from datetime import datetime
 from pathlib import Path
 from typing import Any
-from xhtml2pdf import pisa
-from itertools import zip_longest
-from django.db.models import OuterRef, Subquery
 
 from django.http import HttpRequest, HttpResponse, Http404
 from django.shortcuts import render, redirect
 from django.views import View
 from django.db import models
-from django.db.models import Case, Value, CharField, F, Sum, Min, FloatField, IntegerField, When, Count, Q
-from django.db.models.functions import Concat, Cast
+from django.db.models import CharField, F, Sum, FloatField, IntegerField, Count
+from django.db.models.functions import Cast
 from django.contrib.postgres.aggregates import StringAgg
-from django.template.loader import get_template
 
-from warehouse.models.retrieval import Retrieval
-from warehouse.models.order import Order
 from warehouse.models.container import Container
-from warehouse.models.offload_status import AbnormalOffloadStatus
 from warehouse.models.packing_list import PackingList
-from warehouse.models.fleet import Fleet
 from warehouse.models.pallet import Pallet
 from warehouse.models.shipment import Shipment
-from warehouse.forms.warehouse_form import ZemWarehouseForm
-from warehouse.forms.packling_list_form import PackingListForm
 from warehouse.forms.upload_file import UploadFileForm
-from warehouse.views.export_file import export_palletization_list
-from warehouse.utils.constants import DELIVERY_METHOD_OPTIONS, WAREHOUSE_OPTIONS
+from warehouse.utils.constants import DELIVERY_METHOD_CODE, DELIVERY_METHOD_OPTIONS
 
 
 class Inventory(View):
@@ -184,11 +171,13 @@ class Inventory(View):
         n_pallets = [int(i) for i in n_pallets]
         # create new pallets
         new_pallets = []
+        old_po_id = old_pallet[0].PO_ID
+        seq_num = 1
         for dest, dm, addr, zipcode, sm, fba, ref, p, n, note in zip(
             destinations, delivery_methods, addresses, zipcodes, shipping_marks,
             fba_ids, ref_ids, pcses, n_pallets, notes
         ):
-            # TODO: find a better way to allocate cbm and weight
+            # TODOs: find a better way to allocate cbm and weight
             new_pallets += [{
                 "pallet_id": str(uuid.uuid3(uuid.NAMESPACE_DNS, str(uuid.uuid4()) + dest + dm + str(i))),
                 "container_number": container,
@@ -204,7 +193,9 @@ class Inventory(View):
                 "fba_id": fba if fba else "",
                 "ref_id": ref if ref else "",
                 "location": old_pallet[0].location,
+                "PO_ID": f"{old_po_id}_{seq_num}"
             } for i in range(n)]
+            seq_num += 1
         await sync_to_async(Pallet.objects.bulk_create)(
             Pallet(**p) for p in new_pallets
         )

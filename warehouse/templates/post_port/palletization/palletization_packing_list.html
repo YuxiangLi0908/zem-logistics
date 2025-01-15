@@ -83,6 +83,7 @@
                             <input type="hidden" name="destinations" value="{{pl.destination}}">
                             <input type="hidden" name="container_number" value="{{pl.container_number__container_number}}">
                             <input type="hidden" name="shipment_batch_number" value="{{pl.shipment_batch_number__shipment_batch_number}}">
+                            <input type="hidden" name="po_ids" value="{{pl.PO_ID}}">
                         </tr>
                         {% endfor %}
                         {% if status == 'non_palletized' %}
@@ -101,12 +102,13 @@
                             <td class="td"><input type="text" name="new_fba_ids" placeholder="optional"></td>
                             <td class="td"><input type="text" name="new_ref_ids" placeholder="optional"></td>
                             <td class="td"><input type="text" name="new_pcs_reported" value="0" disabled></td>
-                            <td class="td"><input type="number" step="1" name="new_pcs_actul"></td>
+                            <td class="td"><input type="number" step="1" name="new_pcs_actul" required></td>
                             {% else %}
                             <td class="td"><input type="text" name="new_pcs_actul"></td>
                             {% endif %}
                             <td class="td"><input type="number" name="new_cbms" step="0.01" placeholder="optional"></td>
                             <td class="td"><input type="number" step="1" name="new_pallets" required></td>
+                            <td class="td"><input type="text" name="po_ids" disabled></td>
                             <td class="td"><input type="text" name="new_notes"></td>
                         </tr>
                         {% endif %}
@@ -125,7 +127,7 @@
             </div>
         </div>
     </form>
-    <form method="post" action="" style="display: inline-block; float:right;" id="exportPallet-add">
+    <form method="post" action="" style="display: inline-block; float: right;" id="exportPallet-add">
         {% csrf_token %}
         <div class="popup-editPallet" style="display: none; z-index:999; position: fixed; top: 50%; left: 50%; transform: translate(-50%, -50%); background-color: white; border: 1px solid gray; padding: 20px; max-height: 50%; overflow-y: scroll;">
             <div style="display: flex; align-items: center; margin-top:10px; margin: 20px 0;">
@@ -168,7 +170,6 @@
     </form>
 
 <script>
-
     function edit_add_payload(button){  //这里不知道为啥改个名就执行不了
         var tbody = document.getElementById('edit-pallet-table').getElementsByTagName('tbody')[0];
         var rows = tbody.getElementsByTagName('tr');
@@ -176,7 +177,6 @@
         if (tbody.rows[0].cells.length === 7){
             var numberArray = [];
         }
-        
         for (var i = 0; i < rows.length; i++) {
             var cells = rows[i].getElementsByTagName('td');
             var inputElement1 = cells[0].getElementsByTagName('input')[0];
@@ -184,7 +184,7 @@
             if (tbody.rows[0].cells.length === 7){
                 var inputElement2 = cells[1].getElementsByTagName('input')[0];
                 numberArray.push(inputElement2.value);
-            }           
+            };
             for (var j = 0; j < cells.length; j++) {
                 var input = cells[j].getElementsByTagName('input')[0];
                 if (input.value === '') {
@@ -192,7 +192,7 @@
                     event.preventDefault();
                     alert('不能为空！');
                     return true;
-                }
+                };
                 if (input.name === 'weight') {
                     console.log(input.value);
                     var value = parseFloat(input.value);
@@ -202,8 +202,8 @@
                         alert('请输入有效的数字');
                         return true;
                     }
-                }
-            }
+                };
+            };
         };
         var form = button.closest('form');
         var hiddenInput = document.createElement('input');
@@ -217,9 +217,8 @@
             hiddenInput2.name = 'number';
             hiddenInput2.value = numberArray;
             form.appendChild(hiddenInput2); 
-        }
-        
-    }
+        };
+    };
 
     function showPallet(button) {   //用户要编辑BOL中的表时，弹出表格框
         var popup = document.querySelector('.popup-editPallet');
@@ -239,8 +238,6 @@
         var pcsArray = button.n_pcs.split(',');
         var weightArray = button.weight.split(',');
         
-        
-
         var tableBody = document.getElementById('edit-pallet-table').getElementsByTagName('tbody')[0];
         tableBody.innerHTML = '';
         if (button.destination.includes('自提')) {
@@ -325,10 +322,8 @@
                 tableBody.appendChild(row);
             };
         }
-        
-        
-        
     };
+
     function addRowBelow(){
         var table = document.getElementById('palletization-container');
         var newRow = document.querySelector('#palletization-row-empty').cloneNode(true);
