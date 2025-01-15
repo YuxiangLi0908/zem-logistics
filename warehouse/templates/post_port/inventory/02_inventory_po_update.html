@@ -25,6 +25,7 @@
             <th class="th">pcs</th>
             <th class="th">cbm</th>
             <th class="th">卡板数</th>
+            <th class="th">仓库</th>
             <th class="th">备注</th>
         </thead>
         <tbody>
@@ -44,6 +45,7 @@
             <td class="td">{{ pallet.pcs }}</td>
             <td class="td">{{ pallet.cbm }}</td>
             <td class="td">{{ pallet.n_pallet }}</td>
+            <td class="td"><input name="location" value="{{ pallet.location }}"></td>
             <td class="td"><input name="note" value="{{ pallet.note }}"></td>
         </tbody>
     </table>
