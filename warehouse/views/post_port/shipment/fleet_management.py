@@ -377,11 +377,8 @@ class FleetManagement(View):
             ) | models.Q(
                 shipment_batch_number__fleet_number__fleet_number__isnull=False,
                 shipment_batch_number__fleet_number__departured_at__isnull=True
-            ),models.Q(
-                container_number__order__warehouse__name = warehouse
-            ) | models.Q(
-                container_number__order__retrieval_id__retrieval_destination_precise = warehouse
             ),
+            location = warehouse,          
             destination__in = destinations,
             container_number__order__offload_id__offload_at__isnull=False,
         )
