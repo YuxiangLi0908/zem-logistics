@@ -348,8 +348,8 @@
         };
         const allSame = selectedCells.every(value => value === selectedCells[0]);
         if (!allSame) {
-            alert("请确认选中PO的目的仓是否一致！");
-            event.preventDefault();
+            /*alert("请确认选中PO的目的仓是否一致！");
+            event.preventDefault();*/
         } else {
             for (let i = 0; i < checkBoxes.length; i+=2) {
                 if (checkBoxes[i].checked) {
