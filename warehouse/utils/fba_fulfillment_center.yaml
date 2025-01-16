@@ -2093,3 +2093,8 @@ GEU5:
   location: 4660 North Cotton Lane
   state: AZ
   zipcode: '85395'
+GEU2:
+  city: Litchfield Park
+  location: 15201 Northern Ave
+  state: AZ
+  zipcode: '85340'
