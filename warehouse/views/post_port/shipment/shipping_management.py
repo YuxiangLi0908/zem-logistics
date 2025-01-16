@@ -611,11 +611,14 @@ class ShippingManagement(View):
                 shipment_data["origin"] = request.POST.get("origin", "")
                 shipment_data["shipment_account"] = request.POST.get("shipment_account", "").strip()
                 shipment_data["shipment_appointment"] = shipmentappointment  #FTL和外配快递的scheduled time表示预计到仓时间，LTL和客户自提的提货时间
-                if shipment_type != "FTL":                 
+                if shipment_type != "FTL":
+                    appointment_datetime = request.POST.get("shipment_appointment", None)
+                    if not appointment_datetime:
+                        appointment_datetime = None
                     fleet = Fleet(**{
                         "carrier": request.POST.get("carrier"),
                         "fleet_type": shipment_type,
-                        "appointment_datetime": request.POST.get("shipment_appointment", None), #车次的提货时间
+                        "appointment_datetime": appointment_datetime, #车次的提货时间
                         "fleet_number": "FO" + current_time.strftime("%m%d%H%M%S") + str(uuid.uuid4())[:2].upper(),
                         "scheduled_at": current_time,
                         "total_weight": shipment_data["total_weight"],
