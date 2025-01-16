@@ -522,7 +522,6 @@ class ShippingManagement(View):
                             "total_pallet": total_pallet,
                             "total_pcs": total_pcs,
                             "PO_IDS":PO_IDS,
-                            "shipment_batch_number":result[fleet_value][ISA],
                             "appointment_id":ISA,
                             'shipment_account':result[fleet_value][ISA]['shipment_account'],
                             'shipment_type':result[fleet_value][ISA]['shipment_type'],
@@ -530,7 +529,12 @@ class ShippingManagement(View):
                             'warehouse':result[fleet_value][ISA]['warehouse'],
                         }
                         
-                        await self.handle_batch_shipment_create_branch(shipment_data,repeat_isa,cancel_isa,outer_isa,equal_shipment,equal_destination)
+                        result = await self.handle_batch_shipment_create_branch(shipment_data,repeat_isa,cancel_isa,outer_isa,equal_shipment,equal_destination)
+                        repeat_isa = result["repeat_isa"]
+                        cancel_isa = result["cancel_isa"]
+                        outer_isa = result["outer_isa"]
+                        equal_shipment = result["equal_shipment"]
+                        equal_destination = result["equal_destination"]
                     else:
                         fleet.appointment_datetime = ISA_value
             else:
@@ -616,48 +620,10 @@ class ShippingManagement(View):
                 current_time = datetime.now()
                 batch_id = shipment_data["destination"] + current_time.strftime("%m%d%H%M%S") + str(uuid.uuid4())[:2].upper()
                 batch_id = batch_id.replace(" ", "").upper()
-                if not existed_appointment:
-                    shipment = Shipment(**shipment_data)
+                shipment = Shipment(**shipment_data)
                 await sync_to_async(shipment.save)()
-                
-                shipment_data["appointment_id"] = request.POST.get("appointment_id", None)
-                try:
-                    shipment_data["third_party_address"] = shipment_data["third_party_address"].strip()
-                except:
-                    pass
-                if shipment_type == "外配/快递":
-                    shipmentappointment = request.POST.get("shipment_est_arrival", None)
-                else:
-                    shipmentappointment = request.POST.get("shipment_appointment", None)
-                shipment_data["shipment_type"] = shipment_type
-                shipment_data["load_type"] = request.POST.get("load_type", None)
-                shipment_data["note"] = request.POST.get("note", "")
-                shipment_data["shipment_schduled_at"] = current_time
-                shipment_data["is_shipment_schduled"] = True
-                shipment_data["destination"] = request.POST.get("destination", None)
-                shipment_data["address"] = request.POST.get("address", None)
-                shipment_data["origin"] = request.POST.get("origin", "")
-                shipment_data["shipment_account"] = request.POST.get("shipment_account", "").strip()
-                shipment_data["shipment_appointment"] = shipmentappointment  #FTL和外配快递的scheduled time表示预计到仓时间，LTL和客户自提的提货时间
-                if shipment_type != "FTL":                 
-                    fleet = Fleet(**{
-                        "carrier": request.POST.get("carrier"),
-                        "fleet_type": shipment_type,
-                        "appointment_datetime": request.POST.get("shipment_appointment", None), #车次的提货时间
-                        "fleet_number": "FO" + current_time.strftime("%m%d%H%M%S") + str(uuid.uuid4())[:2].upper(),
-                        "scheduled_at": current_time,
-                        "total_weight": shipment_data["total_weight"],
-                        "total_cbm": shipment_data["total_cbm"],
-                        "total_pallet": shipment_data["total_pallet"],
-                        "total_pcs": shipment_data["total_pcs"],
-                        "origin": shipment_data["origin"]
-                    })
-                    await sync_to_async(fleet.save)()
-                    shipment_data["fleet_number"] = fleet
-                    #LTL的需要存ARM-BOL和ARM-PRO
-                    shipment_data["ARM_BOL"] = request.POST.get("arm_bol") if request.POST.get("arm_bol") else ""
-                    shipment_data["ARM_PRO"] = request.POST.get("arm_pro") if request.POST.get("arm_bol") else ""
-        return self.template_batch_shipment, context
+        result = [repeat_isa,cancel_isa,outer_isa,equal_shipment,equal_destination]
+        return self.template_batch_shipment, result
 
     async def handle_warehouse_post(self, request: HttpRequest) -> tuple[str, dict[str, Any]]:
         if request.POST.get("area"):
