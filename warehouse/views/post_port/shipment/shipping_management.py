@@ -10,12 +10,13 @@ from pathlib import Path
 from typing import Any
 from dateutil.parser import parse
 from typing import List
+from collections import Counter
 
 from django.http import HttpRequest, HttpResponse, Http404
 from django.shortcuts import render, redirect
 from django.views import View
 from django.db import models
-from django.db.models import Case, Value, CharField, F, Sum, Max, FloatField, IntegerField, When, Count, Q
+from django.db.models import Case, Value, CharField, F, Sum, Max, FloatField, IntegerField, When, Count, Q, ArrayAgg
 from django.db.models.functions import Concat, Cast
 from django.contrib.postgres.aggregates import StringAgg
 from django.utils import timezone
@@ -473,19 +474,20 @@ class ShippingManagement(View):
         cancel_isa =[] #取消的约
         outer_isa = []#过期的约
         equal_shipment = {} #系统现存的约和表格的信息不符的，键值对为：约：{不符的信息}
+        equal_destination = {}
         for fleet,fleet_value in result.items():
             #创建车的批次
             if isinstance(fleet_value, dict) and fleet_value:
                 for ISA,ISA_value in fleet_value.items():                   
-                    add_po = []
+                    PO_IDS = []
                     if isinstance(ISA_value, dict) and ISA_value:
                         for key in ISA_value.keys():
                             if key not in exclude_keys:
-                                add_po.append(key)
+                                PO_IDS.append(key)
                         #add_po中，就是一个预约批次要加的板子
                         packing_list_selected = await self._get_packing_list(
-                            models.Q(PO_ID__in=add_po),
-                            models.Q(POD_ID__in=add_po),
+                            models.Q(PO_ID__in=PO_IDS),
+                            models.Q(POD_ID__in=PO_IDS),
                         )
                         
                         total_weight, total_cbm, total_pcs, total_pallet = .0, .0, 0, 0
@@ -519,7 +521,7 @@ class ShippingManagement(View):
                             "total_cbm": total_cbm,
                             "total_pallet": total_pallet,
                             "total_pcs": total_pcs,
-                            "add_po":add_po,
+                            "PO_IDS":PO_IDS,
                             "shipment_batch_number":result[fleet_value][ISA],
                             "appointment_id":ISA,
                             'shipment_account':result[fleet_value][ISA]['shipment_account'],
@@ -528,14 +530,14 @@ class ShippingManagement(View):
                             'warehouse':result[fleet_value][ISA]['warehouse'],
                         }
                         
-                        await self.handle_batch_shipment_create_branch(shipment_data,repeat_isa,cancel_isa,outer_isa,equal_shipment)
+                        await self.handle_batch_shipment_create_branch(shipment_data,repeat_isa,cancel_isa,outer_isa,equal_shipment,equal_destination)
                     else:
                         fleet.appointment_datetime = ISA_value
             else:
                 fleet.zem = fleet_value
         return "123"
     
-    async def handle_batch_shipment_create_branch(self, shipment_data: dict, repeat_isa: List,cancel_isa: List,outer_isa: List,equal_shipment:dict) -> str:
+    async def handle_batch_shipment_create_branch(self, shipment_data: dict, repeat_isa: List,cancel_isa: List,outer_isa: List,equal_shipment:dict,equal_destination:dict) -> str:
         fields = [
             "shipment_type",
             "shipment_batch_number",
@@ -550,9 +552,9 @@ class ShippingManagement(View):
             "shipment_account",
             "load_type",
         ]
-        #有批次号，就校验，没有批次号就创建
+        #有批次号，就校验
         if shipment_data["shipment_batch_number"]:
-            #校验
+            #校验约的基本信息
             existed_appointment = await sync_to_async(Shipment.objects.get)(appointment_id=shipment_data["appointment_id"])
             for field in fields:
                 value_to_compare = shipment_data[field].trim()
@@ -563,9 +565,42 @@ class ShippingManagement(View):
                         equal_shipment[shipment_data["appointment_id"]].append([value_to_compare,appointment_value])
                     else:
                         equal_shipment[shipment_data["appointment_id"]] = [[value_to_compare,appointment_value]]
-            #还要校验板子
-            
+            #校验板子的信息
+            #本次上传的板子信息  PO_IDS
+            #查找该约在系统的板子信息
+            packing_list = await sync_to_async(list)(
+                PackingList.objects.select_related(
+                    "container_number", "shipment_batch_number", "pallet"
+                ).filter(
+                    shipment_batch_number__appointment_id=shipment_data["appointment_id"]
+                ).values('PO_ID').annotate(
+                    pl_id=Count('id'),
+                    cbms=Sum('cbm'),
+                    destinations=ArrayAgg('destination')
+                )
+                )
+            packing_list += await sync_to_async(list)(
+                Pallet.objects.select_related(
+                    "container_number", "shipment_batch_number"
+                ).filter(
+                    shipment_batch_number__appointment_id=shipment_data["appointment_id"]
+                ).values('PO_ID').annotate(
+                    pl_id=Count('id'),
+                    cbms=Sum('cbm'),
+                    destinations=ArrayAgg('destination')
+                ))
+            sys_PO_ID = []
+            #先判断约里目的地是不是有不同
+            for pl in packing_list:
+                sys_PO_ID.append(pl["PO_ID"])
+                des = set(pl["destinations"])
+                if len(des) > 1:
+                    equal_destination[shipment_data["appointment_id"]] = des
+            #然后判断PO_ID两方是否相等,这里如果不相等，就是改约了吧？那板子怎么比较？改约了本来也不相等
+            are_equal = Counter(sys_PO_ID) == Counter(shipment_data["PO_IDS"])
+
         else:
+            #没有批次号就创建，先看下ISA有没有用过
             try:
                 existed_appointment = await sync_to_async(Shipment.objects.get)(appointment_id=shipment_data["appointment_id"])
             except:
@@ -577,12 +612,14 @@ class ShippingManagement(View):
                     cancel_isa.append(shipment_data["appointment_id"])
                 elif existed_appointment.shipment_appointment.replace(tzinfo=pytz.UTC) < timezone.now():
                     outer_isa.append(shipment_data["appointment_id"])
-            else:
+            else:#开始创建
                 current_time = datetime.now()
                 batch_id = shipment_data["destination"] + current_time.strftime("%m%d%H%M%S") + str(uuid.uuid4())[:2].upper()
                 batch_id = batch_id.replace(" ", "").upper()
-                if await self._shipment_exist(shipment_data["shipment_batch_number"]):
-                    raise ValueError(f"约批次 {shipment_data['shipment_batch_number']} 已经存在!")
+                if not existed_appointment:
+                    shipment = Shipment(**shipment_data)
+                await sync_to_async(shipment.save)()
+                
                 shipment_data["appointment_id"] = request.POST.get("appointment_id", None)
                 try:
                     shipment_data["third_party_address"] = shipment_data["third_party_address"].strip()
