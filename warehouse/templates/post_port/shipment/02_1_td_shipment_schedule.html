@@ -403,8 +403,7 @@
         const destinationCells = document.querySelectorAll("#selected-packing-list-table td[name='po-destination']");
         const destinationValues = Array.from(destinationCells, cell => cell.textContent.trim().replace("Walmart", "").replace("-", ""));
         const allSame = destinationValues.every(value => value === destinationValues[0]);
-        console.log(destinationValues)
-        if (!allSame) {
+        /*if (!allSame) {
             alert("请确认选中PO的目的仓是否一致！");
             event.preventDefault();
             return;
@@ -414,7 +413,7 @@
             alert("请确认PO与预约的目的仓是否一致！");
             event.preventDefault();
             return;
-        };
+        };*/
         if (!selectedValue) {
             alert('请选择发货仓库！');
             event.preventDefault();
@@ -479,6 +478,7 @@
         const destinationInput = document.querySelector('#FTL-form input[name="destination"]');
         const appointmentTimeInput = document.querySelector('#FTL-form input[name="shipment_appointment"]');
         var destinationCheck = document.querySelector('input[name="consistent_po_appointment_destination"]')
+        /*
         if (appointmentId in unusedAppointment) {
             const date = new Date(unusedAppointment[appointmentId]['shipment_appointment']);
             const formattedDate = date.toISOString().slice(0, 16);
@@ -490,7 +490,7 @@
         } else {
             appointmentTimeInput.value = '';
             destinationCheck.value = true;
-        };
+        };*/
     };
 
     toggleAllCheckboxes();
