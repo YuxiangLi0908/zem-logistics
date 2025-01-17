@@ -94,6 +94,7 @@
             </table>
         </div>
     </div>
+    {{ exception_isa.discovered_isa }}
     <div style="overflow-y: auto; max-height: 100%; width: 60%; border: 2px solid rgb(180, 180, 180); border-radius: 12px; padding: 1%; margin: 1%;">
         {% if canceled_isa %}
         <div>
@@ -122,6 +123,7 @@
             </table>
         </div>
         {% endif %}
+
         {% if expired_isa %}
         <div>
             <div>
@@ -151,6 +153,7 @@
             </div>
         </div>
         {% endif %}
+
         {% if equal_shipment %}
         <div>
             <div>
@@ -167,7 +170,7 @@
                         </tr>
                     </thead>
                     <tbody>
-                        {% for key, value in equal_destination.items() %}
+                        {% for key, value in equal_shipment %}
                         <tr>
                             <td class="td">{{ key }}</td>
                             <td class="td">{{ value }}</td>                                                       
@@ -178,7 +181,33 @@
             </div>
         </div>
         {% endif %}
-        {% if equal_shipment %}
+
+        {% if discovered_isa %}
+        <div>
+            <div>
+                <b style="background-color: rgb(208, 208, 208); border-radius: 20px; font-size: 11px; display:inline-flex; color: rgb(100, 100, 100); padding: 5px;">
+                    系统未找到但有批次号的约 - {{ discovered_isa|length }}
+                </b>
+            </div>
+            <div style="max-height: 95%; overflow-y: scroll;">
+                <table id="shipment-table" class="table" style="font-size: 11px; max-height: 90%; overflow-y: scroll;">
+                    <thead>
+                        <tr>
+                            <th class="th">预约号</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for isa in discovered_isa %}
+                        <tr>
+                            <td class="td">{{ isa }}</td>                                                      
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+        </div>
+        {% endif %}
+        {% if equal_destination %}
         <div>
             <div>
                 <b style="background-color: rgb(208, 208, 208); border-radius: 20px; font-size: 11px; display:inline-flex; color: rgb(100, 100, 100); padding: 5px;">
@@ -194,15 +223,25 @@
                         </tr>
                     </thead>
                     <tbody>
-                        {% for key, value in equal_destination.items() %}
+                        {% for key, value in equal_destination %}
                         <tr>
-                            <td class="td">{{ c.shipment_batch_number }}</td>
+                            <td class="td">{{ key }}</td>
                             <td class="td">{{ value }}</td>                                                       
                         </tr>
                         {% endfor %}
                     </tbody>
                 </table>
             </div>
+        </div>
+        {% endif %}
+        {% if discover_PO %}
+        <div>
+            <div>
+                <b style="background-color: rgb(208, 208, 208); border-radius: 20px; font-size: 11px; display:inline-flex; color: rgb(100, 100, 100); padding: 5px;">
+                    未查找的PO_ID - {{ discover_PO|length }}
+                </b>
+            </div>
+            discover_PO
         </div>
         {% endif %}
     </div>

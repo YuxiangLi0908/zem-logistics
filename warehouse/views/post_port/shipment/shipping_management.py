@@ -485,19 +485,24 @@ class ShippingManagement(View):
                     )
                 ).distinct().order_by('-abnormal_palletization', 'shipment_appointment')
             )
-            print(exception_isa)
             exception_number = len(exception_isa["canceled_isa"]) + len(exception_isa["expired_isa"])+len(exception_isa["mismatched_isa"])
             context = {
                 "shipment_list":shipment_list,
+                "repeated_isa":exception_isa["repeated_isa"],
                 "canceled_isa":exception_isa["canceled_isa"],
                 "expired_isa":exception_isa["expired_isa"],
                 "mismatched_isa":exception_isa["mismatched_isa"],
-                "exception_number":exception_number
+                "discovered_isa":exception_isa["discovered_isa"],
+                "discovered_PO":exception_isa["discovered_PO"],
+                "normal_isa":exception_isa["normal_isa"],
+                "equal_shipment":exception_isa["equal_shipment"],
+                "equal_destination":exception_isa["equal_destination"],
+                "exception_number":exception_number,
+                
             }
         return self.template_batch_shipment, context
     
     async def handle_batch_shipment_create(self, result: dict[str, Any]) -> List:
-        exclude_keys = {'appointment_batch_number','shipment_appointment', 'carrier', 'note', 'cost_price'}
         exception_isa = {
             "repeated_isa":[],   #重复的约
             "canceled_isa":[],   #取消的约 
@@ -505,6 +510,7 @@ class ShippingManagement(View):
             "mismatched_isa":{}, #系统现存的约和表格的信息不符的，键值对为：约：{不符的信息}
             "discovered_isa":[], 
             "discovered_PO": [],
+            "normal_isa":[],
             "equal_shipment":{},
             "equal_destination":{},
             "discover_PO": []  #excel表里，po_id在系统查不到的
@@ -590,6 +596,7 @@ class ShippingManagement(View):
                     
             else:
                 fleet_data[fleet] = fleet_value
+        print(exception_isa)
         return exception_isa
     
     async def handle_batch_shipment_create_branch(
@@ -612,7 +619,7 @@ class ShippingManagement(View):
             "load_type",
         ]
         #有批次号，就校验
-        if shipment_data["shipment_batch_number"]:
+        if type(shipment_data["shipment_batch_number"]) != float:
             #校验约的基本信息
             try:
                 existed_appointment = await sync_to_async(Shipment.objects.get)(appointment_id=shipment_data["appointment_id"])
@@ -668,18 +675,20 @@ class ShippingManagement(View):
                 existed_appointment = None
             if existed_appointment:
                 if existed_appointment.in_use:
-                    exception_isa["repeat_isa"].append(shipment_data["appointment_id"])
+                    exception_isa["repeated_isa"].append(shipment_data["appointment_id"])
                 elif existed_appointment.is_canceled:
-                    exception_isa["cancel_isa"].append(shipment_data["appointment_id"])
+                    exception_isa["canceled_isa"].append(shipment_data["appointment_id"])
                 elif existed_appointment.shipment_appointment.replace(tzinfo=pytz.UTC) < timezone.now():
                     exception_isa["expired_isa"].append(shipment_data["appointment_id"])
             else:#开始创建
                 current_time = datetime.now()
                 batch_id = shipment_data["destination"] + current_time.strftime("%m%d%H%M%S") + str(uuid.uuid4())[:2].upper()
                 batch_id = batch_id.replace(" ", "").upper()
-                print('要创建的',shipment_data)
-                shipment = Shipment(**shipment_data)
+                shipment_data["shipment_batch_number"] = batch_id
+                new_shipment_data = {k: shipment_data[k] for k in shipment_data if k != 'PO_IDS'}
+                shipment = Shipment(**new_shipment_data)
                 await sync_to_async(shipment.save)()
+                exception_isa["normal_isa"].append(new_shipment_data["appointment_id"])
         return exception_isa
 
     async def handle_warehouse_post(self, request: HttpRequest) -> tuple[str, dict[str, Any]]:
