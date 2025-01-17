@@ -2098,3 +2098,8 @@ GEU2:
   location: 15201 Northern Ave
   state: AZ
   zipcode: '85340'
+XRI3:
+  city: RICHMOND
+  location: 4949 Commerce Rd
+  state: VA
+  zipcode: '23234'
