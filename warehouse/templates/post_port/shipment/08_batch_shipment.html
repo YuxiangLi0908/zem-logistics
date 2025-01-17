@@ -14,7 +14,7 @@
     </form>
 </div>
 <hr class="Dashed" style="margin-top: 10px; margin-bottom: 10px;">
-{% if batch_shipment%}
+
 <div style="display: flex; max-height: 720px;">
     <div style="overflow-y: auto; max-height: 100%; width: 40%; border: 2px solid rgb(180, 180, 180); border-radius: 12px; padding: 1%; margin: 1%;">
         <div>
@@ -95,14 +95,122 @@
         </div>
     </div>
     <div style="overflow-y: auto; max-height: 100%; width: 60%; border: 2px solid rgb(180, 180, 180); border-radius: 12px; padding: 1%; margin: 1%;">
+        {% if canceled_isa %}
         <div>
             <b style="background-color: rgb(208, 208, 208); border-radius: 20px; font-size: 11px; display:inline-flex; color: rgb(100, 100, 100); padding: 5px;">
-                异常约 - {{ 1|length }}
+                取消的约 - {{ canceled_isa|length }}
             </b>
         </div>
+        <div style="max-height: 95%; overflow-y: scroll;">
+            <table id="shipment-table" class="table" style="font-size: 11px; max-height: 90%; overflow-y: scroll;">
+                <thead>
+                    <tr>
+                        <th class="th">预约批次</th>
+                        <th class="th">预约号</th>
+                        <th class="th">Scheduled Time</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for c in canceled_isa %}
+                    <tr>
+                        <td class="td">{{ c.shipment_batch_number }}</td>
+                        <td class="td">{{ c.appointment_id }}</td>                                                       
+                        <td class="td">{{ s.shipment_appointment|date:"Y-m-d" }} {{ s.shipment_appointment|time:"H:i" }}</td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+        {% endif %}
+        {% if expired_isa %}
+        <div>
+            <div>
+                <b style="background-color: rgb(208, 208, 208); border-radius: 20px; font-size: 11px; display:inline-flex; color: rgb(100, 100, 100); padding: 5px;">
+                    过期的约 - {{ expired_isa|length }}
+                </b>
+            </div>
+            <div style="max-height: 95%; overflow-y: scroll;">
+                <table id="shipment-table" class="table" style="font-size: 11px; max-height: 90%; overflow-y: scroll;">
+                    <thead>
+                        <tr>
+                            <th class="th">预约批次</th>
+                            <th class="th">预约号</th>
+                            <th class="th">Scheduled Time</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for c in canceled_isa %}
+                        <tr>
+                            <td class="td">{{ c.shipment_batch_number }}</td>
+                            <td class="td">{{ c.appointment_id }}</td>                                                       
+                            <td class="td">{{ s.shipment_appointment|date:"Y-m-d" }} {{ s.shipment_appointment|time:"H:i" }}</td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+        </div>
+        {% endif %}
+        {% if equal_shipment %}
+        <div>
+            <div>
+                <b style="background-color: rgb(208, 208, 208); border-radius: 20px; font-size: 11px; display:inline-flex; color: rgb(100, 100, 100); padding: 5px;">
+                    改约信息 - {{ equal_shipment|length }}
+                </b>
+            </div>
+            <div style="max-height: 95%; overflow-y: scroll;">
+                <table id="shipment-table" class="table" style="font-size: 11px; max-height: 90%; overflow-y: scroll;">
+                    <thead>
+                        <tr>
+                            <th class="th">预约批次</th>
+                            <th class="th">预约号</th>
+                            <th class="th">Scheduled Time</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for c in equal_shipment %}
+                        <tr>
+                            <td class="td">{{ c.shipment_batch_number }}</td>
+                            <td class="td">{{ c.appointment_id }}</td>                                                       
+                            <td class="td">{{ s.shipment_appointment|date:"Y-m-d" }} {{ s.shipment_appointment|time:"H:i" }}</td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+        </div>
+        {% endif %}
+        {% if equal_shipment %}
+        <div>
+            <div>
+                <b style="background-color: rgb(208, 208, 208); border-radius: 20px; font-size: 11px; display:inline-flex; color: rgb(100, 100, 100); padding: 5px;">
+                    不同的地址 - {{ equal_destination|length }}
+                </b>
+            </div>
+            <div style="max-height: 95%; overflow-y: scroll;">
+                <table id="shipment-table" class="table" style="font-size: 11px; max-height: 90%; overflow-y: scroll;">
+                    <thead>
+                        <tr>
+                            <th class="th">预约批次</th>
+                            <th class="th">预约号</th>
+                            <th class="th">Scheduled Time</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for c in equal_shipment %}
+                        <tr>
+                            <td class="td">{{ c.shipment_batch_number }}</td>
+                            <td class="td">{{ c.appointment_id }}</td>                                                       
+                            <td class="td">{{ s.shipment_appointment|date:"Y-m-d" }} {{ s.shipment_appointment|time:"H:i" }}</td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+        </div>
+        {% endif %}
     </div>
 </div>
-{% endif %}
 
 
 <script>
