@@ -138,7 +138,7 @@ class ShippingManagement(View):
             template, context = await self.handle_cancel_abnormal_appointment_post(request)
             return render(request, template, context)
         elif step == "upload_batch_shipment":
-            template, context = await self.handle_batch_shipment_get(request)
+            template, context = await self.handle_batch_shipment_post(request)
             return render(request,template, context)
         else:
             return await self.get(request)
@@ -372,7 +372,7 @@ class ShippingManagement(View):
         }
         return self.template_td, context
     
-    async def handle_batch_shipment_get(self, request: HttpRequest) -> tuple[str, dict[str, Any]]:
+    async def handle_batch_shipment_post(self, request: HttpRequest) -> tuple[str, dict[str, Any]]:
         form = UploadFileForm(request.POST, request.FILES)
         if form.is_valid():
             file = request.FILES['file']
@@ -381,7 +381,6 @@ class ShippingManagement(View):
                 '车次编号': 'fleet_serial',
                 '提货时间': 'appointment_datetime',
                 'ISA': 'ISA',
-                '约批次号': 'appointment_batch_number',
                 '送仓时间': 'shipment_appointment',
                 '柜号': 'container_number',
                 '目的地': 'destination',
@@ -418,7 +417,6 @@ class ShippingManagement(View):
                         'origin': item['warehouse'],
                         'shipment': {
                             item['ISA']:{
-                                'appointment_batch_number':item['appointment_batch_number'],
                                 'shipment_appointment':item['shipment_appointment'],
                                 'carrier':item['carrier'],
                                 'note':item['note'],
@@ -444,7 +442,6 @@ class ShippingManagement(View):
                         #说明是一行新的预约批次
                         last_ISA = ISA
                         result[last_fleet]['shipment'][ISA]={
-                            'appointment_batch_number':item['appointment_batch_number'],
                             'shipment_appointment':item['shipment_appointment'],
                             'carrier':item['carrier'],
                             'note':item['note'],
@@ -493,7 +490,7 @@ class ShippingManagement(View):
                     # TODOs: 添加约的信息
                     created_isa.append({
                         "appointment_id": ISA,
-
+                        ""
                     })
 
                     add_po = []
