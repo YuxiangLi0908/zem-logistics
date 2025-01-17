@@ -328,6 +328,37 @@ class BOL(View):
         packing_list = list(PackingList.objects.select_related("container_number").filter(
             shipment_batch_number__shipment_batch_number=batch_number,
         ))
+        for pl in packing_list:
+            fba_ids = pl.fba_id
+            array = fba_ids.split(",")                   
+            if len(array) > 1:
+                parts = []
+                for i in range(0, len(array)):
+                    part = ",".join(array[i:i+1])
+                    parts.append(part)
+                fba_ids = "\n".join(parts)
+            pl.fba_id = fba_ids
+
+            ref_ids = pl.ref_id
+            array = fba_ids.split(",")                   
+            if len(array) > 1:
+                parts = []
+                for i in range(0, len(array)):
+                    part = ",".join(array[i:i+1])
+                    parts.append(part)
+                ref_ids = "\n".join(parts)
+            pl.ref_id = ref_ids
+
+            shipping_marks = pl.shipping_mark
+            array = shipping_marks.split(",")                   
+            if len(array) > 1:
+                parts = []
+                for i in range(0, len(array)):
+                    part = ",".join(array[i:i+1])
+                    parts.append(part)
+                shipping_marks = "\n".join(parts)
+            pl.shipping_mark = shipping_marks
+
         pallet = list(Pallet.objects.select_related("container_number").filter(
             shipment_batch_number__shipment_batch_number=batch_number,
             container_number__order__offload_id__offload_at__isnull=False,
