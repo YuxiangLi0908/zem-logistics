@@ -162,17 +162,15 @@
                 <table id="shipment-table" class="table" style="font-size: 11px; max-height: 90%; overflow-y: scroll;">
                     <thead>
                         <tr>
-                            <th class="th">预约批次</th>
                             <th class="th">预约号</th>
-                            <th class="th">Scheduled Time</th>
+                            <th class="th">改约的信息</th>
                         </tr>
                     </thead>
                     <tbody>
-                        {% for c in equal_shipment %}
+                        {% for key, value in equal_destination.items() %}
                         <tr>
-                            <td class="td">{{ c.shipment_batch_number }}</td>
-                            <td class="td">{{ c.appointment_id }}</td>                                                       
-                            <td class="td">{{ s.shipment_appointment|date:"Y-m-d" }} {{ s.shipment_appointment|time:"H:i" }}</td>
+                            <td class="td">{{ key }}</td>
+                            <td class="td">{{ value }}</td>                                                       
                         </tr>
                         {% endfor %}
                     </tbody>
@@ -191,17 +189,15 @@
                 <table id="shipment-table" class="table" style="font-size: 11px; max-height: 90%; overflow-y: scroll;">
                     <thead>
                         <tr>
-                            <th class="th">预约批次</th>
                             <th class="th">预约号</th>
-                            <th class="th">Scheduled Time</th>
+                            <th class="th">修改项</th>
                         </tr>
                     </thead>
                     <tbody>
-                        {% for c in equal_shipment %}
+                        {% for key, value in equal_destination.items() %}
                         <tr>
                             <td class="td">{{ c.shipment_batch_number }}</td>
-                            <td class="td">{{ c.appointment_id }}</td>                                                       
-                            <td class="td">{{ s.shipment_appointment|date:"Y-m-d" }} {{ s.shipment_appointment|time:"H:i" }}</td>
+                            <td class="td">{{ value }}</td>                                                       
                         </tr>
                         {% endfor %}
                     </tbody>
