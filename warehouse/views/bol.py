@@ -330,7 +330,8 @@ class BOL(View):
         ))
         for pl in packing_list:
             fba_ids = pl.fba_id
-            array = fba_ids.split(",")                   
+            array = re.split(r'[,\s]+', fba_ids) 
+            array = [item for item in array if item]                  
             if len(array) > 1:
                 parts = []
                 for i in range(0, len(array)):
@@ -340,7 +341,8 @@ class BOL(View):
             pl.fba_id = fba_ids
 
             ref_ids = pl.ref_id
-            array = ref_ids.split(",")                   
+            array = re.split(r'[,\s]+', ref_ids) 
+            array = [item for item in array if item]               
             if len(array) > 1:
                 parts = []
                 for i in range(0, len(array)):
