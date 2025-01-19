@@ -50,6 +50,11 @@ class Shipment(models.Model):
     ARM_BOL = models.CharField(max_length=255, null=True, blank=True)
     ARM_PRO = models.CharField(max_length=255, null=True, blank=True)
 
+    class Meta:
+        indexes = [
+            models.Index(fields=['shipment_batch_number']),
+        ]
+
     def __str__(self) -> str:
         if self.shipment_batch_number:
             return self.shipment_batch_number

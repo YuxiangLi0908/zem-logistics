@@ -33,6 +33,12 @@ class Fleet(models.Model):
     status = models.CharField(max_length=20, null=True, blank=True)
     status_description = models.CharField(max_length=1000, null=True, blank=True)
 
+    class Meta:
+        indexes = [
+            models.Index(fields=['fleet_number']),
+            models.Index(fields=['fleet_zem_serial']),
+        ]
+
     def __str__(self) -> str:
         return self.fleet_number
     
