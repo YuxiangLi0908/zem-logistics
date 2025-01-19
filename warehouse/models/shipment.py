@@ -53,6 +53,7 @@ class Shipment(models.Model):
     class Meta:
         indexes = [
             models.Index(fields=['shipment_batch_number']),
+            models.Index(fields=['appointment_id']),
         ]
 
     def __str__(self) -> str:
