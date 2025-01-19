@@ -380,7 +380,7 @@ class ShippingManagement(View):
             file = request.FILES['file']
             df = pd.read_excel(file)
             df = df.rename(columns={
-                '车次编号': 'fleet_serial',
+                '车次编号': 'fleet_zem_serial',
                 '提货时间': 'appointment_datetime',
                 'ISA': 'ISA',
                 '约批次号': 'appointment_batch_number',
@@ -405,7 +405,7 @@ class ShippingManagement(View):
             sum_fleet = []
             sum_ISA = []
             for item in data:
-                fleet_serial = item['fleet_serial']
+                fleet_serial = item['fleet_zem_serial']
                 if not self._verify_empty_string(fleet_serial):
                     #说明是一个新的车次，那约肯定也是新的
                     sum_fleet.append(fleet_serial)  
@@ -418,13 +418,13 @@ class ShippingManagement(View):
                         'appointment_datetime': item['appointment_datetime'],
                         'carrier': item['carrier'],
                         'origin': item['warehouse'],
+                        'cost_price':item['cost_price'],
                         'shipment': {
                             item['ISA']:{
                                 'appointment_batch_number':item['appointment_batch_number'],
                                 'shipment_appointment':item['shipment_appointment'],
                                 'carrier':item['carrier'],
-                                'note':item['note'],
-                                'cost_price':item['cost_price'],
+                                'note':item['note'],                            
                                 'shipment_type':item['shipment_type'],
                                 'shipment_account':item['shipment_account'],
                                 'load_type':item['load_type'],
@@ -498,7 +498,6 @@ class ShippingManagement(View):
                 "equal_shipment":exception_isa["equal_shipment"],
                 "equal_destination":exception_isa["equal_destination"],
                 "exception_number":exception_number,
-                
             }
         return self.template_batch_shipment, context
     
@@ -518,10 +517,9 @@ class ShippingManagement(View):
         created_isa = []
         isa_hash = []
         
-        for fleet, fleet_value in result.items():
-            #创建车的批次
-            fleet_data = {}
-            if isinstance(fleet_value, dict) and fleet_value:
+        for fleet, fleet_value in result.items():  
+            normal_isa = [] #该车次下正常预约出库的，需要统计信息加到车次里面去           
+            if isinstance(fleet_value, dict) and fleet_value:                
                 # raise ValueError(fleet_value)
                 for ISA, ISA_value in fleet_value["shipment"].items():
                     # TODOs: 添加约的信息
@@ -543,60 +541,81 @@ class ShippingManagement(View):
                             packing_list_selected += packing_lists
                         else:
                             exception_isa["discovered_PO"].append(ids)
-                    total_weight, total_cbm, total_pcs, total_pallet = .0, .0, 0, 0                 
-                    for pl in packing_list_selected:
-                        total_weight += pl.get("total_weight_lbs") if pl.get("total_weight_lbs") else 0
-                        total_cbm += pl.get("total_cbm") if pl.get("total_cbm") else 0
-                        total_pcs += pl.get("total_pcs") if pl.get("total_pcs") else 0
-                        if pl.get("label") == "ACT":
-                            total_pallet += pl.get("total_n_pallet_act")
-                        else:
-                            if pl.get("total_n_pallet_est < 1"):
-                                total_pallet += 1
-                            elif pl.get("total_n_pallet_est")%1 >= 0.45:
-                                total_pallet += int(pl.get("total_n_pallet_est") // 1 + 1)
+                    if len(packing_list_selected) > 1:
+                        total_weight, total_cbm, total_pcs, total_pallet = .0, .0, 0, 0                 
+                        for pl in packing_list_selected:
+                            total_weight += pl.get("total_weight_lbs") if pl.get("total_weight_lbs") else 0
+                            total_cbm += pl.get("total_cbm") if pl.get("total_cbm") else 0
+                            total_pcs += pl.get("total_pcs") if pl.get("total_pcs") else 0
+                            if pl.get("label") == "ACT":
+                                total_pallet += pl.get("total_n_pallet_act")
                             else:
-                                total_pallet += int(pl.get("total_n_pallet_est") // 1)
-                    destination = packing_list_selected[0].get("destination", "RDM")
-                    
-                    address = amazon_fba_locations.get(destination, None) #查找亚马逊地址中是否有该地址
-                    if destination in amazon_fba_locations: 
-                        fba = amazon_fba_locations[destination]
-                        address = f"{fba['location']}, {fba['city']} {fba['state']}, {fba['zipcode']}"
-                    else:
-                        address, zipcode = str(packing_list_selected[0].get("address")), str(packing_list_selected[0].get('zipcode'))
-                        if zipcode.lower() not in address.lower():   
-                            address += f", {zipcode}"                              
-                    shipment_data = {
-                        "shipment_batch_number": ISA_value["appointment_batch_number"],
-                        "destination": destination,
-                        "total_weight": total_weight,
-                        "total_cbm": total_cbm,
-                        "total_pallet": total_pallet,
-                        "total_pcs": total_pcs,
-                        "PO_IDS":PO_IDS,
-                        "appointment_id":ISA,
-                        'shipment_account':ISA_value['shipment_account'],
-                        'shipment_type':ISA_value['shipment_type'],
-                        'load_type':ISA_value['load_type'],
-                        'origin':ISA_value['origin'],
-                        'shipment_appointment':ISA_value['shipment_appointment'],
-                        'carrier':ISA_value['shipment_appointment'],
-                        'note':ISA_value['shipment_appointment']
-                    }
-                    
-                    result_exception = await self.handle_batch_shipment_create_branch(shipment_data, exception_isa)
-                    
-                    exception_isa["canceled_isa"] = result_exception["canceled_isa"]
-                    exception_isa["expired_isa"] = result_exception["expired_isa"]
-                    exception_isa["mismatched_isa"] = result_exception["mismatched_isa"]
-                    exception_isa["discovered_isa"] = result_exception["discovered_isa"]
-                    exception_isa["equal_shipment"] = result_exception["equal_shipment"]
-                    exception_isa["equal_destination"] = result_exception["equal_destination"]
-                    
-            else:
-                fleet_data[fleet] = fleet_value
-        print(exception_isa)
+                                if pl.get("total_n_pallet_est < 1"):
+                                    total_pallet += 1
+                                elif pl.get("total_n_pallet_est")%1 >= 0.45:
+                                    total_pallet += int(pl.get("total_n_pallet_est") // 1 + 1)
+                                else:
+                                    total_pallet += int(pl.get("total_n_pallet_est") // 1)
+                        destination = packing_list_selected[0].get("destination", "RDM")
+                        
+                        address = amazon_fba_locations.get(destination, None) #查找亚马逊地址中是否有该地址
+                        if destination in amazon_fba_locations: 
+                            fba = amazon_fba_locations[destination]
+                            address = f"{fba['location']}, {fba['city']} {fba['state']}, {fba['zipcode']}"
+                        else:
+                            address, zipcode = str(packing_list_selected[0].get("address")), str(packing_list_selected[0].get('zipcode'))
+                            if zipcode.lower() not in address.lower():   
+                                address += f", {zipcode}"                              
+                        shipment_data = {
+                            "shipment_batch_number": ISA_value["appointment_batch_number"],
+                            "destination": destination,
+                            "total_weight": total_weight,
+                            "total_cbm": total_cbm,
+                            "total_pallet": total_pallet,
+                            "total_pcs": total_pcs,
+                            "PO_IDS":PO_IDS,
+                            "appointment_id":ISA,
+                            'shipment_account':ISA_value['shipment_account'],
+                            'shipment_type':ISA_value['shipment_type'],
+                            'load_type':ISA_value['load_type'],
+                            'origin':ISA_value['origin'],
+                            'shipment_appointment':ISA_value['shipment_appointment'],
+                            'carrier':ISA_value['shipment_appointment'],
+                            'note':ISA_value['shipment_appointment']
+                        }
+                        
+                        result_exception = await self.handle_batch_shipment_create_branch(shipment_data, exception_isa)
+                        normal_isa += result_exception["normal_isa"]
+                        exception_isa["canceled_isa"] = result_exception["canceled_isa"]
+                        exception_isa["expired_isa"] = result_exception["expired_isa"]
+                        exception_isa["mismatched_isa"] = result_exception["mismatched_isa"]
+                        exception_isa["discovered_isa"] = result_exception["discovered_isa"]
+                        exception_isa["equal_shipment"] = result_exception["equal_shipment"]
+                        exception_isa["equal_destination"] = result_exception["equal_destination"]
+                f_weight, f_cbm, f_pcs, f_pallet = .0, .0, 0, 0
+                for s in normal_isa:
+                    f_weight += s.total_weight
+                    f_cbm += s.total_cbm
+                    f_pcs += s.total_pcs
+                    f_pallet += s.total_pallet
+                    fleet_value = s.shipment_type
+                if fleet != '1' and normal_isa:
+                    #创建车的批次
+                    current_time = datetime.now()
+                    fleet_number = "F" + current_time.strftime("%m%d%H%M%S") + str(uuid.uuid4())[:2].upper()
+                    fleet_data = {
+                        'fleet_zem_seiral': fleet,
+                        'fleet_number':fleet_number,
+                        'fleet_type':fleet_value,
+                        'appointment_datetime':fleet_value["appointment_datetime"],
+                        'cost_price': fleet_value["cost_price"],
+                        "total_weight": f_weight,
+                        "total_cbm": f_cbm,
+                        "total_pallet": f_pallet,
+                        "total_pcs": f_pcs,
+                    }   
+                    fleet = Fleet(**fleet_data)
+                    await sync_to_async(fleet.save)()
         return exception_isa
     
     async def handle_batch_shipment_create_branch(

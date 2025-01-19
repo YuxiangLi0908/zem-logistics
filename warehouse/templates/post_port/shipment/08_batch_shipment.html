@@ -234,14 +234,29 @@
             </div>
         </div>
         {% endif %}
-        {% if discover_PO %}
+        {% if discovered_PO %} 
         <div>
             <div>
                 <b style="background-color: rgb(208, 208, 208); border-radius: 20px; font-size: 11px; display:inline-flex; color: rgb(100, 100, 100); padding: 5px;">
-                    未查找的PO_ID - {{ discover_PO|length }}
+                    未查找的PO_ID - {{ discovered_PO|length }}
                 </b>
             </div>
-            discover_PO
+            <div style="max-height: 95%; overflow-y: scroll;">
+                <table id="shipment-table" class="table" style="font-size: 11px; max-height: 90%; overflow-y: scroll;">
+                    <thead>
+                        <tr>
+                            <th class="th">PO_ID</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for PO in discovered_PO %}
+                        <tr>
+                            <td class="td">{{ PO }}</td>                                                      
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
         </div>
         {% endif %}
     </div>

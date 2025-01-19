@@ -3,6 +3,7 @@ from datetime import datetime, timedelta
 
 class Fleet(models.Model):
     fleet_number = models.CharField(max_length=255, null=True)
+    fleet_zem_serial = models.CharField(max_length=255, null=True)
     fleet_type = models.CharField(max_length=255, null=True, blank=True)
     origin = models.CharField(max_length=255, null=True, blank=True)
     carrier = models.CharField(max_length=100, null=True, blank=True)
@@ -23,6 +24,7 @@ class Fleet(models.Model):
     shipped_cbm = models.FloatField(null=True, default=0, blank=True)
     shipped_pallet = models.FloatField(null=True, default=0)
     shipped_pcs = models.FloatField(null=True, default=0, blank=True)
+    cost_price = models.FloatField(null=True, default=0, blank=True)
     multipule_destination = models.BooleanField(default=False, null=True, blank=True)
     pod_link = models.CharField(max_length=2000, null=True, blank=True)
     pod_uploaded_at = models.DateTimeField(null=True, blank=True)
