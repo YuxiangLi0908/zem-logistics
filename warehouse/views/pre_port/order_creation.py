@@ -4,6 +4,7 @@ import pandas as pd
 import numpy as np
 import json
 import random
+import re
 import string
 from asgiref.sync import sync_to_async
 from pathlib import Path
@@ -538,6 +539,7 @@ class OrderCreation(View):
                     po_id = po_id_hash.get(po_id_hkey)
                 else:
                     po_id = f"{container_number[-4:]}{po_id_seg}{seq_num}"
+                    po_id = re.sub(r'[\u4e00-\u9fff]', '', po_id)
                     po_id_hash[po_id_hkey] = po_id
                     seq_num += 1
                 po_ids.append(po_id)

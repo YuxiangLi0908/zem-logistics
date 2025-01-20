@@ -1,4 +1,5 @@
 import uuid
+import re
 import random
 import string
 
@@ -538,6 +539,7 @@ class StuffPower(View):
                 po_id = po_id_hash.get(po_id_hkey)
             else:
                 po_id = f"{container_number[-4:]}{po_id_seg}{''.join(random.choices(string.digits, k=2))}"
+                po_id = re.sub(r'[\u4e00-\u9fff]', '', po_id)
                 po_id_hash[po_id_hkey] = po_id
             p.PO_ID = po_id
             updated_pallet.append(p)
@@ -561,6 +563,7 @@ class StuffPower(View):
                 po_id = po_id_hash.get(po_id_hkey)
             else:
                 po_id = f"{container_number[-4:]}{po_id_seg}{''.join(random.choices(string.digits, k=2))}"
+                po_id = re.sub(r'[\u4e00-\u9fff]', '', po_id)
             p.PO_ID = po_id
             updated_packing_list.append(p)
             cnt += 1
