@@ -379,11 +379,11 @@ class FleetManagement(View):
                 shipment_batch_number__fleet_number__fleet_number__isnull=False,
                 shipment_batch_number__fleet_number__departured_at__isnull=True
             ),
-            localtion=warehouse,
+            location=warehouse,
             destination__in=destinations,
             container_number__order__offload_id__offload_at__isnull=False,
         )
-        plt_unshipped = await self._get_packing_list(criteria_plt,selected_fleet_number)
+        plt_unshipped = await self._get_packing_list(criteria_plt, selected_fleet_number)
         context.update({
             "selected_fleet": selected_fleet,
             "shipment": shipment,
@@ -1237,6 +1237,7 @@ class FleetManagement(View):
     #         "warehouse_form": ZemWarehouseForm(initial={"name": warehouse})
     #     }
     #     return self.template_fleet_warehouse_search, context
+
     async def _get_packing_list(
         self, 
         plt_criteria: models.Q | None = None,
