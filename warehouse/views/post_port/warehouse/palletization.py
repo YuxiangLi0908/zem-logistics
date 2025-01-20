@@ -473,10 +473,10 @@ class Palletization(View):
             offload.total_pallet = total_pallet
             offload.offload_at = current_time_cn
             await sync_to_async(offload.save)()
-            await self._update_shipment_stats(ids)
             await sync_to_async(Pallet.objects.bulk_create)(
                 Pallet(**d) for d in pallet_data
             )
+            await self._update_shipment_stats(ids)
             await sync_to_async(AbnormalOffloadStatus.objects.bulk_create)(
                 AbnormalOffloadStatus(**d) for d in abnormal_offloads
             )
@@ -816,6 +816,39 @@ class Palletization(View):
             s.total_weight = shipment_stats[s.shipment_batch_number]["weight_lbs"]
             s.total_pcs = shipment_stats[s.shipment_batch_number]["total_pcs"]
         await sync_to_async(Shipment.objects.bulk_update)(shipment_list, ["total_cbm", "total_pallet", "total_weight", "total_pcs"])
+        shipment_batch_number = set([pl.shipment_batch_number.shipment_batch_number for pl in packing_list if pl.shipment_batch_number])
+        await self._update_fleet_stats(shipment_batch_number)
+
+    async def _update_fleet_stats(self, shipment_batch_number: list[str]) -> None:
+        fleet = await sync_to_async(list)(Fleet.objects.filter(shipment__shipment_batch_number__in=shipment_batch_number))
+        if fleet:
+            fleet_number = [f.fleet_number for f in fleet]
+            fleet_stats = await sync_to_async(list)(Pallet.objects.select_related(
+                "shipment_batch_number", "shipment_batch_number__fleet_number"
+            ).filter(
+                shipment_batch_number__fleet_number__fleet_number__in=fleet_number
+            ).values(
+                "shipment_batch_number__fleet_number__fleet_number"
+            ).annotate(
+                total_pcs=Sum("pcs", output_field=IntegerField()),
+                total_cbm=Sum("cbm", output_field=FloatField()),
+                weight_lbs=Sum("weight_lbs", output_field=FloatField()),
+                total_n_pallet=Count('pallet_id', distinct=True, output_field=IntegerField()),
+            ))
+            fleet_stats = {
+                f["shipment_batch_number__fleet_number__fleet_number"]: {
+                    "total_pcs": f["total_pcs"],
+                    "total_cbm": f["total_cbm"],
+                    "weight_lbs": f["weight_lbs"],
+                    "total_n_pallet": f["total_n_pallet"],
+                } for f in fleet_stats
+            }
+            for f in fleet:
+                f.total_cbm = fleet_stats[f.fleet_number]["total_cbm"]
+                f.total_pallet = fleet_stats[f.fleet_number]["total_n_pallet"]
+                f.total_weight = fleet_stats[f.fleet_number]["weight_lbs"]
+                f.total_pcs = fleet_stats[f.fleet_number]["total_pcs"]
+            await sync_to_async(Fleet.objects.bulk_update)(fleet, ["total_cbm", "total_pallet", "total_weight", "total_pcs"])
 
     async def _get_packing_list(self, container_number:str, status: str) -> PackingList:
         if status == "non_palletized":
