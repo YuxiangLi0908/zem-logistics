@@ -259,6 +259,37 @@
             </div>
         </div>
         {% endif %}
+        {% if mismatched_pallet %} 
+        <div>
+            <div>
+                <b style="background-color: rgb(208, 208, 208); border-radius: 20px; font-size: 11px; display:inline-flex; color: rgb(100, 100, 100); padding: 5px;">
+                    cbm或板数不对的PO_ID - {{ mismatched_pallet|length }}
+                </b>
+            </div>
+            <div style="max-height: 95%; overflow-y: scroll;">
+                <table id="shipment-table" class="table" style="font-size: 11px; max-height: 90%; overflow-y: scroll;">
+                    <thead>
+                        <tr>
+                            <th class="th">对比字段</th>
+                            <th class="th">PO_ID</th>
+                            <th class="th">上传的表格数据</th>
+                            <th class="th">系统查找结果</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for PO in mismatched_pallet %}
+                        <tr>
+                            <td class="td">{{ PO.0 }}</td>     
+                            <td class="td">{{ PO.1 }}</td> 
+                            <td class="td">{{ PO.2 }}</td> 
+                            <td class="td">{{ PO.3 }}</td>                                                  
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+        </div>
+        {% endif %}
     </div>
 </div>
 

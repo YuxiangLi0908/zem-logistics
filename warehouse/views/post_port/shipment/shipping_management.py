@@ -383,6 +383,7 @@ class ShippingManagement(View):
                 '车次编号': 'fleet_zem_serial',
                 '提货时间': 'appointment_datetime',
                 'ISA': 'ISA',
+                '约批次号':'shipment_batch_number',
                 '送仓时间': 'shipment_appointment',
                 '柜号': 'container_number',
                 '目的地': 'destination',
@@ -395,7 +396,9 @@ class ShippingManagement(View):
                 '预约类型':'shipment_type',
                 '预约账号':'shipment_account',
                 '装车类型':'load_type',
-                '发货仓库':'warehouse'
+                '发货仓库':'origin',
+                'BOL':'ARM_BOL',
+                'PRO':'ARM_PRO'
             })
             df['ISA'] = df['ISA'].apply(lambda x: str(int(x)) if pd.notna(x) else x)
             df = df.dropna(how='all')
@@ -404,6 +407,17 @@ class ShippingManagement(View):
             sum_fleet = []
             sum_ISA = []
             for item in data:
+                if not self._verify_empty_string(item['ISA']):
+                    if self._verify_empty_string(item['shipment_appointment']):
+                        raise RuntimeError(f"ISA {item['ISA']} 没有填写送仓时间!")
+                    if self._verify_empty_string(item['shipment_type']):
+                        raise RuntimeError(f"ISA {item['ISA']} 没有填写预约类型!")
+                    if self._verify_empty_string(item['shipment_account']):
+                        raise RuntimeError(f"ISA {item['ISA']} 没有填写预约账号!")
+                    if self._verify_empty_string(item['load_type']):
+                        raise RuntimeError(f"ISA {item['ISA']} 没有填写装车类型!")
+                    if self._verify_empty_string(item['origin']):
+                        raise RuntimeError(f"ISA {item['ISA']} 没有填写发货仓库!")
                 fleet_serial = item['fleet_zem_serial']
                 if not self._verify_empty_string(fleet_serial):
                     #说明是一个新的车次，那约肯定也是新的
@@ -416,17 +430,20 @@ class ShippingManagement(View):
                     result[fleet_serial] = {
                         'appointment_datetime': item['appointment_datetime'],
                         'carrier': item['carrier'],
-                        'origin': item['warehouse'],
+                        'origin': item['origin'],
                         'cost_price':item['cost_price'],
                         'shipment': {
                             item['ISA']:{
+                                'shipment_batch_number':item['shipment_batch_number'],
                                 'shipment_appointment':item['shipment_appointment'],
                                 'carrier':item['carrier'],
                                 'note':item['note'],                            
                                 'shipment_type':item['shipment_type'],
                                 'shipment_account':item['shipment_account'],
                                 'load_type':item['load_type'],
-                                'origin':item['warehouse'],
+                                'origin':item['origin'],
+                                'ARM_BOL':item['ARM_BOL'],
+                                'ARM_PRO':item['ARM_PRO'],
                                 'PO':[{
                                     'PO_ID': item['PO_ID'],
                                     'container_number':item['container_number'],
@@ -444,6 +461,7 @@ class ShippingManagement(View):
                         #说明是一行新的预约批次
                         last_ISA = ISA
                         result[last_fleet]['shipment'][ISA]={
+                            'shipment_batch_number':item['shipment_batch_number'],
                             'shipment_appointment':item['shipment_appointment'],
                             'carrier':item['carrier'],
                             'note':item['note'],
@@ -451,7 +469,9 @@ class ShippingManagement(View):
                             'shipment_type':item['shipment_type'],
                             'shipment_account':item['shipment_account'],
                             'load_type':item['load_type'],
-                            'origin':item['warehouse'],
+                            'origin':item['origin'],
+                            'ARM_BOL':item['ARM_BOL'],
+                            'ARM_PRO':item['ARM_PRO'],
                             'PO':[{
                                 'PO_ID': item['PO_ID'],
                                 'container_number':item['container_number'],
@@ -490,11 +510,12 @@ class ShippingManagement(View):
                 "expired_isa":exception_isa["expired_isa"],
                 "mismatched_isa":exception_isa["mismatched_isa"],
                 "discovered_isa":exception_isa["discovered_isa"],
-                "discovered_PO":exception_isa["discovered_PO"],
+                "discovered_PO":list(set(exception_isa["discovered_PO"])),
                 "normal_isa":exception_isa["normal_isa"],
                 "equal_shipment":exception_isa["equal_shipment"],
                 "equal_destination":exception_isa["equal_destination"],
                 "exception_number":exception_number,
+                "mismatched_pallet":exception_isa["mismatched_pallet"]
             }
         return self.template_batch_shipment, context
     
@@ -504,6 +525,7 @@ class ShippingManagement(View):
             "canceled_isa":[],   #取消的约 
             "expired_isa":[],    #过期的约
             "mismatched_isa":{}, #系统现存的约和表格的信息不符的，键值对为：约：{不符的信息}
+            "mismatched_pallet":[],
             "discovered_isa":[], 
             "discovered_PO": [],
             "normal_isa":[],
@@ -525,19 +547,35 @@ class ShippingManagement(View):
                     })
 
                     PO_IDS = []
+                    packing_list_selected = []
                     for po in ISA_value["PO"]:
                         PO_IDS.append(po["PO_ID"])
-                    #add_po中，就是一个预约批次要加的板子
-                    packing_list_selected = []
-                    for ids in PO_IDS:
+                        #add_po中，就是一个预约批次要加的板子
                         packing_lists = await self._get_packing_list(
-                            models.Q(PO_ID=ids),
-                            models.Q(PO_ID=ids),
+                            models.Q(PO_ID=po["PO_ID"]),
+                            models.Q(PO_ID=po["PO_ID"]),
                         )
+                        
+                        cbm_p = .0
+                        flag_cbm = False
+                        for pl in packing_lists:
+                            if isinstance(pl, dict) and 'ids' in pl:
+                                flag_cbm = True
+                                cbm_p += pl['total_cbm']
+                            if isinstance(pl, dict) and 'plt_ids' in pl:
+                                len_plt_ids = len(pl['plt_ids'].split(','))
+                                #比较板数是否一致
+                                if po["pallets"] != len_plt_ids:
+                                    exception_isa["mismatched_pallet"].append(['pallet',po["PO_ID"],po["pallets"],len_plt_ids])                           
+                        if flag_cbm:
+                            #未拆柜的，比较cbm是否一致
+                            if abs(cbm_p - po['cbm']) < 0.1:
+                                exception_isa["mismatched_pallet"].append(['cbm',po["PO_ID"],cbm_p,po['cbm']])
                         if len(packing_lists) != 0:
                             packing_list_selected += packing_lists
                         else:
-                            exception_isa["discovered_PO"].append(ids)
+                            exception_isa["discovered_PO"].append(po["PO_ID"])
+                        #如果是已拆柜的，需要比较下板数是否一致，已拆柜和未拆柜都要比较一下cbm是否一致
                     if len(packing_list_selected) > 1:
                         total_weight, total_cbm, total_pcs, total_pallet = .0, .0, 0, 0                 
                         for pl in packing_list_selected:
@@ -564,7 +602,7 @@ class ShippingManagement(View):
                             if zipcode.lower() not in address.lower():   
                                 address += f", {zipcode}"                              
                         shipment_data = {
-                            "shipment_batch_number": ISA_value["appointment_batch_number"],
+                            "shipment_batch_number": ISA_value["shipment_batch_number"],
                             "destination": destination,
                             "total_weight": total_weight,
                             "total_cbm": total_cbm,
@@ -577,8 +615,10 @@ class ShippingManagement(View):
                             'load_type':ISA_value['load_type'],
                             'origin':ISA_value['origin'],
                             'shipment_appointment':ISA_value['shipment_appointment'],
-                            'carrier':ISA_value['shipment_appointment'],
-                            'note':ISA_value['shipment_appointment']
+                            'carrier':ISA_value['carrier'],
+                            'note':ISA_value['note'],
+                            'ARM_BOL':ISA_value['ARM_BOL'],
+                            'ARM_PRO':ISA_value['ARM_PRO'],
                         }
                         
                         result_exception = await self.handle_batch_shipment_create_branch(shipment_data, exception_isa)
@@ -590,7 +630,12 @@ class ShippingManagement(View):
                         exception_isa["equal_shipment"] = result_exception["equal_shipment"]
                         exception_isa["equal_destination"] = result_exception["equal_destination"]
                 f_weight, f_cbm, f_pcs, f_pallet = .0, .0, 0, 0
-                for s in normal_isa:
+                normal_shipment = await sync_to_async(list)(
+                    Shipment.objects.filter(
+                        appointment_id__in=normal_isa
+                    )
+                )
+                for s in normal_shipment:
                     f_weight += s.total_weight
                     f_cbm += s.total_cbm
                     f_pcs += s.total_pcs
@@ -633,6 +678,8 @@ class ShippingManagement(View):
             "total_pcs",
             "shipment_account",
             "load_type",
+            "ARM_BOL",
+            "ARM_PRO"
         ]
         #有批次号，就校验
         if type(shipment_data["shipment_batch_number"]) != float:
@@ -684,7 +731,7 @@ class ShippingManagement(View):
             except Shipment.DoesNotExist:
                 exception_isa["discovered_isa"].append(shipment_data["appointment_id"])
         else:
-            #没有批次号就创建，先看下ISA有没有用过
+            #没有批次号的考虑创建，先看下ISA有没有用过
             try:
                 existed_appointment = await sync_to_async(Shipment.objects.get)(appointment_id=shipment_data["appointment_id"])
             except:
@@ -696,15 +743,24 @@ class ShippingManagement(View):
                     exception_isa["canceled_isa"].append(shipment_data["appointment_id"])
                 elif existed_appointment.shipment_appointment.replace(tzinfo=pytz.UTC) < timezone.now():
                     exception_isa["expired_isa"].append(shipment_data["appointment_id"])
-            else:#开始创建
-                current_time = datetime.now()
-                batch_id = shipment_data["destination"] + current_time.strftime("%m%d%H%M%S") + str(uuid.uuid4())[:2].upper()
-                batch_id = batch_id.replace(" ", "").upper()
-                shipment_data["shipment_batch_number"] = batch_id
-                new_shipment_data = {k: shipment_data[k] for k in shipment_data if k != 'PO_IDS'}
-                shipment = Shipment(**new_shipment_data)
-                await sync_to_async(shipment.save)()
-                exception_isa["normal_isa"].append(new_shipment_data["appointment_id"])
+            else:
+                #如果提交的excel该ISA下的板数和cbm没有异常就创建
+                exception_plt = False
+                PO_ID = shipment_data['PO_ID']
+                for mis_plt in exception_isa["mismatched_pallet"]:
+                    for po in PO_ID:
+                        if po in mis_plt[1]:
+                            exception_plt = True
+                if not exception_plt:
+                    current_time = datetime.now()
+                    batch_id = shipment_data["destination"] + current_time.strftime("%m%d%H%M%S") + str(uuid.uuid4())[:2].upper()
+                    batch_id = batch_id.replace(" ", "").upper()
+                    shipment_data["shipment_batch_number"] = batch_id
+                    new_shipment_data = {k: shipment_data[k] for k in shipment_data if k != 'PO_IDS'}
+                    shipment = Shipment(**new_shipment_data)
+                    print('开始创建',new_shipment_data)
+                    await sync_to_async(shipment.save)()
+                    exception_isa["normal_isa"].append(new_shipment_data["appointment_id"])
         return exception_isa
 
     async def handle_warehouse_post(self, request: HttpRequest) -> tuple[str, dict[str, Any]]:
@@ -1731,6 +1787,7 @@ class ShippingManagement(View):
                     'po_expired',
                     'container_number__order__vessel_id__vessel_eta',
                     'sequence_number', 
+                    'PO_ID',
                     target_retrieval_timestamp=F('container_number__order__retrieval_id__target_retrieval_timestamp'),
                     target_retrieval_timestamp_lower=F('container_number__order__retrieval_id__target_retrieval_timestamp_lower'),
                     temp_t49_pickup=F('container_number__order__retrieval_id__temp_t49_available_for_pickup'),
@@ -1785,6 +1842,7 @@ class ShippingManagement(View):
                     'container_number__order__offload_id__offload_at',
                     'schedule_status',
                     'container_number__order__vessel_id__vessel_eta',
+                    'PO_ID',
                     target_retrieval_timestamp=F('container_number__order__retrieval_id__target_retrieval_timestamp'),
                     target_retrieval_timestamp_lower=F('container_number__order__retrieval_id__target_retrieval_timestamp_lower'),
                     warehouse=F('container_number__order__retrieval_id__retrieval_destination_precise'),
