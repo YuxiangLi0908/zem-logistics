@@ -925,6 +925,23 @@ class FleetManagement(View):
     
     async def _export_ltl_label(self, request: HttpRequest) -> HttpResponse:
         fleet_number = request.POST.get("fleet_number")
+        customerInfo = request.POST.get("customerInfo")
+        contact_flag = False  #表示地址栏空出来，客服手动P上去
+        if customerInfo and customerInfo != '[]':
+            customerInfo = json.loads(customerInfo)
+            for row in customerInfo: 
+                if row[8] != "":
+                    contact_flag = True           
+                    contact = row[8]
+                    contact = re.sub('[\u4e00-\u9fff]', ' ', contact) 
+                    contact = re.sub(r'\uFF0C', ',', contact)
+                    new_contact = contact.split(';')
+                    contact = {"company":new_contact[0].strip(),
+                            "Road":new_contact[1].strip(),
+                            "city":new_contact[2].strip(),
+                            "name":new_contact[3],
+                            "phone":new_contact[4]}  
+             
         arm_pickup = await sync_to_async(list)(
             Pallet.objects.select_related(
                 "container_number__container_number","shipment_batch_number__fleet_number"
@@ -973,7 +990,14 @@ class FleetManagement(View):
         cropped_image.save(new_buffer, format='PNG')
   
         barcode_base64 = base64.b64encode(new_buffer.getvalue()).decode('utf-8')
-        data = [{"arm_pro": arm_pro, "barcode": barcode_base64, "carrier":carrier, "fraction": f"{i + 1}/{pallets}"} for i in range(pallets)]
+        print(contact_flag,contact)
+        data = [{
+            "arm_pro": arm_pro, 
+            "barcode": barcode_base64, 
+            "carrier":carrier, 
+            "contact":contact,
+            "contact_flag":contact_flag,
+            "fraction": f"{i + 1}/{pallets}"} for i in range(pallets)]
         context = {"data": data}
         template = get_template(self.template_ltl_label)
         html = template.render(context)
