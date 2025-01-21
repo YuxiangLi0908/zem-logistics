@@ -881,32 +881,17 @@ class Palletization(View):
             ).order_by("-cbm"))
         elif status == "palletized":
             return await sync_to_async(list)(Pallet.objects.select_related(
-                "container_number"
-            ).filter(
-                container_number__container_number=container_number
-            ).annotate(
-                str_id=Cast("id", CharField()),
-                str_length=Cast("length", CharField()),
-                str_width=Cast("width", CharField()),
-                str_height=Cast("height", CharField()),
-                str_pcs=Cast("pcs",CharField()),
-                str_number=Cast("sequence_number",CharField()),
-                str_weight=Cast("weight_lbs",CharField()),
-            ).values(
-                "container_number__container_number", "destination", "note","PO_ID",
-                custom_delivery_method=F("delivery_method"),
-            ).annotate(
-                pcs=Sum("pcs", output_field=IntegerField()),
-                cbm=Sum("cbm", output_field=FloatField()),
-                n_pallet=Count('pallet_id', distinct=True),
-                ids=StringAgg("str_id", delimiter=",", distinct=True, ordering="str_id"),
-                length=StringAgg("str_length", delimiter=",", ordering="str_length"),
-                width=StringAgg("str_width", delimiter=",", ordering="str_width"),
-                height=StringAgg("str_height", delimiter=",", ordering="str_height"),
-                n_pcs=StringAgg("str_pcs", delimiter=",", ordering="str_pcs"),
-                number=StringAgg("str_number", delimiter=",", ordering="str_number"),
-                weight=StringAgg("str_weight", delimiter=",", ordering="str_weight"),
-            ).order_by("-cbm"))
+                    "container_number"
+                ).filter(
+                    container_number__container_number=container_number
+                ).values(
+                    "container_number__container_number", "delivery_method", "destination", "fba_id", "ref_id", "shipping_mark", "note","PO_ID"
+                ).annotate(
+                    pcs=Sum("pcs", output_field=IntegerField()),
+                    cbm=Sum("cbm", output_field=FloatField()),
+                    n_pallet=Count("pallet_id", distinct=True),
+                ).order_by("-cbm")
+            )
         else:
             raise ValueError(f"invalid status: {status}")
 
