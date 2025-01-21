@@ -2,7 +2,7 @@ import ast
 import uuid
 import re
 import barcode
-import os,json,io,base64
+import os, json, io, base64
 from PIL import Image
 from barcode.writer import ImageWriter
 import pandas as pd
@@ -15,9 +15,8 @@ from django.http import HttpRequest, HttpResponse
 from django.shortcuts import render, redirect
 from django.views import View
 from django.db import models
-from django.http import JsonResponse
-from django.db.models import CharField, Sum, FloatField, Count, Case, Value, F, Max, IntegerField, When, Q
-from django.db.models.functions import Concat, Cast
+from django.db.models import CharField, Sum, FloatField, Count, Case, Value, F, IntegerField, When, Q
+from django.db.models.functions import Cast
 from django.contrib.postgres.aggregates import StringAgg
 from django.template.loader import get_template
 from django.utils import timezone
@@ -26,10 +25,8 @@ from office365.runtime.auth.user_credential import UserCredential
 from office365.sharepoint.client_context import ClientContext
 from office365.sharepoint.sharing.links.kind import SharingLinkKind
 import matplotlib
-matplotlib.use('Agg')
-matplotlib.rcParams['font.size'] = 100
+
 import matplotlib.pyplot as plt
-plt.rcParams['font.sans-serif'] = ['SimHei']
 import matplotlib.pyplot as plt
 from PyPDF2 import PdfMerger, PdfReader
 
@@ -42,7 +39,7 @@ from warehouse.models.fleet import Fleet
 from warehouse.models.warehouse import ZemWarehouse
 from warehouse.forms.warehouse_form import ZemWarehouseForm
 from warehouse.forms.upload_file import UploadFileForm
-from warehouse.views.export_file import export_palletization_list, link_callback
+from warehouse.views.export_file import link_callback
 from warehouse.utils.constants import (
     APP_ENV,
     SP_USER,
@@ -52,6 +49,10 @@ from warehouse.utils.constants import (
     SYSTEM_FOLDER,
     DELIVERY_METHOD_OPTIONS
 )
+
+matplotlib.use('Agg')
+matplotlib.rcParams['font.size'] = 100
+plt.rcParams['font.sans-serif'] = ['SimHei']
 
 
 class FleetManagement(View):
@@ -378,11 +379,11 @@ class FleetManagement(View):
                 shipment_batch_number__fleet_number__fleet_number__isnull=False,
                 shipment_batch_number__fleet_number__departured_at__isnull=True
             ),
-            location = warehouse,
-            destination__in = destinations,
+            location=warehouse,
+            destination__in=destinations,
             container_number__order__offload_id__offload_at__isnull=False,
         )
-        plt_unshipped = await self._get_packing_list(criteria_plt,selected_fleet_number)
+        plt_unshipped = await self._get_packing_list(criteria_plt, selected_fleet_number)
         context.update({
             "selected_fleet": selected_fleet,
             "shipment": shipment,
@@ -1238,6 +1239,7 @@ class FleetManagement(View):
     #         "warehouse_form": ZemWarehouseForm(initial={"name": warehouse})
     #     }
     #     return self.template_fleet_warehouse_search, context
+
     async def _get_packing_list(
         self, 
         plt_criteria: models.Q | None = None,

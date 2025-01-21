@@ -4,6 +4,8 @@ import asyncio
 import barcode
 import io,base64
 import sys
+import random
+import string
 from PIL import Image
 from barcode.writer import ImageWriter
 from asgiref.sync import sync_to_async
@@ -32,7 +34,7 @@ from warehouse.models.shipment import Shipment
 from warehouse.forms.warehouse_form import ZemWarehouseForm
 from warehouse.forms.packling_list_form import PackingListForm
 from warehouse.views.export_file import export_palletization_list
-from warehouse.utils.constants import DELIVERY_METHOD_OPTIONS, WAREHOUSE_OPTIONS
+from warehouse.utils.constants import DELIVERY_METHOD_CODE, DELIVERY_METHOD_OPTIONS, WAREHOUSE_OPTIONS
 
 
 class Palletization(View):
@@ -360,11 +362,11 @@ class Palletization(View):
             pallet.cbm = round(float(length[i]) * float(width[i]) * float(height[i]) * 0.0254*0.0254*0.0254, 5)
             if destination:
                 pallet.sequence_number = i+1
+                pallet.PO_ID = f"{pallet.PO_ID}_{i+1}"
             pallets.append(pallet)
-            
         await sync_to_async(Pallet.objects.bulk_update)(
             pallets,
-            ["length","width","height","pcs","weight_lbs","cbm","sequence_number"]
+            ["length", "width", "height", "pcs", "weight_lbs", "cbm", "sequence_number", "PO_ID"]
         )
         request.GET.warehouse = request.POST.get("warehouse")
         request.GET.step = "container_palletization"
@@ -378,7 +380,7 @@ class Palletization(View):
         ).get)(pk=pk)
         offload = order_selected.offload_id
         container = order_selected.container_number
-        newForcast = request.POST.getlist("new_destinations")    
+        additional_pallets = request.POST.getlist("new_destinations")    
         warehouse = order_selected.warehouse.name     
         if not offload.offload_at:
             cn = pytz.timezone('Asia/Shanghai')
@@ -400,15 +402,18 @@ class Palletization(View):
             fba_ids = request.POST.getlist("fba_ids")
             ref_ids = request.POST.getlist("ref_ids")
             notes = [d for d in request.POST.getlist("note")]
+            po_ids = request.POST.getlist("po_ids")
             total_pallet = sum(n_pallet)
             abnormal_offloads = []
-            for n, p_a, p_r, c, w, dest, d_m, note, shipment, shipping_mark, fba_id, ref_id, addr, zipcode, contact_name in zip(
+            pallet_data = []
+            for n, p_a, p_r, c, w, dest, d_m, note, shipment, shipping_mark, fba_id, ref_id, addr, zipcode, contact_name, po_id in zip(
                 n_pallet, pcs_actual, pcs_reported, cbm, weight, destinations, delivery_method, 
-                notes, shipment_batch_number, shipping_marks, fba_ids, ref_ids, addresses, zipcodes, contact_names
+                notes, shipment_batch_number, shipping_marks, fba_ids, ref_ids, addresses, zipcodes, contact_names,
+                po_ids
             ):
-                await self._split_pallet(
+                pallet_data += await self._split_pallet(
                     order_selected, n, p_a, p_r, c, w, dest, d_m, note, shipment, 
-                    shipping_mark, fba_id, ref_id, pk, addr, zipcode, contact_name,
+                    shipping_mark, fba_id, ref_id, po_id, pk, addr, zipcode, contact_name,
                 )  #循环遍历每个汇总的板数
                 if p_a != p_r:
                     abnormal_offloads.append({
@@ -421,7 +426,7 @@ class Palletization(View):
                         "pcs_reported": p_r,
                         "pcs_actual": p_a,
                     })
-            if newForcast:
+            if additional_pallets:
                 #如果有多货的情况，因为前端目前新增行的时候通过clone id="palletization-row-empty"的行，所以会增加input，值为空，所以下面就进行了去重工作
                 #计划是把多货的打板和正常预报的货一起做，但是因为多的input比较乱的插入在input中，不太好去重，所以就把新增的新命名了，然后直接去重
                 new_destinations = request.POST.getlist("new_destinations")
@@ -433,14 +438,26 @@ class Palletization(View):
                 ref_ids = request.POST.getlist("new_ref_ids")
                 new_notes = request.POST.getlist("new_notes")
                 new_cbm = [float(value) if value else 0 for value in request.POST.getlist("new_cbms")]
+                #生成新的PO_ID
+                new_po_ids = []
+                seq_num = 0
+                for dm, dest in zip(new_delivery_method, new_destinations):
+                    if dm in ["暂扣留仓(HOLD)", "暂扣留仓"]:
+                        po_id_seg = f"H{''.join(random.choices(string.ascii_letters.upper() + string.digits, k=4))}"
+                    elif dm == "客户自提" or dest == "客户自提":
+                        po_id_seg = f"S{''.join(random.choices(string.ascii_letters.upper() + string.digits, k=4))}"
+                    else:
+                        po_id_seg = f"{DELIVERY_METHOD_CODE.get(dm, 'UN')}{''.join(random.choices(string.ascii_letters.upper() + string.digits, k=4))}"
+                    new_po_ids.append(f"A{container.container_number[-4:]}{po_id_seg}{seq_num}")
+                    seq_num += 1
                 #生成pallet
-                for n, p_a, c, dest, d_m, note, shipping_mark, fba_id, ref_id in zip(
+                for n, p_a, c, dest, d_m, note, shipping_mark, fba_id, ref_id, po_id in zip(
                     new_pallets, new_pcs_actul, new_cbm, new_destinations, new_delivery_method, new_notes,
-                    shipping_marks, fba_ids, ref_ids, 
+                    shipping_marks, fba_ids, ref_ids, new_po_ids
                 ):
-                    await self._split_pallet(
+                    pallet_data += await self._split_pallet(
                         order_selected, n, p_a, 0, c, 0, dest, d_m, note, "None", 
-                        shipping_mark, fba_id, ref_id, pk, seed=1
+                        shipping_mark, fba_id, ref_id, po_id, pk, seed=1
                     )  
                     #记录异常拆柜
                     abnormal_offloads.append({
@@ -456,6 +473,9 @@ class Palletization(View):
             offload.total_pallet = total_pallet
             offload.offload_at = current_time_cn
             await sync_to_async(offload.save)()
+            await sync_to_async(Pallet.objects.bulk_create)(
+                Pallet(**d) for d in pallet_data
+            )
             await self._update_shipment_stats(ids)
             await sync_to_async(AbnormalOffloadStatus.objects.bulk_create)(
                 AbnormalOffloadStatus(**d) for d in abnormal_offloads
@@ -710,12 +730,13 @@ class Palletization(View):
         shipping_mark: str, 
         fba_id: str, 
         ref_id: str,
+        po_id: str,
         pk: int,
         address: str | None = None,
         zipcode: str | None = None,
         contact_name: str | None = None,
         seed: int = 0
-    ) -> None:
+    ) -> list[dict[str, Any]]:
         if n == 0 or n is None:
             return
         pallet_ids = [
@@ -758,8 +779,9 @@ class Palletization(View):
                 "ref_id": ref_id if ref_id else "",
                 "abnormal_palletization": p_a != p_r,
                 "location": order.warehouse.name,
+                "PO_ID":po_id,
             })
-        await sync_to_async(Pallet.objects.bulk_create)([Pallet(**d) for d in pallet_data])
+        return pallet_data
 
     async def _update_shipment_stats(self, ids: list[Any]) -> None:
         ids = [int(j) for i in ids for j in i]
@@ -794,6 +816,39 @@ class Palletization(View):
             s.total_weight = shipment_stats[s.shipment_batch_number]["weight_lbs"]
             s.total_pcs = shipment_stats[s.shipment_batch_number]["total_pcs"]
         await sync_to_async(Shipment.objects.bulk_update)(shipment_list, ["total_cbm", "total_pallet", "total_weight", "total_pcs"])
+        shipment_batch_number = set([pl.shipment_batch_number.shipment_batch_number for pl in packing_list if pl.shipment_batch_number])
+        await self._update_fleet_stats(shipment_batch_number)
+
+    async def _update_fleet_stats(self, shipment_batch_number: list[str]) -> None:
+        fleet = await sync_to_async(list)(Fleet.objects.filter(shipment__shipment_batch_number__in=shipment_batch_number))
+        if fleet:
+            fleet_number = [f.fleet_number for f in fleet]
+            fleet_stats = await sync_to_async(list)(Pallet.objects.select_related(
+                "shipment_batch_number", "shipment_batch_number__fleet_number"
+            ).filter(
+                shipment_batch_number__fleet_number__fleet_number__in=fleet_number
+            ).values(
+                "shipment_batch_number__fleet_number__fleet_number"
+            ).annotate(
+                total_pcs=Sum("pcs", output_field=IntegerField()),
+                total_cbm=Sum("cbm", output_field=FloatField()),
+                weight_lbs=Sum("weight_lbs", output_field=FloatField()),
+                total_n_pallet=Count('pallet_id', distinct=True, output_field=IntegerField()),
+            ))
+            fleet_stats = {
+                f["shipment_batch_number__fleet_number__fleet_number"]: {
+                    "total_pcs": f["total_pcs"],
+                    "total_cbm": f["total_cbm"],
+                    "weight_lbs": f["weight_lbs"],
+                    "total_n_pallet": f["total_n_pallet"],
+                } for f in fleet_stats
+            }
+            for f in fleet:
+                f.total_cbm = fleet_stats[f.fleet_number]["total_cbm"]
+                f.total_pallet = fleet_stats[f.fleet_number]["total_n_pallet"]
+                f.total_weight = fleet_stats[f.fleet_number]["weight_lbs"]
+                f.total_pcs = fleet_stats[f.fleet_number]["total_pcs"]
+            await sync_to_async(Fleet.objects.bulk_update)(fleet, ["total_cbm", "total_pallet", "total_weight", "total_pcs"])
 
     async def _get_packing_list(self, container_number:str, status: str) -> PackingList:
         if status == "non_palletized":
@@ -812,7 +867,7 @@ class Palletization(View):
                 str_shipping_mark=Cast("shipping_mark", CharField()),
             ).values(
                 "container_number__container_number", "destination", "address", "zipcode", "contact_name",
-                "custom_delivery_method", "note", "shipment_batch_number__shipment_batch_number"
+                "custom_delivery_method", "note", "shipment_batch_number__shipment_batch_number","PO_ID"
             ).annotate(
                 fba_ids=StringAgg("str_fba_id", delimiter=",", distinct=True),
                 ref_ids=StringAgg("str_ref_id", delimiter=",", distinct=True),
@@ -838,7 +893,7 @@ class Palletization(View):
                 str_number=Cast("sequence_number",CharField()),
                 str_weight=Cast("weight_lbs",CharField()),
             ).values(
-                "container_number__container_number", "destination", "note",
+                "container_number__container_number", "destination", "note","PO_ID",
                 custom_delivery_method=F("delivery_method"),
             ).annotate(
                 pcs=Sum("pcs", output_field=IntegerField()),

@@ -1,0 +1,134 @@
+{% extends 'base.html' %}
+
+{% block content %}
+<div><b>预约出库</b></div>
+<div style="max-height: 100%; max-width: 100%; overflow: hidden;">
+    <form method="post" enctype="multipart/form-data" style="font-size: 11px;">      
+        <div>
+            {% csrf_token %}
+            导入模版:
+            <input type="file" name="file">
+            <input type="hidden" name="step" value="upload_batch_shipment">
+            <button type="submit" class="btn btn-success" style="width: 100px; height: 35px; font-size: 12px; margin: 5px;">上传预约表</button>
+        </div>
+    </form>
+</div>
+
+<div style="display: flex; max-height: 720px;">
+    <div style="overflow-y: auto; max-height: 100%; width: 60%; border: 2px solid rgb(180, 180, 180); border-radius: 12px; padding: 1%; margin: 1%;">
+        <div>
+            <b style="background-color: rgb(208, 208, 208); border-radius: 20px; font-size: 11px; display:inline-flex; color: rgb(100, 100, 100); padding: 5px;">
+                创建成功批次 - {{ created_isa|length }}
+            </b>
+        </div>
+        <div style="max-height: 95%; overflow-y: scroll;">
+            <table id="shipment-table" class="table" style="font-size: 11px; max-height: 90%; overflow-y: scroll;">
+                <thead>
+                    <tr style="position: sticky; top: 0px;">
+                        <th class="th">车次</th>
+                        <th class="th">车次编号</th>
+                        <th class="th">AMF_ID</th>
+                        <th class="th">Carrier</th>
+                        <th class="th">提货时间</th>
+                        <th class="th">预约批次</th>
+                        <th class="th">ISA</th>
+                        <th class="th">Scheduled Time</th>
+                        <th class="th">总重lbs</th>
+                        <th class="th">总CBM</th>
+                        <th class="th">总卡板数</th>
+                        <th class="th">备注</th>
+                    </tr>
+                    <tr style="position: sticky; top: 28px;">
+                        <th class="th"><input type="text" placeholder="搜索车次..." oninput="filterTable(this, 0)" size="13" style="font-size: 11px;"></th>
+                        <th class="th"><input type="text" placeholder="搜索车次编号..." oninput="filterTable(this, 1)" size="13" style="font-size: 11px;"></th>
+                        <th class="th"><input type="text" placeholder="搜索AMF_ID..." oninput="filterTable(this, 2)" size="13" style="font-size: 11px;"></th>
+                        <th class="th"><input type="text" placeholder="搜索Carrier..." oninput="filterTable(this, 3)" size="13" style="font-size: 11px;"></th>
+                        <th class="th"></th>
+                        <th class="th"><input type="text" placeholder="搜索预约批次..." oninput="filterTable(this, 5)" size="13" style="font-size: 11px;"></th>
+                        <th class="th"><input type="text" placeholder="搜索ISA..." oninput="filterTable(this, 6)" size="13" style="font-size: 11px;"></th>
+                        <th class="th"></th>
+                        <th class="th"></th>
+                        <th class="th"></th>
+                        <th class="th"></th>
+                        <th class="th"></th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for s in created_isa %}
+                    <tr>
+                        <td class="td">{{ s.fleet_number.fleet_number }}</td>
+                        <td class="td">{{ s.fleet_number.fleet_zem_serial }}</td>
+                        <td class="td">{{ s.fleet_number.amf_id }}</td>
+                        <td class="td">{{ s.fleet_number.carrier }}</td>
+                        <td class="td">{{ s.fleet_number.appointment_datetime }}</td>
+                        <td class="td">{{ s.shipment_batch_number }}</td>
+                        <td class="td">{{ s.appointment_id }}</td>
+                        <td class="td">{{ s.shipment_appointment }}</td>
+                        <td class="td">{{ s.total_weight|floatformat:2 }}</td>
+                        <td class="td">{{ s.total_cbm|floatformat:2 }}</td>
+                        <td class="td">{{ s.total_pallet }}</td>
+                        <td class="td" style="max-width: 120px; word-break: break-all;">{{ s.note|default_if_none:'' }}</td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </div>
+
+    <div style="overflow-y: auto; max-height: 100%; width: 40%; border: 2px solid rgb(180, 180, 180); border-radius: 12px; padding: 1%; margin: 1%;">
+        <div>
+            <b style="background-color: rgb(208, 208, 208); border-radius: 20px; font-size: 11px; display:inline-flex; color: rgb(100, 100, 100); padding: 5px;">
+                创建失败批次 - {{ failed_fleet|length }}
+            </b>
+        </div>
+        <div style="max-height: 95%; overflow-y: scroll;">
+            <table id="shipment-table" class="table" style="font-size: 11px; max-height: 90%; overflow-y: scroll;">
+                <thead>
+                    <tr style="position: sticky; top: 0px;">
+                        <th class="th">车次编号</th>
+                        <th class="th">ISA</th>
+                        <th class="th" style="word-break: break-all;">创建失败原因</th>
+                    </tr>
+                    <tr style="position: sticky; top: 28px;">
+                        <th class="th"><input type="text" placeholder="搜索车次编号..." oninput="filterTable(this, 0)" size="13" style="font-size: 11px;"></th>
+                        <th class="th"><input type="text" placeholder="搜索ISA..." oninput="filterTable(this, 1)" size="13" style="font-size: 11px;"></th>
+                        <th class="th"></th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for c in failed_fleet %}
+                    <tr>
+                        <td class="td">{{ c.fleet_serial }}</td>
+                        <td class="td">{{ c.ISA }}</td>                                                       
+                        <td class="td" style="word-break: break-all;">{{ c.reason }}</td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </div>
+</div>
+
+
+<script>
+    function filterTable(filterInput, col_idx, trim) {
+        var containerInput, containerFilter, table, tbody, tr, containerTd, i, containerTxtValue;
+        containerFilter = filterInput.value.toUpperCase();
+        var table = filterInput.closest('table');
+        tbody = table.getElementsByTagName("tbody")[0];
+        tr = tbody.getElementsByTagName("tr");
+
+        for (i = 0; i < tr.length; i++) {
+            containerTd = tr[i].getElementsByTagName("td")[col_idx];
+            if (containerTd) {
+                containerTxtValue = containerTd.textContent || containerTd.innerText;
+                containerTxtValue = trim ? containerTxtValue.toUpperCase().trim() : containerTxtValue.toUpperCase()
+                var containerDisplayStyle_1 = containerTxtValue.indexOf(containerFilter) > -1 ? "" : "none";
+                var containerDisplayStyle_2 = containerFilter.indexOf(containerTxtValue) > -1 ? "" : "none";
+                // Set display style based on both container and customer filters
+                tr[i].style.display = containerDisplayStyle_1 === "" || containerDisplayStyle_2 === "" ? "" : "none";
+            }
+        }
+    };
+</script>
+{% endblock %}

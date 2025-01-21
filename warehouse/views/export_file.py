@@ -96,7 +96,7 @@ async def export_palletization_list(request: HttpRequest) -> HttpResponse:
                 str_shipping_mark=Cast("shipping_mark", CharField()),
             ).values(
                 "container_number__container_number", "destination", "address", "zipcode", "contact_name",
-                "custom_delivery_method", "note", "shipment_batch_number__shipment_batch_number"
+                "custom_delivery_method", "note", "shipment_batch_number__shipment_batch_number", "PO_ID"
             ).annotate(
                 fba_ids=StringAgg("str_fba_id", delimiter=",", distinct=True),
                 ref_ids=StringAgg("str_ref_id", delimiter=",", distinct=True),
@@ -122,7 +122,7 @@ async def export_palletization_list(request: HttpRequest) -> HttpResponse:
                 str_number=Cast("sequence_number",CharField()),
                 str_weight=Cast("weight_lbs",CharField()),
             ).values(
-                "container_number__container_number", "destination", "note",
+                "container_number__container_number", "delivery_method", "destination", "fba_id", "ref_id", "shipping_mark", "note", "PO_ID",
                 custom_delivery_method=F("delivery_method"),
             ).annotate(
                 pcs=Sum("pcs", output_field=IntegerField()),
@@ -151,7 +151,7 @@ async def export_palletization_list(request: HttpRequest) -> HttpResponse:
     df["delivery_method"] = df["delivery_method"].apply(lambda x: x.split("-")[0])
     df = df[[
         "container_number", "destination", "delivery_method",
-        "fba_id", "ref_id", "shipping_mark", "pcs", "cbm", "n_pallet", "note",
+        "fba_id", "ref_id", "shipping_mark", "pcs", "cbm", "n_pallet", "PO_ID", "note"
     ]]
     response = HttpResponse(content_type='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet')
     response['Content-Disposition'] = f"attachment; filename={container_number}.xlsx"

@@ -14,6 +14,7 @@ class Pallet(models.Model):
     zipcode = models.CharField(max_length=20, null=True, blank=True)
     delivery_method = models.CharField(max_length=255, null=True, blank=True)
     pallet_id = models.CharField(max_length=255, null=True, blank=True)
+    PO_ID = models.CharField(max_length=20, null=True, blank=True)
     shipping_mark = models.CharField(max_length=2000, null=True, blank=True)
     fba_id = models.CharField(max_length=2000, null=True, blank=True)
     ref_id = models.CharField(max_length=2000, null=True, blank=True)
@@ -32,5 +33,10 @@ class Pallet(models.Model):
     contact_name = models.CharField(max_length=255, null=True, blank=True)
     invoice_delivery = models.ForeignKey(InvoiceDelivery,null=True, blank=True, on_delete=models.SET_NULL,related_name='pallet_delivery')
 
+    class Meta:
+        indexes = [
+            models.Index(fields=['PO_ID']),
+        ]
+    
     def __str__(self):
         return f"{self.container_number}-{self.destination}-{self.delivery_method}"

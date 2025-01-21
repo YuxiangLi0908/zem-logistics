@@ -17,6 +17,7 @@ class Shipment(models.Model):
     is_shipment_schduled = models.BooleanField(default=False, blank=True)
     shipment_schduled_at = models.DateTimeField(null=True, blank=True)
     shipment_appointment = models.DateTimeField(null=True, blank=True)
+    shipment_appointment_tz = models.CharField(max_length=20, null=True, blank=True)
     is_shipped = models.BooleanField(default=False, null=True, blank=True)
     shipped_at = models.DateTimeField(null=True, blank=True)
     is_full_out = models.BooleanField(default=False, null=True, blank=True)
@@ -49,6 +50,12 @@ class Shipment(models.Model):
     previous_fleets = models.CharField(max_length=1000, null=True, blank=True)
     ARM_BOL = models.CharField(max_length=255, null=True, blank=True)
     ARM_PRO = models.CharField(max_length=255, null=True, blank=True)
+
+    class Meta:
+        indexes = [
+            models.Index(fields=['shipment_batch_number']),
+            models.Index(fields=['appointment_id']),
+        ]
 
     def __str__(self) -> str:
         if self.shipment_batch_number:

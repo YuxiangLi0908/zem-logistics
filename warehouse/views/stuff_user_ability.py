@@ -1,4 +1,7 @@
 import uuid
+import re
+import random
+import string
 
 from typing import Any
 from datetime import datetime
@@ -8,7 +11,7 @@ from django.contrib.auth.decorators import login_required
 from django.utils.decorators import method_decorator
 from django.views import View
 from django.http import HttpRequest, HttpResponse, HttpResponseForbidden
-from django.db.models import Case, Value, CharField, F, Sum, Max, FloatField, IntegerField, When, Count, Q
+from django.db.models import Sum, FloatField, IntegerField, Count
 from django.shortcuts import render
 from django.db import models
 
@@ -22,6 +25,8 @@ from warehouse.models.shipment import Shipment
 from warehouse.models.warehouse import ZemWarehouse
 from warehouse.models.pallet import Pallet
 from warehouse.forms.upload_file import UploadFileForm
+from warehouse.utils.constants import DELIVERY_METHOD_CODE
+
 
 @method_decorator(login_required(login_url='login'), name='dispatch')
 class StuffPower(View):
@@ -74,6 +79,9 @@ class StuffPower(View):
             return render(request, template, context)
         elif step == "update_inventory":
             template, context = self.update_inventory(request)
+            return render(request, template, context)
+        elif step == "po_id_batch_generation":
+            template, context = self.po_id_batch_generation(request)
             return render(request, template, context)
         else:
             self._remove_offload()
@@ -489,6 +497,79 @@ class StuffPower(View):
             "inventory_updated": True,
             "count": cnt,
             "pre_port_t49_tracking": UploadFileForm(),
+        }
+        return self.template_1, context
+    
+    def po_id_batch_generation(self, request: HttpRequest)  -> tuple[Any, Any]:
+        start_date = request.POST.get("start_date")
+        end_date = request.POST.get("end_date")
+        pallet = Pallet.objects.select_related(
+            "container_number"
+        ).filter(
+            container_number__order__created_at__gte=start_date,
+            container_number__order__created_at__lte=end_date,
+            container_number__order__offload_id__offload_at__isnull=False,
+        )
+        packinglist = PackingList.objects.select_related(
+            "container_number"
+        ).filter(
+            container_number__order__created_at__gte=start_date,
+            container_number__order__created_at__lte=end_date,
+            # container_number__order__offload_id__offload_at__isnull=True,
+        )
+        po_id_hash = {}
+        cnt = 0
+        for p in pallet:
+            po_id_seg = ""
+            random_seg =''.join(random.choices(string.ascii_letters.upper() + string.digits, k=4))
+            container_number = p.container_number.container_number
+            if p.delivery_method in ["暂扣留仓(HOLD)", "暂扣留仓"]:
+                po_id_hkey = f"{container_number}-{p.delivery_method}-{p.fba_id}"
+                po_id_seg = f"H{p.fba_id[-4:]}" if p.fba_id else f"H{random_seg}"
+            elif p.delivery_method == "客户自提" or p.destination == "客户自提":
+                po_id_hkey = f"{container_number}-{p.delivery_method}-{p.destination}-{p.shipping_mark}"
+                po_id_seg = f"S{p.shipping_mark[-4:]}" if p.shipping_mark else f"S{random_seg}"
+            else:
+                po_id_hkey = f"{container_number}-{p.delivery_method}-{p.destination}"
+                po_id_seg = f"{DELIVERY_METHOD_CODE.get(p.delivery_method, 'UN')}{p.destination.replace(' ', '').split('-')[-1]}"
+
+            if po_id_hkey in po_id_hash:
+                po_id = po_id_hash.get(po_id_hkey)
+            else:
+                po_id = f"{container_number[-4:]}{po_id_seg}{''.join(random.choices(string.digits, k=2))}"
+                po_id = re.sub(r'[\u4e00-\u9fff]', '', po_id)
+                po_id_hash[po_id_hkey] = po_id
+            p.PO_ID = po_id
+            cnt += 1
+        
+        for p in packinglist:
+            po_id_seg = ""
+            random_seg =''.join(random.choices(string.ascii_letters.upper() + string.digits, k=4))
+            container_number = p.container_number.container_number
+            if p.delivery_method in ["暂扣留仓(HOLD)", "暂扣留仓"]:
+                po_id_hkey = f"{container_number}-{p.delivery_method}-{p.fba_id}"
+                po_id_seg = f"H{p.fba_id[-4:]}" if p.fba_id else f"H{random_seg}"
+            elif p.delivery_method == "客户自提" or p.destination == "客户自提":
+                po_id_hkey = f"{container_number}-{p.delivery_method}-{p.destination}-{p.shipping_mark}"
+                po_id_seg = f"S{p.shipping_mark[-4:]}" if p.shipping_mark else f"S{random_seg}"
+            else:
+                po_id_hkey = f"{container_number}-{p.delivery_method}-{p.destination}"
+                po_id_seg = f"{DELIVERY_METHOD_CODE.get(p.delivery_method, 'UN')}{p.destination.replace(' ', '').split('-')[-1]}"
+                
+            if po_id_hkey in po_id_hash:
+                po_id = po_id_hash.get(po_id_hkey)
+            else:
+                po_id = f"{container_number[-4:]}{po_id_seg}{''.join(random.choices(string.digits, k=2))}"
+                po_id = re.sub(r'[\u4e00-\u9fff]', '', po_id)
+            p.PO_ID = po_id
+            cnt += 1
+        Pallet.objects.bulk_update(pallet, ["PO_ID"])
+        PackingList.objects.bulk_update(packinglist, ["PO_ID"])
+        context = {
+            "start_date": start_date,
+            "end_date": end_date,
+            "count": cnt,
+            "po_id_updated": True,
         }
         return self.template_1, context
 

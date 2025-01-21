@@ -126,64 +126,17 @@
 <div>
     <form method="post" enctype="multipart/form-data" style="font-size: 11px;">
         {% csrf_token %}
-        update shipment
-        <input type="hidden" name="step" value="update_shipment">
+        batch generate PO_ID
+        <input type="hidden" name="step" value="po_id_batch_generation">
+        <input type="date" name="start_date" value="{{ start_date }}">
+        <input type="date" name="end_date" value="{{ end_date }}">
         <button type="submit" class="btn btn-danger" style="height: 35px; font-size: 12px; margin: 5px;">
-            update shipment
+            update PO_ID
         </button>
     </form>
-    {% if shipment_updated %}
-    <b>Successfully update {{ count }} shipments!</b>
+    {% if po_id_updated %}
+    <b>Successfully update {{ count }} PO!</b>
     {% endif %}
 </div>
 
-<div>
-    <form method="post" enctype="multipart/form-data" style="font-size: 11px;">
-        {% csrf_token %}
-        update pallet
-        <input type="hidden" name="step" value="update_pallet">
-        <input type="date" name="start_date" value="{{ pallet_update_start_date }}">
-        <input type="date" name="end_date" value="{{ pallet_update_end_date }}">
-        <button type="submit" class="btn btn-danger" style="height: 35px; font-size: 12px; margin: 5px;">
-            update pallet
-        </button>
-    </form>
-    {% if pallet_updated %}
-    <b>Successfully update {{ count }} pallets!</b>
-    {% endif %}
-</div>
-
-<div>
-    <form method="post" enctype="multipart/form-data" style="font-size: 11px;">
-        {% csrf_token %}
-        update shipment stats
-        <input type="hidden" name="step" value="update_shipment_stats">
-        <input type="date" name="start_date" value="{{ shipment_start_date }}">
-        <input type="date" name="end_date" value="{{ shipment_end_date }}">
-        <button type="submit" class="btn btn-danger" style="height: 35px; font-size: 12px; margin: 5px;">
-            update shipment stats
-        </button>
-    </form>
-    {% if shipment_stats_updated %}
-    <b>Successfully update {{ count }} shipment!</b>
-    {% endif %}
-</div>
-
-<div>
-    <form method="post" enctype="multipart/form-data" style="font-size: 11px;">
-        {% csrf_token %}
-        Update Inventory
-        {{ pre_port_t49_tracking.file }}
-        <input type="hidden" name="step" value="update_inventory">
-        仓库: <input name="warehouse" value="">
-        Pallet_end_date: <input type="date" name="pallet_end_date">
-        <button type="submit" class="btn btn-danger" style="height: 35px; font-size: 12px; margin: 5px;">
-            <i class="bi bi-cloud-arrow-up-fill"></i> 上传
-        </button>
-    </form>
-    
-    {% if inventory_updated %}
-    <b>Successfully update {{ count }} pallet!</b>
-    {% endif %}
-</div>
 {% endblock %}
