@@ -133,7 +133,6 @@ async def export_palletization_list(request: HttpRequest) -> HttpResponse:
         "ref_ids": "ref_id",
         "shipping_marks": "shipping_mark"
     }, axis=1)
-    print('派送方式',df["delivery_method"])
     df["delivery_method"] = df["delivery_method"].apply(lambda x: x.split("-")[0])
     df = df[[
         "container_number", "destination", "delivery_method",

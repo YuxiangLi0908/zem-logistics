@@ -453,7 +453,7 @@ class ShippingManagement(View):
                     data[last_fleet] = {
                         'appointment_datetime': appointment_datetime,
                         'appointment_datetime_tz': appointment_datetime_tz,
-                        'carrier': item['carrier'],
+                        'carrier': item['carrier'].strip(),
                         'origin': item['origin'],
                         'cost_price':item['cost_price'],
                         'amf_id': item['AMF_ID'],
@@ -463,7 +463,7 @@ class ShippingManagement(View):
                                 'shipment_batch_number':item['shipment_batch_number'],
                                 'shipment_appointment':shipment_appointment,
                                 'shipment_appointment_tz': shipment_appointment_tz,
-                                'carrier':item['carrier'],
+                                'carrier':item['carrier'].strip(),
                                 'note':item['note'],                            
                                 'shipment_type':item['shipment_type'],
                                 'shipment_account':item['shipment_account'],
@@ -493,7 +493,7 @@ class ShippingManagement(View):
                         data[last_fleet]['shipment'][last_ISA]={
                             'shipment_appointment': shipment_appointment,
                             'shipment_appointment_tz': shipment_appointment_tz,
-                            'carrier':item['carrier'],
+                            'carrier':item['carrier'].strip(),
                             'note':item['note'],
                             'shipment_type':item['shipment_type'],
                             'shipment_account':item['shipment_account'],
@@ -697,7 +697,7 @@ class ShippingManagement(View):
             fleet = Fleet(**{
                 "fleet_number": "FO" + current_time.strftime("%m%d%H%M%S") + str(uuid.uuid4())[:2].upper(),
                 "fleet_zem_serial": fleet_serial,
-                "carrier": fleet_data["carrier"],
+                "carrier": fleet_data["carrier"].strip(),
                 "appointment_datetime": fleet_data["appointment_datetime"],
                 "appointment_datetime_tz": fleet_data["appointment_datetime_tz"],
                 "fleet_type": fleet_data["fleet_type"],
@@ -981,7 +981,7 @@ class ShippingManagement(View):
                     if not appointment_datetime:
                         appointment_datetime = None
                     fleet = Fleet(**{
-                        "carrier": request.POST.get("carrier"),
+                        "carrier": request.POST.get("carrier").strip(),
                         "fleet_type": shipment_type,
                         "appointment_datetime": appointment_datetime, #车次的提货时间
                         "fleet_number": "FO" + current_time.strftime("%m%d%H%M%S") + str(uuid.uuid4())[:2].upper(),
@@ -999,7 +999,6 @@ class ShippingManagement(View):
                     shipment_data["ARM_PRO"] = request.POST.get("arm_pro") if request.POST.get("arm_bol") else ""
             if not existed_appointment:
                 shipment = Shipment(**shipment_data)
-            print("shipment_data",shipment_data)
             await sync_to_async(shipment.save)()
 
             container_number = set()
@@ -1290,7 +1289,7 @@ class ShippingManagement(View):
                 shipment.appointment_id = request.POST.get("appointment_id")
                 shipment.shipment_account = request.POST.get("shipment_account")
                 shipment.origin = request.POST.get("origin")
-                shipment.carrier = request.POST.get("carrier")
+                shipment.carrier = request.POST.get("carrier").strip()
                 shipment.third_party_address = request.POST.get("third_party_address")
                 shipment.load_type = request.POST.get("load_type")
                 shipment.shipment_schduled_at = timezone.now()
@@ -1310,13 +1309,13 @@ class ShippingManagement(View):
                 fleet = shipment.fleet_number
                 #测试发现甩板的约没有车次
                 if fleet:
-                    fleet.carrier = request.POST.get("carrier")
+                    fleet.carrier = request.POST.get("carrier").strip()
                     fleet.appointment_datetime = shipment_appointment
                     await sync_to_async(fleet.save)()
                 else:
                     current_time = datetime.now()
                     fleet = Fleet(**{
-                        "carrier": request.POST.get("carrier"),
+                        "carrier": request.POST.get("carrier").strip(),
                         "fleet_type": shipment_type,
                         "appointment_datetime": shipment_appointment,
                         "fleet_number": "FO" + current_time.strftime("%m%d%H%M%S") + str(uuid.uuid4())[:2].upper(),
@@ -1337,7 +1336,7 @@ class ShippingManagement(View):
                 shipment.appointment_id = request.POST.get("appointment_id")
                 shipment.shipment_account = request.POST.get("shipment_account")
                 shipment.origin = request.POST.get("origin")
-                shipment.carrier = request.POST.get("carrier")
+                shipment.carrier = request.POST.get("carrier").strip()
                 shipment.third_party_address = request.POST.get("third_party_address")
                 shipment.load_type = request.POST.get("load_type")
                 shipment.shipment_schduled_at = timezone.now()
@@ -1365,7 +1364,7 @@ class ShippingManagement(View):
                 shipment.ARM_PRO = request.POST.get("arm_pro") if request.POST.get("arm_pro") else ''
                 current_time = datetime.now()
                 fleet = Fleet(**{
-                    "carrier": request.POST.get("carrier"),
+                    "carrier": request.POST.get("carrier").strip(),
                     "fleet_type": shipment_type,
                     "appointment_datetime": shipment_appointment,
                     "fleet_number": "FO" + current_time.strftime("%m%d%H%M%S") + str(uuid.uuid4())[:2].upper(),
@@ -1608,7 +1607,7 @@ class ShippingManagement(View):
                         shipmentappointment = request.POST.get("shipment_appointment")
                         shipment_appointment = parse(shipmentappointment).replace(tzinfo=None)
                         fleet = Fleet(**{
-                            "carrier": request.POST.get("carrier"),
+                            "carrier": request.POST.get("carrier").strip(),
                             "fleet_type": shipment_type,
                             "appointment_datetime": shipment_appointment, #车次的提货时间=约的提货时间
                             "fleet_number": "FO" + current_time.strftime("%m%d%H%M%S") + str(uuid.uuid4())[:2].upper(),
@@ -1665,7 +1664,7 @@ class ShippingManagement(View):
                     shipment_data["ARM_BOL"] = request.POST.get("arm_bol", "").strip()
                     shipment_data["ARM_PRO"] = request.POST.get("arm_pro", "").strip()
                     fleet = Fleet(**{
-                        "carrier": request.POST.get("carrier"),
+                        "carrier": request.POST.get("carrier").strip(),
                         "fleet_type": shipment_type,
                         "appointment_datetime": shipment_appointment,
                         "fleet_number": "FO" + current_time.strftime("%m%d%H%M%S") + str(uuid.uuid4())[:2].upper(),

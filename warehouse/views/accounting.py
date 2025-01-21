@@ -1196,12 +1196,15 @@ class Accounting(View):
                 total_n_pallet=Count('pallet_id', distinct=True),
             ).order_by("destination", "-total_cbm")
         for pl in packing_list:
-            if pl["total_cbm"] > 1:
-                pl["total_n_pallet"] = round(pl["total_cbm"] / 2)
-            elif pl["total_cbm"] >= 0.6 and pl["total_cbm"] <= 1:
-                pl["total_n_pallet"] = 0.5
-            else:
-                pl["total_n_pallet"] = 0.25
+            c_p = round(pl["total_cbm"] / 2)
+            w_p = round(pl["total_weight_lbs"] / 2)
+            pl["total_n_pallet"] = max(c_p,w_p)
+            # if pl["total_cbm"] > 1:
+            #     pl["total_n_pallet"] = round(pl["total_cbm"] / 2)
+            # elif pl["total_cbm"] >= 0.6 and pl["total_cbm"] <= 1:
+            #     pl["total_n_pallet"] = 0.5
+            # else:
+            #     pl["total_n_pallet"] = 0.25
         context = {
             "order": order,
             "packing_list": packing_list,
@@ -1360,12 +1363,13 @@ class Accounting(View):
         order.invoice_id = invoice
         order.save()
         invoice_item_data = []
-        for d, wc, c, q, r, a, n in zip(description, warehouse_code, cbm, weight, qty, rate, amount, note):
+        for d, wc, c, w, q, r, a, n in zip(description, warehouse_code, cbm, weight, qty, rate, amount, note):
             invoice_item_data.append({
                 "invoice_number": invoice,
                 "description": d,
                 "warehouse_code": wc,
                 "cbm": c if c else None,
+                "weight": w if w else None,
                 "qty": q if q else None,
                 "rate": r if r else None,
                 "amount": a if a else None,
