@@ -1180,6 +1180,7 @@ class Accounting(View):
                 'container_number__container_number', 'destination'
             ).annotate(
                 total_cbm=Sum("pallet__cbm", output_field=FloatField()),
+                total_weight=Sum("pallet__weight_lbs", output_field=FloatField()),
                 total_n_pallet=Count('pallet__pallet_id', distinct=True),
             ).order_by("destination", "-total_cbm")
         else:
@@ -1191,6 +1192,7 @@ class Accounting(View):
                 'container_number__container_number', 'destination'
             ).annotate(
                 total_cbm=Sum("cbm", output_field=FloatField()),
+                total_weight=Sum("weight_lbs", output_field=FloatField()),
                 total_n_pallet=Count('pallet_id', distinct=True),
             ).order_by("destination", "-total_cbm")
         for pl in packing_list:
@@ -1332,6 +1334,7 @@ class Accounting(View):
         description = request.POST.getlist("description")
         warehouse_code = request.POST.getlist("warehouse_code")
         cbm = request.POST.getlist("cbm")
+        weight = request.POST.getlist("weight")
         qty = request.POST.getlist("qty")
         rate = request.POST.getlist("rate")
         amount = request.POST.getlist("amount")
@@ -1342,7 +1345,7 @@ class Accounting(View):
         context = {
             "order": order,
             "container_number": container_number,
-            "data": zip(description, warehouse_code, cbm, qty, rate, amount, note)
+            "data": zip(description, warehouse_code, cbm, weight, qty, rate, amount, note)
         }
         workbook, invoice_data = self._generate_invoice_excel(context)
         invoice = Invoice(**{
@@ -1357,7 +1360,7 @@ class Accounting(View):
         order.invoice_id = invoice
         order.save()
         invoice_item_data = []
-        for d, wc, c, q, r, a, n in zip(description, warehouse_code, cbm, qty, rate, amount, note):
+        for d, wc, c, q, r, a, n in zip(description, warehouse_code, cbm, weight, qty, rate, amount, note):
             invoice_item_data.append({
                 "invoice_number": invoice,
                 "description": d,
@@ -1517,8 +1520,8 @@ class Accounting(View):
         invoice_item_row_count = 0
         row_count = 13
         total_amount = 0.0
-        for d, wc, cbm, qty, r, amt, n in context["data"]:
-            worksheet.append([context["container_number"], d, wc, cbm, qty, r, amt, n])  #添加数据
+        for d, wc, cbm, weight, qty, r, amt, n in context["data"]:
+            worksheet.append([context["container_number"], d, wc, cbm, weight, qty, r, amt, n])  #添加数据
             total_amount += float(amt)  #计算总金额
             row_count += 1
             invoice_item_row_count += 1

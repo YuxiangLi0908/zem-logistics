@@ -23,6 +23,7 @@
                     <th class="th">DESCRIPTION</th>
                     <th class="th">WAREHOUSE CODE</th>
                     <th class="th">CBM</th>
+                    <th class="th">WEIGHT</th>
                     <th class="th">QTY</th>
                     <th class="th">RATE</th>
                     <th class="th">AMOUNT</th>
@@ -38,6 +39,7 @@
                     <td class="td"><input type="text" name="description" value="{{ inv_itm.description }}" required></td>
                     <td class="td"><input type="text" name="warehouse_code" value="{{ inv_itm.warehouse_code }}"></td>
                     <td class="td"><input type="number" name="cbm" step=0.01 value="{{ inv_itm.cbm|floatformat:2 }}"></td>
+                    <td class="td"><input type="number" name="weight" step=0.01 value="{{ inv_itm.weight|floatformat:2 }}"></td>
                     <td class="td"><input type="number" name="qty" step=0.01 value="{{ inv_itm.qty }}" oninput="updateAmount(this)" required></td>
                     <td class="td"><input type="number" name="rate" step=0.01 value="{{ inv_itm.rate|floatformat:2 }}" oninput="updateAmount(this)" required></td>
                     <td class="td"><input type="number" name="amount" step=0.01 value="{{ inv_itm.amount|floatformat:2 }}" required></td>
