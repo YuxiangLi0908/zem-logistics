@@ -384,7 +384,7 @@ class ShippingManagement(View):
                 '车次编号': 'fleet_zem_serial',
                 '提货时间': 'appointment_datetime',
                 'ISA': 'ISA',
-                '约批次号': 'appointment_batch_number',
+                '约批次号': 'shipment_batch_number',
                 '送仓时间': 'shipment_appointment',
                 '柜号': 'container_number',
                 '目的地': 'destination',
@@ -392,20 +392,20 @@ class ShippingManagement(View):
                 'cbm': 'cbm',
                 'PO_ID': 'PO_ID',
                 'carrier': 'carrier',
-                '备注':'note',
+                '备注': 'note',
                 '成本价': 'cost_price',
-                '预约类型':'shipment_type',
-                '预约账号':'shipment_account',
-                '装车类型':'load_type',
-                '发货仓库':'origin',
-                'BOL':'ARM_BOL',
-                'PRO':'ARM_PRO'
+                '预约类型': 'shipment_type',
+                '预约账号': 'shipment_account',
+                '装车类型': 'load_type',
+                '发货仓库': 'origin',
+                'ARM_BOL': 'ARM_BOL',
+                'ARM_PRO': 'ARM_PRO',
             })
             df['ISA'] = df['ISA'].apply(lambda x: str(int(x)) if pd.notna(x) else x)
             columns_to_clean = [
-                "fleet_zem_serial", "ISA", "appointment_batch_number", "container_number", "destination",
-                "PO_ID", "carrier", "note", "shipment_type", "shipment_account", "load_type", "warehouse",
-                "AMF_ID"
+                "fleet_zem_serial", "ISA", "shipment_batch_number", "container_number", "destination",
+                "PO_ID", "carrier", "note", "shipment_type", "shipment_account", "load_type", "origin",
+                "AMF_ID", "ARM_BOL", "ARM_PRO",
             ]
             df[columns_to_clean] = df[columns_to_clean].applymap(
                 lambda x: x.strip() if isinstance(x, str) else x
@@ -413,15 +413,15 @@ class ShippingManagement(View):
             df = df.dropna(how='all')
             duplicated_isa = df[df.duplicated(subset=["ISA"], keep=False)]["ISA"].dropna().unique()
             duplicated_fleet = df[df.duplicated(subset=["fleet_zem_serial"], keep=False)]["fleet_zem_serial"].dropna().unique()
+            upload_data = df.to_dict(orient='records')
+            data = {}
+            isa_hash = []
+            fleet_hash = []
             if duplicated_isa:
                 raise ValueError(f"以下ISA重复出现: {', '.join(duplicated_isa)}")
             if duplicated_fleet:
                 raise ValueError(f"以下车次重复出现: {', '.join(duplicated_fleet)}")
-            data = df.to_dict(orient='records')
-            data = {}
-            isa_hash = []
-            fleet_hash = []
-            for item in data:
+            for item in upload_data:
                 if not self._verify_empty_string(item['ISA']):
                     if self._verify_empty_string(item['shipment_appointment']):
                         raise RuntimeError(f"ISA {item['ISA']} 没有填写送仓时间!")
@@ -435,6 +435,8 @@ class ShippingManagement(View):
                         raise RuntimeError(f"ISA {item['ISA']} 没有填写发货仓库!")
                 fleet_serial = item['fleet_zem_serial']
                 if not self._verify_empty_string(fleet_serial):
+                    if self._verify_empty_string(item['appointment_datetime']):
+                        raise RuntimeError(f"车次 {fleet_serial} 没有填写提货时间!")
                     #说明是一个新的车次，那约肯定也是新的
                     #记录最近一次的约和ISA
                     last_fleet = fleet_serial
@@ -445,9 +447,12 @@ class ShippingManagement(View):
                         raise ValueError(f"车次({last_fleet})缺少ISA!")
                     last_ISA = last_ISA.strip()
                     isa_hash.append(last_ISA)
+                    appointment_datetime, appointment_datetime_tz = self._parse_datetime(item['appointment_datetime'])
+                    shipment_appointment, shipment_appointment_tz = self._parse_datetime(item['shipment_appointment'])
                     #构建一个车次的字典
                     data[last_fleet] = {
-                        'appointment_datetime': item['appointment_datetime'],
+                        'appointment_datetime': appointment_datetime,
+                        'appointment_datetime_tz': appointment_datetime_tz,
                         'carrier': item['carrier'],
                         'origin': item['origin'],
                         'cost_price':item['cost_price'],
@@ -456,7 +461,8 @@ class ShippingManagement(View):
                         'shipment': {                                
                             last_ISA: {
                                 'shipment_batch_number':item['shipment_batch_number'],
-                                'shipment_appointment':item['shipment_appointment'],
+                                'shipment_appointment':shipment_appointment,
+                                'shipment_appointment_tz': shipment_appointment_tz,
                                 'carrier':item['carrier'],
                                 'note':item['note'],                            
                                 'shipment_type':item['shipment_type'],
@@ -483,8 +489,10 @@ class ShippingManagement(View):
                         last_ISA = ISA
                         last_ISA = last_ISA.strip()
                         isa_hash.append(last_ISA)
+                        shipment_appointment, shipment_appointment_tz = self._parse_datetime(item['shipment_appointment'])
                         data[last_fleet]['shipment'][last_ISA]={
-                            'shipment_appointment':item['shipment_appointment'],
+                            'shipment_appointment': shipment_appointment,
+                            'shipment_appointment_tz': shipment_appointment_tz,
                             'carrier':item['carrier'],
                             'note':item['note'],
                             'shipment_type':item['shipment_type'],
@@ -511,37 +519,15 @@ class ShippingManagement(View):
                             'cbm':item['cbm'],
                         })
             #构建完数据，开始预约
-            # TODOs: 更新497 - 523行代码，更新前端context和前端代码
-            exception_isa = await self.handle_batch_shipment_create(data, isa_hash, fleet_hash)
-            normal_isa = exception_isa["normal_isa"]
-            shipment_list = await sync_to_async(list)(
-                Shipment.objects.prefetch_related(
-                    "packinglist", "packinglist__container_number", "packinglist__container_number__order",
-                    "packinglist__container_number__order__warehouse", "order", "pallet", "fleet_number"
-                ).filter(
-                    models.Q(
-                        appointment_id__in=normal_isa
-                    )
-                ).distinct().order_by('-abnormal_palletization', 'shipment_appointment')
-            )
-            exception_number = len(exception_isa["canceled_isa"]) + len(exception_isa["expired_isa"])+len(exception_isa["mismatched_isa"])
+            created_isa, created_fleet, failed_fleet = await self._batch_process_fleet_isa_data(data, isa_hash, fleet_hash)
             context = {
-                "shipment_list":shipment_list,
-                "repeated_isa":exception_isa["repeated_isa"],
-                "canceled_isa":exception_isa["canceled_isa"],
-                "expired_isa":exception_isa["expired_isa"],
-                "mismatched_isa":exception_isa["mismatched_isa"],
-                "discovered_isa":exception_isa["discovered_isa"],
-                "discovered_PO":list(set(exception_isa["discovered_PO"])),
-                "normal_isa":exception_isa["normal_isa"],
-                "equal_shipment":exception_isa["equal_shipment"],
-                "equal_destination":exception_isa["equal_destination"],
-                "exception_number":exception_number,
-                "mismatched_pallet":exception_isa["mismatched_pallet"]
+                "created_isa": created_isa,
+                "created_fleet": created_fleet,
+                "failed_fleet": failed_fleet,
             }
         return self.template_batch_shipment, context
-    
-    async def handle_batch_shipment_create(
+
+    async def _batch_process_fleet_isa_data(
         self,
         data: dict[str, Any],
         isa_list: list[str],
@@ -565,14 +551,14 @@ class ShippingManagement(View):
                 failed_fleet.append({
                     "fleet_serial": fleet_serial,
                     "ISA": ", ".join(fleet_data["shipment"].keys()),
-                    "reason": f"系统已存在车次{fleet_serial}",
+                    "reason": f"系统已存在车次 {fleet_serial}",
                 })
                 failed = True
             elif not isinstance(fleet_data, dict) or not fleet_data:
                 failed_fleet.append({
                     "fleet_serial": fleet_serial,
                     "ISA": ", ".join(fleet_data["shipment"].keys()),
-                    "failed_reason": f"车次{fleet_serial}缺少数据"
+                    "reason": f"车次 {fleet_serial} 缺少数据"
                 })
                 failed = True
             else:
@@ -615,17 +601,17 @@ class ShippingManagement(View):
                         failed_fleet.append({
                             "fleet_serial": fleet_serial,
                             "ISA": ", ".join(fleet_data["shipment"].keys()),
-                            "failed_reason": f"PO_ID不存在: {', '.join(diff)}",
+                            "reason": f"PO_ID不存在: {', '.join(diff)}",
                         })
                         failed = True
             if failed:
                 continue
 
             fleet_weight, fleet_cbm, fleet_pallet, fleet_pcs = 0, 0, 0, 0
-            shipment_weight, shipment_cbm, shipment_pallet, shipment_pcs = 0, 0, 0, 0
             fleet_isa = []
             n = 0
             for ISA, ISA_data in fleet_data["shipment"].items():
+                shipment_weight, shipment_cbm, shipment_pallet, shipment_pcs = 0, 0, 0, 0
                 # PO
                 po_list = ISA_data["PO"]
                 po_id_list = [p["PO_ID"] for p in po_list]
@@ -663,6 +649,7 @@ class ShippingManagement(View):
                     shipment.shipment_account = ISA_data["shipment_account"]
                     shipment.load_type = ISA_data["load_type"]
                     shipment.shipment_appointment = ISA_data["shipment_appointment"]
+                    shipment.shipment_appointment_tz = ISA_data["shipment_appointment_tz"]
                     shipment.carrier = ISA_data["carrier"]
                     shipment.address = address
                     shipment.total_weight = shipment_weight
@@ -680,9 +667,10 @@ class ShippingManagement(View):
                         address, zipcode = str(packing_lists[0].get("address")), str(packing_lists[0].get('zipcode'))
                         if zipcode.lower() not in address.lower():
                             address += f", {zipcode}"
-                    shipment = Shipment({
+                    shipment = Shipment(**{
                         "shipment_batch_number": batch_id,
                         "destination": destination,
+                        'address': address,
                         "total_weight": shipment_weight,
                         "total_cbm": shipment_cbm,
                         "total_pallet": shipment_pallet,
@@ -693,6 +681,7 @@ class ShippingManagement(View):
                         'load_type': ISA_data['load_type'],
                         'origin': ISA_data['origin'],
                         'shipment_appointment': ISA_data['shipment_appointment'],
+                        'shipment_appointment_tz': ISA_data['shipment_appointment_tz'],
                         'carrier': ISA_data['carrier'],
                         'note': ISA_data['note'],
                         'is_shipment_schduled': True,
@@ -705,11 +694,12 @@ class ShippingManagement(View):
                 })
                 n += 1
             # 创建车次
-            fleet = Fleet({
+            fleet = Fleet(**{
                 "fleet_number": "FO" + current_time.strftime("%m%d%H%M%S") + str(uuid.uuid4())[:2].upper(),
                 "fleet_zem_serial": fleet_serial,
                 "carrier": fleet_data["carrier"],
                 "appointment_datetime": fleet_data["appointment_datetime"],
+                "appointment_datetime_tz": fleet_data["appointment_datetime_tz"],
                 "fleet_type": fleet_data["fleet_type"],
                 "scheduled_at": current_time,
                 "total_weight": fleet_weight,
@@ -731,101 +721,10 @@ class ShippingManagement(View):
                     pl.shipment_batch_number = shipment
                 for p in pallets:
                     p.shipment_batch_number = shipment
-                await sync_to_async(PackingList.objects.bulk_update(packing_lists, ["shipment_batch_number"]))
-                await sync_to_async(Pallet.objects.bulk_update(pallets, ["shipment_batch_number"]))
+                await sync_to_async(PackingList.objects.bulk_update)(packing_lists, ["shipment_batch_number"])
+                await sync_to_async(Pallet.objects.bulk_update)(pallets, ["shipment_batch_number"])
         return created_isa, created_fleet, failed_fleet
     
-    # async def handle_batch_shipment_create_branch(
-    #     Self,
-    #     shipment_data: dict,
-    #     exception_isa
-    # ) -> List:
-    #     fields = [
-    #         "shipment_type",
-    #         "shipment_batch_number",
-    #         "shipment_appointment",
-    #         "appointment_id",
-    #         "destination",
-    #         "carrier",
-    #         "total_weight",
-    #         "total_cbm",
-    #         "total_pallet",
-    #         "total_pcs",
-    #         "shipment_account",
-    #         "load_type",
-    #     ]
-    #     #有批次号，就校验
-    #     if type(shipment_data["shipment_batch_number"]) != float:
-    #         #校验约的基本信息
-    #         try:
-    #             existed_appointment = await sync_to_async(Shipment.objects.get)(appointment_id=shipment_data["appointment_id"])
-    #             for field in fields:
-    #                 value_to_compare = shipment_data[field].strip()
-    #                 appointment_value = getattr(existed_appointment, field)
-    #                 is_equal = value_to_compare == appointment_value
-    #                 if not is_equal:
-    #                     if exception_isa["equal_shipment"][shipment_data["appointment_id"]]:
-    #                         exception_isa["equal_shipment"][shipment_data["appointment_id"]].append([value_to_compare,appointment_value])
-    #                     else:
-    #                         exception_isa["equal_shipment"][shipment_data["appointment_id"]] = [[value_to_compare,appointment_value]]
-    #             #校验板子的信息，本次上传的板子信息  PO_IDS
-    #             #查找该约在系统的板子信息
-    #             packing_list = await sync_to_async(list)(
-    #                 PackingList.objects.select_related(
-    #                     "container_number", "shipment_batch_number", "pallet"
-    #                 ).filter(
-    #                     shipment_batch_number__appointment_id=shipment_data["appointment_id"]
-    #                 ).values('PO_ID').annotate(
-    #                     pl_id=Count('id'),
-    #                     cbms=Sum('cbm'),
-    #                     destinations=ArrayAgg('destination')
-    #                 )
-    #                 )
-    #             packing_list += await sync_to_async(list)(
-    #                 Pallet.objects.select_related(
-    #                     "container_number", "shipment_batch_number"
-    #                 ).filter(
-    #                     shipment_batch_number__appointment_id=shipment_data["appointment_id"]
-    #                 ).values('PO_ID').annotate(
-    #                     pl_id=Count('id'),
-    #                     cbms=Sum('cbm'),
-    #                     destinations=ArrayAgg('destination')
-    #                 ))
-    #             sys_PO_ID = []
-    #             #先判断约里目的地是不是有不同
-    #             for pl in packing_list:
-    #                 sys_PO_ID.append(pl["PO_ID"])
-    #                 des = set(pl["destinations"])
-    #                 if len(des) > 1:
-    #                     exception_isa["equal_destination"][shipment_data["appointment_id"]] = des
-    #             #然后判断PO_ID两方是否相等,这里如果不相等，就是改约了吧？那板子怎么比较?改PO了本来也不相等
-    #             are_equal = Counter(sys_PO_ID) == Counter(shipment_data["PO_IDS"])
-    #         except Shipment.DoesNotExist:
-    #             exception_isa["discovered_isa"].append(shipment_data["appointment_id"])
-    #     else:
-    #         #没有批次号就创建，先看下ISA有没有用过
-    #         try:
-    #             existed_appointment = await sync_to_async(Shipment.objects.get)(appointment_id=shipment_data["appointment_id"])
-    #         except:
-    #             existed_appointment = None
-    #         if existed_appointment:
-    #             if existed_appointment.in_use:
-    #                 exception_isa["repeated_isa"].append(shipment_data["appointment_id"])
-    #             elif existed_appointment.is_canceled:
-    #                 exception_isa["canceled_isa"].append(shipment_data["appointment_id"])
-    #             elif existed_appointment.shipment_appointment.replace(tzinfo=pytz.UTC) < timezone.now():
-    #                 exception_isa["expired_isa"].append(shipment_data["appointment_id"])
-    #         else:#开始创建
-    #             current_time = datetime.now()
-    #             batch_id = shipment_data["destination"] + current_time.strftime("%m%d%H%M%S") + str(uuid.uuid4())[:2].upper()
-    #             batch_id = batch_id.replace(" ", "").upper()
-    #             shipment_data["shipment_batch_number"] = batch_id
-    #             new_shipment_data = {k: shipment_data[k] for k in shipment_data if k != 'PO_IDS'}
-    #             shipment = Shipment(**new_shipment_data)
-    #             await sync_to_async(shipment.save)()
-    #             exception_isa["normal_isa"].append(new_shipment_data["appointment_id"])
-    #     return exception_isa
-
     async def handle_warehouse_post(self, request: HttpRequest) -> tuple[str, dict[str, Any]]:
         if request.POST.get("area"):
             area = request.POST.get("area")
@@ -1988,3 +1887,40 @@ class ShippingManagement(View):
         if isinstance(string_value, str) and string_value.strip() == "":
             return True
         return False
+
+    def _parse_datetime(self, datetime_string: str) -> tuple[str, str]:
+        datetime_pattern = re.compile(
+            r"""
+            (?P<month>\d{1,2})          # Month (1 or 2 digits)
+            [/\-]                       # Separator (/, -)
+            (?P<day>\d{1,2})            # Day (1 or 2 digits)
+            [/\-]                       # Separator (/, -)
+            (?P<year>\d{4})             # Year (4 digits)
+            [, ]*                       # Optional comma or space
+            (?P<hour>\d{1,2})           # Hour (1 or 2 digits)
+            [:]                         # Colon
+            (?P<minute>\d{2})           # Minute (2 digits)
+            [ ]*                        # Optional space
+            (?P<period>AM|PM)           # AM or PM
+            [ ,]*                       # Optional comma or space
+            (?P<timezone>[A-Z+\-:\d]*)? # Optional timezone
+            """,
+            re.VERBOSE | re.IGNORECASE
+        )
+        match = datetime_pattern.search(datetime_string)
+        if not match:
+            raise ValueError(f"Invalid datetime format: {datetime_string}")
+
+        parts = match.groupdict()
+        month, day, year = int(parts['month']), int(parts['day']), int(parts['year'])
+        hour, minute = int(parts['hour']), int(parts['minute'])
+        period = parts['period'].upper()
+        timezone = parts['timezone'].strip() if parts["timezone"] else ""
+
+        if period == 'PM' and hour != 12:
+            hour += 12
+        elif period == 'AM' and hour == 12:
+            hour = 0
+
+        formatted_datetime = datetime(year, month, day, hour, minute).strftime('%Y-%m-%d %H:%M')
+        return formatted_datetime, timezone
