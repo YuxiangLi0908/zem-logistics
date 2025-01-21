@@ -23,6 +23,7 @@
                     <th class="th">DESCRIPTION</th>
                     <th class="th">WAREHOUSE CODE</th>
                     <th class="th">CBM</th>
+                    <th class="th">WEIGHT</th>
                     <th class="th">QTY</th>
                     <th class="th">RATE</th>
                     <th class="th">AMOUNT</th>
@@ -37,7 +38,8 @@
                     </td>
                     <td class="td"><input type="text" name="description" value="派送费" required></td>
                     <td class="td"><input type="text" name="warehouse_code" value="{{ pl.destination }}"></td>
-                    <td class="td"><input type="number" name="cbm" step=0.01 value="{{ pl.total_cbm|floatformat:2 }}"></td>
+                    <td class="td"><input type="number" name="cbm" step=0.01 oninput="calculateCbm(this)" value="{{ pl.total_cbm|floatformat:2 }}"></td>
+                    <td class="td"><input type="number" name="weight" step=0.01 oninput="calculateWeight(this)" value="{{ pl.total_weight|floatformat:2 }}"></td>
                     <td class="td"><input type="number" name="qty" step=0.01 value="{{ pl.total_n_pallet }}" oninput="updateAmount(this)" required></td>
                     <td class="td"><input type="number" name="rate" step=0.01 oninput="updateAmount(this)" required></td>
                     <td class="td"><input type="number" name="amount" step=0.01 oninput="updateAmount(this)" required></td>
@@ -45,7 +47,10 @@
                 </tr>
                 {% endfor %}
                 <tr id="amount-total-row">
-                    <td colspan="6"></td>
+                    <td colspan="3"></td>
+                    <td class="td"><input type="number" id="cbm-total" disabled></td>
+                    <td class="td"><input type="number" id="weight-total" disabled></td>
+                    <td class="td"></td>
                     <td class="td"><input type="number" id="amount-total" disabled></td>
                     <td colspan="1"></td>
                 </tr>
@@ -58,6 +63,11 @@
 </form>
 
 <script>
+   
+    window.onload = function () {
+        calculateCbm();
+        calculateWeight();
+    };    
     function toggleRowBackground(checkbox) {
         var row = checkbox.closest('tr');
         if (checkbox.checked) {
@@ -87,6 +97,33 @@
             }
         });
         const amountTotalInput = document.getElementById('amount-total');
+        amountTotalInput.value = total.toFixed(2);
+    };
+
+    function calculateCbm(){
+        const amountInputs = document.querySelectorAll('input[name="cbm"]');
+        let total = 0;
+        amountInputs.forEach(function (input) {
+            const value = parseFloat(input.value);
+            if (!isNaN(value)) {
+                total += value;
+            }
+        });
+        const amountTotalInput = document.getElementById('cbm-total');
+        amountTotalInput.value = total.toFixed(2);
+    };
+
+    function calculateWeight(){
+        const amountInputs = document.querySelectorAll('input[name="weight"]');
+        let total = 0;
+        amountInputs.forEach(function (input) {
+            const value = parseFloat(input.value);
+            console.log(value);
+            if (!isNaN(value)) {
+                total += value;
+            }
+        });
+        const amountTotalInput = document.getElementById('weight-total');
         amountTotalInput.value = total.toFixed(2);
     };
 
