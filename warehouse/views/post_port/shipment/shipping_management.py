@@ -19,7 +19,7 @@ from django.http import HttpRequest, HttpResponse, Http404
 from django.shortcuts import render, redirect
 from django.views import View
 from django.db import models
-from django.db.models import Case, Value, CharField, F, Sum, Max, FloatField, IntegerField, When, Count, Q
+from django.db.models import Case, Value, CharField, F, Sum, Max, FloatField, IntegerField, When, Count, Q, Float
 from django.contrib.postgres.aggregates import ArrayAgg 
 from django.db.models.functions import Concat, Cast
 from django.contrib.postgres.aggregates import StringAgg
@@ -589,10 +589,37 @@ class ShippingManagement(View):
                             failed = True
                             break
                     po_list = ISA_data["PO"]
+                    failed = False
+                    for p in po_list:
+                        packing_lists, pallets = await self._get_packing_list_non_agg(
+                            models.Q(PO_ID=p["PO_ID"],shipment_batch_number__isnull=True),
+                            models.Q(PO_ID=p["PO_ID"],shipment_batch_number__isnull=True),
+                        )                                          
+                        for po in ISA_data['PO']:
+                            if po['PO_ID'] == p["PO_ID"]:
+                                if packing_lists:
+                                    #比较pl的cbm
+                                    total_cbm = sum(item.get('cbm', 0) for item in packing_lists)
+                                    if abs(total_cbm - Float(po['cbm'])) > 0.1:
+                                        failed_fleet.append({
+                                            "fleet_serial": fleet_serial,
+                                            "ISA": ", ".join(fleet_data["shipment"].keys()),
+                                            "reason":f"PO_ID {po['PO_ID']} cbm不对",
+                                        })
+                                        failed = True
+                                if pallets:
+                                    #比较plt的板数    
+                                    if len(pallets) != int(po['pallets']):
+                                        failed_fleet.append({
+                                            "fleet_serial": fleet_serial,
+                                            "ISA": ", ".join(fleet_data["shipment"].keys()),
+                                            "reason":f"PO_ID {po['PO_ID']} 数量不对",
+                                        })
+                                        failed = True 
                     po_id_list = [p["PO_ID"] for p in po_list]
                     packing_lists, pallets = await self._get_packing_list_non_agg(
-                        models.Q(PO_ID__in=po_id_list),
-                        models.Q(PO_ID__in=po_id_list),
+                        models.Q(PO_ID__in=po_id_list,shipment_batch_number__isnull=True),
+                        models.Q(PO_ID__in=po_id_list,shipment_batch_number__isnull=True),
                     )
                     db_po_id = set([p.PO_ID for p in packing_lists + pallets])
                     po_id_set = set(po_id_list)
