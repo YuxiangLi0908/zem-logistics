@@ -940,6 +940,7 @@ class FleetManagement(View):
                 total_cbm=Sum('cbm')
             )
         )
+        pallets = 0
         for arm in arm_pickup:
             arm_pro = arm["shipment_batch_number__ARM_PRO"]
             carrier = arm["shipment_batch_number__fleet_number__carrier"]
@@ -947,6 +948,7 @@ class FleetManagement(View):
             container_number = arm["container_number__container_number"]
             destination = arm["destination"]
             shipping_mark = arm["shipping_mark"]
+            pallets += arm["total_pallet"]
         pickup_time_str = str(pickup_time)
         date_str = datetime.strptime(pickup_time_str[:19], '%Y-%m-%d %H:%M:%S')
         pickup_time = date_str.strftime('%Y-%m-%d')
@@ -970,7 +972,7 @@ class FleetManagement(View):
         cropped_image.save(new_buffer, format='PNG')
   
         barcode_base64 = base64.b64encode(new_buffer.getvalue()).decode('utf-8')
-        data = [{"arm_pro": arm_pro, "barcode": barcode_base64, "carrier":carrier, "fraction": f"{i + 1}/3"} for i, _ in enumerate(range(3))]
+        data = [{"arm_pro": arm_pro, "barcode": barcode_base64, "carrier":carrier, "fraction": f"{i + 1}/{pallets}"} for i in range(pallets)]
         context = {"data": data}
         template = get_template(self.template_ltl_label)
         html = template.render(context)
