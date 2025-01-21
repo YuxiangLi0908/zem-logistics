@@ -19,7 +19,7 @@ from django.http import HttpRequest, HttpResponse, Http404
 from django.shortcuts import render, redirect
 from django.views import View
 from django.db import models
-from django.db.models import Case, Value, CharField, F, Sum, Max, FloatField, IntegerField, When, Count, Q, Float
+from django.db.models import Case, Value, CharField, F, Sum, Max, FloatField, IntegerField, When, Count, Q
 from django.contrib.postgres.aggregates import ArrayAgg 
 from django.db.models.functions import Concat, Cast
 from django.contrib.postgres.aggregates import StringAgg
@@ -600,7 +600,7 @@ class ShippingManagement(View):
                                 if packing_lists:
                                     #比较pl的cbm
                                     total_cbm = sum(item.get('cbm', 0) for item in packing_lists)
-                                    if abs(total_cbm - Float(po['cbm'])) > 0.1:
+                                    if abs(total_cbm - po['cbm']) > 0.1:
                                         failed_fleet.append({
                                             "fleet_serial": fleet_serial,
                                             "ISA": ", ".join(fleet_data["shipment"].keys()),
