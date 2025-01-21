@@ -13,6 +13,7 @@ class Fleet(models.Model):
     motor_carrier_number = models.CharField(max_length=100, null=True, blank=True)
     dot_number = models.CharField(max_length=100, null=True, blank=True)
     appointment_datetime = models.DateTimeField(null=True, blank=True)
+    appointment_datetime_tz = models.CharField(max_length=20, null=True, blank=True)
     scheduled_at = models.DateTimeField(null=True, blank=True)
     departured_at = models.DateTimeField(null=True, blank=True)
     arrived_at = models.DateTimeField(null=True, blank=True)
