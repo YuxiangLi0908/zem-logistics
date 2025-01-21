@@ -193,7 +193,8 @@ SHIPPING_LINE_OPTIONS = [
     ('Yangming', 'Yangming'),
     ('Zim Line', 'Zim Line'),
     ('HEDE', 'HEDE'),
-    ('SML', 'SML')
+    ('SML', 'SML'),
+    ('SeaLead', 'SeaLead')
  ]
 
 CONTAINER_PICKUP_CARRIER = [

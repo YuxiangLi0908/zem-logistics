@@ -960,6 +960,8 @@ class ShippingManagement(View):
                     pass
                 if shipment_type == "外配/快递":
                     shipmentappointment = request.POST.get("shipment_est_arrival", None)
+                    if shipmentappointment == '':
+                        shipmentappointment = current_time
                 else:
                     shipmentappointment = request.POST.get("shipment_appointment", None)
                 shipment_data["shipment_type"] = shipment_type
@@ -972,11 +974,16 @@ class ShippingManagement(View):
                 shipment_data["origin"] = request.POST.get("origin", "")
                 shipment_data["shipment_account"] = request.POST.get("shipment_account", "").strip()
                 shipment_data["shipment_appointment"] = shipmentappointment  #FTL和外配快递的scheduled time表示预计到仓时间，LTL和客户自提的提货时间
-                if shipment_type != "FTL":                 
+                if shipment_type != "FTL":
+                    appointment_datetime = request.POST.get("shipment_appointment", None)
+                    if appointment_datetime == '':
+                        appointment_datetime = current_time
+                    if not appointment_datetime:
+                        appointment_datetime = None
                     fleet = Fleet(**{
                         "carrier": request.POST.get("carrier"),
                         "fleet_type": shipment_type,
-                        "appointment_datetime": request.POST.get("shipment_appointment", None), #车次的提货时间
+                        "appointment_datetime": appointment_datetime, #车次的提货时间
                         "fleet_number": "FO" + current_time.strftime("%m%d%H%M%S") + str(uuid.uuid4())[:2].upper(),
                         "scheduled_at": current_time,
                         "total_weight": shipment_data["total_weight"],
@@ -992,6 +999,7 @@ class ShippingManagement(View):
                     shipment_data["ARM_PRO"] = request.POST.get("arm_pro") if request.POST.get("arm_bol") else ""
             if not existed_appointment:
                 shipment = Shipment(**shipment_data)
+            print("shipment_data",shipment_data)
             await sync_to_async(shipment.save)()
 
             container_number = set()
