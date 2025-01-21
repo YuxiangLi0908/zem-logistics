@@ -521,12 +521,14 @@
             newInput.type = 'hidden';
             if (name == "arm_pickup"){
                 var form = document.getElementById('download_ltl_bol');
-                form.appendChild(newInput)
+                form.appendChild(newInput);
+                var form = document.getElementById('download_ltl_label');
+                form.appendChild(newInput);
             }else if (name == "self_pickup") {
                 var form = document.getElementById('self-bol-upload');
-                form.appendChild(newInput)              
+                form.appendChild(newInput);           
             } else {
-                form.appendChild(newInput)
+                form.appendChild(newInput);
             }
             
             var popup = document.querySelector('.popup-' + batch_number);
