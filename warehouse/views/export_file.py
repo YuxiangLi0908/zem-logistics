@@ -84,39 +84,58 @@ async def export_palletization_list(request: HttpRequest) -> HttpResponse:
         packing_list = await sync_to_async(list)(PackingList.objects.select_related(
                 "container_number", "pallet"
             ).filter(container_number__container_number=container_number).annotate(
-            custom_delivery_method=Case(
-                When(Q(delivery_method='暂扣留仓(HOLD)') | Q(delivery_method='暂扣留仓'), then=Concat('delivery_method', Value('-'), 'fba_id', Value('-'), 'id')),
-                When(Q(delivery_method='客户自提') | Q(destination='客户自提'), then=Concat('delivery_method', Value('-'), 'destination',  Value('-'), 'shipping_mark')),
-                default=F('delivery_method'),
-                output_field=CharField()
-            ),
-            str_id=Cast("id", CharField()),
-            str_fba_id=Cast("fba_id", CharField()),
-            str_ref_id=Cast("ref_id", CharField()),
-            str_shipping_mark=Cast("shipping_mark", CharField()),
-        ).values(
-            "container_number__container_number", "destination", "custom_delivery_method", "note"
-        ).annotate(
-            fba_ids=StringAgg("str_fba_id", delimiter=",", distinct=True, ordering="str_fba_id"),
-            ref_ids=StringAgg("str_ref_id", delimiter=",", distinct=True, ordering="str_ref_id"),
-            shipping_marks=StringAgg("str_shipping_mark", delimiter=",", distinct=True, ordering="str_shipping_mark"),
-            pcs=Sum("pcs", output_field=IntegerField()),
-            cbm=Sum("cbm", output_field=FloatField()),
-            n_pallet=Value("", output_field=CharField()),
-        ).order_by("-cbm"))
+                custom_delivery_method=Case(
+                    When(Q(delivery_method='暂扣留仓(HOLD)') | Q(delivery_method='暂扣留仓'), then=Concat('delivery_method', Value('-'), 'fba_id', Value('-'), 'id')),
+                    When(Q(delivery_method='客户自提') | Q(destination='客户自提'), then=Concat('delivery_method', Value('-'), 'destination',  Value('-'), 'shipping_mark')),
+                    default=F('delivery_method'),
+                    output_field=CharField()
+                ),
+                str_id=Cast("id", CharField()),
+                str_fba_id=Cast("fba_id", CharField()),
+                str_ref_id=Cast("ref_id", CharField()),
+                str_shipping_mark=Cast("shipping_mark", CharField()),
+            ).values(
+                "container_number__container_number", "destination", "address", "zipcode", "contact_name",
+                "custom_delivery_method", "note", "shipment_batch_number__shipment_batch_number"
+            ).annotate(
+                fba_ids=StringAgg("str_fba_id", delimiter=",", distinct=True),
+                ref_ids=StringAgg("str_ref_id", delimiter=",", distinct=True),
+                shipping_marks=StringAgg("str_shipping_mark", delimiter=",", distinct=True),
+                ids=StringAgg("str_id", delimiter=",", distinct=True),
+                pcs=Sum("pcs", output_field=IntegerField()),
+                cbm=Sum("cbm", output_field=FloatField()),
+                n_pallet=Count('pallet__pallet_id', distinct=True),
+                weight_lbs=Sum("total_weight_lbs", output_field=FloatField()),
+                plt_ids=StringAgg("str_id", delimiter=",", distinct=True, ordering="str_id"),
+            ).order_by("-cbm"))
     elif status == "palletized":
         packing_list = await sync_to_async(list)(Pallet.objects.select_related(
                 "container_number"
             ).filter(
                 container_number__container_number=container_number
+            ).annotate(
+                str_id=Cast("id", CharField()),
+                str_length=Cast("length", CharField()),
+                str_width=Cast("width", CharField()),
+                str_height=Cast("height", CharField()),
+                str_pcs=Cast("pcs",CharField()),
+                str_number=Cast("sequence_number",CharField()),
+                str_weight=Cast("weight_lbs",CharField()),
             ).values(
-                "container_number__container_number", "delivery_method", "destination", "fba_id", "ref_id", "shipping_mark", "note"
+                "container_number__container_number", "destination", "note",
+                custom_delivery_method=F("delivery_method"),
             ).annotate(
                 pcs=Sum("pcs", output_field=IntegerField()),
                 cbm=Sum("cbm", output_field=FloatField()),
-                n_pallet=Count("pallet_id", distinct=True),
-            ).order_by("-cbm")
-        )
+                n_pallet=Count('pallet_id', distinct=True),
+                ids=StringAgg("str_id", delimiter=",", distinct=True, ordering="str_id"),
+                length=StringAgg("str_length", delimiter=",", ordering="str_length"),
+                width=StringAgg("str_width", delimiter=",", ordering="str_width"),
+                height=StringAgg("str_height", delimiter=",", ordering="str_height"),
+                n_pcs=StringAgg("str_pcs", delimiter=",", ordering="str_pcs"),
+                number=StringAgg("str_number", delimiter=",", ordering="str_number"),
+                weight=StringAgg("str_weight", delimiter=",", ordering="str_weight"),
+            ).order_by("-cbm"))
     else:
         raise ValueError(f"Unknown container status: {status}\n{request.POST}")
     
