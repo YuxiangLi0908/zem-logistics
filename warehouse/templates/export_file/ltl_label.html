@@ -61,7 +61,11 @@
             <tr>
                 <td> 
                     <b class="larger-text">CONSIGNEE</b>
-                    <br>GA warehouse<br>4300 Hunter Road<br>Union City,GA,30349<br>Sam &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;5166287888
+                    {% if d.contact_flag %}
+                    <br>{{ d.contact.company }}<br>{{ d.contact.Road }}<br>{{ d.contact.city }}<br>{{ d.contact.name }} &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;{{ d.contact.phone }}
+                    {% else %}
+                    <br><br><br><br>
+                    {% endif %}   
                 </td>
             </tr>
         </table>
