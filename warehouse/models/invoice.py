@@ -42,6 +42,7 @@ class InvoiceItem(models.Model):
     description = models.CharField(max_length=1000, null=True, blank=True)
     warehouse_code = models.CharField(max_length=200, null=True, blank=True)
     cbm = models.FloatField(null=True, blank=True)
+    weight = models.FloatField(null=True, blank=True)
     qty = models.FloatField(null=True, blank=True)
     rate = models.FloatField(null=True, blank=True)
     amount = models.FloatField(null=True, blank=True)
