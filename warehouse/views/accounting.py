@@ -1196,8 +1196,8 @@ class Accounting(View):
                 total_n_pallet=Count('pallet_id', distinct=True),
             ).order_by("destination", "-total_cbm")
         for pl in packing_list:
-            c_p = round(pl["total_cbm"] / 1.8)
-            w_p = round(pl["total_weight"] / 1000)
+            c_p = math.ceil(pl["total_cbm"] / 1.8)
+            w_p = math.ceil(pl["total_weight"] / 1000)
             pl["total_n_pallet"] = max(c_p,w_p)
             # if pl["total_cbm"] > 1:
             #     pl["total_n_pallet"] = round(pl["total_cbm"] / 2)
