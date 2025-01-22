@@ -724,7 +724,7 @@ class ShippingManagement(View):
             fleet = Fleet(**{
                 "fleet_number": "FO" + current_time.strftime("%m%d%H%M%S") + str(uuid.uuid4())[:2].upper(),
                 "fleet_zem_serial": fleet_serial,
-                "carrier": fleet_data["carrier"].strip(),
+                "carrier": fleet_data["carrier"],
                 "appointment_datetime": fleet_data["appointment_datetime"],
                 "appointment_datetime_tz": fleet_data["appointment_datetime_tz"],
                 "fleet_type": fleet_data["fleet_type"],
@@ -1316,7 +1316,7 @@ class ShippingManagement(View):
                 shipment.appointment_id = request.POST.get("appointment_id")
                 shipment.shipment_account = request.POST.get("shipment_account")
                 shipment.origin = request.POST.get("origin")
-                shipment.carrier = request.POST.get("carrier").strip()
+                shipment.carrier = request.POST.get("carrier")
                 shipment.third_party_address = request.POST.get("third_party_address")
                 shipment.load_type = request.POST.get("load_type")
                 shipment.shipment_schduled_at = timezone.now()
@@ -1363,7 +1363,7 @@ class ShippingManagement(View):
                 shipment.appointment_id = request.POST.get("appointment_id")
                 shipment.shipment_account = request.POST.get("shipment_account")
                 shipment.origin = request.POST.get("origin")
-                shipment.carrier = request.POST.get("carrier").strip()
+                shipment.carrier = request.POST.get("carrier")
                 shipment.third_party_address = request.POST.get("third_party_address")
                 shipment.load_type = request.POST.get("load_type")
                 shipment.shipment_schduled_at = timezone.now()
