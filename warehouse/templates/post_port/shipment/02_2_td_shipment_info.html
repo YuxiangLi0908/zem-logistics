@@ -628,6 +628,7 @@
             shipmentFormLTL.remove();
             shipmentFormOther.remove();
         };
+        /*
         const destinationCells = document.querySelectorAll("#selected-packing-list-table td[name='po-destination']");
         const destinationValues = Array.from(destinationCells, cell => cell.textContent.trim().replace("Walmart", "").replace("-", ""));
         const allSame = destinationValues.every(value => value === destinationValues[0]);
@@ -635,7 +636,7 @@
             alert("请确认选中PO的目的仓是否一致！");
             event.preventDefault();
             return
-        };
+        };*/
     };
 
     function add_po_popup(button) {
@@ -669,6 +670,7 @@
                 allDestinations.push(destinationCells[i/2].textContent.trim().replace("沃尔玛", "").replace("-", "")); 
             };
         };
+        /*
         const allSame = allDestinations.every(value => value === allDestinations[0]);
         if (!allSame) {
             alert("请确认添加PO的目的仓与原PO是否一致！");
@@ -679,7 +681,7 @@
                     checkBoxes[i+1].disabled = true;
                 };
             };
-        };
+        };*/
     };
 
     function filterPopupTable() {
