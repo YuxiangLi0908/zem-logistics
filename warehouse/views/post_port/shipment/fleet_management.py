@@ -25,8 +25,8 @@ from office365.runtime.auth.user_credential import UserCredential
 from office365.sharepoint.client_context import ClientContext
 from office365.sharepoint.sharing.links.kind import SharingLinkKind
 import matplotlib
+from matplotlib.font_manager import FontProperties
 
-import matplotlib.pyplot as plt
 import matplotlib.pyplot as plt
 from PyPDF2 import PdfMerger, PdfReader
 
@@ -990,7 +990,6 @@ class FleetManagement(View):
         cropped_image.save(new_buffer, format='PNG')
   
         barcode_base64 = base64.b64encode(new_buffer.getvalue()).decode('utf-8')
-        print(contact_flag,contact)
         data = [{
             "arm_pro": arm_pro, 
             "barcode": barcode_base64, 
@@ -1134,7 +1133,7 @@ class FleetManagement(View):
         #如果在界面输入了，就用界面添加后的值
         if customerInfo and customerInfo != '[]':
             customer_info = json.loads(customerInfo)
-            arm_pickup = [['container_number','zipcode','shipping_mark','pallet','pcs','carrier','pickup_time']]
+            arm_pickup = [['container_number','destination','shipping_mark','pallet','pcs','carrier','pickup_time']]
             for row in customer_info:
                 arm_pickup.append([
                     row[0].strip(),
@@ -1157,7 +1156,7 @@ class FleetManagement(View):
                     shipment_batch_number__fleet_number__fleet_number=fleet_number
                 ).values(
                     "container_number__container_number","zipcode","shipping_mark","shipment_batch_number__fleet_number__fleet_type",
-                    "shipment_batch_number__ARM_BOL","shipment_batch_number__fleet_number__carrier",
+                    "shipment_batch_number__fleet_number__carrier",
                     "shipment_batch_number__fleet_number__appointment_datetime"
                 ).annotate(
                     total_pcs=Count('pcs', distinct=True),
@@ -1167,10 +1166,21 @@ class FleetManagement(View):
             if arm_pickup:
                 new_list = []
                 for p in arm_pickup:
-                    new_list.append([p["container_number__container_number"],p["zipcode"],p["shipping_mark"],p["shipment_batch_number__ARM_BOL"],p["total_pallet"],p["total_pcs"],p["shipment_batch_number__fleet_number__carrier"],p["shipment_batch_number__fleet_number__appointment_datetime"]])
-                arm_pickup = [['柜号','zipcode','shipping_mark','BOL','pallet','pcs','carrier','pickup_time']] + new_list 
-            month_day = arm_pickup[1][-1].strftime('%m%d')
-            file_name = f"{month_day}-{arm_pickup[1][0]}-{arm_pickup[1][2]}"
+                    p_time = p["shipment_batch_number__fleet_number__appointment_datetime"]
+                    
+                    # 提取年、月、日、小时、分钟和秒   
+                    year = p_time.year   
+                    month = p_time.month   
+                    day = p_time.day   
+                    hour = p_time.hour   
+                    minute = p_time.minute                  
+                    # 构建新的字符串   
+                    p_time = f"{year}-{month}-{day}\n{hour}:{minute}"
+                    new_list.append([p["container_number__container_number"],p["zipcode"],p["shipping_mark"],p["total_pallet"],p["total_pcs"],p["shipment_batch_number__fleet_number__carrier"],p_time])
+                arm_pickup = [['柜号','目的地','唛头','板数','箱数','carrier','提货时间']] + new_list 
+            s_time = arm_pickup[1][-1].split('\n')[0]
+            dt = datetime.strptime(s_time, '%Y-%m-%d')
+            new_string = dt.strftime('%m-%d')
         #BOL需要在后面加一个拣货单
         df =pd.DataFrame(arm_pickup[1:],columns = arm_pickup[0])  
         files = request.FILES.getlist('files')
@@ -1178,7 +1188,7 @@ class FleetManagement(View):
             for file in files:
                 #文件有固定的命名格式，第一个-后面的是日期，需要将文件放到指令目录下按照日期存放
                 # 需要加拣货单
-                fig, ax = plt.subplots(figsize=(10.4, 14.9))
+                fig, ax = plt.subplots(figsize=(10.4, 8.5))
                 ax.axis('tight')
                 ax.axis('off')
                 fig.subplots_adjust(top=1.5)
@@ -1187,13 +1197,14 @@ class FleetManagement(View):
                 for pos, cell in the_table.get_celld().items():
                     cell.set_fontsize(20)
                     if pos[0]!= 0:  
-                        cell.set_height(0.02)
+                        cell.set_height(0.03)
                     else:
-                        cell.set_height(0.015)
+                        cell.set_height(0.02)
                     if pos[1] == 0 or pos[1] == 1 or pos[1] == 2:  
                         cell.set_width(0.15)
                     else:
-                        cell.set_width(0.08)
+                        cell.set_width(0.1)
+                
                 buf = io.BytesIO()
                 fig.savefig(buf, format='pdf', bbox_inches='tight')
                 buf.seek(0)
@@ -1207,11 +1218,10 @@ class FleetManagement(View):
                 merger.write(output_buf)
                 output_buf.seek(0)
                 # merger.close()
-        
-        #print(type(new_file),type(file_name))
+                file_name = file.name
         response = HttpResponse(output_buf.getvalue(),content_type="application/pdf")
         #response = StreamingHttpResponse(new_file, content_type="application/pdf")
-        response['Content-Disposition'] = f'attachment; filename="{file_name}.pdf"'
+        response['Content-Disposition'] = f'attachment; filename="{new_string}-{file_name}.pdf"'
         # 将合并后的PDF内容写入响应
         #response.write(output_buf)
         return response
