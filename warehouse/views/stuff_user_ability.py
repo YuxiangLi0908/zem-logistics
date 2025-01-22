@@ -561,6 +561,7 @@ class StuffPower(View):
             else:
                 po_id = f"{container_number[-4:]}{po_id_seg}{''.join(random.choices(string.digits, k=2))}"
                 po_id = re.sub(r'[\u4e00-\u9fff]', '', po_id)
+                po_id_hash[po_id_hkey] = po_id
             p.PO_ID = po_id
             cnt += 1
         Pallet.objects.bulk_update(pallet, ["PO_ID"])
