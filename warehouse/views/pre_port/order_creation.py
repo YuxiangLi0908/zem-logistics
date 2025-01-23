@@ -115,7 +115,7 @@ class OrderCreation(View):
                 Order.objects.select_related(
                     "vessel_id", "container_number", "customer_name", "retrieval_id", "warehouse"
                 ).values(
-                    "container_number__container_number", "customer_name__zem_code", "vessel_id__vessel_eta","vessel_id__vessel_etd", "cancel_time", "created_at",
+                    "container_number__container_number", "customer_name__zem_name", "order_type","vessel_id__vessel_eta","vessel_id__vessel_etd", "cancel_time", "created_at",
                     "retrieval_id__retrieval_carrier", "vessel_id__destination_port","vessel_id__master_bill_of_lading","warehouse__name","container_number__container_type"
                 ).filter(
                     models.Q(container_number__container_number__in=selected_orders)
@@ -133,13 +133,14 @@ class OrderCreation(View):
         df = df.rename(
             {
                 "container_number__container_number": "container",
-                "customer_name__zem_code": "customer",
+                "customer_name__zem_name": "customer",
                 "vessel_id__master_bill_of_lading":"MBL",
                 "vessel_id__destination_port":"destination_port",
                 "vessel_id__vessel_eta": "ETA",
                 "vessel_id__vessel_etd": "ETD",
                 "retrieval_id__retrieval_carrier": "carrier",
-                "container_number__container_type":"container_type"
+                "container_number__container_type":"container_type",
+                "order_type":"order_type"
             },
             axis=1
         )
