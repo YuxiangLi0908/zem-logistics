@@ -3,12 +3,13 @@ from .container import Container
 from .packing_list import PackingList
 from .shipment import Shipment
 from .invoice_details import InvoiceDelivery
-
+from .transfer_location import TransferLocation
 
 class Pallet(models.Model):
-    packing_list = models.ForeignKey(PackingList, null=True, blank=True, on_delete=models.CASCADE) #do not use, will be deleted in future
+    packing_list = models.ForeignKey(PackingList, null=True, blank=True, on_delete=models.CASCADE) #do not use, will be deleted in future  
     container_number = models.ForeignKey(Container, null=True, on_delete=models.CASCADE)
     shipment_batch_number = models.ForeignKey(Shipment, null=True, blank=True, on_delete=models.SET_NULL, related_name='pallet')
+    transfer_batch_number = models.ForeignKey(TransferLocation, null=True, blank=True, on_delete=models.SET_NULL, related_name='pallet')
     destination = models.CharField(max_length=255, null=True, blank=True)
     address = models.CharField(max_length=2000, null=True, blank=True)
     zipcode = models.CharField(max_length=20, null=True, blank=True)
