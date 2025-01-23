@@ -204,6 +204,7 @@ class PostportDash(View):
                 "shipment_batch_number__shipment_appointment",
                 "shipment_batch_number__shipped_at",
                 "shipment_batch_number__arrived_at",
+                "shipment_batch_number__pod_link",
                 warehouse = F('container_number__order__retrieval_id__retrieval_destination_precise'),
             ).annotate(
                 custom_delivery_method = F('delivery_method'),

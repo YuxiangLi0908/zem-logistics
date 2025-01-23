@@ -59,6 +59,7 @@
                     <th class="th">预约时间</th>
                     <th class="th">发货时间</th>
                     <th class="th">送达时间</th>
+                    <th class="th">是否有POD</th>
                 </tr>
                 <tr style="position: sticky; top: 52px;" id="packing-list-table-filter">                  
                     <th class="th" style="min-width: 40px; text-align: center;">
@@ -78,6 +79,7 @@
                     <th class="th"></th>
                     <th class="th"><input type="text" id="shipmentSearchInput" placeholder="搜索派送..." oninput="filterTable(this, 13, true)" size="13" style="font-size: 11px;"></th>
                     <th class="th"><input type="text" id="isaSearchInput" placeholder="搜索派送..." oninput="filterTable(this, 14, true)" size="13" style="font-size: 11px;"></th>
+                    <th class="th"></th>
                     <th class="th"></th>
                     <th class="th"></th>
                     <th class="th"></th>
@@ -152,6 +154,13 @@
                     <td class="td">
                         {{ c.shipment_batch_number__arrived_at|date:"Y-m-d" }} {{ c.shipment_batch_number__arrived_at|time:"H:i" }}
                     </td>
+                    <td class="td">
+                        {% if c.shipment_batch_number__pod_link %}
+                        YES 
+                        {% else %}
+                        FALSE 
+                        {% endif %}
+                    </td>
                 </tr>               
                 {% endfor %}
                 <tr>
@@ -159,7 +168,7 @@
                     <td><input type="number" id="cbm-total" disabled></td>
                     <td></td>
                     <td><input type="number" id="pcs-total" disabled></td>
-                    <td colspan="9"></td>       
+                    <td colspan="10"></td>       
                 </tr>
             </tbody>
         </table>
