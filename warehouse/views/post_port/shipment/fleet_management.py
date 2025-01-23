@@ -1140,9 +1140,10 @@ class FleetManagement(View):
                 s_time = pickup_time.split(' ')[0]
                 dt = datetime.strptime(s_time, '%Y-%m-%d')
                 new_string = dt.strftime('%m-%d')
+                destination = re.sub(r'[\u4e00-\u9fff]',' ', row[1]) 
                 arm_pickup.append([
                     row[0].strip(),
-                    row[1].strip(),
+                    destination,
                     row[2].strip(),
                     row[3].strip(), 
                     row[4].strip(),
@@ -1176,13 +1177,15 @@ class FleetManagement(View):
                     day = p_time.day                   
                     # 构建新的字符串   
                     p_time = f"{year}-{month}-{day}"
-                    new_list.append([p["container_number__container_number"],p["destination"],p["shipping_mark"],p["total_pallet"],p["total_pcs"],p["shipment_batch_number__fleet_number__carrier"],p_time])
+                    destination = re.sub(r'[\u4e00-\u9fff]',' ', p["destination"]) 
+                    new_list.append([p["container_number__container_number"],destination,p["shipping_mark"],p["total_pallet"],p["total_pcs"],p["shipment_batch_number__fleet_number__carrier"],p_time])
                 arm_pickup = [['container','destination','mark','pallet','pcs','carrier','pickup']] + new_list 
-            s_time = arm_pickup[1][-1].split('\n')[0]
+            s_time = arm_pickup[1][-1]
             dt = datetime.strptime(s_time, '%Y-%m-%d')
             new_string = dt.strftime('%m-%d')
         #BOL需要在后面加一个拣货单
         df =pd.DataFrame(arm_pickup[1:],columns = arm_pickup[0])  
+
         files = request.FILES.getlist('files')
         if files:
             for file in files:
@@ -1195,15 +1198,17 @@ class FleetManagement(View):
                 the_table = ax.table(cellText=df.values, colLabels=df.columns, loc='upper center', cellLoc='center')
                 #规定拣货单的表格大小
                 for pos, cell in the_table.get_celld().items():
-                    cell.set_fontsize(20)
-                    if pos[0]!= 0:  
+                    cell.set_fontsize(50)
+                    if pos[0]!= 1:  
                         cell.set_height(0.03)
                     else:
                         cell.set_height(0.02)
                     if pos[1] == 0 or pos[1] == 1 or pos[1] == 2:  
-                        cell.set_width(0.14)
+                        cell.set_width(0.15)
+                    elif pos[1] == 3 or pos[1] == 4:  
+                        cell.set_width(0.06)
                     else:
-                        cell.set_width(0.1)
+                        cell.set_width(0.12)
                 
                 buf = io.BytesIO()
                 fig.savefig(buf, format='pdf', bbox_inches='tight')
