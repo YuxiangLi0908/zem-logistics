@@ -134,7 +134,6 @@
                 {% for p in pallet %}
                 <tr>
                     <td class="td" style="min-width: 40px; text-align: center;">
-                        {% if not p.shipment %}
                         <div style="display: flex;">
                             <button id="" type="button" class="btn btn-primary" onclick="showRepalletizePopup('{{ p.plt_ids }}', 'repalletize-popup-window')" style="font-size: 11px;">分拣</button>
                             <!-- <button id="" type="button" class="btn btn-primary" onclick="showPoUpdatePopup('{{ p.plt_ids }}', 'po-update-popup-window')" style="font-size: 11px; background-color:rgb(35, 189, 11); border-color:rgb(35, 189, 11);">更新PO</button> -->
@@ -146,7 +145,6 @@
                                 <button type="submit" class="btn btn-primary" style="font-size: 11px; background-color:rgb(35, 189, 11); border-color:rgb(35, 189, 11);">更新PO</button>
                             </form>
                         </div>
-                        {% endif %}
                     </td>
                     <td class="td">{{ p.customer_name }}</td>
                     <td class="td">{{ p.container }}</td>
