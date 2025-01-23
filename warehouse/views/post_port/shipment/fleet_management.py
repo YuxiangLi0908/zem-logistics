@@ -1133,8 +1133,14 @@ class FleetManagement(View):
         #如果在界面输入了，就用界面添加后的值
         if customerInfo and customerInfo != '[]':
             customer_info = json.loads(customerInfo)
-            arm_pickup = [['container_number','destination','shipping_mark','pallet','pcs','carrier','pickup_time']]
+            arm_pickup = [['柜号','目的地','唛头','板数','件数','carrier','提货时间']]
             for row in customer_info:
+                #把提货时间修改格式
+                pickup_time = row[6].strip()
+                s_time = pickup_time.split(' ')[0]
+                dt = datetime.strptime(s_time, '%Y-%m-%d')
+                new_string = dt.strftime('%m-%d')
+                p_time = pickup_time.replace(" ","\n")
                 arm_pickup.append([
                     row[0].strip(),
                     row[1].strip(),
@@ -1142,12 +1148,9 @@ class FleetManagement(View):
                     row[3].strip(), 
                     row[4].strip(),
                     row[5].strip(),
-                    row[6].strip()
-                ])
-                pickup_time = row[6].strip()
-            s_time = pickup_time.split(' ')[0]
-            dt = datetime.strptime(s_time, '%Y-%m-%d')
-            new_string = dt.strftime('%m-%d')
+                    p_time
+                ])         
+            
         else:  #没有就从数据库查
             arm_pickup = await sync_to_async(list)(
                 Pallet.objects.select_related(
@@ -1155,7 +1158,7 @@ class FleetManagement(View):
                 ).filter(
                     shipment_batch_number__fleet_number__fleet_number=fleet_number
                 ).values(
-                    "container_number__container_number","zipcode","shipping_mark","shipment_batch_number__fleet_number__fleet_type",
+                    "container_number__container_number","destination","shipping_mark","shipment_batch_number__fleet_number__fleet_type",
                     "shipment_batch_number__fleet_number__carrier",
                     "shipment_batch_number__fleet_number__appointment_datetime"
                 ).annotate(
@@ -1176,7 +1179,8 @@ class FleetManagement(View):
                     minute = p_time.minute                  
                     # 构建新的字符串   
                     p_time = f"{year}-{month}-{day}\n{hour}:{minute}"
-                    new_list.append([p["container_number__container_number"],p["zipcode"],p["shipping_mark"],p["total_pallet"],p["total_pcs"],p["shipment_batch_number__fleet_number__carrier"],p_time])
+                    print()
+                    new_list.append([p["container_number__container_number"],p["destination"],p["shipping_mark"],p["total_pallet"],p["total_pcs"],p["shipment_batch_number__fleet_number__carrier"],p_time])
                 arm_pickup = [['柜号','目的地','唛头','板数','箱数','carrier','提货时间']] + new_list 
             s_time = arm_pickup[1][-1].split('\n')[0]
             dt = datetime.strptime(s_time, '%Y-%m-%d')
