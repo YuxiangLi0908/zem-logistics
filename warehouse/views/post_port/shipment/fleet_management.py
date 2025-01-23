@@ -1133,14 +1133,13 @@ class FleetManagement(View):
         #如果在界面输入了，就用界面添加后的值
         if customerInfo and customerInfo != '[]':
             customer_info = json.loads(customerInfo)
-            arm_pickup = [['柜号','目的地','唛头','板数','件数','carrier','提货时间']]
+            arm_pickup = [['container','destination','mark','pallet','pcs','carrier','pickup']]
             for row in customer_info:
                 #把提货时间修改格式
                 pickup_time = row[6].strip()
                 s_time = pickup_time.split(' ')[0]
                 dt = datetime.strptime(s_time, '%Y-%m-%d')
                 new_string = dt.strftime('%m-%d')
-                p_time = pickup_time.replace(" ","\n")
                 arm_pickup.append([
                     row[0].strip(),
                     row[1].strip(),
@@ -1148,7 +1147,7 @@ class FleetManagement(View):
                     row[3].strip(), 
                     row[4].strip(),
                     row[5].strip(),
-                    p_time
+                    s_time
                 ])         
             
         else:  #没有就从数据库查
@@ -1174,14 +1173,11 @@ class FleetManagement(View):
                     # 提取年、月、日、小时、分钟和秒   
                     year = p_time.year   
                     month = p_time.month   
-                    day = p_time.day   
-                    hour = p_time.hour   
-                    minute = p_time.minute                  
+                    day = p_time.day                   
                     # 构建新的字符串   
-                    p_time = f"{year}-{month}-{day}\n{hour}:{minute}"
-                    print()
+                    p_time = f"{year}-{month}-{day}"
                     new_list.append([p["container_number__container_number"],p["destination"],p["shipping_mark"],p["total_pallet"],p["total_pcs"],p["shipment_batch_number__fleet_number__carrier"],p_time])
-                arm_pickup = [['柜号','目的地','唛头','板数','箱数','carrier','提货时间']] + new_list 
+                arm_pickup = [['container','destination','mark','pallet','pcs','carrier','pickup']] + new_list 
             s_time = arm_pickup[1][-1].split('\n')[0]
             dt = datetime.strptime(s_time, '%Y-%m-%d')
             new_string = dt.strftime('%m-%d')
@@ -1205,7 +1201,7 @@ class FleetManagement(View):
                     else:
                         cell.set_height(0.02)
                     if pos[1] == 0 or pos[1] == 1 or pos[1] == 2:  
-                        cell.set_width(0.15)
+                        cell.set_width(0.14)
                     else:
                         cell.set_width(0.1)
                 
