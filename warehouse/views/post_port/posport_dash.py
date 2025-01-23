@@ -135,12 +135,16 @@ class PostportDash(View):
                     retrieval_datetime = pl.get("container_number__order__retrieval_id__target_retrieval_timestamp").strftime('%Y-%m-%d %H:%M:%S')
                 else:
                     retrieval_datetime = ""
+                if "自提" in pl.get("custom_delivery_method"):
+                    delivery_method = str(pl.get("custom_delivery_method")) +'-' +str(pl.get("shipping_marks"))
+                else:
+                    delivery_method = pl.get("custom_delivery_method").split("-")[0]
                 data.append({
                     "所属仓库": pl.get("warehouse"),
                     "客户": pl.get("container_number__order__customer_name__zem_name"),
                     "货柜号": pl.get("container_number__container_number"),
                     "仓点": pl.get("destination"),
-                    "派送方式": pl.get("custom_delivery_method").split("-")[0],
+                    "派送方式": delivery_method,
                     "CBM": pl.get("total_cbm"),
                     "卡板数": n_pallet,
                     "箱数": pl.get("total_pcs"),
