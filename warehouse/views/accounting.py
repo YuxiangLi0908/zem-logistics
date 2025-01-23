@@ -725,7 +725,7 @@ class Accounting(View):
         container_number = request.POST.get("container_number")
         order = Order.objects.select_related("retrieval_id","container_number").get(container_number__container_number=container_number)
         invoice = Invoice.objects.get(container_number__container_number=container_number)
-        description, warehouse_code, cbm, qty, rate, amount, note = [], [], [], [], [], [], []
+        description, warehouse_code, cbm, weight, qty, rate, amount, note = [], [], [], [], [], [], []
         if order.order_type == "直送":
             invoice_preport = InvoicePreport.objects.get(invoice_number__invoice_number=invoice.invoice_number)
             for field in invoice_preport._meta.fields:
@@ -738,6 +738,7 @@ class Accounting(View):
                             description.append(field.verbose_name)
                         warehouse_code.append("")
                         cbm.append("")
+                        weight.append("")
                         qty.append("")
                         rate.append("")
                         amount.append(value)
@@ -753,6 +754,7 @@ class Accounting(View):
                         description.append(field.verbose_name)
                         warehouse_code.append("")
                         cbm.append("")
+                        weight.append("")
                         qty.append("")
                         rate.append("")
                         amount.append(value)
@@ -764,6 +766,7 @@ class Accounting(View):
                         description.append(field.verbose_name)
                         warehouse_code.append("")
                         cbm.append("")
+                        weight.append("")
                         qty.append("")
                         rate.append("")
                         amount.append(value)
@@ -772,6 +775,7 @@ class Accounting(View):
                 description.append("派送费")
                 warehouse_code.append(delivery.destination.upper())
                 cbm.append(delivery.total_cbm)
+                weight.append(delivery.total_weight_lbs)
                 qty.append(delivery.total_pallet)
                 amount.append(delivery.total_cost)
                 note.append("")
@@ -782,7 +786,7 @@ class Accounting(View):
         context = {
             "order": order,
             "container_number": container_number,
-            "data": zip(description, warehouse_code, cbm, qty, rate, amount, note)
+            "data": zip(description, warehouse_code, cbm, weight, qty, rate, amount, note)
         }
         workbook, invoice_data = self._generate_invoice_excel(context)
         invoice.invoice_date = invoice_data["invoice_date"]
