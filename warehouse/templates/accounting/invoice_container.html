@@ -79,7 +79,7 @@
     };
 
     function updateAmount(numberInput) {
-        if (numberInput.name === 'rate'){
+        if (numberInput.name === 'rate' || numberInput.name === 'qty'){
             const row = numberInput.closest('tr');
             const qty = parseFloat(row.querySelector('input[name="qty"]').value);
             const rate = parseFloat(row.querySelector('input[name="rate"]').value);
