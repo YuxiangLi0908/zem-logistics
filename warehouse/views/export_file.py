@@ -148,13 +148,18 @@ def export_po_check(request: HttpRequest) -> HttpResponse:
     pls = [pl.split(",") for pl in pl_ids]
     selections = request.POST.getlist("is_selected")
     ids = [o for s, co in zip(selections, pls) for o in co if s == "on"]
+
+    checkid_list = request.POST.getlist("ids")
+    check_ids = [i.split(",") for i in checkid_list]
+    check_id = [o for s, co in zip(selections, check_ids) for o in co if s == "on"]
+    id_check_id_map = {int(id_val): check_val for id_val, check_val in zip(ids, check_id)}
     if ids:
         #查找柜号下的pl
         packing_list = PackingList.objects.select_related(
             "container_number", "pallet"
             ).filter(
                 id__in=ids).values(
-        'shipping_mark', 'fba_id', 'ref_id','address','zipcode',
+        'id','shipping_mark', 'fba_id', 'ref_id','address','zipcode',
         'container_number__container_number',
         ).annotate(total_pcs=Sum(
             Case(
@@ -174,9 +179,13 @@ def export_po_check(request: HttpRequest) -> HttpResponse:
         ),
     ).distinct().order_by("destination", "container_number__container_number")
     data = [i for i in packing_list]
+    for item in data:
+        item_id = item['id']
+        if item_id in id_check_id_map:
+            item['check_id'] = id_check_id_map[item_id]     
     keep = [
             "shipping_mark", "container_number__container_number", "fba_id", "ref_id", 
-            "total_pcs", "Pallet Count", "label","is_valid"
+            "total_pcs", "Pallet Count", "label","check_id","is_valid"
         ]
     df = pd.DataFrame.from_records(data)
     df['is_valid'] = None

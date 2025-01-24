@@ -37,7 +37,6 @@ class PO(View):
 
     def get(self, request: HttpRequest) -> HttpResponse:
         step = request.GET.get("step")
-        print('GET',step)
         if step == "po_check_eta": #到港前一周
             context = {"area_options": self.area_options}
             return render(request, self.template_po_check_eta, context)
@@ -63,7 +62,6 @@ class PO(View):
     
     def post(self, request: HttpRequest) -> HttpResponse:
         step = request.POST.get("step")
-        print('POST',step)
         if step == "search":
             return render(request, self.template_main, self.handle_search_post(request))
         elif step == "selection":
@@ -92,7 +90,6 @@ class PO(View):
             context = async_to_sync(self.handle_po_check_seven)(request,"eta")
             return render(request, self.template_po_check_eta, context)
         elif step == "eta_warehouse":
-            print('step,eta')
             context = async_to_sync(self.handle_po_check_seven)(request,"eta")
             return render(request, self.template_po_check_eta, context)
         elif step == "retrieval_warehouse":
@@ -167,23 +164,26 @@ class PO(View):
             file = request.FILES['file']
             df = pd.read_csv(file)
             if 'shipping_mark' in df.columns and 'is_valid' in df.columns:
-                data_pairs = [(row['BOL'], row['shipping_mark'], row['PRO'], row['PO List (use , as separator) *'], row['is_valid']) for index, row in df.iterrows()]
+                data_pairs = [(row['BOL'], row['shipping_mark'], row['PRO'], row['PO List (use , as separator) *'], row['check_id'] , row['is_valid']) for index, row in df.iterrows()]
             else:
                 print("Either 'PRO' or 'is_valid' column is not present in the DataFrame.")
             
-            for bol,mark,fba,ref,is_valid in data_pairs:
+            for bol,mark,fba,ref,check_id,is_valid in data_pairs:
                 if bol:
                     #try:
                     #这里如果货柜表有重复会报错，应该不会有重复吧
-                    container = await sync_to_async(Container.objects.get)(container_number = bol)
-                    query = models.Q(container_number=container)
-                    if not pd.isnull(mark) and mark != '':
-                        query &= models.Q(shipping_mark=mark)
-                    if not pd.isnull(fba) and fba != '':
-                        if ',' not in fba or '-' not in fba:
-                            query &= models.Q(fba_id=fba)
-                            if not pd.isnull(ref) and ref != '':
-                                query &= models.Q(ref_id=ref)                 
+                    if not pd.isnull(check_id):
+                        query = models.Q(id=check_id)
+                    else:
+                        container = await sync_to_async(Container.objects.get)(container_number = bol)
+                        query = models.Q(container_number=container)
+                        if not pd.isnull(mark) and mark != '':
+                            query &= models.Q(shipping_mark=mark)
+                        if not pd.isnull(fba) and fba != '':
+                            if ',' not in fba or '-' not in fba:
+                                query &= models.Q(fba_id=fba)
+                                if not pd.isnull(ref) and ref != '':
+                                    query &= models.Q(ref_id=ref)                 
                     try:
                         pochecketaseven = await sync_to_async(PoCheckEtaSeven.objects.get)(query)
                     except:
