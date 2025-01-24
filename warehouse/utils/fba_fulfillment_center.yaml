@@ -2103,3 +2103,8 @@ XRI3:
   location: 4949 Commerce Rd
   state: VA
   zipcode: '23234'
+MIT2:
+  city: Shafter
+  location: 5408 Express Ave
+  state: CA
+  zipcode: '93263'
