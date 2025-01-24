@@ -77,6 +77,9 @@ class Inventory(View):
         elif step == "counting":
             template, context = await self.handle_counting_post(request)
             return render(request, template, context)
+        elif step == "transfer_warehouse":
+            template, context = await self.handle_transfer_location_post(request)
+            return render(request, template, context)
         else:
             raise ValueError(f"Unknown step {request.POST.get('step')}")
 
@@ -333,7 +336,17 @@ class Inventory(View):
             await sync_to_async(shipment.delete)()
         return await self.handle_warehouse_post(request)
 
-        
+    async def handle_transfer_location_post(self, request: HttpRequest) -> tuple[Any, Any]: 
+        selected_orders = json.loads(request.POST.get('selectedOrders', '[]'))
+        selected_orders = list(set(selected_orders))
+        print(selected_orders)
+        mutable_get = request.GET.copy()
+        mutable_get["warehouse"] = request.POST.get('warehouse')
+        mutable_get["step"] = "cancel_notification"
+        request.GET = mutable_get
+        return await self.handle_warehouse_post(request)
+
+
     async def _get_inventory_pallet(self, warehouse: str, criteria: models.Q | None = None) -> list[Pallet]:
         if criteria:
             criteria &= models.Q(location=warehouse) 

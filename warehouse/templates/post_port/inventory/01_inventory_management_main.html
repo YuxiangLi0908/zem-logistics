@@ -37,6 +37,9 @@
             <li class="nav-item">
                 <button class="nav-link" onclick="showSection(this, 'warehouse-special-process-sec')"><b>库内操作</b></button>
             </li>
+            <li class="nav-item">
+                <button class="nav-link" onclick="showSection(this, 'warehouse-transfer-sec')"><b>卡板转仓</b></button>
+            </li>
             {% if user.is_authenticated and user.is_staff %}
             <li class="nav-item">
                 <button class="nav-link" onclick="showSection(this, 'inventory-counting-sec')"><b>库存盘点</b></button>
@@ -45,6 +48,12 @@
             <!-- <li class="nav-item">
                 <button class="nav-link" onclick="showSection(this, 'order-retrieval-info-sec')"><b>库存调度</b></button>
             </li> -->
+            <form method="post">
+                {% csrf_token %}
+                <input type="hidden" name="step" value="transfer_warehouse">
+                <input type="hidden" name="warehouse" value="{{ warehouse }}">
+                <button type="submit" class="btn btn-primary" style="font-size: 15px; background-color:rgb(35, 189, 11); display: inline-block; position: absolute; right: 0;">转仓</button>
+            </form>
         </ul>
     </div>
 </div>
@@ -263,6 +272,73 @@
             </form>
         </div>
     </div>
+    <div id="warehouse-transfer-sec" style="display: none;">
+        <table class="table" id="inventory-summary-table" style="font-size: 11px; max-height: 95%; overflow-y: scroll;">
+            <thead>
+                <tr style="position: sticky; top: 0px;">
+                    <th class="th" style="width: 5px;"></th>
+                    <th class="th">客户</th>
+                    <th class="th">柜号</th>
+                    <th class="th">目的地</th>
+                    <th class="th">派送方式</th>
+                    <th class="th" style="min-width: 300px; max-width: 400px; word-break: break-all;">唛头</th>
+                    <th class="th" style="min-width: 300px; max-width: 400px; word-break: break-all;">FBA</th>
+                    <th class="th" style="min-width: 300px; max-width: 400px; word-break: break-all;">REF</th>
+                    <th class="th">weight(lbs)</th>
+                    <th class="th">pcs</th>
+                    <th class="th">cbm</th>
+                    <th class="th">卡板数</th>
+                    <th class="th" style="max-width: 200px; word-break: break-all;">备注</th>
+                    <th class="th">预约批次</th>
+                    <th class="th">预约号</th>
+                </tr>
+                <tr style="position: sticky; top: 22px;" id="warehouse-table-filter">
+                    <th class="th" style="text-align: center;">
+                        <input type="checkbox" id="selectAll">
+                    </th>
+                    <th class="th"></th>
+                    <th class="th"><input type="text" id="shippingMarkSearchInput" placeholder="搜索柜号..." oninput="filterTable(this, 3, true)" style="width:70px;"></th>
+                    <th class="th"><input type="text" id="shippingMarkSearchInput" placeholder="目的地..." oninput="filterTable(this, 4, true)" style="width:60px;"></th>
+                    <th class="th"><input type="text" id="shippingMarkSearchInput" placeholder="派送方式..." oninput="filterTable(this, 5, true)" style="width:60px;"></th>
+                    <th class="th"><input type="text" id="shippingMarkSearchInput" placeholder="搜索FBA..." oninput="filterTable(this, 6, true)"></th>
+                    <th class="th"><input type="text" id="shippingMarkSearchInput" placeholder="搜索REF..." oninput="filterTable(this, 7, true)"></th>
+                    <th class="th"></th>
+                    <th class="th"></th>
+                    <th class="th"></th>
+                    <th class="th"></th>
+                    <th class="th"></th>
+                    <th class="th"></th>
+                    <th class="th"></th>
+                    <th class="th"></th>
+                </tr>
+            </thead>
+            <tbody id="warehouse-special">
+                {% for p in pallet %}
+                <tr>
+                    <td class="td" style="text-align: center;">
+                        <input type='checkbox' name='is_pallet_selected_click' onclick="toggleRowBackground(this)">
+                        <input type="hidden" name="is_pallet_selected", value='off'>                         
+                        <input type="hidden" name="plt_ids", value='{{ p.plt_ids }}'>
+                    </td>
+                    <td class="td">{{ p.customer_name }}</td>
+                    <td class="td">{{ p.container }}</td>
+                    <td class="td">{{ p.destination }}</td>
+                    <td class="td">{{ p.delivery_method }}</td>
+                    <td class="td" style="min-width: 300px; max-width: 400px; word-break: break-all;">{{ p.shipping_mark }}</td>
+                    <td class="td" style="min-width: 300px; max-width: 400px; word-break: break-all;">{{ p.fba_id|default_if_none:"" }}</td>
+                    <td class="td" style="min-width: 300px; max-width: 400px; word-break: break-all;">{{ p.ref_id|default_if_none:"" }}</td>
+                    <td class="td">{{ p.weight|floatformat:2 }}</td>
+                    <td class="td">{{ p.pcs|floatformat:0 }}</td>
+                    <td class="td">{{ p.cbm|floatformat:2 }}</td>
+                    <td class="td">{{ p.n_pallet|floatformat:0 }}</td>
+                    <td class="td" style="max-width: 200px; word-break: break-all;">{{ p.note|default_if_none:"" }}</td>
+                    <td class="td">{{ p.shipment|default_if_none:"" }}</td>
+                    <td class="td">{{ p.appointment_id|default_if_none:"" }}</td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
     <div id="inventory-counting-sec" style="display: none;">
         <form method="post" action="" onsubmit="showLoadingBar()" style="max-height: 98%; overflow-y: scroll;">
             {% csrf_token %}
@@ -338,7 +414,37 @@
         } else {
             row.style.backgroundColor = ''; // Reset to default color
         }
+        var td = checkbox.closest('td');
+        const pltIdsInput = td.querySelector('input[name="plt_ids"]');
+        if (checkbox.checked){
+            selectedOrders.push(pltIdsInput);
+        } else {
+            let index = selectedOrders.indexOf(pltIdsInput);
+            if (index > -1) {
+                selectedOrders.splice(index, 1);
+            }
+        }
     };
+
+    var selectedOrders = [];
+    //全选的操作
+    document.getElementById('selectAll').addEventListener('click', function () {
+        var checkboxes = document.getElementsByName('is_pallet_selected_click');
+        for (var i = 0; i < checkboxes.length; i++) {
+            tr = checkboxes[i].parentNode.parentNode;   
+            if(tr.style.display === ""){
+                checkboxes[i].checked = this.checked;
+                if (this.checked){
+                    let checkbox = checkboxes[i];
+                    let row = checkbox.parentNode.parentNode;
+                    let OrderElement = row.children[2];
+                    let Orders = OrderElement? OrderElement.textContent : '';
+                    selectedOrders.push(Orders.trim());
+                }
+            }
+            toggleRowBackground(checkboxes[i]);
+        }
+    });
 
     const palletData = JSON.parse('{{ pallet_json|safe }}');
 
