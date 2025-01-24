@@ -46,6 +46,11 @@
                     <td class="td"><input type="text" name="note" value="{{ inv_itm.note }}"></td>
                 </tr>
                 {% endfor %}
+                <tr id="amount-total-row">
+                    <td colspan="7"></td>
+                    <td class="td"><input type="number" id="amount-total" disabled></td>
+                    <td colspan="1"></td>
+                </tr>
             </tbody>
         </table>
     </div>
@@ -55,6 +60,24 @@
 </form>
 
 <script>
+    window.onload = function () {
+        calculateAmountTotal();
+    };  
+
+    function calculateAmountTotal(){
+        const amountInputs = document.querySelectorAll('input[name="amount"]');
+        let total = 0;
+        amountInputs.forEach(function (input) {
+            const value = parseFloat(input.value);
+            if (!isNaN(value)) {
+                total += value;
+            }
+        });
+        const amountTotalInput = document.getElementById('amount-total');
+        amountTotalInput.value = total.toFixed(2);
+    };
+
+
     function toggleRowBackground(checkbox) {
         var row = checkbox.closest('tr');
         if (checkbox.checked) {
@@ -65,17 +88,27 @@
     };
 
     function updateAmount(numberInput) {
-        const row = numberInput.closest('tr');
-        const qty = parseFloat(row.querySelector('input[name="qty"]').value);
-        const rate = parseFloat(row.querySelector('input[name="rate"]').value);
-        const amount = qty * rate;
-        const amountInput = row.querySelector('input[name="amount"]');
-        amountInput.value = amount.toFixed(2);
+        if (numberInput.name === 'rate'){
+            const row = numberInput.closest('tr');
+            const qty = parseFloat(row.querySelector('input[name="qty"]').value);
+            const rate = parseFloat(row.querySelector('input[name="rate"]').value);
+            const amount = qty * rate;
+            const amountInput = row.querySelector('input[name="amount"]');           
+            amountInput.value = amount.toFixed(2);
+        }else if (numberInput.name === 'amount'){
+            const amount = parseFloat(numberInput.value);
+            if (!isNaN(amount)) {
+                numberInput.value = amount.toFixed(2);
+            }
+        }
+        calculateAmountTotal();
     };
+
 
     function addRow() {
         const table = document.getElementById('invoice-table').getElementsByTagName('tbody')[0];
-        const newRow = table.insertRow();
+        const totalRow = document.getElementById("amount-total-row");
+        var newRow = document.createElement("tr");
         newRow.innerHTML = `
             <tr>
                 <td class="td" style="max-width: 2%; min-width: 10px; text-align: center;">
@@ -87,10 +120,11 @@
                 <td class="td"><input type="number" name="weight" step=0.01 value=""></td>
                 <td class="td"><input type="number" name="qty" step=0.01 value="" oninput="updateAmount(this)" required></td>
                 <td class="td"><input type="number" name="rate" step=0.01 oninput="updateAmount(this)" required></td>
-                <td class="td"><input type="number" name="amount" step=0.01 required></td>
+                <td class="td"><input type="number" name="amount" step=0.01 oninput="updateAmount(this)" required></td>
                 <td class="td"><input type="text" name="note" rows="4"></td>
             </tr>
         `;
+        table.insertBefore(newRow, totalRow);
     };
 
     function removeRows() {
