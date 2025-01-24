@@ -941,7 +941,8 @@ class FleetManagement(View):
                             "city":new_contact[2].strip(),
                             "name":new_contact[3],
                             "phone":new_contact[4]}  
-             
+        else:
+            contact = ''
         arm_pickup = await sync_to_async(list)(
             Pallet.objects.select_related(
                 "container_number__container_number","shipment_batch_number__fleet_number"
