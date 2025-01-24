@@ -1428,6 +1428,7 @@ class Accounting(View):
         description = request.POST.getlist("description")
         warehouse_code = request.POST.getlist("warehouse_code")
         cbm = request.POST.getlist("cbm")
+        weight = request.POST.getlist("weight")
         qty = request.POST.getlist("qty")
         rate = request.POST.getlist("rate")
         amount = request.POST.getlist("amount")
@@ -1436,7 +1437,7 @@ class Accounting(View):
         context = {
             "order": order,
             "container_number": container_number,
-            "data": zip(description, warehouse_code, cbm, qty, rate, amount, note)
+            "data": zip(description, warehouse_code, cbm, weight, qty, rate, amount, note)
         }
 
         # delete old file from sharepoint
