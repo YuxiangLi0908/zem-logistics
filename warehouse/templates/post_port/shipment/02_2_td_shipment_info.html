@@ -670,6 +670,11 @@
                 allDestinations.push(destinationCells[i/2].textContent.trim().replace("沃尔玛", "").replace("-", "")); 
             };
         };
+        for (let i = 0; i < checkBoxes.length; i+=2) {
+            if (checkBoxes[i].checked) {
+                checkBoxes[i+1].disabled = true;
+            };
+        };
         /*
         const allSame = allDestinations.every(value => value === allDestinations[0]);
         if (!allSame) {
