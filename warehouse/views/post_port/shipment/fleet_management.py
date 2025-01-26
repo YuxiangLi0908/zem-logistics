@@ -1008,7 +1008,6 @@ class FleetManagement(View):
     
     async def _export_ltl_bol(self, request: HttpRequest) -> HttpResponse:
         customerInfo = request.POST.get("customerInfo")
-        print('填写的信息',customerInfo)
         warehouse = request.POST.get("warehouse") 
         contact_flag = False  #表示地址栏空出来，客服手动P上去  
         contact = {}    

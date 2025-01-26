@@ -361,7 +361,7 @@ class Inventory(View):
             await sync_to_async(Pallet.objects.bulk_update)(pallets, ["location"])
             #然后新建transfer_warehouse新记录
         current_time = datetime.now()
-        batch_id = current_time.strftime("%m%d%H%M%S") +'-'+ str(uuid.uuid4())[:2].upper()
+        batch_id = current_time.strftime("%m%d") +'-'+ str(uuid.uuid4())[:2].upper()
         batch_id = batch_id.replace(" ", "").upper()
         transfer_location = TransferLocation(**{
             "shipping_warehouse": shipping_warehouse,

@@ -54,29 +54,27 @@
                         {% csrf_token %}
                         {% if c.batch_number %}
                         <tr>
-                            <td class="td">
+                            <td class="td" style="width:100px;">
                                 {{ c.container_number }}
                             </td>
                             <td class="td">{{ c.batch_number }}</td>
-                            <td class="td"></td>
+                            <td class="td">{{ c.total_pallet }}板</td>
                             <td class="td">
-                                {% if c.retrieval_id.offload_status == "past_due" %}
-                                <span class="status-span-red">{{ c.retrieval_id.arrive_at|date:"M-j" }}</span>
-                                {% elif c.retrieval_id.offload_status == "need_attention" %}
-                                <span class="status-span-yellow">{{ c.retrieval_id.arrive_at|date:"M-j" }}</span>
-                                {% else %}
-                                {{ c.retrieval_id.arrive_at|date:"M-j" }}
-                                {% endif %}
+                                <span class="status-span-red">{{ c.ETA|date:"M-j" }}</span>
                             </td>
                             <td class="td">
-                                {% if c.container_number.container_number in order_with_shipment %}
-                                <span class="status-span-red">
-                                    {{ order_with_shipment|get:c.container_number.container_number|date:"M-j" }}
-                                </span>
-                                {% endif %}
+                                
                             </td>
                             <td class="td">
-                                 
+                                <form method="post">
+                                    {% csrf_token %}
+                                    <input type="hidden" name="step" value="trans_arrival">
+                                    <input type="hidden" name="batch_id" value="{{ c.id }}">
+                                    <input type="hidden" name="warehouse" value="{{ warehouse }}">
+                                    <button type="submit" class="btn btn-success" style="font-size: 13px;">
+                                        <small>确认送达</small>
+                                    </button>
+                                </form>
                             </td>
                         </tr>
                         {% else %}
