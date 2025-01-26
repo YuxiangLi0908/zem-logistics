@@ -31,6 +31,7 @@ from warehouse.models.packing_list import PackingList
 from warehouse.models.fleet import Fleet
 from warehouse.models.pallet import Pallet
 from warehouse.models.shipment import Shipment
+from warehouse.models.transfer_location import TransferLocation
 from warehouse.forms.warehouse_form import ZemWarehouseForm
 from warehouse.forms.packling_list_form import PackingListForm
 from warehouse.views.export_file import export_palletization_list
@@ -282,9 +283,14 @@ class Palletization(View):
                 for o in order_with_shipment
             }
             order_not_palletized = [
-                o for o in order_not_palletized if o.container_number.container_number in order_with_shipment
+                o for o in order_not_palletized 
+                if isinstance(o, dict)
+            ]+ [
+                o for o in order_not_palletized 
+                if not isinstance(o, dict) and o.container_number.container_number in order_with_shipment
             ] + [
-                o for o in order_not_palletized if o.container_number.container_number not in order_with_shipment
+                o for o in order_not_palletized 
+                if not isinstance(o, dict) and o.container_number.container_number not in order_with_shipment
             ]
             context = {
                 "order_not_palletized": order_not_palletized,
@@ -896,7 +902,18 @@ class Palletization(View):
             raise ValueError(f"invalid status: {status}")
 
     async def _get_order_not_palletized(self, warehouse: str) -> Order:
-        return await sync_to_async(list)(Order.objects.select_related(
+        #一方面，查找所有转仓的，没有确认送达的在transfer_location表
+        packinglist = await sync_to_async(list)(
+            TransferLocation.objects.values(
+                "batch_number","id"
+            ).filter(
+            models.Q(
+                receiving_warehouse=warehouse,
+                arrival_time__isnull=True
+            )
+        ))
+        #另一方面查未打板的，在pallet表
+        packinglist += await sync_to_async(list)(Order.objects.select_related(
             "customer_name", "container_number", "retrieval_id", "offload_id", "warehouse"
         ).filter(
             models.Q(
@@ -908,6 +925,7 @@ class Palletization(View):
             )
             # & (models.Q(retrieval_id__actual_retrieval_timestamp__isnull=False) | models.Q(retrieval_id__retrive_by_zem=False))
         ).order_by("retrieval_id__arrive_at"))
+        return packinglist
     
     async def _get_order_palletized(self, warehouse: str) -> Order:
         return await sync_to_async(list)(Order.objects.select_related(

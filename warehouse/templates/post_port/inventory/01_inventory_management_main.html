@@ -48,12 +48,7 @@
             <!-- <li class="nav-item">
                 <button class="nav-link" onclick="showSection(this, 'order-retrieval-info-sec')"><b>库存调度</b></button>
             </li> -->
-            <form method="post">
-                {% csrf_token %}
-                <input type="hidden" name="step" value="transfer_warehouse">
-                <input type="hidden" name="warehouse" value="{{ warehouse }}">
-                <button type="submit" class="btn btn-primary" style="font-size: 15px; background-color:rgb(35, 189, 11); display: inline-block; position: absolute; right: 0;">转仓</button>
-            </form>
+            <button type="submit" class="btn btn-primary" onclick="editTransfer(this)" style="font-size: 15px; background-color:rgb(35, 189, 11); ">转仓</button>
         </ul>
     </div>
 </div>
@@ -319,6 +314,7 @@
                         <input type='checkbox' name='is_pallet_selected_click' onclick="toggleRowBackground(this)">
                         <input type="hidden" name="is_pallet_selected", value='off'>                         
                         <input type="hidden" name="plt_ids", value='{{ p.plt_ids }}'>
+                        <input type="hidden" name="orders", value='{{ p.container_number }}'>
                     </td>
                     <td class="td">{{ p.customer_name }}</td>
                     <td class="td">{{ p.container }}</td>
@@ -389,7 +385,90 @@
     </div>
 </div>
 
+<form method="post" action="" style="display: inline-block;" id="transfer-warehouse">
+    {% csrf_token %}
+    <input type="hidden" name="step" value="transfer_warehouse">
+    <input type="hidden" name="warehouse" value="{{ warehouse }}">
+    
+    <div class="transferWare" style="display: none; z-index:999; position: fixed; top: 50%; left: 50%; transform: translate(-50%, -50%); background-color: white; border: 1px solid gray; padding: 20px;">               
+        <p style="text-align:center;">转仓信息</p>
+        <table id="transfer-table-2" class="table" style="font-size: 11px; overflow-x: scroll; max-width: 100%;">
+            <thead>
+                <tr>
+                    <th class="th">发货仓库</th>
+                    <th class="th">收货仓库</th>
+                </tr>
+            </thead>
+            <tbody>
+                <tr>
+                    <td class="td">
+                        <select name="shipping_warehouse" id="shipment-account-select" style="font-size: 13px;">
+                            {% for k, v in warehouse_options.items %}
+                                <option value="{{ v }}" {% if k == warehouse %}selected{% endif %}>{{ k }}</option>
+                            {% endfor %}
+                        </select>                       
+                    </td>
+                    <td class="td">
+                        <select name="receiving_warehouse" id="shipment-account-select" style="font-size: 13px;">
+                            {% for k, v in warehouse_options.items %}
+                                <option value="{{ v }}">{{ k }}</option>
+                            {% endfor %}
+                        </select>
+                    </td>
+                </tr>
+            </tbody>
+        </table>
+        <table id="transfer-table-2" class="table" style="font-size: 11px; overflow-x: scroll; max-width: 100%;">
+            <thead>
+                <tr>
+                    <th class="th">发货时间</th>
+                    <th class="th">预计到达时间</th>
+                </tr>
+            </thead>
+            <tbody>
+                <tr>
+                    <td class="td"><input type="datetime-local" name="shipping_time" style="font-size: 13px;" required></td>
+                    <td class="td"><input type="datetime-local" name="ETA" style="font-size: 13px;" required></td>
+                </tr>
+            </tbody>
+        </table>
+        <div style="text-align:right;">
+            <button id="confirmButton" type="submit" class="btn btn-primary"  style="font-size: 11px;" onclick="transWare(this)">确认</button>
+        </div>
+    </div>              
+</form>
 <script>
+    var selectedOrders = [];
+    var selectedIds = [];
+    function transWare(Element) {
+        if (selectedOrders.length === 0){
+            alert('未选中数据！');
+            event.preventDefault();
+            return;
+        }else{
+            let form = Element.parentNode;
+            let hiddenInput = document.createElement('input');
+            hiddenInput.type = 'hidden';
+            hiddenInput.name ='selectedOrders';
+            hiddenInput.value = JSON.stringify(selectedOrders);
+            form.appendChild(hiddenInput);   
+            
+            let hiddenInput1 = document.createElement('input');
+            hiddenInput1.type = 'hidden';
+            hiddenInput1.name ='selectedIds';
+            hiddenInput1.value = JSON.stringify(selectedIds);
+            form.appendChild(hiddenInput1);   
+            form.submit();
+        }
+    }
+    function editTransfer(){
+        var popup = document.querySelector('.transferWare');
+        if (popup.style.display === 'none') {
+            popup.style.display = 'block';
+        } else {
+            popup.style.display = 'none';
+        }
+    }
     function showLoadingBar() {
         document.getElementById('loading-bar').style.display = 'block';
     };
@@ -415,18 +494,23 @@
             row.style.backgroundColor = ''; // Reset to default color
         }
         var td = checkbox.closest('td');
+        const OrderInput = td.querySelector('input[name="orders"]');
         const pltIdsInput = td.querySelector('input[name="plt_ids"]');
         if (checkbox.checked){
-            selectedOrders.push(pltIdsInput);
+            selectedOrders.push(OrderInput.value);
+            selectedIds.push(pltIdsInput.value);
         } else {
-            let index = selectedOrders.indexOf(pltIdsInput);
+            let index = selectedOrders.indexOf(OrderInput.value);
             if (index > -1) {
                 selectedOrders.splice(index, 1);
+            }
+            let indexId = selectedIds.indexOf(pltIdsInput.value);
+            if (indexId > -1) {
+                selectedIds.splice(indexId, 1);
             }
         }
     };
 
-    var selectedOrders = [];
     //全选的操作
     document.getElementById('selectAll').addEventListener('click', function () {
         var checkboxes = document.getElementsByName('is_pallet_selected_click');
@@ -437,7 +521,11 @@
                 if (this.checked){
                     let checkbox = checkboxes[i];
                     let row = checkbox.parentNode.parentNode;
-                    let OrderElement = row.children[2];
+                    let IdsElement = row.children[2];
+                    let Ids = IdsElement? IdsElement.textContent : '';
+                    selectedIds.push(Ids.trim());
+
+                    let OrderElement = row.children[3];
                     let Orders = OrderElement? OrderElement.textContent : '';
                     selectedOrders.push(Orders.trim());
                 }
