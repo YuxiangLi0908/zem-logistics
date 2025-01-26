@@ -52,6 +52,34 @@
                     {% for c in order_not_palletized %}
                     <form method="post" action="">
                         {% csrf_token %}
+                        {% if c.batch_number %}
+                        <tr>
+                            <td class="td">
+                                {{ c.container_number }}
+                            </td>
+                            <td class="td">{{ c.batch_number }}</td>
+                            <td class="td"></td>
+                            <td class="td">
+                                {% if c.retrieval_id.offload_status == "past_due" %}
+                                <span class="status-span-red">{{ c.retrieval_id.arrive_at|date:"M-j" }}</span>
+                                {% elif c.retrieval_id.offload_status == "need_attention" %}
+                                <span class="status-span-yellow">{{ c.retrieval_id.arrive_at|date:"M-j" }}</span>
+                                {% else %}
+                                {{ c.retrieval_id.arrive_at|date:"M-j" }}
+                                {% endif %}
+                            </td>
+                            <td class="td">
+                                {% if c.container_number.container_number in order_with_shipment %}
+                                <span class="status-span-red">
+                                    {{ order_with_shipment|get:c.container_number.container_number|date:"M-j" }}
+                                </span>
+                                {% endif %}
+                            </td>
+                            <td class="td">
+                                 
+                            </td>
+                        </tr>
+                        {% else %}
                         <tr>
                             <td class="td">
                                 <a href="/palletize/{{c.id}}/?step=container_palletization&warehouse={{ warehouse }}">{{ c.container_number }}</a>
@@ -178,6 +206,7 @@
                                 </form> 
                             </td>
                         </tr>
+                        {% endif %}
                     {% endfor %}
                 </tbody>
             </table>

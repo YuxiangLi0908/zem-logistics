@@ -338,16 +338,16 @@ class Inventory(View):
         return await self.handle_warehouse_post(request)
 
     async def handle_transfer_location_post(self, request: HttpRequest) -> tuple[Any, Any]: 
-        print(request.POST.get)
         shipping_warehouse = request.POST.get("warehouse")
         receiving_warehouse = request.POST.get("receiving_warehouse")
         shipping_time = request.POST.get("shipping_time", None)
         ETA = request.POST.get("ETA", None)
         selected_orders = json.loads(request.POST.get('selectedOrders', '[]'))
         selected_orders = list(set(selected_orders))
-        # selected_orders= [int(num) for num in new_list[0].split(',')]
-        # print(selected_orders)
-        for plt_ids in selected_orders:
+
+        selectedIds = json.loads(request.POST.get('selectedIds', '[]'))
+        selectedIds = list(set(selectedIds))
+        for plt_ids in selectedIds:
             plt_ids = plt_ids.split(',')
             plt_ids = [int(i) for i in plt_ids]
             #查找板子
@@ -361,7 +361,7 @@ class Inventory(View):
             await sync_to_async(Pallet.objects.bulk_update)(pallets, ["location"])
             #然后新建transfer_warehouse新记录
         current_time = datetime.now()
-        batch_id = current_time.strftime("%m%d%H%M%S") + str(uuid.uuid4())[:2].upper()
+        batch_id = current_time.strftime("%m%d%H%M%S") +'-'+ str(uuid.uuid4())[:2].upper()
         batch_id = batch_id.replace(" ", "").upper()
         transfer_location = TransferLocation(**{
             "shipping_warehouse": shipping_warehouse,
@@ -369,6 +369,7 @@ class Inventory(View):
             "shipping_time": shipping_time,
             "ETA": ETA,
             "batch_number": batch_id,
+            "container_number":selected_orders,
             "total_pallet": len(pallets),
             "total_pcs": total_pcs,
             "total_cbm": total_cbm,
