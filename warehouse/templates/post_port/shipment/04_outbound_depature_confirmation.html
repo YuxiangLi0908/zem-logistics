@@ -288,6 +288,7 @@
                 {% csrf_token %}
                 <input type="hidden" name="step" value="download_LABEL">
                 <input type="hidden" name="fleet_number" value="{{ selected_fleet.fleet_number }}">
+                <input type="hidden" name="customerInfo" value="">
                 <button type="submit" class="btn btn-success" style="font-size: 15px;">
                     <small>LBAEL</small>
                     <i class="bi bi-cloud-arrow-down-fill"></i>
@@ -298,6 +299,7 @@
                 <input type="hidden" name="step" value="download_LTL_BOL">
                 <input type="hidden" name="fleet_number" value="{{ selected_fleet.fleet_number }}">
                 <input type="hidden" name="warehouse" value="{{ selected_fleet.origin }}">
+                <input type="hidden" name="customerInfo" value="">
                 <button type="submit" class="btn btn-success" style="font-size: 15px;">
                     <small>LTL-BOL</small>
                     <i class="bi bi-cloud-arrow-down-fill"></i>
@@ -521,9 +523,11 @@
             newInput.type = 'hidden';
             if (name == "arm_pickup"){
                 var form = document.getElementById('download_ltl_bol');
-                form.appendChild(newInput);
-                var form = document.getElementById('download_ltl_label');
-                form.appendChild(newInput);
+                var inputElements = form.querySelectorAll('input[name="customerInfo"]');
+                inputElements[0].value = jsonCustomerInfo;
+                var form1 = document.getElementById('download_ltl_label');
+                var inputElements1 = form1.querySelectorAll('input[name="customerInfo"]');
+                inputElements1[0].value = jsonCustomerInfo;
             }else if (name == "self_pickup") {
                 var form = document.getElementById('self-bol-upload');
                 form.appendChild(newInput);           
