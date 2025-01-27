@@ -313,7 +313,7 @@
                     <td class="td" style="text-align: center;">
                         <input type='checkbox' name='is_pallet_selected_click' onclick="toggleRowBackground(this)">
                         <input type="hidden" name="is_pallet_selected", value='off'>                         
-                        <input type="hidden" name="plt_ids", value='{{ p.plt_ids }}'>
+                        <input type="text" name="plt_ids", value='{{ p.plt_ids }}'>
                         <input type="hidden" name="orders", value='{{ p.container }}'>
                     </td>
                     <td class="td">{{ p.customer_name }}</td>
@@ -436,15 +436,14 @@
                 </tr>
             </tbody>
         </table>
-        
         <div style="text-align:right;">
             <button id="confirmButton" type="submit" class="btn btn-primary"  style="font-size: 11px;" onclick="transWare(this)">确认</button>
         </div>
     </div>              
 </form>
 <script>
-    var selectedOrders = [];
-    var selectedIds = [];
+    let selectedOrders = [];
+    let selectedIds = [];
     function transWare(Element) {        
         if (selectedOrders.length === 0){
             alert('未选中数据！');
@@ -457,7 +456,7 @@
             hiddenInput.name ='selectedOrders';
             hiddenInput.value = JSON.stringify(selectedOrders);
             form.appendChild(hiddenInput);   
-            
+
             let hiddenInput1 = document.createElement('input');
             hiddenInput1.type = 'hidden';
             hiddenInput1.name ='selectedIds';
@@ -521,7 +520,8 @@
             if (indexId > -1) {
                 selectedIds.splice(indexId, 1);
             }
-        }
+        };
+        console.log('selectorders',selectedOrders);
     };
 
     //全选的操作
@@ -536,11 +536,11 @@
                     let row = checkbox.parentNode.parentNode;
                     let IdsElement = row.children[2];
                     let Ids = IdsElement? IdsElement.textContent : '';
-                    selectedIds.push(Ids.trim());
+                    
 
                     let OrderElement = row.children[3];
                     let Orders = OrderElement? OrderElement.textContent : '';
-                    selectedOrders.push(Orders.trim());
+                    
                 }
             }
             toggleRowBackground(checkboxes[i]);

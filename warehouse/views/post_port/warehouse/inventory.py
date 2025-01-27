@@ -344,12 +344,13 @@ class Inventory(View):
         ETA = request.POST.get("ETA", None)
         selected_orders = json.loads(request.POST.get('selectedOrders', '[]'))
         selected_orders = list(set(selected_orders))
-
         selectedIds = json.loads(request.POST.get('selectedIds', '[]'))
         selectedIds = list(set(selectedIds))
+        ids = []
         for plt_ids in selectedIds:
             plt_ids = plt_ids.split(',')
             plt_ids = [int(i) for i in plt_ids]
+            ids.extend(plt_ids)
             #查找板子
             pallets = await sync_to_async(list)(Pallet.objects.select_related("container_number").filter(id__in=plt_ids))
             total_weight, total_cbm, total_pcs = .0, .0, 0
@@ -370,6 +371,7 @@ class Inventory(View):
             "ETA": ETA,
             "batch_number": batch_id,
             "container_number":selected_orders,
+            "plt_ids":ids,
             "total_pallet": len(pallets),
             "total_pcs": total_pcs,
             "total_cbm": total_cbm,

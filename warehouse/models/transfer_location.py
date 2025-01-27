@@ -8,6 +8,7 @@ class TransferLocation(models.Model):
     arrival_time = models.DateTimeField(null=True, blank=True)
     batch_number = models.CharField(max_length=2000, null=True, blank=True)
     container_number = models.CharField(max_length=2000, null=True, blank=True)
+    plt_ids = models.CharField(max_length=2000, null=True, blank=True)
     total_pallet = models.IntegerField(null=True, blank=True)
     total_pcs = models.IntegerField(null=True, blank=True)
     total_cbm = models.FloatField(null=True, blank=True)
