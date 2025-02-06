@@ -432,7 +432,8 @@ class PO(View):
         container_list = container_number.split()
         criteria = models.Q(
             container_number__order__warehouse__name=warehouse,
-            # shipment_batch_number__isnull=True,
+        ) | models.Q(
+            container_number__order__retrieval_id__retrieval_destination_area=warehouse.split('-')[0]
         )
         if container_list:
             criteria &= models.Q(container_number__container_number__in=container_list)
