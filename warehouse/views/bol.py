@@ -330,25 +330,11 @@ class BOL(View):
         ))
         for pl in packing_list:
             fba_ids = pl.fba_id
-            array = re.split(r'[,\s]+', fba_ids) 
-            array = [item for item in array if item]                  
-            if len(array) > 1:
-                parts = []
-                for i in range(0, len(array)):
-                    part = ",".join(array[i:i+1])
-                    parts.append(part)
-                fba_ids = "\n".join(parts)
+            fba_ids = re.sub(r'[,\s-]+', '\n', fba_ids).strip()
             pl.fba_id = fba_ids
 
             ref_ids = pl.ref_id
-            array = re.split(r'[,\s]+', ref_ids) 
-            array = [item for item in array if item]               
-            if len(array) > 1:
-                parts = []
-                for i in range(0, len(array)):
-                    part = ",".join(array[i:i+1])
-                    parts.append(part)
-                ref_ids = "\n".join(parts)
+            ref_ids = re.sub(r'[,\s-]+', '\n', ref_ids).strip()
             pl.ref_id = ref_ids
         pallet = list(Pallet.objects.select_related("container_number").filter(
             shipment_batch_number__shipment_batch_number=batch_number,
