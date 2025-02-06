@@ -2108,3 +2108,8 @@ MIT2:
   location: 5408 Express Ave
   state: CA
   zipcode: '93263'
+LAX2t:
+  city: Chino
+  location: 6720 Kimball Ave
+  state: CA
+  zipcode: '91708'
