@@ -430,11 +430,16 @@ class PO(View):
         end_date = request.POST.get("end_date")
         container_number = request.POST.get("container_number")
         container_list = container_number.split()
-        criteria = models.Q(
-            container_number__order__warehouse__name=warehouse,
-        ) | models.Q(
-            container_number__order__retrieval_id__retrieval_destination_area=warehouse.split('-')[0]
-        )
+        if warehouse:
+            criteria = models.Q(
+                container_number__order__warehouse__name=warehouse,
+            ) | models.Q(
+                container_number__order__retrieval_id__retrieval_destination_area=warehouse.split('-')[0]
+            )
+        else:
+            criteria = models.Q(
+                container_number__order__order_type='直送'
+            )
         if container_list:
             criteria &= models.Q(container_number__container_number__in=container_list)
         if start_date:
