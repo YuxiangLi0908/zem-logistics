@@ -84,7 +84,6 @@ class Accounting(View):
         # if not self._validate_user_group(request.user):
         #     return HttpResponseForbidden("You are not authenticated to access this page!")
         step = request.GET.get("step", None)
-        print("GET",step)
         if step == "pallet_data":
             template, context = self.handle_pallet_data_get()
             return render(request, template, context)
@@ -159,7 +158,6 @@ class Accounting(View):
             return HttpResponseForbidden("You are not authenticated to access this page!")
 
         step = request.POST.get("step", None)
-        print("POST",step)
         if step == "pallet_data_search":
             start_date = request.POST.get("start_date")
             end_date = request.POST.get("end_date")
@@ -1486,8 +1484,8 @@ class Accounting(View):
         worksheet = workbook.active     #获取工作簿的活动工作表
         worksheet.title = "Sheet1"      #给表命名
         cells_to_merge = [              #要合并的单元格
-            "A1:B1", "A3:A4", "B3:D3", "B4:D4", "E3:E4", "F3:H4", "A5:A6", "B5:D5", "B6:D6", "E5:E6", "F5:H6", "A9:B9", 
-            "A10:B10", "F1:H1", "C1:E1", "A2:H2", "A7:H7", "A8:H8", "C9:H9", "C10:H10", "A11:H11"
+            "A1:E1", "A3:A4", "B3:D3", "B4:D4", "E3:E4", "F3:I4", "A5:A6", "B5:D5", "B6:D6", "E5:E6", "F5:I6", "A9:B9", 
+            "A10:B10", "F1:I1", "C1:E1", "A2:H2", "A7:H7", "A8:H8", "C9:H9", "C10:H10", "A11:H11"
         ]
         self._merge_ws_cells(worksheet, cells_to_merge)   #进行合并
 
@@ -1498,7 +1496,8 @@ class Accounting(View):
         worksheet.column_dimensions['E'].width = 8
         worksheet.column_dimensions['F'].width = 7
         worksheet.column_dimensions['G'].width = 11
-        worksheet.column_dimensions['G'].width = 11
+        worksheet.column_dimensions['H'].width = 11
+        worksheet.column_dimensions['I'].width = 11
         worksheet.row_dimensions[1].height = 40
 
         worksheet["A1"] = "Zem Elitelink Logistics Inc"
@@ -1543,7 +1542,7 @@ class Accounting(View):
             min_row=invoice_item_starting_row,
             max_row=invoice_item_starting_row + invoice_item_row_count,
             min_col=1,
-            max_col=8,
+            max_col=9,
         ):
             for cell in row:
                 cell.border = Border(
