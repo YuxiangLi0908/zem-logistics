@@ -154,10 +154,12 @@ class Accounting(View):
             raise ValueError(f"unknow request {step}")
         
     def post(self, request: HttpRequest) -> HttpResponse:
+        
         if not self._validate_user_group(request.user):
             return HttpResponseForbidden("You are not authenticated to access this page!")
 
         step = request.POST.get("step", None)
+        print("POST",step)
         if step == "pallet_data_search":
             start_date = request.POST.get("start_date")
             end_date = request.POST.get("end_date")
@@ -1524,7 +1526,7 @@ class Accounting(View):
         worksheet["F3"].alignment = Alignment(vertical="center")
         worksheet["F5"].alignment = Alignment(vertical="center")
 
-        worksheet.append(["CONTAINER #", "DESCRIPTION", "WAREHOUSE CODE", "CBM", "QTY", "RATE", "AMOUNT", "NOTE"]) #添加表头
+        worksheet.append(["CONTAINER #", "DESCRIPTION", "WAREHOUSE CODE", "CBM", "WEIGHT", "QTY", "RATE", "AMOUNT", "NOTE"]) #添加表头
         invoice_item_starting_row = 12
         invoice_item_row_count = 0
         row_count = 13
@@ -1535,7 +1537,7 @@ class Accounting(View):
             row_count += 1
             invoice_item_row_count += 1
 
-        worksheet.append(["Total", None, None, None, None, None, total_amount, None])   #工作表末尾添加总金额
+        worksheet.append(["Total", None, None, None, None, None, None, total_amount, None])   #工作表末尾添加总金额
         invoice_item_row_count += 1
         for row in worksheet.iter_rows(  #单元格设置样式
             min_row=invoice_item_starting_row,
