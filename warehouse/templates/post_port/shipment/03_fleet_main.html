@@ -172,6 +172,7 @@
                             <td class="td" style="max-width: 120px; word-break: break-all;">{{ f.note }}</td>
                             
                             <td class="td">
+                                {% if f.fleet_type != 'LTL' %}
                                 <form method="post" action="" onsubmit="showLoadingBar()">
                                     {% csrf_token %}
                                     <input type="hidden" name="step" value="cancel_fleet">
@@ -179,6 +180,7 @@
                                     <input type="hidden" name="warehouse" value="{{ warehouse }}">
                                     <button type="submit" class="btn btn-danger"><i class="bi bi-x-octagon"></i></button>
                                 </form>
+                                {% endif %}
                             </td>
                             
                         </tr>
