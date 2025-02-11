@@ -341,7 +341,7 @@ class Inventory(View):
         shipping_warehouse = request.POST.get("warehouse")
         receiving_warehouse = request.POST.get("receiving_warehouse")
         shipping_time = request.POST.get("shipping_time", None)
-        ETA = request.POST.get("ETA", None)
+        eta = request.POST.get("ETA", None)
         selected_orders = json.loads(request.POST.get('selectedOrders', '[]'))
         selected_orders = list(set(selected_orders))
         selectedIds = json.loads(request.POST.get('selectedIds', '[]'))
@@ -351,24 +351,24 @@ class Inventory(View):
             plt_ids = plt_ids.split(',')
             plt_ids = [int(i) for i in plt_ids]
             ids.extend(plt_ids)
-            #查找板子
-            pallets = await sync_to_async(list)(Pallet.objects.select_related("container_number").filter(id__in=plt_ids))
-            total_weight, total_cbm, total_pcs = .0, .0, 0
-            for plt in pallets:
-                plt.location = receiving_warehouse
-                total_weight += plt.weight_lbs
-                total_pcs += plt.pcs
-                total_cbm += plt.cbm
-            await sync_to_async(Pallet.objects.bulk_update)(pallets, ["location"])
+        #查找板子
+        pallets = await sync_to_async(list)(Pallet.objects.select_related("container_number").filter(id__in=ids))
+        total_weight, total_cbm, total_pcs = .0, .0, 0
+        for plt in pallets:
+            plt.location = receiving_warehouse
+            total_weight += plt.weight_lbs
+            total_pcs += plt.pcs
+            total_cbm += plt.cbm
+        await sync_to_async(Pallet.objects.bulk_update)(pallets, ["location"])
             #然后新建transfer_warehouse新记录
         current_time = datetime.now()
-        batch_id = current_time.strftime("%m%d") +'-'+ str(uuid.uuid4())[:2].upper()
+        batch_id = str(uuid.uuid4())[:2].upper() + '-' + current_time.strftime("%m%d") + '-' + shipping_warehouse
         batch_id = batch_id.replace(" ", "").upper()
         transfer_location = TransferLocation(**{
             "shipping_warehouse": shipping_warehouse,
             "receiving_warehouse": receiving_warehouse,
             "shipping_time": shipping_time,
-            "ETA": ETA,
+            "ETA": eta,
             "batch_number": batch_id,
             "container_number":selected_orders,
             "plt_ids":ids,
@@ -383,7 +383,6 @@ class Inventory(View):
         mutable_get["step"] = "cancel_notification"
         request.GET = mutable_get
         return await self.handle_warehouse_post(request)
-
 
     async def _get_inventory_pallet(self, warehouse: str, criteria: models.Q | None = None) -> list[Pallet]:
         if criteria:

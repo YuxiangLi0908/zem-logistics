@@ -2,7 +2,7 @@
 
 {% block content %}
 <div style="display: flex;">
-    <div style="margin-right: 10px;"><b>库存盘点</b></div>
+    <div style="margin-right: 10px;"><b>库存管理</b></div>
     <form method="post" action="" onsubmit="showLoadingBar()">
         {% csrf_token %}
         <div>
@@ -48,7 +48,6 @@
             <!-- <li class="nav-item">
                 <button class="nav-link" onclick="showSection(this, 'order-retrieval-info-sec')"><b>库存调度</b></button>
             </li> -->
-            <button type="submit" id='transfer-btn' class="btn btn-primary" onclick="editTransfer(this)" style="font-size: 15px; background-color:rgb(35, 189, 11); display:none;">转仓</button>
         </ul>
     </div>
 </div>
@@ -268,6 +267,7 @@
         </div>
     </div>
     <div id="warehouse-transfer-sec" style="display: none;">
+        <button type="submit" id='transfer-btn' class="btn btn-success" onclick="editTransfer(this)" style="font-size: 11px; display:none;">转仓</button>
         <table class="table" id="inventory-summary-table" style="font-size: 11px; max-height: 95%; overflow-y: scroll;">
             <thead>
                 <tr style="position: sticky; top: 0px;">
@@ -313,7 +313,7 @@
                     <td class="td" style="text-align: center;">
                         <input type='checkbox' name='is_pallet_selected_click' onclick="toggleRowBackground(this)">
                         <input type="hidden" name="is_pallet_selected", value='off'>                         
-                        <input type="text" name="plt_ids", value='{{ p.plt_ids }}'>
+                        <input type="hidden" name="plt_ids", value='{{ p.plt_ids }}'>
                         <input type="hidden" name="orders", value='{{ p.container }}'>
                     </td>
                     <td class="td">{{ p.customer_name }}</td>
@@ -522,6 +522,7 @@
             }
         };
         console.log('selectorders',selectedOrders);
+        console.log('selectorders',selectedIds);
     };
 
     //全选的操作
