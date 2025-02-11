@@ -35,6 +35,7 @@ from warehouse.models.pallet import Pallet
 from warehouse.models.shipment import Shipment
 from warehouse.models.fleet import Fleet
 from warehouse.models.warehouse import ZemWarehouse
+from warehouse.models.transfer_location import TransferLocation
 from warehouse.forms.upload_file import UploadFileForm
 from warehouse.utils.constants import (
     amazon_fba_locations,
@@ -824,6 +825,17 @@ class ShippingManagement(View):
             plt_criteria &= models.Q(location__startswith=area)
 
         packing_list_not_scheduled = await self._get_packing_list(pl_criteria, plt_criteria)
+        #与转仓表进行比较，将转仓表中记录的，所有转仓的柜子，ETA和入仓时间按照转仓来显示
+        trans = await sync_to_async(list)(TransferLocation.objects.all().values('ETA', 'arrival_time', 'plt_ids'))
+        for pl in packing_list_not_scheduled:
+            pl_id = pl.get("plt_ids")
+            if ',' in pl_id:
+                id_l = pl_id.split(',')
+                pl_id = id_l[0]
+            for t in trans:                           
+                if pl_id in t.get('plt_ids'):
+                    pl['eta'] = t.get('ETA')
+                    pl['container_number__order__offload_id__offload_at'] = t.get('arrival_time')
         cbm_act, cbm_est, pallet_act, pallet_est = 0, 0, 0, 0
         for pl in packing_list_not_scheduled:
             if pl.get("label") == "ACT":

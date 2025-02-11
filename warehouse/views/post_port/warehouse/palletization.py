@@ -14,6 +14,7 @@ from typing import Any
 from xhtml2pdf import pisa
 from itertools import zip_longest
 from django.db.models import OuterRef, Subquery
+from django.utils import timezone
 
 from django.http import HttpRequest, HttpResponse
 from django.shortcuts import render, redirect
@@ -31,6 +32,7 @@ from warehouse.models.packing_list import PackingList
 from warehouse.models.fleet import Fleet
 from warehouse.models.pallet import Pallet
 from warehouse.models.shipment import Shipment
+from warehouse.models.transfer_location import TransferLocation
 from warehouse.forms.warehouse_form import ZemWarehouseForm
 from warehouse.forms.packling_list_form import PackingListForm
 from warehouse.views.export_file import export_palletization_list
@@ -101,6 +103,9 @@ class Palletization(View):
             return render(request, template, context)
         elif step == "edit_pallet":
             template, context = await self.handle_edit_pallet_post(request)
+            return render(request, template, context)
+        elif step == "trans_arrival":
+            template, context = await self.handle_trans_arrival_post(request)
             return render(request, template, context)
         else:
             return await self.get(request)
@@ -282,9 +287,14 @@ class Palletization(View):
                 for o in order_with_shipment
             }
             order_not_palletized = [
-                o for o in order_not_palletized if o.container_number.container_number in order_with_shipment
+                o for o in order_not_palletized 
+                if isinstance(o, dict)
+            ]+ [
+                o for o in order_not_palletized 
+                if not isinstance(o, dict) and o.container_number.container_number in order_with_shipment
             ] + [
-                o for o in order_not_palletized if o.container_number.container_number not in order_with_shipment
+                o for o in order_not_palletized 
+                if not isinstance(o, dict) and o.container_number.container_number not in order_with_shipment
             ]
             context = {
                 "order_not_palletized": order_not_palletized,
@@ -341,6 +351,16 @@ class Palletization(View):
         template, context = await self.handle_daily_operation_get(warehouse)
         return template, context
 
+    async def handle_trans_arrival_post(self, request: HttpRequest) -> tuple[str, dict[str, Any]]:
+        batch_id = request.POST.get('batch_id')
+        trans = await sync_to_async(TransferLocation.objects.get)(id = batch_id)
+        trans.arrival_time = timezone.now()
+        await sync_to_async(trans.save)()
+        warehouse = request.POST.get('warehouse')
+        mutable_post = request.POST.copy()
+        mutable_post['name'] = warehouse
+        request.POST = mutable_post
+        return await self.handle_warehouse_post(request)
 
     async def handle_edit_pallet_post(self, request: HttpRequest) -> tuple[str, dict[str, Any]]:
         #将pallet信息存储，包括长宽高和件数
@@ -913,7 +933,23 @@ class Palletization(View):
             raise ValueError(f"invalid status: {status}")
 
     async def _get_order_not_palletized(self, warehouse: str) -> Order:
-        return await sync_to_async(list)(Order.objects.select_related(
+        #一方面，查找所有转仓的，没有确认送达的在transfer_location表
+        packinglist = await sync_to_async(list)(
+            TransferLocation.objects.values(
+                "batch_number","id","container_number","shipping_warehouse","receiving_warehouse",
+                "ETA","total_pallet","arrival_time"
+            ).filter(
+            models.Q(
+                receiving_warehouse=warehouse,
+                arrival_time__isnull=True
+            )
+        ))
+        for pl in packinglist:
+            container_number = pl.get('container_number', '')
+            new_container_number = container_number.replace("'", '').replace('[', '').replace(']', '')
+            pl['container_number'] = new_container_number
+        #另一方面查未打板的，在pallet表
+        packinglist += await sync_to_async(list)(Order.objects.select_related(
             "customer_name", "container_number", "retrieval_id", "offload_id", "warehouse"
         ).filter(
             models.Q(
@@ -925,6 +961,7 @@ class Palletization(View):
             )
             # & (models.Q(retrieval_id__actual_retrieval_timestamp__isnull=False) | models.Q(retrieval_id__retrive_by_zem=False))
         ).order_by("retrieval_id__arrive_at"))
+        return packinglist
     
     async def _get_order_palletized(self, warehouse: str) -> Order:
         return await sync_to_async(list)(Order.objects.select_related(

@@ -52,6 +52,32 @@
                     {% for c in order_not_palletized %}
                     <form method="post" action="">
                         {% csrf_token %}
+                        {% if c.batch_number %}
+                        <tr>
+                            <td class="td" style="width:100px;">
+                                {{ c.container_number }}
+                            </td>
+                            <td class="td">{{ c.batch_number }}</td>
+                            <td class="td">{{ c.total_pallet }}板</td>
+                            <td class="td">
+                                <span class="status-span-red">{{ c.ETA|date:"M-j" }}</span>
+                            </td>
+                            <td class="td">
+                                
+                            </td>
+                            <td class="td">
+                                <form method="post">
+                                    {% csrf_token %}
+                                    <input type="hidden" name="step" value="trans_arrival">
+                                    <input type="hidden" name="batch_id" value="{{ c.id }}">
+                                    <input type="hidden" name="warehouse" value="{{ warehouse }}">
+                                    <button type="submit" class="btn btn-success" style="font-size: 13px;">
+                                        <small>确认送达</small>
+                                    </button>
+                                </form>
+                            </td>
+                        </tr>
+                        {% else %}
                         <tr>
                             <td class="td">
                                 <a href="/palletize/{{c.id}}/?step=container_palletization&warehouse={{ warehouse }}">{{ c.container_number }}</a>
@@ -178,6 +204,7 @@
                                 </form> 
                             </td>
                         </tr>
+                        {% endif %}
                     {% endfor %}
                 </tbody>
             </table>

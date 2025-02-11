@@ -166,16 +166,17 @@ class FleetManagement(View):
     async def handle_add_pallet(self, request: HttpRequest) -> tuple[str, dict[str, Any]]:
         selections = request.POST.getlist("is_plt_added")
         on_positions = [i for i, v in enumerate(selections) if v == 'on']
-        pallet_add = request.POST.getlist("pallet_add")       
+        pallet_add = request.POST.getlist("pallet_add")   #实际加的板数   
         pallet_adds = [id for s, id in zip(selections, pallet_add) if s == "on"]
         pallet_adds = [int(pallet) for pallet in pallet_adds]
         total_pallet = sum(pallet_adds)
         destinations = request.POST.getlist("destination")  
-        pallets = request.POST.getlist("pallets")         
+        pallets = request.POST.getlist("pallets")    #该仓点下原本没有约的板数      
         container_numbers = request.POST.getlist("container")
         plt_id = request.POST.getlist("added_plt_ids")
         results = []
         des = set() 
+        #按顺序记录选中的每一行加塞的信息
         for p in on_positions:
             result = {}
             result["destination"] = destinations[p]
@@ -191,17 +192,17 @@ class FleetManagement(View):
         plt_ids = [id for s, id in zip(selections, plt_id) if s == "on"]
         plt_ids = [int(i) for id in plt_ids for i in id.split(",") if i]
         Utilized_pallet_ids = []
+        #记录加塞的plt_id
         for r in range(len(results)):   
             if results[r]["pallet_add"] < results[r]["pallets"]:             
                 Utilized_pallet_ids += results[r]["ids"][:results[r]["pallet_add"]]
                 Utilized_pallet_ids = [int(i) for i in Utilized_pallet_ids]    
-                results[r]["ids"] = Utilized_pallet_ids      
+                results[r]["ids"] = Utilized_pallet_ids    
         pallet = await sync_to_async(list)(Pallet.objects.select_related("container_number").filter(id__in=Utilized_pallet_ids))
         for plt in pallet:
             total_weight += plt.weight_lbs
             total_pcs += plt.pcs
             total_cbm += plt.cbm
-             
         #查找该出库批次,将重量等信息加到出库批次上
         fleet_number = request.POST.get("fleet_number")
         fleet = await sync_to_async(Fleet.objects.get)(fleet_number = fleet_number)
@@ -210,13 +211,11 @@ class FleetManagement(View):
         fleet.total_cbm += total_cbm
         fleet.total_pallet += total_pallet
         await sync_to_async(fleet.save)()
-
         #查找该出库批次下的约，把加塞的柜子板数加到同一个目的地的约
         shipments = await sync_to_async(list)(
             Shipment.objects.select_related(
                 "fleet_number"
             ).filter(
-                destination__in = des,
                 fleet_number__fleet_number = fleet_number,
             )
         )
@@ -1354,6 +1353,7 @@ class FleetManagement(View):
                     )
                     pallet_shipping_marks, pallet_fba_ids, pallet_ref_ids = [], [], []
                     updated_pl = []
+                    #板子绑定要加塞的约
                     for plt in Utilized_pallets:
                         plt.shipment_batch_number = s
                         s.total_weight += plt.weight_lbs
@@ -1365,6 +1365,7 @@ class FleetManagement(View):
                             pallet_fba_ids += plt.fba_id.split(",")
                         if plt.ref_id:
                             pallet_ref_ids += plt.ref_id.split(",")
+                    #pl也绑定约
                     for pl in packing_list:
                         pl.shipment_batch_number = s
                         if pl.shipping_mark and pl.shipping_mark in pallet_shipping_marks:
