@@ -347,20 +347,21 @@ class Inventory(View):
         selectedIds = json.loads(request.POST.get('selectedIds', '[]'))
         selectedIds = list(set(selectedIds))
         ids = []
+        
         for plt_ids in selectedIds:
             plt_ids = plt_ids.split(',')
             plt_ids = [int(i) for i in plt_ids]
             ids.extend(plt_ids)
-            #查找板子
-            pallets = await sync_to_async(list)(Pallet.objects.select_related("container_number").filter(id__in=plt_ids))
-            total_weight, total_cbm, total_pcs = .0, .0, 0
-            for plt in pallets:
-                plt.location = receiving_warehouse
-                total_weight += plt.weight_lbs
-                total_pcs += plt.pcs
-                total_cbm += plt.cbm
-            await sync_to_async(Pallet.objects.bulk_update)(pallets, ["location"])
-            #然后新建transfer_warehouse新记录
+        #查找板子
+        pallets = await sync_to_async(list)(Pallet.objects.select_related("container_number").filter(id__in=ids))
+        total_weight, total_cbm, total_pcs = .0, .0, 0
+        for plt in pallets:
+            plt.location = receiving_warehouse
+            total_weight += plt.weight_lbs
+            total_pcs += plt.pcs
+            total_cbm += plt.cbm
+        await sync_to_async(Pallet.objects.bulk_update)(pallets, ["location"])
+        #然后新建transfer_warehouse新记录
         current_time = datetime.now()
         batch_id = current_time.strftime("%m%d") +'-'+ str(uuid.uuid4())[:2].upper()
         batch_id = batch_id.replace(" ", "").upper()
