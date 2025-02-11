@@ -330,11 +330,11 @@ class BOL(View):
         ))
         for pl in packing_list:
             fba_ids = pl.fba_id
-            fba_ids = re.sub(r'[,\s-]+', '\n', fba_ids).strip()
+            fba_ids = re.sub(r'[,\s-\/]+', '\n', fba_ids).strip()
             pl.fba_id = fba_ids
 
             ref_ids = pl.ref_id
-            ref_ids = re.sub(r'[,\s-]+', '\n', ref_ids).strip()
+            ref_ids = re.sub(r'[,\s-\/]+', '\n', ref_ids).strip()
             pl.ref_id = ref_ids
         pallet = list(Pallet.objects.select_related("container_number").filter(
             shipment_batch_number__shipment_batch_number=batch_number,
