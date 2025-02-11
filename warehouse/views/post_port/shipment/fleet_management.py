@@ -1009,6 +1009,7 @@ class FleetManagement(View):
         return response
     
     async def _export_ltl_bol(self, request: HttpRequest) -> HttpResponse:
+        fleet_number = request.POST.get("fleet_number")
         customerInfo = request.POST.get("customerInfo")
         warehouse = request.POST.get("warehouse") 
         contact_flag = False  #表示地址栏空出来，客服手动P上去  
@@ -1044,7 +1045,6 @@ class FleetManagement(View):
                 arm_pickup_dict_list.append(row_dict)
             arm_pickup = arm_pickup_dict_list   
         else:  #没有就从数据库查      
-            fleet_number = request.POST.get("fleet_number")
             arm_pickup = await sync_to_async(list)(
                 Pallet.objects.select_related(
                     "container_number__container_number","shipment_batch_number__fleet_number"
@@ -1062,7 +1062,9 @@ class FleetManagement(View):
                     total_cbm=Sum('cbm')
                 )
             )
-        
+        fleet = await sync_to_async(Fleet.objects.get)(fleet_number=fleet_number)
+        pickup_time_str = fleet.appointment_datetime
+        pickup_time = pickup_time_str.strftime('%Y-%m-%d')
         pallet = 0
         pcs = 0
         shipping_mark = ''
@@ -1116,7 +1118,8 @@ class FleetManagement(View):
             "barcode": barcode_base64,
             "arm_pickup": arm_pickup,
             "contact":contact,
-            "contact_flag":contact_flag
+            "contact_flag":contact_flag,
+            "pickup_time":pickup_time
             }
         template = get_template(self.template_ltl_bol)
         html = template.render(context)
