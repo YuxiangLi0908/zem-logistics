@@ -347,6 +347,7 @@ class Inventory(View):
         selectedIds = json.loads(request.POST.get('selectedIds', '[]'))
         selectedIds = list(set(selectedIds))
         ids = []
+        
         for plt_ids in selectedIds:
             plt_ids = plt_ids.split(',')
             plt_ids = [int(i) for i in plt_ids]
@@ -360,7 +361,7 @@ class Inventory(View):
             total_pcs += plt.pcs
             total_cbm += plt.cbm
         await sync_to_async(Pallet.objects.bulk_update)(pallets, ["location"])
-            #然后新建transfer_warehouse新记录
+        #然后新建transfer_warehouse新记录
         current_time = datetime.now()
         batch_id = str(uuid.uuid4())[:2].upper() + '-' + current_time.strftime("%m%d") + '-' + shipping_warehouse
         batch_id = batch_id.replace(" ", "").upper()
