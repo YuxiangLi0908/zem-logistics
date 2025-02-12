@@ -828,14 +828,15 @@ class ShippingManagement(View):
         #与转仓表进行比较，将转仓表中记录的，所有转仓的柜子，ETA和入仓时间按照转仓来显示
         trans = await sync_to_async(list)(TransferLocation.objects.all().values('ETA', 'arrival_time', 'plt_ids'))
         for pl in packing_list_not_scheduled:
-            pl_id = pl.get("plt_ids")
-            if ',' in pl_id:
-                id_l = pl_id.split(',')
-                pl_id = id_l[0]
-            for t in trans:                           
-                if pl_id in t.get('plt_ids'):
-                    pl['eta'] = t.get('ETA')
-                    pl['container_number__order__offload_id__offload_at'] = t.get('arrival_time')
+            if "plt_ids" in pl:  #只有打板后的才可能有转仓记录
+                pl_id = pl.get("plt_ids")
+                if ',' in pl_id:
+                    id_l = pl_id.split(',')
+                    pl_id = id_l[0]
+                for t in trans:                           
+                    if pl_id in t.get('plt_ids'):
+                        pl['eta'] = t.get('ETA')
+                        pl['container_number__order__offload_id__offload_at'] = t.get('arrival_time')
         cbm_act, cbm_est, pallet_act, pallet_est = 0, 0, 0, 0
         for pl in packing_list_not_scheduled:
             if pl.get("label") == "ACT":
