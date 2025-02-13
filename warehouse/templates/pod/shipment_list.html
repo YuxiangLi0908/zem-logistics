@@ -32,14 +32,12 @@
                 <th class="th">总重lbs</th>
                 <th class="th">总CBM</th>
                 <th class="th">总卡板数</th>
-                <th class="th">一提两卸</th>
                 <th class="th">备注</th>
             </tr>
             <tr style="position: sticky; top: 28px;">
                 <th class="th"><input type="text" id="fleetSearchInput" placeholder="搜索批次号..." oninput="filterTable()"></th>
                 <th class="th"><input type="text" id="batchSearchInput" placeholder="搜索批次号..." oninput="filterTable()"></th>
                 <th class="th"><input type="text" id="appIdSearchInput" placeholder="搜索预约号..." oninput="filterTable()"></th>
-                <th class="th"></th>
                 <th class="th"></th>
                 <th class="th"></th>
                 <th class="th"></th>
@@ -54,30 +52,26 @@
             <form id="pod-form" method="post" enctype="multipart/form-data" action="" style="overflow-x: auto; max-width: 100%; max-height: 98%; overflow-y: scroll;">
                 {% csrf_token %}
                 <tr>
-                    <td class="td" style="max-width: 120px; word-break: break-all;"><a href="/pod_legacy/?step=select&fleet_number={{ f.fleet_number }}">
-                        {{ f.fleet_number }}</td>
-                    <td class="td" style="max-width: 120px; word-break: break-all;">{{ f.shipment_batch_numbers }}
+                    <td class="td" style="max-width: 120px; word-break: break-all;">{{ f.fleet_number.fleet_number }}</td>
+                    <td class="td" style="max-width: 120px; word-break: break-all;">
+                        <a href="/pod_legacy/?step=select&batch_number={{ f.shipment_batch_number }}">
+                        {{ f.shipment_batch_number }}
                     </td>
-                    <td class="td" style="max-width: 120px; word-break: break-all;">{{ f.appointment_ids }}</td>
+                    <td class="td" style="max-width: 120px; word-break: break-all;">{{ f.appointment_id }}</td>
                     <td class="td">{{ f.carrier }}</td>
-                    <td class="td">{{ f.appointment_datetime|date:"M-j" }}</td>
+                    <td class="td">{{ f.fleet_number.appointment_datetime|date:"M-j" }}</td>
                     <td class="td">
                         {% if f.arrival_status == "past_due" %}
-                        <span class="status-span-red">{{ f.departured_at|date:"M-j" }}</span>
+                        <span class="status-span-red">{{ f.fleet_number.departured_at|date:"M-j" }}</span>
                         {% elif f.arrival_status == "need_attention" %}
-                        <span class="status-span-yellow">{{ f.departured_at|date:"M-j" }}</span>
+                        <span class="status-span-yellow">{{ f.fleet_number.departured_at|date:"M-j" }}</span>
                         {% else %}
-                        {{ f.departured_at|date:"M-j" }}
+                        {{ f.fleet_number.departured_at|date:"M-j" }}
                         {% endif %}
                     </td>
-                    <td class="td">{{ f.total_weight|floatformat:2 }}</td>
-                    <td class="td">{{ f.total_cbm|floatformat:2 }}</td>
-                    <td class="td">{{ f.total_pallet|floatformat:0 }}</td>
-                    <td class="td">
-                        {% if f.multipule_destination %}
-                        <i class="bi bi-check-square-fill" style="color: rgba(34, 153, 84, 0.873); font-size: 15px"></i>
-                        {% endif %}
-                    </td>
+                    <td class="td">{{ f.shipped_weight|floatformat:2 }}</td>
+                    <td class="td">{{ f.shipped_cbm|floatformat:2 }}</td>
+                    <td class="td">{{ f.shipped_pallet|floatformat:0 }}</td>
                     <td class="td" style="max-width: 120px; word-break: break-all;">{{ f.note|default_if_none:"" }}</td>
                 </tr>            
                 </form>
@@ -94,10 +88,10 @@
         var tbody = document.getElementById("shipment-batch-table").getElementsByTagName("tbody")[0];
         var tr = tbody.getElementsByTagName("tr");
         for (i = 0; i < tr.length; i++) {
-            var fleetionTd = tr[i].getElementsByTagName("td")[0];
+            var fleetTd = tr[i].getElementsByTagName("td")[0];
             var batchTd = tr[i].getElementsByTagName("td")[1];          
             var appTd = tr[i].getElementsByTagName("td")[2];
-            if (fleetionTd && batchTd && appTd) {
+            if (fleetTd && batchTd && appTd) {
                 var fleetTxtValue = fleetTd.textContent.trim();
                 var batchTxtValue = batchTd.textContent.trim();               
                 var appTxtValue = appTd.textContent.trim();

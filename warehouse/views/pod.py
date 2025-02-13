@@ -53,20 +53,16 @@ class POD(View):
             "shipment_list": shipment_list,
             "warehouse_options": self.warehouse_options,
         }
-        print(shipment_list)
         return context
     
     def handle_select_get(self, request: HttpRequest) -> dict[str, Any]:
-        fleet_number = request.GET.get("fleet_number")
-        fleet = Fleet.objects.get(fleet_number=fleet_number)
-            
-
-        shipment = Shipment.objects.filter(fleet_number=fleet)
-        shipment_batch_numbers = [s.shipment_batch_number for s in shipment] 
+        batch_number = request.GET.get("batch_number")
+        shipment = Shipment.objects.get(shipment_batch_number=batch_number)
+        shipment_form = ShipmentForm(initial=model_to_dict(shipment))
         packing_list = PackingList.objects.select_related(
             "container_number", "container_number__order__customer_name", "pallet"
         ).filter(
-            shipment_batch_number__shipment_batch_number__in=shipment_batch_numbers
+            shipment_batch_number__shipment_batch_number=batch_number
         ).values(
             'id', 'fba_id', 'ref_id','address','zipcode','destination','delivery_method',
             'container_number__container_number',
@@ -82,48 +78,31 @@ class POD(View):
             '-total_weight_lbs'
         )
         context = {
-            "fleet":fleet,
             "shipment": shipment,
             "packing_list": packing_list,
+            "shipment_form": shipment_form,
             "upload_file_form": UploadFileForm(required=True),
         }
         return context
     
     def handle_confirm_delivery_post(self, request: HttpRequest) -> dict[str, Any]:
-        #先更新时间
-        arrived_at = request.POST.get("arrived_at")
-        fleet_number = request.POST.get("fleet_number")
-        fleet = Fleet.objects.get(fleet_number=fleet_number)
-        shipment =list(
-            Shipment.objects.filter(fleet_number__fleet_number=fleet_number)
-        )
-        fleet.arrived_at = arrived_at
-        updated_shipment = []
-        for s in shipment:
-            s.arrived_at = arrived_at
-            s.is_arrived = True
-            updated_shipment.append(s)
-        fleet.save()
-        Shipment.objects.bulk_update(
-            updated_shipment,
-            ["arrived_at", "is_arrived"]
-        )
-        #再上传POD
         conn = self._get_sharepoint_auth()
         pod_form = UploadFileForm(request.POST, request.FILES)
-        shipment_batch_number = request.POST.get("shipment_batch_number")
-        shipment = Shipment.objects.get(shipment_batch_number=shipment_batch_number)
+        arrived_at = request.POST.get("arrived_at")
+        batch_number = request.POST.get("batch_number")
         if pod_form.is_valid():
             file = request.FILES['file']
             file_extension = os.path.splitext(file.name)[1]
             file_path = os.path.join(SP_DOC_LIB, f"{SYSTEM_FOLDER}/pod/{APP_ENV}")
             sp_folder = conn.web.get_folder_by_server_relative_url(file_path)
-            resp = sp_folder.upload_file(f"{shipment_batch_number}{file_extension}", file).execute_query()
+            resp = sp_folder.upload_file(f"{batch_number}{file_extension}", file).execute_query()
             link = resp.share_link(SharingLinkKind.OrganizationView).execute_query().value.to_json()["sharingLinkInfo"]["Url"]
         else:
-            raise ValueError("invalid file uploaded.")
+            raise RuntimeError("invalid file uploaded.")
+        shipment = Shipment.objects.get(shipment_batch_number=batch_number)
         shipment.pod_link = link
-        shipment.pod_uploaded_at = timezone.now()
+        shipment.arrived_at = arrived_at
+        shipment.is_arrived = True
         shipment.save()
         return self.handle_init_get()
 
@@ -136,61 +115,28 @@ class POD(View):
     def handle_delivery_and_pod_get(self, request: HttpRequest) ->  dict[str, Any]:
         fleet_number = request.GET.get("fleet_number", "")
         batch_number = request.GET.get("batch_number", "")
+
         area = request.POST.get('area') or None
+        
         criteria = models.Q(
-            departured_at__isnull=False,
+            shipped_at__isnull=False,
             arrived_at__isnull=True,
-            is_canceled=False,
-            fleet_type__in=["FTL", "LTL", "外配/快递"]  #LTL和客户自提的不需要确认送达
-        )
+            shipment_schduled_at__gte='2024-12-01'
+        )       
         if fleet_number:
-            criteria &= models.Q(fleet_number=fleet_number)
+            criteria &= models.Q(fleet_number__fleet_number=fleet_number)
         if batch_number:
-            criteria &= models.Q(shipment__shipment_batch_number=batch_number)
-        if area:
+            criteria &= models.Q(shipment_batch_number=batch_number)
+        if area and area is not None and area != 'None':
             criteria &= models.Q(origin=area)
-        fleet = list(
-            Fleet.objects.prefetch_related("shipment")
-            .filter(criteria)
-            .annotate(
-                shipment_batch_numbers=StringAgg("shipment__shipment_batch_number", delimiter=","),
-                appointment_ids=StringAgg("shipment__appointment_id", delimiter=","),
-            ).order_by("departured_at")
-        )
-        fleet_numbers = [f.fleet_number for f in fleet]
         shipment = list(
-            Shipment.objects.select_related("fleet_number")
-            .filter(fleet_number__fleet_number__in=fleet_numbers)
+            Shipment.objects.select_related("fleet_number").filter(criteria).order_by("shipped_at")
         )
-        shipment_fleet_dict = {}
-        for s in shipment:
-            if s.shipment_appointment is None:
-                shipment_appointment = ""
-            else:
-                shipment_appointment = s.shipment_appointment.replace(microsecond=0).isoformat()
-            if s.fleet_number.fleet_number not in shipment_fleet_dict:
-                shipment_fleet_dict[s.fleet_number.fleet_number] = [{
-                    "shipment_batch_number": s.shipment_batch_number,
-                    "appointment_id": s.appointment_id,
-                    "destination": s.destination,
-                    "carrier": s.carrier,
-                    "shipment_appointment": shipment_appointment,
-                    "origin": s.origin,
-                }]
-            else:
-                shipment_fleet_dict[s.fleet_number.fleet_number].append({
-                    "shipment_batch_number": s.shipment_batch_number,
-                    "appointment_id": s.appointment_id,
-                    "destination": s.destination,
-                    "carrier": s.carrier,
-                    "shipment_appointment": shipment_appointment,
-                    "origin": s.origin,
-                })
             
         context = {
             "fleet_number": fleet_number,
             "batch_number": batch_number,
-            "fleet": fleet,
+            "fleet": shipment,
             "warehouse_options": self.warehouse_options,
             "area": area
         }
