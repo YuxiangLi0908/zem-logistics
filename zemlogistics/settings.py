@@ -88,24 +88,24 @@ ASGI_APPLICATION = 'zemlogistics.asgi.application'
 
 if os.environ.get("ENV", "local") == "production":
     DATABASES = {
-        # "default": {
-        #     "ENGINE": "django.db.backends.postgresql",
-        #     "NAME": "zem-logistics-database",
-        #     "USER": os.environ.get('DBUSER'),
-        #     "PASSWORD": os.environ.get('DBPASS'),
-        #     "HOST": "zem-logistics-server.postgres.database.azure.com",
-        #     "PORT": "5432",
-        #     "OPTIONS": {"sslmode": "require"},
-        # }
         "default": {
             "ENGINE": "django.db.backends.postgresql",
             "NAME": "zem-logistics-database",
             "USER": os.environ.get('DBUSER'),
             "PASSWORD": os.environ.get('DBPASS'),
-            "HOST": "zem-warehouse-db.postgres.database.azure.com",
+            "HOST": "zem-logistics-server.postgres.database.azure.com",
             "PORT": "5432",
             "OPTIONS": {"sslmode": "require"},
         }
+        # "default": {
+        #     "ENGINE": "django.db.backends.postgresql",
+        #     "NAME": "zem-logistics-database",
+        #     "USER": os.environ.get('DBUSER'),
+        #     "PASSWORD": os.environ.get('DBPASS'),
+        #     "HOST": "zem-warehouse-db.postgres.database.azure.com",
+        #     "PORT": "5432",
+        #     "OPTIONS": {"sslmode": "require"},
+        # }
     }
 else:
     DATABASES = {
