@@ -21,6 +21,7 @@ office365-rest-python-client = "^2.5.8"
 python-barcode = "^0.15.1"
 matplotlib = "^3.9.3"
 pypdf2 = "^3.0.1"
+sqlalchemy = "^2.0.38"
 
 
 [tool.poetry.group.dev.dependencies]
