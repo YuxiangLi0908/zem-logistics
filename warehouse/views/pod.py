@@ -56,6 +56,7 @@ class POD(View):
         return context
     
     def handle_select_get(self, request: HttpRequest) -> dict[str, Any]:
+        area = request.GET.get("area")
         batch_number = request.GET.get("batch_number")
         shipment = Shipment.objects.get(shipment_batch_number=batch_number)
         shipment_form = ShipmentForm(initial=model_to_dict(shipment))
@@ -82,6 +83,7 @@ class POD(View):
             "packing_list": packing_list,
             "shipment_form": shipment_form,
             "upload_file_form": UploadFileForm(required=True),
+            "area":area
         }
         return context
     
@@ -104,7 +106,7 @@ class POD(View):
         shipment.arrived_at = arrived_at
         shipment.is_arrived = True
         shipment.save()
-        return self.handle_init_get()
+        return self.handle_delivery_and_pod_get(request)
 
     def _get_not_delivered_shipment(self) -> Shipment:
         return Shipment.objects.filter(
