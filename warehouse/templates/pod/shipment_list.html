@@ -2,25 +2,44 @@
 
 {% block content %}
 <h4 class="mb-4">确认送达</h4>
+<form method="post" action="">
+    {% csrf_token %}
+    <div>
+        <b style="margin-right: 5px;">出库批次:</b>
+        <input type="text" name="fleet_number" value="{{ fleet_number }}">
+        <b style="margin-right: 5px;">预约批次:</b>
+        <input type="text" name="batch_number" value="{{ batch_number }}">
+        <b style="margin-right: 5px;">所属仓:</b>
+        <select name="area">
+            {% for k, v in warehouse_options.items %}
+            <option value="{{ v }}" {% if k == area %}selected{% endif %}>{{ k }}</option>
+            {% endfor %}
+        </select>
+        <input type="hidden" name="step" value="fleet_delivery_search">
+        <button type="submit">确认</button>
+    </div>
+</form>
 <div style="overflow-x: auto; max-width: 100%; overflow-y: auto; max-height: 800px;">
     <table id="shipment-batch-table" class="table" style="font-size: 12px; width: 100%;">
         <thead>
             <tr style="position: sticky; top: 0;">
-                <th class="th">批次号</th>
-                <th class="th">目的地</th>
+                <th class="th">出库批次</th>
+                <th class="th">预约批次</th>
                 <th class="th">预约号</th>
                 <th class="th">Carrier</th>
-                <th class="th">预约出库时间</th>
-                <th class="th">总箱数</th>
+                <th class="th">预约发车日期</th>
+                <th class="th">实际发车日期</th>
                 <th class="th">总重lbs</th>
                 <th class="th">总CBM</th>
                 <th class="th">总卡板数</th>
-                <th class="th">实际出库时间</th>
+                <th class="th">一提两卸</th>
+                <th class="th">备注</th>
             </tr>
             <tr style="position: sticky; top: 28px;">
+                <th class="th"><input type="text" id="fleetSearchInput" placeholder="搜索批次号..." oninput="filterTable()"></th>
                 <th class="th"><input type="text" id="batchSearchInput" placeholder="搜索批次号..." oninput="filterTable()"></th>
-                <th class="th"><input type="text" id="destinationSearchInput" placeholder="搜索目的地..." oninput="filterTable()"></th>
                 <th class="th"><input type="text" id="appIdSearchInput" placeholder="搜索预约号..." oninput="filterTable()"></th>
+                <th class="th"></th>
                 <th class="th"></th>
                 <th class="th"></th>
                 <th class="th"></th>
@@ -31,48 +50,63 @@
             </tr>
         </thead>
         <tbody>
-            {% for s in shipment_list%}
-            <tr>
-                <td class="td">
-                    <a href="/pod_legacy/?step=select&batch_number={{ s.shipment_batch_number }}">
-                    {{ s.shipment_batch_number }}
-                </td>
-                <td class="td">{{ s.destination }}</td>
-                <td class="td">{{ s.appointment_id }}</td>
-                <td class="td">{{ s.carrier }}</td>
-                <td class="td">{{ s.shipment_appointment|date:"Y-m-d" }} {{ s.shipment_appointment|time:"H:i" }}</td>
-                <td class="td">{{ s.total_pcs|floatformat:0 }}</td>
-                <td class="td">{{ s.total_weight|floatformat:2 }}</td>
-                <td class="td">{{ s.total_cbm|floatformat:2 }}</td>
-                <td class="td">{{ s.total_pallet|floatformat:0 }}</td>
-                <td class="td">{{ s.shipped_at|date:"Y-m-d" }} {{ s.shipped_at|time:"H:i" }}</td>
-            </tr>
-            {% endfor %}
+            {% for f in fleet %}
+            <form id="pod-form" method="post" enctype="multipart/form-data" action="" style="overflow-x: auto; max-width: 100%; max-height: 98%; overflow-y: scroll;">
+                {% csrf_token %}
+                <tr>
+                    <td class="td" style="max-width: 120px; word-break: break-all;"><a href="/pod_legacy/?step=select&fleet_number={{ f.fleet_number }}">
+                        {{ f.fleet_number }}</td>
+                    <td class="td" style="max-width: 120px; word-break: break-all;">{{ f.shipment_batch_numbers }}
+                    </td>
+                    <td class="td" style="max-width: 120px; word-break: break-all;">{{ f.appointment_ids }}</td>
+                    <td class="td">{{ f.carrier }}</td>
+                    <td class="td">{{ f.appointment_datetime|date:"M-j" }}</td>
+                    <td class="td">
+                        {% if f.arrival_status == "past_due" %}
+                        <span class="status-span-red">{{ f.departured_at|date:"M-j" }}</span>
+                        {% elif f.arrival_status == "need_attention" %}
+                        <span class="status-span-yellow">{{ f.departured_at|date:"M-j" }}</span>
+                        {% else %}
+                        {{ f.departured_at|date:"M-j" }}
+                        {% endif %}
+                    </td>
+                    <td class="td">{{ f.total_weight|floatformat:2 }}</td>
+                    <td class="td">{{ f.total_cbm|floatformat:2 }}</td>
+                    <td class="td">{{ f.total_pallet|floatformat:0 }}</td>
+                    <td class="td">
+                        {% if f.multipule_destination %}
+                        <i class="bi bi-check-square-fill" style="color: rgba(34, 153, 84, 0.873); font-size: 15px"></i>
+                        {% endif %}
+                    </td>
+                    <td class="td" style="max-width: 120px; word-break: break-all;">{{ f.note|default_if_none:"" }}</td>
+                </tr>            
+                </form>
+                {% endfor %}
         </tbody>
     </table>
 </div>
 
 <script>
     function filterTable() {
+        var fleetInput = document.getElementById("fleetSearchInput").value.toUpperCase();
         var batchInput = document.getElementById("batchSearchInput").value.toUpperCase();
-        var destinationInput = document.getElementById("destinationSearchInput").value.toUpperCase();
         var appInput = document.getElementById("appIdSearchInput").value.toUpperCase();
         var tbody = document.getElementById("shipment-batch-table").getElementsByTagName("tbody")[0];
         var tr = tbody.getElementsByTagName("tr");
         for (i = 0; i < tr.length; i++) {
-            var batchTd = tr[i].getElementsByTagName("td")[0];
-            var destinationTd = tr[i].getElementsByTagName("td")[1];
+            var fleetionTd = tr[i].getElementsByTagName("td")[0];
+            var batchTd = tr[i].getElementsByTagName("td")[1];          
             var appTd = tr[i].getElementsByTagName("td")[2];
-            if (batchTd && destinationTd && appTd) {
-                var batchTxtValue = batchTd.textContent.trim();
-                var destinationTxtValue = destinationTd.textContent.trim();
+            if (fleetionTd && batchTd && appTd) {
+                var fleetTxtValue = fleetTd.textContent.trim();
+                var batchTxtValue = batchTd.textContent.trim();               
                 var appTxtValue = appTd.textContent.trim();
 
-                var batchDisplayStyle = batchTxtValue.toUpperCase().indexOf(batchInput) > -1 ? "" : "none";
-                var destinationDisplayStyle = destinationTxtValue.toUpperCase().indexOf(destinationInput) > -1 ? "" : "none";
+                var fleetDisplayStyle = fleetTxtValue.toUpperCase().indexOf(fleetInput) > -1 ? "" : "none";
+                var batchDisplayStyle = batchTxtValue.toUpperCase().indexOf(batchInput) > -1 ? "" : "none";               
                 var appDisplayStyle = appTxtValue.toUpperCase().indexOf(appInput) > -1 ? "" : "none";
 
-                tr[i].style.display = batchDisplayStyle === "" && destinationDisplayStyle === "" && appDisplayStyle === "" ? "" : "none";
+                tr[i].style.display = batchDisplayStyle === "" && fleetDisplayStyle === "" && appDisplayStyle === "" ? "" : "none";
             }
         }
     }
