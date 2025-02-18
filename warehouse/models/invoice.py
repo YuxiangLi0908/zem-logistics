@@ -49,4 +49,4 @@ class InvoiceItem(models.Model):
     note = models.CharField(max_length=2000, null=True, blank=True)
 
     def __str__(self) -> str:
-        return self.invoice_number.__str__() + " - " + self.description + " - " + self.warehouse_code
+        return self.invoice_number.__str__() + " - " + str(self.description) + " - " + str(self.warehouse_code)
