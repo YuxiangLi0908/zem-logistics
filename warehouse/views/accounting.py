@@ -1554,7 +1554,8 @@ class Accounting(View):
                     top=Side(style="thin"),
                     bottom=Side(style="thin"),
                 )  
-        self._merge_ws_cells(worksheet, [f"A{row_count}:F{row_count}"])
+        self._merge_ws_cells(worksheet, [f"A{row_count}:C{row_count}"])
+        self._merge_ws_cells(worksheet, [f"F{row_count}:G{row_count}"])
         worksheet[f"A{row_count}"].alignment = Alignment(horizontal="center")
         worksheet[f"G{row_count}"].number_format = numbers.FORMAT_NUMBER_00
         worksheet[f"G{row_count}"].alignment = Alignment(horizontal="left")
