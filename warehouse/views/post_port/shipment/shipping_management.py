@@ -1267,6 +1267,20 @@ class ShippingManagement(View):
                 await sync_to_async(PackingList.objects.bulk_update)(updated_pl, ["shipment_batch_number"]) 
             except:
                 pass
+            #删除完PO之后，查找这个约是不是空了，如果空了，就令约的in_use为no
+            pls = await sync_to_async(list)(
+                PackingList.objects.select_related("shipment_batch_number").filter(shipment_batch_number__shipment_batch_number=shipment_batch_number)
+            )
+            plts = await sync_to_async(list)(
+                Pallet.objects.select_related("shipment_batch_number").filter(shipment_batch_number__shipment_batch_number=shipment_batch_number)
+            )
+            if len(pls) == 0 and len(plts) == 0:
+                shipment = await sync_to_async(Shipment.objects.get)(shipment_batch_number=shipment_batch_number)
+                shipment.in_use = False
+                shipment.total_weight = 0
+                shipment.total_pcs = 0
+                shipment.total_cbm = 0
+                shipment.total_pallet = 0
         else:
             raise ValueError(f"Unknown shipment alter type: {alter_type}")
         await sync_to_async(shipment.save)()
