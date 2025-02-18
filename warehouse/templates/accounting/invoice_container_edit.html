@@ -38,8 +38,8 @@
                     </td>
                     <td class="td"><input type="text" name="description" value="{{ inv_itm.description }}" required></td>
                     <td class="td"><input type="text" name="warehouse_code" value="{{ inv_itm.warehouse_code }}"></td>
-                    <td class="td"><input type="number" name="cbm" step=0.01 value="{{ inv_itm.cbm|floatformat:2 }}"></td>
-                    <td class="td"><input type="number" name="weight" step=0.01 value="{{ inv_itm.weight|floatformat:2 }}"></td>
+                    <td class="td"><input type="number" name="cbm" step=0.01 oninput="calculateCbm(this)" value="{{ inv_itm.cbm|floatformat:2 }}"></td>
+                    <td class="td"><input type="number" name="weight" step=0.01 oninput="calculateWeight(this)" value="{{ inv_itm.weight|floatformat:2 }}"></td>
                     <td class="td"><input type="number" name="qty" step=0.01 value="{{ inv_itm.qty }}" oninput="updateAmount(this)" required></td>
                     <td class="td"><input type="number" name="rate" step=0.01 value="{{ inv_itm.rate|floatformat:2 }}" oninput="updateAmount(this)" required></td>
                     <td class="td"><input type="number" name="amount" step=0.01 value="{{ inv_itm.amount|floatformat:2 }}" oninput="updateAmount(this)" required></td>
@@ -47,7 +47,11 @@
                 </tr>
                 {% endfor %}
                 <tr id="amount-total-row">
-                    <td colspan="7"></td>
+                    <td colspan="3"></td>
+                    <td class="td"><input type="number" id="cbm-total" disabled></td>
+                    <td class="td"><input type="number" id="weight-total" disabled></td>
+                    <td class="td"></td>
+                    <td class="td"></td>
                     <td class="td"><input type="number" id="amount-total" disabled></td>
                     <td colspan="1"></td>
                 </tr>
@@ -62,6 +66,8 @@
 <script>
     window.onload = function () {
         calculateAmountTotal();
+        calculateCbm();
+        calculateWeight();
     };  
 
     function calculateAmountTotal(){
@@ -77,6 +83,31 @@
         amountTotalInput.value = total.toFixed(2);
     };
 
+    function calculateCbm(){
+        const amountInputs = document.querySelectorAll('input[name="cbm"]');
+        let total = 0;
+        amountInputs.forEach(function (input) {
+            const value = parseFloat(input.value);
+            if (!isNaN(value)) {
+                total += value;
+            }
+        });
+        const amountTotalInput = document.getElementById('cbm-total');
+        amountTotalInput.value = total.toFixed(2);
+    };
+
+    function calculateWeight(){
+        const amountInputs = document.querySelectorAll('input[name="weight"]');
+        let total = 0;
+        amountInputs.forEach(function (input) {
+            const value = parseFloat(input.value);
+            if (!isNaN(value)) {
+                total += value;
+            }
+        });
+        const amountTotalInput = document.getElementById('weight-total');
+        amountTotalInput.value = total.toFixed(2);
+    };
 
     function toggleRowBackground(checkbox) {
         var row = checkbox.closest('tr');
@@ -116,8 +147,8 @@
                 </td>
                 <td class="td"><input type="text" name="description" value="" required></td>
                 <td class="td"><input type="text" name="warehouse_code" value=""></td>
-                <td class="td"><input type="number" name="cbm" step=0.01 value=""></td>
-                <td class="td"><input type="number" name="weight" step=0.01 value=""></td>
+                <td class="td"><input type="number" name="cbm" step=0.01 oninput="calculateCbm(this)" value=""></td>
+                <td class="td"><input type="number" name="weight" step=0.01 oninput="calculateWeight(this)" value=""></td>
                 <td class="td"><input type="number" name="qty" step=0.01 value="" oninput="updateAmount(this)" required></td>
                 <td class="td"><input type="number" name="rate" step=0.01 oninput="updateAmount(this)" required></td>
                 <td class="td"><input type="number" name="amount" step=0.01 oninput="updateAmount(this)" required></td>

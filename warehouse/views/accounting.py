@@ -1530,12 +1530,16 @@ class Accounting(View):
         invoice_item_row_count = 0
         row_count = 13
         total_amount = 0.0
+        total_cbm = 0.0
+        total_weight = 0.0
         for d, wc, cbm, weight, qty, r, amt, n in context["data"]:
             worksheet.append([context["container_number"], d, wc, cbm, weight, qty, r, amt, n])  #添加数据
             total_amount += float(amt)  #计算总金额
+            total_cbm += float(cbm)
+            total_weight += float(weight)
             row_count += 1
             invoice_item_row_count += 1
-
+        worksheet.append([None, None, None, total_cbm, total_weight, None, None, None, None])
         worksheet.append(["Total", None, None, None, None, None, None, total_amount, None])   #工作表末尾添加总金额
         invoice_item_row_count += 1
         for row in worksheet.iter_rows(  #单元格设置样式
