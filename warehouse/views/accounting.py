@@ -1539,10 +1539,8 @@ class Accounting(View):
             total_weight += float(weight)
             row_count += 1
             invoice_item_row_count += 1
-        worksheet.append([None, None, None, total_cbm, total_weight, None, None, None, None])
-        row_count += 1
-        worksheet.append(["Total", None, None, None, None, None, None, total_amount, None])   #工作表末尾添加总金额
-        invoice_item_row_count += 2
+        worksheet.append(["Total", None, None, total_cbm, total_weight, None, None, total_amount, None])   #工作表末尾添加总金额
+        invoice_item_row_count += 1
         for row in worksheet.iter_rows(  #单元格设置样式
             min_row=invoice_item_starting_row,
             max_row=invoice_item_starting_row + invoice_item_row_count,
@@ -1555,9 +1553,7 @@ class Accounting(View):
                     right=Side(style="thin"),
                     top=Side(style="thin"),
                     bottom=Side(style="thin"),
-                )
-        self._merge_ws_cells(worksheet, [f"A{row_count-1}:C{row_count}"])    
-        self._merge_ws_cells(worksheet, [f"F{row_count-1}:I{row_count}"])    
+                )  
         self._merge_ws_cells(worksheet, [f"A{row_count}:F{row_count}"])
         worksheet[f"A{row_count}"].alignment = Alignment(horizontal="center")
         worksheet[f"G{row_count}"].number_format = numbers.FORMAT_NUMBER_00
