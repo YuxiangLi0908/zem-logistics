@@ -15,7 +15,7 @@ from asgiref.sync import async_to_sync
 from office365.runtime.auth.user_credential import UserCredential
 from office365.sharepoint.client_context import ClientContext
 from office365.sharepoint.sharing.links.kind import SharingLinkKind
-
+from office365.runtime.client_request_exception import ClientRequestException
 
 import openpyxl
 from openpyxl.styles import Alignment, Border, Font, PatternFill, Side, numbers
@@ -1232,7 +1232,12 @@ class Accounting(View):
         invoice_item = InvoiceItem.objects.filter(invoice_number__invoice_number=invoice_number)
         container_number = invoice.container_number.container_number
         # delete file from sharepoint
-        self._delete_file_from_sharepoint("invoice", f"INVOICE-{container_number}.xlsx")
+        try:
+            self._delete_file_from_sharepoint("invoice", f"INVOICE-{container_number}.xlsx")
+        except FileNotFoundError as e:
+            pass
+        except RuntimeError as e:
+            raise RuntimeError(e)
         # delete invoice item
         invoice_item.delete()
         # delete invoice
@@ -1377,7 +1382,7 @@ class Accounting(View):
                 "qty": q if q else None,
                 "rate": r if r else None,
                 "amount": a if a else None,
-                "note": n if n else None,
+                "note": n if n else '',
             })
         InvoiceItem.objects.bulk_create([
             InvoiceItem(**inv_itm_data) for inv_itm_data in invoice_item_data
@@ -1441,7 +1446,12 @@ class Accounting(View):
         }
 
         # delete old file from sharepoint
-        self._delete_file_from_sharepoint("invoice", f"INVOICE-{container_number}.xlsx")
+        try:
+            self._delete_file_from_sharepoint("invoice", f"INVOICE-{container_number}.xlsx")
+        except FileNotFoundError as e:
+            pass
+        except RuntimeError as e:
+            raise RuntimeError(f"Error: {e}")
         # create new file and upload to sharepoint
         workbook, invoice_data = self._generate_invoice_excel(context)
         # update invoice information
@@ -1535,8 +1545,8 @@ class Accounting(View):
         for d, wc, cbm, weight, qty, r, amt, n in context["data"]:
             worksheet.append([context["container_number"], d, wc, cbm, weight, qty, r, amt, n])  #添加数据
             total_amount += float(amt)  #计算总金额
-            total_cbm += float(cbm)
-            total_weight += float(weight)
+            total_cbm += float(cbm) if cbm else 0
+            total_weight += float(weight) if weight else 0
             row_count += 1
             invoice_item_row_count += 1
         worksheet.append(["Total", None, None, total_cbm, total_weight, None, None, total_amount, None])   #工作表末尾添加总金额
@@ -1621,7 +1631,13 @@ class Accounting(View):
     ) -> None:
         conn = self._get_sharepoint_auth()
         file_path = os.path.join(SP_DOC_LIB, f"{SYSTEM_FOLDER}/{schema}/{APP_ENV}/{file_name}")
-        conn.web.get_file_by_server_relative_url(file_path).delete_object().execute_query()
+        try:
+            conn.web.get_file_by_server_relative_url(file_path).delete_object().execute_query()
+        except ClientRequestException as e:
+            if e.response.status_code == 404:
+                raise FileNotFoundError(e)
+            else:
+                raise RuntimeError(e)
 
     #按照权限分组，有三个分组：客服组（添加账单详情）、组长组（确认客服组操作）、财务组（确认账单）
     def _validate_user_group(self, user: User) -> bool:
