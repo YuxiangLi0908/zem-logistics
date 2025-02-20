@@ -95,6 +95,7 @@ class TimeoutWarning(View):
                 "container_number__order__vessel_id"
             ).filter(
                 models.Q(container_number__order__offload_id__offload_at__lte=three_weeks_ago)&
+                models.Q(container_number__order__offload_id__offload_at__gte='2025-01-01')&
                 models.Q(shipment_batch_number__shipment_batch_number__isnull=True)&
                 ~ Q(delivery_method='暂扣留仓(HOLD)')
             ).annotate(
