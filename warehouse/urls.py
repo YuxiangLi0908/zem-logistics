@@ -21,6 +21,7 @@ from warehouse.views.customer_management import CustomerManagement
 from warehouse.views.bol import BOL
 from warehouse.views.po import PO
 from warehouse.views.pod import POD
+from warehouse.views.statistics.order_quantity import OrderQuantity
 from warehouse.views.stuff_user_ability import StuffPower
 from warehouse.views.quote_management import QuoteManagement
 from warehouse.views.accounting import Accounting
@@ -74,4 +75,5 @@ urlpatterns = [
     path('schedule_shipment_legacy/', ScheduleShipment.as_view(), name='schedule_shipment_legacy'),
     path('outbound_legacy/', ShipmentDispatch.as_view(), name='outbound_legacy'),
     path('pod_legacy/', POD.as_view(), name='pod_legacy'),
+    path('order_statistics', OrderQuantity.as_view(), name='order_statistics'),
 ] + static(settings.STATIC_URL, document_root=settings.STATIC_ROOT)
