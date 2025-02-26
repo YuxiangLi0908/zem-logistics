@@ -67,8 +67,8 @@ class FleetManagement(View):
     template_ltl_label= "export_file/ltl_label.html"
     template_ltl_bol = "export_file/ltl_bol.html"
     template_abnormal_fleet_warehouse_search = "post_port/shipment/abnormal/01_fleet_management_main.html"
-    area_options = {"NJ": "NJ", "SAV": "SAV", "LA":"LA"}
-    warehouse_options = {"": "", "NJ-07001": "NJ-07001", "NJ-08817": "NJ-08817", "SAV-31326": "SAV-31326","LA-91761":"LA-91761"}
+    area_options = {"NJ": "NJ", "SAV": "SAV", "LA":"LA","MO":"MO","HX":"HX"}
+    warehouse_options = {"": "", "NJ-07001": "NJ-07001", "NJ-08817": "NJ-08817", "SAV-31326": "SAV-31326","LA-91761":"LA-91761","MO-62025":"MO-62025","HX-77503":"HX-77503"}
     shipment_type_options = {"":"", "FTL/LTL":"FTL/LTL", "外配/快递":"外配/快递"}
     abnormal_fleet_options = {"":"", "司机未按时提货":"司机未按时提货", "送仓被拒收":"送仓被拒收", "未送达":"未送达", "其它":"其它"}
     carrier_options = {"":"", "Arm-AMF":"Arm-AMF", "Zem-AMF":"Zem-AMF", "ASH":"ASH", "Arm":"Arm", "ZEM":"ZEM", "LiFeng":"LiFeng"}

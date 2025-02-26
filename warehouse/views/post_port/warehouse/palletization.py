@@ -47,6 +47,15 @@ class Palletization(View):
     template_pallet_abnormal_records_search = "post_port/palletization/palletization_abnormal_records_search.html"
     template_pallet_abnormal_records_display = "post_port/palletization/palletization_abnormal_records_display.html"
     template_pallet_daily_operation = "post_port/palletization/daily_operation.html"
+    warehouse_options = {
+        "": "",
+        "NJ-07001": "NJ-07001",
+        "NJ-08817": "NJ-08817",
+        "SAV-31326": "SAV-31326",
+        "LA-91761":"LA-91761",
+        "MO-62025":"MO-62025",
+        "HX-77503":"HX-77503"
+    }
 
     async def get(self, request: HttpRequest, **kwargs) -> HttpResponse:
         if not await self._user_authenticate(request):
@@ -268,7 +277,7 @@ class Palletization(View):
             "shipment":shipment,
             "fleet":fleet,
             "arrived_containers":arrived_containers,
-            "warehouse_options": [("", ""), ("NJ-07001", "NJ-07001"), ("NJ-08817", "NJ-08817"),("SAV-31326", "SAV-31326"),("LA-91761", "LA-91761"),],
+            "warehouse_options": self.warehouse_options,
             "warehouse_filter": warehouse,
         }
         return self.template_pallet_daily_operation, context

@@ -28,7 +28,15 @@ from warehouse.utils.constants import APP_ENV, SP_USER, SP_PASS, SP_URL, SP_DOC_
 class POD(View):
     template_main = "pod/shipment_list.html"
     template_shipment_detail = "pod/shipment_detail.html"
-    warehouse_options = {"": "", "NJ-07001": "NJ-07001", "NJ-08817": "NJ-08817", "SAV-31326": "SAV-31326","LA-91761":"LA-91761"}
+    warehouse_options = {
+        "": "",
+        "NJ-07001": "NJ-07001",
+        "NJ-08817": "NJ-08817",
+        "SAV-31326": "SAV-31326",
+        "LA-91761":"LA-91761",
+        "MO-62025":"MO-62025",
+        "HX-77503":"HX-77503"
+    }
 
     def get(self, request: HttpRequest) -> HttpResponse:
         step = request.GET.get("step", None)

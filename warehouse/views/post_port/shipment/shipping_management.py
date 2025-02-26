@@ -63,8 +63,8 @@ class ShippingManagement(View):
     template_shipment_list_shipment_display = "post_port/shipment/07_1_shipment_list_shipment_display.html"
     template_shipment_exceptions = "post_port/shipment/exceptions/01_shipment_exceptions.html"
     template_batch_shipment = "post_port/shipment/08_batch_shipment.html"
-    area_options = {"NJ": "NJ", "SAV": "SAV", "LA":"LA", "NJ/SAV/LA":"NJ/SAV/LA"}
-    warehouse_options = {"": "", "NJ-07001": "NJ-07001", "NJ-08817": "NJ-08817", "SAV-31326": "SAV-31326","LA-91761": "LA-91761"}
+    area_options = {"NJ": "NJ", "SAV": "SAV", "LA":"LA","NJ/SAV/LA":"NJ/SAV/LA","MO":"MO","HX":"HX"}
+    warehouse_options = {"": "", "NJ-07001": "NJ-07001", "NJ-08817": "NJ-08817", "SAV-31326": "SAV-31326","LA-91761":"LA-91761","MO-62025":"MO-62025","HX-77503":"HX-77503"}
     account_options = {"": "", "Carrier Central1": "Carrier Central1", "Carrier Central2": "Carrier Central2", "ZEM-AMF": "ZEM-AMF", "ARM-AMF": "ARM-AMF","walmart":"walmart"}
     shipment_type_options = {"":"", "FTL":"FTL", "LTL": "LTL", "外配/快递":"外配/快递","客户自提":"客户自提"}
 
