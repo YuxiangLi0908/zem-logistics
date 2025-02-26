@@ -18,7 +18,7 @@ from warehouse.models.pallet import Pallet
 
 class PostportDash(View):
     template_main_dash = "post_port//01_summary_table.html"
-    area_options = {"NJ": "NJ", "SAV": "SAV", "LA":"LA"}
+    area_options = {"NJ": "NJ", "SAV": "SAV", "LA":"LA","MO":"MO","HX":"HX"}
 
     async def get(self, request: HttpRequest) -> HttpResponse:
         if not await self._user_authenticate(request):
