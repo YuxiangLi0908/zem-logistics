@@ -44,7 +44,7 @@
                             <tr>
                                 <td class="td">{{ c.customer_name.zem_name }}</td>
                                 <td class="td">
-                                    <a href="/accounting/?step=container_confirm&container_number={{ c.container_number }}" target="_blank">{{ c.container_number }}</a>
+                                    <a href="/accounting/?step=container_confirm&container_number={{ c.container_number }}&start_date={{ start_date }}&end_date={{ end_date }}" target="_blank">{{ c.container_number }}</a>
                                 </td>
                                 <td class="td">{{ c.order_type }}</td>
                                 <td class="td">{{ c.created_at|date:"Y-m-d" }}</td>
