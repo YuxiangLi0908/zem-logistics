@@ -20,6 +20,7 @@ from django.db import models
 from warehouse.models.customer import Customer
 from warehouse.models.container import Container
 from warehouse.views.export_file import export_do
+from warehouse.models.warehouse import ZemWarehouse
 from warehouse.models.packing_list import PackingList
 from warehouse.models.order import Order
 from warehouse.models.retrieval import Retrieval
@@ -447,6 +448,12 @@ class OrderCreation(View):
         order = await sync_to_async(Order.objects.select_related(
             "retrieval_id"
         ).get)(container_number__container_number=container_number)
+        destination = request.POST.get("retrieval_destination_precise")
+        order_type = order.order_type
+        if order_type == "转运" or order_type == "转运组合":
+            warehouse = await sync_to_async(ZemWarehouse.objects.get)(name=destination)
+            order.warehouse = warehouse
+            await sync_to_async(order.save)()
         retrieval = await sync_to_async(Retrieval.objects.get)(models.Q(retrieval_id = order.retrieval_id))
         retrieval.retrieval_carrier = request.POST.get("retrieval_carrier")
         retrieval.retrieval_destination_precise = request.POST.get("retrieval_destination_precise")
