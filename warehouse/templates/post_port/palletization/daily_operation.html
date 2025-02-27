@@ -10,7 +10,7 @@
                 <b style="margin-right: 5px;">选择仓点区域:</b>
                 <input type="hidden" name="step" value="warehouse_daily">
                 <select name="warehouse_filter">
-                    {% for k, v in warehouse_options %}
+                    {% for k, v in warehouse_options.items %}
                         {% if warehouse_filter == v %}
                             <option value="{{ v }}" selected>{{ k }}</option>
                         {% else %}
