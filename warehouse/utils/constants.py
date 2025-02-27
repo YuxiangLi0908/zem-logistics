@@ -194,7 +194,8 @@ SHIPPING_LINE_OPTIONS = [
     ('Zim Line', 'Zim Line'),
     ('HEDE', 'HEDE'),
     ('SML', 'SML'),
-    ('SeaLead', 'SeaLead')
+    ('SeaLead', 'SeaLead'),
+    ('Matson','Matson'),
  ]
 
 CONTAINER_PICKUP_CARRIER = [
