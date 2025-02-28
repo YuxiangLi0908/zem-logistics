@@ -57,7 +57,7 @@
             <thead>
                 <tr id="theaderRow">
                     <th></th>
-                    <!-- 月份列将由JavaScript动态生成 -->
+                    
                 </tr>
                 <tr>
                     <td><b>客户名</b></td>
@@ -68,7 +68,7 @@
                 </tr>
             </thead>
             <tbody>
-                <!-- 数据行将由JavaScript动态生成 -->
+                
             </tbody>
         </table>
     </div>
@@ -87,7 +87,7 @@
             <thead>
                 <tr id="dheaderRow">
                     <th></th>
-                    <!-- 月份列将由JavaScript动态生成 -->
+                    
                 </tr>
                 <tr>
                     <td><b>客户名</b></td>
@@ -98,7 +98,7 @@
                 </tr>
             </thead>
             <tbody>
-                <!-- 数据行将由JavaScript动态生成 -->
+                
             </tbody>
         </table>
 </div>
@@ -110,22 +110,22 @@
     var TransferChart = new Chart(ctx, {
         type: 'bar',
         data: {
-            labels: {{ transfer_labels|safe }},  // 横坐标数据
+            labels: {{ transfer_labels|safe }}, 
             datasets: [{
-                data: {{ transfer_orders|safe }},  // 纵坐标数据
+                data: {{ transfer_orders|safe }},  
                 backgroundColor: ['#5470C6','#5470C6','#5470C6'],
             }]
         },
         options: {
             layout: {
                 padding: {
-                    top: -5 // 增加顶部内边距
+                    top: -5 
                 }
             },
             plugins: {
                 title: {
                     display: true,
-                    text: `{{ warehouse }}仓 {{ transfer_legend.0 }}月-{{ transfer_legend.1 }}月柜量汇总`, // ES6模板字符串
+                    text: `{{ warehouse }}仓 {{ transfer_legend.0 }}月-{{ transfer_legend.1 }}月柜量汇总`, 
                     color: '#333',
                     font: {
                         size: 15,
@@ -133,7 +133,7 @@
                     },
                     padding: {
                         top: 10,
-                        bottom: 30 // 标题下方留白
+                        bottom: 30 
                     }
                 },
                 datalabels: {
@@ -271,7 +271,7 @@
                 // 清空内容   
                 momCell.style.backgroundColor = '#f0f0f0'; // 灰色背景
                 momCell.style.color = '#6c757d'; // 灰色文字
-                momCell.textContent = ' →';
+                momCell.textContent = ' --';
             } else if (mom > 0){
                 momCell.textContent = `+${mom}%`; 
                 momCell.style.backgroundColor = '#e6f4ea'; // 绿色背景
@@ -282,12 +282,12 @@
                 momCell.style.backgroundColor = '#f8d7da'; // 红色背景
                 momCell.style.color = '#dc3545'; // 红色文字
                 momCell.textContent += ' ↓';
-            }else if ( mom == '新增' ) {
-                momCell.textContent = mom; 
+            }else if ( mom == '+' ) {
+                momCell.textContent = `+`; 
                 momCell.style.backgroundColor = '#e6f4ea'; 
                 momCell.style.color = '#28a745';    
-            }else if (mom == '清零') {
-                momCell.textContent = mom; 
+            }else if (mom == '-') {
+                momCell.textContent = '-100% ↓'; 
                 momCell.style.backgroundColor = '#f8d7da'; 
                 momCell.style.color = '#dc3545';
             }else {
@@ -376,7 +376,7 @@
             if (mom === 0) { 
                 momCell.style.backgroundColor = '#f0f0f0'; 
                 momCell.style.color = '#6c757d'; 
-                momCell.textContent = ' →';
+                momCell.textContent = ' --';
             } else if (mom > 0){
                 momCell.textContent = `+${mom}%`; 
                 momCell.style.backgroundColor = '#e6f4ea'; 
@@ -387,12 +387,12 @@
                 momCell.style.backgroundColor = '#f8d7da'; 
                 momCell.style.color = '#dc3545'; 
                 momCell.textContent += ' ↓';
-            }else if ( mom == '新增' ) {
-                momCell.textContent = mom; 
+            }else if ( mom == '+' ) {
+                momCell.textContent = `+`; 
                 momCell.style.backgroundColor = '#e6f4ea'; 
                 momCell.style.color = '#28a745';    
-            }else if (mom == '清零') {
-                momCell.textContent = mom; 
+            }else if (mom == '-') {
+                momCell.textContent = '-100% ↓'; 
                 momCell.style.backgroundColor = '#f8d7da'; 
                 momCell.style.color = '#dc3545';
             }else {

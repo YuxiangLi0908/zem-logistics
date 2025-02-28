@@ -154,12 +154,12 @@ class OrderQuantity(View):
                     else:
                         if previous_value == 0:
                             if current_value > 0:
-                                growth_percentage = '新增'
+                                growth_percentage = '+'
                             else:
                                 growth_percentage = '异常'
                         else:
                             if current_value == 0:
-                                growth_percentage = '清零'
+                                growth_percentage = '-'
                             else:
                                 growth_percentage = (current_value - previous_value) / previous_value * 100
                     is_max = 1 if current_value == max_value else 0
@@ -220,12 +220,12 @@ class OrderQuantity(View):
                     else:
                         if previous_value == 0:
                             if current_value > 0:
-                                growth_percentage = '新增'
+                                growth_percentage = '+'
                             else:
                                 growth_percentage = '异常'
                         else:
                             if current_value == 0:
-                                growth_percentage = '清零'
+                                growth_percentage = '-'
                             else:
                                 growth_percentage = (current_value - previous_value) / previous_value * 100
                     is_max = 1 if current_value == max_value else 0
