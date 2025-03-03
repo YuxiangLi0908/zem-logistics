@@ -1,4 +1,5 @@
 from django import forms
+
 from warehouse.models.order import Order
 from warehouse.utils.constants import ORDER_TYPE_OPTIONS
 
@@ -8,7 +9,7 @@ class OrderForm(forms.ModelForm):
         model = Order
         fields = "__all__"
         widgets = {
-            "eta": forms.DateInput(attrs={'type':'date'}),
+            "eta": forms.DateInput(attrs={"type": "date"}),
             "order_type": forms.Select(choices=ORDER_TYPE_OPTIONS),
         }
         labels = {

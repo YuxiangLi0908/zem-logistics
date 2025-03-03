@@ -6,13 +6,13 @@ from django.db import migrations, models
 class Migration(migrations.Migration):
 
     dependencies = [
-        ('warehouse', '0037_alter_quote_is_lift_gate_alter_quote_is_oversize_and_more'),
+        ("warehouse", "0037_alter_quote_is_lift_gate_alter_quote_is_oversize_and_more"),
     ]
 
     operations = [
         migrations.AddField(
-            model_name='quote',
-            name='comment',
+            model_name="quote",
+            name="comment",
             field=models.CharField(blank=True, max_length=500, null=True),
         ),
     ]

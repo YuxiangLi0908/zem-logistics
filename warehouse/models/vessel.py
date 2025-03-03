@@ -1,5 +1,7 @@
-from django.db import models
 from datetime import datetime, timedelta
+
+from django.db import models
+
 
 class Vessel(models.Model):
     vessel_id = models.CharField(max_length=255, null=True)
@@ -14,15 +16,15 @@ class Vessel(models.Model):
 
     class Meta:
         indexes = [
-            models.Index(fields=['vessel_id']),
-            models.Index(fields=['master_bill_of_lading']),
-            models.Index(fields=['vessel']),
-            models.Index(fields=['voyage']),
+            models.Index(fields=["vessel_id"]),
+            models.Index(fields=["master_bill_of_lading"]),
+            models.Index(fields=["vessel"]),
+            models.Index(fields=["voyage"]),
         ]
 
     def __str__(self) -> str:
         return self.vessel_id
-    
+
     @property
     def eta_status(self) -> str:
         today = datetime.now().date()

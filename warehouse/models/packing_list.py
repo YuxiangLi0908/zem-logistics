@@ -1,8 +1,11 @@
 from django.core.validators import MinValueValidator
 from django.db import models
+
+from warehouse.models.quote import Quote
+
 from .container import Container
 from .shipment import Shipment
-from warehouse.models.quote import Quote
+
 
 class PackingList(models.Model):
     container_number = models.ForeignKey(Container, null=True, on_delete=models.CASCADE)
@@ -21,15 +24,25 @@ class PackingList(models.Model):
     total_weight_lbs = models.FloatField(null=True)
     total_weight_kg = models.FloatField(null=True)
     cbm = models.FloatField(null=True)
-    n_pallet = models.IntegerField(null=True, blank=True, validators=[MinValueValidator(1)])
-    shipment_batch_number = models.ForeignKey(Shipment, null=True, blank=True, on_delete=models.SET_NULL, related_name='packinglist')
+    n_pallet = models.IntegerField(
+        null=True, blank=True, validators=[MinValueValidator(1)]
+    )
+    shipment_batch_number = models.ForeignKey(
+        Shipment,
+        null=True,
+        blank=True,
+        on_delete=models.SET_NULL,
+        related_name="packinglist",
+    )
     note = models.CharField(null=True, blank=True, max_length=2000)
-    quote_id = models.ForeignKey(Quote, null=True, blank=True, on_delete=models.SET_NULL)
+    quote_id = models.ForeignKey(
+        Quote, null=True, blank=True, on_delete=models.SET_NULL
+    )
     PO_ID = models.CharField(max_length=20, null=True, blank=True)
 
     class Meta:
         indexes = [
-            models.Index(fields=['PO_ID']),
+            models.Index(fields=["PO_ID"]),
         ]
 
     def __str__(self):

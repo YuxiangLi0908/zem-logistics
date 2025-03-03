@@ -7,13 +7,17 @@ from django.db import migrations, models
 class Migration(migrations.Migration):
 
     dependencies = [
-        ('warehouse', '0120_pochecketaseven_notified_time'),
+        ("warehouse", "0120_pochecketaseven_notified_time"),
     ]
 
     operations = [
         migrations.AddField(
-            model_name='pochecketaseven',
-            name='customer_name',
-            field=models.ForeignKey(null=True, on_delete=django.db.models.deletion.SET_NULL, to='warehouse.customer'),
+            model_name="pochecketaseven",
+            name="customer_name",
+            field=models.ForeignKey(
+                null=True,
+                on_delete=django.db.models.deletion.SET_NULL,
+                to="warehouse.customer",
+            ),
         ),
     ]

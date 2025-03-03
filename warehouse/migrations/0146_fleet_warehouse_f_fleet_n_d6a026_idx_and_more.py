@@ -6,20 +6,26 @@ from django.db import migrations, models
 class Migration(migrations.Migration):
 
     dependencies = [
-        ('warehouse', '0145_fleet_cost_price'),
+        ("warehouse", "0145_fleet_cost_price"),
     ]
 
     operations = [
         migrations.AddIndex(
-            model_name='fleet',
-            index=models.Index(fields=['fleet_number'], name='warehouse_f_fleet_n_d6a026_idx'),
+            model_name="fleet",
+            index=models.Index(
+                fields=["fleet_number"], name="warehouse_f_fleet_n_d6a026_idx"
+            ),
         ),
         migrations.AddIndex(
-            model_name='fleet',
-            index=models.Index(fields=['fleet_zem_serial'], name='warehouse_f_fleet_z_914f03_idx'),
+            model_name="fleet",
+            index=models.Index(
+                fields=["fleet_zem_serial"], name="warehouse_f_fleet_z_914f03_idx"
+            ),
         ),
         migrations.AddIndex(
-            model_name='shipment',
-            index=models.Index(fields=['shipment_batch_number'], name='warehouse_s_shipmen_0f05b1_idx'),
+            model_name="shipment",
+            index=models.Index(
+                fields=["shipment_batch_number"], name="warehouse_s_shipmen_0f05b1_idx"
+            ),
         ),
     ]

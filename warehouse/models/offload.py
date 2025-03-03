@@ -1,5 +1,6 @@
-from django.db import models
 from datetime import datetime, timedelta
+
+from django.db import models
 
 
 class Offload(models.Model):
@@ -14,7 +15,6 @@ class Offload(models.Model):
 
     def __str__(self) -> str:
         return self.offload_id
-    
 
     @property
     def offload_status(self) -> str:
@@ -23,7 +23,7 @@ class Offload(models.Model):
             return "past_due"
         else:
             return "on_time"
-        
+
     @property
     def shipment_status(self) -> str:
         today = datetime.now().date()

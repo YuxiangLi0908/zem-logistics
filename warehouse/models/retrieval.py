@@ -1,5 +1,6 @@
-from django.db import models
 from datetime import datetime, timedelta
+
+from django.db import models
 
 
 class Retrieval(models.Model):
@@ -11,7 +12,9 @@ class Retrieval(models.Model):
     origin_port = models.CharField(max_length=255, null=True, blank=True)
     destination_port = models.CharField(max_length=255, null=True, blank=True)
     shipping_line = models.CharField(max_length=255, null=True, blank=True)
-    retrieval_destination_precise = models.CharField(max_length=200, null=True, blank=True)
+    retrieval_destination_precise = models.CharField(
+        max_length=200, null=True, blank=True
+    )
     assigned_by_appt = models.BooleanField(default=False, blank=True)
     retrieval_destination_area = models.CharField(max_length=20, null=True, blank=True)
     scheduled_at = models.DateTimeField(null=True, blank=True)
@@ -29,7 +32,7 @@ class Retrieval(models.Model):
     arrive_at = models.DateTimeField(null=True, blank=True)
     empty_returned = models.BooleanField(default=False, blank=True)
     empty_returned_at = models.DateTimeField(null=True, blank=True)
-    #temporary fields
+    # temporary fields
     temp_t49_lfd = models.DateField(null=True, blank=True)
     temp_t49_available_for_pickup = models.BooleanField(default=False, blank=True)
     temp_t49_pod_arrive_at = models.DateTimeField(null=True, blank=True)
@@ -38,13 +41,13 @@ class Retrieval(models.Model):
 
     class Meta:
         indexes = [
-            models.Index(fields=['retrieval_id']),
-            models.Index(fields=['target_retrieval_timestamp']),
+            models.Index(fields=["retrieval_id"]),
+            models.Index(fields=["target_retrieval_timestamp"]),
         ]
 
     def __str__(self) -> str:
         return self.retrieval_id
-    
+
     @property
     def pickup_schedule_status(self) -> str:
         today = datetime.now().date()
@@ -54,7 +57,7 @@ class Retrieval(models.Model):
             return "need_attention"
         else:
             return "on_time"
-        
+
     @property
     def lfd_status(self) -> str:
         today = datetime.now().today()
@@ -64,7 +67,7 @@ class Retrieval(models.Model):
             return "need_attention"
         else:
             return "on_time"
-        
+
     @property
     def arrive_at_warehouse_status(self) -> str:
         today = datetime.now().date()
@@ -72,7 +75,7 @@ class Retrieval(models.Model):
             return "past_due"
         else:
             return "on_time"
-        
+
     @property
     def offload_status(self) -> str:
         today = datetime.now().date()
