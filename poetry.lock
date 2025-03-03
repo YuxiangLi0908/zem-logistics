@@ -597,6 +597,20 @@ beautifulsoup4 = ">=4.8.0"
 django = ">=3.2"
 
 [[package]]
+name = "django-simple-history"
+version = "3.8.0"
+description = "Store model history and view/revert changes from admin site."
+optional = false
+python-versions = ">=3.9"
+files = [
+    {file = "django_simple_history-3.8.0-py3-none-any.whl", hash = "sha256:7f8bbdaa5b2c4c1c9a48c89a95ff3389eda6c82cf9de9b09ae99b558205d132f"},
+    {file = "django_simple_history-3.8.0.tar.gz", hash = "sha256:e70d70fb4cc2af60a50904f1420d5a6440d24efddceba3daeff8b02d269ebdf0"},
+]
+
+[package.dependencies]
+django = ">=4.2"
+
+[[package]]
 name = "et-xmlfile"
 version = "1.1.0"
 description = "An implementation of lxml.xmlfile for the standard library"
@@ -2635,4 +2649,4 @@ test = ["coverage (>=5.3)", "tomli (>=2.0.1)", "tox"]
 [metadata]
 lock-version = "2.0"
 python-versions = "^3.10"
-content-hash = "371b13d5107145a473ec608e1b895bb955a9a16c2cf6a5ca75f97b9f29c30e9b"
+content-hash = "4a8d050765662ec1d4b6ab87baa3cee3bffc3724ac9c8777e886caf2e83adc4c"

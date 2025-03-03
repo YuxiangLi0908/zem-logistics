@@ -1,10 +1,10 @@
 from datetime import datetime, timedelta
 
 from django.db import models
+from simple_history.models import HistoricalRecords
 
 from warehouse.models.container import Container
 from warehouse.models.offload import Offload
-from warehouse.models.pallet import Pallet
 
 
 class AbnormalOffloadStatus(models.Model):
@@ -24,6 +24,7 @@ class AbnormalOffloadStatus(models.Model):
     pcs_actual = models.IntegerField(null=True, blank=True)
     abnormal_reason = models.CharField(max_length=255, null=True, blank=True)
     note = models.CharField(max_length=1000, null=True, blank=True)
+    history = HistoricalRecords()
 
     def __str__(self) -> str:
         return (

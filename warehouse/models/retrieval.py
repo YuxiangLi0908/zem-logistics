@@ -1,6 +1,7 @@
 from datetime import datetime, timedelta
 
 from django.db import models
+from simple_history.models import HistoricalRecords
 
 
 class Retrieval(models.Model):
@@ -38,6 +39,7 @@ class Retrieval(models.Model):
     temp_t49_pod_arrive_at = models.DateTimeField(null=True, blank=True)
     temp_t49_pod_discharge_at = models.DateTimeField(null=True, blank=True)
     temp_t49_hold_status = models.BooleanField(default=False, blank=True)
+    history = HistoricalRecords()
 
     class Meta:
         indexes = [

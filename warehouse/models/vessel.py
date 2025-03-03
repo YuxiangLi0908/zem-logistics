@@ -1,6 +1,7 @@
 from datetime import datetime, timedelta
 
 from django.db import models
+from simple_history.models import HistoricalRecords
 
 
 class Vessel(models.Model):
@@ -13,6 +14,7 @@ class Vessel(models.Model):
     voyage = models.CharField(max_length=100, blank=True, null=True)
     vessel_etd = models.DateField(null=True, blank=True)
     vessel_eta = models.DateField(null=True, blank=True)
+    history = HistoricalRecords()
 
     class Meta:
         indexes = [

@@ -1,6 +1,7 @@
 from datetime import datetime, timedelta
 
 from django.db import models
+from simple_history.models import HistoricalRecords
 
 from warehouse.models.fleet import Fleet
 
@@ -53,6 +54,7 @@ class Shipment(models.Model):
     previous_fleets = models.CharField(max_length=1000, null=True, blank=True)
     ARM_BOL = models.CharField(max_length=255, null=True, blank=True)
     ARM_PRO = models.CharField(max_length=255, null=True, blank=True)
+    history = HistoricalRecords()
 
     class Meta:
         indexes = [

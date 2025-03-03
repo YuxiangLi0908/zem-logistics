@@ -1,4 +1,5 @@
 from django.db import models
+from simple_history.models import HistoricalRecords
 
 from warehouse.models.container import Container
 from warehouse.models.customer import Customer
@@ -14,6 +15,7 @@ class InvoiceStatement(models.Model):
         Customer, null=True, blank=True, on_delete=models.SET_NULL
     )
     statement_link = models.CharField(max_length=2000, null=True, blank=True)
+    history = HistoricalRecords()
 
     def __str__(self) -> str:
         return self.customer.zem_name + " - " + self.invoice_statement_id
@@ -38,6 +40,7 @@ class Invoice(models.Model):
         InvoiceStatement, null=True, blank=True, on_delete=models.SET_NULL
     )
     received_amount = models.FloatField(null=True, blank=True)
+    history = HistoricalRecords()
 
     def __str__(self) -> str:
         try:
@@ -62,6 +65,7 @@ class InvoiceItem(models.Model):
     rate = models.FloatField(null=True, blank=True)
     amount = models.FloatField(null=True, blank=True)
     note = models.CharField(max_length=2000, null=True, blank=True)
+    history = HistoricalRecords()
 
     def __str__(self) -> str:
         return (

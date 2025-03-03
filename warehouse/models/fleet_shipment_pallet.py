@@ -1,4 +1,5 @@
 from django.db import models
+from simple_history.models import HistoricalRecords
 
 from warehouse.models.fleet import Fleet
 from warehouse.models.pallet import Pallet
@@ -19,6 +20,7 @@ class FleetShipmentPallet(models.Model):
     shipment_batch_number_str = models.CharField(max_length=255, null=True, blank=True)
     pallet_id_str = models.CharField(max_length=255, null=True, blank=True)
     created_at = models.DateTimeField(null=True, blank=True)
+    history = HistoricalRecords()
 
     def __str__(self) -> str:
         return self.shipment_batch_number

@@ -1,6 +1,5 @@
-from datetime import datetime, timedelta
-
 from django.db import models
+from simple_history.models import HistoricalRecords
 
 from warehouse.models.shipment import Shipment
 
@@ -18,6 +17,7 @@ class ShipmentStatus(models.Model):
     status_name = models.CharField(max_length=255, null=True, blank=True)
     related_batch_number = models.CharField(max_length=255, null=True, blank=True)
     related_third_party = models.CharField(max_length=255, null=True, blank=True)
+    history = HistoricalRecords()
 
     def __str__(self) -> str:
         return self.shipment_batch_number

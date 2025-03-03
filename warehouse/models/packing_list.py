@@ -1,5 +1,6 @@
 from django.core.validators import MinValueValidator
 from django.db import models
+from simple_history.models import HistoricalRecords
 
 from warehouse.models.quote import Quote
 
@@ -39,6 +40,7 @@ class PackingList(models.Model):
         Quote, null=True, blank=True, on_delete=models.SET_NULL
     )
     PO_ID = models.CharField(max_length=20, null=True, blank=True)
+    history = HistoricalRecords()
 
     class Meta:
         indexes = [
