@@ -12,7 +12,7 @@ class Customer(models.Model):
     note = models.CharField(max_length=500, null=True, blank=True)
     address = models.CharField(max_length=500, null=True, blank=True)
     history = HistoricalRecords()
-    
+
     class Meta:
         indexes = [
             models.Index(fields=["zem_name"]),

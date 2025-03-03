@@ -1,7 +1,7 @@
 from datetime import datetime, timedelta
-from simple_history.models import HistoricalRecords
 
 from django.db import models
+from simple_history.models import HistoricalRecords
 
 
 class Retrieval(models.Model):
