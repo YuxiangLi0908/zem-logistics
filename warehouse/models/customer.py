@@ -13,7 +13,7 @@ class Customer(models.Model):
 
     class Meta:
         indexes = [
-            models.Index(fields=['zem_name']),
+            models.Index(fields=["zem_name"]),
         ]
 
     def __str__(self) -> str:

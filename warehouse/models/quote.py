@@ -25,9 +25,9 @@ class Quote(models.Model):
 
     class Meta:
         indexes = [
-            models.Index(fields=['quote_id']),
-            models.Index(fields=['parent_id']),
-            models.Index(fields=['created_at']),
+            models.Index(fields=["quote_id"]),
+            models.Index(fields=["parent_id"]),
+            models.Index(fields=["created_at"]),
         ]
 
     def __str__(self) -> str:

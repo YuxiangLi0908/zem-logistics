@@ -6,18 +6,18 @@ from django.db import migrations, models
 class Migration(migrations.Migration):
 
     dependencies = [
-        ('warehouse', '0013_clearance_clearance_agent_order_shipment_id_and_more'),
+        ("warehouse", "0013_clearance_clearance_agent_order_shipment_id_and_more"),
     ]
 
     operations = [
         migrations.AlterField(
-            model_name='container',
-            name='container_type',
+            model_name="container",
+            name="container_type",
             field=models.CharField(blank=True, max_length=255, null=True),
         ),
         migrations.AlterField(
-            model_name='order',
-            name='eta',
+            model_name="order",
+            name="eta",
             field=models.DateField(blank=True, null=True),
         ),
     ]

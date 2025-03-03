@@ -6,13 +6,16 @@ from django.db import migrations, models
 class Migration(migrations.Migration):
 
     dependencies = [
-        ('warehouse', '0031_alter_packinglist_fba_id_alter_packinglist_ref_id_and_more'),
+        (
+            "warehouse",
+            "0031_alter_packinglist_fba_id_alter_packinglist_ref_id_and_more",
+        ),
     ]
 
     operations = [
         migrations.AddField(
-            model_name='packinglist',
-            name='total_weight_kg',
+            model_name="packinglist",
+            name="total_weight_kg",
             field=models.FloatField(null=True),
         ),
     ]

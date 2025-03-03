@@ -6,18 +6,18 @@ from django.db import migrations, models
 class Migration(migrations.Migration):
 
     dependencies = [
-        ('warehouse', '0124_retrieval_target_retrieval_timestamp_lower'),
+        ("warehouse", "0124_retrieval_target_retrieval_timestamp_lower"),
     ]
 
     operations = [
         migrations.AddField(
-            model_name='shipment',
-            name='ARM_BOL',
+            model_name="shipment",
+            name="ARM_BOL",
             field=models.CharField(blank=True, max_length=255, null=True),
         ),
         migrations.AddField(
-            model_name='shipment',
-            name='ARM_PRO',
+            model_name="shipment",
+            name="ARM_PRO",
             field=models.CharField(blank=True, max_length=255, null=True),
         ),
     ]

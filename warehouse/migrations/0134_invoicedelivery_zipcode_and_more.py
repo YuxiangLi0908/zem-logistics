@@ -7,18 +7,24 @@ from django.db import migrations, models
 class Migration(migrations.Migration):
 
     dependencies = [
-        ('warehouse', '0133_remove_pallet_delivery_type'),
+        ("warehouse", "0133_remove_pallet_delivery_type"),
     ]
 
     operations = [
         migrations.AddField(
-            model_name='invoicedelivery',
-            name='zipcode',
+            model_name="invoicedelivery",
+            name="zipcode",
             field=models.CharField(blank=True, max_length=200, null=True),
         ),
         migrations.AlterField(
-            model_name='pallet',
-            name='invoice_delivery',
-            field=models.ForeignKey(blank=True, null=True, on_delete=django.db.models.deletion.SET_NULL, related_name='pallet_delivery', to='warehouse.invoicedelivery'),
+            model_name="pallet",
+            name="invoice_delivery",
+            field=models.ForeignKey(
+                blank=True,
+                null=True,
+                on_delete=django.db.models.deletion.SET_NULL,
+                related_name="pallet_delivery",
+                to="warehouse.invoicedelivery",
+            ),
         ),
     ]

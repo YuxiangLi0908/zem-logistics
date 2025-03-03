@@ -6,23 +6,23 @@ from django.db import migrations, models
 class Migration(migrations.Migration):
 
     dependencies = [
-        ('warehouse', '0030_alter_packinglist_destination'),
+        ("warehouse", "0030_alter_packinglist_destination"),
     ]
 
     operations = [
         migrations.AlterField(
-            model_name='packinglist',
-            name='fba_id',
+            model_name="packinglist",
+            name="fba_id",
             field=models.CharField(blank=True, max_length=400, null=True),
         ),
         migrations.AlterField(
-            model_name='packinglist',
-            name='ref_id',
+            model_name="packinglist",
+            name="ref_id",
             field=models.CharField(blank=True, max_length=400, null=True),
         ),
         migrations.AlterField(
-            model_name='packinglist',
-            name='shipping_mark',
+            model_name="packinglist",
+            name="shipping_mark",
             field=models.CharField(blank=True, max_length=400, null=True),
         ),
     ]

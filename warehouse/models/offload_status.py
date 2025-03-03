@@ -1,12 +1,19 @@
-from django.db import models
 from datetime import datetime, timedelta
+
+from django.db import models
+
 from warehouse.models.container import Container
 from warehouse.models.offload import Offload
 from warehouse.models.pallet import Pallet
 
+
 class AbnormalOffloadStatus(models.Model):
-    offload = models.ForeignKey(Offload, null=True, on_delete=models.CASCADE, related_name="offload_status")
-    container_number = models.ForeignKey(Container, null=True, on_delete=models.CASCADE, related_name="offload_status")
+    offload = models.ForeignKey(
+        Offload, null=True, on_delete=models.CASCADE, related_name="offload_status"
+    )
+    container_number = models.ForeignKey(
+        Container, null=True, on_delete=models.CASCADE, related_name="offload_status"
+    )
     created_at = models.DateTimeField(null=True, blank=True)
     resolved_at = models.DateTimeField(null=True, blank=True)
     is_resolved = models.BooleanField(default=False)
@@ -19,8 +26,14 @@ class AbnormalOffloadStatus(models.Model):
     note = models.CharField(max_length=1000, null=True, blank=True)
 
     def __str__(self) -> str:
-        return self.container_number.container_number + " - " + self.destination + " - " + str(self.is_resolved)
-    
+        return (
+            self.container_number.container_number
+            + " - "
+            + self.destination
+            + " - "
+            + str(self.is_resolved)
+        )
+
     @property
     def abnormal_status(self) -> str:
         today = datetime.now().date()

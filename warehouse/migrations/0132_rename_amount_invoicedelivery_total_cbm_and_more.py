@@ -6,23 +6,23 @@ from django.db import migrations
 class Migration(migrations.Migration):
 
     dependencies = [
-        ('warehouse', '0131_invoicedelivery_invoice_delivery'),
+        ("warehouse", "0131_invoicedelivery_invoice_delivery"),
     ]
 
     operations = [
         migrations.RenameField(
-            model_name='invoicedelivery',
-            old_name='amount',
-            new_name='total_cbm',
+            model_name="invoicedelivery",
+            old_name="amount",
+            new_name="total_cbm",
         ),
         migrations.RenameField(
-            model_name='invoicedelivery',
-            old_name='cbm',
-            new_name='total_cost',
+            model_name="invoicedelivery",
+            old_name="cbm",
+            new_name="total_cost",
         ),
         migrations.RenameField(
-            model_name='invoicedelivery',
-            old_name='weight',
-            new_name='total_weight_lbs',
+            model_name="invoicedelivery",
+            old_name="weight",
+            new_name="total_weight_lbs",
         ),
     ]

@@ -1,5 +1,7 @@
-from django.db import models
 from datetime import datetime, timedelta
+
+from django.db import models
+
 
 class Fleet(models.Model):
     fleet_number = models.CharField(max_length=255, null=True)
@@ -37,13 +39,13 @@ class Fleet(models.Model):
 
     class Meta:
         indexes = [
-            models.Index(fields=['fleet_number']),
-            models.Index(fields=['fleet_zem_serial']),
+            models.Index(fields=["fleet_number"]),
+            models.Index(fields=["fleet_zem_serial"]),
         ]
 
     def __str__(self) -> str:
         return self.fleet_number
-    
+
     @property
     def departure_status(self) -> str:
         today = datetime.now().date()
@@ -53,7 +55,7 @@ class Fleet(models.Model):
             return "need_attention"
         else:
             return "on_time"
-        
+
     @property
     def arrival_status(self) -> str:
         today = datetime.now().date()

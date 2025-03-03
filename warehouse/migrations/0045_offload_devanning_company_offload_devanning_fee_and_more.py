@@ -6,73 +6,73 @@ from django.db import migrations, models
 class Migration(migrations.Migration):
 
     dependencies = [
-        ('warehouse', '0044_alter_shipment_address'),
+        ("warehouse", "0044_alter_shipment_address"),
     ]
 
     operations = [
         migrations.AddField(
-            model_name='offload',
-            name='devanning_company',
+            model_name="offload",
+            name="devanning_company",
             field=models.CharField(blank=True, max_length=100, null=True),
         ),
         migrations.AddField(
-            model_name='offload',
-            name='devanning_fee',
+            model_name="offload",
+            name="devanning_fee",
             field=models.FloatField(blank=True, null=True),
         ),
         migrations.AddField(
-            model_name='offload',
-            name='devanning_fee_paid_at',
+            model_name="offload",
+            name="devanning_fee_paid_at",
             field=models.DateField(blank=True, null=True),
         ),
         migrations.AddField(
-            model_name='offload',
-            name='is_devanning_fee_paid',
+            model_name="offload",
+            name="is_devanning_fee_paid",
             field=models.CharField(blank=True, max_length=100, null=True),
         ),
         migrations.AddField(
-            model_name='order',
-            name='do_sent',
+            model_name="order",
+            name="do_sent",
             field=models.BooleanField(blank=True, default=False),
         ),
         migrations.AddField(
-            model_name='retrieval',
-            name='chassis_fee',
+            model_name="retrieval",
+            name="chassis_fee",
             field=models.FloatField(blank=True, null=True),
         ),
         migrations.AddField(
-            model_name='retrieval',
-            name='chassis_fee_paid_at',
+            model_name="retrieval",
+            name="chassis_fee_paid_at",
             field=models.FloatField(blank=True, null=True),
         ),
         migrations.AddField(
-            model_name='retrieval',
-            name='is_chassis_fee_paid',
+            model_name="retrieval",
+            name="is_chassis_fee_paid",
             field=models.BooleanField(blank=True, default=False),
         ),
         migrations.AddField(
-            model_name='retrieval',
-            name='is_trucking_fee_paid',
+            model_name="retrieval",
+            name="is_trucking_fee_paid",
             field=models.BooleanField(blank=True, default=False),
         ),
         migrations.AddField(
-            model_name='retrieval',
-            name='master_bill_of_lading',
+            model_name="retrieval",
+            name="master_bill_of_lading",
             field=models.CharField(blank=True, max_length=255, null=True),
         ),
         migrations.AddField(
-            model_name='retrieval',
-            name='retrieval_carrier',
+            model_name="retrieval",
+            name="retrieval_carrier",
             field=models.CharField(blank=True, max_length=100, null=True),
         ),
         migrations.AddField(
-            model_name='retrieval',
-            name='trucking_fee',
+            model_name="retrieval",
+            name="trucking_fee",
             field=models.FloatField(blank=True, null=True),
         ),
         migrations.AddField(
-            model_name='retrieval',
-            name='trucking_fee_paid_at',
+            model_name="retrieval",
+            name="trucking_fee_paid_at",
             field=models.FloatField(blank=True, null=True),
         ),
     ]

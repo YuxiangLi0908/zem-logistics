@@ -6,18 +6,18 @@ from django.db import migrations, models
 class Migration(migrations.Migration):
 
     dependencies = [
-        ('warehouse', '0081_alter_retrieval_retrieval_destination_precise'),
+        ("warehouse", "0081_alter_retrieval_retrieval_destination_precise"),
     ]
 
     operations = [
         migrations.AddField(
-            model_name='order',
-            name='cancel_notification',
+            model_name="order",
+            name="cancel_notification",
             field=models.BooleanField(default=False),
         ),
         migrations.AddField(
-            model_name='order',
-            name='cancel_time',
+            model_name="order",
+            name="cancel_time",
             field=models.DateField(blank=True, null=True),
         ),
     ]

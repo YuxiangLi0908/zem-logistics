@@ -6,21 +6,21 @@ from django.db import migrations, models
 class Migration(migrations.Migration):
 
     dependencies = [
-        ('warehouse', '0020_pallet'),
+        ("warehouse", "0020_pallet"),
     ]
 
     operations = [
         migrations.RemoveField(
-            model_name='pallet',
-            name='cbm',
+            model_name="pallet",
+            name="cbm",
         ),
         migrations.RemoveField(
-            model_name='pallet',
-            name='pcs',
+            model_name="pallet",
+            name="pcs",
         ),
         migrations.AlterField(
-            model_name='pallet',
-            name='pallet_id',
+            model_name="pallet",
+            name="pallet_id",
             field=models.CharField(blank=True, max_length=255, null=True),
         ),
     ]

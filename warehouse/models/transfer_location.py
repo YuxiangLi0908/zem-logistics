@@ -1,5 +1,6 @@
 from django.db import models
 
+
 class TransferLocation(models.Model):
     shipping_warehouse = models.CharField(max_length=255, null=True, blank=True)
     receiving_warehouse = models.CharField(max_length=2000, null=True, blank=True)
@@ -13,7 +14,6 @@ class TransferLocation(models.Model):
     total_pcs = models.IntegerField(null=True, blank=True)
     total_cbm = models.FloatField(null=True, blank=True)
     total_weight = models.FloatField(null=True, blank=True)
-
 
     def __str__(self):
         return f"{self.batch_number}"
