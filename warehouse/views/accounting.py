@@ -453,13 +453,13 @@ class Accounting(View):
         ).filter(
             criteria,
             invoice_status="record_warehouse"
-        )
+        ).order_by("invoice_reject_reason")
         #查找历史操作过的
         status = ['record_delivery','toBeConfirmed','confirmed']
         previous_order = Order.objects.select_related(
             "invoice_id", "customer_name", "container_number", "invoice_id__statement_id"
         ).values(
-            "invoice_status","container_number__container_number","customer_name__zem_name","created_at"
+            "invoice_status","container_number__container_number","customer_name__zem_name","created_at","invoice_reject_reason"
         ).filter(
             criteria,
             invoice_status__in=status
@@ -550,7 +550,7 @@ class Accounting(View):
         ).filter(
             criteria,
             invoice_status="record_delivery"
-        )
+        ).order_by("invoice_reject_reason")
         #查找历史操作过的
         status = ['toBeConfirmed','confirmed']
         previous_order = Order.objects.select_related(
@@ -589,6 +589,25 @@ class Accounting(View):
         for k,v in data.items():         
             if k not in ['csrfmiddlewaretoken','step','warehouse','container_number','invoice_number'] and v:
                 setattr(invoice_warehouse, k, v)
+        #附加项费用和附加项说明
+        fields = [
+            'sorting', 'intercept', 'po_activation', 'self_pickup', 
+            're_pallet', 'counting', 'warehouse_rent', 'specified_labeling', 
+            'inner_outer_box', 'pallet_label', 'open_close_box', 'destroy', 'take_photo', 
+            'take_video','repeated_operation_fee','per_diem','second_pickup'
+        ]
+        surcharges = {}
+        surcharge_notes = {}
+        for field in fields:
+            surcharge_key = f'{field}_surcharge'
+            note_key = f'{field}_surcharge_note'
+
+            surcharge = request.POST.get(surcharge_key, 0) or 0
+            note = request.POST.get(note_key, '')
+            surcharges[field] = float(surcharge)
+            surcharge_notes[field] = note
+        invoice_warehouse.surcharges = surcharges
+        invoice_warehouse.surcharge_notes = surcharge_notes          
         invoice_warehouse.save()
 
         #提拆柜记录到invoice表
@@ -601,8 +620,10 @@ class Accounting(View):
         invoice_warehouse = InvoiceWarehouse.objects.get(invoice_number__invoice_number=invoice.invoice_number)
         order = Order.objects.select_related("retrieval_id","container_number").get(container_number__container_number=container_number)
         order.invoice_status = "record_delivery"
+        order.invoice_reject ='True'
+        order.invoice_reject_reason = ''
         order.save()  
-        return self.handle_invoice_warehouse_get(request)
+        return self.handle_invoice_warehouse_get(request,request.POST.get("start_date"),request.POST.get("end_date"))
 
     def handle_invoice_direct_save_post(self,request:HttpRequest) -> tuple[Any, Any]:
         data = request.POST.copy()
@@ -887,6 +908,10 @@ class Accounting(View):
             "invoice_warehouse":invoice_warehouse,
             "invoice":invoice,
             "container_number":container_number,
+            "surcharges":invoice_warehouse.surcharges,
+            "surcharges_notes":invoice_warehouse.surcharge_notes,
+            "start_date":request.GET.get("start_date"),
+            "end_date":request.GET.get("end_date")
         }
         return self.template_invoice_warehouse_edit, context
     

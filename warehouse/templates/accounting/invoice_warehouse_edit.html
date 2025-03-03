@@ -9,66 +9,115 @@
     <form method="post" action="">
         {% csrf_token %}
             <div>
+                <span style="margin-left:180px; color:#483D8B;">明细</span>
+                <span style="margin-left:180px; color:#483D8B;">附加费</span>
+                <span style="margin-left:120px; color:#483D8B;">附加费说明</span>
+            </div>
+            <div>
                 <label for="chassis_days">分拣费</label>($1.5/箱):
                 <input type="number" id="sorting" name="sorting" value="{{ invoice_warehouse.sorting}}">
+                +
+                <input type="number" id="sorting_surcharge" name="sorting_surcharge" value="{{ surcharges.sorting }}">
+                <input type="text" id="sorting_surcharge_note" name="sorting_surcharge_note" value="{{ surcharges_notes.sorting }}">
             </div>
             <div>
                 <label for="chassis_days">拦截费</label>($50/票):
                 <input type="number" id="intercept" name="intercept" min="0" value="{{ invoice_warehouse.intercept}}">
+                +
+                <input type="number" id="intercept_surcharge" name="intercept_surcharge" value="{{ surcharges.intercept }}">
+                <input type="text" id="intercept_surcharge_note" name="intercept_surcharge_note" value="{{ surcharges_notes.intercept }}">
             </div>
             <div>
                 <label for="chassis_split_count">亚马逊PO激活</label>(成功$35/PO，未成功$15/PO):
                 <input type="number" id="po_activation" name="po_activation" min="0" value="{{ invoice_warehouse.po_activation}}">
+                +
+                <input type="number" id="po_activation_surcharge" name="po_activation_surcharge" value="{{ surcharges.po_activation }}">
+                <input type="text" id="po_activation_surcharge_note" name="po_activation_surcharge_note" value="{{ surcharges_notes.po_activation }}">
             </div>
             <div>
                 <label for="prepull">客户自提</label>($10/托):
                 <input type="number" id="self_pickup" name="self_pickup" min="0" value="{{ invoice_warehouse.self_pickup}}">
+                +
+                <input type="number" id="self_pickup_surcharge" name="self_pickup_surcharge" value="{{ surcharges.self_pickup }}">
+                <input type="text" id="self_pickup_surcharge_note" name="self_pickup_surcharge_note" value="{{ surcharges_notes.self_pickup }}">
             </div>
             <div>
                 <label for="chassis_split_count">重新打板</label>($15/板):
                 <input type="number" id="re_pallet" name="re_pallet" min="0" value="{{ invoice_warehouse.re_pallet}}">
+                +
+                <input type="number" id="re_pallet_surcharge" name="re_pallet_surcharge" value="{{ surcharges.re_pallet }}">
+                <input type="text" id="re_pallet_surcharge_note" name="re_pallet_surcharge_note" value="{{ surcharges_notes.re_pallet }}">
             </div>
             <div>
                 <label for="chassis_split_count">货品清点费</label>($0.5/箱):
                 <input type="number" id="counting" name="counting" min="0" value="{{ invoice_warehouse.counting}}">
+                +
+                <input type="number" id="counting_surcharge" name="counting_surcharge" value="{{ surcharges.counting }}">
+                <input type="text" id="counting_surcharge_note" name="counting_surcharge_note" value="{{ surcharges_notes.counting }}">
             </div>
             <div>
                 <label for="chassis_split_count">仓租</label>($1/天/卡板):
                 <input type="number" id="warehouse_rent" name="warehouse_rent" min="0" value="{{ invoice_warehouse.warehouse_rent}}">
+                +
+                <input type="number" id="warehouse_rent_surcharge" name="warehouse_rent_surcharge" value="{{ surcharges.warehouse_rent }}">
+                <input type="text" id="warehouse_rent_surcharge_note" name="warehouse_rent_surcharge_note" value="{{ surcharges_notes.warehouse_rent }}">
             </div>
             <div>
                 <label for="chassis_split_count">指定贴标</label>($1.5/件):
                 <input type="number" id="specified_labeling" name="specified_labeling" min="0" value="{{ invoice_warehouse.specified_labeling}}">
+                +
+                <input type="number" id="specified_labeling_surcharge" name="specified_labeling_surcharge" value="{{ surcharges.specified_labeling }}">
+                <input type="text" id="specified_labeling_surcharge_note" name="specified_labeling_surcharge_note" value="{{ surcharges_notes.specified_labeling }}">
             </div>
             
             <div>
                 <label for="hanging_crane">内外箱</label>($0.5/标):
                 <input type="number" id="inner_outer_box" name="inner_outer_box" value="{{ invoice_warehouse.inner_outer_box}}">
-                
+                +
+                <input type="number" id="inner_outer_box_surcharge" name="inner_outer_box_surcharge" value="{{ surcharges.inner_outer_box }}">
+                <input type="text" id="inner_outer_box_surcharge_note" name="inner_outer_box_surcharge_note" value="{{ surcharges_notes.inner_outer_box }}">
             </div>
             <div>
                 <label for="chassis_split_count">托盘标签</label>($0.5/张,1托盘4张):
                 <input type="number" id="pallet_label" name="pallet_label" min="0" value="{{ invoice_warehouse.pallet_label}}">
+                +
+                <input type="number" id="pallet_label_surcharge" name="pallet_label_surcharge" value="{{ surcharges.pallet_label }}">
+                <input type="text" id="pallet_label_surcharge_note" name="pallet_label_surcharge_note" value="{{ surcharges_notes.pallet_label }}">
             </div>
             <div>
                 <label for="chassis_split_count">开封箱</label>($1/箱):
                 <input type="number" id="open_close_box" name="open_close_box" min="0" value="{{ invoice_warehouse.open_close_box}}">
+                +
+                <input type="number" id="open_close_box_surcharge" name="open_close_box_surcharge" value="{{ surcharges.open_close_box }}">
+                <input type="text" id="open_close_box_surcharge_note" name="open_close_box_surcharge_note" value="{{ surcharges_notes.open_close_box }}">
             </div>
             <div>
                 <label for="chassis_split_count">销毁</label>(毛重*2.2，$0.5/LB):
                 <input type="number" id="destroy" name="destroy" min="0" value="{{ invoice_warehouse.destroy}}">
+                +
+                <input type="number" id="destroy_surcharge" name="destroy_surcharge" value="{{ surcharges.destroy }}">
+                <input type="text" id="destroy_surcharge_note" name="destroy_surcharge_note" value="{{ surcharges_notes.destroy }}">
             </div>
             <div>
                 <label for="chassis_split_count">拍照</label>($1/张，最低$5):
                 <input type="number" id="take_photo" name="take_photo" min="0" value="{{ invoice_warehouse.take_photo}}">
+                +
+                <input type="number" id="take_photo_surcharge" name="take_photo_surcharge" value="{{ surcharges.take_photo }}">
+                <input type="text" id="take_photo_surcharge_note" name="take_photo_surcharge_note" value="{{ surcharges_notes.take_photo }}">
             </div>
             <div>
                 <label for="chassis_split_count">拍视频</label>(5min per $15):
                 <input type="number" id="take_video" name="take_video" min="0" value="{{ invoice_warehouse.take_video}}">
+                +
+                <input type="number" id="take_video_surcharge" name="take_video_surcharge" value="{{ surcharges.take_video }}">
+                <input type="text" id="take_video_surcharge_note" name="take_video_surcharge_note" value="{{ surcharges_notes.take_video }}">
             </div>
             <div>
                 <label for="chassis_split_count">重复操作费</label>($50-$500):
                 <input type="number" id="repeated_operation_fee" name="repeated_operation_fee" min="0" value="{{ invoice_warehouse.repeated_operation_fee}}">
+                +
+                <input type="number" id="repeated_operation_fee_surcharge" name="repeated_operation_fee_surcharge" value="{{ surcharges.repeated_operation_fee }}">
+                <input type="text" id="repeated_operation_fee_surcharge_note" name="repeated_operation_fee_surcharge_note" value="{{ surcharges_notes.repeated_operation_fee }}">
             </div>
             <div>
                 <label for="total_amount">Total Amount:</label>
@@ -78,6 +127,8 @@
         <input type="hidden" name="step" value="warehouse_save">
         <input type="hidden" name="warehouse" value="{{warehouse}}">
         <input type="hidden" name="container_number" value="{{ container_number }}">
+        <input type="hidden" name="start_date" value="{{ start_date }}">
+        <input type="hidden" name="end_date" value="{{ end_date }}">
         <input type="hidden" name="invoice_number" value="{{ invoice_preports.invoice_number }}">
         <button type="submit" class="btn btn-primary" style="width: 150px; height: 35px;" onclick="validateForm()">确认</button>
     </form>

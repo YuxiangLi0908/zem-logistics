@@ -51,6 +51,8 @@ class InvoiceWarehouse(models.Model):
     take_video = models.FloatField(null=True, blank=True, verbose_name="拍视频")
     repeated_operation_fee = models.FloatField(null=True, blank=True, verbose_name="重复操作费")
     amount = models.FloatField(null=True, blank=True)
+    surcharges = JSONField(default=dict)
+    surcharge_notes = JSONField(default=dict)
 
     def __str__(self) -> str:
         return str(self.invoice_number)
@@ -65,6 +67,8 @@ class InvoiceDelivery(models.Model):
     total_cbm = models.FloatField(null=True, blank=True)
     total_weight_lbs = models.FloatField(null=True, blank=True)
     total_cost = models.FloatField(null=True, blank=True)
+    surcharges = JSONField(default=dict)
+    surcharge_notes = JSONField(default=dict)
 
     def __str__(self) -> str:
         return str(self.invoice_number) + ' - ' + str(self.destination)
