@@ -9,6 +9,7 @@ class Customer(models.Model):
     email = models.CharField(max_length=100, null=True, blank=True)
     phone = models.CharField(max_length=30, null=True, blank=True)
     note = models.CharField(max_length=500, null=True, blank=True)
+    address = models.CharField(max_length=500, null=True, blank=True)
 
     class Meta:
         indexes = [

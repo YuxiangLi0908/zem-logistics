@@ -77,6 +77,7 @@ class CustomerManagement(View):
             selected_customer.accounting_name = form.cleaned_data.get("accounting_name")
             selected_customer.email = form.cleaned_data.get("email")
             selected_customer.phone = form.cleaned_data.get("phone")
+            selected_customer.address = form.cleaned_data.get("address")
             selected_customer.note = form.cleaned_data.get("note")
             selected_customer.save()
         else:

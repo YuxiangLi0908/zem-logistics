@@ -36,6 +36,11 @@
             <label style="font-size: 15px; margin-right: 5px;">财务名称</label>
             {{ customer_form.accounting_name }}
         </div>
+
+        <div class="quote-form-row flex-6" >
+            <label style="font-size: 15px; margin-right: 5px;">地址</label>
+            {{ customer_form.address }}
+        </div>
     </div>
     <div class="text-left">
         <input type="hidden" name="step" value="new">
@@ -58,11 +63,13 @@
                 <th class="th">财务名称</th>
                 <th class="th">Email</th>
                 <th class="th">Phone</th>
+                <th class="th">地址</th>
                 <th class="th">备注</th>
             </tr>
             <tr style="position: sticky; top: 28px;">
                 <th class="th"><input type="text" id="zemNameSearchInput" placeholder="搜索..." oninput="filterCustomerTable()"></th>
                 <th class="th"><input type="text" id="fullNameSearchInput" placeholder="搜索..." oninput="filterCustomerTable()"></th>
+                <th class="th"></th>
                 <th class="th"></th>
                 <th class="th"></th>
                 <th class="th"></th>
@@ -77,9 +84,10 @@
                 <td class="td">{{ c.full_name }}</td>
                 <td class="td">{{ c.zem_code }}</td>
                 <td class="td">{{ c.accounting_name }}</td>
-                <td class="td">{{ c.email }}</td>
-                <td class="td">{{ c.phone }}</td>
-                <td class="td">{{ c.note }}</td>
+                <td class="td">{{ c.email|default_if_none:'' }}</td>
+                <td class="td">{{ c.phone|default_if_none:'' }}</td>
+                <td class="td">{{ c.address|default_if_none:'' }}</td>
+                <td class="td">{{ c.note|default_if_none:'' }}</td>
             </tr>
             {% endfor %}
         </tbody>
@@ -125,6 +133,12 @@
         <div class="form-group col-md-4">
             <label class="col-form-label" style="font-size: 15px; width: 100px; height: 40px;">Phone</label>
             {{ customer_update_form.phone }}
+        </div>
+    </div>
+    <div class="form-row" >
+        <div class="form-group col-md-4">
+            <label class="col-form-label" style="font-size: 15px; width: 100px; height: 40px;">地址</label>
+            {{ customer_update_form.address }}
         </div>
     </div>
     <div class="form-row" >
