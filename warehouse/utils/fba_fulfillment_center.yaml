@@ -2113,3 +2113,8 @@ LAX2t:
   location: 6720 Kimball Ave
   state: CA
   zipcode: '91708'
+ATL2N:
+  city: Carrollton
+  location: 3101 N. Highway 27
+  state: GA
+  zipcode: '30117'
