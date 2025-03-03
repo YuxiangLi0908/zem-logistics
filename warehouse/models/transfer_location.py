@@ -1,4 +1,5 @@
 from django.db import models
+from simple_history.models import HistoricalRecords
 
 
 class TransferLocation(models.Model):
@@ -14,6 +15,7 @@ class TransferLocation(models.Model):
     total_pcs = models.IntegerField(null=True, blank=True)
     total_cbm = models.FloatField(null=True, blank=True)
     total_weight = models.FloatField(null=True, blank=True)
+    history = HistoricalRecords()
 
     def __str__(self):
         return f"{self.batch_number}"

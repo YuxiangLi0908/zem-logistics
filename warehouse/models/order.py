@@ -1,4 +1,5 @@
 from django.db import models
+from simple_history.models import HistoricalRecords
 
 from warehouse.models.clearance import Clearance
 from warehouse.models.container import Container
@@ -56,6 +57,7 @@ class Order(models.Model):
     # 标记当前状态是否被上一步驳回
     invoice_reject = models.BooleanField(default=False)
     invoice_reject_reason = models.CharField(max_length=255, null=True, blank=True)
+    history = HistoricalRecords()
 
     class Meta:
         indexes = [

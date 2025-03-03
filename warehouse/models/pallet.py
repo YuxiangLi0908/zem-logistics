@@ -1,4 +1,5 @@
 from django.db import models
+from simple_history.models import HistoricalRecords
 
 from .container import Container
 from .invoice_details import InvoiceDelivery
@@ -55,6 +56,7 @@ class Pallet(models.Model):
         on_delete=models.SET_NULL,
         related_name="pallet_delivery",
     )
+    history = HistoricalRecords()
 
     class Meta:
         indexes = [

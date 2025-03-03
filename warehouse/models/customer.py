@@ -1,4 +1,5 @@
 from django.db import models
+from simple_history.models import HistoricalRecords
 
 
 class Customer(models.Model):
@@ -10,7 +11,8 @@ class Customer(models.Model):
     phone = models.CharField(max_length=30, null=True, blank=True)
     note = models.CharField(max_length=500, null=True, blank=True)
     address = models.CharField(max_length=500, null=True, blank=True)
-
+    history = HistoricalRecords()
+    
     class Meta:
         indexes = [
             models.Index(fields=["zem_name"]),

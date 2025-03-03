@@ -1,4 +1,5 @@
 from datetime import datetime, timedelta
+from simple_history.models import HistoricalRecords
 
 from django.db import models
 
@@ -35,6 +36,7 @@ class PoCheckEtaSeven(models.Model):
     handling_method = models.CharField(
         max_length=255, null=True, blank=True
     )  # 失效后的操作指令
+    history = HistoricalRecords()
 
     def __str__(self):
         return f"{self.packing_list}"

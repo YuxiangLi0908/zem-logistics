@@ -1,4 +1,5 @@
 from django.db import models
+from simple_history.models import HistoricalRecords
 
 from warehouse.models.customer import Customer
 from warehouse.models.warehouse import ZemWarehouse
@@ -22,6 +23,7 @@ class Quote(models.Model):
     cost = models.FloatField(null=True, blank=True)
     price = models.FloatField(null=True, blank=True)
     comment = models.CharField(max_length=500, null=True, blank=True)
+    history = HistoricalRecords()
 
     class Meta:
         indexes = [
