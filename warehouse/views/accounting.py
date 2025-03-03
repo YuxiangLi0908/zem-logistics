@@ -318,8 +318,8 @@ class Accounting(View):
         start_date = (current_date + timedelta(days=-30)).strftime('%Y-%m-%d') if not start_date else start_date
         end_date = current_date.strftime('%Y-%m-%d') if not end_date else end_date
         criteria = models.Q(
-            models.Q(created_at__gte=start_date),
-            models.Q(created_at__lte=end_date)
+            models.Q(vessel_id__vessel_etd__gte=start_date),
+            models.Q(vessel_id__vessel_etd__lte=end_date)
         )
         if customer:
             criteria &= models.Q(customer_name__zem_name=customer)
@@ -369,8 +369,8 @@ class Accounting(View):
         end_date = current_date.strftime('%Y-%m-%d') if not end_date else end_date
         criteria = models.Q(
             (models.Q(order_type="转运") | models.Q(order_type="转运组合")),
-            models.Q(created_at__gte=start_date),
-            models.Q(created_at__lte=end_date),
+            models.Q(vessel_id__vessel_etd__gte=start_date),
+            models.Q(vessel_id__vessel_etd__lte=end_date),
         )
         if customer:
             criteria &= models.Q(customer_name__zem_name=customer)
@@ -441,8 +441,8 @@ class Accounting(View):
         end_date = current_date.strftime('%Y-%m-%d') if not end_date else end_date
         criteria = models.Q(
             (models.Q(order_type="转运") | models.Q(order_type="转运组合")),
-            models.Q(created_at__gte=start_date),
-            models.Q(created_at__lte=end_date),
+            models.Q(vessel_id__vessel_etd__gte=start_date),
+            models.Q(vessel_id__vessel_etd__lte=end_date),
             
         )
         if customer:
@@ -484,8 +484,8 @@ class Accounting(View):
         start_date = (current_date + timedelta(days=-30)).strftime('%Y-%m-%d') if not start_date else start_date
         end_date = current_date.strftime('%Y-%m-%d') if not end_date else end_date
         criteria = models.Q(
-            models.Q(created_at__gte=start_date),
-            models.Q(created_at__lte=end_date)
+            models.Q(vessel_id__vessel_etd__gte=start_date),
+            models.Q(vessel_id__vessel_etd__lte=end_date)
         )
         if customer:
             criteria &= models.Q(customer_name__zem_name=customer)
@@ -539,8 +539,8 @@ class Accounting(View):
         end_date = current_date.strftime('%Y-%m-%d') if not end_date else end_date
         criteria = models.Q(
             (models.Q(order_type="转运") | models.Q(order_type="转运组合")),
-            models.Q(created_at__gte=start_date),
-            models.Q(created_at__lte=end_date),
+            models.Q(vessel_id__vessel_etd__gte=start_date),
+            models.Q(vessel_id__vessel_etd__lte=end_date),
         )
         if customer:
             criteria &= models.Q(customer_name__zem_name=customer)
@@ -640,6 +640,25 @@ class Accounting(View):
                 if not v:
                     v = 0
                 setattr(invoice_preports, k, v)
+        #附加项费用和附加项说明
+        fields = [
+            'chassis', 'chassis_split', 'prepull', 'yard_storage', 
+            'handling_fee', 'pier_pass', 'congestion_fee', 'hanging_crane', 
+            'dry_run', 'exam_fee', 'hazmat', 'over_weight', 'urgent_fee', 
+            'other_serive','demurrage','per_diem','second_pickup'
+        ]
+        surcharges = {}
+        surcharge_notes = {}
+        for field in fields:
+            surcharge_key = f'{field}_surcharge'
+            note_key = f'{field}_surcharge_note'
+
+            surcharge = request.POST.get(surcharge_key, 0) or 0
+            note = request.POST.get(note_key, '')
+            surcharges[field] = float(surcharge)
+            surcharge_notes[field] = note
+        invoice_preports.surcharges = surcharges
+        invoice_preports.surcharge_notes = surcharge_notes
         invoice_preports.save()
         invoice_preports = InvoicePreport.objects.get(invoice_number__invoice_number=invoice.invoice_number)
         #账单状态记录
@@ -648,6 +667,7 @@ class Accounting(View):
             #审核通过，进入库内账单录入
             order.invoice_status = "record_warehouse"
             order.invoice_reject = "False"
+            order.invoice_reject_reason = ''
             #提拆柜记录到invoice表
             invoice = Invoice.objects.select_related("container_number").get(
                 container_number__container_number=container_number
@@ -666,14 +686,8 @@ class Accounting(View):
         groups = [group.name for group in request.user.groups.all()]
         if request.user.is_staff:
             groups.append("staff")
-        context = {         
-            "warehouse": data.get("warehouse"),
-            "invoice_preports":invoice_preports,
-            "container_number":container_number,
-            "reject_reason":data.get("invoice_reject_reason"),
-            "groups":groups
-        }     
-        return self.handle_invoice_preport_get(request)
+       
+        return self.handle_invoice_preport_get(request,request.POST.get("start_date"),request.POST.get("end_date"))
 
     def handle_invoice_delivery_type_save(self, request: HttpRequest) -> tuple[Any, Any]:
         container_number = request.POST.get("container_number")
@@ -809,13 +823,13 @@ class Accounting(View):
     def handle_invoice_dismiss_save(self, request: HttpRequest) -> tuple[Any, Any]:
         container_number = request.POST.get("container_number")
         status = request.POST.get("status")
-        print(status)
         start_date = request.POST.get("start_date")
         end_date = request.POST.get("end_date")
-        print(start_date,end_date)
+        reject_reason = request.POST.get("reject_reason")
         order = Order.objects.select_related("container_number").get(container_number__container_number=container_number)
         order.invoice_status = status
         order.invoice_reject = "True"
+        order.invoice_reject_reason = reject_reason
         order.save()
         return self.handle_invoice_confirm_get(request,start_date,end_date)
 
@@ -880,7 +894,6 @@ class Accounting(View):
         container_number = request.GET.get("container_number")
         start_date = request.GET.get("start_date")
         end_date = request.GET.get("end_date")
-        print('confrim_edit',start_date,end_date)
         invoice = Invoice.objects.get(
             container_number__container_number=container_number
         )
@@ -1194,9 +1207,14 @@ class Accounting(View):
             "warehouse": warehouse,
             "reject_reason": order.invoice_reject_reason,
             "invoice_preports":invoice_preports,
+            "surcharges":invoice_preports.surcharges,
+            "surcharges_notes":invoice_preports.surcharge_notes,
             "container_number":container_number,
-            "groups":groups
+            "groups":groups,
+            "start_date":request.GET.get("start_date"),
+            "end_date":request.GET.get("end_date")
         }
+        print(context["surcharges"])
         return self.template_invoice_preport_edit, context
 
     def handle_container_invoice_get(self, container_number: str) -> tuple[Any, Any]:

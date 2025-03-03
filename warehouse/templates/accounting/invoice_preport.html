@@ -8,7 +8,7 @@
         <div>
             <b style="margin-right: 5px;">客户:</b>
             {{ order_form.customer_name }}
-            <b style="margin-right: 5px; margin-left: 10px;">建单时间:</b>
+            <b style="margin-right: 5px; margin-left: 10px;">ETD时间:</b>
             <input type="date" name="start_date" value="{{ start_date }}">
             <input type="date" name="end_date" value="{{ end_date }}" style="margin-right: 5px;">
             <input type="hidden" name="step" value="invoice_order_preport">
@@ -42,7 +42,7 @@
                             <tr>
                                 <td class="td">{{ c.customer_name.zem_name }}</td>
                                 <td class="td">
-                                    <a href="/accounting/?step=container_preport&container_number={{ c.container_number }}" target="_blank">{{ c.container_number }}</a>
+                                    <a href="/accounting/?step=container_preport&container_number={{ c.container_number }}&start_date={{ start_date }}&end_date={{ end_date}}">{{ c.container_number }}</a>
                                 </td>
                                 <td class="td">{{ c.created_at|date:"Y-m-d" }}</td>
                             </tr>
@@ -80,7 +80,7 @@
                             <tr>
                                 <td class="td">{{ c.customer_name.zem_name }}</td>
                                 <td class="td">
-                                    <a href="/accounting/?step=container_preport&container_number={{ c.container_number }}" target="_blank">{{ c.container_number }}</a>
+                                    <a href="/accounting/?step=container_preport&container_number={{ c.container_number }}&start_date={{ start_date }}&end_date={{ end_date }}">{{ c.container_number }}</a>
                                 </td>
                                 <td class="td">{{ c.invoice_reject_reason }}</td>
                                 <td class="td">{{ c.created_at|date:"Y-m-d" }}</td>
@@ -122,7 +122,7 @@
                             <tr>
                                 <td class="td">{{ c.customer_name.zem_name }}</td>
                                 <td class="td">
-                                    <a href="/accounting/?step=container_preport&container_number={{ c.container_number }}" target="_blank">{{ c.container_number }}</a>
+                                    <a href="/accounting/?step=container_preport&container_number={{ c.container_number }}&start_date={{ start_date }}&end_date={{ end_date }}">{{ c.container_number }}</a>
                                 </td>
                                 <td class="td">{{ c.created_at|date:"Y-m-d" }}</td>
                             </tr>
@@ -159,7 +159,7 @@
                             <tr>
                                 <td class="td">{{ c.customer_name__zem_name }}</td>
                                 <td class="td">
-                                    <a href="/accounting/?step=container_preport&container_number={{ c.container_number__container_number }}" target="_blank">{{ c.container_number__container_number }}</a>
+                                    <a href="/accounting/?step=container_preport&container_number={{ c.container_number__container_number }}&start_date={{ start_date }}&end_date={{ end_date}}">{{ c.container_number__container_number }}</a>
                                 </td>
                                 <td class="td">
                                     {% if c.invoice_status == 'record_warehouse' %}

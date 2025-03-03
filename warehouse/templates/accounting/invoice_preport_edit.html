@@ -11,26 +11,45 @@
             <div>
                 <label for="chassis_days">提拆/打托缠膜:</label>
                 <input type="number" id="pickup" name="pickup" value="{{ invoice_preports.pickup }}" disabled> ({{warehouse}})
+                <span style="margin-left:60px; color:#483D8B;">附加费</span>
+                <span style="margin-left:120px; color:#483D8B;">附加费说明</span>
             </div>
             <div>
                 <label for="chassis_days">托架费</label>(45$/天):
-                <input type="number" id="chassis" name="chassis" min="0" value="{{ invoice_preports.chassis }}">
+                <input type="number" id="chassis" name="chassis" min="0" value="{{ invoice_preports.chassis }}" class="original-input">
+                +
+                <input type="number" id="chassis_surcharge" name="chassis_surcharge" value="{{ surcharges.chassis }}">
+                <input type="text" id="chassis_surcharge_note" name="chassis_surcharge_note" value="{{ surcharges_notes.chassis }}">
             </div>
             <div>
                 <label for="chassis_split_count">托架提取费</label>(150$/柜):
-                <input type="number" id="chassis_split" name="chassis_split" min="0" value="{{ invoice_preports.chassis_split }}">
+                <input type="number" id="chassis_split" name="chassis_split" min="0" value="{{ invoice_preports.chassis_split }}" class="original-input">
+                +
+                <input type="number" id="chassis_split_surcharge" name="chassis_split_surcharge" value="{{ surcharges.chassis_split }}">
+                <input type="text" id="chassis_split_surcharge_note" name="chassis_split_surcharge_note" value="{{ surcharges_notes.chassis_split }}">
             </div>
             <div>
                 <label for="prepull">预提费</label>(150$/柜):
-                <input type="number" id="prepull" name="prepull" min="0" value="{{ invoice_preports.prepull }}">
+                <input type="number" id="prepull" name="prepull" min="0" value="{{ invoice_preports.prepull }}" class="original-input">
+                +
+                <input type="number" id="prepull_surcharge" name="prepull_surcharge" value="{{ surcharges.prepull }}">
+                <input type="text" id="prepull_surcharge_note" name="prepull_surcharge_note" value="{{ surcharges_notes.prepull }}">
+
             </div>
             <div>
                 <label for="chassis_split_count">货柜放置费</label>(150$/柜):
-                <input type="number" id="yard_storage" name="yard_storage" min="0" value="{{ invoice_preports.yard_storage }}">
+                <input type="number" id="yard_storage" name="yard_storage" min="0" value="{{ invoice_preports.yard_storage }}" class="original-input">
+                +
+                <input type="number" id="yard_storage_surcharge" name="yard_storage_surcharge" value="{{ surcharges.yard_storage }}">
+                <input type="text" id="yard_storage_surcharge_note" name="yard_storage_surcharge_note" value="{{ surcharges_notes.yard_storage }}">
+
             </div>
             <div>
                 <label for="chassis_split_count">操作处理费</label>(50/柜):
-                <input type="number" id="handling_fee" name="handling_fee" min="0" value="{{ invoice_preports.handling_fee }}">
+                <input type="number" id="handling_fee" name="handling_fee" min="0" value="{{ invoice_preports.handling_fee }}" class="original-input">
+                +
+                <input type="number" id="handling_fee_surcharge" name="handling_fee_surcharge" value="{{ surcharges.handling_fee }}">
+                <input type="text" id="handling_fee_surcharge_note" name="handling_fee_surcharge_note" value="{{ surcharges_notes.handling_fee }}">
             </div>
             <div>
                 {% if contaienr_type == "20GP" %}
@@ -38,53 +57,89 @@
                 {% else %}
                     <label for="chassis_split_count">码头</label>(40$/柜):
                 {% endif %}
-                <input type="number" id="pier_pass" name="pier_pass" min="0" value="{{ invoice_preports.pier_pass }}">
+                <input type="number" id="pier_pass" name="pier_pass" min="0" value="{{ invoice_preports.pier_pass }}" class="original-input">
+                +
+                <input type="number" id="pier_pass_surcharge" name="pier_pass_surcharge" value="{{ surcharges.pier_pass }}">
+                <input type="text" id="pier_pass_surcharge_note" name="pier_pass_surcharge_note" value="{{ surcharges_notes.pier_pass }}">
             </div>
             <div>
                 <label for="chassis_split_count">港口拥堵费</label>(75$/小时):
-                <input type="number" id="congestion_fee" name="congestion_fee" min="0" value="{{ invoice_preports.congestion_fee }}">
+                <input type="number" id="congestion_fee" name="congestion_fee" min="0" value="{{ invoice_preports.congestion_fee }}" class="original-input">
+                +
+                <input type="number" id="congestion_fee_surcharge" name="congestion_fee_surcharge" value="{{ surcharges.congestion_fee }}">
+                <input type="text" id="congestion_fee_surcharge_note" name="congestion_fee_surcharge_note" value="{{ surcharges_notes.congestion_fee }}">
             </div>
             
             <div>
                 <label for="hanging_crane">吊柜费</label>:
-                <input type="number" id="hanging_crane" name="hanging_crane" min="0" value="{{ invoice_preports.hanging_crane }}">
+                <input type="number" id="hanging_crane" name="hanging_crane" min="0" value="{{ invoice_preports.hanging_crane }}" class="original-input">
+                +
+                <input type="number" id="hanging_crane_surcharge" name="hanging_crane_surcharge" value="{{ surcharges.hanging_crane }}">
+                <input type="text" id="hanging_crane_surcharge_note" name="hanging_crane_surcharge_note" value="{{ surcharges_notes.hanging_crane }}">
                 
             </div>
             <div>
                 <label for="chassis_split_count">空跑费</label>(150$/柜):
-                <input type="number" id="dry_run" name="dry_run" min="0" value="{{ invoice_preports.dry_run }}">
+                <input type="number" id="dry_run" name="dry_run" min="0" value="{{ invoice_preports.dry_run }}" class="original-input">
+                +
+                <input type="number" id="dry_run_surcharge" name="dry_run_surcharge" value="{{ surcharges.dry_run }}">
+                <input type="text" id="dry_run_surcharge_note" name="dry_run_surcharge_note" value="{{ surcharges_notes.dry_run }}">
             </div>
             <div>
                 <label for="chassis_split_count">查验费</label>(250$/柜):
-                <input type="number" id="exam_fee" name="exam_fee" min="0" value="{{ invoice_preports.exam_fee }}">
+                <input type="number" id="exam_fee" name="exam_fee" min="0" value="{{ invoice_preports.exam_fee }}" class="original-input">
+                +
+                <input type="number" id="exam_fee_surcharge" name="exam_fee_surcharge" value="{{ surcharges.exam_fee }}">
+                <input type="text" id="exam_fee_surcharge_note" name="exam_fee_surcharge_note" value="{{ surcharges_notes.exam_fee }}">
             </div>
             <div>
                 <label for="chassis_split_count">危险品</label>(300$/柜):
-                <input type="number" id="hazmat" name="hazmat" min="0" value="{{ invoice_preports.hazmat }}">
+                <input type="number" id="hazmat" name="hazmat" min="0" value="{{ invoice_preports.hazmat }}" class="original-input">
+                +
+                <input type="number" id="hazmat_surcharge" name="hazmat_surcharge" value="{{ surcharges.hazmat }}">
+                <input type="text" id="hazmat_surcharge_note" name="hazmat_surcharge_note" value="{{ surcharges_notes.hazmat }}">
             </div>
             <div>
                 <label for="chassis_split_count">超重费</label>(300$/柜):
-                <input type="number" id="over_weight" name="over_weight" min="0" value="{{ invoice_preports.over_weight }}">
+                <input type="number" id="over_weight" name="over_weight" min="0" value="{{ invoice_preports.over_weight }}" class="original-input">
+                +
+                <input type="number" id="over_weight_surcharge" name="over_weight_surcharge" value="{{ surcharges.over_weight }}">
+                <input type="text" id="over_weight_surcharge_note" name="over_weight_surcharge_note" value="{{ surcharges_notes.over_weight }}">
             </div>
             <div>
                 <label for="chassis_split_count">加急费</label>(200$/柜):
-                <input type="number" id="urgent_fee" name="urgent_fee" min="0" value="{{ invoice_preports.urgent_fee }}">
+                <input type="number" id="urgent_fee" name="urgent_fee" min="0" value="{{ invoice_preports.urgent_fee }}" class="original-input">
+                +
+                <input type="number" id="urgent_fee_surcharge" name="urgent_fee_surcharge" value="{{ surcharges.urgent_fee }}">
+                <input type="text" id="urgent_fee_surcharge_note" name="urgent_fee_surcharge_note" value="{{ surcharges_notes.urgent_fee }}">
             </div>
             <div>
                 <label for="chassis_split_count">其他服务</label>:
-                <input type="number" id="other_serive" name="other_serive" min="0" value="{{ invoice_preports.other_serive }}">
+                <input type="number" id="other_serive" name="other_serive" min="0" value="{{ invoice_preports.other_serive }}" class="original-input">
+                +
+                <input type="number" id="other_serive_surcharge" name="other_serive_surcharge" value="{{ surcharges.other_serive }}">
+                <input type="text" id="other_serive_surcharge_note" name="other_serive_surcharge_note" value="{{ surcharges_notes.other_serive }}">
             </div>
             <div>
                 <label for="chassis_split_count">港内滞期费</label>:
-                <input type="number" id="demurrage" name="demurrage" min="0" value="{{ invoice_preports.demurrage }}">
+                <input type="number" id="demurrage" name="demurrage" min="0" value="{{ invoice_preports.demurrage }}" class="original-input">
+                +
+                <input type="number" id="demurrage_surcharge" name="demurrage_surcharge" value="{{ surcharges.demurrage }}">
+                <input type="text" id="demurrage_surcharge_note" name="demurrage_surcharge_note" value="{{ surcharges_notes.demurrage }}">
             </div>
             <div>
                 <label for="chassis_split_count">港外滞期费</label>:
-                <input type="number" id="per_diem" name="per_diem" min="0" value="{{ invoice_preports.per_diem }}">
+                <input type="number" id="per_diem" name="per_diem" min="0" value="{{ invoice_preports.per_diem }}" class="original-input">
+                +
+                <input type="number" id="per_diem_surcharge" name="per_diem_surcharge" value="{{ surcharges.per_diem }}">
+                <input type="text" id="per_diem_surcharge_note" name="per_diem_surcharge_note" value="{{ surcharges_notes.per_diem }}">
             </div>
             <div>
                 <label for="chassis_split_count">二次提货</label>:
-                <input type="number" id="second_pickup" name="second_pickup" min="0" value="{{ invoice_preports.second_pickup }}">
+                <input type="number" id="second_pickup" name="second_pickup" min="0" value="{{ invoice_preports.second_pickup }}" class="original-input">
+                +
+                <input type="number" id="second_pickup_surcharge" name="second_pickup_surcharge" value="{{ surcharges.second_pickup }}">
+                <input type="text" id="second_pickup_surcharge_note" name="second_pickup_surcharge_note" value="{{ surcharges_notes.second_pickup }}">
             </div>
             <div>
                 <label for="total_amount">Total Amount:</label>
@@ -94,6 +149,8 @@
         <input type="hidden" name="step" value="preport_save">
         <input type="hidden" name="warehouse" value="{{warehouse}}">
         <input type="hidden" name="container_number" value="{{ container_number }}">
+        <input type="hidden" name="start_date" value="{{ start_date }}">
+        <input type="hidden" name="end_date" value="{{ end_date }}">
         <input type="hidden" name="invoice_number" value="{{ invoice_preports.invoice_number }}">
         {% if "invoice_preport" in groups or "staff" in groups %}
             <button type="submit" class="btn btn-primary" style="width: 150px; height: 35px;" onclick="validateForm()">确认</button>
@@ -108,6 +165,7 @@
 </div>
 
 <script>
+
     function setupTotalCalculator() {
         const inputs = document.querySelectorAll('input[type="number"]');
         const totalAmountSpan = document.getElementById('total_amount');
@@ -133,7 +191,8 @@
     };   
     function validateForm() {
         const form = document.querySelector('form');
-        const inputs = form.querySelectorAll('input[type="number"]');
+        const inputs = form.querySelectorAll('input.original-input');
+        console.log(inputs);
         const labels = form.querySelectorAll('label');
         // 定义金额要求的映射关系
         const amountRequirements = {
@@ -142,7 +201,6 @@
             "预提费": 150,
             "货柜放置费": 150,
             "操作处理费": 50,
-            "码头": 20,
             "码头": 40,
             "港口拥堵费": 75,
             "吊柜费": 1, 
@@ -158,10 +216,14 @@
         for (let i = 0; i < inputs.length; i++) {
             const input = inputs[i];
             const labelText = labels[i].textContent.trim();
+            console.log('labelText',labelText);
             const requiredAmount = amountRequirements[labelText];
             if (requiredAmount && input.value!== "") {
                 const value = parseFloat(input.value);
                 if (isNaN(value) || value % requiredAmount!== 0) {
+                    console.log('i',i);
+                    console.log('输入值',value,input);
+                    console.log('要求值',requiredAmount);
                     alert('输入值不符合要求，请按照"' + labelText + '"的金额要求填写');
                     event.preventDefault();
                 }

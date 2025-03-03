@@ -2,6 +2,7 @@ from django.db import models
 from warehouse.models.customer import Customer
 from warehouse.models.container import Container
 from warehouse.models.invoice import Invoice
+from django.db.models import JSONField
     
 class InvoicePreport(models.Model):
     invoice_number = models.ForeignKey(Invoice, on_delete=models.CASCADE)
@@ -24,6 +25,8 @@ class InvoicePreport(models.Model):
     per_diem = models.FloatField(null=True, blank=True, verbose_name="港外滞期费")
     second_pickup = models.FloatField(null=True, blank=True, verbose_name="二次提货")
     amount = models.FloatField(null=True, blank=True)
+    surcharges = JSONField(default=dict)
+    surcharge_notes = JSONField(default=dict)
 
     def __str__(self) -> str:
         return str(self.invoice_number) 

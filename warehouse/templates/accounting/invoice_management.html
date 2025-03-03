@@ -42,7 +42,7 @@
                             <tr>
                                 <td class="td">{{ c.customer_name.zem_name }}</td>
                                 <td class="td">
-                                    <a href="/accounting/?step=container_invoice&container_number={{ c.container_number }}&order_type={{ c.order_type }}" target="_blank">{{ c.container_number }}</a>
+                                    <a href="/accounting/?step=container_invoice&container_number={{ c.container_number }}&order_type={{ c.order_type }}">{{ c.container_number }}</a>
                                 </td>
                                 <td class="td">{{ c.created_at|date:"Y-m-d" }}</td>
                             </tr>
@@ -102,10 +102,10 @@
                                 <td class="td">{{ c.invoice_id.invoice_date|date:"Y-m-d" }}</td>
                                 <td class="td">${{ c.invoice_id.total_amount|floatformat:"2g" }}</td>
                                 <td class="td">
-                                    <a href="{{ c.invoice_id.invoice_link }}" target="_blank" style="margin-right: 10px;">
+                                    <a href="{{ c.invoice_id.invoice_link }}" style="margin-right: 10px;">
                                         <i class="bi bi-file-earmark-bar-graph-fill"></i>
                                     </a>
-                                    <a href="/accounting/?step=container_invoice_edit&container_number={{ c.container_number }}" target="_blank" style="margin-right: 10px;">
+                                    <a href="/accounting/?step=container_invoice_edit&container_number={{ c.container_number }}" style="margin-right: 10px;">
                                         <i class="bi bi-pencil-fill" style="color: rgba(34, 153, 84, 0.873);"></i>
                                     </a>
                                     <a href="#" onclick="confirmDelete(event, '{{ c.container_number }}', '{{ c.invoice_id.invoice_number }}')">
@@ -114,7 +114,7 @@
                                 </td>
                                 <td class="td">
                                     {% if c.invoice_id.statement_id %}
-                                        <a href="{{ c.invoice_id.statement_id.statement_link }}" target="_blank">
+                                        <a href="{{ c.invoice_id.statement_id.statement_link }}">
                                             {{ c.invoice_id.statement_id.invoice_statement_id }}
                                         </a>
                                     {% else %}
