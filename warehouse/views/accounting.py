@@ -78,6 +78,7 @@ class Accounting(View):
     template_invoice_confirm_edit = "accounting/invoice_confirm_edit.html"
     template_invoice_direct = "accounting/invoice_direct.html"
     template_invoice_direct_edit = "accounting/invoice_direct_edit.html"
+    template_quote_management = "accounting/quote_management.html"
     allowed_group = "accounting"
 
     def get(self, request: HttpRequest) -> HttpResponse:
@@ -148,6 +149,9 @@ class Accounting(View):
             return render(request, template, context)
         elif step == "container_invoice_delete":
             template, context = self.handle_container_invoice_delete_get(request)
+            return render(request, template, context)
+        elif step == "quote_management":
+            template, context = self.handle_quote_mangement_get(request)
             return render(request, template, context)
         else:
             raise ValueError(f"unknow request {step}")
@@ -329,13 +333,14 @@ class Accounting(View):
         ).filter(
             models.Q(
                 models.Q(invoice_status="unrecorded") |
+                models.Q(invoice_status="record_preport")|
                 models.Q(invoice_status="") |
                 models.Q(invoice_status__exact="") |
                 models.Q(invoice_status__isnull=True)
             ),
             criteria,
             order_type = "直送",
-        )
+        ).order_by('invoice_reject_reason')
         status = ['toBeConfirmed','confirmed']
         previous_order = Order.objects.select_related(
             "customer_name", "container_number", "invoice_id"
@@ -352,7 +357,7 @@ class Accounting(View):
             "previous_order":previous_order,
             "start_date":start_date,
             "end_date":end_date,
-            "customer": customer
+            "customer": customer,
         }
         return self.template_invoice_direct, context
 
@@ -636,6 +641,25 @@ class Accounting(View):
         for k,v in data.items():         
             if k not in ['csrfmiddlewaretoken','step','warehouse','container_number','invoice_number'] and v:
                 setattr(invoice_preports, k, v)
+        #附加项费用和附加项说明
+        fields = [
+            'exam_fee', 'second_pickup', 'demurrage', 'per_diem', 
+            'congestion_fee', 'chassis', 'prepull', 'yard_storage', 
+            'handling_fee', 'chassis_split', 'over_weight'
+        ]
+        surcharges = {}
+        surcharge_notes = {}
+        for field in fields:
+            surcharge_key = f'{field}_surcharge'
+            note_key = f'{field}_surcharge_note'
+
+            surcharge = request.POST.get(surcharge_key, 0) or 0
+            note = request.POST.get(note_key, '')
+            surcharges[field] = float(surcharge)
+            surcharge_notes[field] = note
+        invoice_preports.surcharges = surcharges
+        invoice_preports.surcharge_notes = surcharge_notes
+
         invoice_preports.save()
         invoice_preports = InvoicePreport.objects.get(invoice_number__invoice_number=invoice.invoice_number)
         #账单状态记录
@@ -645,7 +669,7 @@ class Accounting(View):
         invoice = Invoice.objects.get(container_number__container_number=container_number)
         invoice.direct_amount = direct_amount
         invoice.save()
-        return self.handle_invoice_direct_get(request)
+        return self.handle_invoice_direct_get(request,request.POST.get("start_date"),request.POST.get("end_date"))
 
     def handle_invoice_preport_save_post(self,request:HttpRequest) -> tuple[Any, Any]:
         data = request.POST.copy()
@@ -1181,7 +1205,11 @@ class Accounting(View):
             "warehouse": warehouse,
             "invoice_preports":invoice_preports,
             "container_number":container_number,
-            "second_delivery":second_delivery
+            "second_delivery":second_delivery,
+            "start_date":request.GET.get("start_date"),
+            "end_date":request.GET.get("end_date"),
+            "surcharges":invoice_preports.surcharges,
+            "surcharges_notes":invoice_preports.surcharge_notes
         }
         return self.template_invoice_direct_edit, context
     

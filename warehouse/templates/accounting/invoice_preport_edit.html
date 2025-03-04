@@ -192,7 +192,6 @@
     function validateForm() {
         const form = document.querySelector('form');
         const inputs = form.querySelectorAll('input.original-input');
-        console.log(inputs);
         const labels = form.querySelectorAll('label');
         // 定义金额要求的映射关系
         const amountRequirements = {
@@ -215,16 +214,12 @@
         };
         for (let i = 0; i < inputs.length; i++) {
             const input = inputs[i];
-            const labelText = labels[i].textContent.trim();
-            console.log('labelText',labelText);
+            const labelText = labels[i+1].textContent.trim();
             const requiredAmount = amountRequirements[labelText];
             if (requiredAmount && input.value!== "") {
                 const value = parseFloat(input.value);
                 if (isNaN(value) || value % requiredAmount!== 0) {
-                    console.log('i',i);
-                    console.log('输入值',value,input);
-                    console.log('要求值',requiredAmount);
-                    alert('输入值不符合要求，请按照"' + labelText + '"的金额要求填写');
+                    alert('输入值'+value+'不符合要求，请按照"' + labelText + '"的金额要求' + requiredAmount+'填写');
                     event.preventDefault();
                 }
             }      
