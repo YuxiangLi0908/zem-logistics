@@ -1528,12 +1528,23 @@ class Accounting(View):
                 .filter(container_number__container_number=container_number)
                 .values("container_number__container_number", "destination")
                 .annotate(
-                    total_cbm=Sum("pallet__cbm", output_field=FloatField()),
-                    total_weight=Sum("pallet__weight_lbs", output_field=FloatField()),
-                    total_n_pallet=Count("pallet__pallet_id", distinct=True),
+                    total_cbm=Sum("cbm", output_field=FloatField()),
+                    total_weight=Sum("weight_lbs", output_field=FloatField()),
+                    total_n_pallet=Count("id", distinct=True),
                 )
                 .order_by("destination", "-total_cbm")
             )
+            # packing_list = (
+            #     PackingList.objects.select_related("container_number", "pallet")
+            #     .filter(container_number__container_number=container_number)
+            #     .values("container_number__container_number", "destination")
+            #     .annotate(
+            #         total_cbm=Sum("pallet__cbm", output_field=FloatField()),
+            #         total_weight=Sum("pallet__weight_lbs", output_field=FloatField()),
+            #         total_n_pallet=Count("pallet__pallet_id", distinct=True),
+            #     )
+            #     .order_by("destination", "-total_cbm")
+            # )
         else:
             packing_list = (
                 Pallet.objects.select_related("container_number")
