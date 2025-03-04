@@ -1529,7 +1529,7 @@ class Accounting(View):
                 .values("container_number__container_number", "destination")
                 .annotate(
                     total_cbm=Sum("cbm", output_field=FloatField()),
-                    total_weight=Sum("weight_lbs", output_field=FloatField()),
+                    total_weight=Sum("total_weight_lbs", output_field=FloatField()),
                     total_n_pallet=Count("id", distinct=True),
                 )
                 .order_by("destination", "-total_cbm")
