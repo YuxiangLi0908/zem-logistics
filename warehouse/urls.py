@@ -27,17 +27,9 @@ from warehouse.views.pre_port.tracking import PrePortTracking
 from warehouse.views.quote_management import QuoteManagement
 from warehouse.views.retrieval_schedule import ScheduleRetrieval
 from warehouse.views.shipment_dispatch import ShipmentDispatch
-from warehouse.views.export_file import ExportFile
-from warehouse.views.customer_management import CustomerManagement
-from warehouse.views.bol import BOL
-from warehouse.views.po import PO
-from warehouse.views.pod import POD
-from warehouse.views.statistics.order_quantity import OrderQuantity
-from warehouse.views.stuff_user_ability import StuffPower
-from warehouse.views.quote_management import QuoteManagement
-from warehouse.views.accounting import Accounting
 from warehouse.views.shipment_schedule import ScheduleShipment
 from warehouse.views.shipment_status import ShipmentStatus
+from warehouse.views.statistics.order_quantity import OrderQuantity
 from warehouse.views.stuff_user_ability import StuffPower
 from warehouse.views.terminal49_webhook import T49Webhook
 from warehouse.views.test.async_view import AsyncView
@@ -98,7 +90,7 @@ urlpatterns = [
     path("t49webhook/", T49Webhook.as_view(), name="t49webhook"),
     path("async_view", AsyncView.as_view(), name="async_view"),
     path("dbconn", DBConn.as_view(), name="dbconn"),
-    path('order_statistics', OrderQuantity.as_view(), name='order_statistics'),
+    path("order_statistics", OrderQuantity.as_view(), name="order_statistics"),
     # legacy views, to be removed in the future
     path(
         "palletize_legacy/", LegacyPalletization.as_view(), name="palletization_legacy"

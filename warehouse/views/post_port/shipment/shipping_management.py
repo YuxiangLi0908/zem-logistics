@@ -4,16 +4,15 @@ import math
 import os
 import re
 import uuid
-from collections import Counter
 from datetime import datetime, timedelta
 from pathlib import Path
-from typing import Any, List
+from typing import Any
 
 import pandas as pd
 import pytz
 from asgiref.sync import sync_to_async
 from dateutil.parser import parse
-from django.contrib.postgres.aggregates import ArrayAgg, StringAgg
+from django.contrib.postgres.aggregates import StringAgg
 from django.db import models
 from django.db.models import (
     Case,
