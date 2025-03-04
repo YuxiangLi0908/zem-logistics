@@ -222,7 +222,7 @@
                         {% for s in shipment_list %}
                         <tr>
                             <td class="td" style="max-width: 120px; word-break: break-all;">
-                                <a href="/schedule_shipment/?step=shipment_info&batch_number={{ s.shipment_batch_number }}&area={{ area }}">
+                                <a href="/schedule_shipment/?step=shipment_info&batch_number={{ s.shipment_batch_number }}&area={{ area }}&start_date={{ start_date }}&end_date={{ end_date }}">
                                     {{ s.shipment_batch_number }}
                                 </a>
                             </td>

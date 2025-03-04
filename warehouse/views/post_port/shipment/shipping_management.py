@@ -244,6 +244,8 @@ class ShippingManagement(View):
                 "warehouse": request.GET.get("warehouse"),
                 "warehouse_options": self.warehouse_options,
                 "shipment_type_options": self.shipment_type_options,
+                "start_date":request.GET.get("start_date"),
+                "end_date":request.GET.get("end_date")
             }
         )
         return self.template_td_shipment_info, context
