@@ -1,46 +1,47 @@
-import uuid
 import ast
 import os
-import shortuuid
-import pandas as pd
-import numpy as np
-from pathlib import Path
+import uuid
 from datetime import datetime
+from pathlib import Path
 from typing import Any
 
-from django.http import HttpRequest, HttpResponse, Http404
-from django.shortcuts import render, redirect
+import numpy as np
+import pandas as pd
+import shortuuid
 from django.contrib.auth.decorators import login_required
+from django.core.cache import cache
+from django.db import models
 from django.forms import formset_factory
 from django.forms.models import model_to_dict
-from django.views import View
+from django.http import Http404, HttpRequest, HttpResponse
+from django.shortcuts import redirect, render
 from django.utils.decorators import method_decorator
-from django.db import models
-from django.core.cache import cache
+from django.views import View
 
-from warehouse.models.customer import Customer
-from warehouse.models.container import Container
-from warehouse.models.packing_list import PackingList
-from warehouse.models.order import Order
-from warehouse.models.clearance import Clearance
-from warehouse.models.retrieval import Retrieval
-from warehouse.models.warehouse import ZemWarehouse
-from warehouse.models.offload import Offload
-from warehouse.models.shipment import Shipment
-from warehouse.forms.container_form import ContainerForm
-from warehouse.forms.packling_list_form import PackingListForm
-from warehouse.forms.order_form import OrderForm
-from warehouse.forms.warehouse_form import ZemWarehouseForm
 from warehouse.forms.clearance_form import ClearanceSelectForm
+from warehouse.forms.container_form import ContainerForm
 from warehouse.forms.offload_form import OffloadForm
+from warehouse.forms.order_form import OrderForm
+from warehouse.forms.packling_list_form import PackingListForm
 from warehouse.forms.retrieval_form import RetrievalForm, RetrievalSelectForm
 from warehouse.forms.shipment_form import ShipmentForm
 from warehouse.forms.upload_file import UploadFileForm
+from warehouse.forms.warehouse_form import ZemWarehouseForm
+from warehouse.models.clearance import Clearance
+from warehouse.models.container import Container
+from warehouse.models.customer import Customer
+from warehouse.models.offload import Offload
+from warehouse.models.order import Order
+from warehouse.models.packing_list import PackingList
+from warehouse.models.retrieval import Retrieval
+from warehouse.models.shipment import Shipment
+from warehouse.models.warehouse import ZemWarehouse
 from warehouse.utils.constants import ORDER_TYPES, PACKING_LIST_TEMP_COL_MAPPING
 
-@method_decorator(login_required(login_url='login'), name='dispatch')
+
+@method_decorator(login_required(login_url="login"), name="dispatch")
 class OrderCreationLegacy(View):
-    template_main = 'create_order.html'
+    template_main = "create_order.html"
     context = {
         "order_form": OrderForm(),
         "warehouse_form": ZemWarehouseForm(),
@@ -50,9 +51,9 @@ class OrderCreationLegacy(View):
         "retrieval_select_form": RetrievalSelectForm(),
         "offload_form": OffloadForm(),
         "shipment_form": ShipmentForm(),
-        "packing_list_form": formset_factory(PackingListForm, extra=1)
+        "packing_list_form": formset_factory(PackingListForm, extra=1),
     }
-    
+
     def get(self, request: HttpRequest) -> HttpResponse:
         order_type = request.GET.get("type")
         step = request.GET.get("step", None)
@@ -62,9 +63,9 @@ class OrderCreationLegacy(View):
             self.context["step"] = 1
             self.context["order_type"] = ORDER_TYPES[order_type]
             return render(request, self.template_main, self.context)
-    
+
     def post(self, request: HttpRequest) -> HttpResponse:
-        step = request.POST.get('step')
+        step = request.POST.get("step")
         if step == "container_info":
             self.handle_container_post(request)
         elif step == "packing_list":
@@ -80,7 +81,7 @@ class OrderCreationLegacy(View):
         else:
             raise ValueError(f"{request.POST}")
         return render(request, self.template_main, self.context)
-    
+
     def handle_container_post(self, request: HttpRequest) -> None:
         customer = Customer.objects.get(id=request.POST.get("customer_name"))
         if request.POST.get("name") == "N/A":
@@ -91,14 +92,19 @@ class OrderCreationLegacy(View):
         clearance_option = request.POST.get("clearance_option")
         retrieval_option = request.POST.get("retrieval_option")
         order_type = request.POST.get("order_type")
-        order_id = str(uuid.uuid3(
-            uuid.NAMESPACE_DNS,
-            str(uuid.uuid4())+customer.zem_name+eta+datetime.now().strftime('%Y-%m-%d %H:%M:%S')
-        ))
+        order_id = str(
+            uuid.uuid3(
+                uuid.NAMESPACE_DNS,
+                str(uuid.uuid4())
+                + customer.zem_name
+                + eta
+                + datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
+            )
+        )
         clear_id = str(uuid.uuid3(uuid.NAMESPACE_DNS, order_id + clearance_option))
         retrieval_id = str(uuid.uuid3(uuid.NAMESPACE_DNS, order_id + retrieval_option))
         offload_id = str(uuid.uuid3(uuid.NAMESPACE_DNS, order_id + order_type))
-        
+
         context = {
             "order_id": order_id,
             "clear_id": clear_id,
@@ -109,12 +115,12 @@ class OrderCreationLegacy(View):
         self.context["step"] = 2
         self.context["order_data"] = context
         self.context["order_type"] = order_type
-    
+
     def handle_packing_list_post(self, request: HttpRequest) -> Any:
         order_type = request.POST.get("order_type")
         container_number = request.POST.get("container_number").strip()
         if self._check_duplicated_container(container_number):
-                raise RuntimeError(f"{container_number} exists!")
+            raise RuntimeError(f"{container_number} exists!")
         if order_type == "直送":
             order_data = ast.literal_eval(request.POST.get("order_data"))
             container_data = dict(request.POST.items())
@@ -129,11 +135,13 @@ class OrderCreationLegacy(View):
                 "origin_port": request.POST.get("origin_port"),
                 "destination_port": request.POST.get("destination_port"),
                 "retrieval_location": request.POST.get("retrieval_location"),
-                "shipping_order_number": request.POST.get("shipping_order_number")
+                "shipping_order_number": request.POST.get("shipping_order_number"),
             }
             self.context["order_data"] = request.POST.get("order_data")
             self.context["upload_file_form"] = UploadFileForm()
-            self.context["packing_list_form"] = formset_factory(PackingListForm, extra=1)
+            self.context["packing_list_form"] = formset_factory(
+                PackingListForm, extra=1
+            )
             self.context["step"] = 3
 
     def handle_place_order_post(self, request: HttpRequest) -> None:
@@ -146,7 +154,9 @@ class OrderCreationLegacy(View):
         pl_valid = all([pl.is_valid() for pl in packing_list_form])
         if pl_valid:
             order = self._create_order_object(order_data, container_data)
-            container = Container.objects.get(container_number=container_data["container_number"])
+            container = Container.objects.get(
+                container_number=container_data["container_number"]
+            )
             for pl in packing_list_form:
                 for k in pl.cleaned_data.keys():
                     if isinstance(pl.cleaned_data[k], str):
@@ -160,36 +170,48 @@ class OrderCreationLegacy(View):
                 PackingList.objects.create(**pl.cleaned_data)
         else:
             raise ValueError("invalid packing list!")
-    
+
     def handle_upload_pl_template_post(self, request: HttpRequest) -> None:
         form = UploadFileForm(request.POST, request.FILES)
         if form.is_valid():
-            file = request.FILES['file']
+            file = request.FILES["file"]
             df = pd.read_excel(file)
             df = df.rename(columns=PACKING_LIST_TEMP_COL_MAPPING)
-            df = df.dropna(how="all", subset=[c for c in df.columns if c not in ["delivery_method", "note"]])
+            df = df.dropna(
+                how="all",
+                subset=[c for c in df.columns if c not in ["delivery_method", "note"]],
+            )
             df = df.replace(np.nan, None)
             df = df.reset_index(drop=True)
             # if df[df["delivery_method"]!="客户自提"]["destination"].isna().sum():
             #     raise ValueError(f"destination NA error!")
             if df["cbm"].isna().sum():
                 raise ValueError(f"cbm number N/A error!")
-            if df["total_weight_lbs"].isna().sum() and df["total_weight_kg"].isna().sum():
+            if (
+                df["total_weight_lbs"].isna().sum()
+                and df["total_weight_kg"].isna().sum()
+            ):
                 raise ValueError(f"weight number N/A error!")
             if df["pcs"].isna().sum():
                 raise ValueError(f"boxes number N/A error!")
             for idx, row in df.iterrows():
                 if row["unit_weight_kg"] and not row["unit_weight_lbs"]:
-                    df.loc[idx, "unit_weight_lbs"] = round(df.loc[idx, "unit_weight_kg"] * 2.20462, 2)
+                    df.loc[idx, "unit_weight_lbs"] = round(
+                        df.loc[idx, "unit_weight_kg"] * 2.20462, 2
+                    )
                 if row["total_weight_kg"] and not row["total_weight_lbs"]:
-                    df.loc[idx, "total_weight_lbs"] = round(df.loc[idx, "total_weight_kg"] * 2.20462, 2)
+                    df.loc[idx, "total_weight_lbs"] = round(
+                        df.loc[idx, "total_weight_kg"] * 2.20462, 2
+                    )
             model_fields = [field.name for field in PackingList._meta.fields]
             col = [c for c in df.columns if c in model_fields]
             pl_data = df[col].to_dict("records")
-            
-            packing_list = [PackingList(**data) for data in pl_data]            
+
+            packing_list = [PackingList(**data) for data in pl_data]
             packing_list_formset = formset_factory(PackingListForm, extra=0)
-            packing_list_form = packing_list_formset(initial=[model_to_dict(obj) for obj in packing_list])
+            packing_list_form = packing_list_formset(
+                initial=[model_to_dict(obj) for obj in packing_list]
+            )
             self.context["container_data"] = request.POST.get("container_data")
             self.context["order_data"] = request.POST.get("order_data")
             self.context["packing_list_form"] = packing_list_form
@@ -198,64 +220,86 @@ class OrderCreationLegacy(View):
             cache.clear()
         else:
             raise ValueError(f"invalid file format!")
-        
+
     def handle_download_pl_template_post(self, request: HttpRequest) -> HttpResponse:
-        file_path = Path(__file__).parent.parent.resolve().joinpath("templates/export_file/packing_list_template.xlsx")
+        file_path = (
+            Path(__file__)
+            .parent.parent.resolve()
+            .joinpath("templates/export_file/packing_list_template.xlsx")
+        )
         if not os.path.exists(file_path):
             raise Http404("File does not exist")
-        with open(file_path, 'rb') as file:
-            response = HttpResponse(file.read(), content_type='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet')
-            response['Content-Disposition'] = f'attachment; filename="zem_packing_list_template.xlsx"'
+        with open(file_path, "rb") as file:
+            response = HttpResponse(
+                file.read(),
+                content_type="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+            )
+            response["Content-Disposition"] = (
+                f'attachment; filename="zem_packing_list_template.xlsx"'
+            )
             return response
 
-    def _create_model_object(self, model: models.Model, data: dict[str, Any], save: bool = True) -> models.Model:
+    def _create_model_object(
+        self, model: models.Model, data: dict[str, Any], save: bool = True
+    ) -> models.Model:
         model_object = model(**data)
         if save:
             model_object.save()
         return model_object
-    
+
     def _create_clearance_object(self, order_data: dict[str, Any]) -> Clearance:
         clearance_data = {
             "clearance_id": order_data["clear_id"],
-            "is_clearance_required": False if order_data["clearance_option"]=="N/A" else True,
-            "clear_by_zem": True if order_data["clearance_option"]=="代理清关" else False,
+            "is_clearance_required": (
+                False if order_data["clearance_option"] == "N/A" else True
+            ),
+            "clear_by_zem": (
+                True if order_data["clearance_option"] == "代理清关" else False
+            ),
         }
         return self._create_model_object(Clearance, clearance_data)
-    
+
     def _create_retrieval_object(
-        self,
-        order_data: dict[str, Any],
-        container_data: dict[str, Any]
+        self, order_data: dict[str, Any], container_data: dict[str, Any]
     ) -> Retrieval:
         retrieval_data = {
             "retrieval_id": order_data["retrieval_id"],
-            "retrive_by_zem": True if order_data["retrieval_option"]=="代理卡车" else False,
+            "retrive_by_zem": (
+                True if order_data["retrieval_option"] == "代理卡车" else False
+            ),
             "origin_port": container_data.get("origin_port"),
             "destination_port": container_data.get("destination_port"),
             # "retrieval_location": container_data.get("retrieval_location"),
             "shipping_line": container_data.get("shipping_line"),
-            "shipping_order_number": container_data.get("shipping_order_number")
+            "shipping_order_number": container_data.get("shipping_order_number"),
         }
         return self._create_model_object(Retrieval, retrieval_data)
-    
+
     def _create_offload_obejct(self, order_data: dict[str, Any]) -> Offload:
         offload_data = {
             "offload_id": order_data["offload_id"],
-            "offload_required": True if order_data["order_type"] in ("转运","转运组合") else False,
+            "offload_required": (
+                True if order_data["order_type"] in ("转运", "转运组合") else False
+            ),
         }
         return self._create_model_object(Offload, offload_data)
-    
+
     def _create_container_object(self, container_data: dict[str, Any]) -> Container:
         container_data = {
             "container_number": container_data["container_number"],
             "container_type": container_data["container_type"],
         }
         return self._create_model_object(Container, container_data)
-    
-    def _creat_shipment_object(self, order_data: dict[str, Any], container_data: dict[str, Any]) -> Shipment:
+
+    def _creat_shipment_object(
+        self, order_data: dict[str, Any], container_data: dict[str, Any]
+    ) -> Shipment:
         shipment_id = uuid.uuid3(
             uuid.NAMESPACE_DNS,
-            str(uuid.uuid4())+order_data.get("customer_name")+datetime.now().strftime('%Y-%m-%d %H:%M:%S')+container_data.get("container_number")
+            str(uuid.uuid4())
+            + order_data.get("customer_name")
+            + datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+            + container_data.get("container_number"),
         )
         shipment_id = shortuuid.encode(shipment_id)
         shipment_data = {
@@ -267,11 +311,9 @@ class OrderCreationLegacy(View):
             "appointment_id": container_data.get("appointment_id", None),
         }
         return self._create_model_object(Shipment, shipment_data)
-    
+
     def _create_order_object(
-        self,
-        order_data: dict[str, Any],
-        container_data: dict[str, Any]
+        self, order_data: dict[str, Any], container_data: dict[str, Any]
     ) -> Order:
         if order_data.get("order_type", None) == "直送":
             shipment = self._creat_shipment_object(order_data, container_data)
@@ -299,6 +341,6 @@ class OrderCreationLegacy(View):
             "shipment_id": shipment,
         }
         return self._create_model_object(Order, order_data)
-    
+
     def _check_duplicated_container(self, container_number: str) -> bool:
         return Container.objects.filter(container_number=container_number).exists()

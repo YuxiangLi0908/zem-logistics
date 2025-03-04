@@ -1,16 +1,27 @@
-import pandas as pd
-
-from asgiref.sync import sync_to_async
 from datetime import datetime, timedelta
 from typing import Any
 
-from django.http import HttpRequest, HttpResponse
-from django.shortcuts import render, redirect
-from django.views import View
-from django.db import models
-from django.db.models import Case, Value, CharField, F, Sum, Max, FloatField, IntegerField, When, Count, Q
-from django.db.models.functions import Concat, Cast
+import pandas as pd
+from asgiref.sync import sync_to_async
 from django.contrib.postgres.aggregates import StringAgg
+from django.db import models
+from django.db.models import (
+    Case,
+    CharField,
+    Count,
+    F,
+    FloatField,
+    IntegerField,
+    Max,
+    Q,
+    Sum,
+    Value,
+    When,
+)
+from django.db.models.functions import Cast, Concat
+from django.http import HttpRequest, HttpResponse
+from django.shortcuts import redirect, render
+from django.views import View
 
 from warehouse.models.packing_list import PackingList
 from warehouse.models.pallet import Pallet
@@ -18,7 +29,7 @@ from warehouse.models.pallet import Pallet
 
 class PostportDash(View):
     template_main_dash = "post_port//01_summary_table.html"
-    area_options = {"NJ": "NJ", "SAV": "SAV", "LA":"LA"}
+    area_options = {"NJ": "NJ", "SAV": "SAV", "LA": "LA", "MO": "MO", "HX": "HX"}
 
     async def get(self, request: HttpRequest) -> HttpResponse:
         if not await self._user_authenticate(request):
@@ -30,7 +41,7 @@ class PostportDash(View):
         else:
             context = {"area_options": self.area_options}
             return render(request, self.template_main, context)
-        
+
     async def post(self, request: HttpRequest) -> HttpResponse:
         if not await self._user_authenticate(request):
             return redirect("login")
@@ -44,38 +55,63 @@ class PostportDash(View):
             context = {"area_options": self.area_options}
             return render(request, self.template_main_dash, context)
 
-    async def handle_summary_table_get(self, request: HttpRequest) -> tuple[str, dict[str, Any]]:
-        context ={"area_options":self.area_options}
+    async def handle_summary_table_get(
+        self, request: HttpRequest
+    ) -> tuple[str, dict[str, Any]]:
+        context = {"area_options": self.area_options}
         return self.template_main_dash, context
-    
-    async def handle_summary_warehouse_post(self, request: HttpRequest) -> tuple[str, dict[str, Any]]:
+
+    async def handle_summary_warehouse_post(
+        self, request: HttpRequest
+    ) -> tuple[str, dict[str, Any]]:
         area = request.POST.get("area")
         start_date = request.POST.get("start_date")
         end_date = request.POST.get("end_date")
-        container_number = request.POST.get("container_number") if request.POST.get("container_number") else None
-        shipment_batch_number = request.POST.get("shipment_batch_number") if request.POST.get("shipment_batch_number") else None
-        start_date = (datetime.now().date() + timedelta(days=-4)).strftime('%Y-%m-%d') if not start_date else start_date
-        end_date = (datetime.now().date() + timedelta(days=3)).strftime('%Y-%m-%d') if not end_date else end_date
+        container_number = (
+            request.POST.get("container_number")
+            if request.POST.get("container_number")
+            else None
+        )
+        shipment_batch_number = (
+            request.POST.get("shipment_batch_number")
+            if request.POST.get("shipment_batch_number")
+            else None
+        )
+        start_date = (
+            (datetime.now().date() + timedelta(days=-4)).strftime("%Y-%m-%d")
+            if not start_date
+            else start_date
+        )
+        end_date = (
+            (datetime.now().date() + timedelta(days=3)).strftime("%Y-%m-%d")
+            if not end_date
+            else end_date
+        )
         criteria = models.Q(
-            (models.Q(container_number__order__order_type="转运") | models.Q(container_number__order__order_type="转运组合")),
+            (
+                models.Q(container_number__order__order_type="转运")
+                | models.Q(container_number__order__order_type="转运组合")
+            ),
             container_number__order__packing_list_updloaded=True,
-            container_number__order__created_at__gte='2024-09-01',
-        ) 
+            container_number__order__created_at__gte="2024-09-01",
+        )
         if container_number:
             criteria &= models.Q(container_number__container_number=container_number)
         if shipment_batch_number:
-            criteria &= models.Q(shipment_batch_number__shipment_batch_number=shipment_batch_number)
+            criteria &= models.Q(
+                shipment_batch_number__shipment_batch_number=shipment_batch_number
+            )
         pl_criteria = criteria & models.Q(
             container_number__order__vessel_id__vessel_eta__gte=start_date,
             container_number__order__vessel_id__vessel_eta__lte=end_date,
             container_number__order__offload_id__offload_at__isnull=True,
-            container_number__order__retrieval_id__retrieval_destination_area=area
+            container_number__order__retrieval_id__retrieval_destination_area=area,
         )
         plt_criteria = criteria & models.Q(
             container_number__order__vessel_id__vessel_eta__gte=start_date,
             container_number__order__vessel_id__vessel_eta__lte=end_date,
             container_number__order__offload_id__offload_at__isnull=False,
-            location__startswith=area
+            location__startswith=area,
         )
         packing_list = await self._get_packing_list(pl_criteria, plt_criteria)
         cbm_act, cbm_est, pallet_act, pallet_est = 0, 0, 0, 0
@@ -87,14 +123,14 @@ class PostportDash(View):
                 cbm_est += pl.get("total_cbm")
                 if pl.get("total_n_pallet_est") < 1:
                     pallet_est += 1
-                elif pl.get("total_n_pallet_est")%1 >= 0.45:
+                elif pl.get("total_n_pallet_est") % 1 >= 0.45:
                     pallet_est += int(pl.get("total_n_pallet_est") // 1 + 1)
                 else:
                     pallet_est += int(pl.get("total_n_pallet_est") // 1)
         context = {
-            "packing_list":packing_list,
-            "selected_area":area,
-            "area_options":self.area_options,
+            "packing_list": packing_list,
+            "selected_area": area,
+            "area_options": self.area_options,
             "start_date": start_date,
             "end_date": end_date,
         }
@@ -103,7 +139,7 @@ class PostportDash(View):
         if shipment_batch_number:
             context["shipment_batch_number"] = shipment_batch_number
         return self.template_main_dash, context
-    
+
     async def handle_export_report_post(self, request: HttpRequest) -> HttpResponse:
         selections = request.POST.getlist("is_selected")
         ids = request.POST.getlist("pl_ids")
@@ -125,99 +161,161 @@ class PostportDash(View):
                     n_pallet_est = pl.get("total_n_pallet_est")
                     if n_pallet_est < 1:
                         n_pallet = 1
-                    elif n_pallet_est%1 >= 0.45:
-                        n_pallet = n_pallet_est//1 + 1
+                    elif n_pallet_est % 1 >= 0.45:
+                        n_pallet = n_pallet_est // 1 + 1
                     else:
-                        n_pallet = n_pallet_est//1
-                if pl.get("container_number__order__retrieval_id__actual_retrieval_timestamp"):
-                    retrieval_datetime = pl.get("container_number__order__retrieval_id__actual_retrieval_timestamp").strftime('%Y-%m-%d %H:%M:%S')
-                elif pl.get("container_number__order__retrieval_id__target_retrieval_timestamp"):
-                    retrieval_datetime = pl.get("container_number__order__retrieval_id__target_retrieval_timestamp").strftime('%Y-%m-%d %H:%M:%S')
+                        n_pallet = n_pallet_est // 1
+                if pl.get(
+                    "container_number__order__retrieval_id__actual_retrieval_timestamp"
+                ):
+                    retrieval_datetime = pl.get(
+                        "container_number__order__retrieval_id__actual_retrieval_timestamp"
+                    ).strftime("%Y-%m-%d %H:%M:%S")
+                elif pl.get(
+                    "container_number__order__retrieval_id__target_retrieval_timestamp"
+                ):
+                    retrieval_datetime = pl.get(
+                        "container_number__order__retrieval_id__target_retrieval_timestamp"
+                    ).strftime("%Y-%m-%d %H:%M:%S")
                 else:
                     retrieval_datetime = ""
                 if "自提" in pl.get("custom_delivery_method"):
-                    delivery_method = str(pl.get("custom_delivery_method")) +'-' +str(pl.get("shipping_marks"))
+                    delivery_method = (
+                        str(pl.get("custom_delivery_method"))
+                        + "-"
+                        + str(pl.get("shipping_marks"))
+                    )
                 else:
                     delivery_method = pl.get("custom_delivery_method").split("-")[0]
-                data.append({
-                    "所属仓库": pl.get("warehouse"),
-                    "客户": pl.get("container_number__order__customer_name__zem_name"),
-                    "货柜号": pl.get("container_number__container_number"),
-                    "仓点": pl.get("destination"),
-                    "派送方式": delivery_method,
-                    "CBM": pl.get("total_cbm"),
-                    "卡板数": n_pallet,
-                    "箱数": pl.get("total_pcs"),
-                    "总重lbs": pl.get("total_weight_lbs"),
-                    "ETA": pl.get("container_number__order__vessel_id__vessel_eta"),
-                    "提柜时间": retrieval_datetime,
-                    "入仓时间": pl.get("container_number__order__offload_id__offload_at").strftime('%Y-%m-%d %H:%M:%S') if pl.get("container_number__order__offload_id__offload_at") else "",
-                    "预约批次": pl.get("shipment_batch_number__shipment_batch_number"),
-                    "预约号": pl.get("shipment_batch_number__appointment_id"),
-                    "预约时间": pl.get("shipment_batch_number__shipment_appointment").strftime('%Y-%m-%d %H:%M:%S') if pl.get("shipment_batch_number__shipment_appointment") else "",
-                    "发货时间": pl.get("shipment_batch_number__shipped_at").strftime('%Y-%m-%d %H:%M:%S') if pl.get("shipment_batch_number__shipped_at") else "",
-                    "送达时间": pl.get("shipment_batch_number__arrived_at").strftime('%Y-%m-%d %H:%M:%S') if pl.get("shipment_batch_number__arrived_at") else "",
-                })
+                data.append(
+                    {
+                        "所属仓库": pl.get("warehouse"),
+                        "客户": pl.get(
+                            "container_number__order__customer_name__zem_name"
+                        ),
+                        "货柜号": pl.get("container_number__container_number"),
+                        "仓点": pl.get("destination"),
+                        "派送方式": delivery_method,
+                        "CBM": pl.get("total_cbm"),
+                        "卡板数": n_pallet,
+                        "箱数": pl.get("total_pcs"),
+                        "总重lbs": pl.get("total_weight_lbs"),
+                        "ETA": pl.get("container_number__order__vessel_id__vessel_eta"),
+                        "提柜时间": retrieval_datetime,
+                        "入仓时间": (
+                            pl.get(
+                                "container_number__order__offload_id__offload_at"
+                            ).strftime("%Y-%m-%d %H:%M:%S")
+                            if pl.get("container_number__order__offload_id__offload_at")
+                            else ""
+                        ),
+                        "预约批次": pl.get(
+                            "shipment_batch_number__shipment_batch_number"
+                        ),
+                        "预约号": pl.get("shipment_batch_number__appointment_id"),
+                        "预约时间": (
+                            pl.get(
+                                "shipment_batch_number__shipment_appointment"
+                            ).strftime("%Y-%m-%d %H:%M:%S")
+                            if pl.get("shipment_batch_number__shipment_appointment")
+                            else ""
+                        ),
+                        "发货时间": (
+                            pl.get("shipment_batch_number__shipped_at").strftime(
+                                "%Y-%m-%d %H:%M:%S"
+                            )
+                            if pl.get("shipment_batch_number__shipped_at")
+                            else ""
+                        ),
+                        "送达时间": (
+                            pl.get("shipment_batch_number__arrived_at").strftime(
+                                "%Y-%m-%d %H:%M:%S"
+                            )
+                            if pl.get("shipment_batch_number__arrived_at")
+                            else ""
+                        ),
+                    }
+                )
             df = pd.DataFrame(data)
-            response = HttpResponse(content_type='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet')
-            response['Content-Disposition'] = f"attachment; filename=PO.xlsx"
+            response = HttpResponse(
+                content_type="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
+            )
+            response["Content-Disposition"] = f"attachment; filename=PO.xlsx"
             df.to_excel(excel_writer=response, index=False, columns=df.columns)
             return response
         else:
             return self.handle_summary_table_get(request)
-    
+
     async def _get_packing_list(
-        self, 
+        self,
         pl_criteria: models.Q | None = None,
         plt_criteria: models.Q | None = None,
     ) -> list[Any]:
-        data = [] 
+        data = []
         pal_list = await sync_to_async(list)(
             Pallet.objects.prefetch_related(
-                "container_number", "container_number__order", "container_number__order__warehouse", "shipment_batch_number",
-                "container_number__order__offload_id", "container_number__order__customer_name", "container_number__order__retrieval_id",
-                "container_number__order__vessel_id"
-            ).filter(
-                plt_criteria
-            ).annotate(
-                schedule_status = Case(
-                    When(Q(container_number__order__offload_id__offload_at__lte = datetime.now().date() + timedelta(days=-7)), then = Value("past_due")),
-                    default = Value("on_time"),
-                    output_field = CharField()
+                "container_number",
+                "container_number__order",
+                "container_number__order__warehouse",
+                "shipment_batch_number",
+                "container_number__order__offload_id",
+                "container_number__order__customer_name",
+                "container_number__order__retrieval_id",
+                "container_number__order__vessel_id",
+            )
+            .filter(plt_criteria)
+            .annotate(
+                schedule_status=Case(
+                    When(
+                        Q(
+                            container_number__order__offload_id__offload_at__lte=datetime.now().date()
+                            + timedelta(days=-7)
+                        ),
+                        then=Value("past_due"),
+                    ),
+                    default=Value("on_time"),
+                    output_field=CharField(),
                 ),
-                str_id = Cast("id", CharField()),
-            ).values(
-                'container_number__container_number',
-                'container_number__order__customer_name__zem_name',
-                'destination',
-                'address',
-                'delivery_method',
-                'container_number__order__offload_id__offload_at',
-                'container_number__order__retrieval_id__target_retrieval_timestamp',
-                'container_number__order__retrieval_id__actual_retrieval_timestamp',
-                'container_number__order__vessel_id__vessel_eta',
-                'schedule_status',
-                'abnormal_palletization',
-                'po_expired',
+                str_id=Cast("id", CharField()),
+            )
+            .values(
+                "container_number__container_number",
+                "container_number__order__customer_name__zem_name",
+                "destination",
+                "address",
+                "delivery_method",
+                "container_number__order__offload_id__offload_at",
+                "container_number__order__retrieval_id__target_retrieval_timestamp",
+                "container_number__order__retrieval_id__actual_retrieval_timestamp",
+                "container_number__order__vessel_id__vessel_eta",
+                "schedule_status",
+                "abnormal_palletization",
+                "po_expired",
                 "shipment_batch_number__shipment_batch_number",
                 "shipment_batch_number__appointment_id",
                 "shipment_batch_number__shipment_appointment",
                 "shipment_batch_number__shipped_at",
                 "shipment_batch_number__arrived_at",
                 "shipment_batch_number__pod_link",
-                warehouse = F('container_number__order__retrieval_id__retrieval_destination_precise'),
-            ).annotate(
-                custom_delivery_method = F('delivery_method'),
-                fba_ids = F('fba_id'),
-                ref_ids = F('ref_id'),
-                shipping_marks = F('shipping_mark'),
-                plt_ids = StringAgg("str_id", delimiter = ",", distinct=True, ordering = "str_id"),
-                total_pcs = Sum("pcs", output_field = IntegerField()),
-                total_cbm = Sum("cbm", output_field = FloatField()),
-                total_weight_lbs = Sum("weight_lbs", output_field = FloatField()),
-                total_n_pallet_act = Count("pallet_id", distinct=True),
-                label = Value("ACT"),
-            ).order_by('container_number__order__offload_id__offload_at')
+                warehouse=F(
+                    "container_number__order__retrieval_id__retrieval_destination_precise"
+                ),
+            )
+            .annotate(
+                custom_delivery_method=F("delivery_method"),
+                fba_ids=F("fba_id"),
+                ref_ids=F("ref_id"),
+                shipping_marks=F("shipping_mark"),
+                plt_ids=StringAgg(
+                    "str_id", delimiter=",", distinct=True, ordering="str_id"
+                ),
+                total_pcs=Sum("pcs", output_field=IntegerField()),
+                total_cbm=Sum("cbm", output_field=FloatField()),
+                total_weight_lbs=Sum("weight_lbs", output_field=FloatField()),
+                total_n_pallet_act=Count("pallet_id", distinct=True),
+                label=Value("ACT"),
+            )
+            .order_by("container_number__order__offload_id__offload_at")
         )
         # for p in pal_list:
         #     try:
@@ -241,78 +339,124 @@ class PostportDash(View):
         #             p['check'] = "不对应"
         data += pal_list
         if pl_criteria:
-            pl_list =  await sync_to_async(list)(
+            pl_list = await sync_to_async(list)(
                 PackingList.objects.prefetch_related(
-                    "container_number", "container_number__order", "container_number__order__warehouse", "shipment_batch_number",
-                    "container_number__order__offload_id", "container_number__order__customer_name", "pallet", "container_number__order__retrieval_id",
-                    "container_number__order__vessel_id"
-                ).filter(pl_criteria).annotate(
+                    "container_number",
+                    "container_number__order",
+                    "container_number__order__warehouse",
+                    "shipment_batch_number",
+                    "container_number__order__offload_id",
+                    "container_number__order__customer_name",
+                    "pallet",
+                    "container_number__order__retrieval_id",
+                    "container_number__order__vessel_id",
+                )
+                .filter(pl_criteria)
+                .annotate(
                     custom_delivery_method=Case(
-                        When(Q(delivery_method='暂扣留仓(HOLD)') | Q(delivery_method='暂扣留仓'), then=Concat('delivery_method', Value('-'), 'fba_id', Value('-'), 'id')),
-                        default=F('delivery_method'),
-                        output_field=CharField()
+                        When(
+                            Q(delivery_method="暂扣留仓(HOLD)")
+                            | Q(delivery_method="暂扣留仓"),
+                            then=Concat(
+                                "delivery_method",
+                                Value("-"),
+                                "fba_id",
+                                Value("-"),
+                                "id",
+                            ),
+                        ),
+                        default=F("delivery_method"),
+                        output_field=CharField(),
                     ),
                     schedule_status=Case(
-                        When(Q(container_number__order__offload_id__offload_at__lte=datetime.now().date() + timedelta(days=-7)), then=Value("past_due")),
+                        When(
+                            Q(
+                                container_number__order__offload_id__offload_at__lte=datetime.now().date()
+                                + timedelta(days=-7)
+                            ),
+                            then=Value("past_due"),
+                        ),
                         default=Value("on_time"),
-                        output_field=CharField()
+                        output_field=CharField(),
                     ),
                     str_id=Cast("id", CharField()),
                     str_fba_id=Cast("fba_id", CharField()),
                     str_ref_id=Cast("ref_id", CharField()),
-                    str_shipping_mark=Cast("shipping_mark", CharField())
-                ).values(
-                    'container_number__container_number',
-                    'container_number__order__customer_name__zem_name',
-                    'destination',
-                    'address',
-                    'custom_delivery_method',
-                    'container_number__order__offload_id__offload_at',
-                    'container_number__order__retrieval_id__target_retrieval_timestamp',
-                    'container_number__order__retrieval_id__actual_retrieval_timestamp',
-                    'container_number__order__vessel_id__vessel_eta',
-                    'schedule_status',
+                    str_shipping_mark=Cast("shipping_mark", CharField()),
+                )
+                .values(
+                    "container_number__container_number",
+                    "container_number__order__customer_name__zem_name",
+                    "destination",
+                    "address",
+                    "custom_delivery_method",
+                    "container_number__order__offload_id__offload_at",
+                    "container_number__order__retrieval_id__target_retrieval_timestamp",
+                    "container_number__order__retrieval_id__actual_retrieval_timestamp",
+                    "container_number__order__vessel_id__vessel_eta",
+                    "schedule_status",
                     "pcs",
                     "shipment_batch_number__shipment_batch_number",
                     "shipment_batch_number__appointment_id",
                     "shipment_batch_number__shipment_appointment",
-                    warehouse=F('container_number__order__retrieval_id__retrieval_destination_precise'),
-                ).annotate(
-                    fba_ids=StringAgg("str_fba_id", delimiter=",", distinct=True, ordering="str_fba_id"),
-                    ref_ids=StringAgg("str_ref_id", delimiter=",", distinct=True, ordering="str_ref_id"),
-                    shipping_marks=StringAgg("str_shipping_mark", delimiter=",", distinct=True, ordering="str_shipping_mark"),
-                    ids=StringAgg("str_id", delimiter=",", distinct=True, ordering="str_id"),
+                    warehouse=F(
+                        "container_number__order__retrieval_id__retrieval_destination_precise"
+                    ),
+                )
+                .annotate(
+                    fba_ids=StringAgg(
+                        "str_fba_id",
+                        delimiter=",",
+                        distinct=True,
+                        ordering="str_fba_id",
+                    ),
+                    ref_ids=StringAgg(
+                        "str_ref_id",
+                        delimiter=",",
+                        distinct=True,
+                        ordering="str_ref_id",
+                    ),
+                    shipping_marks=StringAgg(
+                        "str_shipping_mark",
+                        delimiter=",",
+                        distinct=True,
+                        ordering="str_shipping_mark",
+                    ),
+                    ids=StringAgg(
+                        "str_id", delimiter=",", distinct=True, ordering="str_id"
+                    ),
                     total_pcs=Sum(
                         Case(
                             When(pallet__isnull=True, then=F("pcs")),
                             default=F("pallet__pcs"),
-                            output_field=IntegerField()
+                            output_field=IntegerField(),
                         )
                     ),
                     total_cbm=Sum(
                         Case(
                             When(pallet__isnull=True, then=F("cbm")),
                             default=F("pallet__cbm"),
-                            output_field=FloatField()
+                            output_field=FloatField(),
                         )
                     ),
                     total_weight_lbs=Sum(
                         Case(
                             When(pallet__isnull=True, then=F("total_weight_lbs")),
                             default=F("pallet__weight_lbs"),
-                            output_field=FloatField()
+                            output_field=FloatField(),
                         )
                     ),
                     total_n_pallet_act=Count("pallet__pallet_id", distinct=True),
-                    total_n_pallet_est=Sum("cbm", output_field=FloatField())/2,
+                    total_n_pallet_est=Sum("cbm", output_field=FloatField()) / 2,
                     label=Max(
                         Case(
                             When(pallet__isnull=True, then=Value("EST")),
                             default=Value("ACT"),
-                            output_field=CharField()
+                            output_field=CharField(),
                         )
                     ),
-                ).distinct()
+                )
+                .distinct()
             )
             # for p in pl_list:
             #     try:
@@ -336,7 +480,7 @@ class PostportDash(View):
             #         p['check'] = "不对应"
             data += pl_list
         return data
-    
+
     async def _user_authenticate(self, request: HttpRequest):
         if await sync_to_async(lambda: request.user.is_authenticated)():
             return True

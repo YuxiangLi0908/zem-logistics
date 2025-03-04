@@ -1,17 +1,18 @@
+from django.contrib.auth.decorators import login_required
+from django.db import models
 from django.http import HttpRequest, HttpResponse
 from django.shortcuts import render
-from django.contrib.auth.decorators import login_required
-from django.views import View
 from django.utils.decorators import method_decorator
-from django.db import models
+from django.views import View
 
-from warehouse.models.shipment import Shipment
-from warehouse.forms.warehouse_form import ZemWarehouseForm
 from warehouse.forms.shipment_form import ShipmentForm
+from warehouse.forms.warehouse_form import ZemWarehouseForm
+from warehouse.models.shipment import Shipment
 
-@method_decorator(login_required(login_url='login'), name='dispatch')
+
+@method_decorator(login_required(login_url="login"), name="dispatch")
 class ShipmentDispatch(View):
-    template_main = 'outbound.html'
+    template_main = "outbound.html"
 
     def get(self, request: HttpRequest) -> HttpResponse:
         step = request.GET.get("step")
@@ -20,12 +21,12 @@ class ShipmentDispatch(View):
         else:
             context = {"warehouse_form": ZemWarehouseForm()}
             return render(request, self.template_main, context)
-    
+
     def post(self, request: HttpRequest) -> HttpResponse:
         step = request.POST.get("step")
         if step == "warehouse":
             return self.handle_warehouse_post(request)
-        elif step =="confirm":
+        elif step == "confirm":
             return self.handle_confirm_post(request)
         else:
             raise ValueError(f"{request.POST}")
@@ -33,7 +34,7 @@ class ShipmentDispatch(View):
     def handle_warehouse_post(self, request: HttpRequest) -> HttpResponse:
         warehouse = request.POST.get("name")
         warehouse_form = ZemWarehouseForm(initial={"name": warehouse})
-        warehouse = None if warehouse=="N/A(直送)" else warehouse
+        warehouse = None if warehouse == "N/A(直送)" else warehouse
         shipment_data = self._get_shipment(warehouse)
         shipment_list = []
         for s in shipment_data:
@@ -44,7 +45,7 @@ class ShipmentDispatch(View):
             "warehouse": warehouse,
         }
         return render(request, self.template_main, context)
-    
+
     def handle_confirm_post(self, request: HttpRequest) -> HttpResponse:
         batch_id = request.POST.get("batch_id")
         shipped_at = request.POST.get("shipped_at")
@@ -55,11 +56,10 @@ class ShipmentDispatch(View):
         mutable_post = request.POST.copy()
         mutable_post["name"] = request.POST.get("name")
         request.POST = mutable_post
-        
+
         return self.handle_warehouse_post(request)
-        
+
     def _get_shipment(self, warehouse: str) -> Shipment:
         return Shipment.objects.filter(
-            models.Q(origin=warehouse)&
-            models.Q(is_shipped=False)
-        ).order_by('shipment_appointment')
+            models.Q(origin=warehouse) & models.Q(is_shipped=False)
+        ).order_by("shipment_appointment")

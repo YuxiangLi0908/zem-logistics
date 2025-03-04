@@ -787,6 +787,8 @@
         var filterValues = Array.from(filters).map(function(filter) {
             return filter.value.toUpperCase().trim();
         });
+        console.log(indices);
+        console.log(filterValues);
         for (var i = 0; i < tr.length; i++) {
             var row = tr[i];
             var showRow = true;

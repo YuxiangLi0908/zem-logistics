@@ -6,12 +6,14 @@ from django.db import migrations, models
 class Migration(migrations.Migration):
 
     dependencies = [
-        ('warehouse', '0146_fleet_warehouse_f_fleet_n_d6a026_idx_and_more'),
+        ("warehouse", "0146_fleet_warehouse_f_fleet_n_d6a026_idx_and_more"),
     ]
 
     operations = [
         migrations.AddIndex(
-            model_name='shipment',
-            index=models.Index(fields=['appointment_id'], name='warehouse_s_appoint_02a15a_idx'),
+            model_name="shipment",
+            index=models.Index(
+                fields=["appointment_id"], name="warehouse_s_appoint_02a15a_idx"
+            ),
         ),
     ]

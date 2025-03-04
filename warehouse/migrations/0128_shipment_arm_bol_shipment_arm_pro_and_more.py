@@ -6,23 +6,23 @@ from django.db import migrations, models
 class Migration(migrations.Migration):
 
     dependencies = [
-        ('warehouse', '0127_remove_shipment_arm_bol_remove_shipment_arm_pro_and_more'),
+        ("warehouse", "0127_remove_shipment_arm_bol_remove_shipment_arm_pro_and_more"),
     ]
 
     operations = [
         migrations.AddField(
-            model_name='shipment',
-            name='ARM_BOL',
+            model_name="shipment",
+            name="ARM_BOL",
             field=models.CharField(blank=True, max_length=255, null=True),
         ),
         migrations.AddField(
-            model_name='shipment',
-            name='ARM_PRO',
+            model_name="shipment",
+            name="ARM_PRO",
             field=models.CharField(blank=True, max_length=255, null=True),
         ),
         migrations.AddField(
-            model_name='shipment',
-            name='shipment_account',
+            model_name="shipment",
+            name="shipment_account",
             field=models.CharField(blank=True, max_length=255, null=True),
         ),
     ]

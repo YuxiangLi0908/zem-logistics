@@ -1,5 +1,7 @@
-from django.db import models
 from datetime import datetime, timedelta
+
+from django.db import models
+from simple_history.models import HistoricalRecords
 
 from warehouse.models.fleet import Fleet
 
@@ -38,7 +40,9 @@ class Shipment(models.Model):
     pod_link = models.CharField(max_length=2000, null=True, blank=True)
     pod_uploaded_at = models.DateTimeField(null=True, blank=True)
     pallet_dumpped = models.FloatField(null=True, blank=True, default=0)
-    fleet_number = models.ForeignKey(Fleet, null=True, blank=True, on_delete=models.SET_NULL, related_name='shipment')
+    fleet_number = models.ForeignKey(
+        Fleet, null=True, blank=True, on_delete=models.SET_NULL, related_name="shipment"
+    )
     abnormal_palletization = models.BooleanField(default=False, null=True, blank=True)
     po_expired = models.BooleanField(default=False, null=True, blank=True)
     in_use = models.BooleanField(default=True, null=True, blank=True)
@@ -50,11 +54,12 @@ class Shipment(models.Model):
     previous_fleets = models.CharField(max_length=1000, null=True, blank=True)
     ARM_BOL = models.CharField(max_length=255, null=True, blank=True)
     ARM_PRO = models.CharField(max_length=255, null=True, blank=True)
+    history = HistoricalRecords()
 
     class Meta:
         indexes = [
-            models.Index(fields=['shipment_batch_number']),
-            models.Index(fields=['appointment_id']),
+            models.Index(fields=["shipment_batch_number"]),
+            models.Index(fields=["appointment_id"]),
         ]
 
     def __str__(self) -> str:
@@ -62,7 +67,7 @@ class Shipment(models.Model):
             return self.shipment_batch_number
         else:
             return self.appointment_id
-    
+
     @property
     def shipping_status(self) -> str:
         today = datetime.now().date()
@@ -72,7 +77,7 @@ class Shipment(models.Model):
             return "need_attention"
         else:
             return "on_time"
-        
+
     @property
     def appointment_status(self) -> str:
         today = datetime.now().date()
