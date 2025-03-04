@@ -101,18 +101,27 @@ class PostportDash(View):
             criteria &= models.Q(
                 shipment_batch_number__shipment_batch_number=shipment_batch_number
             )
-        pl_criteria = criteria & models.Q(
-            container_number__order__vessel_id__vessel_eta__gte=start_date,
-            container_number__order__vessel_id__vessel_eta__lte=end_date,
-            container_number__order__offload_id__offload_at__isnull=True,
-            container_number__order__retrieval_id__retrieval_destination_area=area,
-        )
-        plt_criteria = criteria & models.Q(
-            container_number__order__vessel_id__vessel_eta__gte=start_date,
-            container_number__order__vessel_id__vessel_eta__lte=end_date,
-            container_number__order__offload_id__offload_at__isnull=False,
-            location__startswith=area,
-        )
+            pl_criteria = criteria & models.Q(
+                container_number__order__offload_id__offload_at__isnull=True,
+                container_number__order__retrieval_id__retrieval_destination_area=area,
+            )
+            plt_criteria = criteria & models.Q(
+                container_number__order__offload_id__offload_at__isnull=False,
+                location__startswith=area,
+            )
+        else:
+            pl_criteria = criteria & models.Q(
+                container_number__order__vessel_id__vessel_eta__gte=start_date,
+                container_number__order__vessel_id__vessel_eta__lte=end_date,
+                container_number__order__offload_id__offload_at__isnull=True,
+                container_number__order__retrieval_id__retrieval_destination_area=area,
+            )
+            plt_criteria = criteria & models.Q(
+                container_number__order__vessel_id__vessel_eta__gte=start_date,
+                container_number__order__vessel_id__vessel_eta__lte=end_date,
+                container_number__order__offload_id__offload_at__isnull=False,
+                location__startswith=area,
+            )
         packing_list = await self._get_packing_list(pl_criteria, plt_criteria)
         cbm_act, cbm_est, pallet_act, pallet_est = 0, 0, 0, 0
         for pl in packing_list:
