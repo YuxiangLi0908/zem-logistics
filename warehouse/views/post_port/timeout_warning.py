@@ -70,7 +70,7 @@ class TimeoutWarning(View):
     ) -> tuple[str, dict[str, Any]]:
         warehouse = request.POST.get("warehouse")
         # 拆柜入库3周，没有约的板子
-        pallets = await self._get_packing_list()
+        pallets = await self._get_packing_list(warehouse)
         # 预约时间过期没有排车
         now = timezone.now()
         shipments = await sync_to_async(list)(
@@ -78,12 +78,14 @@ class TimeoutWarning(View):
                 shipment_appointment__lte=now,
                 shipment_type="FTL",
                 fleet_number__isnull=True,
+                origin=warehouse
             ).order_by("shipment_appointment")
         )
         # 提货时间已过期没有确认出库
         fleets = await sync_to_async(list)(
             Fleet.objects.filter(
-                appointment_datetime__lte=now, departured_at__isnull=True
+                appointment_datetime__lte=now, departured_at__isnull=True,
+                origin=warehouse
             )
             .annotate(
                 shipment_batch_numbers=StringAgg(
@@ -104,6 +106,7 @@ class TimeoutWarning(View):
 
     async def _get_packing_list(
         self,
+        warehouse:str,
     ) -> list[Any]:
         now = timezone.now()
         three_weeks_ago = now - timedelta(weeks=3)
@@ -126,6 +129,7 @@ class TimeoutWarning(View):
                 )
                 & models.Q(shipment_batch_number__shipment_batch_number__isnull=True)
                 & ~Q(delivery_method="暂扣留仓(HOLD)")
+                & models.Q(location=warehouse)
             )
             .annotate(
                 schedule_status=Case(
