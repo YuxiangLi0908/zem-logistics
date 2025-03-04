@@ -72,7 +72,7 @@ class TimeoutWarning(View):
         # 拆柜入库3周，没有约的板子
         pallets = await self._get_packing_list(warehouse)
         # 预约时间过期没有排车
-        now = timezone.now()
+        now = timezone.now() + timezone.timedelta(days=1)
         shipments = await sync_to_async(list)(
             Shipment.objects.filter(
                 shipment_appointment__lte=now,
@@ -108,7 +108,7 @@ class TimeoutWarning(View):
         self,
         warehouse:str,
     ) -> list[Any]:
-        now = timezone.now()
+        now = timezone.now() + timezone.timedelta(days=1)
         three_weeks_ago = now - timedelta(weeks=3)
         pallets = await sync_to_async(list)(
             Pallet.objects.prefetch_related(
