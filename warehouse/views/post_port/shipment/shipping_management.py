@@ -1035,8 +1035,8 @@ class ShippingManagement(View):
             .order_by("-abnormal_palletization", "shipment_appointment")
         )
         # ETA过滤
-        start_date = request.POST.get("start_date")
-        end_date = request.POST.get("end_date")
+        start_date = request.POST.get("start_date") if "start_date" in request.POST else request.GET.get("start_date")
+        end_date = request.POST.get("end_date") if "end_date" in request.POST else request.GET.get("end_date")
         start_date = (
             (datetime.now().date() + timedelta(days=-15)).strftime("%Y-%m-%d")
             if not start_date
@@ -1047,7 +1047,7 @@ class ShippingManagement(View):
             if not end_date
             else end_date
         )
-
+        print('时间是',start_date,end_date)
         criteria_p = models.Q(
             (
                 models.Q(container_number__order__order_type="转运")
