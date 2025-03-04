@@ -46,10 +46,10 @@ class TimeoutWarning(View):
     }
 
     async def get(self, request: HttpRequest, **kwargs) -> HttpResponse:
-        if not await self._validate_user_group(request.user):
-            return HttpResponseForbidden(
-                "You are not authenticated to access this page!"
-            )
+        # if not await self._validate_user_group(request.user):
+        #     return HttpResponseForbidden(
+        #         "You are not authenticated to access this page!"
+        #     )
         context = {"warehouse_options": self.warehouse_options}
         return await sync_to_async(render)(request, self.template_shipment, context)
 
