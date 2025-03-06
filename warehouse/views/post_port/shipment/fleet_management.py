@@ -497,7 +497,9 @@ class FleetManagement(View):
     ) -> tuple[str, dict[str, Any]]:
         fleet_number = request.GET.get("fleet_number", "")
         batch_number = request.GET.get("batch_number", "")
-        area = request.POST.get("area") or None
+        area = request.POST.get("area")   
+        if area == "None" or not area:
+            area = None
         criteria = models.Q(
             departured_at__isnull=False,
             arrived_at__isnull=True,
@@ -1121,22 +1123,29 @@ class FleetManagement(View):
     async def handle_confirm_delivery_post(
         self, request: HttpRequest
     ) -> tuple[str, dict[str, Any]]:
-        arrived_at = request.POST.get("arrived_at")
-        fleet_number = request.POST.get("fleet_number")
-        fleet = await sync_to_async(Fleet.objects.get)(fleet_number=fleet_number)
-        shipment = await sync_to_async(list)(
-            Shipment.objects.filter(fleet_number__fleet_number=fleet_number)
-        )
-        fleet.arrived_at = arrived_at
-        updated_shipment = []
-        for s in shipment:
-            s.arrived_at = arrived_at
-            s.is_arrived = True
-            updated_shipment.append(s)
-        await sync_to_async(fleet.save)()
-        await sync_to_async(Shipment.objects.bulk_update)(
-            updated_shipment, ["arrived_at", "is_arrived"]
-        )
+        arrived_ats = request.POST.getlist("arrived_at")  # 使用 getlist 获取数组
+        fleet_numbers = request.POST.getlist("fleet_number")  # 使用 getlist 获取数组
+        if not isinstance(arrived_ats, list):
+            arrived_ats = [arrived_ats]
+        if not isinstance(fleet_numbers, list):
+            fleet_numbers = [fleet_numbers]
+        if len(arrived_ats) != len(fleet_numbers):
+            raise ValueError(f"length is not valid!")
+        for arrived_at, fleet_number in zip(arrived_ats, fleet_numbers):
+            fleet = await sync_to_async(Fleet.objects.get)(fleet_number=fleet_number)
+            shipment = await sync_to_async(list)(
+                Shipment.objects.filter(fleet_number__fleet_number=fleet_number)
+            )
+            fleet.arrived_at = arrived_at
+            updated_shipment = []
+            for s in shipment:
+                s.arrived_at = arrived_at
+                s.is_arrived = True
+                updated_shipment.append(s)
+            await sync_to_async(fleet.save)()
+            await sync_to_async(Shipment.objects.bulk_update)(
+                updated_shipment, ["arrived_at", "is_arrived"]
+            )
         return await self.handle_delivery_and_pod_get(request)
 
     async def handle_pod_upload_post(
