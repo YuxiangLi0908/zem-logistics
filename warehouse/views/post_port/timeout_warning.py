@@ -69,7 +69,7 @@ class TimeoutWarning(View):
         self, request: HttpRequest
     ) -> tuple[str, dict[str, Any]]:
         warehouse = request.POST.get("warehouse")
-        # 拆柜入库3周，没有约的板子
+        # 拆柜入库3周，没有约的板子，只看2/1号之后的
         pallets = await self._get_packing_list(warehouse)
         # 预约时间过期没有排车
         now = timezone.now() + timezone.timedelta(days=1)
@@ -125,7 +125,7 @@ class TimeoutWarning(View):
                     container_number__order__offload_id__offload_at__lte=three_weeks_ago
                 )
                 & models.Q(
-                    container_number__order__offload_id__offload_at__gte="2025-01-01"
+                    container_number__order__offload_id__offload_at__gte="2025-02-01"
                 )
                 & models.Q(shipment_batch_number__shipment_batch_number__isnull=True)
                 & ~Q(delivery_method="暂扣留仓(HOLD)")
