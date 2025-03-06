@@ -1,0 +1,58 @@
+
+{% extends 'base.html' %}
+{% load custom_filters %}
+{% block content %}
+
+<div style="max-height: 100%; max-width: 100%;">
+    <div><b>历史报价表</b></div>
+</div>
+<div style="max - height:100%;max - width:100%;overflow: hidden;">
+    <form method="post" enctype="multipart/form-data" style="font - size:11px;float: right;">      
+        <div>
+            {% csrf_token %}
+            导入模版:
+            <input type="file" name="file">
+            <input type="hidden" name="step" value="upload_quote_excel">
+            <button type="submit" class="btn btn-success" style="width: 100px; height: 35px; font-size: 12px; margin: 5px;">上传报价表</button>
+        </div>
+    </form>
+</div>
+
+<div style="max-height: 800px;">
+    <table id="quote-table" class="table" style="font-size: 11px; max-height: 95%; overflow-y: scroll;">
+        <thead>
+            <tr style="position: sticky; top: 0;">
+                <th class="th">版本号</th>
+                <th class="th">上传时间</th>
+                <th class="th">状态</th>
+                <th class="th">操作</th>
+            </tr>
+            <tr style="position: sticky; top: 52px;">
+                <th class="th"></th>
+                <th class="th"></th>
+                <th class="th"></th>
+                <th class="th"></th>
+            </tr>
+        </thead>
+        <tbody>
+            {% for q in quotes %}
+            <form id="quote-form" method="post" enctype="multipart/form-data" action="" style="overflow-x: auto; max-width: 100%; max-height: 98%; overflow-y: scroll;">
+                {% csrf_token %}
+                <tr>
+                    <td class="td">{{ q.version }}</td>
+                    <td class="td">{{ q.scheduled_at|date:"M-j" }}</td>
+                    <td class="td">{{ q.status|default_if_none:"" }}</td>
+                    <td class="td">
+                        <button type="submit" class="btn btn-success" style="font-size: 11px;">启用</button>
+                    </td>
+                </tr>            
+            </form>    
+            {% endfor %}
+        </tbody>
+    </table>
+</div>
+<script>
+    
+    
+</script>
+{% endblock %}

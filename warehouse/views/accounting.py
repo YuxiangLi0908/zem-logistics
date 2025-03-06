@@ -78,7 +78,6 @@ class Accounting(View):
     template_invoice_confirm_edit = "accounting/invoice_confirm_edit.html"
     template_invoice_direct = "accounting/invoice_direct.html"
     template_invoice_direct_edit = "accounting/invoice_direct_edit.html"
-    template_quote_management = "accounting/quote_management.html"
     allowed_group = "accounting"
 
     def get(self, request: HttpRequest) -> HttpResponse:
@@ -149,9 +148,6 @@ class Accounting(View):
             return render(request, template, context)
         elif step == "container_invoice_delete":
             template, context = self.handle_container_invoice_delete_get(request)
-            return render(request, template, context)
-        elif step == "quote_management":
-            template, context = self.handle_quote_mangement_get(request)
             return render(request, template, context)
         else:
             raise ValueError(f"unknow request {step}")

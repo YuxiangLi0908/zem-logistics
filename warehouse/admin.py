@@ -20,6 +20,8 @@ from warehouse.models.shipment_status import ShipmentStatus
 from warehouse.models.po_check_eta import PoCheckEtaSeven
 from warehouse.models.invoice_details import InvoicePreport,InvoiceWarehouse,InvoiceDelivery
 from warehouse.models.transfer_location import TransferLocation
+from warehouse.models.quotation_master import QuotationMaster
+from warehouse.models.fee_detail import FeeDetail
 # Register your models here.
 
 admin.site.register(Clearance)
@@ -47,5 +49,7 @@ admin.site.register(InvoicePreport)
 admin.site.register(InvoiceWarehouse)
 admin.site.register(InvoiceDelivery)
 admin.site.register(TransferLocation)
+admin.site.register(QuotationMaster)
+admin.site.register(FeeDetail)
 
 
