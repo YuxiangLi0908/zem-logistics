@@ -7,7 +7,7 @@ import pytz
 from asgiref.sync import async_to_sync, sync_to_async
 from django.contrib.auth.decorators import login_required
 from django.contrib.postgres.aggregates import StringAgg
-from django.core.exceptions import MultipleObjectsReturned, ObjectDoesNotExist
+from django.core.exceptions import MultipleObjectsReturned
 from django.db import models
 from django.db.models import (
     Case,
@@ -22,9 +22,8 @@ from django.db.models import (
     When,
 )
 from django.db.models.functions import Cast
-from django.http import HttpRequest, HttpResponse, JsonResponse
+from django.http import HttpRequest, HttpResponse
 from django.shortcuts import render
-from django.utils import timezone
 from django.utils.decorators import method_decorator
 from django.views import View
 

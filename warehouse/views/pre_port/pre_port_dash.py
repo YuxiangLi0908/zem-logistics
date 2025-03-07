@@ -1,35 +1,15 @@
-import os
-import uuid
 from datetime import datetime, timedelta
-from pathlib import Path
 from typing import Any
 
-import numpy as np
 import pandas as pd
 from asgiref.sync import sync_to_async
-from django.core.cache import cache
 from django.db import models
-from django.db.models import Count
-from django.http import Http404, HttpRequest, HttpResponse
+from django.http import HttpRequest, HttpResponse
 from django.shortcuts import redirect, render
 from django.views import View
 
-from warehouse.forms.upload_file import UploadFileForm
-from warehouse.models.container import Container
 from warehouse.models.customer import Customer
-from warehouse.models.offload import Offload
 from warehouse.models.order import Order
-from warehouse.models.packing_list import PackingList
-from warehouse.models.retrieval import Retrieval
-from warehouse.models.vessel import Vessel
-from warehouse.models.warehouse import ZemWarehouse
-from warehouse.utils.constants import (
-    CONTAINER_PICKUP_CARRIER,
-    DELIVERY_METHOD_OPTIONS,
-    PACKING_LIST_TEMP_COL_MAPPING,
-    SHIPPING_LINE_OPTIONS,
-    WAREHOUSE_OPTIONS,
-)
 
 
 class PrePortDash(View):

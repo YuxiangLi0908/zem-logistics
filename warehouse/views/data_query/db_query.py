@@ -1,35 +1,11 @@
 import csv
-import os
-import uuid
-from datetime import datetime
-from pathlib import Path
-from typing import Any
 
-import numpy as np
-import pandas as pd
-from asgiref.sync import sync_to_async
 from django.contrib.auth.decorators import login_required
-from django.core.cache import cache
-from django.db import connection, models
-from django.db.models import Count
+from django.db import connection
 from django.http import HttpRequest, HttpResponse, HttpResponseForbidden
-from django.shortcuts import redirect, render
+from django.shortcuts import render
 from django.utils.decorators import method_decorator
 from django.views import View
-
-from warehouse.forms.upload_file import UploadFileForm
-from warehouse.models.container import Container
-from warehouse.models.customer import Customer
-from warehouse.models.offload import Offload
-from warehouse.models.order import Order
-from warehouse.models.packing_list import PackingList
-from warehouse.models.retrieval import Retrieval
-from warehouse.models.vessel import Vessel
-from warehouse.utils.constants import (
-    DELIVERY_METHOD_OPTIONS,
-    PACKING_LIST_TEMP_COL_MAPPING,
-    SHIPPING_LINE_OPTIONS,
-)
 
 
 @method_decorator(login_required(login_url="login"), name="dispatch")

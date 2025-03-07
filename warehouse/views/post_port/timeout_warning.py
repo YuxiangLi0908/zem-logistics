@@ -2,9 +2,8 @@ from datetime import datetime, timedelta
 from typing import Any
 
 from asgiref.sync import sync_to_async
-from django.contrib.auth.decorators import login_required
 from django.contrib.auth.models import User
-from django.contrib.postgres.aggregates import ArrayAgg, StringAgg
+from django.contrib.postgres.aggregates import StringAgg
 from django.db import models
 from django.db.models import (
     Case,
@@ -13,21 +12,18 @@ from django.db.models import (
     F,
     FloatField,
     IntegerField,
-    Max,
     Q,
     Sum,
     Value,
     When,
 )
-from django.db.models.functions import Cast, Concat
+from django.db.models.functions import Cast
 from django.http import HttpRequest, HttpResponse, HttpResponseForbidden
 from django.shortcuts import redirect, render
 from django.utils import timezone
-from django.utils.decorators import method_decorator
 from django.views import View
 
 from warehouse.models.fleet import Fleet
-from warehouse.models.packing_list import PackingList
 from warehouse.models.pallet import Pallet
 from warehouse.models.shipment import Shipment
 
@@ -78,14 +74,15 @@ class TimeoutWarning(View):
                 shipment_appointment__lte=now,
                 shipment_type="FTL",
                 fleet_number__isnull=True,
-                origin=warehouse
+                origin=warehouse,
             ).order_by("shipment_appointment")
         )
         # 提货时间已过期没有确认出库
         fleets = await sync_to_async(list)(
             Fleet.objects.filter(
-                appointment_datetime__lte=now, departured_at__isnull=True,
-                origin=warehouse
+                appointment_datetime__lte=now,
+                departured_at__isnull=True,
+                origin=warehouse,
             )
             .annotate(
                 shipment_batch_numbers=StringAgg(
@@ -106,7 +103,7 @@ class TimeoutWarning(View):
 
     async def _get_packing_list(
         self,
-        warehouse:str,
+        warehouse: str,
     ) -> list[Any]:
         now = timezone.now() + timezone.timedelta(days=1)
         three_weeks_ago = now - timedelta(weeks=3)

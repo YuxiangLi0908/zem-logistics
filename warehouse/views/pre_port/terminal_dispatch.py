@@ -1,7 +1,6 @@
 from datetime import datetime, timedelta
 from typing import Any
 
-import pytz
 from asgiref.sync import sync_to_async
 from django.db import models
 from django.http import HttpRequest, HttpResponse

@@ -1,12 +1,10 @@
 import asyncio
 import json
-import multiprocessing as mp
 import uuid
 from datetime import datetime
 from typing import Any
 
 import pytz
-from asgiref.sync import sync_to_async
 from django.contrib.auth.decorators import login_required
 from django.contrib.postgres.aggregates import StringAgg
 from django.db import models
