@@ -2,13 +2,11 @@ import os
 from typing import Any
 
 from django.contrib.auth.decorators import login_required
-from django.contrib.postgres.aggregates import StringAgg
 from django.db import models
 from django.db.models import Count, FloatField, IntegerField, Sum
 from django.forms.models import model_to_dict
 from django.http import HttpRequest, HttpResponse
 from django.shortcuts import render
-from django.utils import timezone
 from django.utils.decorators import method_decorator
 from django.views import View
 from office365.runtime.auth.user_credential import UserCredential
@@ -17,7 +15,6 @@ from office365.sharepoint.sharing.links.kind import SharingLinkKind
 
 from warehouse.forms.shipment_form import ShipmentForm
 from warehouse.forms.upload_file import UploadFileForm
-from warehouse.models.fleet import Fleet
 from warehouse.models.packing_list import PackingList
 from warehouse.models.shipment import Shipment
 from warehouse.utils.constants import (

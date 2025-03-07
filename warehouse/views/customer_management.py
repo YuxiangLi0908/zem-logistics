@@ -35,8 +35,11 @@ class CustomerManagement(View):
             return render(
                 request, self.template_main, self.handle_new_customer_post(request)
             )
-        elif step == "update":
-            self.handle_customer_update_post(request, customer_name)
+        elif step == "update_basic_info":
+            self.handle_customer_update_basic_info_post(request, customer_name)
+            return redirect("customer_management")
+        elif step == "update_client_creds":
+            self.handle_update_client_creds_post(request)
             return redirect("customer_management")
 
     def handle_all_customer_get(self, request: HttpRequest) -> dict[str, Any]:
@@ -53,6 +56,7 @@ class CustomerManagement(View):
         customer = Customer.objects.get(zem_name=customer_name)
         customer_update_form = CustomerForm(instance=customer)
         context = {
+            "customer": customer,
             "customer_update_form": customer_update_form,
         }
         return context
@@ -82,7 +86,7 @@ class CustomerManagement(View):
         else:
             raise ValueError(f"{request}")
 
-    def handle_customer_update_post(
+    def handle_customer_update_basic_info_post(
         self, request: HttpRequest, customer_name: str
     ) -> None:
         form = CustomerForm(request.POST)
@@ -99,3 +103,12 @@ class CustomerManagement(View):
             selected_customer.save()
         else:
             raise ValueError(f"invalid customer info")
+
+    def handle_update_client_creds_post(self, request: HttpRequest) -> None:
+        customer_id = int(request.POST.get("customer_id"))
+        username = request.POST.get("username")
+        password = request.POST.get("password")
+        customer = Customer.objects.get(id=customer_id)
+        customer.username = username
+        customer.set_password(password)
+        customer.save()

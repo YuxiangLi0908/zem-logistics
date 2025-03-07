@@ -3,7 +3,6 @@ import io
 import json
 import math
 import os
-import re
 from datetime import datetime, timedelta
 from io import BytesIO
 from typing import Any
@@ -13,7 +12,6 @@ import openpyxl.workbook
 import openpyxl.worksheet
 import openpyxl.worksheet.worksheet
 import pandas as pd
-from asgiref.sync import async_to_sync, sync_to_async
 from django.contrib.auth.decorators import login_required
 from django.contrib.auth.models import User
 from django.contrib.postgres.aggregates import StringAgg
