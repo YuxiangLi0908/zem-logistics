@@ -14,107 +14,107 @@
                 <span style="margin-left:120px; color:#483D8B;">附加费说明</span>
             </div>
             <div>
-                <label for="chassis_days">分拣费</label>($1.5/箱):
-                <input type="number" id="sorting" name="sorting" value="{{ invoice_warehouse.sorting}}">
+                <label for="chassis_days">分拣费</label><span style="color: #808080;">({{ FS.sorting}})</span>:
+                <input type="number" id="sorting" name="sorting" value="{{ invoice_warehouse.sorting}}" class="original-input">
                 +
                 <input type="number" id="sorting_surcharge" name="sorting_surcharge" value="{{ surcharges.sorting }}">
                 <input type="text" id="sorting_surcharge_note" name="sorting_surcharge_note" value="{{ surcharges_notes.sorting }}">
             </div>
             <div>
-                <label for="chassis_days">拦截费</label>($50/票):
-                <input type="number" id="intercept" name="intercept" min="0" value="{{ invoice_warehouse.intercept}}">
+                <label for="chassis_days">拦截费</label><span style="color: #808080;">({{ FS.intercept}})</span>:
+                <input type="number" id="intercept" name="intercept" min="0" value="{{ invoice_warehouse.intercept}}" class="original-input">
                 +
                 <input type="number" id="intercept_surcharge" name="intercept_surcharge" value="{{ surcharges.intercept }}">
                 <input type="text" id="intercept_surcharge_note" name="intercept_surcharge_note" value="{{ surcharges_notes.intercept }}">
             </div>
             <div>
-                <label for="chassis_split_count">亚马逊PO激活</label>(成功$35/PO，未成功$15/PO):
-                <input type="number" id="po_activation" name="po_activation" min="0" value="{{ invoice_warehouse.po_activation}}">
+                <label for="chassis_split_count">亚马逊PO激活</label><span style="color: #808080;">({{ FS.po_activation}})</span>:
+                <input type="number" id="po_activation" name="po_activation" min="0" value="{{ invoice_warehouse.po_activation}}" class="original-input">
                 +
                 <input type="number" id="po_activation_surcharge" name="po_activation_surcharge" value="{{ surcharges.po_activation }}">
                 <input type="text" id="po_activation_surcharge_note" name="po_activation_surcharge_note" value="{{ surcharges_notes.po_activation }}">
             </div>
             <div>
-                <label for="prepull">客户自提</label>($10/托):
-                <input type="number" id="self_pickup" name="self_pickup" min="0" value="{{ invoice_warehouse.self_pickup}}">
+                <label for="prepull">客户自提</label><span style="color: #808080;">({{ FS.self_pickup}})</span>:
+                <input type="number" id="self_pickup" name="self_pickup" min="0" value="{{ invoice_warehouse.self_pickup}}" class="original-input">
                 +
                 <input type="number" id="self_pickup_surcharge" name="self_pickup_surcharge" value="{{ surcharges.self_pickup }}">
                 <input type="text" id="self_pickup_surcharge_note" name="self_pickup_surcharge_note" value="{{ surcharges_notes.self_pickup }}">
             </div>
             <div>
-                <label for="chassis_split_count">重新打板</label>($15/板):
-                <input type="number" id="re_pallet" name="re_pallet" min="0" value="{{ invoice_warehouse.re_pallet}}">
+                <label for="chassis_split_count">重新打板</label><span style="color: #808080;">({{ FS.re_pallet}})</span>:
+                <input type="number" id="re_pallet" name="re_pallet" min="0" value="{{ invoice_warehouse.re_pallet}}" class="original-input">
                 +
                 <input type="number" id="re_pallet_surcharge" name="re_pallet_surcharge" value="{{ surcharges.re_pallet }}">
                 <input type="text" id="re_pallet_surcharge_note" name="re_pallet_surcharge_note" value="{{ surcharges_notes.re_pallet }}">
             </div>
             <div>
-                <label for="chassis_split_count">货品清点费</label>($0.5/箱):
-                <input type="number" id="counting" name="counting" min="0" value="{{ invoice_warehouse.counting}}">
+                <label for="chassis_split_count">货品清点费</label><span style="color: #808080;">({{ FS.counting}})</span>:
+                <input type="number" id="counting" name="counting" min="0" value="{{ invoice_warehouse.counting}}" class="original-input">
                 +
                 <input type="number" id="counting_surcharge" name="counting_surcharge" value="{{ surcharges.counting }}">
                 <input type="text" id="counting_surcharge_note" name="counting_surcharge_note" value="{{ surcharges_notes.counting }}">
             </div>
             <div>
-                <label for="chassis_split_count">仓租</label>($1/天/卡板):
-                <input type="number" id="warehouse_rent" name="warehouse_rent" min="0" value="{{ invoice_warehouse.warehouse_rent}}">
+                <label for="chassis_split_count">仓租</label><span style="color: #808080;">({{ FS.warehouse_rent}})</span>:
+                <input type="number" id="warehouse_rent" name="warehouse_rent" min="0" value="{{ invoice_warehouse.warehouse_rent}}" class="original-input">
                 +
                 <input type="number" id="warehouse_rent_surcharge" name="warehouse_rent_surcharge" value="{{ surcharges.warehouse_rent }}">
                 <input type="text" id="warehouse_rent_surcharge_note" name="warehouse_rent_surcharge_note" value="{{ surcharges_notes.warehouse_rent }}">
             </div>
             <div>
-                <label for="chassis_split_count">指定贴标</label>($1.5/件):
-                <input type="number" id="specified_labeling" name="specified_labeling" min="0" value="{{ invoice_warehouse.specified_labeling}}">
+                <label for="chassis_split_count">指定贴标</label><span style="color: #808080;">({{ FS.specified_labeling}})</span>:
+                <input type="number" id="specified_labeling" name="specified_labeling" min="0" value="{{ invoice_warehouse.specified_labeling}}" class="original-input">
                 +
                 <input type="number" id="specified_labeling_surcharge" name="specified_labeling_surcharge" value="{{ surcharges.specified_labeling }}">
                 <input type="text" id="specified_labeling_surcharge_note" name="specified_labeling_surcharge_note" value="{{ surcharges_notes.specified_labeling }}">
             </div>
             
             <div>
-                <label for="hanging_crane">内外箱</label>($0.5/标):
-                <input type="number" id="inner_outer_box" name="inner_outer_box" value="{{ invoice_warehouse.inner_outer_box}}">
+                <label for="hanging_crane">内外箱</label><span style="color: #808080;">({{ FS.inner_outer_box}})</span>:
+                <input type="number" id="inner_outer_box" name="inner_outer_box" value="{{ invoice_warehouse.inner_outer_box}}" class="original-input">
                 +
                 <input type="number" id="inner_outer_box_surcharge" name="inner_outer_box_surcharge" value="{{ surcharges.inner_outer_box }}">
                 <input type="text" id="inner_outer_box_surcharge_note" name="inner_outer_box_surcharge_note" value="{{ surcharges_notes.inner_outer_box }}">
             </div>
             <div>
-                <label for="chassis_split_count">托盘标签</label>($0.5/张,1托盘4张):
-                <input type="number" id="pallet_label" name="pallet_label" min="0" value="{{ invoice_warehouse.pallet_label}}">
+                <label for="chassis_split_count">托盘标签</label><span style="color: #808080;">({{ FS.pallet_label}})</span>:
+                <input type="number" id="pallet_label" name="pallet_label" min="0" value="{{ invoice_warehouse.pallet_label}}" class="original-input">
                 +
                 <input type="number" id="pallet_label_surcharge" name="pallet_label_surcharge" value="{{ surcharges.pallet_label }}">
                 <input type="text" id="pallet_label_surcharge_note" name="pallet_label_surcharge_note" value="{{ surcharges_notes.pallet_label }}">
             </div>
             <div>
-                <label for="chassis_split_count">开封箱</label>($1/箱):
-                <input type="number" id="open_close_box" name="open_close_box" min="0" value="{{ invoice_warehouse.open_close_box}}">
+                <label for="chassis_split_count">开封箱</label><span style="color: #808080;">({{ FS.open_close_box}})</span>:
+                <input type="number" id="open_close_box" name="open_close_box" min="0" value="{{ invoice_warehouse.open_close_box}}" class="original-input">
                 +
                 <input type="number" id="open_close_box_surcharge" name="open_close_box_surcharge" value="{{ surcharges.open_close_box }}">
                 <input type="text" id="open_close_box_surcharge_note" name="open_close_box_surcharge_note" value="{{ surcharges_notes.open_close_box }}">
             </div>
             <div>
-                <label for="chassis_split_count">销毁</label>(毛重*2.2，$0.5/LB):
-                <input type="number" id="destroy" name="destroy" min="0" value="{{ invoice_warehouse.destroy}}">
+                <label for="chassis_split_count">销毁</label><span style="color: #808080;">({{ FS.destroy}})</span>:
+                <input type="number" id="destroy" name="destroy" min="0" value="{{ invoice_warehouse.destroy}}" class="original-input">
                 +
                 <input type="number" id="destroy_surcharge" name="destroy_surcharge" value="{{ surcharges.destroy }}">
                 <input type="text" id="destroy_surcharge_note" name="destroy_surcharge_note" value="{{ surcharges_notes.destroy }}">
             </div>
             <div>
-                <label for="chassis_split_count">拍照</label>($1/张，最低$5):
-                <input type="number" id="take_photo" name="take_photo" min="0" value="{{ invoice_warehouse.take_photo}}">
+                <label for="chassis_split_count">拍照</label><span style="color: #808080;">({{ FS.take_photo}})</span>:
+                <input type="number" id="take_photo" name="take_photo" min="0" value="{{ invoice_warehouse.take_photo}}" class="original-input">
                 +
                 <input type="number" id="take_photo_surcharge" name="take_photo_surcharge" value="{{ surcharges.take_photo }}">
                 <input type="text" id="take_photo_surcharge_note" name="take_photo_surcharge_note" value="{{ surcharges_notes.take_photo }}">
             </div>
             <div>
-                <label for="chassis_split_count">拍视频</label>(5min per $15):
-                <input type="number" id="take_video" name="take_video" min="0" value="{{ invoice_warehouse.take_video}}">
+                <label for="chassis_split_count">拍视频</label><span style="color: #808080;">({{ FS.take_video}})</span>:
+                <input type="number" id="take_video" name="take_video" min="0" value="{{ invoice_warehouse.take_video}}" class="original-input">
                 +
                 <input type="number" id="take_video_surcharge" name="take_video_surcharge" value="{{ surcharges.take_video }}">
                 <input type="text" id="take_video_surcharge_note" name="take_video_surcharge_note" value="{{ surcharges_notes.take_video }}">
             </div>
             <div>
-                <label for="chassis_split_count">重复操作费</label>($50-$500):
-                <input type="number" id="repeated_operation_fee" name="repeated_operation_fee" min="0" value="{{ invoice_warehouse.repeated_operation_fee}}">
+                <label for="chassis_split_count">重复操作费</label><span style="color: #808080;">({{ FS.repeated_operation_fee}})</span>:
+                <input type="number" id="repeated_operation_fee" name="repeated_operation_fee" min="0" value="{{ invoice_warehouse.repeated_operation_fee}}" class="original-input">
                 +
                 <input type="number" id="repeated_operation_fee_surcharge" name="repeated_operation_fee_surcharge" value="{{ surcharges.repeated_operation_fee }}">
                 <input type="text" id="repeated_operation_fee_surcharge_note" name="repeated_operation_fee_surcharge_note" value="{{ surcharges_notes.repeated_operation_fee }}">
@@ -160,9 +160,12 @@
     };   
     function validateForm() {
         const form = document.querySelector('form');
-        const inputs = form.querySelectorAll('input[type="number"]');
+        const inputs = form.querySelectorAll('input.original-input');
         const labels = form.querySelectorAll('label');
         // 定义金额要求的映射关系
+        const amountRequirements=JSON.parse('{{ fs_json|escapejs }}');
+        console.log(amountRequirements);
+        /*
         const amountRequirements = {
             "分拣费": 1.5,
             "拦截费": 50,
@@ -178,23 +181,23 @@
             "拍照": 1,
             "拍视频": 15,
             "重复操作费": (50-500),
-        };
-        for (let i = 0; i < inputs.length; i++) {
+        };*/
+        for (let i = 0; i < inputs.length-1; i++) {
             const input = inputs[i];
-            
             const labelText = labels[i].textContent.trim();
             const requiredAmount = amountRequirements[labelText];
             if (requiredAmount && input.value!== "") {
                 if (labelText === "重复操作费") {
                     const value = parseFloat(input.value);
                     if (isNaN(value) || value < 50 || value > 500) {
-                        alert('输入值不符合要求，请按照"' + labelText + '"的金额要求填写（50 - 500）');
+                        alert('输入值'+value+'不符合要求，请按照"' + labelText + '"的金额要求填写（50 - 500）');
                         event.preventDefault();
                     }
                 }else{
                     const value = parseFloat(input.value);
+                    console.log(value,requiredAmount);
                     if (isNaN(value) || value % requiredAmount!== 0) {
-                        alert('输入值不符合要求，请按照"' + labelText + '"的金额要求填写');
+                        alert('输入值'+value+'不符合要求，请按照"' + labelText + '"的金额要求填写');
                         event.preventDefault();
                     }
                 }             

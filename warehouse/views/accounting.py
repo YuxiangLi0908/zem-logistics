@@ -38,6 +38,8 @@ from warehouse.models.invoice_details import InvoicePreport,InvoiceWarehouse,Inv
 from warehouse.models.packing_list import PackingList
 from warehouse.models.customer import Customer
 from warehouse.models.pallet import Pallet
+from warehouse.models.quotation_master import QuotationMaster
+from warehouse.models.fee_detail import FeeDetail
 from warehouse.forms.order_form import OrderForm
 from warehouse.views.export_file import export_invoice
 from warehouse.utils.constants import (
@@ -53,10 +55,6 @@ from warehouse.utils.constants import (
     ACCT_BENEFICIARY_ADDRESS,
     ACCT_BENEFICIARY_NAME,
     ACCT_SWIFT_CODE,
-    PICKUP_FEE,
-    LOCAL_DELIVERY,NJ_AMAZON_DELIVERY,NJ_COMBINA,NJ_WALMART,
-    SAV_AMAZON_DELIVERY,SAV_COMBINA,SAV_WALMART,
-    LA_AMAZON_DELIVERY,LA_COMBINA,DIRECT_CONTAINER
 )
 
 
@@ -911,6 +909,43 @@ class Accounting(View):
         container_number = request.GET.get("container_number")
         order = Order.objects.select_related("retrieval_id","container_number").get(container_number__container_number=container_number)
         warehouse = order.retrieval_id.retrieval_destination_area
+        quotation = QuotationMaster.objects.get(active=True)
+        WAREHOUSE_FEE = FeeDetail.objects.get(quotation_id=quotation.id,fee_type='warehouse')
+        #提拆、打托缠膜费用
+
+        # FS_constrain = {    
+        #     key: float(re.search(r'\d+(\.\d+)?', value).group())  
+        #     for key, value in WAREHOUSE_FEE.details.items()
+        #     if '/' in str(value) and re.search(r'\d+(\.\d+)?', value)  
+        # }
+        FS_constrain = {}
+        for key, value in WAREHOUSE_FEE.details.items():#把details里面的键值对改成值是纯数字的，用于在费用表单提交前，验证数据合规性
+            if not isinstance(value, dict):
+                match = re.findall(r'\$(\d+(\.\d+)?)', str(value))
+                if match and len(match) == 1:
+                    if "（" in str(key):
+                        key = key.split("（")[0]
+                    FS_constrain[key] = float(match[0][0])
+        fs_json = json.dumps(FS_constrain,ensure_ascii=False)
+        #其他费用
+        FS = {
+            'sorting': f"{WAREHOUSE_FEE.details.get('分拣费', 'N/A')}",  # 分拣费
+            'intercept': f"{WAREHOUSE_FEE.details.get('拦截费', 'N/A')}",  # 拦截费
+            'po_activation': f"{WAREHOUSE_FEE.details.get('亚马逊PO激活', 'N/A')}",  # 拦截费
+            'self_pickup': f"{WAREHOUSE_FEE.details.get('客户自提', 'N/A')}",  # 客户自提
+            're_pallet': f"{WAREHOUSE_FEE.details.get('重新打板', 'N/A')}",  # 重新打板
+            'counting': f"{WAREHOUSE_FEE.details.get('货品清点费', 'N/A')}",  # 货品清点费
+            'warehouse_rent': WAREHOUSE_FEE.details.get('仓租', 'N/A'),  # 仓租
+            'specified_labeling': f"{WAREHOUSE_FEE.details.get('指定贴标', 'N/A')}",  # 指定贴标
+            'inner_outer_box': f"{WAREHOUSE_FEE.details.get('内外箱', 'N/A')}",  # 内外箱
+            'pallet_label': f"{WAREHOUSE_FEE.details.get('托盘标签', 'N/A')}",  # 内外箱
+            'open_close_box': f"{WAREHOUSE_FEE.details.get('开封箱', 'N/A')}",  # 开封箱
+            'destroy': f"{WAREHOUSE_FEE.details.get('销毁', 'N/A')}",  # 销毁  
+            'take_photo': f"{WAREHOUSE_FEE.details.get('拍照', 'N/A')}",  # 拍照
+            'take_video': f"{WAREHOUSE_FEE.details.get('拍视频', 'N/A')}",  # 拍视频
+            'repeated_operation_fee': f"{WAREHOUSE_FEE.details.get('重复操作费', 'N/A')}",  # 重复操作费
+        }
+
         invoice = Invoice.objects.select_related("customer", "container_number").get(
             container_number__container_number=container_number
         )
@@ -921,8 +956,12 @@ class Accounting(View):
                 "warehouse":warehouse,
                 "invoice":invoice,
                 "container_number":container_number,
+                "FS":FS,
+                "fs_json":fs_json
             }
             return self.template_invoice_warehouse_edit, context
+        
+        
         context = {
             "warehouse":warehouse,
             "invoice_warehouse":invoice_warehouse,
@@ -931,7 +970,9 @@ class Accounting(View):
             "surcharges":invoice_warehouse.surcharges,
             "surcharges_notes":invoice_warehouse.surcharge_notes,
             "start_date":request.GET.get("start_date"),
-            "end_date":request.GET.get("end_date")
+            "end_date":request.GET.get("end_date"),
+            "FS":FS,
+            "fs_json":fs_json
         }
         return self.template_invoice_warehouse_edit, context
     
@@ -1018,19 +1059,30 @@ class Accounting(View):
         local = []
         combine = []
         walmart = []
-        if warehouse == 'NJ':
-            selected_amazon = NJ_AMAZON_DELIVERY   
-            selected_local = LOCAL_DELIVERY
-            selected_combina = NJ_COMBINA
-            selected_walmart = NJ_WALMART
+        quotation = QuotationMaster.objects.get(active=True)
+        if warehouse == 'NJ':           
+            LOCAL_DELIVERY = FeeDetail.objects.get(quotation_id=quotation.id,fee_type='NJ_LOCAL')
+            NJ_PUBLIC = FeeDetail.objects.get(quotation_id=quotation.id,fee_type='NJ_PUBLIC')
+            NJ_COMBINA = FeeDetail.objects.get(quotation_id=quotation.id,fee_type='NJ_COMBINA')
+
+            selected_amazon = NJ_PUBLIC.details["NJ_AMAZON"]  
+            selected_local = LOCAL_DELIVERY.details
+            selected_combina = NJ_COMBINA.details
+            selected_walmart = NJ_PUBLIC.details["NJ_WALMART"]
         elif warehouse == 'SAV':
-            selected_amazon = SAV_AMAZON_DELIVERY  
-            selected_combina = SAV_COMBINA
+            SAV_PUBLIC = FeeDetail.objects.get(quotation_id=quotation.id,fee_type='SAV_PUBLIC')
+            SAV_COMBINA = FeeDetail.objects.get(quotation_id=quotation.id,fee_type='SAV_COMBINA')
+
+            selected_amazon = SAV_PUBLIC.details["SAV_AMAZON"]  
+            selected_combina = SAV_COMBINA.details
             selected_local = None
-            selected_walmart = SAV_WALMART
+            selected_walmart = SAV_PUBLIC.details["SAV_WALMART"] 
         elif warehouse == 'LA':
-            selected_amazon = LA_AMAZON_DELIVERY 
-            selected_combina = LA_COMBINA
+            LA_PUBLIC = FeeDetail.objects.get(quotation_id=quotation.id,fee_type='LA_PUBLIC')
+            LA_COMBINA = FeeDetail.objects.get(quotation_id=quotation.id,fee_type='LA_COMBINA')
+
+            selected_amazon = LA_PUBLIC.details
+            selected_combina = LA_COMBINA.details
             selected_local = None    
             selected_walmart = None
         #先查询是不是有Invoice_delivery表了
@@ -1056,9 +1108,9 @@ class Accounting(View):
                 elif delivery.type == "local": 
                     if selected_local: #NJ的          
                         for k,v in selected_local.items():
-                            if delivery.zipcode in v:
+                            if delivery.zipcode in v["zipcodes"]:
                                 n_pallet = int(len(plt_ids))
-                                costs = k.split(",")
+                                costs = v["prices"]
                                 if n_pallet <= 5:
                                     cost = int(costs[0])
                                 elif n_pallet >= 5:
@@ -1071,8 +1123,8 @@ class Accounting(View):
                 elif delivery.type == "combine":
                     container_type = order.container_number.container_type
                     for k,v in selected_combina.items():
-                        if destination in v:
-                            cost = k.split(",")
+                        if destination in v["location"]:
+                            cost = v["prices"]
                             if "45HQ/GP" in container_type:
                                 setattr(delivery, 'cost', int(cost[1]))   
                                 if not delivery.total_cost:     
@@ -1092,7 +1144,7 @@ class Accounting(View):
                     walmart.append(delivery)
         else:
             #该柜子没有建表的情况下，系统再根据报表单汇总派送方式                         
-            for plt in pallet:       
+            for plt in pallet:      
                 destination = plt["destination"].split('-')[1] if '-' in plt["destination"] else plt["destination"] 
                 if plt["invoice_delivery__type"] == "amazon":                           
                     for k,v in selected_amazon.items():
@@ -1105,9 +1157,9 @@ class Accounting(View):
                 elif plt["invoice_delivery__type"] == "local":                   
                     if selected_local: #NJ的          
                         for k,v in selected_local.items():
-                            if plt["zipcode"] in v:
+                            if plt["zipcode"] in v["zipcodes"]:
                                 n_pallet = int(plt["total_n_pallet"])
-                                costs = k.split(",")
+                                costs = v["prices"]
                                 if n_pallet <= 5:
                                     cost = int(costs[0])
                                 elif n_pallet >= 5:
@@ -1120,8 +1172,8 @@ class Accounting(View):
                 elif plt["invoice_delivery__type"] == "combine":                           
                     container_type = order.container_number.container_type
                     for k,v in selected_combina.items():
-                        if destination in v:
-                            cost = k.split(",")
+                        if destination in v["location"]:
+                            cost = v["prices"]
                             if "45HQ/GP" in container_type:
                                 plt["cost"] = int(cost[1])    
                                 if not plt["total_cost"]:                 
@@ -1155,7 +1207,48 @@ class Accounting(View):
     def handle_container_invoice_direct_get(self, request: HttpRequest) -> tuple[Any, Any]:
         container_number = request.GET.get("container_number")
         order = Order.objects.select_related("retrieval_id","container_number").get(container_number__container_number=container_number)
-        warehouse = order.retrieval_id.retrieval_destination_area
+        warehouse = order.warehouse.name
+        warehouse = warehouse.split('-')[0]
+        container_type = order.container_number.container_type
+
+        quotation = QuotationMaster.objects.get(active=True)
+        PICKUP_FEE = FeeDetail.objects.get(quotation_id=quotation.id,fee_type='direct')
+        #提拆、打托缠膜费用   
+        pickup_fee = None
+        pickup_fee = PICKUP_FEE.details[warehouse]
+        for fee,location in pickup_fee.items():
+            if warehouse in location:
+                pickup_fee = fee
+
+        #其他费用
+        destination = order.retrieval_id.retrieval_destination_area
+        new_destination = destination.replace(' ', '') if destination else ''
+        second_delivery = PICKUP_FEE.details.get('二次派送')
+        second_pickup = None
+        for fee,location in second_delivery.items():
+            if new_destination in location:
+                second_pickup = fee
+        
+        FS = {
+            'exam_fee': f"{PICKUP_FEE.details.get('Exam 查验柜运费', 'N/A')}",  # 查验费  
+            'second_delivery': second_pickup,  # 二次派送
+            'demurrage': f"{PICKUP_FEE.details.get('滞港费', 'N/A')}",  # 滞港费
+            'per_diem': f"{PICKUP_FEE.details.get('滞箱费', 'N/A')}",  # 滞箱费
+            'congestion_fee': f"{PICKUP_FEE.details.get('港口拥堵费', 'N/A')}",  # 港口拥堵费
+            'chassis': f"{PICKUP_FEE.details.get('车架费', 'N/A')}",  # 车架费
+            'prepull': f"{PICKUP_FEE.details.get('预提费', 'N/A')}",  # 预提费
+            'yard_storage': f"{PICKUP_FEE.details.get('货柜储存费', 'N/A')}",  # 货柜储存费
+            'handling_fee': f"{PICKUP_FEE.details.get('等待费', 'N/A')}",  # 货柜储存费
+            'chassis_split': f"{PICKUP_FEE.details.get('车架分离费', 'N/A')}",  # 车架分离费
+            'over_weight': f"{PICKUP_FEE.details.get('超重费', 'N/A')}",  # 超重费
+        }
+        FS_constrain = {}
+        for key, value in PICKUP_FEE.details.items():
+            if not isinstance(value, dict):
+                match = re.findall(r'\$(\d+(\.\d+)?)', str(value))
+                if match and len(match) == 1:
+                    FS_constrain[key] = float(match[0][0])
+        fs_json = json.dumps(FS_constrain,ensure_ascii=False)
         try:
             invoice = Invoice.objects.select_related("customer", "container_number").get(
                 container_number__container_number=container_number
@@ -1176,22 +1269,12 @@ class Accounting(View):
             invoice.save()
             order.invoice_id = invoice
             order.save()
-        destination = order.retrieval_id.retrieval_destination_area
-        new_destination = destination.replace(' ', '') if destination else ''
-        second_delivery = 0 
-        if new_destination in ["ONT8","LGB8","LAX9","SBD2","SBD3","KRB1"]:
-            second_delivery = 750
-        elif new_destination in ["GYR2","GYR3","GYR3","PHX5","PHX7","SMF3","SCK1","SCK4","SJC7","OAK3","LAS1","LAS3"]:
-            second_delivery = 1750
+        
         try:
             invoice_preports = InvoicePreport.objects.get(invoice_number__invoice_number=invoice.invoice_number)
         except InvoicePreport.DoesNotExist:    
             #获取直送柜子的提拆柜费用
             #如果之前没有录过费用，就根据报价表生成提+派送费用
-            pickup_fee = 0
-            for k,v in DIRECT_CONTAINER.items():
-                if new_destination in v:
-                    pickup_fee = k
             invoice_preports = InvoicePreport(**{
                 "invoice_number": invoice,
                 "pickup": pickup_fee,
@@ -1201,22 +1284,53 @@ class Accounting(View):
             "warehouse": warehouse,
             "invoice_preports":invoice_preports,
             "container_number":container_number,
-            "second_delivery":second_delivery,
             "start_date":request.GET.get("start_date"),
             "end_date":request.GET.get("end_date"),
             "surcharges":invoice_preports.surcharges,
-            "surcharges_notes":invoice_preports.surcharge_notes
+            "surcharges_notes":invoice_preports.surcharge_notes,
+            "FS":FS,
+            "fs_json":fs_json
         }
         return self.template_invoice_direct_edit, context
     
     def handle_container_invoice_preport_get(self, request: HttpRequest) -> tuple[Any, Any]:
         container_number = request.GET.get("container_number")
-        order = Order.objects.select_related("retrieval_id","container_number").get(container_number__container_number=container_number)
+        order = Order.objects.select_related("retrieval_id","container_number","warehouse").get(container_number__container_number=container_number)
         #查看仓库和柜型，计算提拆费
         warehouse = order.retrieval_id.retrieval_destination_area
         container_type = order.container_number.container_type
-        pickup_key = (warehouse, container_type)
-        pickup_fee = PICKUP_FEE.get(pickup_key, 1500)
+        quotation = QuotationMaster.objects.get(active=True)
+        PICKUP_FEE = FeeDetail.objects.get(quotation_id=quotation.id,fee_type='preport')
+        #提拆、打托缠膜费用
+        match = re.match(r'\d+',container_type)
+        if match:
+            pick_subkey = match.group()          
+            pickup_fee = PICKUP_FEE.details[warehouse][pick_subkey]
+
+        FS_constrain = {    #把details里面的键值对改成值是纯数字的，用于在费用表单提交前，验证数据合规性
+            key: float(re.search(r'\d+(\.\d+)?', value).group())  
+            for key, value in PICKUP_FEE.details.items()
+            if not isinstance(value, dict) and '/' in str(value) and re.search(r'\d+(\.\d+)?', value)  
+        }
+        fs_json = json.dumps(FS_constrain,ensure_ascii=False)
+        #其他费用
+        FS = {
+            'chassis': f"{PICKUP_FEE.details.get('托架费', 'N/A')}",  # 托架费
+            'chassis_split': f"{PICKUP_FEE.details.get('托架提取费', 'N/A')}",  # 托架提取费
+            'prepull': f"{PICKUP_FEE.details.get('预提费', 'N/A')}",  # 预提费
+            'yard_storage': f"{PICKUP_FEE.details.get('货柜放置费', 'N/A')}",  # 货柜放置费
+            'handling': f"{PICKUP_FEE.details.get('操作处理费', 'N/A')}",  # 操作处理费
+            'pier_pass': PICKUP_FEE.details.get('码头', 'N/A'),  # 码头费
+            'congestion': f"{PICKUP_FEE.details.get('港口拥堵费', 'N/A')}",  # 港口拥堵费
+            'hanging_crane': f"{PICKUP_FEE.details.get('火车站吊柜费', 'N/A')}",  # 火车站吊柜费
+            'dry_run': f"{PICKUP_FEE.details.get('空跑费', 'N/A')}",  # 空跑费
+            'exam_fee': f"{PICKUP_FEE.details.get('查验费', 'N/A')}",  # 查验费  
+            'hazmat': f"{PICKUP_FEE.details.get('危险品', 'N/A')}",  # 危险品
+            'over_weight': f"{PICKUP_FEE.details.get('超重费', 'N/A')}",  # 超重费
+            'urgent_fee': f"{PICKUP_FEE.details.get('加急费', 'N/A')}",  # 加急费
+            'other_serive': f"{PICKUP_FEE.details.get('其他服务', 'N/A')}",  # 其他服务
+        }
+        #提拆柜费用读取对应表      
         try:
             invoice = Invoice.objects.select_related("customer", "container_number").get(
                 container_number__container_number=container_number
@@ -1261,9 +1375,10 @@ class Accounting(View):
             "container_number":container_number,
             "groups":groups,
             "start_date":request.GET.get("start_date"),
-            "end_date":request.GET.get("end_date")
+            "end_date":request.GET.get("end_date"),
+            "FS":FS,
+            "fs_json":fs_json
         }
-        print(context["surcharges"])
         return self.template_invoice_preport_edit, context
 
     def handle_container_invoice_get(self, container_number: str) -> tuple[Any, Any]:
