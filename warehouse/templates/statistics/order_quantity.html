@@ -20,6 +20,11 @@
                 <option value="{{ v }}" {% if k == warehouse %}selected{% endif %}>{{ k }}</option>
                 {% endfor %}
             </select>
+            <b style="margin-right: 5px;">订单类型:</b>
+            <select name="order_type">
+                <option value="转运" {% if order_type == "转运" %}selected{% endif %}>转运</option>
+                <option value="直送" {% if order_type == "直送" %}selected{% endif %}>直送</option>
+            </select>
             <b style="font-size: 13px;">客户</b>
             <select name="customer" style="font-size: 13px;">
                 {% for k, v in customers.items %}
@@ -41,78 +46,77 @@
     <script src="https://cdn.jsdelivr.net/npm/chartjs-plugin-datalabels@2.2.0"></script>
     
 {% endblock %}
-{% if transfer_orders %}
-<div style="display: flex; max-height: 720px;">
-    <div style="overflow-y: auto; max-height: 100%; width: 60%; border: 2px solid rgb(180, 180, 180); border-radius: 12px; padding: 1%; margin: 1%;">
-        <div><b>转运订单量</b></div>
-        <canvas id="TransferChart" width="400" height="200"></canvas>
-        <hr>
-        <div>
-            <b style="margin-right:180px;">转运订单量统计表</b>
-            <button id="showOrdersOnly" class="btn btn-primary"  style="padding: 5px 10px; font-size: 12px;" onclick="toggleColumns('orders-column', 'mom-column')">仅订单量</button>
-            <button id="showMoMOnly" class="btn btn-primary" style="padding: 5px 10px; font-size: 12px;" onclick="toggleColumns('mom-column', 'orders-column')">仅MoM</button>
-            <button id="showBoth" class="btn btn-primary" style="padding: 5px 10px; font-size: 12px;" onclick="toggleColumns('orders-column', 'mom-column', true)">同时显示</button>
+{% if orders %}
+<!--<h2 style="text-align: center; margin-top: 20px;">{{ order_type }}订单量统计表</h2>-->
+<div style="display: grid; grid-template-columns: 8fr 2fr; grid-template-rows: 1fr 1fr; gap: 20px; padding: 20px; background-color: #f9f9f9; height: 100vh;">
+    <!-- 表格 -->
+    <div style="grid-column: 1 / 2; grid-row: 1 / 2; background-color: #fff; padding: 20px; border-radius: 8px; box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1);">       
+        <div style="text-align: center; padding: 2px; background-color: #f9f9f9; border: 1px dashed #ddd; border-radius: 8px;">
+            <div style="text-align: center; padding: 20px; margin: 0 auto;">
+                <div style="text-align:right;">
+                    <button id="showOrdersOnly" class="btn btn-primary"  style="padding: 5px 10px; font-size: 12px;" onclick="toggleColumns('orders-column', 'mom-column')">仅订单量</button>
+                    <button id="showMoMOnly" class="btn btn-primary" style="padding: 5px 10px; font-size: 12px;" onclick="toggleColumns('mom-column', 'orders-column')">仅MoM</button>
+                    <button id="showBoth" class="btn btn-primary" style="padding: 5px 10px; font-size: 12px;" onclick="toggleColumns('orders-column', 'mom-column', true)">同时显示</button>
+                </div>
+                <table id="tTable">
+                    <thead>
+                        <tr id="theaderRow">
+                            <th></th>                  
+                        </tr>
+                        <tr>
+                            <td><b>客户名</b></td>
+                            {% for len in labels %}
+                                <td style="text-align:center;" class="orders-column">订单量</td>
+                                <td style="text-align:center;" class="mom-column">MoM</td>
+                            {% endfor %}
+                        </tr>
+                    </thead>
+                    <tbody>
+                        
+                    </tbody>
+                </table>
+            </div>
         </div>
-        <table id="tTable">
-            <thead>
-                <tr id="theaderRow">
-                    <th></th>
-                    
-                </tr>
-                <tr>
-                    <td><b>客户名</b></td>
-                    {% for len in transfer_labels %}
-                        <td style="text-align:center;" class="orders-column">订单量</td>
-                        <td style="text-align:center;" class="mom-column">MoM</td>
-                    {% endfor %}
-                </tr>
-            </thead>
-            <tbody>
-                
-            </tbody>
-        </table>
     </div>
 
-    <div style="overflow-y: auto; max-height: 100%; width: 60%; border: 2px solid rgb(180, 180, 180); border-radius: 12px; padding: 1%; margin: 1%;">
-        <div><b>直送订单量</b></div>
-        <canvas id="DirectChart" width="400" height="200"></canvas>
-        <hr>
-        <div>
-            <b style="margin-right:180px;">直送订单量统计表</b>
-            <button id="directOrdersOnly" class="btn btn-primary"  style="padding: 5px 10px; font-size: 12px;" onclick="toggleDirects('orders-direct', 'mom-direct')">仅订单量</button>
-            <button id="directMoMOnly" class="btn btn-primary" style="padding: 5px 10px; font-size: 12px;" onclick="toggleDirects('mom-direct', 'orders-direct')">仅MoM</button>
-            <button id="directBoth" class="btn btn-primary" style="padding: 5px 10px; font-size: 12px;" onclick="toggleDirects('orders-direct ', 'mom-direct', true)">同时显示</button>
+    <!-- 饼图 -->
+    <div style="grid-column: 2 / 3; grid-row: 1 / 3; background-color: #fff; padding: 20px; border-radius: 8px; box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1);">
+        <div style="text-align: center; padding: 2px; background-color: #f9f9f9; border: 1px dashed #ddd; border-radius: 8px; height:100%;">
+            <div style="height: 50%;">
+                <canvas id="customerPieChart" width="400" height="150"></canvas>
+            </div>
+            <div style="height: 50%;">
+                <canvas id="monthPieChart" width="400" height="150"></canvas>
+            </div>
         </div>
-        <table id="dTable">
-            <thead>
-                <tr id="dheaderRow">
-                    <th></th>
-                    
-                </tr>
-                <tr>
-                    <td><b>客户名</b></td>
-                    {% for len in transfer_labels %}
-                        <td style="text-align:center;" class="orders-direct">订单量</td>
-                        <td style="text-align:center;" class="mom-direct">MoM</td>
-                    {% endfor %}
-                </tr>
-            </thead>
-            <tbody>
-                
-            </tbody>
-        </table>
+    </div>
+
+    <!-- 柱状图 -->
+    <div style="grid-column: 1 / 2; grid-row: 2 / 3; background-color: #fff; padding: 20px; border-radius: 8px; box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1); height: 100%;">
+        <div style="text-align: center; padding: 50px; background-color: #f9f9f9; border: 1px dashed #ddd; border-radius: 8px; height: 100%;">
+            <canvas id="orderChart" width="400" height="100"></canvas>
+        </div>
+    </div>
+
+    <!-- 折线图 -->
+    <div style="grid-column: 1 / 3; grid-row: 3 / 4; background-color: #fff; padding: 20px; border-radius: 8px; box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1);">
+        <div style="text-align: center; padding: 50px; background-color: #f9f9f9; border: 1px dashed #ddd; border-radius: 8px;">
+            <canvas id="lineChart" width="800" height="400"></canvas>
+        </div>
+    </div>
 </div>
 {% endif %}
 <script>
     const { Chart, ChartDataLabels } = window;
     Chart.register(ChartDataLabels);
-    const ctx = document.getElementById('TransferChart').getContext('2d');
-    var TransferChart = new Chart(ctx, {
+    //柱状图
+    const ctx = document.getElementById('orderChart').getContext('2d');
+    var orderChart = new Chart(ctx, {
         type: 'bar',
         data: {
-            labels: {{ transfer_labels|safe }}, 
+            labels: {{ labels|safe }}, 
             datasets: [{
-                data: {{ transfer_orders|safe }},  
+                data: {{ orders|safe }},  
                 backgroundColor: ['#5470C6','#5470C6','#5470C6'],
             }]
         },
@@ -125,7 +129,7 @@
             plugins: {
                 title: {
                     display: true,
-                    text: `{{ warehouse }}仓 {{ transfer_legend.0 }}月-{{ transfer_legend.1 }}月柜量汇总`, 
+                    text: `{{ warehouse }}仓 {{ legend.0 }}月-{{ legend.1 }}月柜量汇总`, 
                     color: '#333',
                     font: {
                         size: 15,
@@ -166,74 +170,14 @@
             barThickness: 60
         }
     });
-    const ctx1 = document.getElementById('DirectChart').getContext('2d');
-    var DirectChart = new Chart(ctx1, {
-        type: 'bar',
-        data: {
-            labels: {{ direct_labels|safe }},  // 横坐标数据
-            datasets: [{
-                data: {{ direct_orders|safe }},  // 纵坐标数据
-                backgroundColor: ['#5470C6','#5470C6','#5470C6'],
-            }]
-        },
-        options: {
-            layout: {
-                padding: {
-                    top: -5 // 增加顶部内边距
-                }
-            },
-            plugins: {
-                title: {
-                    display: true,
-                    text: `{{ warehouse }}仓 {{ direct_legend.0 }}月-{{ direct_legend.1 }}月柜量汇总`, // ES6模板字符串
-                    color: '#333',
-                    font: {
-                        size: 15,
-                        family: 'Microsoft YaHei'
-                    },
-                    padding: {
-                        top: 10,
-                        bottom: 30 // 标题下方留白
-                    }
-                },
-                datalabels: {
-                    anchor: 'end',  // 标签位置在柱子顶部
-                    align: 'top',   // 标签对齐方式
-                    color: '#FF',  // 标签颜色
-                    font: {weight: 'bold',size:15}  // 字体加粗
-                },
-                legend:{
-                    display:true,
-                    position:'right',
-                    labels: {
-                        usePointStyle: true, // 使用方块样式
-                        pointStyle: 'rect', // 指定方块形状
-                        padding: 20,        // 标签间距
-                        generateLabels: function(chart) {
-                            return [{
-                                text: '汇总', // 强制覆盖标签文字
-                                fillStyle: '#5470C6'
-                            }];
-                        }
-                    }
-                }
-            },
-            scales: {
-                y: {
-                    beginAtZero: true
-                }
-            },
-            barThickness: 60
-        }
-    });
 
-    //转运的表格
-    const transferdata = {{ transfer_table|safe }};
-    const transfer_labels = {{ transfer_labels|safe }};
+    //表格
+    const datas = {{ table|safe }};
+    const labels = {{ labels|safe }};
     const tTable = document.getElementById('tTable');
     const theaderRow = document.getElementById('theaderRow');
-    // 动态生成表头
-    transfer_labels.forEach(month => {
+    // 表头
+    labels.forEach(month => {
         const th1 = document.createElement('th');
         th1.textContent = month;
         th1.colSpan = 2;
@@ -241,14 +185,14 @@
         th1.style.verticalAlign = 'middle'; 
         theaderRow.appendChild(th1);
     });   
-    // 动态生成数据行
-    for (const [customer, monthsData] of Object.entries(transferdata)) {
+    // 数据行
+    for (const [customer, monthsData] of Object.entries(datas)) {
         const row = document.createElement('tr');
         const customerCell = document.createElement('td');
         customerCell.textContent = customer;
         row.appendChild(customerCell);
 
-        transfer_labels.forEach(month => {
+        labels.forEach(month => {
             const [orders, mom, isMax] = monthsData[month] || [0, 0,False];
 
             const ordersCell = document.createElement('td');
@@ -331,113 +275,133 @@
                 cell.colSpan = 2; 
             }
         });
-        
-    }
-
-    //直送的表格
-    const direct_data = {{ direct_table|safe }};
-    const direct_labels = {{ direct_labels|safe }};
-    const dTable = document.getElementById('dTable');
-    const dheaderRow = document.getElementById('dheaderRow');
-    // 动态生成表头
-    direct_labels.forEach(month => {
-        const th1 = document.createElement('th');
-        th1.textContent = month;
-        th1.colSpan = 2;
-        th1.style.textAlign = 'center';
-        th1.style.verticalAlign = 'middle'; 
-        dheaderRow.appendChild(th1);
-    });   
-    // 动态生成数据行
-    for (const [customer, monthsData] of Object.entries(direct_data)) {
-        const row = document.createElement('tr');
-        const customerCell = document.createElement('td');
-        customerCell.textContent = customer;
-        row.appendChild(customerCell);
-
-        direct_labels.forEach(month => {
-            const [orders, mom, isMax] = monthsData[month] || [0, 0,False];
-
-            const ordersCell = document.createElement('td');
-            ordersCell.textContent = orders;
-            ordersCell.style.textAlign = 'center';
-            ordersCell.classList.add('orders-direct');
-            if (isMax){
-                ordersCell.style.fontWeight = 'bold'; 
-                ordersCell.style.fontSize = '20px';
-                ordersCell.style.color = '#FF0000';
+    };
+    // 饼图——客户分类
+    const customerCtx = document.getElementById('customerPieChart').getContext('2d');
+    new Chart(customerCtx, {
+        type: 'pie',
+        data: {
+            labels: {{ customer_labels|safe }},  // 客户名称
+            datasets: [{
+                data: {{ customer_data|safe }},  // 客户订单量
+                backgroundColor: [
+                    '#5470C6', '#91CC75', '#FAC858', '#EE6666', '#73C0DE',
+                    '#3BA272', '#FC8452', '#9A60B4', '#EA7CCC'
+                ],  // 饼图颜色
+            }]
+        },
+        options: {
+            plugins: {
+                datalabels: {
+                    color: '#FFF',  // 数据标签颜色
+                    font: {
+                        weight: 'bold',
+                        size: 14
+                    }
+                },
+                legend: {
+                    position: 'right',  // 图例位置
+                    labels: {
+                        font: {
+                            size: 12
+                        }
+                    }
+                }
             }
-            row.appendChild(ordersCell);
-
-            const momCell = document.createElement('td');
-            momCell.style.textAlign = 'center';
-            momCell.classList.add('mom-direct');
-            
-            if (mom === 0) { 
-                momCell.style.backgroundColor = '#f0f0f0'; 
-                momCell.style.color = '#6c757d'; 
-                momCell.textContent = ' --';
-            } else if (mom > 0){
-                momCell.textContent = `+${mom}%`; 
-                momCell.style.backgroundColor = '#e6f4ea'; 
-                momCell.style.color = '#28a745';
-                momCell.textContent += ' ↑';
-            } else if ( mom < 0 ){
-                momCell.textContent = `${mom}%`;
-                momCell.style.backgroundColor = '#f8d7da'; 
-                momCell.style.color = '#dc3545'; 
-                momCell.textContent += ' ↓';
-            }else if ( mom == '+' ) {
-                momCell.textContent = `+`; 
-                momCell.style.backgroundColor = '#e6f4ea'; 
-                momCell.style.color = '#28a745';    
-            }else if (mom == '-') {
-                momCell.textContent = '-100% ↓'; 
-                momCell.style.backgroundColor = '#f8d7da'; 
-                momCell.style.color = '#dc3545';
-            }else {
-                momCell.textContent = mom; 
-            }          
-            row.appendChild(momCell);
-        });
-
-        dTable.querySelector('tbody').appendChild(row);
-    }
-    //点击按钮隐藏列
-    function toggleDirects(showClass, hideClass, showBoth = false) {
-        const showColumns = document.querySelectorAll(`.${showClass}`);
-        const hideColumns = document.querySelectorAll(`.${hideClass}`);
-
-        showColumns.forEach(col => {
-            col.style.display = showBoth ? 'table-cell' : 'table-cell';
-        });
-
-        hideColumns.forEach(col => {
-            col.style.display = showBoth ? 'table-cell' : 'none';
-        });
-        if (!showBoth){
-            updateDirectHeader(1);
-        }else{
-            updateDirectHeader(2);
         }
-        
-    }
-    //隐藏列时，表头的改变
-    function updateDirectHeader(colSpan) {
-        const headerCells = document.querySelectorAll('#dheaderRow th');
-        headerCells.forEach((cell, index) => {
-            if (index === 0) return; // 跳过第一列客户名
+    });
 
-            if (colSpan === 1) {
-                cell.colSpan = 1; // 恢复为单列
-                cell.style.width = '160px'; // 设置列宽
-                cell.style.display = 'table-cell'; 
-            } else if (colSpan === 2) {
-                cell.colSpan = 2; 
+    // 饼图——月份分类
+    const monthCtx = document.getElementById('monthPieChart').getContext('2d');
+    new Chart(monthCtx, {
+        type: 'pie',
+        data: {
+            labels: {{ month_labels|safe }},  // 月份
+            datasets: [{
+                data: {{ month_data|safe }},  // 月份订单量
+                backgroundColor: [
+                    '#5470C6', '#91CC75', '#FAC858', '#EE6666', '#73C0DE',
+                    '#3BA272', '#FC8452', '#9A60B4', '#EA7CCC'
+                ],  // 饼图颜色
+            }]
+        },
+        options: {
+            plugins: {
+                datalabels: {
+                    color: '#FFF',  // 数据标签颜色
+                    font: {
+                        weight: 'bold',
+                        size: 14
+                    }
+                },
+                legend: {
+                    position: 'right',  // 图例位置
+                    labels: {
+                        font: {
+                            size: 12
+                        }
+                    }
+                }
             }
-        });
-        
-    }
+        }
+    });
+
+    //折线图
+    const lineChartData = JSON.parse('{{ line_chart_data|safe }}');
+    const lineCtx = document.getElementById('lineChart').getContext('2d');
+    new Chart(lineCtx, {
+        type: 'line',
+        data: lineChartData,
+        options: {
+            responsive: true,
+            maintainAspectRatio: false,
+            plugins: {
+                title: {
+                    display: true,
+                    text: '各客户订单量趋势',  // 图表标题
+                    font: {
+                        size: 16
+                    }
+                },
+                legend: {
+                    position: 'right',  // 图例位置
+                    labels: {
+                        usePointStyle: true,
+                        pointStyle: 'line',
+                        boxWidth: 20,  // 调整方块宽度
+                        padding: 10,   // 调整间距
+                        font: {
+                            size: 12
+                        }
+                    }
+                },
+                datalabels: {
+                    display: false  // 不显示数据标签
+                }
+            },
+            scales: {
+                x: {
+                    title: {
+                        display: true,
+                        text: '月份',  // 横轴标题
+                        font: {
+                            size: 14
+                        }
+                    }
+                },
+                y: {
+                    title: {
+                        display: true,
+                        text: '订单量',  // 纵轴标题
+                        font: {
+                            size: 14
+                        }
+                    },
+                    beginAtZero: true  // 纵轴从 0 开始
+                }
+            }
+        }
+    });
 </script>
 {% endblock %}
 

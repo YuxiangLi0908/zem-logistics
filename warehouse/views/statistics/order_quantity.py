@@ -13,7 +13,10 @@ from django.views import View
 
 from warehouse.models.customer import Customer
 from warehouse.models.order import Order
+from collections import defaultdict
 
+import json
+import random
 
 class OrderQuantity(View):
     template_shipment = "statistics/order_quantity.html"
@@ -73,144 +76,134 @@ class OrderQuantity(View):
         customer_id = request.POST.get("customer")
 
         warehouse = request.POST.get("warehouse")
-
-        criteria = Q(Q(created_at__gte=start_date), Q(created_at__lte=end_date))
+        order_type = request.POST.get("order_type")
+        if order_type == "直送":
+            criteria = Q(Q(created_at__gte=start_date), Q(created_at__lte=end_date), Q(order_type=order_type))
+        else:
+            criteria = Q(Q(created_at__gte=start_date), Q(created_at__lte=end_date), ~Q(order_type="直送"))
         if customer_id and customer_id.lower() != "none":
             customer = await sync_to_async(Customer.objects.get)(id=customer_id)
             criteria &= Q(customer_name__zem_name=customer)
         if warehouse:
             criteria = Q(warehouse__name=warehouse)
-        # 直送和转运的柱状图
-        transfer_labels, transfer_legend, transfer_orders = (
-            await self._transfer_bar_chart(criteria)
-        )
-
-        direct_labels, direct_legend, direct_orders = await self._direct_bar_chart(
+        #柱状图
+        labels, legend, orders = await self._get_bar_chart(
             criteria
         )
-        # 表格
-        transfer_table = await self._transfer_table_chart(criteria, transfer_labels)
-        direct_table = await self._direct_table_chart(criteria, direct_labels)
-
+        #表格
+        table = await self._get_table_chart(criteria, labels)  
+        #饼图
+        customer_labels,customer_data,month_labels,month_data = await self._get_pie_chart(criteria) 
+        #折线图
+        line_chart_data = await self._get_line_chart(criteria)
         context = {
             "warehouse_options": self.warehouse_options,
             "customers": customers,
             "customer": customer_id,
-            "warehouse": warehouse,
-            "transfer_labels": transfer_labels,
-            "transfer_orders": transfer_orders,
-            "direct_labels": direct_labels,
-            "direct_orders": direct_orders,
             "start_date": start_date,
             "end_date": end_date,
+            "order_type":order_type,
             "warehouse": warehouse,
-            "transfer_legend": transfer_legend,
-            "direct_legend": direct_legend,
-            "transfer_table": transfer_table,
-            "direct_table": direct_table,
+            "labels": labels,
+            "orders": orders,
+            "legend": legend,
+            "table":table,
+            "customer_labels": customer_labels,
+            "customer_data": customer_data,
+            "month_labels": month_labels,
+            "month_data": month_data,
+            "line_chart_data": line_chart_data
         }
 
         return self.template_shipment, context
 
-    async def _transfer_bar_chart(self, criteria) -> list:
-        transfers = await sync_to_async(list)(
-            Order.objects.select_related("customer_name", "warehouse")
-            .filter(criteria)
-            .filter(~Q(order_type="直送"))
-            .annotate(month=TruncMonth("created_at"))  # 将 created_at 截断到月份
-            .values("month")
-            .annotate(count=Count("id"))
-            .order_by("month")
-        )
-
-        transfer_labels = [order["month"].strftime("%Y年%m月") for order in transfers]
-        transfer_legend = [
-            int((transfer_labels[0][5:7]).lstrip("0")),
-            int((transfer_labels[-1][5:7]).lstrip("0")),
-        ]
-        transfer_orders = [order["count"] for order in transfers]
-        return transfer_labels, transfer_legend, transfer_orders
-
-    async def _transfer_table_chart(self, criteria, transfer_labels) -> list:
+    async def _get_line_chart(self, criteria) -> list:
         orders = await sync_to_async(list)(
-            Order.objects.select_related("customer_name", "warehouse")
+            Order.objects.select_related("customer_name", "warehouse","container_number__container_number")
             .filter(criteria)
-            .filter(~Q(order_type="直送"))
             .annotate(month=TruncMonth("created_at"))  # 将 created_at 截断到月份
-            .values("customer_name__zem_name", "month")
+            .values("customer_name__zem_name", "month","container_number")
             .annotate(count=Count("id"))
             .order_by("customer_name__zem_name", "month")
         )
-        t_orders = {}
-        for item in orders:
-            customer_name = item["customer_name__zem_name"]
-            month_str = item["month"].strftime("%Y年%m月")
-            count = item["count"]
-            if customer_name not in t_orders:
-                t_orders[customer_name] = {}
-            t_orders[customer_name][month_str] = count
-        # 填充缺失的月份
-        for customer_name, data in t_orders.items():
-            for month in transfer_labels:
-                if month not in data:
-                    data[month] = 0
+        customer_month_orders = defaultdict(lambda: defaultdict(int))
+        for order in orders:
+            customer = order["customer_name__zem_name"]
+            month = order["month"].strftime("%Y年%m月")  # 格式化月份
+            customer_month_orders[customer][month] += order["count"]
 
-        for k, v in t_orders.items():
-            max_value = max(v.values(), default=0)  # 每个客户的订单量最大值
-            previous_value = None
-            for month, current_value in sorted(v.items()):
-                if previous_value is not None:  # 非首列
-                    if previous_value == current_value:
-                        growth_percentage = 0
-                    else:
-                        if previous_value == 0:
-                            if current_value > 0:
-                                growth_percentage = "+"
-                            else:
-                                growth_percentage = "异常"
-                        else:
-                            if current_value == 0:
-                                growth_percentage = "-"
-                            else:
-                                growth_percentage = (
-                                    (current_value - previous_value)
-                                    / previous_value
-                                    * 100
-                                )
-                    is_max = 1 if current_value == max_value else 0
-                    t_orders[k][month] = [current_value, growth_percentage, is_max]
-                    previous_value = current_value
-                else:
-                    is_max = 1 if current_value == max_value else 0
-                    t_orders[k][month] = [current_value, 0, is_max]
-                    previous_value = current_value
-        return t_orders
+        # 获取所有月份
+        all_months = sorted(set(month for customer in customer_month_orders for month in customer_month_orders[customer]))
 
-    async def _direct_bar_chart(self, criteria) -> list:
-        directs = await sync_to_async(list)(
-            Order.objects.select_related("customer_name", "warehouse")
+        # 构建折线图数据
+        line_chart_data = {
+            "labels": all_months,  # 横轴：所有月份
+            "datasets": []
+        }
+
+        # 为每个客户生成一条线
+        for i, (customer, month_orders) in enumerate(customer_month_orders.items()):
+            data = [month_orders.get(month, 0) for month in all_months]  # 每个月份的订单量
+            line_chart_data["datasets"].append({
+                "label": customer,  # 客户名称
+                "data": data,  # 订单量数据
+                "borderColor": f"#{random.randint(0, 0xFFFFFF):06x}",  # 线条颜色
+                "fill": False  # 不填充区域
+            })
+
+        line_chart_data_json = json.dumps(line_chart_data)
+        return line_chart_data_json
+    
+    async def _get_pie_chart(self, criteria) -> list:
+        orders = await sync_to_async(list)(
+            Order.objects.select_related("customer_name", "warehouse","container_number__container_number")
             .filter(criteria)
-            .filter(Q(order_type="直送"))
+            .annotate(month=TruncMonth("created_at"))  # 将 created_at 截断到月份
+            .values("customer_name__zem_name", "month","container_number")
+            .annotate(count=Count("id"))
+            .order_by("customer_name__zem_name", "month")
+        )
+        #以客户为分类处理订单
+        customer_orders = defaultdict(int)
+        for order in orders:
+            customer_orders[order["customer_name__zem_name"]] += order["count"]
+        customer_labels = list(customer_orders.keys())
+        customer_data = list(customer_orders.values())
+
+        #以月份为分类处理订单
+        month_orders = defaultdict(int)
+        for order in orders:
+            month_key = order["month"].strftime("%Y年%m月") 
+            month_orders[month_key] += order["count"]
+        month_labels = list(month_orders.keys())
+        month_data = list(month_orders.values())
+        return [customer_labels,customer_data,month_labels,month_data]
+    
+    async def _get_bar_chart(self, criteria) -> list:
+        order_list = await sync_to_async(list)(
+            Order.objects.select_related("customer_name", "warehouse","container_number")
+            .filter(criteria)
             .annotate(month=TruncMonth("created_at"))  # 将 created_at 截断到月份
             .values("month")
             .annotate(count=Count("id"))
             .order_by("month")
         )
-        direct_labels = [order["month"].strftime("%Y年%m月") for order in directs]
-        direct_legend = [
-            int((direct_labels[0][5:7]).lstrip("0")),
-            int((direct_labels[-1][5:7]).lstrip("0")),
+        labels = [order["month"].strftime("%Y年%m月") for order in order_list]
+        if not labels:
+            return None,None,None
+        legend = [
+            int((labels[0][5:7]).lstrip("0")),
+            int((labels[-1][5:7]).lstrip("0")),
         ]
-        direct_orders = [order["count"] for order in directs]
-        return direct_labels, direct_legend, direct_orders
+        orders = [order["count"] for order in order_list]
+        return labels, legend, orders
 
-    async def _direct_table_chart(self, criteria, direct_labels) -> list:
+    async def _get_table_chart(self, criteria, direct_labels) -> list:
         orders = await sync_to_async(list)(
-            Order.objects.select_related("customer_name", "warehouse")
+            Order.objects.select_related("customer_name", "warehouse","container_number__container_number")
             .filter(criteria)
-            .filter(Q(order_type="直送"))
             .annotate(month=TruncMonth("created_at"))  # 将 created_at 截断到月份
-            .values("customer_name__zem_name", "month")
+            .values("customer_name__zem_name", "month","container_number")
             .annotate(count=Count("id"))
             .order_by("customer_name__zem_name", "month")
         )

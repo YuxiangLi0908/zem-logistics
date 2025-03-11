@@ -1257,6 +1257,7 @@ class FleetManagement(View):
         barcode_base64 = base64.b64encode(new_buffer.getvalue()).decode("utf-8")
         data = [
             {
+                "warehouse": request.POST.get("warehouse"),
                 "arm_pro": arm_pro,
                 "barcode": barcode_base64,
                 "carrier": carrier,

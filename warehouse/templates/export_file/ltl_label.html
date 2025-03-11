@@ -48,7 +48,13 @@
             <tr>
                 <td> 
                     <b class="larger-text">SHIPPER</b>
-                    <br>ZEM RINCON<br>1001 Trade Center Pkwy<br>Rincon,GA,31326<br>ken &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;929-329-4323<br>delivery@zemlogistics.com
+                    {% if "SAV-31326" == warehouse %}
+                    ZEM RINCON<br>1001 Trade Center Pkwy<br>Rincon,GA,31326<br>ken &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;929-329-4323<br>delivery@zemlogistics.com
+                    {% elif "LA-91761" == warehouse %}
+                    ZEM RINCON<br>5450E Francis St Ontario<br>CA,91761,United States<br>Eric &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;6265507790<br>delivery@zemlogistics.com
+                    {% else %}
+                    <br><br><br><br>
+                    {% endif %}                
                 </td>
                 <td class="right-align-td"><b style="font-size:40px;">{{ d.fraction }}</b></td>
                 <td>
