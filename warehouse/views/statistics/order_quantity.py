@@ -74,7 +74,6 @@ class OrderQuantity(View):
         customers["----"] = None
         customers = {"----": None, **customers}
         customer_idlist = request.POST.getlist("customer")
-        print(customer_idlist)
         warehouse = request.POST.get("warehouse")
         order_type = request.POST.get("order_type")
         if order_type == "直送":
@@ -83,11 +82,9 @@ class OrderQuantity(View):
             criteria = Q(Q(created_at__gte=start_date), Q(created_at__lte=end_date), ~Q(order_type="直送"))
         if customer_idlist:
             customer = await sync_to_async(list)(Customer.objects.filter(id__in=customer_idlist))
-            print(customer)
             criteria &= Q(customer_name__zem_name__in=customer)
         if warehouse:
             criteria &= Q(warehouse__name=warehouse)
-        print(criteria)
         #柱状图
         labels, legend, orders = await self._get_bar_chart(
             criteria
