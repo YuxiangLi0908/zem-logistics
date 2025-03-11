@@ -85,11 +85,12 @@ class OrderQuantity(View):
             customer = await sync_to_async(Customer.objects.get)(id=customer_id)
             criteria &= Q(customer_name__zem_name=customer)
         if warehouse:
-            criteria = Q(warehouse__name=warehouse)
+            criteria &= Q(warehouse__name=warehouse)
         #柱状图
         labels, legend, orders = await self._get_bar_chart(
             criteria
         )
+        print(criteria)
         #表格
         table = await self._get_table_chart(criteria, labels)  
         #饼图
