@@ -73,24 +73,22 @@ class OrderQuantity(View):
         customers = {c.zem_name: c.id for c in customers}
         customers["----"] = None
         customers = {"----": None, **customers}
-        customer_id = request.POST.get("customer")
-
+        customer_idlist = request.POST.getlist("customer")
         warehouse = request.POST.get("warehouse")
         order_type = request.POST.get("order_type")
         if order_type == "直送":
             criteria = Q(Q(created_at__gte=start_date), Q(created_at__lte=end_date), Q(order_type=order_type))
         else:
             criteria = Q(Q(created_at__gte=start_date), Q(created_at__lte=end_date), ~Q(order_type="直送"))
-        if customer_id and customer_id.lower() != "none":
-            customer = await sync_to_async(Customer.objects.get)(id=customer_id)
-            criteria &= Q(customer_name__zem_name=customer)
+        if customer_idlist:
+            customer = await sync_to_async(list)(Customer.objects.filter(id__in=customer_idlist))
+            criteria &= Q(customer_name__zem_name__in=customer)
         if warehouse:
             criteria &= Q(warehouse__name=warehouse)
         #柱状图
         labels, legend, orders = await self._get_bar_chart(
             criteria
         )
-        print(criteria)
         #表格
         table = await self._get_table_chart(criteria, labels)  
         #饼图
@@ -100,7 +98,7 @@ class OrderQuantity(View):
         context = {
             "warehouse_options": self.warehouse_options,
             "customers": customers,
-            "customer": customer_id,
+            "customer": customer_idlist,
             "start_date": start_date,
             "end_date": end_date,
             "order_type":order_type,
