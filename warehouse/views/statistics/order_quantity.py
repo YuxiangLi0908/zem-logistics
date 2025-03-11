@@ -143,12 +143,12 @@ class OrderQuantity(View):
 
         # 为每个客户生成一条线
         for i, (customer, month_orders) in enumerate(customer_month_orders.items()):
-            data = [month_orders.get(month, 0) for month in all_months]  # 每个月份的订单量
+            data = [month_orders.get(month, 0) for month in all_months]  
             line_chart_data["datasets"].append({
-                "label": customer,  # 客户名称
-                "data": data,  # 订单量数据
-                "borderColor": f"#{random.randint(0, 0xFFFFFF):06x}",  # 线条颜色
-                "fill": False  # 不填充区域
+                "label": customer,  
+                "data": data,  
+                "borderColor": f"#{random.randint(0, 0xFFFFFF):06x}", 
+                "fill": False  
             })
 
         line_chart_data_json = json.dumps(line_chart_data)

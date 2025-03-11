@@ -141,21 +141,21 @@
                     }
                 },
                 datalabels: {
-                    anchor: 'end',  // 标签位置在柱子顶部
-                    align: 'top',   // 标签对齐方式
-                    color: '#FF',  // 标签颜色
-                    font: {weight: 'bold',size:15}  // 字体加粗
+                    anchor: 'end',  
+                    align: 'top',   
+                    color: '#FF',  
+                    font: {weight: 'bold',size:15}  
                 },
                 legend:{
                     display:true,
                     position:'right',
                     labels: {
-                        usePointStyle: true, // 使用方块样式
-                        pointStyle: 'rect', // 指定方块形状
-                        padding: 20,        // 标签间距
+                        usePointStyle: true, 
+                        pointStyle: 'rect', 
+                        padding: 20,        
                         generateLabels: function(chart) {
                             return [{
-                                text: '汇总', // 强制覆盖标签文字
+                                text: '汇总', 
                                 fillStyle: '#5470C6'
                             }];
                         }
@@ -281,26 +281,26 @@
     new Chart(customerCtx, {
         type: 'pie',
         data: {
-            labels: {{ customer_labels|safe }},  // 客户名称
+            labels: {{ customer_labels|safe }},  
             datasets: [{
-                data: {{ customer_data|safe }},  // 客户订单量
+                data: {{ customer_data|safe }},  
                 backgroundColor: [
                     '#5470C6', '#91CC75', '#FAC858', '#EE6666', '#73C0DE',
                     '#3BA272', '#FC8452', '#9A60B4', '#EA7CCC'
-                ],  // 饼图颜色
+                ],  
             }]
         },
         options: {
             plugins: {
                 datalabels: {
-                    color: '#FFF',  // 数据标签颜色
+                    color: '#FFF',  
                     font: {
                         weight: 'bold',
                         size: 14
                     }
                 },
                 legend: {
-                    position: 'right',  // 图例位置
+                    position: 'right',  
                     labels: {
                         font: {
                             size: 12
@@ -316,26 +316,26 @@
     new Chart(monthCtx, {
         type: 'pie',
         data: {
-            labels: {{ month_labels|safe }},  // 月份
+            labels: {{ month_labels|safe }},  
             datasets: [{
-                data: {{ month_data|safe }},  // 月份订单量
+                data: {{ month_data|safe }},  
                 backgroundColor: [
                     '#5470C6', '#91CC75', '#FAC858', '#EE6666', '#73C0DE',
                     '#3BA272', '#FC8452', '#9A60B4', '#EA7CCC'
-                ],  // 饼图颜色
+                ],  
             }]
         },
         options: {
             plugins: {
                 datalabels: {
-                    color: '#FFF',  // 数据标签颜色
+                    color: '#FFF',  
                     font: {
                         weight: 'bold',
                         size: 14
                     }
                 },
                 legend: {
-                    position: 'right',  // 图例位置
+                    position: 'right', 
                     labels: {
                         font: {
                             size: 12
@@ -358,32 +358,32 @@
             plugins: {
                 title: {
                     display: true,
-                    text: '各客户订单量趋势',  // 图表标题
+                    text: '各客户订单量趋势',  
                     font: {
                         size: 16
                     }
                 },
                 legend: {
-                    position: 'right',  // 图例位置
+                    position: 'right',  
                     labels: {
                         usePointStyle: true,
                         pointStyle: 'line',
-                        boxWidth: 20,  // 调整方块宽度
-                        padding: 10,   // 调整间距
+                        boxWidth: 20, 
+                        padding: 10,   
                         font: {
                             size: 12
                         }
                     }
                 },
                 datalabels: {
-                    display: false  // 不显示数据标签
+                    display: false  
                 }
             },
             scales: {
                 x: {
                     title: {
                         display: true,
-                        text: '月份',  // 横轴标题
+                        text: '月份',  
                         font: {
                             size: 14
                         }
@@ -392,12 +392,12 @@
                 y: {
                     title: {
                         display: true,
-                        text: '订单量',  // 纵轴标题
+                        text: '订单量',  
                         font: {
                             size: 14
                         }
                     },
-                    beginAtZero: true  // 纵轴从 0 开始
+                    beginAtZero: true 
                 }
             }
         }
