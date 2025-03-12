@@ -74,14 +74,12 @@ class OrderQuantity(View):
             criteria = Q(Q(created_at__gte=start_date), Q(created_at__lte=end_date), Q(order_type=order_type))
         else:
             criteria = Q(Q(created_at__gte=start_date), Q(created_at__lte=end_date), ~Q(order_type="直送"))
+            if warehouse_list:
+                criteria &= Q(retrieval_id__retrieval_destination_area__in=warehouse_list)
         if customer_idlist:
             customer_list = await sync_to_async(list)(Customer.objects.filter(id__in=customer_idlist).values("zem_name"))
-            customer_name = [item['zem_name'] for item in customer_list]
-            print(customer_name)
-            criteria &= Q(customer_name__zem_name__in=customer_name)
-        if warehouse_list:
-            criteria &= Q(retrieval_id__retrieval_destination_area__in=warehouse_list)
-        
+            customer_idlist = [item['zem_name'] for item in customer_list]
+            criteria &= Q(customer_name__zem_name__in=customer_idlist)
         print(criteria)
         #柱状图
         labels, legend, orders = await self._get_bar_chart(
@@ -96,7 +94,7 @@ class OrderQuantity(View):
         context = {
             "area_options": self.area_options,
             "customers": customers,
-            "customer_list": customer_name,
+            "customer_list": customer_idlist,
             "start_date": start_date,
             "end_date": end_date,
             "order_type":order_type,
