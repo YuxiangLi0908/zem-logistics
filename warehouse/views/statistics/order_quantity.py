@@ -21,13 +21,6 @@ import random
 class OrderQuantity(View):
     template_shipment = "statistics/order_quantity.html"
     area_options = {"NJ": "NJ", "SAV": "SAV", "LA": "LA"}
-    warehouse_options = {
-        "": "",
-        "NJ-07001": "NJ-07001",
-        "NJ-08817": "NJ-08817",
-        "SAV-31326": "SAV-31326",
-        "LA-91761": "LA-91761",
-    }
 
     async def get(self, request: HttpRequest, **kwargs) -> HttpResponse:
         if not await self._validate_user_group(request.user):
@@ -38,7 +31,7 @@ class OrderQuantity(View):
         customers = {c.zem_name: c.id for c in customers}
         customers["----"] = None
         customers = {"----": None, **customers}
-        context = {"warehouse_options": self.warehouse_options, "customers": customers}
+        context = {"area_options": self.area_options, "customers": customers}
         return await sync_to_async(render)(request, self.template_shipment, context)
 
     async def post(self, request: HttpRequest) -> HttpResponse:
@@ -74,17 +67,22 @@ class OrderQuantity(View):
         customers["----"] = None
         customers = {"----": None, **customers}
         customer_idlist = request.POST.getlist("customer")
-        warehouse = request.POST.get("warehouse")
+        warehouse_list = request.POST.getlist("warehouse")
+        
         order_type = request.POST.get("order_type")
         if order_type == "直送":
             criteria = Q(Q(created_at__gte=start_date), Q(created_at__lte=end_date), Q(order_type=order_type))
         else:
             criteria = Q(Q(created_at__gte=start_date), Q(created_at__lte=end_date), ~Q(order_type="直送"))
         if customer_idlist:
-            customer = await sync_to_async(list)(Customer.objects.filter(id__in=customer_idlist))
-            criteria &= Q(customer_name__zem_name__in=customer)
-        if warehouse:
-            criteria &= Q(warehouse__name=warehouse)
+            customer_list = await sync_to_async(list)(Customer.objects.filter(id__in=customer_idlist).values("zem_name"))
+            customer_name = [item['zem_name'] for item in customer_list]
+            print(customer_name)
+            criteria &= Q(customer_name__zem_name__in=customer_name)
+        if warehouse_list:
+            criteria &= Q(retrieval_id__retrieval_destination_area__in=warehouse_list)
+        
+        print(criteria)
         #柱状图
         labels, legend, orders = await self._get_bar_chart(
             criteria
@@ -96,13 +94,13 @@ class OrderQuantity(View):
         #折线图
         line_chart_data = await self._get_line_chart(criteria)
         context = {
-            "warehouse_options": self.warehouse_options,
+            "area_options": self.area_options,
             "customers": customers,
-            "customer": customer_idlist,
+            "customer_list": customer_name,
             "start_date": start_date,
             "end_date": end_date,
             "order_type":order_type,
-            "warehouse": warehouse,
+            "warehouse_list": warehouse_list,
             "labels": labels,
             "orders": orders,
             "legend": legend,
@@ -118,7 +116,7 @@ class OrderQuantity(View):
 
     async def _get_line_chart(self, criteria) -> list:
         orders = await sync_to_async(list)(
-            Order.objects.select_related("customer_name", "warehouse")
+            Order.objects.select_related("customer_name", "warehouse","retrieval_id")
             .filter(criteria)
             .annotate(month=TruncMonth("created_at"))  # 将 created_at 截断到月份
             .values("customer_name__zem_name", "month")
@@ -155,7 +153,7 @@ class OrderQuantity(View):
     
     async def _get_pie_chart(self, criteria) -> list:
         orders = await sync_to_async(list)(
-            Order.objects.select_related("customer_name", "warehouse")
+            Order.objects.select_related("customer_name", "warehouse","retrieval_id")
             .filter(criteria)
             .annotate(month=TruncMonth("created_at"))  # 将 created_at 截断到月份
             .values("customer_name__zem_name", "month")
@@ -180,7 +178,7 @@ class OrderQuantity(View):
     
     async def _get_bar_chart(self, criteria) -> list:
         order_list = await sync_to_async(list)(
-            Order.objects.select_related("customer_name", "warehouse","container_number")
+            Order.objects.select_related("customer_name", "warehouse","retrieval_id")
             .filter(criteria)
             .annotate(month=TruncMonth("created_at"))  # 将 created_at 截断到月份
             .values("month")
@@ -199,7 +197,7 @@ class OrderQuantity(View):
 
     async def _get_table_chart(self, criteria, direct_labels) -> list:
         orders = await sync_to_async(list)(
-            Order.objects.select_related("customer_name", "warehouse")
+            Order.objects.select_related("customer_name", "warehouse","retrieval_id")
             .filter(criteria)
             .annotate(month=TruncMonth("created_at"))  # 将 created_at 截断到月份
             .values("customer_name__zem_name", "month")
