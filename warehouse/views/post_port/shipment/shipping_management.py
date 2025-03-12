@@ -1207,6 +1207,7 @@ class ShippingManagement(View):
                 }
                 for s in unused_appointment
             }
+            print(packing_list_selected)
             context.update(
                 {
                     "batch_id": batch_id,
@@ -1888,6 +1889,13 @@ class ShippingManagement(View):
                         "origin": shipment.origin,
                     }
                 )
+                if shipment_type == "客户自提":
+                    shipment.is_shipped = True
+                    shipment.shipped_at = shipment_appointment
+                    shipment.is_arrived = True
+                    shipment.arrived_at = shipment_appointment
+                    fleet.departured_at = shipment_appointment
+                    fleet.arrived_at = shipment_appointment
                 await sync_to_async(fleet.save)()
                 if shipment.fleet_number:
                     await sync_to_async(shipment.fleet_number.delete)()
@@ -2424,6 +2432,7 @@ class ShippingManagement(View):
                     "container_number__order__vessel_id__vessel_eta",
                     "sequence_number",
                     "PO_ID",
+                    "note",
                     target_retrieval_timestamp=F(
                         "container_number__order__retrieval_id__target_retrieval_timestamp"
                     ),
@@ -2519,6 +2528,7 @@ class ShippingManagement(View):
                     "schedule_status",
                     "container_number__order__vessel_id__vessel_eta",
                     "PO_ID",
+                    "note",
                     target_retrieval_timestamp=F(
                         "container_number__order__retrieval_id__target_retrieval_timestamp"
                     ),
