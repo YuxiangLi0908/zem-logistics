@@ -843,7 +843,7 @@ class Palletization(View):
                 destination = f"{row[4].strip()}"
                 shipping_marks = row[2].strip()
                 if "客户自提" in destination or "自提" in destination:
-                    destination = "Self_PickUp"
+                    destination = "S/P"
                     marks = row[2].strip()
                     if marks:
                         array = marks.split(",")
@@ -858,9 +858,9 @@ class Palletization(View):
                         else:
                             new_marks = shipping_marks + str("TTT") + str(1)
                 else:
-                    destination = destination.replace("Walmart", "WM")
-                    destination = destination.replace("沃尔玛", "WM")
-                    destination = destination.replace("WALMART", "WM")
+                    destination = destination.replace("Walmart", "WMT-")
+                    destination = destination.replace("沃尔玛", "WMT-")
+                    destination = destination.replace("WALMART", "WMT-")
                     new_marks = None
                 for num in range(int(row[6])):
                     num += 1
@@ -925,7 +925,7 @@ class Palletization(View):
                 if "客户自提" in pl.get("destination") or "自提" in pl.get(
                     "destination"
                 ):
-                    destination = "Self_PickUp"
+                    destination = "S/P"
                     marks = pl.get("shipping_marks")
                     if marks:
                         array = marks.split(",")
@@ -940,7 +940,10 @@ class Palletization(View):
                         else:
                             new_marks = pl.get("shipping_marks") + str("TTT") + str(1)
                 else:
-                    destination = pl.get("destination").replace("沃尔玛", "WM-")
+                    destination = pl.get("destination").replace("沃尔玛", "WMT-")
+                    destination = destination.replace("Walmart", "WMT-")
+                    destination = destination.replace("沃尔玛", "WMT-")
+                    destination = destination.replace("WALMART", "WMT-")
                     new_marks = None
                 if "暂扣留仓" in pl.get("custom_delivery_method").split("-")[0]:
                     fba_ids = pl.get("fba_ids")
