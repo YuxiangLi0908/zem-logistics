@@ -18,6 +18,13 @@
                 <b style="margin-right: 5px;">结束年月:</b>
                 <input type="date" name="end_date" value="{{ end_date }}" style="margin-right: 5px;">
             </div>
+            <div>
+                <b style="margin-right: 5px;">订单类型:</b>
+                <select name="order_type">
+                    <option value="转运" {% if order_type == "转运" %}selected{% endif %}>转运</option>
+                    <option value="直送" {% if order_type == "直送" %}selected{% endif %}>直送</option>
+                </select>
+            </div>
             <b style="margin-right: 5px;">仓库:</b>
             <div>
                 <div id="warehouseList" style="display: inline-block; border: 1px solid #ccc; padding: 5px; max-height: 150px; overflow-y: auto; width: 200px;">
@@ -30,13 +37,7 @@
                     {% endfor %}
                 </div>
             </div>
-            <div>
-                <b style="margin-right: 5px;">订单类型:</b>
-                <select name="order_type">
-                    <option value="转运" {% if order_type == "转运" %}selected{% endif %}>转运</option>
-                    <option value="直送" {% if order_type == "直送" %}selected{% endif %}>直送</option>
-                </select>
-            </div>
+            
             <b style="font-size: 13px;">客户</b>
             <div>              
                 <div id="customerList" style="display: inline-block; border: 1px solid #ccc; border-radius: 5px; background-color: #f9f9f9; padding: 5px; max-height: 150px; overflow-y: auto; width: 200px;">
