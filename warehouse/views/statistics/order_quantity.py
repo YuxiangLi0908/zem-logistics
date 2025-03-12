@@ -118,10 +118,10 @@ class OrderQuantity(View):
 
     async def _get_line_chart(self, criteria) -> list:
         orders = await sync_to_async(list)(
-            Order.objects.select_related("customer_name", "warehouse","container_number__container_number")
+            Order.objects.select_related("customer_name", "warehouse")
             .filter(criteria)
             .annotate(month=TruncMonth("created_at"))  # 将 created_at 截断到月份
-            .values("customer_name__zem_name", "month","container_number")
+            .values("customer_name__zem_name", "month")
             .annotate(count=Count("id"))
             .order_by("customer_name__zem_name", "month")
         )
@@ -155,10 +155,10 @@ class OrderQuantity(View):
     
     async def _get_pie_chart(self, criteria) -> list:
         orders = await sync_to_async(list)(
-            Order.objects.select_related("customer_name", "warehouse","container_number__container_number")
+            Order.objects.select_related("customer_name", "warehouse")
             .filter(criteria)
             .annotate(month=TruncMonth("created_at"))  # 将 created_at 截断到月份
-            .values("customer_name__zem_name", "month","container_number")
+            .values("customer_name__zem_name", "month")
             .annotate(count=Count("id"))
             .order_by("customer_name__zem_name", "month")
         )
@@ -199,10 +199,10 @@ class OrderQuantity(View):
 
     async def _get_table_chart(self, criteria, direct_labels) -> list:
         orders = await sync_to_async(list)(
-            Order.objects.select_related("customer_name", "warehouse","container_number__container_number")
+            Order.objects.select_related("customer_name", "warehouse")
             .filter(criteria)
             .annotate(month=TruncMonth("created_at"))  # 将 created_at 截断到月份
-            .values("customer_name__zem_name", "month","container_number")
+            .values("customer_name__zem_name", "month")
             .annotate(count=Count("id"))
             .order_by("customer_name__zem_name", "month")
         )
