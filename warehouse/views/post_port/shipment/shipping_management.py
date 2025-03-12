@@ -1047,7 +1047,6 @@ class ShippingManagement(View):
             if not end_date
             else end_date
         )
-        print('时间是',start_date,end_date)
         criteria_p = models.Q(
             (
                 models.Q(container_number__order__order_type="转运")
@@ -1274,7 +1273,7 @@ class ShippingManagement(View):
                     raise ValueError(
                         f"ISA {appointment_id} 登记的目的地是 {existed_appointment.destination} ，此次登记的目的地是 {request.POST.get('destination', None)}!"
                     )
-                else:
+                else: #没有特殊情况就更新约的信息
                     shipment = existed_appointment
                     shipment.shipment_batch_number = shipment_data[
                         "shipment_batch_number"
@@ -1332,6 +1331,11 @@ class ShippingManagement(View):
                         shipmentappointment = current_time
                 else:
                     shipmentappointment = request.POST.get("shipment_appointment", None)
+                    if shipment_type == "客户自提":  #客户自提的预约完要直接跳到POD上传,时间按预计提货时间
+                        shipment_data["is_shipped"] = True
+                        shipment_data["shipped_at"] = shipmentappointment                    
+                        shipment_data["is_arrived"] = True
+                        shipment_data["arrived_at"] = shipmentappointment
                 shipment_data["shipment_type"] = shipment_type
                 shipment_data["load_type"] = request.POST.get("load_type", None)
                 shipment_data["note"] = request.POST.get("note", "")
@@ -1370,6 +1374,9 @@ class ShippingManagement(View):
                             "origin": shipment_data["origin"],
                         }
                     )
+                    if shipment_type == "客户自提":
+                        fleet.departured_at = shipmentappointment
+                        fleet.arrived_at = shipmentappointment
                     await sync_to_async(fleet.save)()
                     shipment_data["fleet_number"] = fleet
                     # LTL的需要存ARM-BOL和ARM-PRO
