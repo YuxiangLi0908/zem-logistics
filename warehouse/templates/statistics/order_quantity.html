@@ -9,30 +9,50 @@
 <div style="display: flex;">
     <form method="post" action="" onsubmit="showLoadingBar()">
         {% csrf_token %}
-        <div>
-            <b style="margin-right: 5px;">开始年月:</b>
-            <input type="date" name="start_date" value="{{ start_date }}">
-            <b style="margin-right: 5px;">结束年月:</b>
-            <input type="date" name="end_date" value="{{ end_date }}" style="margin-right: 5px;">
+        <div style="display: flex; align-items: center; gap: 10px; flex-wrap: wrap;">
+            <div>
+                <b style="margin-right: 5px;">开始年月:</b>
+                <input type="date" name="start_date" value="{{ start_date }}">
+            </div>
+            <div>
+                <b style="margin-right: 5px;">结束年月:</b>
+                <input type="date" name="end_date" value="{{ end_date }}" style="margin-right: 5px;">
+            </div>
             <b style="margin-right: 5px;">仓库:</b>
-            <select name="warehouse">
-                {% for k, v in warehouse_options.items %}
-                <option value="{{ v }}" {% if k == warehouse %}selected{% endif %}>{{ k }}</option>
-                {% endfor %}
-            </select>
-            <b style="margin-right: 5px;">订单类型:</b>
-            <select name="order_type">
-                <option value="转运" {% if order_type == "转运" %}selected{% endif %}>转运</option>
-                <option value="直送" {% if order_type == "直送" %}selected{% endif %}>直送</option>
-            </select>
+            <div>
+                <div id="warehouseList" style="display: inline-block; border: 1px solid #ccc; padding: 5px; max-height: 150px; overflow-y: auto; width: 200px;">
+                    {% for k, v in area_options.items %}
+                    <label style="display: block; margin: 3px 0;">
+                        <input type="checkbox" name="warehouse" value="{{ v }}"
+                        {% if v in warehouse_list %}checked{% endif %} style="margin-right: 5px;">
+                        {{ k }}
+                    </label>
+                    {% endfor %}
+                </div>
+            </div>
+            <div>
+                <b style="margin-right: 5px;">订单类型:</b>
+                <select name="order_type">
+                    <option value="转运" {% if order_type == "转运" %}selected{% endif %}>转运</option>
+                    <option value="直送" {% if order_type == "直送" %}selected{% endif %}>直送</option>
+                </select>
+            </div>
             <b style="font-size: 13px;">客户</b>
-            <select name="customer" style="font-size: 13px;" id="customerSelect" multiple style="font-size: 13px; width: 200px;">
-                {% for k, v in customers.items %}
-                    <option value="{{ v }}">{{ k }}</option>
-                {% endfor %}
-            </select>
-            <input type="hidden" name="step" value="selection">
-            <button type="submit">确认</button>
+            <div>              
+                <div id="customerList" style="display: inline-block; border: 1px solid #ccc; border-radius: 5px; background-color: #f9f9f9; padding: 5px; max-height: 150px; overflow-y: auto; width: 200px;">
+                    {% for k, v in customers.items %}
+                    <label style="display: block; margin: 3px 0;">
+                        <input type="checkbox" name="customer" value="{{ v }}" 
+                           {% if k in customer_list %}checked{% endif %} style="margin-right: 5px;">
+                        {{ k }}
+                    </label>
+                    {% endfor %}
+                </div>
+            </div>
+            <div>
+                <input type="hidden" name="step" value="selection">
+                <button type="submit">确认</button>
+            </div>
         </div>
     </form>
 </div>
@@ -47,7 +67,6 @@
     
 {% endblock %}
 {% if orders %}
-<!--<h2 style="text-align: center; margin-top: 20px;">{{ order_type }}订单量统计表</h2>-->
 <div style="display: grid; grid-template-columns: 8fr 2fr; grid-template-rows: 1fr 1fr; gap: 20px; padding: 20px; background-color: #f9f9f9; height: 100vh;">
     <!-- 表格 -->
     <div style="grid-column: 1 / 2; grid-row: 1 / 2; background-color: #fff; padding: 20px; border-radius: 8px; box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1);">       
@@ -106,7 +125,27 @@
     </div>
 </div>
 {% endif %}
+
 <script>
+    // 获取所有客户复选框
+    const checkboxes = document.querySelectorAll('input[name="customer"]');
+    const selectedList = document.getElementById('selectedList');
+
+    // 监听复选框变化
+    checkboxes.forEach(checkbox => {
+        checkbox.addEventListener('change', updateSelectedCustomers);
+    });
+
+    // 更新已选客户列表
+    function updateSelectedCustomers() {
+        const selected = [];
+        checkboxes.forEach(checkbox => {
+            if (checkbox.checked) {
+                selected.push(checkbox.nextSibling.textContent.trim()); // 获取客户名称
+            }
+        });
+        selectedList.textContent = selected.length > 0 ? selected.join(', ') : '无';
+    }
     const { Chart, ChartDataLabels } = window;
     Chart.register(ChartDataLabels);
     //柱状图
