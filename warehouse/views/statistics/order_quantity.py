@@ -80,7 +80,6 @@ class OrderQuantity(View):
             customer_list = await sync_to_async(list)(Customer.objects.filter(id__in=customer_idlist).values("zem_name"))
             customer_idlist = [item['zem_name'] for item in customer_list]
             criteria &= Q(customer_name__zem_name__in=customer_idlist)
-        print(criteria)
         #柱状图
         labels, legend, orders = await self._get_bar_chart(
             criteria
