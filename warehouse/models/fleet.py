@@ -1,5 +1,8 @@
-from django.db import models
 from datetime import datetime, timedelta
+
+from django.db import models
+from simple_history.models import HistoricalRecords
+
 
 class Fleet(models.Model):
     fleet_number = models.CharField(max_length=255, null=True)
@@ -34,16 +37,17 @@ class Fleet(models.Model):
     cancelation_reason = models.CharField(max_length=2000, null=True, blank=True)
     status = models.CharField(max_length=20, null=True, blank=True)
     status_description = models.CharField(max_length=1000, null=True, blank=True)
+    history = HistoricalRecords()
 
     class Meta:
         indexes = [
-            models.Index(fields=['fleet_number']),
-            models.Index(fields=['fleet_zem_serial']),
+            models.Index(fields=["fleet_number"]),
+            models.Index(fields=["fleet_zem_serial"]),
         ]
 
     def __str__(self) -> str:
         return self.fleet_number
-    
+
     @property
     def departure_status(self) -> str:
         today = datetime.now().date()
@@ -53,7 +57,7 @@ class Fleet(models.Model):
             return "need_attention"
         else:
             return "on_time"
-        
+
     @property
     def arrival_status(self) -> str:
         today = datetime.now().date()

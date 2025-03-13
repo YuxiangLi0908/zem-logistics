@@ -1,7 +1,8 @@
 import os
-import yaml
-import pandas as pd
 from pathlib import Path
+import pandas as pd
+import yaml
+
 
 ORDER_TYPES = {
     "TD": "转运",
@@ -9,51 +10,76 @@ ORDER_TYPES = {
 }
 
 ORDER_TYPE_OPTIONS = [
-    ("", ""), ("转运", "转运"), ("直送", "直送"),
+    ("", ""),
+    ("转运", "转运"),
+    ("直送", "直送"),
 ]
 
 SHIPPING_LINE_OPTIONS = [
-    ('', ''),
-    ('CMA CGM', 'CMA CGM'),
-    ('COSCO', 'COSCO'),
-    ('Evergreen', 'Evergreen'),
-    ('Hapag-Lloyd', 'Hapag-Lloyd'),
-    ('Hyundai', 'Hyundai'),
-    ('MSC', 'MSC'),
-    ('Maersk', 'Maersk'),
-    ('ONE', 'ONE'),
-    ('OOCL', 'OOCL'),
-    ('Wan Hai Lines', 'Wan Hai Lines'),
-    ('Yangming', 'Yangming'),
-    ('Zim Line', 'Zim Line'),
-    ('HEDE', 'HEDE'),
-    ('SML', 'SML'),
-    ('SeaLead', 'SeaLead')
- ]
+    ("", ""),
+    ("CMA CGM", "CMA CGM"),
+    ("COSCO", "COSCO"),
+    ("Evergreen", "Evergreen"),
+    ("Hapag-Lloyd", "Hapag-Lloyd"),
+    ("Hyundai", "Hyundai"),
+    ("MSC", "MSC"),
+    ("Maersk", "Maersk"),
+    ("ONE", "ONE"),
+    ("OOCL", "OOCL"),
+    ("Wan Hai Lines", "Wan Hai Lines"),
+    ("Yangming", "Yangming"),
+    ("Zim Line", "Zim Line"),
+    ("HEDE", "HEDE"),
+    ("SML", "SML"),
+    ("SeaLead", "SeaLead"),
+    ("Matson", "Matson"),
+    ("TSL","TSL"),
+    
+]
 
 CONTAINER_PICKUP_CARRIER = [
-    ("", ""), ("东海岸", "东海岸"), ("kars", "kars"), ("大方广", "大方广"), ("Eric", "Eric"), 
-    ("客户自提", "客户自提"), 
+    ("", ""),
+    ("东海岸", "东海岸"),
+    ("kars", "kars"),
+    ("大方广", "大方广"),
+    ("Eric", "Eric"),
+    ("客户自提", "客户自提"),
 ]
 
 CLEARANCE_OPTIONS = [
-    ("", ""), ('代理清关', '代理清关'), ('自理清关', '自理清关'), ('N/A', 'N/A'),
+    ("", ""),
+    ("代理清关", "代理清关"),
+    ("自理清关", "自理清关"),
+    ("N/A", "N/A"),
 ]
 
 RETRIEVAL_OPTIONS = [
-    ("", ""), ('代理卡车', '代理卡车'), ('自理卡车', '自理卡车'),
+    ("", ""),
+    ("代理卡车", "代理卡车"),
+    ("自理卡车", "自理卡车"),
 ]
 
 CONTAINER_TYPE_OPTIONS = [
-    ("", ""), ('45HQ/GP', '45HQ/GP'), ('40HQ/GP', '40HQ/GP'),
-    ('20GP', '20GP'), ('53HQ', '53HQ'),
+    ("", ""),
+    ("45HQ/GP", "45HQ/GP"),
+    ("40HQ/GP", "40HQ/GP"),
+    ("20GP", "20GP"),
+    ("53HQ", "53HQ"),
 ]
 
 PORT_OPTIONS = [
-    ("", ""), ("N/A", "N/A"), ("LOS ANGELES", "LOS ANGELES"), ("NEW YORK, NY", "NEW YORK, NY"),
-    ("NINGBO", "NINGBO"), ("QINGDAO", "QINGDAO"), ("SAVANNAH, GA", "SAVANNAH, GA"),
-    ("TAMPA", "TAMPA"), ("XIAMEN", "XIAMEN"), ("YANTIAN", "YANTIAN"), ("SHANGHAI", "SHANGHAI"),
-    ("SHENZHEN", "SHENZHEN"), 
+    ("", ""),
+    ("N/A", "N/A"),
+    ("LOS ANGELES", "LOS ANGELES"),
+    ("NEW YORK, NY", "NEW YORK, NY"),
+    ("NINGBO", "NINGBO"),
+    ("QINGDAO", "QINGDAO"),
+    ("SAVANNAH, GA", "SAVANNAH, GA"),
+    ("TAMPA", "TAMPA"),
+    ("XIAMEN", "XIAMEN"),
+    ("YANTIAN", "YANTIAN"),
+    ("SHANGHAI", "SHANGHAI"),
+    ("SHENZHEN", "SHENZHEN"),
 ]
 
 DELIVERY_METHOD_OPTIONS = [
@@ -76,42 +102,54 @@ DELIVERY_METHOD_CODE = {
     "FEDEX": "FD",
     "DHL": "DH",
     "DPD": "DP",
-    "TNT": "TN"
+    "TNT": "TN",
 }
 
 WAREHOUSE_OPTIONS = [
-    ("", ""), ("NJ-07001", "NJ-07001"), ("NJ-08817", "NJ-08817"),
-    ("SAV-31326", "SAV-31326"), ("LA-91761", "LA-91761"),
-    ("N/A(直送)", "N/A(直送)"), ("Empty", "Empty"),
+    ("", ""),
+    ("NJ-07001", "NJ-07001"),
+    ("NJ-08817", "NJ-08817"),
+    ("SAV-31326", "SAV-31326"),
+    ("LA-91761", "LA-91761"),
+    ("N/A(直送)", "N/A(直送)"),
+    ("Empty", "Empty"),
 ]
 
 CARRIER_OPTIONS = [
-    ("UPS", "UPS"), ("FedEx", "FedEx"), ("ZEM", "ZEM"), ("客户自提", "客户自提")
+    ("UPS", "UPS"),
+    ("FedEx", "FedEx"),
+    ("ZEM", "ZEM"),
+    ("客户自提", "客户自提"),
 ]
 
 LOAD_TYPE_OPTIONS = [
-    ("卡板", "卡板"), ("地板", "地板"),
+    ("卡板", "卡板"),
+    ("地板", "地板"),
 ]
 
 QUOTE_PLATFORM_OPTIONS = [
-    ("无", "无"), ("ARM", "ARM"), ("Uber Freight", "Uber Freight"), ("Unishipper", "Unishipper"),
-    ("Coyote", "Coyote"), ("报价表", "报价表"), ("整柜直送", "整柜直送"),
+    ("无", "无"),
+    ("ARM", "ARM"),
+    ("Uber Freight", "Uber Freight"),
+    ("Unishipper", "Unishipper"),
+    ("Coyote", "Coyote"),
+    ("报价表", "报价表"),
+    ("整柜直送", "整柜直送"),
 ]
 
 PICKUP_FEE = {
-    ('LA', '20GP'): 1350.00,
-    ('LA', '40HQ/GP'): 1450.00,
-    ('LA', '45HQ/GP'): 1550.00,
-    ('NJ', '20GP'): 1350.00,
-    ('NJ', '40HQ/GP'): 1450.00,
-    ('NJ', '45HQ/GP'): 1550.00,
-    ('SAV', '20'): 1400.00,
-    ('SAV', '40HQ/GP'): 1500.00,
-    ('SAV', '45HQ/GP'): 1550.00,
-    ('ST LOUIS', '20GP'): 1400.00,
-    ('ST LOUIS', '40HQ/GP'): 1500.00,
-    ('ST LOUIS', '45HQ/GP'): 1550.00,
-
+    ("LA", "20GP"): 1350.00,
+    ("LA", "40HQ/GP"): 1450.00,
+    ("LA", "45HQ/GP"): 1550.00,
+    ("NJ", "20GP"): 1350.00,
+    ("NJ", "40HQ/GP"): 1450.00,
+    ("NJ", "45HQ/GP"): 1550.00,
+    ("SAV", "20"): 1400.00,
+    ("SAV", "40HQ/GP"): 1500.00,
+    ("SAV", "45HQ/GP"): 1550.00,
+    ("ST LOUIS", "20GP"): 1400.00,
+    ("ST LOUIS", "40HQ/GP"): 1500.00,
+    ("ST LOUIS", "45HQ/GP"): 1550.00,
 }
 PACKING_LIST_TEMP_COL_MAPPING = {
     "唛头": "shipping_mark",
@@ -152,5 +190,9 @@ ACCT_BENEFICIARY_ADDRESS = os.environ.get("ACCT_BENEFICIARY_ADDRESS")
 ACCT_BENEFICIARY_NAME = os.environ.get("ACCT_BENEFICIARY_NAME")
 ACCT_SWIFT_CODE = os.environ.get("ACCT_SWIFT_CODE")
 
-file_path = Path(__file__).parent.resolve().joinpath("data/20240826_additional_containers/data.xlsx")
+file_path = (
+    Path(__file__)
+    .parent.resolve()
+    .joinpath("data/20240826_additional_containers/data.xlsx")
+)
 ADDITIONAL_CONTAINER = pd.read_excel(file_path)["container_number"].to_list()

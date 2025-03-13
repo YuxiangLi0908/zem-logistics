@@ -1,45 +1,46 @@
-import uuid
-import re
 import random
+import re
 import string
-
-from typing import Any
+import uuid
 from datetime import datetime
-import pandas as pd
+from typing import Any
 
+import pandas as pd
 from django.contrib.auth.decorators import login_required
+from django.db import models
+from django.db.models import Count, FloatField, IntegerField, Sum
+from django.http import HttpRequest, HttpResponse, HttpResponseForbidden
+from django.shortcuts import render
 from django.utils.decorators import method_decorator
 from django.views import View
-from django.http import HttpRequest, HttpResponse, HttpResponseForbidden
-from django.db.models import Sum, FloatField, IntegerField, Count
-from django.shortcuts import render
-from django.db import models
 
-from warehouse.models.order import Order
-from warehouse.models.vessel import Vessel
-from warehouse.models.offload import Offload
-from warehouse.models.clearance import Clearance
-from warehouse.models.retrieval import Retrieval
-from warehouse.models.packing_list import PackingList
-from warehouse.models.shipment import Shipment
-from warehouse.models.warehouse import ZemWarehouse
-from warehouse.models.pallet import Pallet
 from warehouse.forms.upload_file import UploadFileForm
+from warehouse.models.clearance import Clearance
+from warehouse.models.offload import Offload
+from warehouse.models.order import Order
+from warehouse.models.packing_list import PackingList
+from warehouse.models.pallet import Pallet
+from warehouse.models.retrieval import Retrieval
+from warehouse.models.shipment import Shipment
+from warehouse.models.vessel import Vessel
+from warehouse.models.warehouse import ZemWarehouse
 from warehouse.utils.constants import DELIVERY_METHOD_CODE
 
 
-@method_decorator(login_required(login_url='login'), name='dispatch')
+@method_decorator(login_required(login_url="login"), name="dispatch")
 class StuffPower(View):
     template_1 = "stuff_user_clean_data.html"
 
     def get(self, request: HttpRequest) -> HttpResponse:
         if not request.user.is_staff:
-            return HttpResponseForbidden("You don't have permission to access this page.")
+            return HttpResponseForbidden(
+                "You don't have permission to access this page."
+            )
         context = {
             "pre_port_t49_tracking": UploadFileForm(),
         }
         return render(request, self.template_1, context)
-    
+
     def post(self, request: HttpRequest) -> HttpResponse:
         step = request.POST.get("step", None)
         if step == "update_pl_weight_kg":
@@ -90,7 +91,7 @@ class StuffPower(View):
             self._remove_shipment()
             context = {"success": True}
             return render(request, self.template_1, context)
-    
+
     def _remove_offload(self) -> None:
         Offload.objects.filter(models.Q(order__isnull=True)).delete()
 
@@ -102,8 +103,7 @@ class StuffPower(View):
 
     def _remove_shipment(self) -> None:
         Shipment.objects.filter(
-            models.Q(order__isnull=True) &
-            models.Q(packinglist__isnull=True)
+            models.Q(order__isnull=True) & models.Q(packinglist__isnull=True)
         ).delete()
 
     def _update_pl_weight_kg_20240410(self):
@@ -117,7 +117,7 @@ class StuffPower(View):
                 invalid_cases.append(p)
         PackingList.objects.bulk_update(pl, ["total_weight_kg"])
         return invalid_cases
-    
+
     def _update_delivery_method(self) -> int:
         pl = PackingList.objects.all()
         cnt = 0
@@ -127,32 +127,32 @@ class StuffPower(View):
                 cnt += 1
         PackingList.objects.bulk_update(pl, ["delivery_method"])
         return cnt
-    
+
     def update_vessel_pl_data(self, request: HttpRequest) -> tuple[Any, Any]:
         form = UploadFileForm(request.POST, request.FILES)
         orders = Order.objects.select_related(
             "customer_name", "container_number", "vessel_id", "retrieval_id"
-        ).filter(
-            created_at__gte="2024-07-01"
+        ).filter(created_at__gte="2024-07-01")
+        order_pl_count = (
+            Order.objects.select_related("container_number")
+            .filter(
+                (models.Q(order_type="转运") | models.Q(order_type="转运组合")),
+                models.Q(created_at__gte="2024-07-01"),
+            )
+            .values("container_number__container_number")
+            .annotate(
+                n_pl=models.Count("container_number__packinglist__id", distinct=True),
+            )
         )
-        order_pl_count = Order.objects.select_related(
-            "container_number"
-        ).filter(
-            (models.Q(order_type="转运") | models.Q(order_type="转运组合")),
-            models.Q(created_at__gte="2024-07-01")
-            
-        ).values(
-            "container_number__container_number"
-        ).annotate(
-            n_pl=models.Count("container_number__packinglist__id", distinct=True),
-        )
-        order_pl_count = {o["container_number__container_number"]: o["n_pl"] for o in order_pl_count}
+        order_pl_count = {
+            o["container_number__container_number"]: o["n_pl"] for o in order_pl_count
+        }
         context = {
             "vessel_pl_data_update_success": False,
             "orders_count": 0,
         }
         if form.is_valid():
-            file = request.FILES['file']
+            file = request.FILES["file"]
             df = pd.read_csv(file)
             df = df.fillna("")
             t49_container_numbers = df["Container number"].to_list()
@@ -161,25 +161,69 @@ class StuffPower(View):
             cnt = 0
             for o in orders:
                 if o.container_number.container_number in t49_container_numbers:
-                    mbl = df.loc[df["Container number"]==o.container_number.container_number, "Shipment number"].values[0]
-                    vessel_id = str(uuid.uuid3(uuid.NAMESPACE_DNS, o.container_number.container_number + mbl))
+                    mbl = df.loc[
+                        df["Container number"] == o.container_number.container_number,
+                        "Shipment number",
+                    ].values[0]
+                    vessel_id = str(
+                        uuid.uuid3(
+                            uuid.NAMESPACE_DNS,
+                            o.container_number.container_number + mbl,
+                        )
+                    )
                     if not o.vessel_id:
                         vessel = Vessel.objects.create(
                             vessel_id=vessel_id,
                             master_bill_of_lading=mbl,
-                            origin_port = (
-                                df.loc[df["Container number"]==o.container_number.container_number, "Port of Lading"].values[0]
-                                if df.loc[df["Container number"]==o.container_number.container_number, "Port of Lading"].any()
+                            origin_port=(
+                                df.loc[
+                                    df["Container number"]
+                                    == o.container_number.container_number,
+                                    "Port of Lading",
+                                ].values[0]
+                                if df.loc[
+                                    df["Container number"]
+                                    == o.container_number.container_number,
+                                    "Port of Lading",
+                                ].any()
                                 else ""
                             ),
                             destination_port=o.retrieval_id.destination_port,
-                            shipping_line=df.loc[df["Container number"]==o.container_number.container_number, "Carrier name"].values[0],
-                            vessel=df.loc[df["Container number"]==o.container_number.container_number, "Vessel name"].values[0],
-                            voyage=df.loc[df["Container number"]==o.container_number.container_number, "Voyage number"].values[0],
+                            shipping_line=df.loc[
+                                df["Container number"]
+                                == o.container_number.container_number,
+                                "Carrier name",
+                            ].values[0],
+                            vessel=df.loc[
+                                df["Container number"]
+                                == o.container_number.container_number,
+                                "Vessel name",
+                            ].values[0],
+                            voyage=df.loc[
+                                df["Container number"]
+                                == o.container_number.container_number,
+                                "Voyage number",
+                            ].values[0],
                             vessel_eta=(
-                                self._format_string_datetime(df.loc[df["Container number"]==o.container_number.container_number, "Port of Discharge estimated time of arrival"].values[0])
-                                if df.loc[df["Container number"]==o.container_number.container_number, "Port of Discharge estimated time of arrival"].any()
-                                else self._format_string_datetime(df.loc[df["Container number"]==o.container_number.container_number, "Port of Discharge actual time of arrival"].values[0])
+                                self._format_string_datetime(
+                                    df.loc[
+                                        df["Container number"]
+                                        == o.container_number.container_number,
+                                        "Port of Discharge estimated time of arrival",
+                                    ].values[0]
+                                )
+                                if df.loc[
+                                    df["Container number"]
+                                    == o.container_number.container_number,
+                                    "Port of Discharge estimated time of arrival",
+                                ].any()
+                                else self._format_string_datetime(
+                                    df.loc[
+                                        df["Container number"]
+                                        == o.container_number.container_number,
+                                        "Port of Discharge actual time of arrival",
+                                    ].values[0]
+                                )
                             ),
                         )
                         vessel.save()
@@ -187,44 +231,105 @@ class StuffPower(View):
                         o.add_to_t49 = True
                     retrieval = o.retrieval_id
                     retrieval.temp_t49_lfd = (
-                        self._format_string_datetime(df.loc[df["Container number"]==o.container_number.container_number, "Current last free day at the POD terminal"].values[0])
-                        if df.loc[df["Container number"]==o.container_number.container_number, "Current last free day at the POD terminal"].any()
+                        self._format_string_datetime(
+                            df.loc[
+                                df["Container number"]
+                                == o.container_number.container_number,
+                                "Current last free day at the POD terminal",
+                            ].values[0]
+                        )
+                        if df.loc[
+                            df["Container number"]
+                            == o.container_number.container_number,
+                            "Current last free day at the POD terminal",
+                        ].any()
                         else None
                     )
                     retrieval.temp_t49_available_for_pickup = (
-                        True 
-                        if df.loc[df["Container number"]==o.container_number.container_number, "Available for pickup"].values[0] == "Yes"
+                        True
+                        if df.loc[
+                            df["Container number"]
+                            == o.container_number.container_number,
+                            "Available for pickup",
+                        ].values[0]
+                        == "Yes"
                         else False
                     )
                     retrieval.temp_t49_pod_arrive_at = (
-                        self._format_string_datetime(df.loc[df["Container number"]==o.container_number.container_number, "Port of Discharge arrival time"].values[0], "datetime")
-                        if df.loc[df["Container number"]==o.container_number.container_number, "Port of Discharge arrival time"].any()
+                        self._format_string_datetime(
+                            df.loc[
+                                df["Container number"]
+                                == o.container_number.container_number,
+                                "Port of Discharge arrival time",
+                            ].values[0],
+                            "datetime",
+                        )
+                        if df.loc[
+                            df["Container number"]
+                            == o.container_number.container_number,
+                            "Port of Discharge arrival time",
+                        ].any()
                         else None
                     )
                     retrieval.temp_t49_pod_discharge_at = (
-                        self._format_string_datetime(df.loc[df["Container number"]==o.container_number.container_number, "Port of Discharge discharged event"].values[0], "datetime")
-                        if df.loc[df["Container number"]==o.container_number.container_number, "Port of Discharge discharged event"].any()
+                        self._format_string_datetime(
+                            df.loc[
+                                df["Container number"]
+                                == o.container_number.container_number,
+                                "Port of Discharge discharged event",
+                            ].values[0],
+                            "datetime",
+                        )
+                        if df.loc[
+                            df["Container number"]
+                            == o.container_number.container_number,
+                            "Port of Discharge discharged event",
+                        ].any()
                         else None
                     )
                     retrieval.temp_t49_hold_status = (
-                        True 
-                        if df.loc[df["Container number"]==o.container_number.container_number, "Holds at POD status (0)"].values[0] == "Hold"
+                        True
+                        if df.loc[
+                            df["Container number"]
+                            == o.container_number.container_number,
+                            "Holds at POD status (0)",
+                        ].values[0]
+                        == "Hold"
                         else False
                     )
                     retrieval.master_bill_of_lading = (
-                        df.loc[df["Container number"]==o.container_number.container_number, "Shipment number"].values[0]
-                        if df.loc[df["Container number"]==o.container_number.container_number, "Shipment number"].any()
+                        df.loc[
+                            df["Container number"]
+                            == o.container_number.container_number,
+                            "Shipment number",
+                        ].values[0]
+                        if df.loc[
+                            df["Container number"]
+                            == o.container_number.container_number,
+                            "Shipment number",
+                        ].any()
                         else None
                     )
                     retrieval.origin_port = (
-                        df.loc[df["Container number"]==o.container_number.container_number, "Port of Lading"].values[0]
-                        if df.loc[df["Container number"]==o.container_number.container_number, "Port of Lading"].any()
+                        df.loc[
+                            df["Container number"]
+                            == o.container_number.container_number,
+                            "Port of Lading",
+                        ].values[0]
+                        if df.loc[
+                            df["Container number"]
+                            == o.container_number.container_number,
+                            "Port of Lading",
+                        ].any()
                         else None
                     )
                     retrieval.shipping_line = o.vessel_id.shipping_line
                     updated_retrievals.append(retrieval)
                     cnt += 1
-                if o.order_type == "直送" or order_pl_count.get(o.container_number.container_number, 0) > 0:
+                if (
+                    o.order_type == "直送"
+                    or order_pl_count.get(o.container_number.container_number, 0) > 0
+                ):
                     o.packing_list_updloaded = True
                 updated_orders.append(o)
             Order.objects.bulk_update(
@@ -233,31 +338,36 @@ class StuffPower(View):
             Retrieval.objects.bulk_update(
                 updated_retrievals,
                 [
-                    "temp_t49_lfd", "temp_t49_available_for_pickup", "temp_t49_pod_arrive_at", "temp_t49_pod_discharge_at",
-                    "temp_t49_hold_status", "master_bill_of_lading", "origin_port", "shipping_line"
-                ]
+                    "temp_t49_lfd",
+                    "temp_t49_available_for_pickup",
+                    "temp_t49_pod_arrive_at",
+                    "temp_t49_pod_discharge_at",
+                    "temp_t49_hold_status",
+                    "master_bill_of_lading",
+                    "origin_port",
+                    "shipping_line",
+                ],
             )
             context["vessel_pl_data_update_success"] = True
             context["orders_count"] = cnt
         return self.template_1, context
-    
+
     def update_pl_status(self) -> tuple[Any, Any]:
         orders = Order.objects.select_related(
             "customer_name", "container_number", "vessel_id", "retrieval_id"
-        ).filter(
-            created_at__gte="2024-07-01"
-        )
+        ).filter(created_at__gte="2024-07-01")
 
-        order_pl_count = Order.objects.select_related(
-            "container_number"
-        ).filter(
-            models.Q(created_at__gte="2024-07-01")
-        ).values(
-            "container_number__container_number"
-        ).annotate(
-            n_pl=models.Count("container_number__packinglist__id", distinct=True),
+        order_pl_count = (
+            Order.objects.select_related("container_number")
+            .filter(models.Q(created_at__gte="2024-07-01"))
+            .values("container_number__container_number")
+            .annotate(
+                n_pl=models.Count("container_number__packinglist__id", distinct=True),
+            )
         )
-        order_pl_count = {o["container_number__container_number"]: o["n_pl"] for o in order_pl_count}
+        order_pl_count = {
+            o["container_number__container_number"]: o["n_pl"] for o in order_pl_count
+        }
         cnt = 0
         orders_updated = []
         for o in orders:
@@ -268,12 +378,9 @@ class StuffPower(View):
             else:
                 o.packing_list_updloaded = False
         Order.objects.bulk_update(orders_updated, ["packing_list_updloaded"])
-        context = {
-            "order_packing_list_updloaded_updated": True,
-            "count": cnt
-        }
+        context = {"order_packing_list_updloaded_updated": True, "count": cnt}
         return self.template_1, context
-    
+
     def update_warehouse(self) -> tuple[Any, Any]:
         orders = Order.objects.select_related("warehouse").filter(
             models.Q(warehouse__name="SAV-31419")
@@ -285,21 +392,16 @@ class StuffPower(View):
             o.warehouse = warehouse
             orders_updated.append(o)
             cnt += 1
-        Order.objects.bulk_update(
-            orders_updated, ["warehouse"]
-        )
+        Order.objects.bulk_update(orders_updated, ["warehouse"])
         context = {
             "warehouse_updated": True,
             "count": cnt,
         }
         return self.template_1, context
-    
+
     def update_order_eta(self) -> tuple[Any, Any]:
         orders = Order.objects.select_related("vessel_id").filter(
-            models.Q(
-                vessel_id__isnull=False,
-                eta__isnull=True
-            )
+            models.Q(vessel_id__isnull=False, eta__isnull=True)
         )
         orders_updated = []
         cnt = 0
@@ -307,15 +409,13 @@ class StuffPower(View):
             o.eta = o.vessel_id.vessel_eta
             orders_updated.append(o)
             cnt += 1
-        Order.objects.bulk_update(
-            orders_updated, ["eta"]
-        )
+        Order.objects.bulk_update(orders_updated, ["eta"])
         context = {
             "order_eta_updated": True,
             "count": cnt,
         }
         return self.template_1, context
-    
+
     def update_shipment(self) -> tuple[Any, Any]:
         shipment = Shipment.objects.all()
         shipment_updated = []
@@ -331,20 +431,19 @@ class StuffPower(View):
             shipment_updated.append(s)
             cnt += 1
         Shipment.objects.bulk_update(
-            shipment_updated,
-            ["is_full_out", "pallet_dumpped", "batch"]
+            shipment_updated, ["is_full_out", "pallet_dumpped", "batch"]
         )
         context = {
             "shipment_updated": True,
             "count": cnt,
         }
         return self.template_1, context
-    
+
     def update_pallet(self, request: HttpRequest) -> tuple[Any, Any]:
         start_date = request.POST.get("start_date")
         end_date = request.POST.get("end_date")
         pallet = Pallet.objects.select_related(
-            "container_number", 
+            "container_number",
             "shipment_batch_number",
         ).filter(
             container_number__order__created_at__gte=start_date,
@@ -368,10 +467,7 @@ class StuffPower(View):
                 p.shipment_batch_number = p_s_mapping.get(k)
                 cnt += 1
                 updated_pallet.append(p)
-        Pallet.objects.bulk_update(
-            updated_pallet,
-            ["shipment_batch_number"]
-        )
+        Pallet.objects.bulk_update(updated_pallet, ["shipment_batch_number"])
         context = {
             "pallet_updated": True,
             "count": cnt,
@@ -379,52 +475,69 @@ class StuffPower(View):
             "pallet_update_end_date": end_date,
         }
         return self.template_1, context
-    
-    def update_shipment_stats(self, request: HttpRequest)  -> tuple[Any, Any]:
+
+    def update_shipment_stats(self, request: HttpRequest) -> tuple[Any, Any]:
         start_date = request.POST.get("start_date")
         end_date = request.POST.get("end_date")
         shipment = Shipment.objects.filter(
             shipment_schduled_at__gte=start_date,
             shipment_schduled_at__lte=end_date,
         )
-        shipment_stats_1 = Pallet.objects.select_related(
-            "shipment_batch_number", "container_number"
-        ).filter(
-            shipment_batch_number__shipment_schduled_at__gte=start_date,
-            shipment_batch_number__shipment_schduled_at__lte=end_date,
-            container_number__order__offload_id__offload_at__isnull=False,
-        ).values(
-            "shipment_batch_number__shipment_batch_number"
-        ).annotate(
-            total_pcs=Sum("pcs", output_field=IntegerField()),
-            total_cbm=Sum("cbm", output_field=FloatField()),
-            total_weight_lbs=Sum("weight_lbs", output_field=FloatField()),
-            total_n_pallet=Count("pallet_id", distinct=True),
+        shipment_stats_1 = (
+            Pallet.objects.select_related("shipment_batch_number", "container_number")
+            .filter(
+                shipment_batch_number__shipment_schduled_at__gte=start_date,
+                shipment_batch_number__shipment_schduled_at__lte=end_date,
+                container_number__order__offload_id__offload_at__isnull=False,
+            )
+            .values("shipment_batch_number__shipment_batch_number")
+            .annotate(
+                total_pcs=Sum("pcs", output_field=IntegerField()),
+                total_cbm=Sum("cbm", output_field=FloatField()),
+                total_weight_lbs=Sum("weight_lbs", output_field=FloatField()),
+                total_n_pallet=Count("pallet_id", distinct=True),
+            )
         )
         shipment_stats_1 = {
             s.get("shipment_batch_number__shipment_batch_number"): [
-                s.get("total_pcs"), s.get("total_cbm"), s.get("total_weight_lbs"), s.get("total_n_pallet")
+                s.get("total_pcs"),
+                s.get("total_cbm"),
+                s.get("total_weight_lbs"),
+                s.get("total_n_pallet"),
             ]
             for s in shipment_stats_1
         }
-        shipment_stats_2 = PackingList.objects.select_related(
-            "shipment_batch_number", "container_number"
-        ).filter(
-            shipment_batch_number__shipment_schduled_at__gte=start_date,
-            shipment_batch_number__shipment_schduled_at__lte=end_date,
-            container_number__order__offload_id__offload_at__isnull=True
-        ).values(
-            "shipment_batch_number__shipment_batch_number"
-        ).annotate(
-            total_pcs=Sum("pcs", output_field=IntegerField()),
-            total_cbm=Sum("cbm", output_field=FloatField()),
-            total_weight_lbs=Sum("total_weight_lbs", output_field=FloatField()),
-            total_n_pallet=Sum("cbm", output_field=FloatField())/2,
+        shipment_stats_2 = (
+            PackingList.objects.select_related(
+                "shipment_batch_number", "container_number"
+            )
+            .filter(
+                shipment_batch_number__shipment_schduled_at__gte=start_date,
+                shipment_batch_number__shipment_schduled_at__lte=end_date,
+                container_number__order__offload_id__offload_at__isnull=True,
+            )
+            .values("shipment_batch_number__shipment_batch_number")
+            .annotate(
+                total_pcs=Sum("pcs", output_field=IntegerField()),
+                total_cbm=Sum("cbm", output_field=FloatField()),
+                total_weight_lbs=Sum("total_weight_lbs", output_field=FloatField()),
+                total_n_pallet=Sum("cbm", output_field=FloatField()) / 2,
+            )
         )
         shipment_stats_2 = {
             s.get("shipment_batch_number__shipment_batch_number"): [
-                s.get("total_pcs"), s.get("total_cbm"), s.get("total_weight_lbs"), 
-                1 if s.get("total_n_pallet") < 1 else (s.get("total_n_pallet")//1 + 1 if s.get("total_n_pallet")%1 >= 0.45 else s.get("total_n_pallet")//1)
+                s.get("total_pcs"),
+                s.get("total_cbm"),
+                s.get("total_weight_lbs"),
+                (
+                    1
+                    if s.get("total_n_pallet") < 1
+                    else (
+                        s.get("total_n_pallet") // 1 + 1
+                        if s.get("total_n_pallet") % 1 >= 0.45
+                        else s.get("total_n_pallet") // 1
+                    )
+                ),
             ]
             for s in shipment_stats_2
         }
@@ -449,8 +562,7 @@ class StuffPower(View):
             s.total_pallet = n
             updated_shipment.append(s)
         Shipment.objects.bulk_update(
-            updated_shipment,
-            ["total_pcs", "total_cbm", "total_weight", "total_pallet"]
+            updated_shipment, ["total_pcs", "total_cbm", "total_weight", "total_pallet"]
         )
         context = {
             "shipment_stats_updated": True,
@@ -459,24 +571,28 @@ class StuffPower(View):
             "shipment_end_date": end_date,
         }
         return self.template_1, context
-    
-    def update_inventory(self, request: HttpRequest)  -> tuple[Any, Any]:
+
+    def update_inventory(self, request: HttpRequest) -> tuple[Any, Any]:
         form = UploadFileForm(request.POST, request.FILES)
         warehouse = request.POST.get("warehouse")
         pallet_end_date = request.POST.get("pallet_end_date")
         current_datetime = datetime.now()
         if form.is_valid():
-            file = request.FILES['file']
+            file = request.FILES["file"]
             df = pd.read_csv(file)
             container_number = df["container"].tolist()
-            pallet = Pallet.objects.select_related("shipment_batch_number").filter(
-                models.Q(
-                    models.Q(location=warehouse)|
-                    models.Q(container_number__order__warehouse__name=warehouse)
-                ),
-                shipment_batch_number__isnull=True,
-                container_number__order__offload_id__offload_at__lte=pallet_end_date,
-            ).exclude(container_number__container_number__in=container_number)
+            pallet = (
+                Pallet.objects.select_related("shipment_batch_number")
+                .filter(
+                    models.Q(
+                        models.Q(location=warehouse)
+                        | models.Q(container_number__order__warehouse__name=warehouse)
+                    ),
+                    shipment_batch_number__isnull=True,
+                    container_number__order__offload_id__offload_at__lte=pallet_end_date,
+                )
+                .exclude(container_number__container_number__in=container_number)
+            )
             cnt = len(pallet)
             if pallet:
                 shipment = Shipment(
@@ -499,20 +615,16 @@ class StuffPower(View):
             "pre_port_t49_tracking": UploadFileForm(),
         }
         return self.template_1, context
-    
-    def po_id_batch_generation(self, request: HttpRequest)  -> tuple[Any, Any]:
+
+    def po_id_batch_generation(self, request: HttpRequest) -> tuple[Any, Any]:
         start_date = request.POST.get("start_date")
         end_date = request.POST.get("end_date")
-        pallet = Pallet.objects.select_related(
-            "container_number"
-        ).filter(
+        pallet = Pallet.objects.select_related("container_number").filter(
             container_number__order__created_at__gte=start_date,
             container_number__order__created_at__lte=end_date,
             container_number__order__offload_id__offload_at__isnull=False,
         )
-        packinglist = PackingList.objects.select_related(
-            "container_number"
-        ).filter(
+        packinglist = PackingList.objects.select_related("container_number").filter(
             container_number__order__created_at__gte=start_date,
             container_number__order__created_at__lte=end_date,
             # container_number__order__offload_id__offload_at__isnull=True,
@@ -521,14 +633,18 @@ class StuffPower(View):
         cnt = 0
         for p in pallet:
             po_id_seg = ""
-            random_seg =''.join(random.choices(string.ascii_letters.upper() + string.digits, k=4))
+            random_seg = "".join(
+                random.choices(string.ascii_letters.upper() + string.digits, k=4)
+            )
             container_number = p.container_number.container_number
             if p.delivery_method in ["暂扣留仓(HOLD)", "暂扣留仓"]:
                 po_id_hkey = f"{container_number}-{p.delivery_method}-{p.fba_id}"
                 po_id_seg = f"H{p.fba_id[-4:]}" if p.fba_id else f"H{random_seg}"
             elif p.delivery_method == "客户自提" or p.destination == "客户自提":
                 po_id_hkey = f"{container_number}-{p.delivery_method}-{p.destination}-{p.shipping_mark}"
-                po_id_seg = f"S{p.shipping_mark[-4:]}" if p.shipping_mark else f"S{random_seg}"
+                po_id_seg = (
+                    f"S{p.shipping_mark[-4:]}" if p.shipping_mark else f"S{random_seg}"
+                )
             else:
                 po_id_hkey = f"{container_number}-{p.delivery_method}-{p.destination}"
                 po_id_seg = f"{DELIVERY_METHOD_CODE.get(p.delivery_method, 'UN')}{p.destination.replace(' ', '').split('-')[-1]}"
@@ -537,30 +653,34 @@ class StuffPower(View):
                 po_id = po_id_hash.get(po_id_hkey)
             else:
                 po_id = f"{container_number[-4:]}{po_id_seg}{''.join(random.choices(string.digits, k=2))}"
-                po_id = re.sub(r'[\u4e00-\u9fff]', '', po_id)
+                po_id = re.sub(r"[\u4e00-\u9fff]", "", po_id)
                 po_id_hash[po_id_hkey] = po_id
             p.PO_ID = po_id
             cnt += 1
-        
+
         for p in packinglist:
             po_id_seg = ""
-            random_seg =''.join(random.choices(string.ascii_letters.upper() + string.digits, k=4))
+            random_seg = "".join(
+                random.choices(string.ascii_letters.upper() + string.digits, k=4)
+            )
             container_number = p.container_number.container_number
             if p.delivery_method in ["暂扣留仓(HOLD)", "暂扣留仓"]:
                 po_id_hkey = f"{container_number}-{p.delivery_method}-{p.fba_id}"
                 po_id_seg = f"H{p.fba_id[-4:]}" if p.fba_id else f"H{random_seg}"
             elif p.delivery_method == "客户自提" or p.destination == "客户自提":
                 po_id_hkey = f"{container_number}-{p.delivery_method}-{p.destination}-{p.shipping_mark}"
-                po_id_seg = f"S{p.shipping_mark[-4:]}" if p.shipping_mark else f"S{random_seg}"
+                po_id_seg = (
+                    f"S{p.shipping_mark[-4:]}" if p.shipping_mark else f"S{random_seg}"
+                )
             else:
                 po_id_hkey = f"{container_number}-{p.delivery_method}-{p.destination}"
                 po_id_seg = f"{DELIVERY_METHOD_CODE.get(p.delivery_method, 'UN')}{p.destination.replace(' ', '').split('-')[-1]}"
-                
+
             if po_id_hkey in po_id_hash:
                 po_id = po_id_hash.get(po_id_hkey)
             else:
                 po_id = f"{container_number[-4:]}{po_id_seg}{''.join(random.choices(string.digits, k=2))}"
-                po_id = re.sub(r'[\u4e00-\u9fff]', '', po_id)
+                po_id = re.sub(r"[\u4e00-\u9fff]", "", po_id)
                 po_id_hash[po_id_hkey] = po_id
             p.PO_ID = po_id
             cnt += 1
@@ -574,11 +694,13 @@ class StuffPower(View):
         }
         return self.template_1, context
 
-    def _format_string_datetime(self, datetime_str: str, datetime_part: str = "date") -> str|None:
+    def _format_string_datetime(
+        self, datetime_str: str, datetime_part: str = "date"
+    ) -> str | None:
         if not datetime_str:
             return None
         datetime_obj = datetime.fromisoformat(datetime_str)
         if datetime_part == "date":
-            return datetime_obj.strftime('%Y-%m-%d')
+            return datetime_obj.strftime("%Y-%m-%d")
         else:
             return datetime_obj.strftime("%Y-%m-%d %H:%M:%S")

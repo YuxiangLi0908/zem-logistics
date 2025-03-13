@@ -185,7 +185,7 @@ body {
 }
 
 .form-row {
-    padding: 5px;
+    padding: 1px;
 }
 
 .form-row.flex-3 {
@@ -306,4 +306,34 @@ body {
 @keyframes spin {
     0% { transform: rotate(0deg); }
     100% { transform: rotate(360deg); }
+}
+
+.password-container {
+    position: relative;
+    width: 100%;
+}
+
+.password-container input {
+    width: 100%;
+    padding-right: 35px; /* Space for the eye icon */
+}
+
+.toggle-password {
+    position: absolute;
+    right: 10px;
+    top: 50%;
+    transform: translateY(-50%);
+    cursor: pointer;
+    color: #888;
+    z-index: 10;
+}
+
+.valid-feedback {
+    color: #47c18e;
+    display: list-item;
+}
+
+.invalid-feedback {
+    color: #de3442;
+    display: list-item;
 }

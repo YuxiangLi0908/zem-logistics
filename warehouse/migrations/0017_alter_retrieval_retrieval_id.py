@@ -6,13 +6,13 @@ from django.db import migrations, models
 class Migration(migrations.Migration):
 
     dependencies = [
-        ('warehouse', '0016_alter_retrieval_actual_retrieval_timestamp_and_more'),
+        ("warehouse", "0016_alter_retrieval_actual_retrieval_timestamp_and_more"),
     ]
 
     operations = [
         migrations.AlterField(
-            model_name='retrieval',
-            name='retrieval_id',
+            model_name="retrieval",
+            name="retrieval_id",
             field=models.CharField(max_length=255, null=True),
         ),
     ]

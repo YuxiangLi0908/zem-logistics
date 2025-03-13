@@ -6,18 +6,18 @@ from django.db import migrations
 class Migration(migrations.Migration):
 
     dependencies = [
-        ('warehouse', '0040_shipment_pod_link'),
+        ("warehouse", "0040_shipment_pod_link"),
     ]
 
     operations = [
         migrations.RenameField(
-            model_name='retrieval',
-            old_name='destination',
-            new_name='destination_port',
+            model_name="retrieval",
+            old_name="destination",
+            new_name="destination_port",
         ),
         migrations.RenameField(
-            model_name='retrieval',
-            old_name='origin',
-            new_name='origin_port',
+            model_name="retrieval",
+            old_name="origin",
+            new_name="origin_port",
         ),
     ]

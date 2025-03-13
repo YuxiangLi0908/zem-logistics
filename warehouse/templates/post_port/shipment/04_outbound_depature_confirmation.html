@@ -288,6 +288,7 @@
                 {% csrf_token %}
                 <input type="hidden" name="step" value="download_LABEL">
                 <input type="hidden" name="fleet_number" value="{{ selected_fleet.fleet_number }}">
+                <input type="hidden" name="warehouse" value="{{ selected_fleet.origin }}">
                 <input type="hidden" name="customerInfo" value="">
                 <button type="submit" class="btn btn-success" style="font-size: 15px;">
                     <small>LBAEL</small>

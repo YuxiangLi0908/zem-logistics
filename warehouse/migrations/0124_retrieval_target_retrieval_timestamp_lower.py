@@ -6,13 +6,13 @@ from django.db import migrations, models
 class Migration(migrations.Migration):
 
     dependencies = [
-        ('warehouse', '0123_fleet_status_fleet_status_description_and_more'),
+        ("warehouse", "0123_fleet_status_fleet_status_description_and_more"),
     ]
 
     operations = [
         migrations.AddField(
-            model_name='retrieval',
-            name='target_retrieval_timestamp_lower',
+            model_name="retrieval",
+            name="target_retrieval_timestamp_lower",
             field=models.DateTimeField(blank=True, null=True),
         ),
     ]

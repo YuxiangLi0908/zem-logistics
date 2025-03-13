@@ -6,53 +6,53 @@ from django.db import migrations, models
 class Migration(migrations.Migration):
 
     dependencies = [
-        ('warehouse', '0015_alter_retrieval_retrieval_id'),
+        ("warehouse", "0015_alter_retrieval_retrieval_id"),
     ]
 
     operations = [
         migrations.AlterField(
-            model_name='retrieval',
-            name='actual_retrieval_timestamp',
+            model_name="retrieval",
+            name="actual_retrieval_timestamp",
             field=models.DateTimeField(blank=True, null=True),
         ),
         migrations.AlterField(
-            model_name='retrieval',
-            name='destination',
+            model_name="retrieval",
+            name="destination",
             field=models.CharField(blank=True, max_length=255, null=True),
         ),
         migrations.AlterField(
-            model_name='retrieval',
-            name='origin',
+            model_name="retrieval",
+            name="origin",
             field=models.CharField(blank=True, max_length=255, null=True),
         ),
         migrations.AlterField(
-            model_name='retrieval',
-            name='retrieval_location',
+            model_name="retrieval",
+            name="retrieval_location",
             field=models.CharField(blank=True, max_length=255, null=True),
         ),
         migrations.AlterField(
-            model_name='retrieval',
-            name='retrive_by_zem',
+            model_name="retrieval",
+            name="retrive_by_zem",
             field=models.BooleanField(blank=True, default=True),
         ),
         migrations.AlterField(
-            model_name='retrieval',
-            name='scheduled_at',
+            model_name="retrieval",
+            name="scheduled_at",
             field=models.DateTimeField(blank=True, null=True),
         ),
         migrations.AlterField(
-            model_name='retrieval',
-            name='shipping_line',
+            model_name="retrieval",
+            name="shipping_line",
             field=models.CharField(blank=True, max_length=255, null=True),
         ),
         migrations.AlterField(
-            model_name='retrieval',
-            name='shipping_order_number',
+            model_name="retrieval",
+            name="shipping_order_number",
             field=models.CharField(blank=True, max_length=255, null=True),
         ),
         migrations.AlterField(
-            model_name='retrieval',
-            name='target_retrieval_timestamp',
+            model_name="retrieval",
+            name="target_retrieval_timestamp",
             field=models.DateTimeField(blank=True, null=True),
         ),
     ]

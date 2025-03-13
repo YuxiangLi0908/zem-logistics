@@ -6,23 +6,23 @@ from django.db import migrations, models
 class Migration(migrations.Migration):
 
     dependencies = [
-        ('warehouse', '0134_invoicedelivery_zipcode_and_more'),
+        ("warehouse", "0134_invoicedelivery_zipcode_and_more"),
     ]
 
     operations = [
         migrations.AddField(
-            model_name='pallet',
-            name='height',
+            model_name="pallet",
+            name="height",
             field=models.FloatField(blank=True, null=True),
         ),
         migrations.AddField(
-            model_name='pallet',
-            name='length',
+            model_name="pallet",
+            name="length",
             field=models.FloatField(blank=True, null=True),
         ),
         migrations.AddField(
-            model_name='pallet',
-            name='width',
+            model_name="pallet",
+            name="width",
             field=models.FloatField(blank=True, null=True),
         ),
     ]

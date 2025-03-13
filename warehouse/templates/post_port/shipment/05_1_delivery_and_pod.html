@@ -25,6 +25,7 @@
 </div
 
 <div style="max-height: 800px;">
+    <button id="confirm-all-button" class="btn btn-success" style="font-size: 14px; padding: 8px 16px; margin-bottom: 10px;margin-right:120px; float:right;background-color: #28a745; border: 1px solid #218838; box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1); color: white;">批量确认送达</button>
     <table id="shipment-table" class="table" style="font-size: 11px; max-height: 95%; overflow-y: scroll;">
         <thead>
             <tr style="position: sticky; top: 0;">
@@ -60,7 +61,7 @@
         </thead>
         <tbody>
             {% for f in fleet %}
-            <form id="pod-form" method="post" enctype="multipart/form-data" action="" style="overflow-x: auto; max-width: 100%; max-height: 98%; overflow-y: scroll;">
+            <form id="pod-form-{{ f.fleet_number }}" method="post" enctype="multipart/form-data" action="" style="overflow-x: auto; max-width: 100%; max-height: 98%; overflow-y: scroll;">
                 {% csrf_token %}
                 <tr>
                     <td class="td" style="max-width: 120px; word-break: break-all;">{{ f.fleet_number }}</td>
@@ -87,7 +88,7 @@
                     </td>
                     <td class="td" style="max-width: 120px; word-break: break-all;">{{ f.note|default_if_none:"" }}</td>
                     <td class="td">
-                        <input type="datetime-local" name="arrived_at" style="font-size: 13px;" required>
+                        <input type="datetime-local" name="arrived_at" class="arrived-at-input" style="font-size: 13px;" required>
                         <input type="hidden" name="step" value="confirm_delivery">
                         <input type="hidden" name="fleet_number" value="{{ f.fleet_number }}">
                         <input type="hidden" name="area" value="{{ area }}">
@@ -137,6 +138,53 @@
 </div>
 
 <script>
+    document.getElementById('confirm-all-button').addEventListener('click', function() {
+        const form = document.createElement('form');
+        form.method = 'post';
+        form.action = ''; 
+        form.enctype = 'multipart/form-data';
+    
+        const csrfToken = document.querySelector('input[name="csrfmiddlewaretoken"]').value;
+        const csrfInput = document.createElement('input');
+        csrfInput.type = 'hidden';
+        csrfInput.name = 'csrfmiddlewaretoken';
+        csrfInput.value = csrfToken;
+        form.appendChild(csrfInput);
+    
+        document.querySelectorAll('.arrived-at-input').forEach(input => {
+            console.log('input',input.closest('tr'));
+            if (input.value) {
+                const fleetNumber = input.closest('tr').querySelector('input[name="fleet_number"]').value;
+                const arrivedAtInput = document.createElement('input');
+                arrivedAtInput.type = 'hidden';
+                arrivedAtInput.name = 'arrived_at';
+                arrivedAtInput.value = input.value;
+                form.appendChild(arrivedAtInput);
+    
+                const fleetNumberInput = document.createElement('input');
+                fleetNumberInput.type = 'hidden';
+                fleetNumberInput.name = 'fleet_number';
+                fleetNumberInput.value = fleetNumber;
+                form.appendChild(fleetNumberInput);
+            }
+        });
+    
+        const stepInput = document.createElement('input');
+        stepInput.type = 'hidden';
+        stepInput.name = 'step';
+        stepInput.value = 'confirm_delivery';
+        form.appendChild(stepInput);
+    
+        const areaInput = document.createElement('input');
+        areaInput.type = 'hidden';
+        areaInput.name = 'area';
+        areaInput.value = '{{ area }}';
+        form.appendChild(areaInput);
+    
+        document.body.appendChild(form);
+        form.submit();
+    });
+    
     function showLoadingBar() {
         document.getElementById('loading-bar').style.display = 'block';
     }

@@ -7,20 +7,37 @@ from django.db import migrations, models
 class Migration(migrations.Migration):
 
     dependencies = [
-        ('warehouse', '0128_shipment_arm_bol_shipment_arm_pro_and_more'),
+        ("warehouse", "0128_shipment_arm_bol_shipment_arm_pro_and_more"),
     ]
 
     operations = [
         migrations.CreateModel(
-            name='InvoiceDelivery',
+            name="InvoiceDelivery",
             fields=[
-                ('id', models.BigAutoField(auto_created=True, primary_key=True, serialize=False, verbose_name='ID')),
-                ('type', models.CharField(blank=True, max_length=200, null=True)),
-                ('destination', models.CharField(blank=True, max_length=200, null=True)),
-                ('cbm', models.FloatField(blank=True, null=True)),
-                ('weight', models.FloatField(blank=True, null=True)),
-                ('amount', models.FloatField(blank=True, null=True)),
-                ('invoice_number', models.ForeignKey(on_delete=django.db.models.deletion.CASCADE, to='warehouse.invoice')),
+                (
+                    "id",
+                    models.BigAutoField(
+                        auto_created=True,
+                        primary_key=True,
+                        serialize=False,
+                        verbose_name="ID",
+                    ),
+                ),
+                ("type", models.CharField(blank=True, max_length=200, null=True)),
+                (
+                    "destination",
+                    models.CharField(blank=True, max_length=200, null=True),
+                ),
+                ("cbm", models.FloatField(blank=True, null=True)),
+                ("weight", models.FloatField(blank=True, null=True)),
+                ("amount", models.FloatField(blank=True, null=True)),
+                (
+                    "invoice_number",
+                    models.ForeignKey(
+                        on_delete=django.db.models.deletion.CASCADE,
+                        to="warehouse.invoice",
+                    ),
+                ),
             ],
         ),
     ]

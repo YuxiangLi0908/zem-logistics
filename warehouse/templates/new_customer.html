@@ -2,39 +2,44 @@
 
 {% block content %}
 {% if existing_customers %}
-<h4>创建新客户</h4>
+<b>创建新客户</b>
 <form method="post">
     {% csrf_token %}
     <div style="display: flex;">
         <div class="quote-form-row flex-6" style="margin: 2px;">
-            <label style="font-size: 15px; margin-right: 5px;">客户全称</label>
+            <label style="font-size: 12px; margin-right: 5px;">客户全称</label>
             {{ customer_form.full_name }}
         </div>
         <div class="quote-form-row flex-6" >
-            <label style="font-size: 15px; margin-right: 5px;">客户简称</label>
+            <label style="font-size: 12px; margin-right: 5px;">客户简称</label>
             {{ customer_form.zem_name }}
         </div>
         <div class="quote-form-row flex-6" >
-            <label style="font-size: 15px; margin-right: 5px;">ZEM客户代码</label>
+            <label style="font-size: 12px; margin-right: 5px;">ZEM客户代码</label>
             {{ customer_form.zem_code }}
         </div>
         <div class="quote-form-row flex-6" >
-            <label style="font-size: 15px; margin-right: 5px;">Email</label>
+            <label style="font-size: 12px; margin-right: 5px;">Email</label>
             {{ customer_form.email }}
         </div>
         <div class="quote-form-row flex-6" >
-            <label style="font-size: 15px; margin-right: 5px;">Phone</label>
+            <label style="font-size: 12px; margin-right: 5px;">Phone</label>
             {{ customer_form.phone }}
         </div>
         <div class="quote-form-row flex-6" >
-            <label style="font-size: 15px; margin-right: 5px;">备注</label>
+            <label style="font-size: 12px; margin-right: 5px;">备注</label>
             {{ customer_form.note }}
         </div>
     </div>
     <div style="display: flex;">
         <div class="quote-form-row flex-6" >
-            <label style="font-size: 15px; margin-right: 5px;">财务名称</label>
+            <label style="font-size: 12px; margin-right: 5px;">财务名称</label>
             {{ customer_form.accounting_name }}
+        </div>
+
+        <div class="quote-form-row flex-6" >
+            <label style="font-size: 12px; margin-right: 5px;">地址</label>
+            {{ customer_form.address }}
         </div>
     </div>
     <div class="text-left">
@@ -47,9 +52,9 @@
 </form>
 
 <hr class="Dashed" style="margin-top: 20px; margin-bottom: 20px;">
-<h4>客户列表</h4>
+<b>客户列表</b>
 <div style="overflow-x: auto; max-width: 100%; overflow-y: auto; max-height: 800px;">
-    <table class="table" id="customer-table">
+    <table class="table" id="customer-table" style="font-size: 11px;">
         <thead>
             <tr style="position: sticky; top: 0;">
                 <th class="th">客户简称</th>
@@ -58,11 +63,15 @@
                 <th class="th">财务名称</th>
                 <th class="th">Email</th>
                 <th class="th">Phone</th>
+                <th class="th">地址</th>
                 <th class="th">备注</th>
+                <th class="th">用户名(客户端)</th>
             </tr>
             <tr style="position: sticky; top: 28px;">
                 <th class="th"><input type="text" id="zemNameSearchInput" placeholder="搜索..." oninput="filterCustomerTable()"></th>
                 <th class="th"><input type="text" id="fullNameSearchInput" placeholder="搜索..." oninput="filterCustomerTable()"></th>
+                <th class="th"></th>
+                <th class="th"></th>
                 <th class="th"></th>
                 <th class="th"></th>
                 <th class="th"></th>
@@ -77,9 +86,11 @@
                 <td class="td">{{ c.full_name }}</td>
                 <td class="td">{{ c.zem_code }}</td>
                 <td class="td">{{ c.accounting_name }}</td>
-                <td class="td">{{ c.email }}</td>
-                <td class="td">{{ c.phone }}</td>
-                <td class="td">{{ c.note }}</td>
+                <td class="td">{{ c.email|default_if_none:'' }}</td>
+                <td class="td">{{ c.phone|default_if_none:'' }}</td>
+                <td class="td">{{ c.address|default_if_none:'' }}</td>
+                <td class="td">{{ c.note|default_if_none:'' }}</td>
+                <td class="td">{{ c.username|default_if_none:'' }}</td>
             </tr>
             {% endfor %}
         </tbody>
@@ -88,57 +99,142 @@
 {% endif %}
 
 {% if customer_update_form %}
-<h4>更新客户信息</h4>
-<form method="post">
-    {% csrf_token %}
-    <div class="form-row" >
-        <div class="form-group col-md-4">
-            <label class="col-form-label" style="font-size: 15px; width: 100px; height: 40px;">客户全称</label>
-            {{ customer_update_form.full_name }}
-        </div>
+<b>更新客户信息</b>
+<div style="display: flex;">
+    <div style="width: 30%; margin-top: .5%; margin-right: .5%; margin-bottom: 1%; border: 2px solid rgb(180, 180, 180); border-radius: 12px; padding: 1%;">
+        <b>基础信息</b>
+        <form method="post">
+            {% csrf_token %}
+            <div class="form-row" >
+                <div class="form-group col-md-4">
+                    <label class="col-form-label" style="font-size: 13px; width: 100px; height: 40px;">客户全称</label>
+                    {{ customer_update_form.full_name }}
+                </div>
+            </div>
+            <div class="form-row" >
+                <div class="form-group col-md-4">
+                    <label class="col-form-label" style="font-size: 13px; width: 100px; height: 40px;">客户简称</label>
+                    {{ customer_update_form.zem_name }}
+                </div>
+            </div>
+            <div class="form-row" >
+                <div class="form-group col-md-4">
+                    <label class="col-form-label" style="font-size: 13px; width: 100px; height: 40px;">ZEM客户代码</label>
+                    {{ customer_update_form.zem_code }}
+                </div>
+            </div>
+            <div class="form-row" >
+                <div class="form-group col-md-4">
+                    <label class="col-form-label" style="font-size: 13px; width: 100px; height: 40px;">财务名称</label>
+                    {{ customer_update_form.accounting_name }}
+                </div>
+            </div>
+            <div class="form-row" >
+                <div class="form-group col-md-4">
+                    <label class="col-form-label" style="font-size: 13px; width: 100px; height: 40px;">Email</label>
+                    {{ customer_update_form.email }}
+                </div>
+            </div>
+            <div class="form-row" >
+                <div class="form-group col-md-4">
+                    <label class="col-form-label" style="font-size: 13px; width: 100px; height: 40px;">Phone</label>
+                    {{ customer_update_form.phone }}
+                </div>
+            </div>
+            <div class="form-row" >
+                <div class="form-group col-md-4">
+                    <label class="col-form-label" style="font-size: 13px; width: 100px; height: 40px;">地址</label>
+                    {{ customer_update_form.address }}
+                </div>
+            </div>
+            <div class="form-row" >
+                <div class="form-group col-md-4">
+                    <label class="col-form-label" style="font-size: 13px; width: 100px; height: 40px;">备注</label>
+                    {{ customer_update_form.note }}
+                </div>
+            </div>
+            <div class="text-left">
+                <input type="hidden" name="step" value="update_basic_info">
+                <button type="submit" class="btn btn-primary" style="width: 100px; height: 35px;">确认</button>
+            </div>
+        </form>
     </div>
-    <div class="form-row" >
-        <div class="form-group col-md-4">
-            <label class="col-form-label" style="font-size: 15px; width: 100px; height: 40px;">客户简称</label>
-            {{ customer_update_form.zem_name }}
-        </div>
+
+    <div style="width: 30%; margin-top: .5%; margin-right: .5%; margin-bottom: 1%; border: 2px solid rgb(180, 180, 180); border-radius: 12px; padding: 1%;">
+        <b>客户端信息</b>
+        <form method="post">
+            {% csrf_token %}
+            {% if customer.username %}
+            <div class="form-group">
+                <label for="username" style="font-size: 13px;">用户名</label>
+                <input type="text" name="username" class="form-control" value="{{ customer.username }}">
+            </div>
+            <div class="form-group">
+                <label for="password" style="font-size: 13px;">输入新密码</label>
+                <div class="password-container">
+                    <input type="password" id="password" name="password" class="form-control" placeholder="请输入密码" autocomplete="new-password" required>
+                    <i class="bi bi-eye-fill toggle-password" data-target="password"></i>
+                </div>
+            </div>
+            <div class="form-group">
+                <label for="password" style="font-size: 13px;">确认新密码</label>
+                <div class="password-container">
+                    <input type="password" id="password_repeat" name="password_repeat" class="form-control" placeholder="请再次输入密码" required>
+                    <i class="bi bi-eye-fill toggle-password" data-target="password_repeat"></i>
+                </div>
+            </div>
+            <ul id="password-requirements">
+                <li class="invalid-feedback">At least one uppercase letter</li>
+                <li class="invalid-feedback">At least one lowercase letter</li>
+                <li class="invalid-feedback">At least one digit</li>
+                <li class="invalid-feedback">No spaces allowed</li>
+                <li class="invalid-feedback">Should be more than 4 characters</li>
+                <li class="invalid-feedback">Passwords should match</li>
+            </ul>
+
+            <div class="text-left">
+                <input type="hidden" name="step" value="update_client_creds">
+                <button type="submit" id="update-creds" class="btn btn-primary" style="height: 35px; font-size: 13px;" onclick="validatePassword()">修改登录用户名与密码</button>
+            </div>
+            {% else %}
+            <div class="form-group">
+                <label for="username" style="font-size: 13px;">用户名</label>
+                <input type="text" name="username" class="form-control" placeholder="请输入用户名" required>
+            </div>
+            <div class="form-group">
+                <label for="password" style="font-size: 13px;">输入密码</label>
+                <div class="password-container">
+                    <input type="password" id="password" name="password" class="form-control" placeholder="请输入密码" autocomplete="new-password" required>
+                    <i class="bi bi-eye-fill toggle-password" data-target="password"></i>
+                </div>
+            </div>
+            <div class="form-group">
+                <label for="password" style="font-size: 13px;">确认密码</label>
+                <div class="password-container">
+                    <input type="password" id="password_repeat" name="password_repeat" class="form-control" placeholder="请再次输入密码" required>
+                    <i class="bi bi-eye-fill toggle-password" data-target="password_repeat"></i>
+                </div>
+            </div>
+            <ul id="password-requirements">
+                <li class="invalid-feedback">At least one uppercase letter</li>
+                <li class="invalid-feedback">At least one lowercase letter</li>
+                <li class="invalid-feedback">At least one digit</li>
+                <li class="invalid-feedback">No spaces allowed</li>
+                <li class="invalid-feedback">Should be more than 4 characters</li>
+                <li class="invalid-feedback">Passwords should match</li>
+            </ul>
+
+            <div class="text-left">
+                <input type="hidden" name="step" value="update_client_creds">
+                <input type="hidden" name="customer_id" value="{{ customer.id }}">
+                <button type="submit" id="update-creds" class="btn btn-primary" style="height: 35px; font-size: 13px;">确认开通客户端</button>
+            </div>
+            {% endif %}
+        </form>
     </div>
-    <div class="form-row" >
-        <div class="form-group col-md-4">
-            <label class="col-form-label" style="font-size: 15px; width: 100px; height: 40px;">ZEM客户代码</label>
-            {{ customer_update_form.zem_code }}
-        </div>
-    </div>
-    <div class="form-row" >
-        <div class="form-group col-md-4">
-            <label class="col-form-label" style="font-size: 15px; width: 100px; height: 40px;">财务名称</label>
-            {{ customer_update_form.accounting_name }}
-        </div>
-    </div>
-    <div class="form-row" >
-        <div class="form-group col-md-4">
-            <label class="col-form-label" style="font-size: 15px; width: 100px; height: 40px;">Email</label>
-            {{ customer_update_form.email }}
-        </div>
-    </div>
-    <div class="form-row" >
-        <div class="form-group col-md-4">
-            <label class="col-form-label" style="font-size: 15px; width: 100px; height: 40px;">Phone</label>
-            {{ customer_update_form.phone }}
-        </div>
-    </div>
-    <div class="form-row" >
-        <div class="form-group col-md-4">
-            <label class="col-form-label" style="font-size: 15px; width: 100px; height: 40px;">备注</label>
-            {{ customer_update_form.note }}
-        </div>
-    </div>
-    <div class="text-left">
-        <input type="hidden" name="step" value="update">
-        <button type="submit" class="btn btn-primary" style="width: 100px; height: 35px;">确认</button>
-    </div>
-</form>
+</div>
 {% endif %}
+<script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
 <script>
     function filterCustomerTable() {
         var zemNameInput, fullNameInput, zemNameFilter, fullNameFilter, table, tbody, tr, zemNameTd, fullNameTd, i, zemNameTxtValue, fullNameTxtValue;
@@ -163,5 +259,83 @@
             }
         }
     };
+
+    function generateUsername() {
+        // Get the value of the input field with id "id_zem_code"
+        let zemCode = document.getElementById("id_zem_code").value;
+        // Remove spaces and convert to uppercase
+        let formattedCode = zemCode.replace(/\s+/g, '').toUpperCase();
+
+        // Generate a 2-digit random number (10-99 to avoid single-digit numbers)
+        let randomNum = Math.floor(Math.random() * 90) + 10;
+
+        // Create the username
+        let username = `ZEM_${formattedCode}_${randomNum}`;
+        console.log(username)
+
+        // Set the generated username in the input with id "id_username"
+        document.getElementById("id_username").value = username;
+    };
+
+    document.getElementById("id_zem_code").addEventListener("input", generateUsername);
+
+    $(document).ready(function(){
+        $(".toggle-password").click(function(){
+            let targetInput = $("#" + $(this).data("target"));
+            let type = targetInput.attr("type") === "password" ? "text" : "password";
+            targetInput.attr("type", type);
+            
+            // Toggle eye icon
+            $(this).toggleClass("bi bi-eye-slash-fill");
+        });
+    });
+
+    function validatePassword() {
+        const password = document.getElementById('password').value;
+        const passwordRepeat = document.getElementById('password_repeat').value;
+
+        let isValid = true;
+
+        // Regex patterns for validation
+        const upperCasePattern = /[A-Z]/;
+        const lowerCasePattern = /[a-z]/;
+        const digitPattern = /\d/;
+        const noSpace = /\s/;
+
+        // Check each requirement
+        const checks = [
+            { check: upperCasePattern.test(password), message: 'At least one uppercase letter' },
+            { check: lowerCasePattern.test(password), message: 'At least one lowercase letter' },
+            { check: digitPattern.test(password), message: 'At least one digit' },
+            { check: !noSpace.test(password), message: 'No spaces allowed' },
+            { check: password.length > 4, message: 'Should be more than 4 characters' },
+            { check: password === passwordRepeat && password.length > 0, message: 'Passwords should match' },
+        ];
+
+        // Update the list with appropriate feedback
+        checks.forEach((item, index) => {
+            const li = document.querySelectorAll('#password-requirements li')[index];
+            if (item.check) {
+                li.classList.add('valid-feedback');
+                li.classList.remove('invalid-feedback');
+            } else {
+                li.classList.add('invalid-feedback');
+                li.classList.remove('valid-feedback');
+                isValid = false;
+            }
+        });
+
+        // Enable submit button if the password is valid
+        const submitBtn = document.getElementById('update-creds');
+        if (isValid) {
+            submitBtn.disabled = false;
+        } else {
+            submitBtn.disabled = true;
+        }
+    }
+
+    // Event listeners for real-time validation
+    document.getElementById('password').addEventListener('input', validatePassword);
+    document.getElementById('password_repeat').addEventListener('input', validatePassword);
 </script>
 {% endblock %}

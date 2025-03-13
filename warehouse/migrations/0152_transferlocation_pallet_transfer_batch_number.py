@@ -7,29 +7,52 @@ from django.db import migrations, models
 class Migration(migrations.Migration):
 
     dependencies = [
-        ('warehouse', '0151_invoiceitem_weight'),
+        ("warehouse", "0151_invoiceitem_weight"),
     ]
 
     operations = [
         migrations.CreateModel(
-            name='TransferLocation',
+            name="TransferLocation",
             fields=[
-                ('id', models.BigAutoField(auto_created=True, primary_key=True, serialize=False, verbose_name='ID')),
-                ('shipping_warehouse', models.CharField(blank=True, max_length=255, null=True)),
-                ('receiving_warehouse', models.CharField(blank=True, max_length=2000, null=True)),
-                ('shipping_time', models.DateTimeField(blank=True, null=True)),
-                ('ETA', models.DateTimeField(blank=True, null=True)),
-                ('arrival_time', models.DateTimeField(blank=True, null=True)),
-                ('batch_number', models.CharField(blank=True, max_length=2000, null=True)),
-                ('total_pallet', models.IntegerField(blank=True, null=True)),
-                ('total_pcs', models.IntegerField(blank=True, null=True)),
-                ('total_cbm', models.FloatField(blank=True, null=True)),
-                ('total_weight', models.FloatField(blank=True, null=True)),
+                (
+                    "id",
+                    models.BigAutoField(
+                        auto_created=True,
+                        primary_key=True,
+                        serialize=False,
+                        verbose_name="ID",
+                    ),
+                ),
+                (
+                    "shipping_warehouse",
+                    models.CharField(blank=True, max_length=255, null=True),
+                ),
+                (
+                    "receiving_warehouse",
+                    models.CharField(blank=True, max_length=2000, null=True),
+                ),
+                ("shipping_time", models.DateTimeField(blank=True, null=True)),
+                ("ETA", models.DateTimeField(blank=True, null=True)),
+                ("arrival_time", models.DateTimeField(blank=True, null=True)),
+                (
+                    "batch_number",
+                    models.CharField(blank=True, max_length=2000, null=True),
+                ),
+                ("total_pallet", models.IntegerField(blank=True, null=True)),
+                ("total_pcs", models.IntegerField(blank=True, null=True)),
+                ("total_cbm", models.FloatField(blank=True, null=True)),
+                ("total_weight", models.FloatField(blank=True, null=True)),
             ],
         ),
         migrations.AddField(
-            model_name='pallet',
-            name='transfer_batch_number',
-            field=models.ForeignKey(blank=True, null=True, on_delete=django.db.models.deletion.SET_NULL, related_name='pallet', to='warehouse.transferlocation'),
+            model_name="pallet",
+            name="transfer_batch_number",
+            field=models.ForeignKey(
+                blank=True,
+                null=True,
+                on_delete=django.db.models.deletion.SET_NULL,
+                related_name="pallet",
+                to="warehouse.transferlocation",
+            ),
         ),
     ]
