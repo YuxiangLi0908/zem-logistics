@@ -921,11 +921,11 @@ class Palletization(View):
                 cbm /= 2
                 cbm *= n_label
                 cbm = int(cbm)
-
-                if "客户自提" in pl.get("destination") or "自提" in pl.get(
-                    "destination"
-                ):
-                    destination = "S/P"
+                if "客户自提" in pl.get("destination") or "自提" in pl.get("destination") or "客户自提" in pl.get("custom_delivery_method"):
+                    if "客户自提" in pl.get("destination")or "自提" in pl.get("destination"):
+                        destination = "S/P"
+                    else:
+                        destination = pl.get("destination")
                     marks = pl.get("shipping_marks")
                     if marks:
                         array = marks.split(",")
@@ -950,7 +950,8 @@ class Palletization(View):
                 else:
                     fba_ids = None
 
-                for num in range(cbm):
+                #for num in range(cbm):
+                for num in [0,1]:
                     i = num // n_label + 1
                     barcode_type = "code128"
                     barcode_class = barcode.get_barcode_class(barcode_type)
@@ -980,7 +981,6 @@ class Palletization(View):
                         "shipping_marks": new_marks,
                         "pcs": pl.get("pcs"),
                     }
-
                     data.append(new_data)
         context = {"data": data}
         template = get_template(self.template_pallet_label)
