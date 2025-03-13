@@ -1152,30 +1152,38 @@ class FleetManagement(View):
         self, request: HttpRequest
     ) -> tuple[str, dict[str, Any]]:
         conn = await self._get_sharepoint_auth()
-        pod_form = UploadFileForm(request.POST, request.FILES)
-        shipment_batch_number = request.POST.get("shipment_batch_number")
+        if 'file' in request.FILES:
+            files = request.FILES.getlist("file")
+            shipment_batch_numbers = request.POST.getlist("shipment_batch_number")
+            if isinstance(shipment_batch_numbers, str):
+                shipment_batch_numbers = [shipment_batch_numbers]
+            if len(files) != len(shipment_batch_numbers):
+                raise ValueError("文件数量和 shipment_batch_number 数量不匹配")
+            for file, shipment_batch_number in zip(files, shipment_batch_numbers):
+                await self._upload_file_to_sharepoint(conn, shipment_batch_number, file)
+        else:
+            raise ValueError("未找到上传的文件")
+        return await self.handle_pod_upload_get(request)
+    
+    async def _upload_file_to_sharepoint(self, conn, shipment_batch_number: str, file) -> None:
         shipment = await sync_to_async(Shipment.objects.get)(
             shipment_batch_number=shipment_batch_number
         )
-        if pod_form.is_valid():
-            file = request.FILES["file"]
-            file_extension = os.path.splitext(file.name)[1]
-            file_path = os.path.join(SP_DOC_LIB, f"{SYSTEM_FOLDER}/pod/{APP_ENV}")
-            sp_folder = conn.web.get_folder_by_server_relative_url(file_path)
-            resp = sp_folder.upload_file(
-                f"{shipment_batch_number}{file_extension}", file
-            ).execute_query()
-            link = (
-                resp.share_link(SharingLinkKind.OrganizationView)
-                .execute_query()
-                .value.to_json()["sharingLinkInfo"]["Url"]
-            )
-        else:
-            raise ValueError("invalid file uploaded.")
+        file_extension = os.path.splitext(file.name)[1]
+        file_path = os.path.join(SP_DOC_LIB, f"{SYSTEM_FOLDER}/pod/{APP_ENV}")
+        sp_folder = conn.web.get_folder_by_server_relative_url(file_path)
+        resp = sp_folder.upload_file(
+            f"{shipment_batch_number}{file_extension}", file
+        ).execute_query()
+        link = (
+            resp.share_link(SharingLinkKind.OrganizationView)
+            .execute_query()
+            .value.to_json()["sharingLinkInfo"]["Url"]
+        )
         shipment.pod_link = link
         shipment.pod_uploaded_at = timezone.now()
         await sync_to_async(shipment.save)()
-        return await self.handle_pod_upload_get(request)
+        
 
     async def _export_ltl_label(self, request: HttpRequest) -> HttpResponse:
         fleet_number = request.POST.get("fleet_number")
