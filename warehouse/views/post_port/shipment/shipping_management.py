@@ -235,6 +235,7 @@ class ShippingManagement(View):
                 container_number__order__offload_id__offload_at__isnull=False,
             ),
         )
+        note = packing_list_selected[0]['note']
         context.update(
             {
                 "shipment": shipment,
@@ -245,7 +246,8 @@ class ShippingManagement(View):
                 "warehouse_options": self.warehouse_options,
                 "shipment_type_options": self.shipment_type_options,
                 "start_date":request.GET.get("start_date"),
-                "end_date":request.GET.get("end_date")
+                "end_date":request.GET.get("end_date"),
+                "express_number":note
             }
         )
         return self.template_td_shipment_info, context
@@ -1047,7 +1049,6 @@ class ShippingManagement(View):
             if not end_date
             else end_date
         )
-        print('时间是',start_date,end_date)
         criteria_p = models.Q(
             (
                 models.Q(container_number__order__order_type="转运")
@@ -1208,6 +1209,7 @@ class ShippingManagement(View):
                 }
                 for s in unused_appointment
             }
+            note = packing_list_selected[0]['note']
             context.update(
                 {
                     "batch_id": batch_id,
@@ -1225,6 +1227,7 @@ class ShippingManagement(View):
                     "start_date": request.POST.get("start_date"),
                     "end_date": request.POST.get("end_date"),
                     "account_options": self.account_options,
+                    "express_number":note
                 }
             )
             return self.template_td_schedule, context
@@ -1274,7 +1277,7 @@ class ShippingManagement(View):
                     raise ValueError(
                         f"ISA {appointment_id} 登记的目的地是 {existed_appointment.destination} ，此次登记的目的地是 {request.POST.get('destination', None)}!"
                     )
-                else:
+                else: #没有特殊情况就更新约的信息
                     shipment = existed_appointment
                     shipment.shipment_batch_number = shipment_data[
                         "shipment_batch_number"
@@ -1306,6 +1309,11 @@ class ShippingManagement(View):
                         if request.POST.get("arm_bol")
                         else ""
                     )
+                    shipment.express_number = (
+                        request.POST.get("express_number")
+                        if request.POST.get("express_number")
+                        else ""
+                    )
                     try:
                         shipment.third_party_address = shipment_data[
                             "third_party_address"
@@ -1330,8 +1338,18 @@ class ShippingManagement(View):
                     shipmentappointment = request.POST.get("shipment_est_arrival", None)
                     if shipmentappointment == "":
                         shipmentappointment = current_time
+                    shipment.express_number = (
+                        request.POST.get("express_number")
+                        if request.POST.get("express_number")
+                        else ""
+                    )
                 else:
                     shipmentappointment = request.POST.get("shipment_appointment", None)
+                    if shipment_type == "客户自提" and "NJ" in str(request.POST.get("origin", "")):  #客户自提的预约完要直接跳到POD上传,时间按预计提货时间
+                        shipment_data["is_shipped"] = True
+                        shipment_data["shipped_at"] = shipmentappointment                    
+                        shipment_data["is_arrived"] = True
+                        shipment_data["arrived_at"] = shipmentappointment
                 shipment_data["shipment_type"] = shipment_type
                 shipment_data["load_type"] = request.POST.get("load_type", None)
                 shipment_data["note"] = request.POST.get("note", "")
@@ -1370,6 +1388,9 @@ class ShippingManagement(View):
                             "origin": shipment_data["origin"],
                         }
                     )
+                    if shipment_type == "客户自提" and "NJ" in str(request.POST.get("origin", "")):
+                        fleet.departured_at = shipmentappointment
+                        fleet.arrived_at = shipmentappointment
                     await sync_to_async(fleet.save)()
                     shipment_data["fleet_number"] = fleet
                     # LTL的需要存ARM-BOL和ARM-PRO
@@ -1881,6 +1902,19 @@ class ShippingManagement(View):
                         "origin": shipment.origin,
                     }
                 )
+                if shipment_type == "客户自提" and "NJ" in str(request.POST.get("origin")):
+                    shipment.is_shipped = True
+                    shipment.shipped_at = shipment_appointment
+                    shipment.is_arrived = True
+                    shipment.arrived_at = shipment_appointment
+                    fleet.departured_at = shipment_appointment
+                    fleet.arrived_at = shipment_appointment
+                elif shipment_type == "外配/快递":
+                    shipment.express_number = (
+                        request.POST.get("express_number")
+                        if request.POST.get("express_number")
+                        else ""
+                    )
                 await sync_to_async(fleet.save)()
                 if shipment.fleet_number:
                     await sync_to_async(shipment.fleet_number.delete)()
@@ -2417,6 +2451,7 @@ class ShippingManagement(View):
                     "container_number__order__vessel_id__vessel_eta",
                     "sequence_number",
                     "PO_ID",
+                    "note",
                     target_retrieval_timestamp=F(
                         "container_number__order__retrieval_id__target_retrieval_timestamp"
                     ),
@@ -2512,6 +2547,7 @@ class ShippingManagement(View):
                     "schedule_status",
                     "container_number__order__vessel_id__vessel_eta",
                     "PO_ID",
+                    "note",
                     target_retrieval_timestamp=F(
                         "container_number__order__retrieval_id__target_retrieval_timestamp"
                     ),

@@ -239,12 +239,14 @@
                         <tr>
                             <th class="th">ARM-BOL</th>
                             <th class="th">ARM-PRO</th>
+                            <th class="th">快递单号</th>
                         </tr>
                     </thead>
                     <tbody>
                         <tr>
                             <td class="td"><input type="text" name="arm_bol" value="{{ shipment.ARM_BOL|default_if_none:'' }}" style="font-size: 13px;"></td>
                             <td class="td"><input type="text" name="arm_pro" value="{{ shipment.ARM_PRO|default_if_none:'' }}" style="font-size: 13px;"></td>
+                            <td class="td"><input type="text" name="express_number" style="font-size: 13px;" value="{{ express_number }}"></td>
                         </tr>
                     </tbody>
                 </table>
