@@ -1309,11 +1309,6 @@ class ShippingManagement(View):
                         if request.POST.get("arm_bol")
                         else ""
                     )
-                    shipment.express_number = (
-                        request.POST.get("express_number")
-                        if request.POST.get("express_number")
-                        else ""
-                    )
                     try:
                         shipment.third_party_address = shipment_data[
                             "third_party_address"
@@ -1338,11 +1333,18 @@ class ShippingManagement(View):
                     shipmentappointment = request.POST.get("shipment_est_arrival", None)
                     if shipmentappointment == "":
                         shipmentappointment = current_time
-                    shipment.express_number = (
-                        request.POST.get("express_number")
-                        if request.POST.get("express_number")
-                        else ""
-                    )
+                    if "NJ" in str(request.POST.get("origin", "")):  #NJ仓的，UPS预约完就结束，POD都不用传
+                        shipment.express_number = (
+                            request.POST.get("express_number")
+                            if request.POST.get("express_number")
+                            else ""
+                        )
+                        shipment.is_shipped = True
+                        shipment.shipped_at = shipmentappointment
+                        shipment.is_arrived = True
+                        shipment.arrived_at = shipmentappointment
+                        shipment.pod_link = 'Without'
+                        shipment.pod_uploaded_at = timezone.now()
                 else:
                     shipmentappointment = request.POST.get("shipment_appointment", None)
                     if shipment_type == "客户自提" and "NJ" in str(request.POST.get("origin", "")):  #客户自提的预约完要直接跳到POD上传,时间按预计提货时间
@@ -1388,7 +1390,8 @@ class ShippingManagement(View):
                             "origin": shipment_data["origin"],
                         }
                     )
-                    if shipment_type == "客户自提" and "NJ" in str(request.POST.get("origin", "")):
+                    #NJ仓的客户自提和UPS，都不需要确认出库和确认到达，客户自提需要POD上传
+                    if (shipment_type == "客户自提" or shipment_type == "外配/快递") and "NJ" in str(request.POST.get("origin", "")):
                         fleet.departured_at = shipmentappointment
                         fleet.arrived_at = shipmentappointment
                     await sync_to_async(fleet.save)()
@@ -1902,19 +1905,22 @@ class ShippingManagement(View):
                         "origin": shipment.origin,
                     }
                 )
-                if shipment_type == "客户自提" and "NJ" in str(request.POST.get("origin")):
+                if (shipment_type == "客户自提" or shipment_type == "外配/快递") and "NJ" in str(request.POST.get("origin")):
                     shipment.is_shipped = True
                     shipment.shipped_at = shipment_appointment
                     shipment.is_arrived = True
                     shipment.arrived_at = shipment_appointment
                     fleet.departured_at = shipment_appointment
                     fleet.arrived_at = shipment_appointment
-                elif shipment_type == "外配/快递":
+                if shipment_type == "外配/快递" : #UPS的比客户自提的，系统上还少一步POD上传
                     shipment.express_number = (
                         request.POST.get("express_number")
                         if request.POST.get("express_number")
                         else ""
                     )
+                    shipment.pod_link = 'Without'
+                    shipment.pod_uploaded_at = timezone.now()
+                        
                 await sync_to_async(fleet.save)()
                 if shipment.fleet_number:
                     await sync_to_async(shipment.fleet_number.delete)()
