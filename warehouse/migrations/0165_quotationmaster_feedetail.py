@@ -7,7 +7,7 @@ import django.db.models.deletion
 class Migration(migrations.Migration):
 
     dependencies = [
-        ('warehouse', '0157_invoicedelivery_surcharge_notes_and_more'),
+        ('warehouse', '0164_invoicedelivery_surcharge_notes_and_more'),
     ]
 
     operations = [
