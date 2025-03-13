@@ -950,8 +950,7 @@ class Palletization(View):
                 else:
                     fba_ids = None
 
-                #for num in range(cbm):
-                for num in [0,1]:
+                for num in range(cbm):
                     i = num // n_label + 1
                     barcode_type = "code128"
                     barcode_class = barcode.get_barcode_class(barcode_type)
