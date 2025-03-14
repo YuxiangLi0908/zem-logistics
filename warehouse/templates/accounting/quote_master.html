@@ -1,0 +1,54 @@
+
+{% extends 'base.html' %}
+{% load custom_filters %}
+{% block content %}
+
+<div style="max - height:100%;max - width:100%;overflow: hidden;">
+    <form method="post" enctype="multipart/form-data" style="font - size:11px;float: right;">      
+        <div>
+            {% csrf_token %}
+            导入模版:
+            <input type="file" name="file">
+            <input type="hidden" name="step" value="upload_quote_excel">
+            <button type="submit" class="btn btn-success" style="width: 100px; height: 35px; font-size: 12px; margin: 5px;">上传报价表</button>
+        </div>
+    </form>
+</div>
+
+<div style="max-height: 500px; max-width: 800px; padding: 20px; margin: 0 auto; background-color: #fff; border-radius: 8px; box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1);">
+    <h3 style="text-align: center; margin-bottom: 20px;">报价单版本管理</h3>
+    <table id="quote-table" class="table" style="font-size: 14px; width: 100%; border-collapse: collapse;">
+        <thead>
+            <tr style="background-color: #f1f1f1;">
+                <th class="th" style="padding: 12px; border: 1px solid #ddd;">版本号</th>
+                <th class="th" style="padding: 12px; border: 1px solid #ddd;">上传时间</th>
+                <th class="th" style="padding: 12px; border: 1px solid #ddd;">状态</th>
+                <th class="th" style="padding: 12px; border: 1px solid #ddd;">操作</th>
+            </tr>
+        </thead>
+        <tbody>
+            {% for q in quotes %}
+            <form id="quote-form" method="post" enctype="multipart/form-data" action="">
+                {% csrf_token %}
+                <tr style="background-color: {% cycle '#fff' '#f9f9f9' %};">
+                    <td class="td" style="padding: 12px; border: 1px solid #ddd; text-align: center;">{{ q.version }}</td>
+                    <td class="td" style="padding: 12px; border: 1px solid #ddd; text-align: center;">{{ q.upload_date|date:"M-j" }}</td>
+                    <td class="td" style="padding: 12px; border: 1px solid #ddd; text-align: center; {% if q.active %}background-color: #d4edda; color: #155724; font-weight: bold;{% else %}background-color: #f8d7da; color: #721c24; font-style: italic;{% endif %}">
+                        {% if q.active %}已启用{% else %}未启用{% endif %}
+                    </td>
+                    <td class="td" style="padding: 12px; border: 1px solid #ddd; text-align: center;">
+                        <input type="hidden" name="q_id" value="{{ q.id }}">
+                        <input type="hidden" name="step" value="activate_quotation">
+                        <button type="submit" class="btn btn-success" style="font-size: 14px; padding: 6px 12px;">启用</button>
+                    </td>
+                </tr>            
+            </form>    
+            {% endfor %}
+        </tbody>
+    </table>
+</div>
+<script>
+    
+    
+</script>
+{% endblock %}

@@ -2,8 +2,7 @@ from django.db import models
 from simple_history.models import HistoricalRecords
 
 from warehouse.models.invoice import Invoice
-
-
+from django.db.models import JSONField
 class InvoicePreport(models.Model):
     invoice_number = models.ForeignKey(Invoice, on_delete=models.CASCADE)
     pickup = models.FloatField(null=True, blank=True, verbose_name="提拆/打托缠膜")
@@ -25,6 +24,8 @@ class InvoicePreport(models.Model):
     per_diem = models.FloatField(null=True, blank=True, verbose_name="港外滞期费")
     second_pickup = models.FloatField(null=True, blank=True, verbose_name="二次提货")
     amount = models.FloatField(null=True, blank=True)
+    surcharges = JSONField(default=dict)
+    surcharge_notes = JSONField(default=dict)
     history = HistoricalRecords()
 
     def __str__(self) -> str:
@@ -57,6 +58,8 @@ class InvoiceWarehouse(models.Model):
         null=True, blank=True, verbose_name="重复操作费"
     )
     amount = models.FloatField(null=True, blank=True)
+    surcharges = JSONField(default=dict)
+    surcharge_notes = JSONField(default=dict)
     history = HistoricalRecords()
 
     def __str__(self) -> str:
@@ -73,6 +76,8 @@ class InvoiceDelivery(models.Model):
     total_cbm = models.FloatField(null=True, blank=True)
     total_weight_lbs = models.FloatField(null=True, blank=True)
     total_cost = models.FloatField(null=True, blank=True)
+    surcharges = JSONField(default=dict)
+    surcharge_notes = JSONField(default=dict)
     history = HistoricalRecords()
 
     def __str__(self) -> str:

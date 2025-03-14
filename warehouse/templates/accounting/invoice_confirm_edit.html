@@ -23,6 +23,7 @@
             <input type="hidden" name="start_date" value="{{start_date}}">
             <input type="hidden" name="end_date" value="{{end_date}}">
             <input type="hidden" name="container_number" value="{{ container_number }}">
+            <input type="text" placeholder="驳回原因" name="reject_reason" value ="{{ reject_reason|default_if_none:'' }}">
             <button id="editButton" type="submit" class="btn btn-danger" onclick="AmountForm()" style="background-color:green; font-size: 13px; padding:10px 20px; margin-right:80px;">驳回</button>  
         </form>
         <div>
@@ -114,6 +115,7 @@
             <input type="hidden" name="start_date" value="{{start_date}}">
             <input type="hidden" name="end_date" value="{{end_date}}">
             <input type="hidden" name="container_number" value="{{ container_number }}">
+            <input type="text" placeholder="驳回原因" name="reject_reason" value ="{{ reject_reason|default_if_none:'' }}">
             <button id="editButton" type="submit" class="btn btn-danger" onclick="AmountForm()" style="background-color:green; font-size: 13px; padding:10px 20px; margin-right:80px;">驳回</button>  
         </form>
         <div>
@@ -190,6 +192,7 @@
             <input type="hidden" name="start_date" value="{{start_date}}">
             <input type="hidden" name="end_date" value="{{end_date}}">
             <input type="hidden" name="container_number" value="{{ container_number }}">
+            <input type="text" placeholder="驳回原因" name="reject_reason" value ="{{ reject_reason|default_if_none:'' }}">
             <button id="editButton" type="submit" class="btn btn-danger" onclick="AmountForm()" style="background-color:green; font-size: 13px; padding:10px 20px; margin-right:80px;">驳回</button>  
         </form>
         {% if amazon %}
@@ -314,6 +317,7 @@
         <input type="hidden" name="end_date" value="{{end_date}}">
         <input type="hidden" name="container_number" value="{{ container_number }}">
         <button id="editButton" type="submit" class="btn btn-danger" onclick="AmountForm()" style="background-color:green; font-size: 13px; padding:10px 20px; margin-right:80px;">驳回</button>  
+        <input type="text" placeholder="驳回原因" name="reject_reason" value ="{{ reject_reason|default_if_none:'' }}">
     </form>
     <div>
         <div>
