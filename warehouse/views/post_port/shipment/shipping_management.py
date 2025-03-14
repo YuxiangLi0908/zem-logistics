@@ -860,7 +860,7 @@ class ShippingManagement(View):
                     + current_time.strftime("%m%d%H%M%S")
                     + str(uuid.uuid4())[:2].upper()
                 )
-                batch_id = batch_id.replace(" ", "").upper()
+                batch_id = batch_id.replace(" ", "").replace("/", "-").upper()
                 if ISA in db_shipment:
                     shipment = db_shipment[ISA]
                     destination = (
