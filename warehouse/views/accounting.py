@@ -66,6 +66,7 @@ from warehouse.utils.constants import (
     ACCT_BENEFICIARY_ADDRESS,
     ACCT_BENEFICIARY_NAME,
     ACCT_SWIFT_CODE,
+    APP_ENV,
     SP_DOC_LIB,
     SP_PASS,
     SP_URL,
