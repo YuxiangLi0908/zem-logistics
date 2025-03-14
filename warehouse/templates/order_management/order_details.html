@@ -449,10 +449,10 @@
                             {% endif %}
                         </td>
                         <td class="td">
-                            <input type="date" name="retrieval_target_time" {%if retrieval %} value="{{ retrieval.target_retrieval_timestamp|date:'Y-m-d' }}"{% endif %}>
+                            <input type="date" name="target_retrieval_timestamp" {%if retrieval %} value="{{ retrieval.target_retrieval_timestamp|date:'Y-m-d' }}"{% endif %}>
                         </td>
                         <td class="td">
-                            <input type="date" name="retrieval_actual_time" {%if retrieval %} value="{{ retrieval.actual_retrieval_timestamp|date:'Y-m-d' }}"{% endif %}>
+                            <input type="date" name="actual_retrieval_timestamp" {%if retrieval %} value="{{ retrieval.actual_retrieval_timestamp|date:'Y-m-d' }}"{% endif %}>
                         </td>
                         <td class="td">
                             <input type="text" name="retrieval_note" {%if retrieval %} value="{{ retrieval.note }}"{% endif %} >
