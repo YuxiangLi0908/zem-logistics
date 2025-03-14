@@ -368,6 +368,15 @@ class OrderCreation(View):
         area = request.POST.get("area")
         destination = request.POST.get("destination")
         container_number = request.POST.get("container_number")
+        existing_order = await sync_to_async(Order.objects.get)(container_number__container_number=container_number)
+        if existing_order:
+            #如果柜号已经存在，就将旧柜号后面加_年月
+            old_created_at = await sync_to_async(lambda: existing_order.created_at)()
+            year_month = old_created_at.strftime("%Y%m")
+            old_container = await sync_to_async(lambda: existing_order.container_number)()
+            old_container.container_number = f"{old_container.container_number}_{year_month}"
+            await sync_to_async(old_container.save)()
+
         if await sync_to_async(list)(
             Order.objects.filter(container_number__container_number=container_number)
         ):
