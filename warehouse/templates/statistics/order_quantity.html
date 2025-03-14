@@ -242,22 +242,22 @@
                 momCell.textContent = ' --';
             } else if (mom > 0){
                 momCell.textContent = `+${mom}%`; 
-                momCell.style.backgroundColor = '#e6f4ea'; // 绿色背景
-                momCell.style.color = '#28a745'; // 绿色文字
+                momCell.style.backgroundColor = '#f8d7da'; // 红色背景
+                momCell.style.color = '#dc3545'; // 红色文字
                 momCell.textContent += ' ↑';
             } else if ( mom < 0 ){
                 momCell.textContent = `${mom}%`; // 负增长
-                momCell.style.backgroundColor = '#f8d7da'; // 红色背景
-                momCell.style.color = '#dc3545'; // 红色文字
+                momCell.style.backgroundColor = '#e6f4ea'; // 绿色背景
+                momCell.style.color = '#28a745'; // 绿色文字
                 momCell.textContent += ' ↓';
             }else if ( mom == '+' ) {
                 momCell.textContent = `+`; 
-                momCell.style.backgroundColor = '#e6f4ea'; 
-                momCell.style.color = '#28a745';    
+                momCell.style.backgroundColor = '#f8d7da'; 
+                momCell.style.color = '#dc3545';    
             }else if (mom == '-') {
                 momCell.textContent = '-100% ↓'; 
-                momCell.style.backgroundColor = '#f8d7da'; 
-                momCell.style.color = '#dc3545';
+                momCell.style.backgroundColor = '#e6f4ea'; 
+                momCell.style.color = '#28a745';
             }else {
                 momCell.textContent = mom; 
             }          
