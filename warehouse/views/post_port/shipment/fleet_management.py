@@ -338,7 +338,9 @@ class FleetManagement(View):
                     new_marks = "\n".join(parts)
                 else:
                     new_marks = marks
-            arm["shipping_mark"] = new_marks
+                arm["shipping_mark"] = new_marks
+            else:
+                arm["shipping_mark"] = ''
         shipment = await sync_to_async(list)(
             Pallet.objects.select_related(
                 "shipment_batch_number",
