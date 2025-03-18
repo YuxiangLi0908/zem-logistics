@@ -304,6 +304,29 @@ class OrderCreation(View):
                 "warehouse",
             ).filter(criteria)
         )
+        #判断一下柜子的状态
+        for order in orders:
+            if order.cancel_notification:
+                status = "已取消"
+            elif not order.add_to_t49:
+                status = 'T49待追踪'
+            else:
+                if not order.retrieval_id.actual_retrieval_timestamp:
+                    if not order.retrieval_id.retrieval_carrier:
+                        status = "待预约提柜"
+                    else:
+                        status = "待确认提柜"
+                else:
+                    if not order.retrieval_id.arrive_at_destination:
+                        status = "待确认到仓"
+                    else:
+                        if not order.offload_id.offload_at:
+                            status = "确认拆柜"
+                        elif order.offload_id.offload_at:
+                            status = "已拆柜"
+                        else:
+                            status = "未知"
+            order.status =  status              
         context = {
             "orders": orders,
             "start_date_eta": start_date_eta,

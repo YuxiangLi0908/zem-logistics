@@ -68,12 +68,12 @@ class PostportDash(View):
         start_date = request.POST.get("start_date")
         end_date = request.POST.get("end_date")
         container_number = (
-            request.POST.get("container_number")
+            request.POST.get("container_number").strip()
             if request.POST.get("container_number")
             else None
         )
         shipment_batch_number = (
-            request.POST.get("shipment_batch_number")
+            request.POST.get("shipment_batch_number").strip()
             if request.POST.get("shipment_batch_number")
             else None
         )
@@ -95,20 +95,22 @@ class PostportDash(View):
             container_number__order__packing_list_updloaded=True,
             container_number__order__created_at__gte="2024-09-01",
         )
-        if container_number:
-            criteria &= models.Q(container_number__container_number=container_number)
-        if shipment_batch_number:
-            criteria &= models.Q(
-                shipment_batch_number__shipment_batch_number=shipment_batch_number
-            )
+        if shipment_batch_number or container_number:        
+            if shipment_batch_number:
+                criteria &= models.Q(
+                    shipment_batch_number__shipment_batch_number=shipment_batch_number
+                )
+            elif container_number:
+                criteria &= models.Q(container_number__container_number=container_number)
             pl_criteria = criteria & models.Q(
                 container_number__order__offload_id__offload_at__isnull=True,
-                container_number__order__retrieval_id__retrieval_destination_area=area,
             )
             plt_criteria = criteria & models.Q(
                 container_number__order__offload_id__offload_at__isnull=False,
-                location__startswith=area,
-            )
+            )    
+            context = {
+                "area_options": self.area_options,
+            }    
         else:
             pl_criteria = criteria & models.Q(
                 container_number__order__vessel_id__vessel_eta__gte=start_date,
@@ -122,7 +124,14 @@ class PostportDash(View):
                 container_number__order__offload_id__offload_at__isnull=False,
                 location__startswith=area,
             )
+            context = {
+                "selected_area": area,
+                "area_options": self.area_options,
+                "start_date": start_date,
+                "end_date": end_date,
+            }
         packing_list = await self._get_packing_list(pl_criteria, plt_criteria)
+        context["packing_list"] = packing_list
         cbm_act, cbm_est, pallet_act, pallet_est = 0, 0, 0, 0
         for pl in packing_list:
             if pl.get("label") == "ACT":
@@ -136,13 +145,6 @@ class PostportDash(View):
                     pallet_est += int(pl.get("total_n_pallet_est") // 1 + 1)
                 else:
                     pallet_est += int(pl.get("total_n_pallet_est") // 1)
-        context = {
-            "packing_list": packing_list,
-            "selected_area": area,
-            "area_options": self.area_options,
-            "start_date": start_date,
-            "end_date": end_date,
-        }
         if container_number:
             context["container_number"] = container_number
         if shipment_batch_number:
