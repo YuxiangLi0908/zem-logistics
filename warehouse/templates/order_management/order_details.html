@@ -189,21 +189,17 @@
     
     <div id="order-packing-list-info-sec" style="display: none;">
         <div style="display: flex;">
-            {% comment %} {% if not selected_order.offload_id.offload_at %} {% endcomment %}
+            {% if not selected_order.offload_id.offload_at %}
             <div style="display: flex; width: 80%;">
                 <div>
-                    <form method="post" enctype="multipart/form-data" style="font-size: 11px;">
+                    <form method="post" id='upload-form' enctype="multipart/form-data" style="font-size: 11px;">
                         {% csrf_token %}
                         导入模版: 
                         {{ packing_list_upload_form.file }}
-                        {% if not selected_order.offload_id.offload_at %}
                         <input type="hidden" name="step" value="upload_template">
-                        {% else%}
-                        <input type="hidden" name="step" value="update_order_packing_list_info">
-                        {% endif %}
                         <input type="hidden" name="source" value="order_management">
                         <input type="hidden" name="container_number" value="{{ selected_order.container_number.container_number }}">
-                        <button type="submit" class="btn btn-success" style="width: 100px; height: 35px; font-size: 12px; margin: 5px;">上传清单</button>
+                        <button type="submit" class="btn btn-success" style="width: 100px; height: 35px; font-size: 12px; margin: 5px;" onclick="add_pl_id()">上传清单</button>
                     </form>
                 </div>
                 <div>
@@ -222,7 +218,38 @@
                     <i class="bi bi-dash-lg"></i> 删除行
                 </button>
             </div>
-            {% comment %} {% endif %} {% endcomment %}
+            {% else%}
+                {% if user.is_authenticated and user.is_staff %}
+                    <div style="display: flex; width: 80%;">
+                        <div>
+                            <form method="post" id='upload-form' enctype="multipart/form-data" style="font-size: 11px;">
+                                {% csrf_token %}
+                                导入模版: 
+                                {{ packing_list_upload_form.file }}
+                                <input type="hidden" name="step" value="upload_template">
+                                <input type="hidden" name="source" value="order_management">
+                                <input type="hidden" name="container_number" value="{{ selected_order.container_number.container_number }}">
+                                <button type="submit" class="btn btn-success" style="width: 100px; height: 35px; font-size: 12px; margin: 5px;" onclick="add_pl_id()">上传清单</button>
+                            </form>
+                        </div>
+                        <div>
+                            <form method="post" action="">
+                                {% csrf_token %}
+                                <input type="hidden" name="step" value="download_template">
+                                <button type="submit" class="btn btn-success" style="width: 100px; height: 35px; font-size: 12px; margin: 5px;">下载模版</button>
+                            </form>
+                        </div>
+                    </div>
+                    <div class="text-right" style="min-width: 200px">
+                        <button type="button" id="add-more-btn" class="btn btn-success" style="height: 35px; font-size: 12px; margin: 5px;" onclick="addRowBelow()">
+                            <i class="bi bi-plus-lg"></i> 添加行
+                        </button>
+                        <button type="button" id="remove-last-btn" class="btn btn-danger" style="height: 35px; font-size: 12px; margin: 5px;" onclick="rmLastRow()">
+                            <i class="bi bi-dash-lg"></i> 删除行
+                        </button>
+                    </div>
+                {% endif %}
+            {% endif %}
         </div>
 
         <div style="overflow-x: auto; table-layout: fixed;">
@@ -489,6 +516,30 @@
 
 
 <script>
+    function add_pl_id(){
+        const selectedPlIds = [];
+        const checkboxes = document.querySelectorAll('input[name="is_packing_list_selected"]:checked');
+        checkboxes.forEach(checkbox => {
+            const row = checkbox.closest('tr');
+            const plIdInput = row.querySelector('input[name="pl_id"]');
+            if (plIdInput) {
+                selectedPlIds.push(plIdInput.value);
+            }
+        });
+
+        const form = document.getElementById('upload-form');
+        const existingPlIds = form.querySelectorAll('input[name="pl_id"]');
+        existingPlIds.forEach(input => input.remove());
+
+        selectedPlIds.forEach(plId => {
+            const input = document.createElement('input');
+            input.type = 'hidden';
+            input.name = 'pl_id';
+            input.value = plId;
+            form.appendChild(input);
+        });
+        form.submit();
+    }
     function confirmSubmit(Element){
         if (confirm('是否确定取消？')){
             var form = button.form;
