@@ -189,7 +189,7 @@
     
     <div id="order-packing-list-info-sec" style="display: none;">
         <div style="display: flex;">
-            {% if not selected_order.offload_id.offload_at %}
+            {% comment %} {% if not selected_order.offload_id.offload_at %} {% endcomment %}
             <div style="display: flex; width: 80%;">
                 <div>
                     <form method="post" enctype="multipart/form-data" style="font-size: 11px;">
@@ -218,7 +218,7 @@
                     <i class="bi bi-dash-lg"></i> 删除行
                 </button>
             </div>
-            {% endif %}
+            {% comment %} {% endif %} {% endcomment %}
         </div>
 
         <div style="overflow-x: auto; table-layout: fixed;">
