@@ -199,7 +199,7 @@
                         <input type="hidden" name="step" value="upload_template">
                         <input type="hidden" name="source" value="order_management">
                         <input type="hidden" name="container_number" value="{{ selected_order.container_number.container_number }}">
-                        <button type="submit" class="btn btn-success" style="width: 100px; height: 35px; font-size: 12px; margin: 5px;" onclick="add_pl_id()">上传清单</button>
+                        <button type="submit" class="btn btn-success" style="width: 100px; height: 35px; font-size: 12px; margin: 5px;">上传清单</button>
                     </form>
                 </div>
                 <div>
@@ -229,7 +229,7 @@
                                 <input type="hidden" name="step" value="upload_template">
                                 <input type="hidden" name="source" value="order_management">
                                 <input type="hidden" name="container_number" value="{{ selected_order.container_number.container_number }}">
-                                <button type="submit" class="btn btn-success" style="width: 100px; height: 35px; font-size: 12px; margin: 5px;" onclick="add_pl_id()">上传清单</button>
+                                <button type="submit" class="btn btn-success" style="width: 100px; height: 35px; font-size: 12px; margin: 5px;">上传清单</button>
                             </form>
                         </div>
                         <div>
@@ -369,8 +369,8 @@
                                         {{ pl.cbm }}
                                     </td>
                                     {% endif %}
-                                    <td class="td"><input type="text" name="note" {% if pl.note %}value="{{ pl.note }}"{% endif %}></td>
-                                    <input type="hidden" name="pl_id" value="{{ pl.id }}">
+                                    <td class="td"><input type="text" name="pl_id" value="{{ pl.id }}"></td>
+                                    <input type="hidden" name="note" {% if pl.note %}value="{{ pl.note }}"{% endif %}>
                                 </tr>
                                 {% endfor %}
                                 <tr id="sub_table_summary" style="position: sticky; bottom: 18px; background-color: #f2f2f2;">
@@ -516,30 +516,6 @@
 
 
 <script>
-    function add_pl_id(){
-        const selectedPlIds = [];
-        const checkboxes = document.querySelectorAll('input[name="is_packing_list_selected"]:checked');
-        checkboxes.forEach(checkbox => {
-            const row = checkbox.closest('tr');
-            const plIdInput = row.querySelector('input[name="pl_id"]');
-            if (plIdInput) {
-                selectedPlIds.push(plIdInput.value);
-            }
-        });
-
-        const form = document.getElementById('upload-form');
-        const existingPlIds = form.querySelectorAll('input[name="pl_id"]');
-        existingPlIds.forEach(input => input.remove());
-
-        selectedPlIds.forEach(plId => {
-            const input = document.createElement('input');
-            input.type = 'hidden';
-            input.name = 'pl_id';
-            input.value = plId;
-            form.appendChild(input);
-        });
-        form.submit();
-    }
     function confirmSubmit(Element){
         if (confirm('是否确定取消？')){
             var form = button.form;

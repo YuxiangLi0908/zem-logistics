@@ -642,7 +642,7 @@ class OrderCreation(View):
         )(container_number__container_number=container_number)
         container = order.container_number
         offload = order.offload_id
-        if offload.offload_at:
+        if offload.offload_at and 'pl_id' in request.POST:   #原本是offload.offload_at，但是打板后如果是上传的文件，是没有pl_id的
             updated_pl = []
             pl_ids = request.POST.getlist("pl_id")
             pl_id_idx_mapping = {int(pl_ids[i]): i for i in range(len(pl_ids))}
