@@ -196,7 +196,11 @@
                         {% csrf_token %}
                         导入模版: 
                         {{ packing_list_upload_form.file }}
+                        {% if not selected_order.offload_id.offload_at %}
                         <input type="hidden" name="step" value="upload_template">
+                        {% else%}
+                        <input type="hidden" name="step" value="update_order_packing_list_info">
+                        {% endif %}
                         <input type="hidden" name="source" value="order_management">
                         <input type="hidden" name="container_number" value="{{ selected_order.container_number.container_number }}">
                         <button type="submit" class="btn btn-success" style="width: 100px; height: 35px; font-size: 12px; margin: 5px;">上传清单</button>
