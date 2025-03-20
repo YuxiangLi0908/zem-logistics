@@ -369,8 +369,8 @@
                                         {{ pl.cbm }}
                                     </td>
                                     {% endif %}
-                                    <td class="td"><input type="text" name="pl_id" value="{{ pl.id }}"></td>
-                                    <input type="hidden" name="note" {% if pl.note %}value="{{ pl.note }}"{% endif %}>
+                                    <td class="td"><input type="hidden" name="note" {% if pl.note %}value="{{ pl.note }}"{% endif %}></td>
+                                    <input type="hidden" name="pl_id" value="{{ pl.id }}">
                                 </tr>
                                 {% endfor %}
                                 <tr id="sub_table_summary" style="position: sticky; bottom: 18px; background-color: #f2f2f2;">
