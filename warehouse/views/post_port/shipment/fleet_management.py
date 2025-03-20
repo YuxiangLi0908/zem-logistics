@@ -41,6 +41,7 @@ from office365.sharepoint.sharing.links.kind import SharingLinkKind
 from PIL import Image
 from PyPDF2 import PdfMerger, PdfReader
 from xhtml2pdf import pisa
+from simple_history.utils import bulk_update_with_history
 
 from warehouse.forms.upload_file import UploadFileForm
 from warehouse.forms.warehouse_form import ZemWarehouseForm
@@ -746,9 +747,14 @@ class FleetManagement(View):
             )
             for s in shipment:
                 s.fleet_number = fleet
-            await sync_to_async(Shipment.objects.bulk_update)(
-                shipment, ["fleet_number"]
+            await sync_to_async(bulk_update_with_history)(
+                shipment,
+                Shipment,
+                fields=["fleet_number"],
             )
+            # await sync_to_async(Shipment.objects.bulk_update)(
+            #     shipment, ["fleet_number"]
+            # )
             return await self.handle_fleet_warehouse_search_post(request)
 
     async def handle_update_fleet_post(
@@ -1101,9 +1107,10 @@ class FleetManagement(View):
         fleet.shipped_cbm = fleet_shipped_cbm
         fleet.shipped_pallet = fleet_shipped_pallet
         fleet.shipped_pcs = fleet_shipped_pcs
-        await sync_to_async(Shipment.objects.bulk_update)(
+        await sync_to_async(bulk_update_with_history)(
             updated_shipment,
-            [
+            Shipment,
+            fields=[
                 "shipped_pallet",
                 "shipped_weight",
                 "shipped_cbm",
@@ -1116,9 +1123,14 @@ class FleetManagement(View):
                 "is_arrived",
             ],
         )
-        await sync_to_async(Pallet.objects.bulk_update)(
-            updated_pallet, ["shipment_batch_number"]
+        await sync_to_async(bulk_update_with_history)(
+            updated_pallet,
+            Pallet,
+            fields=["shipment_batch_number"],
         )
+        # await sync_to_async(Pallet.objects.bulk_update)(
+        #     updated_pallet, ["shipment_batch_number"]
+        # )
         await sync_to_async(fleet.save)()
         return await self.handle_outbound_warehouse_search_post(request)
 
@@ -1145,8 +1157,10 @@ class FleetManagement(View):
                 s.is_arrived = True
                 updated_shipment.append(s)
             await sync_to_async(fleet.save)()
-            await sync_to_async(Shipment.objects.bulk_update)(
-                updated_shipment, ["arrived_at", "is_arrived"]
+            await sync_to_async(bulk_update_with_history)(
+                updated_shipment,
+                Shipment,
+                fields=["arrived_at", "is_arrived"],
             )
         return await self.handle_delivery_and_pod_get(request)
 
@@ -1784,11 +1798,15 @@ class FleetManagement(View):
                             pl.shipment_batch_number = s
                             updated_pl.append(pl)
                     s.total_pallet += p["pallets"]
-                    await sync_to_async(Pallet.objects.bulk_update)(
-                        Utilized_pallets, ["shipment_batch_number"]
+                    await sync_to_async(bulk_update_with_history)(
+                        Utilized_pallets,
+                        Pallet,
+                        fields=["shipment_batch_number"],
                     )
-                    await sync_to_async(PackingList.objects.bulk_update)(
-                        updated_pl, ["shipment_batch_number"]
+                    await sync_to_async(bulk_update_with_history)(
+                        updated_pl,
+                        PackingList,
+                        fields=["shipment_batch_number"],
                     )
                     order = await sync_to_async(list)(
                         Order.objects.select_related(
@@ -1814,12 +1832,15 @@ class FleetManagement(View):
                             o.retrieval_id.assigned_by_appt = True
                             updated_order.append(o)
                             updated_retrieval.append(o.retrieval_id)
-                    await sync_to_async(Order.objects.bulk_update)(
-                        updated_order, ["warehouse"]
+                    await sync_to_async(bulk_update_with_history)(
+                        updated_order,
+                        Order,
+                        fields=["warehouse"],
                     )
-                    await sync_to_async(Retrieval.objects.bulk_update)(
+                    await sync_to_async(bulk_update_with_history)(
                         updated_retrieval,
-                        ["retrieval_destination_precise", "assigned_by_appt"],
+                        Retrieval,
+                        fields=["retrieval_destination_precise","assigned_by_appt"],
                     )
 
     async def _get_sharepoint_auth(self) -> ClientContext:

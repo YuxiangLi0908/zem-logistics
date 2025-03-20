@@ -17,6 +17,8 @@ from django.db import models
 from django.http import Http404, HttpRequest, HttpResponse
 from django.shortcuts import redirect, render
 from django.views import View
+from simple_history.utils import bulk_update_with_history
+from simple_history.utils import bulk_create_with_history
 
 from warehouse.forms.upload_file import UploadFileForm
 from warehouse.models.container import Container
@@ -672,9 +674,10 @@ class OrderCreation(View):
                 pl.zipcode = request.POST.getlist("zipcode")[idx]
                 pl.note = request.POST.getlist("note")[idx]
                 updated_pl.append(pl)
-            await sync_to_async(PackingList.objects.bulk_update)(
+            await sync_to_async(bulk_update_with_history)(
                 updated_pl,
-                [
+                PackingList,
+                dileds=[
                     "product_name",
                     "delivery_method",
                     "shipping_mark",
@@ -782,7 +785,8 @@ class OrderCreation(View):
                 )
                 for d in pl_data
             ]
-            await sync_to_async(PackingList.objects.bulk_create)(pl_to_create)
+            await sync_to_async(bulk_create_with_history)(pl_to_create, PackingList)
+            #await sync_to_async(PackingList.objects.bulk_create)(pl_to_create)
             order.packing_list_updloaded = True
             await sync_to_async(order.save)()
         # 查找新建的pl，和现在的pocheck比较，如果内容没有变化，pocheck该记录不变，如果有变化就对应修改

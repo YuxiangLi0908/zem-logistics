@@ -26,6 +26,7 @@ from django.http import HttpRequest, HttpResponse
 from django.shortcuts import render
 from django.utils.decorators import method_decorator
 from django.views import View
+from simple_history.utils import bulk_update_with_history
 
 from warehouse.forms.shipment_form import ShipmentForm
 from warehouse.forms.warehouse_form import ZemWarehouseForm
@@ -301,7 +302,7 @@ class ScheduleShipment(View):
             packing_list = PackingList.objects.filter(id__in=pl_ids)
             for pl in packing_list:
                 pl.shipment_batch_number = shipment
-            PackingList.objects.bulk_update(packing_list, ["shipment_batch_number"])
+            bulk_update_with_history(packing_list, PackingList, fields=["shipment_batch_number"])
 
             mutable_post = request.POST.copy()
             mutable_post["name"] = shipment_data.get("origin")

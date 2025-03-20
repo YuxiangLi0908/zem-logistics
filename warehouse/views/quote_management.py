@@ -17,6 +17,7 @@ from django.http import HttpRequest, HttpResponse
 from django.shortcuts import render
 from django.utils.decorators import method_decorator
 from django.views import View
+from simple_history.utils import bulk_create_with_history
 
 from warehouse.forms.quote_form import QuoteForm
 from warehouse.models.quotation_master import QuotationMaster
@@ -607,7 +608,8 @@ class QuoteManagement(View):
                         data["comment"] = d["comment"]
                     quote_data.append(data)
                     i += 1
-                all_quotes = Quote.objects.bulk_create([Quote(**d) for d in quote_data])
+                quote_instances = [Quote(**d) for d in quote_data]
+                all_quotes = bulk_create_with_history(quote_instances, Quote)
             else:
                 raise RuntimeError(f"invalid 报价!")
         else:

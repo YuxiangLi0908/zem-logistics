@@ -13,6 +13,7 @@ from django.http import HttpRequest, HttpResponse, HttpResponseForbidden
 from django.shortcuts import render
 from django.utils.decorators import method_decorator
 from django.views import View
+from simple_history.utils import bulk_update_with_history
 
 from warehouse.forms.upload_file import UploadFileForm
 from warehouse.models.clearance import Clearance
@@ -115,7 +116,7 @@ class StuffPower(View):
             except:
                 p.total_weight_kg = 0
                 invalid_cases.append(p)
-        PackingList.objects.bulk_update(pl, ["total_weight_kg"])
+        bulk_update_with_history(pl, PackingList, fields=["total_weight_kg"])
         return invalid_cases
 
     def _update_delivery_method(self) -> int:
@@ -125,7 +126,7 @@ class StuffPower(View):
             if p.delivery_method == "暂扣留仓":
                 p.delivery_method = "暂扣留仓(HOLD)"
                 cnt += 1
-        PackingList.objects.bulk_update(pl, ["delivery_method"])
+        bulk_update_with_history(pl, PackingList, fields=["delivery_method"])
         return cnt
 
     def update_vessel_pl_data(self, request: HttpRequest) -> tuple[Any, Any]:
@@ -332,12 +333,11 @@ class StuffPower(View):
                 ):
                     o.packing_list_updloaded = True
                 updated_orders.append(o)
-            Order.objects.bulk_update(
-                updated_orders, ["add_to_t49", "packing_list_updloaded", "vessel_id"]
-            )
-            Retrieval.objects.bulk_update(
-                updated_retrievals,
-                [
+            bulk_update_with_history(updated_orders, Order, fields=["add_to_t49", "packing_list_updloaded", "vessel_id"])
+            bulk_update_with_history(
+                updated_retrievals, 
+                Retrieval, 
+                fields=[
                     "temp_t49_lfd",
                     "temp_t49_available_for_pickup",
                     "temp_t49_pod_arrive_at",
@@ -346,8 +346,7 @@ class StuffPower(View):
                     "master_bill_of_lading",
                     "origin_port",
                     "shipping_line",
-                ],
-            )
+                ])
             context["vessel_pl_data_update_success"] = True
             context["orders_count"] = cnt
         return self.template_1, context
@@ -377,7 +376,7 @@ class StuffPower(View):
                 orders_updated.append(o)
             else:
                 o.packing_list_updloaded = False
-        Order.objects.bulk_update(orders_updated, ["packing_list_updloaded"])
+        bulk_update_with_history(orders_updated, Order, fields=["packing_list_updloaded"])
         context = {"order_packing_list_updloaded_updated": True, "count": cnt}
         return self.template_1, context
 
@@ -392,7 +391,7 @@ class StuffPower(View):
             o.warehouse = warehouse
             orders_updated.append(o)
             cnt += 1
-        Order.objects.bulk_update(orders_updated, ["warehouse"])
+        bulk_update_with_history(orders_updated, Order, fields=["warehouse"])
         context = {
             "warehouse_updated": True,
             "count": cnt,
@@ -409,7 +408,7 @@ class StuffPower(View):
             o.eta = o.vessel_id.vessel_eta
             orders_updated.append(o)
             cnt += 1
-        Order.objects.bulk_update(orders_updated, ["eta"])
+        bulk_update_with_history(orders_updated, Order, fields=["eta"])
         context = {
             "order_eta_updated": True,
             "count": cnt,
@@ -430,9 +429,7 @@ class StuffPower(View):
                 s.pallet_dumpped = 0
             shipment_updated.append(s)
             cnt += 1
-        Shipment.objects.bulk_update(
-            shipment_updated, ["is_full_out", "pallet_dumpped", "batch"]
-        )
+        bulk_update_with_history(shipment_updated, Shipment, fields=["is_full_out", "pallet_dumpped", "batch"])
         context = {
             "shipment_updated": True,
             "count": cnt,
@@ -467,7 +464,7 @@ class StuffPower(View):
                 p.shipment_batch_number = p_s_mapping.get(k)
                 cnt += 1
                 updated_pallet.append(p)
-        Pallet.objects.bulk_update(updated_pallet, ["shipment_batch_number"])
+        bulk_update_with_history(updated_pallet, Pallet, fields=["shipment_batch_number"])
         context = {
             "pallet_updated": True,
             "count": cnt,
@@ -561,9 +558,7 @@ class StuffPower(View):
             s.total_weight = weight
             s.total_pallet = n
             updated_shipment.append(s)
-        Shipment.objects.bulk_update(
-            updated_shipment, ["total_pcs", "total_cbm", "total_weight", "total_pallet"]
-        )
+        bulk_update_with_history(updated_shipment, Shipment, fields=["total_pcs", "total_cbm", "total_weight", "total_pallet"])
         context = {
             "shipment_stats_updated": True,
             "count": cnt,
@@ -684,8 +679,8 @@ class StuffPower(View):
                 po_id_hash[po_id_hkey] = po_id
             p.PO_ID = po_id
             cnt += 1
-        Pallet.objects.bulk_update(pallet, ["PO_ID"])
-        PackingList.objects.bulk_update(packinglist, ["PO_ID"])
+        bulk_update_with_history(pallet, Pallet, fields=["PO_ID"])
+        bulk_update_with_history(packinglist, PackingList, fields=["PO_ID"])
         context = {
             "start_date": start_date,
             "end_date": end_date,

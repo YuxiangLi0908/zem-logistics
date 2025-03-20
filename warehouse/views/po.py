@@ -26,6 +26,7 @@ from django.http import HttpRequest, HttpResponse
 from django.shortcuts import render
 from django.utils.decorators import method_decorator
 from django.views import View
+from simple_history.utils import bulk_create_with_history
 
 from warehouse.forms.upload_file import UploadFileForm
 from warehouse.forms.warehouse_form import ZemWarehouseForm
@@ -533,10 +534,8 @@ class PO(View):
                                 # 其他的字段用默认值
                             }
                             po_checks.append(po_check_dict)
-
-        await sync_to_async(PoCheckEtaSeven.objects.bulk_create)(
-            PoCheckEtaSeven(**p) for p in po_checks
-        )
+        po_check_instances = [PoCheckEtaSeven(**p) for p in po_checks]
+        await sync_to_async(bulk_create_with_history)(po_check_instances, PoCheckEtaSeven)
 
     def handle_search_post(self, request: HttpRequest) -> dict[str, Any]:
         warehouse = (

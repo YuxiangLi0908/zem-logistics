@@ -37,6 +37,8 @@ from django.utils import timezone
 from django.views import View
 from PIL import Image
 from xhtml2pdf import pisa
+from simple_history.utils import bulk_update_with_history
+from simple_history.utils import bulk_create_with_history
 
 from warehouse.forms.packling_list_form import PackingListForm
 from warehouse.forms.warehouse_form import ZemWarehouseForm
@@ -493,9 +495,10 @@ class Palletization(View):
                 pallet.sequence_number = i + 1
                 pallet.PO_ID = f"{pallet.PO_ID}_{i+1}"
             pallets.append(pallet)
-        await sync_to_async(Pallet.objects.bulk_update)(
+        await sync_to_async(bulk_update_with_history)(
             pallets,
-            [
+            Pallet,
+            fields=[
                 "length",
                 "width",
                 "height",
@@ -709,13 +712,13 @@ class Palletization(View):
             offload.total_pallet = total_pallet
             offload.offload_at = current_time_cn
             await sync_to_async(offload.save)()
-            await sync_to_async(Pallet.objects.bulk_create)(
-                Pallet(**d) for d in pallet_data
-            )
+            pallet_instances = [Pallet(**d) for d in pallet_data]
+            await sync_to_async(bulk_create_with_history)(pallet_instances, Pallet)
+
             await self._update_shipment_stats(ids)
-            await sync_to_async(AbnormalOffloadStatus.objects.bulk_create)(
-                AbnormalOffloadStatus(**d) for d in abnormal_offloads
-            )
+
+            abnormal_offload_instances = [AbnormalOffloadStatus(**d) for d in abnormal_offloads]
+            await sync_to_async(bulk_create_with_history)(abnormal_offload_instances, AbnormalOffloadStatus)
         mutable_post = request.POST.copy()
         mutable_post["name"] = order_selected.warehouse.name
         request.POST = mutable_post
@@ -796,13 +799,16 @@ class Palletization(View):
                     p.abnormal_palletization = False
                 record.confirmed_by_warehouse = True
                 updated_records.append(record)
-                await sync_to_async(Pallet.objects.bulk_update)(
-                    pallet, ["abnormal_palletization"]
+                await sync_to_async(bulk_update_with_history)(
+                    pallet,
+                    Pallet,
+                    fields=["abnormal_palletization"],
                 )
-            await sync_to_async(AbnormalOffloadStatus.objects.bulk_update)(
-                updated_records, ["confirmed_by_warehouse"]
+            await sync_to_async(bulk_update_with_history)(
+                updated_records,
+                AbnormalOffloadStatus,
+                fields=["confirmed_by_warehouse"],
             )
-
             await self._update_shipment_abnormal_palletization(shipment)
             return await self.handle_daily_operation_get()
         else:
@@ -815,8 +821,10 @@ class Palletization(View):
                 record.abnormal_reason = reason
                 record.is_resolved = True
                 updated_records.append(record)
-            await sync_to_async(AbnormalOffloadStatus.objects.bulk_update)(
-                updated_records, ["is_resolved", "abnormal_reason", "note"]
+            await sync_to_async(bulk_update_with_history)(
+                updated_records,
+                AbnormalOffloadStatus,
+                fields=["is_resolved", "abnormal_reason", "note"],
             )
             if warehouse == "None":
                 warehouse = ""
@@ -1115,8 +1123,10 @@ class Palletization(View):
             s.total_pallet = shipment_stats[s.shipment_batch_number]["total_n_pallet"]
             s.total_weight = shipment_stats[s.shipment_batch_number]["weight_lbs"]
             s.total_pcs = shipment_stats[s.shipment_batch_number]["total_pcs"]
-        await sync_to_async(Shipment.objects.bulk_update)(
-            shipment_list, ["total_cbm", "total_pallet", "total_weight", "total_pcs"]
+        await sync_to_async(bulk_update_with_history)(
+            shipment_list,
+            Shipment,
+            fields=["total_cbm", "total_pallet", "total_weight", "total_pcs"],
         )
         shipment_batch_number = set(
             [
@@ -1166,8 +1176,10 @@ class Palletization(View):
                 f.total_pallet = fleet_stats[f.fleet_number]["total_n_pallet"]
                 f.total_weight = fleet_stats[f.fleet_number]["weight_lbs"]
                 f.total_pcs = fleet_stats[f.fleet_number]["total_pcs"]
-            await sync_to_async(Fleet.objects.bulk_update)(
-                fleet, ["total_cbm", "total_pallet", "total_weight", "total_pcs"]
+            await sync_to_async(bulk_update_with_history)(
+                fleet,
+                Fleet,
+                fields=["total_cbm", "total_pallet", "total_weight", "total_pcs"],
             )
 
     async def _get_packing_list(
@@ -1389,8 +1401,10 @@ class Palletization(View):
             if s:
                 s.abnormal_palletization = False
                 updated_shipment.append(s)
-        await sync_to_async(Shipment.objects.bulk_update)(
-            updated_shipment, ["abnormal_palletization"]
+        await sync_to_async(bulk_update_with_history)(
+            updated_shipment,
+            Shipment,
+            fields=["abnormal_palletization"],
         )
 
     async def _user_authenticate(self, request: HttpRequest):

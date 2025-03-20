@@ -15,6 +15,8 @@ from django.db.models.functions import Cast
 from django.http import Http404, HttpRequest, HttpResponse
 from django.shortcuts import redirect, render
 from django.views import View
+from simple_history.utils import bulk_update_with_history
+from simple_history.utils import bulk_create_with_history
 
 from warehouse.forms.upload_file import UploadFileForm
 from warehouse.models.container import Container
@@ -254,9 +256,11 @@ class Inventory(View):
                 for i in range(n)
             ]
             seq_num += 1
-        await sync_to_async(Pallet.objects.bulk_create)(
-            Pallet(**p) for p in new_pallets
-        )
+        instances = [Pallet(**p) for p in new_pallets]
+        await sync_to_async(bulk_create_with_history)(instances, Pallet)
+        # await sync_to_async(Pallet.objects.bulk_create)(
+        #     Pallet(**p) for p in new_pallets
+        # )
         # delete old pallets
         await sync_to_async(Pallet.objects.filter(id__in=plt_ids).delete)()
         return await self.handle_warehouse_post(request)
@@ -349,9 +353,21 @@ class Inventory(View):
                 pl.zipcode = zipcode_new
                 pl.delivery_method = delivery_method_new
 
-            await sync_to_async(Pallet.objects.bulk_update)(
+            # await sync_to_async(Pallet.objects.bulk_update)(
+            #     pallet,
+            #     [
+            #         "destination",
+            #         "address",
+            #         "zipcode",
+            #         "delivery_method",
+            #         "location",
+            #         "note",
+            #     ],
+            # )
+            await sync_to_async(bulk_update_with_history)(
                 pallet,
-                [
+                Pallet,
+                fields=[
                     "destination",
                     "address",
                     "zipcode",
@@ -360,8 +376,10 @@ class Inventory(View):
                     "note",
                 ],
             )
-            await sync_to_async(PackingList.objects.bulk_update)(
-                packing_list, ["destination", "address", "zipcode", "delivery_method"]
+            await sync_to_async(bulk_update_with_history)(
+                packing_list,
+                PackingList,
+                fields=["destination", "address", "zipcode", "delivery_method"],
             )
         for pl_id, sm, fba, ref, sm_new, fba_new, ref_new in zip(
             pl_ids,
@@ -382,8 +400,10 @@ class Inventory(View):
                     p.fba_id = p.fba_id.replace(fba, fba_new)
                     p.ref_id = p.ref_id.replace(ref, ref_new)
                 await sync_to_async(packing_list.save)()
-            await sync_to_async(Pallet.objects.bulk_update)(
-                pallet, ["shipping_mark", "fba_id", "ref_id"]
+            await sync_to_async(bulk_update_with_history)(
+                pallet,
+                Pallet,
+                fields=["shipping_mark", "fba_id", "ref_id"],
             )
         return await self.handle_warehouse_post(request)
 
@@ -420,8 +440,10 @@ class Inventory(View):
                     p.shipment_batch_number = shipment
                     updated_pallets.append(p)
         if updated_pallets:
-            await sync_to_async(Pallet.objects.bulk_update)(
-                updated_pallets, ["shipment_batch_number"]
+            await sync_to_async(bulk_update_with_history)(
+                updated_pallets,
+                Pallet,
+                fields=["shipment_batch_number"],
             )
         else:
             await sync_to_async(shipment.delete)()
@@ -454,7 +476,11 @@ class Inventory(View):
             total_weight += plt.weight_lbs
             total_pcs += plt.pcs
             total_cbm += plt.cbm
-        await sync_to_async(Pallet.objects.bulk_update)(pallets, ["location"])
+        await sync_to_async(bulk_update_with_history)(
+            pallets,
+            Pallet,
+            fields=["location"],
+        )
         # 然后新建transfer_warehouse新记录
         current_time = datetime.now()
         batch_id = (
