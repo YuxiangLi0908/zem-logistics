@@ -34,6 +34,8 @@ from django.utils import timezone
 from django.views import View
 from office365.runtime.auth.user_credential import UserCredential
 from office365.sharepoint.client_context import ClientContext
+from simple_history.utils import bulk_update_with_history
+from simple_history.utils import bulk_create_with_history
 
 from warehouse.forms.upload_file import UploadFileForm
 from warehouse.models.fleet import Fleet
@@ -975,11 +977,15 @@ class ShippingManagement(View):
                     pl.shipment_batch_number = shipment
                 for p in pallets:
                     p.shipment_batch_number = shipment
-                await sync_to_async(PackingList.objects.bulk_update)(
-                    packing_lists, ["shipment_batch_number"]
+                await sync_to_async(bulk_update_with_history)(
+                    packing_lists,
+                    PackingList,
+                    fields=["shipment_batch_number"],
                 )
-                await sync_to_async(Pallet.objects.bulk_update)(
-                    pallets, ["shipment_batch_number"]
+                await sync_to_async(bulk_update_with_history)(
+                    pallets,
+                    Pallet,
+                    fields=["shipment_batch_number"],
                 )
         return created_isa, created_fleet, failed_fleet
 
@@ -1423,8 +1429,10 @@ class ShippingManagement(View):
                 for pl in packing_list:
                     pl.shipment_batch_number = shipment
                     container_number.add(pl.container_number.container_number)
-                await sync_to_async(PackingList.objects.bulk_update)(
-                    packing_list, ["shipment_batch_number"]
+                await sync_to_async(bulk_update_with_history)(
+                    packing_list,
+                    PackingList,
+                    fields=["shipment_batch_number"],
                 )
             except:
                 pass
@@ -1465,11 +1473,15 @@ class ShippingManagement(View):
                     elif pl.ref_id and pl.ref_id in pallet_ref_ids:
                         pl.shipment_batch_number = shipment
                         updated_pl.append(pl)
-                await sync_to_async(Pallet.objects.bulk_update)(
-                    pallet, ["shipment_batch_number"]
+                await sync_to_async(bulk_update_with_history)(
+                    pallet,
+                    Pallet,
+                    fields=["shipment_batch_number"],
                 )
-                await sync_to_async(PackingList.objects.bulk_update)(
-                    updated_pl, ["shipment_batch_number"]
+                await sync_to_async(bulk_update_with_history)(
+                    updated_pl,
+                    PackingList,
+                    fields=["shipment_batch_number"],
                 )
             except:
                 pass
@@ -1490,9 +1502,15 @@ class ShippingManagement(View):
                     o.retrieval_id.assigned_by_appt = True
                     updated_order.append(o)
                     updated_retrieval.append(o.retrieval_id)
-            await sync_to_async(Order.objects.bulk_update)(updated_order, ["warehouse"])
-            await sync_to_async(Retrieval.objects.bulk_update)(
-                updated_retrieval, ["retrieval_destination_precise", "assigned_by_appt"]
+            await sync_to_async(bulk_update_with_history)(
+                updated_order,
+                Order,
+                fields=["warehouse"],
+            )
+            await sync_to_async(bulk_update_with_history)(
+                updated_retrieval,
+                Retrieval,
+                fields=["retrieval_destination_precise","assigned_by_appt"],
             )
             mutable_post = request.POST.copy()
             mutable_post["area"] = area
@@ -1549,8 +1567,10 @@ class ShippingManagement(View):
                     shipment.total_cbm += pl.cbm
                     shipment.total_pallet += int(pl.cbm / 2)
                     container_number.add(pl.container_number.container_number)
-                await sync_to_async(PackingList.objects.bulk_update)(
-                    packing_list, ["shipment_batch_number"]
+                await sync_to_async(bulk_update_with_history)(
+                    packing_list,
+                    PackingList,
+                    fields=["shipment_batch_number"],
                 )
             except:
                 pass
@@ -1595,11 +1615,15 @@ class ShippingManagement(View):
                         pl.shipment_batch_number = shipment
                         updated_pl.append(pl)
                 shipment.total_pallet += len(set([p.pallet_id for p in pallet]))
-                await sync_to_async(Pallet.objects.bulk_update)(
-                    pallet, ["shipment_batch_number"]
+                await sync_to_async(bulk_update_with_history)(
+                    pallet,
+                    Pallet,
+                    fields=["shipment_batch_number"],
                 )
-                await sync_to_async(PackingList.objects.bulk_update)(
-                    updated_pl, ["shipment_batch_number"]
+                await sync_to_async(bulk_update_with_history)(
+                    updated_pl,
+                    PackingList,
+                    fields=["shipment_batch_number"],
                 )
             except:
                 pass
@@ -1620,9 +1644,15 @@ class ShippingManagement(View):
                     o.retrieval_id.assigned_by_appt = True
                     updated_order.append(o)
                     updated_retrieval.append(o.retrieval_id)
-            await sync_to_async(Order.objects.bulk_update)(updated_order, ["warehouse"])
-            await sync_to_async(Retrieval.objects.bulk_update)(
-                updated_retrieval, ["retrieval_destination_precise", "assigned_by_appt"]
+            await sync_to_async(bulk_update_with_history)(
+                updated_order,
+                Order,
+                fields=["warehouse"],
+            )
+            await sync_to_async(bulk_update_with_history)(
+                updated_retrieval,
+                Retrieval,
+                fields=["retrieval_destination_precise", "assigned_by_appt"],
             )
         elif alter_type == "remove":
             selections = request.POST.getlist("is_shipment_removed")
@@ -1641,8 +1671,10 @@ class ShippingManagement(View):
                     shipment.total_pcs -= pl.pcs
                     shipment.total_cbm -= pl.cbm
                     shipment.total_pallet -= int(pl.cbm / 2)
-                await sync_to_async(PackingList.objects.bulk_update)(
-                    packing_list, ["shipment_batch_number"]
+                await sync_to_async(bulk_update_with_history)(
+                    packing_list,
+                    PackingList,
+                    fields=["shipment_batch_number"],
                 )
             except:
                 pass
@@ -1687,11 +1719,15 @@ class ShippingManagement(View):
                         pl.shipment_batch_number = None
                         updated_pl.append(pl)
                 shipment.total_pallet -= len(set([p.pallet_id for p in pallet]))
-                await sync_to_async(Pallet.objects.bulk_update)(
-                    pallet, ["shipment_batch_number"]
+                await sync_to_async(bulk_update_with_history)(
+                    pallet,
+                    Pallet,
+                    fields=["shipment_batch_number"],
                 )
-                await sync_to_async(PackingList.objects.bulk_update)(
-                    updated_pl, ["shipment_batch_number"]
+                await sync_to_async(bulk_update_with_history)(
+                    updated_pl,
+                    PackingList,
+                    fields=["shipment_batch_number"],
                 )
             except:
                 pass
@@ -1751,11 +1787,15 @@ class ShippingManagement(View):
                 pl.shipment_batch_number = None
             for p in pallet:
                 p.shipment_batch_number = None
-            await sync_to_async(PackingList.objects.bulk_update)(
-                packing_list, ["shipment_batch_number"]
+            await sync_to_async(bulk_update_with_history)(
+                packing_list,
+                PackingList,
+                fields=["shipment_batch_number"],
             )
-            await sync_to_async(Pallet.objects.bulk_update)(
-                pallet, ["shipment_batch_number"]
+            await sync_to_async(bulk_update_with_history)(
+                pallet,
+                Pallet,
+                fields=["shipment_batch_number"],
             )
             shipment.is_canceled = True
             await sync_to_async(shipment.save)()
@@ -2130,9 +2170,11 @@ class ShippingManagement(View):
                 }
                 for d in data
             ]
-            await sync_to_async(Shipment.objects.bulk_create)(
-                Shipment(**d) for d in cleaned_data
-            )
+            # await sync_to_async(Shipment.objects.bulk_create)(
+            #     Shipment(**d) for d in cleaned_data
+            # )
+            instances = [Shipment(**d) for d in cleaned_data]
+            await sync_to_async(bulk_create_with_history)(instances, Shipment)
         return await self.handle_appointment_warehouse_search_post(request)
 
     async def handle_shipment_list_search_post(
@@ -2367,11 +2409,15 @@ class ShippingManagement(View):
                 pl.shipment_batch_number = shipment
             for p in pallet:
                 p.shipment_batch_number = shipment
-            await sync_to_async(PackingList.objects.bulk_update)(
-                packing_list, ["shipment_batch_number"]
+            await sync_to_async(bulk_update_with_history)(
+                packing_list,
+                PackingList,
+                fields=["shipment_batch_number"],
             )
-            await sync_to_async(Pallet.objects.bulk_update)(
-                pallet, ["shipment_batch_number"]
+            await sync_to_async(bulk_update_with_history)(
+                pallet,
+                Pallet,
+                fields=["shipment_batch_number"],
             )
             old_shipment.is_canceled = True
             await sync_to_async(old_shipment.save)()
@@ -2398,11 +2444,15 @@ class ShippingManagement(View):
             pl.shipment_batch_number = None
         for p in pallet:
             p.shipment_batch_number = None
-        await sync_to_async(PackingList.objects.bulk_update)(
-            packing_list, ["shipment_batch_number"]
+        await sync_to_async(bulk_update_with_history)(
+            packing_list,
+            PackingList,
+            fields=["shipment_batch_number"],
         )
-        await sync_to_async(Pallet.objects.bulk_update)(
-            pallet, ["shipment_batch_number"]
+        await sync_to_async(bulk_update_with_history)(
+            pallet,
+            Pallet,
+            fields=["shipment_batch_number"],
         )
         shipment.is_canceled = True
         await sync_to_async(shipment.save)()

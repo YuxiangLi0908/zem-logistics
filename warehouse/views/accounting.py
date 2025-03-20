@@ -38,6 +38,8 @@ from office365.runtime.client_request_exception import ClientRequestException
 from office365.sharepoint.client_context import ClientContext
 from office365.sharepoint.sharing.links.kind import SharingLinkKind
 from openpyxl.styles import Alignment, Border, Font, PatternFill, Side, numbers
+from simple_history.utils import bulk_update_with_history
+from simple_history.utils import bulk_create_with_history
 
 from warehouse.models.order import Order
 from warehouse.models.invoice import Invoice, InvoiceItem, InvoiceStatement
@@ -970,7 +972,7 @@ class Accounting(View):
                 # pallet指向InvoiceDelivery表
                 plt.invoice_delivery = invoice_content
                 updated_pallets.append(plt)
-            Pallet.objects.bulk_update(updated_pallets, ["invoice_delivery"])
+            bulk_update_with_history(updated_pallets, Pallet, fields=["invoice_delivery"])
         return self.handle_container_invoice_delivery_get(request)
 
     def handle_invoice_confirm_save(self, request: HttpRequest) -> tuple[Any, Any]:
@@ -1932,9 +1934,8 @@ class Accounting(View):
                     "note": n if n else "",
                 }
             )
-        InvoiceItem.objects.bulk_create(
-            [InvoiceItem(**inv_itm_data) for inv_itm_data in invoice_item_data]
-        )
+        invoice_item_instances = [InvoiceItem(**inv_itm_data) for inv_itm_data in invoice_item_data]
+        bulk_create_with_history(invoice_item_instances, InvoiceItem)
         response = HttpResponse(
             content_type="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
         )
@@ -1983,7 +1984,7 @@ class Accounting(View):
         invoice_statement.save()
         for invc in invoice:
             invc.statement_id = invoice_statement
-        Invoice.objects.bulk_update(invoice, ["statement_id"])
+        bulk_update_with_history(invoice, Invoice, fields=["statement_id"])
         return resp
 
     def handle_container_invoice_edit_post(self, request: HttpRequest) -> HttpResponse:
@@ -2048,9 +2049,8 @@ class Accounting(View):
                     "note": n if n else None,
                 }
             )
-        InvoiceItem.objects.bulk_create(
-            [InvoiceItem(**inv_itm_data) for inv_itm_data in invoice_item_data]
-        )
+        invoice_item_instances = [InvoiceItem(**inv_itm_data) for inv_itm_data in invoice_item_data]
+        bulk_create_with_history(invoice_item_instances, InvoiceItem)
         # export new file
         response = HttpResponse(
             content_type="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"

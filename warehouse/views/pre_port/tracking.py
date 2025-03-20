@@ -8,6 +8,7 @@ from django.db.models import Count
 from django.http import HttpRequest, HttpResponse
 from django.shortcuts import redirect, render
 from django.views import View
+from simple_history.utils import bulk_update_with_history
 
 from warehouse.forms.upload_file import UploadFileForm
 from warehouse.models.order import Order
@@ -345,12 +346,15 @@ class PrePortTracking(View):
                     vessels.append(o.vessel_id)
                     retrievals.append(o.retrieval_id)
                     orders_updated.append(o)
-            await sync_to_async(Vessel.objects.bulk_update)(
-                vessels, ["vessel_eta", "origin_port"]
+            await sync_to_async(bulk_update_with_history)(
+                vessels,
+                Vessel,
+                dileds=["vessel_eta", "origin_port"],
             )
-            await sync_to_async(Retrieval.objects.bulk_update)(
+            await sync_to_async(bulk_update_with_history)(
                 retrievals,
-                [
+                Retrieval,
+                dileds=[
                     "temp_t49_lfd",
                     "temp_t49_available_for_pickup",
                     "temp_t49_pod_arrive_at",
@@ -364,8 +368,10 @@ class PrePortTracking(View):
                     "empty_returned",
                 ],
             )
-            await sync_to_async(Order.objects.bulk_update)(
-                orders_updated, ["add_to_t49"]
+            await sync_to_async(bulk_update_with_history)(
+                orders_updated,
+                Order,
+                dileds=["add_to_t49"],
             )
             return await self.handle_all_get()
 
