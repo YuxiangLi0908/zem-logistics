@@ -526,7 +526,7 @@ class OrderCreation(View):
                 # DD to TD
                 offload.offload_required = True
                 retrieval.retrieval_destination_area = request.POST.get("area")
-                order.packing_list_updloaded = False
+                order.packing_list_updloaded = True
             else:
                 if input_order_type == "直送":
                     # TD/转运组合 to DD
