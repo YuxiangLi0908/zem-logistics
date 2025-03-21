@@ -349,7 +349,7 @@ class PrePortTracking(View):
             await sync_to_async(bulk_update_with_history)(
                 vessels,
                 Vessel,
-                dileds=["vessel_eta", "origin_port"],
+                fileds=["vessel_eta", "origin_port"],
             )
             await sync_to_async(bulk_update_with_history)(
                 retrievals,
