@@ -1178,7 +1178,10 @@ class ShippingManagement(View):
                 + current_time.strftime("%m%d%H%M%S")
                 + str(uuid.uuid4())[:2].upper()
             )
-            batch_id = batch_id.replace(" ", "").replace("/", "-").upper()
+            disallowed_chars = "#%*：<>?/|"  # 不允许的字符
+            for char in disallowed_chars:
+                batch_id = batch_id.replace(char, "-") 
+            batch_id = batch_id.replace(" ", "").upper()
             address = amazon_fba_locations.get(
                 destination, None
             )  # 查找亚马逊地址中是否有该地址
