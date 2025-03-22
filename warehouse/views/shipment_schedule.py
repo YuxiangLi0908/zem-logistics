@@ -302,7 +302,9 @@ class ScheduleShipment(View):
             packing_list = PackingList.objects.filter(id__in=pl_ids)
             for pl in packing_list:
                 pl.shipment_batch_number = shipment
-            bulk_update_with_history(packing_list, PackingList, fields=["shipment_batch_number"])
+            bulk_update_with_history(
+                packing_list, PackingList, fields=["shipment_batch_number"]
+            )
 
             mutable_post = request.POST.copy()
             mutable_post["name"] = shipment_data.get("origin")

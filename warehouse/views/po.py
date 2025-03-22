@@ -535,7 +535,9 @@ class PO(View):
                             }
                             po_checks.append(po_check_dict)
         po_check_instances = [PoCheckEtaSeven(**p) for p in po_checks]
-        await sync_to_async(bulk_create_with_history)(po_check_instances, PoCheckEtaSeven)
+        await sync_to_async(bulk_create_with_history)(
+            po_check_instances, PoCheckEtaSeven
+        )
 
     def handle_search_post(self, request: HttpRequest) -> dict[str, Any]:
         warehouse = (

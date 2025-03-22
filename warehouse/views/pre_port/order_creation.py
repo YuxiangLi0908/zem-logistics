@@ -7,18 +7,17 @@ import uuid
 from datetime import datetime, timedelta
 from pathlib import Path
 from typing import Any
-from django.core.exceptions import ObjectDoesNotExist
 
 import chardet
 import numpy as np
 import pandas as pd
 from asgiref.sync import sync_to_async
+from django.core.exceptions import ObjectDoesNotExist
 from django.db import models
 from django.http import Http404, HttpRequest, HttpResponse
 from django.shortcuts import redirect, render
 from django.views import View
-from simple_history.utils import bulk_update_with_history
-from simple_history.utils import bulk_create_with_history
+from simple_history.utils import bulk_create_with_history, bulk_update_with_history
 
 from warehouse.forms.upload_file import UploadFileForm
 from warehouse.models.container import Container
@@ -306,12 +305,12 @@ class OrderCreation(View):
                 "warehouse",
             ).filter(criteria)
         )
-        #判断一下柜子的状态
+        # 判断一下柜子的状态
         for order in orders:
             if order.cancel_notification:
                 status = "已取消"
             elif not order.add_to_t49:
-                status = 'T49待追踪'
+                status = "T49待追踪"
             else:
                 if not order.retrieval_id.actual_retrieval_timestamp:
                     if not order.retrieval_id.retrieval_carrier:
@@ -328,7 +327,7 @@ class OrderCreation(View):
                             status = "已拆柜"
                         else:
                             status = "未知"
-            order.status =  status              
+            order.status = status
         context = {
             "orders": orders,
             "start_date_eta": start_date_eta,
@@ -395,13 +394,21 @@ class OrderCreation(View):
         destination = request.POST.get("destination")
         container_number = request.POST.get("container_number")
         try:
-            existing_order = await sync_to_async(Order.objects.get)(container_number__container_number=container_number)
+            existing_order = await sync_to_async(Order.objects.get)(
+                container_number__container_number=container_number
+            )
             if existing_order:
-                #如果柜号已经存在，就将旧柜号后面加_年月
-                old_created_at = await sync_to_async(lambda: existing_order.created_at)()
+                # 如果柜号已经存在，就将旧柜号后面加_年月
+                old_created_at = await sync_to_async(
+                    lambda: existing_order.created_at
+                )()
                 year_month = old_created_at.strftime("%Y%m")
-                old_container = await sync_to_async(lambda: existing_order.container_number)()
-                old_container.container_number = f"{old_container.container_number}_{year_month}"
+                old_container = await sync_to_async(
+                    lambda: existing_order.container_number
+                )()
+                old_container.container_number = (
+                    f"{old_container.container_number}_{year_month}"
+                )
                 await sync_to_async(old_container.save)()
         except ObjectDoesNotExist:
             pass
@@ -644,7 +651,9 @@ class OrderCreation(View):
         )(container_number__container_number=container_number)
         container = order.container_number
         offload = order.offload_id
-        if offload.offload_at and 'pl_id' in request.POST:   #原本是offload.offload_at，但是打板后如果是上传的文件，是没有pl_id的
+        if (
+            offload.offload_at and "pl_id" in request.POST
+        ):  # 原本是offload.offload_at，但是打板后如果是上传的文件，是没有pl_id的
             updated_pl = []
             pl_ids = request.POST.getlist("pl_id")
             pl_id_idx_mapping = {int(pl_ids[i]): i for i in range(len(pl_ids))}
@@ -677,7 +686,7 @@ class OrderCreation(View):
             await sync_to_async(bulk_update_with_history)(
                 updated_pl,
                 PackingList,
-                dileds=[
+                fields=[
                     "product_name",
                     "delivery_method",
                     "shipping_mark",
@@ -786,7 +795,7 @@ class OrderCreation(View):
                 for d in pl_data
             ]
             await sync_to_async(bulk_create_with_history)(pl_to_create, PackingList)
-            #await sync_to_async(PackingList.objects.bulk_create)(pl_to_create)
+            # await sync_to_async(PackingList.objects.bulk_create)(pl_to_create)
             order.packing_list_updloaded = True
             await sync_to_async(order.save)()
         # 查找新建的pl，和现在的pocheck比较，如果内容没有变化，pocheck该记录不变，如果有变化就对应修改

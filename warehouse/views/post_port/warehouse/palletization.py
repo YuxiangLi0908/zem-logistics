@@ -36,9 +36,8 @@ from django.template.loader import get_template
 from django.utils import timezone
 from django.views import View
 from PIL import Image
+from simple_history.utils import bulk_create_with_history, bulk_update_with_history
 from xhtml2pdf import pisa
-from simple_history.utils import bulk_update_with_history
-from simple_history.utils import bulk_create_with_history
 
 from warehouse.forms.packling_list_form import PackingListForm
 from warehouse.forms.warehouse_form import ZemWarehouseForm
@@ -717,8 +716,12 @@ class Palletization(View):
 
             await self._update_shipment_stats(ids)
 
-            abnormal_offload_instances = [AbnormalOffloadStatus(**d) for d in abnormal_offloads]
-            await sync_to_async(bulk_create_with_history)(abnormal_offload_instances, AbnormalOffloadStatus)
+            abnormal_offload_instances = [
+                AbnormalOffloadStatus(**d) for d in abnormal_offloads
+            ]
+            await sync_to_async(bulk_create_with_history)(
+                abnormal_offload_instances, AbnormalOffloadStatus
+            )
         mutable_post = request.POST.copy()
         mutable_post["name"] = order_selected.warehouse.name
         request.POST = mutable_post
@@ -929,8 +932,14 @@ class Palletization(View):
                 cbm /= 2
                 cbm *= n_label
                 cbm = int(cbm)
-                if "客户自提" in pl.get("destination") or "自提" in pl.get("destination") or "客户自提" in pl.get("custom_delivery_method"):
-                    if "客户自提" in pl.get("destination")or "自提" in pl.get("destination"):
+                if (
+                    "客户自提" in pl.get("destination")
+                    or "自提" in pl.get("destination")
+                    or "客户自提" in pl.get("custom_delivery_method")
+                ):
+                    if "客户自提" in pl.get("destination") or "自提" in pl.get(
+                        "destination"
+                    ):
                         destination = "S/P"
                     else:
                         destination = pl.get("destination")
