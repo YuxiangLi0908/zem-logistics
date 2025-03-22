@@ -1,8 +1,8 @@
 import os
 from pathlib import Path
+
 import pandas as pd
 import yaml
-
 
 ORDER_TYPES = {
     "TD": "转运",
@@ -33,8 +33,7 @@ SHIPPING_LINE_OPTIONS = [
     ("SML", "SML"),
     ("SeaLead", "SeaLead"),
     ("Matson", "Matson"),
-    ("TSL","TSL"),
-    
+    ("TSL", "TSL"),
 ]
 
 CONTAINER_PICKUP_CARRIER = [

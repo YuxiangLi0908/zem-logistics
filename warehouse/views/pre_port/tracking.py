@@ -349,12 +349,12 @@ class PrePortTracking(View):
             await sync_to_async(bulk_update_with_history)(
                 vessels,
                 Vessel,
-                fileds=["vessel_eta", "origin_port"],
+                fields=["vessel_eta", "origin_port"],
             )
             await sync_to_async(bulk_update_with_history)(
                 retrievals,
                 Retrieval,
-                dileds=[
+                fields=[
                     "temp_t49_lfd",
                     "temp_t49_available_for_pickup",
                     "temp_t49_pod_arrive_at",
@@ -371,7 +371,7 @@ class PrePortTracking(View):
             await sync_to_async(bulk_update_with_history)(
                 orders_updated,
                 Order,
-                dileds=["add_to_t49"],
+                fields=["add_to_t49"],
             )
             return await self.handle_all_get()
 

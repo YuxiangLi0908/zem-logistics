@@ -95,22 +95,24 @@ class PostportDash(View):
             container_number__order__packing_list_updloaded=True,
             container_number__order__created_at__gte="2024-09-01",
         )
-        if shipment_batch_number or container_number:        
+        if shipment_batch_number or container_number:
             if shipment_batch_number:
                 criteria &= models.Q(
                     shipment_batch_number__shipment_batch_number=shipment_batch_number
                 )
             elif container_number:
-                criteria &= models.Q(container_number__container_number=container_number)
+                criteria &= models.Q(
+                    container_number__container_number=container_number
+                )
             pl_criteria = criteria & models.Q(
                 container_number__order__offload_id__offload_at__isnull=True,
             )
             plt_criteria = criteria & models.Q(
                 container_number__order__offload_id__offload_at__isnull=False,
-            )    
+            )
             context = {
                 "area_options": self.area_options,
-            }    
+            }
         else:
             pl_criteria = criteria & models.Q(
                 container_number__order__vessel_id__vessel_eta__gte=start_date,

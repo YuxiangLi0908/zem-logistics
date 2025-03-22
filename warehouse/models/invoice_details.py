@@ -1,8 +1,10 @@
 from django.db import models
+from django.db.models import JSONField
 from simple_history.models import HistoricalRecords
 
 from warehouse.models.invoice import Invoice
-from django.db.models import JSONField
+
+
 class InvoicePreport(models.Model):
     invoice_number = models.ForeignKey(Invoice, on_delete=models.CASCADE)
     pickup = models.FloatField(null=True, blank=True, verbose_name="提拆/打托缠膜")

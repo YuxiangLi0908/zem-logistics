@@ -34,8 +34,7 @@ from django.utils import timezone
 from django.views import View
 from office365.runtime.auth.user_credential import UserCredential
 from office365.sharepoint.client_context import ClientContext
-from simple_history.utils import bulk_update_with_history
-from simple_history.utils import bulk_create_with_history
+from simple_history.utils import bulk_create_with_history, bulk_update_with_history
 
 from warehouse.forms.upload_file import UploadFileForm
 from warehouse.models.fleet import Fleet
@@ -237,7 +236,7 @@ class ShippingManagement(View):
                 container_number__order__offload_id__offload_at__isnull=False,
             ),
         )
-        note = packing_list_selected[0]['note']
+        note = packing_list_selected[0]["note"]
         context.update(
             {
                 "shipment": shipment,
@@ -247,9 +246,9 @@ class ShippingManagement(View):
                 "warehouse": request.GET.get("warehouse"),
                 "warehouse_options": self.warehouse_options,
                 "shipment_type_options": self.shipment_type_options,
-                "start_date":request.GET.get("start_date"),
-                "end_date":request.GET.get("end_date"),
-                "express_number":note
+                "start_date": request.GET.get("start_date"),
+                "end_date": request.GET.get("end_date"),
+                "express_number": note,
             }
         )
         return self.template_td_shipment_info, context
@@ -1043,8 +1042,16 @@ class ShippingManagement(View):
             .order_by("-abnormal_palletization", "shipment_appointment")
         )
         # ETA过滤
-        start_date = request.POST.get("start_date") if "start_date" in request.POST else request.GET.get("start_date")
-        end_date = request.POST.get("end_date") if "end_date" in request.POST else request.GET.get("end_date")
+        start_date = (
+            request.POST.get("start_date")
+            if "start_date" in request.POST
+            else request.GET.get("start_date")
+        )
+        end_date = (
+            request.POST.get("end_date")
+            if "end_date" in request.POST
+            else request.GET.get("end_date")
+        )
         start_date = (
             (datetime.now().date() + timedelta(days=-15)).strftime("%Y-%m-%d")
             if not start_date
@@ -1215,7 +1222,7 @@ class ShippingManagement(View):
                 }
                 for s in unused_appointment
             }
-            note = packing_list_selected[0]['note']
+            note = packing_list_selected[0]["note"]
             context.update(
                 {
                     "batch_id": batch_id,
@@ -1233,7 +1240,7 @@ class ShippingManagement(View):
                     "start_date": request.POST.get("start_date"),
                     "end_date": request.POST.get("end_date"),
                     "account_options": self.account_options,
-                    "express_number":note
+                    "express_number": note,
                 }
             )
             return self.template_td_schedule, context
@@ -1283,7 +1290,7 @@ class ShippingManagement(View):
                     raise ValueError(
                         f"ISA {appointment_id} 登记的目的地是 {existed_appointment.destination} ，此次登记的目的地是 {request.POST.get('destination', None)}!"
                     )
-                else: #没有特殊情况就更新约的信息
+                else:  # 没有特殊情况就更新约的信息
                     shipment = existed_appointment
                     shipment.shipment_batch_number = shipment_data[
                         "shipment_batch_number"
@@ -1339,7 +1346,9 @@ class ShippingManagement(View):
                     shipmentappointment = request.POST.get("shipment_est_arrival", None)
                     if shipmentappointment == "":
                         shipmentappointment = current_time
-                    if "NJ" in str(request.POST.get("origin", "")):  #NJ仓的，UPS预约完就结束，POD都不用传
+                    if "NJ" in str(
+                        request.POST.get("origin", "")
+                    ):  # NJ仓的，UPS预约完就结束，POD都不用传
                         shipment.express_number = (
                             request.POST.get("express_number")
                             if request.POST.get("express_number")
@@ -1349,13 +1358,15 @@ class ShippingManagement(View):
                         shipment.shipped_at = shipmentappointment
                         shipment.is_arrived = True
                         shipment.arrived_at = shipmentappointment
-                        shipment.pod_link = 'Without'
+                        shipment.pod_link = "Without"
                         shipment.pod_uploaded_at = timezone.now()
                 else:
                     shipmentappointment = request.POST.get("shipment_appointment", None)
-                    if shipment_type == "客户自提" and "NJ" in str(request.POST.get("origin", "")):  #客户自提的预约完要直接跳到POD上传,时间按预计提货时间
+                    if shipment_type == "客户自提" and "NJ" in str(
+                        request.POST.get("origin", "")
+                    ):  # 客户自提的预约完要直接跳到POD上传,时间按预计提货时间
                         shipment_data["is_shipped"] = True
-                        shipment_data["shipped_at"] = shipmentappointment                    
+                        shipment_data["shipped_at"] = shipmentappointment
                         shipment_data["is_arrived"] = True
                         shipment_data["arrived_at"] = shipmentappointment
                 shipment_data["shipment_type"] = shipment_type
@@ -1396,8 +1407,10 @@ class ShippingManagement(View):
                             "origin": shipment_data["origin"],
                         }
                     )
-                    #NJ仓的客户自提和UPS，都不需要确认出库和确认到达，客户自提需要POD上传
-                    if (shipment_type == "客户自提" or shipment_type == "外配/快递") and "NJ" in str(request.POST.get("origin", "")):
+                    # NJ仓的客户自提和UPS，都不需要确认出库和确认到达，客户自提需要POD上传
+                    if (
+                        shipment_type == "客户自提" or shipment_type == "外配/快递"
+                    ) and "NJ" in str(request.POST.get("origin", "")):
                         fleet.departured_at = shipmentappointment
                         fleet.arrived_at = shipmentappointment
                     await sync_to_async(fleet.save)()
@@ -1510,7 +1523,7 @@ class ShippingManagement(View):
             await sync_to_async(bulk_update_with_history)(
                 updated_retrieval,
                 Retrieval,
-                fields=["retrieval_destination_precise","assigned_by_appt"],
+                fields=["retrieval_destination_precise", "assigned_by_appt"],
             )
             mutable_post = request.POST.copy()
             mutable_post["area"] = area
@@ -1945,22 +1958,26 @@ class ShippingManagement(View):
                         "origin": shipment.origin,
                     }
                 )
-                if (shipment_type == "客户自提" or shipment_type == "外配/快递") and "NJ" in str(request.POST.get("origin")):
+                if (
+                    shipment_type == "客户自提" or shipment_type == "外配/快递"
+                ) and "NJ" in str(request.POST.get("origin")):
                     shipment.is_shipped = True
                     shipment.shipped_at = shipment_appointment
                     shipment.is_arrived = True
                     shipment.arrived_at = shipment_appointment
                     fleet.departured_at = shipment_appointment
                     fleet.arrived_at = shipment_appointment
-                if shipment_type == "外配/快递" : #UPS的比客户自提的，系统上还少一步POD上传
+                if (
+                    shipment_type == "外配/快递"
+                ):  # UPS的比客户自提的，系统上还少一步POD上传
                     shipment.express_number = (
                         request.POST.get("express_number")
                         if request.POST.get("express_number")
                         else ""
                     )
-                    shipment.pod_link = 'Without'
+                    shipment.pod_link = "Without"
                     shipment.pod_uploaded_at = timezone.now()
-                        
+
                 await sync_to_async(fleet.save)()
                 if shipment.fleet_number:
                     await sync_to_async(shipment.fleet_number.delete)()

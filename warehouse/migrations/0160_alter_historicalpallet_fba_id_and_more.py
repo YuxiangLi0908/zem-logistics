@@ -6,38 +6,38 @@ from django.db import migrations, models
 class Migration(migrations.Migration):
 
     dependencies = [
-        ('warehouse', '0159_alter_customer_password_alter_customer_username_and_more'),
+        ("warehouse", "0159_alter_customer_password_alter_customer_username_and_more"),
     ]
 
     operations = [
         migrations.AlterField(
-            model_name='historicalpallet',
-            name='fba_id',
+            model_name="historicalpallet",
+            name="fba_id",
             field=models.CharField(blank=True, max_length=4000, null=True),
         ),
         migrations.AlterField(
-            model_name='historicalpallet',
-            name='ref_id',
+            model_name="historicalpallet",
+            name="ref_id",
             field=models.CharField(blank=True, max_length=4000, null=True),
         ),
         migrations.AlterField(
-            model_name='historicalpallet',
-            name='shipping_mark',
+            model_name="historicalpallet",
+            name="shipping_mark",
             field=models.CharField(blank=True, max_length=4000, null=True),
         ),
         migrations.AlterField(
-            model_name='pallet',
-            name='fba_id',
+            model_name="pallet",
+            name="fba_id",
             field=models.CharField(blank=True, max_length=4000, null=True),
         ),
         migrations.AlterField(
-            model_name='pallet',
-            name='ref_id',
+            model_name="pallet",
+            name="ref_id",
             field=models.CharField(blank=True, max_length=4000, null=True),
         ),
         migrations.AlterField(
-            model_name='pallet',
-            name='shipping_mark',
+            model_name="pallet",
+            name="shipping_mark",
             field=models.CharField(blank=True, max_length=4000, null=True),
         ),
     ]

@@ -40,8 +40,8 @@ from office365.sharepoint.client_context import ClientContext
 from office365.sharepoint.sharing.links.kind import SharingLinkKind
 from PIL import Image
 from PyPDF2 import PdfMerger, PdfReader
-from xhtml2pdf import pisa
 from simple_history.utils import bulk_update_with_history
+from xhtml2pdf import pisa
 
 from warehouse.forms.upload_file import UploadFileForm
 from warehouse.forms.warehouse_form import ZemWarehouseForm
@@ -341,7 +341,7 @@ class FleetManagement(View):
                     new_marks = marks
                 arm["shipping_mark"] = new_marks
             else:
-                arm["shipping_mark"] = ''
+                arm["shipping_mark"] = ""
         shipment = await sync_to_async(list)(
             Pallet.objects.select_related(
                 "shipment_batch_number",
@@ -500,7 +500,7 @@ class FleetManagement(View):
     ) -> tuple[str, dict[str, Any]]:
         fleet_number = request.GET.get("fleet_number", "")
         batch_number = request.GET.get("batch_number", "")
-        area = request.POST.get("area")   
+        area = request.POST.get("area")
         if area == "None" or not area:
             area = None
         criteria = models.Q(
@@ -1168,7 +1168,7 @@ class FleetManagement(View):
         self, request: HttpRequest
     ) -> tuple[str, dict[str, Any]]:
         conn = await self._get_sharepoint_auth()
-        if 'file' in request.FILES:
+        if "file" in request.FILES:
             files = request.FILES.getlist("file")
             shipment_batch_numbers = request.POST.getlist("shipment_batch_number")
             if isinstance(shipment_batch_numbers, str):
@@ -1180,8 +1180,10 @@ class FleetManagement(View):
         else:
             raise ValueError("未找到上传的文件")
         return await self.handle_pod_upload_get(request)
-    
-    async def _upload_file_to_sharepoint(self, conn, shipment_batch_number: str, file) -> None:
+
+    async def _upload_file_to_sharepoint(
+        self, conn, shipment_batch_number: str, file
+    ) -> None:
         shipment = await sync_to_async(Shipment.objects.get)(
             shipment_batch_number=shipment_batch_number
         )
@@ -1199,7 +1201,6 @@ class FleetManagement(View):
         shipment.pod_link = link
         shipment.pod_uploaded_at = timezone.now()
         await sync_to_async(shipment.save)()
-        
 
     async def _export_ltl_label(self, request: HttpRequest) -> HttpResponse:
         fleet_number = request.POST.get("fleet_number")
@@ -1840,7 +1841,7 @@ class FleetManagement(View):
                     await sync_to_async(bulk_update_with_history)(
                         updated_retrieval,
                         Retrieval,
-                        fields=["retrieval_destination_precise","assigned_by_appt"],
+                        fields=["retrieval_destination_precise", "assigned_by_appt"],
                     )
 
     async def _get_sharepoint_auth(self) -> ClientContext:

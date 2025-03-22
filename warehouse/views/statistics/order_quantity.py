@@ -1,3 +1,6 @@
+import json
+import random
+from collections import defaultdict
 from datetime import datetime
 from typing import Any
 
@@ -13,10 +16,7 @@ from django.views import View
 
 from warehouse.models.customer import Customer
 from warehouse.models.order import Order
-from collections import defaultdict
 
-import json
-import random
 
 class OrderQuantity(View):
     template_shipment = "statistics/order_quantity.html"
@@ -68,27 +68,39 @@ class OrderQuantity(View):
         customers = {"----": None, **customers}
         customer_idlist = request.POST.getlist("customer")
         warehouse_list = request.POST.getlist("warehouse")
-        
+
         order_type = request.POST.get("order_type")
         if order_type == "直送":
-            criteria = Q(Q(created_at__gte=start_date), Q(created_at__lte=end_date), Q(order_type=order_type))
+            criteria = Q(
+                Q(created_at__gte=start_date),
+                Q(created_at__lte=end_date),
+                Q(order_type=order_type),
+            )
         else:
-            criteria = Q(Q(created_at__gte=start_date), Q(created_at__lte=end_date), ~Q(order_type="直送"))
+            criteria = Q(
+                Q(created_at__gte=start_date),
+                Q(created_at__lte=end_date),
+                ~Q(order_type="直送"),
+            )
             if warehouse_list:
-                criteria &= Q(retrieval_id__retrieval_destination_area__in=warehouse_list)
+                criteria &= Q(
+                    retrieval_id__retrieval_destination_area__in=warehouse_list
+                )
         if customer_idlist:
-            customer_list = await sync_to_async(list)(Customer.objects.filter(id__in=customer_idlist).values("zem_name"))
-            customer_idlist = [item['zem_name'] for item in customer_list]
+            customer_list = await sync_to_async(list)(
+                Customer.objects.filter(id__in=customer_idlist).values("zem_name")
+            )
+            customer_idlist = [item["zem_name"] for item in customer_list]
             criteria &= Q(customer_name__zem_name__in=customer_idlist)
-        #柱状图
-        labels, legend, orders = await self._get_bar_chart(
-            criteria
+        # 柱状图
+        labels, legend, orders = await self._get_bar_chart(criteria)
+        # 表格
+        table = await self._get_table_chart(criteria, labels)
+        # 饼图
+        customer_labels, customer_data, month_labels, month_data = (
+            await self._get_pie_chart(criteria)
         )
-        #表格
-        table = await self._get_table_chart(criteria, labels)  
-        #饼图
-        customer_labels,customer_data,month_labels,month_data = await self._get_pie_chart(criteria) 
-        #折线图
+        # 折线图
         line_chart_data = await self._get_line_chart(criteria)
         context = {
             "area_options": self.area_options,
@@ -96,24 +108,24 @@ class OrderQuantity(View):
             "customer_list": customer_idlist,
             "start_date": start_date,
             "end_date": end_date,
-            "order_type":order_type,
+            "order_type": order_type,
             "warehouse_list": warehouse_list,
             "labels": labels,
             "orders": orders,
             "legend": legend,
-            "table":table,
+            "table": table,
             "customer_labels": customer_labels,
             "customer_data": customer_data,
             "month_labels": month_labels,
             "month_data": month_data,
-            "line_chart_data": line_chart_data
+            "line_chart_data": line_chart_data,
         }
 
         return self.template_shipment, context
 
     async def _get_line_chart(self, criteria) -> list:
         orders = await sync_to_async(list)(
-            Order.objects.select_related("customer_name", "warehouse","retrieval_id")
+            Order.objects.select_related("customer_name", "warehouse", "retrieval_id")
             .filter(criteria)
             .annotate(month=TruncMonth("created_at"))  # 将 created_at 截断到月份
             .values("customer_name__zem_name", "month")
@@ -127,55 +139,60 @@ class OrderQuantity(View):
             customer_month_orders[customer][month] += order["count"]
 
         # 获取所有月份
-        all_months = sorted(set(month for customer in customer_month_orders for month in customer_month_orders[customer]))
+        all_months = sorted(
+            set(
+                month
+                for customer in customer_month_orders
+                for month in customer_month_orders[customer]
+            )
+        )
 
         # 构建折线图数据
-        line_chart_data = {
-            "labels": all_months,  # 横轴：所有月份
-            "datasets": []
-        }
+        line_chart_data = {"labels": all_months, "datasets": []}  # 横轴：所有月份
 
         # 为每个客户生成一条线
         for i, (customer, month_orders) in enumerate(customer_month_orders.items()):
-            data = [month_orders.get(month, 0) for month in all_months]  
-            line_chart_data["datasets"].append({
-                "label": customer,  
-                "data": data,  
-                "borderColor": f"#{random.randint(0, 0xFFFFFF):06x}", 
-                "fill": False  
-            })
+            data = [month_orders.get(month, 0) for month in all_months]
+            line_chart_data["datasets"].append(
+                {
+                    "label": customer,
+                    "data": data,
+                    "borderColor": f"#{random.randint(0, 0xFFFFFF):06x}",
+                    "fill": False,
+                }
+            )
 
         line_chart_data_json = json.dumps(line_chart_data)
         return line_chart_data_json
-    
+
     async def _get_pie_chart(self, criteria) -> list:
         orders = await sync_to_async(list)(
-            Order.objects.select_related("customer_name", "warehouse","retrieval_id")
+            Order.objects.select_related("customer_name", "warehouse", "retrieval_id")
             .filter(criteria)
             .annotate(month=TruncMonth("created_at"))  # 将 created_at 截断到月份
             .values("customer_name__zem_name", "month")
             .annotate(count=Count("id"))
             .order_by("customer_name__zem_name", "month")
         )
-        #以客户为分类处理订单
+        # 以客户为分类处理订单
         customer_orders = defaultdict(int)
         for order in orders:
             customer_orders[order["customer_name__zem_name"]] += order["count"]
         customer_labels = list(customer_orders.keys())
         customer_data = list(customer_orders.values())
 
-        #以月份为分类处理订单
+        # 以月份为分类处理订单
         month_orders = defaultdict(int)
         for order in orders:
-            month_key = order["month"].strftime("%Y年%m月") 
+            month_key = order["month"].strftime("%Y年%m月")
             month_orders[month_key] += order["count"]
         month_labels = list(month_orders.keys())
         month_data = list(month_orders.values())
-        return [customer_labels,customer_data,month_labels,month_data]
-    
+        return [customer_labels, customer_data, month_labels, month_data]
+
     async def _get_bar_chart(self, criteria) -> list:
         order_list = await sync_to_async(list)(
-            Order.objects.select_related("customer_name", "warehouse","retrieval_id")
+            Order.objects.select_related("customer_name", "warehouse", "retrieval_id")
             .filter(criteria)
             .annotate(month=TruncMonth("created_at"))  # 将 created_at 截断到月份
             .values("month")
@@ -184,7 +201,7 @@ class OrderQuantity(View):
         )
         labels = [order["month"].strftime("%Y年%m月") for order in order_list]
         if not labels:
-            return None,None,None
+            return None, None, None
         legend = [
             int((labels[0][5:7]).lstrip("0")),
             int((labels[-1][5:7]).lstrip("0")),
@@ -194,7 +211,7 @@ class OrderQuantity(View):
 
     async def _get_table_chart(self, criteria, direct_labels) -> list:
         orders = await sync_to_async(list)(
-            Order.objects.select_related("customer_name", "warehouse","retrieval_id")
+            Order.objects.select_related("customer_name", "warehouse", "retrieval_id")
             .filter(criteria)
             .annotate(month=TruncMonth("created_at"))  # 将 created_at 截断到月份
             .values("customer_name__zem_name", "month")

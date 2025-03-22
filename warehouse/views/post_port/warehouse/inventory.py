@@ -15,8 +15,7 @@ from django.db.models.functions import Cast
 from django.http import Http404, HttpRequest, HttpResponse
 from django.shortcuts import redirect, render
 from django.views import View
-from simple_history.utils import bulk_update_with_history
-from simple_history.utils import bulk_create_with_history
+from simple_history.utils import bulk_create_with_history, bulk_update_with_history
 
 from warehouse.forms.upload_file import UploadFileForm
 from warehouse.models.container import Container

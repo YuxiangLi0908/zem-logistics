@@ -333,10 +333,14 @@ class StuffPower(View):
                 ):
                     o.packing_list_updloaded = True
                 updated_orders.append(o)
-            bulk_update_with_history(updated_orders, Order, fields=["add_to_t49", "packing_list_updloaded", "vessel_id"])
             bulk_update_with_history(
-                updated_retrievals, 
-                Retrieval, 
+                updated_orders,
+                Order,
+                fields=["add_to_t49", "packing_list_updloaded", "vessel_id"],
+            )
+            bulk_update_with_history(
+                updated_retrievals,
+                Retrieval,
                 fields=[
                     "temp_t49_lfd",
                     "temp_t49_available_for_pickup",
@@ -346,7 +350,8 @@ class StuffPower(View):
                     "master_bill_of_lading",
                     "origin_port",
                     "shipping_line",
-                ])
+                ],
+            )
             context["vessel_pl_data_update_success"] = True
             context["orders_count"] = cnt
         return self.template_1, context
@@ -376,7 +381,9 @@ class StuffPower(View):
                 orders_updated.append(o)
             else:
                 o.packing_list_updloaded = False
-        bulk_update_with_history(orders_updated, Order, fields=["packing_list_updloaded"])
+        bulk_update_with_history(
+            orders_updated, Order, fields=["packing_list_updloaded"]
+        )
         context = {"order_packing_list_updloaded_updated": True, "count": cnt}
         return self.template_1, context
 
@@ -429,7 +436,11 @@ class StuffPower(View):
                 s.pallet_dumpped = 0
             shipment_updated.append(s)
             cnt += 1
-        bulk_update_with_history(shipment_updated, Shipment, fields=["is_full_out", "pallet_dumpped", "batch"])
+        bulk_update_with_history(
+            shipment_updated,
+            Shipment,
+            fields=["is_full_out", "pallet_dumpped", "batch"],
+        )
         context = {
             "shipment_updated": True,
             "count": cnt,
@@ -464,7 +475,9 @@ class StuffPower(View):
                 p.shipment_batch_number = p_s_mapping.get(k)
                 cnt += 1
                 updated_pallet.append(p)
-        bulk_update_with_history(updated_pallet, Pallet, fields=["shipment_batch_number"])
+        bulk_update_with_history(
+            updated_pallet, Pallet, fields=["shipment_batch_number"]
+        )
         context = {
             "pallet_updated": True,
             "count": cnt,
@@ -558,7 +571,11 @@ class StuffPower(View):
             s.total_weight = weight
             s.total_pallet = n
             updated_shipment.append(s)
-        bulk_update_with_history(updated_shipment, Shipment, fields=["total_pcs", "total_cbm", "total_weight", "total_pallet"])
+        bulk_update_with_history(
+            updated_shipment,
+            Shipment,
+            fields=["total_pcs", "total_cbm", "total_weight", "total_pallet"],
+        )
         context = {
             "shipment_stats_updated": True,
             "count": cnt,

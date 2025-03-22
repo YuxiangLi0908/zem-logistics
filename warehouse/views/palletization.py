@@ -26,9 +26,8 @@ from django.shortcuts import render
 from django.template.loader import get_template
 from django.utils.decorators import method_decorator
 from django.views import View
+from simple_history.utils import bulk_create_with_history, bulk_update_with_history
 from xhtml2pdf import pisa
-from simple_history.utils import bulk_update_with_history
-from simple_history.utils import bulk_create_with_history
 
 from warehouse.forms.offload_form import OffloadForm
 from warehouse.forms.packling_list_form import PackingListForm
@@ -326,7 +325,11 @@ class Palletization(View):
             s.total_pallet = shipment_stats[s.shipment_batch_number]["total_n_pallet"]
             s.total_weight = shipment_stats[s.shipment_batch_number]["weight_lbs"]
             s.total_pcs = shipment_stats[s.shipment_batch_number]["total_pcs"]
-        bulk_update_with_history(shipment_list, Shipment, fields=["total_cbm", "total_pallet", "total_weight", "total_pcs"])
+        bulk_update_with_history(
+            shipment_list,
+            Shipment,
+            fields=["total_cbm", "total_pallet", "total_weight", "total_pcs"],
+        )
 
     def _get_packing_list(self, container_number: str, status: str) -> PackingList:
         if status == "non_palletized":
