@@ -1564,15 +1564,13 @@ class Accounting(View):
         order = Order.objects.select_related("retrieval_id", "container_number").get(
             container_number__container_number=container_number
         )
-        warehouse = order.warehouse.name
-        warehouse = warehouse.split("-")[0]
-        container_type = order.container_number.container_type
+        warehouse = order.retrieval_id.retrieval_destination_area
 
         quotation = QuotationMaster.objects.get(active=True)
         PICKUP_FEE = FeeDetail.objects.get(quotation_id=quotation.id, fee_type="direct")
         # 提拆、打托缠膜费用
         pickup_fee = None
-        pickup_fee = PICKUP_FEE.details[warehouse]
+        pickup_fee = PICKUP_FEE.details["pickup"]
         for fee, location in pickup_fee.items():
             if warehouse in location:
                 pickup_fee = fee
