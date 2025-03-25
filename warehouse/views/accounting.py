@@ -1570,12 +1570,11 @@ class Accounting(View):
         quotation = QuotationMaster.objects.get(active=True)
         PICKUP_FEE = FeeDetail.objects.get(quotation_id=quotation.id, fee_type="direct")
         # 提拆、打托缠膜费用
-        pickup_fee = None
-        pickup_fee = PICKUP_FEE.details["pickup"]
-        for fee, location in pickup_fee.items():
+        pickup_fee = 0
+        pickup = PICKUP_FEE.details["pickup"]
+        for fee, location in pickup.items():
             if warehouse in location:
                 pickup_fee = fee
-
         # 其他费用
         destination = order.retrieval_id.retrieval_destination_area
         new_destination = destination.replace(" ", "") if destination else ""
