@@ -436,22 +436,11 @@ class QuoteManagement(View):
                         )
                     )
         # 之后，就开始将‘整柜直送’sheet表存到数据库，其中仓库的提拆打托费的存储方式是'warehouse':{'20':x,'40':x,'45':x}，剩下的都是字段和费用一一对应的
-        result = {}
+        result = {"pickup":{}}
         max_row = 0  # 这个是记一下表示仓库的提拆费用的最后一行是多少
         for cell_range, start_row, end_row in merge_range:
             location = []
             max_row = max(max_row, end_row)
-            A_fee = df.iloc[start_row - 2, 0]  # 获取A列包含仓库的单元格值
-            if "LA" in A_fee:
-                warehouse = "LA"
-            elif "NJ" in A_fee:
-                warehouse = "NJ"
-            elif "SAV" in A_fee:
-                warehouse = "SAV"
-            else:
-                match = re.match(r"[a-zA-Z]+", A_fee)
-                warehouse = match.group()  # 只提取其中的仓库名
-
             fee_dict = {}
             location = []
             for row in range(start_row - 2, end_row - 1):
@@ -463,40 +452,49 @@ class QuoteManagement(View):
                             fee_dict[price] = location  # 先把上一组记录上
                     price = df.iloc[row, 3]
                     location = [
-                        f"{prefix}{part}" if part.isdigit() else part
+                        re.sub(r'^([A-Za-z]{3})\s(\d)$', r'\1\2',  # Remove space between 3 letters and 1 digit
+                            f"{prefix}{part}" if part.isdigit() else part)
                         for i in range(1, 3)
                         if pd.notna(df.iloc[row, i])
                         and not re.search("[\u4e00-\u9fff]", str(df.iloc[row, i]))
                         for part in str(df.iloc[row, i]).split("/")
                         for prefix in [
-                            "".join(
-                                [
-                                    char
-                                    for char in str(df.iloc[row, i]).split("/")[0]
-                                    if not char.isdigit()
-                                ]
-                            )
+                            "".join([
+                                char
+                                for char in str(df.iloc[row, i]).split("/")[0]
+                                if not char.isdigit()
+                            ])
                         ]
                     ]
                 else:  # 说明价格键已经有了，这里只加上仓点就行
                     location.extend(
-                        f"{prefix}{part}" if part.isdigit() else part
+                        re.sub(r'^([A-Za-z]{3})\s(\d)$', r'\1\2',  # Remove space between 3 letters and 1 digit
+                            f"{prefix}{part}" if part.isdigit() else part)
                         for i in range(1, 3)
                         if pd.notna(df.iloc[row, i])
                         and not re.search("[\u4e00-\u9fff]", str(df.iloc[row, i]))
                         for part in str(df.iloc[row, i]).split("/")
                         for prefix in [
-                            "".join(
-                                [
-                                    char
-                                    for char in str(df.iloc[row, i]).split("/")[0]
-                                    if not char.isdigit()
-                                ]
-                            )
+                            "".join([
+                                char
+                                for char in str(df.iloc[row, i]).split("/")[0]
+                                if not char.isdigit()
+                            ])
                         ]
                     )
-            fee_dict[price] = location  # 记上最后一组
-            result[warehouse] = fee_dict
+            if price in fee_dict:
+                fee_dict[price].extend(location)
+            else:
+                fee_dict[price] = location
+            for price, locations in fee_dict.items():
+                cleaned_locations = [
+                    re.sub(r'^([A-Za-z]{3})\s(\d)$', r'\1\2', loc)
+                    for loc in locations
+                ]
+                if price in result["pickup"]:
+                    result["pickup"][price].extend(cleaned_locations)
+                else:
+                    result["pickup"][price] = cleaned_locations
         remaining_data = df.iloc[max_row + 1 :]
         result["二次派送"] = {}
         for row in remaining_data.itertuples(index=False):
