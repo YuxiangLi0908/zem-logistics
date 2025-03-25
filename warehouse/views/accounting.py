@@ -405,6 +405,7 @@ class Accounting(View):
             Order.objects.select_related(
                 "customer_name",
                 "container_number",
+                "retrieval_id"
             )
             .filter(
                 models.Q(
