@@ -26,6 +26,7 @@ class InvoicePreport(models.Model):
     per_diem = models.FloatField(null=True, blank=True, verbose_name="港外滞期费")
     second_pickup = models.FloatField(null=True, blank=True, verbose_name="二次提货")
     amount = models.FloatField(null=True, blank=True)
+    other_fees = JSONField(default=dict)
     surcharges = JSONField(default=dict)
     surcharge_notes = JSONField(default=dict)
     history = HistoricalRecords()

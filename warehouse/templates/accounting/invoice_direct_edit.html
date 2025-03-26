@@ -1,40 +1,50 @@
 {% extends 'base.html' %}
 
 {% block content %}
-<div><h4><b>直送账单编辑</b></h4></div>
+<div><h4><b>直送应收账单编辑</b></h4></div>
 <div  style="display: inline-block; width: 100%; margin: 0; padding: 0; max-width: 100%;">
     <p style="text-align:center;"><b>{{ invoice_preports.invoice_number }}</b></p>
 </div>
 <div style="overflow-y: auto; max-height: 100%; width: 60%; border: 2px solid rgb(180, 180, 180); border-radius: 12px; padding: 1%; margin: 1%;">
     <form method="post" action="">
         {% csrf_token %}
-            <div>
-                <label for="chassis_days">提+派送:</label>
-                <input type="number" id="pickup" name="pickup" value="{{ invoice_preports.pickup }}"> 
+            <div style="display: flex; align-items: center; margin-bottom: 10px;">
+                <label style="width: 100px; font-weight: bold;" >费用名称</label>
+                <span style="color: #808080; width: 60px;">价格</span>
+                <span style="margin: 0 5px;"></span>
                 <span style="margin-left:60px; color:#483D8B;">附加费</span>
                 <span style="margin-left:120px; color:#483D8B;">附加费说明</span>
             </div>
             <div>
-                <label for="chassis_split_count">查验费</label><span style="color: #808080;">({{ FS.exam_fee}})</span>:
-                <input type="number" id="exam_fee" name="exam_fee" min="0" value="{{ invoice_preports.exam_fee }}" class="original-input">
-                +
-                <input type="number" id="exam_fee_surcharge" name="exam_fee_surcharge" value="{{ surcharges.exam_fee }}">
-                <input type="text" id="exam_fee_surcharge_note" name="exam_fee_surcharge_note" value="{{ surcharges_notes.exam_fee }}">
+                <label for="chassis_days">提+派送:</label>
+                <input type="number" id="pickup" name="pickup" value="{{ invoice_preports.pickup }}"> 
+                
             </div>
-            <div>
-                <label for="chassis_split_count">二次派送</label><span style="color: #808080;">({{ FS.second_pickup}})</span>:
-                <input type="number" id="second_pickup" name="second_pickup" min="0" value="{{ invoice_preports.second_pickup }}" class="original-input">
-                +
-                <input type="number" id="second_pickup_surcharge" name="second_pickup_surcharge" value="{{ surcharges.second_pickup }}">
-                <input type="text" id="second_pickup_surcharge_note" name="second_pickup_surcharge_note" value="{{ surcharges_notes.second_pickup }}">
+            <div style="display: flex; align-items: center; margin-bottom: 10px;">
+                <label style="width: 100px; font-weight: bold;" for="exam_fee">查验费</label>
+                <span style="color: #808080; width: 60px;">({{ FS.exam_fee }})</span>
+                <input type="number" style="width: 80px; margin-right: 10px;" id="exam_fee" name="exam_fee" value="{{ invoice_preports.exam_fee }}">
+                <span style="margin: 0 5px;">+</span>
+                <input type="number" style="width: 70px; margin-right: 10px;" id="exam_fee_surcharge" name="exam_fee_surcharge" value="{{ surcharges.exam_fee }}">
+                <input type="text" style="width: 120px;" id="exam_fee_surcharge_note" name="exam_fee_surcharge_note" value="{{ surcharges_notes.exam_fee }}">
             </div>
-            <div>
-                <label for="chassis_split_count">滞港费</label><span style="color: #808080;">({{ FS.demurrage}})</span>:
-                <input type="number" id="demurrage" name="demurrage" min="0" value="{{ invoice_preports.demurrage }}" class="original-input">
-                +
-                <input type="number" id="demurrage_surcharge" name="demurrage_surcharge" value="{{ surcharges.demurrage }}">
-                <input type="text" id="demurrage_surcharge_note" name="demurrage_surcharge_note" value="{{ surcharges_notes.demurrage }}">
+            <div style="display: flex; align-items: center; margin-bottom: 10px;">
+                <label style="width: 100px; font-weight: bold;" for="second_pickup">二次派送</label>
+                <span style="color: #808080; width: 60px;">({{ FS.second_pickup }})</span>
+                <input type="number" style="width: 80px; margin-right: 10px;" id="second_pickup" name="second_pickup" value="{{ invoice_preports.second_pickup }}">
+                <span style="margin: 0 5px;">+</span>
+                <input type="number" style="width: 70px; margin-right: 10px;" id="second_pickup_surcharge" name="second_pickup_surcharge" value="{{ surcharges.second_pickup }}">
+                <input type="text" style="width: 120px;" id="second_pickup_surcharge_note" name="second_pickup_surcharge_note" value="{{ surcharges_notes.second_pickup }}">
             </div>
+            <div style="display: flex; align-items: center; margin-bottom: 10px;">
+                <label style="width: 100px; font-weight: bold;" for="demurrage">滞港费</label>
+                <span style="color: #808080; width: 60px;">({{ FS.demurrage }})</span>
+                <input type="number" style="width: 80px; margin-right: 10px;" id="demurrage" name="demurrage" value="{{ invoice_preports.demurrage }}">
+                <span style="margin: 0 5px;">+</span>
+                <input type="number" style="width: 70px; margin-right: 10px;" id="demurrage_surcharge" name="demurrage_surcharge" value="{{ surcharges.demurrage }}">
+                <input type="text" style="width: 120px;" id="demurrage_surcharge_note" name="demurrage_surcharge_note" value="{{ surcharges_notes.demurrage }}">
+            </div>
+            
             <div>
                 <label for="chassis_split_count">滞箱费</label><span style="color: #808080;">({{ FS.per_diem}})</span>:
                 <input type="number" id="per_diem" name="per_diem" min="0" value="{{ invoice_preports.per_diem }}" class="original-input">
@@ -91,7 +101,20 @@
                 <input type="number" id="over_weight_surcharge" name="over_weight_surcharge" value="{{ surcharges.over_weight }}">
                 <input type="text" id="over_weight_surcharge_note" name="over_weight_surcharge_note" value="{{ surcharges_notes.over_weight }}">
             </div>
-            
+            <div class="other-fees-container">
+                {% for key,value in invoice_preports.other_fees.items %}
+                <div class="fee-group" style="display: flex; align-items: center; margin-bottom: 10px; padding: 8px; background: #f5f5f5; border-radius: 4px;">
+                    <input type="text" name="others_feename" value="{{ key }}" style="width: 100px; margin-right: 8px;" placeholder="费用名称">
+                    <input type="number" name="others_feename" min="0" value="{{ value }}" style="width: 80px; margin: 0 5px;" placeholder="金额">
+                </div>
+                {% endfor %}
+                <div id="new-fee-template" style="display:none; align-items: center; margin-bottom: 10px; padding: 8px; background: #f5f5f5; border-radius: 4px;">
+                    <input type="text" name="others_feename" value="{{ fee.name }}" style="width: 100px; margin-right: 8px;" placeholder="费用名称2">
+                    <input type="number" name="others_feeamount" min="0" value="{{ fee.amount }}" style="width: 80px; margin: 0 5px;" placeholder="金额2">
+                    <button class="remove-fee-btn" style="background: #ff4444; color: white; border: none; border-radius: 50%; width: 20px; height: 20px; cursor: pointer; margin-right: 8px;" onclick="removeFeeGroup(this)">×</button>
+                </div>
+                <button type="button" onclick="addNewFeeGroup()" style="background:#6366f1;color:white;border:0;border-radius:6px;padding:8px 16px;cursor:pointer;font-size:14px;">+ 添加其他费用</button>
+            </div>
             <div>
                 <label for="total_amount">Total Amount:</label>
                 <span id="total_amount">0</span> $
@@ -105,12 +128,30 @@
         <input type="hidden" name="invoice_number" value="{{ invoice_preports.invoice_number }}">
         <button type="submit" class="btn btn-primary" style="width: 150px; height: 35px;" onclick="validateForm()">确认</button>
     </form>
+
 </div>
 
 <script>
+    //增加其他费用
+    function addNewFeeGroup() {
+        const template = document.getElementById('new-fee-template');
+        const newGroup = template.cloneNode(true);
+        newGroup.style.display = 'flex';
+        newGroup.removeAttribute('id');
+        document.querySelector('.other-fees-container').appendChild(newGroup);
+        setupTotalCalculator();
+      }
+    
+    //删除其他费用
+    function removeFeeGroup(button) {
+        button.parentElement.remove();
+    }
     function setupTotalCalculator() {
         const inputs = document.querySelectorAll('input[type="number"]');
         const totalAmountSpan = document.getElementById('total_amount');
+        inputs.forEach(input => {
+            input.removeEventListener('input', calculateTotal);
+        });
         function calculateTotal() {
             let total = 0;
             inputs.forEach(input => {

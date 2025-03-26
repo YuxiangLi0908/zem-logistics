@@ -822,26 +822,26 @@ class Accounting(View):
 
     def handle_invoice_direct_save_post(self, request: HttpRequest) -> tuple[Any, Any]:
         data = request.POST.copy()
+        
         container_number = data.get("container_number")
         invoice = Invoice.objects.select_related("container_number").get(
             container_number__container_number=container_number
         )
-        direct_amount = request.POST.get("amount")
         invoice_preports = InvoicePreport.objects.get(
             invoice_number__invoice_number=invoice.invoice_number
         )
+
+        names = data.getlist('others_feename')[1:]
+        amounts = data.getlist('others_feeamount')[1:]
+        other_fees = dict(zip(names, map(float, amounts)))
+        invoice_preports.other_fees = {k: v for k, v in other_fees.items() if k}
+        exclude_fields = {
+            "csrfmiddlewaretoken", "step", "warehouse", 
+            "container_number", "invoice_number",
+            "others_feename", "others_feeamount"
+        }
         for k, v in data.items():
-            if (
-                k
-                not in [
-                    "csrfmiddlewaretoken",
-                    "step",
-                    "warehouse",
-                    "container_number",
-                    "invoice_number",
-                ]
-                and v
-            ):
+            if k not in exclude_fields and v:
                 setattr(invoice_preports, k, v)
         # 附加项费用和附加项说明
         fields = [
@@ -883,7 +883,7 @@ class Accounting(View):
         invoice = Invoice.objects.get(
             container_number__container_number=container_number
         )
-        invoice.direct_amount = direct_amount
+        invoice.direct_amount = request.POST.get("amount")
         invoice.save()
         return self.handle_invoice_direct_get(
             request, request.POST.get("start_date"), request.POST.get("end_date")
