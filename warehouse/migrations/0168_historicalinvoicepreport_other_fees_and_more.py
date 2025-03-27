@@ -6,18 +6,18 @@ from django.db import migrations, models
 class Migration(migrations.Migration):
 
     dependencies = [
-        ('warehouse', '0167_historicalinvoicedelivery_surcharge_notes_and_more'),
+        ("warehouse", "0167_historicalinvoicedelivery_surcharge_notes_and_more"),
     ]
 
     operations = [
         migrations.AddField(
-            model_name='historicalinvoicepreport',
-            name='other_fees',
+            model_name="historicalinvoicepreport",
+            name="other_fees",
             field=models.JSONField(default=dict),
         ),
         migrations.AddField(
-            model_name='invoicepreport',
-            name='other_fees',
+            model_name="invoicepreport",
+            name="other_fees",
             field=models.JSONField(default=dict),
         ),
     ]

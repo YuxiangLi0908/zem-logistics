@@ -94,7 +94,7 @@ class ShippingManagement(View):
         "SAV-31326": "SAV-31326",
         "LA-91761": "LA-91761",
         "MO-62025": "MO-62025",
-        "HX-77503": "HX-77503",
+        "TX-77503": "TX-77503",
     }
     account_options = {
         "": "",
@@ -1187,7 +1187,7 @@ class ShippingManagement(View):
             )
             disallowed_chars = "#%*：<>?/|"  # 不允许的字符
             for char in disallowed_chars:
-                batch_id = batch_id.replace(char, "-") 
+                batch_id = batch_id.replace(char, "-")
             batch_id = batch_id.replace(" ", "").upper()
             address = amazon_fba_locations.get(
                 destination, None

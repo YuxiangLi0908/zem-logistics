@@ -134,7 +134,7 @@ class OrderQuantity(View):
             "month_labels": month_labels,
             "month_data": month_data,
             "line_chart_data": line_chart_data,
-            "date_type":date_type
+            "date_type": date_type,
         }
 
         return self.template_shipment, context
