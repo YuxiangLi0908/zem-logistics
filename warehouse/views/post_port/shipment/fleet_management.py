@@ -92,7 +92,7 @@ class FleetManagement(View):
         "SAV-31326": "SAV-31326",
         "LA-91761": "LA-91761",
         "MO-62025": "MO-62025",
-        "HX-77503": "HX-77503",
+        "TX-77503": "TX-77503",
     }
     shipment_type_options = {"": "", "FTL/LTL": "FTL/LTL", "外配/快递": "外配/快递"}
     abnormal_fleet_options = {
