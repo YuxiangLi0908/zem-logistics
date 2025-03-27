@@ -11,6 +11,13 @@
         {% csrf_token %}
         <div style="display: flex; align-items: center; gap: 10px; flex-wrap: wrap;">
             <div>
+                <b style="margin-right: 5px;">时间类型:</b>
+                <select name="date_type" style="margin-right: 10px;">
+                    <option value="eta" {% if date_type == "eta" or not date_type %}selected{% endif %}>ETA</option>
+                    <option value="create" {% if date_type == "create" %}selected{% endif %}>建单</option>
+                </select>
+            </div>
+            <div>
                 <b style="margin-right: 5px;">开始年月:</b>
                 <input type="date" name="start_date" value="{{ start_date }}">
             </div>
@@ -56,7 +63,7 @@
                 <input type="hidden" name="step" value="selection">
                 <button type="submit">确认</button>
             </div>
-            <small style="color: #666; margin-left: 10px;">（仓库和客户不选择即为全选，订单默认转运，时间默认过去6个月）</small>
+            <small style="color: #666; margin-left: 0px;">（仓库和客户不选择即为全选，时间默认过去6个月）</small>
         </div>
     </form>
 </div>

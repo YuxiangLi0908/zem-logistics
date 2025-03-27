@@ -70,18 +70,33 @@ class OrderQuantity(View):
         warehouse_list = request.POST.getlist("warehouse")
 
         order_type = request.POST.get("order_type")
+        date_type = request.POST.get("date_type")
         if order_type == "直送":
-            criteria = Q(
-                Q(created_at__gte=start_date),
-                Q(created_at__lte=end_date),
-                Q(order_type=order_type),
-            )
+            if date_type == "eta":
+                criteria = Q(
+                    Q(vessel_id__vessel_eta__gte=start_date),
+                    Q(vessel_id__vessel_eta__lte=end_date),
+                    Q(order_type=order_type),
+                )
+            else:
+                criteria = Q(
+                    Q(created_at__gte=start_date),
+                    Q(created_at__lte=end_date),
+                    Q(order_type=order_type),
+                )
         else:
-            criteria = Q(
-                Q(created_at__gte=start_date),
-                Q(created_at__lte=end_date),
-                ~Q(order_type="直送"),
-            )
+            if date_type == "eta":
+                criteria = Q(
+                    Q(vessel_id__vessel_eta__gte=start_date),
+                    Q(vessel_id__vessel_eta__lte=end_date),
+                    ~Q(order_type="直送"),
+                )
+            else:
+                criteria = Q(
+                    Q(created_at__gte=start_date),
+                    Q(created_at__lte=end_date),
+                    ~Q(order_type="直送"),
+                )
             if warehouse_list:
                 criteria &= Q(
                     retrieval_id__retrieval_destination_area__in=warehouse_list
@@ -119,6 +134,7 @@ class OrderQuantity(View):
             "month_labels": month_labels,
             "month_data": month_data,
             "line_chart_data": line_chart_data,
+            "date_type":date_type
         }
 
         return self.template_shipment, context
