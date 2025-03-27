@@ -752,18 +752,18 @@ class Accounting(View):
         invoice_warehouse = InvoiceWarehouse.objects.get(
             invoice_number__invoice_number=invoice.invoice_number
         )
+        names = data.getlist('others_feename')[:-1]
+        amounts = data.getlist('others_feeamount')[:-1]
+        other_fees = dict(zip(names, map(float, amounts)))
+        invoice_warehouse.other_fees = {k: v for k, v in other_fees.items() if k}
+        exclude_fields = {
+            "csrfmiddlewaretoken", "step", "warehouse", 
+            "container_number", "invoice_number",
+            "others_feename", "others_feeamount"
+        }
         for k, v in data.items():
-            if (
-                k
-                not in [
-                    "csrfmiddlewaretoken",
-                    "step",
-                    "warehouse",
-                    "container_number",
-                    "invoice_number",
-                ]
-                and v
-            ):
+            if k not in exclude_fields and v:
+                print(k)
                 setattr(invoice_warehouse, k, v)
         # 附加项费用和附加项说明
         fields = [
@@ -831,8 +831,8 @@ class Accounting(View):
             invoice_number__invoice_number=invoice.invoice_number
         )
 
-        names = data.getlist('others_feename')[1:]
-        amounts = data.getlist('others_feeamount')[1:]
+        names = data.getlist('others_feename')[:-1]
+        amounts = data.getlist('others_feeamount')[:-1]
         other_fees = dict(zip(names, map(float, amounts)))
         invoice_preports.other_fees = {k: v for k, v in other_fees.items() if k}
         exclude_fields = {
@@ -900,19 +900,20 @@ class Accounting(View):
         invoice_preports = InvoicePreport.objects.get(
             invoice_number__invoice_number=invoice.invoice_number
         )
+        names = data.getlist('others_feename')[:-1]
+        amounts = data.getlist('others_feeamount')[:-1]
+        other_fees = dict(zip(names, map(float, amounts)))
+        invoice_preports.other_fees = {k: v for k, v in other_fees.items() if k}
+        exclude_fields = {
+            "csrfmiddlewaretoken", "step", "warehouse", 
+            "container_number", "invoice_number",
+            "pending","others_feename", "others_feeamount"
+        }
         for k, v in data.items():
-            if k not in [
-                "csrfmiddlewaretoken",
-                "step",
-                "warehouse",
-                "container_number",
-                "invoice_number",
-                "pending",
-                "invoice_reject_reason",
-            ]:
-                if not v:
-                    v = 0
+            if k not in exclude_fields and v:
+                print(k)
                 setattr(invoice_preports, k, v)
+                     
         # 附加项费用和附加项说明
         fields = [
             "chassis",
@@ -1178,6 +1179,8 @@ class Accounting(View):
             plt_ids = request.POST.getlist("plt_ids")
             new_plt_ids = [ast.literal_eval(sub_plt_id) for sub_plt_id in plt_ids]
             cost = request.POST.getlist("cost")
+            
+            expense = request.POST.getlist("expense")
             # 将前端的每一条记录存为invoice_delivery的一条
             for i in range(len((new_plt_ids))):
                 ids = [int(id) for id in new_plt_ids[i]]
@@ -1187,6 +1190,8 @@ class Accounting(View):
                 invoice_content = pallet_obj.invoice_delivery
                 # 除价格外，其他在新建记录的时候就存了
                 invoice_content.total_cost = cost[i]
+                if expense[i]:
+                    invoice_content.expense = expense[i]             
                 invoice_content.save()
         return self.handle_container_invoice_delivery_get(request)
 
@@ -1270,6 +1275,7 @@ class Accounting(View):
             "end_date": request.GET.get("end_date"),
             "FS": FS,
             "fs_json": fs_json,
+            "status":order.invoice_status
         }
         return self.template_invoice_warehouse_edit, context
 
@@ -1381,6 +1387,7 @@ class Accounting(View):
         local = []
         combine = []
         walmart = []
+        self_delivery = []
         quotation = QuotationMaster.objects.get(active=True)
         if warehouse == "NJ":
             LOCAL_DELIVERY = FeeDetail.objects.get(
@@ -1490,6 +1497,8 @@ class Accounting(View):
                                     delivery, "total_cost", int(k) * int(len(plt_ids))
                                 )
                     walmart.append(delivery)
+                elif delivery.type == "self":
+                    self_delivery.append(delivery)
         else:
             # 该柜子没有建表的情况下，系统再根据报表单汇总派送方式
             for plt in pallet:
@@ -1554,6 +1563,7 @@ class Accounting(View):
             "local": local,
             "combine": combine,
             "walmart": walmart,
+            "self_delivery":self_delivery,
             "invoice_delivery": invoice_delivery,
         }
         return self.template_invoice_delievery_edit, context
@@ -1650,6 +1660,7 @@ class Accounting(View):
             "surcharges_notes": invoice_preports.surcharge_notes,
             "FS": FS,
             "fs_json": fs_json,
+            "status":order.invoice_status
         }
         return self.template_invoice_direct_edit, context
 
@@ -1754,6 +1765,7 @@ class Accounting(View):
             "end_date": request.GET.get("end_date"),
             "FS": FS,
             "fs_json": fs_json,
+            "status":order.invoice_status
         }
         return self.template_invoice_preport_edit, context
 

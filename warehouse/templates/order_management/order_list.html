@@ -74,7 +74,7 @@
                         </th>
                         <th class="th"><input type="text" style="width:110px;" id="customerSearchInput" placeholder="搜索客户..." oninput="filterTable()"></th>
                         <th class="th"><input type="text" style="width:110px;" id="containerSearchInput" placeholder="搜索柜号..." oninput="filterTable()"></th>
-                        <th class="th"><input type="text" id="forcastSearchInput" placeholder="取消状态" oninput="filterTable()" style="width:60px;"></th>
+                        <th class="th"><input type="text" id="forcastSearchInput" placeholder="状态" oninput="filterTable()" style="width:60px;"></th>
                         <th class="th"></th>
                         <th class="th"></th>
                         <th class="th"></th>
@@ -227,9 +227,9 @@
         containerInput = document.getElementById("containerSearchInput");
         customerInput = document.getElementById("customerSearchInput");
         forcastInput = document.getElementById("forcastSearchInput");
-        containerFilter = containerInput.value.toUpperCase();
-        customerFilter = customerInput.value.toUpperCase();
-        forcastFilter = forcastInput.value.toUpperCase();
+        containerFilter = containerInput.value.trim().toUpperCase();
+        customerFilter = customerInput.value.trim().toUpperCase();
+        forcastFilter = forcastInput.value.trim().toUpperCase();
         table = document.getElementById("order-table");
         tbody = table.getElementsByTagName("tbody")[0];
         tr = tbody.getElementsByTagName("tr");
