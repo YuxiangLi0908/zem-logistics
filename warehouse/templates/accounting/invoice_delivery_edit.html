@@ -23,6 +23,7 @@
                     <thead>
                         <tr style="position: sticky; top: 0;">
                             <th class="th">价格</th>
+                            <th class="th">成本</th>
                             <th class="th">目的地</th>
                             <th class="th">CBM</th>
                             <th class="th">重量</th>
@@ -37,6 +38,7 @@
                                 <input type="hidden" name="plt_ids" value="{{ plt.plt_ids }}">
                                 <input type="hidden" name="total_pallet" value="{{ plt.total_n_pallet }}">
                             </td>
+                            <td class="td"><input type="text" name="expense" value="{{ plt.expense|default:'' }}"></td>
                             <td class="td"><input type="text" name="destination" value="{{ plt.destination }}"></td>
                             <td class="td"><input type="number" name="cbm" step = 0.01 value="{{ plt.total_cbm|floatformat:2 }}"></td>
                             <td class="td"><input type="number" name="weight_lbs" step = 0.01 value="{{ plt.total_weight_lbs|floatformat:2 }}"></td>
@@ -69,6 +71,7 @@
                     <thead>
                         <tr style="position: sticky; top: 0;">
                             <th class="th">价格</th>
+                            <th class="th">成本</th>
                             <th class="th">目的地</th>
                             <th class="th">CBM</th>
                             <th class="th">重量</th>
@@ -83,6 +86,7 @@
                                 <input type="hidden" name="plt_ids" value="{{ plt.plt_ids }}">
                                 <input type="hidden" name="total_pallet" value="{{ plt.total_n_pallet }}">
                             </td>
+                            <td class="td"><input type="text" name="expense" value="{{ plt.expense|default:'' }}"></td>
                             <td class="td"><input type="text" name="destination" value="{{ plt.destination }}"></td>
                             <td class="td"><input type="number" name="cbm" step = 0.01 value="{{ plt.total_cbm|floatformat:2 }}"></td>
                             <td class="td"><input type="number" name="weight_lbs" step = 0.01 value="{{ plt.total_weight_lbs|floatformat:2 }}"></td>
@@ -116,6 +120,7 @@
                         <thead>
                             <tr style="position: sticky; top: 0;">
                                 <th class="th">价格</th>
+                                <th class="th">成本</th>
                                 <th class="th">目的地</th>
                                 <th class="th">CBM</th>
                                 <th class="th">重量</th>
@@ -135,6 +140,7 @@
                                     <input type="hidden" name="plt_ids" value="{{ plt.plt_ids }}">
                                     <input type="hidden" name="total_pallet" value="{{ plt.total_n_pallet }}">
                                 </td>
+                                <td class="td"><input type="text" name="expense" value="{{ plt.expense|default:'' }}"></td>
                                 <td class="td"><input type="text" name="destination" value="{{ plt.destination }}"></td>
                                 <td class="td"><input type="number" name="cbm" step = 0.01 value="{{ plt.total_cbm|floatformat:2 }}"></td>
                                 <td class="td"><input type="number" name="weight_lbs" step = 0.01 value="{{ plt.total_weight_lbs|floatformat:2 }}"></td>
@@ -168,6 +174,7 @@
                     <thead>
                         <tr style="position: sticky; top: 0;">
                             <th class="th">价格</th>
+                            <th class="th">成本</th>
                             <th class="th">目的地</th>
                             <th class="th">CBM</th>
                             <th class="th">重量</th>
@@ -182,6 +189,7 @@
                                 <input type="hidden" name="plt_ids" value="{{ plt.plt_ids }}">
                                 <input type="hidden" name="total_pallet" value="{{ plt.total_n_pallet }}">
                             </td>
+                            <td class="td"><input type="text" name="expense" value="{{ plt.expense|default:'' }}"></td>
                             <td class="td"><input type="text" name="destination" value="{{ plt.destination }}"></td>
                             <td class="td"><input type="number" name="cbm" step = 0.01 value="{{ plt.total_cbm|floatformat:2 }}"></td>
                             <td class="td"><input type="number" name="weight_lbs" step = 0.01 value="{{ plt.total_weight_lbs|floatformat:2 }}"></td>
@@ -203,7 +211,54 @@
         </div>
     </form>
 </div>
-
+<div>   
+    <form method="post" action="">
+        {% csrf_token %}
+        <div style="margin:auto; max-height: 800px;max-width:1500px;margin-bottom:50px;">
+            <button id="editButton" type="button" class="btn btn-primary" onclick="add_delivery(this)" style="font-size: 11px;">自发</button>
+            {% if self_delivery %}
+                <table class="table" id="self-delivery-table" style="font-size: 13px">
+                    <thead>
+                        <tr style="position: sticky; top: 0;">                       
+                            <th class="th">报价</th>
+                            <th class="th">成本</th>
+                            <th class="th">目的地</th>
+                            <th class="th">CBM</th>
+                            <th class="th">重量</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for plt in self_delivery %}
+                        <tr draggable="true" id="pallet-{{ plt.id }}">
+                            <td class="td">
+                                <input type="number" id="self_delivery_cost" name="cost" value="{{ plt.total_cost }}" oninput="updateSelf(this)">
+                                ({{ plt.total_n_pallet }}板)
+                                <input type="hidden" name="plt_ids" value="{{ plt.plt_ids }}">
+                                <input type="hidden" name="total_pallet" value="{{ plt.total_n_pallet }}">
+                            </td>
+                            <td class="td"><input type="number" name="expense" value="{{ plt.expense|default:'' }}"></td>
+                            <td class="td"><input type="text" name="destination" value="{{ plt.destination }}"></td>
+                            <td class="td"><input type="number" name="cbm" step = 0.01 value="{{ plt.total_cbm|floatformat:2 }}"></td>
+                            <td class="td"><input type="number" name="weight_lbs" step = 0.01 value="{{ plt.total_weight_lbs|floatformat:2 }}"></td>
+                        </tr>
+                        {% endfor %}
+                        <tr>
+                            <td class="td">
+                                <input type="number" id="self_delivery_total" name="total" value=""></td>
+                            <td colspan="3"></td>
+                        </tr>
+                    </tbody>
+                </table>
+                <div class="text-left" style="float:right;">
+                    <input type="hidden" name="step" value="update_delivery_invoice">
+                    <input type="hidden" name="type" value="self_delivery">                  
+                    <input type="hidden" name="container_number" value="{{ container_number }}">
+                    <button type="submit" class="btn btn-primary" style="width: 100px; height: 35px;" onclick="processForm('self_delivery-table')">确认</button>
+                </div>
+            {% endif %}
+        </div>
+    </form>
+</div>
 <div>
     <form method="post" action="">
         {% csrf_token %}
@@ -257,6 +312,7 @@
         let combine_total = 0;
         let walmart_total = 0;
         let total_amount = 0;
+        let self_delivery_total = 0;
         var rows = document.querySelectorAll('#amazon-table tbody tr:not(:last-child)');
         if (rows.length !== 0){
             for (var i = 0; i < rows.length; i++) {
@@ -311,7 +367,19 @@
             document.getElementById('local_total').value = local_total;
             total_amount += local_total;
         }
-         
+
+        var rows = document.querySelectorAll('#self-delivery-table tbody tr:not(:last-child)');
+        if (rows.length !== 0){
+            for (var i = 0; i < rows.length; i++) {
+                var costInput = rows[i].querySelector('input[id="self_delivery_cost"]');
+                var costValue = parseFloat(costInput.value);
+                if (!isNaN(costValue)) {
+                    self_delivery_total += costValue;
+                }
+            }
+            document.getElementById('self_delivery_total').value = self_delivery_total;
+            total_amount += self_delivery_total;
+        } 
         const totalAmountSpan = document.getElementById('total_amount');
         totalAmountSpan.textContent = total_amount;
         
@@ -320,6 +388,21 @@
     function updateAmazon(numberInput) {
         const amountInputs = document.querySelectorAll('input[id="amazon_cost"]');
         const amountAmazon = document.getElementById('amazon_total');
+        let total = 0;
+        amountInputs.forEach(function (input) {
+            const value = parseFloat(input.value);
+            if (!isNaN(value)) {
+                total += value;
+            }
+        });
+        amountAmazon.value = total.toFixed(2);
+        updateTotal();
+        
+    };
+    
+    function updateSelf(numberInput) {
+        const amountInputs = document.querySelectorAll('input[id="self_delivery_cost"]');
+        const amountAmazon = document.getElementById('self_delivery_total');
         let total = 0;
         amountInputs.forEach(function (input) {
             const value = parseFloat(input.value);
@@ -426,6 +509,8 @@
             type.value = 'combine';
         } else if (text === '沃尔玛派送') {
             type.value = 'walmart';
+        } else if (text === '自发') {
+            type.value = 'self_delivery';
         }
     };
 

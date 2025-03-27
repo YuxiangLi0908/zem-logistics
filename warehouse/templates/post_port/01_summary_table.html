@@ -166,9 +166,10 @@
                 <tr>
                     <td colspan="6"></td>
                     <td><input type="number" id="cbm-total" disabled></td>
-                    <td></td>
+                    <td><input type="number" id="pallet-total" disabled></td>
                     <td><input type="number" id="pcs-total" disabled></td>
-                    <td colspan="10"></td>       
+                    <td><input type="number" id="weight-total" disabled></td>
+                    <td colspan="9"></td>       
                 </tr>
             </tbody>
         </table>
@@ -182,7 +183,9 @@
     };
     function updateTotals(){
         let cbmTotal = 0;
+        let palletTotal = 0;
         let pcsTotal = 0;
+        let weightTotal = 0;
         const table = document.getElementById('packing-list-table');
         const rows = table.getElementsByTagName('tr');
         
@@ -192,20 +195,32 @@
                 const cells = row.getElementsByTagName('td');
 
                 const cbmValue = parseFloat(cells[6].innerText);
+                const palletValue = parseFloat(cells[7].innerText.split(" ")[1]); 
                 const pcsValue = parseFloat(cells[8].innerText);
+                const weightValue = parseFloat(cells[9].innerText);
                 if (!isNaN(cbmValue)) {
                     cbmTotal += cbmValue;
+                }
+                if (!isNaN(palletValue)) {
+                    palletTotal += palletValue;
                 }
                 if (!isNaN(pcsValue)) {
                     pcsTotal += pcsValue;
                 }
+                if (!isNaN(weightValue)) {
+                    weightTotal += weightValue;
+                }
             }
         }
-        const cbmTotalInput = document.getElementById('cbm-total');
-        
+        const cbmTotalInput = document.getElementById('cbm-total');       
         cbmTotalInput.value = cbmTotal.toFixed(2);
+        const palletTotalInput = document.getElementById('pallet-total');       
+        palletTotalInput.value = palletTotal.toFixed(2);
+
         const pcsTotalInput = document.getElementById('pcs-total');
         pcsTotalInput.value = pcsTotal.toFixed(2);
+        const weightTotalInput = document.getElementById('weight-total');
+        weightTotalInput.value = weightTotal.toFixed(2);
     };
     function confirmSubmit() {
         const checkBoxes = document.getElementsByName('is_selected');

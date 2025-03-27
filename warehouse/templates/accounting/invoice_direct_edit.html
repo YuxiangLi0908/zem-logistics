@@ -1,116 +1,187 @@
 {% extends 'base.html' %}
 
 {% block content %}
-<div><h4><b>直送账单编辑</b></h4></div>
+<div><h4><b>直送应收账单编辑</b></h4></div>
 <div  style="display: inline-block; width: 100%; margin: 0; padding: 0; max-width: 100%;">
     <p style="text-align:center;"><b>{{ invoice_preports.invoice_number }}</b></p>
 </div>
-<div style="overflow-y: auto; max-height: 100%; width: 60%; border: 2px solid rgb(180, 180, 180); border-radius: 12px; padding: 1%; margin: 1%;">
+<div style="max-height: 100%; max-width: 800px; padding: 20px; margin: 0 auto; background-color: #fff; border-radius: 8px; box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1);">
     <form method="post" action="">
         {% csrf_token %}
-            <div>
-                <label for="chassis_days">提+派送:</label>
-                <input type="number" id="pickup" name="pickup" value="{{ invoice_preports.pickup }}"> 
-                <span style="margin-left:60px; color:#483D8B;">附加费</span>
-                <span style="margin-left:120px; color:#483D8B;">附加费说明</span>
+            {% if status == 'confirmed' %}
+            <div style="background: #f8f9fa; padding: 10px; margin-bottom: 15px; border-radius: 4px; text-align: center;">
+                账单已确认，不可编辑
             </div>
-            <div>
-                <label for="chassis_split_count">查验费</label><span style="color: #808080;">({{ FS.exam_fee}})</span>:
-                <input type="number" id="exam_fee" name="exam_fee" min="0" value="{{ invoice_preports.exam_fee }}" class="original-input">
-                +
-                <input type="number" id="exam_fee_surcharge" name="exam_fee_surcharge" value="{{ surcharges.exam_fee }}">
-                <input type="text" id="exam_fee_surcharge_note" name="exam_fee_surcharge_note" value="{{ surcharges_notes.exam_fee }}">
+            {% endif %}
+            <div style="display: flex; align-items: center; margin-bottom: 10px;">
+                <label style="width: 100px; font-weight: color:#483D8B;" >费用名称</label>
+                <span style="color: #808080; width: 150px;color:#483D8B;">报价提示</span>
+                <span style="color:#483D8B;">价格</span>
+                <span style="margin: 0 5px;"></span>
+                <span style="margin-left:75px; color:#483D8B;">附加费</span>
+                <span style="margin-left:35px; color:#483D8B;">附加费说明</span>
+                <div style="margin-left: auto; display: inline-flex; align-items: center; height: 100%; padding: 0 12px; background: #f8f9fa; border-radius: 4px; border: 1px solid #e0e0e0;">
+                    <span style="font-weight: bold; color: #555; margin-right: 5px;">总金额：</span>
+                    <span id="total_amount" style="font-weight: bold; color: #2c3e50;">0</span>
+                    <span style="font-weight: bold; color: #2c3e50; margin-left: 3px;">USD</span>
+                    <input type="hidden" name="amount" id="amount">
+                </div>
             </div>
-            <div>
-                <label for="chassis_split_count">二次派送</label><span style="color: #808080;">({{ FS.second_pickup}})</span>:
-                <input type="number" id="second_pickup" name="second_pickup" min="0" value="{{ invoice_preports.second_pickup }}" class="original-input">
-                +
-                <input type="number" id="second_pickup_surcharge" name="second_pickup_surcharge" value="{{ surcharges.second_pickup }}">
-                <input type="text" id="second_pickup_surcharge_note" name="second_pickup_surcharge_note" value="{{ surcharges_notes.second_pickup }}">
+            <div style="display: flex; align-items: center; margin-bottom: 10px;">
+                <label style="width: 100px; font-weight: bold;" for="pickup">提+派送:</label>
+                <span style="color: #808080; width: 150px;"></span>
+                <input type="number" style="width: 80px; margin-right: 10px;" id="pickup" name="pickup" value="{{ invoice_preports.pickup }}">                
+                {% if status != 'confirmed' %}
+                    <button type="submit" class="btn btn-primary" style="margin-left:260px; width: 150px; height: 35px;" onclick="validateForm()">确认</button>
+                {% endif %}
+                </div>
+            <div style="display: flex; align-items: center; margin-bottom: 10px;">
+                <label style="width: 100px; font-weight: bold;" for="exam_fee">查验费</label>
+                <span style="color: #808080; width: 150px;">({{ FS.exam_fee }})</span>
+                <input type="number" style="width: 80px; margin-right: 10px;" id="exam_fee" name="exam_fee" value="{{ invoice_preports.exam_fee }}">
+                <span style="margin: 0 5px;">+</span>
+                <input type="number" style="width: 70px; margin-right: 10px;" id="exam_fee_surcharge" name="exam_fee_surcharge" value="{{ surcharges.exam_fee }}">
+                <input type="text" style="width: 120px;" id="exam_fee_surcharge_note" name="exam_fee_surcharge_note" value="{{ surcharges_notes.exam_fee }}">
             </div>
-            <div>
-                <label for="chassis_split_count">滞港费</label><span style="color: #808080;">({{ FS.demurrage}})</span>:
-                <input type="number" id="demurrage" name="demurrage" min="0" value="{{ invoice_preports.demurrage }}" class="original-input">
-                +
-                <input type="number" id="demurrage_surcharge" name="demurrage_surcharge" value="{{ surcharges.demurrage }}">
-                <input type="text" id="demurrage_surcharge_note" name="demurrage_surcharge_note" value="{{ surcharges_notes.demurrage }}">
+            <div style="display: flex; align-items: center; margin-bottom: 10px;">
+                <label style="width: 100px; font-weight: bold;" for="second_pickup">二次派送</label>
+                <span style="color: #808080; width: 150px;">({{ FS.second_pickup }})</span>
+                <input type="number" style="width: 80px; margin-right: 10px;" id="second_pickup" name="second_pickup" value="{{ invoice_preports.second_pickup }}">
+                <span style="margin: 0 5px;">+</span>
+                <input type="number" style="width: 70px; margin-right: 10px;" id="second_pickup_surcharge" name="second_pickup_surcharge" value="{{ surcharges.second_pickup }}">
+                <input type="text" style="width: 120px;" id="second_pickup_surcharge_note" name="second_pickup_surcharge_note" value="{{ surcharges_notes.second_pickup }}">
             </div>
-            <div>
-                <label for="chassis_split_count">滞箱费</label><span style="color: #808080;">({{ FS.per_diem}})</span>:
-                <input type="number" id="per_diem" name="per_diem" min="0" value="{{ invoice_preports.per_diem }}" class="original-input">
-                +
-                <input type="number" id="per_diem_surcharge" name="per_diem_surcharge" value="{{ surcharges.per_diem }}">
-                <input type="text" id="per_diem_surcharge_note" name="per_diem_surcharge_note" value="{{ surcharges_notes.per_diem }}">
+            <div style="display: flex; align-items: center; margin-bottom: 10px;">
+                <label style="width: 100px; font-weight: bold;" for="demurrage">滞港费</label>
+                <span style="color: #808080; width: 150px;">({{ FS.demurrage }})</span>
+                <input type="number" style="width: 80px; margin-right: 10px;" id="demurrage" name="demurrage" value="{{ invoice_preports.demurrage }}">
+                <span style="margin: 0 5px;">+</span>
+                <input type="number" style="width: 70px; margin-right: 10px;" id="demurrage_surcharge" name="demurrage_surcharge" value="{{ surcharges.demurrage }}">
+                <input type="text" style="width: 120px;" id="demurrage_surcharge_note" name="demurrage_surcharge_note" value="{{ surcharges_notes.demurrage }}">
             </div>
-            <div>
-                <label for="chassis_split_count">港口拥堵费</label><span style="color: #808080;">({{ FS.congestion_fee}})</span>::
-                <input type="number" id="congestion_fee" name="congestion_fee" min="0" value="{{ invoice_preports.congestion_fee }}" class="original-input">
-                +
-                <input type="number" id="congestion_fee_surcharge" name="congestion_fee_surcharge" value="{{ surcharges.congestion_fee }}">
-                <input type="text" id="congestion_fee_surcharge_note" name="congestion_fee_surcharge_note" value="{{ surcharges_notes.congestion_fee }}">
+            <div style="display: flex; align-items: center; margin-bottom: 10px;">
+                <label style="width: 100px; font-weight: bold;" for="per_diem">滞箱费</label>
+                <span style="color: #808080; width: 150px;">({{ FS.per_diem }})</span>
+                <input type="number" style="width: 80px; margin-right: 10px;" id="per_diem" name="per_diem" value="{{ invoice_preports.per_diem }}">
+                <span style="margin: 0 5px;">+</span>
+                <input type="number" style="width: 70px; margin-right: 10px;" id="per_diem_surcharge" name="per_diem_surcharge" value="{{ surcharges.per_diem }}">
+                <input type="text" style="width: 120px;" id="per_diem_surcharge_note" name="per_diem_surcharge_note" value="{{ surcharges_notes.per_diem }}">
             </div>
-            <div>
-                <label for="chassis_days">车架费</label><span style="color: #808080;">({{ FS.chassis}})</span>:
-                <input type="number" id="chassis" name="chassis" min="0" value="{{ invoice_preports.chassis }}" class="original-input">
-                +
-                <input type="number" id="chassis_surcharge" name="chassis_surcharge" value="{{ surcharges.chassis }}">
-                <input type="text" id="chassis_surcharge_note" name="chassis_surcharge_note" value="{{ surcharges_notes.chassis }}">
+            <div style="display: flex; align-items: center; margin-bottom: 10px;">
+                <label style="width: 100px; font-weight: bold;" for="congestion_fee">港口拥堵费</label>
+                <span style="color: #808080; width: 150px;">({{ FS.congestion_fee }})</span>
+                <input type="number" style="width: 80px; margin-right: 10px;" id="congestion_fee" name="congestion_fee" value="{{ invoice_preports.congestion_fee }}">
+                <span style="margin: 0 5px;">+</span>
+                <input type="number" style="width: 70px; margin-right: 10px;" id="congestion_fee_surcharge" name="congestion_fee_surcharge" value="{{ surcharges.congestion_fee }}">
+                <input type="text" style="width: 120px;" id="congestion_fee_surcharge_note" name="congestion_fee_surcharge_note" value="{{ surcharges_notes.congestion_fee }}">
             </div>
-            <div>
-                <label for="prepull">预提费</label><span style="color: #808080;">({{ FS.prepull}})</span>:
-                <input type="number" id="prepull" name="prepull" min="0" value="{{ invoice_preports.prepull }}" class="original-input">
-                +
-                <input type="number" id="prepull_surcharge" name="prepull_surcharge" value="{{ surcharges.prepull }}">
-                <input type="text" id="prepull_surcharge_note" name="prepull_surcharge_note" value="{{ surcharges_notes.prepull }}">
+            <div style="display: flex; align-items: center; margin-bottom: 10px;">
+                <label style="width: 100px; font-weight: bold;" for="chassis">车架费</label>
+                <span style="color: #808080; width: 150px;">({{ FS.chassis }})</span>
+                <input type="number" style="width: 80px; margin-right: 10px;" id="chassis" name="chassis" value="{{ invoice_preports.chassis }}">
+                <span style="margin: 0 5px;">+</span>
+                <input type="number" style="width: 70px; margin-right: 10px;" id="chassis_surcharge" name="chassis_surcharge" value="{{ surcharges.chassis }}">
+                <input type="text" style="width: 120px;" id="chassis_surcharge_note" name="chassis_surcharge_note" value="{{ surcharges_notes.chassis }}">
             </div>
-            <div>
-                <label for="chassis_split_count">货柜储存费</label><span style="color: #808080;">({{ FS.yard_storage}})</span>:
-                <input type="number" id="yard_storage" name="yard_storage" min="0" value="{{ invoice_preports.yard_storage }}" class="original-input">
-                +
-                <input type="number" id="yard_storage_surcharge" name="yard_storage_surcharge" value="{{ surcharges.yard_storage }}">
-                <input type="text" id="yard_storage_surcharge_note" name="yard_storage_surcharge_note" value="{{ surcharges_notes.yard_storage }}">
+            <div style="display: flex; align-items: center; margin-bottom: 10px;">
+                <label style="width: 100px; font-weight: bold;" for="prepull">预提费</label>
+                <span style="color: #808080; width: 150px;">({{ FS.prepull }})</span>
+                <input type="number" style="width: 80px; margin-right: 10px;" id="prepull" name="prepull" value="{{ invoice_preports.prepull }}">
+                <span style="margin: 0 5px;">+</span>
+                <input type="number" style="width: 70px; margin-right: 10px;" id="prepull_surcharge" name="prepull_surcharge" value="{{ surcharges.prepull }}">
+                <input type="text" style="width: 120px;" id="prepull_surcharge_note" name="prepull_surcharge_note" value="{{ surcharges_notes.prepull }}">
             </div>
-            <div>
-                <label for="chassis_split_count">等待费</label><span style="color: #808080;">({{ FS.handling_fee}})</span>:
-                <input type="number" id="handling_fee" name="handling_fee" min="0" value="{{ invoice_preports.handling_fee }}" class="original-input">
-                +
-                <input type="number" id="handling_fee_surcharge" name="handling_fee_surcharge" value="{{ surcharges.handling_fee }}">
-                <input type="text" id="handling_fee_surcharge_note" name="handling_fee_surcharge_note" value="{{ surcharges_notes.handling_fee }}">
+            <div style="display: flex; align-items: center; margin-bottom: 10px;">
+                <label style="width: 100px; font-weight: bold;" for="yard_storage">货柜储存费</label>
+                <span style="color: #808080; width: 150px;">({{ FS.yard_storage }})</span>
+                <input type="number" style="width: 80px; margin-right: 10px;" id="yard_storage" name="yard_storage" value="{{ invoice_preports.yard_storage }}">
+                <span style="margin: 0 5px;">+</span>
+                <input type="number" style="width: 70px; margin-right: 10px;" id="yard_storage_surcharge" name="yard_storage_surcharge" value="{{ surcharges.yard_storage }}">
+                <input type="text" style="width: 120px;" id="yard_storage_surcharge_note" name="yard_storage_surcharge_note" value="{{ surcharges_notes.yard_storage }}">
             </div>
-            <div>
-                <label for="chassis_split_count">车架分离费</label><span style="color: #808080;">({{ FS.chassis_split}})</span>:
-                <input type="number" id="chassis_split" name="chassis_split" min="0" value="{{ invoice_preports.chassis_split }}" class="original-input">
-                +
-                <input type="number" id="chassis_split_surcharge" name="chassis_split_surcharge" value="{{ surcharges.chassis_split }}">
-                <input type="text" id="chassis_split_surcharge_note" name="chassis_split_surcharge_note" value="{{ surcharges_notes.chassis_split }}">
+            <div style="display: flex; align-items: center; margin-bottom: 10px;">
+                <label style="width: 100px; font-weight: bold;" for="handling_fee">等待费</label>
+                <span style="color: #808080; width: 150px;">({{ FS.handling_fee }})</span>
+                <input type="number" style="width: 80px; margin-right: 10px;" id="handling_fee" name="handling_fee" value="{{ invoice_preports.handling_fee }}">
+                <span style="margin: 0 5px;">+</span>
+                <input type="number" style="width: 70px; margin-right: 10px;" id="handling_fee_surcharge" name="handling_fee_surcharge" value="{{ surcharges.handling_fee }}">
+                <input type="text" style="width: 120px;" id="handling_fee_surcharge_note" name="handling_fee_surcharge_note" value="{{ surcharges_notes.handling_fee }}">
             </div>
-            <div>
-                <label for="chassis_split_count">超重费</label><span style="color: #808080;">({{ FS.over_weight}})</span>:
-                <input type="number" id="over_weight" name="over_weight" min="0" value="{{ invoice_preports.over_weight }}" class="original-input">
-                +
-                <input type="number" id="over_weight_surcharge" name="over_weight_surcharge" value="{{ surcharges.over_weight }}">
-                <input type="text" id="over_weight_surcharge_note" name="over_weight_surcharge_note" value="{{ surcharges_notes.over_weight }}">
+            <div style="display: flex; align-items: center; margin-bottom: 10px;">
+                <label style="width: 100px; font-weight: bold;" for="chassis_split">车架分离费</label>
+                <span style="color: #808080; width: 150px;">({{ FS.chassis_split }})</span>
+                <input type="number" style="width: 80px; margin-right: 10px;" id="chassis_split" name="chassis_split" value="{{ invoice_preports.chassis_split }}">
+                <span style="margin: 0 5px;">+</span>
+                <input type="number" style="width: 70px; margin-right: 10px;" id="chassis_split_surcharge" name="chassis_split_surcharge" value="{{ surcharges.chassis_split }}">
+                <input type="text" style="width: 120px;" id="chassis_split_surcharge_note" name="chassis_split_surcharge_note" value="{{ surcharges_notes.chassis_split }}">
+            </div>
+            <div style="display: flex; align-items: center; margin-bottom: 10px;">
+                <label style="width: 100px; font-weight: bold;" for="over_weight">超重费</label>
+                <span style="color: #808080; width: 150px;">({{ FS.over_weight }})</span>
+                <input type="number" style="width: 80px; margin-right: 10px;" id="over_weight" name="over_weight" value="{{ invoice_preports.over_weight }}">
+                <span style="margin: 0 5px;">+</span>
+                <input type="number" style="width: 70px; margin-right: 10px;" id="over_weight_surcharge" name="over_weight_surcharge" value="{{ surcharges.over_weight }}">
+                <input type="text" style="width: 120px;" id="over_weight_surcharge_note" name="over_weight_surcharge_note" value="{{ surcharges_notes.over_weight }}">
+            </div>
+
+            <div style="display: flex; align-items: center;">
+                <div style="width: 250px; padding-top: 10px; margin: 0 auto; text-align: center;">
+                  <button type="button" onclick="addNewFeeGroup()" 
+                          style="background:#6366f1;color:white;border:0;border-radius:6px;padding:8px 16px;cursor:pointer;font-size:14px;">
+                    + 添加
+                  </button>
+                </div>
+                
+                <div style="flex: 1;">
+                  {% for key,value in invoice_preports.other_fees.items %}
+                  <div style="display: flex; align-items: center; margin-bottom: 10px;">
+                    <input type="text" name="others_feename" value="{{ key }}" 
+                           style="width: 150px; margin-right: 10px;" placeholder="费用名称">
+                    <input type="number" name="others_feeamount" min="0" value="{{ value }}" style="width: 80px;" placeholder="金额">
+                    <button class="remove-fee-btn" style="background: #ff4444; color: white; border: none; border-radius: 50%; width: 20px; height: 20px; cursor: pointer; margin-left: 10px;display: flex;align-items: center;justify-content: center;padding: 0;line-height: 1;font-size: 14px;" onclick="removeFeeGroup(this)">×</button>
+                  </div>
+                  {% endfor %}
+                  
+                  <div id="new-fee-template" style="display: none; align-items: center; margin-bottom: 10px;">
+                    <input type="text" name="others_feename" 
+                           style="width: 150px; margin-right: 10px;" placeholder="费用名称">
+                    <input type="number" name="others_feeamount" min="0" style="width: 80px;" placeholder="金额">
+                    <button class="remove-fee-btn" style="background: #ff4444; color: white; border: none; border-radius: 50%; width: 20px; height: 20px; cursor: pointer; margin-left: 10px;display: flex;align-items: center;justify-content: center;padding: 0;line-height: 1;font-size: 14px;" onclick="removeFeeGroup(this)">×</button>
+                  </div>
+                </div>
             </div>
             
-            <div>
-                <label for="total_amount">Total Amount:</label>
-                <span id="total_amount">0</span> $
-                <input type="hidden" name="amount" id="amount"> 
-            </div>
         <input type="hidden" name="step" value="direct_save">
         <input type="hidden" name="warehouse" value="{{warehouse}}">
         <input type="hidden" name="container_number" value="{{ container_number }}">
         <input type="hidden" name="start_date" value="{{ start_date }}">
         <input type="hidden" name="end_date" value="{{ end_date }}">
         <input type="hidden" name="invoice_number" value="{{ invoice_preports.invoice_number }}">
-        <button type="submit" class="btn btn-primary" style="width: 150px; height: 35px;" onclick="validateForm()">确认</button>
+        
     </form>
+
 </div>
 
 <script>
+    //增加其他费用
+    function addNewFeeGroup() {
+        const template = document.getElementById('new-fee-template');
+        const newGroup = template.cloneNode(true);
+        newGroup.querySelector('input[type="text"]').value = '';
+        newGroup.querySelector('input[type="number"]').value = '';
+        newGroup.style.display = 'flex';
+        template.parentNode.insertBefore(newGroup, template);
+        setupTotalCalculator()
+    }
+    function removeFeeGroup(button) {
+        button.parentElement.remove();
+    }
     function setupTotalCalculator() {
         const inputs = document.querySelectorAll('input[type="number"]');
         const totalAmountSpan = document.getElementById('total_amount');
+        inputs.forEach(input => {
+            input.removeEventListener('input', calculateTotal);
+        });
         function calculateTotal() {
             let total = 0;
             inputs.forEach(input => {
