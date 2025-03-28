@@ -280,7 +280,7 @@ class Inventory(View):
         shipping_mark = shipping_mark.split(",") if shipping_mark else ""
         fba_id = fba_id.split(",") if fba_id else ""
         ref_id = ref_id.split(",") if ref_id else ""
-        criteria = models.Q()
+        criteria = models.Q(container_number__container_number=container_number)
         if shipping_mark:
             criteria &= models.Q(shipping_mark__in=shipping_mark)
         else:
