@@ -86,9 +86,19 @@ class Accounting(View):
     template_invoice_delievery_edit = "accounting/invoice_delivery_edit.html"
     template_invoice_confirm = "accounting/invoice_confirm.html"
     template_invoice_confirm_edit = "accounting/invoice_confirm_edit.html"
+    #template_invoice_confirm_edit = "accounting/invoice_confirm_combina3.html"
     template_invoice_direct = "accounting/invoice_direct.html"
     template_invoice_direct_edit = "accounting/invoice_direct_edit.html"
     allowed_group = "accounting"
+    warehouse_options = {
+        "": "",
+        "NJ-07001": "NJ-07001",
+        "NJ-08817": "NJ-08817",
+        "SAV-31326": "SAV-31326",
+        "LA-91761": "LA-91761",
+        "MO-62025": "MO-62025",
+        "TX-77503": "TX-77503",
+    }
 
     def get(self, request: HttpRequest) -> HttpResponse:
         # if not self._validate_user_group(request.user):
@@ -386,6 +396,7 @@ class Accounting(View):
         start_date: str = None,
         end_date: str = None,
         customer: str = None,
+        warehouse: str = None
     ) -> tuple[Any, Any]:
         current_date = datetime.now().date()
         start_date = (
@@ -398,6 +409,8 @@ class Accounting(View):
             models.Q(vessel_id__vessel_etd__gte=start_date),
             models.Q(vessel_id__vessel_etd__lte=end_date),
         )
+        if warehouse:
+            criteria &= models.Q(retrieval_id__retrieval_destination_precise=warehouse)
         if customer:
             criteria &= models.Q(customer_name__zem_name=customer)
         # 查找直送，没有生成账单的柜子
@@ -448,6 +461,7 @@ class Accounting(View):
         start_date: str = None,
         end_date: str = None,
         customer: str = None,
+        warehouse: str = None,
     ) -> tuple[Any, Any]:
         # 拆送——港前提拆柜费
         current_date = datetime.now().date()
@@ -462,6 +476,8 @@ class Accounting(View):
             models.Q(vessel_id__vessel_etd__gte=start_date),
             models.Q(vessel_id__vessel_etd__lte=end_date),
         )
+        if warehouse:
+            criteria &= models.Q(retrieval_id__retrieval_destination_precise=warehouse)
         if customer:
             criteria &= models.Q(customer_name__zem_name=customer)
         # 查找未操作过的
@@ -522,6 +538,8 @@ class Accounting(View):
             "end_date": end_date,
             "customer": customer,
             "groups": groups,
+            "warehouse_options":self.warehouse_options,
+            "warehouse_filter":warehouse
         }
         return self.template_invoice_preport, context
 
@@ -531,6 +549,7 @@ class Accounting(View):
         start_date: str = None,
         end_date: str = None,
         customer: str = None,
+        warehouse: str = None
     ) -> tuple[Any, Any]:
         # 库内操作费
         current_date = datetime.now().date()
@@ -545,6 +564,8 @@ class Accounting(View):
             models.Q(vessel_id__vessel_etd__gte=start_date),
             models.Q(vessel_id__vessel_etd__lte=end_date),
         )
+        if warehouse:
+            criteria &= models.Q(retrieval_id__retrieval_destination_precise=warehouse)
         if customer:
             criteria &= models.Q(customer_name__zem_name=customer)
         # 查找未操作过的
@@ -583,6 +604,8 @@ class Accounting(View):
             "end_date": end_date,
             "customer": customer,
             "previous_order": previous_order,
+            "warehouse_options":self.warehouse_options,
+            "warehouse_filter":warehouse
         }
         return self.template_invoice_warehouse, context
 
@@ -592,6 +615,7 @@ class Accounting(View):
         start_date: str = None,
         end_date: str = None,
         customer: str = None,
+        warehouse: str = None,
     ) -> tuple[Any, Any]:
         current_date = datetime.now().date()
         start_date = (
@@ -604,6 +628,8 @@ class Accounting(View):
             models.Q(vessel_id__vessel_etd__gte=start_date),
             models.Q(vessel_id__vessel_etd__lte=end_date),
         )
+        if warehouse:
+            criteria &= models.Q(retrieval_id__retrieval_destination_precise=warehouse)
         if customer:
             criteria &= models.Q(customer_name__zem_name=customer)
         # 客服录入完毕的账单
@@ -664,6 +690,8 @@ class Accounting(View):
             "start_date": start_date,
             "end_date": end_date,
             "customer": customer,
+            "warehouse_options":self.warehouse_options,
+            "warehouse_filter":warehouse
         }
         return self.template_invoice_confirm, context
 
@@ -673,6 +701,7 @@ class Accounting(View):
         start_date: str = None,
         end_date: str = None,
         customer: str = None,
+        warehouse: str = None,
     ) -> tuple[Any, Any]:
         # 库内操作费
         current_date = datetime.now().date()
@@ -687,6 +716,8 @@ class Accounting(View):
             models.Q(vessel_id__vessel_etd__gte=start_date),
             models.Q(vessel_id__vessel_etd__lte=end_date),
         )
+        if warehouse:
+            criteria &= models.Q(retrieval_id__retrieval_destination_precise=warehouse)
         if customer:
             criteria &= models.Q(customer_name__zem_name=customer)
         # 查找未操作过的
@@ -724,6 +755,8 @@ class Accounting(View):
             "start_date": start_date,
             "end_date": end_date,
             "customer": customer,
+            "warehouse_options":self.warehouse_options,
+            "warehouse_filter":warehouse
         }
         return self.template_invoice_delivery, context
 
@@ -731,12 +764,13 @@ class Accounting(View):
         self, request: HttpRequest
     ) -> tuple[Any, Any]:
         data = request.POST.copy()
+        save_type=request.POST.get('save_type')
         container_number = data.get("container_number")
         invoice = Invoice.objects.select_related("container_number").get(
             container_number__container_number=container_number
         )
         # 库内费用表记录
-        warehouse_amount = request.POST.get("amount")
+        warehouse_amount = request.POST.get("total_amount")
         invoice_warehouse = InvoiceWarehouse.objects.filter(
             invoice_number__invoice_number=invoice.invoice_number
         )
@@ -765,7 +799,6 @@ class Accounting(View):
         }
         for k, v in data.items():
             if k not in exclude_fields and v:
-                print(k)
                 setattr(invoice_warehouse, k, v)
         # 附加项费用和附加项说明
         fields = [
@@ -814,17 +847,18 @@ class Accounting(View):
         order = Order.objects.select_related("retrieval_id", "container_number").get(
             container_number__container_number=container_number
         )
-        order.invoice_status = "record_delivery"
-        order.invoice_reject = "True"
-        order.invoice_reject_reason = ""
-        order.save()
+        if save_type=='complete':
+            order.invoice_status = "record_delivery"
+            order.invoice_reject = "True"
+            order.invoice_reject_reason = ""
+            order.save()
         return self.handle_invoice_warehouse_get(
             request, request.POST.get("start_date"), request.POST.get("end_date")
         )
 
     def handle_invoice_direct_save_post(self, request: HttpRequest) -> tuple[Any, Any]:
         data = request.POST.copy()
-
+        save_type=request.POST.get('save_type')
         container_number = data.get("container_number")
         invoice = Invoice.objects.select_related("container_number").get(
             container_number__container_number=container_number
@@ -884,7 +918,8 @@ class Accounting(View):
         order = Order.objects.select_related("retrieval_id", "container_number").get(
             container_number__container_number=container_number
         )
-        order.invoice_status = "toBeConfirmed"
+        if save_type=='complete':
+            order.invoice_status = "toBeConfirmed"
         order.save()
         invoice = Invoice.objects.get(
             container_number__container_number=container_number
@@ -897,6 +932,7 @@ class Accounting(View):
 
     def handle_invoice_preport_save_post(self, request: HttpRequest) -> tuple[Any, Any]:
         data = request.POST.copy()
+        save_type=request.POST.get('save_type')
         container_number = data.get("container_number")
         invoice = Invoice.objects.select_related("container_number").get(
             container_number__container_number=container_number
@@ -922,7 +958,6 @@ class Accounting(View):
         }
         for k, v in data.items():
             if k not in exclude_fields and v:
-                print(k)
                 setattr(invoice_preports, k, v)
 
         # 附加项费用和附加项说明
@@ -982,7 +1017,8 @@ class Accounting(View):
             order.invoice_reject_reason = data.get("invoice_reject_reason", "")
         else:
             # 提拆柜录入完毕
-            order.invoice_status = "record_preport"
+            if save_type=='complete':
+                order.invoice_status = "record_preport"
             order.invoice_reject = "False"
         order.save()
         groups = [group.name for group in request.user.groups.all()]
@@ -1060,6 +1096,7 @@ class Accounting(View):
             container_number__container_number=container_number
         )
         description, warehouse_code, cbm, weight, qty, rate, amount, note = (
+            [],
             [],
             [],
             [],
@@ -1950,29 +1987,30 @@ class Accounting(View):
         start_date = request.POST.get("start_date")
         end_date = request.POST.get("end_date")
         order_form = OrderForm(request.POST)
+        warehouse = request.POST.get("warehouse_filter")
         if order_form.is_valid():
             customer = order_form.cleaned_data.get("customer_name")
         else:
             customer = None
         if status == "direct":
             return self.handle_invoice_direct_get(
-                request, start_date, end_date, customer
+                request, start_date, end_date, customer,warehouse
             )
         elif status == "preport":
             return self.handle_invoice_preport_get(
-                request, start_date, end_date, customer
+                request, start_date, end_date, customer,warehouse
             )
         elif status == "warehouse":
             return self.handle_invoice_warehouse_get(
-                request, start_date, end_date, customer
+                request, start_date, end_date, customer,warehouse
             )
         elif status == "delivery":
             return self.handle_invoice_delivery_get(
-                request, start_date, end_date, customer
+                request, start_date, end_date, customer,warehouse
             )
         elif status == "confirm":
             return self.handle_invoice_confirm_get(
-                request, start_date, end_date, customer
+                request, start_date, end_date, customer,warehouse
             )
         else:
             return self.handle_invoice_get(start_date, end_date, customer)

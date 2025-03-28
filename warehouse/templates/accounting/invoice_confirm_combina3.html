@@ -1,0 +1,103 @@
+{% extends 'base.html' %}
+
+{% block content %}
+<style>
+    .iframe-container {
+        display: flex;
+        flex-direction: row;  /* 改为水平排列 */
+        gap: 20px;
+        padding: 20px;
+        width: 100%;
+        height: 80vh;  /* 设置容器高度 */
+    }
+    .iframe-wrapper {
+        border: 1px solid #ddd;
+        border-radius: 8px;
+        overflow: hidden;
+        flex: 1;  /* 每个iframe等宽 */
+        min-width: 0;  /* 防止内容溢出 */
+        background: white;  /* 默认背景色 */
+        transition: all 0.3s;  /* 悬停动画 */
+    }
+    .iframe-wrapper:hover {
+        box-shadow: 0 0 10px rgba(0,0,0,0.1);  /* 悬停效果 */
+        background: #f8f9fa;  /* 悬停背景色 */
+    }
+    iframe {
+        width: 100%;
+        height: 100%;
+        border: none;
+        display: block;  /* 消除iframe底部间隙 */
+    }
+</style>
+
+<div><h4><b>财务订单确认</b></h4></div>
+<div style="display: inline-block; width: 100%; margin: 0; padding: 0; max-width: 100%;">   
+    <form method="post" action="" style="display: flex; justify-content: space-between;">
+        {% csrf_token %}
+        <p style="text-align:center; margin:0 auto;"><b>{{ invoice }}</b></p>
+        <input type="hidden" name="step" value="confirm_save">
+        <input type="hidden" name="container_number" value="{{ container_number }}">
+        <button id="editButton" type="submit" class="btn btn-primary" onclick="AmountForm()" 
+                style="background-color:green; font-size: 13px; padding:10px 20px; margin-right:80px;">
+            账单确认
+        </button>  
+    </form>
+</div>
+
+{% if order_type != "直送" %}
+<div class="iframe-container">
+    <div class="iframe-wrapper">
+        <iframe src="D:/project/zem-logistics/warehouse/templates/accounting/invoice_preport_edit/" title="模块A"></iframe>
+    </div>
+    <div class="iframe-wrapper">
+        <iframe src="/invoice_warehouse_edit.html" title="模块B"></iframe>
+    </div>
+    <div class="iframe-wrapper">
+        <iframe src="/accounting/invoice_delivery_edit/" title="模块C"></iframe>
+    </div>
+</div>
+{% else %}
+<div class="iframe-container">
+    <div class="iframe-wrapper" style="flex: none; width: 100%;">
+        <iframe src="/accounting/invoice_direct_edit/" title="直送模块"></iframe>
+    </div>
+</div>
+{% endif %}
+
+<script>
+    function resizeIframe(iframe) {
+        try {
+            const body = iframe.contentWindow.document.body;
+            const html = iframe.contentWindow.document.documentElement;
+            const height = Math.max(
+                body.scrollHeight,
+                body.offsetHeight,
+                html.clientHeight,
+                html.scrollHeight,
+                html.offsetHeight
+            );
+            iframe.style.height = height + 'px';
+        } catch (e) {
+            console.log('iframe高度调整错误:', e);
+        }
+    }
+
+    window.addEventListener('DOMContentLoaded', function() {
+        const iframes = document.querySelectorAll('iframe');
+        
+        iframes.forEach(iframe => {
+            // 初始加载
+            iframe.onload = function() {
+                resizeIframe(iframe);
+                // 监听子页面内容变化
+                this.contentWindow.addEventListener('resize', () => resizeIframe(iframe));
+            };
+            
+            // 设置最小高度
+            iframe.style.minHeight = '500px';
+        });
+    });
+</script>
+
+{% endblock %}
