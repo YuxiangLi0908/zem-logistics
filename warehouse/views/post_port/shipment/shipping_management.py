@@ -490,6 +490,9 @@ class ShippingManagement(View):
             "pallet_est": pallet_est,
             "start_date": start_date,
             "end_date": end_date,
+            "modify_shipped_shipment": await sync_to_async(
+                request.user.groups.filter(name="shipment_leader").exists
+            )(),
         }
         return self.template_td, context
 
@@ -1143,6 +1146,9 @@ class ShippingManagement(View):
             "pallet_est": pallet_est,
             "start_date": start_date,
             "end_date": end_date,
+            "modify_shipped_shipment": await sync_to_async(
+                request.user.groups.filter(name="shipment_leader").exists
+            )(),
         }
         return self.template_td, context
 
