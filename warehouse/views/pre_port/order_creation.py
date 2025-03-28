@@ -626,12 +626,16 @@ class OrderCreation(View):
         retrieval.retrieval_destination_precise = request.POST.get(
             "retrieval_destination_precise"
         )
-        retrieval.target_retrieval_timestamp = request.POST.get(
-            "target_retrieval_timestamp"
-        )
-        retrieval.actual_retrieval_timestamp = request.POST.get(
-            "actual_retrieval_timestamp"
-        )
+        target_retrieval_timestamp = request.POST.get("target_retrieval_timestamp")
+        retrieval.target_retrieval_timestamp = target_retrieval_timestamp if target_retrieval_timestamp else None
+        actual_retrieval_timestamp = request.POST.get("actual_retrieval_timestamp")
+        retrieval.actual_retrieval_timestamp = actual_retrieval_timestamp if actual_retrieval_timestamp else None
+        
+        arrive_at = request.POST.get("arrive_at")
+        retrieval.arrive_at = arrive_at if arrive_at else None
+        empty_returned_at = request.POST.get("empty_returned_at")
+        retrieval.empty_returned_at = empty_returned_at if empty_returned_at else None
+
         retrieval.note = request.POST.get("retrieval_note").strip()
         await sync_to_async(retrieval.save)()
         mutable_get = request.GET.copy()

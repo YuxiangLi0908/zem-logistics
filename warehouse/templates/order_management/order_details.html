@@ -448,6 +448,8 @@
                         <th class="th">目的地</th>
                         <th class="th">预约时间</th>
                         <th class="th">实际提柜时间</th>
+                        <th class="th">确认到仓时间</th>
+                        <th class="th">还空时间</th>
                         <th class="th">提柜备注</th>
                     </tr>
                 </thead>
@@ -484,6 +486,12 @@
                         </td>
                         <td class="td">
                             <input type="date" name="actual_retrieval_timestamp" {%if retrieval %} value="{{ retrieval.actual_retrieval_timestamp|date:'Y-m-d' }}"{% endif %}>
+                        </td>
+                        <td class="td">
+                            <input type="date" name="arrive_at" {%if retrieval %} value="{{ retrieval.arrive_at|date:'Y-m-d' }}"{% endif %}>
+                        </td>
+                        <td class="td">
+                            <input type="date" name="empty_returned_at" {%if retrieval %} value="{{ retrieval.empty_returned_at|date:'Y-m-d' }}"{% endif %}>
                         </td>
                         <td class="td">
                             <input type="text" name="retrieval_note" {%if retrieval %} value="{{ retrieval.note }}"{% endif %} >
