@@ -369,6 +369,12 @@
             <label for="chassis_split_count">超重费</label>(200$/柜):
             <input type="number" id="over_weight" name="over_weight" min="0" value="{{ invoice_preports.over_weight }}">
         </div>
+        {% for k,v in invoice_preports.other_fees.items %}
+        <div>
+            <label for="chassis_split_count">{{ k }}</label>:
+            <input type="number" id="over_weight" name="over_weight" min="0" value="{{ v }}">
+        </div>
+        {% endfor %}
     </div>
 </div>
 {% endif %}

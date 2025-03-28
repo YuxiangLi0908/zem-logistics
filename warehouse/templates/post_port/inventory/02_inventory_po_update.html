@@ -60,16 +60,16 @@
             <tr>
                 <input type="hidden" name="pl_ids" value="{{ pl.id }}">
                 <td class="td">
-                    <input name="shipping_mark_new" value="{{ pl.shipping_mark }}">
-                    <input type="hidden" name="shipping_mark" value="{{ pl.shipping_mark }}">
+                    <input name="shipping_mark_new" value="{{ pl.shipping_mark|default_if_none:"" }}">
+                    <input type="hidden" name="shipping_mark" value="{{ pl.shipping_mark|default_if_none:"" }}">
                 </td>
                 <td class="td">
-                    <input name="fba_id_new" value="{{ pl.fba_id }}">
-                    <input type="hidden" name="fba_id" value="{{ pl.fba_id }}">
+                    <input name="fba_id_new" value="{{ pl.fba_id|default_if_none:"" }}">
+                    <input type="hidden" name="fba_id" value="{{ pl.fba_id|default_if_none:"" }}">
                 </td>
                 <td class="td">
                     <input name="ref_id_new" value="{{ pl.ref_id }}">
-                    <input type="hidden" name="ref_id" value="{{ pl.ref_id }}">
+                    <input type="hidden" name="ref_id" value="{{ pl.ref_id|default_if_none:"" }}">
                 </td>
             </tr>
             {% endfor %}

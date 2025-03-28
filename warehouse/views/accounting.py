@@ -1124,6 +1124,15 @@ class Accounting(View):
                         rate.append("")
                         amount.append(value)
                         note.append("")
+            for k, v in invoice_preport.other_fees.items():
+                description.append(k)
+                amount.append(v)
+                warehouse_code.append("")
+                cbm.append("")
+                weight.append("")
+                qty.append("")
+                rate.append("")
+                note.append("")
         else:
             invoice_preport = InvoicePreport.objects.get(
                 invoice_number__invoice_number=invoice.invoice_number
@@ -1146,6 +1155,15 @@ class Accounting(View):
                         rate.append("")
                         amount.append(value)
                         note.append("")
+            for k, v in invoice_preport.other_fees.items():
+                description.append(k)
+                amount.append(v)
+                warehouse_code.append("")
+                cbm.append("")
+                weight.append("")
+                qty.append("")
+                rate.append("")
+                note.append("")
             for field in invoice_warehouse._meta.fields:
                 if isinstance(field, models.FloatField) and field.name != "amount":
                     value = getattr(invoice_warehouse, field.name)
@@ -1158,6 +1176,15 @@ class Accounting(View):
                         rate.append("")
                         amount.append(value)
                         note.append("")
+            for k, v in invoice_warehouse.other_fees.items():
+                description.append(k)
+                amount.append(v)
+                warehouse_code.append("")
+                cbm.append("")
+                weight.append("")
+                qty.append("")
+                rate.append("")
+                note.append("")
             for delivery in invoice_delivery:
                 description.append("派送费")
                 warehouse_code.append(delivery.destination.upper())
