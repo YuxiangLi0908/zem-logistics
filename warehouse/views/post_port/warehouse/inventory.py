@@ -8,14 +8,14 @@ from typing import Any
 
 import pandas as pd
 from asgiref.sync import sync_to_async
+from django.contrib.auth.models import User
 from django.contrib.postgres.aggregates import StringAgg
 from django.db import models
 from django.db.models import CharField, Count, F, FloatField, IntegerField, Sum
 from django.db.models.functions import Cast
-from django.http import Http404, HttpRequest, HttpResponse, HttpResponseForbidden 
+from django.http import Http404, HttpRequest, HttpResponse, HttpResponseForbidden
 from django.shortcuts import redirect, render
 from django.views import View
-from django.contrib.auth.models import User
 from simple_history.utils import bulk_create_with_history, bulk_update_with_history
 
 from warehouse.forms.upload_file import UploadFileForm
@@ -64,7 +64,6 @@ class Inventory(View):
             return HttpResponseForbidden(
                 "You are not authenticated to access this page!"
             )
-        
 
     async def post(self, request: HttpRequest, **kwargs) -> HttpRequest:
         if not await self._user_authenticate(request):
@@ -584,7 +583,7 @@ class Inventory(View):
         if await sync_to_async(lambda: request.user.is_authenticated)():
             return True
         return False
-    
+
     def validate_user_invoice_preport(self, user: User) -> bool:
         if user.is_staff:
             return True
