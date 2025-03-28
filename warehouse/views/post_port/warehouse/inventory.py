@@ -579,7 +579,7 @@ class Inventory(View):
             return True
         return False
     
-    def validate_user_invoice_preport(self, user: User) -> bool:
+    def validate_user_staff(self, user: User) -> bool:
         if user.is_staff:
             return True
         else:
