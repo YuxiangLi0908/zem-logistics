@@ -770,7 +770,7 @@ class Accounting(View):
             container_number__container_number=container_number
         )
         # 库内费用表记录
-        warehouse_amount = request.POST.get("total_amount")
+        warehouse_amount = request.POST.get("amount")
         invoice_warehouse = InvoiceWarehouse.objects.filter(
             invoice_number__invoice_number=invoice.invoice_number
         )
@@ -825,7 +825,6 @@ class Accounting(View):
         for field in fields:
             surcharge_key = f"{field}_surcharge"
             note_key = f"{field}_surcharge_note"
-
             surcharge = request.POST.get(surcharge_key, 0) or 0
             note = request.POST.get(note_key, "")
             surcharges[field] = float(surcharge)
