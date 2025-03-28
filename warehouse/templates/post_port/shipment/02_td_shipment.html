@@ -22,7 +22,17 @@
         <input type="date" name="end_date" value="{{ end_date }}" style="margin-right: 5px;">
         <input type="hidden" name="step" value="">
         <button type="submit" onclick="setStepValue('warehouse')">确认</button>
-        <button type="submit" onclick="setStepValue('overshipment')">过期的约</button>
+        {% if user.is_authenticated %}
+            {% if user.is_staff or modify_shipped_shipment %}
+            <form method="post" action="">
+                {% csrf_token %}
+                <input type="hidden" name="step" value="cancel_notification">
+                <input type="hidden" name="container_number" value="{{ selected_order.container_number.container_number }}">
+                <button type="submit" onclick="setStepValue('overshipment')">已出库的约</button>
+            </form>
+            {% endif %}
+        {% endif %}
+       
     </div>
 </form>
 
