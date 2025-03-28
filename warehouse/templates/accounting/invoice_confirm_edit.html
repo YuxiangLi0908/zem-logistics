@@ -104,6 +104,12 @@
                 <label for="chassis_split_count">二次提货</label>:
                 <input type="number" id="second_pickup" name="second_pickup" min="0" value="{{ invoice_preports.second_pickup }}">
             </div>
+            {% for k,v in invoice_preports.other_fees.items %}
+            <div>
+                <label for="chassis_split_count">{{ k }}</label>:
+                <input type="number" name="others_feeamount" min="0" value="{{ v }}">
+            </div>
+            {% endfor %}
         </div>
     </div>
     <div style="overflow-y: auto; max-height: 100%; width: 25%; border: 2px solid rgb(180, 180, 180); border-radius: 12px; padding: 1%; margin: 1%;">
@@ -181,6 +187,12 @@
                 <label for="chassis_split_count">重复操作费</label>($50-$500):
                 <input type="number" id="repeated_operation_fee" name="repeated_operation_fee" min="0" value="{{ invoice_warehouse.repeated_operation_fee}}">
             </div>
+            {% for k,v in invoice_warehouse.other_fees.items %}
+            <div>
+                <label for="chassis_split_count">{{ k }}</label>:
+                <input type="number" name="others_feeamount" min="0" value="{{ v }}">
+            </div>
+            {% endfor %}
         </div>
     </div>
     <div style="overflow-y: auto; max-height: 100%; width: 50%; border: 2px solid rgb(180, 180, 180); border-radius: 12px; padding: 1%; margin: 1%;">
@@ -369,6 +381,12 @@
             <label for="chassis_split_count">超重费</label>(200$/柜):
             <input type="number" id="over_weight" name="over_weight" min="0" value="{{ invoice_preports.over_weight }}">
         </div>
+        {% for k,v in invoice_preports.other_fees.items %}
+        <div>
+            <label for="chassis_split_count">{{ k }}</label>:
+            <input type="number" name="others_feeamount" min="0" value="{{ v }}">
+        </div>
+        {% endfor %}
     </div>
 </div>
 {% endif %}

@@ -121,7 +121,7 @@
                                 <td class="td">{{ c.invoice_id__invoice_date|date:"Y-m-d" }}</td>
                                 <td class="td">${{ c.total_amount|floatformat:"2g" }}</td>
                                 <td class="td">
-                                    <a href="{{ c.invoice_id__invoice_link }}" style="margin-right: 10px;">
+                                    <a href="{{ c.invoice_id__invoice_link }}" style="margin-right: 10px;" target="_blank">
                                         <i class="bi bi-file-earmark-bar-graph-fill"></i>
                                     </a>
                                     <a href="#" onclick="confirmDelete(event, '{{ c.container_number }}', '{{ c.invoice_id__invoice_number }}')">
@@ -131,7 +131,7 @@
                                 </td>
                                 <td class="td">
                                     {% if c.invoice_id__statement_id__invoice_statement_id %}
-                                        <a href="{{ c.invoice_id__statement_id__statement_link }}">
+                                        <a href="{{ c.invoice_id__statement_id__statement_link }}" target="_blank">
                                             {{ c.invoice_id__statement_id__invoice_statement_id }}
                                         </a>
                                     {% else %}
