@@ -84,7 +84,7 @@ class FleetManagement(View):
     template_abnormal_fleet_warehouse_search = (
         "post_port/shipment/abnormal/01_fleet_management_main.html"
     )
-    area_options = {"NJ": "NJ", "SAV": "SAV", "LA": "LA", "MO": "MO", "HX": "HX"}
+    area_options = {"NJ": "NJ", "SAV": "SAV", "LA": "LA", "MO": "MO", "TX": "TX"}
     warehouse_options = {
         "": "",
         "NJ-07001": "NJ-07001",

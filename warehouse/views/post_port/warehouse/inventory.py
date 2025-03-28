@@ -8,14 +8,14 @@ from typing import Any
 
 import pandas as pd
 from asgiref.sync import sync_to_async
+from django.contrib.auth.models import User
 from django.contrib.postgres.aggregates import StringAgg
 from django.db import models
 from django.db.models import CharField, Count, F, FloatField, IntegerField, Sum
 from django.db.models.functions import Cast
-from django.http import Http404, HttpRequest, HttpResponse, HttpResponseForbidden 
+from django.http import Http404, HttpRequest, HttpResponse, HttpResponseForbidden
 from django.shortcuts import redirect, render
 from django.views import View
-from django.contrib.auth.models import User
 from simple_history.utils import bulk_create_with_history, bulk_update_with_history
 
 from warehouse.forms.upload_file import UploadFileForm
@@ -46,25 +46,19 @@ class Inventory(View):
         "SAV-31326": "SAV-31326",
         "LA-91761": "LA-91761",
         "MO-62025": "MO-62025",
-        "HX-77503": "HX-77503",
+        "TX-77503": "TX-77503",
     }
 
     async def get(self, request: HttpRequest, **kwargs) -> HttpResponse:
         if not await self._user_authenticate(request):
             return redirect("login")
-        if self.validate_user_staff(request.user):
-            step = request.GET.get("step")
-            if step == "counting":
-                template, context = await self.handle_counting_get()
-                return render(request, template, context)
-            else:
-                template, context = await self.handle_inventory_management_get()
-                return render(request, template, context)
+        step = request.GET.get("step")
+        if step == "counting":
+            template, context = await self.handle_counting_get()
+            return render(request, template, context)
         else:
-            return HttpResponseForbidden(
-                "You are not authenticated to access this page!"
-            )
-        
+            template, context = await self.handle_inventory_management_get()
+            return render(request, template, context)
 
     async def post(self, request: HttpRequest, **kwargs) -> HttpRequest:
         if not await self._user_authenticate(request):
@@ -289,10 +283,16 @@ class Inventory(View):
         criteria = models.Q()
         if shipping_mark:
             criteria &= models.Q(shipping_mark__in=shipping_mark)
+        else:
+            criteria &= models.Q(shipping_mark__isnull=True)
         if fba_id:
             criteria &= models.Q(fba_id__in=fba_id)
+        else:
+            criteria &= models.Q(fba_id__isnull=True)
         if ref_id:
             criteria &= models.Q(ref_id__in=ref_id)
+        else:
+            criteria &= models.Q(ref_id__isnull=True)
         packing_list = await sync_to_async(list)(PackingList.objects.filter(criteria))
         pl_ids = ",".join([str(pl.id) for pl in packing_list])
         context = {
@@ -578,9 +578,3 @@ class Inventory(View):
         if await sync_to_async(lambda: request.user.is_authenticated)():
             return True
         return False
-    
-    def validate_user_staff(self, user: User) -> bool:
-        if user.is_staff:
-            return True
-        else:
-            return False
