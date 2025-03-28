@@ -11,6 +11,17 @@
             <b style="margin-right: 5px; margin-left: 10px;">ETD时间:</b>
             <input type="date" name="start_date" value="{{ start_date }}">
             <input type="date" name="end_date" value="{{ end_date }}" style="margin-right: 5px;">
+            <b style="margin-right: 5px;">选择仓点区域:</b>
+                <select name="warehouse_filter">
+                    {% for k, v in warehouse_options.items %}
+                        {% if warehouse_filter == v %}
+                            <option value="{{ v }}" selected>{{ k }}</option>
+                        {% else %}
+                            <option value="{{ v }}">{{ k }}</option>
+                        {% endif %}
+                    {% endfor %}
+                </select>
+            </b>
             <input type="hidden" name="step" value="invoice_order_confirm">
             <button id="submit-btn" type="submit" class="btn btn-primary" style="width: 100px; height: 35px; margin-left: 20px;">查询</button>
         </div>

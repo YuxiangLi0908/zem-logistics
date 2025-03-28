@@ -11,6 +11,17 @@
             <b style="margin-right: 5px; margin-left: 10px;">ETD时间:</b>
             <input type="date" name="start_date" value="{{ start_date }}">
             <input type="date" name="end_date" value="{{ end_date }}" style="margin-right: 5px;">
+            <b style="margin-right: 5px;">选择仓点区域:</b>
+                <select name="warehouse_filter">
+                    {% for k, v in warehouse_options.items %}
+                        {% if warehouse_filter == v %}
+                            <option value="{{ v }}" selected>{{ k }}</option>
+                        {% else %}
+                            <option value="{{ v }}">{{ k }}</option>
+                        {% endif %}
+                    {% endfor %}
+                </select>
+            </b>
             <input type="hidden" name="step" value="invoice_order_preport">
             <button id="submit-btn" type="submit" class="btn btn-primary" style="width: 100px; height: 35px; margin-left: 20px;">查询</button>
         </div>
@@ -20,7 +31,7 @@
 <div style="display: flex; max-height: 720px;">
     <div style="overflow-y: auto; max-height: 100%; width: 40%; border: 2px solid rgb(180, 180, 180); border-radius: 12px; padding: 1%; margin: 1%;">
         {% if order %}
-        <div><b>待开账单</b></div>
+        <div><b>待录入账单</b></div>
         <form method="post" action="">
             {% csrf_token %}
             <div style="overflow-x: auto; max-width: 100%; overflow-y: auto; max-height: 600px;">
@@ -135,7 +146,7 @@
     </div>
     <div style="overflow-y: auto; max-height: 100%; width: 60%; border: 2px solid rgb(180, 180, 180); border-radius: 12px; padding: 1%; margin: 1%;">
         {% if previous_order %}
-        <div><b>历史账单</b></div>
+        <div><b>已录入账单</b></div>
         <form method="post" action="">
             {% csrf_token %}
             <div style="overflow-x: auto; max-width: 100%; overflow-y: auto; max-height: 600px;">
