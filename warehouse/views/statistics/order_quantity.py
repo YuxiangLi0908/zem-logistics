@@ -93,66 +93,36 @@ class OrderQuantity(View):
         
         # 转换为同步查询
         history_records = await sync_to_async(list)(history_records)
-
-        # 准备显示数据（保持不变）
+        
+        # 准备显示数据
         records_data = []
         user_ids = {r.history_user_id for r in history_records if r.history_user_id}
         users = await sync_to_async(lambda: User.objects.filter(id__in=user_ids).in_bulk())()
-
-        history_by_id = {}
-        for record_id, id_records in history_by_id.items():
-            # 按时间排序（从旧到新）
-            id_records.sort(key=lambda x: x.history_date)
+        
+        for record in history_records:
+            changes = []
+            prev_record = await sync_to_async(getattr)(record, 'prev_record', None)
             
-            # 处理第一条记录（创建）
-            first_record = id_records[0]
-            if first_record.history_type == '+':
-                records_data.append({
-                    'date': first_record.history_date,
-                    'user': users.get(first_record.history_user_id),
-                    'type': '创建',
-                    'all_fields': {f.name: getattr(first_record, f.name) 
-                                for f in model_info["warehouse"]._meta.fields
-                                if f.name not in ['history_date', 'history_user_id']},
-                    'record': first_record
-                })
+            if prev_record:
+                diff = await sync_to_async(getattr)(record, 'diff_prev', {})
+                for field, (old_val, new_val) in diff.items():
+                    changes.append({
+                        'field': field,
+                        'old_value': old_val,
+                        'new_value': new_val
+                    })
             
-            # 处理中间的修改记录
-            for i in range(1, len(id_records)):
-                prev_record = id_records[i-1]
-                current_record = id_records[i]
-                
-                # 如果是修改
-                if current_record.history_type == '~':
-                    diff = await sync_to_async(getattr)(current_record, 'diff_prev', {})
-                    changes = []
-                    for field, (old_val, new_val) in diff.items():
-                        changes.append({
-                            'field': field,
-                            'old_value': old_val,
-                            'new_value': new_val
-                        })
-                    
-                    records_data.append({
-                        'date': current_record.history_date,
-                        'user': users.get(current_record.history_user_id),
-                        'type': '修改',
-                        'changes': changes,
-                        'record': current_record
-                    })
-                
-                # 如果是删除（最后一条记录）
-                elif current_record.history_type == '-':
-                    records_data.append({
-                        'date': current_record.history_date,
-                        'user': users.get(current_record.history_user_id),
-                        'type': '删除',
-                        'all_fields': {f.name: getattr(current_record, f.name) 
-                                    for f in model_info["warehouse"]._meta.fields
-                                    if f.name not in ['history_date', 'history_user_id']},
-                        'record': current_record
-                    })
-        records_data.sort(key=lambda x: x['date'], reverse=True)
+            records_data.append({
+                'date': record.history_date,
+                'user': users.get(record.history_user_id),
+                'type': '创建' if record.history_type == '+' else 
+                       '修改' if record.history_type == '~' else 
+                       '删除',
+                'changes': changes,
+                'record': record
+            })
+        
+        
         context = {
             'model_choices':MODEL_CHOICES,
             'table_name':table_name,

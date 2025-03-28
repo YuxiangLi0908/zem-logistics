@@ -170,8 +170,30 @@ PACKING_LIST_TEMP_COL_MAPPING = {
     "备注": "note",
 }
 
+MODEL_CHOICES = {
+    'packinglist': {
+        'model': 'HistoricalPackingList',
+        'name': 'packinglist',
+        'search_field': 'container_number',
+        'warehouse':'warehouse_packinglist',
+        'station_field':['shipping_mark','fba_id','ref_id']
+    },
+    '板子': {
+        'model': 'HistoricalPallet',
+        'name': 'pallet',
+        'search_field': 'shipment_batch_number',
+        'warehouse':'warehouse_pallet',
+        'station_field':['destination','fba_id','ref_id']
+    },
+    'invoice': {
+        'model': 'warehouse.Invoice',
+        'name': '发票',
+        'search_field': 'invoice_number'
+    },
+    
+}
 file_path = Path(__file__).parent.resolve().joinpath("fba_fulfillment_center.yaml")
-with open(file_path, "r") as f:
+with open(file_path, "r",encoding='utf8') as f:
     amazon_fba_locations = yaml.safe_load(f)
 
 SP_USER = os.environ.get("MS_SP_USER")
