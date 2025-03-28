@@ -1429,10 +1429,10 @@ SWF1:
   state: NY
   zipcode: 12575-5150
 SWF2:
-  city: East Fishkill
-  location: 1940 NY-52
+  city: Hopewell Junction
+  location: 76 Patriot Wy
   state: NY
-  zipcode: 12533-6159
+  zipcode: '12533'
 TEB3:
   city: Logan Township
   location: 2651 Oldmans Creek Rd
