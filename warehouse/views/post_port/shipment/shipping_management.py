@@ -85,7 +85,7 @@ class ShippingManagement(View):
         "LA": "LA",
         "NJ/SAV/LA": "NJ/SAV/LA",
         "MO": "MO",
-        "HX": "HX",
+        "TX": "TX",
     }
     warehouse_options = {
         "": "",

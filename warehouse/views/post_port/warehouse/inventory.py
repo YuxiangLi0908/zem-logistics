@@ -46,7 +46,7 @@ class Inventory(View):
         "SAV-31326": "SAV-31326",
         "LA-91761": "LA-91761",
         "MO-62025": "MO-62025",
-        "HX-77503": "HX-77503",
+        "TX-77503": "TX-77503",
     }
 
     async def get(self, request: HttpRequest, **kwargs) -> HttpResponse:
@@ -289,10 +289,16 @@ class Inventory(View):
         criteria = models.Q()
         if shipping_mark:
             criteria &= models.Q(shipping_mark__in=shipping_mark)
+        else:
+            criteria &= models.Q(shipping_mark__isnull=True)
         if fba_id:
             criteria &= models.Q(fba_id__in=fba_id)
+        else:
+            criteria &= models.Q(fba_id__isnull=True)
         if ref_id:
             criteria &= models.Q(ref_id__in=ref_id)
+        else:
+            criteria &= models.Q(ref_id__isnull=True)
         packing_list = await sync_to_async(list)(PackingList.objects.filter(criteria))
         pl_ids = ",".join([str(pl.id) for pl in packing_list])
         context = {

@@ -30,7 +30,7 @@ from warehouse.models.shipment import Shipment
 
 class TimeoutWarning(View):
     template_shipment = "post_port/timeout_inventory/timeout_shipment.html"
-    area_options = {"NJ": "NJ", "SAV": "SAV", "LA": "LA", "MO": "MO", "HX": "HX"}
+    area_options = {"NJ": "NJ", "SAV": "SAV", "LA": "LA", "MO": "MO", "TX": "TX"}
     warehouse_options = {
         "": "",
         "NJ-07001": "NJ-07001",
