@@ -1,0 +1,186 @@
+{% extends "base.html" %}
+
+{% block content %}
+<div class="container-fluid" style="padding: 1.5rem 0;">
+    <div class="card" style="border: none; border-radius: 0.5rem; box-shadow: 0 0.125rem 0.25rem rgba(0, 0, 0, 0.075); margin-bottom: 1.5rem;">
+        <div class="card-header" style="background-color: #0d6efd; color: white; border-radius: 0.5rem 0.5rem 0 0; padding: 0.75rem 1.25rem;">
+            <h5 style="margin-bottom: 0; font-size: 1.1rem;">历史记录查询</h5>
+        </div>
+        <div class="card-body" style="padding: 1.25rem;">
+            <form method="post" style="width: 100%;">
+                {% csrf_token %}
+                <div class="row" style="display: flex; flex-wrap: wrap; margin-right: -0.75rem; margin-left: -0.75rem; align-items: flex-end;">
+                  <!-- 查询类型 -->
+                  <div class="col-md-3" style="padding-right: 0.75rem; padding-left: 0.75rem; position: relative; width: 100%; max-width: 25%; flex: 0 0 25%;">
+                      <label for="model" style="font-weight: 500; margin-bottom: 0.25rem; font-size: 0.875rem; color: #6c757d; display: inline-block;">查询类型</label>
+                      <select name="model" id="model" class="form-select" style="display: block; width: 100%; padding: 0.375rem 0.75rem; font-size: 0.875rem; line-height: 1.5; color: #212529; background-color: #fff; border: 1px solid #ced4da; border-radius: 0.25rem;" required onchange="updateSearchField()">
+                          <option value="">-- 请选择 --</option>
+                          {% for key, info in model_choices.items %}
+                          <option value="{{ key }}" {% if table_name == key %}selected{% endif %}>{{ info.name }}</option>
+                          {% endfor %}
+                      </select>
+                  </div>
+                  
+                  <!-- 查询字段 -->
+                  <div class="col-md-3" style="padding-right: 0.75rem; padding-left: 0.75rem; position: relative; width: 100%; max-width: 25%; flex: 0 0 25%;">
+                      <label for="search_field" style="font-weight: 500; margin-bottom: 0.25rem; font-size: 0.875rem; color: #6c757d; display: inline-block;">查询字段</label>
+                      <select name="search_field" id="search_field" class="form-select" style="display: block; width: 100%; padding: 0.375rem 0.75rem; font-size: 0.875rem; line-height: 1.5; color: #212529; background-color: #fff; border: 1px solid #ced4da; border-radius: 0.25rem;" required>
+                          <option value="">-- 先选择类型 --</option>
+                          {% if table_name %}
+                              {% for field in model_choices.table_name.fields %}
+                              <option value="{{ field.value }}" {% if search_field == field.value %}selected{% endif %}>{{ field.text }}</option>
+                              {% endfor %}
+                          {% endif %}
+                      </select>
+                  </div>
+                  
+                  <!-- 查询值 -->
+                  <div class="col-md-4" style="padding-right: 0.75rem; padding-left: 0.75rem; position: relative; width: 100%; max-width: 33.333%; flex: 0 0 33.333%;">
+                      <label for="search_value" style="font-weight: 500; margin-bottom: 0.25rem; font-size: 0.875rem; color: #6c757d; display: inline-block;">查询值</label>
+                      <div class="input-group" style="display: flex; flex-wrap: nowrap;">
+                          <input type="text" name="search_value" id="search_value" class="form-control" style="display: block; width: 100%; padding: 0.375rem 0.75rem; font-size: 0.875rem; line-height: 1.5; color: #212529; background-color: #fff; border: 1px solid #ced4da; border-radius: 0.25rem 0 0 0.25rem;" required placeholder="输入值" value="{{ search_value|default:'' }}">
+                          <button type="submit" class="btn btn-primary" style="min-width: 120px; display: inline-block; font-weight: 400; line-height: 1.5; color: #fff; text-align: center; text-decoration: none; vertical-align: middle; cursor: pointer; background-color: #0d6efd; border: 1px solid #0d6efd; padding: 0.375rem 0.75rem; font-size: 0.875rem; border-radius: 0 0.25rem 0.25rem 0;">
+                              <i class="fas fa-search" style="margin-right: 0.25rem;"></i> 查询
+                          </button>
+                      </div>
+                  </div>
+                </div>
+                <input type="hidden" name="step" value="historical_selection">
+            </form>
+        </div>
+    </div>
+  
+    <!-- 结果表格卡片 -->
+    <div class="card" style="border: none; border-radius: 0.5rem; box-shadow: 0 0.125rem 0.25rem rgba(0, 0, 0, 0.075);">
+      <div class="card-header" style="background-color: #f8f9fa; padding: 0.75rem 1.25rem; border-bottom: 1px solid rgba(0, 0, 0, 0.125);">
+          <h6 style="margin-bottom: 0; font-size: 1rem;">查询结果</h6>
+      </div>
+      <div class="card-body" style="padding: 0; max-height: 600px; overflow-y: auto;">
+          <div style="overflow-x: auto; -webkit-overflow-scrolling: touch;">
+              <table style="width: 100%; margin-bottom: 0; color: #212529; border-collapse: collapse;">
+                  <thead style="position: sticky; top: 0; background-color: #f8f9fa; z-index: 1;">
+                      <tr>
+                          <th style="padding: 0.75rem; vertical-align: middle; width: 15%; white-space: nowrap;">操作时间</th>
+                          <th style="padding: 0.75rem; vertical-align: middle; width: 10%;">操作人</th>
+                          <th style="padding: 0.75rem; vertical-align: middle; width: 8%;">操作类型</th>
+                          <th style="padding: 0.75rem; vertical-align: middle;">变更内容</th>
+                      </tr>
+                      <tr style="position: sticky; top: 28px;">
+                        <th class="th"></th>
+                        <th class="th"><input type="text" style="width:110px;" id="containerSearchInput" placeholder="搜索操作人..." oninput="filterTable()"></th>
+                        <th class="th"><input type="text" id="forcastSearchInput" placeholder="操作类型" oninput="filterTable()" style="width:80px;"></th>
+                        <th class="th"></th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                      {% for record in records %}
+                      <tr style="border-bottom: 1px solid #dee2e6;">
+                          <td style="padding: 0.75rem; vertical-align: top;">{{ record.date|date:"Y-m-d H:i" }}</td>
+                          <td style="padding: 0.75rem; vertical-align: top;">{{ record.user.get_full_name|default:record.user.username }}</td>
+                          <td style="padding: 0.75rem; vertical-align: top;">
+                              <span style="display: inline-block; padding: 0.35em 0.65em; font-size: 0.75em; font-weight: 700; line-height: 1; text-align: center; white-space: nowrap; vertical-align: baseline; border-radius: 0.25rem; 
+                                    {% if record.type == '创建' %}background-color: #0d6efd; color: white;
+                                    {% elif record.type == '修改' %}background-color: #198754; color: white;
+                                    {% else %}background-color: #dc3545; color: white;{% endif %}">
+                                  {{ record.type }}
+                              </span>
+                          </td>
+                          <td style="padding: 0.75rem; vertical-align: top;">
+                              {% if record.type == '创建' or record.type == '删除' %}
+                                  <!-- 新增/删除：显示所有字段 -->
+                                  <div style="display: grid; grid-template-columns: auto 1fr; gap: 0.5rem;">
+                                      {% for field, value in record.all_fields.items %}
+                                      <div style="font-weight: 600;">{{ field }}:</div>
+                                      <div>
+                                          {% if record.type == '删除' %}
+                                              <span style="color: #dc3545;">{{ value|default:"空" }}</span>
+                                          {% else %}
+                                              <span style="color: #198754;">{{ value|default:"空" }}</span>
+                                          {% endif %}
+                                      </div>
+                                      {% endfor %}
+                                  </div>
+                              {% else %}
+                                  <!-- 修改：只显示变更的字段 -->
+                                  <div style="display: grid; grid-template-columns: auto 1fr 1fr; gap: 0.5rem; align-items: center;">
+                                      {% for change in record.changes %}
+                                      <div style="font-weight: 600;">{{ change.field }}:</div>
+                                      <div>
+                                          <span style="color: #dc3545;">{{ change.old_value|default:"空" }}</span>
+                                      </div>
+                                      <div>
+                                          <span>→</span>
+                                          <span style="color: #198754;">{{ change.new_value|default:"空" }}</span>
+                                      </div>
+                                      {% endfor %}
+                                  </div>
+                              {% endif %}
+                          </td>
+                      </tr>
+                      {% endfor %}
+                  </tbody>
+              </table>
+          </div>
+      </div>
+      <div class="card-footer" style="background-color: #f8f9fa; padding: 0.75rem 1.25rem; border-top: 1px solid rgba(0, 0, 0, 0.125);">
+          <small style="color: #6c757d;">共 {{ records|length }} 条记录</small>
+      </div>
+  </div>
+</div>
+
+<script>
+const SEARCH_FIELDS = {
+    'shipment': [
+        {value: 'shipment_batch_number', text: '预约批次'},
+        {value: 'appointment_id', text: 'ISA号'}
+    ],
+    'default': [
+        {value: 'container_number', text: '柜号'}
+    ]
+};
+
+function updateSearchField() {
+    const modelSelect = document.getElementById('model');
+    const fieldSelect = document.getElementById('search_field');
+    const selectedModel = modelSelect.value;
+    
+    fieldSelect.innerHTML = '';
+    
+    if (!selectedModel) {
+        fieldSelect.disabled = true;
+        return;
+    }
+    
+    const fields = SEARCH_FIELDS[selectedModel] || SEARCH_FIELDS['default'];
+    
+    fields.forEach(field => {
+        const option = document.createElement('option');
+        option.value = field.value;
+        option.textContent = field.text;
+        fieldSelect.appendChild(option);
+    });
+    
+    fieldSelect.disabled = false;
+}
+
+function searchFields() {
+    const input = document.getElementById('fieldSearch');
+    const filter = input.value.toUpperCase();
+    const fields = document.getElementsByClassName('field-name');
+    
+    for (let i = 0; i < fields.length; i++) {
+        const field = fields[i];
+        const txtValue = field.textContent || field.innerText;
+        const row = field.parentElement;
+        
+        if (txtValue.toUpperCase().indexOf(filter) > -1) {
+            row.style.display = "";
+        } else {
+            row.style.display = "none";
+        }
+    }
+}
+
+document.addEventListener('DOMContentLoaded', updateSearchField);
+</script>
+{% endblock %}

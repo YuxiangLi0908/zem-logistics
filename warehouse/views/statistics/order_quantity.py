@@ -10,29 +10,46 @@ from dateutil.relativedelta import relativedelta
 from django.contrib.auth.models import User
 from django.db.models import Count, Q
 from django.db.models.functions import TruncMonth
-from django.http import HttpRequest, HttpResponse, HttpResponseForbidden
+from django.http import Http404,HttpRequest, HttpResponse, HttpResponseForbidden
 from django.shortcuts import render
+from django.apps import apps
 from django.views import View
+from warehouse.utils.constants import (
+    MODEL_CHOICES
+)
 
 from warehouse.models.customer import Customer
 from warehouse.models.order import Order
+from warehouse.models.container import Container
+from django.contrib.auth.models import User
+
 
 
 class OrderQuantity(View):
     template_shipment = "statistics/order_quantity.html"
+    template_historical = "statistics/historical.html"
     area_options = {"NJ": "NJ", "SAV": "SAV", "LA": "LA"}
 
     async def get(self, request: HttpRequest, **kwargs) -> HttpResponse:
-        if not await self._validate_user_group(request.user):
-            return HttpResponseForbidden(
-                "You are not authenticated to access this page!"
-            )
-        customers = await sync_to_async(list)(Customer.objects.all())
-        customers = {c.zem_name: c.id for c in customers}
-        customers["----"] = None
-        customers = {"----": None, **customers}
-        context = {"area_options": self.area_options, "customers": customers}
-        return await sync_to_async(render)(request, self.template_shipment, context)
+        step = request.GET.get("step", None)
+        if step =="historical_query":
+            if not await self._validate_user_manage(request.user):
+                return HttpResponseForbidden(
+                    "You are not authenticated to access this page!"
+                )           
+            context = {'model_choices':MODEL_CHOICES}
+            return await sync_to_async(render)(request, self.template_historical, context) 
+        else:
+            if not await self._validate_user_group(request.user):
+                return HttpResponseForbidden(
+                    "You are not authenticated to access this page!"
+                )
+            customers = await sync_to_async(list)(Customer.objects.all())
+            customers = {c.zem_name: c.id for c in customers}
+            customers["----"] = None
+            customers = {"----": None, **customers}
+            context = {"area_options": self.area_options, "customers": customers}
+            return await sync_to_async(render)(request, self.template_shipment, context)
 
     async def post(self, request: HttpRequest) -> HttpResponse:
         if not await self._validate_user_group(request.user):
@@ -43,6 +60,115 @@ class OrderQuantity(View):
         if step == "selection":
             template, context = await self.handle_order_quantity_get(request)
             return await sync_to_async(render)(request, template, context)
+        elif step == "historical_selection":
+            template, context = await self.handle_order_historical_get(request)
+            return await sync_to_async(render)(request, template, context)
+
+    async def handle_order_historical_get(
+        self, request: HttpRequest
+    ) -> tuple[str, dict[str, Any]]:
+        table_name = request.POST.get("model").strip()
+        search_field = request.POST.get("search_field").strip()
+        search_value = request.POST.get("search_value").strip()
+
+        model_info = MODEL_CHOICES.get(table_name)
+        print('model_info',model_info["warehouse"])
+        #try:
+        original_model_name = model_info['model']
+        original_model = apps.get_model('warehouse', original_model_name)
+        
+        # 处理外键查询
+        if search_field == 'container_number' and hasattr(original_model, 'container_number'):
+            container = await Container.objects.filter(container_number=search_value).afirst()
+            if not container:
+                raise Http404(f"找不到柜号 {search_value}")
+            
+            history_records = original_model.objects.filter(
+                container_number_id=container.id
+            ).select_related('history_user').order_by('-history_date')
+        else:
+            history_records = original_model.objects.filter(
+                **{f"{search_field}__icontains": search_value}
+            ).select_related('history_user').order_by('-history_date')
+        
+        # 转换为同步查询
+        history_records = await sync_to_async(list)(history_records)
+
+        # 准备显示数据（保持不变）
+        records_data = []
+        user_ids = {r.history_user_id for r in history_records if r.history_user_id}
+        users = await sync_to_async(lambda: User.objects.filter(id__in=user_ids).in_bulk())()
+
+        history_by_id = {}
+        for record_id, id_records in history_by_id.items():
+            # 按时间排序（从旧到新）
+            id_records.sort(key=lambda x: x.history_date)
+            
+            # 处理第一条记录（创建）
+            first_record = id_records[0]
+            if first_record.history_type == '+':
+                records_data.append({
+                    'date': first_record.history_date,
+                    'user': users.get(first_record.history_user_id),
+                    'type': '创建',
+                    'all_fields': {f.name: getattr(first_record, f.name) 
+                                for f in model_info["warehouse"]._meta.fields
+                                if f.name not in ['history_date', 'history_user_id']},
+                    'record': first_record
+                })
+            
+            # 处理中间的修改记录
+            for i in range(1, len(id_records)):
+                prev_record = id_records[i-1]
+                current_record = id_records[i]
+                
+                # 如果是修改
+                if current_record.history_type == '~':
+                    diff = await sync_to_async(getattr)(current_record, 'diff_prev', {})
+                    changes = []
+                    for field, (old_val, new_val) in diff.items():
+                        changes.append({
+                            'field': field,
+                            'old_value': old_val,
+                            'new_value': new_val
+                        })
+                    
+                    records_data.append({
+                        'date': current_record.history_date,
+                        'user': users.get(current_record.history_user_id),
+                        'type': '修改',
+                        'changes': changes,
+                        'record': current_record
+                    })
+                
+                # 如果是删除（最后一条记录）
+                elif current_record.history_type == '-':
+                    records_data.append({
+                        'date': current_record.history_date,
+                        'user': users.get(current_record.history_user_id),
+                        'type': '删除',
+                        'all_fields': {f.name: getattr(current_record, f.name) 
+                                    for f in model_info["warehouse"]._meta.fields
+                                    if f.name not in ['history_date', 'history_user_id']},
+                        'record': current_record
+                    })
+        records_data.sort(key=lambda x: x['date'], reverse=True)
+        context = {
+            'model_choices':MODEL_CHOICES,
+            'table_name':table_name,
+            'search_field':search_field,
+            'search_value':search_value,
+            'records': records_data,
+        }
+        # except Exception as e:
+        #     context = {
+        #         'error': f'查询错误: {str(e)}',
+        #         'model_choices': MODEL_CHOICES
+        #     }
+        #await sync_to_async(print)(records_data)
+        return self.template_historical, context
+
+
 
     async def handle_order_quantity_get(
         self, request: HttpRequest
@@ -286,4 +412,12 @@ class OrderQuantity(View):
             return True
         return await sync_to_async(
             lambda: user.groups.filter(name="leaders").exists()
+        )()
+    
+    async def _validate_user_manage(self, user: User) -> bool:
+        is_staff = await sync_to_async(lambda: user.is_staff)()
+        if is_staff:
+            return True
+        return await sync_to_async(
+            lambda: user.groups.filter(name="manages").exists()
         )()
