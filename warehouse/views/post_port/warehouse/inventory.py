@@ -52,18 +52,13 @@ class Inventory(View):
     async def get(self, request: HttpRequest, **kwargs) -> HttpResponse:
         if not await self._user_authenticate(request):
             return redirect("login")
-        if self.validate_user_staff(request.user):
-            step = request.GET.get("step")
-            if step == "counting":
-                template, context = await self.handle_counting_get()
-                return render(request, template, context)
-            else:
-                template, context = await self.handle_inventory_management_get()
-                return render(request, template, context)
+        step = request.GET.get("step")
+        if step == "counting":
+            template, context = await self.handle_counting_get()
+            return render(request, template, context)
         else:
-            return HttpResponseForbidden(
-                "You are not authenticated to access this page!"
-            )
+            template, context = await self.handle_inventory_management_get()
+            return render(request, template, context)
 
     async def post(self, request: HttpRequest, **kwargs) -> HttpRequest:
         if not await self._user_authenticate(request):
@@ -583,9 +578,3 @@ class Inventory(View):
         if await sync_to_async(lambda: request.user.is_authenticated)():
             return True
         return False
-
-    def validate_user_invoice_preport(self, user: User) -> bool:
-        if user.is_staff:
-            return True
-        else:
-            return False
