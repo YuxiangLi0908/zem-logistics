@@ -143,10 +143,11 @@
                     </tbody>
                 </table>
             </div>
-            <input type="hidden" name="step" value="invoice_order_select">
+            <!-- <input type="hidden" name="step" value="invoice_order_select"> -->
             <input type="hidden" name="start_date" value="{{ start_date }}">
             <input type="hidden" name="end_date" value="{{ end_date }}">
-            <button type="submit" onclick="confirmSubmit(this)" class="btn btn-primary" style="width: 150px; height: 35px;">生成INVOICE <i class="bi bi-receipt"></i></button>
+            <button type="submit" onclick="confirmSubmit(this, 'invoice_order_select')" class="btn btn-primary" style="width: 150px; height: 35px;">生成STMT <i class="bi bi-receipt"></i></button>
+            <button type="submit" onclick="confirmSubmit(this, 'invoice_order_batch_export')" class="btn btn-success" style="width: 150px; height: 35px;">导出INVOICE <i class="bi bi-file-earmark-bar-graph-fill"></i></button>
         </form>
         {% endif %}
     </div>
@@ -222,17 +223,23 @@
         }
     };
 
-    function confirmSubmit(Element) {
+    function confirmSubmit(Element, step) {
         if (selectedOrders.length === 0){
             alert('未选中数据！');
+            event.preventDefault();
             return;
         }else{
             let form = Element.parentNode;
             let hiddenInput = document.createElement('input');
             hiddenInput.type = 'hidden';
             hiddenInput.name ='selectedOrders';
-            hiddenInput.value = JSON.stringify(selectedOrders);            
+            hiddenInput.value = JSON.stringify(selectedOrders);
+            let hiddenInputStep = document.createElement('input');
+            hiddenInputStep.type = 'hidden';
+            hiddenInputStep.name ='step';
+            hiddenInputStep.value = step;
             form.appendChild(hiddenInput);
+            form.appendChild(hiddenInputStep);
             form.submit();
         }
         const checkBoxes = document.getElementsByName('is_order_selected');
