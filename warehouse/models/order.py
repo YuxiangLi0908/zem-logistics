@@ -46,7 +46,7 @@ class Order(models.Model):
     customer_do_link = models.CharField(max_length=2000, null=True, blank=True)
     do_sent = models.BooleanField(default=False, blank=True)
     invoice_id = models.ForeignKey(
-        Invoice, null=True, blank=True, on_delete=models.SET_NULL
+        Invoice, null=True, blank=True, on_delete=models.SET_NULL, related_name="order"
     )
     add_to_t49 = models.BooleanField(default=False)
     packing_list_updloaded = models.BooleanField(default=False)

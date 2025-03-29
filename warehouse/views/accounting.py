@@ -4,6 +4,7 @@ import json
 import math
 import os
 import re
+import zipfile
 from datetime import datetime, timedelta
 from io import BytesIO
 from typing import Any
@@ -255,10 +256,13 @@ class Accounting(View):
             template, context = self.handle_invoice_delivery_save(request)
             return render(request, template, context)
         elif step == "confirm_save":
-            return self.handle_invoice_confirm_save(request)
+            template, context = self.handle_invoice_confirm_save(request)
+            return render(request, template, context)
         elif step == "dismiss":
             template, context = self.handle_invoice_dismiss_save(request)
             return render(request, template, context)
+        elif step == "invoice_order_batch_export":
+            return self.handle_invoice_order_batch_export(request)
         else:
             raise ValueError(f"unknow request {step}")
 
@@ -1093,115 +1097,7 @@ class Accounting(View):
         invoice = Invoice.objects.get(
             container_number__container_number=container_number
         )
-        description, warehouse_code, cbm, weight, qty, rate, amount, note = (
-            [],
-            [],
-            [],
-            [],
-            [],
-            [],
-            [],
-            [],
-        )
-        if order.order_type == "直送":
-            invoice_preport = InvoicePreport.objects.get(
-                invoice_number__invoice_number=invoice.invoice_number
-            )
-            for field in invoice_preport._meta.fields:
-                if isinstance(field, models.FloatField) and field.name != "amount":
-                    value = getattr(invoice_preport, field.name)
-                    if value not in [None, 0]:
-                        if field.verbose_name == "操作处理费":
-                            description.append("等待费")
-                        else:
-                            description.append(field.verbose_name)
-                        warehouse_code.append("")
-                        cbm.append("")
-                        weight.append("")
-                        qty.append("")
-                        rate.append("")
-                        amount.append(value)
-                        note.append("")
-            for k, v in invoice_preport.other_fees.items():
-                description.append(k)
-                amount.append(v)
-                warehouse_code.append("")
-                cbm.append("")
-                weight.append("")
-                qty.append("")
-                rate.append("")
-                note.append("")
-        else:
-            invoice_preport = InvoicePreport.objects.get(
-                invoice_number__invoice_number=invoice.invoice_number
-            )
-            invoice_warehouse = InvoiceWarehouse.objects.get(
-                invoice_number__invoice_number=invoice.invoice_number
-            )
-            invoice_delivery = InvoiceDelivery.objects.filter(
-                invoice_number__invoice_number=invoice.invoice_number
-            )
-            for field in invoice_preport._meta.fields:
-                if isinstance(field, models.FloatField) and field.name != "amount":
-                    value = getattr(invoice_preport, field.name)
-                    if value not in [None, 0]:
-                        description.append(field.verbose_name)
-                        warehouse_code.append("")
-                        cbm.append("")
-                        weight.append("")
-                        qty.append("")
-                        rate.append("")
-                        amount.append(value)
-                        note.append("")
-            for k, v in invoice_preport.other_fees.items():
-                description.append(k)
-                amount.append(v)
-                warehouse_code.append("")
-                cbm.append("")
-                weight.append("")
-                qty.append("")
-                rate.append("")
-                note.append("")
-            for field in invoice_warehouse._meta.fields:
-                if isinstance(field, models.FloatField) and field.name != "amount":
-                    value = getattr(invoice_warehouse, field.name)
-                    if value not in [None, 0]:
-                        description.append(field.verbose_name)
-                        warehouse_code.append("")
-                        cbm.append("")
-                        weight.append("")
-                        qty.append("")
-                        rate.append("")
-                        amount.append(value)
-                        note.append("")
-            for k, v in invoice_warehouse.other_fees.items():
-                description.append(k)
-                amount.append(v)
-                warehouse_code.append("")
-                cbm.append("")
-                weight.append("")
-                qty.append("")
-                rate.append("")
-                note.append("")
-            for delivery in invoice_delivery:
-                description.append("派送费")
-                warehouse_code.append(delivery.destination.upper())
-                cbm.append(delivery.total_cbm)
-                weight.append(delivery.total_weight_lbs)
-                qty.append(delivery.total_pallet)
-                amount.append(delivery.total_cost)
-                note.append("")
-                try:
-                    rate.append(int(delivery.total_cost / delivery.total_pallet))
-                except:
-                    rate.append("")
-        context = {
-            "order": order,
-            "container_number": container_number,
-            "data": zip(
-                description, warehouse_code, cbm, weight, qty, rate, amount, note
-            ),
-        }
+        context = self._parse_invoice_excel_data(order, invoice)
         workbook, invoice_data = self._generate_invoice_excel(context)
         invoice.invoice_date = invoice_data["invoice_date"]
         invoice.invoice_link = invoice_data["invoice_link"]
@@ -1214,15 +1110,7 @@ class Accounting(View):
         invoice.save()
         order.invoice_status = "confirmed"
         order.save()
-        response = HttpResponse(
-            content_type="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
-        )
-        response["Content-Disposition"] = (
-            f"attachment; filename=INVOICE-{container_number}.xlsx"
-        )
-        workbook.save(response)
-        # return self.handle_invoice_confirm_get(request)
-        return response
+        return self.handle_invoice_confirm_get(request)
 
     def handle_invoice_dismiss_save(self, request: HttpRequest) -> tuple[Any, Any]:
         container_number = request.POST.get("container_number")
@@ -2258,9 +2146,48 @@ class Accounting(View):
         workbook.save(response)
         return response
 
+    def handle_invoice_order_batch_export(self, request: HttpRequest) -> HttpResponse:
+        selected_orders = json.loads(request.POST.get("selectedOrders", "[]"))
+        selected_orders = list(set(selected_orders))
+        orders = Order.objects.select_related(
+            "retrieval_id", "container_number"
+        ).filter(container_number__container_number__in=selected_orders)
+        invoices = Invoice.objects.prefetch_related(
+            "order", "order__container_number", "container_number"
+        ).filter(container_number__container_number__in=selected_orders)
+        data = [
+            (
+                order,
+                invoices.get(
+                    container_number__container_number=order.container_number.container_number
+                ),
+            )
+            for order in orders
+        ]
+
+        zip_buffer = io.BytesIO()
+        with zipfile.ZipFile(zip_buffer, "w", zipfile.ZIP_DEFLATED) as zip_file:
+            for order, invoice in data:
+                context = self._parse_invoice_excel_data(order, invoice)
+                workbook, _ = self._generate_invoice_excel(
+                    context, save_to_sharepoint=False
+                )
+                excel_file = io.BytesIO()
+                workbook.save(excel_file)
+                excel_file.seek(0)  # Go to the beginning of the in-memory file
+                zip_file.writestr(
+                    f"INVOICE-{order.container_number.container_number}.xlsx",
+                    excel_file.read(),
+                )
+        zip_buffer.seek(0)
+        response = HttpResponse(zip_buffer.read(), content_type="application/zip")
+        response["Content-Disposition"] = 'attachment; filename="invoices.zip"'
+        return response
+
     def _generate_invoice_excel(
         self,
         context: dict[Any, Any],
+        save_to_sharepoint: bool = True,
     ) -> tuple[openpyxl.workbook.Workbook, dict[Any, Any]]:
         current_date = datetime.now().date()
         order_id = str(context["order"].id)
@@ -2413,9 +2340,12 @@ class Accounting(View):
         excel_file = io.BytesIO()  # 创建一个BytesIO对象
         workbook.save(excel_file)  # 将workbook保存到BytesIO中
         excel_file.seek(0)  # 将文件指针移动到文件开头
-        invoice_link = self._upload_excel_to_sharepoint(
-            excel_file, "invoice", f"INVOICE-{context['container_number']}.xlsx"
-        )
+        if save_to_sharepoint:
+            invoice_link = self._upload_excel_to_sharepoint(
+                excel_file, "invoice", f"INVOICE-{context['container_number']}.xlsx"
+            )
+        else:
+            invoice_link = ""
 
         worksheet["A9"].font = Font(color="00FFFFFF")
         worksheet["A9"].fill = PatternFill(
@@ -2434,6 +2364,118 @@ class Accounting(View):
     ) -> None:
         for c in cells:
             ws.merge_cells(c)
+
+    def _parse_invoice_excel_data(
+        self, order: Order, invoice: Invoice
+    ) -> dict[str, Any]:
+        description = []
+        warehouse_code = []
+        cbm = []
+        weight = []
+        qty = []
+        rate = []
+        amount = []
+        note = []
+        if order.order_type == "直送":
+            invoice_preport = InvoicePreport.objects.get(
+                invoice_number__invoice_number=invoice.invoice_number
+            )
+            for field in invoice_preport._meta.fields:
+                if isinstance(field, models.FloatField) and field.name != "amount":
+                    value = getattr(invoice_preport, field.name)
+                    if value not in [None, 0]:
+                        if field.verbose_name == "操作处理费":
+                            description.append("等待费")
+                        else:
+                            description.append(field.verbose_name)
+                        warehouse_code.append("")
+                        cbm.append("")
+                        weight.append("")
+                        qty.append("")
+                        rate.append("")
+                        amount.append(value)
+                        note.append("")
+            for k, v in invoice_preport.other_fees.items():
+                description.append(k)
+                amount.append(v)
+                warehouse_code.append("")
+                cbm.append("")
+                weight.append("")
+                qty.append("")
+                rate.append("")
+                note.append("")
+        else:
+            invoice_preport = InvoicePreport.objects.get(
+                invoice_number__invoice_number=invoice.invoice_number
+            )
+            invoice_warehouse = InvoiceWarehouse.objects.get(
+                invoice_number__invoice_number=invoice.invoice_number
+            )
+            invoice_delivery = InvoiceDelivery.objects.filter(
+                invoice_number__invoice_number=invoice.invoice_number
+            )
+            for field in invoice_preport._meta.fields:
+                if isinstance(field, models.FloatField) and field.name != "amount":
+                    value = getattr(invoice_preport, field.name)
+                    if value not in [None, 0]:
+                        description.append(field.verbose_name)
+                        warehouse_code.append("")
+                        cbm.append("")
+                        weight.append("")
+                        qty.append("")
+                        rate.append("")
+                        amount.append(value)
+                        note.append("")
+            for k, v in invoice_preport.other_fees.items():
+                description.append(k)
+                amount.append(v)
+                warehouse_code.append("")
+                cbm.append("")
+                weight.append("")
+                qty.append("")
+                rate.append("")
+                note.append("")
+            for field in invoice_warehouse._meta.fields:
+                if isinstance(field, models.FloatField) and field.name != "amount":
+                    value = getattr(invoice_warehouse, field.name)
+                    if value not in [None, 0]:
+                        description.append(field.verbose_name)
+                        warehouse_code.append("")
+                        cbm.append("")
+                        weight.append("")
+                        qty.append("")
+                        rate.append("")
+                        amount.append(value)
+                        note.append("")
+            for k, v in invoice_warehouse.other_fees.items():
+                description.append(k)
+                amount.append(v)
+                warehouse_code.append("")
+                cbm.append("")
+                weight.append("")
+                qty.append("")
+                rate.append("")
+                note.append("")
+            for delivery in invoice_delivery:
+                description.append("派送费")
+                warehouse_code.append(delivery.destination.upper())
+                cbm.append(delivery.total_cbm)
+                weight.append(delivery.total_weight_lbs)
+                qty.append(delivery.total_pallet)
+                amount.append(delivery.total_cost)
+                note.append("")
+                try:
+                    rate.append(int(delivery.total_cost / delivery.total_pallet))
+                except:
+                    rate.append("")
+        context = {
+            "order": order,
+            "container_number": order.container_number.container_number,
+            "data": zip(
+                description, warehouse_code, cbm, weight, qty, rate, amount, note
+            ),
+        }
+        return context
 
     def _get_sharepoint_auth(self) -> ClientContext:
         return ClientContext(SP_URL).with_credentials(UserCredential(SP_USER, SP_PASS))
