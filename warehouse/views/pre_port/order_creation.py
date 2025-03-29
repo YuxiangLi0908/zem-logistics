@@ -627,10 +627,14 @@ class OrderCreation(View):
             "retrieval_destination_precise"
         )
         target_retrieval_timestamp = request.POST.get("target_retrieval_timestamp")
-        retrieval.target_retrieval_timestamp = target_retrieval_timestamp if target_retrieval_timestamp else None
+        retrieval.target_retrieval_timestamp = (
+            target_retrieval_timestamp if target_retrieval_timestamp else None
+        )
         actual_retrieval_timestamp = request.POST.get("actual_retrieval_timestamp")
-        retrieval.actual_retrieval_timestamp = actual_retrieval_timestamp if actual_retrieval_timestamp else None
-        
+        retrieval.actual_retrieval_timestamp = (
+            actual_retrieval_timestamp if actual_retrieval_timestamp else None
+        )
+
         arrive_at = request.POST.get("arrive_at")
         retrieval.arrive_at = arrive_at if arrive_at else None
         empty_returned_at = request.POST.get("empty_returned_at")

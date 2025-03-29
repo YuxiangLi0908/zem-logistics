@@ -86,7 +86,7 @@ class Accounting(View):
     template_invoice_delievery_edit = "accounting/invoice_delivery_edit.html"
     template_invoice_confirm = "accounting/invoice_confirm.html"
     template_invoice_confirm_edit = "accounting/invoice_confirm_edit.html"
-    #template_invoice_confirm_edit = "accounting/invoice_confirm_combina3.html"
+    # template_invoice_confirm_edit = "accounting/invoice_confirm_combina3.html"
     template_invoice_direct = "accounting/invoice_direct.html"
     template_invoice_direct_edit = "accounting/invoice_direct_edit.html"
     allowed_group = "accounting"
@@ -395,7 +395,7 @@ class Accounting(View):
         start_date: str = None,
         end_date: str = None,
         customer: str = None,
-        warehouse: str = None
+        warehouse: str = None,
     ) -> tuple[Any, Any]:
         current_date = datetime.now().date()
         start_date = (
@@ -537,8 +537,8 @@ class Accounting(View):
             "end_date": end_date,
             "customer": customer,
             "groups": groups,
-            "warehouse_options":self.warehouse_options,
-            "warehouse_filter":warehouse
+            "warehouse_options": self.warehouse_options,
+            "warehouse_filter": warehouse,
         }
         return self.template_invoice_preport, context
 
@@ -548,7 +548,7 @@ class Accounting(View):
         start_date: str = None,
         end_date: str = None,
         customer: str = None,
-        warehouse: str = None
+        warehouse: str = None,
     ) -> tuple[Any, Any]:
         # 库内操作费
         current_date = datetime.now().date()
@@ -603,8 +603,8 @@ class Accounting(View):
             "end_date": end_date,
             "customer": customer,
             "previous_order": previous_order,
-            "warehouse_options":self.warehouse_options,
-            "warehouse_filter":warehouse
+            "warehouse_options": self.warehouse_options,
+            "warehouse_filter": warehouse,
         }
         return self.template_invoice_warehouse, context
 
@@ -689,8 +689,8 @@ class Accounting(View):
             "start_date": start_date,
             "end_date": end_date,
             "customer": customer,
-            "warehouse_options":self.warehouse_options,
-            "warehouse_filter":warehouse
+            "warehouse_options": self.warehouse_options,
+            "warehouse_filter": warehouse,
         }
         return self.template_invoice_confirm, context
 
@@ -754,8 +754,8 @@ class Accounting(View):
             "start_date": start_date,
             "end_date": end_date,
             "customer": customer,
-            "warehouse_options":self.warehouse_options,
-            "warehouse_filter":warehouse
+            "warehouse_options": self.warehouse_options,
+            "warehouse_filter": warehouse,
         }
         return self.template_invoice_delivery, context
 
@@ -763,7 +763,7 @@ class Accounting(View):
         self, request: HttpRequest
     ) -> tuple[Any, Any]:
         data = request.POST.copy()
-        save_type=request.POST.get('save_type')
+        save_type = request.POST.get("save_type")
         container_number = data.get("container_number")
         invoice = Invoice.objects.select_related("container_number").get(
             container_number__container_number=container_number
@@ -845,7 +845,7 @@ class Accounting(View):
         order = Order.objects.select_related("retrieval_id", "container_number").get(
             container_number__container_number=container_number
         )
-        if save_type=='complete':
+        if save_type == "complete":
             order.invoice_status = "record_delivery"
             order.invoice_reject = "True"
             order.invoice_reject_reason = ""
@@ -856,7 +856,7 @@ class Accounting(View):
 
     def handle_invoice_direct_save_post(self, request: HttpRequest) -> tuple[Any, Any]:
         data = request.POST.copy()
-        save_type=request.POST.get('save_type')
+        save_type = request.POST.get("save_type")
         container_number = data.get("container_number")
         invoice = Invoice.objects.select_related("container_number").get(
             container_number__container_number=container_number
@@ -916,7 +916,7 @@ class Accounting(View):
         order = Order.objects.select_related("retrieval_id", "container_number").get(
             container_number__container_number=container_number
         )
-        if save_type=='complete':
+        if save_type == "complete":
             order.invoice_status = "toBeConfirmed"
         order.save()
         invoice = Invoice.objects.get(
@@ -930,7 +930,7 @@ class Accounting(View):
 
     def handle_invoice_preport_save_post(self, request: HttpRequest) -> tuple[Any, Any]:
         data = request.POST.copy()
-        save_type=request.POST.get('save_type')
+        save_type = request.POST.get("save_type")
         container_number = data.get("container_number")
         invoice = Invoice.objects.select_related("container_number").get(
             container_number__container_number=container_number
@@ -1015,7 +1015,7 @@ class Accounting(View):
             order.invoice_reject_reason = data.get("invoice_reject_reason", "")
         else:
             # 提拆柜录入完毕
-            if save_type=='complete':
+            if save_type == "complete":
                 order.invoice_status = "record_preport"
             order.invoice_reject = "False"
         order.save()
@@ -2027,23 +2027,23 @@ class Accounting(View):
             customer = None
         if status == "direct":
             return self.handle_invoice_direct_get(
-                request, start_date, end_date, customer,warehouse
+                request, start_date, end_date, customer, warehouse
             )
         elif status == "preport":
             return self.handle_invoice_preport_get(
-                request, start_date, end_date, customer,warehouse
+                request, start_date, end_date, customer, warehouse
             )
         elif status == "warehouse":
             return self.handle_invoice_warehouse_get(
-                request, start_date, end_date, customer,warehouse
+                request, start_date, end_date, customer, warehouse
             )
         elif status == "delivery":
             return self.handle_invoice_delivery_get(
-                request, start_date, end_date, customer,warehouse
+                request, start_date, end_date, customer, warehouse
             )
         elif status == "confirm":
             return self.handle_invoice_confirm_get(
-                request, start_date, end_date, customer,warehouse
+                request, start_date, end_date, customer, warehouse
             )
         else:
             return self.handle_invoice_get(start_date, end_date, customer)
