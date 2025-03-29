@@ -255,8 +255,7 @@ class Accounting(View):
             template, context = self.handle_invoice_delivery_save(request)
             return render(request, template, context)
         elif step == "confirm_save":
-            template, context = self.handle_invoice_confirm_save(request)
-            return render(request, template, context)
+            return self.handle_invoice_confirm_save(request)
         elif step == "dismiss":
             template, context = self.handle_invoice_dismiss_save(request)
             return render(request, template, context)
@@ -1215,7 +1214,15 @@ class Accounting(View):
         invoice.save()
         order.invoice_status = "confirmed"
         order.save()
-        return self.handle_invoice_confirm_get(request)
+        response = HttpResponse(
+            content_type="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
+        )
+        response["Content-Disposition"] = (
+            f"attachment; filename=INVOICE-{container_number}.xlsx"
+        )
+        workbook.save(response)
+        # return self.handle_invoice_confirm_get(request)
+        return response
 
     def handle_invoice_dismiss_save(self, request: HttpRequest) -> tuple[Any, Any]:
         container_number = request.POST.get("container_number")
