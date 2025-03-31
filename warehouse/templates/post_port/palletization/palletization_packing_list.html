@@ -46,10 +46,15 @@
                                 {% endif%}
                             {% endif %}
                             <td class="td">
-                                {% with first_value=pl.custom_delivery_method|split_and_get_first %}
-                                    {{ first_value }}
-                                    <input type="hidden" name="delivery_method" value="{{first_value}}">
-                                {% endwith %}
+                                {% if status == 'non_palletized' %}
+                                    {% with first_value=pl.custom_delivery_method|split_and_get_first %}
+                                        {{ first_value }}
+                                        <input type="hidden" name="delivery_method" value="{{first_value}}">
+                                    {% endwith %}
+                                {% else %}
+                                    {{pl.delivery_method}}
+                                    <input type="hidden" name="delivery_method" value="{{pl.delivery_method}}">
+                                {% endif %}
                             </td>
                             {% if status == 'non_palletized' %}
                             <td class="td" style="max-width: 400px; word-break: break-all;"><small>{{ pl.shipping_marks }}</small></td>

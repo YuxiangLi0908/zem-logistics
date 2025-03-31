@@ -922,6 +922,7 @@ class Palletization(View):
                 container_number=container_number, status=status
             )
             for pl in packing_list:
+                delivery_method = pl.get("custom_delivery_method") or pl.get("delivery_method", "")
                 cbm = pl.get("cbm")
                 remainder = cbm % 1
                 cbm = int(cbm)
@@ -935,7 +936,7 @@ class Palletization(View):
                 if (
                     "客户自提" in pl.get("destination")
                     or "自提" in pl.get("destination")
-                    or "客户自提" in pl.get("custom_delivery_method")
+                    or "客户自提" in delivery_method
                 ):
                     if "客户自提" in pl.get("destination") or "自提" in pl.get(
                         "destination"
@@ -943,7 +944,7 @@ class Palletization(View):
                         destination = "S/P"
                     else:
                         destination = pl.get("destination")
-                    marks = pl.get("shipping_marks")
+                    marks = pl.get("shipping_marks") or pl.get("shipping_mark")
                     if marks:
                         array = marks.split(",")
                         if len(array) > 2:
@@ -955,14 +956,15 @@ class Palletization(View):
                             newline_count = new_marks.count("\n") + 1
                             new_marks = new_marks + str("TTT") + str(newline_count)
                         else:
-                            new_marks = pl.get("shipping_marks") + str("TTT") + str(1)
+                            new_marks = marks + str("TTT") + str(1)
+                    
                 else:
                     destination = pl.get("destination").replace("沃尔玛", "WMT-")
                     destination = destination.replace("Walmart", "WMT-")
                     destination = destination.replace("沃尔玛", "WMT-")
                     destination = destination.replace("WALMART", "WMT-")
                     new_marks = None
-                if "暂扣留仓" in pl.get("custom_delivery_method").split("-")[0]:
+                if "暂扣留仓" in delivery_method.split("-")[0]:
                     fba_ids = pl.get("fba_ids")
                 else:
                     fba_ids = None
@@ -990,7 +992,7 @@ class Palletization(View):
                         "date": retrieval_date,
                         "customer": customer_name,
                         "hold": (
-                            "暂扣留仓" in pl.get("custom_delivery_method").split("-")[0]
+                            "暂扣留仓" in delivery_method.split("-")[0]
                         ),
                         "fba_ids": fba_ids,
                         "barcode": barcode_base64,
