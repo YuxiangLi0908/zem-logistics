@@ -493,6 +493,7 @@ class ShippingManagement(View):
             "modify_shipped_shipment": await sync_to_async(
                 request.user.groups.filter(name="shipment_leader").exists
             )(),
+            "shipped":True
         }
         return self.template_td, context
 
