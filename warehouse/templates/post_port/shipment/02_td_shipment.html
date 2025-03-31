@@ -26,7 +26,6 @@
             {% if user.is_staff or modify_shipped_shipment %}
             <form method="post" action="">
                 {% csrf_token %}
-                <input type="hidden" name="step" value="cancel_notification">
                 <input type="hidden" name="container_number" value="{{ selected_order.container_number.container_number }}">
                 <button type="submit" onclick="setStepValue('overshipment')">已出库的约</button>
             </form>
