@@ -1,7 +1,11 @@
 {% extends 'base.html' %}
 
 {% block content %}
-<div><h4><b>提拆柜账单编辑</b></h4></div>
+<div style="display: flex; align-items: center; gap: 8px;">
+    <h4 style="margin: 0;"><b>提拆柜账单编辑</b></h4>
+    <span style="background: linear-gradient(to right, #096dd9, #40a9ff); color: white; padding: 3px 8px; border-radius: 4px;">{{warehouse}}</span>
+    <span style="background: linear-gradient(to right, #d4380d, #ff7a45); color: white; padding: 3px 8px; border-radius: 4px;">{{order_type}}</span>
+  </div>
 <div  style="display: inline-block; width: 100%; margin: 0; padding: 0; max-width: 100%;">
     <p style="text-align:center;"><b>{{ invoice_preports.invoice_number }}</b></p>
 </div>
@@ -26,7 +30,7 @@
             <div style="display: flex; align-items: center; margin-bottom: 10px;">
                 <label style="width: 120px; font-weight: bold;" for="pickup">提拆/打托缠膜:</label>
                 <span style="color: #808080; width: 150px;"></span>
-                <input type="number" class="original-input" style="width: 80px;" id="pickup" name="pickup" value="{{ invoice_preports.pickup }}" disabled> ({{warehouse}})               
+                <input type="number" class="original-input" style="width: 80px;" id="pickup" name="pickup" value="{{ invoice_preports.pickup }}" disabled>            
             </div>
             <div style="display: flex; align-items: center; margin-bottom: 10px;">
                 <label style="width: 120px; font-weight: bold;" for="chassis">托架费</label>
