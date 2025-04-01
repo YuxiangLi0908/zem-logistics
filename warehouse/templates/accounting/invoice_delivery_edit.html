@@ -1,7 +1,7 @@
 {% extends 'base.html' %}
 
 {% block content %}
-<div><h4><b>派送账单编辑——总计 $<span id="total_amount">0</span></b></h4></div>
+<div><h4><b>派送账单编辑——总计 $<span class="total_amount">0</span></b></h4></div>
 <div  style="display: inline-block; width: 100%; margin: 0; padding: 0; max-width: 100%;">
     <p style="text-align:center;"><b>{{ invoice }}</b></p>
     <form method="post" action="">
@@ -9,6 +9,11 @@
         <input type="hidden" name="step" value="update_delivery_invoice">
         <input type="hidden" name="type" value="amount">
         <input type="hidden" name="amount" value="">
+        <input type="hidden" name="start_date" value="{{ start_date }}">
+        <input type="hidden" name="end_date" value="{{ end_date }}">
+        <input type="hidden" name="start_date_confirm" value="{{ start_date_confirm }}">
+        <input type="hidden" name="end_date_confirm" value="{{ end_date_confirm }}">
+        <input type="hidden" name="redirect_step" value="{{ redirect_step }}">
         <input type="hidden" name="container_number" value={{ container_number }}>
         <button id="editButton" type="submit" class="btn btn-primary" onclick="AmountForm()" style="background-color:green; font-size: 13px; float:right; padding:10px 20px; margin-right:80px;">账单确认</button>  
     </form>
@@ -47,14 +52,16 @@
                         <tr>
                             <td class="td">
                                 <input type="number" id="amazon_total" name="total" value=""></td>
-                            <td colspan="3"></td>
+                            <td colspan="4"></td>
                         </tr>
                     </tbody>
                 </table>
                 <div class="text-left" style="float:right;">
                     <input type="hidden" name="step" value="update_delivery_invoice">
-                    <input type="hidden" name="type" value="amazon">                  
-                    <input type="hidden" name="container_number" value="{{ container_number }}">
+                    <input type="hidden" name="type" value="amazon">    
+                    <input type="hidden" name="redirect_step" value="{{ redirect_step }}">              
+                    <input type="hidden" name="container_number" value="{{ container_number }}">             
+                    <input type="hidden" class="total_amount" name="total_amount">    
                     <button type="submit" class="btn btn-primary" style="width: 100px; height: 35px;" onclick="processForm('amazon-table')">确认</button>
                 </div>
             {% endif %}
@@ -95,14 +102,16 @@
                         <tr>
                             <td class="td">
                                 <input type="number" id="walmart_total" name="total" value=""></td>
-                            <td colspan="3"></td>
+                            <td colspan="4"></td>
                         </tr>
                     </tbody>
                 </table>
                 <div class="text-left" style="float:right;">
                     <input type="hidden" name="step" value="update_delivery_invoice">
-                    <input type="hidden" name="type" value="walmart">                  
+                    <input type="hidden" name="type" value="walmart">  
+                    <input type="hidden" name="redirect_step" value="{{ redirect_step }}">                
                     <input type="hidden" name="container_number" value={{ container_number }}>
+                    <input type="hidden" class="total_amount" name="total_amount">    
                     <button type="submit" class="btn btn-primary" style="width: 100px; height: 35px;" onclick="processForm('walmart-table')">确认</button>
                 </div>
             {% endif %}
@@ -156,7 +165,9 @@
                     <div class="text-left" style="float:right;">
                         <input type="hidden" name="step" value="update_delivery_invoice">
                         <input type="hidden" name="type" value="local">
+                        <input type="hidden" name="redirect_step" value="{{ redirect_step }}">
                         <input type="hidden" name="container_number" value={{ container_number }}>
+                        <input type="hidden" class="total_amount" name="total_amount">    
                         <button type="submit" class="btn btn-primary" style="width: 100px; height: 35px;" onclick="processForm('local-table')">确认</button>
                     </div>
                 {% endif %}
@@ -197,14 +208,16 @@
                         {% endfor %}
                         <tr>
                             <td class="td"><input type="number" id="combine_total" name="total" value="" disabled></td>
-                            <td colspan="3"></td>
+                            <td colspan="4"></td>
                         </tr>
                     </tbody>
                 </table>
                 <div class="text-left" style="float:right;">
                     <input type="hidden" name="step" value="update_delivery_invoice">
                     <input type="hidden" name="type" value="combine">
+                    <input type="hidden" name="redirect_step" value="{{ redirect_step }}">
                     <input type="hidden" name="container_number" value="{{ container_number }}">
+                    <input type="hidden" class="total_amount" name="total_amount">    
                     <button type="submit" class="btn btn-primary" style="width: 100px; height: 35px;" onclick="processForm('combine-table')">确认</button>
                 </div>
             {% endif %}      
@@ -245,14 +258,16 @@
                         <tr>
                             <td class="td">
                                 <input type="number" id="self_delivery_total" name="total" value=""></td>
-                            <td colspan="3"></td>
+                            <td colspan="4"></td>
                         </tr>
                     </tbody>
                 </table>
                 <div class="text-left" style="float:right;">
                     <input type="hidden" name="step" value="update_delivery_invoice">
-                    <input type="hidden" name="type" value="self_delivery">                  
+                    <input type="hidden" name="type" value="self_delivery">  
+                    <input type="hidden" name="redirect_step" value="{{ redirect_step }}">                 
                     <input type="hidden" name="container_number" value="{{ container_number }}">
+                    <input type="hidden" class="total_amount" name="total_amount">    
                     <button type="submit" class="btn btn-primary" style="width: 100px; height: 35px;" onclick="processForm('self_delivery-table')">确认</button>
                 </div>
             {% endif %}
@@ -267,6 +282,9 @@
                 <input type="hidden" name="step" value="add_delivery_type">
                 <input type="hidden" id="alter_type" name="alter_type">
                 <input type="hidden" name="container_number" value="{{ container_number }}">
+                <input type="hidden" name="redirect_step" value="{{ redirect_step }}">
+                <input type="hidden" name="start_date_confirm" value="{{ start_date_confirm }}">
+                <input type="hidden" name="end_date_confirm" value="{{ end_date_confirm }}">
                 <button type="submit" class="btn btn-primary" onclick="add_delivery_plt(this)" style="font-size: 11px; margin-right: 5px;">确认添加</button>
                 <button id="editButton" type="button" class="btn btn-danger" onclick="add_delivery(this)" style="font-size: 11px;">返回</button>
             </div>
@@ -380,8 +398,15 @@
             document.getElementById('self_delivery_total').value = self_delivery_total;
             total_amount += self_delivery_total;
         } 
-        const totalAmountSpan = document.getElementById('total_amount');
-        totalAmountSpan.textContent = total_amount;
+        const elements = document.querySelectorAll('.total_amount');
+        elements.forEach(element => {
+            if (element.tagName === 'INPUT') {
+                element.value = total_amount;  // <input> 用 value
+            } else {
+                element.textContent = total_amount;  // <span> 用 textContent
+            }
+        });
+        
         
 
     };
@@ -438,7 +463,7 @@
             total_amount += combineValue;
         }
         
-        const totalAmountSpan = document.getElementById('total_amount');
+        const totalAmountSpan = document.querySelector('.total_amount');
         totalAmountSpan.textContent = total_amount;
     };
 

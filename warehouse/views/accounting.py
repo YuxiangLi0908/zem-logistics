@@ -87,7 +87,7 @@ class Accounting(View):
     template_invoice_delievery_edit = "accounting/invoice_delivery_edit.html"
     template_invoice_confirm = "accounting/invoice_confirm.html"
     template_invoice_confirm_edit = "accounting/invoice_confirm_edit.html"
-    # template_invoice_confirm_edit = "accounting/invoice_confirm_combina3.html"
+    #template_invoice_confirm_edit = "accounting/invoice_confirm_combina3.html"
     template_invoice_direct = "accounting/invoice_direct.html"
     template_invoice_direct_edit = "accounting/invoice_direct_edit.html"
     allowed_group = "accounting"
@@ -112,7 +112,7 @@ class Accounting(View):
             template, context = self.handle_pl_data_get()
             return render(request, template, context)
         elif step == "invoice_direct":
-            if self.validate_user_invoice_direct(request.user):
+            if self._validate_user_invoice_direct(request.user):
                 template, context = self.handle_invoice_direct_get(request)
                 return render(request, template, context)
             else:
@@ -120,7 +120,7 @@ class Accounting(View):
                     "You are not authenticated to access this page!"
                 )
         elif step == "invoice_preport":  # 提拆柜账单录入
-            if self.validate_user_invoice_preport(request.user):
+            if self._validate_user_invoice_preport(request.user):
                 template, context = self.handle_invoice_preport_get(request)
                 return render(request, template, context)
             else:
@@ -128,7 +128,7 @@ class Accounting(View):
                     "You are not authenticated to access this page!"
                 )
         elif step == "invoice_warehouse":  # 库内账单录入
-            if self.validate_user_invoice_warehouse(request.user):
+            if self._validate_user_invoice_warehouse(request.user):
                 template, context = self.handle_invoice_warehouse_get(request)
                 return render(request, template, context)
             else:
@@ -136,7 +136,7 @@ class Accounting(View):
                     "You are not authenticated to access this page!"
                 )
         elif step == "invoice_delivery":
-            if self.validate_user_invoice_delivery(request.user):
+            if self._validate_user_invoice_delivery(request.user):
                 template, context = self.handle_invoice_delivery_get(request)
                 return render(request, template, context)
             else:
@@ -144,7 +144,7 @@ class Accounting(View):
                     "You are not authenticated to access this page!"
                 )
         elif step == "invoice_confirm":
-            if self.validate_user_invoice_confirm(request.user):
+            if self._validate_user_invoice_confirm(request.user):
                 template, context = self.handle_invoice_confirm_get(request)
                 return render(request, template, context)
             else:
@@ -250,6 +250,8 @@ class Accounting(View):
             template, context = self.handle_invoice_warehouse_save_post(request)
             return render(request, template, context)
         elif step == "add_delivery_type":
+            print(step,"step")
+            print(request,'request')
             template, context = self.handle_invoice_delivery_type_save(request)
             return render(request, template, context)
         elif step == "update_delivery_invoice":
@@ -260,6 +262,9 @@ class Accounting(View):
             return render(request, template, context)
         elif step == "dismiss":
             template, context = self.handle_invoice_dismiss_save(request)
+            return render(request, template, context)
+        elif step == "redirect":
+            template, context = self.handle_invoice_redirect_post(request)
             return render(request, template, context)
         elif step == "invoice_order_batch_export":
             return self.handle_invoice_order_batch_export(request)
@@ -615,21 +620,21 @@ class Accounting(View):
     def handle_invoice_confirm_get(
         self,
         request: HttpRequest,
-        start_date: str = None,
-        end_date: str = None,
+        start_date_confirm: str = None,
+        end_date_confirm: str = None,
         customer: str = None,
         warehouse: str = None,
     ) -> tuple[Any, Any]:
         current_date = datetime.now().date()
-        start_date = (
+        start_date_confirm = (
             (current_date + timedelta(days=-30)).strftime("%Y-%m-%d")
-            if not start_date
-            else start_date
+            if not start_date_confirm
+            else start_date_confirm
         )
-        end_date = current_date.strftime("%Y-%m-%d") if not end_date else end_date
+        end_date_confirm = current_date.strftime("%Y-%m-%d") if not end_date_confirm else end_date_confirm
         criteria = models.Q(
-            models.Q(vessel_id__vessel_etd__gte=start_date),
-            models.Q(vessel_id__vessel_etd__lte=end_date),
+            models.Q(vessel_id__vessel_etd__gte=start_date_confirm),
+            models.Q(vessel_id__vessel_etd__lte=end_date_confirm),
         )
         if warehouse:
             criteria &= models.Q(retrieval_id__retrieval_destination_precise=warehouse)
@@ -690,8 +695,8 @@ class Accounting(View):
             "order": order,
             "previous_order": previous_order,
             "order_form": OrderForm(),
-            "start_date": start_date,
-            "end_date": end_date,
+            "start_date_confirm": start_date_confirm,
+            "end_date_confirm": end_date_confirm,
             "customer": customer,
             "warehouse_options": self.warehouse_options,
             "warehouse_filter": warehouse,
@@ -708,12 +713,15 @@ class Accounting(View):
     ) -> tuple[Any, Any]:
         # 库内操作费
         current_date = datetime.now().date()
-        start_date = (
-            (current_date + timedelta(days=-30)).strftime("%Y-%m-%d")
-            if not start_date
-            else start_date
-        )
-        end_date = current_date.strftime("%Y-%m-%d") if not end_date else end_date
+        if "start_date" in request.POST:
+            start_date = request.POST["start_date"]
+        elif start_date is None:
+            start_date = (current_date + timedelta(days=-30)).strftime("%Y-%m-%d")
+        
+        if "end_date" in request.POST:
+            end_date = request.POST["end_date"]
+        else:
+            end_date = current_date.strftime("%Y-%m-%d")
         criteria = models.Q(
             (models.Q(order_type="转运") | models.Q(order_type="转运组合")),
             models.Q(vessel_id__vessel_etd__gte=start_date),
@@ -854,6 +862,13 @@ class Accounting(View):
             order.invoice_reject = "True"
             order.invoice_reject_reason = ""
             order.save()
+        elif save_type == "account_comlete":
+            modified_get = request.GET.copy()
+            modified_get["start_date_confirm"] = request.POST.get("start_date_confirm")
+            modified_get["end_date_confirm"] = request.POST.get("end_date_confirm")
+            new_request = request
+            new_request.GET = modified_get
+            return self.handle_container_invoice_confirm_get(new_request)
         return self.handle_invoice_warehouse_get(
             request, request.POST.get("start_date"), request.POST.get("end_date")
         )
@@ -920,17 +935,29 @@ class Accounting(View):
         order = Order.objects.select_related("retrieval_id", "container_number").get(
             container_number__container_number=container_number
         )
-        if save_type == "complete":
+        if save_type == "complete":  #如果是普通账户确认，订单转为待财务确认状态
             order.invoice_status = "toBeConfirmed"
+        elif save_type == "account_complete":  #如果是财务确认，订单转为已确认状态
+            order.invoice_status = "comfirmed"
+            order.invoice_reject = "False"
+            order.invoice_reject_reason = ''
+        elif save_type == "reject":            #如果是财务拒绝，退回到未编辑状态，并记录驳回原因和驳回状态
+            order.invoice_status = "unrecorded"
+            order.invoice_reject = "True"
+            order.invoice_reject_reason = data.get("invoice_reject_reason", "")
+            
         order.save()
         invoice = Invoice.objects.get(
             container_number__container_number=container_number
         )
         invoice.direct_amount = request.POST.get("amount")
         invoice.save()
-        return self.handle_invoice_direct_get(
-            request, request.POST.get("start_date"), request.POST.get("end_date")
-        )
+        if save_type in {"account_complete", "reject"}: #如果是从账单确认那里点进来的操作，就跳转回账单确认界面
+            return self.handle_invoice_confirm_save(request)
+        else:
+            return self.handle_invoice_direct_get(
+                request, request.POST.get("start_date"), request.POST.get("end_date")
+            )
 
     def handle_invoice_preport_save_post(self, request: HttpRequest) -> tuple[Any, Any]:
         data = request.POST.copy()
@@ -944,8 +971,8 @@ class Accounting(View):
         invoice_preports = InvoicePreport.objects.get(
             invoice_number__invoice_number=invoice.invoice_number
         )
-        names = data.getlist("others_feename")[:-1]
-        amounts = data.getlist("others_feeamount")[:-1]
+        names = [name for name in data.getlist("others_feename") if name.strip()]
+        amounts = [amount for amount in data.getlist("others_feeamount") if amount.strip()]
         other_fees = dict(zip(names, map(float, amounts)))
         invoice_preports.other_fees = {k: v for k, v in other_fees.items() if k}
         exclude_fields = {
@@ -998,6 +1025,12 @@ class Accounting(View):
         invoice_preports = InvoicePreport.objects.get(
             invoice_number__invoice_number=invoice.invoice_number
         )
+        #只要更新了港前拆柜数据，就要计算一次总数，更新invoice的preport
+        invoice = Invoice.objects.select_related("container_number").get(
+            container_number__container_number=container_number
+        )
+        invoice.preport_amount = preport_amount
+        invoice.save()
         # 账单状态记录
         order = Order.objects.select_related("retrieval_id", "container_number").get(
             container_number__container_number=container_number
@@ -1007,25 +1040,29 @@ class Accounting(View):
             order.invoice_status = "record_warehouse"
             order.invoice_reject = "False"
             order.invoice_reject_reason = ""
-            # 提拆柜记录到invoice表
-            invoice = Invoice.objects.select_related("container_number").get(
-                container_number__container_number=container_number
-            )
-            invoice.preport_amount = preport_amount
-            invoice.save()
+            
         elif data.get("pending") == "False":
             # 审核失败，驳回账单
             order.invoice_reject = "True"
             order.invoice_reject_reason = data.get("invoice_reject_reason", "")
         else:
-            # 提拆柜录入完毕
+            # 提拆柜录入完毕,如果是complete表示客服录入完成，订单状态进入下一步，否则不改状态
+            order.invoice_reject = "False"
             if save_type == "complete":
                 order.invoice_status = "record_preport"
-            order.invoice_reject = "False"
+            elif save_type == "account_comlete":  #如果是财务从确认界面跳转过来的，就要return回账单确认界面
+                modified_get = request.GET.copy()
+                modified_get["start_date_confirm"] = request.POST.get("start_date_confirm")
+                modified_get["end_date_confirm"] = request.POST.get("end_date_confirm")
+                new_request = request
+                new_request.GET = modified_get
+                return self.handle_container_invoice_confirm_get(new_request)
+            
         order.save()
         groups = [group.name for group in request.user.groups.all()]
         if request.user.is_staff:
             groups.append("staff")
+        
         return self.handle_invoice_preport_get(
             request, request.POST.get("start_date"), request.POST.get("end_date")
         )
@@ -1033,6 +1070,7 @@ class Accounting(View):
     def handle_invoice_delivery_type_save(
         self, request: HttpRequest
     ) -> tuple[Any, Any]:
+        print('修改派送类别',request)
         container_number = request.POST.get("container_number")
         invoice = Invoice.objects.get(
             container_number__container_number=container_number
@@ -1087,6 +1125,7 @@ class Accounting(View):
             bulk_update_with_history(
                 updated_pallets, Pallet, fields=["invoice_delivery"]
             )
+        
         return self.handle_container_invoice_delivery_get(request)
 
     def handle_invoice_confirm_save(self, request: HttpRequest) -> tuple[Any, Any]:
@@ -1115,8 +1154,8 @@ class Accounting(View):
     def handle_invoice_dismiss_save(self, request: HttpRequest) -> tuple[Any, Any]:
         container_number = request.POST.get("container_number")
         status = request.POST.get("status")
-        start_date = request.POST.get("start_date")
-        end_date = request.POST.get("end_date")
+        start_date_confirm = request.POST.get("start_date_confirm")
+        end_date_confirm = request.POST.get("end_date_confirm")
         reject_reason = request.POST.get("reject_reason")
         order = Order.objects.select_related("container_number").get(
             container_number__container_number=container_number
@@ -1125,12 +1164,25 @@ class Accounting(View):
         order.invoice_reject = "True"
         order.invoice_reject_reason = reject_reason
         order.save()
-        return self.handle_invoice_confirm_get(request, start_date, end_date)
+        return self.handle_invoice_confirm_get(request, start_date_confirm, end_date_confirm)
+
+    def handle_invoice_redirect_post(self, request: HttpRequest) -> tuple[Any, Any]:
+        status = request.POST.get("status")
+        if status == "record_preport":
+            return self.handle_container_invoice_preport_get(request)
+        elif status == "record_warehouse":
+            return self.handle_container_invoice_warehouse_get(request)
+        elif status == "record_delivery":
+            return self.handle_container_invoice_delivery_get(request)
+        elif status == "record_direct":
+            return self.handle_container_invoice_direct_get(request)
+        
 
     def handle_invoice_delivery_save(self, request: HttpRequest) -> tuple[Any, Any]:
         container_number = request.POST.get("container_number")
         type_value = request.POST.get("type")
         total = request.POST.get("amount")
+        redirect_step = request.POST.get("redirect_step")
         invoice = Invoice.objects.select_related("customer", "container_number").get(
             container_number__container_number=container_number
         )
@@ -1140,8 +1192,9 @@ class Accounting(View):
             order = Order.objects.select_related(
                 "retrieval_id", "container_number"
             ).get(container_number__container_number=container_number)
-            order.invoice_status = "toBeConfirmed"
-            order.save()
+            if redirect_step == "False":  #如果不是从财务确认界面跳转来的，才需要改变状态
+                order.invoice_status = "toBeConfirmed"
+                order.save()
             invoice.save()
         else:
             # 记录其中一种派送方式到invoice_delivery表
@@ -1162,7 +1215,22 @@ class Accounting(View):
                 if expense[i]:
                     invoice_content.expense = expense[i]
                 invoice_content.save()
-        return self.handle_container_invoice_delivery_get(request)
+        #如果是财务确认界面跳转的，需要重定向到财务确认界面，并且执行派送界面的账单确认操作
+        if redirect_step == "True":
+            #查找改柜子的派送表，汇总总费用
+            # invoice_delivery = InvoiceDelivery.objects.filter(
+            #     invoice_number__invoice_number=invoice.invoice_number
+            # )
+            # total_cost_sum = invoice_delivery.aggregate(
+            #     total_sum=Sum('total_cost')
+            # )['total_sum'] or 0
+            total_cost_sum = request.POST.get("total_amount")
+            print('总数是',total_cost_sum)
+            invoice.delivery_amount = total_cost_sum
+            invoice.save()
+            return self.handle_container_invoice_confirm_get(request)
+        else:
+            return self.handle_invoice_delivery_get(request)
 
     def handle_container_invoice_warehouse_get(
         self, request: HttpRequest
@@ -1232,7 +1300,8 @@ class Accounting(View):
                 "fs_json": fs_json,
             }
             return self.template_invoice_warehouse_edit, context
-
+        step = request.POST.get("step")
+        redirect_step = (step == "redirect")
         context = {
             "warehouse": warehouse,
             "invoice_warehouse": invoice_warehouse,
@@ -1242,18 +1311,22 @@ class Accounting(View):
             "surcharges_notes": invoice_warehouse.surcharge_notes,
             "start_date": request.GET.get("start_date"),
             "end_date": request.GET.get("end_date"),
+            "redirect_step":redirect_step,
             "FS": FS,
             "fs_json": fs_json,
             "status": order.invoice_status,
+            "start_date_confirm":request.POST.get("start_date_confirm") or None,
+            "end_date_confirm":request.POST.get("end_date_confirm") or None,
         }
         return self.template_invoice_warehouse_edit, context
 
     def handle_container_invoice_confirm_get(
         self, request: HttpRequest
     ) -> tuple[Any, Any]:
+        
         container_number = request.GET.get("container_number")
-        start_date = request.GET.get("start_date")
-        end_date = request.GET.get("end_date")
+        start_date_confirm = request.GET.get("start_date_confirm")
+        end_date_confirm = request.GET.get("end_date_confirm")
         invoice = Invoice.objects.get(
             container_number__container_number=container_number
         )
@@ -1293,23 +1366,24 @@ class Accounting(View):
                 "combine": combine,
                 "walmart": walmart,
                 "container_number": container_number,
-                "start_date": start_date,
-                "end_date": end_date,
+                "start_date_confirm": start_date_confirm,
+                "end_date_confirm": end_date_confirm,
             }
+            return self.template_invoice_confirm_edit, context
         elif order.order_type == "直送":
-            context = {
-                "invoice": invoice,
-                "order_type": order.order_type,
-                "invoice_preports": invoice_preports,
-                "container_number": container_number,
-                "start_date": start_date,
-                "end_date": end_date,
-            }
-        return self.template_invoice_confirm_edit, context
+            modified_get = request.GET.copy()
+            modified_get["start_date_confirm"] = request.GET.get("start_date_confirm")
+            modified_get["end_date_confirm"] = request.GET.get("end_date_confirm")
+            modified_get["confirm_step"] = True
+            new_request = request
+            new_request.GET = modified_get
+            return self.handle_container_invoice_direct_get(request)
+        
 
     def handle_container_invoice_delivery_get(
         self, request: HttpRequest
     ) -> tuple[Any, Any]:
+        print('重定向',request)
         container_number = request.GET.get("container_number")
         invoice = Invoice.objects.select_related("customer", "container_number").get(
             container_number__container_number=container_number
@@ -1466,7 +1540,7 @@ class Accounting(View):
                                     delivery, "total_cost", int(k) * int(len(plt_ids))
                                 )
                     walmart.append(delivery)
-                elif delivery.type == "self":
+                elif delivery.type == "self_delivery":
                     self_delivery.append(delivery)
         else:
             # 该柜子没有建表的情况下，系统再根据报表单汇总派送方式
@@ -1523,6 +1597,8 @@ class Accounting(View):
                                 plt["total_cost"] = int(k) * int(plt["total_n_pallet"])
                             break
                     walmart.append(plt)
+        step = request.POST.get("step")
+        redirect_step = (step == "redirect") or (request.POST.get("redirect_step") == "True") 
         context = {
             "warehouse": warehouse,
             "invoice": invoice,
@@ -1534,6 +1610,11 @@ class Accounting(View):
             "walmart": walmart,
             "self_delivery": self_delivery,
             "invoice_delivery": invoice_delivery,
+            "redirect_step":redirect_step,
+            "start_date":request.GET.get("start_date") or None,
+            "end_date":request.GET.get("end_date") or None,
+            "start_date_confirm":request.POST.get("start_date_confirm") or None,
+            "end_date_confirm":request.POST.get("end_date_confirm") or None,
         }
         return self.template_invoice_delievery_edit, context
 
@@ -1630,6 +1711,9 @@ class Accounting(View):
             "FS": FS,
             "fs_json": fs_json,
             "status": order.invoice_status,
+            "start_date_confirm":request.GET.get("start_date_confirm") or None,
+            "end_date_confirm":request.GET.get("end_date_confirm") or None,
+            "confirm_step":request.GET.get("confirm_step") or None,
         }
         return self.template_invoice_direct_edit, context
 
@@ -1722,6 +1806,8 @@ class Accounting(View):
         groups = [group.name for group in request.user.groups.all()]
         if request.user.is_staff:
             groups.append("staff")
+        step = request.POST.get("step")
+        redirect_step = (step == "redirect")
         context = {
             "warehouse": warehouse,
             "reject_reason": order.invoice_reject_reason,
@@ -1735,6 +1821,9 @@ class Accounting(View):
             "FS": FS,
             "fs_json": fs_json,
             "status": order.invoice_status,
+            "redirect_step":redirect_step,
+            "start_date_confirm":request.POST.get("start_date_confirm") or None,
+            "end_date_confirm":request.POST.get("end_date_confirm") or None,
         }
         return self.template_invoice_preport_edit, context
 
@@ -1930,8 +2019,10 @@ class Accounting(View):
                 request, start_date, end_date, customer, warehouse
             )
         elif status == "confirm":
+            start_date_confirm = request.POST.get("start_date_confirm")
+            end_date_confirm = request.POST.get("end_date_confirm")
             return self.handle_invoice_confirm_get(
-                request, start_date, end_date, customer, warehouse
+                request, start_date_confirm, end_date_confirm, customer, warehouse
             )
         else:
             return self.handle_invoice_get(start_date, end_date, customer)
@@ -2520,13 +2611,13 @@ class Accounting(View):
         else:
             return False
 
-    def validate_user_invoice_direct(self, user: User) -> bool:
+    def _validate_user_invoice_direct(self, user: User) -> bool:
         if user.is_staff or user.groups.filter(name="invoice_direct").exists():
             return True
         else:
             return False
 
-    def validate_user_invoice_preport(self, user: User) -> bool:
+    def _validate_user_invoice_preport(self, user: User) -> bool:
         if user.is_staff or user.groups.filter(name="invoice_preport").exists():
             return True
         elif user.groups.filter(name="invoice_preport_leader").exists():
@@ -2534,19 +2625,19 @@ class Accounting(View):
         else:
             return False
 
-    def validate_user_invoice_warehouse(self, user: User) -> bool:
+    def _validate_user_invoice_warehouse(self, user: User) -> bool:
         if user.is_staff or user.groups.filter(name="invoice_warehouse").exists():
             return True
         else:
             return False
 
-    def validate_user_invoice_delivery(self, user: User) -> bool:
+    def _validate_user_invoice_delivery(self, user: User) -> bool:
         if user.is_staff or user.groups.filter(name="invoice_delivery").exists():
             return True
         else:
             return False
 
-    def validate_user_invoice_confirm(self, user: User) -> bool:
+    def _validate_user_invoice_confirm(self, user: User) -> bool:
         if user.is_staff or user.groups.filter(name="invoice_confirm").exists():
             return True
         else:

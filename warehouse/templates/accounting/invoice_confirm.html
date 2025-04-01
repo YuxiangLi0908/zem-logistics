@@ -9,8 +9,9 @@
             <b style="margin-right: 5px;">客户:</b>
             {{ order_form.customer_name }}
             <b style="margin-right: 5px; margin-left: 10px;">ETD时间:</b>
-            <input type="date" name="start_date" value="{{ start_date }}">
-            <input type="date" name="end_date" value="{{ end_date }}" style="margin-right: 5px;">
+            {{ context }}
+            <input type="date" name="start_date_confirm" value="{{ start_date_confirm }}">
+            <input type="date" name="end_date_confirm" value="{{ end_date_confirm }}" style="margin-right: 5px;">
             <b style="margin-right: 5px;">选择仓点区域:</b>
                 <select name="warehouse_filter">
                     {% for k, v in warehouse_options.items %}
@@ -55,7 +56,7 @@
                             <tr>
                                 <td class="td">{{ c.customer_name.zem_name }}</td>
                                 <td class="td">
-                                    <a href="/accounting/?step=container_confirm&container_number={{ c.container_number }}&start_date={{ start_date }}&end_date={{ end_date }}">{{ c.container_number }}</a>
+                                    <a href="/accounting/?step=container_confirm&container_number={{ c.container_number }}&start_date_confirm={{ start_date_confirm }}&end_date_confirm={{ end_date_confirm }}">{{ c.container_number }}</a>
                                 </td>
                                 <td class="td">{{ c.order_type }}</td>
                                 <td class="td">{{ c.created_at|date:"Y-m-d" }}</td>
@@ -113,7 +114,7 @@
                                 </td>
                                 <td class="td">{{ c.customer_name__zem_name }}</td>
                                 <td class="td">
-                                    <a href="/accounting/?step=container_confirm&container_number={{ c.container_number__container_number }}">{{ c.container_number__container_number }}</a>
+                                    <a href="/accounting/?step=container_confirm&container_number={{ c.container_number__container_number }}&start_date_confirm={{ start_date_confirm }}&end_date_confirm={{ end_date_confirm }}">{{ c.container_number }}">{{ c.container_number__container_number }}</a>
                                 </td>
                                 <td class="td">{{ c.order_type }}</td>
                                 <td class="td">{{ c.invoice_id__invoice_number }}</td>

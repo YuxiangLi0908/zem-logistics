@@ -30,9 +30,13 @@
             <div style="display: flex; align-items: center; margin-bottom: 10px;">
                 <label style="width: 100px; font-weight: bold;" for="pickup">提+派送:</label>
                 <span style="color: #808080; width: 150px;"></span>
-                <input type="number" class="original-input" style="width: 80px; margin-right: 10px;" id="pickup" name="pickup" value="{{ invoice_preports.pickup }}">                
-                {% if status != 'confirmed' %}
-                    <button type="submit" class="btn btn-danger" style="margin-left:260px; width: 150px; height: 35px;" onclick="validateForm('complete')">账单录入完成</button>
+                <input type="number" class="original-input" style="width: 80px; margin-right: 10px;" id="pickup" name="pickup" value="{{ invoice_preports.pickup }}">  
+                {% if not confirm_step %}              
+                    {% if status != 'confirmed' %}
+                        <button type="submit" class="btn btn-danger" style="margin-left:260px; width: 150px; height: 35px;" onclick="validateForm('complete')">账单录入完成</button>
+                    {% endif %}
+                {% else %}
+                    <button type="submit" class="btn btn-danger" style="margin-left:260px; width: 150px; height: 35px;" onclick="validateForm('account_complete')">账单确认</button>
                 {% endif %}
                 </div>
             <div style="display: flex; align-items: center; margin-bottom: 10px;">
@@ -42,8 +46,12 @@
                 <span style="margin: 0 5px;">+</span>
                 <input type="number" style="width: 70px; margin-right: 10px;" id="exam_fee_surcharge" name="exam_fee_surcharge" value="{{ surcharges.exam_fee }}">
                 <input type="text" style="width: 120px;" id="exam_fee_surcharge_note" name="exam_fee_surcharge_note" value="{{ surcharges_notes.exam_fee }}">
-                {% if status != 'confirmed' %}
-                    <button type="submit" class="btn btn-primary" style="margin-left:40px; width: 150px; height: 35px;" onclick="validateForm('temporary')">暂存未完成</button>
+                {% if not confirm_step %}
+                    {% if status != 'confirmed' %}
+                        <button type="submit" class="btn btn-primary" style="margin-left:40px; width: 150px; height: 35px;" onclick="validateForm('temporary')">暂存未完成</button>
+                    {% endif %}
+                {% else %}
+                    <input type="text" placeholder="驳回原因" name="invoice_reject_reason" style="margin-left:40px; width:150px;" value ="{{ invoice_reject_reason|default_if_none:'' }}">
                 {% endif %}
             </div>
             <div style="display: flex; align-items: center; margin-bottom: 10px;">
@@ -53,6 +61,9 @@
                 <span style="margin: 0 5px;">+</span>
                 <input type="number" style="width: 70px; margin-right: 10px;" id="second_pickup_surcharge" name="second_pickup_surcharge" value="{{ surcharges.second_pickup }}">
                 <input type="text" style="width: 120px;" id="second_pickup_surcharge_note" name="second_pickup_surcharge_note" value="{{ surcharges_notes.second_pickup }}">
+                {% if confirm_step %}
+                    <button type="submit" class="btn btn-primary" style="margin-left:40px; width: 150px; height: 35px;" onclick="validateForm('reject')">驳回账单</button>
+                {% endif %}
             </div>
             <div style="display: flex; align-items: center; margin-bottom: 10px;">
                 <label style="width: 100px; font-weight: bold;" for="demurrage">滞港费</label>
@@ -160,6 +171,8 @@
         <input type="hidden" name="container_number" value="{{ container_number }}">
         <input type="hidden" name="start_date" value="{{ start_date }}">
         <input type="hidden" name="end_date" value="{{ end_date }}">
+        <input type="hidden" name="start_date_confirm" value="{{ start_date_confirm }}">
+        <input type="hidden" name="end_date_confirm" value="{{ end_date_confirm }}">
         <input type="hidden" name="invoice_number" value="{{ invoice_preports.invoice_number }}">
         
     </form>
@@ -208,11 +221,7 @@
     };   
     function validateForm(type) {
         const saveTypeInput = document.getElementById('save_type');
-        if (type === 'complete') {
-            saveTypeInput.value = 'complete'; 
-        } else if (type === 'temporary') {
-            saveTypeInput.value = 'temporary'; 
-        }
+        saveTypeInput.value = type; 
         const form = document.querySelector('form');
         const inputs = form.querySelectorAll('input.original-input');  
         
