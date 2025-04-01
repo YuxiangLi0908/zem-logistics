@@ -13,6 +13,8 @@
                     账单已确认，不可编辑
                 </div>
             {% endif %}
+            <input type="hidden" name="start_date_confirm" value="{{ start_date_confirm }}">
+            <input type="hidden" name="end_date_confirm" value="{{ end_date_confirm }}">
             <div style="display: flex; align-items: center; margin-bottom: 10px;">
                 <label style="width: 100px; font-weight: color:#483D8B;" >费用名称</label>
                 <span style="color: #808080; width: 150px; margin-left:30px;color:#483D8B;">报价提示</span>
@@ -31,7 +33,7 @@
                 <span style="color: #808080; width: 150px;">({{ FS.chassis }})</span>
                 <input type="number" class="original-input" style="width: 80px; margin-right: 10px;" id="chassis" name="chassis" value="{{ invoice_preports.chassis }}">
                 <span style="margin: 0 5px;">+</span>
-                <input type="number" style="width: 70px; margin-right: 10px;" id="chassis_surcharge" name="chassis_surcharge" value="{{ surcharges.chassis }}">
+                <input type="number" style="width: 70px; margin-right: 10px;" step="0.01" id="chassis_surcharge" name="chassis_surcharge" value="{{ surcharges.chassis }}">
                 <input type="text" style="width: 120px;" id="chassis_surcharge_note" name="chassis_surcharge_note" value="{{ surcharges_notes.chassis }}">
             </div>
             <div style="display: flex; align-items: center; margin-bottom: 10px;">
@@ -39,7 +41,7 @@
                 <span style="color: #808080; width: 150px;">({{ FS.chassis_split }})</span>
                 <input type="number" class="original-input" style="width: 80px; margin-right: 10px;" id="chassis_split" name="chassis_split" value="{{ invoice_preports.chassis_split }}">
                 <span style="margin: 0 5px;">+</span>
-                <input type="number" style="width: 70px; margin-right: 10px;" id="chassis_split_surcharge" name="chassis_split_surcharge" value="{{ surcharges.chassis_split }}">
+                <input type="number" style="width: 70px; margin-right: 10px;" step="0.01" id="chassis_split_surcharge" name="chassis_split_surcharge" value="{{ surcharges.chassis_split }}">
                 <input type="text" style="width: 120px;" id="chassis_split_surcharge_note" name="chassis_split_surcharge_note" value="{{ surcharges_notes.chassis_split }}">
             </div>
             <div style="display: flex; align-items: center; margin-bottom: 10px;">
@@ -47,7 +49,7 @@
                 <span style="color: #808080; width: 150px;">({{ FS.prepull }})</span>
                 <input type="number" class="original-input" style="width: 80px; margin-right: 10px;" id="prepull" name="prepull" value="{{ invoice_preports.prepull }}">
                 <span style="margin: 0 5px;">+</span>
-                <input type="number" style="width: 70px; margin-right: 10px;" id="prepull_surcharge" name="prepull_surcharge" value="{{ surcharges.prepull }}">
+                <input type="number" style="width: 70px; margin-right: 10px;" step="0.01" id="prepull_surcharge" name="prepull_surcharge" value="{{ surcharges.prepull }}">
                 <input type="text" style="width: 120px;" id="prepull_surcharge_note" name="prepull_surcharge_note" value="{{ surcharges_notes.prepull }}">
             </div>
             <div style="display: flex; align-items: center; margin-bottom: 10px;">
@@ -55,7 +57,7 @@
                 <span style="color: #808080; width: 150px;">({{ FS.yard_storage }})</span>
                 <input type="number" class="original-input" style="width: 80px; margin-right: 10px;" id="yard_storage" name="yard_storage" value="{{ invoice_preports.yard_storage }}">
                 <span style="margin: 0 5px;">+</span>
-                <input type="number" style="width: 70px; margin-right: 10px;" id="yard_storage_surcharge" name="yard_storage_surcharge" value="{{ surcharges.yard_storage }}">
+                <input type="number" style="width: 70px; margin-right: 10px;" step="0.01" id="yard_storage_surcharge" name="yard_storage_surcharge" value="{{ surcharges.yard_storage }}">
                 <input type="text" style="width: 120px;" id="yard_storage_surcharge_note" name="yard_storage_surcharge_note" value="{{ surcharges_notes.yard_storage }}">
             </div>
             <div style="display: flex; align-items: center; margin-bottom: 10px;">
@@ -63,7 +65,7 @@
                 <span style="color: #808080; width: 150px;">({{ FS.handling_fee }})</span>
                 <input type="number" class="original-input" style="width: 80px; margin-right: 10px;" id="handling_fee" name="handling_fee" value="{{ invoice_preports.handling_fee }}">
                 <span style="margin: 0 5px;">+</span>
-                <input type="number" style="width: 70px; margin-right: 10px;" id="handling_fee_surcharge" name="handling_fee_surcharge" value="{{ surcharges.handling_fee }}">
+                <input type="number" style="width: 70px; margin-right: 10px;" step="0.01" id="handling_fee_surcharge" name="handling_fee_surcharge" value="{{ surcharges.handling_fee }}">
                 <input type="text" style="width: 120px;" id="handling_fee_surcharge_note" name="handling_fee_surcharge_note" value="{{ surcharges_notes.handling_fee }}">
             </div>
             <div style="display: flex; align-items: center; margin-bottom: 10px;">
@@ -71,7 +73,7 @@
                 <span style="color: #808080; width: 150px;">({{ FS.pier_pass }})</span>
                 <input type="number" class="original-input" style="width: 80px; margin-right: 10px;" id="pier_pass" name="pier_pass" value="{{ invoice_preports.pier_pass }}">
                 <span style="margin: 0 5px;">+</span>
-                <input type="number" style="width: 70px; margin-right: 10px;" id="pier_pass_surcharge" name="pier_pass_surcharge" value="{{ surcharges.pier_pass }}">
+                <input type="number" style="width: 70px; margin-right: 10px;" step="0.01" id="pier_pass_surcharge" name="pier_pass_surcharge" value="{{ surcharges.pier_pass }}">
                 <input type="text" style="width: 120px;" id="pier_pass_surcharge_note" name="pier_pass_surcharge_note" value="{{ surcharges_notes.pier_pass }}">
             </div>
             <div style="display: flex; align-items: center; margin-bottom: 10px;">
@@ -79,7 +81,7 @@
                 <span style="color: #808080; width: 150px;">({{ FS.congestion_fee }})</span>
                 <input type="number" class="original-input" style="width: 80px; margin-right: 10px;" id="congestion_fee" name="congestion_fee" value="{{ invoice_preports.congestion_fee }}">
                 <span style="margin: 0 5px;">+</span>
-                <input type="number" style="width: 70px; margin-right: 10px;" id="congestion_fee_surcharge" name="congestion_fee_surcharge" value="{{ surcharges.congestion_fee }}">
+                <input type="number" style="width: 70px; margin-right: 10px;" step="0.01" id="congestion_fee_surcharge" name="congestion_fee_surcharge" value="{{ surcharges.congestion_fee }}">
                 <input type="text" style="width: 120px;" id="congestion_fee_surcharge_note" name="congestion_fee_surcharge_note" value="{{ surcharges_notes.congestion_fee }}">
             </div>
             <div style="display: flex; align-items: center; margin-bottom: 10px;">
@@ -87,7 +89,7 @@
                 <span style="color: #808080; width: 150px;">({{ FS.hanging_crane }})</span>
                 <input type="number" class="original-input" style="width: 80px; margin-right: 10px;" id="hanging_crane" name="hanging_crane" value="{{ invoice_preports.hanging_crane }}">
                 <span style="margin: 0 5px;">+</span>
-                <input type="number" style="width: 70px; margin-right: 10px;" id="hanging_crane_surcharge" name="hanging_crane_surcharge" value="{{ surcharges.hanging_crane }}">
+                <input type="number" style="width: 70px; margin-right: 10px;" step="0.01" id="hanging_crane_surcharge" name="hanging_crane_surcharge" value="{{ surcharges.hanging_crane }}">
                 <input type="text" style="width: 120px;" id="hanging_crane_surcharge_note" name="hanging_crane_surcharge_note" value="{{ surcharges_notes.hanging_crane }}">
             </div>           
             <div style="display: flex; align-items: center; margin-bottom: 10px;">
@@ -95,7 +97,7 @@
                 <span style="color: #808080; width: 150px;">({{ FS.dry_run }})</span>
                 <input type="number" class="original-input" style="width: 80px; margin-right: 10px;" id="dry_run" name="dry_run" value="{{ invoice_preports.dry_run }}">
                 <span style="margin: 0 5px;">+</span>
-                <input type="number" style="width: 70px; margin-right: 10px;" id="dry_run_surcharge" name="hanging_crane_surcharge" value="{{ surcharges.dry_run }}">
+                <input type="number" style="width: 70px; margin-right: 10px;" step="0.01" id="dry_run_surcharge" name="dry_run_surcharge" value="{{ surcharges.dry_run }}">
                 <input type="text" style="width: 120px;" id="dry_run_surcharge_note" name="dry_run_surcharge_note" value="{{ surcharges_notes.dry_run }}">
             </div>
             <div style="display: flex; align-items: center; margin-bottom: 10px;">
@@ -103,7 +105,7 @@
                 <span style="color: #808080; width: 150px;">({{ FS.exam_fee }})</span>
                 <input type="number" class="original-input" style="width: 80px; margin-right: 10px;" id="exam_fee" name="exam_fee" value="{{ invoice_preports.exam_fee }}">
                 <span style="margin: 0 5px;">+</span>
-                <input type="number" style="width: 70px; margin-right: 10px;" id="exam_fee_surcharge" name="exam_fee_surcharge" value="{{ surcharges.exam_fee }}">
+                <input type="number" style="width: 70px; margin-right: 10px;" step="0.01" id="exam_fee_surcharge" name="exam_fee_surcharge" value="{{ surcharges.exam_fee }}">
                 <input type="text" style="width: 120px;" id="exam_fee_surcharge_note" name="exam_fee_surcharge_note" value="{{ surcharges_notes.exam_fee }}">
             </div>
             <div style="display: flex; align-items: center; margin-bottom: 10px;">
@@ -111,7 +113,7 @@
                 <span style="color: #808080; width: 150px;">({{ FS.hazmat }})</span>
                 <input type="number" class="original-input" style="width: 80px; margin-right: 10px;" id="hazmat" name="hazmat" value="{{ invoice_preports.hazmat }}">
                 <span style="margin: 0 5px;">+</span>
-                <input type="number" style="width: 70px; margin-right: 10px;" id="hazmat_surcharge" name="hazmat_surcharge" value="{{ surcharges.hazmat }}">
+                <input type="number" style="width: 70px; margin-right: 10px;" step="0.01" id="hazmat_surcharge" name="hazmat_surcharge" value="{{ surcharges.hazmat }}">
                 <input type="text" style="width: 120px;" id="hazmat_surcharge_note" name="hazmat_surcharge_note" value="{{ surcharges_notes.hazmat }}">
             </div>
             <div style="display: flex; align-items: center; margin-bottom: 10px;">
@@ -119,7 +121,7 @@
                 <span style="color: #808080; width: 150px;">({{ FS.over_weight }})</span>
                 <input type="number" class="original-input" style="width: 80px; margin-right: 10px;" id="over_weight" name="over_weight" value="{{ invoice_preports.over_weight }}">
                 <span style="margin: 0 5px;">+</span>
-                <input type="number" style="width: 70px; margin-right: 10px;" id="over_weight_surcharge" name="hazmat_surcharge" value="{{ surcharges.over_weight }}">
+                <input type="number" style="width: 70px; margin-right: 10px;" step="0.01" id="over_weight_surcharge" name="over_weight_surcharge" value="{{ surcharges.over_weight }}">
                 <input type="text" style="width: 120px;" id="over_weight_surcharge_note" name="over_weight_surcharge_note" value="{{ surcharges_notes.over_weight }}">
             </div>
             <div style="display: flex; align-items: center; margin-bottom: 10px;">
@@ -127,7 +129,7 @@
                 <span style="color: #808080; width: 150px;">({{ FS.urgent_fee }})</span>
                 <input type="number" class="original-input" style="width: 80px; margin-right: 10px;" id="urgent_fee" name="urgent_fee" value="{{ invoice_preports.urgent_fee }}">
                 <span style="margin: 0 5px;">+</span>
-                <input type="number" style="width: 70px; margin-right: 10px;" id="urgent_fee_surcharge" name="hazmat_surcharge" value="{{ surcharges.urgent_fee }}">
+                <input type="number" style="width: 70px; margin-right: 10px;" step="0.01" id="urgent_fee_surcharge" name="urgent_fee_surcharge" value="{{ surcharges.urgent_fee }}">
                 <input type="text" style="width: 120px;" id="urgent_fee_surcharge_note" name="urgent_fee_surcharge_note" value="{{ surcharges_notes.urgent_fee }}">
             </div>
             <div style="display: flex; align-items: center; margin-bottom: 10px;">
@@ -135,7 +137,7 @@
                 <span style="color: #808080; width: 150px;">({{ FS.other_serive }})</span>
                 <input type="number" class="original-input" step="0.01" style="width: 80px; margin-right: 10px;" id="other_serive" name="other_serive" value="{{ invoice_preports.other_serive }}">
                 <span style="margin: 0 5px;">+</span>
-                <input type="number" style="width: 70px; margin-right: 10px;" id="other_serive_surcharge" name="other_serive_surcharge" value="{{ surcharges.other_serive }}">
+                <input type="number" style="width: 70px; margin-right: 10px;" step="0.01" id="other_serive_surcharge" name="other_serive_surcharge" value="{{ surcharges.other_serive }}">
                 <input type="text" style="width: 120px;" id="other_serive_surcharge_note" name="other_serive_surcharge_note" value="{{ surcharges_notes.other_serive }}">
             </div>
             <div style="display: flex; align-items: center; margin-bottom: 10px;">
@@ -143,23 +145,23 @@
                 <span style="color: #808080; width: 150px;">({{ FS.demurrage }})</span>
                 <input type="number" class="original-input" style="width: 80px; margin-right: 10px;" id="demurrage" name="demurrage" value="{{ invoice_preports.demurrage }}">
                 <span style="margin: 0 5px;">+</span>
-                <input type="number" style="width: 70px; margin-right: 10px;" id="demurrage_surcharge" name="demurrage_surcharge" value="{{ surcharges.demurrage }}">
-                <input type="text" style="width: 120px;" id="demurrage_surcharge_note" name="demurrage_serive_surcharge_note" value="{{ surcharges_notes.demurrage }}">
+                <input type="number" style="width: 70px; margin-right: 10px;" step="0.01" id="demurrage_surcharge" name="demurrage_surcharge" value="{{ surcharges.demurrage }}">
+                <input type="text" style="width: 120px;" id="demurrage_surcharge_note" name="demurrage_surcharge_note" value="{{ surcharges_notes.demurrage }}">
             </div>
             <div style="display: flex; align-items: center; margin-bottom: 10px;">
                 <label style="width: 120px; font-weight: bold;" for="per_diem">港外滞期费</label>
                 <span style="color: #808080; width: 150px;">({{ FS.per_diem }})</span>
                 <input type="number" class="original-input" style="width: 80px; margin-right: 10px;" id="per_diem" name="per_diem" value="{{ invoice_preports.per_diem }}">
                 <span style="margin: 0 5px;">+</span>
-                <input type="number" style="width: 70px; margin-right: 10px;" id="per_diem_surcharge" name="per_diem_surcharge" value="{{ surcharges.per_diem }}">
-                <input type="text" style="width: 120px;" id="per_diem_surcharge_note" name="per_diem_serive_surcharge_note" value="{{ surcharges_notes.per_diem }}">
+                <input type="number" style="width: 70px; margin-right: 10px;" step="0.01" id="per_diem_surcharge" name="per_diem_surcharge" value="{{ surcharges.per_diem }}">
+                <input type="text" style="width: 120px;" id="per_diem_surcharge_note" name="per_diem_surcharge_note" value="{{ surcharges_notes.per_diem }}">
             </div>
             <div style="display: flex; align-items: center; margin-bottom: 10px;">
                 <label style="width: 120px; font-weight: bold;" for="second_pickup">二次提货</label>
                 <span style="color: #808080; width: 150px;">({{ FS.second_pickup }})</span>
                 <input type="number" class="original-input" style="width: 80px; margin-right: 10px;" id="second_pickup" name="second_pickup" value="{{ invoice_preports.second_pickup }}">
                 <span style="margin: 0 5px;">+</span>
-                <input type="number" style="width: 70px; margin-right: 10px;" id="second_pickup_surcharge" name="second_pickup_surcharge" value="{{ surcharges.second_pickup }}">
+                <input type="number" style="width: 70px; margin-right: 10px;" step="0.01" id="second_pickup_surcharge" name="second_pickup_surcharge" value="{{ surcharges.second_pickup }}">
                 <input type="text" style="width: 120px;" id="second_pickup_surcharge_note" name="second_pickup_serive_surcharge_note" value="{{ surcharges_notes.second_pickup }}">
             </div>
             
@@ -176,7 +178,7 @@
                   <div style="display: flex; align-items: center; margin-bottom: 10px;">
                     <input type="text" name="others_feename" value="{{ key }}" 
                            style="width: 150px; margin-right: 10px;" placeholder="费用名称">
-                    <input type="number" name="others_feeamount" min="0" value="{{ value }}" style="width: 80px;" placeholder="金额">
+                    <input type="number" name="others_feeamount" step="0.01" min="0" value="{{ value }}" style="width: 80px;" placeholder="金额">
                     <button class="remove-fee-btn" style="background: #ff4444; color: white; border: none; border-radius: 50%; width: 20px; height: 20px; cursor: pointer; margin-left: 10px;display: flex;align-items: center;justify-content: center;padding: 0;line-height: 1;font-size: 14px;" onclick="removeFeeGroup(this)">×</button>
                   </div>
                   {% endfor %}
@@ -184,7 +186,7 @@
                   <div id="new-fee-template" style="display: none; align-items: center; margin-bottom: 10px;">
                     <input type="text" name="others_feename" 
                            style="width: 150px; margin-right: 10px;" placeholder="费用名称">
-                    <input type="number" name="others_feeamount" min="0" style="width: 80px;" placeholder="金额">
+                    <input type="number" name="others_feeamount" step="0.01" min="0" style="width: 80px;" placeholder="金额">
                     <button class="remove-fee-btn" style="background: #ff4444; color: white; border: none; border-radius: 50%; width: 20px; height: 20px; cursor: pointer; margin-left: 10px;display: flex;align-items: center;justify-content: center;padding: 0;line-height: 1;font-size: 14px;" onclick="removeFeeGroup(this)">×</button>
                   </div>
                 </div>
@@ -203,6 +205,11 @@
         <input type="hidden" name="end_date" value="{{ end_date }}">
         <input type="hidden" name="invoice_number" value="{{ invoice_preports.invoice_number }}">
         {% if status != 'confirmed' %}
+            {% if redirect_step %}
+                <input type="hidden" name="start_date_confirm" value={{ start_date_confirm }}>
+                <input type="hidden" name="end_date_confirm" value={{ end_date_confirm }}>
+                <button type="submit" class="btn btn-danger" style="width: 150px; height: 35px;" onclick="validateForm('account_comlete')">账单确认</button>
+            {% endif %}
             {% if "invoice_preport" in groups or "staff" in groups %}
                 <button type="submit" class="btn btn-danger" style="width: 150px; height: 35px;" onclick="validateForm('complete')">账单录入完成</button>
                 <button type="submit" class="btn btn-primary" style="width: 150px; height: 35px;" onclick="validateForm('temporary')">暂存未完成</button>
@@ -255,11 +262,7 @@
     };   
     function validateForm(type) {
         const saveTypeInput = document.getElementById('save_type');
-        if (type === 'complete') {
-            saveTypeInput.value = 'complete'; 
-        } else if (type === 'temporary') {
-            saveTypeInput.value = 'temporary'; 
-        }
+        saveTypeInput.value = type; 
 
         const form = document.querySelector('form');
         const inputs = form.querySelectorAll('input.original-input');
