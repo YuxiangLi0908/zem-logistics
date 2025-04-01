@@ -250,8 +250,6 @@ class Accounting(View):
             template, context = self.handle_invoice_warehouse_save_post(request)
             return render(request, template, context)
         elif step == "add_delivery_type":
-            print(step,"step")
-            print(request,'request')
             template, context = self.handle_invoice_delivery_type_save(request)
             return render(request, template, context)
         elif step == "update_delivery_invoice":
@@ -1070,7 +1068,6 @@ class Accounting(View):
     def handle_invoice_delivery_type_save(
         self, request: HttpRequest
     ) -> tuple[Any, Any]:
-        print('修改派送类别',request)
         container_number = request.POST.get("container_number")
         invoice = Invoice.objects.get(
             container_number__container_number=container_number
@@ -1217,15 +1214,8 @@ class Accounting(View):
                 invoice_content.save()
         #如果是财务确认界面跳转的，需要重定向到财务确认界面，并且执行派送界面的账单确认操作
         if redirect_step == "True":
-            #查找改柜子的派送表，汇总总费用
-            # invoice_delivery = InvoiceDelivery.objects.filter(
-            #     invoice_number__invoice_number=invoice.invoice_number
-            # )
-            # total_cost_sum = invoice_delivery.aggregate(
-            #     total_sum=Sum('total_cost')
-            # )['total_sum'] or 0
+            #派送界面，一种派送方式点确认后，自动计算总费用
             total_cost_sum = request.POST.get("total_amount")
-            print('总数是',total_cost_sum)
             invoice.delivery_amount = total_cost_sum
             invoice.save()
             return self.handle_container_invoice_confirm_get(request)
@@ -1383,7 +1373,6 @@ class Accounting(View):
     def handle_container_invoice_delivery_get(
         self, request: HttpRequest
     ) -> tuple[Any, Any]:
-        print('重定向',request)
         container_number = request.GET.get("container_number")
         invoice = Invoice.objects.select_related("customer", "container_number").get(
             container_number__container_number=container_number
@@ -1810,6 +1799,7 @@ class Accounting(View):
         redirect_step = (step == "redirect")
         context = {
             "warehouse": warehouse,
+            "order_type":order.order_type,
             "reject_reason": order.invoice_reject_reason,
             "invoice_preports": invoice_preports,
             "surcharges": invoice_preports.surcharges,
