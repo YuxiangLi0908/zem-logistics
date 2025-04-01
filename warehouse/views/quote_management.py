@@ -163,25 +163,66 @@ class QuoteManagement(View):
         fee_detail = FeeDetail(**fee_detail_data)
         fee_detail.save()
 
+    # def process_warehouse_sheet(self, df, file, quote):  #这是库内费用ABC为第一列，D为第二列，E-H为第三列时的方法
+    #     # 库内操作表没有合并的问题，一行一行读就行
+    #     result = {}
+    #     for index, row in df.iterrows():
+    #         if index == 0:
+    #             continue
+    #         else:
+    #             print(row.iloc[0],row.iloc[3],row.iloc[4])
+    #             if "激活" in row.iloc[0]:  # 激活那条报价和其他条位置不一样
+    #                 result[row.iloc[0]] = row.iloc[4]
+    #             else:
+    #                 result[row.iloc[0]] = row.iloc[3]
+    #     # 创建 FeeDetail 记录
+    #     fee_detail_data = {
+    #         "quotation_id": quote,
+    #         "fee_detail_id": str(uuid.uuid4())[:4].upper(),
+    #         "fee_type": "warehouse",
+    #         "details": result,
+    #     }
+        
+    #     fee_detail = FeeDetail(**fee_detail_data)
+    #     print(fee_detail)
+    #     fee_detail.save()
     def process_warehouse_sheet(self, df, file, quote):
-        # 库内操作表没有合并的问题，一行一行读就行
         result = {}
+        
+        # 检查列数是否足够（现在只有ABC三列，索引0-2）
+        if len(df.columns) < 3:
+            raise ValueError("上传的表格需要至少包含ABC三列数据")
+        
+        # 预先计算列索引（ABC三列）
+        col_a_idx = 0  # A列索引（项目名称/标识）
+        col_b_idx = 1  # B列索引（常规价格）
+        col_c_idx = 2  # C列索引（激活价格）
+        
         for index, row in df.iterrows():
-            if index == 0:
+            if index == 0:  # 跳过表头
                 continue
+            
+            # 获取当前行数据（只取ABC三列）
+            project_name = str(row.iloc[col_a_idx]).strip()  # A列
+            normal_price = row.iloc[col_b_idx]               # B列
+            active_price = row.iloc[col_c_idx]               # C列
+            
+            # 空值处理（如果单元格可能为空）
+            normal_price = 0 if pd.isna(normal_price) else normal_price
+            active_price = 0 if pd.isna(active_price) else active_price
+            
+            if "激活" in project_name:
+                result[project_name] = active_price  # 使用C列值
             else:
-                if "激活" in row.iloc[0]:  # 激活那条报价和其他条位置不一样
-                    result[row.iloc[0]] = row.iloc[4]
-                else:
-                    result[row.iloc[0]] = row.iloc[3]
-        # 创建 FeeDetail 记录
-        fee_detail_data = {
-            "quotation_id": quote,
-            "fee_detail_id": str(uuid.uuid4())[:4].upper(),
-            "fee_type": "warehouse",
-            "details": result,
-        }
-        fee_detail = FeeDetail(**fee_detail_data)
+                result[project_name] = normal_price  # 使用B列值
+        
+        # 创建并保存记录
+        fee_detail = FeeDetail(
+            quotation_id=quote,
+            fee_detail_id=str(uuid.uuid4())[:4].upper(),
+            fee_type="warehouse",
+            details=result
+        )
         fee_detail.save()
 
     def process_nj_local_sheet(self, df, file, quote):
