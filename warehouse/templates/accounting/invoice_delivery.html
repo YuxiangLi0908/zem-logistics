@@ -30,7 +30,7 @@
 <hr class="Dashed" style="margin-top: 10px; margin-bottom: 10px;">
 <div style="display: flex; max-height: 720px;">
     <div style="overflow-y: auto; max-height: 100%; width: 40%; border: 2px solid rgb(180, 180, 180); border-radius: 12px; padding: 1%; margin: 1%;">
-        <div><b>待开账单</b></div>
+        <div><b>待录入账单</b></div>
         {% if order %}       
         <form method="post" action="">
             {% csrf_token %}
@@ -74,7 +74,7 @@
         {% endif %}
     </div>
     <div style="overflow-y: auto; max-height: 100%; width: 60%; border: 2px solid rgb(180, 180, 180); border-radius: 12px; padding: 1%; margin: 1%;">
-        <div><b>已开账单</b></div>
+        <div><b>已录入账单</b></div>
         {% if previous_order %}       
         <form method="post" action="">
             {% csrf_token %}
