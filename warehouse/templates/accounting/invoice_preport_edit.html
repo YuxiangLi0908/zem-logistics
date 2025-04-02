@@ -212,7 +212,7 @@
             {% if redirect_step %}
                 <input type="hidden" name="start_date_confirm" value={{ start_date_confirm }}>
                 <input type="hidden" name="end_date_confirm" value={{ end_date_confirm }}>
-                <button type="submit" class="btn btn-danger" style="width: 150px; height: 35px;" onclick="validateForm('account_comlete')">账单确认</button>
+                <button type="submit" class="btn btn-danger" style="width: 150px; height: 35px;" onclick="validateForm('account_comlete')">财务修改账单确认</button>
             {% endif %}
             {% if "invoice_preport" in groups or "staff" in groups %}
                 <button type="submit" class="btn btn-danger" style="width: 150px; height: 35px;" onclick="validateForm('complete')">账单录入完成</button>
