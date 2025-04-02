@@ -1359,7 +1359,7 @@ class ShippingManagement(View):
                     if "NJ" in str(
                         request.POST.get("origin", "")
                     ):  # NJ仓的，UPS预约完就结束，POD都不用传
-                        shipment.express_number = (
+                        shipment_data["express_number"] = (
                             request.POST.get("express_number")
                             if request.POST.get("express_number")
                             else ""
