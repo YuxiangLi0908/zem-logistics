@@ -1800,6 +1800,7 @@ class Accounting(View):
         context = {
             "warehouse": warehouse,
             "order_type":order.order_type,
+            "container_type":container_type,
             "reject_reason": order.invoice_reject_reason,
             "invoice_preports": invoice_preports,
             "surcharges": invoice_preports.surcharges,
