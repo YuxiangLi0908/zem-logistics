@@ -1364,12 +1364,12 @@ class ShippingManagement(View):
                             if request.POST.get("express_number")
                             else ""
                         )
-                        shipment.is_shipped = True
-                        shipment.shipped_at = shipmentappointment
-                        shipment.is_arrived = True
-                        shipment.arrived_at = shipmentappointment
-                        shipment.pod_link = "Without"
-                        shipment.pod_uploaded_at = timezone.now()
+                        shipment_data["is_shipped"] = True
+                        shipment_data["shipped_at"] = shipmentappointment
+                        shipment_data["is_arrived"] = True
+                        shipment_data["arrived_at"] = shipmentappointment
+                        shipment_data["pod_link"] = "Without"
+                        shipment_data["pod_uploaded_at"] = timezone.now()
                 else:
                     shipmentappointment = request.POST.get("shipment_appointment", None)
                     if shipment_type == "客户自提" and "NJ" in str(
