@@ -23,3 +23,4 @@ def slice_string(value, mode="front"):
         elif mode == "back":
             return value[-4:]
     return value
+

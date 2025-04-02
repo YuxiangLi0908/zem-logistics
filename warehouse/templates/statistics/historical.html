@@ -1,4 +1,5 @@
 {% extends "base.html" %}
+{% load static custom_filters %}     
 
 {% block content %}
 <div class="container-fluid" style="padding: 1.5rem 0;">
@@ -57,75 +58,98 @@
       </div>
       <div class="card-body" style="padding: 0; max-height: 600px; overflow-y: auto;">
           <div style="overflow-x: auto; -webkit-overflow-scrolling: touch;">
-              <table style="width: 100%; margin-bottom: 0; color: #212529; border-collapse: collapse;">
-                  <thead style="position: sticky; top: 0; background-color: #f8f9fa; z-index: 1;">
-                      <tr>
-                          <th style="padding: 0.75rem; vertical-align: middle; width: 15%; white-space: nowrap;">操作时间</th>
-                          <th style="padding: 0.75rem; vertical-align: middle; width: 10%;">操作人</th>
-                          <th style="padding: 0.75rem; vertical-align: middle; width: 8%;">操作类型</th>
-                          <th style="padding: 0.75rem; vertical-align: middle;">变更内容</th>
-                      </tr>
-                      <tr style="position: sticky; top: 28px;">
-                        <th class="th"></th>
-                        <th class="th"><input type="text" style="width:110px;" id="containerSearchInput" placeholder="搜索操作人..." oninput="filterTable()"></th>
-                        <th class="th"><input type="text" id="forcastSearchInput" placeholder="操作类型" oninput="filterTable()" style="width:80px;"></th>
-                        <th class="th"><input type="text" id="forcastSearchInput" placeholder="变更内容" oninput="filterTable()" style="width:80px;"></th>
+            <table style="width: 100%; margin-bottom: 0; color: #212529; border-collapse: collapse;">
+                <thead style="position: sticky; top: 0; background-color: #f8f9fa; z-index: 1;">
+                    <tr>
+                        <th style="padding: 0.75rem; width: 15%; white-space: nowrap;">操作时间</th>
+                        <th style="padding: 0.75rem; width: 10%;">操作人</th>
+                        <th style="padding: 0.75rem; width: 8%;">操作类型</th>
+                        <!-- 动态固定字段列 -->
+                        {% for field in records.0.station_fields %}
+                        <th style="padding: 0.75rem;">{{ field }}</th>
+                        {% endfor %}
+                        <th style="padding: 0.75rem;">变更内容</th>
                     </tr>
-                  </thead>
-                  <tbody>
-                      {% for record in records %}
-                      <tr style="border-bottom: 1px solid #dee2e6;">
-                          <td style="padding: 0.75rem; vertical-align: top;">{{ record.date|date:"Y-m-d H:i" }}</td>
-                          <td style="padding: 0.75rem; vertical-align: top;">{{ record.user.get_full_name|default:record.user.username }}</td>
-                          <td style="padding: 0.75rem; vertical-align: top;">
-                              <span style="display: inline-block; padding: 0.35em 0.65em; font-size: 0.75em; font-weight: 700; line-height: 1; text-align: center; white-space: nowrap; vertical-align: baseline; border-radius: 0.25rem; 
-                                    {% if record.type == '创建' %}background-color: #0d6efd; color: white;
-                                    {% elif record.type == '修改' %}background-color: #198754; color: white;
-                                    {% else %}background-color: #dc3545; color: white;{% endif %}">
-                                  {{ record.type }}
-                              </span>
-                          </td>
-                          <td style="padding: 0.75rem; vertical-align: top;">
-                              {% if record.type == '创建' or record.type == '删除' %}
-                                  <!-- 新增/删除：显示所有字段 -->
-                                  <div style="display: grid; grid-template-columns: auto 1fr; gap: 0.5rem;">
-                                      {% for field, value in record.all_fields.items %}
-                                      <div style="font-weight: 600;">{{ field }}:</div>
-                                      <div>
-                                          {% if record.type == '删除' %}
-                                              <span style="color: #dc3545;">{{ value|default:"空" }}</span>
-                                          {% else %}
-                                              <span style="color: #198754;">{{ value|default:"空" }}</span>
-                                          {% endif %}
-                                      </div>
-                                      {% endfor %}
-                                  </div>
-                                  {% else %}
-                                  <!-- 修改：只显示变更的字段和必要字段 -->
-                                  <div style="display: grid; grid-template-columns: auto 1fr 1fr; gap: 0.5rem; align-items: center;">
-                                      {% for change in record.changes %}
-                                      <div style="font-weight: 600;">{{ change.field }}:</div>
-                                      <div>
-                                          {% if change.old_value != change.new_value %}
-                                              <span style="color: #dc3545;">{{ change.old_value|default:"空" }}</span>
-                                          {% else %}
-                                              <span>{{ change.old_value|default:"空" }}</span>
-                                          {% endif %}
-                                      </div>
-                                      <div>
-                                          {% if change.old_value != change.new_value %}
-                                              <span>→</span>
-                                              <span style="color: #198754;">{{ change.new_value|default:"空" }}</span>
-                                          {% endif %}
-                                      </div>
-                                      {% endfor %}
-                                  </div>
-                              {% endif %}
-                          </td>
-                      </tr>
-                      {% endfor %}
-                  </tbody>
-              </table>
+                    <!-- 搜索行 -->
+                    <tr style="position: sticky; top: 37px; background-color: #f8f9fa;">
+                        <th style="padding: 0.5rem;"></th>
+                        <th style="padding: 0.5rem;">
+                            <input type="text" style="width: 100%; padding: 0.25rem; border: 1px solid #dee2e6; border-radius: 0.25rem;" placeholder="搜索操作人..." oninput="filterTable()">
+                        </th>
+                        <th style="padding: 0.5rem;">
+                            <input type="text" style="width: 100%; padding: 0.25rem; border: 1px solid #dee2e6; border-radius: 0.25rem;" placeholder="操作类型" oninput="filterTable()">
+                        </th>
+                        {% for field in records.0.station_fields %}
+                        <th style="padding: 0.5rem;"></th>
+                        {% endfor %}
+                        <th style="padding: 0.5rem;">
+                            <input type="text" style="width: 100%; padding: 0.25rem; border: 1px solid #dee2e6; border-radius: 0.25rem;" placeholder="搜索变更..." oninput="filterTable()">
+                        </th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for record in records %}
+                    <tr style="border-bottom: 1px solid #dee2e6;">
+                        <!-- 操作时间 -->
+                        <td style="padding: 0.75rem; vertical-align: top;">{{ record.date|date:"Y-m-d H:i" }}</td>
+                        
+                        <!-- 操作人 -->
+                        <td style="padding: 0.75rem; vertical-align: top;">{{ record.user.get_full_name|default:record.user.username }}</td>
+                        
+                        <!-- 操作类型 -->
+                        <td style="padding: 0.75rem; vertical-align: top;">
+                            <span style="display: inline-block; padding: 0.35em 0.65em; font-size: 0.75em; font-weight: 700; line-height: 1; text-align: center; white-space: nowrap; vertical-align: baseline; border-radius: 0.25rem; 
+                                {% if record.display_type == '创建' %}background-color: #0d6efd; color: white;
+                                {% elif record.display_type == '修改' %}background-color: #198754; color: white;
+                                {% else %}background-color: #dc3545; color: white;{% endif %}">
+                                {{ record.display_type }}
+                            </span>
+                        </td>
+                        
+                        <!-- 固定字段列 -->
+                        {% for field in record.station_fields %}
+                        <td style="padding: 0.75rem; vertical-align: top;">
+                            {% with value=record.all_fields|get:field %}
+                                {% if value %}
+                                    {{ value }}
+                                {% else %}
+                                    -
+                                {% endif %}
+                            {% endwith %}
+                        </td>
+                        {% endfor %}
+                        
+                        <!-- 变更内容 -->
+                        <td style="padding: 0.75rem; vertical-align: top;">
+                            {% if record.display_type == '创建' %}
+                                <div style="color: #198754;">新增记录</div>
+                            {% elif record.display_type == '删除' %}
+                                <div style="color: #dc3545;">删除记录</div>
+                            {% else %}
+                                <div style="display: flex; flex-direction: column; gap: 0.5rem;">
+                                    {% for change in record.changes %}
+                                        {% if change.old_value != change.new_value %}
+                                        <div style="display: flex; align-items: center; gap: 0.5rem;">
+                                            <span style="font-weight: 600; min-width: 120px;">{{ change.field }}：</span>
+                                            <div style="display: flex; align-items: center; gap: 0.3rem;">
+                                                {% if change.old_value %}
+                                                    <span style="padding: 0.25em 0.4em; border-radius: 0.25rem; font-size: 0.85em; background-color: #f8f9fa; color: #212529;">{{ change.old_value }}</span>
+                                                {% else %}
+                                                    <span style="padding: 0.25em 0.4em; border-radius: 0.25rem; font-size: 0.85em; background-color: #6c757d; color: white;">新增</span>
+                                                {% endif %}
+                                                <span>→</span>
+                                                <span style="padding: 0.25em 0.4em; border-radius: 0.25rem; font-size: 0.85em; background-color: #198754; color: white;">{{ change.new_value }}</span>
+                                            </div>
+                                        </div>
+                                        {% endif %}
+                                    {% endfor %}
+                                </div>
+                            {% endif %}
+                        </td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
           </div>
       </div>
       <div class="card-footer" style="background-color: #f8f9fa; padding: 0.75rem 1.25rem; border-top: 1px solid rgba(0, 0, 0, 0.125);">

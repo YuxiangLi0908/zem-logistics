@@ -207,6 +207,23 @@ SHIPMENT_TABLE_MAPPING = {
     "快递单号":"express_number"
 }
 
+PALLET_TABLE_MAPPING={
+    "柜号id":"container_number",
+    "预约批次id":"shipment_batch_number",
+    "改仓批次":"transfer_batch_number",
+    "目的地":"destination",
+    "邮编":"zipcode",
+    "派送方式":"delivery_method",
+    "唛头":"shipping_mark",
+    "件数":"pcs",
+    "长":"length",
+    "宽":"width",
+    "高":"height",
+    "异常拆柜":"abnormal_palletization",
+    "所在仓":"location",
+    "联系人":"contact_name"
+}
+
 MODEL_CHOICES = {
     'packinglist': {
         'model': 'HistoricalPackingList',
@@ -221,7 +238,8 @@ MODEL_CHOICES = {
         'name': '板子信息',
         'search_field': 'container_number',
         'warehouse':'warehouse_packinglist',
-        'station_field':['destination','shipping_mark','fba_id','ref_id']
+        'station_field':['destination','delivery_method'],
+        "mapping":PALLET_TABLE_MAPPING,
     },
     'shipment': {
         'model': 'HistoricalShipment',

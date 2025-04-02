@@ -100,15 +100,15 @@ class OrderQuantity(View):
         users = await sync_to_async(lambda: User.objects.filter(id__in=user_ids).in_bulk())()
         
         for record in history_records:
+            # 基础信息
             record_data = {
                 'date': record.history_date,
                 'user': users.get(record.history_user_id),
-                'type': '+' if record.history_type == '+' else 
-                    '~' if record.history_type == '~' else 
-                    '-',
-                'record': record
+                'display_type': '创建' if record.history_type == '+' else '删除' if record.history_type == '-' else '修改',
+                'type': record.history_type,  # 保留原始类型标识
+                'record': record  # 保留原始记录对象
             }
-            
+
             # 异步获取所有字段值
             get_fields = sync_to_async(
                 lambda r: {f.name: getattr(r, f.name) 
@@ -118,14 +118,42 @@ class OrderQuantity(View):
                 thread_sensitive=True
             )
             all_fields = await get_fields(record)
+
+            # 获取字段中文映射
+            def get_field_display_name(field_name):
+                # 从model_info的mapping中查找中文名
+                display_name = next(
+                    (k for k, v in model_info.get('mapping', {}).items() if v == field_name),
+                    field_name
+                )
+                return display_name[0] if isinstance(display_name, tuple) else display_name
+
+            # 处理所有字段的中文显示
+            display_fields = {}
+            for field_name, value in all_fields.items():
+                field_cn = get_field_display_name(field_name)
+                
+                # 处理布尔值
+                if isinstance(value, bool):
+                    display_value = self.get_bool_display(field_cn, None, value)
+                else:
+                    display_value = str(value) if value is not None else '空'
+                
+                display_fields[field_cn] = display_value
+
+            # 处理固定字段(station_fields)的中文名
+            station_fields = [get_field_display_name(f) for f in model_info.get('station_field', [])]
             
-            if record.history_type in ['+', '-']:  # 新增或删除记录
-                record_data.update({
-                    'display_type': '创建' if record.history_type == '+' else '删除',
-                    'all_fields': all_fields
-                })
-            else:  # 修改记录
-                # 异步获取上一条记录
+            # 添加到记录数据
+            record_data.update({
+                'station_fields': station_fields,
+                'all_fields': display_fields
+            })
+
+            if record.history_type == '~':  # 修改记录需要特殊处理
+                changes = []
+                
+                # 获取上一条记录
                 get_prev_record = sync_to_async(
                     lambda r: original_model.objects.filter(
                         id=r.id,
@@ -135,40 +163,50 @@ class OrderQuantity(View):
                 )
                 prev_record = await get_prev_record(record)
                 
-                changes = []
                 if prev_record:
-                    # 异步获取上一条记录的字段值
                     prev_fields = await get_fields(prev_record)
                     
-                    # 比较两个记录的字段值
                     for field_name, current_value in all_fields.items():
                         if field_name in prev_fields:
                             previous_value = prev_fields[field_name]
-                            if previous_value != current_value:
+                            if self.is_value_changed(previous_value, current_value):  
+                                field_cn = get_field_display_name(field_name)
+                                
+                                # 处理显示文本
+                                if isinstance(current_value, bool) or isinstance(previous_value, bool):
+                                    display_text = self.get_bool_display(field_cn, previous_value, current_value)
+                                else:
+                                    old_val = str(previous_value) if previous_value is not None else '空'
+                                    new_val = str(current_value) if current_value is not None else '空'
+                                    display_text = f"{old_val} → {new_val}"
+                                
                                 changes.append({
-                                    'field': field_name,
+                                    'field': field_cn,
+                                    'change_text': display_text,
+                                    'raw_field': field_name,
                                     'old_value': previous_value,
-                                    'new_value': current_value
+                                    'new_value': current_value,
+                                    'is_changed': self.is_value_changed(previous_value, current_value)  # 标记实际变化的字段
                                 })
                 
-                # 添加必要字段（从model_info中获取）
-                station_fields = model_info.get('station_field', [])
-                for field in station_fields:
-                    if field in all_fields and field not in [change['field'] for change in changes]:
+                # 添加必要字段(未变化的)
+                for field in model_info.get('station_field', []):
+                    if field in all_fields and field not in [change['raw_field'] for change in changes]:
+                        field_cn = get_field_display_name(field)
+                        value = all_fields.get(field_cn, '空')
+                        
                         changes.append({
-                            'field': field,
-                            'old_value': all_fields[field],
-                            'new_value': all_fields[field]
+                            'field': field_cn,
+                            'change_text': value,
+                            'raw_field': field,
+                            'old_value': value,
+                            'new_value': value,
+                            'is_changed': False  # 标记为未变化
                         })
                 
-                record_data.update({
-                    'display_type': '修改',
-                    'changes': changes,
-                    'station_fields': station_fields  # 传递必要字段用于前端显示
-                })
+                record_data['changes'] = changes
             
             records_data.append(record_data)
-        
         
         context = {
             'model_choices':MODEL_CHOICES,
@@ -184,7 +222,38 @@ class OrderQuantity(View):
         #     }
         #await sync_to_async(print)(records_data)
         return self.template_historical, context
+    
+    #智能判断值是否真正发生变化
+    def is_value_changed(self,old_val, new_val):
+        if old_val is None and new_val is None:
+            return False
+        if old_val is None or new_val is None:
+            return True
+        
+        # 处理日期时间比较
+        if hasattr(old_val, 'isoformat') and hasattr(new_val, 'isoformat'):
+            return old_val.isoformat() != new_val.isoformat()
+        
+        # 处理字符串数字比较（如"8307023989"和8307023989）
+        if str(old_val).strip() == str(new_val).strip():
+            return False
+        
+        return old_val != new_val
 
+    #统一处理布尔类型字段的界面显示
+    def get_bool_display(self,field_name_cn, old_value, new_value):
+        if old_value is None and new_value is True:
+            return f"确认{field_name_cn}"
+        elif old_value is None and new_value is False:
+            return f"取消{field_name_cn}"
+        elif old_value == new_value:
+            return f"{'已' if new_value else '未'}{field_name_cn}"
+        elif old_value is True and new_value is False:
+            return f"取消{field_name_cn}"
+        elif old_value is False and new_value is True:
+            return f"确认{field_name_cn}"
+        else:
+            return f"{'已' if new_value else '未'}{field_name_cn}"
 
 
     async def handle_order_quantity_get(
