@@ -69,7 +69,7 @@
                         <th class="th"></th>
                         <th class="th"><input type="text" style="width:110px;" id="containerSearchInput" placeholder="搜索操作人..." oninput="filterTable()"></th>
                         <th class="th"><input type="text" id="forcastSearchInput" placeholder="操作类型" oninput="filterTable()" style="width:80px;"></th>
-                        <th class="th"></th>
+                        <th class="th"><input type="text" id="forcastSearchInput" placeholder="变更内容" oninput="filterTable()" style="width:80px;"></th>
                     </tr>
                   </thead>
                   <tbody>
@@ -100,17 +100,23 @@
                                       </div>
                                       {% endfor %}
                                   </div>
-                              {% else %}
-                                  <!-- 修改：只显示变更的字段 -->
+                                  {% else %}
+                                  <!-- 修改：只显示变更的字段和必要字段 -->
                                   <div style="display: grid; grid-template-columns: auto 1fr 1fr; gap: 0.5rem; align-items: center;">
                                       {% for change in record.changes %}
                                       <div style="font-weight: 600;">{{ change.field }}:</div>
                                       <div>
-                                          <span style="color: #dc3545;">{{ change.old_value|default:"空" }}</span>
+                                          {% if change.old_value != change.new_value %}
+                                              <span style="color: #dc3545;">{{ change.old_value|default:"空" }}</span>
+                                          {% else %}
+                                              <span>{{ change.old_value|default:"空" }}</span>
+                                          {% endif %}
                                       </div>
                                       <div>
-                                          <span>→</span>
-                                          <span style="color: #198754;">{{ change.new_value|default:"空" }}</span>
+                                          {% if change.old_value != change.new_value %}
+                                              <span>→</span>
+                                              <span style="color: #198754;">{{ change.new_value|default:"空" }}</span>
+                                          {% endif %}
                                       </div>
                                       {% endfor %}
                                   </div>

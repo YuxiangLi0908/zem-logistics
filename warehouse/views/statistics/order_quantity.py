@@ -100,27 +100,74 @@ class OrderQuantity(View):
         users = await sync_to_async(lambda: User.objects.filter(id__in=user_ids).in_bulk())()
         
         for record in history_records:
-            changes = []
-            prev_record = await sync_to_async(getattr)(record, 'prev_record', None)
-            
-            if prev_record:
-                diff = await sync_to_async(getattr)(record, 'diff_prev', {})
-                for field, (old_val, new_val) in diff.items():
-                    changes.append({
-                        'field': field,
-                        'old_value': old_val,
-                        'new_value': new_val
-                    })
-            
-            records_data.append({
+            record_data = {
                 'date': record.history_date,
                 'user': users.get(record.history_user_id),
-                'type': '创建' if record.history_type == '+' else 
-                       '修改' if record.history_type == '~' else 
-                       '删除',
-                'changes': changes,
+                'type': '+' if record.history_type == '+' else 
+                    '~' if record.history_type == '~' else 
+                    '-',
                 'record': record
-            })
+            }
+            
+            # 异步获取所有字段值
+            get_fields = sync_to_async(
+                lambda r: {f.name: getattr(r, f.name) 
+                        for f in r.__class__._meta.get_fields() 
+                        if f.name not in ['history_id', 'history_date', 'history_user', 
+                                        'history_type', 'history_change_reason']},
+                thread_sensitive=True
+            )
+            all_fields = await get_fields(record)
+            
+            if record.history_type in ['+', '-']:  # 新增或删除记录
+                record_data.update({
+                    'display_type': '创建' if record.history_type == '+' else '删除',
+                    'all_fields': all_fields
+                })
+            else:  # 修改记录
+                # 异步获取上一条记录
+                get_prev_record = sync_to_async(
+                    lambda r: original_model.objects.filter(
+                        id=r.id,
+                        history_date__lt=r.history_date
+                    ).order_by('-history_date').first(),
+                    thread_sensitive=True
+                )
+                prev_record = await get_prev_record(record)
+                
+                changes = []
+                if prev_record:
+                    # 异步获取上一条记录的字段值
+                    prev_fields = await get_fields(prev_record)
+                    
+                    # 比较两个记录的字段值
+                    for field_name, current_value in all_fields.items():
+                        if field_name in prev_fields:
+                            previous_value = prev_fields[field_name]
+                            if previous_value != current_value:
+                                changes.append({
+                                    'field': field_name,
+                                    'old_value': previous_value,
+                                    'new_value': current_value
+                                })
+                
+                # 添加必要字段（从model_info中获取）
+                station_fields = model_info.get('station_field', [])
+                for field in station_fields:
+                    if field in all_fields and field not in [change['field'] for change in changes]:
+                        changes.append({
+                            'field': field,
+                            'old_value': all_fields[field],
+                            'new_value': all_fields[field]
+                        })
+                
+                record_data.update({
+                    'display_type': '修改',
+                    'changes': changes,
+                    'station_fields': station_fields  # 传递必要字段用于前端显示
+                })
+            
+            records_data.append(record_data)
         
         
         context = {

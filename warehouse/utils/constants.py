@@ -169,6 +169,43 @@ PACKING_LIST_TEMP_COL_MAPPING = {
     "派送方式": "delivery_method",
     "备注": "note",
 }
+SHIPMENT_TABLE_MAPPING = {
+    "预约批次号":"shipment_batch_number",
+    "ISA":"appointment_id",
+    "发货仓库":"origin",
+    "目的地":"destination",
+    "地址":"address",
+    "供应商":"carrier",
+    "预约时间":"shipment_appointment",
+    "出库":"is_shipped",
+    "出库时间":"shipped_at",
+    "到达":"is_arrived",
+    "到达时间":"arrived_at",
+    "装车类型":"load_type",
+    "预约账户":"shipment_account",
+    "预约类型":"shipment_type",
+    "预约总重量":"total_weight",
+    "预约总体积":"total_cbm",
+    "预约总板数":"total_pallet",
+    "预约总件数":"total_pcs",
+    "发货总重量":"shipped_weight",
+    "发货总体积":"shipped_cbm",
+    "发货总板数":"shipped_pallet",
+    "发货总件数":"shipped_pcs",
+    "备注":"note",
+    "pod链接":"pod_link",
+    "pod上传时间":"pod_uploaded_at",
+    "落板数":"pallet_dumpped",
+    "车次":"fleet_number",
+    "异常打板":"abnormal_palletization",
+    "使用":"in_use",
+    "取消":"is_canceled",
+    "取消原因":"cancelation_reason",
+    "状态":"status",
+    "BOL号":"ARM_BOL",
+    "PRO号":"ARM_PRO",
+    "快递单号":"express_number"
+}
 
 MODEL_CHOICES = {
     'packinglist': {
@@ -176,19 +213,30 @@ MODEL_CHOICES = {
         'name': 'packinglist',
         'search_field': 'container_number',
         'warehouse':'warehouse_packinglist',
-        'station_field':['shipping_mark','fba_id','ref_id']
+        'station_field':['destination','shipping_mark','fba_id','ref_id'],
+        "mapping":PACKING_LIST_TEMP_COL_MAPPING,
     },
-    '板子': {
+    'pallet': {
         'model': 'HistoricalPallet',
-        'name': 'pallet',
+        'name': '板子信息',
+        'search_field': 'container_number',
+        'warehouse':'warehouse_packinglist',
+        'station_field':['destination','shipping_mark','fba_id','ref_id']
+    },
+    'shipment': {
+        'model': 'HistoricalShipment',
+        'name': '预约信息',
         'search_field': 'shipment_batch_number',
-        'warehouse':'warehouse_pallet',
-        'station_field':['destination','fba_id','ref_id']
+        'warehouse':'warehouse_shipment',
+        'station_field':['appointment_id'],
+        "mapping":SHIPMENT_TABLE_MAPPING
     },
     'invoice': {
         'model': 'warehouse.Invoice',
         'name': '发票',
-        'search_field': 'invoice_number'
+        'search_field': 'invoice_number',
+        'warehouse':'warehouse_pallet',
+        'station_field':['destination','fba_id','ref_id']
     },
     
 }
