@@ -224,6 +224,34 @@ PALLET_TABLE_MAPPING={
     "联系人":"contact_name"
 }
 
+INVOICE_PREPORT_TABLE_MAPPING={
+    "提拆/打托缠膜":"pickup",
+    "托架费":"chassis",
+    "托架提取费":"chassis_split",
+    "预提费":"prepull",
+    "货柜放置费":"yard_storage",
+    "操作处理费":"handling_fee",
+    "码头":"pier_pass",
+    "港口拥堵费":"congestion_fee",
+    "吊柜费":"hanging_crane",
+    "空跑费":"dry_run",
+    "查验费":"exam_fee",
+    "异常拆柜":"abnormal_palletization",
+    "所在仓":"location",
+    "联系人":"contact_name"
+}
+    # hazmat = models.FloatField(null=True, blank=True, verbose_name="危险品")
+    # over_weight = models.FloatField(null=True, blank=True, verbose_name="超重费")
+    # urgent_fee = models.FloatField(null=True, blank=True, verbose_name="加急费")
+    # other_serive = models.FloatField(null=True, blank=True, verbose_name="其他服务")
+    # demurrage = models.FloatField(null=True, blank=True, verbose_name="港内滞期费")
+    # per_diem = models.FloatField(null=True, blank=True, verbose_name="港外滞期费")
+    # second_pickup = models.FloatField(null=True, blank=True, verbose_name="二次提货")
+    # amount = models.FloatField(null=True, blank=True)
+    # other_fees = JSONField(default=dict)
+    # surcharges = JSONField(default=dict)
+    # surcharge_notes = JSONField(default=dict)
+
 MODEL_CHOICES = {
     'packinglist': {
         'model': 'HistoricalPackingList',
@@ -237,7 +265,7 @@ MODEL_CHOICES = {
         'model': 'HistoricalPallet',
         'name': '板子信息',
         'search_field': 'container_number',
-        'warehouse':'warehouse_packinglist',
+        'warehouse':'warehouse_pallet',
         'station_field':['destination','delivery_method'],
         "mapping":PALLET_TABLE_MAPPING,
     },
@@ -249,12 +277,18 @@ MODEL_CHOICES = {
         'station_field':['appointment_id'],
         "mapping":SHIPMENT_TABLE_MAPPING
     },
-    'invoice': {
-        'model': 'warehouse.Invoice',
-        'name': '发票',
+    'invoicepreport': {
+        'model': 'HistoricalInvoicePreport',
+        'name': '提拆柜账单',
         'search_field': 'invoice_number',
-        'warehouse':'warehouse_pallet',
-        'station_field':['destination','fba_id','ref_id']
+        'warehouse':'warehouse_invoicepreport',
+        'station_field':[],
+        "mapping":INVOICE_PREPORT_TABLE_MAPPING,
+        'indirect_search': {  # 添加间接查询配置
+            'field': 'invoice_number',  # 本表的外键字段
+            'related_model': 'Invoice',  # 关联模型
+            'target_field': 'container_number'  # 最终要查询的字段
+        }
     },
     
 }

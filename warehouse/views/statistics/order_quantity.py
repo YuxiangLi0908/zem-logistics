@@ -21,6 +21,7 @@ from warehouse.utils.constants import (
 from warehouse.models.customer import Customer
 from warehouse.models.order import Order
 from warehouse.models.container import Container
+from warehouse.models.invoice import Invoice
 from django.contrib.auth.models import User
 
 
@@ -78,7 +79,23 @@ class OrderQuantity(View):
         original_model = apps.get_model('warehouse', original_model_name)
         
         # 处理外键查询
-        if search_field == 'container_number' and hasattr(original_model, 'container_number'):
+        if 'indirect_search' in model_info and search_field == model_info['indirect_search']['target_field']:
+            container = await Container.objects.filter(container_number=search_value).afirst()
+            if not container:
+                raise Http404(f"找不到柜号 {search_value}")
+            related_model = apps.get_model('warehouse', model_info['indirect_search']['related_model'])
+            
+            invoice = await related_model.objects.filter(container_number_id=container.id).afirst()
+            await sync_to_async(print)('-----------------------',invoice)
+            if not invoice:
+                raise Http404(f"找不到柜号 {search_value}对应的账单记录")         
+            # 异步查询关联对象
+            
+            history_records = original_model.objects.filter(
+                invoice_number_id=invoice.id
+            ).select_related('history_user').order_by('-history_date')
+            await sync_to_async(print)('-----------------------',history_records)
+        elif search_field == 'container_number' and hasattr(original_model, 'container_number'):
             container = await Container.objects.filter(container_number=search_value).afirst()
             if not container:
                 raise Http404(f"找不到柜号 {search_value}")
@@ -131,6 +148,7 @@ class OrderQuantity(View):
             # 处理所有字段的中文显示
             display_fields = {}
             for field_name, value in all_fields.items():
+                
                 field_cn = get_field_display_name(field_name)
                 
                 # 处理布尔值
@@ -230,11 +248,10 @@ class OrderQuantity(View):
         if old_val is None or new_val is None:
             return True
         
-        # 处理日期时间比较
+        # 比较日期有没有改变
         if hasattr(old_val, 'isoformat') and hasattr(new_val, 'isoformat'):
             return old_val.isoformat() != new_val.isoformat()
         
-        # 处理字符串数字比较（如"8307023989"和8307023989）
         if str(old_val).strip() == str(new_val).strip():
             return False
         
