@@ -587,26 +587,27 @@ class Palletization(View):
                 contact_names,
                 po_ids,
             ):
-                pallet_data += await self._split_pallet(
-                    order_selected,
-                    n,
-                    p_a,
-                    p_r,
-                    c,
-                    w,
-                    dest,
-                    d_m,
-                    note,
-                    shipment,
-                    shipping_mark,
-                    fba_id,
-                    ref_id,
-                    po_id,
-                    pk,
-                    addr,
-                    zipcode,
-                    contact_name,
-                )  # 循环遍历每个汇总的板数
+                if p_a>0:  #如果实际箱数大于0，才构建板子的信息
+                    pallet_data += await self._split_pallet(
+                        order_selected,
+                        n,
+                        p_a,
+                        p_r,
+                        c,
+                        w,
+                        dest,
+                        d_m,
+                        note,
+                        shipment,
+                        shipping_mark,
+                        fba_id,
+                        ref_id,
+                        po_id,
+                        pk,
+                        addr,
+                        zipcode,
+                        contact_name,
+                    )  # 循环遍历每个汇总的板数
                 if p_a != p_r:
                     abnormal_offloads.append(
                         {
