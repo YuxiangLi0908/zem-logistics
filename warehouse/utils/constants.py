@@ -238,19 +238,16 @@ INVOICE_PREPORT_TABLE_MAPPING={
     "查验费":"exam_fee",
     "异常拆柜":"abnormal_palletization",
     "所在仓":"location",
-    "联系人":"contact_name"
+    "联系人":"contact_name",
+    "危险品":"hazmat",
+    "超重费":"over_weight",
+    "加急费":"urgent_fee",
+    "其他服务":"other_serive",
+    "港内滞期费":"demurrage",
+    "港外滞期费":"per_diem",
+    "二次提货":"second_pickup",
+    "总计":"amount",
 }
-    # hazmat = models.FloatField(null=True, blank=True, verbose_name="危险品")
-    # over_weight = models.FloatField(null=True, blank=True, verbose_name="超重费")
-    # urgent_fee = models.FloatField(null=True, blank=True, verbose_name="加急费")
-    # other_serive = models.FloatField(null=True, blank=True, verbose_name="其他服务")
-    # demurrage = models.FloatField(null=True, blank=True, verbose_name="港内滞期费")
-    # per_diem = models.FloatField(null=True, blank=True, verbose_name="港外滞期费")
-    # second_pickup = models.FloatField(null=True, blank=True, verbose_name="二次提货")
-    # amount = models.FloatField(null=True, blank=True)
-    # other_fees = JSONField(default=dict)
-    # surcharges = JSONField(default=dict)
-    # surcharge_notes = JSONField(default=dict)
 
 MODEL_CHOICES = {
     'packinglist': {
@@ -293,7 +290,7 @@ MODEL_CHOICES = {
     
 }
 file_path = Path(__file__).parent.resolve().joinpath("fba_fulfillment_center.yaml")
-with open(file_path, "r",encoding='utf8') as f:
+with open(file_path, "r") as f:
     amazon_fba_locations = yaml.safe_load(f)
 
 SP_USER = os.environ.get("MS_SP_USER")
