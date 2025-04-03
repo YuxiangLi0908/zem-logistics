@@ -73,7 +73,6 @@ class OrderQuantity(View):
         search_value = request.POST.get("search_value").strip()
 
         model_info = MODEL_CHOICES.get(table_name)
-        print('model_info',model_info["warehouse"])
         #try:
         original_model_name = model_info['model']
         original_model = apps.get_model('warehouse', original_model_name)
@@ -86,7 +85,6 @@ class OrderQuantity(View):
             related_model = apps.get_model('warehouse', model_info['indirect_search']['related_model'])
             
             invoice = await related_model.objects.filter(container_number_id=container.id).afirst()
-            await sync_to_async(print)('-----------------------',invoice)
             if not invoice:
                 raise Http404(f"找不到柜号 {search_value}对应的账单记录")         
             # 异步查询关联对象
@@ -94,7 +92,6 @@ class OrderQuantity(View):
             history_records = original_model.objects.filter(
                 invoice_number_id=invoice.id
             ).select_related('history_user').order_by('-history_date')
-            await sync_to_async(print)('-----------------------',history_records)
         elif search_field == 'container_number' and hasattr(original_model, 'container_number'):
             container = await Container.objects.filter(container_number=search_value).afirst()
             if not container:
@@ -155,7 +152,8 @@ class OrderQuantity(View):
                 if isinstance(value, bool):
                     display_value = self.get_bool_display(field_cn, None, value)
                 else:
-                    display_value = str(value) if value is not None else '空'
+                    display_value = await self.safe_get_attr(record, field_name)
+                    #display_value = str(value) if value is not None else '空'
                 
                 display_fields[field_cn] = display_value
 
@@ -233,14 +231,14 @@ class OrderQuantity(View):
             'search_value':search_value,
             'records': records_data,
         }
-        # except Exception as e:
-        #     context = {
-        #         'error': f'查询错误: {str(e)}',
-        #         'model_choices': MODEL_CHOICES
-        #     }
-        #await sync_to_async(print)(records_data)
         return self.template_historical, context
     
+    async def safe_get_attr(self,obj, attr_name):
+        value = getattr(obj, attr_name)
+        if hasattr(value, '_meta'):  # 如果是模型实例
+            return await sync_to_async(str)(value)  # 异步转字符串
+        return str(value) if value is not None else '空'
+
     #智能判断值是否真正发生变化
     def is_value_changed(self,old_val, new_val):
         if old_val is None and new_val is None:
