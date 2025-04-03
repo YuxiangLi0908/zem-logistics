@@ -401,8 +401,7 @@ class ShippingManagement(View):
                 "fleet_number",
             )
             .filter(
-                criteria
-                & models.Q(
+                models.Q(
                     is_shipped=True,
                     in_use=True,
                     is_canceled=False,
