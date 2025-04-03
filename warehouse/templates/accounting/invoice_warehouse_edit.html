@@ -52,8 +52,16 @@
                 <span style="color: #808080; width: 150px;">({{ FS.self_pickup }})</span>
                 <input type="number" class="original-input" style="width: 80px; margin-right: 10px;" id="self_pickup" name="self_pickup" value="{{ invoice_warehouse.self_pickup }}">
                 <span style="margin: 0 5px;">+</span>
-                <input type="number" style="width: 70px; margin-right: 10px;" id="self_pickup_surcharge" name="intercept_surcharge" value="{{ surcharges.self_pickup }}">
+                <input type="number" style="width: 70px; margin-right: 10px;" id="self_pickup_surcharge" name="self_pickup_surcharge" value="{{ surcharges.self_pickup }}">
                 <input type="text" style="width: 120px;" id="self_pickup_surcharge_note" name="self_pickup_surcharge_note" value="{{ surcharges_notes.self_pickup }}">
+            </div>
+            <div style="display: flex; align-items: center; margin-bottom: 10px;">
+                <label style="width: 120px; font-weight: bold;" for="self_pickup">拆柜——交付快递</label>
+                <span style="color: #808080; width: 150px;">(10/托)</span>
+                <input type="number" class="original-input" style="width: 80px; margin-right: 10px;" id="split_delivery" name="split_delivery" value="{{ invoice_warehouse.split_delivery }}">
+                <span style="margin: 0 5px;">+</span>
+                <input type="number" style="width: 70px; margin-right: 10px;" id="split_delivery_surcharge" name="split_delivery_surcharge" value="{{ surcharges.split_delivery }}">
+                <input type="text" style="width: 120px;" id="split_delivery_surcharge_note" name="split_delivery_surcharge_note" value="{{ surcharges_notes.split_delivery }}">
             </div>
             <div style="display: flex; align-items: center; margin-bottom: 10px;">
                 <label style="width: 120px; font-weight: bold;" for="re_pallet">重新打板</label>
@@ -188,7 +196,7 @@
                 <button type="submit" class="btn btn-danger" style="width: 150px; height: 35px;" onclick="validateForm('account_comlete')">财务修改账单确认</button>
             {% else %}
                 <button type="submit" class="btn btn-danger" style="width: 150px; height: 35px;" onclick="validateForm('complete')">账单录入完成</button>
-                <button type="button" class="btn btn-primary" style="width: 150px; height: 35px;" onclick="validateForm('temporary')">暂存未完成</button>
+                <button type="submit" class="btn btn-primary" style="width: 150px; height: 35px;" onclick="validateForm('temporary')">暂存未完成</button>
                 {% endif %}
         {% endif %}
     </form>
@@ -238,7 +246,6 @@
         const labels = form.querySelectorAll('label');
         // 定义金额要求的映射关系
         const amountRequirements=JSON.parse('{{ fs_json|escapejs }}');
-        console.log(amountRequirements);
         /*
         const amountRequirements = {
             "分拣费": 1.5,

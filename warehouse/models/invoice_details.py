@@ -28,7 +28,7 @@ class InvoicePreport(models.Model):
     amount = models.FloatField(null=True, blank=True)
     other_fees = JSONField(default=dict)
     surcharges = JSONField(default=dict)
-    surcharge_notes = JSONField(default=dict)
+    surcharge_notes = JSONField(default=dict) 
     history = HistoricalRecords()
 
     def __str__(self) -> str:
@@ -43,6 +43,7 @@ class InvoiceWarehouse(models.Model):
         null=True, blank=True, verbose_name="亚马逊PO激活"
     )
     self_pickup = models.FloatField(null=True, blank=True, verbose_name="客户自提")
+    split_delivery = models.FloatField(null=True, blank=True, verbose_name="拆柜交付快递")
     re_pallet = models.FloatField(null=True, blank=True, verbose_name="重新打板")
     handling = models.FloatField(null=True, blank=True, verbose_name="")
     counting = models.FloatField(null=True, blank=True, verbose_name="货品清点费")
