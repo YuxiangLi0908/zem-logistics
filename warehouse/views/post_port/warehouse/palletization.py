@@ -587,7 +587,7 @@ class Palletization(View):
                 contact_names,
                 po_ids,
             ):
-                if p_a>0:  #如果实际箱数大于0，才构建板子的信息
+                if p_a > 0:  # 如果实际箱数大于0，才构建板子的信息
                     pallet_data += await self._split_pallet(
                         order_selected,
                         n,
@@ -923,7 +923,9 @@ class Palletization(View):
                 container_number=container_number, status=status
             )
             for pl in packing_list:
-                delivery_method = pl.get("custom_delivery_method") or pl.get("delivery_method", "")
+                delivery_method = pl.get("custom_delivery_method") or pl.get(
+                    "delivery_method", ""
+                )
                 cbm = pl.get("cbm")
                 remainder = cbm % 1
                 cbm = int(cbm)
@@ -958,7 +960,7 @@ class Palletization(View):
                             new_marks = new_marks + str("TTT") + str(newline_count)
                         else:
                             new_marks = marks + str("TTT") + str(1)
-                    
+
                 else:
                     destination = pl.get("destination").replace("沃尔玛", "WMT-")
                     destination = destination.replace("Walmart", "WMT-")
@@ -992,9 +994,7 @@ class Palletization(View):
                         "destination": f"{destination}-{i}",
                         "date": retrieval_date,
                         "customer": customer_name,
-                        "hold": (
-                            "暂扣留仓" in delivery_method.split("-")[0]
-                        ),
+                        "hold": ("暂扣留仓" in delivery_method.split("-")[0]),
                         "fba_ids": fba_ids,
                         "barcode": barcode_base64,
                         "shipping_marks": new_marks,
