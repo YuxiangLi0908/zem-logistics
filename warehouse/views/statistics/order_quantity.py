@@ -7,23 +7,19 @@ from typing import Any
 import numpy as np
 from asgiref.sync import sync_to_async
 from dateutil.relativedelta import relativedelta
+from django.apps import apps
 from django.contrib.auth.models import User
 from django.db.models import Count, Q
 from django.db.models.functions import TruncMonth
-from django.http import Http404,HttpRequest, HttpResponse, HttpResponseForbidden
+from django.http import Http404, HttpRequest, HttpResponse, HttpResponseForbidden
 from django.shortcuts import render
-from django.apps import apps
 from django.views import View
-from warehouse.utils.constants import (
-    MODEL_CHOICES
-)
 
-from warehouse.models.customer import Customer
-from warehouse.models.order import Order
 from warehouse.models.container import Container
+from warehouse.models.customer import Customer
 from warehouse.models.invoice import Invoice
-from django.contrib.auth.models import User
-
+from warehouse.models.order import Order
+from warehouse.utils.constants import MODEL_CHOICES
 
 
 class OrderQuantity(View):
@@ -33,13 +29,15 @@ class OrderQuantity(View):
 
     async def get(self, request: HttpRequest, **kwargs) -> HttpResponse:
         step = request.GET.get("step", None)
-        if step =="historical_query":
+        if step == "historical_query":
             if not await self._validate_user_manage(request.user):
                 return HttpResponseForbidden(
                     "You are not authenticated to access this page!"
-                )           
-            context = {'model_choices':MODEL_CHOICES}
-            return await sync_to_async(render)(request, self.template_historical, context) 
+                )
+            context = {"model_choices": MODEL_CHOICES}
+            return await sync_to_async(render)(
+                request, self.template_historical, context
+            )
         else:
             if not await self._validate_user_group(request.user):
                 return HttpResponseForbidden(
@@ -73,63 +71,98 @@ class OrderQuantity(View):
         search_value = request.POST.get("search_value").strip()
 
         model_info = MODEL_CHOICES.get(table_name)
-        #try:
-        original_model_name = model_info['model']
-        original_model = apps.get_model('warehouse', original_model_name)
-        
+        # try:
+        original_model_name = model_info["model"]
+        original_model = apps.get_model("warehouse", original_model_name)
+
         # 处理外键查询
-        if 'indirect_search' in model_info and search_field == model_info['indirect_search']['target_field']:
-            container = await Container.objects.filter(container_number=search_value).afirst()
+        if (
+            "indirect_search" in model_info
+            and search_field == model_info["indirect_search"]["target_field"]
+        ):
+            container = await Container.objects.filter(
+                container_number=search_value
+            ).afirst()
             if not container:
                 raise Http404(f"找不到柜号 {search_value}")
-            related_model = apps.get_model('warehouse', model_info['indirect_search']['related_model'])
-            
-            invoice = await related_model.objects.filter(container_number_id=container.id).afirst()
-            if not invoice:
-                raise Http404(f"找不到柜号 {search_value}对应的账单记录")         
-            # 异步查询关联对象
-            
-            history_records = original_model.objects.filter(
-                invoice_number_id=invoice.id
-            ).select_related('history_user').order_by('-history_date')
-        elif search_field == 'container_number' and hasattr(original_model, 'container_number'):
-            container = await Container.objects.filter(container_number=search_value).afirst()
-            if not container:
-                raise Http404(f"找不到柜号 {search_value}")
-            
-            history_records = original_model.objects.filter(
+            related_model = apps.get_model(
+                "warehouse", model_info["indirect_search"]["related_model"]
+            )
+
+            invoice = await related_model.objects.filter(
                 container_number_id=container.id
-            ).select_related('history_user').order_by('-history_date')
+            ).afirst()
+            if not invoice:
+                raise Http404(f"找不到柜号 {search_value}对应的账单记录")
+            # 异步查询关联对象
+
+            history_records = (
+                original_model.objects.filter(invoice_number_id=invoice.id)
+                .select_related("history_user")
+                .order_by("-history_date")
+            )
+        elif search_field == "container_number" and hasattr(
+            original_model, "container_number"
+        ):
+            container = await Container.objects.filter(
+                container_number=search_value
+            ).afirst()
+            if not container:
+                raise Http404(f"找不到柜号 {search_value}")
+
+            history_records = (
+                original_model.objects.filter(container_number_id=container.id)
+                .select_related("history_user")
+                .order_by("-history_date")
+            )
         else:
-            history_records = original_model.objects.filter(
-                **{f"{search_field}__icontains": search_value}
-            ).select_related('history_user').order_by('-history_date')
-        
+            history_records = (
+                original_model.objects.filter(
+                    **{f"{search_field}__icontains": search_value}
+                )
+                .select_related("history_user")
+                .order_by("-history_date")
+            )
+
         # 转换为同步查询
         history_records = await sync_to_async(list)(history_records)
-        
+
         # 准备显示数据
         records_data = []
         user_ids = {r.history_user_id for r in history_records if r.history_user_id}
-        users = await sync_to_async(lambda: User.objects.filter(id__in=user_ids).in_bulk())()
-        
+        users = await sync_to_async(
+            lambda: User.objects.filter(id__in=user_ids).in_bulk()
+        )()
+
         for record in history_records:
             # 基础信息
             record_data = {
-                'date': record.history_date,
-                'user': users.get(record.history_user_id),
-                'display_type': '创建' if record.history_type == '+' else '删除' if record.history_type == '-' else '修改',
-                'type': record.history_type,  # 保留原始类型标识
-                'record': record  # 保留原始记录对象
+                "date": record.history_date,
+                "user": users.get(record.history_user_id),
+                "display_type": (
+                    "创建"
+                    if record.history_type == "+"
+                    else "删除" if record.history_type == "-" else "修改"
+                ),
+                "type": record.history_type,  # 保留原始类型标识
+                "record": record,  # 保留原始记录对象
             }
 
             # 异步获取所有字段值
             get_fields = sync_to_async(
-                lambda r: {f.name: getattr(r, f.name) 
-                        for f in r.__class__._meta.get_fields() 
-                        if f.name not in ['history_id', 'history_date', 'history_user', 
-                                        'history_type', 'history_change_reason']},
-                thread_sensitive=True
+                lambda r: {
+                    f.name: getattr(r, f.name)
+                    for f in r.__class__._meta.get_fields()
+                    if f.name
+                    not in [
+                        "history_id",
+                        "history_date",
+                        "history_user",
+                        "history_type",
+                        "history_change_reason",
+                    ]
+                },
+                thread_sensitive=True,
             )
             all_fields = await get_fields(record)
 
@@ -137,126 +170,154 @@ class OrderQuantity(View):
             def get_field_display_name(field_name):
                 # 从model_info的mapping中查找中文名
                 display_name = next(
-                    (k for k, v in model_info.get('mapping', {}).items() if v == field_name),
-                    field_name
+                    (
+                        k
+                        for k, v in model_info.get("mapping", {}).items()
+                        if v == field_name
+                    ),
+                    field_name,
                 )
-                return display_name[0] if isinstance(display_name, tuple) else display_name
+                return (
+                    display_name[0] if isinstance(display_name, tuple) else display_name
+                )
 
             # 处理所有字段的中文显示
             display_fields = {}
             for field_name, value in all_fields.items():
-                
+
                 field_cn = get_field_display_name(field_name)
-                
+
                 # 处理布尔值
                 if isinstance(value, bool):
                     display_value = self.get_bool_display(field_cn, None, value)
                 else:
                     display_value = await self.safe_get_attr(record, field_name)
-                    #display_value = str(value) if value is not None else '空'
-                
+                    # display_value = str(value) if value is not None else '空'
+
                 display_fields[field_cn] = display_value
 
             # 处理固定字段(station_fields)的中文名
-            station_fields = [get_field_display_name(f) for f in model_info.get('station_field', [])]
-            
-            # 添加到记录数据
-            record_data.update({
-                'station_fields': station_fields,
-                'all_fields': display_fields
-            })
+            station_fields = [
+                get_field_display_name(f) for f in model_info.get("station_field", [])
+            ]
 
-            if record.history_type == '~':  # 修改记录需要特殊处理
+            # 添加到记录数据
+            record_data.update(
+                {"station_fields": station_fields, "all_fields": display_fields}
+            )
+
+            if record.history_type == "~":  # 修改记录需要特殊处理
                 changes = []
-                
+
                 # 获取上一条记录
                 get_prev_record = sync_to_async(
                     lambda r: original_model.objects.filter(
-                        id=r.id,
-                        history_date__lt=r.history_date
-                    ).order_by('-history_date').first(),
-                    thread_sensitive=True
+                        id=r.id, history_date__lt=r.history_date
+                    )
+                    .order_by("-history_date")
+                    .first(),
+                    thread_sensitive=True,
                 )
                 prev_record = await get_prev_record(record)
-                
+
                 if prev_record:
                     prev_fields = await get_fields(prev_record)
-                    
+
                     for field_name, current_value in all_fields.items():
                         if field_name in prev_fields:
                             previous_value = prev_fields[field_name]
-                            if self.is_value_changed(previous_value, current_value):  
+                            if self.is_value_changed(previous_value, current_value):
                                 field_cn = get_field_display_name(field_name)
-                                
+
                                 # 处理显示文本
-                                if isinstance(current_value, bool) or isinstance(previous_value, bool):
-                                    display_text = self.get_bool_display(field_cn, previous_value, current_value)
+                                if isinstance(current_value, bool) or isinstance(
+                                    previous_value, bool
+                                ):
+                                    display_text = self.get_bool_display(
+                                        field_cn, previous_value, current_value
+                                    )
                                 else:
-                                    old_val = str(previous_value) if previous_value is not None else '空'
-                                    new_val = str(current_value) if current_value is not None else '空'
+                                    old_val = (
+                                        str(previous_value)
+                                        if previous_value is not None
+                                        else "空"
+                                    )
+                                    new_val = (
+                                        str(current_value)
+                                        if current_value is not None
+                                        else "空"
+                                    )
                                     display_text = f"{old_val} → {new_val}"
-                                
-                                changes.append({
-                                    'field': field_cn,
-                                    'change_text': display_text,
-                                    'raw_field': field_name,
-                                    'old_value': previous_value,
-                                    'new_value': current_value,
-                                    'is_changed': self.is_value_changed(previous_value, current_value)  # 标记实际变化的字段
-                                })
-                
+
+                                changes.append(
+                                    {
+                                        "field": field_cn,
+                                        "change_text": display_text,
+                                        "raw_field": field_name,
+                                        "old_value": previous_value,
+                                        "new_value": current_value,
+                                        "is_changed": self.is_value_changed(
+                                            previous_value, current_value
+                                        ),  # 标记实际变化的字段
+                                    }
+                                )
+
                 # 添加必要字段(未变化的)
-                for field in model_info.get('station_field', []):
-                    if field in all_fields and field not in [change['raw_field'] for change in changes]:
+                for field in model_info.get("station_field", []):
+                    if field in all_fields and field not in [
+                        change["raw_field"] for change in changes
+                    ]:
                         field_cn = get_field_display_name(field)
-                        value = all_fields.get(field_cn, '空')
-                        
-                        changes.append({
-                            'field': field_cn,
-                            'change_text': value,
-                            'raw_field': field,
-                            'old_value': value,
-                            'new_value': value,
-                            'is_changed': False  # 标记为未变化
-                        })
-                
-                record_data['changes'] = changes
-            
+                        value = all_fields.get(field_cn, "空")
+
+                        changes.append(
+                            {
+                                "field": field_cn,
+                                "change_text": value,
+                                "raw_field": field,
+                                "old_value": value,
+                                "new_value": value,
+                                "is_changed": False,  # 标记为未变化
+                            }
+                        )
+
+                record_data["changes"] = changes
+
             records_data.append(record_data)
-        
+
         context = {
-            'model_choices':MODEL_CHOICES,
-            'table_name':table_name,
-            'search_field':search_field,
-            'search_value':search_value,
-            'records': records_data,
+            "model_choices": MODEL_CHOICES,
+            "table_name": table_name,
+            "search_field": search_field,
+            "search_value": search_value,
+            "records": records_data,
         }
         return self.template_historical, context
-    
-    async def safe_get_attr(self,obj, attr_name):
-        value = getattr(obj, attr_name)
-        if hasattr(value, '_meta'):  # 如果是模型实例
-            return await sync_to_async(str)(value)  # 异步转字符串
-        return str(value) if value is not None else '空'
 
-    #智能判断值是否真正发生变化
-    def is_value_changed(self,old_val, new_val):
+    async def safe_get_attr(self, obj, attr_name):
+        value = getattr(obj, attr_name)
+        if hasattr(value, "_meta"):  # 如果是模型实例
+            return await sync_to_async(str)(value)  # 异步转字符串
+        return str(value) if value is not None else "空"
+
+    # 智能判断值是否真正发生变化
+    def is_value_changed(self, old_val, new_val):
         if old_val is None and new_val is None:
             return False
         if old_val is None or new_val is None:
             return True
-        
+
         # 比较日期有没有改变
-        if hasattr(old_val, 'isoformat') and hasattr(new_val, 'isoformat'):
+        if hasattr(old_val, "isoformat") and hasattr(new_val, "isoformat"):
             return old_val.isoformat() != new_val.isoformat()
-        
+
         if str(old_val).strip() == str(new_val).strip():
             return False
-        
+
         return old_val != new_val
 
-    #统一处理布尔类型字段的界面显示
-    def get_bool_display(self,field_name_cn, old_value, new_value):
+    # 统一处理布尔类型字段的界面显示
+    def get_bool_display(self, field_name_cn, old_value, new_value):
         if old_value is None and new_value is True:
             return f"确认{field_name_cn}"
         elif old_value is None and new_value is False:
@@ -269,7 +330,6 @@ class OrderQuantity(View):
             return f"确认{field_name_cn}"
         else:
             return f"{'已' if new_value else '未'}{field_name_cn}"
-
 
     async def handle_order_quantity_get(
         self, request: HttpRequest
@@ -289,17 +349,16 @@ class OrderQuantity(View):
             last_month_last_day.strftime("%Y-%m-%d") if not end_date else end_date
         )
 
-        customers = await sync_to_async(lambda: {
-            "----": None,
-            **{c.zem_name: c.id for c in Customer.objects.all()}
-        })()
+        customers = await sync_to_async(
+            lambda: {"----": None, **{c.zem_name: c.id for c in Customer.objects.all()}}
+        )()
         customer_idlist = request.POST.getlist("customer")
         warehouse_list = request.POST.getlist("warehouse")
 
         order_type = request.POST.get("order_type")
         date_type = request.POST.get("date_type")
         trunc_m = "vessel_id__vessel_eta" if date_type == "eta" else "created_at"
-        
+
         if order_type == "直送":
             if date_type == "eta":
                 criteria = Q(
@@ -337,15 +396,15 @@ class OrderQuantity(View):
             customer_idlist = [item["zem_name"] for item in customer_list]
             criteria &= Q(customer_name__zem_name__in=customer_idlist)
         # 柱状图
-        labels, legend, orders = await self._get_bar_chart(criteria,trunc_m)
+        labels, legend, orders = await self._get_bar_chart(criteria, trunc_m)
         # 表格
-        table = await self._get_table_chart(criteria, labels,trunc_m)
+        table = await self._get_table_chart(criteria, labels, trunc_m)
         # 饼图
         customer_labels, customer_data, month_labels, month_data = (
-            await self._get_pie_chart(criteria,trunc_m)
+            await self._get_pie_chart(criteria, trunc_m)
         )
         # 折线图
-        line_chart_data = await self._get_line_chart(criteria,trunc_m)
+        line_chart_data = await self._get_line_chart(criteria, trunc_m)
         context = {
             "area_options": self.area_options,
             "customers": customers,
@@ -368,7 +427,7 @@ class OrderQuantity(View):
 
         return self.template_shipment, context
 
-    async def _get_line_chart(self, criteria,truc_m) -> list:
+    async def _get_line_chart(self, criteria, truc_m) -> list:
         orders = await sync_to_async(list)(
             Order.objects.select_related("customer_name", "warehouse", "retrieval_id")
             .filter(criteria)
@@ -410,7 +469,7 @@ class OrderQuantity(View):
         line_chart_data_json = json.dumps(line_chart_data)
         return line_chart_data_json
 
-    async def _get_pie_chart(self, criteria,truc_m) -> list:
+    async def _get_pie_chart(self, criteria, truc_m) -> list:
         orders = await sync_to_async(list)(
             Order.objects.select_related("customer_name", "warehouse", "retrieval_id")
             .filter(criteria)
@@ -435,7 +494,7 @@ class OrderQuantity(View):
         month_data = list(month_orders.values())
         return [customer_labels, customer_data, month_labels, month_data]
 
-    async def _get_bar_chart(self, criteria,truc_m) -> list:
+    async def _get_bar_chart(self, criteria, truc_m) -> list:
         order_list = await sync_to_async(list)(
             Order.objects.select_related("customer_name", "warehouse", "retrieval_id")
             .filter(criteria)
@@ -454,7 +513,7 @@ class OrderQuantity(View):
         orders = [order["count"] for order in order_list]
         return labels, legend, orders
 
-    async def _get_table_chart(self, criteria, direct_labels,truc_m) -> list:
+    async def _get_table_chart(self, criteria, direct_labels, truc_m) -> list:
         orders = await sync_to_async(list)(
             Order.objects.select_related("customer_name", "warehouse", "retrieval_id")
             .filter(criteria)
@@ -516,7 +575,7 @@ class OrderQuantity(View):
         return await sync_to_async(
             lambda: user.groups.filter(name="leaders").exists()
         )()
-    
+
     async def _validate_user_manage(self, user: User) -> bool:
         is_staff = await sync_to_async(lambda: user.is_staff)()
         if is_staff:
