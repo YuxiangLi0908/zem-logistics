@@ -179,6 +179,88 @@ async def export_palletization_list(request: HttpRequest) -> HttpResponse:
             )
             .order_by("-cbm")
         )
+        packing_list_complement = await sync_to_async(list)(
+            PackingList.objects.select_related("container_number", "pallet")
+            .filter(container_number__container_number=container_number)
+            .annotate(
+                custom_delivery_method=Case(
+                    When(
+                        Q(delivery_method="暂扣留仓(HOLD)")
+                        | Q(delivery_method="暂扣留仓"),
+                        then=Concat(
+                            "delivery_method", Value("-"), "fba_id", Value("-"), "id"
+                        ),
+                    ),
+                    When(
+                        Q(delivery_method="客户自提") | Q(destination="客户自提"),
+                        then=Concat(
+                            "delivery_method",
+                            Value("-"),
+                            "destination",
+                            Value("-"),
+                            "shipping_mark",
+                        ),
+                    ),
+                    default=F("delivery_method"),
+                    output_field=CharField(),
+                ),
+                str_id=Cast("id", CharField()),
+                str_fba_id=Cast("fba_id", CharField()),
+                str_ref_id=Cast("ref_id", CharField()),
+                str_shipping_mark=Cast("shipping_mark", CharField()),
+            )
+            .values(
+                "container_number__container_number",
+                "destination",
+                "address",
+                "zipcode",
+                "contact_name",
+                "custom_delivery_method",
+                "note",
+                "shipment_batch_number__shipment_batch_number",
+                "PO_ID",
+            )
+            .annotate(
+                fba_ids=StringAgg("str_fba_id", delimiter=",", distinct=True),
+                ref_ids=StringAgg("str_ref_id", delimiter=",", distinct=True),
+                shipping_marks=StringAgg(
+                    "str_shipping_mark", delimiter=",", distinct=True
+                ),
+                ids=StringAgg("str_id", delimiter=",", distinct=True),
+                pcs=Sum("pcs", output_field=IntegerField()),
+                cbm=Sum("cbm", output_field=FloatField()),
+                n_pallet=Count("pallet__pallet_id", distinct=True),
+                weight_lbs=Sum("total_weight_lbs", output_field=FloatField()),
+                plt_ids=StringAgg(
+                    "str_id", delimiter=",", distinct=True, ordering="str_id"
+                ),
+            )
+            .order_by("-cbm")
+        )
+        existing_po = {
+            (plt["container_number__container_number"], plt["destination"])
+            for plt in packing_list
+        }
+        for pl in packing_list_complement:
+            po = (pl["container_number__container_number"], pl["destination"])
+            if po not in existing_po:
+                packing_list.append(
+                    {
+                        "container_number__container_number": pl[
+                            "container_number__container_number"
+                        ],
+                        "delivery_method": pl["custom_delivery_method"],
+                        "destination": pl["destination"],
+                        "fba_id": pl["fba_ids"],
+                        "ref_id": pl["ref_ids"],
+                        "shipping_mark": pl["shipping_marks"],
+                        "note": pl["note"],
+                        "PO_ID": pl["PO_ID"],
+                        "pcs": 0,
+                        "cbm": 0,
+                        "n_pallet": 0,
+                    }
+                )
     else:
         raise ValueError(f"Unknown container status: {status}\n{request.POST}")
 
