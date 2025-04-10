@@ -49,6 +49,7 @@ from warehouse.models.packing_list import PackingList
 from warehouse.models.pallet import Pallet
 from warehouse.models.retrieval import Retrieval
 from warehouse.models.shipment import Shipment
+from warehouse.models.container import Container
 from warehouse.models.transfer_location import TransferLocation
 from warehouse.utils.constants import (
     DELIVERY_METHOD_CODE,
@@ -731,6 +732,27 @@ class Palletization(View):
             await sync_to_async(bulk_create_with_history)(
                 abnormal_offload_instances, AbnormalOffloadStatus
             )
+        #更新柜子的delivery_type
+        pallet = await sync_to_async(list)(
+            Pallet.objects.filter(
+                container_number__container_number=container.container_number
+            )
+        )
+        types = set(plt.delivery_type for plt in pallet if plt.delivery_type)
+        if not types:
+            raise ValueError("缺少派送类型")
+        new_type = types.pop() if len(types) == 1 else 'mixed'
+        co = await sync_to_async(
+            Container.objects.get,
+            thread_sensitive=True
+        )(container_number=container.container_number)
+        co.delivery_type = new_type
+        await sync_to_async(
+            co.save,
+            thread_sensitive=True
+        )()
+
+
         mutable_post = request.POST.copy()
         mutable_post["name"] = order_selected.warehouse.name
         request.POST = mutable_post

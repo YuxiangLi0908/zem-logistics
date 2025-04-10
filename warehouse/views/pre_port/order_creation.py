@@ -136,6 +136,9 @@ class OrderCreation(View):
         elif step == "update_delivery_type_all":
             template, context = await self.handle_update_delivery_type(request)
             return await sync_to_async(render)(request, template, context)
+        elif step == "update_container_delivery_type":
+            template, context = await self.handle_update_container_delivery_type(request)
+            return await sync_to_async(render)(request, template, context)
 
     async def handle_export_forecast(self, request: HttpRequest) -> tuple[Any, Any]:
         selected_orders = json.loads(request.POST.get("selectedOrders", "[]"))
@@ -665,6 +668,28 @@ class OrderCreation(View):
         request.GET = mutable_get
         return await self.handle_order_management_container_get(request)
 
+    async def handle_update_container_delivery_type(
+            self, request: HttpRequest
+    ) -> tuple[Any, Any]:
+        containers = await sync_to_async(list)(Container.objects.all())
+
+        for container in containers:
+            pallets = await sync_to_async(list)(
+                Pallet.objects.filter(container_number=container)
+            )
+            if not pallets:
+                pallets = await sync_to_async(list)(
+                    PackingList.objects.filter(container_number=container)
+                )
+            types = set(plt.delivery_type for plt in pallets if plt.delivery_type)
+
+            if not types:
+                continue
+            new_type = types.pop() if len(types) == 1 else 'mixed'
+            container.delivery_type = new_type
+            await sync_to_async(container.save, thread_sensitive=True)()
+        return await self.handle_order_management_container_get(request)
+        
     async def handle_update_delivery_type(
         self, request: HttpRequest
     ) -> tuple[Any, Any]:
@@ -962,20 +987,21 @@ class OrderCreation(View):
                     await sync_to_async(obj.delete)()
             except PoCheckEtaSeven.DoesNotExist:
                 raise ValueError("不存在")
+        #更新完pl之后，更新container的delivery_type
+        types = set(pl.delivery_type for pl in packing_list if pl.delivery_type)
+        if not types:
+            raise ValueError("缺少派送类型")
+        new_type = types.pop() if len(types) == 1 else 'mixed'
+        container = await sync_to_async(
+            Container.objects.get,
+            thread_sensitive=True
+        )(container_number=container_number)
+        container.delivery_type = new_type
+        await sync_to_async(
+            container.save,
+            thread_sensitive=True
+        )()
 
-            # try:
-            #     # 直接在查询集中查找是否存在具有相同container_number的对象，如果是建单填写不应该查到pl，如果是更改数据就可能查到
-            #     existing_obj = await sync_to_async(PoCheckEtaSeven.objects.get)(packing_list = pl)
-            #     #查到了就是更改数据，可能更改唛头、fba、ref
-            #     # if existing_obj.shipping_mark != pl.shipping_mark:
-            #     #     existing_obj.shipping_mark = pl.shipping_mark
-            #     # if existing_obj.fba_id != pl.fba_id:
-            #     #     existing_obj.fba_id = pl.fba_id
-            #     # if existing_obj.ref_id != pl.ref_id:
-            #     #     existing_obj.ref_id = pl.ref_id
-            #     # await sync_to_async(existing_obj.save)()
-            # except PoCheckEtaSeven.DoesNotExist:
-            #     raise ValueError("没查到")
         source = request.POST.get("source")
         if source == "order_management":
             mutable_get = request.GET.copy()

@@ -317,6 +317,7 @@ class Inventory(View):
         plt_ids = [int(i) for i in plt_ids.split(",")]
         pl_ids = request.POST.getlist("pl_ids")
         pl_ids = [int(i) for i in pl_ids]
+        container_number = request.POST.get("container_number")
         destination_new = request.POST.get("destination").strip()
         address_new = request.POST.get("address").strip()
         zipcode_new = request.POST.get("zipcode").strip()
@@ -331,9 +332,11 @@ class Inventory(View):
         fba_id_new = request.POST.getlist("fba_id_new")
         ref_id_new = request.POST.getlist("ref_id_new")
         pallet = await sync_to_async(list)(Pallet.objects.filter(id__in=plt_ids))
+        
         packing_list = await sync_to_async(list)(
             PackingList.objects.filter(id__in=pl_ids)
         )
+        
         data_old = [
             pallet[0].destination,
             pallet[0].address,
@@ -351,6 +354,7 @@ class Inventory(View):
             location_new,
             note_new,
         ]
+        
         if any(old != new for old, new in zip(data_old, data_new)):
 
             for p in pallet:
@@ -421,6 +425,25 @@ class Inventory(View):
                 Pallet,
                 fields=["shipping_mark", "fba_id", "ref_id"],
             )
+        #更新柜子的delivery_type
+        pallets = await sync_to_async(list)(
+            Pallet.objects.filter(
+                container_number__container_number=container_number
+            )
+        )
+        types = set(plt.delivery_type for plt in pallets if plt.delivery_type)
+        if not types:
+            raise ValueError("缺少派送类型")
+        new_type = types.pop() if len(types) == 1 else 'mixed'
+        co = await sync_to_async(
+            Container.objects.get,
+            thread_sensitive=True
+        )(container_number=container_number)
+        co.delivery_type = new_type
+        await sync_to_async(
+            co.save,
+            thread_sensitive=True
+        )()
         return await self.handle_warehouse_post(request)
 
     async def handle_counting_post(
