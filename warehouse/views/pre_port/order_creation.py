@@ -14,6 +14,7 @@ import pandas as pd
 from asgiref.sync import sync_to_async
 from django.core.exceptions import ObjectDoesNotExist
 from django.db import models
+from django.db.models import Case, When, Value
 from django.http import Http404, HttpRequest, HttpResponse
 from django.shortcuts import redirect, render
 from django.views import View
@@ -25,6 +26,7 @@ from warehouse.models.customer import Customer
 from warehouse.models.offload import Offload
 from warehouse.models.order import Order
 from warehouse.models.packing_list import PackingList
+from warehouse.models.pallet import Pallet
 from warehouse.models.po_check_eta import PoCheckEtaSeven
 from warehouse.models.retrieval import Retrieval
 from warehouse.models.vessel import Vessel
@@ -85,6 +87,7 @@ class OrderCreation(View):
         if not await self._user_authenticate(request):
             return redirect("login")
         step = request.POST.get("step", None)
+        print('POST',step)
         if step == "create_order_basic":
             template, context = await self.handle_create_order_basic_post(request)
             return await sync_to_async(render)(request, template, context)
@@ -130,6 +133,9 @@ class OrderCreation(View):
             return await sync_to_async(render)(request, template, context)
         elif step == "export_forecast":
             return await self.handle_export_forecast(request)
+        elif step == "update_delivery_type_all":
+            template, context = await self.handle_update_delivery_type(request)
+            return await sync_to_async(render)(request, template, context)
 
     async def handle_export_forecast(self, request: HttpRequest) -> tuple[Any, Any]:
         selected_orders = json.loads(request.POST.get("selectedOrders", "[]"))
@@ -257,6 +263,11 @@ class OrderCreation(View):
         context["vessel"] = vessel
         context["shipping_lines"] = SHIPPING_LINE_OPTIONS
         context["delivery_options"] = DELIVERY_METHOD_OPTIONS
+        context["delivery_types"] = [
+            ("", ""),
+            ("公仓", "public"),
+            ("其他", "other"),
+        ]
         context["packing_list_upload_form"] = UploadFileForm()
         return self.template_order_create_supplement, context
 
@@ -381,6 +392,12 @@ class OrderCreation(View):
         context["warehouse_options"] = [
             (k, v) for k, v in WAREHOUSE_OPTIONS if k not in ["N/A(直送)", "Empty"]
         ]
+        context["delivery_types"] = [
+            ("", ""),
+            ("公仓", "public"),
+            ("其他", "other"),
+        ]
+
         return self.template_order_details, context
 
     async def handle_create_order_basic_post(
@@ -648,6 +665,66 @@ class OrderCreation(View):
         request.GET = mutable_get
         return await self.handle_order_management_container_get(request)
 
+    async def handle_update_delivery_type(
+        self, request: HttpRequest
+    ) -> tuple[Any, Any]:
+        batch_size = 10000
+        queryset = PackingList.objects.all().order_by("id")
+        total = await sync_to_async(queryset.count)()
+
+        for start in range(0, total, batch_size):
+            batch = await sync_to_async(list)(
+                queryset[start : start + batch_size].values("id", "destination")
+            )
+            
+            public_ids = [
+                item["id"] for item in batch 
+                if (
+                    re.match(r'^[A-Za-z]{3}\s*\d$', str(item["destination"]))  # 原规则
+                    or any(
+                        kw.lower() in str(item["destination"]).lower()
+                        for kw in ["walmart", "沃尔玛", "WALMART","Walmart"]
+                    )
+                )
+            ]
+            
+            # 批量更新
+            await sync_to_async(PackingList.objects.filter(
+                id__in=public_ids
+            ).update)(delivery_type="public")
+            await sync_to_async(PackingList.objects.filter(
+                id__in=[item["id"] for item in batch if item["id"] not in public_ids]
+            ).update)(delivery_type="other")
+        
+        plt_size = 10000
+        queryset = PackingList.objects.all().order_by("id")
+        total = await sync_to_async(queryset.count)()
+
+        for start in range(0, total, plt_size):
+            batch = await sync_to_async(list)(
+                queryset[start : start + plt_size].values("id", "destination")
+            )
+            
+            public_ids = [
+                item["id"] for item in batch 
+                if (
+                    re.match(r'^[A-Za-z]{3}\s*\d$', str(item["destination"]))  # 原规则
+                    or any(
+                        kw.lower() in str(item["destination"]).lower()
+                        for kw in ["walmart", "沃尔玛", "WALMART","Walmart"]
+                    )
+                )
+            ]
+            
+            # 批量更新
+            await sync_to_async(PackingList.objects.filter(
+                id__in=public_ids
+            ).update)(delivery_type="public")
+            await sync_to_async(PackingList.objects.filter(
+                id__in=[item["id"] for item in batch if item["id"] not in public_ids]
+            ).update)(delivery_type="other")
+        return await self.handle_order_management_container_get(request)
+
     async def handle_update_order_packing_list_info_post(
         self, request: HttpRequest
     ) -> tuple[Any, Any]:
@@ -681,6 +758,7 @@ class OrderCreation(View):
                 idx = pl_id_idx_mapping[pl.id]
                 pl.product_name = request.POST.getlist("product_name")[idx]
                 pl.delivery_method = request.POST.getlist("delivery_method")[idx]
+                pl.delivery_type = request.POST.getlist("delivery_type")[idx]
                 pl.shipping_mark = request.POST.getlist("shipping_mark")[idx].strip()
                 pl.fba_id = request.POST.getlist("fba_id")[idx].strip()
                 pl.ref_id = request.POST.getlist("ref_id")[idx].strip()
@@ -697,6 +775,7 @@ class OrderCreation(View):
                 fields=[
                     "product_name",
                     "delivery_method",
+                    "delivery_type",
                     "shipping_mark",
                     "fba_id",
                     "ref_id",
@@ -764,6 +843,7 @@ class OrderCreation(View):
             pl_data = zip(
                 request.POST.getlist("product_name"),
                 request.POST.getlist("delivery_method"),
+                request.POST.getlist("delivery_type"),
                 request.POST.getlist("shipping_mark"),
                 request.POST.getlist("fba_id"),
                 request.POST.getlist("ref_id"),
@@ -785,20 +865,21 @@ class OrderCreation(View):
                     container_number=container,
                     product_name=d[0],
                     delivery_method=d[1],
-                    shipping_mark=d[2].strip(),
-                    fba_id=d[3].strip(),
-                    ref_id=d[4].strip(),
-                    destination=d[5],
-                    contact_name=d[6],
-                    contact_method=d[7],
-                    address=d[8],
-                    zipcode=d[9],
-                    pcs=d[10],
-                    total_weight_kg=d[11],
-                    total_weight_lbs=d[12],
-                    cbm=d[13],
-                    note=d[14],
-                    PO_ID=d[15],
+                    delivery_type=d[2],
+                    shipping_mark=d[3].strip(),
+                    fba_id=d[4].strip(),
+                    ref_id=d[5].strip(),
+                    destination=d[6],
+                    contact_name=d[7],
+                    contact_method=d[8],
+                    address=d[9],
+                    zipcode=d[10],
+                    pcs=d[11],
+                    total_weight_kg=d[12],
+                    total_weight_lbs=d[13],
+                    cbm=d[14],
+                    note=d[15],
+                    PO_ID=d[16],
                 )
                 for d in pl_data
             ]
@@ -943,10 +1024,10 @@ class OrderCreation(View):
             df = df.dropna(
                 how="all",
                 subset=[c for c in df.columns if c not in ["delivery_method", "note"]],
-            )
+            )  #除了delivery_method和note，删除其他列为空的
             df = df.replace(np.nan, "")
             df = df.reset_index(drop=True)
-            if df["cbm"].isna().sum():
+            if df["cbm"].isna().sum():  #检查这几个字段是否为空，为空就报错
                 raise ValueError(f"cbm number N/A error!")
             if (
                 df["total_weight_lbs"].isna().sum()
@@ -955,7 +1036,7 @@ class OrderCreation(View):
                 raise ValueError(f"weight number N/A error!")
             if df["pcs"].isna().sum():
                 raise ValueError(f"boxes number N/A error!")
-            for idx, row in df.iterrows():
+            for idx, row in df.iterrows():   #转换单位
                 if row["unit_weight_kg"] and not row["unit_weight_lbs"]:
                     df.loc[idx, "unit_weight_lbs"] = round(
                         df.loc[idx, "unit_weight_kg"] * 2.20462, 2
@@ -964,7 +1045,12 @@ class OrderCreation(View):
                     df.loc[idx, "total_weight_lbs"] = round(
                         df.loc[idx, "total_weight_kg"] * 2.20462, 2
                     )
-            model_fields = [field.name for field in PackingList._meta.fields]
+            #通过正则判断是否是公仓，公仓就是public，否则就是other
+            df["delivery_type"] = df["destination"].apply(
+                lambda x: "public" if self.is_public_destination(x) else "other"
+            )
+            #model_fields获取pl模型的所有字段名
+            model_fields = [field.name for field in PackingList._meta.fields] 
             col = [c for c in df.columns if c in model_fields]
             pl_data = df[col].to_dict("records")
             packing_list = [PackingList(**data) for data in pl_data]
@@ -983,6 +1069,17 @@ class OrderCreation(View):
             _, context = await self.handle_order_supplemental_info_get(request)
             context["packing_list"] = packing_list
             return self.template_order_create_supplement_pl_tab, context
+
+    def is_public_destination(self,destination):
+        if not isinstance(destination, str):
+            return False
+        pattern = r'^[A-Za-z]{3}\s*\d$'
+        if re.match(pattern, destination):
+            return True
+        keywords = {"walmart", "沃尔玛"}
+        destination_lower = destination.lower()
+        return any(keyword.lower() in destination_lower for keyword in keywords)
+        
 
     async def handle_download_template_post(self) -> HttpResponse:
         file_path = (

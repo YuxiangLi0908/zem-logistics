@@ -7,7 +7,7 @@ from warehouse.models.customer import Customer
 from warehouse.models.fee_detail import FeeDetail
 from warehouse.models.fleet import Fleet
 from warehouse.models.fleet_shipment_pallet import FleetShipmentPallet
-from warehouse.models.invoice import Invoice, InvoiceItem, InvoiceStatement
+from warehouse.models.invoice import Invoice, InvoiceItem, InvoiceStatement,InvoiceStatus
 from warehouse.models.invoice_details import (
     InvoiceDelivery,
     InvoicePreport,
@@ -43,6 +43,7 @@ admin.site.register(ZemWarehouse, SimpleHistoryAdmin)
 admin.site.register(Pallet, SimpleHistoryAdmin)
 admin.site.register(Quote, SimpleHistoryAdmin)
 admin.site.register(Invoice, SimpleHistoryAdmin)
+admin.site.register(InvoiceStatus, SimpleHistoryAdmin)
 admin.site.register(InvoiceItem, SimpleHistoryAdmin)
 admin.site.register(InvoiceStatement, SimpleHistoryAdmin)
 admin.site.register(T49Raw, SimpleHistoryAdmin)

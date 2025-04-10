@@ -265,6 +265,7 @@
                                     <th class="th" style="max-width: 2%; min-width: 10px; text-align: center;"></th>
                                     <th class="th">物品名</th>
                                     <th class="th">派送方式</th>
+                                    <th class="th">派送类型</th>
                                     <th class="th">唛头</th>
                                     <th class="th">FBA号</th>
                                     <th class="th">refid</th>
@@ -283,6 +284,7 @@
                                     <th class="th" style="max-width: 2%; min-width: 10px; text-align: center;">
                                         <input type="checkbox" id="selectAllCheckbox" onchange="toggleAllCheckboxes()">
                                     </th>
+                                    <th class="th"></th>
                                     <th class="th"></th>
                                     <th class="th"></th>
                                     <th class="th"><input type="text" id="shippingMarkSearchInput" placeholder="搜索唛头..." oninput="filterTable(this, 3, true)"></th>
@@ -313,6 +315,13 @@
                                         {% endfor %}
                                         </select>
                                     </td>
+                                    <td class="td">
+                                        <select name="delivery_type"  class="delivery-method">
+                                        {% for k, v in delivery_types %}
+                                        <option value="{{ v }}">{{ k }}</option>
+                                        {% endfor %}
+                                        </select>
+                                    </td>
                                     <td class="td"><input type="text" name="shipping_mark"></td>
                                     <td class="td"><input type="text" name="fba_id"></td>
                                     <td class="td"><input type="text" name="ref_id"></td>
@@ -337,6 +346,13 @@
                                         <select name="delivery_method" class="delivery-method">
                                             {% for k, v in delivery_options %}
                                             <option value="{{ v }}" {% if pl.delivery_method == k %}selected{% endif %}>{{ k }}</option>
+                                            {% endfor %}
+                                        </select>
+                                    </td>
+                                    <td class="td">
+                                        <select name="delivery_type" class="delivery-method">
+                                            {% for k, v in delivery_types %}
+                                            <option value="{{ v }}" {% if pl.delivery_type == v %}selected{% endif %}>{{ k }}</option>
                                             {% endfor %}
                                         </select>
                                     </td>
@@ -387,6 +403,7 @@
                                     <td class="td"></td>
                                     <td class="td"></td>
                                     <td class="td"></td>
+                                    <td class="td"></td>
                                     <td class="td" id="sub_table_summary_pcs">0</td>
                                     <td class="td" id="sub_table_summary_weight_kg">0</td>
                                     <td class="td" id="sub_table_summary_weight">0</td>
@@ -395,6 +412,7 @@
                                 </tr>
                                 <tr id="table_summary" style="position: sticky; bottom: 0; background-color: #f2f2f2;">
                                     <td class="td" id="table_summary_cnt"><b>总计</b></td>
+                                    <td class="td"></td>
                                     <td class="td"></td>
                                     <td class="td"></td>
                                     <td class="td"></td>
@@ -440,6 +458,19 @@
                 {% endif %}
             </form>
         </div>
+        <form method="post" action="">
+            {% csrf_token %}
+            <br>
+            {% if user.is_authenticated %}
+                <div class="text-right">
+                    <input type="hidden" name="step" value="update_delivery_type_all">
+                    <button id="submit-btn-update-basic-info" type="submit" class="btn btn-primary" style="width: 90px; height: 30px; margin-left: 20px; font-size: 13px;" onclick="processForm()">
+                        给pl和plt更新派送类型
+                    </button>
+                </div>
+                <br>
+            {% endif %}
+        </form>
     </div>
 
     <div id="order-retrieval-info-sec" style="display: none;">
@@ -694,10 +725,10 @@
         // Loop through each row in the table body
         var rows = document.querySelectorAll("#packing-list-container tr:not(#table_summary):not(#sub_table_summary):not(#packing-list-row-empty)");
         for (i = 0; i < rows.length; i++) {
-            var pcs = parseInt(rows[i].getElementsByTagName("td")[11].textContent.trim())|| parseInt(rows[i].getElementsByTagName("td")[11].querySelector("input").value) || 0;
-            var weightKg = parseFloat(rows[i].getElementsByTagName("td")[12].textContent.trim())|| parseFloat(rows[i].getElementsByTagName("td")[12].querySelector("input").value) || 0;
-            var weight = parseFloat(rows[i].getElementsByTagName("td")[13].textContent.trim())|| parseFloat(rows[i].getElementsByTagName("td")[13].querySelector("input").value) || 0;
-            var cbm = parseFloat(rows[i].getElementsByTagName("td")[14].textContent.trim())|| parseFloat(rows[i].getElementsByTagName("td")[14].querySelector("input").value) || 0;
+            var pcs = parseInt(rows[i].getElementsByTagName("td")[10].textContent.trim())|| parseInt(rows[i].getElementsByTagName("td")[10].querySelector("input").value) || 0;
+            var weightKg = parseFloat(rows[i].getElementsByTagName("td")[11].textContent.trim())|| parseFloat(rows[i].getElementsByTagName("td")[11].querySelector("input").value) || 0;
+            var weight = parseFloat(rows[i].getElementsByTagName("td")[12].textContent.trim())|| parseFloat(rows[i].getElementsByTagName("td")[12].querySelector("input").value) || 0;
+            var cbm = parseFloat(rows[i].getElementsByTagName("td")[13].textContent.trim())|| parseFloat(rows[i].getElementsByTagName("td")[13].querySelector("input").value) || 0;
             totalPcs += pcs;
             totalWeightKg += weightKg;
             totalWeight += weight;
@@ -728,10 +759,10 @@
         var rows = document.querySelectorAll("#packing-list-container tr:not(#table_summary):not(#sub_table_summary)");
         for (i = 1; i < rows.length; i++) {
             if (rows[i].style.display == "") {
-                var pcs = parseInt(rows[i].getElementsByTagName("td")[11].textContent.trim())|| parseInt(rows[i].getElementsByTagName("td")[11].querySelector("input").value) || 0;
-                var weightKg = parseFloat(rows[i].getElementsByTagName("td")[12].textContent.trim())|| parseFloat(rows[i].getElementsByTagName("td")[12].querySelector("input").value) || 0;
-                var weight = parseFloat(rows[i].getElementsByTagName("td")[13].textContent.trim())|| parseFloat(rows[i].getElementsByTagName("td")[13].querySelector("input").value) || 0;
-                var cbm = parseFloat(rows[i].getElementsByTagName("td")[14].textContent.trim())|| parseFloat(rows[i].getElementsByTagName("td")[14].querySelector("input").value) || 0;
+                var pcs = parseInt(rows[i].getElementsByTagName("td")[10].textContent.trim())|| parseInt(rows[i].getElementsByTagName("td")[10].querySelector("input").value) || 0;
+                var weightKg = parseFloat(rows[i].getElementsByTagName("td")[11].textContent.trim())|| parseFloat(rows[i].getElementsByTagName("td")[11].querySelector("input").value) || 0;
+                var weight = parseFloat(rows[i].getElementsByTagName("td")[12].textContent.trim())|| parseFloat(rows[i].getElementsByTagName("td")[12].querySelector("input").value) || 0;
+                var cbm = parseFloat(rows[i].getElementsByTagName("td")[13].textContent.trim())|| parseFloat(rows[i].getElementsByTagName("td")[13].querySelector("input").value) || 0;
                 totalPcs += pcs;
                 totalWeightKg += weightKg;
                 totalWeight += weight;

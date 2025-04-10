@@ -31,11 +31,18 @@ class Invoice(models.Model):
     container_number = models.ForeignKey(
         Container, null=True, blank=True, on_delete=models.SET_NULL
     )
-    total_amount = models.FloatField(null=True, blank=True)
-    preport_amount = models.FloatField(null=True, blank=True)
-    warehouse_amount = models.FloatField(null=True, blank=True)
-    delivery_amount = models.FloatField(null=True, blank=True)
-    direct_amount = models.FloatField(null=True, blank=True)
+    receivable_total_amount = models.FloatField(null=True, blank=True)
+    receivable_preport_amount = models.FloatField(null=True, blank=True)
+    receivable_warehouse_amount = models.FloatField(null=True, blank=True)
+    receivable_delivery_amount = models.FloatField(null=True, blank=True)
+    receivable_direct_amount = models.FloatField(null=True, blank=True)
+
+    payable_total_amount = models.FloatField(null=True, blank=True)
+    payable_preport_amount = models.FloatField(null=True, blank=True)
+    payable_warehouse_amount = models.FloatField(null=True, blank=True)
+    payable_delivery_amount = models.FloatField(null=True, blank=True)
+    payable_direct_amount = models.FloatField(null=True, blank=True)                    
+    
     statement_id = models.ForeignKey(
         InvoiceStatement, null=True, blank=True, on_delete=models.SET_NULL
     )
@@ -54,6 +61,56 @@ class Invoice(models.Model):
         except:
             return self.customer.zem_name + " - " + "None" + " - " + self.invoice_number
 
+class InvoiceStatus(models.Model):
+    INVOICE_TYPE_CHOICES = [
+        ('receivable', '应收账单'),
+        ('payable', '应付账单')
+    ]
+    STAGE_CHOICES = [
+        ('unstarted','未录入'),
+        ('preport', '港前'),
+        ('warehouse', '仓库'),
+        ('delivery', '派送'),
+        ('tobeconfirmed', '待确认'),
+        ('confirmed', '已完成')
+    ]
+
+    container_number = models.ForeignKey(Container, on_delete=models.CASCADE, related_name='invoice_statuses')
+    invoice_type = models.CharField(max_length=20, choices=INVOICE_TYPE_CHOICES)
+    stage = models.CharField(
+        max_length=20, 
+        choices=STAGE_CHOICES,
+        default='unstarted'
+    )
+    stage_public = models.CharField(
+        max_length=20,
+        default='pending',
+        choices=[('pending', '待处理'), ('completed', '已完成'), ('rejected', '已驳回')]
+    )
+    stage_other = models.CharField(
+        max_length=20,
+        default='pending',
+        choices=[('pending', '待处理'), ('completed', '已完成'), ('rejected', '已驳回')]
+    )
+    is_rejected = models.BooleanField(default=False)
+    reject_reason = models.TextField(blank=True)
+
+    class Meta:
+        constraints = [
+        models.UniqueConstraint(
+                fields=['container_number', 'invoice_type'],
+                name='unique_container_invoice'  
+            )
+        ]
+    def __str__(self) -> str:
+        try:
+            return (
+                self.container_number.container_number
+                + " - "
+                + self.invoice_type
+            )
+        except:
+            return self.container_number.container_number + " - " + "None" + " - " + self.invoice_type
 
 class InvoiceItem(models.Model):
     invoice_number = models.ForeignKey(Invoice, on_delete=models.CASCADE)

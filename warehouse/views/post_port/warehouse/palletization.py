@@ -4,6 +4,7 @@ import io
 import json
 import random
 import string
+import re
 import uuid
 from datetime import datetime
 from typing import Any
@@ -541,6 +542,7 @@ class Palletization(View):
             zipcodes = [d for d in request.POST.getlist("zipcode")]
             contact_names = [d for d in request.POST.getlist("contact_name")]
             delivery_method = [d for d in request.POST.getlist("delivery_method")]
+            delivery_type = [d for d in request.POST.getlist("delivery_type")]
             shipment_batch_number = [
                 d for d in request.POST.getlist("shipment_batch_number")
             ]
@@ -560,6 +562,7 @@ class Palletization(View):
                 w,
                 dest,
                 d_m,
+                d_t,
                 note,
                 shipment,
                 shipping_mark,
@@ -577,6 +580,7 @@ class Palletization(View):
                 weight,
                 destinations,
                 delivery_method,
+                delivery_type,
                 notes,
                 shipment_batch_number,
                 shipping_marks,
@@ -597,6 +601,7 @@ class Palletization(View):
                         w,
                         dest,
                         d_m,
+                        d_t,
                         note,
                         shipment,
                         shipping_mark,
@@ -607,6 +612,7 @@ class Palletization(View):
                         addr,
                         zipcode,
                         contact_name,
+                        
                     )  # 循环遍历每个汇总的板数
                 if p_a != p_r:
                     abnormal_offloads.append(
@@ -678,6 +684,7 @@ class Palletization(View):
                     ref_ids,
                     new_po_ids,
                 ):
+                    delivery_type = "public" if self.is_public_destination(dest) else "other"
                     pallet_data += await self._split_pallet(
                         order_selected,
                         n,
@@ -687,6 +694,7 @@ class Palletization(View):
                         0,
                         dest,
                         d_m,
+                        delivery_type,
                         note,
                         "None",
                         shipping_mark,
@@ -728,6 +736,16 @@ class Palletization(View):
         request.POST = mutable_post
         return await self.handle_warehouse_post(request)
 
+    def is_public_destination(self,destination):
+        if not isinstance(destination, str):
+            return False
+        pattern = r'^[A-Za-z]{3}\s*\d$'
+        if re.match(pattern, destination):
+            return True
+        keywords = {"walmart", "沃尔玛"}
+        destination_lower = destination.lower()
+        return any(keyword.lower() in destination_lower for keyword in keywords)
+    
     async def handle_cancel_post(
         self, request: HttpRequest
     ) -> tuple[str, dict[str, Any]]:
@@ -1026,6 +1044,7 @@ class Palletization(View):
         w: float,
         destination: str,
         delivery_method: str,
+        delivery_type: str,
         note: str,
         shipment_batch_number: str,
         shipping_mark: str,
@@ -1036,7 +1055,7 @@ class Palletization(View):
         address: str | None = None,
         zipcode: str | None = None,
         contact_name: str | None = None,
-        seed: int = 0,
+        seed: int = 0,       
     ) -> list[dict[str, Any]]:
         if n == 0 or n is None:
             return
@@ -1077,6 +1096,7 @@ class Palletization(View):
                     "zipcode": zipcode,
                     "contact_name": contact_name,
                     "delivery_method": delivery_method,
+                    "delivery_type": delivery_type,
                     "pallet_id": pallet_ids[i],
                     "pcs": pallet_pcs[i],
                     "cbm": cbm_loaded,
@@ -1242,6 +1262,7 @@ class Palletization(View):
                     "note",
                     "shipment_batch_number__shipment_batch_number",
                     "PO_ID",
+                    "delivery_type"
                 )
                 .annotate(
                     fba_ids=StringAgg("str_fba_id", delimiter=",", distinct=True),
@@ -1282,6 +1303,7 @@ class Palletization(View):
                     "shipping_mark",
                     "note",
                     "PO_ID",
+                    "delivery_type",
                 )
                 .annotate(
                     pcs=Sum("pcs", output_field=IntegerField()),

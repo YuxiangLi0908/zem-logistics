@@ -104,6 +104,7 @@
                     <th class="th">柜号</th>
                     <th class="th">目的地</th>
                     <th class="th">派送方式</th>
+                    <th class="th">派送类型</th>
                     <th class="th" style="min-width: 300px; max-width: 400px; word-break: break-all;">唛头</th>
                     <th class="th" style="min-width: 300px; max-width: 400px; word-break: break-all;">FBA</th>
                     <th class="th" style="min-width: 300px; max-width: 400px; word-break: break-all;">REF</th>
@@ -120,10 +121,11 @@
                     <th class="th"></th>
                     <th class="th"><input type="text" id="shippingMarkSearchInput" placeholder="搜索柜号..." oninput="filterTable(this, 3, true)"></th>
                     <th class="th"><input type="text" id="shippingMarkSearchInput" placeholder="搜索目的地..." oninput="filterTable(this, 4, true)"></th>
-                    <th class="th"><input type="text" id="shippingMarkSearchInput" placeholder="搜索唛头..." oninput="filterTable(this, 5, true)"></th>
-                    <th class="th"><input type="text" id="shippingMarkSearchInput" placeholder="搜索FBA..." oninput="filterTable(this, 6, true)"></th>
-                    <th class="th"><input type="text" id="shippingMarkSearchInput" placeholder="搜索REF..." oninput="filterTable(this, 7, true)"></th>
+                    <th class="th"><input type="text" id="shippingMarkSearchInput" placeholder="搜索派送方式..." oninput="filterTable(this, 5, true)"></th>
                     <th class="th"></th>
+                    <th class="th"><input type="text" id="shippingMarkSearchInput" placeholder="搜索唛头..." oninput="filterTable(this, 7, true)"></th>
+                    <th class="th"><input type="text" id="shippingMarkSearchInput" placeholder="搜索FBA..." oninput="filterTable(this, 8, true)"></th>
+                    <th class="th"><input type="text" id="shippingMarkSearchInput" placeholder="搜索REF..." oninput="filterTable(this, 9, true)"></th>                  
                     <th class="th"></th>
                     <th class="th"></th>
                     <th class="th"></th>
@@ -153,6 +155,7 @@
                     <td class="td">{{ p.container }}</td>
                     <td class="td">{{ p.destination }}</td>
                     <td class="td">{{ p.delivery_method }}</td>
+                    <td class="td">{{ p.delivery_type }}</td>
                     <td class="td" style="min-width: 300px; max-width: 400px; word-break: break-all;">{{ p.shipping_mark }}</td>
                     <td class="td" style="min-width: 300px; max-width: 400px; word-break: break-all;">{{ p.fba_id|default_if_none:"" }}</td>
                     <td class="td" style="min-width: 300px; max-width: 400px; word-break: break-all;">{{ p.ref_id|default_if_none:"" }}</td>

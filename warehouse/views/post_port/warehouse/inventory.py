@@ -301,6 +301,11 @@ class Inventory(View):
             "warehouse": warehouse,
             "delivery_method_options": DELIVERY_METHOD_OPTIONS,
             "plt_ids": ",".join([str(i) for i in plt_ids]),
+            "delivery_types":[
+                ("", ""),
+                ("公仓", "public"),
+                ("其他", "other"),
+            ]
             # "pl_ids": pl_ids,
         }
         return self.template_inventory_po_update, context
@@ -316,6 +321,7 @@ class Inventory(View):
         address_new = request.POST.get("address").strip()
         zipcode_new = request.POST.get("zipcode").strip()
         delivery_method_new = request.POST.get("delivery_method")
+        delivery_type_new = request.POST.get("delivery_type")
         location_new = request.POST.get("location")
         note_new = request.POST.get("note").strip()
         shipping_mark = request.POST.getlist("shipping_mark")
@@ -341,6 +347,7 @@ class Inventory(View):
             address_new,
             zipcode_new,
             delivery_method_new,
+            delivery_type_new,
             location_new,
             note_new,
         ]
@@ -351,6 +358,7 @@ class Inventory(View):
                 p.address = address_new
                 p.zipcode = zipcode_new
                 p.delivery_method = delivery_method_new
+                p.delivery_type = delivery_type_new
                 p.location = location_new
                 p.note = note_new
             for pl in packing_list:
@@ -358,6 +366,7 @@ class Inventory(View):
                 pl.address = address_new
                 pl.zipcode = zipcode_new
                 pl.delivery_method = delivery_method_new
+                pl.delivery_type = delivery_type_new
 
             # await sync_to_async(Pallet.objects.bulk_update)(
             #     pallet,
@@ -378,6 +387,7 @@ class Inventory(View):
                     "address",
                     "zipcode",
                     "delivery_method",
+                    "delivery_type",
                     "location",
                     "note",
                 ],
@@ -385,7 +395,7 @@ class Inventory(View):
             await sync_to_async(bulk_update_with_history)(
                 packing_list,
                 PackingList,
-                fields=["destination", "address", "zipcode", "delivery_method"],
+                fields=["destination", "address", "zipcode", "delivery_method","delivery_type"],
             )
         for pl_id, sm, fba, ref, sm_new, fba_new, ref_new in zip(
             pl_ids,
@@ -547,6 +557,7 @@ class Inventory(View):
             .values(
                 "destination",
                 "delivery_method",
+                "delivery_type",
                 "shipping_mark",
                 "fba_id",
                 "ref_id",
