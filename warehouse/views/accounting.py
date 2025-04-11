@@ -44,7 +44,12 @@ from simple_history.utils import bulk_create_with_history, bulk_update_with_hist
 from warehouse.forms.order_form import OrderForm
 from warehouse.models.customer import Customer
 from warehouse.models.fee_detail import FeeDetail
-from warehouse.models.invoice import Invoice, InvoiceItem, InvoiceStatement,InvoiceStatus
+from warehouse.models.invoice import (
+    Invoice,
+    InvoiceItem,
+    InvoiceStatement,
+    InvoiceStatus,
+)
 from warehouse.models.invoice_details import (
     InvoiceDelivery,
     InvoicePreport,
@@ -85,8 +90,12 @@ class Accounting(View):
     template_invoice_warehouse_edit = "accounting/invoice_warehouse_edit.html"
     template_invoice_delivery = "accounting/invoice_delivery.html"
     template_invoice_delievery_edit = "accounting/invoice_delivery_edit.html"
-    template_invoice_delievery_public_edit = "accounting/invoice_delivery_public_edit.html"
-    template_invoice_delievery_other_edit = "accounting/invoice_delivery_other_edit.html"
+    template_invoice_delievery_public_edit = (
+        "accounting/invoice_delivery_public_edit.html"
+    )
+    template_invoice_delievery_other_edit = (
+        "accounting/invoice_delivery_other_edit.html"
+    )
     template_invoice_confirm = "accounting/invoice_confirm.html"
     template_invoice_confirm_edit = "accounting/invoice_confirm_edit.html"
     # template_invoice_confirm_edit = "accounting/invoice_confirm_combina3.html"
@@ -269,12 +278,15 @@ class Accounting(View):
         elif step == "invoice_order_batch_export":
             return self.handle_invoice_order_batch_export(request)
         elif step == "migrate_payable_receivable_amount":
-            return self.migrate_payable_to_receivable(request)
+            template, context = self.migrate_payable_to_receivable()
+            return render(request, template, context)
         elif step == "migrate_status":
-            return self.migrate_status(request)
+            template, context = self.migrate_status()
+            return render(request, template, context)
         else:
             raise ValueError(f"unknow request {step}")
-    def migrate_payable_to_receivable(self,request)-> tuple[Any, Any]:
+
+    def migrate_payable_to_receivable(self) -> tuple[Any, Any]:
         invoices = Invoice.objects.all()
         for invoice in invoices:
             invoice.receivable_total_amount = invoice.payable_total_amount
@@ -282,51 +294,52 @@ class Accounting(View):
             invoice.receivable_warehouse_amount = invoice.payable_warehouse_amount
             invoice.receivable_delivery_amount = invoice.payable_delivery_amount
             invoice.receivable_direct_amount = invoice.payable_direct_amount
-            
+
             # 将payable字段重置为0.0
             invoice.payable_total_amount = 0.0
             invoice.payable_preport_amount = 0.0
             invoice.payable_warehouse_amount = 0.0
             invoice.payable_delivery_amount = 0.0
             invoice.payable_direct_amount = 0.0
-            
+
             invoice.save()
         context = {}
-        return context,self.template_invoice_preport
+        return self.template_invoice_preport, context
 
-    def get_special_stages(self,main_stage)-> tuple[str, str]:
-        if main_stage == 'delivery':
-            return 'warehouse_completed', 'warehouse_completed'
-        elif main_stage in ('tobeconfirmed', 'confirmed'):
-            return 'delivery_completed', 'delivery_completed'
+    def get_special_stages(self, main_stage) -> tuple[str, str]:
+        if main_stage == "delivery":
+            return "warehouse_completed", "warehouse_completed"
+        elif main_stage in ("tobeconfirmed", "confirmed"):
+            return "delivery_completed", "delivery_completed"
         else:
-            return 'pending', 'pending'  # 默认返回原状态
-        
-    def migrate_status(self,request)-> tuple[Any, Any]:
+            return "pending", "pending"  # 默认返回原状态
+
+    def migrate_status(self) -> tuple[Any, Any]:
         STATUS_MAPPING = {
-            'record_preport': 'preport',
-            'record_warehouse': 'warehouse',
-            'record_delivery': 'delivery',  # 修正为正确的映射
-            'tobeconfirmed': 'tobeconfirmed',
-            'confirmed': 'confirmed',
-            None: 'unstarted'  # 处理空值情况
+            "record_preport": "preport",
+            "record_warehouse": "warehouse",
+            "record_delivery": "delivery",  # 修正为正确的映射
+            "tobeconfirmed": "tobeconfirmed",
+            "confirmed": "confirmed",
+            None: "unstarted",  # 处理空值情况
         }
         orders = (
-            Order.objects.select_related("container_number")
-            .filter(invoice_status__isnull=False)
-        ).exclude(invoice_status='')
+            Order.objects.select_related("container_number").filter(
+                invoice_status__isnull=False
+            )
+        ).exclude(invoice_status="")
         for order in orders:
-            main_stage = STATUS_MAPPING.get(order.invoice_status, 'unstarted')
+            main_stage = STATUS_MAPPING.get(order.invoice_status, "unstarted")
             stage_public, stage_other = self.get_special_stages(main_stage)
 
             invoice_status, created = InvoiceStatus.objects.get_or_create(
                 container_number=order.container_number,
-                invoice_type='receivable',
+                invoice_type="receivable",
                 defaults={
-                    'stage': main_stage,
-                    'stage_public': stage_public,
-                    'stage_other': stage_other
-                }
+                    "stage": main_stage,
+                    "stage_public": stage_public,
+                    "stage_other": stage_other,
+                },
             )
 
             if not created:
@@ -334,11 +347,11 @@ class Accounting(View):
                 invoice_status.stage_public = stage_public
                 invoice_status.stage_other = stage_other
                 invoice_status.save()
-            
+
             order.receivable_status = invoice_status
             order.save()
         context = {}
-        return context,self.template_invoice_preport
+        return self.template_invoice_preport, context
 
     def handle_pallet_data_get(
         self, start_date: str = None, end_date: str = None
@@ -548,7 +561,7 @@ class Accounting(View):
             else start_date
         )
         end_date = current_date.strftime("%Y-%m-%d") if not end_date else end_date
-        
+
         criteria = models.Q(
             (models.Q(order_type="转运") | models.Q(order_type="转运组合")),
             models.Q(vessel_id__vessel_etd__gte=start_date),
@@ -568,23 +581,22 @@ class Accounting(View):
             "invoice_id__statement_id",
         ).filter(
             criteria,
-            models.Q(
-                **{f"{status_field}__isnull": True}
-            )|models.Q(   #考虑账单编辑点的是暂存的情况
+            models.Q(**{f"{status_field}__isnull": True})
+            | models.Q(  # 考虑账单编辑点的是暂存的情况
                 **{
                     f"{invoice_type}_status__invoice_type": invoice_type,
                     f"{invoice_type}_status__stage": "unstarted",
                 }
-            )
+            ),
         )
         # 查找驳回账单
         order_reject = Order.objects.filter(
-            criteria, 
-            **{                
+            criteria,
+            **{
                 f"{invoice_type}_status__invoice_type": invoice_type,
                 f"{invoice_type}_status__is_rejected": True,
-                f"{invoice_type}_status__stage": "preport"
-            }  
+                f"{invoice_type}_status__stage": "preport",
+            },
         )
 
         # 查找待审核账单，给港前组长看
@@ -594,12 +606,12 @@ class Accounting(View):
             "container_number",
             "invoice_id__statement_id",
         ).filter(
-            criteria, 
-            **{                
+            criteria,
+            **{
                 f"{invoice_type}_status__invoice_type": invoice_type,
                 f"{invoice_type}_status__is_rejected": False,
-                f"{invoice_type}_status__stage": "preport"
-            }   
+                f"{invoice_type}_status__stage": "preport",
+            },
         )
         # 查找已录入账单
         previous_order = (
@@ -608,24 +620,23 @@ class Accounting(View):
                 "customer_name",
                 "container_number",
                 "invoice_id__statement_id",
-                f"{invoice_type}_status"
+                f"{invoice_type}_status",
             )
             .values(
                 "invoice_status",
                 "container_number__container_number",
                 "customer_name__zem_name",
                 "created_at",
-                f"{invoice_type}_status"
+                f"{invoice_type}_status",
             )
             .filter(
                 criteria,
                 **{
                     f"{invoice_type}_status__isnull": False,
-                    f"{invoice_type}_status__invoice_type": invoice_type
-                }    
-            ).exclude(  
-                **{f"{invoice_type}_status__stage__in": ["preport", "unstarted"]}
+                    f"{invoice_type}_status__invoice_type": invoice_type,
+                },
             )
+            .exclude(**{f"{invoice_type}_status__stage__in": ["preport", "unstarted"]})
         )
         groups = [group.name for group in request.user.groups.all()]
         if request.user.is_staff:
@@ -642,7 +653,7 @@ class Accounting(View):
             "groups": groups,
             "warehouse_options": self.warehouse_options,
             "warehouse_filter": warehouse,
-            "invoice_type_filter":invoice_type,
+            "invoice_type_filter": invoice_type,
         }
         return self.template_invoice_preport, context
 
@@ -675,12 +686,16 @@ class Accounting(View):
 
         groups = [group.name for group in request.user.groups.all()]
         delivery_type_filter = None
-    
+
         if "public" in groups and "other" not in groups:
-            delivery_type_filter = models.Q(container_number__delivery_type__in=["public", "mixed"])
+            delivery_type_filter = models.Q(
+                container_number__delivery_type__in=["public", "mixed"]
+            )
         elif "other" in groups and "public" not in groups:
-            delivery_type_filter = models.Q(container_number__delivery_type__in=["other", "mixed"])
-        #基础查询
+            delivery_type_filter = models.Q(
+                container_number__delivery_type__in=["other", "mixed"]
+            )
+        # 基础查询
         base_query = Order.objects.select_related(
             "invoice_id",
             f"{invoice_type}_status",
@@ -691,30 +706,35 @@ class Accounting(View):
 
         if delivery_type_filter:
             base_query = base_query.filter(delivery_type_filter)
-        
+
         # 查找未操作过的
         if "public" in groups and "other" not in groups:
-            #如果是公仓人员
+            # 如果是公仓人员
             order = base_query.filter(
                 **{f"{invoice_type}_status__stage": "warehouse"},
-                **{f"{invoice_type}_status__stage_public": "pending"}
+                **{f"{invoice_type}_status__stage_public": "pending"},
             ).order_by(f"{invoice_type}_status__reject_reason")
         elif "other" in groups and "public" not in groups:
-            #如果是私仓人员
+            # 如果是私仓人员
             order = base_query.filter(
                 **{f"{invoice_type}_status__stage": "warehouse"},
-                **{f"{invoice_type}_status__stage_other": "pending"}
+                **{f"{invoice_type}_status__stage_other": "pending"},
             ).order_by(f"{invoice_type}_status__reject_reason")
-        
-        
+
         # 查找历史操作过的，状态是warehouse时，对应group的stage为completed，或者状态是库内之后的
-        base_condition = ~models.Q(**{f"{invoice_type}_status__stage__in": ["unstarted", "preport"]})
+        base_condition = ~models.Q(
+            **{f"{invoice_type}_status__stage__in": ["unstarted", "preport"]}
+        )
         other_stages = models.Q(
-            **{f"{invoice_type}_status__stage__in": ["delivery", "tobeconfirmed", "confirmed"]}
+            **{
+                f"{invoice_type}_status__stage__in": [
+                    "delivery",
+                    "tobeconfirmed",
+                    "confirmed",
+                ]
+            }
         )
-        warehouse_condition = models.Q(
-            **{f"{invoice_type}_status__stage": "warehouse"}
-        )
+        warehouse_condition = models.Q(**{f"{invoice_type}_status__stage": "warehouse"})
         if "public" in groups and "other" not in groups:
             warehouse_condition &= models.Q(
                 **{f"{invoice_type}_status__stage_public": "warehouse_completed"}
@@ -726,12 +746,9 @@ class Accounting(View):
         previous_order = base_query.filter(
             base_condition,
             warehouse_condition | other_stages,  # 满足仓库条件或其他阶段
-            **{f"{invoice_type}_status__invoice_type": invoice_type}
+            **{f"{invoice_type}_status__invoice_type": invoice_type},
         ).select_related(
-            "customer_name",
-            "container_number",
-            "receivable_status",
-            "payable_status"
+            "customer_name", "container_number", "receivable_status", "payable_status"
         )
         context = {
             "order": order,
@@ -742,7 +759,7 @@ class Accounting(View):
             "previous_order": previous_order,
             "warehouse_options": self.warehouse_options,
             "warehouse_filter": warehouse,
-            "invoice_type_filter":invoice_type
+            "invoice_type_filter": invoice_type,
         }
         return self.template_invoice_warehouse, context
 
@@ -846,7 +863,9 @@ class Accounting(View):
     ) -> tuple[Any, Any]:
         # 库内操作费
         current_date = datetime.now().date()
-        start_date = request.POST.get("start_date") or (current_date + timedelta(days=-30)).strftime("%Y-%m-%d")
+        start_date = request.POST.get("start_date") or (
+            current_date + timedelta(days=-30)
+        ).strftime("%Y-%m-%d")
         end_date = request.POST.get("end_date") or current_date.strftime("%Y-%m-%d")
 
         criteria = models.Q(
@@ -863,13 +882,17 @@ class Accounting(View):
 
         groups = [group.name for group in request.user.groups.all()]
         delivery_type_filter = None
-    
-        if "public" in groups and "other" not in groups:
-            delivery_type_filter = models.Q(container_number__delivery_type__in=["public", "mixed"])
-        elif "other" in groups and "public" not in groups:
-            delivery_type_filter = models.Q(container_number__delivery_type__in=["other", "mixed"])
 
-        #基础查询
+        if "public" in groups and "other" not in groups:
+            delivery_type_filter = models.Q(
+                container_number__delivery_type__in=["public", "mixed"]
+            )
+        elif "other" in groups and "public" not in groups:
+            delivery_type_filter = models.Q(
+                container_number__delivery_type__in=["other", "mixed"]
+            )
+
+        # 基础查询
         base_query = Order.objects.select_related(
             "invoice_id",
             f"{invoice_type}_status",
@@ -883,18 +906,20 @@ class Accounting(View):
 
         # 查找未操作过的
         if "public" in groups and "other" not in groups:
-            #如果是公仓人员
+            # 如果是公仓人员
             order = base_query.filter(
                 **{f"{invoice_type}_status__stage_public": "warehouse_completed"}
             ).order_by(f"{invoice_type}_status__reject_reason")
         elif "other" in groups and "public" not in groups:
-            #如果是私仓人员
+            # 如果是私仓人员
             order = base_query.filter(
                 **{f"{invoice_type}_status__stage_other": "warehouse_completed"}
             ).order_by(f"{invoice_type}_status__reject_reason")
 
         # 查找历史操作过的
-        base_condition = ~models.Q(**{f"{invoice_type}_status__stage__in": ["unstarted", "preport"]})
+        base_condition = ~models.Q(
+            **{f"{invoice_type}_status__stage__in": ["unstarted", "preport"]}
+        )
         other_stages = models.Q(
             **{f"{invoice_type}_status__stage__in": ["tobeconfirmed", "confirmed"]}
         )
@@ -910,12 +935,9 @@ class Accounting(View):
         previous_order = base_query.filter(
             base_condition,
             other_stages | delivery_completed_condition,  # 满足任意一个条件即可
-            **{f"{invoice_type}_status__invoice_type": invoice_type}
+            **{f"{invoice_type}_status__invoice_type": invoice_type},
         ).select_related(
-            "customer_name",
-            "container_number",
-            "receivable_status",
-            "payable_status"
+            "customer_name", "container_number", "receivable_status", "payable_status"
         )
 
         context = {
@@ -944,7 +966,7 @@ class Accounting(View):
 
         invoice_warehouse = InvoiceWarehouse.objects.filter(
             invoice_number__invoice_number=invoice.invoice_number,
-            invoice_type = invoice_type
+            invoice_type=invoice_type,
         )
         if not invoice_warehouse.exists():
             invoice_content = InvoiceWarehouse(
@@ -954,17 +976,17 @@ class Accounting(View):
             )
             invoice_content.save()
         if "public" in groups and "other" not in groups:
-            #公仓组录完了，改变stage_public
+            # 公仓组录完了，改变stage_public
             invoice_warehouse = InvoiceWarehouse.objects.get(
                 invoice_number__invoice_number=invoice.invoice_number,
-                invoice_type = invoice_type,
-                delivery_type = 'public'
+                invoice_type=invoice_type,
+                delivery_type="public",
             )
         elif "other" in groups and "public" not in groups:
             invoice_warehouse = InvoiceWarehouse.objects.get(
                 invoice_number__invoice_number=invoice.invoice_number,
-                invoice_type = invoice_type,
-                delivery_type = 'other'
+                invoice_type=invoice_type,
+                delivery_type="other",
             )
         names = data.getlist("others_feename")[:-1]
         amounts = data.getlist("others_feeamount")[:-1]
@@ -1014,49 +1036,49 @@ class Accounting(View):
         invoice_warehouse.surcharges = surcharges
         invoice_warehouse.surcharge_notes = surcharge_notes
         invoice_warehouse.save()
-        
-        #因为现在分公仓私仓两条记录，所以汇总的时候，要从数据库查一遍
+
+        # 因为现在分公仓私仓两条记录，所以汇总的时候，要从数据库查一遍
         if save_type == "complete":
             invoice = Invoice.objects.select_related("container_number").get(
                 container_number__container_number=container_number,
             )
-            warehouse_amount = InvoiceWarehouse.objects.filter(
-                invoice_number=invoice,
-                invoice_type=invoice_type
-            ).aggregate(total_amount=Sum('amount'))['total_amount'] or 0
+            warehouse_amount = (
+                InvoiceWarehouse.objects.filter(
+                    invoice_number=invoice, invoice_type=invoice_type
+                ).aggregate(total_amount=Sum("amount"))["total_amount"]
+                or 0
+            )
             if invoice_type == "receivable":
                 invoice.receivable_warehouse_amount = warehouse_amount
             elif invoice_type == "payable":
                 invoice.payable_warehouse_amount = warehouse_amount
             invoice.save()
-        
+
         order = Order.objects.select_related("retrieval_id", "container_number").get(
             container_number__container_number=container_number
         )
-        
+
         if save_type == "complete":
-            #开始准备改变状态，先找到状态表
+            # 开始准备改变状态，先找到状态表
             if invoice_type == "receivable":
                 invoice_status = InvoiceStatus.objects.get(
-                    container_number=order.container_number,
-                    invoice_type="receivable"
+                    container_number=order.container_number, invoice_type="receivable"
                 )
             elif invoice_type == "payable":
                 invoice_status = InvoiceStatus.objects.get(
-                    container_number=order.container_number,
-                    invoice_type="payable"
+                    container_number=order.container_number, invoice_type="payable"
                 )
             container_delivery_type = invoice_status.container_number.delivery_type
             if container_delivery_type in ["public", "other"]:
-                #如果这个柜子只有一类仓，就直接改变状态
+                # 如果这个柜子只有一类仓，就直接改变状态
                 invoice_status.stage = "delivery"
-                invoice_status.is_rejected = False  
+                invoice_status.is_rejected = False
                 invoice_status.reject_reason = ""
             elif container_delivery_type == "mixed":
                 if "public" in groups and "other" not in groups:
-                    #公仓组录完了，改变stage_public
+                    # 公仓组录完了，改变stage_public
                     invoice_status.stage_public = "warehouse_completed"
-                    #如果私仓也做完了，就改变主状态到派送阶段
+                    # 如果私仓也做完了，就改变主状态到派送阶段
                     if invoice_status.stage_other == "warehouse_completed":
                         invoice_status.stage = "delivery"
                 elif "other" in groups and "public" not in groups:
@@ -1065,8 +1087,8 @@ class Accounting(View):
                     # 如果公仓也做完了，就改变主状态
                     if invoice_status.stage_public == "warehouse_completed":
                         invoice_status.stage = "delivery"
-                #既有公仓权限，又有私仓权限的不知道咋处理，而且编辑页面也不好搞
-                invoice_status.is_rejected = False  
+                # 既有公仓权限，又有私仓权限的不知道咋处理，而且编辑页面也不好搞
+                invoice_status.is_rejected = False
                 invoice_status.reject_reason = ""
             invoice_status.save()
         elif save_type == "account_comlete":
@@ -1090,7 +1112,7 @@ class Accounting(View):
         invoice_type = request.POST.get("invoice_type")
         invoice_preports = InvoicePreport.objects.get(
             invoice_number__invoice_number=invoice.invoice_number,
-            invoice_type=invoice_type
+            invoice_type=invoice_type,
         )
 
         names = data.getlist("others_feename")[:-1]
@@ -1139,7 +1161,7 @@ class Accounting(View):
         invoice_preports.save()
         invoice_preports = InvoicePreport.objects.get(
             invoice_number__invoice_number=invoice.invoice_number,
-            invoice_type=invoice_type
+            invoice_type=invoice_type,
         )
         # 账单状态记录
         order = Order.objects.select_related("retrieval_id", "container_number").get(
@@ -1186,7 +1208,7 @@ class Accounting(View):
         # 提拆柜表费用记录
         invoice_preports = InvoicePreport.objects.get(
             invoice_number__invoice_number=invoice.invoice_number,
-            invoice_type = invoice_type
+            invoice_type=invoice_type,
         )
         names = [name for name in data.getlist("others_feename") if name.strip()]
         amounts = [
@@ -1243,7 +1265,7 @@ class Accounting(View):
         invoice_preports.save()
         invoice_preports = InvoicePreport.objects.get(
             invoice_number__invoice_number=invoice.invoice_number,
-            invoice_type=invoice_type
+            invoice_type=invoice_type,
         )
         # 只要更新了港前拆柜数据，就要计算一次总数，更新invoice的preport
         invoice = Invoice.objects.select_related("container_number").get(
@@ -1261,13 +1283,11 @@ class Accounting(View):
 
         if invoice_type == "receivable":
             invoice_status, created = InvoiceStatus.objects.get_or_create(
-                container_number=order.container_number,
-                invoice_type="receivable"
+                container_number=order.container_number, invoice_type="receivable"
             )
         elif invoice_type == "payable":
             invoice_status, created = InvoiceStatus.objects.get_or_create(
-                container_number=order.container_number,
-                invoice_type="payable"
+                container_number=order.container_number, invoice_type="payable"
             )
         if data.get("pending") == "True":
             # 审核通过，进入库内账单录入
@@ -1343,9 +1363,9 @@ class Accounting(View):
                 **{
                     "invoice_delivery": invoice_delivery,
                     "invoice_number": invoice,
-                    "invoice_type":invoice_type,
-                    "delivery_type":delivery_type,
-                    "type": alter_type,  #沃尔玛/亚马逊等
+                    "invoice_type": invoice_type,
+                    "delivery_type": delivery_type,
+                    "type": alter_type,  # 沃尔玛/亚马逊等
                     "zipcode": zipcode[i],
                     "destination": destination[i],
                     "total_pallet": total_pallet[i],
@@ -1531,7 +1551,7 @@ class Accounting(View):
         )
         groups = [group.name for group in request.user.groups.all()]
         delivery_type = None
-        
+
         # 确定delivery_type
         if "public" in groups and "other" not in groups:
             delivery_type = "public"
@@ -1542,20 +1562,20 @@ class Accounting(View):
             invoice_warehouse = InvoiceWarehouse.objects.get(
                 invoice_number__invoice_number=invoice.invoice_number,
                 invoice_type=invoice_type,
-                delivery_type=delivery_type  
+                delivery_type=delivery_type,
             )
         except InvoiceWarehouse.DoesNotExist:
             invoice_warehouse = InvoiceWarehouse(
                 invoice_number=invoice,
                 invoice_type=invoice_type,
-                delivery_type=delivery_type, 
+                delivery_type=delivery_type,
             )
             invoice_warehouse.save()
 
             context = {
                 "warehouse": warehouse,
                 "invoice": invoice,
-                "invoice_type":invoice_type,
+                "invoice_type": invoice_type,
                 "container_number": container_number,
                 "FS": FS,
                 "fs_json": fs_json,
@@ -1581,7 +1601,7 @@ class Accounting(View):
             "status": order.invoice_status,
             "start_date_confirm": request.POST.get("start_date_confirm") or None,
             "end_date_confirm": request.POST.get("end_date_confirm") or None,
-            "invoice_type":invoice_type
+            "invoice_type": invoice_type,
         }
         return self.template_invoice_warehouse_edit, context
 
@@ -1601,7 +1621,7 @@ class Accounting(View):
         )
         invoice_preports = InvoicePreport.objects.get(
             invoice_number__invoice_number=invoice.invoice_number,
-            invoice_type=invoice_type
+            invoice_type=invoice_type,
         )
         if order.order_type == "转运" or order.order_type == "转运组合":
             invoice_warehouse = InvoiceWarehouse.objects.get(
@@ -1680,7 +1700,7 @@ class Accounting(View):
                 "address",
                 "delivery_method",
                 "invoice_delivery__type",
-                "delivery_type"
+                "delivery_type",
             )
             .annotate(
                 ids=StringAgg(
@@ -1863,10 +1883,10 @@ class Accounting(View):
                                 plt["total_cost"] = int(k) * int(plt["total_n_pallet"])
                             break
                     walmart.append(plt)
-        
+
         invoice_type = request.GET.get("invoice_type")
         groups = [group.name for group in request.user.groups.all()]
-        
+
         step = request.POST.get("step")
         redirect_step = (step == "redirect") or (
             request.POST.get("redirect_step") == "True"
@@ -1887,7 +1907,7 @@ class Accounting(View):
             "end_date": request.GET.get("end_date") or None,
             "start_date_confirm": request.POST.get("start_date_confirm") or None,
             "end_date_confirm": request.POST.get("end_date_confirm") or None,
-            "invoice_type":invoice_type
+            "invoice_type": invoice_type,
         }
         if "public" in groups and "other" not in groups:
             pallets = pallets.filter(delivery_type="public")
@@ -1970,7 +1990,7 @@ class Accounting(View):
         try:
             invoice_preports = InvoicePreport.objects.get(
                 invoice_number__invoice_number=invoice.invoice_number,
-                invoice_type=invoice_type
+                invoice_type=invoice_type,
             )
         except InvoicePreport.DoesNotExist:
             # 获取直送柜子的提拆柜费用
@@ -2077,41 +2097,40 @@ class Accounting(View):
             )
             invoice.save()
             order.invoice_id = invoice
-        #建立invoicestatus表
+        # 建立invoicestatus表
         try:
             invoice_status = InvoiceStatus.objects.get(
-                container_number=order.container_number,
-                invoice_type=invoice_type
+                container_number=order.container_number, invoice_type=invoice_type
             )
         except InvoiceStatus.DoesNotExist:
             invoice_status = InvoiceStatus(
-                container_number=order.container_number,  
+                container_number=order.container_number,
                 invoice_type=invoice_type,
             )
             invoice_status.save()
-            if invoice_type == 'receivable':
+            if invoice_type == "receivable":
                 order.receivable_status = invoice_status
             else:
                 order.payable_status = invoice_status
         order.save()
-        #建立invoicepreport表
+        # 建立invoicepreport表
         try:
             invoice_preports = InvoicePreport.objects.get(
                 invoice_number__invoice_number=invoice.invoice_number,
-                invoice_type=invoice_type
+                invoice_type=invoice_type,
             )
         except InvoicePreport.DoesNotExist:
             invoice_preports = InvoicePreport(
                 **{
                     "invoice_number": invoice,
                     "pickup": pickup_fee,
-                    "invoice_type":invoice_type,
+                    "invoice_type": invoice_type,
                 }
             )
             invoice_preports.save()
             invoice_preports = InvoicePreport.objects.get(
                 invoice_number__invoice_number=invoice.invoice_number,
-                invoice_type=invoice_type
+                invoice_type=invoice_type,
             )
         groups = [group.name for group in request.user.groups.all()]
         if request.user.is_staff:
@@ -2136,7 +2155,7 @@ class Accounting(View):
             "redirect_step": redirect_step,
             "start_date_confirm": request.POST.get("start_date_confirm") or None,
             "end_date_confirm": request.POST.get("end_date_confirm") or None,
-            "invoice_type":invoice_type,
+            "invoice_type": invoice_type,
         }
         return self.template_invoice_preport_edit, context
 
@@ -2783,7 +2802,7 @@ class Accounting(View):
         if order.order_type == "直送":
             invoice_preport = InvoicePreport.objects.get(
                 invoice_number__invoice_number=invoice.invoice_number,
-                invoice_type=invoice_type
+                invoice_type=invoice_type,
             )
             for field in invoice_preport._meta.fields:
                 if isinstance(field, models.FloatField) and field.name != "amount":
@@ -2812,7 +2831,7 @@ class Accounting(View):
         else:
             invoice_preport = InvoicePreport.objects.get(
                 invoice_number__invoice_number=invoice.invoice_number,
-                invoice_type=invoice_type
+                invoice_type=invoice_type,
             )
             invoice_warehouse = InvoiceWarehouse.objects.get(
                 invoice_number__invoice_number=invoice.invoice_number
