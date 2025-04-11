@@ -693,57 +693,63 @@ class OrderCreation(View):
     async def handle_update_delivery_type(
         self, request: HttpRequest
     ) -> tuple[Any, Any]:
-        limit = 10000
         
         # 处理PackingList
-        queryset = PackingList.objects.all().order_by("-id")[:limit]
-        batch = await sync_to_async(list)(
-            queryset.values("id", "destination")
-        )
-        
-        public_ids = [
-            item["id"] for item in batch 
-            if (
-                re.match(r'^[A-Za-z]{3}\s*\d$', str(item["destination"]))  # 原规则
-                or any(
-                    kw.lower() in str(item["destination"]).lower()
-                    for kw in ["walmart", "沃尔玛", "WALMART","Walmart"]
-                )
+        batch_size = 10000
+        queryset = PackingList.objects.all().order_by("id")
+        total = await sync_to_async(queryset.count)()
+
+        for start in range(0, total, batch_size):
+            batch = await sync_to_async(list)(
+                queryset[start : start + batch_size].values("id", "destination")
             )
-        ]
-        
-        # 批量更新PackingList
-        await sync_to_async(PackingList.objects.filter(
-            id__in=public_ids
-        ).update)(delivery_type="public")
-        await sync_to_async(PackingList.objects.filter(
-            id__in=[item["id"] for item in batch if item["id"] not in public_ids]
-        ).update)(delivery_type="other")
-        
-        # 处理Pallet
-        queryset = Pallet.objects.all().order_by("-id")[:limit]
-        batch = await sync_to_async(list)(
-            queryset.values("id", "destination")
-        )
-        
-        public_ids = [
-            item["id"] for item in batch 
-            if (
-                re.match(r'^[A-Za-z]{3}\s*\d$', str(item["destination"]))  # 原规则
-                or any(
-                    kw.lower() in str(item["destination"]).lower()
-                    for kw in ["walmart", "沃尔玛", "WALMART","Walmart"]
+            
+            public_ids = [
+                item["id"] for item in batch 
+                if (
+                    re.match(r'^[A-Za-z]{3}\s*\d$', str(item["destination"]))  # 原规则
+                    or any(
+                        kw.lower() in str(item["destination"]).lower()
+                        for kw in ["walmart", "沃尔玛", "WALMART","Walmart"]
+                    )
                 )
-            )
-        ]
+            ]
+            
+            # 批量更新
+            await sync_to_async(PackingList.objects.filter(
+                id__in=public_ids
+            ).update)(delivery_type="public")
+            await sync_to_async(PackingList.objects.filter(
+                id__in=[item["id"] for item in batch if item["id"] not in public_ids]
+            ).update)(delivery_type="other")
         
-        # 批量更新Pallet
-        await sync_to_async(Pallet.objects.filter(
-            id__in=public_ids
-        ).update)(delivery_type="public")
-        await sync_to_async(Pallet.objects.filter(
-            id__in=[item["id"] for item in batch if item["id"] not in public_ids]
-        ).update)(delivery_type="other")
+        plt_size = 10000
+        queryset = Pallet.objects.all().order_by("id")
+        total = await sync_to_async(queryset.count)()
+
+        for start in range(0, total, plt_size):
+            batch = await sync_to_async(list)(
+                queryset[start : start + plt_size].values("id", "destination")
+            )
+            
+            public_ids = [
+                item["id"] for item in batch 
+                if (
+                    re.match(r'^[A-Za-z]{3}\s*\d$', str(item["destination"]))  # 原规则
+                    or any(
+                        kw.lower() in str(item["destination"]).lower()
+                        for kw in ["walmart", "沃尔玛", "WALMART","Walmart"]
+                    )
+                )
+            ]
+            
+            # 批量更新
+            await sync_to_async(PackingList.objects.filter(
+                id__in=public_ids
+            ).update)(delivery_type="public")
+            await sync_to_async(Pallet.objects.filter(
+                id__in=[item["id"] for item in batch if item["id"] not in public_ids]
+            ).update)(delivery_type="other")
         
         return await self.handle_order_management_container_get(request)
 
