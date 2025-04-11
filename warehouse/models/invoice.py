@@ -85,12 +85,12 @@ class InvoiceStatus(models.Model):
     stage_public = models.CharField(
         max_length=20,
         default='pending',
-        choices=[('pending', '待处理'), ('completed', '已完成'), ('rejected', '已驳回')]
+        choices=[('pending', '待处理'), ('warehouse_completed', '仓库已完成'),('delivery_completed', '派送已完成'),('warehouse_rejected', '仓库已驳回'),  ('delivery_rejected', '派送已驳回')]
     )
     stage_other = models.CharField(
         max_length=20,
         default='pending',
-        choices=[('pending', '待处理'), ('completed', '已完成'), ('rejected', '已驳回')]
+        choices=[('pending', '待处理'), ('warehouse_completed', '仓库已完成'),('delivery_completed', '派送已完成'),('warehouse_rejected', '仓库已驳回'),  ('delivery_rejected', '派送已驳回')]
     )
     is_rejected = models.BooleanField(default=False)
     reject_reason = models.TextField(blank=True)
