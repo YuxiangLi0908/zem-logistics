@@ -270,6 +270,8 @@ class Accounting(View):
             return self.handle_invoice_order_batch_export(request)
         elif step == "migrate_payable_receivable_amount":
             return self.migrate_payable_to_receivable(request)
+        elif step == "migrate_status":
+            return self.migrate_status(request)
         else:
             raise ValueError(f"unknow request {step}")
     def migrate_payable_to_receivable(self,request)-> tuple[Any, Any]:
@@ -289,6 +291,52 @@ class Accounting(View):
             invoice.payable_direct_amount = 0.0
             
             invoice.save()
+        context = {}
+        return context,self.template_invoice_preport
+
+    def get_special_stages(self,main_stage)-> tuple[str, str]:
+        if main_stage == 'delivery':
+            return 'warehouse_completed', 'warehouse_completed'
+        elif main_stage in ('tobeconfirmed', 'confirmed'):
+            return 'delivery_completed', 'delivery_completed'
+        else:
+            return 'pending', 'pending'  # 默认返回原状态
+        
+    def migrate_status(self,request)-> tuple[Any, Any]:
+        STATUS_MAPPING = {
+            'record_preport': 'preport',
+            'record_warehouse': 'warehouse',
+            'record_delivery': 'delivery',  # 修正为正确的映射
+            'tobeconfirmed': 'tobeconfirmed',
+            'confirmed': 'confirmed',
+            None: 'unstarted'  # 处理空值情况
+        }
+        orders = (
+            Order.objects.select_related("container_number")
+            .filter(invoice_status__isnull=False)
+        ).exclude(invoice_status='')
+        for order in orders:
+            main_stage = STATUS_MAPPING.get(order.invoice_status, 'unstarted')
+            stage_public, stage_other = self.get_special_stages(main_stage)
+
+            invoice_status, created = InvoiceStatus.objects.get_or_create(
+                container_number=order.container_number,
+                invoice_type='receivable',
+                defaults={
+                    'stage': main_stage,
+                    'stage_public': stage_public,
+                    'stage_other': stage_other
+                }
+            )
+
+            if not created:
+                invoice_status.stage = main_stage
+                invoice_status.stage_public = stage_public
+                invoice_status.stage_other = stage_other
+                invoice_status.save()
+            
+            order.receivable_status = invoice_status
+            order.save()
         context = {}
         return context,self.template_invoice_preport
 
