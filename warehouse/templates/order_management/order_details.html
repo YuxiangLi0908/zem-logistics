@@ -458,32 +458,34 @@
                 {% endif %}
             </form>
         </div>
-        <form method="post" action="">
-            {% csrf_token %}
-            <br>
-            {% if user.is_authenticated %}
-                <div class="text-right">
-                    <input type="hidden" name="step" value="update_delivery_type_all">
-                    <button id="submit-btn-update-basic-info" type="submit" class="btn btn-primary" style="width: 90px; height: 30px; margin-left: 20px; font-size: 13px;" onclick="processForm()">
-                        给pl和plt更新派送类型
-                    </button>
-                </div>
+        {% if user.is_staff %}
+            <form method="post" action="">
+                {% csrf_token %}
                 <br>
-            {% endif %}
-        </form>
-        <form method="post" action="">
-            {% csrf_token %}
-            <br>
-            {% if user.is_authenticated %}
-                <div class="text-right">
-                    <input type="hidden" name="step" value="update_container_delivery_type">
-                    <button id="submit-btn-update-basic-info" type="submit" class="btn btn-primary" style="width: 90px; height: 30px; margin-left: 20px; font-size: 13px;" onclick="processForm()">
-                        给所有container更新
-                    </button>
-                </div>
+                {% if user.is_authenticated %}
+                    <div class="text-right">
+                        <input type="hidden" name="step" value="update_delivery_type_all">
+                        <button id="submit-btn-update-basic-info" type="submit" class="btn btn-primary" style="width: 90px; height: 30px; margin-left: 20px; font-size: 13px;" onclick="processForm()">
+                            给pl和plt更新派送类型
+                        </button>
+                    </div>
+                    <br>
+                {% endif %}
+            </form>
+            <form method="post" action="">
+                {% csrf_token %}
                 <br>
-            {% endif %}
-        </form>
+                {% if user.is_authenticated %}
+                    <div class="text-right">
+                        <input type="hidden" name="step" value="update_container_delivery_type">
+                        <button id="submit-btn-update-basic-info" type="submit" class="btn btn-primary" style="width: 90px; height: 30px; margin-left: 20px; font-size: 13px;" onclick="processForm()">
+                            给所有container更新
+                        </button>
+                    </div>
+                    <br>
+                {% endif %}
+            </form>
+        {% endif %}
     </div>
 
     <div id="order-retrieval-info-sec" style="display: none;">
