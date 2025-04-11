@@ -1,0 +1,429 @@
+{% extends 'base.html' %}
+
+{% block content %}
+<div><h4><b>派送账单编辑——总计 $<span class="total_amount">0</span></b></h4></div>
+<div  style="display: inline-block; width: 100%; margin: 0; padding: 0; max-width: 100%;">
+    <p style="text-align:center;"><b>{{ invoice }}</b></p>
+    <form method="post" action="">
+        {% csrf_token %}
+        <input type="hidden" name="step" value="update_delivery_invoice">
+        <input type="hidden" name="type" value="amount">
+        <input type="hidden" name="amount" value="">
+        <input type="hidden" name="start_date" value="{{ start_date }}">
+        <input type="hidden" name="end_date" value="{{ end_date }}">
+        <input type="hidden" name="invoice_type" value="{{ invoice_type }}">
+        <input type="hidden" name="delivery_type" value="{{ delivery_type }}">
+        <input type="hidden" name="start_date_confirm" value="{{ start_date_confirm }}">
+        <input type="hidden" name="end_date_confirm" value="{{ end_date_confirm }}">
+        <input type="hidden" name="redirect_step" value="{{ redirect_step }}">
+        <input type="hidden" name="container_number" value={{ container_number }}>
+        <button id="editButton" type="submit" class="btn btn-primary" onclick="AmountForm()" style="background-color:green; font-size: 13px; float:right; padding:10px 20px; margin-right:80px;">派送账单确认</button>  
+    </form>
+<div>
+<div>   
+    <form method="post" action="">
+        {% csrf_token %}
+        <div style="margin:auto; max-height: 800px;max-width:1500px;margin-bottom:50px;">
+            <button id="editButton" type="button" class="btn btn-primary" onclick="add_delivery(this)" style="font-size: 11px;">亚马逊派送</button>
+            {% if amazon %}
+                <table class="table" id="amazon-table" style="font-size: 13px">
+                    <thead>
+                        <tr style="position: sticky; top: 0;">
+                            <th class="th">价格</th>
+                            <th class="th">成本</th>
+                            <th class="th">目的地</th>
+                            <th class="th">CBM</th>
+                            <th class="th">重量</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for plt in amazon %}
+                        <tr draggable="true" id="pallet-{{ plt.id }}">
+                            <td class="td">
+                                <input type="number" class="amazon_cost" name="cost" value="{{ plt.total_cost }}" oninput="updateAmazon(this)">
+                                ({{ plt.total_n_pallet }}板，${{ plt.cost }}/板)
+                                <input type="hidden" name="plt_ids" value="{{ plt.plt_ids }}">
+                                <input type="hidden" name="total_pallet" value="{{ plt.total_n_pallet }}">
+                            </td>
+                            <td class="td"><input type="text" name="expense" value="{{ plt.expense|default:'' }}"></td>
+                            <td class="td"><input type="text" name="destination" value="{{ plt.destination }}"></td>
+                            <td class="td"><input type="number" name="cbm" step = 0.01 value="{{ plt.total_cbm|floatformat:2 }}"></td>
+                            <td class="td"><input type="number" name="weight_lbs" step = 0.01 value="{{ plt.total_weight_lbs|floatformat:2 }}"></td>
+                        </tr>
+                        {% endfor %}
+                        <tr>
+                            <td class="td">
+                                <input type="number" id="amazon_total" name="total" value=""></td>
+                            <td colspan="4"></td>
+                        </tr>
+                    </tbody>
+                </table>
+                <div class="text-left" style="float:right;">
+                    <input type="hidden" name="step" value="update_delivery_invoice">
+                    <input type="hidden" name="type" value="amazon">    
+                    <input type="hidden" name="invoice_type" value="{{ invoice_type }}">
+                    <input type="hidden" name="redirect_step" value="{{ redirect_step }}">              
+                    <input type="hidden" name="container_number" value="{{ container_number }}">             
+                    <input type="hidden" class="total_amount" name="total_amount">    
+                    <button type="submit" class="btn btn-primary" style="width: 100px; height: 35px;" onclick="processForm('amazon-table',event)">确认</button>
+                </div>
+            {% endif %}
+        </div>
+    </form>
+</div>
+<div>   
+    <form method="post" action="">
+        {% csrf_token %}
+        <div style="margin:auto; max-height: 800px;max-width:1500px;margin-bottom:50px;">
+            <button id="editButton" type="button" class="btn btn-primary" onclick="add_delivery(this)" style="font-size: 11px;">沃尔玛派送</button>
+            {% if walmart %}
+                <table class="table" id="walmart-table" style="font-size: 13px">
+                    <thead>
+                        <tr style="position: sticky; top: 0;">
+                            <th class="th">价格</th>
+                            <th class="th">成本</th>
+                            <th class="th">目的地</th>
+                            <th class="th">CBM</th>
+                            <th class="th">重量</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for plt in walmart %}
+                        <tr draggable="true" id="pallet-{{ plt.id }}">
+                            <td class="td">
+                                <input type="number" class="walmart_cost" name="cost" value="{{ plt.total_cost }}" oninput="updateWalmart(this)">
+                                ({{ plt.total_n_pallet }}板，${{ plt.cost }}/板)
+                                <input type="hidden" name="plt_ids" value="{{ plt.plt_ids }}">
+                                <input type="hidden" name="total_pallet" value="{{ plt.total_n_pallet }}">
+                            </td>
+                            <td class="td"><input type="text" name="expense" value="{{ plt.expense|default:'' }}"></td>
+                            <td class="td"><input type="text" name="destination" value="{{ plt.destination }}"></td>
+                            <td class="td"><input type="number" name="cbm" step = 0.01 value="{{ plt.total_cbm|floatformat:2 }}"></td>
+                            <td class="td"><input type="number" name="weight_lbs" step = 0.01 value="{{ plt.total_weight_lbs|floatformat:2 }}"></td>
+                        </tr>
+                        {% endfor %}
+                        <tr>
+                            <td class="td">
+                                <input type="number" id="walmart_total" name="total" value=""></td>
+                            <td colspan="4"></td>
+                        </tr>
+                    </tbody>
+                </table>
+                <div class="text-left" style="float:right;">
+                    <input type="hidden" name="step" value="update_delivery_invoice">
+                    <input type="hidden" name="type" value="walmart">  
+                    <input type="hidden" name="invoice_type" value="{{ invoice_type }}">
+                    <input type="hidden" name="redirect_step" value="{{ redirect_step }}">                
+                    <input type="hidden" name="container_number" value={{ container_number }}>
+                    <input type="hidden" class="total_amount" name="total_amount">    
+                    <button type="submit" class="btn btn-primary" style="width: 100px; height: 35px;" onclick="processForm('walmart-table',event)">确认</button>
+                </div>
+            {% endif %}
+        </div>
+    </form>
+</div>
+<div>
+    <form method="post" action="">
+        {% csrf_token %}
+        <div style="margin:auto; max-height: 800px;max-width:1500px;">
+            <button id="editButton" type="button" class="btn btn-primary" onclick="add_delivery(this)" style="font-size: 11px;">组合柜派送</button>
+            {% if combine %}
+                <table class="table" id="combine-table" style="font-size: 13px;">
+                    <thead>
+                        <tr style="position: sticky; top: 0;">
+                            <th class="th">价格</th>
+                            <th class="th">成本</th>
+                            <th class="th">目的地</th>
+                            <th class="th">CBM</th>
+                            <th class="th">重量</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for plt in combine %}
+                        <tr draggable="true" id="pallet-{{ plt.id }}">
+                            <td class="td">
+                                <input type="number" class="combine_cost" name="cost" value="{{ plt.total_cost }}" oninput="updateCombine(this)">
+                                ({{ plt.total_n_pallet }}板，一口价${{ plt.cost }})
+                                <input type="hidden" name="plt_ids" value="{{ plt.plt_ids }}">
+                                <input type="hidden" name="total_pallet" value="{{ plt.total_n_pallet }}">
+                            </td>
+                            <td class="td"><input type="text" name="expense" value="{{ plt.expense|default:'' }}"></td>
+                            <td class="td"><input type="text" name="destination" value="{{ plt.destination }}"></td>
+                            <td class="td"><input type="number" name="cbm" step = 0.01 value="{{ plt.total_cbm|floatformat:2 }}"></td>
+                            <td class="td"><input type="number" name="weight_lbs" step = 0.01 value="{{ plt.total_weight_lbs|floatformat:2 }}"></td>
+                        </tr>
+                        {% endfor %}
+                        <tr>
+                            <td class="td"><input type="number" id="combine_total" name="total" value="" disabled></td>
+                            <td colspan="4"></td>
+                        </tr>
+                    </tbody>
+                </table>
+                <div class="text-left" style="float:right;">
+                    <input type="hidden" name="step" value="update_delivery_invoice">
+                    <input type="hidden" name="type" value="combine">
+                    <input type="hidden" name="invoice_type" value="{{ invoice_type }}">
+                    <input type="hidden" name="redirect_step" value="{{ redirect_step }}">
+                    <input type="hidden" name="container_number" value="{{ container_number }}">
+                    <input type="hidden" class="total_amount" name="total_amount">    
+                    <button type="submit" class="btn btn-primary" style="width: 100px; height: 35px;" onclick="processForm('combine-table',event)">确认</button>
+                </div>
+            {% endif %}      
+        </div>
+    </form>
+</div>
+<div>
+    <form method="post" action="">
+        {% csrf_token %}
+        <div class="pallet-window" style="display: none; z-index:999; position: fixed; top: 50%; left: 50%; transform: translate(-50%, -50%); background-color: white; border: 1px solid gray; padding: 20px; max-height: 50%; overflow-y: scroll;">
+            <div style="display: flex;">
+                <input type="hidden" name="step" value="add_delivery_type">
+                <input type="hidden" id="alter_type" name="alter_type">
+                <input type="hidden" name="invoice_type" value="{{ invoice_type }}">
+                <input type="hidden" name="delivery_type" value="{{ delivery_type }}">
+                <input type="hidden" name="container_number" value="{{ container_number }}">
+                <input type="hidden" name="redirect_step" value="{{ redirect_step }}">
+                <input type="hidden" name="start_date_confirm" value="{{ start_date_confirm }}">
+                <input type="hidden" name="end_date_confirm" value="{{ end_date_confirm }}">
+                <button type="submit" class="btn btn-primary" onclick="add_delivery_plt(this)" style="font-size: 11px; margin-right: 5px;">确认添加</button>
+                <button id="editButton" type="button" class="btn btn-danger" onclick="add_delivery(this)" style="font-size: 11px;">返回</button>
+            </div>
+            <table class="table" id="add-delivery" style="font-size: 13px;">
+                <thead>
+                    <tr style="position: sticky; top: 0;">
+                        <th class="th" style="min-width: 40px;"></th>
+                        <th class="th">板数</th>
+                        <th class="th">派送类型</th>
+                        <th class="th">目的地</th>
+                        <th class="th">CBM</th>
+                        <th class="th">重量</th>
+                        <th class="th">邮编</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for plt in pallet %}
+                    <tr draggable="true" id="pallet-{{ plt.id }}" style="{% if not plt.invoice_delivery__type %}background-color: white; color: white;{% endif %}">
+                        <td class="td" style="min-width: 40px; text-align: center;">
+                            <input type='checkbox' name='is_type_added' onclick="toggleRowBackground(this)" {% if plt.delivery %}checked{% endif %}>
+                            <input type="hidden" name="is_type_added", value='off'>
+                            <input type="hidden" name="added_plt_ids", value='{{ plt.ids }}'>
+                            <input type="hidden" name="total_pallet" value="{{ plt.total_n_pallet }}">
+                        </td>
+                        <td class="td"><input type="text" name="total_n_pallet" value="{{ plt.total_n_pallet }}" disabled></td>
+                        <td class="td"><input type="text" name="alter_type" value="{{ plt.invoice_delivery__type|default_if_none:'' }}" disabled></td>
+                        <td class="td"><input type="text" name="destination" value="{{ plt.destination }}"></td>
+                        <td class="td"><input type="number" name="cbm" step = 0.01 value="{{ plt.total_cbm|floatformat:2 }}"></td>
+                        <td class="td"><input type="number" name="weight_lbs" step = 0.01 value="{{ plt.total_weight_lbs|floatformat:2 }}"></td>
+                        <td class="td"><input type="text" name="zipcode" step = 0.01 value="{{ plt.zipcode|default_if_none:'' }}"></td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </form>
+</div>
+    
+<script>
+    window.onload = function () {
+        let amazon_total = 0;
+        let combine_total = 0;
+        let walmart_total = 0;
+        let total_amount = 0;
+        let self_delivery_total = 0;
+        var rows = document.querySelectorAll('#amazon-table tbody tr:not(:last-child)');
+        if (rows.length !== 0){
+            for (var i = 0; i < rows.length; i++) {
+                var costInput = rows[i].querySelector('input.amazon_cost');
+                var costValue = parseFloat(costInput.value);
+                if (!isNaN(costValue)) {
+                    amazon_total += costValue;
+                }
+            }               
+            document.getElementById('amazon_total').value = amazon_total; 
+            total_amount += amazon_total;
+        }
+        
+
+        var rows = document.querySelectorAll('#walmart-table tbody tr:not(:last-child)');
+        if (rows.length !== 0){
+            for (var i = 0; i < rows.length; i++) {
+                var costInput = rows[i].querySelector('input.walmart_cost');
+                var costValue = parseFloat(costInput.value);
+                if (!isNaN(costValue)) {
+                    walmart_total += costValue;
+                }
+            }      
+            document.getElementById('walmart_total').value = walmart_total;
+            total_amount += walmart_total;
+        }
+         
+
+        var rows = document.querySelectorAll('#combine-table tbody tr:not(:last-child)');
+        if (rows.length !== 0){
+            for (var i = 0; i < rows.length; i++) {
+                var costInput = rows[i].querySelector('input.combine_cost');
+                var costValue = parseFloat(costInput.value);
+                if (!isNaN(costValue)) {
+                    combine_total += costValue;
+                }
+            }
+            document.getElementById('combine_total').value = combine_total;
+            total_amount += combine_total;
+        }
+
+        const elements = document.querySelectorAll('.total_amount');
+        elements.forEach(element => {
+            if (element.tagName === 'INPUT') {
+                element.value = total_amount;  // <input> 用 value
+            } else {
+                element.textContent = total_amount;  // <span> 用 textContent
+            }
+        });
+        
+        
+
+    };
+    function updateAmazon(numberInput) {
+        const amountInputs = document.querySelectorAll('input.amazon_cost');
+        const amountAmazon = document.getElementById('amazon_total');
+        let total = 0;
+        amountInputs.forEach(function (input) {
+            const value = parseFloat(input.value);
+            if (!isNaN(value)) {
+                total += value;
+            }
+        });
+        amountAmazon.value = total.toFixed(2);
+        updateTotal();
+        
+    };
+    
+    
+    function updateTotal() {
+        let total_amount = 0;
+        const amountAmazon = document.getElementById('amazon_total');      
+        const amountWalmart = document.getElementById('walmart_total');
+        const amountCombine = document.getElementById('combine_total');
+      
+        if (amountAmazon && amountAmazon.value) {
+            const amazonValue = parseFloat(amountAmazon.value) || 0;
+            total_amount += amazonValue;
+        }
+        if (amountWalmart && amountWalmart.value) {
+            const walmartValue = parseFloat(amountWalmart.value) || 0;
+            total_amount += walmartValue;
+        }
+        if (amountCombine && amountCombine.value) {
+            const combineValue = parseFloat(amountCombine.value) || 0;
+            total_amount += combineValue;
+        }
+        
+        const totalAmountSpan = document.querySelector('.total_amount');
+        totalAmountSpan.textContent = total_amount;
+    };
+
+    function updateWalmart(numberInput) {
+        const amountInputs = document.querySelectorAll('input.walmart_cost');
+        const amountWalmart = document.getElementById('walmart_total');
+        let total = 0;
+        amountInputs.forEach(function (input) {
+            const value = parseFloat(input.value);
+            if (!isNaN(value)) {
+                total += value;
+            }
+        });
+        amountWalmart.value = total.toFixed(2);
+        updateTotal();
+    };
+
+    function updateCombine(numberInput) {
+        const amountInputs = document.querySelectorAll('input.combine_cost');
+        const amountCombine = document.getElementById('combine_total');
+        let total = 0;
+        amountInputs.forEach(function (input) {
+            const value = parseFloat(input.value);
+            if (!isNaN(value)) {
+                total += value;
+            }
+        });
+        amountCombine.value = total.toFixed(2);
+        updateTotal();
+    };
+
+    function add_delivery_plt(button) {
+        const checkBoxes = document.getElementsByName('is_type_added');
+        for (let i = 0; i < checkBoxes.length; i+=2) {
+            if (checkBoxes[i].checked) {
+                checkBoxes[i+1].disabled = true;
+            };
+        };
+    };
+
+    function add_delivery(button) {
+        var popup = document.querySelector('.pallet-window');
+        if (popup.style.display === 'none') {
+            popup.style.display = 'block';
+        } else {
+            popup.style.display = 'none';
+        };
+        const type = document.getElementById('alter_type');
+        text = button.textContent;
+        if (text === '亚马逊派送') {
+            type.value = 'amazon';
+        } else if (text === '组合柜派送') {
+            type.value = 'combine';
+        } else if (text === '沃尔玛派送') {
+            type.value = 'walmart';
+        }
+    };
+
+    function toggleRowBackground(checkbox) {
+        var row = checkbox.closest('tr');
+        if (checkbox.checked) {
+            row.style.backgroundColor = '#ADD8E6'; 
+        } else {
+            row.style.backgroundColor = ''; 
+        }
+    };
+    function removeRows() {
+        const checkboxes = document.querySelectorAll('input[name="is_item_selected"]:checked');
+        checkboxes.forEach(checkbox => {
+            const row = checkbox.closest('tr');
+            row.remove();
+        });
+    };
+    function processForm(tableId,event) {
+        var table = document.getElementById(tableId);
+        var tbody = table.getElementsByTagName('tbody')[0];
+        var rows = tbody.getElementsByTagName('tr');
+        for (var i = 0; i < rows.length - 1; i++) {
+            var cost = rows[i].getElementsByTagName('td')[0];
+            var input = cost.getElementsByTagName('input')[0];
+            if (input.value === "") {
+                input.focus();
+                event.preventDefault();
+                alert('不能为空！');          
+            }
+        }       
+    };
+    function AmountForm() {
+        var costInputs = document.querySelectorAll('input[name="cost"]');
+        for (var i = 0; i < costInputs.length; i++) {
+            if (costInputs[i].value === '') {
+                costInputs[i].focus();
+                event.preventDefault();
+                alert('不能为空！');
+                break;
+            }
+        }       
+        
+        var totalInputs = document.querySelectorAll('input[name="total"]');
+        var sum = 0;
+        for (var j = 0; j < totalInputs.length; j++) {
+            sum += parseFloat(totalInputs[j].value);
+        }
+        var amountInput = document.querySelector('input[name="amount"]');
+        amountInput.value = sum;
+    }
+</script>
+{% endblock %}

@@ -17,6 +17,7 @@
                             <th class="th">货柜</th>
                             <th class="th">目的仓库</th>
                             <th class="th">派送方式</th>
+                            <th class="th">派送类型</th>
                             {% if status == 'non_palletized' %}
                             <th class="th">唛头</th>
                             <th class="th">FBA ID</th>
@@ -45,6 +46,10 @@
                                 <td class="td">{{ pl.destination }}</td>
                                 {% endif%}
                             {% endif %}
+                            <td class="td">
+                                {{ pl.delivery_type }}
+                                <input type="hidden" name="delivery_type" value="{{pl.delivery_type}}">
+                            </td>
                             <td class="td">
                                 {% if status == 'non_palletized' %}
                                     {% with first_value=pl.custom_delivery_method|split_and_get_first %}

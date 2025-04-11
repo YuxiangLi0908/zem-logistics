@@ -182,13 +182,14 @@
         <input type="hidden" name="container_number" value="{{ container_number }}">
         <input type="hidden" name="start_date" value="{{ start_date }}">
         <input type="hidden" name="end_date" value="{{ end_date }}">
+        <input type="hidden" name="invoice_type" value="{{ invoice_type }}">
         <input type="hidden" name="invoice_number" value="{{ invoice_warehouse.invoice_number }}">
         {% if status != 'confirmed' %}
             {% if redirect_step %}
                 <button type="submit" class="btn btn-danger" style="width: 150px; height: 35px;" onclick="validateForm('account_comlete')">财务修改账单确认</button>
             {% else %}
                 <button type="submit" class="btn btn-danger" style="width: 150px; height: 35px;" onclick="validateForm('complete')">账单录入完成</button>
-                <button type="button" class="btn btn-primary" style="width: 150px; height: 35px;" onclick="validateForm('temporary')">暂存未完成</button>
+                <button type="submit" class="btn btn-primary" style="width: 150px; height: 35px;" onclick="validateForm('temporary')">暂存未完成</button>
                 {% endif %}
         {% endif %}
     </form>

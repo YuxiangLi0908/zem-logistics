@@ -1,4 +1,5 @@
 from django.db import models
+from django.db.models import JSONField
 from simple_history.models import HistoricalRecords
 
 from warehouse.models.clearance import Clearance
@@ -10,6 +11,7 @@ from warehouse.models.retrieval import Retrieval
 from warehouse.models.shipment import Shipment
 from warehouse.models.vessel import Vessel
 from warehouse.models.warehouse import ZemWarehouse
+from warehouse.models.invoice import InvoiceStatus
 
 
 class Order(models.Model):
@@ -57,6 +59,23 @@ class Order(models.Model):
     # 标记当前状态是否被上一步驳回
     invoice_reject = models.BooleanField(default=False)
     invoice_reject_reason = models.CharField(max_length=255, null=True, blank=True)
+    receivable_status = models.ForeignKey(
+        InvoiceStatus, 
+        null=True, 
+        blank=True,
+        on_delete=models.SET_NULL,
+        related_name="receivable_orders",
+        limit_choices_to={'invoice_type': 'receivable'}  # 限制只能关联应收状态
+    )
+    
+    payable_status = models.ForeignKey(
+        InvoiceStatus,
+        null=True,
+        blank=True,
+        on_delete=models.SET_NULL,
+        related_name="payable_orders",
+        limit_choices_to={'invoice_type': 'payable'}  # 限制只能关联应付状态
+    )
     history = HistoricalRecords()
 
     class Meta:

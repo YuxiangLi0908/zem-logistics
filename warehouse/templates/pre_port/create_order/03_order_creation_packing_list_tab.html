@@ -204,6 +204,7 @@
                                 <tr style="position: sticky; top: 0;">
                                     <th class="th">物品名</th>
                                     <th class="th">派送方式</th>
+                                    <th class="th">派送类型</th>
                                     <th class="th">唛头</th>
                                     <th class="th">FBA号</th>
                                     <th class="th">refid</th>
@@ -229,6 +230,13 @@
                                         {% endfor %}
                                         </select>
                                     </td>
+                                    <td class="td">
+                                        <select name="delivery_type"  class="delivery-method">
+                                        {% for k, v in delivery_types %}
+                                        <option value="{{ v }}">{{ k }}</option>
+                                        {% endfor %}
+                                        </select>
+                                    </td>
                                     <td class="td"><input type="text" name="shipping_mark"></td>
                                     <td class="td"><input type="text" name="fba_id"></td>
                                     <td class="td"><input type="text" name="ref_id"></td>
@@ -250,6 +258,13 @@
                                         <select name="delivery_method" class="delivery-method">
                                             {% for k, v in delivery_options %}
                                             <option value="{{ v }}" {% if pl.delivery_method == k %}selected{% endif %}>{{ k }}</option>
+                                            {% endfor %}
+                                        </select>
+                                    </td>
+                                    <td class="td">
+                                        <select name="delivery_type" class="delivery-method">
+                                            {% for k, v in delivery_types %}
+                                            <option value="{{ v }}" {% if pl.delivery_type == v %}selected{% endif %}>{{ k }}</option>
                                             {% endfor %}
                                         </select>
                                     </td>

@@ -301,6 +301,11 @@ class Inventory(View):
             "warehouse": warehouse,
             "delivery_method_options": DELIVERY_METHOD_OPTIONS,
             "plt_ids": ",".join([str(i) for i in plt_ids]),
+            "delivery_types":[
+                ("", ""),
+                ("公仓", "public"),
+                ("其他", "other"),
+            ]
             # "pl_ids": pl_ids,
         }
         return self.template_inventory_po_update, context
@@ -312,10 +317,12 @@ class Inventory(View):
         plt_ids = [int(i) for i in plt_ids.split(",")]
         pl_ids = request.POST.getlist("pl_ids")
         pl_ids = [int(i) for i in pl_ids]
+        container_number = request.POST.get("container_number")
         destination_new = request.POST.get("destination").strip()
         address_new = request.POST.get("address").strip()
         zipcode_new = request.POST.get("zipcode").strip()
         delivery_method_new = request.POST.get("delivery_method")
+        delivery_type_new = request.POST.get("delivery_type")
         location_new = request.POST.get("location")
         note_new = request.POST.get("note").strip()
         shipping_mark = request.POST.getlist("shipping_mark")
@@ -325,9 +332,11 @@ class Inventory(View):
         fba_id_new = request.POST.getlist("fba_id_new")
         ref_id_new = request.POST.getlist("ref_id_new")
         pallet = await sync_to_async(list)(Pallet.objects.filter(id__in=plt_ids))
+        
         packing_list = await sync_to_async(list)(
             PackingList.objects.filter(id__in=pl_ids)
         )
+        
         data_old = [
             pallet[0].destination,
             pallet[0].address,
@@ -341,9 +350,11 @@ class Inventory(View):
             address_new,
             zipcode_new,
             delivery_method_new,
+            delivery_type_new,
             location_new,
             note_new,
         ]
+        
         if any(old != new for old, new in zip(data_old, data_new)):
 
             for p in pallet:
@@ -351,6 +362,7 @@ class Inventory(View):
                 p.address = address_new
                 p.zipcode = zipcode_new
                 p.delivery_method = delivery_method_new
+                p.delivery_type = delivery_type_new
                 p.location = location_new
                 p.note = note_new
             for pl in packing_list:
@@ -358,6 +370,7 @@ class Inventory(View):
                 pl.address = address_new
                 pl.zipcode = zipcode_new
                 pl.delivery_method = delivery_method_new
+                pl.delivery_type = delivery_type_new
 
             # await sync_to_async(Pallet.objects.bulk_update)(
             #     pallet,
@@ -378,6 +391,7 @@ class Inventory(View):
                     "address",
                     "zipcode",
                     "delivery_method",
+                    "delivery_type",
                     "location",
                     "note",
                 ],
@@ -385,7 +399,7 @@ class Inventory(View):
             await sync_to_async(bulk_update_with_history)(
                 packing_list,
                 PackingList,
-                fields=["destination", "address", "zipcode", "delivery_method"],
+                fields=["destination", "address", "zipcode", "delivery_method","delivery_type"],
             )
         for pl_id, sm, fba, ref, sm_new, fba_new, ref_new in zip(
             pl_ids,
@@ -411,6 +425,25 @@ class Inventory(View):
                 Pallet,
                 fields=["shipping_mark", "fba_id", "ref_id"],
             )
+        #更新柜子的delivery_type
+        pallets = await sync_to_async(list)(
+            Pallet.objects.filter(
+                container_number__container_number=container_number
+            )
+        )
+        types = set(plt.delivery_type for plt in pallets if plt.delivery_type)
+        if not types:
+            raise ValueError("缺少派送类型")
+        new_type = types.pop() if len(types) == 1 else 'mixed'
+        co = await sync_to_async(
+            Container.objects.get,
+            thread_sensitive=True
+        )(container_number=container_number)
+        co.delivery_type = new_type
+        await sync_to_async(
+            co.save,
+            thread_sensitive=True
+        )()
         return await self.handle_warehouse_post(request)
 
     async def handle_counting_post(
@@ -547,6 +580,7 @@ class Inventory(View):
             .values(
                 "destination",
                 "delivery_method",
+                "delivery_type",
                 "shipping_mark",
                 "fba_id",
                 "ref_id",
