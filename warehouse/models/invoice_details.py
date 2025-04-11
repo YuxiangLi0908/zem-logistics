@@ -35,6 +35,8 @@ class InvoicePreport(models.Model):
     per_diem = models.FloatField(null=True, blank=True, verbose_name="港外滞期费")
     second_pickup = models.FloatField(null=True, blank=True, verbose_name="二次提货")
     amount = models.FloatField(null=True, blank=True)
+    qty = JSONField(default=dict, verbose_name="基础单价")
+    rate = JSONField(default=dict, verbose_name="数量")
     other_fees = JSONField(default=dict)
     surcharges = JSONField(default=dict)
     surcharge_notes = JSONField(default=dict)
@@ -89,6 +91,8 @@ class InvoiceWarehouse(models.Model):
         null=True, blank=True, verbose_name="重复操作费"
     )
     amount = models.FloatField(null=True, blank=True)
+    qty = JSONField(default=dict, verbose_name="基础单价")
+    rate = JSONField(default=dict, verbose_name="数量")
     other_fees = JSONField(default=dict)
     surcharges = JSONField(default=dict)
     surcharge_notes = JSONField(default=dict)
@@ -120,6 +124,9 @@ class InvoiceDelivery(models.Model):
     )
     invoice_number = models.ForeignKey(Invoice, on_delete=models.CASCADE)
     type = models.CharField(max_length=200, null=True, blank=True)
+    po_activation = models.FloatField(
+        null=True, blank=True, verbose_name="亚马逊PO激活"
+    )
     destination = models.CharField(max_length=200, null=True, blank=True)
     zipcode = models.CharField(max_length=200, null=True, blank=True)
     total_pallet = models.FloatField(null=True, blank=True)
@@ -127,6 +134,8 @@ class InvoiceDelivery(models.Model):
     total_weight_lbs = models.FloatField(null=True, blank=True)
     total_cost = models.FloatField(null=True, blank=True)
     expense = models.FloatField(null=True, blank=True)
+    qty = JSONField(default=dict, verbose_name="基础单价")
+    rate = JSONField(default=dict, verbose_name="数量")
     surcharges = JSONField(default=dict)
     surcharge_notes = JSONField(default=dict)
     history = HistoricalRecords()
