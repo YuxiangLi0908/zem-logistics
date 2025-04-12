@@ -1801,7 +1801,7 @@ class Accounting(View):
                 invoice_type=invoice_type,
                 delivery_type=delivery_type,
             )
-            qty_data,rate_data = self._extract_unit_price(
+            qty_data, rate_data = self._extract_unit_price(
                 model=InvoiceWarehouse,
                 unit_prices=FS_constrain,
                 pickup_fee=None,
@@ -1829,7 +1829,7 @@ class Accounting(View):
 
         #如果单价和数量都为空的话，就初始化
         if not invoice_warehouse.qty and not invoice_warehouse.rate:         
-            qty_data,rate_data = self._extract_unit_price(
+            qty_data, rate_data = self._extract_unit_price(
                 model=InvoiceWarehouse,
                 unit_prices=FS_constrain,
                 pickup_fee=None,
@@ -2282,7 +2282,7 @@ class Accounting(View):
                 'id','invoice_number','invoice_type','amount','qty',
                 'rate','other_fees','surcharges','surcharge_notes','history'
             }
-            qty_data,rate_data = self._extract_unit_price(
+            qty_data, rate_data = self._extract_unit_price(
                 model=InvoicePreport,
                 unit_prices=renamed_FS_constrain,
                 pickup_fee=pickup_fee,
@@ -2294,7 +2294,6 @@ class Accounting(View):
         else:
             qty_data = invoice_preports.qty
             rate_data = invoice_preports.rate
-
 
         context = {
             "warehouse": warehouse,
@@ -2317,7 +2316,6 @@ class Accounting(View):
         return self.template_invoice_direct_edit, context
 
     def _extract_unit_price(self, model, unit_prices, pickup_fee, excluded_fields):
-
         # 构建qty JSON
         qty_data = {}
         rate_data = {}
@@ -2325,13 +2323,12 @@ class Accounting(View):
         for field in model._meta.get_fields():
             if not (isinstance(field, models.FloatField) and field.name not in excluded_fields):
                 continue
-            
             price = unit_prices.get(field.verbose_name, 1.0)
-            qty_data[field.name] = float(price) if price not in [None, 'N/A'] else 1.0
-            rate_data[field.name] = 0
+            rate_data[field.name] = float(price) if price not in [None, 'N/A'] else 1.0
+            qty_data[field.name] = 0
         if pickup_fee:
-            qty_data['pickup_fee']=pickup_fee
-        return qty_data,rate_data
+            rate_data['pickup_fee']=pickup_fee
+        return qty_data, rate_data
 
     def handle_container_invoice_preport_get(
         self, request: HttpRequest
