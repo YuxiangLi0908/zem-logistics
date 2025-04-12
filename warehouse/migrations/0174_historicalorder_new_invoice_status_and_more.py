@@ -6,18 +6,34 @@ from django.db import migrations, models
 class Migration(migrations.Migration):
 
     dependencies = [
-        ('warehouse', '0173_historicalpackinglist_delivery_type_and_more'),
+        ("warehouse", "0173_historicalpackinglist_delivery_type_and_more"),
     ]
 
     operations = [
         migrations.AddField(
-            model_name='historicalorder',
-            name='new_invoice_status',
-            field=models.JSONField(default={'confirmed': None, 'delivery': {'other': None, 'public': None}, 'preport': None, 'tobeconfirmed': None, 'warehouse': {'other': None, 'public': None}}),
+            model_name="historicalorder",
+            name="new_invoice_status",
+            field=models.JSONField(
+                default={
+                    "confirmed": None,
+                    "delivery": {"other": None, "public": None},
+                    "preport": None,
+                    "tobeconfirmed": None,
+                    "warehouse": {"other": None, "public": None},
+                }
+            ),
         ),
         migrations.AddField(
-            model_name='order',
-            name='new_invoice_status',
-            field=models.JSONField(default={'confirmed': None, 'delivery': {'other': None, 'public': None}, 'preport': None, 'tobeconfirmed': None, 'warehouse': {'other': None, 'public': None}}),
+            model_name="order",
+            name="new_invoice_status",
+            field=models.JSONField(
+                default={
+                    "confirmed": None,
+                    "delivery": {"other": None, "public": None},
+                    "preport": None,
+                    "tobeconfirmed": None,
+                    "warehouse": {"other": None, "public": None},
+                }
+            ),
         ),
     ]

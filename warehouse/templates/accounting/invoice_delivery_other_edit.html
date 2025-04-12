@@ -12,6 +12,7 @@
         <input type="hidden" name="start_date" value="{{ start_date }}">
         <input type="hidden" name="end_date" value="{{ end_date }}">
         <input type="hidden" name="invoice_type" value="{{ invoice_type }}">
+        <input type="hidden" name="delivery_type" value="other">
         <input type="hidden" name="start_date_confirm" value="{{ start_date_confirm }}">
         <input type="hidden" name="end_date_confirm" value="{{ end_date_confirm }}">
         <input type="hidden" name="redirect_step" value="{{ redirect_step }}">
@@ -66,6 +67,8 @@
                     <div class="text-left" style="float:right;">
                         <input type="hidden" name="step" value="update_delivery_invoice">
                         <input type="hidden" name="type" value="local">
+                        <input type="hidden" name="start_date" value="{{ start_date }}">
+                        <input type="hidden" name="end_date" value="{{ end_date }}">
                         <input type="hidden" name="invoice_type" value="{{ invoice_type }}">
                         <input type="hidden" name="redirect_step" value="{{ redirect_step }}">
                         <input type="hidden" name="container_number" value={{ container_number }}>
@@ -118,6 +121,8 @@
                 <div class="text-left" style="float:right;">
                     <input type="hidden" name="step" value="update_delivery_invoice">
                     <input type="hidden" name="type" value="self_delivery">  
+                    <input type="hidden" name="start_date" value="{{ start_date }}">
+                    <input type="hidden" name="end_date" value="{{ end_date }}">
                     <input type="hidden" name="invoice_type" value="{{ invoice_type }}">
                     <input type="hidden" name="redirect_step" value="{{ redirect_step }}">                 
                     <input type="hidden" name="container_number" value="{{ container_number }}">

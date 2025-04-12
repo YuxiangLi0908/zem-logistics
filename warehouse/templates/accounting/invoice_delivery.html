@@ -89,8 +89,8 @@
                         <tr style="position: sticky; top: 0;">
                             <th class="th">客户</th>
                             <th class="th">货柜号</th>
+                            <th class="th">建单日期</th>
                             <th class="th">状态</th>
-                            <th class="th">仓点</th>
                             
                         </tr>
                         <tr style="position: sticky; top: 28px;">
@@ -103,18 +103,32 @@
                     <tbody>
                         {% for c in previous_order %}
                             <tr>
-                                <td class="td">{{ c.customer_name__zem_name }}</td>
+                                <td class="td">{{ c.customer_name.zem_name }}</td>
                                 <td class="td">
-                                    <a href="/accounting/?step=container_delivery&container_number={{ c.container_number__container_number }}&start_date={{ start_date }}&end_date={{ end_date }}&invoice_type={{ invoice_type_filter }}">{{ c.container_number__container_number }}</a>
+                                    <a href="/accounting/?step=container_delivery&container_number={{ c.container_number.container_number }}&start_date={{ start_date }}&end_date={{ end_date }}&invoice_type={{ invoice_type_filter }}">{{ c.container_number.container_number }}</a>
                                 </td>
                                 <td class="td">{{ c.created_at|date:"Y-m-d" }}</td>
                                 <td class="td">
-                                    {% if c.invoice_status == 'toBeConfirmed' %}
-                                        财务待确认
-                                    {% elif c.invoice_status == 'confirmed' %}
-                                        账单已开 
-                                    {% else %}
-                                        {{ c.invoice_status }}
+                                    {% if invoice_type_filter == 'receivable' %}
+                                        {% if c.receivable_status.stage == 'delivery' %}
+                                            派送账单待确认
+                                        {% elif c.receivable_status.stage == 'tobeconfirmed' %}
+                                            财务待确认
+                                        {% elif c.receivable_status.stage == 'confirmed' %}
+                                            账单已开
+                                        {% else %}
+                                            {{ c.receivable_status.get_stage_display }}
+                                        {% endif %}
+                                    {% elif invoice_type_filter == 'payable' %}
+                                        {% if c.payable_status.stage == 'delivery' %}
+                                            派送账单待确认
+                                        {% elif c.payable_status.stage == 'tobeconfirmed' %}
+                                            财务待确认
+                                        {% elif c.payable_status.stage == 'confirmed' %}
+                                            账单已开
+                                        {% else %}
+                                            {{ c.payable_status.get_stage_display }}
+                                        {% endif %}
                                     {% endif %}
                                 </td>
                             </tr>

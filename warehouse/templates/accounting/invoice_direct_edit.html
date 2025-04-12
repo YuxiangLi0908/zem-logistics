@@ -167,6 +167,7 @@
             
         <input type="hidden" name="step" value="direct_save">
         <input type="hidden" name="save_type" id="save_type" value="">
+        <input type="text" name="invoice_type" value="{{ invoice_type }}">
         <input type="hidden" name="warehouse" value="{{warehouse}}">
         <input type="hidden" name="container_number" value="{{ container_number }}">
         <input type="hidden" name="start_date" value="{{ start_date }}">
@@ -228,7 +229,6 @@
         const labels = form.querySelectorAll('label');  
         // 定义金额要求的映射关系
         const amountRequirements=JSON.parse('{{ fs_json|escapejs }}');
-        console.log(amountRequirements);
         /*
         const amountRequirements = {
             "查验费": 350,

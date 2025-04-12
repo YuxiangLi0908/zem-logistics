@@ -3,8 +3,8 @@ import base64
 import io
 import json
 import random
-import string
 import re
+import string
 import uuid
 from datetime import datetime
 from typing import Any
@@ -42,6 +42,7 @@ from xhtml2pdf import pisa
 
 from warehouse.forms.packling_list_form import PackingListForm
 from warehouse.forms.warehouse_form import ZemWarehouseForm
+from warehouse.models.container import Container
 from warehouse.models.fleet import Fleet
 from warehouse.models.offload_status import AbnormalOffloadStatus
 from warehouse.models.order import Order
@@ -49,7 +50,6 @@ from warehouse.models.packing_list import PackingList
 from warehouse.models.pallet import Pallet
 from warehouse.models.retrieval import Retrieval
 from warehouse.models.shipment import Shipment
-from warehouse.models.container import Container
 from warehouse.models.transfer_location import TransferLocation
 from warehouse.utils.constants import (
     DELIVERY_METHOD_CODE,
@@ -613,7 +613,6 @@ class Palletization(View):
                         addr,
                         zipcode,
                         contact_name,
-                        
                     )  # 循环遍历每个汇总的板数
                 if p_a != p_r:
                     abnormal_offloads.append(
@@ -685,7 +684,9 @@ class Palletization(View):
                     ref_ids,
                     new_po_ids,
                 ):
-                    delivery_type = "public" if self.is_public_destination(dest) else "other"
+                    delivery_type = (
+                        "public" if self.is_public_destination(dest) else "other"
+                    )
                     pallet_data += await self._split_pallet(
                         order_selected,
                         n,
@@ -732,7 +733,7 @@ class Palletization(View):
             await sync_to_async(bulk_create_with_history)(
                 abnormal_offload_instances, AbnormalOffloadStatus
             )
-        #更新柜子的delivery_type
+        # 更新柜子的delivery_type
         pallet = await sync_to_async(list)(
             Pallet.objects.filter(
                 container_number__container_number=container.container_number
@@ -741,33 +742,28 @@ class Palletization(View):
         types = set(plt.delivery_type for plt in pallet if plt.delivery_type)
         if not types:
             raise ValueError("缺少派送类型")
-        new_type = types.pop() if len(types) == 1 else 'mixed'
-        co = await sync_to_async(
-            Container.objects.get,
-            thread_sensitive=True
-        )(container_number=container.container_number)
+        new_type = types.pop() if len(types) == 1 else "mixed"
+        co = await sync_to_async(Container.objects.get, thread_sensitive=True)(
+            container_number=container.container_number
+        )
         co.delivery_type = new_type
-        await sync_to_async(
-            co.save,
-            thread_sensitive=True
-        )()
-
+        await sync_to_async(co.save, thread_sensitive=True)()
 
         mutable_post = request.POST.copy()
         mutable_post["name"] = order_selected.warehouse.name
         request.POST = mutable_post
         return await self.handle_warehouse_post(request)
 
-    def is_public_destination(self,destination):
+    def is_public_destination(self, destination):
         if not isinstance(destination, str):
             return False
-        pattern = r'^[A-Za-z]{3}\s*\d$'
+        pattern = r"^[A-Za-z]{3}\s*\d$"
         if re.match(pattern, destination):
             return True
         keywords = {"walmart", "沃尔玛"}
         destination_lower = destination.lower()
         return any(keyword.lower() in destination_lower for keyword in keywords)
-    
+
     async def handle_cancel_post(
         self, request: HttpRequest
     ) -> tuple[str, dict[str, Any]]:
@@ -1077,7 +1073,7 @@ class Palletization(View):
         address: str | None = None,
         zipcode: str | None = None,
         contact_name: str | None = None,
-        seed: int = 0,       
+        seed: int = 0,
     ) -> list[dict[str, Any]]:
         if n == 0 or n is None:
             return
@@ -1284,7 +1280,7 @@ class Palletization(View):
                     "note",
                     "shipment_batch_number__shipment_batch_number",
                     "PO_ID",
-                    "delivery_type"
+                    "delivery_type",
                 )
                 .annotate(
                     fba_ids=StringAgg("str_fba_id", delimiter=",", distinct=True),
