@@ -2158,6 +2158,51 @@ class Accounting(View):
         }
         return self.template_invoice_direct_edit, context
 
+    def _extract_unit_price(self, excluded_fields,TABLE,fee_table,invoice,invoice_type):
+        # ... [保持原有代码直到FS_constrain生成] ...
+
+        # 获取InvoicePreport模型的所有费用字段（排除不需要的字段）
+        
+        
+        # 自动获取所有费用字段（FloatField类型）
+        fee_fields = [
+            field.name for field in TABLE._meta.get_fields()
+            if isinstance(field, models.FloatField) and field.name not in excluded_fields
+        ]
+
+        # 构建qty JSON（字段名: 单价）
+        qty_data = {}
+        for field in fee_fields:
+            # 从报价表获取单价（使用字段的verbose_name作为key）
+            field_verbose = TABLE._meta.get_field(field).verbose_name
+            qty_data[field] = float(fee_table.details.get(field_verbose, 1))  # 默认值为1
+            
+            # 特殊处理：如果字段名和报价表key不一致，需要手动映射
+            field_mapping = {
+                'handling_fee': '操作处理费',
+                'pier_pass': '码头',
+                # 添加其他特殊映射...
+            }
+            if field in field_mapping:
+                qty_data[field] = float(fee_table.details.get(field_mapping[field], 1))
+
+        # 更新invoice_preports的qty字段
+        try:
+            invoice_preports = TABLE.objects.get(
+                invoice_number__invoice_number=invoice.invoice_number,
+                invoice_type=invoice_type
+            )
+            invoice_preports.qty = qty_data
+            invoice_preports.save()
+        except TABLE.DoesNotExist:
+            # 新建时直接包含qty数据
+            invoice_preports = TABLE.objects.create(
+                invoice_number=invoice,
+                pickup=pickup_fee,
+                invoice_type=invoice_type,
+                qty=qty_data
+            )
+
     def handle_container_invoice_preport_get(
         self, request: HttpRequest
     ) -> tuple[Any, Any]:
@@ -2204,6 +2249,14 @@ class Accounting(View):
             "urgent_fee": f"{PICKUP_FEE.details.get('加急费', 'N/A')}",  # 加急费
             "other_serive": f"{PICKUP_FEE.details.get('其他服务', 'N/A')}",  # 其他服务
         }
+
+        #提取单价信息
+        excluded_fields = {
+            'id', 'invoice_number', 'invoice_type', 'qty', 'rate', 
+            'other_fees', 'surcharges', 'surcharge_notes', 'history',
+            'amount', 'demurrage', 'per_diem', 'second_pickup'  # 示例排除项，请根据实际调整
+        }
+        self._extract_unit_price(self, excluded_fields,'InvoicePreport',PICKUP_FEE,invoice,invoice_type,pickup_fee)
         # 提拆柜费用读取对应表
         try:
             invoice = Invoice.objects.select_related(
