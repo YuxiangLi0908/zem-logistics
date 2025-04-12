@@ -7,7 +7,12 @@ from warehouse.models.customer import Customer
 from warehouse.models.fee_detail import FeeDetail
 from warehouse.models.fleet import Fleet
 from warehouse.models.fleet_shipment_pallet import FleetShipmentPallet
-from warehouse.models.invoice import Invoice, InvoiceItem, InvoiceStatement,InvoiceStatus
+from warehouse.models.invoice import (
+    Invoice,
+    InvoiceItem,
+    InvoiceStatement,
+    InvoiceStatus,
+)
 from warehouse.models.invoice_details import (
     InvoiceDelivery,
     InvoicePreport,

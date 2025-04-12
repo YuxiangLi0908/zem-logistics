@@ -5,13 +5,12 @@ from simple_history.models import HistoricalRecords
 from warehouse.models.clearance import Clearance
 from warehouse.models.container import Container
 from warehouse.models.customer import Customer
-from warehouse.models.invoice import Invoice
+from warehouse.models.invoice import Invoice, InvoiceStatus
 from warehouse.models.offload import Offload
 from warehouse.models.retrieval import Retrieval
 from warehouse.models.shipment import Shipment
 from warehouse.models.vessel import Vessel
 from warehouse.models.warehouse import ZemWarehouse
-from warehouse.models.invoice import InvoiceStatus
 
 
 class Order(models.Model):
@@ -60,21 +59,21 @@ class Order(models.Model):
     invoice_reject = models.BooleanField(default=False)
     invoice_reject_reason = models.CharField(max_length=255, null=True, blank=True)
     receivable_status = models.ForeignKey(
-        InvoiceStatus, 
-        null=True, 
+        InvoiceStatus,
+        null=True,
         blank=True,
         on_delete=models.SET_NULL,
         related_name="receivable_orders",
-        limit_choices_to={'invoice_type': 'receivable'}  # 限制只能关联应收状态
+        limit_choices_to={"invoice_type": "receivable"},  # 限制只能关联应收状态
     )
-    
+
     payable_status = models.ForeignKey(
         InvoiceStatus,
         null=True,
         blank=True,
         on_delete=models.SET_NULL,
         related_name="payable_orders",
-        limit_choices_to={'invoice_type': 'payable'}  # 限制只能关联应付状态
+        limit_choices_to={"invoice_type": "payable"},  # 限制只能关联应付状态
     )
     history = HistoricalRecords()
 

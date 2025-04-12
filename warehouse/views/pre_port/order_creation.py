@@ -14,7 +14,7 @@ import pandas as pd
 from asgiref.sync import sync_to_async
 from django.core.exceptions import ObjectDoesNotExist
 from django.db import models
-from django.db.models import Case, When, Value
+from django.db.models import Case, Value, When
 from django.http import Http404, HttpRequest, HttpResponse
 from django.shortcuts import redirect, render
 from django.views import View
@@ -87,7 +87,7 @@ class OrderCreation(View):
         if not await self._user_authenticate(request):
             return redirect("login")
         step = request.POST.get("step", None)
-        print('POST',step)
+        print("POST", step)
         if step == "create_order_basic":
             template, context = await self.handle_create_order_basic_post(request)
             return await sync_to_async(render)(request, template, context)
@@ -137,7 +137,9 @@ class OrderCreation(View):
             template, context = await self.handle_update_delivery_type(request)
             return await sync_to_async(render)(request, template, context)
         elif step == "update_container_delivery_type":
-            template, context = await self.handle_update_container_delivery_type(request)
+            template, context = await self.handle_update_container_delivery_type(
+                request
+            )
             return await sync_to_async(render)(request, template, context)
 
     async def handle_export_forecast(self, request: HttpRequest) -> tuple[Any, Any]:
@@ -669,7 +671,7 @@ class OrderCreation(View):
         return await self.handle_order_management_container_get(request)
 
     async def handle_update_container_delivery_type(
-            self, request: HttpRequest
+        self, request: HttpRequest
     ) -> tuple[Any, Any]:
         containers = await sync_to_async(list)(Container.objects.all())
 
@@ -685,15 +687,15 @@ class OrderCreation(View):
 
             if not types:
                 continue
-            new_type = types.pop() if len(types) == 1 else 'mixed'
+            new_type = types.pop() if len(types) == 1 else "mixed"
             container.delivery_type = new_type
             await sync_to_async(container.save, thread_sensitive=True)()
         return await self.handle_order_management_container_get(request)
-        
+
     async def handle_update_delivery_type(
         self, request: HttpRequest
     ) -> tuple[Any, Any]:
-        
+
         # 处理PackingList
         batch_size = 10000
         queryset = PackingList.objects.all().order_by("id")
@@ -703,26 +705,31 @@ class OrderCreation(View):
             batch = await sync_to_async(list)(
                 queryset[start : start + batch_size].values("id", "destination")
             )
-            
+
             public_ids = [
-                item["id"] for item in batch 
+                item["id"]
+                for item in batch
                 if (
-                    re.match(r'^[A-Za-z]{3}\s*\d$', str(item["destination"]))  # 原规则
+                    re.match(r"^[A-Za-z]{3}\s*\d$", str(item["destination"]))  # 原规则
                     or any(
                         kw.lower() in str(item["destination"]).lower()
-                        for kw in ["walmart", "沃尔玛", "WALMART","Walmart"]
+                        for kw in ["walmart", "沃尔玛", "WALMART", "Walmart"]
                     )
                 )
             ]
-            
+
             # 批量更新
-            await sync_to_async(PackingList.objects.filter(
-                id__in=public_ids
-            ).update)(delivery_type="public")
-            await sync_to_async(PackingList.objects.filter(
-                id__in=[item["id"] for item in batch if item["id"] not in public_ids]
-            ).update)(delivery_type="other")
-        
+            await sync_to_async(PackingList.objects.filter(id__in=public_ids).update)(
+                delivery_type="public"
+            )
+            await sync_to_async(
+                PackingList.objects.filter(
+                    id__in=[
+                        item["id"] for item in batch if item["id"] not in public_ids
+                    ]
+                ).update
+            )(delivery_type="other")
+
         plt_size = 10000
         queryset = Pallet.objects.all().order_by("id")
         total = await sync_to_async(queryset.count)()
@@ -731,26 +738,31 @@ class OrderCreation(View):
             batch = await sync_to_async(list)(
                 queryset[start : start + plt_size].values("id", "destination")
             )
-            
+
             public_ids = [
-                item["id"] for item in batch 
+                item["id"]
+                for item in batch
                 if (
-                    re.match(r'^[A-Za-z]{3}\s*\d$', str(item["destination"]))  # 原规则
+                    re.match(r"^[A-Za-z]{3}\s*\d$", str(item["destination"]))  # 原规则
                     or any(
                         kw.lower() in str(item["destination"]).lower()
-                        for kw in ["walmart", "沃尔玛", "WALMART","Walmart"]
+                        for kw in ["walmart", "沃尔玛", "WALMART", "Walmart"]
                     )
                 )
             ]
-            
+
             # 批量更新
-            await sync_to_async(PackingList.objects.filter(
-                id__in=public_ids
-            ).update)(delivery_type="public")
-            await sync_to_async(Pallet.objects.filter(
-                id__in=[item["id"] for item in batch if item["id"] not in public_ids]
-            ).update)(delivery_type="other")
-        
+            await sync_to_async(PackingList.objects.filter(id__in=public_ids).update)(
+                delivery_type="public"
+            )
+            await sync_to_async(
+                Pallet.objects.filter(
+                    id__in=[
+                        item["id"] for item in batch if item["id"] not in public_ids
+                    ]
+                ).update
+            )(delivery_type="other")
+
         return await self.handle_order_management_container_get(request)
 
     async def handle_update_order_packing_list_info_post(
@@ -990,20 +1002,16 @@ class OrderCreation(View):
                     await sync_to_async(obj.delete)()
             except PoCheckEtaSeven.DoesNotExist:
                 raise ValueError("不存在")
-        #更新完pl之后，更新container的delivery_type
+        # 更新完pl之后，更新container的delivery_type
         types = set(pl.delivery_type for pl in packing_list if pl.delivery_type)
         if not types:
             raise ValueError("缺少派送类型")
-        new_type = types.pop() if len(types) == 1 else 'mixed'
-        container = await sync_to_async(
-            Container.objects.get,
-            thread_sensitive=True
-        )(container_number=container_number)
+        new_type = types.pop() if len(types) == 1 else "mixed"
+        container = await sync_to_async(Container.objects.get, thread_sensitive=True)(
+            container_number=container_number
+        )
         container.delivery_type = new_type
-        await sync_to_async(
-            container.save,
-            thread_sensitive=True
-        )()
+        await sync_to_async(container.save, thread_sensitive=True)()
 
         source = request.POST.get("source")
         if source == "order_management":
@@ -1053,10 +1061,10 @@ class OrderCreation(View):
             df = df.dropna(
                 how="all",
                 subset=[c for c in df.columns if c not in ["delivery_method", "note"]],
-            )  #除了delivery_method和note，删除其他列为空的
+            )  # 除了delivery_method和note，删除其他列为空的
             df = df.replace(np.nan, "")
             df = df.reset_index(drop=True)
-            if df["cbm"].isna().sum():  #检查这几个字段是否为空，为空就报错
+            if df["cbm"].isna().sum():  # 检查这几个字段是否为空，为空就报错
                 raise ValueError(f"cbm number N/A error!")
             if (
                 df["total_weight_lbs"].isna().sum()
@@ -1065,7 +1073,7 @@ class OrderCreation(View):
                 raise ValueError(f"weight number N/A error!")
             if df["pcs"].isna().sum():
                 raise ValueError(f"boxes number N/A error!")
-            for idx, row in df.iterrows():   #转换单位
+            for idx, row in df.iterrows():  # 转换单位
                 if row["unit_weight_kg"] and not row["unit_weight_lbs"]:
                     df.loc[idx, "unit_weight_lbs"] = round(
                         df.loc[idx, "unit_weight_kg"] * 2.20462, 2
@@ -1074,12 +1082,12 @@ class OrderCreation(View):
                     df.loc[idx, "total_weight_lbs"] = round(
                         df.loc[idx, "total_weight_kg"] * 2.20462, 2
                     )
-            #通过正则判断是否是公仓，公仓就是public，否则就是other
+            # 通过正则判断是否是公仓，公仓就是public，否则就是other
             df["delivery_type"] = df["destination"].apply(
                 lambda x: "public" if self.is_public_destination(x) else "other"
             )
-            #model_fields获取pl模型的所有字段名
-            model_fields = [field.name for field in PackingList._meta.fields] 
+            # model_fields获取pl模型的所有字段名
+            model_fields = [field.name for field in PackingList._meta.fields]
             col = [c for c in df.columns if c in model_fields]
             pl_data = df[col].to_dict("records")
             packing_list = [PackingList(**data) for data in pl_data]
@@ -1099,16 +1107,15 @@ class OrderCreation(View):
             context["packing_list"] = packing_list
             return self.template_order_create_supplement_pl_tab, context
 
-    def is_public_destination(self,destination):
+    def is_public_destination(self, destination):
         if not isinstance(destination, str):
             return False
-        pattern = r'^[A-Za-z]{3}\s*\d$'
+        pattern = r"^[A-Za-z]{3}\s*\d$"
         if re.match(pattern, destination):
             return True
         keywords = {"walmart", "沃尔玛"}
         destination_lower = destination.lower()
         return any(keyword.lower() in destination_lower for keyword in keywords)
-        
 
     async def handle_download_template_post(self) -> HttpResponse:
         file_path = (

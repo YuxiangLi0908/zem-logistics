@@ -6,15 +6,10 @@ from warehouse.models.invoice import Invoice
 
 
 class InvoicePreport(models.Model):
-    INVOICE_TYPE_CHOICES = [
-        ('receivable', '应收账单'),
-        ('payable', '应付账单')
-    ]
+    INVOICE_TYPE_CHOICES = [("receivable", "应收账单"), ("payable", "应付账单")]
     invoice_number = models.ForeignKey(Invoice, on_delete=models.CASCADE)
     invoice_type = models.CharField(
-        max_length=20,
-        choices=INVOICE_TYPE_CHOICES,
-        default='receivable' 
+        max_length=20, choices=INVOICE_TYPE_CHOICES, default="receivable"
     )
     pickup = models.FloatField(null=True, blank=True, verbose_name="提拆/打托缠膜")
     chassis = models.FloatField(null=True, blank=True, verbose_name="托架费")
@@ -43,28 +38,22 @@ class InvoicePreport(models.Model):
     history = HistoricalRecords()
 
     def __str__(self) -> str:
-        return self.invoice_number.container_number.container_number + " - " + self.invoice_type
+        return (
+            self.invoice_number.container_number.container_number
+            + " - "
+            + self.invoice_type
+        )
 
 
 class InvoiceWarehouse(models.Model):
-    INVOICE_TYPE_CHOICES = [
-        ('receivable', '应收账单'),
-        ('payable', '应付账单')
-    ]
-    DELIVERY_TYPE_CHOICES = [
-        ('public', '公仓'),
-        ('other', '其他')
-    ]
+    INVOICE_TYPE_CHOICES = [("receivable", "应收账单"), ("payable", "应付账单")]
+    DELIVERY_TYPE_CHOICES = [("public", "公仓"), ("other", "其他")]
     invoice_number = models.ForeignKey(Invoice, on_delete=models.CASCADE)
     invoice_type = models.CharField(
-        max_length=20,
-        choices=INVOICE_TYPE_CHOICES,
-        default='receivable' 
+        max_length=20, choices=INVOICE_TYPE_CHOICES, default="receivable"
     )
     delivery_type = models.CharField(
-        max_length=20,
-        choices=DELIVERY_TYPE_CHOICES,
-        default='public' 
+        max_length=20, choices=DELIVERY_TYPE_CHOICES, default="public"
     )
     sorting = models.FloatField(null=True, blank=True, verbose_name="分拣费")
     intercept = models.FloatField(null=True, blank=True, verbose_name="拦截费")
@@ -72,7 +61,9 @@ class InvoiceWarehouse(models.Model):
         null=True, blank=True, verbose_name="亚马逊PO激活"
     )
     self_pickup = models.FloatField(null=True, blank=True, verbose_name="客户自提")
-    split_delivery = models.FloatField(null=True, blank=True, verbose_name="拆柜交付快递")
+    split_delivery = models.FloatField(
+        null=True, blank=True, verbose_name="拆柜交付快递"
+    )
     re_pallet = models.FloatField(null=True, blank=True, verbose_name="重新打板")
     handling = models.FloatField(null=True, blank=True, verbose_name="")
     counting = models.FloatField(null=True, blank=True, verbose_name="货品清点费")
@@ -99,28 +90,22 @@ class InvoiceWarehouse(models.Model):
     history = HistoricalRecords()
 
     def __str__(self) -> str:
-        return self.invoice_number.container_number.container_number + " - " + self.invoice_type
+        return (
+            self.invoice_number.container_number.container_number
+            + " - "
+            + self.invoice_type
+        )
 
 
 class InvoiceDelivery(models.Model):
-    INVOICE_TYPE_CHOICES = [
-        ('receivable', '应收账单'),
-        ('payable', '应付账单')
-    ]
-    DELIVERY_TYPE_CHOICES = [
-        ('public', '公仓'),
-        ('other', '其他')
-    ]
+    INVOICE_TYPE_CHOICES = [("receivable", "应收账单"), ("payable", "应付账单")]
+    DELIVERY_TYPE_CHOICES = [("public", "公仓"), ("other", "其他")]
     invoice_delivery = models.CharField(max_length=200, null=True, blank=True)
     invoice_type = models.CharField(
-        max_length=20,
-        choices=INVOICE_TYPE_CHOICES,
-        default='receivable' 
+        max_length=20, choices=INVOICE_TYPE_CHOICES, default="receivable"
     )
     delivery_type = models.CharField(
-        max_length=20,
-        choices=DELIVERY_TYPE_CHOICES,
-        default='public' 
+        max_length=20, choices=DELIVERY_TYPE_CHOICES, default="public"
     )
     invoice_number = models.ForeignKey(Invoice, on_delete=models.CASCADE)
     type = models.CharField(max_length=200, null=True, blank=True)
