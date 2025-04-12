@@ -30,7 +30,10 @@
                     <table class="table" id="local-table" style="font-size: 13px;">
                         <thead>
                             <tr style="position: sticky; top: 0;">
-                                <th class="th">价格</th>
+                                <th class="th">单价</th>
+                                <th class="th">板数</th>
+                                <th class="th">总价</th>
+                                <th class="th">激活</th>
                                 <th class="th">成本</th>
                                 <th class="th">目的地</th>
                                 <th class="th">CBM</th>
@@ -41,16 +44,17 @@
                         <tbody>
                             {% for plt in local %} 
                             <tr draggable="true" id="pallet-{{ plt.id }}">
+                                {% if warehouse == "NJ" %}
+                                    <td class="td"><input type="text" name="cost" value="{{ plt.cost }}"></td>
+                                {% else %}
+                                    <td class="td"><input type="text" name="cost" value=""></td>(按距离收费)
+                                {% endif %}
+                                <td class="td"><input type="text" name="total_pallet" value="{{ plt.total_n_pallet }}"></td>
                                 <td class="td">
-                                    <input type="number" class="local_cost" name="cost" value="{{ plt.total_cost }}" oninput="updateLocal(this)">
-                                    {% if warehouse == "NJ" %}
-                                        ({{ plt.total_n_pallet }}板，${{ plt.cost }}/板)
-                                    {% else %}
-                                        (按距离收费)
-                                    {% endif %}
+                                    <input type="number" class="local_cost" name="cost" value="{{ plt.total_cost }}" oninput="updateLocal(this)">                                   
                                     <input type="hidden" name="plt_ids" value="{{ plt.plt_ids }}">
-                                    <input type="hidden" name="total_pallet" value="{{ plt.total_n_pallet }}">
                                 </td>
+                                <td class="td"><input type="number" name="po_activation" value="{{ plt.po_activation }}"></td>
                                 <td class="td"><input type="text" name="expense" value="{{ plt.expense|default:'' }}"></td>
                                 <td class="td"><input type="text" name="destination" value="{{ plt.destination }}"></td>
                                 <td class="td"><input type="number" name="cbm" step = 0.01 value="{{ plt.total_cbm|floatformat:2 }}"></td>
@@ -85,11 +89,14 @@
         {% csrf_token %}
         <div style="margin:auto; max-height: 800px;max-width:1500px;margin-bottom:50px;">
             <button id="editButton" type="button" class="btn btn-primary" onclick="add_delivery(this)" style="font-size: 11px;">自发</button>
-            {% if self_delivery %}
-                <table class="table" id="self-delivery-table" style="font-size: 13px">
+            {% if selfdelivery %}
+                <table class="table" id="selfdelivery-table" style="font-size: 13px">
                     <thead>
-                        <tr style="position: sticky; top: 0;">                       
-                            <th class="th">报价</th>
+                        <tr style="position: sticky; top: 0;">  
+                            <th class="th">单价</th>
+                            <th class="th">板数</th>
+                            <th class="th">总价</th>
+                            <th class="th">激活</th>
                             <th class="th">成本</th>
                             <th class="th">目的地</th>
                             <th class="th">CBM</th>
@@ -97,14 +104,15 @@
                         </tr>
                     </thead>
                     <tbody>
-                        {% for plt in self_delivery %}
+                        {% for plt in selfdelivery %}
                         <tr draggable="true" id="pallet-{{ plt.id }}">
+                            <td class="td"><input type="text" name="cost" value="{{ plt.cost }}"></td>
+                            <td class="td"><input type="text" name="total_pallet" value="{{ plt.total_n_pallet }}"></td>
                             <td class="td">
-                                <input type="number" id="self_delivery_cost" name="cost" value="{{ plt.total_cost }}" oninput="updateSelf(this)">
-                                ({{ plt.total_n_pallet }}板)
+                                <input type="number" id="selfdelivery_cost" name="cost" value="{{ plt.total_cost }}" oninput="updateSelf(this)">
                                 <input type="hidden" name="plt_ids" value="{{ plt.plt_ids }}">
-                                <input type="hidden" name="total_pallet" value="{{ plt.total_n_pallet }}">
                             </td>
+                            <td class="td"><input type="number" name="po_activation" value="{{ plt.po_activation }}"></td>
                             <td class="td"><input type="number" name="expense" value="{{ plt.expense|default:'' }}"></td>
                             <td class="td"><input type="text" name="destination" value="{{ plt.destination }}"></td>
                             <td class="td"><input type="number" name="cbm" step = 0.01 value="{{ plt.total_cbm|floatformat:2 }}"></td>
@@ -113,21 +121,21 @@
                         {% endfor %}
                         <tr>
                             <td class="td">
-                                <input type="number" id="self_delivery_total" name="total" value=""></td>
+                                <input type="number" id="selfdelivery_total" name="total" value=""></td>
                             <td colspan="4"></td>
                         </tr>
                     </tbody>
                 </table>
                 <div class="text-left" style="float:right;">
                     <input type="hidden" name="step" value="update_delivery_invoice">
-                    <input type="hidden" name="type" value="self_delivery">  
+                    <input type="hidden" name="type" value="selfdelivery">  
                     <input type="hidden" name="start_date" value="{{ start_date }}">
                     <input type="hidden" name="end_date" value="{{ end_date }}">
                     <input type="hidden" name="invoice_type" value="{{ invoice_type }}">
                     <input type="hidden" name="redirect_step" value="{{ redirect_step }}">                 
                     <input type="hidden" name="container_number" value="{{ container_number }}">
                     <input type="hidden" class="total_amount" name="total_amount">    
-                    <button type="submit" class="btn btn-primary" style="width: 100px; height: 35px;" onclick="processForm('self_delivery-table',event)">确认</button>
+                    <button type="submit" class="btn btn-primary" style="width: 100px; height: 35px;" onclick="processForm('selfdelivery-table',event)">确认</button>
                 </div>
             {% endif %}
         </div>
@@ -188,7 +196,7 @@
     window.onload = function () {
         let local_total = 0;
         let total_amount = 0;
-        let self_delivery_total = 0;
+        let selfdelivery_total = 0;
          
         
         var rows = document.querySelectorAll('#local-table tbody tr:not(:last-child)');
@@ -204,17 +212,17 @@
             total_amount += local_total;
         }
 
-        var rows = document.querySelectorAll('#self-delivery-table tbody tr:not(:last-child)');
+        var rows = document.querySelectorAll('#selfdelivery-table tbody tr:not(:last-child)');
         if (rows.length !== 0){
             for (var i = 0; i < rows.length; i++) {
-                var costInput = rows[i].querySelector('input[id="self_delivery_cost"]');
+                var costInput = rows[i].querySelector('input[id="selfdelivery_cost"]');
                 var costValue = parseFloat(costInput.value);
                 if (!isNaN(costValue)) {
-                    self_delivery_total += costValue;
+                    selfdelivery_total += costValue;
                 }
             }
-            document.getElementById('self_delivery_total').value = self_delivery_total;
-            total_amount += self_delivery_total;
+            document.getElementById('selfdelivery_total').value = selfdelivery_total;
+            total_amount += selfdelivery_total;
         } 
         const elements = document.querySelectorAll('.total_amount');
         elements.forEach(element => {
@@ -230,8 +238,8 @@
     };
     
     function updateSelf(numberInput) {
-        const amountInputs = document.querySelectorAll('input[id="self_delivery_cost"]');
-        const amountAmazon = document.getElementById('self_delivery_total');
+        const amountInputs = document.querySelectorAll('input[id="selfdelivery_cost"]');
+        const amountAmazon = document.getElementById('selfdelivery_total');
         let total = 0;
         amountInputs.forEach(function (input) {
             const value = parseFloat(input.value);
@@ -299,7 +307,7 @@
         if (text === '本地派送') {
             type.value = 'local';
         } else if (text === '自发') {
-            type.value = 'self_delivery';
+            type.value = 'selfdelivery';
         }
     };
 

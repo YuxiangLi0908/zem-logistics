@@ -114,13 +114,12 @@ class InvoiceDelivery(models.Model):
     )
     destination = models.CharField(max_length=200, null=True, blank=True)
     zipcode = models.CharField(max_length=200, null=True, blank=True)
-    total_pallet = models.FloatField(null=True, blank=True)
+    total_pallet = models.IntegerField(null=True, blank=True) #板数
+    cost = models.FloatField(null=True, blank=True)  #单价
     total_cbm = models.FloatField(null=True, blank=True)
     total_weight_lbs = models.FloatField(null=True, blank=True)
     total_cost = models.FloatField(null=True, blank=True)
     expense = models.FloatField(null=True, blank=True)
-    qty = JSONField(default=dict, verbose_name="基础单价")
-    rate = JSONField(default=dict, verbose_name="数量")
     surcharges = JSONField(default=dict)
     surcharge_notes = JSONField(default=dict)
     history = HistoricalRecords()

@@ -27,7 +27,10 @@
                 <table class="table" id="amazon-table" style="font-size: 13px">
                     <thead>
                         <tr style="position: sticky; top: 0;">
-                            <th class="th">价格</th>
+                            <th class="th">单价</th>
+                            <th class="th">板数</th>
+                            <th class="th">总价</th>
+                            <th class="th">激活</th>
                             <th class="th">成本</th>
                             <th class="th">目的地</th>
                             <th class="th">CBM</th>
@@ -37,28 +40,33 @@
                     <tbody>
                         {% for plt in amazon %}
                         <tr draggable="true" id="pallet-{{ plt.id }}">
+                            <td class="td"><input type="text" name="cost" value="{{ plt.cost }}"></td>
+                            <td class="td"><input type="text" name="total_pallet" value="{{ plt.total_pallet }}"></td>
                             <td class="td">
-                                <input type="number" id="amazon_cost" name="cost" value="{{ plt.total_cost }}" oninput="updateAmazon(this)">
-                                ({{ plt.total_n_pallet }}板，${{ plt.cost }}/板)
+                                <input type="number" id="amazon_cost" name="total_cost" value="{{ plt.total_cost }}" oninput="updateAmazon(this)" readonly>
                                 <input type="hidden" name="plt_ids" value="{{ plt.plt_ids }}">
-                                <input type="hidden" name="total_pallet" value="{{ plt.total_n_pallet }}">
                             </td>
-                            <td class="td"><input type="text" name="expense" value="{{ plt.expense|default:'' }}"></td>
+                            <td class="td"><input type="number" name="po_activation" value="{{ plt.po_activation }}"></td>
+                            <td class="td"><input type="number" name="expense" value="{{ plt.expense|default:'' }}"></td>
                             <td class="td"><input type="text" name="destination" value="{{ plt.destination }}"></td>
                             <td class="td"><input type="number" name="cbm" step = 0.01 value="{{ plt.total_cbm|floatformat:2 }}"></td>
                             <td class="td"><input type="number" name="weight_lbs" step = 0.01 value="{{ plt.total_weight_lbs|floatformat:2 }}"></td>
                         </tr>
                         {% endfor %}
                         <tr>
+                            <td colspan="2"></td>
                             <td class="td">
-                                <input type="number" id="amazon_total" name="total" value=""></td>
-                            <td colspan="4"></td>
+                                <input type="number" id="amazon_total" name="total" value="">
+                            </td>
+                            <td colspan="5"></td>
                         </tr>
                     </tbody>
                 </table>
                 <div class="text-left" style="float:right;">
                     <input type="hidden" name="step" value="update_delivery_invoice">
                     <input type="hidden" name="type" value="amazon">    
+                    <input type="hidden" name="start_date" value="{{ start_date }}">
+                    <input type="hidden" name="end_date" value="{{ end_date }}">
                     <input type="hidden" name="redirect_step" value="{{ redirect_step }}">              
                     <input type="hidden" name="container_number" value="{{ container_number }}">             
                     <input type="hidden" class="total_amount" name="total_amount">    
@@ -77,7 +85,10 @@
                 <table class="table" id="walmart-table" style="font-size: 13px">
                     <thead>
                         <tr style="position: sticky; top: 0;">
-                            <th class="th">价格</th>
+                            <th class="th">单价</th>
+                            <th class="th">板数</th>
+                            <th class="th">总价</th>
+                            <th class="th">激活</th>
                             <th class="th">成本</th>
                             <th class="th">目的地</th>
                             <th class="th">CBM</th>
@@ -87,28 +98,33 @@
                     <tbody>
                         {% for plt in walmart %}
                         <tr draggable="true" id="pallet-{{ plt.id }}">
+                            <td class="td"><input type="text" name="cost" value="{{ plt.cost }}"></td>
+                            <td class="td"><input type="text" name="total_pallet" value="{{ plt.total_pallet }}"></td>
                             <td class="td">
-                                <input type="number" id="walmart_cost" name="cost" value="{{ plt.total_cost }}" oninput="updateWalmart(this)">
-                                ({{ plt.total_n_pallet }}板，${{ plt.cost }}/板)
+                                <input type="number" id="walmart_cost" name="total_cost" value="{{ plt.total_cost }}" oninput="updateWalmart(this)" readonly>
                                 <input type="hidden" name="plt_ids" value="{{ plt.plt_ids }}">
-                                <input type="hidden" name="total_pallet" value="{{ plt.total_n_pallet }}">
                             </td>
-                            <td class="td"><input type="text" name="expense" value="{{ plt.expense|default:'' }}"></td>
+                            <td class="td"><input type="number" name="po_activation" value="{{ plt.po_activation }}"></td>
+                            <td class="td"><input type="number" name="expense" value="{{ plt.expense|default:'' }}"></td>
                             <td class="td"><input type="text" name="destination" value="{{ plt.destination }}"></td>
                             <td class="td"><input type="number" name="cbm" step = 0.01 value="{{ plt.total_cbm|floatformat:2 }}"></td>
                             <td class="td"><input type="number" name="weight_lbs" step = 0.01 value="{{ plt.total_weight_lbs|floatformat:2 }}"></td>
                         </tr>
                         {% endfor %}
                         <tr>
+                            <td colspan="2"></td>
                             <td class="td">
-                                <input type="number" id="walmart_total" name="total" value=""></td>
-                            <td colspan="4"></td>
+                                <input type="number" id="walmart_total" name="total" value="">
+                            </td>
+                            <td colspan="5"></td>
                         </tr>
                     </tbody>
                 </table>
                 <div class="text-left" style="float:right;">
                     <input type="hidden" name="step" value="update_delivery_invoice">
                     <input type="hidden" name="type" value="walmart">  
+                    <input type="hidden" name="start_date" value="{{ start_date }}">
+                    <input type="hidden" name="end_date" value="{{ end_date }}">
                     <input type="hidden" name="redirect_step" value="{{ redirect_step }}">                
                     <input type="hidden" name="container_number" value={{ container_number }}>
                     <input type="hidden" class="total_amount" name="total_amount">    
@@ -128,7 +144,10 @@
                     <table class="table" id="local-table" style="font-size: 13px;">
                         <thead>
                             <tr style="position: sticky; top: 0;">
-                                <th class="th">价格</th>
+                                <th class="th">单价</th>
+                                <th class="th">板数</th>
+                                <th class="th">总价</th>
+                                <th class="th">激活</th>
                                 <th class="th">成本</th>
                                 <th class="th">目的地</th>
                                 <th class="th">CBM</th>
@@ -139,17 +158,17 @@
                         <tbody>
                             {% for plt in local %} 
                             <tr draggable="true" id="pallet-{{ plt.id }}">
-                                <td class="td">
-                                    <input type="number" id="local_cost" name="cost" value="{{ plt.total_cost }}" oninput="updateLocal(this)">
-                                    {% if warehouse == "NJ" %}
-                                        ({{ plt.total_n_pallet }}板，${{ plt.cost }}/板)
-                                    {% else %}
-                                        (按距离收费)
-                                    {% endif %}
+                                {% if warehouse == "NJ" %}
+                                <td class="td"><td class="td"><input type="text" name="cost" value="{{ plt.cost }}"></td>
+                                {% else %}
+                                <td class="td"><td class="td"><input type="text" name="total_pallet" value="{{ total_pallet }}"></td>
+                                {% endif %}
+                                <td class="td"><input type="text" name="total_pallet" value="{{ plt.total_n_pallet }}"></td>
+                                    <input type="number" id="local_cost" name="total_cost" value="{{ plt.total_cost }}" oninput="updateLocal(this)" readonly>                                    
                                     <input type="hidden" name="plt_ids" value="{{ plt.plt_ids }}">
-                                    <input type="hidden" name="total_pallet" value="{{ plt.total_n_pallet }}">
                                 </td>
-                                <td class="td"><input type="text" name="expense" value="{{ plt.expense|default:'' }}"></td>
+                                <td class="td"><input type="number" name="po_activation" value="{{ plt.po_activation }}"></td>
+                                <td class="td"><input type="number" name="expense" value="{{ plt.expense|default:'' }}"></td>
                                 <td class="td"><input type="text" name="destination" value="{{ plt.destination }}"></td>
                                 <td class="td"><input type="number" name="cbm" step = 0.01 value="{{ plt.total_cbm|floatformat:2 }}"></td>
                                 <td class="td"><input type="number" name="weight_lbs" step = 0.01 value="{{ plt.total_weight_lbs|floatformat:2 }}"></td>
@@ -157,14 +176,19 @@
                             </tr>
                             {% endfor %}
                             <tr>
-                                <td class="td"><input type="number" id="local_total" name="total" disabled></td>
-                                <td colspan="4"></td>
+                                <td colspan="2"></td>
+                                <td class="td">
+                                    <input type="number" id="local_total" name="total" disabled>
+                                </td>
+                                <td colspan="5"></td>
                             </tr>
                         </tbody>
                     </table>
                     <div class="text-left" style="float:right;">
                         <input type="hidden" name="step" value="update_delivery_invoice">
                         <input type="hidden" name="type" value="local">
+                        <input type="hidden" name="start_date" value="{{ start_date }}">
+                        <input type="hidden" name="end_date" value="{{ end_date }}">
                         <input type="hidden" name="redirect_step" value="{{ redirect_step }}">
                         <input type="hidden" name="container_number" value={{ container_number }}>
                         <input type="hidden" class="total_amount" name="total_amount">    
@@ -184,7 +208,10 @@
                 <table class="table" id="combine-table" style="font-size: 13px;">
                     <thead>
                         <tr style="position: sticky; top: 0;">
-                            <th class="th">价格</th>
+                            <th class="th">单价</th>
+                            <th class="th">板数</th>
+                            <th class="th">总价</th>
+                            <th class="th">激活</th>
                             <th class="th">成本</th>
                             <th class="th">目的地</th>
                             <th class="th">CBM</th>
@@ -194,27 +221,33 @@
                     <tbody>
                         {% for plt in combine %}
                         <tr draggable="true" id="pallet-{{ plt.id }}">
+                            <td class="td"><input type="text" name="cost" value="{{ plt.cost }}"></td>
+                            <td class="td"><input type="text" name="total_pallet" value="{{ plt.total_pallet }}"></td>
                             <td class="td">
-                                <input type="number" id="combine_cost" name="cost" value="{{ plt.total_cost }}" oninput="updateCombine(this)">
-                                ({{ plt.total_n_pallet }}板，一口价${{ plt.cost }})
+                                <input type="number" id="combine_cost" name="total_cost" value="{{ plt.total_cost }}" oninput="updateCombine(this)" readonly>                      
                                 <input type="hidden" name="plt_ids" value="{{ plt.plt_ids }}">
-                                <input type="hidden" name="total_pallet" value="{{ plt.total_n_pallet }}">
                             </td>
-                            <td class="td"><input type="text" name="expense" value="{{ plt.expense|default:'' }}"></td>
+                            <td class="td"><input type="number" name="po_activation" value="{{ plt.po_activation }}"></td>
+                            <td class="td"><input type="number" name="expense" value="{{ plt.expense|default:'' }}"></td>
                             <td class="td"><input type="text" name="destination" value="{{ plt.destination }}"></td>
                             <td class="td"><input type="number" name="cbm" step = 0.01 value="{{ plt.total_cbm|floatformat:2 }}"></td>
                             <td class="td"><input type="number" name="weight_lbs" step = 0.01 value="{{ plt.total_weight_lbs|floatformat:2 }}"></td>
                         </tr>
                         {% endfor %}
                         <tr>
-                            <td class="td"><input type="number" id="combine_total" name="total" value="" disabled></td>
-                            <td colspan="4"></td>
+                            <td colspan="2"></td>
+                            <td class="td">
+                                <input type="number" id="combine_total" name="total" value="" disabled>
+                            </td>
+                            <td colspan="5"></td>
                         </tr>
                     </tbody>
                 </table>
                 <div class="text-left" style="float:right;">
                     <input type="hidden" name="step" value="update_delivery_invoice">
                     <input type="hidden" name="type" value="combine">
+                    <input type="hidden" name="start_date" value="{{ start_date }}">
+                    <input type="hidden" name="end_date" value="{{ end_date }}">
                     <input type="hidden" name="redirect_step" value="{{ redirect_step }}">
                     <input type="hidden" name="container_number" value="{{ container_number }}">
                     <input type="hidden" class="total_amount" name="total_amount">    
@@ -229,11 +262,14 @@
         {% csrf_token %}
         <div style="margin:auto; max-height: 800px;max-width:1500px;margin-bottom:50px;">
             <button id="editButton" type="button" class="btn btn-primary" onclick="add_delivery(this)" style="font-size: 11px;">自发</button>
-            {% if self_delivery %}
-                <table class="table" id="self-delivery-table" style="font-size: 13px">
+            {% if selfdelivery %}
+                <table class="table" id="selfdelivery-table" style="font-size: 13px">
                     <thead>
                         <tr style="position: sticky; top: 0;">                       
-                            <th class="th">报价</th>
+                            <th class="th">单价</th>
+                            <th class="th">板数</th>
+                            <th class="th">总价</th>
+                            <th class="th">激活</th>
                             <th class="th">成本</th>
                             <th class="th">目的地</th>
                             <th class="th">CBM</th>
@@ -241,14 +277,15 @@
                         </tr>
                     </thead>
                     <tbody>
-                        {% for plt in self_delivery %}
+                        {% for plt in selfdelivery %}
                         <tr draggable="true" id="pallet-{{ plt.id }}">
-                            <td class="td">
-                                <input type="number" id="self_delivery_cost" name="cost" value="{{ plt.total_cost }}" oninput="updateSelf(this)">
-                                ({{ plt.total_n_pallet }}板)
+                            <td class="td"><input type="text" name="cost" value="{{ plt.cost }}"></td>
+                            <td class="td"><input type="text" name="total_pallet" value="{{ plt.total_pallet }}"></td>
+                            <td class="td">    
+                                <input type="number" id="selfdelivery_cost" name="total_cost" value="{{ plt.total_cost }}" oninput="updateSelf(this)" readonly>
                                 <input type="hidden" name="plt_ids" value="{{ plt.plt_ids }}">
-                                <input type="hidden" name="total_pallet" value="{{ plt.total_n_pallet }}">
                             </td>
+                            <td class="td"><input type="number" name="po_activation" value="{{ plt.po_activation }}"></td>
                             <td class="td"><input type="number" name="expense" value="{{ plt.expense|default:'' }}"></td>
                             <td class="td"><input type="text" name="destination" value="{{ plt.destination }}"></td>
                             <td class="td"><input type="number" name="cbm" step = 0.01 value="{{ plt.total_cbm|floatformat:2 }}"></td>
@@ -256,19 +293,23 @@
                         </tr>
                         {% endfor %}
                         <tr>
+                            <td colspan="2"></td>
                             <td class="td">
-                                <input type="number" id="self_delivery_total" name="total" value=""></td>
-                            <td colspan="4"></td>
+                                <input type="number" id="selfdelivery_total" name="total" value="">
+                            </td>
+                            <td colspan="5"></td>
                         </tr>
                     </tbody>
                 </table>
                 <div class="text-left" style="float:right;">
                     <input type="hidden" name="step" value="update_delivery_invoice">
-                    <input type="hidden" name="type" value="self_delivery">  
+                    <input type="hidden" name="type" value="selfdelivery">  
+                    <input type="hidden" name="start_date" value="{{ start_date }}">
+                    <input type="hidden" name="end_date" value="{{ end_date }}">
                     <input type="hidden" name="redirect_step" value="{{ redirect_step }}">                 
                     <input type="hidden" name="container_number" value="{{ container_number }}">
                     <input type="hidden" class="total_amount" name="total_amount">    
-                    <button type="submit" class="btn btn-primary" style="width: 100px; height: 35px;" onclick="processForm('self_delivery-table')">确认</button>
+                    <button type="submit" class="btn btn-primary" style="width: 100px; height: 35px;" onclick="processForm('selfdelivery-table')">确认</button>
                 </div>
             {% endif %}
         </div>
@@ -283,6 +324,9 @@
                 <input type="hidden" id="alter_type" name="alter_type">
                 <input type="hidden" name="container_number" value="{{ container_number }}">
                 <input type="hidden" name="redirect_step" value="{{ redirect_step }}">
+                <input type="hidden" name="invoice_type" value="{{ invoice_type }}">
+                <input type="hidden" name="start_date" value="{{ start_date }}">
+                <input type="hidden" name="end_date" value="{{ end_date }}">
                 <input type="hidden" name="start_date_confirm" value="{{ start_date_confirm }}">
                 <input type="hidden" name="end_date_confirm" value="{{ end_date_confirm }}">
                 <button type="submit" class="btn btn-primary" onclick="add_delivery_plt(this)" style="font-size: 11px; margin-right: 5px;">确认添加</button>
@@ -308,6 +352,7 @@
                             <input type="hidden" name="is_type_added", value='off'>
                             <input type="hidden" name="added_plt_ids", value='{{ plt.ids }}'>
                             <input type="hidden" name="total_pallet" value="{{ plt.total_n_pallet }}">
+                            <input type="hidden" name="delivery_type" value="{{ plt.delivery_type }}">
                         </td>
                         <td class="td"><input type="text" name="total_n_pallet" value="{{ plt.total_n_pallet }}" disabled></td>
                         <td class="td"><input type="text" name="delivery_type" value="{{ plt.invoice_delivery__type|default_if_none:'' }}" disabled></td>
@@ -324,190 +369,150 @@
 </div>
     
 <script>
-    window.onload = function () {
-        let amazon_total = 0;
-        let local_total = 0;
-        let combine_total = 0;
-        let walmart_total = 0;
-        let total_amount = 0;
-        let self_delivery_total = 0;
-        var rows = document.querySelectorAll('#amazon-table tbody tr:not(:last-child)');
-        if (rows.length !== 0){
-            for (var i = 0; i < rows.length; i++) {
-                var costInput = rows[i].querySelector('input[id="amazon_cost"]');
-                var costValue = parseFloat(costInput.value);
-                if (!isNaN(costValue)) {
-                    amazon_total += costValue;
-                }
-            }               
-            document.getElementById('amazon_total').value = amazon_total; 
-            total_amount += amazon_total;
-        }
-        
+    const typeTotals = {
+        amazon: 0,
+        walmart: 0,
+        local: 0,
+        combine: 0,
+        selfdelivery: 0
+    };
 
-        var rows = document.querySelectorAll('#walmart-table tbody tr:not(:last-child)');
-        if (rows.length !== 0){
-            for (var i = 0; i < rows.length; i++) {
-                var costInput = rows[i].querySelector('input[id="walmart_cost"]');
-                var costValue = parseFloat(costInput.value);
-                if (!isNaN(costValue)) {
-                    walmart_total += costValue;
-                }
-            }      
-            document.getElementById('walmart_total').value = walmart_total;
-            total_amount += walmart_total;
-        }
-         
+    // 初始化计算
+    document.addEventListener('DOMContentLoaded', function() {
+        initializeAllValues();
+        calculateAllTotals();
+        updateGlobalTotal();
+    });
 
-        var rows = document.querySelectorAll('#combine-table tbody tr:not(:last-child)');
-        if (rows.length !== 0){
-            for (var i = 0; i < rows.length; i++) {
-                var costInput = rows[i].querySelector('input[id="combine_cost"]');
-                var costValue = parseFloat(costInput.value);
-                if (!isNaN(costValue)) {
-                    combine_total += costValue;
-                }
-            }
-            document.getElementById('combine_total').value = combine_total;
-            total_amount += combine_total;
-        }
-         
-        
-        var rows = document.querySelectorAll('#local-table tbody tr:not(:last-child)');
-        if (rows.length !== 0){
-            for (var i = 0; i < rows.length; i++) {
-                var costInput = rows[i].querySelector('input[id="local_cost"]');
-                var costValue = parseFloat(costInput.value);
-                if (!isNaN(costValue)) {
-                    local_total += costValue;
-                }
-            }
-            document.getElementById('local_total').value = local_total;
-            total_amount += local_total;
-        }
+    // 初始化所有值（保留原始值）
+    function initializeAllValues() {
+        Object.keys(typeTotals).forEach(type => {
+            const table = document.getElementById(`${type}-table`);
+            if (!table) return;
 
-        var rows = document.querySelectorAll('#self-delivery-table tbody tr:not(:last-child)');
-        if (rows.length !== 0){
-            for (var i = 0; i < rows.length; i++) {
-                var costInput = rows[i].querySelector('input[id="self_delivery_cost"]');
-                var costValue = parseFloat(costInput.value);
-                if (!isNaN(costValue)) {
-                    self_delivery_total += costValue;
-                }
-            }
-            document.getElementById('self_delivery_total').value = self_delivery_total;
-            total_amount += self_delivery_total;
-        } 
-        const elements = document.querySelectorAll('.total_amount');
-        elements.forEach(element => {
-            if (element.tagName === 'INPUT') {
-                element.value = total_amount;  // <input> 用 value
-            } else {
-                element.textContent = total_amount;  // <span> 用 textContent
+            const rows = table.querySelectorAll('tbody tr:not(:last-child)');
+            rows.forEach(row => {
+                const priceInput = row.querySelector('input[name="cost"]');
+                const palletInput = row.querySelector('input[name="total_pallet"]');
+                const activationInput = row.querySelector('input[name="po_activation"]');
+                const totalInput = row.querySelector(`input[id="${type}_cost"]`);
+
+                // 存储原始值
+                priceInput.dataset.original = priceInput.value;
+                palletInput.dataset.original = palletInput.value;
+                activationInput.dataset.original = activationInput.value || 0;
+                totalInput.dataset.original = totalInput.value;
+
+                // 确保所有输入框都有事件监听
+                priceInput.addEventListener('input', () => updateRow(row, type));
+                palletInput.addEventListener('input', () => updateRow(row, type));
+                activationInput.addEventListener('input', () => updateRow(row, type));
+                totalInput.addEventListener('input', () => updateRowFromTotal(row, type));
+            });
+        });
+    }
+
+    // 计算所有类型的总额
+    function calculateAllTotals() {
+        Object.keys(typeTotals).forEach(type => {
+            const table = document.getElementById(`${type}-table`);
+            if (!table) return;
+
+            let typeTotal = 0;
+            const rows = table.querySelectorAll('tbody tr:not(:last-child)');
+            
+            rows.forEach(row => {
+                const totalInput = row.querySelector(`input[id="${type}_cost"]`);
+                typeTotal += parseFloat(totalInput.value) || 0;
+            });
+
+            typeTotals[type] = typeTotal;
+            const totalInput = document.getElementById(`${type}_total`);
+            if (totalInput) {
+                totalInput.value = typeTotal.toFixed(2);
             }
         });
-        
-        
+    }
 
-    };
-    function updateAmazon(numberInput) {
-        const amountInputs = document.querySelectorAll('input[id="amazon_cost"]');
-        const amountAmazon = document.getElementById('amazon_total');
-        let total = 0;
-        amountInputs.forEach(function (input) {
-            const value = parseFloat(input.value);
-            if (!isNaN(value)) {
-                total += value;
-            }
-        });
-        amountAmazon.value = total.toFixed(2);
-        updateTotal();
-        
-    };
-    
-    function updateSelf(numberInput) {
-        const amountInputs = document.querySelectorAll('input[id="self_delivery_cost"]');
-        const amountAmazon = document.getElementById('self_delivery_total');
-        let total = 0;
-        amountInputs.forEach(function (input) {
-            const value = parseFloat(input.value);
-            if (!isNaN(value)) {
-                total += value;
-            }
-        });
-        amountAmazon.value = total.toFixed(2);
-        updateTotal();
-        
-    };
-    
-    function updateTotal() {
-        const amountAmazon = document.getElementById('amazon_total');      
-        const amountWalmart = document.getElementById('walmart_total');
-        const amountLocal = document.getElementById('local_total');
-        const amountCombine = document.getElementById('combine_total');
-        let total_amount = 0;
-        if (amountAmazon && amountAmazon.value) {
-            amazonValue = parseFloat(amountAmazon.value);
-            total_amount += amazonValue;
-        }
-        if (amountWalmart && amountWalmart.value) {
-            walmartValue = parseFloat(amountWalmart.value);
-            total_amount += walmartValue;
-        }
-        if (amountLocal && amountLocal.value) {
-            localValue = parseFloat(amountLocal.value);
-            total_amount += localValue;
-        }
-        if (amountCombine && amountCombine.value) {
-            combineValue = parseFloat(amountCombine.value);
-            total_amount += combineValue;
-        }
-        
-        const totalAmountSpan = document.querySelector('.total_amount');
-        totalAmountSpan.textContent = total_amount;
-    };
+    // 计算单行总价（单价×板数+激活）
+    function calculateRowTotal(row) {
+        const price = parseFloat(row.querySelector('input[name="cost"]').value) || 0;
+        const pallets = parseFloat(row.querySelector('input[name="total_pallet"]').value) || 0;
+        const activation = parseFloat(row.querySelector('input[name="po_activation"]').value) || 0;
+        return (price * pallets) + activation;
+    }
 
-    function updateWalmart(numberInput) {
-        const amountInputs = document.querySelectorAll('input[id="walmart_cost"]');
-        const amountWalmart = document.getElementById('walmart_total');
-        let total = 0;
-        amountInputs.forEach(function (input) {
-            const value = parseFloat(input.value);
-            if (!isNaN(value)) {
-                total += value;
-            }
-        });
-        amountWalmart.value = total.toFixed(2);
-        updateTotal();
-    };
-    function updateLocal(numberInput) {
-        const amountInputs = document.querySelectorAll('input[id="local_cost"]');
-        const amountLocal = document.getElementById('local_total');
-        let total = 0;
-        amountInputs.forEach(function (input) {
-            const value = parseFloat(input.value);
-            if (!isNaN(value)) {
-                total += value;
-            }
-        });
-        amountLocal.value = total.toFixed(2);
-        updateTotal();
-    };
+    // 更新单行数据（从单价/板数/激活）
+    function updateRow(row, type) {
+        const totalInput = row.querySelector(`input[id="${type}_cost"]`);
+        const newTotal = calculateRowTotal(row);
+        totalInput.value = newTotal.toFixed(2);
+        
+        updateTypeTotal(type);
+        updateGlobalTotal();
+    }
 
-    function updateCombine(numberInput) {
-        const amountInputs = document.querySelectorAll('input[id="combine_cost"]');
-        const amountCombine = document.getElementById('combine_total');
-        let total = 0;
-        amountInputs.forEach(function (input) {
-            const value = parseFloat(input.value);
-            if (!isNaN(value)) {
-                total += value;
-            }
-        });
-        amountCombine.value = total.toFixed(2);
-        updateTotal();
-    };
+    // 从总价反向更新（修改总价时）
+    function updateRowFromTotal(row, type) {
+        const totalInput = row.querySelector(`input[id="${type}_cost"]`);
+        const total = parseFloat(totalInput.value) || 0;
+        const pallets = parseFloat(row.querySelector('input[name="total_pallet"]').value) || 1;
+        const activation = parseFloat(row.querySelector('input[name="po_activation"]').value) || 0;
+        const price = (total - activation) / pallets;
+        
+        row.querySelector('input[name="cost"]').value = price.toFixed(2);
+        
+        updateTypeTotal(type);
+        updateGlobalTotal();
+    }
 
+    // 更新类型总计
+    function updateTypeTotal(type) {
+        const table = document.getElementById(`${type}-table`);
+        if (!table) return;
+
+        let typeTotal = 0;
+        const rows = table.querySelectorAll('tbody tr:not(:last-child)');
+        
+        rows.forEach(row => {
+            const totalInput = row.querySelector(`input[id="${type}_cost"]`);
+            typeTotal += parseFloat(totalInput.value) || 0;
+        });
+
+        typeTotals[type] = typeTotal;
+        const totalInput = document.getElementById(`${type}_total`);
+        if (totalInput) {
+            totalInput.value = typeTotal.toFixed(2);
+        }
+    }
+
+    // 更新全局总金额
+    function updateGlobalTotal() {
+        const globalTotal = Object.values(typeTotals).reduce((sum, val) => sum + val, 0);
+        document.querySelector('.total_amount').textContent = globalTotal.toFixed(2);
+        document.querySelectorAll('input.total_amount').forEach(input => {
+            input.value = globalTotal.toFixed(2);
+        });
+    }
+
+    // 各类型的更新函数（保留原有接口）
+    function updateAmazon(input) {
+        updateRow(input.closest('tr'), 'amazon');
+    }
+    function updateWalmart(input) {
+        updateRow(input.closest('tr'), 'walmart');
+    }
+    function updateLocal(input) {
+        updateRow(input.closest('tr'), 'local');
+    }
+    function updateCombine(input) {
+        updateRow(input.closest('tr'), 'combine');
+    }
+    function updateSelf(input) {
+        updateRow(input.closest('tr'), 'selfdelivery');
+    }
+
+    // 其他原有函数保持不变
     function add_delivery_plt(button) {
         const checkBoxes = document.getElementsByName('is_type_added');
         for (let i = 0; i < checkBoxes.length; i+=2) {
@@ -535,7 +540,7 @@
         } else if (text === '沃尔玛派送') {
             type.value = 'walmart';
         } else if (text === '自发') {
-            type.value = 'self_delivery';
+            type.value = 'selfdelivery';
         }
     };
 
@@ -547,6 +552,7 @@
             row.style.backgroundColor = ''; 
         }
     };
+    
     function removeRows() {
         const checkboxes = document.querySelectorAll('input[name="is_item_selected"]:checked');
         checkboxes.forEach(checkbox => {
@@ -554,6 +560,7 @@
             row.remove();
         });
     };
+    
     function processForm(tableId) {
         var table = document.getElementById(tableId);
         var tbody = table.getElementsByTagName('tbody')[0];
@@ -568,6 +575,7 @@
             }
         }       
     };
+    
     function AmountForm() {
         var costInputs = document.querySelectorAll('input[name="cost"]');
         for (var i = 0; i < costInputs.length; i++) {
