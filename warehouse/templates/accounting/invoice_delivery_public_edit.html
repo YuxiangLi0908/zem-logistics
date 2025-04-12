@@ -29,7 +29,10 @@
                 <table class="table" id="amazon-table" style="font-size: 13px">
                     <thead>
                         <tr style="position: sticky; top: 0;">
-                            <th class="th">价格</th>
+                            <th class="th">单价</th>
+                            <th class="th">板数</th>
+                            <th class="th">总价</th>
+                            <th class="th">激活</th>
                             <th class="th">成本</th>
                             <th class="th">目的地</th>
                             <th class="th">CBM</th>
@@ -39,12 +42,13 @@
                     <tbody>
                         {% for plt in amazon %}
                         <tr draggable="true" id="pallet-{{ plt.id }}">
+                            <td class="td"><input type="text" name="cost" value="{{ plt.cost }}"></td>
+                            <td class="td"><input type="text" name="total_pallet" value="{{ plt.total_n_pallet }}"></td>
                             <td class="td">
                                 <input type="number" class="amazon_cost" name="cost" value="{{ plt.total_cost }}" oninput="updateAmazon(this)">
-                                ({{ plt.total_n_pallet }}板，${{ plt.cost }}/板)
                                 <input type="hidden" name="plt_ids" value="{{ plt.plt_ids }}">
-                                <input type="hidden" name="total_pallet" value="{{ plt.total_n_pallet }}">
                             </td>
+                            <td class="td"><input type="number" name="po_activation" value="{{ plt.po_activation }}"></td>
                             <td class="td"><input type="text" name="expense" value="{{ plt.expense|default:'' }}"></td>
                             <td class="td"><input type="text" name="destination" value="{{ plt.destination }}"></td>
                             <td class="td"><input type="number" name="cbm" step = 0.01 value="{{ plt.total_cbm|floatformat:2 }}"></td>
@@ -82,7 +86,10 @@
                 <table class="table" id="walmart-table" style="font-size: 13px">
                     <thead>
                         <tr style="position: sticky; top: 0;">
-                            <th class="th">价格</th>
+                            <th class="th">单价</th>
+                            <th class="th">板数</th>
+                            <th class="th">总价</th>
+                            <th class="th">激活</th>
                             <th class="th">成本</th>
                             <th class="th">目的地</th>
                             <th class="th">CBM</th>
@@ -98,6 +105,7 @@
                                 <input type="hidden" name="plt_ids" value="{{ plt.plt_ids }}">
                                 <input type="hidden" name="total_pallet" value="{{ plt.total_n_pallet }}">
                             </td>
+                            <td class="td"><input type="number" name="po_activation" value="{{ plt.po_activation }}"></td>
                             <td class="td"><input type="text" name="expense" value="{{ plt.expense|default:'' }}"></td>
                             <td class="td"><input type="text" name="destination" value="{{ plt.destination }}"></td>
                             <td class="td"><input type="number" name="cbm" step = 0.01 value="{{ plt.total_cbm|floatformat:2 }}"></td>
@@ -135,7 +143,10 @@
                 <table class="table" id="combine-table" style="font-size: 13px;">
                     <thead>
                         <tr style="position: sticky; top: 0;">
-                            <th class="th">价格</th>
+                            <th class="th">单价</th>
+                            <th class="th">板数</th>
+                            <th class="th">总价</th>
+                            <th class="th">激活</th>
                             <th class="th">成本</th>
                             <th class="th">目的地</th>
                             <th class="th">CBM</th>
@@ -151,6 +162,7 @@
                                 <input type="hidden" name="plt_ids" value="{{ plt.plt_ids }}">
                                 <input type="hidden" name="total_pallet" value="{{ plt.total_n_pallet }}">
                             </td>
+                            <td class="td"><input type="number" name="po_activation" value="{{ plt.po_activation }}"></td>
                             <td class="td"><input type="text" name="expense" value="{{ plt.expense|default:'' }}"></td>
                             <td class="td"><input type="text" name="destination" value="{{ plt.destination }}"></td>
                             <td class="td"><input type="number" name="cbm" step = 0.01 value="{{ plt.total_cbm|floatformat:2 }}"></td>
