@@ -46,10 +46,8 @@
                             <th class="th">客户</th>
                             <th class="th">货柜号</th>                         
                             {% if "mix_account" in groups %}
-                                <th class="th">公仓</th>
-                                <th class="th">私仓</th>
+                                <th class="th">类别</th>
                             {% endif %}
-                            <th class="th">驳回原因</th>
                             <th class="th">驳回原因</th>
                             <th class="th">建单日期</th>
                         </tr>
@@ -57,7 +55,6 @@
                             <th class="th"></th>
                             <th class="th"><input type="text" id="containerSearchInput" placeholder="搜索柜号..." oninput="filterTable(this, 1)" size="16" style="font-size: 14px;"></th>
                             {% if "mix_account" in groups %}
-                                <th class="th"></th>
                                 <th class="th"></th>
                             {% endif %}
                             <th class="th"></th>
@@ -73,19 +70,11 @@
                                 </td>
                                 {% if "mix_account" in groups %}
                                     <th class="td">
-                                        <a href="/accounting/?step=container_warehouse&container_number={{ c.container_number }}&start_date={{ start_date }}&end_date={{ end_date }}&invoice_type={{ invoice_type_filter }}&delivery_type="公仓"">公仓</a>
-                                    </td>
-                                    <th class="td">
-                                        <a href="/accounting/?step=container_warehouse&container_number={{ c.container_number }}&start_date={{ start_date }}&end_date={{ end_date }}&invoice_type={{ invoice_type_filter }}&delivery_type="私仓"">私仓</a>
+                                        <a href="/accounting/?step=container_warehouse&container_number={{ c.container_number }}&start_date={{ start_date }}&end_date={{ end_date }}&invoice_type={{ invoice_type_filter }}&delivery_type=public">公仓</a>
+                                        <a href="/accounting/?step=container_warehouse&container_number={{ c.container_number }}&start_date={{ start_date }}&end_date={{ end_date }}&invoice_type={{ invoice_type_filter }}&delivery_type=other">私仓</a>
                                     </td>
                                 {% endif %}
-                                <td class="td">
-                                   {% if c.invoice_reject_reason is not none %}
-                                    {{ c.invoice_reject_reason }}
-                                   {% else %}
-                                    
-                                   {% endif %}
-                                </td>
+                                <td class="td">{{ c.display_reject_reason }}</td>
                                 <td class="td">{{ c.created_at|date:"Y-m-d" }}</td>
                             </tr>
                         {% endfor %}
@@ -107,8 +96,7 @@
                             <th class="th">客户</th>
                             <th class="th">货柜号</th>
                             {% if "mix_account" in groups %}
-                                <th class="th">公仓</th>
-                                <th class="th">私仓</th>
+                                <th class="th">类别</th>
                             {% endif %}
                             <th class="th">账单状态</th>
                             <th class="th">建单日期</th>
@@ -118,7 +106,6 @@
                             <th class="th"><input type="text" id="containerSearchInput" placeholder="搜索柜号..." oninput="filterTable(this, 1)" size="16" style="font-size: 14px;"></th>
                             {% if "mix_account" in groups %}
                                 <th class="th"></th>
-                                <th class="th"></th>
                             {% endif %}
                             <th class="th"></th>
                             <th class="th"></th>
@@ -127,46 +114,18 @@
                     <tbody>
                         {% for c in previous_order %}
                             <tr>
-                                <td class="td">{{ c.customer_name.zem_name }}</td>
-                                <td class="td">
+                                <td class="td" style="vertical-align: middle;">{{ c.customer_name.zem_name }}</td>
+                                <td class="td" style="vertical-align: middle;">
                                     <a href="/accounting/?step=container_warehouse&container_number={{ c.container_number.container_number }}&start_date={{ start_date }}&end_date={{ end_date }}&invoice_type={{ invoice_type_filter }}">{{ c.container_number.container_number }}</a>
                                 </td>
                                 {% if "mix_account" in groups %}
-                                    <th class="td">
-                                        <a href="/accounting/?step=container_warehouse&container_number={{ c.container_number.container_number }}&start_date={{ start_date }}&end_date={{ end_date }}&invoice_type={{ invoice_type_filter }}&delivery_type="公仓"">公仓</a>
-                                    </td>
-                                    <th class="td">
-                                        <a href="/accounting/?step=container_warehouse&container_number={{ c.container_number.container_number }}&start_date={{ start_date }}&end_date={{ end_date }}&invoice_type={{ invoice_type_filter }}&delivery_type="私仓"">私仓</a>
+                                    <th class="td" style="vertical-align: middle;">
+                                        <a href="/accounting/?step=container_warehouse&container_number={{ c.container_number.container_number }}&start_date={{ start_date }}&end_date={{ end_date }}&invoice_type={{ invoice_type_filter }}&delivery_type=public">公仓</a>
+                                        <a href="/accounting/?step=container_warehouse&container_number={{ c.container_number.container_number }}&start_date={{ start_date }}&end_date={{ end_date }}&invoice_type={{ invoice_type_filter }}&delivery_type=other">私仓</a>
                                     </td>
                                 {% endif %}
-                                <td class="td">
-                                    {% if invoice_type_filter == 'receivable' %}
-                                        {% if c.receivable_status.stage == 'warehouse' %}
-                                            仓库处理中
-                                        {% elif c.receivable_status.stage == 'delivery' %}
-                                            派送账单待确认
-                                        {% elif c.receivable_status.stage == 'tobeconfirmed' %}
-                                            财务待确认
-                                        {% elif c.receivable_status.stage == 'confirmed' %}
-                                            账单已开
-                                        {% else %}
-                                            {{ c.receivable_status.get_stage_display }}
-                                        {% endif %}
-                                    {% elif invoice_type_filter == 'payable' %}
-                                        {% if c.payable_status.stage == 'warehouse' %}
-                                            仓库处理中
-                                        {% elif c.payable_status.stage == 'delivery' %}
-                                            派送账单待确认
-                                        {% elif c.payable_status.stage == 'tobeconfirmed' %}
-                                            财务待确认
-                                        {% elif c.payable_status.stage == 'confirmed' %}
-                                            账单已开
-                                        {% else %}
-                                            {{ c.payable_status.get_stage_display }}
-                                        {% endif %}
-                                    {% endif %}
-                                </td>
-                                <td class="td">{{ c.created_at|date:"Y-m-d" }}</td>
+                                <td class="td" style="vertical-align: middle; white-space: pre-line;">{{ c.display_stage }}</td>
+                                <td class="td" style="vertical-align: middle;">{{ c.created_at|date:"Y-m-d" }}</td>
                             </tr>
                         {% endfor %}
                     </tbody>

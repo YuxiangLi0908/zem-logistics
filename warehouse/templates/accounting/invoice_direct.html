@@ -54,13 +54,7 @@
                                     <a href="/accounting/?step=container_direct&container_number={{ c.container_number }}&start_date={{ start_date }}&end_date={{ end_date }}&invoice_type={{ invoice_type_filter }}">{{ c.container_number }}</a>
                                 </td>
                                 <td class="td">{{ c.retrieval_id.retrieval_destination_area }}</td>
-                                <td class="td">
-                                    {% if c.invoice_reject_reason is not none %}
-                                     {{ c.invoice_reject_reason }}
-                                    {% else %}
-                                     
-                                    {% endif %}
-                                </td>
+                                <td class="td">{{ c.display_reject_reason }}</td>
                                 <td class="td">{{ c.created_at|date:"Y-m-d" }}</td>
                             </tr>
                         {% endfor %}
@@ -95,20 +89,12 @@
                     <tbody>
                         {% for c in previous_order %}
                             <tr>
-                                <td class="td">{{ c.customer_name__zem_name }}</td>
-                                <td class="td">
+                                <td class="td" style="vertical-align: middle;">{{ c.customer_name__zem_name }}</td>
+                                <td class="td" style="vertical-align: middle;">
                                     <a href="/accounting/?step=container_direct&container_number={{ c.container_number__container_number }}&start_date={{ start_date }}&end_date={{ end_date }}&invoice_type={{ invoice_type_filter }}">{{ c.container_number__container_number }}</a>
                                 </td>
-                                <td class="td">{{ c.created_at|date:"Y-m-d" }}</td>
-                                <td class="td">
-                                    {% if c.invoice_status == 'toBeConfirmed' %}
-                                        财务待确认
-                                    {% elif c.invoice_status == 'confirmed' %}
-                                        账单已开 
-                                    {% else %}
-                                        {{ c.invoice_status }}
-                                    {% endif %}
-                                </td>
+                                <td class="td" style="vertical-align: middle;">{{ c.created_at|date:"Y-m-d" }}</td>
+                                <td class="td" style="vertical-align: middle; white-space: pre-line;">{{ c.display_stage }}</td>
                             </tr>
                         {% endfor %}
                     </tbody>
