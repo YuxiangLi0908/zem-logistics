@@ -82,11 +82,19 @@ class InvoiceWarehouse(models.Model):
         null=True, blank=True, verbose_name="重复操作费"
     )
     amount = models.FloatField(null=True, blank=True)
+<<<<<<< HEAD
     rate = JSONField(default=dict, verbose_name="基础单价", null=True, blank=True)
     qty = JSONField(default=dict, verbose_name="数量", null=True, blank=True)
     other_fees = JSONField(default=dict, null=True, blank=True)
     surcharges = JSONField(default=dict, null=True, blank=True)
     surcharge_notes = JSONField(default=dict, null=True, blank=True)
+=======
+    rate = JSONField(default=dict, verbose_name="基础单价")
+    qty = JSONField(default=dict, verbose_name="数量")
+    other_fees = JSONField(default=dict)
+    surcharges = JSONField(default=dict)
+    surcharge_notes = JSONField(default=dict)
+>>>>>>> a1e9a26d905399e8bc1d658b2233f7ca47fac41b
     history = HistoricalRecords()
 
     def __str__(self) -> str:
