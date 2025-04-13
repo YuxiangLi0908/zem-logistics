@@ -40,15 +40,15 @@
             <div style="display: flex; align-items: center; margin-bottom: 10px;">
                 <label style="width: 120px; font-weight: bold;" for="pickup">提拆/打托缠膜:</label>
                 <span style="color: #808080; width: 150px;"></span>
-                <input type="number" style="width: 80px;" class="actual-price price-input" step="0.01" id="pickup_price" name="pickup_price" value="{{ invoice_preports.qty.pickup }}">
-                <input type="number" style="width: 80px;" class="quantity quantity-input" id="pickup_quantity" name="pickup_quantity" value="{{ invoice_preports.rate.pickup|default:1 }}">
+                <input type="number" style="width: 80px;" class="actual-price price-input" step="0.01" id="pickup_price" name="pickup_price" value="{{ invoice_preports.rate.pickup }}">
+                <input type="number" style="width: 80px;" class="quantity quantity-input" step="0.1" id="pickup_quantity" name="pickup_quantity" value="{{ invoice_preports.qty.pickup|default:1 }}">
                 <input type="number" class="original-input" style="width: 80px;" id="pickup" name="pickup" value="{{ invoice_preports.pickup }}" disabled>         
             </div>
             <div style="display: flex; align-items: center; margin-bottom: 10px;">
                 <label style="width: 120px; font-weight: bold;" for="chassis">托架费</label>
                 <span style="color: #808080; width: 150px;">({{ FS.chassis }})</span>
-                <input type="number" style="width: 80px;" class="actual-price price-input" step="0.01" id="chassis_price" name="chassis_price" value="{{ invoice_preports.qty.chassis }}">
-                <input type="number" style="width: 80px;" class="quantity quantity-input" id="chassis_quantity" name="chassis_quantity" value="{{ invoice_preports.rate.chassis }}">
+                <input type="number" style="width: 80px;" class="actual-price price-input" step="0.01" id="chassis_price" name="chassis_price" value="{{ invoice_preports.rate.chassis }}">
+                <input type="number" style="width: 80px;" class="quantity quantity-input" step="0.1" id="chassis_quantity" name="chassis_quantity" value="{{ invoice_preports.qty.chassis }}">
                 <input type="number" class="original-input" style="width: 80px; margin-right: 10px;" id="chassis" name="chassis" value="{{ invoice_preports.chassis }}" readonly>
                 <span style="margin: 0 5px;">+</span>
                 <input type="number" style="width: 70px; margin-right: 10px;" step="0.01" id="chassis_surcharge" name="chassis_surcharge" value="{{ surcharges.chassis }}">
@@ -57,8 +57,8 @@
             <div style="display: flex; align-items: center; margin-bottom: 10px;">
                 <label style="width: 120px; font-weight: bold;" for="chassis_split">托架提取费</label>
                 <span style="color: #808080; width: 150px;">({{ FS.chassis_split }})</span>
-                <input type="number" style="width: 80px;" class="actual-price price-input" step="0.01" id="chassis_split_price" name="chassis_split_price" value="{{ invoice_preports.qty.chassis_split }}">
-                <input type="number" style="width: 80px;" class="quantity quantity-input" id="chassis_split_quantity" name="chassis_split_quantity" value="{{ invoice_preports.rate.chassis_split }}">
+                <input type="number" style="width: 80px;" class="actual-price price-input" step="0.01" id="chassis_split_price" name="chassis_split_price" value="{{ invoice_preports.rate.chassis_split }}">
+                <input type="number" style="width: 80px;" class="quantity quantity-input" step="0.1" id="chassis_split_quantity" name="chassis_split_quantity" value="{{ invoice_preports.qty.chassis_split }}">
                 <input type="number" class="original-input" style="width: 80px; margin-right: 10px;" id="chassis_split" name="chassis_split" value="{{ invoice_preports.chassis_split }}" readonly>
                 <span style="margin: 0 5px;">+</span>
                 <input type="number" style="width: 70px; margin-right: 10px;" step="0.01" id="chassis_split_surcharge" name="chassis_split_surcharge" value="{{ surcharges.chassis_split }}">
@@ -67,8 +67,8 @@
             <div style="display: flex; align-items: center; margin-bottom: 10px;">
                 <label style="width: 120px; font-weight: bold;" for="prepull">预提费</label>
                 <span style="color: #808080; width: 150px;">({{ FS.prepull }})</span>
-                <input type="number" style="width: 80px;" class="actual-price price-input" step="0.01" id="prepull_price" name="prepull_price" value="{{ invoice_preports.qty.prepull }}">
-                <input type="number" style="width: 80px;" class="quantity quantity-input" id="prepull_quantity" name="prepull_quantity" value="{{ invoice_preports.rate.prepull }}">
+                <input type="number" style="width: 80px;" class="actual-price price-input" step="0.01" id="prepull_price" name="prepull_price" value="{{ invoice_preports.rate.prepull }}">
+                <input type="number" style="width: 80px;" class="quantity quantity-input" step="0.1" id="prepull_quantity" name="prepull_quantity" value="{{ invoice_preports.qty.prepull }}">
                 <input type="number" class="original-input" style="width: 80px; margin-right: 10px;" id="prepull" name="prepull" value="{{ invoice_preports.prepull }}" readonly>
                 <span style="margin: 0 5px;">+</span>
                 <input type="number" style="width: 70px; margin-right: 10px;" step="0.01" id="prepull_surcharge" name="prepull_surcharge" value="{{ surcharges.prepull }}">
@@ -77,8 +77,8 @@
             <div style="display: flex; align-items: center; margin-bottom: 10px;">
                 <label style="width: 120px; font-weight: bold;" for="yard_storage">货柜放置费</label>
                 <span style="color: #808080; width: 150px;">({{ FS.yard_storage }})</span>
-                <input type="number" style="width: 80px;" class="actual-price price-input" step="0.01" id="yard_storage_price" name="yard_storage_price" value="{{ invoice_preports.qty.yard_storage }}">
-                <input type="number" style="width: 80px;" class="quantity quantity-input" id="yard_storage_quantity" name="yard_storage_quantity" value="{{ invoice_preports.rate.yard_storage }}">
+                <input type="number" style="width: 80px;" class="actual-price price-input" step="0.01" id="yard_storage_price" name="yard_storage_price" value="{{ invoice_preports.rate.yard_storage }}">
+                <input type="number" style="width: 80px;" class="quantity quantity-input" step="0.1" id="yard_storage_quantity" name="yard_storage_quantity" value="{{ invoice_preports.qty.yard_storage }}">
                 <input type="number" class="original-input" style="width: 80px; margin-right: 10px;" id="yard_storage" name="yard_storage" value="{{ invoice_preports.yard_storage }}" readonly>
                 <span style="margin: 0 5px;">+</span>
                 <input type="number" style="width: 70px; margin-right: 10px;" step="0.01" id="yard_storage_surcharge" name="yard_storage_surcharge" value="{{ surcharges.yard_storage }}">
@@ -87,8 +87,8 @@
             <div style="display: flex; align-items: center; margin-bottom: 10px;">
                 <label style="width: 120px; font-weight: bold;" for="handling_fee">操作处理费</label>
                 <span style="color: #808080; width: 150px;">({{ FS.handling_fee }})</span>
-                <input type="number" style="width: 80px;" class="actual-price price-input" step="0.01" id="handling_fee_price" name="handling_fee_price" value="{{ invoice_preports.qty.handling_fee }}">
-                <input type="number" style="width: 80px;" class="quantity quantity-input" id="handling_fee_quantity" name="handling_fee_quantity" value="{{ invoice_preports.rate.handling_fee }}">
+                <input type="number" style="width: 80px;" class="actual-price price-input" step="0.01" id="handling_fee_price" name="handling_fee_price" value="{{ invoice_preports.rate.handling_fee }}">
+                <input type="number" style="width: 80px;" class="quantity quantity-input" step="0.1" id="handling_fee_quantity" name="handling_fee_quantity" value="{{ invoice_preports.qty.handling_fee }}">
                 <input type="number" class="original-input" style="width: 80px; margin-right: 10px;" id="handling_fee" name="handling_fee" value="{{ invoice_preports.handling_fee }}" readonly>
                 <span style="margin: 0 5px;">+</span>
                 <input type="number" style="width: 70px; margin-right: 10px;" step="0.01" id="handling_fee_surcharge" name="handling_fee_surcharge" value="{{ surcharges.handling_fee }}">
@@ -97,8 +97,8 @@
             <div style="display: flex; align-items: center; margin-bottom: 10px;">
                 <label style="width: 120px; font-weight: bold;" for="pier_pass">码头</label>
                 <span style="color: #808080; width: 150px;">({{ FS.pier_pass }})</span>
-                <input type="number" style="width: 80px;" class="actual-price price-input" step="0.01" id="pier_pass_price" name="pier_pass_price" value="{{ invoice_preports.qty.pier_pass }}">
-                <input type="number" style="width: 80px;" class="quantity quantity-input" id="pier_pass_quantity" name="pier_pass_quantity" value="{{ invoice_preports.rate.pier_pass }}">
+                <input type="number" style="width: 80px;" class="actual-price price-input" step="0.01" id="pier_pass_price" name="pier_pass_price" value="{{ invoice_preports.rate.pier_pass }}">
+                <input type="number" style="width: 80px;" class="quantity quantity-input" step="0.1" id="pier_pass_quantity" name="pier_pass_quantity" value="{{ invoice_preports.qty.pier_pass }}">
                 <input type="number" class="original-input" style="width: 80px; margin-right: 10px;" id="pier_pass" name="pier_pass" value="{{ invoice_preports.pier_pass }}" readonly>
                 <span style="margin: 0 5px;">+</span>
                 <input type="number" style="width: 70px; margin-right: 10px;" step="0.01" id="pier_pass_surcharge" name="pier_pass_surcharge" value="{{ surcharges.pier_pass }}">
@@ -107,8 +107,8 @@
             <div style="display: flex; align-items: center; margin-bottom: 10px;">
                 <label style="width: 120px; font-weight: bold;" for="congestion_fee">港口拥堵费</label>
                 <span style="color: #808080; width: 150px;">({{ FS.congestion_fee }})</span>
-                <input type="number" style="width: 80px;" class="actual-price price-input" step="0.01" id="congestion_fee_price" name="congestion_fee_price" value="{{ invoice_preports.qty.congestion_fee }}">
-                <input type="number" style="width: 80px;" class="quantity quantity-input" id="congestion_fee_quantity" name="congestion_fee_quantity" value="{{ invoice_preports.rate.congestion_fee }}">
+                <input type="number" style="width: 80px;" class="actual-price price-input" step="0.01" id="congestion_fee_price" name="congestion_fee_price" value="{{ invoice_preports.rate.congestion_fee }}">
+                <input type="number" style="width: 80px;" class="quantity quantity-input" step="0.1" id="congestion_fee_quantity" name="congestion_fee_quantity" value="{{ invoice_preports.qty.congestion_fee }}">
                 <input type="number" class="original-input" style="width: 80px; margin-right: 10px;" id="congestion_fee" name="congestion_fee" value="{{ invoice_preports.congestion_fee }}" readonly>
                 <span style="margin: 0 5px;">+</span>
                 <input type="number" style="width: 70px; margin-right: 10px;" step="0.01" id="congestion_fee_surcharge" name="congestion_fee_surcharge" value="{{ surcharges.congestion_fee }}">
@@ -117,8 +117,8 @@
             <div style="display: flex; align-items: center; margin-bottom: 10px;">
                 <label style="width: 120px; font-weight: bold;" for="hanging_crane">吊柜费</label>
                 <span style="color: #808080; width: 150px;">({{ FS.hanging_crane }})</span>
-                <input type="number" style="width: 80px;" class="actual-price price-input" step="0.01" id="hanging_crane_price" name="hanging_crane_price" value="{{ invoice_preports.qty.hanging_crane }}">
-                <input type="number" style="width: 80px;" class="quantity quantity-input" id="hanging_crane_quantity" name="hanging_crane_quantity" value="{{ invoice_preports.rate.hanging_crane }}">
+                <input type="number" style="width: 80px;" class="actual-price price-input" step="0.01" id="hanging_crane_price" name="hanging_crane_price" value="{{ invoice_preports.rate.hanging_crane }}">
+                <input type="number" style="width: 80px;" class="quantity quantity-input" step="0.1" id="hanging_crane_quantity" name="hanging_crane_quantity" value="{{ invoice_preports.qty.hanging_crane }}">
                 <input type="number" class="original-input" style="width: 80px; margin-right: 10px;" id="hanging_crane" name="hanging_crane" value="{{ invoice_preports.hanging_crane }}" readonly>
                 <span style="margin: 0 5px;">+</span>
                 <input type="number" style="width: 70px; margin-right: 10px;" step="0.01" id="hanging_crane_surcharge" name="hanging_crane_surcharge" value="{{ surcharges.hanging_crane }}">
@@ -127,8 +127,8 @@
             <div style="display: flex; align-items: center; margin-bottom: 10px;">
                 <label style="width: 120px; font-weight: bold;" for="dry_run">空跑费</label>
                 <span style="color: #808080; width: 150px;">({{ FS.dry_run }})</span>
-                <input type="number" style="width: 80px;" class="actual-price price-input" step="0.01" id="dry_run_price" name="dry_run_price" value="{{ invoice_preports.qty.dry_run }}">
-                <input type="number" style="width: 80px;" class="quantity quantity-input" id="dry_run_quantity" name="dry_run_quantity" value="{{ invoice_preports.rate.dry_run }}">
+                <input type="number" style="width: 80px;" class="actual-price price-input" step="0.01" id="dry_run_price" name="dry_run_price" value="{{ invoice_preports.rate.dry_run }}">
+                <input type="number" style="width: 80px;" class="quantity quantity-input" step="0.1" id="dry_run_quantity" name="dry_run_quantity" value="{{ invoice_preports.qty.dry_run }}">
                 <input type="number" class="original-input" style="width: 80px; margin-right: 10px;" id="dry_run" name="dry_run" value="{{ invoice_preports.dry_run }}" readonly>
                 <span style="margin: 0 5px;">+</span>
                 <input type="number" style="width: 70px; margin-right: 10px;" step="0.01" id="dry_run_surcharge" name="dry_run_surcharge" value="{{ surcharges.dry_run }}">
@@ -137,8 +137,8 @@
             <div style="display: flex; align-items: center; margin-bottom: 10px;">
                 <label style="width: 120px; font-weight: bold;" for="exam_fee">查验费</label>
                 <span style="color: #808080; width: 150px;">({{ FS.exam_fee }})</span>
-                <input type="number" style="width: 80px;" class="actual-price price-input" step="0.01" id="exam_fee_price" name="exam_fee_price" value="{{ invoice_preports.qty.exam_fee }}">
-                <input type="number" style="width: 80px;" class="quantity quantity-input" id="exam_fee_quantity" name="exam_fee_quantity" value="{{ invoice_preports.rate.exam_fee }}">
+                <input type="number" style="width: 80px;" class="actual-price price-input" step="0.01" id="exam_fee_price" name="exam_fee_price" value="{{ invoice_preports.rate.exam_fee }}">
+                <input type="number" style="width: 80px;" class="quantity quantity-input" step="0.1" id="exam_fee_quantity" name="exam_fee_quantity" value="{{ invoice_preports.qty.exam_fee }}">
                 <input type="number" class="original-input" style="width: 80px; margin-right: 10px;" id="exam_fee" name="exam_fee" value="{{ invoice_preports.exam_fee }}" readonly>
                 <span style="margin: 0 5px;">+</span>
                 <input type="number" style="width: 70px; margin-right: 10px;" step="0.01" id="exam_fee_surcharge" name="exam_fee_surcharge" value="{{ surcharges.exam_fee }}">
@@ -147,8 +147,8 @@
             <div style="display: flex; align-items: center; margin-bottom: 10px;">
                 <label style="width: 120px; font-weight: bold;" for="hazmat">危险品</label>
                 <span style="color: #808080; width: 150px;">({{ FS.hazmat }})</span>
-                <input type="number" style="width: 80px;" class="actual-price price-input" step="0.01" id="hazmat_price" name="hazmat_price" value="{{ invoice_preports.qty.hazmat }}">
-                <input type="number" style="width: 80px;" class="quantity quantity-input" id="hazmat_quantity" name="hazmat_quantity" value="{{ invoice_preports.rate.hazmat }}">
+                <input type="number" style="width: 80px;" class="actual-price price-input" step="0.01" id="hazmat_price" name="hazmat_price" value="{{ invoice_preports.rate.hazmat }}">
+                <input type="number" style="width: 80px;" class="quantity quantity-input" step="0.1" id="hazmat_quantity" name="hazmat_quantity" value="{{ invoice_preports.qty.hazmat }}">
                 <input type="number" class="original-input" style="width: 80px; margin-right: 10px;" id="hazmat" name="hazmat" value="{{ invoice_preports.hazmat }}" readonly>
                 <span style="margin: 0 5px;">+</span>
                 <input type="number" style="width: 70px; margin-right: 10px;" step="0.01" id="hazmat_surcharge" name="hazmat_surcharge" value="{{ surcharges.hazmat }}">
@@ -157,8 +157,8 @@
             <div style="display: flex; align-items: center; margin-bottom: 10px;">
                 <label style="width: 120px; font-weight: bold;" for="over_weight">超重费</label>
                 <span style="color: #808080; width: 150px;">({{ FS.over_weight }})</span>
-                <input type="number" style="width: 80px;" class="actual-price price-input" step="0.01" id="over_weight_price" name="over_weight_price" value="{{ invoice_preports.qty.over_weight }}">
-                <input type="number" style="width: 80px;" class="quantity quantity-input" id="over_weight_quantity" name="over_weight_quantity" value="{{ invoice_preports.rate.over_weight }}">
+                <input type="number" style="width: 80px;" class="actual-price price-input" step="0.01" id="over_weight_price" name="over_weight_price" value="{{ invoice_preports.rate.over_weight }}">
+                <input type="number" style="width: 80px;" class="quantity quantity-input" step="0.1" id="over_weight_quantity" name="over_weight_quantity" value="{{ invoice_preports.qty.over_weight }}">
                 <input type="number" class="original-input" style="width: 80px; margin-right: 10px;" id="over_weight" name="over_weight" value="{{ invoice_preports.over_weight }}" readonly>
                 <span style="margin: 0 5px;">+</span>
                 <input type="number" style="width: 70px; margin-right: 10px;" step="0.01" id="over_weight_surcharge" name="over_weight_surcharge" value="{{ surcharges.over_weight }}">
@@ -167,8 +167,8 @@
             <div style="display: flex; align-items: center; margin-bottom: 10px;">
                 <label style="width: 120px; font-weight: bold;" for="urgent_fee">加急费</label>
                 <span style="color: #808080; width: 150px;">({{ FS.urgent_fee }})</span>
-                <input type="number" style="width: 80px;" class="actual-price price-input" step="0.01" id="urgent_fee_price" name="urgent_fee_price" value="{{ invoice_preports.qty.urgent_fee }}">
-                <input type="number" style="width: 80px;" class="quantity quantity-input" id="urgent_fee_quantity" name="urgent_fee_quantity" value="{{ invoice_preports.rate.urgent_fee }}">
+                <input type="number" style="width: 80px;" class="actual-price price-input" step="0.01" id="urgent_fee_price" name="urgent_fee_price" value="{{ invoice_preports.rate.urgent_fee }}">
+                <input type="number" style="width: 80px;" class="quantity quantity-input" step="0.1" id="urgent_fee_quantity" name="urgent_fee_quantity" value="{{ invoice_preports.qty.urgent_fee }}">
                 <input type="number" class="original-input" style="width: 80px; margin-right: 10px;" id="urgent_fee" name="urgent_fee" value="{{ invoice_preports.urgent_fee }}" readonly>
                 <span style="margin: 0 5px;">+</span>
                 <input type="number" style="width: 70px; margin-right: 10px;" step="0.01" id="urgent_fee_surcharge" name="urgent_fee_surcharge" value="{{ surcharges.urgent_fee }}">
@@ -177,8 +177,8 @@
             <div style="display: flex; align-items: center; margin-bottom: 10px;">
                 <label style="width: 120px; font-weight: bold;" for="other_serive">其他服务</label>
                 <span style="color: #808080; width: 150px;">({{ FS.other_serive }})</span>
-                <input type="number" style="width: 80px;" style="width: 80px;" class="actual-price price-input" step="0.01" id="other_serive_price" name="other_serive_price" value="{{ invoice_preports.qty.other_serive }}">
-                <input type="number" style="width: 80px;" class="quantity quantity-input" id="other_serive_quantity" name="other_serive_quantity" value="{{ invoice_preports.rate.other_serive }}">
+                <input type="number" style="width: 80px;" style="width: 80px;" class="actual-price price-input" step="0.01" id="other_serive_price" name="other_serive_price" value="{{ invoice_preports.rate.other_serive }}">
+                <input type="number" style="width: 80px;" class="quantity quantity-input" step="0.1" id="other_serive_quantity" name="other_serive_quantity" value="{{ invoice_preports.qty.other_serive }}">
                 <input type="number" class="original-input" step="0.01" style="width: 80px; margin-right: 10px;" id="other_serive" name="other_serive" value="{{ invoice_preports.other_serive }}" readonly>
                 <span style="margin: 0 5px;">+</span>
                 <input type="number" style="width: 70px; margin-right: 10px;" step="0.01" id="other_serive_surcharge" name="other_serive_surcharge" value="{{ surcharges.other_serive }}">
@@ -187,8 +187,8 @@
             <div style="display: flex; align-items: center; margin-bottom: 10px;">
                 <label style="width: 120px; font-weight: bold;" for="demurrage">港内滞期费</label>
                 <span style="color: #808080; width: 150px;">({{ FS.demurrage }})</span>
-                <input type="number" style="width: 80px;" class="actual-price price-input" step="0.01" id="demurrage_price" name="demurrage_price" value="{{ invoice_preports.qty.demurrage }}">
-                <input type="number" style="width: 80px;" class="quantity quantity-input" id="demurrage_quantity" name="demurrage_quantity" value="{{ invoice_preports.rate.demurrage }}">
+                <input type="number" style="width: 80px;" class="actual-price price-input" step="0.01" id="demurrage_price" name="demurrage_price" value="{{ invoice_preports.rate.demurrage }}">
+                <input type="number" style="width: 80px;" class="quantity quantity-input" step="0.1" id="demurrage_quantity" name="demurrage_quantity" value="{{ invoice_preports.qty.demurrage }}">
                 <input type="number" class="original-input" style="width: 80px; margin-right: 10px;" id="demurrage" name="demurrage" value="{{ invoice_preports.demurrage }}" readonly>
                 <span style="margin: 0 5px;">+</span>
                 <input type="number" style="width: 70px; margin-right: 10px;" step="0.01" id="demurrage_surcharge" name="demurrage_surcharge" value="{{ surcharges.demurrage }}">
@@ -197,8 +197,8 @@
             <div style="display: flex; align-items: center; margin-bottom: 10px;">
                 <label style="width: 120px; font-weight: bold;" for="per_diem">港外滞期费</label>
                 <span style="color: #808080; width: 150px;">({{ FS.per_diem }})</span>
-                <input type="number" style="width: 80px;" class="actual-price price-input" step="0.01" id="per_diem_price" name="per_diem_price" value="{{ invoice_preports.qty.per_diem }}">
-                <input type="number" style="width: 80px;" class="quantity quantity-input" id="per_diem_quantity" name="per_diem_quantity" value="{{ invoice_preports.rate.per_diem }}">
+                <input type="number" style="width: 80px;" class="actual-price price-input" step="0.01" id="per_diem_price" name="per_diem_price" value="{{ invoice_preports.rate.per_diem }}">
+                <input type="number" style="width: 80px;" class="quantity quantity-input" step="0.1" id="per_diem_quantity" name="per_diem_quantity" value="{{ invoice_preports.qty.per_diem }}">
                 <input type="number" class="original-input" style="width: 80px; margin-right: 10px;" id="per_diem" name="per_diem" value="{{ invoice_preports.per_diem }}" readonly>
                 <span style="margin: 0 5px;">+</span>
                 <input type="number" style="width: 70px; margin-right: 10px;" step="0.01" id="per_diem_surcharge" name="per_diem_surcharge" value="{{ surcharges.per_diem }}">
@@ -207,8 +207,8 @@
             <div style="display: flex; align-items: center; margin-bottom: 10px;">
                 <label style="width: 120px; font-weight: bold;" for="second_pickup">二次提货</label>
                 <span style="color: #808080; width: 150px;">({{ FS.second_pickup }})</span>
-                <input type="number" style="width: 80px;" class="actual-price price-input" step="0.01" id="second_pickup_price" name="second_pickup_price" value="{{ invoice_preports.qty.second_pickup }}">
-                <input type="number" style="width: 80px;" class="quantity quantity-input" id="second_pickup_quantity" name="second_pickup_quantity" value="{{ invoice_preports.rate.second_pickup }}">
+                <input type="number" style="width: 80px;" class="actual-price price-input" step="0.01" id="second_pickup_price" name="second_pickup_price" value="{{ invoice_preports.rate.second_pickup }}">
+                <input type="number" style="width: 80px;" class="quantity quantity-input" step="0.1" id="second_pickup_quantity" name="second_pickup_quantity" value="{{ invoice_preports.qty.second_pickup }}">
                 <input type="number" class="original-input" style="width: 80px; margin-right: 10px;" id="second_pickup" name="second_pickup" value="{{ invoice_preports.second_pickup }}" readonly>
                 <span style="margin: 0 5px;">+</span>
                 <input type="number" style="width: 70px; margin-right: 10px;" step="0.01" id="second_pickup_surcharge" name="second_pickup_surcharge" value="{{ surcharges.second_pickup }}">
