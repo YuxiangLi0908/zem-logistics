@@ -125,7 +125,7 @@
                                 <td class="td">{{ c.invoice_id__invoice_number }}</td>
                                 <td class="td">{{ c.created_at|date:"Y-m-d" }}</td>
                                 <td class="td">{{ c.invoice_id__invoice_date|date:"Y-m-d" }}</td>
-                                <td class="td">${{ c.total_amount|floatformat:"2g" }}</td>
+                                <td class="td">${{ c.invoice_id__receivable_total_amount|floatformat:"2g" }}</td>
                                 <td class="td">
                                     <a href="{{ c.invoice_id__invoice_link }}" style="margin-right: 10px;" target="_blank">
                                         <i class="bi bi-file-earmark-bar-graph-fill"></i>
