@@ -351,10 +351,10 @@
                             <input type='checkbox' name='is_type_added' onclick="toggleRowBackground(this)" {% if plt.delivery %}checked{% endif %}>
                             <input type="hidden" name="is_type_added", value='off'>
                             <input type="hidden" name="added_plt_ids", value='{{ plt.ids }}'>
-                            <input type="hidden" name="total_pallet" value="{{ plt.total_n_pallet }}">
+                            <input type="hidden" name="total_pallet" value="{{ plt.total_pallet }}">
                             <input type="hidden" name="delivery_type" value="{{ plt.delivery_type }}">
                         </td>
-                        <td class="td"><input type="text" name="total_n_pallet" value="{{ plt.total_n_pallet }}" disabled></td>
+                        <td class="td"><input type="text" name="total_n_pallet" value="{{ plt.total_pallet }}" disabled></td>
                         <td class="td"><input type="text" name="delivery_type" value="{{ plt.invoice_delivery__type|default_if_none:'' }}" disabled></td>
                         <td class="td"><input type="text" name="destination" value="{{ plt.destination }}"></td>
                         <td class="td"><input type="number" name="cbm" step = 0.01 value="{{ plt.total_cbm|floatformat:2 }}"></td>
@@ -396,6 +396,15 @@
                 const palletInput = row.querySelector('input[name="total_pallet"]');
                 const activationInput = row.querySelector('input[name="po_activation"]');
                 const totalInput = row.querySelector(`input[id="${type}_cost"]`);
+                
+                //如果总价列为空时，才自动计算
+                if (!totalInput.value || parseFloat(totalInput.value) === 0) {
+                    const price = parseFloat(priceInput.value) || 0;
+                    const pallets = parseFloat(palletInput.value) || 0;
+                    const activation = parseFloat(activationInput.value) || 0;
+                    const calculatedTotal = (price * pallets) + activation;
+                    totalInput.value = calculatedTotal.toFixed(2);
+                }
 
                 // 存储原始值
                 priceInput.dataset.original = priceInput.value;
@@ -512,7 +521,6 @@
         updateRow(input.closest('tr'), 'selfdelivery');
     }
 
-    // 其他原有函数保持不变
     function add_delivery_plt(button) {
         const checkBoxes = document.getElementsByName('is_type_added');
         for (let i = 0; i < checkBoxes.length; i+=2) {
@@ -590,7 +598,7 @@
         var totalInputs = document.querySelectorAll('input[name="total"]');
         var sum = 0;
         for (var j = 0; j < totalInputs.length; j++) {
-            sum += parseInt(totalInputs[j].value);
+            sum += parseInt(totalInputs[j].value) || 0;
         }
         var amountInput = document.querySelector('input[name="amount"]');
         amountInput.value = sum;

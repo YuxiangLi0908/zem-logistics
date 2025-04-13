@@ -1662,28 +1662,36 @@ class Accounting(View):
                         invoice_type="payable"
                     )
                 container_delivery_type = invoice_status.container_number.delivery_type
-                if container_delivery_type in ["public", "other"]:
-                    #如果这个柜子只有一类仓，就直接改变状态
+                groups = [group.name for group in request.user.groups.all()]
+                if "mix_account" in groups:
+                    invoice_status.stage_public = "delivery_completed"
+                    invoice_status.stage_other = "delivery_completed"
                     invoice_status.stage = "tobeconfirmed"
                     invoice_status.is_rejected = False  
                     invoice_status.reject_reason = ""
-                elif container_delivery_type == "mixed":
-                    groups = [group.name for group in request.user.groups.all()]
-                    if "public" in groups and "other" not in groups:
-                        #公仓组录完了，改变stage_public
-                        invoice_status.stage_public = "delivery_completed"
-                        #如果私仓也做完了，就改变主状态到派送阶段
-                        if invoice_status.stage_other == "delivery_completed":
-                            invoice_status.stage = "tobeconfirmed"
-                    elif "other" in groups and "public" not in groups:
-                        # 私仓租录完了，改变stage_other
-                        invoice_status.stage_other = "delivery_completed"
-                        # 如果公仓也做完了，就改变主状态
-                        if invoice_status.stage_public == "delivery_completed":
-                            invoice_status.stage = "tobeconfirmed"
-                    #既有公仓权限，又有私仓权限的不知道咋处理，而且编辑页面也不好搞
-                    invoice_status.is_rejected = False  
-                    invoice_status.reject_reason = ""
+                else:
+                    if container_delivery_type in ["public", "other"]:
+                        #如果这个柜子只有一类仓，就直接改变状态
+                        invoice_status.stage = "tobeconfirmed"
+                        invoice_status.is_rejected = False  
+                        invoice_status.reject_reason = ""
+                    elif container_delivery_type == "mixed":
+                        
+                        if "public" in groups and "other" not in groups:
+                            #公仓组录完了，改变stage_public
+                            invoice_status.stage_public = "delivery_completed"
+                            #如果私仓也做完了，就改变主状态到派送阶段
+                            if invoice_status.stage_other == "delivery_completed":
+                                invoice_status.stage = "tobeconfirmed"
+                        elif "other" in groups and "public" not in groups:
+                            # 私仓租录完了，改变stage_other
+                            invoice_status.stage_other = "delivery_completed"
+                            # 如果公仓也做完了，就改变主状态
+                            if invoice_status.stage_public == "delivery_completed":
+                                invoice_status.stage = "tobeconfirmed"
+                        #既有公仓权限，又有私仓权限的不知道咋处理，而且编辑页面也不好搞
+                        invoice_status.is_rejected = False  
+                        invoice_status.reject_reason = ""
                 
                 invoice_status.save()
         else:

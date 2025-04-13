@@ -49,9 +49,9 @@
                                 {% else %}
                                     <td class="td"><input type="text" name="cost" value=""></td>(按距离收费)
                                 {% endif %}
-                                <td class="td"><input type="text" name="total_pallet" value="{{ plt.total_n_pallet }}"></td>
+                                <td class="td"><input type="text" name="total_pallet" value="{{ plt.total_pallet }}"></td>
                                 <td class="td">
-                                    <input type="number" class="local_cost" name="cost" value="{{ plt.total_cost }}" oninput="updateLocal(this)">                                   
+                                    <input type="number" class="local_cost" id="local_cost" name="total_cost" value="{{ plt.total_cost }}" oninput="updateLocal(this)">                                   
                                     <input type="hidden" name="plt_ids" value="{{ plt.plt_ids }}">
                                 </td>
                                 <td class="td"><input type="number" name="po_activation" value="{{ plt.po_activation }}"></td>
@@ -63,8 +63,11 @@
                             </tr>
                             {% endfor %}
                             <tr>
-                                <td class="td"><input type="number" id="local_total" name="total" disabled></td>
-                                <td colspan="4"></td>
+                                <td colspan="2"></td>
+                                <td class="td">
+                                    <input type="number" id="local_total" name="total" disabled>
+                                </td>
+                                <td colspan="6"></td>
                             </tr>
                         </tbody>
                     </table>
@@ -107,9 +110,9 @@
                         {% for plt in selfdelivery %}
                         <tr draggable="true" id="pallet-{{ plt.id }}">
                             <td class="td"><input type="text" name="cost" value="{{ plt.cost }}"></td>
-                            <td class="td"><input type="text" name="total_pallet" value="{{ plt.total_n_pallet }}"></td>
+                            <td class="td"><input type="text" name="total_pallet" value="{{ plt.total_pallet }}"></td>
                             <td class="td">
-                                <input type="number" id="selfdelivery_cost" name="cost" value="{{ plt.total_cost }}" oninput="updateSelf(this)">
+                                <input type="number" id="selfdelivery_cost" name="total_cost" value="{{ plt.total_cost }}" oninput="updateSelf(this)">
                                 <input type="hidden" name="plt_ids" value="{{ plt.plt_ids }}">
                             </td>
                             <td class="td"><input type="number" name="po_activation" value="{{ plt.po_activation }}"></td>
@@ -120,9 +123,11 @@
                         </tr>
                         {% endfor %}
                         <tr>
+                            <td colspan="2"></td>
                             <td class="td">
-                                <input type="number" id="selfdelivery_total" name="total" value=""></td>
-                            <td colspan="4"></td>
+                                <input type="number" id="selfdelivery_total" name="total" value="">
+                            </td>
+                            <td colspan="6"></td>
                         </tr>
                     </tbody>
                 </table>
@@ -176,9 +181,10 @@
                             <input type='checkbox' name='is_type_added' onclick="toggleRowBackground(this)" {% if plt.delivery %}checked{% endif %}>
                             <input type="hidden" name="is_type_added", value='off'>
                             <input type="hidden" name="added_plt_ids", value='{{ plt.ids }}'>
-                            <input type="hidden" name="total_pallet" value="{{ plt.total_n_pallet }}">
+                            <input type="hidden" name="total_pallet" value="{{ plt.total_pallet }}">
+                            <input type="hidden" name="delivery_type" value="{{ plt.delivery_type }}">
                         </td>
-                        <td class="td"><input type="text" name="total_n_pallet" value="{{ plt.total_n_pallet }}" disabled></td>
+                        <td class="td"><input type="text" name="total_n_pallet" value="{{ plt.total_pallet }}" disabled></td>
                         <td class="td"><input type="text" name="delivery_type" value="{{ plt.invoice_delivery__type|default_if_none:'' }}" disabled></td>
                         <td class="td"><input type="text" name="destination" value="{{ plt.destination }}"></td>
                         <td class="td"><input type="number" name="cbm" step = 0.01 value="{{ plt.total_cbm|floatformat:2 }}"></td>
@@ -193,99 +199,147 @@
 </div>
     
 <script>
-    window.onload = function () {
-        let local_total = 0;
-        let total_amount = 0;
-        let selfdelivery_total = 0;
-         
-        
-        var rows = document.querySelectorAll('#local-table tbody tr:not(:last-child)');
-        if (rows.length !== 0){
-            for (var i = 0; i < rows.length; i++) {
-                var costInput = rows[i].querySelector('input.local_cost');
-                var costValue = parseFloat(costInput.value);
-                if (!isNaN(costValue)) {
-                    local_total += costValue;
+    const typeTotals = {
+        local: 0,
+        selfdelivery: 0
+    };
+
+    // 初始化计算
+    document.addEventListener('DOMContentLoaded', function() {
+        initializeAllValues();
+        calculateAllTotals();
+        updateGlobalTotal();
+    });
+
+    // 初始化所有值（保留原始值）
+    function initializeAllValues() {
+        Object.keys(typeTotals).forEach(type => {
+            const table = document.getElementById(`${type}-table`);
+            if (!table) return;
+
+            const rows = table.querySelectorAll('tbody tr:not(:last-child)');
+            rows.forEach(row => {
+                const priceInput = row.querySelector('input[name="cost"]');
+                const palletInput = row.querySelector('input[name="total_pallet"]');
+                const activationInput = row.querySelector('input[name="po_activation"]');
+                const totalInput = row.querySelector(`input[id="${type}_cost"]`);
+                
+                //如果总价列为空时，才自动计算
+                if (!totalInput.value || parseFloat(totalInput.value) === 0) {
+                    const price = parseFloat(priceInput.value) || 0;
+                    const pallets = parseFloat(palletInput.value) || 0;
+                    const activation = parseFloat(activationInput.value) || 0;
+                    const calculatedTotal = (price * pallets) + activation;
+                    totalInput.value = calculatedTotal.toFixed(2);
                 }
-            }
-            document.getElementById('local_total').value = local_total;
-            total_amount += local_total;
-        }
+                
+                // 存储原始值
+                priceInput.dataset.original = priceInput.value;
+                palletInput.dataset.original = palletInput.value;
+                activationInput.dataset.original = activationInput.value || 0;
+                totalInput.dataset.original = totalInput.value;
 
-        var rows = document.querySelectorAll('#selfdelivery-table tbody tr:not(:last-child)');
-        if (rows.length !== 0){
-            for (var i = 0; i < rows.length; i++) {
-                var costInput = rows[i].querySelector('input[id="selfdelivery_cost"]');
-                var costValue = parseFloat(costInput.value);
-                if (!isNaN(costValue)) {
-                    selfdelivery_total += costValue;
-                }
-            }
-            document.getElementById('selfdelivery_total').value = selfdelivery_total;
-            total_amount += selfdelivery_total;
-        } 
-        const elements = document.querySelectorAll('.total_amount');
-        elements.forEach(element => {
-            if (element.tagName === 'INPUT') {
-                element.value = total_amount;  // <input> 用 value
-            } else {
-                element.textContent = total_amount;  // <span> 用 textContent
+                // 确保所有输入框都有事件监听
+                priceInput.addEventListener('input', () => updateRow(row, type));
+                palletInput.addEventListener('input', () => updateRow(row, type));
+                activationInput.addEventListener('input', () => updateRow(row, type));
+                totalInput.addEventListener('input', () => updateRowFromTotal(row, type));
+            });
+        });
+    }
+
+    // 计算所有类型的总额
+    function calculateAllTotals() {
+        Object.keys(typeTotals).forEach(type => {
+            const table = document.getElementById(`${type}-table`);
+            if (!table) return;
+
+            let typeTotal = 0;
+            const rows = table.querySelectorAll('tbody tr:not(:last-child)');
+            
+            rows.forEach(row => {
+                const totalInput = row.querySelector(`input[id="${type}_cost"]`);
+                typeTotal += parseFloat(totalInput.value) || 0;
+            });
+
+            typeTotals[type] = typeTotal;
+            const totalInput = document.getElementById(`${type}_total`);
+            if (totalInput) {
+                totalInput.value = typeTotal.toFixed(2);
             }
         });
-        
-        
+    }
 
-    };
-    
-    function updateSelf(numberInput) {
-        const amountInputs = document.querySelectorAll('input[id="selfdelivery_cost"]');
-        const amountAmazon = document.getElementById('selfdelivery_total');
-        let total = 0;
-        amountInputs.forEach(function (input) {
-            const value = parseFloat(input.value);
-            if (!isNaN(value)) {
-                total += value;
-            }
+    // 计算单行总价（单价×板数+激活）
+    function calculateRowTotal(row) {
+        const price = parseFloat(row.querySelector('input[name="cost"]').value) || 0;
+        const pallets = parseFloat(row.querySelector('input[name="total_pallet"]').value) || 0;
+        const activation = parseFloat(row.querySelector('input[name="po_activation"]').value) || 0;
+        return (price * pallets) + activation;
+    }
+
+    // 更新单行数据（从单价/板数/激活）
+    function updateRow(row, type) {
+        const totalInput = row.querySelector(`input[id="${type}_cost"]`);
+        const newTotal = calculateRowTotal(row);
+        totalInput.value = newTotal.toFixed(2);
+        
+        updateTypeTotal(type);
+        updateGlobalTotal();
+    }
+
+    // 从总价反向更新（修改总价时）
+    function updateRowFromTotal(row, type) {
+        const totalInput = row.querySelector(`input[id="${type}_cost"]`);
+        const total = parseFloat(totalInput.value) || 0;
+        const pallets = parseFloat(row.querySelector('input[name="total_pallet"]').value) || 1;
+        const activation = parseFloat(row.querySelector('input[name="po_activation"]').value) || 0;
+        const price = (total - activation) / pallets;
+        
+        row.querySelector('input[name="cost"]').value = price.toFixed(2);
+        
+        updateTypeTotal(type);
+        updateGlobalTotal();
+    }
+
+    // 更新类型总计
+    function updateTypeTotal(type) {
+        const table = document.getElementById(`${type}-table`);
+        if (!table) return;
+
+        let typeTotal = 0;
+        const rows = table.querySelectorAll('tbody tr:not(:last-child)');
+        
+        rows.forEach(row => {
+            const totalInput = row.querySelector(`input[id="${type}_cost"]`);
+            typeTotal += parseFloat(totalInput.value) || 0;
         });
-        amountAmazon.value = total.toFixed(2);
-        updateTotal();
-        
-    };
-    
-    function updateTotal() {
-        let total_amount = 0;
-        const amountLocal = document.getElementById('local_total');
-        const amountSelf = document.getElementById('self_total');
-        
-        if (amountLocal && amountLocal.value) {
-            localValue = parseFloat(amountLocal.value);
-            total_amount += localValue;
-        }
-        if (amountSelf && amountSelf.value) {
-            selfValue = parseFloat(amountSelf.value);
-            total_amount += selfValue;
-        }
-        
-        const totalAmountSpan = document.querySelector('.total_amount');
-        totalAmountSpan.textContent = total_amount;
-    };
 
+        typeTotals[type] = typeTotal;
+        const totalInput = document.getElementById(`${type}_total`);
+        if (totalInput) {
+            totalInput.value = typeTotal.toFixed(2);
+        }
+    }
 
-    function updateLocal(numberInput) {
-        const amountInputs = document.querySelectorAll('input.local_cost');
-        const amountLocal = document.getElementById('local_total');
-        let total = 0;
-        amountInputs.forEach(function (input) {
-            const value = parseFloat(input.value);
-            if (!isNaN(value)) {
-                total += value;
-            }
+    // 更新全局总金额
+    function updateGlobalTotal() {
+        const globalTotal = Object.values(typeTotals).reduce((sum, val) => sum + val, 0);
+        document.querySelector('.total_amount').textContent = globalTotal.toFixed(2);
+        document.querySelectorAll('input.total_amount').forEach(input => {
+            input.value = globalTotal.toFixed(2);
         });
-        amountLocal.value = total.toFixed(2);
-        updateTotal();
-    };
+    }
 
+    // 各类型的更新函数（保留原有接口）
+    function updateLocal(input) {
+        updateRow(input.closest('tr'), 'local');
+    }
+    function updateSelf(input) {
+        updateRow(input.closest('tr'), 'selfdelivery');
+    }
 
+    // 其他原有函数保持不变
     function add_delivery_plt(button) {
         const checkBoxes = document.getElementsByName('is_type_added');
         for (let i = 0; i < checkBoxes.length; i+=2) {
@@ -319,6 +373,7 @@
             row.style.backgroundColor = ''; 
         }
     };
+    
     function removeRows() {
         const checkboxes = document.querySelectorAll('input[name="is_item_selected"]:checked');
         checkboxes.forEach(checkbox => {
@@ -326,6 +381,7 @@
             row.remove();
         });
     };
+    
     function processForm(tableId,event) {
         var table = document.getElementById(tableId);
         var tbody = table.getElementsByTagName('tbody')[0];
@@ -340,6 +396,7 @@
             }
         }       
     };
+    
     function AmountForm() {
         var costInputs = document.querySelectorAll('input[name="cost"]');
         for (var i = 0; i < costInputs.length; i++) {
@@ -354,7 +411,7 @@
         var totalInputs = document.querySelectorAll('input[name="total"]');
         var sum = 0;
         for (var j = 0; j < totalInputs.length; j++) {
-            sum += parseFloat(totalInputs[j].value);
+            sum += parseFloat(totalInputs[j].value) || 0;
         }
         var amountInput = document.querySelector('input[name="amount"]');
         amountInput.value = sum;
