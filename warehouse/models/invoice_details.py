@@ -30,11 +30,11 @@ class InvoicePreport(models.Model):
     per_diem = models.FloatField(null=True, blank=True, verbose_name="港外滞期费")
     second_pickup = models.FloatField(null=True, blank=True, verbose_name="二次提货")
     amount = models.FloatField(null=True, blank=True)
-    rate = JSONField(default=dict, verbose_name="基础单价")
-    qty = JSONField(default=dict, verbose_name="数量")
-    other_fees = JSONField(default=dict)
-    surcharges = JSONField(default=dict)
-    surcharge_notes = JSONField(default=dict)
+    rate = JSONField(default=dict, verbose_name="基础单价", null=True, blank=True)
+    qty = JSONField(default=dict, verbose_name="数量", null=True, blank=True)
+    other_fees = JSONField(default=dict, null=True, blank=True)
+    surcharges = JSONField(default=dict, null=True, blank=True)
+    surcharge_notes = JSONField(default=dict, null=True, blank=True)
     history = HistoricalRecords()
 
     def __str__(self) -> str:
@@ -82,11 +82,11 @@ class InvoiceWarehouse(models.Model):
         null=True, blank=True, verbose_name="重复操作费"
     )
     amount = models.FloatField(null=True, blank=True)
-    rate = JSONField(default=dict, verbose_name="基础单价")
-    qty = JSONField(default=dict, verbose_name="数量")
-    other_fees = JSONField(default=dict)
-    surcharges = JSONField(default=dict)
-    surcharge_notes = JSONField(default=dict)
+    rate = JSONField(default=dict, verbose_name="基础单价", null=True, blank=True)
+    qty = JSONField(default=dict, verbose_name="数量", null=True, blank=True)
+    other_fees = JSONField(default=dict, null=True, blank=True)
+    surcharges = JSONField(default=dict, null=True, blank=True)
+    surcharge_notes = JSONField(default=dict, null=True, blank=True)
     history = HistoricalRecords()
 
     def __str__(self) -> str:
