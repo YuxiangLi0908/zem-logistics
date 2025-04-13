@@ -1,7 +1,23 @@
 {% extends 'base.html' %}
 
 {% block content %}
-<div><h4><b>派送账单编辑——总计 $<span class="total_amount">0</span></b></h4></div>
+<div style="display: flex; align-items: center; gap: 8px;">
+    <h4><b>派送账单编辑——总计 $<span class="total_amount">0</span></b></h4>
+    <span style="background: linear-gradient(to right, #096dd9, #40a9ff); color: white; padding: 3px 8px; border-radius: 4px;">
+        {% if invoice_type == 'receivable' %}
+            应收账单
+        {% else %}
+            应付账单
+        {% endif %}
+    </span>
+    <span style="background: linear-gradient(to right, #d4380d, #ff7a45); color: white; padding: 3px 8px; border-radius: 4px;">
+        {% if delivery_type == 'public' %}
+            公仓
+        {% else %}
+            私仓
+        {% endif %}
+    </span>
+</div>
 <div  style="display: inline-block; width: 100%; margin: 0; padding: 0; max-width: 100%;">
     <p style="text-align:center;"><b>{{ invoice }}</b></p>
     <form method="post" action="">
@@ -232,7 +248,7 @@
                     const calculatedTotal = (price * pallets) + activation;
                     totalInput.value = calculatedTotal.toFixed(2);
                 }
-                
+
                 // 存储原始值
                 priceInput.dataset.original = priceInput.value;
                 palletInput.dataset.original = palletInput.value;
