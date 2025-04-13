@@ -45,7 +45,7 @@
                 <label style="width: 120px; font-weight: bold;" for="sorting">分拣费</label>
                 <span style="color: #808080; width: 150px;">({{ FS.sorting }})</span>
                 <input type="number" style="width: 80px;" class="actual-price price-input" step="0.01" id="sorting_price" name="sorting_price" value="{{ invoice_warehouse.rate.sorting }}">
-                <input type="number" style="width: 80px;" class="quantity quantity-input" id="sorting_quantity" name="sorting_quantity" value="{{ invoice_warehouse.qty.sorting|default:0 }}">
+                <input type="number" style="width: 80px;" class="quantity quantity-input" step="0.1" id="sorting_quantity" name="sorting_quantity" value="{{ invoice_warehouse.qty.sorting|default:0 }}">
                 <input type="number" class="original-input" step="0.01" style="width: 80px; margin-right: 10px;" id="sorting" name="sorting" value="{{ invoice_warehouse.sorting }}" readonly>
                 <span style="margin: 0 5px;">+</span>
                 <input type="number" style="width: 70px; margin-right: 10px;" step="0.01" id="sorting_surcharge" name="sorting_surcharge" value="{{ surcharges.sorting }}" >
@@ -55,7 +55,7 @@
                 <label style="width: 120px; font-weight: bold;" for="intercept">拦截费</label>
                 <span style="color: #808080; width: 150px;">({{ FS.intercept }})</span>
                 <input type="number" style="width: 80px;" class="actual-price price-input" step="0.01" id="intercept_price" name="intercept_price" value="{{ invoice_warehouse.rate.intercept }}">
-                <input type="number" style="width: 80px;" class="quantity quantity-input" id="intercept_quantity" name="intercept_quantity" value="{{ invoice_warehouse.qty.intercept|default:0 }}">
+                <input type="number" style="width: 80px;" class="quantity quantity-input" step="0.1" id="intercept_quantity" name="intercept_quantity" value="{{ invoice_warehouse.qty.intercept|default:0 }}">
                 <input type="number" class="original-input" style="width: 80px; margin-right: 10px;" id="intercept" name="intercept" value="{{ invoice_warehouse.intercept }}" readonly>
                 <span style="margin: 0 5px;">+</span>
                 <input type="number" style="width: 70px; margin-right: 10px;" id="intercept_surcharge" name="intercept_surcharge" value="{{ surcharges.intercept }}">
@@ -65,7 +65,7 @@
                 <label style="width: 120px; font-weight: bold;" for="po_activation">亚马逊PO激活</label>
                 <span style="color: #808080; width: 150px;">({{ FS.po_activation }})</span>
                 <input type="number" style="width: 80px;" class="actual-price price-input" step="0.01" id="po_activation_price" name="po_activation_price" value="{{ invoice_warehouse.rate.po_activation }}">
-                <input type="number" style="width: 80px;" class="quantity quantity-input" id="po_activation_quantity" name="po_activation_quantity" value="{{ invoice_warehouse.qty.po_activation|default:0 }}">
+                <input type="number" style="width: 80px;" class="quantity quantity-input" step="0.1" id="po_activation_quantity" name="po_activation_quantity" value="{{ invoice_warehouse.qty.po_activation|default:0 }}">
                 <input type="number" class="original-input" style="width: 80px; margin-right: 10px;" id="po_activation" name="po_activation" value="{{ invoice_warehouse.po_activation }}" readonly>
                 <span style="margin: 0 5px;">+</span>
                 <input type="number" style="width: 70px; margin-right: 10px;" id="po_activation_surcharge" name="po_activation_surcharge" value="{{ surcharges.po_activation }}">
@@ -75,7 +75,7 @@
                 <label style="width: 120px; font-weight: bold;" for="self_pickup">客户自提</label>
                 <span style="color: #808080; width: 150px;">({{ FS.self_pickup }})</span>
                 <input type="number" style="width: 80px;" class="actual-price price-input" step="0.01" id="self_pickup_price" name="self_pickup_price" value="{{ invoice_warehouse.rate.self_pickup }}">
-                <input type="number" style="width: 80px;" class="quantity quantity-input" id="self_pickup_quantity" name="self_pickup_quantity" value="{{ invoice_warehouse.qty.self_pickup|default:0 }}">
+                <input type="number" style="width: 80px;" class="quantity quantity-input" step="0.1" id="self_pickup_quantity" name="self_pickup_quantity" value="{{ invoice_warehouse.qty.self_pickup|default:0 }}">
                 <input type="number" class="original-input" style="width: 80px; margin-right: 10px;" id="self_pickup" name="self_pickup" value="{{ invoice_warehouse.self_pickup }}" readonly>
                 <span style="margin: 0 5px;">+</span>
                 <input type="number" style="width: 70px; margin-right: 10px;" id="self_pickup_surcharge" name="intercept_surcharge" value="{{ surcharges.self_pickup }}">
@@ -85,7 +85,7 @@
                 <label style="width: 120px; font-weight: bold;" for="re_pallet">重新打板</label>
                 <span style="color: #808080; width: 150px;">({{ FS.re_pallet }})</span>
                 <input type="number" style="width: 80px;" class="actual-price price-input" step="0.01" id="re_pallet_price" name="re_pallet_price" value="{{ invoice_warehouse.rate.re_pallet }}">
-                <input type="number" style="width: 80px;" class="quantity quantity-input" id="re_pallet_quantity" name="re_pallet_quantity" value="{{ invoice_warehouse.qty.re_pallet|default:0 }}">
+                <input type="number" style="width: 80px;" class="quantity quantity-input" step="0.1" id="re_pallet_quantity" name="re_pallet_quantity" value="{{ invoice_warehouse.qty.re_pallet|default:0 }}">
                 <input type="number" class="original-input" style="width: 80px; margin-right: 10px;" id="re_pallet" name="re_pallet" value="{{ invoice_warehouse.re_pallet }}" readonly>
                 <span style="margin: 0 5px;">+</span>
                 <input type="number" style="width: 70px; margin-right: 10px;" id="re_pallet_surcharge" name="re_pallet_surcharge" value="{{ surcharges.re_pallet }}">
@@ -95,7 +95,7 @@
                 <label style="width: 120px; font-weight: bold;" for="counting">货品清点费</label>
                 <span style="color: #808080; width: 150px;">({{ FS.counting }})</span>
                 <input type="number" style="width: 80px;" class="actual-price price-input" step="0.01" id="counting_price" name="counting_price" value="{{ invoice_warehouse.rate.counting }}">
-                <input type="number" style="width: 80px;" class="quantity quantity-input" id="counting_quantity" name="counting_quantity" value="{{ invoice_warehouse.qty.counting|default:0 }}">
+                <input type="number" style="width: 80px;" class="quantity quantity-input" step="0.1" id="counting_quantity" name="counting_quantity" value="{{ invoice_warehouse.qty.counting|default:0 }}">
                 <input type="number" class="original-input" step="0.01" style="width: 80px; margin-right: 10px;" id="counting" name="counting" value="{{ invoice_warehouse.counting }}" readonly>
                 <span style="margin: 0 5px;">+</span>
                 <input type="number" style="width: 70px; margin-right: 10px;" step="0.01" id="counting_surcharge" name="counting_surcharge" value="{{ surcharges.counting }}">
@@ -105,7 +105,7 @@
                 <label style="width: 120px; font-weight: bold;" for="warehouse_rent">仓租</label>
                 <span style="color: #808080; width: 150px;">({{ FS.warehouse_rent }})</span>
                 <input type="number" style="width: 80px;" class="actual-price price-input" step="0.01" id="warehouse_rent_price" name="warehouse_rent_price" value="{{ invoice_warehouse.rate.warehouse_rent }}">
-                <input type="number" style="width: 80px;" class="quantity quantity-input" id="warehouse_rent_quantity" name="warehouse_rent_quantity" value="{{ invoice_warehouse.qty.warehouse_rent|default:0 }}">
+                <input type="number" style="width: 80px;" class="quantity quantity-input" step="0.1" id="warehouse_rent_quantity" name="warehouse_rent_quantity" value="{{ invoice_warehouse.qty.warehouse_rent|default:0 }}">
                 <input type="number" class="original-input" style="width: 80px; margin-right: 10px;" id="warehouse_rent" name="warehouse_rent" value="{{ invoice_warehouse.warehouse_rent }}" readonly>
                 <span style="margin: 0 5px;">+</span>
                 <input type="number" style="width: 70px; margin-right: 10px;" id="warehouse_rent_surcharge" name="warehouse_rent_surcharge" value="{{ surcharges.warehouse_rent }}">
@@ -115,7 +115,7 @@
                 <label style="width: 120px; font-weight: bold;" for="specified_labeling">指定贴标</label>
                 <span style="color: #808080; width: 150px;">({{ FS.specified_labeling }})</span>
                 <input type="number" style="width: 80px;" class="actual-price price-input" step="0.01" id="specified_labeling_price" name="sspecified_labeling_price" value="{{ invoice_warehouse.rate.specified_labeling }}">
-                <input type="number" style="width: 80px;" class="quantity quantity-input" id="specified_labeling_quantity" name="specified_labeling_quantity" value="{{ invoice_warehouse.qty.specified_labeling|default:0 }}">
+                <input type="number" style="width: 80px;" class="quantity quantity-input" step="0.1" id="specified_labeling_quantity" name="specified_labeling_quantity" value="{{ invoice_warehouse.qty.specified_labeling|default:0 }}">
                 <input type="number" class="original-input" step="0.01" style="width: 80px; margin-right: 10px;" id="specified_labeling" name="specified_labeling" value="{{ invoice_warehouse.specified_labeling }}" readonly>
                 <span style="margin: 0 5px;">+</span>
                 <input type="number" style="width: 70px; margin-right: 10px;" step="0.01" id="specified_labeling_surcharge" name="specified_labeling_surcharge" value="{{ surcharges.specified_labeling }}">
@@ -125,7 +125,7 @@
                 <label style="width: 120px; font-weight: bold;" for="inner_outer_box">内外箱</label>
                 <span style="color: #808080; width: 150px;">({{ FS.inner_outer_box }})</span>
                 <input type="number" style="width: 80px;" class="actual-price price-input" step="0.01" id="inner_outer_box_price" name="inner_outer_box_price" value="{{ invoice_warehouse.rate.inner_outer_box }}">
-                <input type="number" style="width: 80px;" class="quantity quantity-input" id="inner_outer_box_quantity" name="inner_outer_box_quantity" value="{{ invoice_warehouse.qty.inner_outer_box|default:0 }}">
+                <input type="number" style="width: 80px;" class="quantity quantity-input" step="0.1" id="inner_outer_box_quantity" name="inner_outer_box_quantity" value="{{ invoice_warehouse.qty.inner_outer_box|default:0 }}">
                 <input type="number" class="original-input" step="0.01" style="width: 80px; margin-right: 10px;" id="inner_outer_box" name="inner_outer_box" value="{{ invoice_warehouse.inner_outer_box }}" readonly>
                 <span style="margin: 0 5px;">+</span>
                 <input type="number" style="width: 70px; margin-right: 10px;" step="0.01" id="inner_outer_box_surcharge" name="inner_outer_box_surcharge" value="{{ surcharges.inner_outer_box }}">
@@ -136,7 +136,7 @@
                 <label style="width: 120px; font-weight: bold;" for="pallet_label">托盘标签</label>
                 <span style="color: #808080; width: 150px;">({{ FS.pallet_label }})</span>
                 <input type="number" style="width: 80px;" class="actual-price price-input" step="0.01" id="pallet_label_price" name="pallet_label_price" value="{{ invoice_warehouse.rate.pallet_label }}">
-                <input type="number" style="width: 80px;" class="quantity quantity-input" id="pallet_label_quantity" name="pallet_label_quantity" value="{{ invoice_warehouse.qty.pallet_label|default:0 }}">
+                <input type="number" style="width: 80px;" class="quantity quantity-input" step="0.1" id="pallet_label_quantity" name="pallet_label_quantity" value="{{ invoice_warehouse.qty.pallet_label|default:0 }}">
                 <input type="number" class="original-input" step="0.01" style="width: 80px; margin-right: 10px;" id="pallet_label" name="pallet_label" value="{{ invoice_warehouse.pallet_label }}" readonly>
                 <span style="margin: 0 5px;">+</span>
                 <input type="number" style="width: 70px; margin-right: 10px;" step="0.01" id="pallet_label_surcharge" name="pallet_label_surcharge" value="{{ surcharges.pallet_label }}">
@@ -146,7 +146,7 @@
                 <label style="width: 120px; font-weight: bold;" for="open_close_box">开封箱</label>
                 <span style="color: #808080; width: 150px;">({{ FS.open_close_box }})</span>
                 <input type="number" style="width: 80px;" class="actual-price price-input" step="0.01" id="open_close_box_price" name="open_close_box_price" value="{{ invoice_warehouse.rate.open_close_box }}">
-                <input type="number" style="width: 80px;" class="quantity quantity-input" id="open_close_box_quantity" name="open_close_box_quantity" value="{{ invoice_warehouse.qty.open_close_box|default:0 }}">
+                <input type="number" style="width: 80px;" class="quantity quantity-input" step="0.1" id="open_close_box_quantity" name="open_close_box_quantity" value="{{ invoice_warehouse.qty.open_close_box|default:0 }}">
                 <input type="number" class="original-input" style="width: 80px; margin-right: 10px;" id="open_close_box" name="open_close_box" value="{{ invoice_warehouse.open_close_box }}" readonly>
                 <span style="margin: 0 5px;">+</span>
                 <input type="number" style="width: 70px; margin-right: 10px;" id="open_close_box_surcharge" name="open_close_box_surcharge" value="{{ surcharges.open_close_box }}">
@@ -156,7 +156,7 @@
                 <label style="width: 120px; font-weight: bold;" for="destroy">销毁</label>
                 <span style="color: #808080; width: 150px;">({{ FS.destroy }})</span>
                 <input type="number" style="width: 80px;" class="actual-price price-input" step="0.01" id="destroy_price" name="destroy_price" value="{{ invoice_warehouse.rate.destroy }}">
-                <input type="number" style="width: 80px;" class="quantity quantity-input" id="destroy_quantity" name="destroy_quantity" value="{{ invoice_warehouse.qty.destroy|default:0 }}">
+                <input type="number" style="width: 80px;" class="quantity quantity-input" step="0.1" id="destroy_quantity" name="destroy_quantity" value="{{ invoice_warehouse.qty.destroy|default:0 }}">
                 <input type="number" class="original-input" step="0.01" style="width: 80px; margin-right: 10px;" id="destroy" name="destroy" value="{{ invoice_warehouse.destroy }}" readonly>
                 <span style="margin: 0 5px;">+</span>
                 <input type="number" style="width: 70px; margin-right: 10px;" step="0.01" id="destroy_surcharge" name="destroy_surcharge" value="{{ surcharges.destroy }}">
@@ -166,7 +166,7 @@
                 <label style="width: 120px; font-weight: bold;" for="take_photo">拍照</label>
                 <span style="color: #808080; width: 150px;">({{ FS.take_photo }})</span>
                 <input type="number" style="width: 80px;" class="actual-price price-input" step="0.01" id="take_photo_price" name="take_photo_price" value="{{ invoice_warehouse.rate.take_photo }}">
-                <input type="number" style="width: 80px;" class="quantity quantity-input" id="take_photo_quantity" name="take_photo_quantity" value="{{ invoice_warehouse.qty.take_photo|default:0 }}">
+                <input type="number" style="width: 80px;" class="quantity quantity-input" step="0.1" id="take_photo_quantity" name="take_photo_quantity" value="{{ invoice_warehouse.qty.take_photo|default:0 }}">
                 <input type="number" class="original-input" style="width: 80px; margin-right: 10px;" id="take_photo" name="take_photo" value="{{ invoice_warehouse.take_photo }}" readonly>
                 <span style="margin: 0 5px;">+</span>
                 <input type="number" style="width: 70px; margin-right: 10px;" id="take_photo_surcharge" name="take_photo_surcharge" value="{{ surcharges.take_photo }}">
@@ -176,7 +176,7 @@
                 <label style="width: 120px; font-weight: bold;" for="take_video">拍视频</label>
                 <span style="color: #808080; width: 150px;">({{ FS.take_video }})</span>
                 <input type="number" style="width: 80px;" class="actual-price price-input" step="0.01" id="take_video_price" name="take_video_price" value="{{ invoice_warehouse.rate.take_video }}">
-                <input type="number" style="width: 80px;" class="quantity quantity-input" id="take_video_quantity" name="take_video_quantity" value="{{ invoice_warehouse.qty.take_video|default:0 }}">
+                <input type="number" style="width: 80px;" class="quantity quantity-input" step="0.1" id="take_video_quantity" name="take_video_quantity" value="{{ invoice_warehouse.qty.take_video|default:0 }}">
                 <input type="number" class="original-input" step="0.01" style="width: 80px; margin-right: 10px;" id="take_video" name="take_video" value="{{ invoice_warehouse.take_video }}" readonly>
                 <span style="margin: 0 5px;">+</span>
                 <input type="number" style="width: 70px; margin-right: 10px;" step="0.01" id="take_video_surcharge" name="take_photo_surcharge" value="{{ surcharges.take_video }}">
@@ -186,7 +186,7 @@
                 <label style="width: 120px; font-weight: bold;" for="repeated_operation_fee">重复操作费</label>
                 <span style="color: #808080; width: 150px;">({{ FS.repeated_operation_fee }})</span>
                 <input type="number" style="width: 80px;" class="actual-price price-input" step="0.01" id="repeated_operation_fee_price" name="repeated_operation_fee_price" value="{{ invoice_warehouse.rate.repeated_operation_fee }}">
-                <input type="number" style="width: 80px;" class="quantity quantity-input" id="repeated_operation_fee_quantity" name="repeated_operation_fee_quantity" value="{{ invoice_warehouse.qty.repeated_operation_fee|default:0 }}">
+                <input type="number" style="width: 80px;" class="quantity quantity-input" step="0.1" id="repeated_operation_fee_quantity" name="repeated_operation_fee_quantity" value="{{ invoice_warehouse.qty.repeated_operation_fee|default:0 }}">
                 <input type="number" class="original-input" style="width: 80px; margin-right: 10px;" id="repeated_operation_fee" name="repeated_operation_fee" value="{{ invoice_warehouse.repeated_operation_fee }}" readonly>
                 <span style="margin: 0 5px;">+</span>
                 <input type="number" style="width: 70px; margin-right: 10px;" id="repeated_operation_fee_surcharge" name="repeated_operation_fee_surcharge" value="{{ surcharges.repeated_operation_fee }}">

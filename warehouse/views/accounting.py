@@ -829,7 +829,7 @@ class Accounting(View):
         # 库内操作费
         current_date = datetime.now().date()
         start_date = (
-            (current_date + timedelta(days=-30)).strftime("%Y-%m-%d")
+            (current_date + timedelta(days=-90)).strftime("%Y-%m-%d")
             if not start_date
             else start_date
         )
@@ -848,11 +848,11 @@ class Accounting(View):
         groups = [group.name for group in request.user.groups.all()]
         delivery_type_filter = None
 
-        if "public" in groups and "other" not in groups:
+        if "warehouse_public" in groups and "warehouse_other" not in groups:
             delivery_type_filter = models.Q(
                 container_number__delivery_type__in=["public", "mixed"]
             )
-        elif "other" in groups and "public" not in groups:
+        elif "warehouse_other" in groups and "warehouse_public" not in groups:
             delivery_type_filter = models.Q(
                 container_number__delivery_type__in=["other", "mixed"]
             )
@@ -869,13 +869,13 @@ class Accounting(View):
             base_query = base_query.filter(delivery_type_filter)
 
         # 查找未操作过的
-        if "public" in groups and "other" not in groups:
+        if "warehouse_public" in groups and "warehouse_other" not in groups:
             # 如果是公仓人员
             order = base_query.filter(
                 **{f"{invoice_type}_status__stage": "warehouse"},
                 **{f"{invoice_type}_status__stage_public": "pending"},
             ).order_by(f"{invoice_type}_status__reject_reason")
-        elif "other" in groups and "public" not in groups:
+        elif "warehouse_other" in groups and "warehouse_public" not in groups:
             # 如果是私仓人员
             order = base_query.filter(
                 **{f"{invoice_type}_status__stage": "warehouse"},
@@ -897,11 +897,11 @@ class Accounting(View):
             }
         )
         warehouse_condition = models.Q(**{f"{invoice_type}_status__stage": "warehouse"})
-        if "public" in groups and "other" not in groups:
+        if "warehouse_public" in groups and "warehouse_other" not in groups:
             warehouse_condition &= models.Q(
                 **{f"{invoice_type}_status__stage_public": "warehouse_completed"}
             )
-        elif "other" in groups and "public" not in groups:
+        elif "warehouse_other" in groups and "warehouse_public" not in groups:
             warehouse_condition &= models.Q(
                 **{f"{invoice_type}_status__stage_other": "warehouse_completed"}
             )
@@ -1033,7 +1033,7 @@ class Accounting(View):
         # 库内操作费
         current_date = datetime.now().date()
         start_date = request.POST.get("start_date") or (
-            current_date + timedelta(days=-30)
+            current_date + timedelta(days=-90)
         ).strftime("%Y-%m-%d")
         end_date = request.POST.get("end_date") or current_date.strftime("%Y-%m-%d")
 
@@ -1053,11 +1053,11 @@ class Accounting(View):
         delivery_type_filter = None
         if "mix_account" in groups:
             delivery_type_filter = models.Q()
-        elif "public" in groups and "other" not in groups:
+        elif "warehouse_public" in groups and "warehouse_other" not in groups:
             delivery_type_filter = models.Q(
                 container_number__delivery_type__in=["public", "mixed"]
             )
-        elif "other" in groups and "public" not in groups:
+        elif "warehouse_other" in groups and "warehouse_public" not in groups:
             delivery_type_filter = models.Q(
                 container_number__delivery_type__in=["other", "mixed"]
             )
@@ -1081,12 +1081,12 @@ class Accounting(View):
                 models.Q(**{f"{invoice_type}_status__stage_other": "warehouse_completed"}) |
                 models.Q(**{f"{invoice_type}_status__stage": "delivery"})
             ).order_by(f"{invoice_type}_status__reject_reason")
-        elif "public" in groups and "other" not in groups:
+        elif "warehouse_public" in groups and "warehouse_other" not in groups:
             # 如果是公仓人员
             order = base_query.filter(
                 **{f"{invoice_type}_status__stage_public": "warehouse_completed"}
             ).order_by(f"{invoice_type}_status__reject_reason")
-        elif "other" in groups and "public" not in groups:
+        elif "warehouse_other" in groups and "warehouse_public" not in groups:
             # 如果是私仓人员
             order = base_query.filter(
                 **{f"{invoice_type}_status__stage_other": "warehouse_completed"}
@@ -1106,11 +1106,11 @@ class Accounting(View):
             )|models.Q(
                 **{f"{invoice_type}_status__stage_other": "delivery_completed"}
             )
-        elif "public" in groups and "other" not in groups:
+        elif "warehouse_public" in groups and "warehouse_other" not in groups:
             delivery_completed_condition = models.Q(
                 **{f"{invoice_type}_status__stage_public": "delivery_completed"}
             )
-        elif "other" in groups and "public" not in groups:
+        elif "warehouse_other" in groups and "warehouse_public" not in groups:
             delivery_completed_condition = models.Q(
                 **{f"{invoice_type}_status__stage_other": "delivery_completed"}
             )
@@ -1158,14 +1158,14 @@ class Accounting(View):
                 }
             )
             invoice_content.save()
-        if "public" in groups and "other" not in groups:
+        if "warehouse_public" in groups and "warehouse_other" not in groups:
             # 公仓组录完了，改变stage_public
             invoice_warehouse = InvoiceWarehouse.objects.get(
                 invoice_number__invoice_number=invoice.invoice_number,
                 invoice_type=invoice_type,
                 delivery_type="public",
             )
-        elif "other" in groups and "public" not in groups:
+        elif "warehouse_other" in groups and "warehouse_public" not in groups:
             invoice_warehouse = InvoiceWarehouse.objects.get(
                 invoice_number__invoice_number=invoice.invoice_number,
                 invoice_type=invoice_type,
@@ -1212,14 +1212,14 @@ class Accounting(View):
         s_fields = ["amount"] + fields
         for field in s_fields:
             # 保存单价
-            price_key = f"{field}_price"
-            if price_key in data:
-                qty_data[field] = float(data.get(price_key, 1)) or 1
-            
-            # 保存数量
             quantity_key = f"{field}_quantity"
             if quantity_key in data:
-                rate_data[field] = float(data.get(quantity_key, 0)) or 0
+                qty_data[field] = float(data.get(quantity_key, 0)) or 0
+            
+            # 保存数量
+            price_key = f"{field}_price"
+            if price_key in data:
+                rate_data[field] = float(data.get(price_key, 1)) or 1
             
             # 保存原有字段
             if field in data and field not in exclude_fields and data[field]:
@@ -1228,7 +1228,6 @@ class Accounting(View):
         # 保存单价和数量
         invoice_warehouse.qty = qty_data
         invoice_warehouse.rate = rate_data
-        
         surcharges = {}
         surcharge_notes = {}
         for field in fields:
@@ -1280,13 +1279,13 @@ class Accounting(View):
                 invoice_status.is_rejected = False
                 invoice_status.reject_reason = ""
             elif container_delivery_type == "mixed":
-                if "public" in groups and "other" not in groups:
+                if "warehouse_public" in groups and "warehouse_other" not in groups:
                     # 公仓组录完了，改变stage_public
                     invoice_status.stage_public = "warehouse_completed"
                     # 如果私仓也做完了，就改变主状态到派送阶段
                     if invoice_status.stage_other == "warehouse_completed":
                         invoice_status.stage = "delivery"
-                elif "other" in groups and "public" not in groups:
+                elif "warehouse_other" in groups and "warehouse_public" not in groups:
                     # 私仓租录完了，改变stage_other
                     invoice_status.stage_other = "warehouse_completed"
                     # 如果公仓也做完了，就改变主状态
@@ -1368,13 +1367,13 @@ class Accounting(View):
         s_fields = ["pickup"] + ["amount"] + fields
         for field in s_fields:
             # 保存单价
-            price_key = f"{field}_quantity"
-            if price_key in data:
-                qty_data[field] = float(data.get(price_key, 0)) or 0
-            # 保存数量
-            quantity_key = f"{field}_price"
+            quantity_key = f"{field}_quantity"
             if quantity_key in data:
-                rate_data[field] = float(data.get(quantity_key, 1)) or 1
+                qty_data[field] = float(data.get(quantity_key, 0)) or 0
+            # 保存数量
+            price_key = f"{field}_price"
+            if price_key in data:
+                rate_data[field] = float(data.get(price_key, 1)) or 1
             # 保存原有字段
             if field in data and field not in exclude_fields and data[field]:
                 setattr(invoice_preports, field, data[field])
@@ -1463,7 +1462,6 @@ class Accounting(View):
 
     def handle_invoice_preport_save_post(self, request: HttpRequest) -> tuple[Any, Any]:
         data = request.POST.copy()
-        
         save_type = request.POST.get("save_type")
         container_number = data.get("container_number")
         invoice_type = data.get("invoice_type")
@@ -1506,14 +1504,14 @@ class Accounting(View):
         s_fields = ["pickup"] + ["amount"] + fields
         for field in s_fields:
             # 保存单价
-            price_key = f"{field}_price"
-            if price_key in data:
-                qty_data[field] = float(data.get(price_key, 1)) or 1
-            
-            # 保存数量
             quantity_key = f"{field}_quantity"
             if quantity_key in data:
-                rate_data[field] = float(data.get(quantity_key, 0)) or 0
+                qty_data[field] = float(data.get(quantity_key, 0)) or 0
+            
+            # 保存数量
+            price_key = f"{field}_price"
+            if price_key in data:
+                rate_data[field] = float(data.get(price_key, 1)) or 1
             
             # 保存原有字段
             if field in data and field not in exclude_fields and data[field]:
@@ -1793,9 +1791,8 @@ class Accounting(View):
             order = Order.objects.select_related(
                 "retrieval_id", "container_number"
             ).get(container_number__container_number=container_number)
-            if (
-                redirect_step == "False"
-            ):  # 如果不是从财务确认界面跳转来的，才需要改变状态
+            if redirect_step == "False":
+                # 如果不是从财务确认界面跳转来的，才需要改变状态
                 if invoice_type == "receivable":
                     invoice_status = InvoiceStatus.objects.get(
                         container_number=order.container_number,
@@ -1806,6 +1803,8 @@ class Accounting(View):
                         container_number=order.container_number,
                         invoice_type="payable"
                     )
+                else:
+                    raise ValueError(f"unknown invoice_type: {invoice_type}")
                 container_delivery_type = invoice_status.container_number.delivery_type
                 groups = [group.name for group in request.user.groups.all()]
                 if "mix_account" in groups:
@@ -1822,13 +1821,13 @@ class Accounting(View):
                         invoice_status.reject_reason = ""
                     elif container_delivery_type == "mixed":
                         
-                        if "public" in groups and "other" not in groups:
+                        if "warehouse_public" in groups and "warehouse_other" not in groups:
                             #公仓组录完了，改变stage_public
                             invoice_status.stage_public = "delivery_completed"
                             #如果私仓也做完了，就改变主状态到派送阶段
                             if invoice_status.stage_other == "delivery_completed":
                                 invoice_status.stage = "tobeconfirmed"
-                        elif "other" in groups and "public" not in groups:
+                        elif "warehouse_other" in groups and "warehouse_public" not in groups:
                             # 私仓租录完了，改变stage_other
                             invoice_status.stage_other = "delivery_completed"
                             # 如果公仓也做完了，就改变主状态
@@ -1931,9 +1930,9 @@ class Accounting(View):
         delivery_type = request.GET.get("delivery_type")
         if delivery_type is None:
             # 确定delivery_type
-            if "public" in groups and "other" not in groups:
+            if "warehouse_public" in groups and "warehouse_other" not in groups:
                 delivery_type = "public"
-            elif "other" in groups and "public" not in groups:
+            elif "warehouse_other" in groups and "warehouse_public" not in groups:
                 delivery_type = "other"
         #不需要赋值单价的字段
         excluded_fields = {
@@ -2021,7 +2020,6 @@ class Accounting(View):
     def handle_container_invoice_confirm_get(
         self, request: HttpRequest
     ) -> tuple[Any, Any]:
-
         container_number = request.GET.get("container_number")
         start_date_confirm = request.GET.get("start_date_confirm")
         end_date_confirm = request.GET.get("end_date_confirm")
@@ -2036,12 +2034,14 @@ class Accounting(View):
             invoice_number__invoice_number=invoice.invoice_number,
             invoice_type=invoice_type,
         )
-        if order.order_type == "转运" or order.order_type == "转运组合":
+        if order.order_type in ["转运", "转运组合"]:
             invoice_warehouse = InvoiceWarehouse.objects.get(
-                invoice_number__invoice_number=invoice.invoice_number
+                invoice_number__invoice_number=invoice.invoice_number,
+                invoice_type=invoice_type,
             )
             invoice_delivery = InvoiceDelivery.objects.filter(
-                invoice_number__invoice_number=invoice.invoice_number
+                invoice_number__invoice_number=invoice.invoice_number,
+                invoice_type=invoice_type,
             )
             amazon = []
             local = []
@@ -2317,12 +2317,12 @@ class Accounting(View):
         }
         if "mix_account" in groups:  #如果公仓私仓都能看，就进总页面
             return self.template_invoice_delievery_edit, context
-        elif "public" in groups and "other" not in groups:
+        elif "warehouse_public" in groups and "warehouse_other" not in groups:
             pallet = pallet.filter(delivery_type="public")
             context['pallet'] = pallet
             context["delivery_type"] = "public"
             return self.template_invoice_delievery_public_edit, context
-        elif "other" in groups and "public" not in groups:
+        elif "warehouse_other" in groups and "warehouse_public" not in groups:
             pallet = pallet.filter(delivery_type="other")
             context["delivery_type"] = "other"
             context['pallet'] = pallet
