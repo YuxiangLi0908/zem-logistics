@@ -776,6 +776,7 @@ class Accounting(View):
         ).select_related(
             "customer_name", "container_number", "receivable_status", "payable_status"
         )
+        groups = [group.name for group in request.user.groups.all()]
         context = {
             "order": order,
             "order_form": OrderForm(),
@@ -786,6 +787,7 @@ class Accounting(View):
             "warehouse_options": self.warehouse_options,
             "warehouse_filter": warehouse,
             "invoice_type_filter": invoice_type,
+            "groups":groups
         }
         return self.template_invoice_warehouse, context
 
@@ -1783,13 +1785,13 @@ class Accounting(View):
             container_number__container_number=container_number
         )
         groups = [group.name for group in request.user.groups.all()]
-        delivery_type = None
-
-        # 确定delivery_type
-        if "public" in groups and "other" not in groups:
-            delivery_type = "public"
-        elif "other" in groups and "public" not in groups:
-            delivery_type = "other"
+        delivery_type = request.GET.get("delivery_type")
+        if delivery_type is None:
+            # 确定delivery_type
+            if "public" in groups and "other" not in groups:
+                delivery_type = "public"
+            elif "other" in groups and "public" not in groups:
+                delivery_type = "other"
 
         #不需要赋值单价的字段
         excluded_fields = {
