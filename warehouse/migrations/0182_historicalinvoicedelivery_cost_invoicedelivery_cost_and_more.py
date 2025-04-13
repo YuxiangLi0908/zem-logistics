@@ -6,28 +6,28 @@ from django.db import migrations, models
 class Migration(migrations.Migration):
 
     dependencies = [
-        ('warehouse', '0181_historicalinvoicedelivery_po_activation_and_more'),
+        ("warehouse", "0181_historicalinvoicedelivery_po_activation_and_more"),
     ]
 
     operations = [
         migrations.AddField(
-            model_name='historicalinvoicedelivery',
-            name='cost',
+            model_name="historicalinvoicedelivery",
+            name="cost",
             field=models.FloatField(blank=True, null=True),
         ),
         migrations.AddField(
-            model_name='invoicedelivery',
-            name='cost',
+            model_name="invoicedelivery",
+            name="cost",
             field=models.FloatField(blank=True, null=True),
         ),
         migrations.AlterField(
-            model_name='historicalinvoicedelivery',
-            name='total_pallet',
+            model_name="historicalinvoicedelivery",
+            name="total_pallet",
             field=models.IntegerField(blank=True, null=True),
         ),
         migrations.AlterField(
-            model_name='invoicedelivery',
-            name='total_pallet',
+            model_name="invoicedelivery",
+            name="total_pallet",
             field=models.IntegerField(blank=True, null=True),
         ),
     ]
