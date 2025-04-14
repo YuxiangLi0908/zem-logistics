@@ -60,7 +60,7 @@
                             <tr>
                                 <td class="td">{{ c.customer_name.zem_name }}</td>
                                 <td class="td">
-                                    <a href="/accounting/?step=container_delivery&container_number={{ c.container_number }}&start_date={{ start_date }}&end_date={{ end_date }}&invoice_type={{ invoice_type_filter }}">{{ c.container_number }}</a>
+                                    <a href="/accounting/?step=container_delivery&container_number={{ c.container_number }}&start_date={{ start_date }}&end_date={{ end_date }}&invoice_type={{ invoice_type_filter }}&warehouse={{ warehouse }}">{{ c.container_number }}</a>
                                 </td>
                                 <td class="td">{{ c.display_reject_reason }}</td>
                                 <td class="td">{{ c.created_at|date:"Y-m-d" }}</td>
@@ -99,7 +99,7 @@
                             <tr>
                                 <td class="td" style="vertical-align: middle;">{{ c.customer_name.zem_name }}</td>
                                 <td class="td" style="vertical-align: middle;">
-                                    <a href="/accounting/?step=container_delivery&container_number={{ c.container_number.container_number }}&start_date={{ start_date }}&end_date={{ end_date }}&invoice_type={{ invoice_type_filter }}">{{ c.container_number.container_number }}</a>
+                                    <a href="/accounting/?step=container_delivery&container_number={{ c.container_number.container_number }}&start_date={{ start_date }}&end_date={{ end_date }}&invoice_type={{ invoice_type_filter }}&warehouse={{ warehouse }}">{{ c.container_number.container_number }}</a>
                                 </td>
                                 <td class="td" style="vertical-align: middle;">{{ c.created_at|date:"Y-m-d" }}</td>
                                 <td class="td" style="vertical-align: middle; white-space: pre-line;">{{ c.display_stage }}</td>
