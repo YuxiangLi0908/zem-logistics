@@ -1088,6 +1088,8 @@ class Accounting(View):
             models.Q(vessel_id__vessel_etd__gte=start_date),
             models.Q(vessel_id__vessel_etd__lte=end_date),
         )
+        if not warehouse:
+            warehouse = request.POST.get("warehouse")
         if warehouse:
             criteria &= models.Q(retrieval_id__retrieval_destination_precise=warehouse)
         if customer:
@@ -1134,12 +1136,23 @@ class Accounting(View):
         elif "warehouse_public" in groups and "warehouse_other" not in groups:
             # 如果是公仓人员
             order = base_query.filter(
-                **{f"{invoice_type}_status__stage_public": "delivery_completed"}
+                models.Q(
+                    **{f"{invoice_type}_status__stage_public": "warehouse_completed"}
+                )
+                | models.Q(
+                    **{f"{invoice_type}_status__stage_public": "delivery_rejected"}
+                )
             ).order_by(f"{invoice_type}_status__reject_reason")
         elif "warehouse_other" in groups and "warehouse_public" not in groups:
             # 如果是私仓人员
             order = base_query.filter(
-                **{f"{invoice_type}_status__stage_other": "delivery_completed"}
+                models.Q(
+                    **{f"{invoice_type}_status__stage_other": "warehouse_completed"}
+                )
+                | models.Q(
+                    **{f"{invoice_type}_status__stage_other": "delivery_rejected"}
+                )
+                
             ).order_by(f"{invoice_type}_status__reject_reason")
 
         # 查找历史操作过的
@@ -1570,13 +1583,14 @@ class Accounting(View):
 
             # 保存数量
             price_key = f"{field}_price"
+            
+            
             if price_key in data:
                 rate_data[field] = float(data.get(price_key, 1)) or 1
 
             # 保存原有字段
             if field in data and field not in exclude_fields and data[field]:
                 setattr(invoice_preports, field, data[field])
-
         # 保存单价和数量
         invoice_preports.qty = qty_data
         invoice_preports.rate = rate_data
@@ -2378,6 +2392,7 @@ class Accounting(View):
         redirect_step = (step == "redirect") or (
             request.POST.get("redirect_step") == "True"
         )
+        warehouse = request.GET.get("warehouse")
         context = {
             "warehouse": warehouse,
             "invoice": invoice,
