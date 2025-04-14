@@ -1839,7 +1839,6 @@ class Accounting(View):
         total_cost = request.POST.getlist("total_cost")
         cost = request.POST.getlist("cost")
         total_pallet = request.POST.getlist("total_pallet")
-        print('板数',total_pallet)
         po_activation = request.POST.getlist("po_activation")
         type_value = request.POST.get("type")
         redirect_step = request.POST.get("redirect_step")
@@ -1933,7 +1932,6 @@ class Accounting(View):
                 # 除价格外，其他在新建记录的时候就存了
                 invoice_content.total_cost = total_cost[i]
                 invoice_content.cost = cost[i]
-                print(total_pallet[i])
                 invoice_content.total_pallet = total_pallet[i]
                 if expense[i]:
                     invoice_content.expense = expense[i]
