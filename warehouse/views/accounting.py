@@ -364,6 +364,28 @@ class Accounting(View):
         context = {}
         return self.template_invoice_preport, context
 
+    def replace_keywords(data):
+        KEYWORD_MAPPING = {
+            "等待费": "港口拥堵费",
+            "查验": "查验费",
+            "车架费": "托架费",
+            "车架分离费": "托架提取费",
+            "货柜储存费": "货柜放置费",
+        }
+        if isinstance(data, str):
+            # 如果是字符串，直接替换
+            for old, new in KEYWORD_MAPPING.items():
+                if old in data:
+                    return new
+            return data
+        elif isinstance(data, dict):
+            # 如果是字典，处理每个键
+            return {
+                (KEYWORD_MAPPING.get(key, key) if isinstance(key, str) else key): value
+                for key, value in data.items()
+            }
+        else:
+            return data
     def handle_pallet_data_get(
         self, start_date: str = None, end_date: str = None
     ) -> tuple[Any, Any]:
