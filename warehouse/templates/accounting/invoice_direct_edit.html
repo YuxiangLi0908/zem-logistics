@@ -306,7 +306,7 @@
     
     document.addEventListener('DOMContentLoaded', function() {
         // 只需调用这一个即可
-        calculateAllTotals(true);
+        calculateAllTotals(false);
         document.querySelectorAll('.price-input, .quantity-input').forEach(input => {
             input.dataset.modified = 'false';
         });

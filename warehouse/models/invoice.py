@@ -82,7 +82,7 @@ class InvoiceStatus(models.Model):
         max_length=20,
         default="pending",
         choices=[
-            ("pending", "待处理"),
+            ("pending", "仓库待处理"),
             ("warehouse_completed", "仓库已完成"),
             ("delivery_completed", "派送已完成"),
             ("warehouse_rejected", "仓库已驳回"),
