@@ -373,13 +373,11 @@ class Accounting(View):
             "货柜储存费": "货柜放置费",
         }
         if isinstance(data, str):
-            # 如果是字符串，直接替换
             for old, new in KEYWORD_MAPPING.items():
                 if old in data:
                     return new
             return data
         elif isinstance(data, dict):
-            # 如果是字典，处理每个键
             return {
                 (KEYWORD_MAPPING.get(key, key) if isinstance(key, str) else key): value
                 for key, value in data.items()
