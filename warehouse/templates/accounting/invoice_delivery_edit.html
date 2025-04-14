@@ -163,9 +163,9 @@
                             {% for plt in local %} 
                             <tr draggable="true" id="pallet-{{ plt.id }}">
                                 {% if warehouse == "NJ" %}
-                                <td class="td"><td class="td"><input type="text" name="cost" value="{{ plt.cost }}"></td>
+                                <td class="td"><input type="text" name="cost" value="{{ plt.cost }}"></td>
                                 {% else %}
-                                <td class="td"><td class="td"><input type="text" name="total_pallet" value="{{ total_pallet }}"></td>
+                                <td class="td"><input type="text" name="total_pallet" value="{{ total_pallet }}"></td>
                                 {% endif %}
                                 <td class="td"><input type="text" name="total_pallet" value="{{ plt.total_n_pallet }}"></td>
                                     <input type="number" id="local_cost" name="total_cost" value="{{ plt.total_cost }}" oninput="updateLocal(this)" readonly>                                    
