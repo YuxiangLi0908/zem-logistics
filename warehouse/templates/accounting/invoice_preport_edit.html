@@ -41,7 +41,7 @@
                 <label style="width: 120px; font-weight: bold;" for="pickup">提拆/打托缠膜:</label>
                 <span style="color: #808080; width: 150px;"></span>
                 <input type="number" style="width: 80px;" class="actual-price price-input" step="0.01" id="pickup_price" name="pickup_price" value="{{ invoice_preports.rate.pickup }}">
-                <input type="number" style="width: 80px;" class="quantity quantity-input" step="0.1" id="pickup_quantity" name="pickup_quantity" value="{{ invoice_preports.qty.pickup|default:1 }}">
+                <input type="number" style="width: 80px;" class="quantity quantity-input" step="0.1" id="pickup_quantity" name="pickup_quantity" value="{{ invoice_preports.qty.pickup }}">
                 <input type="number" class="original-input" style="width: 80px;" id="pickup" name="pickup" value="{{ invoice_preports.pickup }}" disabled>         
             </div>
             <div style="display: flex; align-items: center; margin-bottom: 10px;">
