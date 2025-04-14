@@ -66,8 +66,12 @@
                             <tr>
                                 <td class="td">{{ c.customer_name.zem_name }}</td>
                                 <td class="td">
-                                    <a href="/accounting/?step=container_warehouse&container_number={{ c.container_number }}&start_date={{ start_date }}&end_date={{ end_date }}&invoice_type={{ invoice_type_filter }}">{{ c.container_number }}</a>
-                                </td>
+                                    {% if "mix_account" in groups %}
+                                        {{ c.container_number }}
+                                    {% else %}
+                                        <a href="/accounting/?step=container_warehouse&container_number={{ c.container_number }}&start_date={{ start_date }}&end_date={{ end_date }}&invoice_type={{ invoice_type_filter }}">{{ c.container_number }}</a>
+                                    {% endif %}
+                                    </td>
                                 {% if "mix_account" in groups %}
                                     <th class="td">
                                         <a href="/accounting/?step=container_warehouse&container_number={{ c.container_number }}&start_date={{ start_date }}&end_date={{ end_date }}&invoice_type={{ invoice_type_filter }}&delivery_type=public">公仓</a>
@@ -116,7 +120,11 @@
                             <tr>
                                 <td class="td" style="vertical-align: middle;">{{ c.customer_name.zem_name }}</td>
                                 <td class="td" style="vertical-align: middle;">
-                                    <a href="/accounting/?step=container_warehouse&container_number={{ c.container_number.container_number }}&start_date={{ start_date }}&end_date={{ end_date }}&invoice_type={{ invoice_type_filter }}">{{ c.container_number.container_number }}</a>
+                                    {% if "mix_account" in groups %}
+                                        {{ c.container_number.container_number }}
+                                    {% else %}
+                                        <a href="/accounting/?step=container_warehouse&container_number={{ c.container_number.container_number }}&start_date={{ start_date }}&end_date={{ end_date }}&invoice_type={{ invoice_type_filter }}">{{ c.container_number.container_number }}</a>
+                                    {% endif %}
                                 </td>
                                 {% if "mix_account" in groups %}
                                     <th class="td" style="vertical-align: middle;">
