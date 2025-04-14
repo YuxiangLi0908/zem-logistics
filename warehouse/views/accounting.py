@@ -899,18 +899,23 @@ class Accounting(View):
             base_query = base_query.filter(delivery_type_filter)
 
         # 查找未操作过的
-        if "warehouse_public" in groups and "warehouse_other" not in groups:
-            # 如果是公仓人员
+        if "mix_account" in groups:
             order = base_query.filter(
                 **{f"{invoice_type}_status__stage": "warehouse"},
-                **{f"{invoice_type}_status__stage_public": "pending"},
             ).order_by(f"{invoice_type}_status__reject_reason")
-        elif "warehouse_other" in groups and "warehouse_public" not in groups:
-            # 如果是私仓人员
-            order = base_query.filter(
-                **{f"{invoice_type}_status__stage": "warehouse"},
-                **{f"{invoice_type}_status__stage_other": "pending"},
-            ).order_by(f"{invoice_type}_status__reject_reason")
+        else:
+            if "warehouse_public" in groups and "warehouse_other" not in groups:
+                # 如果是公仓人员
+                order = base_query.filter(
+                    **{f"{invoice_type}_status__stage": "warehouse"},
+                    **{f"{invoice_type}_status__stage_public": "pending"},
+                ).order_by(f"{invoice_type}_status__reject_reason")
+            elif "warehouse_other" in groups and "warehouse_public" not in groups:
+                # 如果是私仓人员
+                order = base_query.filter(
+                    **{f"{invoice_type}_status__stage": "warehouse"},
+                    **{f"{invoice_type}_status__stage_other": "pending"},
+                ).order_by(f"{invoice_type}_status__reject_reason")
         order = self.process_orders_display_status(order, invoice_type)
 
         # 查找历史操作过的，状态是warehouse时，对应group的stage为completed，或者状态是库内之后的
@@ -927,14 +932,19 @@ class Accounting(View):
             }
         )
         warehouse_condition = models.Q(**{f"{invoice_type}_status__stage": "warehouse"})
-        if "warehouse_public" in groups and "warehouse_other" not in groups:
+        if "mix_account" in groups:
             warehouse_condition &= models.Q(
-                **{f"{invoice_type}_status__stage_public": "warehouse_completed"}
+                **{f"{invoice_type}_status__stage": "delivery"}
             )
-        elif "warehouse_other" in groups and "warehouse_public" not in groups:
-            warehouse_condition &= models.Q(
-                **{f"{invoice_type}_status__stage_other": "warehouse_completed"}
-            )
+        else:
+            if "warehouse_public" in groups and "warehouse_other" not in groups:
+                warehouse_condition &= models.Q(
+                    **{f"{invoice_type}_status__stage_public": "warehouse_completed"}
+                )
+            elif "warehouse_other" in groups and "warehouse_public" not in groups:
+                warehouse_condition &= models.Q(
+                    **{f"{invoice_type}_status__stage_other": "warehouse_completed"}
+                )
         previous_order = base_query.filter(
             base_condition,
             warehouse_condition | other_stages,  # 满足仓库条件或其他阶段
