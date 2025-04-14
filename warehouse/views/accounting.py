@@ -1277,15 +1277,15 @@ class Accounting(View):
         rate_data = {}
         s_fields = ["amount"] + fields
         for field in s_fields:
-            # 保存单价
+            # 保存数量
             quantity_key = f"{field}_quantity"
             if quantity_key in data:
-                qty_data[field] = float(data.get(quantity_key, 0)) or 0
+                qty_data[field] = float(data.get(quantity_key, 0)) if data.get(quantity_key) is not None else 0
 
-            # 保存数量
+            # 保存单价
             price_key = f"{field}_price"
             if price_key in data:
-                rate_data[field] = float(data.get(price_key, 1)) or 1
+                rate_data[field] = float(data.get(price_key, 1)) if data.get(price_key) is not None else 1
 
             # 保存原有字段
             if field in data and field not in exclude_fields and data[field]:
@@ -2066,11 +2066,9 @@ class Accounting(View):
                 "start_date": request.GET.get("start_date"),
                 "end_date": request.GET.get("end_date"),
                 "invoice_type": invoice_type,
-                "qty_data": qty_data,
-                "rate_data": rate_data,
+                "invoice_warehouse":invoice_warehouse
             }
             return self.template_invoice_warehouse_edit, context
-
         # 如果单价和数量都为空的话，就初始化
         if not invoice_warehouse.qty and not invoice_warehouse.rate:
             qty_data, rate_data = self._extract_unit_price(
@@ -2082,10 +2080,6 @@ class Accounting(View):
             invoice_warehouse.qty = qty_data
             invoice_warehouse.rate = rate_data
             invoice_warehouse.save()
-        else:
-            qty_data = invoice_warehouse.qty
-            rate_data = invoice_warehouse.rate
-
         step = request.POST.get("step")
         redirect_step = step == "redirect"
         context = {
@@ -2104,9 +2098,8 @@ class Accounting(View):
             "start_date_confirm": request.POST.get("start_date_confirm") or None,
             "end_date_confirm": request.POST.get("end_date_confirm") or None,
             "invoice_type": invoice_type,
-            "qty_data": qty_data,
-            "rate_data": rate_data,
             "delivery_type": delivery_type,
+            "invoice_warehouse":invoice_warehouse
         }
         return self.template_invoice_warehouse_edit, context
 
