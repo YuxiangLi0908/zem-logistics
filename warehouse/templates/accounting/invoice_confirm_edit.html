@@ -30,6 +30,7 @@
             <input type="hidden" name="start_date_confirm" value="{{ start_date_confirm }}">
             <input type="hidden" name="end_date_confirm" value="{{ end_date_confirm }}">
             <input type="hidden" name="container_number" value="{{ container_number }}">
+            <input type="hidden" name="invoice_type" value="{{ invoice_type }}">
             <input type="text" placeholder="驳回原因" name="reject_reason" style="width:100px;" value ="{{ reject_reason|default_if_none:'' }}">
             <button id="editButton" type="submit" class="btn btn-danger" onclick="PreportStep('dismiss')" style="background-color:green; font-size: 13px; padding:10px 20px; margin-right:80px;">驳回</button>  
             <button id="editButton" type="submit" class="btn btn-danger" onclick="PreportStep('redirect')" style="background-color:green; font-size: 13px; padding:10px 20px; margin-right:10px;">编辑账单</button> 
@@ -192,6 +193,7 @@
                 <input type="hidden" name="start_date_confirm" value="{{ start_date_confirm }}">
                 <input type="hidden" name="end_date_confirm" value="{{ end_date_confirm }}">
                 <input type="hidden" name="container_number" value="{{ container_number }}">
+                <input type="hidden" name="invoice_type" value="{{ invoice_type }}">
                 <input type="text" placeholder="驳回原因" style="width:100px;" name="reject_reason" value ="{{ reject_reason|default_if_none:'' }}">
                 <button id="editButton" type="submit" class="btn btn-danger" onclick="WarehouseStep('dismiss')" style="background-color:green; font-size: 13px; padding:10px 20px; margin-right:30px;">驳回</button>  
                 <button id="editButton" type="submit" class="btn btn-danger" onclick="WarehouseStep('redirect')" style="background-color:green; font-size: 13px; padding:10px 20px;">编辑账单</button> 
@@ -333,6 +335,7 @@
             <input type="hidden" name="start_date_confirm" value="{{ start_date_confirm }}">
             <input type="hidden" name="end_date_confirm" value="{{ end_date_confirm }}">
             <input type="hidden" name="container_number" value="{{ container_number }}">
+            <input type="hidden" name="invoice_type" value="{{ invoice_type }}">
             <input type="text" placeholder="驳回原因" name="reject_reason" value ="{{ reject_reason|default_if_none:'' }}">
             <button id="editButton" type="submit" class="btn btn-danger" onclick="DeliveryStep('dismiss')" style="background-color:green; font-size: 13px; padding:10px 20px; margin-right:50px;">驳回</button>  
             <button id="editButton" type="submit" class="btn btn-danger" onclick="DeliveryStep('redirect')" style="background-color:green; font-size: 13px; padding:10px 20px; margin-right:80px;">编辑账单</button>  
@@ -462,6 +465,7 @@
         <input type="hidden" name="start_date_confirm" value="{{ start_date_confirm }}">
         <input type="hidden" name="end_date_confirm" value="{{ end_date_confirm }}">
         <input type="hidden" name="container_number" value="{{ container_number }}">
+        <input type="hidden" name="invoice_type" value="{{ invoice_type }}">
         <input type="text" placeholder="驳回原因" name="reject_reason" value ="{{ reject_reason|default_if_none:'' }}">
         <button id="editButton" type="submit" class="btn btn-danger" onclick="DirectStep('dismiss')" style="background-color:green; font-size: 13px; padding:10px 20px; margin-right:30px;">驳回</button>  
         <button id="editButton" type="submit" class="btn btn-danger" onclick="DirectStep('redirect')" style="background-color:green; font-size: 13px; padding:10px 20px;">编辑账单</button> 
