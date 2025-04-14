@@ -1224,19 +1224,12 @@ class Accounting(View):
                 }
             )
             invoice_content.save()
-        if "warehouse_public" in groups and "warehouse_other" not in groups:
-            # 公仓组录完了，改变stage_public
-            invoice_warehouse = InvoiceWarehouse.objects.get(
-                invoice_number__invoice_number=invoice.invoice_number,
-                invoice_type=invoice_type,
-                delivery_type="public",
-            )
-        elif "warehouse_other" in groups and "warehouse_public" not in groups:
-            invoice_warehouse = InvoiceWarehouse.objects.get(
-                invoice_number__invoice_number=invoice.invoice_number,
-                invoice_type=invoice_type,
-                delivery_type="other",
-            )
+        delivery_type = request.POST.get("delivery_type")
+        invoice_warehouse = InvoiceWarehouse.objects.get(
+            invoice_number__invoice_number=invoice.invoice_number,
+            invoice_type=invoice_type,
+            delivery_type=delivery_type,
+        )
         names = data.getlist("others_feename")[:-1]
         amounts = data.getlist("others_feeamount")[:-1]
         other_fees = dict(zip(names, map(float, amounts)))

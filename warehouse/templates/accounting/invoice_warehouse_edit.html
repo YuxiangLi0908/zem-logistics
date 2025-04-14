@@ -231,6 +231,7 @@
         <input type="hidden" name="start_date" value="{{ start_date }}">
         <input type="hidden" name="end_date" value="{{ end_date }}">
         <input type="hidden" name="invoice_type" value="{{ invoice_type }}">
+        <input type="hidden" name="delivery_type" value="{{ delivery_type }}">
         <input type="hidden" name="invoice_number" value="{{ invoice_warehouse.invoice_number }}">
         {% if status != 'confirmed' %}
             {% if redirect_step %}
