@@ -527,11 +527,10 @@ class Accounting(View):
         )
         end_date = current_date.strftime("%Y-%m-%d") if not end_date else end_date
         criteria = models.Q(
-            models.Q(vessel_id__vessel_etd__gte=start_date),
-            models.Q(vessel_id__vessel_etd__lte=end_date),
+            cancel_notification=False,
+            vessel_id__vessel_etd__gte=start_date,
+            vessel_id__vessel_etd__lte=end_date
         )
-        if warehouse:
-            criteria &= models.Q(retrieval_id__retrieval_destination_precise=warehouse)
         if customer:
             criteria &= models.Q(customer_name__zem_name=customer)
 
@@ -751,9 +750,12 @@ class Accounting(View):
         end_date = current_date.strftime("%Y-%m-%d") if not end_date else end_date
 
         criteria = models.Q(
-            (models.Q(order_type="转运") | models.Q(order_type="转运组合")),
-            models.Q(vessel_id__vessel_etd__gte=start_date),
-            models.Q(vessel_id__vessel_etd__lte=end_date),
+            cancel_notification=False
+        ) & (
+            models.Q(order_type="转运") | models.Q(order_type="转运组合")
+        ) & models.Q(
+            vessel_id__vessel_etd__gte=start_date,
+            vessel_id__vessel_etd__lte=end_date
         )
         if warehouse:
             criteria &= models.Q(retrieval_id__retrieval_destination_precise=warehouse)
@@ -1132,12 +1134,12 @@ class Accounting(View):
         elif "warehouse_public" in groups and "warehouse_other" not in groups:
             # 如果是公仓人员
             order = base_query.filter(
-                **{f"{invoice_type}_status__stage_public": "warehouse_completed"}
+                **{f"{invoice_type}_status__stage_public": "delivery_completed"}
             ).order_by(f"{invoice_type}_status__reject_reason")
         elif "warehouse_other" in groups and "warehouse_public" not in groups:
             # 如果是私仓人员
             order = base_query.filter(
-                **{f"{invoice_type}_status__stage_other": "warehouse_completed"}
+                **{f"{invoice_type}_status__stage_other": "delivery_completed"}
             ).order_by(f"{invoice_type}_status__reject_reason")
 
         # 查找历史操作过的
@@ -1182,6 +1184,7 @@ class Accounting(View):
             "warehouse_options": self.warehouse_options,
             "warehouse_filter": warehouse,
             "invoice_type_filter": invoice_type,
+            "warehouse":warehouse
         }
         return self.template_invoice_delivery, context
 

@@ -26,6 +26,7 @@
         <input type="hidden" name="type" value="amount">
         <input type="hidden" name="amount" value="">
         <input type="hidden" name="start_date" value="{{ start_date }}">
+        <input type="hidden" name="warehouse" value="{{ warehouse }}">
         <input type="hidden" name="end_date" value="{{ end_date }}">
         <input type="hidden" name="invoice_type" value="{{ invoice_type }}">
         <input type="hidden" name="delivery_type" value="public">
@@ -86,7 +87,8 @@
                     <input type="hidden" name="start_date" value="{{ start_date }}">
                     <input type="hidden" name="end_date" value="{{ end_date }}">
                     <input type="hidden" name="invoice_type" value="{{ invoice_type }}">
-                    <input type="hidden" name="redirect_step" value="{{ redirect_step }}">              
+                    <input type="hidden" name="redirect_step" value="{{ redirect_step }}">   
+                    <input type="hidden" name="warehouse" value="{{ warehouse }}">           
                     <input type="hidden" name="container_number" value="{{ container_number }}">             
                     <input type="hidden" class="total_amount" name="total_amount">    
                     <button type="submit" class="btn btn-primary" style="width: 100px; height: 35px;" onclick="processForm('amazon-table',event)">确认</button>
@@ -145,7 +147,8 @@
                     <input type="hidden" name="start_date" value="{{ start_date }}">
                     <input type="hidden" name="end_date" value="{{ end_date }}">
                     <input type="hidden" name="invoice_type" value="{{ invoice_type }}">
-                    <input type="hidden" name="redirect_step" value="{{ redirect_step }}">                
+                    <input type="hidden" name="redirect_step" value="{{ redirect_step }}">   
+                    <input type="hidden" name="warehouse" value="{{ warehouse }}">             
                     <input type="hidden" name="container_number" value={{ container_number }}>
                     <input type="hidden" class="total_amount" name="total_amount">    
                     <button type="submit" class="btn btn-primary" style="width: 100px; height: 35px;" onclick="processForm('walmart-table',event)">确认</button>
@@ -204,6 +207,7 @@
                     <input type="hidden" name="start_date" value="{{ start_date }}">
                     <input type="hidden" name="end_date" value="{{ end_date }}">
                     <input type="hidden" name="invoice_type" value="{{ invoice_type }}">
+                    <input type="hidden" name="warehouse" value="{{ warehouse }}">
                     <input type="hidden" name="redirect_step" value="{{ redirect_step }}">
                     <input type="hidden" name="container_number" value="{{ container_number }}">
                     <input type="hidden" class="total_amount" name="total_amount">    
@@ -225,6 +229,7 @@
                 <input type="hidden" name="container_number" value="{{ container_number }}">
                 <input type="hidden" name="redirect_step" value="{{ redirect_step }}">
                 <input type="hidden" name="start_date_confirm" value="{{ start_date_confirm }}">
+                <input type="hidden" name="warehouse" value="{{ warehouse }}">
                 <input type="hidden" name="end_date_confirm" value="{{ end_date_confirm }}">
                 <button type="submit" class="btn btn-primary" onclick="add_delivery_plt(this)" style="font-size: 11px; margin-right: 5px;">确认添加</button>
                 <button id="editButton" type="button" class="btn btn-danger" onclick="add_delivery(this)" style="font-size: 11px;">返回</button>
