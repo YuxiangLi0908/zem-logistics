@@ -532,6 +532,9 @@ class Accounting(View):
             ),
             order_type="直送",
         )
+        order = self.process_orders_display_status(
+            order, invoice_type
+        )
         # 已录入账单
         previous_order = (
             Order.objects.select_related(
@@ -558,8 +561,7 @@ class Accounting(View):
             )
             .exclude(
                 **{
-                    f"{invoice_type}_status__stage__in": ["preport", "unstarted"],
-                    f"{invoice_type}_status__is_rejected": False,
+                    f"{invoice_type}_status__stage__in": ["preport", "unstarted"]
                 }
             )
         )
@@ -968,7 +970,6 @@ class Accounting(View):
 
         # 客服录入完毕的账单
         invoice_type = request.POST.get("invoice_type") or "receivable"
-        print("invoice_type", invoice_type)
         order = Order.objects.select_related(
             "customer_name", "container_number", "retrieval_id"
         ).filter(criteria, **{f"{invoice_type}_status__stage": "tobeconfirmed"})
@@ -1457,7 +1458,7 @@ class Accounting(View):
                 invoice_status = InvoiceStatus.objects.get(
                     container_number=order.container_number, invoice_type="payable"
                 )
-            invoice_status.stage = "preport"
+            invoice_status.stage = "unstarted"
             invoice_status.is_rejected = "True"
             invoice_status.reject_reason = data.get("invoice_reject_reason", "")
             invoice_status.save()
@@ -1894,7 +1895,13 @@ class Accounting(View):
         if redirect_step == "True":
             # 派送界面，一种派送方式点确认后，自动计算总费用
             total_cost_sum = request.POST.get("total_amount")
-            invoice.delivery_amount = total_cost_sum
+            invoice = Invoice.objects.select_related("container_number").get(
+                container_number__container_number=container_number,
+            )
+            if invoice_type == "receivable":
+                invoice.receivable_delivery_amount = total_cost_sum
+            elif invoice_type == "payable":
+                invoice.payable_delivery_amount = total_cost_sum
             invoice.save()
             return self.handle_container_invoice_confirm_get(request)
         else:
@@ -2074,7 +2081,7 @@ class Accounting(View):
             invoice_type=invoice_type,
         )
         if order.order_type in ["转运", "转运组合"]:
-            invoice_warehouse = InvoiceWarehouse.objects.get(
+            invoice_warehouses = InvoiceWarehouse.objects.filter(
                 invoice_number__invoice_number=invoice.invoice_number,
                 invoice_type=invoice_type,
             )
@@ -2099,7 +2106,7 @@ class Accounting(View):
                 "invoice": invoice,
                 "order_type": order.order_type,
                 "invoice_preports": invoice_preports,
-                "invoice_warehouse": invoice_warehouse,
+                "invoice_warehouses": invoice_warehouses,
                 "amazon": amazon,
                 "local": local,
                 "combine": combine,
@@ -2108,6 +2115,8 @@ class Accounting(View):
                 "start_date_confirm": start_date_confirm,
                 "end_date_confirm": end_date_confirm,
                 "invoice_type": invoice_type,
+                'delivery_amount': getattr(invoice, f'{invoice_type}_delivery_amount', 0),
+                'total_amount': getattr(invoice, f'{invoice_type}_total_amount', 0),
             }
             return self.template_invoice_confirm_edit, context
         elif order.order_type == "直送":
