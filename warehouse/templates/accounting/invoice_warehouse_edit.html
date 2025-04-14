@@ -114,7 +114,7 @@
             <div style="display: flex; align-items: center; margin-bottom: 10px;">
                 <label style="width: 120px; font-weight: bold;" for="specified_labeling">指定贴标</label>
                 <span style="color: #808080; width: 150px;">({{ FS.specified_labeling }})</span>
-                <input type="number" style="width: 80px;" class="actual-price price-input" step="0.01" id="specified_labeling_price" name="sspecified_labeling_price" value="{{ invoice_warehouse.rate.specified_labeling }}">
+                <input type="number" style="width: 80px;" class="actual-price price-input" step="0.01" id="specified_labeling_price" name="specified_labeling_price" value="{{ invoice_warehouse.rate.specified_labeling }}">
                 <input type="number" style="width: 80px;" class="quantity quantity-input" step="0.1" id="specified_labeling_quantity" name="specified_labeling_quantity" value="{{ invoice_warehouse.qty.specified_labeling|default:0 }}">
                 <input type="number" class="original-input" step="0.01" style="width: 80px; margin-right: 10px;" id="specified_labeling" name="specified_labeling" value="{{ invoice_warehouse.specified_labeling }}" readonly>
                 <span style="margin: 0 5px;">+</span>
