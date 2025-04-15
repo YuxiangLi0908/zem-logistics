@@ -45,7 +45,7 @@
                         <tr style="position: sticky; top: 0;">
                             <th class="th">客户</th>
                             <th class="th">货柜号</th>                         
-                            {% if "mix_account" in groups %}
+                            {% if display_mix %}
                                 <th class="th">类别</th>
                             {% endif %}
                             <th class="th">驳回原因</th>
@@ -54,7 +54,7 @@
                         <tr style="position: sticky; top: 28px;">
                             <th class="th"></th>
                             <th class="th"><input type="text" id="containerSearchInput" placeholder="搜索柜号..." oninput="filterTable(this, 1)" size="16" style="font-size: 14px;"></th>
-                            {% if "mix_account" in groups %}
+                            {% if display_mix %}
                                 <th class="th"></th>
                             {% endif %}
                             <th class="th"></th>
@@ -66,18 +66,18 @@
                             <tr>
                                 <td class="td">{{ c.customer_name.zem_name }}</td>
                                 <td class="td">
-                                    {% if "mix_account" in groups %}
+                                    {% if display_mix %}
                                         {{ c.container_number }}
                                     {% else %}
                                         <a href="/accounting/?step=container_warehouse&container_number={{ c.container_number }}&start_date={{ start_date }}&end_date={{ end_date }}&invoice_type={{ invoice_type_filter }}&warehouse={{ warehouse_filter }}">{{ c.container_number }}</a>
                                     {% endif %}
-                                    </td>
-                                {% if "mix_account" in groups %}
-                                    <th class="td">
-                                        <a href="/accounting/?step=container_warehouse&container_number={{ c.container_number }}&start_date={{ start_date }}&end_date={{ end_date }}&invoice_type={{ invoice_type_filter }}&warehouse={{ warehouse_filter }}&delivery_type=public">公仓</a>
-                                        <a href="/accounting/?step=container_warehouse&container_number={{ c.container_number }}&start_date={{ start_date }}&end_date={{ end_date }}&invoice_type={{ invoice_type_filter }}&warehouse={{ warehouse_filter }}&delivery_type=other">私仓</a>
-                                    </td>
-                                {% endif %}
+                                </td>
+                                    {% if display_mix %}
+                                        <th class="td">
+                                            <a href="/accounting/?step=container_warehouse&container_number={{ c.container_number }}&start_date={{ start_date }}&end_date={{ end_date }}&invoice_type={{ invoice_type_filter }}&warehouse={{ warehouse_filter }}&delivery_type=public">公仓</a>
+                                            <a href="/accounting/?step=container_warehouse&container_number={{ c.container_number }}&start_date={{ start_date }}&end_date={{ end_date }}&invoice_type={{ invoice_type_filter }}&warehouse={{ warehouse_filter }}&delivery_type=other">私仓</a>                                       
+                                    {% endif %}
+                                </td>
                                 <td class="td">{{ c.display_reject_reason }}</td>
                                 <td class="td">{{ c.created_at|date:"Y-m-d" }}</td>
                             </tr>
@@ -99,7 +99,7 @@
                         <tr style="position: sticky; top: 0;">
                             <th class="th">客户</th>
                             <th class="th">货柜号</th>
-                            {% if "mix_account" in groups %}
+                            {% if display_mix %}
                                 <th class="th">类别</th>
                             {% endif %}
                             <th class="th">账单状态</th>
@@ -108,7 +108,7 @@
                         <tr style="position: sticky; top: 28px;">
                             <th class="th"></th>
                             <th class="th"><input type="text" id="containerSearchInput" placeholder="搜索柜号..." oninput="filterTable(this, 1)" size="16" style="font-size: 14px;"></th>
-                            {% if "mix_account" in groups %}
+                            {% if display_mix %}
                                 <th class="th"></th>
                             {% endif %}
                             <th class="th"></th>
@@ -120,13 +120,13 @@
                             <tr>
                                 <td class="td" style="vertical-align: middle;">{{ c.customer_name.zem_name }}</td>
                                 <td class="td" style="vertical-align: middle;">
-                                    {% if "mix_account" in groups %}
+                                    {% if display_mix %}
                                         {{ c.container_number.container_number }}
                                     {% else %}
                                         <a href="/accounting/?step=container_warehouse&container_number={{ c.container_number.container_number }}&start_date={{ start_date }}&end_date={{ end_date }}&invoice_type={{ invoice_type_filter }}&warehouse={{ warehouse_filter }}">{{ c.container_number.container_number }}</a>
                                     {% endif %}
                                 </td>
-                                {% if "mix_account" in groups %}
+                                {% if display_mix %}
                                     <th class="td" style="vertical-align: middle;">
                                         <a href="/accounting/?step=container_warehouse&container_number={{ c.container_number.container_number }}&start_date={{ start_date }}&end_date={{ end_date }}&invoice_type={{ invoice_type_filter }}&warehouse={{ warehouse_filter }}&delivery_type=public">公仓</a>
                                         <a href="/accounting/?step=container_warehouse&container_number={{ c.container_number.container_number }}&start_date={{ start_date }}&end_date={{ end_date }}&invoice_type={{ invoice_type_filter }}&warehouse={{ warehouse_filter }}&delivery_type=other">私仓</a>

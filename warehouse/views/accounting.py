@@ -901,7 +901,14 @@ class Accounting(View):
             base_query = base_query.filter(delivery_type_filter)
 
         # 查找未操作过的
+        display_mix = False
+        if "NJ_mix_account" in groups:
+            if warehouse == "NJ-07001":
+                display_mix = True
         if "mix_account" in groups:
+            display_mix = True
+
+        if display_mix:
             order = base_query.filter(
                 **{f"{invoice_type}_status__stage": "warehouse"},
             ).order_by(f"{invoice_type}_status__reject_reason")
@@ -958,6 +965,12 @@ class Accounting(View):
             previous_order, invoice_type
         )
         groups = [group.name for group in request.user.groups.all()]
+        display_mix = False
+        if "NJ_mix_account" in groups:
+            if warehouse == "NJ-07001":
+                display_mix = True
+        if "mix_account" in groups:
+            display_mix = True
         context = {
             "order": order,
             "order_form": OrderForm(),
@@ -969,6 +982,7 @@ class Accounting(View):
             "warehouse_filter": warehouse,
             "invoice_type_filter": invoice_type,
             "groups": groups,
+            "display_mix":display_mix
         }
         return self.template_invoice_warehouse, context
 
@@ -1099,7 +1113,14 @@ class Accounting(View):
 
         groups = [group.name for group in request.user.groups.all()]
         delivery_type_filter = None
+        display_mix = False
+        if "NJ_mix_account" in groups:
+            if warehouse == "NJ-07001":
+                display_mix = True
         if "mix_account" in groups:
+            display_mix = True
+
+        if display_mix:
             delivery_type_filter = models.Q()
         elif "warehouse_public" in groups and "warehouse_other" not in groups:
             delivery_type_filter = models.Q(
@@ -1123,15 +1144,9 @@ class Accounting(View):
             base_query = base_query.filter(delivery_type_filter)
 
         # 查找未操作过的
-        if "mix_account" in groups:
+        if display_mix:
             order = base_query.filter(
-                models.Q(
-                    **{f"{invoice_type}_status__stage_public": "warehouse_completed"}
-                )
-                | models.Q(
-                    **{f"{invoice_type}_status__stage_other": "warehouse_completed"}
-                )
-                | models.Q(**{f"{invoice_type}_status__stage": "delivery"})
+                models.Q(**{f"{invoice_type}_status__stage": "delivery"})
             ).order_by(f"{invoice_type}_status__reject_reason")
         elif "warehouse_public" in groups and "warehouse_other" not in groups:
             # 如果是公仓人员
@@ -1163,12 +1178,8 @@ class Accounting(View):
             **{f"{invoice_type}_status__stage__in": ["tobeconfirmed", "confirmed"]}
         )
         delivery_completed_condition = models.Q()
-        if "mix_account" in groups:
-            delivery_completed_condition = models.Q(
-                **{f"{invoice_type}_status__stage_public": "delivery_completed"}
-            ) | models.Q(
-                **{f"{invoice_type}_status__stage_other": "delivery_completed"}
-            )
+        if display_mix:
+            delivery_completed_condition = ()
         elif "warehouse_public" in groups and "warehouse_other" not in groups:
             delivery_completed_condition = models.Q(
                 **{f"{invoice_type}_status__stage_public": "delivery_completed"}
@@ -1207,7 +1218,6 @@ class Accounting(View):
         data = request.POST.copy()
         save_type = request.POST.get("save_type")
         container_number = data.get("container_number")
-        groups = [group.name for group in request.user.groups.all()]
         invoice = Invoice.objects.select_related("container_number").get(
             container_number__container_number=container_number
         )
@@ -2393,7 +2403,14 @@ class Accounting(View):
             "end_date_confirm": request.POST.get("end_date_confirm") or None,
             "invoice_type": invoice_type,
         }
-        if "mix_account" in groups:  # 如果公仓私仓都能看，就进总页面
+        display_mix = False
+        if "NJ_mix_account" in groups:
+            if warehouse == "NJ-07001":
+                display_mix = True
+        if "mix_account" in groups:
+            display_mix = True
+
+        if display_mix:  # 如果公仓私仓都能看，就进总页面
             return self.template_invoice_delievery_edit, context
         elif "warehouse_public" in groups and "warehouse_other" not in groups:
             pallet = pallet.filter(delivery_type="public")
