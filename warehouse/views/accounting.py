@@ -1899,7 +1899,7 @@ class Accounting(View):
                     raise ValueError(f"unknown invoice_type: {invoice_type}")
                 container_delivery_type = invoice_status.container_number.delivery_type
                 groups = [group.name for group in request.user.groups.all()]
-                if "mix_account" in groups:
+                if "mix_account" in groups and "NJ_mix_account" not in groups:
                     invoice_status.stage_public = "delivery_completed"
                     invoice_status.stage_other = "delivery_completed"
                     invoice_status.stage = "tobeconfirmed"
