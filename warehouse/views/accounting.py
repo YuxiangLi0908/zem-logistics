@@ -1889,26 +1889,18 @@ class Accounting(View):
                         invoice_status.is_rejected = False
                         invoice_status.reject_reason = ""
                     elif container_delivery_type == "mixed":
-
-                        if (
-                            "warehouse_public" in groups
-                            and "warehouse_other" not in groups
-                        ):
+                        if delivery_type == "public":
                             # 公仓组录完了，改变stage_public
                             invoice_status.stage_public = "delivery_completed"
                             # 如果私仓也做完了，就改变主状态到派送阶段
                             if invoice_status.stage_other == "delivery_completed":
                                 invoice_status.stage = "tobeconfirmed"
-                        elif (
-                            "warehouse_other" in groups
-                            and "warehouse_public" not in groups
-                        ):
+                        elif delivery_type == "other":
                             # 私仓租录完了，改变stage_other
                             invoice_status.stage_other = "delivery_completed"
                             # 如果公仓也做完了，就改变主状态
                             if invoice_status.stage_public == "delivery_completed":
                                 invoice_status.stage = "tobeconfirmed"
-                        # 既有公仓权限，又有私仓权限的不知道咋处理，而且编辑页面也不好搞
                         invoice_status.is_rejected = False
                         invoice_status.reject_reason = ""
 

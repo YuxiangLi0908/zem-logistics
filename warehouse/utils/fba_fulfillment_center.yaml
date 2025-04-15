@@ -2138,3 +2138,8 @@ MEM1s:
   location: 9200 Alexander Road
   state: MS
   zipcode: '38654'
+IUSR:
+  city: Cowpens
+  location: 1120 E Mount Olive Rd,GXO/ Amazon IUSR
+  state: SC
+  zipcode: '29330'

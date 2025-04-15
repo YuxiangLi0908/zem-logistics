@@ -1110,8 +1110,11 @@ class OrderCreation(View):
     def is_public_destination(self, destination):
         if not isinstance(destination, str):
             return False
-        pattern = r"^[A-Za-z]{3}\s*\d$"
-        if re.match(pattern, destination):
+        pattern1 = r"^[A-Za-z]{3}\s*\d$"
+        if re.match(pattern1, destination):
+            return True
+        pattern2 = r"^[A-Za-z]{3}\s*\d\s*[A-Za-z]$"
+        if re.match(pattern2, destination):
             return True
         keywords = {"walmart", "沃尔玛"}
         destination_lower = destination.lower()
