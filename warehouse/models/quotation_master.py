@@ -7,17 +7,16 @@ class QuotationMaster(models.Model):
     upload_date = models.DateField(null=True, blank=True)
     version = models.CharField(max_length=2000, null=True, blank=True)
     active = models.BooleanField(default=True)
-
-    # preport_fee = models.ForeignKey('FeeDetail', null=True, blank=True, on_delete=models.SET_NULL)
-    # warehouse_fee = models.ForeignKey('FeeDetail', null=True, blank=True, on_delete=models.SET_NULL)
-    # nj_local= models.ForeignKey('FeeDetail', null=True, blank=True, on_delete=models.SET_NULL)
-    # nj_walmart = models.ForeignKey('FeeDetail', null=True, blank=True, on_delete=models.SET_NULL)
-    # nj_combina = models.ForeignKey('FeeDetail', null=True, blank=True, on_delete=models.SET_NULL)
-    # sav_local = models.ForeignKey('FeeDetail', null=True, blank=True, on_delete=models.SET_NULL)
-    # sav_walmart = models.ForeignKey('FeeDetail', null=True, blank=True, on_delete=models.SET_NULL)
-    # sav_combina = models.ForeignKey('FeeDetail', null=True, blank=True, on_delete=models.SET_NULL)
-    # la_local = models.ForeignKey('FeeDetail', null=True, blank=True, on_delete=models.SET_NULL)
-    # la_walmart = models.ForeignKey('FeeDetail', null=True, blank=True, on_delete=models.SET_NULL)
-    # la_combina = models.ForeignKey('FeeDetail', null=True, blank=True, on_delete=models.SET_NULL)
+    filename = models.CharField(max_length=2000, null=True, blank=True)
+    is_user_exclusive = models.BooleanField(
+        default=False,
+        verbose_name="用户专属",
+    )
+    exclusive_user = models.CharField(max_length=2000, null=True, blank=True,verbose_name="专属用户",)
+    effective_date = models.DateField(
+        null=True,
+        blank=True,
+        verbose_name="生效日期",
+    )
     def __str__(self) -> str:
         return self.version
