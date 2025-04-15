@@ -2954,6 +2954,7 @@ class Accounting(View):
     def handle_invoice_order_select_post(self, request: HttpRequest) -> HttpResponse:
         selected_orders = json.loads(request.POST.get("selectedOrders", "[]"))
         selected_orders = list(set(selected_orders))
+        invoice_type = request.POST.get("invoice_type")
         if selected_orders:
             order = Order.objects.select_related(
                 "customer_name", "container_number", "invoice_id"
@@ -2969,6 +2970,7 @@ class Accounting(View):
                 "customer": customer,
                 "invoice_statement_id": invoice_statement_id,
                 "current_date": current_date,
+                "invoice_type":invoice_type
             }
             return render(request, self.template_invoice_statement, context)
         else:
