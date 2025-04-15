@@ -1338,18 +1338,22 @@ class Accounting(View):
                 invoice_status.is_rejected = False
                 invoice_status.reject_reason = ""
             elif container_delivery_type == "mixed":
-                if "warehouse_public" in groups and "warehouse_other" not in groups:
+                if delivery_type == "public":
                     # 公仓组录完了，改变stage_public
-                    invoice_status.stage_public = "warehouse_completed"
-                    # 如果私仓也做完了，就改变主状态到派送阶段
-                    if invoice_status.stage_other == "warehouse_completed":
-                        invoice_status.stage = "delivery"
-                elif "warehouse_other" in groups and "warehouse_public" not in groups:
+                    if invoice_status.stage_public not in ["delivery_completed","delivery_rejected"]:
+                        invoice_status.stage_public = "warehouse_completed"
+                        # 如果私仓也做完了，就改变主状态到派送阶段
+                        if invoice_status.stage_other not in ["pending","warehouse_rejected"]:
+                            invoice_status.stage = "delivery"
+                elif delivery_type == "other":
                     # 私仓租录完了，改变stage_other
-                    invoice_status.stage_other = "warehouse_completed"
-                    # 如果公仓也做完了，就改变主状态
-                    if invoice_status.stage_public == "warehouse_completed":
-                        invoice_status.stage = "delivery"
+                    if invoice_status.stage_other not in ["delivery_completed","delivery_rejected"]:
+                        invoice_status.stage_other = "warehouse_completed"
+                        # 如果公仓也做完了，就改变主状态
+                        if invoice_status.stage_public not in ["pending","warehouse_rejected"]:
+                            invoice_status.stage = "delivery"
+                else:
+                    raise ValueError("没有派送类别")
                 # 既有公仓权限，又有私仓权限的不知道咋处理，而且编辑页面也不好搞
                 invoice_status.is_rejected = False
                 invoice_status.reject_reason = ""
@@ -2049,7 +2053,7 @@ class Accounting(View):
             invoice_warehouse.save()
 
             context = {
-                "warehouse": warehouse,
+                "warehouse": request.GET.get("warehouse"),
                 "invoice": invoice,
                 "invoice_type": invoice_type,
                 "container_number": container_number,
@@ -2076,7 +2080,7 @@ class Accounting(View):
         step = request.POST.get("step")
         redirect_step = step == "redirect"
         context = {
-            "warehouse": warehouse,
+            "warehouse": request.GET.get("warehouse"),
             "invoice_warehouse": invoice_warehouse,
             "invoice": invoice,
             "container_number": container_number,
