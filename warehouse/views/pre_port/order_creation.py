@@ -710,10 +710,15 @@ class OrderCreation(View):
                 item["id"]
                 for item in batch
                 if (
-                    re.match(r"^[A-Za-z]{3}\s*\d$", str(item["destination"]))  # 原规则
-                    or any(
+                    re.fullmatch(r"^[A-Za-z]{4}\s*$", str(item["destination"]))
+                    or
+                    re.fullmatch(r"^[A-Za-z]{3}\s*\d$", str(item["destination"]))
+                    or
+                    re.fullmatch(r"^[A-Za-z]{3}\s*\d\s*[A-Za-z]$", str(item["destination"]))
+                    or
+                    any(
                         kw.lower() in str(item["destination"]).lower()
-                        for kw in ["walmart", "沃尔玛", "WALMART", "Walmart"]
+                        for kw in {"walmart", "沃尔玛"}  
                     )
                 )
             ]
@@ -743,10 +748,15 @@ class OrderCreation(View):
                 item["id"]
                 for item in batch
                 if (
-                    re.match(r"^[A-Za-z]{3}\s*\d$", str(item["destination"]))  # 原规则
-                    or any(
+                    re.fullmatch(r"^[A-Za-z]{4}\s*$", str(item["destination"]))
+                    or
+                    re.fullmatch(r"^[A-Za-z]{3}\s*\d$", str(item["destination"]))
+                    or
+                    re.fullmatch(r"^[A-Za-z]{3}\s*\d\s*[A-Za-z]$", str(item["destination"]))
+                    or
+                    any(
                         kw.lower() in str(item["destination"]).lower()
-                        for kw in ["walmart", "沃尔玛", "WALMART", "Walmart"]
+                        for kw in {"walmart", "沃尔玛"}  
                     )
                 )
             ]
@@ -1115,6 +1125,9 @@ class OrderCreation(View):
             return True
         pattern2 = r"^[A-Za-z]{3}\s*\d\s*[A-Za-z]$"
         if re.match(pattern2, destination):
+            return True
+        pattern3 = r"^[A-Za-z]{4}\s*$"
+        if re.fullmatch(pattern3, destination):
             return True
         keywords = {"walmart", "沃尔玛"}
         destination_lower = destination.lower()
