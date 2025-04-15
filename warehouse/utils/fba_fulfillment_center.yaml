@@ -2133,7 +2133,7 @@ MEM1S:
   location: 9200 Alexander Road
   state: MS
   zipcode: '38654'
-MEM1s:
+Walmart-MEM1S:
   city: Olive Branch
   location: 9200 Alexander Road
   state: MS
