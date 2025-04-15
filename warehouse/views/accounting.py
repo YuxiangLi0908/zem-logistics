@@ -3179,11 +3179,11 @@ class Accounting(View):
             )
             for order in orders
         ]
-
+        invoice_type = request.POST.get("invoice_type")
         zip_buffer = io.BytesIO()
         with zipfile.ZipFile(zip_buffer, "w", zipfile.ZIP_DEFLATED) as zip_file:
             for order, invoice in data:
-                context = self._parse_invoice_excel_data(order, invoice)
+                context = self._parse_invoice_excel_data(order, invoice,invoice_type)
                 workbook, _ = self._generate_invoice_excel(
                     context, save_to_sharepoint=False
                 )
