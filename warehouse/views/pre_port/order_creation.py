@@ -710,19 +710,15 @@ class OrderCreation(View):
                 item["id"]
                 for item in batch
                 if (
-                    # 新增模式：4个字母 + 可选空格
                     re.fullmatch(r"^[A-Za-z]{4}\s*$", str(item["destination"]))
                     or
-                    # 原有模式1：3字母 + 可选空格 + 1数字
                     re.fullmatch(r"^[A-Za-z]{3}\s*\d$", str(item["destination"]))
                     or
-                    # 原有模式2：3字母 + 可选空格 + 1数字 + 可选空格 + 1字母
                     re.fullmatch(r"^[A-Za-z]{3}\s*\d\s*[A-Za-z]$", str(item["destination"]))
                     or
-                    # 关键词匹配逻辑（与函数保持一致）
                     any(
                         kw.lower() in str(item["destination"]).lower()
-                        for kw in {"walmart", "沃尔玛"}  # 直接使用集合中的关键词
+                        for kw in {"walmart", "沃尔玛"}  
                     )
                 )
             ]
@@ -752,10 +748,15 @@ class OrderCreation(View):
                 item["id"]
                 for item in batch
                 if (
-                    re.match(r"^[A-Za-z]{3}\s*\d$", str(item["destination"]))  # 原规则
-                    or any(
+                    re.fullmatch(r"^[A-Za-z]{4}\s*$", str(item["destination"]))
+                    or
+                    re.fullmatch(r"^[A-Za-z]{3}\s*\d$", str(item["destination"]))
+                    or
+                    re.fullmatch(r"^[A-Za-z]{3}\s*\d\s*[A-Za-z]$", str(item["destination"]))
+                    or
+                    any(
                         kw.lower() in str(item["destination"]).lower()
-                        for kw in ["walmart", "沃尔玛", "WALMART", "Walmart"]
+                        for kw in {"walmart", "沃尔玛"}  
                     )
                 )
             ]
