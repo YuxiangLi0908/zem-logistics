@@ -152,6 +152,7 @@
             <!-- <input type="hidden" name="step" value="invoice_order_select"> -->
             <input type="hidden" name="start_date" value="{{ start_date }}">
             <input type="hidden" name="end_date" value="{{ end_date }}">
+            <input type="hidden" name="invoice_type" value="{{ invoice_type_filter }}">
             <button type="submit" onclick="confirmSubmit(this, 'invoice_order_select')" class="btn btn-primary" style="width: 150px; height: 35px;">生成STMT <i class="bi bi-receipt"></i></button>
             <button type="submit" onclick="confirmSubmit(this, 'invoice_order_batch_export')" class="btn btn-success" style="width: 150px; height: 35px;">导出INVOICE <i class="bi bi-file-earmark-bar-graph-fill"></i></button>
         </form>
