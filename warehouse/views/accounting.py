@@ -1179,7 +1179,7 @@ class Accounting(View):
         )
         delivery_completed_condition = models.Q()
         if display_mix:
-            delivery_completed_condition = ()
+            delivery_completed_condition = models.Q()
         elif "warehouse_public" in groups and "warehouse_other" not in groups:
             delivery_completed_condition = models.Q(
                 **{f"{invoice_type}_status__stage_public": "delivery_completed"}
