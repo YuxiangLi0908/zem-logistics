@@ -1,5 +1,5 @@
 import random
-import re
+import re,os
 import string
 import uuid
 from collections import defaultdict
@@ -19,10 +19,12 @@ from openpyxl import load_workbook
 from simple_history.utils import bulk_create_with_history
 
 from warehouse.forms.quote_form import QuoteForm
+from warehouse.forms.order_form import OrderForm
 from warehouse.forms.upload_file import UploadFileForm
 from warehouse.models.fee_detail import FeeDetail
 from warehouse.models.quotation_master import QuotationMaster
 from warehouse.models.quote import Quote
+from warehouse.models.order import Order
 
 
 @method_decorator(login_required(login_url="login"), name="dispatch")
@@ -76,11 +78,13 @@ class QuoteManagement(View):
     def handle_quote_master_get(self, request: HttpRequest) -> dict[str, Any]:
         # 查询历史版本
         quotes = QuotationMaster.objects.all()
-        context = {"quotes": quotes}
+        context = {
+            "order_form": OrderForm(),
+            "quotes": quotes
+        }
         return self.template_quote_master, context
 
     def handle_activate_quotation_post(self, request: HttpRequest) -> dict[str, Any]:
-
         QuotationMaster.objects.all().update(active=False)
         quotation_id = request.POST.get("q_id")
         q = QuotationMaster.objects.get(id=quotation_id)
@@ -600,8 +604,15 @@ class QuoteManagement(View):
         return result
 
     def handle_upload_quote_post(self, request: HttpRequest) -> dict[str, Any]:
+        order_form = OrderForm(request.POST)
+        if order_form.is_valid():
+            customer = order_form.cleaned_data.get("customer_name")
+        is_user_exclusive = request.POST.get("is_user_exclusive")
+        effective_date = request.POST.get("effective_date")
         form = UploadFileForm(request.POST, request.FILES)
         if form.is_valid():
+            uploaded_file = form.cleaned_data['file']
+            base_name, extension = os.path.splitext(uploaded_file.name)
             updated_count = QuotationMaster.objects.all().update(
                 active=False
             )  # 每次上传一个报价表，就把以前的都设为不启用的状态
@@ -615,6 +626,10 @@ class QuoteManagement(View):
                 "upload_date": upload_date,
                 "version": count,
                 "active": True,
+                "filename":base_name,
+                "is_user_exclusive":(is_user_exclusive.lower() == 'on') if is_user_exclusive else False,
+                "exclusive_user":customer,
+                "effective_date":effective_date,
             }
             quote = QuotationMaster(**quote_data)
             quote.save()
