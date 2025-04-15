@@ -1114,9 +1114,6 @@ class Accounting(View):
         groups = [group.name for group in request.user.groups.all()]
         delivery_type_filter = None
         display_mix = False
-        if "NJ_mix_account" in groups:
-            if warehouse == "NJ-07001":
-                display_mix = True
         if "mix_account" in groups:
             display_mix = True
 
@@ -1143,32 +1140,43 @@ class Accounting(View):
         if delivery_type_filter:
             base_query = base_query.filter(delivery_type_filter)
 
-        # 查找未操作过的
-        if display_mix:
-            order = base_query.filter(
-                models.Q(**{f"{invoice_type}_status__stage": "delivery"})
-            ).order_by(f"{invoice_type}_status__reject_reason")
-        elif "warehouse_public" in groups and "warehouse_other" not in groups:
-            # 如果是公仓人员
-            order = base_query.filter(
-                models.Q(
-                    **{f"{invoice_type}_status__stage_public": "warehouse_completed"}
-                )
-                | models.Q(
-                    **{f"{invoice_type}_status__stage_public": "delivery_rejected"}
-                )
-            ).order_by(f"{invoice_type}_status__reject_reason")
-        elif "warehouse_other" in groups and "warehouse_public" not in groups:
-            # 如果是私仓人员
-            order = base_query.filter(
+         # 查找未操作过的
+        if "NJ_mix_account" in groups:  #这个权限的，要看NJ的私仓
+             order = base_query.filter(
                 models.Q(
                     **{f"{invoice_type}_status__stage_other": "warehouse_completed"}
                 )
                 | models.Q(
                     **{f"{invoice_type}_status__stage_other": "delivery_rejected"}
-                )
-                
+                )             
             ).order_by(f"{invoice_type}_status__reject_reason")
+        else:        
+            if display_mix:   #这个权限的，都能看
+                order = base_query.filter(
+                    models.Q(**{f"{invoice_type}_status__stage": "delivery"})
+                ).order_by(f"{invoice_type}_status__reject_reason")
+            elif "warehouse_public" in groups and "warehouse_other" not in groups:
+                # 如果是公仓人员
+                order = base_query.filter(
+                    models.Q(
+                        **{f"{invoice_type}_status__stage_public": "warehouse_completed"}
+                    )
+                    | models.Q(
+                        **{f"{invoice_type}_status__stage_public": "delivery_rejected"}
+                    )
+                ).order_by(f"{invoice_type}_status__reject_reason")
+            elif "warehouse_other" in groups and "warehouse_public" not in groups:
+                # 如果是私仓人员
+                order = base_query.filter(
+                    models.Q(
+                        **{f"{invoice_type}_status__stage_other": "warehouse_completed"}
+                    )
+                    | models.Q(
+                        **{f"{invoice_type}_status__stage_other": "delivery_rejected"}
+                    )
+                    
+                ).order_by(f"{invoice_type}_status__reject_reason")
+        
 
         # 查找历史操作过的
         base_condition = ~models.Q(
@@ -1178,16 +1186,21 @@ class Accounting(View):
             **{f"{invoice_type}_status__stage__in": ["tobeconfirmed", "confirmed"]}
         )
         delivery_completed_condition = models.Q()
-        if display_mix:
-            delivery_completed_condition = models.Q()
-        elif "warehouse_public" in groups and "warehouse_other" not in groups:
-            delivery_completed_condition = models.Q(
-                **{f"{invoice_type}_status__stage_public": "delivery_completed"}
-            )
-        elif "warehouse_other" in groups and "warehouse_public" not in groups:
+        if "NJ_mix_account" in groups:
             delivery_completed_condition = models.Q(
                 **{f"{invoice_type}_status__stage_other": "delivery_completed"}
             )
+        else:
+            if display_mix:
+                delivery_completed_condition = models.Q()
+            elif "warehouse_public" in groups and "warehouse_other" not in groups:
+                delivery_completed_condition = models.Q(
+                    **{f"{invoice_type}_status__stage_public": "delivery_completed"}
+                )
+            elif "warehouse_other" in groups and "warehouse_public" not in groups:
+                delivery_completed_condition = models.Q(
+                    **{f"{invoice_type}_status__stage_other": "delivery_completed"}
+                )
         previous_order = base_query.filter(
             base_condition,
             other_stages | delivery_completed_condition,  # 满足任意一个条件即可
