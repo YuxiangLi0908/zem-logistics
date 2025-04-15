@@ -2417,26 +2417,29 @@ class Accounting(View):
             "invoice_type": invoice_type,
         }
         display_mix = False
-        if "NJ_mix_account" in groups:
-            if warehouse == "NJ-07001":
-                display_mix = True
         if "mix_account" in groups:
             display_mix = True
 
-        if display_mix:  # 如果公仓私仓都能看，就进总页面
-            return self.template_invoice_delievery_edit, context
-        elif "warehouse_public" in groups and "warehouse_other" not in groups:
-            pallet = pallet.filter(delivery_type="public")
-            context["pallet"] = pallet
-            context["delivery_type"] = "public"
-            return self.template_invoice_delievery_public_edit, context
-        elif "warehouse_other" in groups and "warehouse_public" not in groups:
+        if "NJ_mix_account" in groups:  #这个权限只看私仓
             pallet = pallet.filter(delivery_type="other")
             context["delivery_type"] = "other"
             context["pallet"] = pallet
             return self.template_invoice_delievery_other_edit, context
         else:
-            raise ValueError("没有权限")
+            if display_mix:  # 如果公仓私仓都能看，就进总页面
+                return self.template_invoice_delievery_edit, context
+            elif "warehouse_public" in groups and "warehouse_other" not in groups:
+                pallet = pallet.filter(delivery_type="public")
+                context["pallet"] = pallet
+                context["delivery_type"] = "public"
+                return self.template_invoice_delievery_public_edit, context
+            elif "warehouse_other" in groups and "warehouse_public" not in groups:
+                pallet = pallet.filter(delivery_type="other")
+                context["delivery_type"] = "other"
+                context["pallet"] = pallet
+                return self.template_invoice_delievery_other_edit, context
+            else:
+                raise ValueError("没有权限")
 
     def handle_container_invoice_direct_get(
         self, request: HttpRequest
