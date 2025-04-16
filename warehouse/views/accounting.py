@@ -1102,7 +1102,7 @@ class Accounting(View):
             models.Q(vessel_id__vessel_etd__gte=start_date),
             models.Q(vessel_id__vessel_etd__lte=end_date),
         )
-        if not warehouse:
+        if warehouse is not None:
             warehouse = request.POST.get("warehouse")
         if warehouse:
             criteria &= models.Q(retrieval_id__retrieval_destination_precise=warehouse)
@@ -1411,7 +1411,7 @@ class Accounting(View):
         direct_amount = request.POST.get("amount")
         invoice_type = request.POST.get("invoice_type")
         invoice = Invoice.objects.select_related("container_number").get(
-            container_number__container_number=container_number
+            container_number__container_number=container_number,
         )
         order = Order.objects.select_related("container_number").get(
             container_number__container_number=container_number
@@ -1492,12 +1492,12 @@ class Accounting(View):
         if save_type == "complete":  # 如果是普通账户确认，订单转为待财务确认状态
             # 更新invoice表和状态表
             if invoice_type == "receivable":
-                invoice.receivable_preport_amount = direct_amount
+                invoice.receivable_direct_amount = direct_amount
                 invoice_status, created = InvoiceStatus.objects.get_or_create(
                     container_number=order.container_number, invoice_type="receivable"
                 )
             elif invoice_type == "payable":
-                invoice.payable_preport_amount = direct_amount
+                invoice.payable_direct_amount = direct_amount
                 invoice_status, created = InvoiceStatus.objects.get_or_create(
                     container_number=order.container_number, invoice_type="payable"
                 )
@@ -1512,12 +1512,12 @@ class Accounting(View):
                 container_number__container_number=container_number
             )
             if invoice_type == "receivable":
-                invoice.receivable_preport_amount = direct_amount
+                invoice.receivable_direct_amount = direct_amount
                 invoice_status = InvoiceStatus.objects.get(
                     container_number=order.container_number, invoice_type="receivable"
                 )
             elif invoice_type == "payable":
-                invoice.payable_preport_amount = direct_amount
+                invoice.payable_direct_amount = direct_amount
                 invoice_status = InvoiceStatus.objects.get(
                     container_number=order.container_number, invoice_type="payable"
                 )
@@ -2096,7 +2096,7 @@ class Accounting(View):
             }
             return self.template_invoice_warehouse_edit, context
         # 如果单价和数量都为空的话，就初始化
-        if not invoice_warehouse.qty and not invoice_warehouse.rate:
+        if invoice_warehouse.qty is None and invoice_warehouse.rate is None:
             qty_data, rate_data = self._extract_unit_price(
                 model=InvoiceWarehouse,
                 unit_prices=FS_constrain,
@@ -2360,7 +2360,7 @@ class Accounting(View):
                     for k, v in selected_amazon.items():
                         if destination in v:
                             plt["cost"] = k
-                            if not plt["total_cost"]:
+                            if plt["total_cost"] is None:
                                 plt["total_cost"] = int(k) * int(plt["total_n_pallet"])
                             break
                     amazon.append(plt)
@@ -2375,7 +2375,7 @@ class Accounting(View):
                                 elif n_pallet >= 5:
                                     cost = int(costs[1])
                                 plt["cost"] = cost
-                                if not plt["total_cost"]:
+                                if plt["total_cost"] is None:
                                     plt["total_cost"] = max(
                                         cost * n_pallet, int(costs[2])
                                     )
@@ -2388,18 +2388,18 @@ class Accounting(View):
                             cost = v["prices"]
                             if "45HQ/GP" in container_type:
                                 plt["cost"] = int(cost[1])
-                                if not plt["total_cost"]:
+                                if plt["total_cost"] is None:
                                     plt["total_cost"] = int(cost[1])
                             elif "40HQ/GP" in container_type:
                                 plt["cost"] = int(cost[0])
-                                if not plt["total_cost"]:
+                                if plt["total_cost"] is None:
                                     plt["total_cost"] = int(cost[0])
                     combine.append(plt)
                 elif plt["invoice_delivery__type"] == "walmart":
                     for k, v in selected_walmart.items():
                         if destination in v:
                             plt["cost"] = k
-                            if not plt["total_cost"]:
+                            if plt["total_cost"]  is None:
                                 plt["total_cost"] = int(k) * int(plt["total_n_pallet"])
                             break
                     walmart.append(plt)
@@ -2563,7 +2563,7 @@ class Accounting(View):
                 for key, value in FS_constrain.items()
             }
         )
-        if not invoice_preports.qty and not invoice_preports.rate:
+        if invoice_preports.qty is None and invoice_preports.rate is None:
             # 提取单价信息
             excluded_fields = {
                 "id",
@@ -2738,7 +2738,7 @@ class Accounting(View):
             },
         )
         # 如果单价和数量都为空的话，就初始化
-        if not invoice_preports.qty and not invoice_preports.rate:
+        if invoice_preports.qty is None and invoice_preports.rate is None:
             # 提取单价信息
             excluded_fields = {
                 "id",
