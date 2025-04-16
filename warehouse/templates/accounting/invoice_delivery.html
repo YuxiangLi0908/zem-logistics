@@ -57,12 +57,12 @@
                     </thead>
                     <tbody>
                         {% for c in order %}
-                            <tr>
+                            <tr {% if c.is_priority == 0 %} style="background-color: #fff3cd; font-weight: bold;"{% endif %}>
                                 <td class="td">{{ c.customer_name.zem_name }}</td>
                                 <td class="td">
                                     <a href="/accounting/?step=container_delivery&container_number={{ c.container_number }}&start_date={{ start_date }}&end_date={{ end_date }}&invoice_type={{ invoice_type_filter }}&warehouse={{ warehouse }}">{{ c.container_number }}</a>
                                 </td>
-                                <td class="td">{{ c.display_reject_reason }}</td>
+                                <td class="td">{{ c.reject_reason }}</td>
                                 <td class="td">{{ c.created_at|date:"Y-m-d" }}</td>
                             </tr>
                         {% endfor %}
