@@ -64,7 +64,7 @@
                                 {% if warehouse == "NJ" %}
                                     <td class="td"><input type="text" name="cost" value="{{ plt.cost }}"></td>
                                 {% else %}
-                                    <td class="td"><input type="text" name="cost" value=""></td>(按距离收费)
+                                    <td class="td"><input type="text" name="cost" value="{{ plt.cost }}"></td>(按距离收费)
                                 {% endif %}
                                 <td class="td"><input type="text" name="total_pallet" value="{{ plt.total_pallet }}"></td>
                                 <td class="td">

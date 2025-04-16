@@ -1141,20 +1141,36 @@ class Accounting(View):
             base_query = base_query.filter(delivery_type_filter)
 
          # 查找未操作过的
-        if "NJ_mix_account" in groups:  #这个权限的，要看NJ的私仓
+        if "NJ_mix_account" in groups or ("warehouse_other" in groups and "warehouse_public" not in groups):  #这个权限的，要看NJ的私仓
              order = base_query.filter(
-                models.Q(
-                    **{f"{invoice_type}_status__stage_other": "warehouse_completed"}
-                )
-                | models.Q(
-                    **{f"{invoice_type}_status__stage_other": "delivery_rejected"}
-                )             
-            ).order_by(f"{invoice_type}_status__reject_reason")
+                    models.Q(
+                        **{f"{invoice_type}_status__stage_other": "warehouse_completed"}
+                    )
+                    | models.Q(
+                        **{f"{invoice_type}_status__stage_other": "delivery_rejected"}
+                    )
+                ).annotate(
+                    is_priority=Case(
+                        When(**{f"{invoice_type}_status__stage_other": "delivery_rejected"}, then=Value(0)),
+                        When(**{f"{invoice_type}_status__stage_other": "warehouse_completed"}, then=Value(1)),
+                        output_field=IntegerField(),
+                    )           
+                ).order_by('is_priority')
         else:        
             if display_mix:   #这个权限的，都能看
                 order = base_query.filter(
                     models.Q(**{f"{invoice_type}_status__stage": "delivery"})
-                ).order_by(f"{invoice_type}_status__reject_reason")
+                ).annotate(
+                    is_priority=Case(
+                        When(
+                            models.Q(**{f"{invoice_type}_status__stage_other": "delivery_rejected"}) |
+                            models.Q(**{f"{invoice_type}_status__stage_public": "delivery_rejected"}),
+                            then=Value(0)
+                        ),
+                        default=Value(1),
+                        output_field=IntegerField(),
+                    )
+                ).order_by('is_priority')
             elif "warehouse_public" in groups and "warehouse_other" not in groups:
                 # 如果是公仓人员
                 order = base_query.filter(
@@ -1164,19 +1180,13 @@ class Accounting(View):
                     | models.Q(
                         **{f"{invoice_type}_status__stage_public": "delivery_rejected"}
                     )
-                ).order_by(f"{invoice_type}_status__reject_reason")
-            elif "warehouse_other" in groups and "warehouse_public" not in groups:
-                # 如果是私仓人员
-                order = base_query.filter(
-                    models.Q(
-                        **{f"{invoice_type}_status__stage_other": "warehouse_completed"}
-                    )
-                    | models.Q(
-                        **{f"{invoice_type}_status__stage_other": "delivery_rejected"}
-                    )
-                    
-                ).order_by(f"{invoice_type}_status__reject_reason")
-        
+                ).annotate(
+                    is_priority=Case(
+                        When(**{f"{invoice_type}_status__stage_public": "delivery_rejected"}, then=Value(0)),
+                        When(**{f"{invoice_type}_status__stage_public": "warehouse_completed"}, then=Value(1)),
+                        output_field=IntegerField(),
+                    )  
+                ).order_by('is_priority')
 
         # 查找历史操作过的
         base_condition = ~models.Q(
@@ -2279,7 +2289,6 @@ class Accounting(View):
         ).filter(invoice_number__invoice_number=invoice.invoice_number)
         if invoice_delivery:
             for delivery in invoice_delivery:
-
                 destination = (
                     delivery.destination.split("-")[1]
                     if "-" in delivery.destination
@@ -2332,7 +2341,9 @@ class Accounting(View):
                 elif delivery.type == "selfdelivery":
                     cost = 0
                     selfdelivery.append(delivery)
-                if not delivery.cost:
+                print('有没有cost',delivery.cost)
+                if delivery.cost is None:
+                    print('没有')
                     delivery.cost = cost
                     delivery.save()
         else:
