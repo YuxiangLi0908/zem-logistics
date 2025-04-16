@@ -1102,7 +1102,7 @@ class Accounting(View):
             models.Q(vessel_id__vessel_etd__gte=start_date),
             models.Q(vessel_id__vessel_etd__lte=end_date),
         )
-        if warehouse is not None:
+        if warehouse is None:
             warehouse = request.POST.get("warehouse")
         if warehouse:
             criteria &= models.Q(retrieval_id__retrieval_destination_precise=warehouse)
