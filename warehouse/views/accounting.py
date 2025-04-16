@@ -2341,9 +2341,7 @@ class Accounting(View):
                 elif delivery.type == "selfdelivery":
                     cost = 0
                     selfdelivery.append(delivery)
-                print('有没有cost',delivery.cost)
                 if delivery.cost is None:
-                    print('没有')
                     delivery.cost = cost
                     delivery.save()
         else:
