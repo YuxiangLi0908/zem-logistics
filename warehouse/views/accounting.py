@@ -2219,6 +2219,7 @@ class Accounting(View):
             )
             .select_related("invoice_delivery")
             .filter(container_number__container_number=container_number)
+            .exclude(delivery_method__contains="暂扣留仓")
             .annotate(
                 str_id=Cast("id", CharField()),
             )
@@ -2247,6 +2248,7 @@ class Accounting(View):
         combine = []
         walmart = []
         selfdelivery = []
+        upsdelivery = []
         quotation = QuotationMaster.objects.get(active=True)
         if warehouse == "NJ":
             LOCAL_DELIVERY = FeeDetail.objects.get(
@@ -2345,6 +2347,9 @@ class Accounting(View):
                 elif delivery.type == "selfdelivery":
                     cost = 0
                     selfdelivery.append(delivery)
+                elif delivery.type == "upsdelivery":
+                    cost = 0
+                    upsdelivery.append(delivery)
                 if delivery.cost is None:
                     delivery.cost = cost
                     delivery.save()
@@ -2403,6 +2408,8 @@ class Accounting(View):
                                 plt["total_cost"] = int(k) * int(plt["total_n_pallet"])
                             break
                     walmart.append(plt)
+                elif plt["invoice_delivery__type"] == "walmart":
+                    upsdelivery.append(plt)
 
         groups = [group.name for group in request.user.groups.all()]
 
@@ -2421,6 +2428,7 @@ class Accounting(View):
             "combine": combine,
             "walmart": walmart,
             "selfdelivery": selfdelivery,
+            "upsdelivery":upsdelivery,
             "invoice_delivery": invoice_delivery,
             "redirect_step": redirect_step,
             "start_date": request.GET.get("start_date") or None,
