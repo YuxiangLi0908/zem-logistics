@@ -68,7 +68,7 @@
                                 {% endif %}
                                 <td class="td"><input type="text" name="total_pallet" value="{{ plt.total_pallet }}"></td>
                                 <td class="td">
-                                    <input type="number" class="local_cost" id="local_cost" name="total_cost" value="{{ plt.total_cost }}" oninput="updateLocal(this)">                                   
+                                    <input type="number" class="local_cost" id="local_cost" name="total_cost" value="{{ plt.total_cost }}">                                   
                                     <input type="hidden" name="plt_ids" value="{{ plt.plt_ids }}">
                                 </td>
                                 <td class="td"><input type="number" name="po_activation" value="{{ plt.po_activation }}"></td>
@@ -130,7 +130,7 @@
                             <td class="td"><input type="text" name="cost" value="{{ plt.cost }}"></td>
                             <td class="td"><input type="text" name="total_pallet" value="{{ plt.total_pallet }}"></td>
                             <td class="td">
-                                <input type="number" id="selfdelivery_cost" name="total_cost" value="{{ plt.total_cost }}" oninput="updateSelf(this)">
+                                <input type="number" id="selfdelivery_cost" name="total_cost" value="{{ plt.total_cost }}">
                                 <input type="hidden" name="plt_ids" value="{{ plt.plt_ids }}">
                             </td>
                             <td class="td"><input type="number" name="po_activation" value="{{ plt.po_activation }}"></td>
@@ -243,15 +243,6 @@
                 const palletInput = row.querySelector('input[name="total_pallet"]');
                 const activationInput = row.querySelector('input[name="po_activation"]');
                 const totalInput = row.querySelector(`input[id="${type}_cost"]`);
-                
-                //如果总价列为空时，才自动计算
-                if (!totalInput.value || parseFloat(totalInput.value) === 0) {
-                    const price = parseFloat(priceInput.value) || 0;
-                    const pallets = parseFloat(palletInput.value) || 0;
-                    const activation = parseFloat(activationInput.value) || 0;
-                    const calculatedTotal = (price * pallets) + activation;
-                    totalInput.value = calculatedTotal.toFixed(2);
-                }
 
                 // 存储原始值
                 priceInput.dataset.original = priceInput.value;
@@ -259,11 +250,10 @@
                 activationInput.dataset.original = activationInput.value || 0;
                 totalInput.dataset.original = totalInput.value;
 
-                // 确保所有输入框都有事件监听
-                priceInput.addEventListener('input', () => updateRow(row, type));
-                palletInput.addEventListener('input', () => updateRow(row, type));
-                activationInput.addEventListener('input', () => updateRow(row, type));
-                totalInput.addEventListener('input', () => updateRowFromTotal(row, type));
+                totalInput.addEventListener('input', () => {
+                    updateTypeTotal(type);
+                    updateGlobalTotal();
+                });
             });
         });
     }
@@ -299,25 +289,7 @@
     }
 
     // 更新单行数据（从单价/板数/激活）
-    function updateRow(row, type) {
-        const totalInput = row.querySelector(`input[id="${type}_cost"]`);
-        const newTotal = calculateRowTotal(row);
-        totalInput.value = newTotal.toFixed(2);
-        
-        updateTypeTotal(type);
-        updateGlobalTotal();
-    }
-
-    // 从总价反向更新（修改总价时）
-    function updateRowFromTotal(row, type) {
-        const totalInput = row.querySelector(`input[id="${type}_cost"]`);
-        const total = parseFloat(totalInput.value) || 0;
-        const pallets = parseFloat(row.querySelector('input[name="total_pallet"]').value) || 1;
-        const activation = parseFloat(row.querySelector('input[name="po_activation"]').value) || 0;
-        const price = (total - activation) / pallets;
-        
-        row.querySelector('input[name="cost"]').value = price.toFixed(2);
-        
+    function updateRow(row, type) {       
         updateTypeTotal(type);
         updateGlobalTotal();
     }
@@ -331,7 +303,7 @@
         const rows = table.querySelectorAll('tbody tr:not(:last-child)');
         
         rows.forEach(row => {
-            const totalInput = row.querySelector(`input[id="${type}_cost"]`);
+            const totalInput = row.querySelector(`input[name="total_cost"]`);
             typeTotal += parseFloat(totalInput.value) || 0;
         });
 
@@ -349,14 +321,6 @@
         document.querySelectorAll('input.total_amount').forEach(input => {
             input.value = globalTotal.toFixed(2);
         });
-    }
-
-    // 各类型的更新函数（保留原有接口）
-    function updateLocal(input) {
-        updateRow(input.closest('tr'), 'local');
-    }
-    function updateSelf(input) {
-        updateRow(input.closest('tr'), 'selfdelivery');
     }
 
     // 其他原有函数保持不变

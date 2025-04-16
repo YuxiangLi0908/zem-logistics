@@ -165,7 +165,7 @@
                                 <td class="td"><input type="text" name="cost" value="{{ plt.cost }}"></td>
                                 <td class="td"><input type="text" name="total_pallet" value="{{ plt.total_pallet }}"></td>
                                 <td class="td">
-                                    <input type="number" id="local_cost" name="total_cost" value="{{ plt.total_cost }}" oninput="updateLocal(this)" readonly>                                    
+                                    <input type="number" id="local_cost" name="total_cost" value="{{ plt.total_cost }}" oninput="updateLocal(this)">                                    
                                     <input type="hidden" name="plt_ids" value="{{ plt.plt_ids }}">
                                 </td>
                                 <td class="td"><input type="number" name="po_activation" value="{{ plt.po_activation }}"></td>
@@ -226,7 +226,7 @@
                             <td class="td"><input type="text" name="cost" value="{{ plt.cost }}"></td>
                             <td class="td"><input type="text" name="total_pallet" value="{{ plt.total_pallet }}"></td>
                             <td class="td">
-                                <input type="number" id="combine_cost" name="total_cost" value="{{ plt.total_cost }}" oninput="updateCombine(this)" readonly>                      
+                                <input type="number" id="combine_cost" name="total_cost" value="{{ plt.total_cost }}" oninput="updateCombine(this)">                      
                                 <input type="hidden" name="plt_ids" value="{{ plt.plt_ids }}">
                             </td>
                             <td class="td"><input type="number" name="po_activation" value="{{ plt.po_activation }}"></td>
@@ -285,7 +285,7 @@
                             <td class="td"><input type="text" name="cost" value="{{ plt.cost }}"></td>
                             <td class="td"><input type="text" name="total_pallet" value="{{ plt.total_pallet }}"></td>
                             <td class="td">    
-                                <input type="number" id="selfdelivery_cost" name="total_cost" value="{{ plt.total_cost }}" oninput="updateSelf(this)" readonly>
+                                <input type="number" id="selfdelivery_cost" name="total_cost" value="{{ plt.total_cost }}" oninput="updateSelf(this)">
                                 <input type="hidden" name="plt_ids" value="{{ plt.plt_ids }}">
                             </td>
                             <td class="td"><input type="number" name="po_activation" value="{{ plt.po_activation }}"></td>
