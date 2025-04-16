@@ -2096,7 +2096,7 @@ class Accounting(View):
             }
             return self.template_invoice_warehouse_edit, context
         # 如果单价和数量都为空的话，就初始化
-        if invoice_warehouse.qty is None and invoice_warehouse.rate is None:
+        if not invoice_warehouse.qty and not invoice_warehouse.rate:
             qty_data, rate_data = self._extract_unit_price(
                 model=InvoiceWarehouse,
                 unit_prices=FS_constrain,
@@ -2563,7 +2563,7 @@ class Accounting(View):
                 for key, value in FS_constrain.items()
             }
         )
-        if invoice_preports.qty is None and invoice_preports.rate is None:
+        if not invoice_preports.qty and invoice_preports.rate:
             # 提取单价信息
             excluded_fields = {
                 "id",
@@ -2738,7 +2738,7 @@ class Accounting(View):
             },
         )
         # 如果单价和数量都为空的话，就初始化
-        if invoice_preports.qty is None and invoice_preports.rate is None:
+        if not invoice_preports.qty and not invoice_preports.rate:
             # 提取单价信息
             excluded_fields = {
                 "id",
