@@ -1370,6 +1370,8 @@ class Accounting(View):
                 invoice_status.stage = "delivery"
                 invoice_status.is_rejected = False
                 invoice_status.reject_reason = ""
+                invoice_status.stage_public = "warehouse_completed"
+                invoice_status.stage_other = "warehouse_completed"
             elif container_delivery_type == "mixed":
                 if delivery_type == "public":
                     # 公仓组录完了，改变stage_public
