@@ -29,7 +29,8 @@ from django.db.models import (
     Value,
     When,
     Prefetch,
-    BooleanField
+    BooleanField,
+    Min
 )
 from django.db.models.functions import Cast, Coalesce
 from django.http import HttpRequest, HttpResponse, HttpResponseForbidden
@@ -322,6 +323,34 @@ class Accounting(View):
             return "pending", "pending"  # 默认返回原状态
 
     def migrate_status(self) -> tuple[Any, Any]:
+        #检查仓库账单，重复的情况
+        duplicates = (
+            InvoiceWarehouse.objects.values('invoice_number', 'invoice_type', 'delivery_type')
+            .annotate(min_id=Min('id'))
+            .order_by()
+            .filter(id__count__gt=1)
+        )
+        context = {'duplicates':duplicates}
+        return self.template_invoice_preport, context
+        # 2. 构建重复组字典 { (invoice_number, type, delivery_type): [ids] }
+        dup_groups = defaultdict(list)
+        for item in InvoiceWarehouse.objects.all():
+            key = (item.invoice_number_id, item.invoice_type, item.delivery_type)
+            dup_groups[key].append(item.id)
+        
+        # 3. 删除每组中非最小ID的记录
+        deleted_count = 0
+        for key, ids in dup_groups.items():
+            if len(ids) > 1:
+                # 保留最小的ID，删除其他
+                keep_id = min(ids)
+                InvoiceWarehouse.objects.filter(
+                    invoice_number_id=key[0],
+                    invoice_type=key[1],
+                    delivery_type=key[2]
+                ).exclude(id=keep_id).delete()
+                deleted_count += len(ids) - 1
+
         deliverys = InvoiceDelivery.objects.all()
         for dl in deliverys:
             if dl.type == "self_delivery":
@@ -1821,19 +1850,23 @@ class Accounting(View):
         invoice.invoice_date = invoice_data["invoice_date"]
         if invoice_type == "receivable":
             invoice.invoice_link = invoice_data["invoice_link"]
-            invoice.receivable_total_amount = (
-                float(invoice.receivable_preport_amount or 0)
-                + float(invoice.receivable_warehouse_amount or 0)
-                + float(invoice.receivable_delivery_amount or 0)
-                + float(invoice.receivable_direct_amount or 0)
-            )
+            if order.order_type =="直送":
+                invoice.receivable_total_amount = float(invoice.receivable_direct_amount or 0)
+            else:
+                invoice.receivable_total_amount = (
+                    float(invoice.receivable_preport_amount or 0)
+                    + float(invoice.receivable_warehouse_amount or 0)
+                    + float(invoice.receivable_delivery_amount or 0)
+                )
         elif invoice_type == "payable":
-            invoice.payable_total_amount = (
-                float(invoice.payable_preport_amount or 0)
-                + float(invoice.payable_warehouse_amount or 0)
-                + float(invoice.payable_delivery_amount or 0)
-                + float(invoice.payable_direct_amount or 0)
-            )
+            if order.order_type =="直送":
+                invoice.payable_total_amount = float(invoice.payable_direct_amount or 0)
+            else:
+                invoice.payable_total_amount = (
+                    float(invoice.payable_preport_amount or 0)
+                    + float(invoice.payable_warehouse_amount or 0)
+                    + float(invoice.payable_delivery_amount or 0)
+                )
         else:
             raise ValueError(f"Unknown invoice_type: {invoice_type}")
         invoice.save()
