@@ -160,7 +160,7 @@
 <div>
     <form method="post" action="">
         {% csrf_token %}
-        <div style="margin:auto; max-height: 800px;max-width:1500px;">
+        <div style="margin:auto; max-height: 800px;max-width:1500px;margin-bottom:50px;">
             <button id="editButton" type="button" class="btn btn-primary" onclick="add_delivery(this)" style="font-size: 11px;">组合柜派送</button>
             {% if combine %}
                 <table class="table" id="combine-table" style="font-size: 13px;">
@@ -214,6 +214,66 @@
                     <button type="submit" class="btn btn-primary" style="width: 100px; height: 35px;" onclick="processForm('combine-table',event)">确认</button>
                 </div>
             {% endif %}      
+        </div>
+    </form>
+</div>
+<div>   
+    <form method="post" action="">
+        {% csrf_token %}
+        <div style="margin:auto; max-height: 800px;max-width:1500px;margin-bottom:50px;">
+            <button id="editButton" type="button" class="btn btn-primary" onclick="add_delivery(this)" style="font-size: 11px;">UPS</button>
+            {% if upsdelivery %}
+                <table class="table" id="upsdelivery-table" style="font-size: 13px">
+                    <thead>
+                        <tr style="position: sticky; top: 0;">  
+                            <th class="th">单价</th>
+                            <th class="th">板数</th>
+                            <th class="th">总价</th>
+                            <th class="th">激活</th>
+                            <th class="th">成本</th>
+                            <th class="th">目的地</th>
+                            <th class="th">CBM</th>
+                            <th class="th">重量</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for plt in upsdelivery %}
+                        <tr draggable="true" id="pallet-{{ plt.id }}">
+                            <td class="td"><input type="text" name="cost" value="{{ plt.cost }}"></td>
+                            <td class="td"><input type="text" name="total_pallet" value="{{ plt.total_pallet }}"></td>
+                            <td class="td">
+                                <input type="number" id="upsdelivery_cost" name="total_cost" value="{{ plt.total_cost }}">
+                                <input type="hidden" name="plt_ids" value="{{ plt.plt_ids }}">
+                            </td>
+                            <td class="td"><input type="number" name="po_activation" value="{{ plt.po_activation }}"></td>
+                            <td class="td"><input type="number" name="expense" value="{{ plt.expense|default:'' }}"></td>
+                            <td class="td"><input type="text" name="destination" value="{{ plt.destination }}"></td>
+                            <td class="td"><input type="number" name="cbm" step = 0.01 value="{{ plt.total_cbm|floatformat:2 }}"></td>
+                            <td class="td"><input type="number" name="weight_lbs" step = 0.01 value="{{ plt.total_weight_lbs|floatformat:2 }}"></td>
+                        </tr>
+                        {% endfor %}
+                        <tr>
+                            <td colspan="2"></td>
+                            <td class="td">
+                                <input type="number" id="upsdelivery_total" name="total" value="">
+                            </td>
+                            <td colspan="6"></td>
+                        </tr>
+                    </tbody>
+                </table>
+                <div class="text-left" style="float:right;">
+                    <input type="hidden" name="step" value="update_delivery_invoice">
+                    <input type="hidden" name="type" value="upsdelivery">  
+                    <input type="hidden" name="start_date" value="{{ start_date }}">
+                    <input type="hidden" name="end_date" value="{{ end_date }}">
+                    <input type="hidden" name="invoice_type" value="{{ invoice_type }}">
+                    <input type="hidden" name="redirect_step" value="{{ redirect_step }}">   
+                    <input type="hidden" name="warehouse" value="{{ warehouse }}">              
+                    <input type="hidden" name="container_number" value="{{ container_number }}">
+                    <input type="hidden" class="total_amount" name="total_amount">    
+                    <button type="submit" class="btn btn-primary" style="width: 100px; height: 35px;" onclick="processForm('upsdelivery-table',event)">确认</button>
+                </div>
+            {% endif %}
         </div>
     </form>
 </div>
@@ -275,6 +335,7 @@
         amazon: 0,
         walmart: 0,
         combine: 0,
+        upsdelivery: 0
     };
 
     // 初始化计算
@@ -289,34 +350,56 @@
         Object.keys(typeTotals).forEach(type => {
             const table = document.getElementById(`${type}-table`);
             if (!table) return;
-
+    
             const rows = table.querySelectorAll('tbody tr:not(:last-child)');
             rows.forEach(row => {
                 const priceInput = row.querySelector('input[name="cost"]');
                 const palletInput = row.querySelector('input[name="total_pallet"]');
                 const activationInput = row.querySelector('input[name="po_activation"]');
                 const totalInput = row.querySelector(`input[id="${type}_cost"]`);
-
-                //如果总价列为空时，才自动计算
-                if (!totalInput.value || parseFloat(totalInput.value) === 0) {
+    
+                // 如果是 UPS 类型，不自动计算初始值
+                if (type !== 'upsdelivery' && (!totalInput.value || parseFloat(totalInput.value) === 0)) {
                     const price = parseFloat(priceInput.value) || 0;
                     const pallets = parseFloat(palletInput.value) || 0;
                     const activation = parseFloat(activationInput.value) || 0;
                     const calculatedTotal = (price * pallets) + activation;
                     totalInput.value = calculatedTotal.toFixed(2);
                 }
-
-                // 存储原始值
-                priceInput.dataset.original = priceInput.value;
-                palletInput.dataset.original = palletInput.value;
-                activationInput.dataset.original = activationInput.value || 0;
-                totalInput.dataset.original = totalInput.value;
-
-                // 确保所有输入框都有事件监听
-                priceInput.addEventListener('input', () => updateRow(row, type));
-                palletInput.addEventListener('input', () => updateRow(row, type));
-                activationInput.addEventListener('input', () => updateRow(row, type));
-                totalInput.addEventListener('input', () => updateRowFromTotal(row, type));
+    
+                priceInput.replaceWith(priceInput.cloneNode(true));
+                palletInput.replaceWith(palletInput.cloneNode(true));
+                activationInput.replaceWith(activationInput.cloneNode(true));
+                totalInput.replaceWith(totalInput.cloneNode(true));
+    
+                const newPriceInput = row.querySelector('input[name="cost"]');
+                const newPalletInput = row.querySelector('input[name="total_pallet"]');
+                const newActivationInput = row.querySelector('input[name="po_activation"]');
+                const newTotalInput = row.querySelector(`input[id="${type}_cost"]`);
+    
+                if (type === 'upsdelivery') {
+                    newPriceInput.addEventListener('input', () => {
+                        updateTypeTotal(type);
+                        updateGlobalTotal();
+                    });
+                    newPalletInput.addEventListener('input', () => {
+                        updateTypeTotal(type);
+                        updateGlobalTotal();
+                    });
+                    newActivationInput.addEventListener('input', () => {
+                        updateTypeTotal(type);
+                        updateGlobalTotal();
+                    });
+                    newTotalInput.addEventListener('input', () => {
+                        updateTypeTotal(type);
+                        updateGlobalTotal();
+                    });
+                } else {
+                    newPriceInput.addEventListener('input', () => updateRow(row, type));
+                    newPalletInput.addEventListener('input', () => updateRow(row, type));
+                    newActivationInput.addEventListener('input', () => updateRow(row, type));
+                    newTotalInput.addEventListener('input', () => updateRowFromTotal(row, type));
+                }
             });
         });
     }
@@ -353,16 +436,24 @@
 
     // 更新单行数据（从单价/板数/激活）
     function updateRow(row, type) {
+        if (type==='upsdelivery'){
+            updateTypeTotal(type);
+            updateGlobalTotal();
+            return;          
+        }
         const totalInput = row.querySelector(`input[id="${type}_cost"]`);
         const newTotal = calculateRowTotal(row);
         totalInput.value = newTotal.toFixed(2);
         
         updateTypeTotal(type);
-        updateGlobalTotal();
+        updateGlobalTotal();  
     }
-
-    // 从总价反向更新（修改总价时）
     function updateRowFromTotal(row, type) {
+        // 如果是 UPS 类型，不做任何处理
+        if (type === 'upsdelivery') {
+            return;
+        }
+        
         const totalInput = row.querySelector(`input[id="${type}_cost"]`);
         const total = parseFloat(totalInput.value) || 0;
         const pallets = parseFloat(row.querySelector('input[name="total_pallet"]').value) || 1;
@@ -374,6 +465,7 @@
         updateTypeTotal(type);
         updateGlobalTotal();
     }
+
 
     // 更新类型总计
     function updateTypeTotal(type) {
@@ -406,13 +498,25 @@
 
     // 各类型的更新函数（保留原有接口）
     function updateAmazon(input) {
-        updateRow(input.closest('tr'), 'amazon');
+        if (input.classList.contains('amazon_cost')) {
+            updateRowFromTotal(input.closest('tr'), 'amazon');
+        } else {
+            updateRow(input.closest('tr'), 'amazon');
+        }
     }
     function updateWalmart(input) {
-        updateRow(input.closest('tr'), 'walmart');
+        if (input.classList.contains('walmart_cost')) {
+            updateRowFromTotal(input.closest('tr'), 'walmart');
+        } else {
+            updateRow(input.closest('tr'), 'walmart');
+        }
     }
     function updateCombine(input) {
-        updateRow(input.closest('tr'), 'combine');
+        if (input.classList.contains('combine_cost')) {
+            updateRowFromTotal(input.closest('tr'), 'combine');
+        } else {
+            updateRow(input.closest('tr'), 'combine');
+        }
     }
 
     function add_delivery_plt(button) {
@@ -439,6 +543,8 @@
             type.value = 'combine';
         } else if (text === '沃尔玛派送') {
             type.value = 'walmart';
+        } else if (text === 'UPS') {
+            type.value = 'upsdelivery';
         }
     };
 
