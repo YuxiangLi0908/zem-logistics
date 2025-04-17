@@ -28,6 +28,8 @@ from django.db.models import (
     Sum,
     Value,
     When,
+    Prefetch,
+    BooleanField
 )
 from django.db.models.functions import Cast, Coalesce
 from django.http import HttpRequest, HttpResponse, HttpResponseForbidden
@@ -2212,16 +2214,23 @@ class Accounting(View):
                 "container_number",
                 "container_number__order",
                 "container_number__order__warehouse",
-                "shipment_batch_number",
-                "container_number__order__offload_id",
                 "container_number__order__customer_name",
-                "container_number__order__retrieval_id",
+                "invoice_delivery",
+                Prefetch("invoice_delivery__pallet_delivery", to_attr="delivered_pallets")
             )
             .select_related("invoice_delivery")
             .filter(container_number__container_number=container_number)
             .exclude(delivery_method__contains="暂扣留仓")
             .annotate(
                 str_id=Cast("id", CharField()),
+                is_hold=Case(
+                    When(delivery_method__contains="暂扣留仓", then=Value(True)),
+                    default=Value(False)
+                ),
+                has_delivery=Case(
+                    When(invoice_delivery__isnull=False, then=Value(True)),
+                    default=Value(False),
+                )
             )
             .values(
                 "container_number__container_number",
@@ -2243,6 +2252,14 @@ class Accounting(View):
             .order_by(F("invoice_delivery__type").asc(nulls_first=True))
         )
         # 需要重新规范板数，就是total_n_pallet
+        fee_details = self._get_fee_details(warehouse)
+        delivery_groups = self._process_deliveries(
+            invoice.invoice_number,
+            pallet,
+            order.container_number.container_type,
+            fee_details,
+            warehouse
+        )
         amazon = []
         local = []
         combine = []
@@ -2461,6 +2478,140 @@ class Accounting(View):
                 return self.template_invoice_delievery_other_edit, context
             else:
                 raise ValueError("没有权限")
+
+    def _get_fee_details(self, warehouse: str) -> dict:
+        quotation = QuotationMaster.objects.get(active=True)
+        fee_types = {
+            'NJ': ['NJ_LOCAL', 'NJ_PUBLIC', 'NJ_COMBINA'],
+            'SAV': ['SAV_PUBLIC', 'SAV_COMBINA'],
+            'LA': ['LA_PUBLIC', 'LA_COMBINA']
+        }.get(warehouse, [])
+        
+        return {
+            fee.fee_type: fee
+            for fee in FeeDetail.objects.filter(
+                quotation_id=quotation.id,
+                fee_type__in=fee_types
+            )
+        }
+    
+    def _process_deliveries(self, invoice_number: str, pallet: Any, 
+                       container_type: str, fee_details: dict, warehouse: str) -> dict:
+        invoice_deliveries = InvoiceDelivery.objects.prefetch_related(
+            "pallet_delivery"
+        ).filter(invoice_number__invoice_number=invoice_number)
+        
+        delivery_groups = {
+            "amazon": [],
+            "local": [],
+            "combine": [],
+            "walmart": [],
+            "selfdelivery": [],
+            "upsdelivery": [],
+            "invoice_delivery": invoice_deliveries
+        }
+        processed_pallet_ids = set()
+        for delivery in invoice_deliveries:
+            pallets_in_delivery = list(delivery.pallet_delivery.all())
+            processed_pallet_ids.update(p.id for p in pallets_in_delivery)
+            self._process_existing_delivery(
+                    delivery,
+                    delivery_groups,
+                    fee_details,
+                    container_type,
+                    warehouse
+                )
+        #把没有type的板子单独处理
+        for plt in pallet:
+            if plt['id'] not in processed_pallet_ids:
+                self._process_new_delivery(
+                    plt,
+                    delivery_groups,
+                    fee_details,
+                    container_type,
+                    warehouse
+                )
+        return delivery_groups
+    
+    def _process_existing_delivery(self, delivery: InvoiceDelivery, 
+                             delivery_groups: dict, fee_details: dict,
+                             container_type: str, warehouse: str):
+        if delivery.cost is None:
+            cost = self._calculate_delivery_cost(
+                delivery.type,
+                delivery.destination,
+                delivery.zipcode,
+                delivery.total_pallet,
+                container_type,
+                fee_details,
+                warehouse
+            )
+            if cost is not None:
+                delivery.cost = cost
+                delivery.save()
+        
+        delivery_groups[delivery.type].append(delivery)
+
+    def _calculate_delivery_cost(self, delivery_type, destination, zipcode, 
+                            total_pallet, container_type, fee_details, warehouse):
+        destination = (
+                destination.split("-")[1]
+                if "-" in destination
+                else destination
+            )
+        
+        if delivery_type == "amazon":
+            amazon_data = fee_details.get(f"{warehouse}_PUBLIC", {}).details.get(f"{warehouse}_AMAZON")
+            return self._calculate_amazon_cost(destination, amazon_data)
+        elif delivery_type == "local" and warehouse == "NJ":
+            local_data = fee_details.get("NJ_LOCAL", {}).details
+            return self._calculate_local_cost(zipcode, total_pallet, local_data)
+        # ... other delivery types
+        return None
+
+    def _process_new_delivery(self, plt: dict, delivery_groups: dict, 
+                            fee_details: dict, container_type: str, warehouse: str):
+        """Process a new delivery group from pallet data."""
+        if not plt["invoice_delivery__type"]:
+            return
+            
+        destination = (
+            plt["destination"].split("-")[1] 
+            if "-" in plt["destination"] 
+            else plt["destination"]
+        )
+        
+        if plt["invoice_delivery__type"] == "amazon":
+            plt["cost"] = self._calculate_amazon_cost(
+                destination,
+                fee_details.get(f"{warehouse}_PUBLIC").details.get(f"{warehouse}_AMAZON")
+            )
+            delivery_groups["amazon"].append(plt)
+        elif plt["invoice_delivery__type"] == "local" and warehouse == "NJ":
+            plt["cost"] = self._calculate_local_cost(
+                plt["zipcode"],
+                plt["total_pallet"],
+                fee_details.get("NJ_LOCAL").details
+            )
+            delivery_groups["local"].append(plt)
+        elif plt["invoice_delivery__type"] == "combine":
+            plt["cost"] = self._calculate_combine_cost(
+                destination,
+                container_type,
+                fee_details.get(f"{warehouse}_COMBINA").details
+            )
+            delivery_groups["combine"].append(plt)
+        elif plt["invoice_delivery__type"] == "walmart":
+            plt["cost"] = self._calculate_walmart_cost(
+                destination,
+                fee_details.get(f"{warehouse}_PUBLIC").details.get(f"{warehouse}_WALMART")
+            )
+            delivery_groups["walmart"].append(plt)
+        elif plt["invoice_delivery__type"] == "selfdelivery":
+            delivery_groups["selfdelivery"].append(plt)
+        elif plt["invoice_delivery__type"] == "upsdelivery":
+            delivery_groups["upsdelivery"].append(plt)
+
 
     def handle_container_invoice_direct_get(
         self, request: HttpRequest
