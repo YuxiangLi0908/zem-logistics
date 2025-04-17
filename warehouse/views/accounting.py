@@ -324,15 +324,27 @@ class Accounting(View):
 
     def migrate_status(self) -> tuple[Any, Any]:
         #检查仓库账单，重复的情况
-        duplicates = (
-            InvoiceWarehouse.objects.values('invoice_number', 'invoice_type', 'delivery_type')
-            .annotate(min_id=Min('id'))
-            .order_by()
-            .filter(id__count__gt=1)
-        )
-        context = {'duplicates':duplicates}
+        duplicate_groups = InvoiceWarehouse.objects.values(
+            'invoice_number_id',  # 使用外键ID避免对象序列化问题
+            'invoice_type',
+            'delivery_type'
+        ).annotate(
+            count=Count('id')
+        ).filter(count__gt=1)
+        
+        # 2. 提取重复的invoice_number
+        duplicate_invoice_numbers = [
+            item['invoice_number_id'] 
+            for item in duplicate_groups
+        ]
+        
+        dx = Invoice.objects.filter(id__in=duplicate_invoice_numbers)
+        dc = []
+        for d in dx:
+            dc.append(d.invoice_number)      
+        
+        context = {'duplicates':dc}
         return self.template_invoice_preport, context
-        # 2. 构建重复组字典 { (invoice_number, type, delivery_type): [ids] }
         dup_groups = defaultdict(list)
         for item in InvoiceWarehouse.objects.all():
             key = (item.invoice_number_id, item.invoice_type, item.delivery_type)
