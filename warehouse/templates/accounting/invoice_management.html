@@ -70,6 +70,7 @@
                             <th class="th">建单日期</th>
                             <th class="th">账单日期</th>
                             <th class="th">应收金额</th>
+                            <th class="th">是否开出</th>
                             <th class="th">INVOICE</th>
                             <th class="th">STMT #</th>
                         </tr>
@@ -78,8 +79,9 @@
                                 <input type="checkbox" id="selectAll">
                             </th>
                             <th class="th"></th>
-                            <th class="th"><input type="text" id="containerSearchInput" placeholder="搜索柜号..." oninput="filterTable(this, 2, true)" size="16" style="font-size: 14px;"></th>
+                            <th class="th"><input type="text" id="containerSearchInput" placeholder="搜索柜号..." oninput="filterTable(this, 2, true)" size="16" style="font-size: 14px;width:80px;"></th>
                             <th class="th"><input type="text" id="containerSearchInput" placeholder="搜索INVOICE #..." oninput="filterTable(this, 3, true)" size="16" style="font-size: 14px;"></th>
+                            <th class="th"></th>
                             <th class="th"></th>
                             <th class="th"></th>
                             <th class="th"></th>
@@ -101,6 +103,7 @@
                                 <td class="td">{{ c.created_at|date:"Y-m-d" }}</td>
                                 <td class="td">{{ c.invoice_id.invoice_date|date:"Y-m-d" }}</td>
                                 <td class="td">${{ c.invoice_id.receivable_total_amount|floatformat:"2g" }}</td>
+                                <td class="td">${{ c.invoice_id.is_invoice_delivered|yesno:"是，否" }}</td>
                                 <td class="td">
                                     <a href="{{ c.invoice_id.invoice_link }}" style="margin-right: 10px;">
                                         <i class="bi bi-file-earmark-bar-graph-fill"></i>
