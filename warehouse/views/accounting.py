@@ -2209,7 +2209,7 @@ class Accounting(View):
         )
         warehouse = order.retrieval_id.retrieval_destination_area
         # 把pallet汇总
-        pallet = (
+        pallets = (
             Pallet.objects.prefetch_related(
                 "container_number",
                 "container_number__order",
@@ -2218,18 +2218,19 @@ class Accounting(View):
                 "invoice_delivery",
                 Prefetch("invoice_delivery__pallet_delivery", to_attr="delivered_pallets")
             )
-            .select_related("invoice_delivery")
             .filter(container_number__container_number=container_number)
             .exclude(delivery_method__contains="暂扣留仓")
             .annotate(
                 str_id=Cast("id", CharField()),
                 is_hold=Case(
                     When(delivery_method__contains="暂扣留仓", then=Value(True)),
-                    default=Value(False)
+                    default=Value(False),
+                    output_field=BooleanField()
                 ),
                 has_delivery=Case(
                     When(invoice_delivery__isnull=False, then=Value(True)),
                     default=Value(False),
+                    output_field=BooleanField()
                 )
             )
             .values(
@@ -2253,9 +2254,9 @@ class Accounting(View):
         )
         # 需要重新规范板数，就是total_n_pallet
         fee_details = self._get_fee_details(warehouse)
-        delivery_groups = self._process_deliveries(
+        delivery_data = self._process_delivery_records(
             invoice.invoice_number,
-            pallet,
+            pallets,
             order.container_number.container_type,
             fee_details,
             warehouse
@@ -2480,25 +2481,28 @@ class Accounting(View):
                 raise ValueError("没有权限")
 
     def _get_fee_details(self, warehouse: str) -> dict:
-        quotation = QuotationMaster.objects.get(active=True)
-        fee_types = {
-            'NJ': ['NJ_LOCAL', 'NJ_PUBLIC', 'NJ_COMBINA'],
-            'SAV': ['SAV_PUBLIC', 'SAV_COMBINA'],
-            'LA': ['LA_PUBLIC', 'LA_COMBINA']
-        }.get(warehouse, [])
-        
-        return {
-            fee.fee_type: fee
-            for fee in FeeDetail.objects.filter(
-                quotation_id=quotation.id,
-                fee_type__in=fee_types
-            )
-        }
+        try:
+            quotation = QuotationMaster.objects.get(active=True)
+            fee_types = {
+                'NJ': ['NJ_LOCAL', 'NJ_PUBLIC', 'NJ_COMBINA'],
+                'SAV': ['SAV_PUBLIC', 'SAV_COMBINA'],
+                'LA': ['LA_PUBLIC', 'LA_COMBINA']
+            }.get(warehouse, [])
+            
+            return {
+                fee.fee_type: fee
+                for fee in FeeDetail.objects.filter(
+                    quotation_id=quotation.id,
+                    fee_type__in=fee_types
+                )
+            }
+        except QuotationMaster.DoesNotExist:
+            raise ValueError("没有找到有效的报价单")
     
-    def _process_deliveries(self, invoice_number: str, pallet: Any, 
+    def _process_delivery_records(self, invoice_number: str, pallet: Any, 
                        container_type: str, fee_details: dict, warehouse: str) -> dict:
         invoice_deliveries = InvoiceDelivery.objects.prefetch_related(
-            "pallet_delivery"
+            Prefetch("pallet_delivery", queryset=Pallet.objects.all())
         ).filter(invoice_number__invoice_number=invoice_number)
         
         delivery_groups = {
