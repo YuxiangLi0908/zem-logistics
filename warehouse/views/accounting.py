@@ -3534,7 +3534,7 @@ class Accounting(View):
             for warehouse in invoice_warehouse:
                 for field in warehouse._meta.fields:
                     if isinstance(field, models.FloatField) and field.name != "amount":
-                        value = getattr(invoice_warehouse, field.name)
+                        value = getattr(warehouse, field.name)
                         if value not in [None, 0]:
                             description.append(field.verbose_name)
                             warehouse_code.append("")
