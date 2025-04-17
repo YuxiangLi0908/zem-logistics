@@ -3504,7 +3504,7 @@ class Accounting(View):
                 invoice_number__invoice_number=invoice.invoice_number,
                 invoice_type=invoice_type,
             )
-            invoice_warehouse = InvoiceWarehouse.objects.get(
+            invoice_warehouse = InvoiceWarehouse.objects.filter(
                 invoice_number__invoice_number=invoice.invoice_number
             )
             invoice_delivery = InvoiceDelivery.objects.filter(
@@ -3543,15 +3543,16 @@ class Accounting(View):
                         rate.append(invoice_warehouse.rate[field.name])
                         amount.append(value)
                         note.append("")
-            for k, v in invoice_warehouse.other_fees.items():
-                description.append(k)
-                amount.append(v)
-                warehouse_code.append("")
-                cbm.append("")
-                weight.append("")
-                qty.append(1)
-                rate.append(v)
-                note.append("")
+            for warehouse in invoice_warehouse:
+                for k, v in warehouse.other_fees.items():
+                    description.append(k)
+                    amount.append(v)
+                    warehouse_code.append("")
+                    cbm.append("")
+                    weight.append("")
+                    qty.append(1)
+                    rate.append(v)
+                    note.append("")
             for delivery in invoice_delivery:
                 description.append("派送费")
                 warehouse_code.append(delivery.destination.upper())
