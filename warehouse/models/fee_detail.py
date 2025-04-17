@@ -15,6 +15,7 @@ class FeeDetail(models.Model):
     fee_type = models.CharField(max_length=255, null=True)
     warehouse = models.CharField(max_length=20, null=True, blank=True)
     details = JSONField(default=dict)
+    niche_warehouse = models.CharField(max_length=2000, null=True)
 
     def __str__(self) -> str:
         return f"{self.fee_type} ({self.quotation_id})"
