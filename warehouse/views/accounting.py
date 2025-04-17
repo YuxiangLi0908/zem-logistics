@@ -3531,18 +3531,19 @@ class Accounting(View):
                 qty.append(1)
                 rate.append(v)
                 note.append("")
-            for field in invoice_warehouse._meta.fields:
-                if isinstance(field, models.FloatField) and field.name != "amount":
-                    value = getattr(invoice_warehouse, field.name)
-                    if value not in [None, 0]:
-                        description.append(field.verbose_name)
-                        warehouse_code.append("")
-                        cbm.append("")
-                        weight.append("")
-                        qty.append(invoice_warehouse.qty[field.name])
-                        rate.append(invoice_warehouse.rate[field.name])
-                        amount.append(value)
-                        note.append("")
+            for warehouse in invoice_warehouse:
+                for field in warehouse._meta.fields:
+                    if isinstance(field, models.FloatField) and field.name != "amount":
+                        value = getattr(invoice_warehouse, field.name)
+                        if value not in [None, 0]:
+                            description.append(field.verbose_name)
+                            warehouse_code.append("")
+                            cbm.append("")
+                            weight.append("")
+                            qty.append(invoice_warehouse.qty[field.name])
+                            rate.append(invoice_warehouse.rate[field.name])
+                            amount.append(value)
+                            note.append("")
             for warehouse in invoice_warehouse:
                 for k, v in warehouse.other_fees.items():
                     description.append(k)
