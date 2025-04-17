@@ -3540,8 +3540,8 @@ class Accounting(View):
                             warehouse_code.append("")
                             cbm.append("")
                             weight.append("")
-                            qty.append(invoice_warehouse.qty[field.name])
-                            rate.append(invoice_warehouse.rate[field.name])
+                            qty.append(warehouse.qty[field.name])
+                            rate.append(warehouse.rate[field.name])
                             amount.append(value)
                             note.append("")
             for warehouse in invoice_warehouse:
