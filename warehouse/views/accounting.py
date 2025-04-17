@@ -28,6 +28,8 @@ from django.db.models import (
     Sum,
     Value,
     When,
+    Prefetch,
+    BooleanField
 )
 from django.db.models.functions import Cast, Coalesce
 from django.http import HttpRequest, HttpResponse, HttpResponseForbidden
@@ -1188,7 +1190,9 @@ class Accounting(View):
                         output_field=IntegerField(),
                     )  
                 ).order_by('is_priority')
-
+        order = self.process_orders_display_status(
+            order, invoice_type
+        )
         # 查找历史操作过的
         base_condition = ~models.Q(
             **{f"{invoice_type}_status__stage__in": ["unstarted", "preport"]}
@@ -1732,6 +1736,7 @@ class Accounting(View):
         zipcode = [code for s, code in zip(selections, zipcode) if s == "on"]
         total_pallet = request.POST.getlist("total_pallet")
         total_pallet = [n for s, n in zip(selections, total_pallet) if s == "on"]
+        
         # 将前端的每一条记录存为invoice_delivery的一条
         for i in range(len((plt_ids))):
             ids = plt_ids[i].split(",")
@@ -1754,6 +1759,21 @@ class Accounting(View):
                 }
             )
             invoice_content.save()
+            #找单价
+            order = Order.objects.select_related("retrieval_id", "container_number").get(
+                container_number__container_number=container_number
+            )
+            container_type = order.container_number.container_type
+            warehouse = order.retrieval_id.retrieval_destination_area
+            fee_details = self._get_fee_details(warehouse)
+            self._calculate_and_set_delivery_cost(
+                invoice_content,
+                container_type,
+                fee_details,
+                warehouse
+            )
+            invoice_content.save()
+
             updated_pallets = []
             for plt in pallet:
                 try:
@@ -1946,6 +1966,7 @@ class Accounting(View):
         else:
             # 记录其中一种派送方式到invoice_delivery表
             plt_ids = request.POST.getlist("plt_ids")
+            print('plt_ids',plt_ids)
             new_plt_ids = [ast.literal_eval(sub_plt_id) for sub_plt_id in plt_ids]
             cost
             expense = request.POST.getlist("expense")
@@ -2208,21 +2229,28 @@ class Accounting(View):
         )
         warehouse = order.retrieval_id.retrieval_destination_area
         # 把pallet汇总
-        pallet = (
+        pallets = (
             Pallet.objects.prefetch_related(
                 "container_number",
                 "container_number__order",
                 "container_number__order__warehouse",
-                "shipment_batch_number",
-                "container_number__order__offload_id",
                 "container_number__order__customer_name",
-                "container_number__order__retrieval_id",
+                "invoice_delivery",
+                Prefetch("invoice_delivery__pallet_delivery", to_attr="delivered_pallets")
             )
-            .select_related("invoice_delivery")
             .filter(container_number__container_number=container_number)
-            .exclude(delivery_method__contains="暂扣留仓")
             .annotate(
                 str_id=Cast("id", CharField()),
+                is_hold=Case(
+                    When(delivery_method__contains="暂扣留仓", then=Value(True)),
+                    default=Value(False),
+                    output_field=BooleanField()
+                ),
+                has_delivery=Case(
+                    When(invoice_delivery__isnull=False, then=Value(True)),
+                    default=Value(False),
+                    output_field=BooleanField()
+                )
             )
             .values(
                 "container_number__container_number",
@@ -2232,6 +2260,8 @@ class Accounting(View):
                 "delivery_method",
                 "invoice_delivery__type",
                 "delivery_type",
+                "is_hold",
+                "has_delivery"
             )
             .annotate(
                 ids=StringAgg(
@@ -2243,174 +2273,20 @@ class Accounting(View):
             )
             .order_by(F("invoice_delivery__type").asc(nulls_first=True))
         )
+        has_delivery = True
+        for plt in pallets:
+            if plt["has_delivery"] == False:
+                has_delivery = False
+                break
         # 需要重新规范板数，就是total_n_pallet
-        amazon = []
-        local = []
-        combine = []
-        walmart = []
-        selfdelivery = []
-        upsdelivery = []
-        quotation = QuotationMaster.objects.get(active=True)
-        if warehouse == "NJ":
-            LOCAL_DELIVERY = FeeDetail.objects.get(
-                quotation_id=quotation.id, fee_type="NJ_LOCAL"
-            )
-            NJ_PUBLIC = FeeDetail.objects.get(
-                quotation_id=quotation.id, fee_type="NJ_PUBLIC"
-            )
-            NJ_COMBINA = FeeDetail.objects.get(
-                quotation_id=quotation.id, fee_type="NJ_COMBINA"
-            )
-
-            selected_amazon = NJ_PUBLIC.details["NJ_AMAZON"]
-            selected_local = LOCAL_DELIVERY.details
-            selected_combina = NJ_COMBINA.details
-            selected_walmart = NJ_PUBLIC.details["NJ_WALMART"]
-        elif warehouse == "SAV":
-            SAV_PUBLIC = FeeDetail.objects.get(
-                quotation_id=quotation.id, fee_type="SAV_PUBLIC"
-            )
-            SAV_COMBINA = FeeDetail.objects.get(
-                quotation_id=quotation.id, fee_type="SAV_COMBINA"
-            )
-
-            selected_amazon = SAV_PUBLIC.details["SAV_AMAZON"]
-            selected_combina = SAV_COMBINA.details
-            selected_local = None
-            selected_walmart = SAV_PUBLIC.details["SAV_WALMART"]
-        elif warehouse == "LA":
-            LA_PUBLIC = FeeDetail.objects.get(
-                quotation_id=quotation.id, fee_type="LA_PUBLIC"
-            )
-            LA_COMBINA = FeeDetail.objects.get(
-                quotation_id=quotation.id, fee_type="LA_COMBINA"
-            )
-
-            selected_amazon = LA_PUBLIC.details
-            selected_combina = LA_COMBINA.details
-            selected_local = None
-            selected_walmart = None
-        # 先查询是不是有Invoice_delivery表了
-        invoice_delivery = InvoiceDelivery.objects.prefetch_related(
-            "pallet_delivery"
-        ).filter(invoice_number__invoice_number=invoice.invoice_number)
-        if invoice_delivery:
-            for delivery in invoice_delivery:
-                destination = (
-                    delivery.destination.split("-")[1]
-                    if "-" in delivery.destination
-                    else delivery.destination
-                )
-                plt_ids = []
-                pallets = delivery.pallet_delivery.all()
-                for plt in pallets:
-                    plt_ids.append(plt.id)
-                setattr(delivery, "plt_ids", plt_ids)
-                # 下面都是根据类型去找单价的，如果有单价就不找了
-                cost = 0
-                if delivery.type == "amazon":
-                    for k, v in selected_amazon.items():
-                        if destination in v:
-                            cost = k
-                    amazon.append(delivery)
-                elif delivery.type == "local":
-                    if selected_local:  # NJ的
-                        for k, v in selected_local.items():
-                            if delivery.zipcode in v["zipcodes"]:
-                                n_pallet = delivery.total_pallet  # 板数
-                                costs = v["prices"]
-                                if n_pallet <= 5:
-                                    cost = int(costs[0])
-                                elif n_pallet >= 5:
-                                    cost = int(costs[1])
-                                break
-                    local.append(delivery)
-                elif delivery.type == "combine":
-                    container_type = order.container_number.container_type
-                    for k, v in selected_combina.items():
-                        if destination in v["location"]:
-                            cost = v["prices"]
-                            if "45HQ/GP" in container_type:
-                                cost = int(cost[1])
-                                # if not delivery.total_cost:  #一口价，组合柜还没研究明白，暂时放在这
-                                #     setattr(delivery, "total_cost", int(cost[1]))
-                                #     setattr(delivery, "total_cost", int(cost[1]))
-                            elif "40HQ/GP" in container_type:
-                                cost = int(cost[0])
-                                # if not delivery.total_cost:
-                                #     setattr(delivery, "total_cost", int(cost[0]))
-                    combine.append(delivery)
-                elif delivery.type == "walmart":
-                    for k, v in selected_walmart.items():
-                        if destination in v:
-                            cost = k
-                    walmart.append(delivery)
-                elif delivery.type == "selfdelivery":
-                    cost = 0
-                    selfdelivery.append(delivery)
-                elif delivery.type == "upsdelivery":
-                    cost = 0
-                    upsdelivery.append(delivery)
-                if delivery.cost is None:
-                    delivery.cost = cost
-                    delivery.save()
-        else:
-            # 该柜子没有建表的情况下，系统再根据报表单汇总派送方式
-            for plt in pallet:
-                destination = (
-                    plt["destination"].split("-")[1]
-                    if "-" in plt["destination"]
-                    else plt["destination"]
-                )
-                if plt["invoice_delivery__type"] == "amazon":
-                    for k, v in selected_amazon.items():
-                        if destination in v:
-                            plt["cost"] = k
-                            if plt["total_cost"] is None:
-                                plt["total_cost"] = int(k) * int(plt["total_n_pallet"])
-                            break
-                    amazon.append(plt)
-                elif plt["invoice_delivery__type"] == "local":
-                    if selected_local:  # NJ的
-                        for k, v in selected_local.items():
-                            if plt["zipcode"] in v["zipcodes"]:
-                                n_pallet = int(plt["total_n_pallet"])
-                                costs = v["prices"]
-                                if n_pallet <= 5:
-                                    cost = int(costs[0])
-                                elif n_pallet >= 5:
-                                    cost = int(costs[1])
-                                plt["cost"] = cost
-                                if plt["total_cost"] is None:
-                                    plt["total_cost"] = max(
-                                        cost * n_pallet, int(costs[2])
-                                    )
-                                break
-                    local.append(plt)
-                elif plt["invoice_delivery__type"] == "combine":
-                    container_type = order.container_number.container_type
-                    for k, v in selected_combina.items():
-                        if destination in v["location"]:
-                            cost = v["prices"]
-                            if "45HQ/GP" in container_type:
-                                plt["cost"] = int(cost[1])
-                                if plt["total_cost"] is None:
-                                    plt["total_cost"] = int(cost[1])
-                            elif "40HQ/GP" in container_type:
-                                plt["cost"] = int(cost[0])
-                                if plt["total_cost"] is None:
-                                    plt["total_cost"] = int(cost[0])
-                    combine.append(plt)
-                elif plt["invoice_delivery__type"] == "walmart":
-                    for k, v in selected_walmart.items():
-                        if destination in v:
-                            plt["cost"] = k
-                            if plt["total_cost"]  is None:
-                                plt["total_cost"] = int(k) * int(plt["total_n_pallet"])
-                            break
-                    walmart.append(plt)
-                elif plt["invoice_delivery__type"] == "walmart":
-                    upsdelivery.append(plt)
+        fee_details = self._get_fee_details(warehouse)
+        delivery_groups = self._process_delivery_records(
+            invoice.invoice_number,
+            pallets,
+            order.container_number.container_type,
+            fee_details,
+            warehouse
+        )
 
         groups = [group.name for group in request.user.groups.all()]
 
@@ -2418,50 +2294,148 @@ class Accounting(View):
         redirect_step = (step == "redirect") or (
             request.POST.get("redirect_step") == "True"
         )
-        warehouse = request.GET.get("warehouse")
         context = {
-            "warehouse": warehouse,
+            "warehouse": request.GET.get("warehouse"),
             "invoice": invoice,
             "container_number": container_number,
-            "pallet": pallet,
-            "amazon": amazon,
-            "local": local,
-            "combine": combine,
-            "walmart": walmart,
-            "selfdelivery": selfdelivery,
-            "upsdelivery":upsdelivery,
-            "invoice_delivery": invoice_delivery,
+            "pallet": pallets,
+            "amazon": delivery_groups["amazon"],
+            "local": delivery_groups["local"],
+            "combine": delivery_groups["combine"],
+            "walmart": delivery_groups["walmart"],
+            "selfdelivery": delivery_groups["selfdelivery"],
+            "upsdelivery":delivery_groups["upsdelivery"],
             "redirect_step": redirect_step,
             "start_date": request.GET.get("start_date") or None,
             "end_date": request.GET.get("end_date") or None,
             "start_date_confirm": request.POST.get("start_date_confirm") or None,
             "end_date_confirm": request.POST.get("end_date_confirm") or None,
             "invoice_type": invoice_type,
+            "has_delivery":has_delivery
         }
-        display_mix = False
-        if "mix_account" in groups:
-            display_mix = True
 
-        if "NJ_mix_account" in groups:  #这个权限只看私仓
-            pallet = pallet.filter(delivery_type="other")
+        if "NJ_mix_account" in groups or ("warehouse_other" in groups and "warehouse_public" not in groups):  #只看私仓
+            pallet = pallets.filter(delivery_type="other")
             context["delivery_type"] = "other"
             context["pallet"] = pallet
             return self.template_invoice_delievery_other_edit, context
         else:
-            if display_mix:  # 如果公仓私仓都能看，就进总页面
+            if "mix_account" in groups:  # 如果公仓私仓都能看，就进总页面
+                context["delivery_type"] = "mixed"
                 return self.template_invoice_delievery_edit, context
             elif "warehouse_public" in groups and "warehouse_other" not in groups:
-                pallet = pallet.filter(delivery_type="public")
+                pallet = pallets.filter(delivery_type="public")
                 context["pallet"] = pallet
                 context["delivery_type"] = "public"
                 return self.template_invoice_delievery_public_edit, context
-            elif "warehouse_other" in groups and "warehouse_public" not in groups:
-                pallet = pallet.filter(delivery_type="other")
-                context["delivery_type"] = "other"
-                context["pallet"] = pallet
-                return self.template_invoice_delievery_other_edit, context
             else:
                 raise ValueError("没有权限")
+
+    def _get_fee_details(self, warehouse: str) -> dict:
+        try:
+            quotation = QuotationMaster.objects.get(active=True)
+            fee_types = {
+                'NJ': ['NJ_LOCAL', 'NJ_PUBLIC', 'NJ_COMBINA'],
+                'SAV': ['SAV_PUBLIC', 'SAV_COMBINA'],
+                'LA': ['LA_PUBLIC', 'LA_COMBINA']
+            }.get(warehouse, [])
+            
+            return {
+                fee.fee_type: fee
+                for fee in FeeDetail.objects.filter(
+                    quotation_id=quotation.id,
+                    fee_type__in=fee_types
+                )
+            }
+        except QuotationMaster.DoesNotExist:
+            raise ValueError("没有找到有效的报价单")
+    
+    def _process_delivery_records(self, invoice_number: str, pallets: Any, 
+                       container_type: str, fee_details: dict, warehouse: str) -> dict:
+        invoice_deliveries = InvoiceDelivery.objects.prefetch_related(
+            Prefetch("pallet_delivery", queryset=Pallet.objects.all())
+        ).filter(invoice_number__invoice_number=invoice_number)
+        
+        delivery_groups = {
+            "amazon": [],
+            "local": [],
+            "combine": [],
+            "walmart": [],
+            "selfdelivery": [],
+            "upsdelivery": [],
+            "invoice_delivery": invoice_deliveries
+        }
+        #没有单价的找单价，再根据type汇总派送方式
+        for delivery in invoice_deliveries:
+            pallets_in_delivery = delivery.pallet_delivery.all()
+            pallet_ids = [str(p.id) for p in pallets_in_delivery] 
+            setattr(delivery, "plt_ids", pallet_ids)
+            if delivery.cost is None:
+                self._calculate_and_set_delivery_cost(
+                    delivery,
+                    container_type,
+                    fee_details,
+                    warehouse
+                )
+            if delivery.type in delivery_groups:
+                delivery_groups[delivery.type].append(delivery)
+
+        return delivery_groups
+    
+    #根据报价表找单价
+    def _calculate_and_set_delivery_cost(
+        self,
+        delivery: InvoiceDelivery,
+        container_type: str,
+        fee_details: dict,
+        warehouse: str
+    ) -> None:
+        destination = (
+            delivery.destination.split("-")[1]
+            if "-" in delivery.destination
+            else delivery.destination
+        )
+        cost = 0
+        #根据报价表找单价，ups和自发没有报价，所以不用找
+        if delivery.type == "amazon":
+            amazon_data = fee_details.get(f"{warehouse}_PUBLIC").details.get(f"{warehouse}_AMAZON")
+            for k, v in amazon_data.items():
+                if destination in v:
+                    cost = k
+        elif delivery.type == "local" and warehouse == "NJ":
+            local_data = fee_details.get("NJ_LOCAL").details
+            for k, v in local_data.items():
+                if delivery.zipcode in v["zipcodes"]:
+                    n_pallet = delivery.total_pallet  # 板数
+                    costs = v["prices"]
+                    if n_pallet <= 5:
+                        cost = int(costs[0])
+                    elif n_pallet >= 5:
+                        cost = int(costs[1])
+                    break
+        elif delivery.type == "combine":
+            combine_data = fee_details.get(f"{warehouse}_COMBINA").details
+            for k, v in combine_data.items():
+                if destination in v["location"]:
+                    cost = v["prices"]
+                    if "45HQ/GP" in container_type:
+                        cost = int(cost[1])
+                        # if not delivery.total_cost:  #一口价，组合柜还没研究明白，暂时放在这
+                        #     setattr(delivery, "total_cost", int(cost[1]))
+                        #     setattr(delivery, "total_cost", int(cost[1]))
+                    elif "40HQ/GP" in container_type:
+                        cost = int(cost[0])
+                        # if not delivery.total_cost:
+                        #     setattr(delivery, "total_cost", int(cost[0]))
+        elif delivery.type == "walmart":
+            walmart_data = fee_details.get(f"{warehouse}_PUBLIC").details.get(f"{warehouse}_WALMART")
+            for k, v in walmart_data.items():
+                if destination in v:
+                    cost = k      
+        if cost is not None:
+            delivery.cost = cost
+            delivery.save()
+
 
     def handle_container_invoice_direct_get(
         self, request: HttpRequest

@@ -2,6 +2,7 @@
 
 {% block content %}
 <div><h4><b>派送账单编辑——总计 $<span class="total_amount">0</span></b></h4></div>
+{% if has_delivery %}
 <div  style="display: inline-block; width: 100%; margin: 0; padding: 0; max-width: 100%;">
     <p style="text-align:center;"><b>{{ invoice }}</b></p>
     <form method="post" action="">
@@ -20,6 +21,7 @@
         <button id="editButton" type="submit" class="btn btn-primary" onclick="AmountForm()" style="background-color:green; font-size: 13px; float:right; padding:10px 20px; margin-right:80px;">派送账单确认</button>  
     </form>
 <div>
+{% endif %}
 <div>   
     <form method="post" action="">
         {% csrf_token %}
@@ -45,7 +47,7 @@
                             <td class="td"><input type="text" name="cost" value="{{ plt.cost }}"></td>
                             <td class="td"><input type="text" name="total_pallet" value="{{ plt.total_pallet }}"></td>
                             <td class="td">
-                                <input type="number" id="amazon_cost" name="total_cost" value="{{ plt.total_cost }}" oninput="updateAmazon(this)" readonly>
+                                <input type="number" id="amazon_cost" step="0.01" name="total_cost" value="{{ plt.total_cost }}" oninput="updateAmazon(this)" readonly>
                                 <input type="hidden" name="plt_ids" value="{{ plt.plt_ids }}">
                             </td>
                             <td class="td"><input type="number" name="po_activation" value="{{ plt.po_activation }}"></td>
@@ -104,7 +106,7 @@
                             <td class="td"><input type="text" name="cost" value="{{ plt.cost }}"></td>
                             <td class="td"><input type="text" name="total_pallet" value="{{ plt.total_pallet }}"></td>
                             <td class="td">
-                                <input type="number" id="walmart_cost" name="total_cost" value="{{ plt.total_cost }}" oninput="updateWalmart(this)" readonly>
+                                <input type="number" id="walmart_cost" step="0.01" name="total_cost" value="{{ plt.total_cost }}" oninput="updateWalmart(this)" readonly>
                                 <input type="hidden" name="plt_ids" value="{{ plt.plt_ids }}">
                             </td>
                             <td class="td"><input type="number" name="po_activation" value="{{ plt.po_activation }}"></td>
@@ -165,7 +167,7 @@
                                 <td class="td"><input type="text" name="cost" value="{{ plt.cost }}"></td>
                                 <td class="td"><input type="text" name="total_pallet" value="{{ plt.total_pallet }}"></td>
                                 <td class="td">
-                                    <input type="number" id="local_cost" name="total_cost" value="{{ plt.total_cost }}" oninput="updateLocal(this)">                                    
+                                    <input type="number" id="local_cost" step="0.01" name="total_cost" value="{{ plt.total_cost }}" oninput="updateLocal(this)">                                    
                                     <input type="hidden" name="plt_ids" value="{{ plt.plt_ids }}">
                                 </td>
                                 <td class="td"><input type="number" name="po_activation" value="{{ plt.po_activation }}"></td>
@@ -226,7 +228,7 @@
                             <td class="td"><input type="text" name="cost" value="{{ plt.cost }}"></td>
                             <td class="td"><input type="text" name="total_pallet" value="{{ plt.total_pallet }}"></td>
                             <td class="td">
-                                <input type="number" id="combine_cost" name="total_cost" value="{{ plt.total_cost }}" oninput="updateCombine(this)">                      
+                                <input type="number" id="combine_cost" step="0.01" name="total_cost" value="{{ plt.total_cost }}" oninput="updateCombine(this)">                      
                                 <input type="hidden" name="plt_ids" value="{{ plt.plt_ids }}">
                             </td>
                             <td class="td"><input type="number" name="po_activation" value="{{ plt.po_activation }}"></td>
@@ -285,7 +287,7 @@
                             <td class="td"><input type="text" name="cost" value="{{ plt.cost }}"></td>
                             <td class="td"><input type="text" name="total_pallet" value="{{ plt.total_pallet }}"></td>
                             <td class="td">    
-                                <input type="number" id="selfdelivery_cost" name="total_cost" value="{{ plt.total_cost }}" oninput="updateSelf(this)">
+                                <input type="number" id="selfdelivery_cost" step="0.01" name="total_cost" value="{{ plt.total_cost }}" oninput="updateSelf(this)">
                                 <input type="hidden" name="plt_ids" value="{{ plt.plt_ids }}">
                             </td>
                             <td class="td"><input type="number" name="po_activation" value="{{ plt.po_activation }}"></td>
@@ -350,8 +352,9 @@
                     </tr>
                 </thead>
                 <tbody>
-                    {% for plt in pallet %}
+                    {% for plt in pallet %} 
                     <tr draggable="true" id="pallet-{{ plt.id }}" style="{% if not plt.invoice_delivery__type %}background-color: white; color: white;{% endif %}">
+                        {% if not plt.is_hold %}
                         <td class="td" style="min-width: 40px; text-align: center;">
                             <input type='checkbox' name='is_type_added' onclick="toggleRowBackground(this)" {% if plt.delivery %}checked{% endif %}>
                             <input type="hidden" name="is_type_added", value='off'>
@@ -359,6 +362,11 @@
                             <input type="hidden" name="total_pallet" value="{{ plt.total_pallet }}">
                             <input type="hidden" name="delivery_type" value="{{ plt.delivery_type }}">
                         </td>
+                        {% else %}
+                        <td class="td" style="min-width: 40px; text-align: center;">
+                        </td>
+                        {% endif %}
+                        
                         <td class="td"><input type="text" name="total_n_pallet" value="{{ plt.total_pallet }}" disabled></td>
                         <td class="td"><input type="text" name="delivery_type" value="{{ plt.invoice_delivery__type|default_if_none:'' }}" disabled></td>
                         <td class="td"><input type="text" name="destination" value="{{ plt.destination }}"></td>

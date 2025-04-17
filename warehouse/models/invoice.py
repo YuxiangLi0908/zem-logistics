@@ -47,6 +47,7 @@ class Invoice(models.Model):
         InvoiceStatement, null=True, blank=True, on_delete=models.SET_NULL
     )
     received_amount = models.FloatField(null=True, blank=True)
+    is_invoice_delivered = models.BooleanField(default=False)
     history = HistoricalRecords()
 
     def __str__(self) -> str:
