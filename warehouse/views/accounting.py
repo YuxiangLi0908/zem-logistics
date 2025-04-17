@@ -1119,14 +1119,15 @@ class Accounting(View):
 
         if display_mix:
             delivery_type_filter = models.Q()
-        elif "warehouse_public" in groups and "warehouse_other" not in groups:
-            delivery_type_filter = models.Q(
-                container_number__delivery_type__in=["public", "mixed"]
-            )
         elif ("warehouse_other" in groups and "warehouse_public" not in groups) or ("NJ_mix_account" in groups):
             delivery_type_filter = models.Q(
                 container_number__delivery_type__in=["other", "mixed"]
             )
+        elif "warehouse_public" in groups and "warehouse_other" not in groups:
+            delivery_type_filter = models.Q(
+                container_number__delivery_type__in=["public", "mixed"]
+            )
+        
 
         # 基础查询
         base_query = Order.objects.select_related(
