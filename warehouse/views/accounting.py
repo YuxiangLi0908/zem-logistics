@@ -1123,7 +1123,7 @@ class Accounting(View):
             delivery_type_filter = models.Q(
                 container_number__delivery_type__in=["public", "mixed"]
             )
-        elif "warehouse_other" in groups and "warehouse_public" not in groups:
+        elif ("warehouse_other" in groups and "warehouse_public" not in groups) or ("NJ_mix_account" in groups):
             delivery_type_filter = models.Q(
                 container_number__delivery_type__in=["other", "mixed"]
             )
