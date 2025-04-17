@@ -1966,7 +1966,6 @@ class Accounting(View):
         else:
             # 记录其中一种派送方式到invoice_delivery表
             plt_ids = request.POST.getlist("plt_ids")
-            print('plt_ids',plt_ids)
             new_plt_ids = [ast.literal_eval(sub_plt_id) for sub_plt_id in plt_ids]
             cost
             expense = request.POST.getlist("expense")
