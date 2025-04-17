@@ -2499,7 +2499,7 @@ class Accounting(View):
         except QuotationMaster.DoesNotExist:
             raise ValueError("没有找到有效的报价单")
     
-    def _process_delivery_records(self, invoice_number: str, pallet: Any, 
+    def _process_delivery_records(self, invoice_number: str, pallets: Any, 
                        container_type: str, fee_details: dict, warehouse: str) -> dict:
         invoice_deliveries = InvoiceDelivery.objects.prefetch_related(
             Prefetch("pallet_delivery", queryset=Pallet.objects.all())
@@ -2516,25 +2516,24 @@ class Accounting(View):
         }
         processed_pallet_ids = set()
         for delivery in invoice_deliveries:
-            pallets_in_delivery = list(delivery.pallet_delivery.all())
-            processed_pallet_ids.update(p.id for p in pallets_in_delivery)
-            self._process_existing_delivery(
+            pallet_ids = [p.id for p in delivery.pallet_delivery.all()]
+            setattr(delivery, "pallet_ids", pallet_ids)
+            processed_pallet_ids.update(pallet_ids)
+            if delivery.cost is None:
+                self._calculate_and_set_delivery_cost(
                     delivery,
-                    delivery_groups,
-                    fee_details,
                     container_type,
+                    fee_details,
                     warehouse
                 )
+            if delivery.type in delivery_groups:
+                delivery_groups[delivery.type].append(delivery)
         #把没有type的板子单独处理
-        for plt in pallet:
-            if plt['id'] not in processed_pallet_ids:
-                self._process_new_delivery(
-                    plt,
-                    delivery_groups,
-                    fee_details,
-                    container_type,
-                    warehouse
-                )
+        unprocessed_pallets = [p for p in pallets if p['id'] not in processed_pallet_ids]
+        for pallet in unprocessed_pallets:
+            if pallet['invoice_delivery__type']:
+                delivery_groups[pallet['invoice_delivery__type']].append(pallet)
+        
         return delivery_groups
     
     def _process_existing_delivery(self, delivery: InvoiceDelivery, 
