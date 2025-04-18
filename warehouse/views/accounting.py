@@ -2475,7 +2475,7 @@ class Accounting(View):
             for k, v in amazon_data.items():
                 for k1,v1 in v.items():
                     if destination in v1:
-                        cost = k
+                        cost = k1
                         break
         elif delivery.type == "local" and warehouse == "NJ":
             local_data = fee_details.get("NJ_LOCAL").details
@@ -2507,7 +2507,7 @@ class Accounting(View):
             for k, v in walmart_data.items():
                 for k1,v1 in v.items():
                     if destination in v:
-                        cost = k
+                        cost = k1
         if cost is not None:
             delivery.cost = cost
             delivery.save()
