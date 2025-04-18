@@ -282,6 +282,8 @@ class Accounting(View):
             return render(request, template, context)
         elif step == "invoice_order_batch_export":
             return self.handle_invoice_order_batch_export(request)
+        elif step == "invoice_order_delivered":
+            return self.handle_invoice_order_batch_delivered(request)
         elif step == "migrate_payable_receivable_amount":
             template, context = self.migrate_payable_to_receivable()
             return render(request, template, context)
@@ -323,45 +325,60 @@ class Accounting(View):
             return "pending", "pending"  # 默认返回原状态
 
     def migrate_status(self) -> tuple[Any, Any]:
-        #检查仓库账单，重复的情况
-        duplicate_groups = InvoiceWarehouse.objects.values(
-            'invoice_number_id',  # 使用外键ID避免对象序列化问题
-            'invoice_type',
-            'delivery_type'
-        ).annotate(
-            count=Count('id')
-        ).filter(count__gt=1)
-        
-        # 2. 提取重复的invoice_number
-        duplicate_invoice_numbers = [
-            item['invoice_number_id'] 
-            for item in duplicate_groups
-        ]
-        
-        dx = Invoice.objects.filter(id__in=duplicate_invoice_numbers)
-        dc = []
-        for d in dx:
-            dc.append(d.invoice_number)      
-        
-        context = {'duplicates':dc}
+        # 提取单价信息
+        excluded_fields = {
+            "id",
+            "invoice_number",
+            "invoice_type",
+            "amount",
+            "qty",
+            "rate",
+            "other_fees",
+            "surcharges",
+            "surcharge_notes",
+            "history",
+        }
+        quotation = QuotationMaster.objects.get(active=True)
+        PICKUP_FEE = FeeDetail.objects.get(
+            quotation_id=quotation.id, fee_type="preport"
+        )
+        # 提拆、打托缠膜费用
+        #match = re.match(r"\d+", container_type)
+
+        FS_constrain = {  
+            key: float(re.search(r"\d+(\.\d+)?", value).group())
+            for key, value in PICKUP_FEE.details.items()
+            if not isinstance(value, dict)
+            and "/" in str(value)
+            and re.search(r"\d+(\.\d+)?", value)
+        }
+        for item in InvoicePreport.objects.all():   
+            invoice = item.invoice_number
+            order = Order.objects.get(
+                container_number=invoice.container_number,
+            )
+            if order:
+                warehouse = order.warehouse
+                #container_type = invoice.container_number.container_type if invoice.container_number else None
+                order_type = order.order_type
+            if order_type != '直送':
+                if not item.qty or not item.rate:             
+                    qty_data, rate_data = self._extract_unit_price(
+                        model=InvoicePreport,
+                        unit_prices=FS_constrain,
+                        pickup_fee=item.pickup,
+                        excluded_fields=excluded_fields,
+                    )
+                    item.qty = qty_data
+                    item.rate = rate_data
+                    item.save()
+
+        for st in InvoiceStatus.objects.all():
+            if st.stage_public == "delivery_completed" and st.stage_other == "delivery_completed" and st.stage =="preport":
+                st.stage = "tobeconfirmed"
+                st.save()
+        context = {}
         return self.template_invoice_preport, context
-        dup_groups = defaultdict(list)
-        for item in InvoiceWarehouse.objects.all():
-            key = (item.invoice_number_id, item.invoice_type, item.delivery_type)
-            dup_groups[key].append(item.id)
-        
-        # 3. 删除每组中非最小ID的记录
-        deleted_count = 0
-        for key, ids in dup_groups.items():
-            if len(ids) > 1:
-                # 保留最小的ID，删除其他
-                keep_id = min(ids)
-                InvoiceWarehouse.objects.filter(
-                    invoice_number_id=key[0],
-                    invoice_type=key[1],
-                    delivery_type=key[2]
-                ).exclude(id=keep_id).delete()
-                deleted_count += len(ids) - 1
 
         deliverys = InvoiceDelivery.objects.all()
         for dl in deliverys:
@@ -2590,7 +2607,7 @@ class Accounting(View):
                 for key, value in FS_constrain.items()
             }
         )
-        if not invoice_preports.qty and invoice_preports.rate:
+        if not invoice_preports.qty and not invoice_preports.rate:
             # 提取单价信息
             excluded_fields = {
                 "id",
@@ -2656,7 +2673,6 @@ class Accounting(View):
             rate_data[field.name] = float(price) if price not in [None, "N/A"] else 1.0
             qty_data[field.name] = 0
         if pickup_fee:
-            # rate_data['pickup_fee']=pickup_fee
             rate_data["pickup"] = pickup_fee
             qty_data["pickup"] = 1
         return qty_data, rate_data
@@ -3232,6 +3248,9 @@ class Accounting(View):
         workbook.save(response)
         return response
 
+    # def handle_invoice_order_batch_delivered(self, request: HttpRequest) -> HttpResponse:
+    #     return self.
+    
     def handle_invoice_order_batch_export(self, request: HttpRequest) -> HttpResponse:
         selected_orders = json.loads(request.POST.get("selectedOrders", "[]"))
         selected_orders = list(set(selected_orders))
