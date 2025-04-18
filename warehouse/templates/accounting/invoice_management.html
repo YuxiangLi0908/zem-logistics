@@ -103,7 +103,12 @@
                                 <td class="td">{{ c.created_at|date:"Y-m-d" }}</td>
                                 <td class="td">{{ c.invoice_id.invoice_date|date:"Y-m-d" }}</td>
                                 <td class="td">${{ c.invoice_id.receivable_total_amount|floatformat:"2g" }}</td>
-                                <td class="td">{{ c.invoice_id.is_invoice_delivered|yesno:"是，否" }}</td>
+                                <td class="td">
+                                    {% if c.invoice_id.is_invoice_delivered %}
+                                        是
+                                    {% else %}
+                                        否
+                                </td>
                                 <td class="td">
                                     <a href="{{ c.invoice_id.invoice_link }}" style="margin-right: 10px;">
                                         <i class="bi bi-file-earmark-bar-graph-fill"></i>
