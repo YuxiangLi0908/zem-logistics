@@ -1099,7 +1099,7 @@ class Accounting(View):
                 "invoice_id__invoice_link",
                 "invoice_id__statement_id__invoice_statement_id",
                 "invoice_id__statement_id__statement_link",
-                "is_invoice_delivered"
+                "invoice_id__is_invoice_delivered",
             )
             .filter(criteria, **{f"{invoice_type}_status__stage": "confirmed"})
         )
