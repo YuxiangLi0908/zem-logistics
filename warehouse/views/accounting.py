@@ -2471,10 +2471,12 @@ class Accounting(View):
         cost = 0
         #根据报价表找单价，ups和自发没有报价，所以不用找
         if delivery.type == "amazon":
-            amazon_data = fee_details.get(f"{warehouse}_PUBLIC").details.get(f"{warehouse}_AMAZON")
+            amazon_data = fee_details.get(f"{warehouse}_PUBLIC").details
             for k, v in amazon_data.items():
-                if destination in v:
-                    cost = k
+                for k1,v1 in v.items():
+                    if destination in v1:
+                        cost = k
+                        break
         elif delivery.type == "local" and warehouse == "NJ":
             local_data = fee_details.get("NJ_LOCAL").details
             for k, v in local_data.items():
