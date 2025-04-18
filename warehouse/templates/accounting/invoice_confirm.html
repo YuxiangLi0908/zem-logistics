@@ -146,7 +146,7 @@
                                         <div> </div>
                                     {% endif %}
                                 </td>
-                                <td class="td">{{ c.is_invoice_delivered||yesno:"是，否" }}</td>
+                                <td class="td">{{ c.is_invoice_delivered|yesno:"是，否" }}</td>
                             </tr>
                         {% endfor %}
                     </tbody>
