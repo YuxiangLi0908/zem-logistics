@@ -1378,7 +1378,7 @@ class Accounting(View):
         # 初始化单价和数量字典
         qty_data = {}
         rate_data = {}
-        s_fields = ["amount"] + fields
+        s_fields = fields
         for field in s_fields:
             # 保存数量
             quantity_key = f"{field}_quantity"
@@ -1393,17 +1393,18 @@ class Accounting(View):
             # 保存原有字段
             if field in data and field not in exclude_fields and data[field]:
                 setattr(invoice_warehouse, field, data[field])
-
+        setattr(invoice_warehouse, 'amount', data['amount'])
         # 保存单价和数量
         invoice_warehouse.qty = qty_data
         invoice_warehouse.rate = rate_data
         surcharges = {}
         surcharge_notes = {}
         for field in fields:
+            
             surcharge_key = f"{field}_surcharge"
             note_key = f"{field}_surcharge_note"
-            surcharge = request.POST.get(surcharge_key, 0) or 0
-            note = request.POST.get(note_key, "")
+            surcharge = data.get(surcharge_key, 0) or 0
+            note = data.get(note_key, "")
             surcharges[field] = float(surcharge)
             surcharge_notes[field] = note
         invoice_warehouse.surcharges = surcharges
