@@ -1978,6 +1978,8 @@ class Accounting(View):
                 invoice.receivable_delivery_amount = delivery_amount
             elif invoice_type == "payable":
                 invoice.payable_delivery_amount = delivery_amount
+            else:
+                raise ValueError("应收应付类型错误")
             invoice.save()
 
             order = Order.objects.select_related(
