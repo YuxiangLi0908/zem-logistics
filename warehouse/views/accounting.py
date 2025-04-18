@@ -3549,6 +3549,7 @@ class Accounting(View):
             invoice_delivery = InvoiceDelivery.objects.filter(
                 invoice_number__invoice_number=invoice.invoice_number
             )
+            
             for field in invoice_preport._meta.fields:
                 if isinstance(field, models.FloatField) and field.name != "amount":
                     value = getattr(invoice_preport, field.name)
@@ -3562,14 +3563,17 @@ class Accounting(View):
                         amount.append(value)
                         note.append("")
             for k, v in invoice_preport.other_fees.items():
-                description.append(k)
-                warehouse_code.append("")
-                cbm.append("")
-                weight.append("")
-                qty.append(1)
-                rate.append(v)
-                note.append("")
+                if v not in [None, 0]:
+                    description.append(k)
+                    amount.append(v)
+                    warehouse_code.append("")
+                    cbm.append("")
+                    weight.append("")
+                    qty.append(1)
+                    rate.append(v)
+                    note.append("")
             for warehouse in invoice_warehouse:
+                amount.append(warehouse.amount)
                 for field in warehouse._meta.fields:
                     if isinstance(field, models.FloatField) and field.name != "amount":
                         value = getattr(warehouse, field.name)
@@ -3584,13 +3588,15 @@ class Accounting(View):
                             note.append("")
             for warehouse in invoice_warehouse:
                 for k, v in warehouse.other_fees.items():
-                    description.append(k)
-                    warehouse_code.append("")
-                    cbm.append("")
-                    weight.append("")
-                    qty.append(1)
-                    rate.append(v)
-                    note.append("")
+                    if v not in [None, 0]:
+                        description.append(k)
+                        warehouse_code.append("")
+                        cbm.append("")
+                        weight.append("")
+                        qty.append(1)
+                        rate.append(v)
+                        amount.append(v)
+                        note.append("")
             for delivery in invoice_delivery:
                 description.append("派送费")
                 warehouse_code.append(delivery.destination.upper())
