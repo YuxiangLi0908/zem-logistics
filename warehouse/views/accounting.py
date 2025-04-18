@@ -1970,8 +1970,7 @@ class Accounting(View):
             delivery_amount = (
                 InvoiceDelivery.objects.filter(
                     invoice_number=invoice,
-                    invoice_type=invoice_type,
-                    delivery_type=delivery_type,
+                    invoice_type=invoice_type,               
                 ).aggregate(total_amount=Sum("total_cost"))["total_amount"]
                 or 0
             )
