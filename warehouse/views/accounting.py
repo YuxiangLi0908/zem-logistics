@@ -1400,10 +1400,11 @@ class Accounting(View):
         surcharges = {}
         surcharge_notes = {}
         for field in fields:
+            
             surcharge_key = f"{field}_surcharge"
             note_key = f"{field}_surcharge_note"
-            surcharge = request.POST.get(surcharge_key, 0) or 0
-            note = request.POST.get(note_key, "")
+            surcharge = data.get(surcharge_key, 0) or 0
+            note = data.get(note_key, "")
             surcharges[field] = float(surcharge)
             surcharge_notes[field] = note
         invoice_warehouse.surcharges = surcharges
