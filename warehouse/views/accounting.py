@@ -3562,7 +3562,6 @@ class Accounting(View):
                         note.append("")
             for k, v in invoice_preport.other_fees.items():
                 description.append(k)
-                amount.append(v)
                 warehouse_code.append("")
                 cbm.append("")
                 weight.append("")
@@ -3585,7 +3584,6 @@ class Accounting(View):
             for warehouse in invoice_warehouse:
                 for k, v in warehouse.other_fees.items():
                     description.append(k)
-                    amount.append(v)
                     warehouse_code.append("")
                     cbm.append("")
                     weight.append("")
