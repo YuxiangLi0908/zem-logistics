@@ -2503,10 +2503,11 @@ class Accounting(View):
                         # if not delivery.total_cost:
                         #     setattr(delivery, "total_cost", int(cost[0]))
         elif delivery.type == "walmart":
-            walmart_data = fee_details.get(f"{warehouse}_PUBLIC").details.get(f"{warehouse}_WALMART")
+            walmart_data = fee_details.get(f"{warehouse}_PUBLIC").details
             for k, v in walmart_data.items():
-                if destination in v:
-                    cost = k      
+                for k1,v1 in v.items():
+                    if destination in v:
+                        cost = k
         if cost is not None:
             delivery.cost = cost
             delivery.save()
