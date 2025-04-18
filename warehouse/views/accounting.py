@@ -3248,8 +3248,16 @@ class Accounting(View):
         workbook.save(response)
         return response
 
-    # def handle_invoice_order_batch_delivered(self, request: HttpRequest) -> HttpResponse:
-    #     return self.
+    def handle_invoice_order_batch_delivered(self, request: HttpRequest) -> HttpResponse:
+        selected_orders = json.loads(request.POST.get("selectedOrders", "[]"))
+        selected_orders = list(set(selected_orders))
+        invoices = Invoice.objects.prefetch_related(
+            "order", "order__container_number", "container_number"
+        ).filter(container_number__container_number__in=selected_orders)
+        for invoice in invoices:
+            invoice.is_invoice_delivered = True
+            invoice.save()
+        return self.handle_invoice_confirm_get(request,request.POST.get("start_date_confirm"),request.POST.get("end_date_confirm"))
     
     def handle_invoice_order_batch_export(self, request: HttpRequest) -> HttpResponse:
         selected_orders = json.loads(request.POST.get("selectedOrders", "[]"))

@@ -35,7 +35,7 @@
 </div>
 <hr class="Dashed" style="margin-top: 10px; margin-bottom: 10px;">
 <div style="display: flex; max-height: 720px;">
-    <div style="overflow-y: auto; max-height: 100%; width: 40%; border: 2px solid rgb(180, 180, 180); border-radius: 12px; padding: 1%; margin: 1%;">
+    <div style="overflow-y: auto; max-height: 100%; width: 30%; border: 2px solid rgb(180, 180, 180); border-radius: 12px; padding: 1%; margin: 1%;">
         <div><b>待开账单</b></div>
         {% if order %}       
         <form method="post" action="">
@@ -45,13 +45,13 @@
                     <thead>
                         <tr style="position: sticky; top: 0;">
                             <th class="th">客户</th>
-                            <th class="th">货柜号</th>
+                            <th class="th" style="width:100px;">货柜号</th>
                             <th class="th">订单类型</th>
                             <th class="th">建单日期</th>
                         </tr>
                         <tr style="position: sticky; top: 28px;">
                             <th class="th"></th>
-                            <th class="th"><input type="text" id="containerSearchInput" placeholder="搜索柜号..." oninput="filterTable(this, 1)" size="16" style="font-size: 14px;"></th>
+                            <th class="th"><input type="text" style="width:100px;" id="containerSearchInput" placeholder="搜索柜号..." oninput="filterTable(this, 1)" size="16" style="font-size: 14px;"></th>
                             <th class="th"></th>
                             <th class="th"></th>
                         </tr>
@@ -73,7 +73,7 @@
         </form>
         {% endif %}
     </div>
-    <div style="overflow-y: auto; max-height: 100%; width: 60%; border: 2px solid rgb(180, 180, 180); border-radius: 12px; padding: 1%; margin: 1%;">
+    <div style="overflow-y: auto; max-height: 100%; width: 70%; border: 2px solid rgb(180, 180, 180); border-radius: 12px; padding: 1%; margin: 1%;">
         <div><b>已开账单</b></div>
         {% if previous_order %}       
         <form method="post" action="">
@@ -92,6 +92,7 @@
                             <th class="th">应收金额</th>
                             <th class="th">操作</th>                          
                             <th class="th">STMT #</th>
+                            <th class="th">通知状态</th> 
                             
                         </tr>
                         <tr style="position: sticky; top: 28px;">
@@ -107,6 +108,7 @@
                             <th class="th"></th>
                             <th class="th"></th>
                             <th class="th"><input type="text" id="containerSearchInput" placeholder="搜索STMT #..." oninput="filterTable(this, 9, false)" size="16" style="font-size: 14px;"></th>
+                            <th class="th"></th>
                         </tr>
                     </thead>
                     <tbody>
@@ -144,17 +146,19 @@
                                         <div> </div>
                                     {% endif %}
                                 </td>
+                                <td class="td">{{ c.is_invoice_delivered||yesno:"是，否" }}</td>
                             </tr>
                         {% endfor %}
                     </tbody>
                 </table>
             </div>
             <!-- <input type="hidden" name="step" value="invoice_order_select"> -->
-            <input type="hidden" name="start_date" value="{{ start_date }}">
-            <input type="hidden" name="end_date" value="{{ end_date }}">
+            <input type="hidden" name="start_date" value="{{ start_date_confirm }}">
+            <input type="hidden" name="end_date" value="{{ end_date_confirm }}">
             <input type="hidden" name="invoice_type" value="{{ invoice_type_filter }}">
             <button type="submit" onclick="confirmSubmit(this, 'invoice_order_select')" class="btn btn-primary" style="width: 150px; height: 35px;">生成STMT <i class="bi bi-receipt"></i></button>
             <button type="submit" onclick="confirmSubmit(this, 'invoice_order_batch_export')" class="btn btn-success" style="width: 150px; height: 35px;">导出INVOICE <i class="bi bi-file-earmark-bar-graph-fill"></i></button>
+            <button type="submit" onclick="confirmSubmit(this, 'invoice_order_delivered')" class="btn btn-primary" style="width: 150px; height: 35px;">已通知
         </form>
         {% endif %}
     </div>
