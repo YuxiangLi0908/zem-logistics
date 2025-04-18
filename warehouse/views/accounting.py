@@ -1925,8 +1925,11 @@ class Accounting(View):
             )
         invoice_status.stage = status
         if status == "warehouse":
-            invoice_status.stage_public = "warehouse_rejected"
-            invoice_status.stage_other = "warehouse_rejected"
+            delivery_type = container_number = request.POST.get("delivery_type")
+            if delivery_type == "public":
+                invoice_status.stage_public = "warehouse_rejected"
+            elif delivery_type == "other":
+                invoice_status.stage_other = "warehouse_rejected"
         elif status == "delivery":
             invoice_status.stage_public = "delivery_rejected"
             invoice_status.stage_other = "delivery_rejected"
@@ -1942,7 +1945,8 @@ class Accounting(View):
         if status == "preport":
             return self.handle_container_invoice_preport_get(request)
         elif status == "warehouse":
-            return self.handle_container_invoice_warehouse_get(request)
+            delivery_type = request.POST.get("delivery_type")
+            return self.handle_container_invoice_warehouse_get(request,delivery_type)
         elif status == "delivery":
             return self.handle_container_invoice_delivery_get(request)
         elif status == "direct":
@@ -2065,7 +2069,7 @@ class Accounting(View):
             return self.handle_invoice_delivery_get(request)
 
     def handle_container_invoice_warehouse_get(
-        self, request: HttpRequest
+        self, request: HttpRequest,delivery_type: str = None,
     ) -> tuple[Any, Any]:
         container_number = request.GET.get("container_number")
         order = Order.objects.select_related("retrieval_id", "container_number").get(
@@ -2121,7 +2125,8 @@ class Accounting(View):
             container_number__container_number=container_number
         )
         groups = [group.name for group in request.user.groups.all()]
-        delivery_type = request.GET.get("delivery_type")
+        if not delivery_type:
+            delivery_type = request.GET.get("delivery_type")
         if delivery_type is None:
             # 确定delivery_type
             if "warehouse_public" in groups and "warehouse_other" not in groups:
