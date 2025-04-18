@@ -325,6 +325,19 @@ class Accounting(View):
             return "pending", "pending"  # 默认返回原状态
 
     def migrate_status(self) -> tuple[Any, Any]:
+        for item in InvoiceStatus.objects.all():   
+            if item.stage == "tobeconfirmed":
+                container_number = item.container_number
+                invoice = Invoice.objects.get(container_number = item.container_number)
+                delivery_amount = (
+                    InvoiceDelivery.objects.filter(
+                        invoice_number=invoice,
+                        invoice_type="receivable",               
+                    ).aggregate(total_amount=Sum("total_cost"))["total_amount"]
+                    or 0
+                )
+                invoice.receivable_delivery_amount = delivery_amount
+                invoice.save()      
         # 提取单价信息
         excluded_fields = {
             "id",
@@ -2056,15 +2069,6 @@ class Accounting(View):
         # 如果是财务确认界面跳转的，需要重定向到财务确认界面，并且执行派送界面的账单确认操作
         if redirect_step == "True":
             # 派送界面，一种派送方式点确认后，自动计算总费用
-            total_cost_sum = request.POST.get("total_amount")
-            invoice = Invoice.objects.select_related("container_number").get(
-                container_number__container_number=container_number,
-            )
-            if invoice_type == "receivable":
-                invoice.receivable_delivery_amount = total_cost_sum
-            elif invoice_type == "payable":
-                invoice.payable_delivery_amount = total_cost_sum
-            invoice.save()
             return self.handle_container_invoice_confirm_get(request)
         else:
             return self.handle_invoice_delivery_get(request)
