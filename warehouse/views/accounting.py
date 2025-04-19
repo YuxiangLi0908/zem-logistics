@@ -2059,6 +2059,8 @@ class Accounting(View):
                 pallet_obj = pallet[0]
                 invoice_content = pallet_obj.invoice_delivery
                 # 除价格外，其他在新建记录的时候就存了
+                if total_cost[i] is None:
+                    raise ValueError('总价为空')
                 invoice_content.total_cost = total_cost[i]
                 invoice_content.cost = cost[i]
                 invoice_content.total_pallet = total_pallet[i]
@@ -3604,6 +3606,8 @@ class Accounting(View):
                         amount.append(v)
                         note.append("")
             for delivery in invoice_delivery:
+                if delivery.total_cost is None:
+                    raise ValueError('派送费为空')
                 description.append("派送费")
                 warehouse_code.append(delivery.destination.upper())
                 cbm.append(delivery.total_cbm)
