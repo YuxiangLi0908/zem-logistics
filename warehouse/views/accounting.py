@@ -3576,7 +3576,6 @@ class Accounting(View):
                     rate.append(v)
                     note.append("")
             for warehouse in invoice_warehouse:
-                amount.append(warehouse.amount)
                 for field in warehouse._meta.fields:
                     if isinstance(field, models.FloatField) and field.name != "amount":
                         value = getattr(warehouse, field.name)
