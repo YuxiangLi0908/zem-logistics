@@ -2471,11 +2471,18 @@ class Accounting(View):
         cost = 0
         #根据报价表找单价，ups和自发没有报价，所以不用找
         if delivery.type == "amazon":
-            amazon_data = fee_details.get(f"{warehouse}_PUBLIC").details
-            for k, v in amazon_data.items():
-                for k1,v1 in v.items():
-                    if destination in v1:
-                        cost = k1
+            if "LA" in warehouse:
+                amazon_data = fee_details.get(f"{warehouse}_PUBLIC").details
+                for k, v in amazon_data.items():
+                    for k1,v1 in v.items():
+                        if destination in v1:
+                            cost = k1
+                            break
+            else:
+                amazon_data = fee_details.get(f"{warehouse}_PUBLIC").details.get(f"{warehouse}_WALMART")
+                for k, v in amazon_data.items():
+                    if destination in v:
+                        cost = k
                         break
         elif delivery.type == "local" and warehouse == "NJ":
             local_data = fee_details.get("NJ_LOCAL").details
@@ -2503,11 +2510,17 @@ class Accounting(View):
                         # if not delivery.total_cost:
                         #     setattr(delivery, "total_cost", int(cost[0]))
         elif delivery.type == "walmart":
-            walmart_data = fee_details.get(f"{warehouse}_PUBLIC").details
-            for k, v in walmart_data.items():
-                for k1,v1 in v.items():
+            if "LA" in warehouse:
+                walmart_data = fee_details.get(f"{warehouse}_PUBLIC").details
+                for k, v in walmart_data.items():
+                    for k1,v1 in v.items():
+                        if destination in v1:
+                            cost = k1
+            else:
+                walmart_data = fee_details.get(f"{warehouse}_PUBLIC").details.get(f"{warehouse}_WALMART")
+                for k, v in walmart_data.items():
                     if destination in v:
-                        cost = k1
+                        cost = k
         if cost is not None:
             delivery.cost = cost
             delivery.save()
