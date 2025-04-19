@@ -325,6 +325,20 @@ class Accounting(View):
             return "pending", "pending"  # 默认返回原状态
 
     def migrate_status(self) -> tuple[Any, Any]:
+        #把派送表里，total_cost为空的，自动计算
+        updated = InvoiceDelivery.objects.filter(
+            total_cost__isnull=True
+        ).exclude(
+            cost=0
+        ).exclude(
+            total_pallet__isnull=True
+        ).update(
+            total_cost=Coalesce(F('cost') * F('total_pallet'), Value(0))
+        )
+        context = {}
+        return self.template_invoice_preport, context
+
+
         for item in InvoiceStatus.objects.all():   
             if item.stage == "tobeconfirmed":
                 container_number = item.container_number
@@ -1845,6 +1859,8 @@ class Accounting(View):
                 fee_details,
                 warehouse
             )
+            if invoice_content.cost is not None:
+                invoice_content.total_cost = float(invoice_content.cost) * float(invoice_content.total_pallet)
             invoice_content.save()
 
             updated_pallets = []
