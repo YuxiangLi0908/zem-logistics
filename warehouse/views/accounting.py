@@ -1175,6 +1175,7 @@ class Accounting(View):
             (models.Q(order_type="转运") | models.Q(order_type="转运组合")),
             models.Q(vessel_id__vessel_etd__gte=start_date),
             models.Q(vessel_id__vessel_etd__lte=end_date),
+            models.Q(offload_id__offload_at__isnull=False)
         )
         if warehouse is None:
             warehouse = request.POST.get("warehouse")
@@ -1182,7 +1183,6 @@ class Accounting(View):
             criteria &= models.Q(retrieval_id__retrieval_destination_precise=warehouse)
         if customer:
             criteria &= models.Q(customer_name__zem_name=customer)
-
         invoice_type = request.POST.get("invoice_type") or "receivable"
 
         groups = [group.name for group in request.user.groups.all()]
@@ -2473,17 +2473,12 @@ class Accounting(View):
         if delivery.type == "amazon":
             if "LA" in warehouse:
                 amazon_data = fee_details.get(f"{warehouse}_PUBLIC").details
-                for k, v in amazon_data.items():
-                    for k1,v1 in v.items():
-                        if destination in v1:
-                            cost = k1
-                            break
             else:
                 amazon_data = fee_details.get(f"{warehouse}_PUBLIC").details.get(f"{warehouse}_WALMART")
-                for k, v in amazon_data.items():
-                    if destination in v:
-                        cost = k
-                        break
+            for k, v in amazon_data.items():
+                if destination in v:
+                    cost = k
+                    break
         elif delivery.type == "local" and warehouse == "NJ":
             local_data = fee_details.get("NJ_LOCAL").details
             for k, v in local_data.items():
@@ -2512,15 +2507,11 @@ class Accounting(View):
         elif delivery.type == "walmart":
             if "LA" in warehouse:
                 walmart_data = fee_details.get(f"{warehouse}_PUBLIC").details
-                for k, v in walmart_data.items():
-                    for k1,v1 in v.items():
-                        if destination in v1:
-                            cost = k1
             else:
                 walmart_data = fee_details.get(f"{warehouse}_PUBLIC").details.get(f"{warehouse}_WALMART")
-                for k, v in walmart_data.items():
-                    if destination in v:
-                        cost = k
+            for k, v in walmart_data.items():
+                if destination in v:
+                    cost = k
         if cost is not None:
             delivery.cost = cost
             delivery.save()
