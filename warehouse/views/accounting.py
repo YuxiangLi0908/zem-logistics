@@ -5,7 +5,7 @@ import math
 import os
 import re
 import zipfile
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta,date
 from io import BytesIO
 from typing import Any
 
@@ -1847,17 +1847,22 @@ class Accounting(View):
             )
             invoice_content.save()
             #找单价
-            order = Order.objects.select_related("retrieval_id", "container_number").get(
+            order = Order.objects.select_related("retrieval_id", "container_number","vessel_id").get(
                 container_number__container_number=container_number
             )
             container_type = order.container_number.container_type
             warehouse = order.retrieval_id.retrieval_destination_area
+            vessel_etd = order.vessel_id.vessel_etd
+            cutoff_date = date(2025, 4, 1)
+            is_new_rule = vessel_etd >= cutoff_date
+
             fee_details = self._get_fee_details(warehouse)
             self._calculate_and_set_delivery_cost(
                 invoice_content,
                 container_type,
                 fee_details,
-                warehouse
+                warehouse,
+                is_new_rule
             )
             if invoice_content.cost is not None:
                 if invoice_content.type != 'combine':
@@ -2318,10 +2323,11 @@ class Accounting(View):
         invoice = Invoice.objects.select_related("customer", "container_number").get(
             container_number__container_number=container_number
         )
-        order = Order.objects.select_related("retrieval_id", "container_number").get(
+        order = Order.objects.select_related("retrieval_id", "container_number","vessel_id").get(
             container_number__container_number=container_number
         )
         warehouse = order.retrieval_id.retrieval_destination_area
+        vessel_etd = order.vessel_id.vessel_etd
         # 把pallet汇总
         pallets = (
             Pallet.objects.prefetch_related(
@@ -2380,13 +2386,17 @@ class Accounting(View):
                 has_delivery = False
                 break
         # 需要重新规范板数，就是total_n_pallet
+        cutoff_date = date(2025, 4, 1)
+        is_new_rule = vessel_etd >= cutoff_date
+
         fee_details = self._get_fee_details(warehouse)
         delivery_groups = self._process_delivery_records(
             invoice.invoice_number,
             pallets,
             order.container_number.container_type,
             fee_details,
-            warehouse
+            warehouse,
+            is_new_rule
         )
 
         groups = [group.name for group in request.user.groups.all()]
@@ -2414,9 +2424,9 @@ class Accounting(View):
             "invoice_type": invoice_type,
         }
         if "mix_account" in groups:  # 如果公仓私仓都能看，就进总页面
-                context["delivery_type"] = "mixed"
-                context["has_delivery"] = has_delivery
-                return self.template_invoice_delievery_edit, context
+            context["delivery_type"] = "mixed"
+            context["has_delivery"] = has_delivery
+            return self.template_invoice_delievery_edit, context
         else:
             if "NJ_mix_account" in groups or ("warehouse_other" in groups and "warehouse_public" not in groups):  #只看私仓
                 pallet = pallets.filter(delivery_type="other")
@@ -2463,7 +2473,7 @@ class Accounting(View):
             raise ValueError("没有找到有效的报价单")
     
     def _process_delivery_records(self, invoice_number: str, pallets: Any, 
-                       container_type: str, fee_details: dict, warehouse: str) -> dict:
+                       container_type: str, fee_details: dict, warehouse: str, is_new_rule: bool) -> dict:
         invoice_deliveries = InvoiceDelivery.objects.prefetch_related(
             Prefetch("pallet_delivery", queryset=Pallet.objects.all())
         ).filter(invoice_number__invoice_number=invoice_number)
@@ -2487,7 +2497,8 @@ class Accounting(View):
                     delivery,
                     container_type,
                     fee_details,
-                    warehouse
+                    warehouse,
+                    is_new_rule
                 )
             if delivery.type in delivery_groups:
                 delivery_groups[delivery.type].append(delivery)
@@ -2500,7 +2511,8 @@ class Accounting(View):
         delivery: InvoiceDelivery,
         container_type: str,
         fee_details: dict,
-        warehouse: str
+        warehouse: str,
+        is_new_rule:bool,
     ) -> None:
         destination = (
             delivery.destination.split("-")[1]
@@ -2508,6 +2520,7 @@ class Accounting(View):
             else delivery.destination
         )
         cost = 0
+        is_niche_warehouse = True  #本地派送算冷门仓点
         #根据报价表找单价，ups和自发没有报价，所以不用找
         if delivery.type == "amazon":
             if "LA" in warehouse:
@@ -2518,6 +2531,11 @@ class Accounting(View):
                 if destination in v:
                     cost = k
                     break
+            niche_warehouse = fee_details.get(f"{warehouse}_PUBLIC").niche_warehouse
+            if destination in niche_warehouse:
+                is_niche_warehouse = True
+            else:
+                is_niche_warehouse = False
         elif delivery.type == "local" and warehouse == "NJ":
             local_data = fee_details.get("NJ_LOCAL").details
             for k, v in local_data.items():
@@ -2542,6 +2560,11 @@ class Accounting(View):
                         break
                 if cost is not None:
                     break
+            niche_warehouse = fee_details.get(f"{warehouse}_PUBLIC").niche_warehouse
+            if destination in niche_warehouse:
+                is_niche_warehouse = True
+            else:
+                is_niche_warehouse = False
         elif delivery.type == "walmart":
             if "LA" in warehouse:
                 walmart_data = fee_details.get(f"{warehouse}_PUBLIC").details
@@ -2551,11 +2574,37 @@ class Accounting(View):
                 if str(destination).upper() in [loc.upper() for loc in locations]:
                     cost = price
                     break
+            niche_warehouse = fee_details.get(f"{warehouse}_PUBLIC").niche_warehouse
+            if destination in niche_warehouse:
+                is_niche_warehouse = True
+            else:
+                is_niche_warehouse = False
         if cost is not None:
             delivery.cost = cost
         else:
             delivery.cost = 0
-            delivery.save()
+        #计算板数
+        raw_p = float(delivery.total_cbm)/1.8
+        integer_part = int(raw_p)
+        decimal_part = raw_p - integer_part
+        if delivery.type == "local" or (delivery.type == "amazon" and warehouse == "LA"):
+            is_new_rule = False    #本地派送的按照4.1之前的规则
+        if is_new_rule: #etd4.1之后的
+            if decimal_part > 0:
+                if is_niche_warehouse:
+                    additional = 2 if decimal_part > 0.5 else 1
+                else:
+                    additional = 1 if decimal_part > 0.5 else 0
+        else:
+            if decimal_part > 0:
+                if is_niche_warehouse:
+                    additional = 1
+                else:
+                    additional = 1 if decimal_part > 0.9 else 0.5
+        delivery.total_pallet = integer_part + additional
+        delivery.save()
+
+        
 
 
     def handle_container_invoice_direct_get(
