@@ -1193,7 +1193,7 @@ class Accounting(View):
         )
         if warehouse is None:
             warehouse = request.POST.get("warehouse")
-        if warehouse:
+        if warehouse and warehouse!= "None":
             criteria &= models.Q(retrieval_id__retrieval_destination_precise=warehouse)
         if customer:
             criteria &= models.Q(customer_name__zem_name=customer)
@@ -1860,7 +1860,10 @@ class Accounting(View):
                 warehouse
             )
             if invoice_content.cost is not None:
-                invoice_content.total_cost = float(invoice_content.cost) * float(invoice_content.total_pallet)
+                if invoice_content.type != 'combine':
+                    invoice_content.total_cost = float(invoice_content.cost) * float(invoice_content.total_pallet)
+                elif invoice_content.type == 'combine':  #组合柜总价=单价
+                    invoice_content.total_cost = float(invoice_content.cost)
             invoice_content.save()
 
             updated_pallets = []
@@ -2362,7 +2365,14 @@ class Accounting(View):
                 total_weight_lbs=Sum("weight_lbs", output_field=FloatField()),
                 total_pallet=Count("pallet_id", distinct=True),
             )
-            .order_by(F("invoice_delivery__type").asc(nulls_first=True))
+            .order_by(
+                Case(
+                    When(is_hold=True, then=Value(1)),  # is_hold=True 的记录排最后（值越大优先级越低）
+                    default=Value(0),
+                    output_field=IntegerField()
+                ),
+                F("invoice_delivery__type").asc(nulls_first=True)  # 保留原有排序
+            )
         )
         has_delivery = True
         for plt in pallets:
@@ -2404,20 +2414,31 @@ class Accounting(View):
             "invoice_type": invoice_type,
             "has_delivery":has_delivery
         }
-
-        if "NJ_mix_account" in groups or ("warehouse_other" in groups and "warehouse_public" not in groups):  #只看私仓
-            pallet = pallets.filter(delivery_type="other")
-            context["delivery_type"] = "other"
-            context["pallet"] = pallet
-            return self.template_invoice_delievery_other_edit, context
-        else:
-            if "mix_account" in groups:  # 如果公仓私仓都能看，就进总页面
+        if "mix_account" in groups:  # 如果公仓私仓都能看，就进总页面
                 context["delivery_type"] = "mixed"
                 return self.template_invoice_delievery_edit, context
+        else:
+            if "NJ_mix_account" in groups or ("warehouse_other" in groups and "warehouse_public" not in groups):  #只看私仓
+                pallet = pallets.filter(delivery_type="other")
+                has_delivery = True
+                for plt in pallets:
+                    if plt["has_delivery"] == False:
+                        has_delivery = False
+                        break
+                context["delivery_type"] = "other"
+                context["pallet"] = pallet
+                context["has_delivery"] = has_delivery
+                return self.template_invoice_delievery_other_edit, context
             elif "warehouse_public" in groups and "warehouse_other" not in groups:
                 pallet = pallets.filter(delivery_type="public")
+                has_delivery = True
+                for plt in pallets:
+                    if plt["has_delivery"] == False:
+                        has_delivery = False
+                        break
                 context["pallet"] = pallet
                 context["delivery_type"] = "public"
+                context["has_delivery"] = has_delivery
                 return self.template_invoice_delievery_public_edit, context
             else:
                 raise ValueError("没有权限")
@@ -2492,7 +2513,7 @@ class Accounting(View):
             if "LA" in warehouse:
                 amazon_data = fee_details.get(f"{warehouse}_PUBLIC").details
             else:
-                amazon_data = fee_details.get(f"{warehouse}_PUBLIC").details.get(f"{warehouse}_WALMART")
+                amazon_data = fee_details.get(f"{warehouse}_PUBLIC").details.get(f"{warehouse}_AMAZON")
             for k, v in amazon_data.items():
                 if destination in v:
                     cost = k
@@ -2500,8 +2521,8 @@ class Accounting(View):
         elif delivery.type == "local" and warehouse == "NJ":
             local_data = fee_details.get("NJ_LOCAL").details
             for k, v in local_data.items():
-                if delivery.zipcode in v["zipcodes"]:
-                    n_pallet = delivery.total_pallet  # 板数
+                if str(delivery.zipcode) in map(str,v["zipcodes"]):
+                    n_pallet = int(delivery.total_pallet)  # 板数
                     costs = v["prices"]
                     if n_pallet <= 5:
                         cost = int(costs[0])
@@ -2510,28 +2531,30 @@ class Accounting(View):
                     break
         elif delivery.type == "combine":
             combine_data = fee_details.get(f"{warehouse}_COMBINA").details
-            for k, v in combine_data.items():
-                if destination in v["location"]:
-                    cost = v["prices"]
-                    if "45HQ/GP" in container_type:
-                        cost = int(cost[1])
-                        # if not delivery.total_cost:  #一口价，组合柜还没研究明白，暂时放在这
-                        #     setattr(delivery, "total_cost", int(cost[1]))
-                        #     setattr(delivery, "total_cost", int(cost[1]))
-                    elif "40HQ/GP" in container_type:
-                        cost = int(cost[0])
-                        # if not delivery.total_cost:
-                        #     setattr(delivery, "total_cost", int(cost[0]))
+            cost = None
+            for region, price_groups in combine_data.items():
+                for price_group in price_groups:
+                    if destination in price_group["location"]:
+                        if "45HQ/GP" in container_type:
+                            cost = int(price_group["prices"][1])
+                        elif "40HQ/GP" in container_type:
+                            cost = int(price_group["prices"][0])
+                        break
+                if cost is not None:
+                    break
         elif delivery.type == "walmart":
             if "LA" in warehouse:
                 walmart_data = fee_details.get(f"{warehouse}_PUBLIC").details
             else:
                 walmart_data = fee_details.get(f"{warehouse}_PUBLIC").details.get(f"{warehouse}_WALMART")
-            for k, v in walmart_data.items():
-                if destination in v:
-                    cost = k
+            for price, locations in walmart_data.items():
+                if str(destination).upper() in [loc.upper() for loc in locations]:
+                    cost = price
+                    break
         if cost is not None:
             delivery.cost = cost
+        else:
+            delivery.cost = 0
             delivery.save()
 
 
