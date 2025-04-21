@@ -287,7 +287,7 @@
                             <td class="td"><input type="text" name="cost" value="{{ plt.cost }}"></td>
                             <td class="td"><input type="text" name="total_pallet" value="{{ plt.total_pallet }}"></td>
                             <td class="td">    
-                                <input type="number" id="selfdelivery_cost" step="0.01" name="total_cost" value="{{ plt.total_cost }}" oninput="updateSelf(this)">
+                                <input type="number" id="selfdelivery_cost" step="0.01" name="total_cost" value="{{ plt.total_cost }}">
                                 <input type="hidden" name="plt_ids" value="{{ plt.plt_ids }}">
                             </td>
                             <td class="td"><input type="number" name="po_activation" value="{{ plt.po_activation }}"></td>
@@ -426,10 +426,12 @@
                 totalInput.dataset.original = totalInput.value;
 
                 // 确保所有输入框都有事件监听
-                priceInput.addEventListener('input', () => updateRow(row, type));
-                palletInput.addEventListener('input', () => updateRow(row, type));
-                activationInput.addEventListener('input', () => updateRow(row, type));
-                totalInput.addEventListener('input', () => updateRowFromTotal(row, type));
+                if (type !== 'selfdelivery' && type !== 'combine'){
+                    priceInput.addEventListener('input', () => updateRow(row, type));
+                    palletInput.addEventListener('input', () => updateRow(row, type));
+                    activationInput.addEventListener('input', () => updateRow(row, type));
+                    totalInput.addEventListener('input', () => updateRowFromTotal(row, type));
+                }            
             });
         });
     }
@@ -529,9 +531,6 @@
     }
     function updateCombine(input) {
         updateRow(input.closest('tr'), 'combine');
-    }
-    function updateSelf(input) {
-        updateRow(input.closest('tr'), 'selfdelivery');
     }
 
     function add_delivery_plt(button) {

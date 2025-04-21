@@ -232,13 +232,13 @@ class QuoteManagement(View):
     def process_nj_local_sheet(self, df, file, quote):
         # NJ本地派送也没有合并的问题，一行一行读
         result = {}
-        for index, row in df.iloc[0:].iterrows():
-            if not pd.isnull(row.iloc[2]):
+        for index, row in df.iloc[1:].iterrows():
+            if not pd.isnull(row.iloc[1]) and not pd.isnull(row.iloc[2]) and not pd.isnull(row.iloc[3]):
                 # zipcodes = row.iloc[5:].dropna().tolist()
-                zipcodes = list(map(int, row.iloc[5:].dropna().tolist()))
+                zipcodes = list(map(int, row.iloc[4:].dropna().tolist()))
                 result[index] = {
                     "zipcodes": zipcodes,
-                    "prices": [row.iloc[2], row.iloc[3], row.iloc[4]],
+                    "prices": [row.iloc[1], row.iloc[2], row.iloc[3]],
                 }
         # 创建 FeeDetail 记录
         fee_detail_data = {
@@ -253,8 +253,12 @@ class QuoteManagement(View):
     def process_nj_amazon_sheet(self, df, file, quote):
         result_amazon_dict = defaultdict(set)
         result_walmart_dict = defaultdict(set)
+        niche_warehouse = set()
         flag_walmart = 0
         for index, row in df.iloc[1:].iterrows():
+            cell_value = str(row.iloc[3])
+            if pd.notna(row.iloc[3]) and "冷门仓点" in cell_value:  
+                niche_warehouse.add(row.iloc[0])
             if not flag_walmart and "walmart" in str(row.iloc[0]).strip().lower():
                 flag_walmart = True
                 continue
@@ -273,6 +277,7 @@ class QuoteManagement(View):
                 for k, v in result_amazon_dict.items()
             },
         }
+        niche_warehouse = self.extract_locations(niche_warehouse)
 
         # 创建 FeeDetail 记录
         fee_detail_data = {
@@ -280,6 +285,7 @@ class QuoteManagement(View):
             "fee_detail_id": str(uuid.uuid4())[:4].upper(),
             "fee_type": "NJ_PUBLIC",
             "details": result,
+            "niche_warehouse":niche_warehouse
         }
         fee_detail = FeeDetail(**fee_detail_data)
         fee_detail.save()
@@ -287,66 +293,94 @@ class QuoteManagement(View):
     # 这个表格要求两个价格列不能出现别的内容，只有价格，每个价格组之间有至少一个空行
     def process_nj_combina_sheet(self, df, file, quote):
         result = {}
-        num = 0
         group = []
+        current_region = None
+        current_prices = None
+        niche_warehouse = set()
         for index, row in df.iterrows():
+            cell_value = str(row.iloc[5])
+            if pd.notna(row.iloc[5]) and "冷门仓点" in cell_value:  
+                niche_warehouse.add(row.iloc[1])
             if pd.notna(row.iloc[3]) and pd.notna(
                 row.iloc[4]
             ):  # 如果值不为空，说明是一个新的价格组
-                num += 1
-                result[num] = {"prices": [row.iloc[3], row.iloc[4]]}
-                if pd.notna(row.iloc[1]):
-                    group = [row.iloc[1]]
-            else:
+                if group and current_region:
+                    if current_region not in result:
+                        result[current_region] = []
+                    result[current_region].append({
+                        "prices": current_prices,
+                        "location": self.extract_locations(group)
+                    })
+                    group = []
+                current_region = row.iloc[0]
+                current_prices = [row.iloc[3], row.iloc[4]]
                 if pd.notna(row.iloc[1]):
                     group.append(row.iloc[1])
-                else:  # 说明这个价格组结束了
-                    result[num]["location"] = group
-                    group = []
-        if (
-            group
-        ):  # 因为上面只有检测到出现新的价格组才会把group加进去，所以最后一组要循环完单独加
-            result[num]["location"] = group
+            elif pd.notna(row.iloc[1]):  #没有价格但是有仓库，就只记录仓库
+                group.append(row.iloc[1])
+            elif all(pd.isna(row.iloc[i]) for i in range(0,5)):  #空行，就记录上一组
+                if group and current_region:
+                    if current_region not in result:
+                        result[current_region] = []
+                    result[current_region].append({
+                        "prices": current_prices,
+                        "location": self.extract_locations(group)
+                    })
+                    group = []  # 重置仓库组
+                    current_region = None  # 重置 region
+        if current_region and current_prices and group:  #记录最后一组
+            if current_region not in result:
+                result[current_region] = []
+            result[current_region].append({
+                "prices": current_prices,
+                "location": self.extract_locations(group)
+            })
+        niche_warehouse = self.extract_locations(niche_warehouse)
         # 创建 FeeDetail 记录
         fee_detail_data = {
             "quotation_id": quote,
             "fee_detail_id": str(uuid.uuid4())[:4].upper(),
             "fee_type": "NJ_COMBINA",
             "details": result,
+            "niche_warehouse":niche_warehouse
         }
         fee_detail = FeeDetail(**fee_detail_data)
         fee_detail.save()
 
     def process_la_amazon_sheet(self, df, file, quote):
-        result_amazon_dict = defaultdict(lambda: defaultdict(set))
+        result_amazon_dict = defaultdict(set)
+        niche_warehouse = set()
         for index, row in df.iloc[1:].iterrows():
             if (
-                pd.notna(row.iloc[0])
-                and pd.notna(row.iloc[1])
+                pd.notna(row.iloc[1])
                 and pd.notna(row.iloc[3])
             ):
-                result_amazon_dict[row.iloc[0]][row.iloc[3]].add(row.iloc[1])
+                cell_value = str(row.iloc[5])
+                if pd.notna(row.iloc[5]) and "冷门仓点" in cell_value:
+                    niche_warehouse.add(row.iloc[1])
+                result_amazon_dict[row.iloc[3]].add(row.iloc[1])
         result = {
-            outer_key: {
-                inner_key: self.extract_locations(list(values))
-                for inner_key, values in inner_dict.items()
+                key: self.extract_locations(list(values))
+                for key, values in result_amazon_dict.items()
             }
-            for outer_key, inner_dict in result_amazon_dict.items()
-        }
+        niche_warehouse = self.extract_locations(niche_warehouse)
         # 创建 FeeDetail 记录
-        fee_detail_data = {
+        fee_detail_data = { 
             "quotation_id": quote,
             "fee_detail_id": str(uuid.uuid4())[:4].upper(),
             "fee_type": "LA_PUBLIC",
             "details": result,
+            "niche_warehouse":niche_warehouse
         }
         fee_detail = FeeDetail(**fee_detail_data)
         fee_detail.save()
 
     def process_la_combina_sheet(self, df, file, quote):
         result = {}
-        num = 1
         group = []
+        niche_warehouse = set()
+        region = None
+        current_prices = None
         for index, row in df.iloc[1:].iterrows():
             if pd.notna(row.iloc[5]) and pd.notna(
                 row.iloc[6]
@@ -354,27 +388,42 @@ class QuoteManagement(View):
                 if (
                     len(group) > 0
                 ):  # 首先要判断下，如果这是一个新价格组，且已经记录了上一个价格组，先存储上一组价格组
-                    group = self.extract_locations(group)
-                    result[num]["location"] = group
-                # 然后开始存这一个价格组，直接存价格和第一行仓库代码
-                num += 1
-                result[num] = {"prices": [row.iloc[5], row.iloc[6]]}
-                group = []
+                    if region not in result:
+                        result[region] = []
+                    result[region].append({
+                        "prices":current_prices,
+                        "location":self.extract_locations(group)
+                    })
+                    group = []
+                # 然后开始存新的价格组，直接存价格和第一行仓库代码
+                region = region if pd.isna(row.iloc[0]) else row.iloc[0] #A区B区这种是外键
+                current_prices = [row.iloc[5], row.iloc[6]]
                 group.extend(row.iloc[i] for i in range(2, 5) if pd.notna(row.iloc[i]))
             else:  # 如果这一行的价格已记录，直接加仓库代码就可以
                 group.extend(row.iloc[i] for i in range(2, 5) if pd.notna(row.iloc[i]))
                 if pd.notna(row.iloc[1]):
                     group.append(row.iloc[1])
-        if (
-            group
-        ):  # 因为上面只有检测到出现新的价格组才会把group加进去，所以最后一组要循环完单独加
-            result[num]["location"] = group
+            #查看每一行是否有写冷门仓点
+            cell_value = str(row.iloc[7])
+            if pd.notna(row.iloc[7]) and "冷门仓点" in cell_value:
+                warehouses = cell_value.split("冷门仓点：")[-1].split("、")
+                niche_warehouse.update([w.strip() for w in warehouses if w.strip()])
+        if region and current_prices and group:
+            if region not in result:
+                result[region] = []
+            result[region].append({
+                "prices": current_prices,
+                "location": self.extract_locations(group)
+            })
+        niche_warehouse = self.extract_locations(niche_warehouse)
+        
         # 创建 FeeDetail 记录
         fee_detail_data = {
             "quotation_id": quote,
             "fee_detail_id": str(uuid.uuid4())[:4].upper(),
             "fee_type": "LA_COMBINA",
             "details": result,
+            "niche_warehouse":niche_warehouse
         }
         fee_detail = FeeDetail(**fee_detail_data)
         fee_detail.save()
@@ -382,8 +431,12 @@ class QuoteManagement(View):
     def process_sav_amazon_sheet(self, df, file, quote):
         result_amazon_dict = defaultdict(set)
         result_walmart_dict = defaultdict(set)
+        niche_warehouse = set()
         flag_walmart = 0
         for index, row in df.iloc[1:].iterrows():
+            cell_value = str(row.iloc[3])
+            if pd.notna(row.iloc[3]) and "冷门仓点" in cell_value:  
+                niche_warehouse.add(row.iloc[0])
             if not flag_walmart and "walmart" in str(row.iloc[0]).strip().lower():
                 flag_walmart = True  # 如果某一行第一列写了walmart，就切换result_walmart_dict处理后续工作
                 continue
@@ -395,65 +448,79 @@ class QuoteManagement(View):
                 else:
                     result_amazon_dict[row.iloc[2]].add(row.iloc[0])
         result = {
-            "SAV_WALMART": {k: list(v) for k, v in result_walmart_dict.items()},
-            "SAV_AMAZON": {k: list(v) for k, v in result_amazon_dict.items()},
+            "SAV_WALMART": {
+                k: self.extract_locations(list(v))
+                for k, v in result_walmart_dict.items()
+            },
+            "SAV_AMAZON": {
+                k: self.extract_locations(list(v))
+                for k, v in result_amazon_dict.items()
+            },
         }
-
+        niche_warehouse = self.extract_locations(niche_warehouse)
         # 创建 FeeDetail 记录
         fee_detail_data = {
             "quotation_id": quote,
             "fee_detail_id": str(uuid.uuid4())[:4].upper(),
             "fee_type": "SAV_PUBLIC",
             "details": result,
+            "niche_warehouse":niche_warehouse
         }
         fee_detail = FeeDetail(**fee_detail_data)
         fee_detail.save()
 
     def process_sav_combina_sheet(self, df, file, quote):
         result = {}
-        num = 0
         group = []
+        current_region = None
+        current_prices = None
+        niche_warehouse = set()
         for index, row in df.iterrows():
+            cell_value = str(row.iloc[5])
+            if pd.notna(row.iloc[5]) and "冷门仓点" in cell_value:  
+                niche_warehouse.add(row.iloc[1])
             if pd.notna(row.iloc[3]) and pd.notna(
                 row.iloc[4]
             ):  # 如果值不为空，说明是一个新的价格组
-                if (
-                    num > 0 and "location" not in result[num]
-                ):  # 这条适用于两个价格组之间没有空行的情况
-                    result[num]["location"] = group
-                num += 1
-                result[num] = {"prices": [row.iloc[3], row.iloc[4]]}
-                if pd.notna(row.iloc[1]):
-                    group = [row.iloc[1]]
-            else:
+                if group and current_region:
+                    if current_region not in result:
+                        result[current_region] = []
+                    result[current_region].append({
+                        "prices": current_prices,
+                        "location": self.extract_locations(group)
+                    })
+                    group = []
+                current_region = row.iloc[0]
+                current_prices = [row.iloc[3], row.iloc[4]]
                 if pd.notna(row.iloc[1]):
                     group.append(row.iloc[1])
-                else:  # 说明这个价格组结束了，#这条适用于两个价格组之间有空行的情况
-                    result[num]["location"] = group
-                    group = []
-        if (
-            group
-        ):  # 因为上面只有检测到出现新的价格组才会把group加进去，所以最后一组要循环完单独加
-            result[num]["location"] = group
-
-        result = {
-            outer_key: {
-                inner_key: (
-                    self.extract_locations(values)
-                    if inner_key == "location"
-                    else values
-                )
-                for inner_key, values in inner_dict.items()
-            }
-            for outer_key, inner_dict in result.items()
-        }
-
+            elif pd.notna(row.iloc[1]):  #没有价格但是有仓库，就只记录仓库
+                group.append(row.iloc[1])
+            elif all(pd.isna(row.iloc[i]) for i in range(0,5)):  #空行，就记录上一组
+                if group and current_region:
+                    if current_region not in result:
+                        result[current_region] = []
+                    result[current_region].append({
+                        "prices": current_prices,
+                        "location": self.extract_locations(group)
+                    })
+                    group = []  # 重置仓库组
+                    current_region = None  # 重置 region
+        if current_region and current_prices and group:  #记录最后一组
+            if current_region not in result:
+                result[current_region] = []
+            result[current_region].append({
+                "prices": current_prices,
+                "location": self.extract_locations(group)
+            })
+        niche_warehouse = self.extract_locations(niche_warehouse)
         # 创建 FeeDetail 记录
         fee_detail_data = {
             "quotation_id": quote,
             "fee_detail_id": str(uuid.uuid4())[:4].upper(),
             "fee_type": "SAV_COMBINA",
             "details": result,
+            "niche_warehouse":niche_warehouse
         }
         fee_detail = FeeDetail(**fee_detail_data)
         fee_detail.save()
@@ -585,22 +652,30 @@ class QuoteManagement(View):
     def extract_locations(self, locations) -> dict[list]:
         result = []
         for loc in locations:
-            if "/" in str(loc):
-                # 拆分前缀和数字部分
-                parts = loc.split("/")
-                prefix = "".join(
-                    [char for char in parts[0] if not char.isdigit()]
-                )  # 提取前缀（去掉数字）
-                nums = []
-                for part in parts:
-                    if part.isdigit():  # 如果是纯数字
-                        nums.append(part)
-                    else:  # 如果不是纯数字（如 ONT8），提取末尾的数字
-                        nums.append("".join([char for char in part if char.isdigit()]))
-                # 组合前缀和数字
-                result.extend([f"{prefix}{num}" for num in nums])
-            else:
+            loc = str(loc)
+            loc = loc.split("（")[0].split("(")[0].strip()  #有的仓点后面会写上（新增），这个不要
+            parts = loc.split("-")
+            loc = (parts[1] if len(parts) > 1 else parts[0]).strip()  #有的仓点是沃尔玛-xx，只要后面的仓点名
+
+            if '私人地址' in loc:
                 result.append(loc)
+            else:
+                if "/" in str(loc):
+                    # 拆分前缀和数字部分
+                    parts = loc.split("/")
+                    prefix = "".join(
+                        [char for char in parts[0] if not char.isdigit()]
+                    )  # 提取前缀（去掉数字）
+                    nums = []
+                    for part in parts:
+                        if part.isdigit():  # 如果是纯数字
+                            nums.append(part)
+                        else:  # 如果不是纯数字（如 ONT8），提取末尾的数字
+                            nums.append("".join([char for char in part if char.isdigit()]))
+                    # 组合前缀和数字
+                    result.extend([f"{prefix}{num}" for num in nums])
+                else:
+                    result.append(loc)
         return result
 
     def handle_upload_quote_post(self, request: HttpRequest) -> dict[str, Any]:
@@ -639,13 +714,13 @@ class QuoteManagement(View):
             SHEET_HANDLERS = {
                 "码头费用说明": self.process_preport_sheet,  # 已验证
                 "仓库库内操作费": self.process_warehouse_sheet,  # 已验证
-                "NJ本地派送": self.process_nj_local_sheet,
-                "NJ亚马逊派送费": self.process_nj_amazon_sheet,  # 已验证
-                "NJ组合柜": self.process_nj_combina_sheet,  # 已验证
-                "LA亚马逊派送费": self.process_la_amazon_sheet,  # 已验证
-                "LA组合柜": self.process_la_combina_sheet,  # 已验证
-                "SAV亚马逊派送表": self.process_sav_amazon_sheet,  # 已验证
-                "SAV组合柜": self.process_sav_combina_sheet,  # 已验证
+                "NJ本地派送": self.process_nj_local_sheet, #没有冷门仓点
+                "NJ亚马逊派送费": self.process_nj_amazon_sheet,  # 已验证，有仓点分类，记录冷门仓点
+                "NJ组合柜": self.process_nj_combina_sheet,  # 已验证，有仓点分类，记录冷门仓点
+                "LA亚马逊派送费": self.process_la_amazon_sheet,  # 已验证，有仓点分类，记录冷门仓点
+                "LA组合柜": self.process_la_combina_sheet,  # 已验证，有仓点分类，记录冷门仓点
+                "SAV亚马逊派送表": self.process_sav_amazon_sheet,  # 已验证，有仓点分类，记录冷门仓点
+                "SAV组合柜": self.process_sav_combina_sheet,  # 已验证，有仓点分类，记录冷门仓点
                 "整柜直送": self.process_direct_sheet,  # 已验证
                 # "LA本地派送": self.process_la_local_sheet,
             }
