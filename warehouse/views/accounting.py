@@ -2412,16 +2412,16 @@ class Accounting(View):
             "start_date_confirm": request.POST.get("start_date_confirm") or None,
             "end_date_confirm": request.POST.get("end_date_confirm") or None,
             "invoice_type": invoice_type,
-            "has_delivery":has_delivery
         }
         if "mix_account" in groups:  # 如果公仓私仓都能看，就进总页面
                 context["delivery_type"] = "mixed"
+                context["has_delivery"] = has_delivery
                 return self.template_invoice_delievery_edit, context
         else:
             if "NJ_mix_account" in groups or ("warehouse_other" in groups and "warehouse_public" not in groups):  #只看私仓
                 pallet = pallets.filter(delivery_type="other")
                 has_delivery = True
-                for plt in pallets:
+                for plt in pallet:
                     if plt["has_delivery"] == False:
                         has_delivery = False
                         break
@@ -2432,7 +2432,7 @@ class Accounting(View):
             elif "warehouse_public" in groups and "warehouse_other" not in groups:
                 pallet = pallets.filter(delivery_type="public")
                 has_delivery = True
-                for plt in pallets:
+                for plt in pallet:
                     if plt["has_delivery"] == False:
                         has_delivery = False
                         break
