@@ -965,17 +965,28 @@ class Accounting(View):
         invoice_type = request.POST.get("invoice_type") or "receivable"
 
         groups = [group.name for group in request.user.groups.all()]
+        #表示是否可以看见公仓和私仓
+        display_mix = False
+        if "NJ_mix_account" in groups:
+            if warehouse == "NJ-07001":
+                display_mix = True
+        if "mix_account" in groups:
+            display_mix = True
+
         delivery_type_filter = None
-        if "NJ_mix_account" in groups and warehouse == "NJ-07001": #这个权限的，NJ公仓私仓都能看见
+        if display_mix: #这个权限的，NJ公仓私仓都能看见
             delivery_type_filter = models.Q()
-        if "warehouse_public" in groups and "warehouse_other" not in groups:
-            delivery_type_filter = models.Q(
-                container_number__delivery_type__in=["public", "mixed"]
-            )
-        elif "warehouse_other" in groups and "warehouse_public" not in groups:
-            delivery_type_filter = models.Q(
-                container_number__delivery_type__in=["other", "mixed"]
-            )
+        else:
+            if "warehouse_public" in groups and "warehouse_other" not in groups:
+                delivery_type_filter = models.Q(
+                    container_number__delivery_type__in=["public", "mixed"]
+                )
+            elif "warehouse_other" in groups and "warehouse_public" not in groups:
+                delivery_type_filter = models.Q(
+                    container_number__delivery_type__in=["other", "mixed"]
+                )
+            else:
+                raise ValueError('没有权限')
         # 基础查询
         base_query = Order.objects.select_related(
             "invoice_id",
@@ -989,12 +1000,7 @@ class Accounting(View):
             base_query = base_query.filter(delivery_type_filter)
 
         # 查找未操作过的
-        display_mix = False
-        if "NJ_mix_account" in groups:
-            if warehouse == "NJ-07001":
-                display_mix = True
-        if "mix_account" in groups:
-            display_mix = True
+        
 
         if display_mix:
             order = base_query.filter(
@@ -1005,13 +1011,17 @@ class Accounting(View):
                 # 如果是公仓人员
                 order = base_query.filter(
                     **{f"{invoice_type}_status__stage": "warehouse"},
-                    **{f"{invoice_type}_status__stage_public": "pending"},
+                ).filter(
+                    models.Q(**{f"{invoice_type}_status__stage_public": "pending"}) |
+                    models.Q(**{f"{invoice_type}_status__stage_public": "warehouse_rejected"})
                 ).order_by(f"{invoice_type}_status__reject_reason")
             elif "warehouse_other" in groups and "warehouse_public" not in groups:
                 # 如果是私仓人员
                 order = base_query.filter(
                     **{f"{invoice_type}_status__stage": "warehouse"},
-                    **{f"{invoice_type}_status__stage_other": "pending"},
+                ).filter(
+                    models.Q(**{f"{invoice_type}_status__stage_other": "pending"}) |
+                    models.Q(**{f"{invoice_type}_status__stage_other": "warehouse_rejected"})
                 ).order_by(f"{invoice_type}_status__reject_reason")
         order = self.process_orders_display_status(order, invoice_type)
 
@@ -1028,18 +1038,18 @@ class Accounting(View):
                 ]
             }
         )
-        warehouse_condition = models.Q(**{f"{invoice_type}_status__stage": "warehouse"})
-        if "mix_account" in groups:
-            warehouse_condition &= models.Q(
+        
+        if display_mix:
+            warehouse_condition = models.Q(
                 **{f"{invoice_type}_status__stage": "delivery"}
             )
         else:
             if "warehouse_public" in groups and "warehouse_other" not in groups:
-                warehouse_condition &= models.Q(
+                warehouse_condition = models.Q(
                     **{f"{invoice_type}_status__stage_public": "warehouse_completed"}
                 )
             elif "warehouse_other" in groups and "warehouse_public" not in groups:
-                warehouse_condition &= models.Q(
+                warehouse_condition = models.Q(
                     **{f"{invoice_type}_status__stage_other": "warehouse_completed"}
                 )
         previous_order = base_query.filter(
@@ -1053,12 +1063,6 @@ class Accounting(View):
             previous_order, invoice_type
         )
         groups = [group.name for group in request.user.groups.all()]
-        display_mix = False
-        if "NJ_mix_account" in groups:
-            if warehouse == "NJ-07001":
-                display_mix = True
-        if "mix_account" in groups:
-            display_mix = True
         context = {
             "order": order,
             "order_form": OrderForm(),
