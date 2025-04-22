@@ -38,6 +38,7 @@
             <tr style="background-color: #f1f1f1;">
                 <th class="th" style="padding: 12px; border: 1px solid #ddd;text-align: center;">客户</th>
                 <th class="th" style="padding: 12px; border: 1px solid #ddd;text-align: center;">柜号</th>
+                <th class="th" style="padding: 12px; border: 1px solid #ddd;text-align: center;">分类</th>
                 <th class="th" style="padding: 12px; border: 1px solid #ddd;text-align: center;">状态</th>
                 <th class="th" style="padding: 12px; border: 1px solid #ddd;text-align: center;">是否拒绝</th>
                 <th class="th" style="padding: 12px; border: 1px solid #ddd;text-align: center;">拒绝原因</th>
@@ -45,6 +46,7 @@
             <tr style="position: sticky; top: 28px;">
                 <th class="th"></th>
                 <th class="th" style="padding: 12px; border: 1px solid #ddd;text-align: center;"><input type="text" id="containerSearchInput" placeholder="搜索柜号..." oninput="filterTable(this, 1)" size="16" style="font-size: 14px;"></th>
+                <th class="th"></th>
                 <th class="th"></th>
                 <th class="th"></th>
                 <th class="th"></th>
@@ -57,6 +59,17 @@
                 <tr style="background-color: {% cycle '#fff' '#f9f9f9' %};">
                     <td class="td" style="padding: 12px; border: 1px solid #ddd; text-align: center;vertical-align: middle">{{ c.customer_name.zem_name }}</td>
                     <td class="td" style="padding: 12px; border: 1px solid #ddd; text-align: center;vertical-align: middle">{{ c.container_number }}</td>
+                    <td class="td" style="padding: 12px; border: 1px solid #ddd; text-align: center;vertical-align: middle">
+                        {% if c.container_number.delivery_type == 'mixed' %}
+                            混合
+                        {% elif c.container_number.delivery_type == 'public' %}
+                            公仓
+                        {% elif c.container_number.delivery_type == 'other' %}
+                            私仓
+                        {% else %}
+                            {{ c.container_number.delivery_type }} 
+                        {% endif %}
+                    </td>
                     <td class="td" style="padding: 12px; border: 1px solid #ddd; text-align: center;vertical-align: middle; white-space: pre-line;">{{ c.display_stage }}</td>
                     <td class="td" style="padding: 12px; border: 1px solid #ddd; text-align: center;vertical-align: middle">{{ c.display_is_rejected }}</td>
                     <td class="td" style="padding: 12px; border: 1px solid #ddd; text-align: center;vertical-align: middle">{{ c.display_reject_reason }}</td>

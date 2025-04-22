@@ -30,7 +30,9 @@ from django.db.models import (
     When,
     Prefetch,
     BooleanField,
-    Min
+    Min,
+    Exists,
+    OuterRef
 )
 from django.db.models.functions import Cast, Coalesce
 from django.http import HttpRequest, HttpResponse, HttpResponseForbidden
@@ -1207,18 +1209,20 @@ class Accounting(View):
         display_mix = False
         if "mix_account" in groups:
             display_mix = True
-
+        
         if display_mix:
             delivery_type_filter = models.Q()
+            delivery_type = 'mix'
         elif ("warehouse_other" in groups and "warehouse_public" not in groups) or ("NJ_mix_account" in groups):
             delivery_type_filter = models.Q(
                 container_number__delivery_type__in=["other", "mixed"]
             )
+            delivery_type = 'other'
         elif "warehouse_public" in groups and "warehouse_other" not in groups:
             delivery_type_filter = models.Q(
                 container_number__delivery_type__in=["public", "mixed"]
             )
-        
+            delivery_type = 'public'     
 
         # 基础查询
         base_query = Order.objects.select_related(
@@ -1231,6 +1235,13 @@ class Accounting(View):
 
         if delivery_type_filter:
             base_query = base_query.filter(delivery_type_filter)
+        #判断是否有暂扣的板子
+        hold_subquery = Pallet.objects.filter(
+            container_number=OuterRef('container_number'),  # 关联到Order的container
+            delivery_method__contains="暂扣留仓"
+        )
+        if delivery_type != 'mix':
+            hold_subquery = hold_subquery.filter(delivery_type=delivery_type)
 
          # 查找未操作过的
         if "NJ_mix_account" in groups or ("warehouse_other" in groups and "warehouse_public" not in groups):  #这个权限的，要看NJ的私仓
@@ -1246,7 +1257,8 @@ class Accounting(View):
                         When(**{f"{invoice_type}_status__stage_other": "delivery_rejected"}, then=Value(0)),
                         When(**{f"{invoice_type}_status__stage_other": "warehouse_completed"}, then=Value(1)),
                         output_field=IntegerField(),
-                    )           
+                    ),
+                    is_hold=Exists(hold_subquery)  #表示柜子是否有暂扣的 
                 ).order_by('is_priority')
         else:        
             if display_mix:   #这个权限的，都能看
@@ -1261,10 +1273,11 @@ class Accounting(View):
                         ),
                         default=Value(1),
                         output_field=IntegerField(),
-                    )
+                    ),
+                    is_hold=Exists(hold_subquery)  
                 ).order_by('is_priority')
             elif "warehouse_public" in groups and "warehouse_other" not in groups:
-                # 如果是公仓人员
+                # 只看公仓人员
                 order = base_query.filter(
                     models.Q(
                         **{f"{invoice_type}_status__stage_public": "warehouse_completed"}
@@ -1277,11 +1290,13 @@ class Accounting(View):
                         When(**{f"{invoice_type}_status__stage_public": "delivery_rejected"}, then=Value(0)),
                         When(**{f"{invoice_type}_status__stage_public": "warehouse_completed"}, then=Value(1)),
                         output_field=IntegerField(),
-                    )  
+                    ),
+                    is_hold=Exists(hold_subquery)    
                 ).order_by('is_priority')
         order = self.process_orders_display_status(
             order, invoice_type
-        )
+        )       
+
         # 查找历史操作过的
         base_condition = ~models.Q(
             **{f"{invoice_type}_status__stage__in": ["unstarted", "preport"]}
