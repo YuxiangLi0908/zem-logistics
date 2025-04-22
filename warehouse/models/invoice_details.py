@@ -120,8 +120,7 @@ class InvoiceDelivery(models.Model):
     total_weight_lbs = models.FloatField(null=True, blank=True)
     total_cost = models.FloatField(null=True, blank=True)
     expense = models.FloatField(null=True, blank=True)
-    surcharges = JSONField(default=dict)
-    surcharge_notes = JSONField(default=dict)
+    note = models.CharField(max_length=2000, null=True, blank=True)
     history = HistoricalRecords()
 
     def __str__(self) -> str:
