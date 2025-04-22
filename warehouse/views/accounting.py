@@ -1000,8 +1000,6 @@ class Accounting(View):
             base_query = base_query.filter(delivery_type_filter)
 
         # 查找未操作过的
-        
-
         if display_mix:
             order = base_query.filter(
                 **{f"{invoice_type}_status__stage": "warehouse"},
@@ -1943,7 +1941,14 @@ class Accounting(View):
         else:
             raise ValueError(f"Unknown invoice_type: {invoice_type}")
         invoice.save()
-        order.invoice_status = "confirmed"
+        if invoice_type == "receivable":
+            receivable_status = order.receivable_status
+            receivable_status.stage = "confirmed"
+            receivable_status.save()
+        else:
+            payable_status = order.payable_status
+            payable_status.stage = "confirmed"
+            payable_status.save() 
         order.save()
         return self.handle_invoice_confirm_get(request)
 
@@ -2170,6 +2175,9 @@ class Accounting(View):
                 delivery_type = "public"
             elif "warehouse_other" in groups and "warehouse_public" not in groups:
                 delivery_type = "other"
+        invoice_status = InvoiceStatus.objects.get(
+            container_number=order.container_number, invoice_type=invoice.invoice_type
+        )
         # 不需要赋值单价的字段
         excluded_fields = {
             "id",
@@ -2246,7 +2254,11 @@ class Accounting(View):
             "redirect_step": redirect_step,
             "FS": FS,
             "fs_json": fs_json,
-            "status": order.invoice_status,
+            "status": (
+                order.receivable_status.stage
+                if invoice_type == "receivable"
+                else order.payable_status.stage
+            ),
             "start_date_confirm": request.POST.get("start_date_confirm") or None,
             "end_date_confirm": request.POST.get("end_date_confirm") or None,
             "invoice_type": invoice_type,
@@ -2940,7 +2952,11 @@ class Accounting(View):
             "end_date": request.GET.get("end_date"),
             "FS": FS,
             "fs_json": fs_json,
-            "status": order.invoice_status,
+            "status": (
+                order.receivable_status.stage
+                if invoice_type == "receivable"
+                else order.payable_status.stage
+            ),
             "redirect_step": redirect_step,
             "start_date_confirm": request.POST.get("start_date_confirm") or None,
             "end_date_confirm": request.POST.get("end_date_confirm") or None,
