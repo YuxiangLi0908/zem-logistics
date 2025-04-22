@@ -2175,9 +2175,6 @@ class Accounting(View):
                 delivery_type = "public"
             elif "warehouse_other" in groups and "warehouse_public" not in groups:
                 delivery_type = "other"
-        invoice_status = InvoiceStatus.objects.get(
-            container_number=order.container_number, invoice_type=invoice.invoice_type
-        )
         # 不需要赋值单价的字段
         excluded_fields = {
             "id",
@@ -2433,6 +2430,7 @@ class Accounting(View):
             "walmart": delivery_groups["walmart"],
             "selfdelivery": delivery_groups["selfdelivery"],
             "upsdelivery":delivery_groups["upsdelivery"],
+            "selfpickup":delivery_groups["selfpickup"],
             "redirect_step": redirect_step,
             "start_date": request.GET.get("start_date") or None,
             "end_date": request.GET.get("end_date") or None,
@@ -2502,6 +2500,7 @@ class Accounting(View):
             "walmart": [],
             "selfdelivery": [],
             "upsdelivery": [],
+            "selfpickup": [],
             "invoice_delivery": invoice_deliveries
         }
         #没有单价的找单价，再根据type汇总派送方式
