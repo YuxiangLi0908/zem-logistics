@@ -1872,6 +1872,8 @@ class Accounting(View):
                     invoice_content.total_cost = float(invoice_content.cost) * float(invoice_content.total_pallet)
                 elif invoice_content.type == 'combine':  #组合柜总价=单价
                     invoice_content.total_cost = float(invoice_content.cost)
+                else:
+                    invoice_content.total_cost = 0
             invoice_content.save()
 
             updated_pallets = []
@@ -2085,6 +2087,8 @@ class Accounting(View):
             new_plt_ids = [ast.literal_eval(sub_plt_id) for sub_plt_id in plt_ids]
             cost
             expense = request.POST.getlist("expense")
+            if type_value == "selfdelivery":  #自发的要加备注
+                note = request.POST.getlist("note")
             # 将前端的每一条记录存为invoice_delivery的一条
             for i in range(len((new_plt_ids))):
                 ids = [int(id) for id in new_plt_ids[i]]
@@ -2102,6 +2106,11 @@ class Accounting(View):
                     invoice_content.expense = expense[i]
                 if po_activation[i]:
                     invoice_content.po_activation = po_activation[i]
+                if type_value == "selfdelivery":
+                    if 'None' in note[i]:
+                        invoice_content.note = None
+                    else:
+                        invoice_content.note = note[i]
                 invoice_content.save()
         # 如果是财务确认界面跳转的，需要重定向到财务确认界面，并且执行派送界面的账单确认操作
         if redirect_step == "True":
@@ -2605,19 +2614,24 @@ class Accounting(View):
         decimal_part = raw_p - integer_part
         if delivery.type == "local" or (delivery.type == "amazon" and warehouse == "LA"):
             is_new_rule = False    #本地派送的按照4.1之前的规则
-        if is_new_rule: #etd4.1之后的
-            if decimal_part > 0:
-                if is_niche_warehouse:
-                    additional = 2 if decimal_part > 0.5 else 1
-                else:
-                    additional = 1 if decimal_part > 0.5 else 0
+        if decimal_part > 0:
+            if is_new_rule: #etd4.1之后的
+                if decimal_part > 0:
+                    if is_niche_warehouse:
+                        additional = 2 if decimal_part > 0.5 else 1
+                    else:
+                        additional = 1 if decimal_part > 0.5 else 0
+            else:
+                if decimal_part > 0:
+                    if is_niche_warehouse:
+                        additional = 1
+                    else:
+                        additional = 1 if decimal_part > 0.9 else 0.5
+            delivery.total_pallet = integer_part + additional
+        elif decimal_part == 0:
+            delivery.total_pallet = integer_part
         else:
-            if decimal_part > 0:
-                if is_niche_warehouse:
-                    additional = 1
-                else:
-                    additional = 1 if decimal_part > 0.9 else 0.5
-        delivery.total_pallet = integer_part + additional
+            ValueError("板数计算错误")
         delivery.save()
 
         

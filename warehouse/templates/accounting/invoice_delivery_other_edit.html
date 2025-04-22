@@ -39,7 +39,7 @@
     </form>
 </div>
 {% endif %}
-<div>
+<div>  <!--本地派送-->
     <form method="post" action="">
         {% csrf_token %}
         <div style="margin:auto; max-height: 800px;max-width:1500px;margin-bottom:50px;">
@@ -107,7 +107,7 @@
         </div>
     </form>
 </div>
-<div>   
+<div>   <!--自发派送-->
     <form method="post" action="">
         {% csrf_token %}
         <div style="margin:auto; max-height: 800px;max-width:1500px;margin-bottom:50px;">
@@ -124,6 +124,7 @@
                             <th class="th">目的地</th>
                             <th class="th">CBM</th>
                             <th class="th">重量</th>
+                            <th class="th">备注</th>
                         </tr>
                     </thead>
                     <tbody>
@@ -140,6 +141,7 @@
                             <td class="td"><input type="text" name="destination" value="{{ plt.destination }}"></td>
                             <td class="td"><input type="number" name="cbm" step = 0.01 value="{{ plt.total_cbm|floatformat:2 }}"></td>
                             <td class="td"><input type="number" name="weight_lbs" step = 0.01 value="{{ plt.total_weight_lbs|floatformat:2 }}"></td>
+                            <td class="td"><input type="text" name="note"  value="{{ plt.note|default:'' }}"></td>
                         </tr>
                         {% endfor %}
                         <tr>
@@ -167,13 +169,13 @@
         </div>
     </form>
 </div>
-<div>   
+<div>   <!--客户自提-->
     <form method="post" action="">
         {% csrf_token %}
         <div style="margin:auto; max-height: 800px;max-width:1500px;margin-bottom:50px;">
-            <button id="editButton" type="button" class="btn btn-primary" onclick="add_delivery(this)" style="font-size: 11px;">UPS</button>
-            {% if upsdelivery %}
-                <table class="table" id="upsdelivery-table" style="font-size: 13px">
+            <button id="editButton" type="button" class="btn btn-primary" onclick="add_delivery(this)" style="font-size: 11px;">客户自提</button>
+            {% if selfpickup %}
+                <table class="table" id="selfpickup-table" style="font-size: 13px">
                     <thead>
                         <tr style="position: sticky; top: 0;">  
                             <th class="th">单价</th>
@@ -187,12 +189,12 @@
                         </tr>
                     </thead>
                     <tbody>
-                        {% for plt in upsdelivery %}
+                        {% for plt in selfpickup %}
                         <tr draggable="true" id="pallet-{{ plt.id }}">
                             <td class="td"><input type="text" name="cost" value="{{ plt.cost }}"></td>
                             <td class="td"><input type="text" name="total_pallet" value="{{ plt.total_pallet }}"></td>
                             <td class="td">
-                                <input type="number" id="upsdelivery_cost" step="0.01" name="total_cost" value="{{ plt.total_cost }}">
+                                <input type="number" id="selfpickup_cost" step="0.01" name="total_cost" value="{{ plt.total_cost }}">
                                 <input type="hidden" name="plt_ids" value="{{ plt.plt_ids }}">
                             </td>
                             <td class="td"><input type="number" name="po_activation" value="{{ plt.po_activation }}"></td>
@@ -205,7 +207,7 @@
                         <tr>
                             <td colspan="2"></td>
                             <td class="td">
-                                <input type="number" id="upsdelivery_total" step="0.01" name="total" value="">
+                                <input type="number" id="selfpickup_total" step="0.01" name="total" value="">
                             </td>
                             <td colspan="6"></td>
                         </tr>
@@ -213,7 +215,7 @@
                 </table>
                 <div class="text-left" style="float:right;">
                     <input type="hidden" name="step" value="update_delivery_invoice">
-                    <input type="hidden" name="type" value="upsdelivery">  
+                    <input type="hidden" name="type" value="selfpickup">  
                     <input type="hidden" name="start_date" value="{{ start_date }}">
                     <input type="hidden" name="end_date" value="{{ end_date }}">
                     <input type="hidden" name="invoice_type" value="{{ invoice_type }}">
@@ -221,7 +223,7 @@
                     <input type="hidden" name="warehouse" value="{{ warehouse }}">              
                     <input type="hidden" name="container_number" value="{{ container_number }}">
                     <input type="hidden" class="total_amount" name="total_amount">    
-                    <button type="submit" class="btn btn-primary" style="width: 100px; height: 35px;" onclick="processForm('upsdelivery-table',event)">确认</button>
+                    <button type="submit" class="btn btn-primary" style="width: 100px; height: 35px;" onclick="processForm('selfpickup-table',event)">确认</button>
                 </div>
             {% endif %}
         </div>
@@ -289,7 +291,7 @@
     const typeTotals = {
         local: 0,
         selfdelivery: 0,
-        upsdelivery: 0
+        selfpickup: 0
     };
 
     // 初始化计算
@@ -412,8 +414,8 @@
             type.value = 'local';
         } else if (text === '自发') {
             type.value = 'selfdelivery';
-        } else if (text === 'UPS') {
-            type.value = 'upsdelivery';
+        } else if (text === '客户自提') {
+            type.value = 'selfpickup';
         }
     };
 
