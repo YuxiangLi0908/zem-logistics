@@ -471,6 +471,7 @@
                         <th class="th" style = "width:80px;">目的地</th>
                         <th class="th" style = "width:70px;">CBM</th>
                         <th class="th" style = "width:70px;">重量</th>
+                        <th class="th" style = "width:70px;">备注</th>
                     </tr>
                 </thead>
                 <tbody>
@@ -483,6 +484,7 @@
                         <td class="td"><input type="text" style = "width:70px;" name="destination" value="{{ plt.destination }}" disabled></td>
                         <td class="td"><input type="number" style = "width:70px;" name="cbm" step = 0.01 value="{{ plt.total_cbm|floatformat:2 }}" disabled></td>
                         <td class="td"><input type="number" style = "width:70px;" name="weight_lbs" step = 0.01 value="{{ plt.total_weight_lbs }}" disabled></td>
+                        <td class="td"><input type="text" style = "width:70px;" name="note"  value="{{ plt.note|default:'' }}" disabled></td>
                     </tr>
                     {% endfor %}
                 </tbody>
@@ -517,6 +519,35 @@
                 </tbody>
             </table>
         </div> 
+        {% endif %}
+        {% if selfpickup %}
+        <div style="border-bottom: 1px solid #ccc; margin-top: 5px;padding-bottom: 5px;text-align:center">
+            <b>客户自提——<label id="selfpickup_amount"></label></b>
+            <table class="table" id="selfpickup-table" style="font-size: 13px;">
+                <thead>
+                    <tr style="position: sticky; top: 0;">
+                        <th class="th" style = "width:70px;">总价</th>
+                        <th class="th" style = "width:70px;">板数</th>
+                        <th class="th" style = "width:80px;">目的地</th>
+                        <th class="th" style = "width:70px;">CBM</th>
+                        <th class="th" style = "width:70px;">重量</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for plt in selfpickup %}
+                    <tr draggable="true" id="pallet-{{ plt.id }}">
+                        <td class="td">
+                            <input type="number" id="selfpickup_cost" style = "width:70px;" name="cost" value="{{ plt.total_cost }}" disabled>
+                        </td>
+                        <td class="td"><input type="number" style = "width:70px;" name="total_pallet" value="{{ plt.total_pallet }}" disabled></td>
+                        <td class="td"><input type="text" style = "width:70px;" name="destination" value="{{ plt.destination }}" disabled></td>
+                        <td class="td"><input type="number" style = "width:70px;" name="cbm" step = 0.01 value="{{ plt.total_cbm|floatformat:2 }}" disabled></td>
+                        <td class="td"><input type="number" style = "width:70px;" name="weight_lbs" step = 0.01 value="{{ plt.total_weight_lbs }}" disabled></td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
         {% endif %}
 <div>
 {% endif %}
@@ -554,8 +585,9 @@
           'walmart_amount',
           'combine_amount',
           'local_amount',
-          'selfdelivery_cost',
-          'upsdelivery_cost'
+          "selfdelivery_amount",
+          "upsdelivery_amount",
+          "selfpickup_amount",
         ];
       
         amountIds.forEach(amountId => {

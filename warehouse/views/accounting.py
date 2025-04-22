@@ -2303,6 +2303,9 @@ class Accounting(View):
             local = []
             combine = []
             walmart = []
+            selfdelivery = []
+            upsdelivery = []
+            selfpickup = []
             for delivery in invoice_delivery:
                 if delivery.type == "amazon":
                     amazon.append(delivery)
@@ -2312,6 +2315,12 @@ class Accounting(View):
                     combine.append(delivery)
                 elif delivery.type == "walmart":
                     walmart.append(delivery)
+                elif delivery.type == "selfdelivery":
+                    selfdelivery.append(delivery)
+                elif delivery.type == "upsdelivery":
+                    upsdelivery.append(delivery)
+                elif delivery.type == "selfpickup":
+                    selfpickup.append(delivery)
             context = {
                 "invoice": invoice,
                 "order_type": order.order_type,
@@ -2321,6 +2330,9 @@ class Accounting(View):
                 "local": local,
                 "combine": combine,
                 "walmart": walmart,
+                "selfdelivery": selfdelivery,
+                "upsdelivery":upsdelivery,
+                "selfpickup":selfpickup,
                 "container_number": container_number,
                 "start_date_confirm": start_date_confirm,
                 "end_date_confirm": end_date_confirm,
