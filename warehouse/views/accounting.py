@@ -966,7 +966,8 @@ class Accounting(View):
 
         groups = [group.name for group in request.user.groups.all()]
         delivery_type_filter = None
-
+        if "NJ_mix_account" in groups and warehouse == "NJ-07001": #这个权限的，NJ公仓私仓都能看见
+            delivery_type_filter = models.Q()
         if "warehouse_public" in groups and "warehouse_other" not in groups:
             delivery_type_filter = models.Q(
                 container_number__delivery_type__in=["public", "mixed"]
