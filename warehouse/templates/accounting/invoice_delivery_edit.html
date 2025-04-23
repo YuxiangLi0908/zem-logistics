@@ -22,6 +22,11 @@
     </form>
 <div>
 {% endif %}
+<div style="margin:auto; max-height: 800px;max-width:1500px;margin-bottom:50px;">
+    <button class="btn-warning" onclick="add_delivery(this)">
+         更改仓点类型
+    </button>
+</div>
 <div>   
     <form method="post" action="">
         {% csrf_token %}
@@ -345,6 +350,7 @@
                         <th class="th" style="min-width: 40px;"></th>
                         <th class="th">板数</th>
                         <th class="th">派送类型</th>
+                        <th class="th">公仓/私仓</th>
                         <th class="th">目的地</th>
                         <th class="th">CBM</th>
                         <th class="th">重量</th>
@@ -369,6 +375,13 @@
                         
                         <td class="td"><input type="text" name="total_n_pallet" value="{{ plt.total_pallet }}" disabled></td>
                         <td class="td"><input type="text" name="delivery_type" value="{{ plt.invoice_delivery__type|default_if_none:'' }}" disabled></td>
+                        <td class="td">
+                            <select name="plt_delivery_type">
+                                {% for k, v in delivery_types %}
+                                <option value="{{ v }}" {%if v == plt.delivery_type %}selected{% endif %}>{{ k }}</option>
+                                {% endfor %}
+                            </select>
+                        </td>
                         <td class="td"><input type="text" name="destination" value="{{ plt.destination }}"></td>
                         <td class="td"><input type="number" name="cbm" step = 0.01 value="{{ plt.total_cbm|floatformat:2 }}"></td>
                         <td class="td"><input type="number" name="weight_lbs" step = 0.01 value="{{ plt.total_weight_lbs|floatformat:2 }}"></td>
@@ -561,6 +574,8 @@
             type.value = 'walmart';
         } else if (text === '自发') {
             type.value = 'selfdelivery';
+        } else if (text.includes('更改仓点类型')) {
+            type.value ='transferDes'
         }
     };
 

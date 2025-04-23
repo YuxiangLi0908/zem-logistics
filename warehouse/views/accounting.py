@@ -1822,89 +1822,108 @@ class Accounting(View):
         invoice = Invoice.objects.get(
             container_number__container_number=container_number
         )
-
-        alter_type = request.POST.get("alter_type")
         selections = request.POST.getlist("is_type_added")
         plt_ids = request.POST.getlist("added_plt_ids")
         plt_ids = [id for s, id in zip(selections, plt_ids) if s == "on"]
-        total_cbm = request.POST.getlist("cbm")
-        total_cbm = [cbm for s, cbm in zip(selections, total_cbm) if s == "on"]
-        total_weight_lbs = request.POST.getlist("weight_lbs")
-        total_weight_lbs = [
-            weight for s, weight in zip(selections, total_weight_lbs) if s == "on"
-        ]
-        destination = request.POST.getlist("destination")
-        destination = [des for s, des in zip(selections, destination) if s == "on"]
-        delivery_type = request.POST.getlist("delivery_type")
-        delivery_type = [des for s, des in zip(selections, delivery_type) if s == "on"]
-        zipcode = request.POST.getlist("zipcode")
-        zipcode = [code for s, code in zip(selections, zipcode) if s == "on"]
-        total_pallet = request.POST.getlist("total_pallet")
-        total_pallet = [n for s, n in zip(selections, total_pallet) if s == "on"]
+        alter_type = request.POST.get("alter_type")
         
-        # 将前端的每一条记录存为invoice_delivery的一条
-        for i in range(len((plt_ids))):
-            ids = plt_ids[i].split(",")
-            ids = [int(id) for id in ids]
-            pallet = Pallet.objects.filter(id__in=ids)
-            current_date = datetime.now().date()
-            invoice_delivery = f"{current_date.strftime('%Y-%m-%d').replace('-', '')}-{alter_type}-{destination[i]}-{len(pallet)}"
-            invoice_content = InvoiceDelivery(
-                **{
-                    "invoice_delivery": invoice_delivery,
-                    "invoice_number": invoice,
-                    "invoice_type": invoice_type,
-                    "delivery_type": delivery_type[i],
-                    "type": alter_type,  # 沃尔玛/亚马逊等
-                    "zipcode": zipcode[i],
-                    "destination": destination[i],
-                    "total_pallet": total_pallet[i],
-                    "total_cbm": total_cbm[i],
-                    "total_weight_lbs": total_weight_lbs[i],
-                }
-            )
-            invoice_content.save()
-            #找单价
-            order = Order.objects.select_related("retrieval_id", "container_number","vessel_id").get(
-                container_number__container_number=container_number
-            )
-            container_type = order.container_number.container_type
-            warehouse = order.retrieval_id.retrieval_destination_area
-            vessel_etd = order.vessel_id.vessel_etd
-            cutoff_date = date(2025, 4, 1)
-            is_new_rule = vessel_etd >= cutoff_date
+        #如果是改公仓/私仓，是一个方法，否则是旧方法
+        if alter_type == "transferDes":
+            #更改公仓/私仓类别
+            plt_delivery_type = request.POST.getlist("plt_delivery_type")
+            plt_delivery_type = [des for s, des in zip(selections, plt_delivery_type) if s == "on"]
+            for i in range(len((plt_ids))):
+                ids = plt_ids[i].split(",")
+                ids = [int(id) for id in ids]
+                pallet = Pallet.objects.filter(id__in=ids)
+                updated_pallets = []
+                for plt in pallet:
+                    plt.delivery_type = plt_delivery_type[i]
+                    updated_pallets.append(plt)
+                bulk_update_with_history(
+                    updated_pallets, Pallet, fields=["delivery_type"]
+                )
 
-            fee_details = self._get_fee_details(warehouse)
-            self._calculate_and_set_delivery_cost(
-                invoice_content,
-                container_type,
-                fee_details,
-                warehouse,
-                is_new_rule
-            )
-            if invoice_content.cost is not None:
-                if invoice_content.type != 'combine':
-                    invoice_content.total_cost = float(invoice_content.cost) * float(invoice_content.total_pallet)
-                elif invoice_content.type == 'combine':  #组合柜总价=单价
-                    invoice_content.total_cost = float(invoice_content.cost)
-                else:
-                    invoice_content.total_cost = 0
-            invoice_content.save()
+        else:           
+            total_cbm = request.POST.getlist("cbm")
+            total_cbm = [cbm for s, cbm in zip(selections, total_cbm) if s == "on"]
+            total_weight_lbs = request.POST.getlist("weight_lbs")
+            total_weight_lbs = [
+                weight for s, weight in zip(selections, total_weight_lbs) if s == "on"
+            ]
+            destination = request.POST.getlist("destination")
+            destination = [des for s, des in zip(selections, destination) if s == "on"]
+            #更改amazon/walmart等类别
+            delivery_type = request.POST.getlist("delivery_type")
+            delivery_type = [des for s, des in zip(selections, delivery_type) if s == "on"]
+            zipcode = request.POST.getlist("zipcode")
+            zipcode = [code for s, code in zip(selections, zipcode) if s == "on"]
+            total_pallet = request.POST.getlist("total_pallet")
+            total_pallet = [n for s, n in zip(selections, total_pallet) if s == "on"]
+            
+            # 将前端的每一条记录存为invoice_delivery的一条
+            for i in range(len((plt_ids))):
+                ids = plt_ids[i].split(",")
+                ids = [int(id) for id in ids]
+                pallet = Pallet.objects.filter(id__in=ids)
+                current_date = datetime.now().date()
+                invoice_delivery = f"{current_date.strftime('%Y-%m-%d').replace('-', '')}-{alter_type}-{destination[i]}-{len(pallet)}"
+                invoice_content = InvoiceDelivery(
+                    **{
+                        "invoice_delivery": invoice_delivery,
+                        "invoice_number": invoice,
+                        "invoice_type": invoice_type,
+                        "delivery_type": delivery_type[i],
+                        "type": alter_type,  # 沃尔玛/亚马逊等
+                        "zipcode": zipcode[i],
+                        "destination": destination[i],
+                        "total_pallet": total_pallet[i],
+                        "total_cbm": total_cbm[i],
+                        "total_weight_lbs": total_weight_lbs[i],
+                    }
+                )
+                invoice_content.save()
+                #找单价
+                order = Order.objects.select_related("retrieval_id", "container_number","vessel_id").get(
+                    container_number__container_number=container_number
+                )
+                container_type = order.container_number.container_type
+                warehouse = order.retrieval_id.retrieval_destination_area
+                vessel_etd = order.vessel_id.vessel_etd
+                cutoff_date = date(2025, 4, 1)
+                is_new_rule = vessel_etd >= cutoff_date
 
-            updated_pallets = []
-            for plt in pallet:
-                try:
-                    invoice_delivery = plt.invoice_delivery
-                    if invoice_delivery and hasattr(invoice_delivery, "delete"):
-                        invoice_delivery.delete()
-                except InvoiceDelivery.DoesNotExist:
-                    pass
-                # pallet指向InvoiceDelivery表
-                plt.invoice_delivery = invoice_content
-                updated_pallets.append(plt)
-            bulk_update_with_history(
-                updated_pallets, Pallet, fields=["invoice_delivery"]
-            )
+                fee_details = self._get_fee_details(warehouse)
+                self._calculate_and_set_delivery_cost(
+                    invoice_content,
+                    container_type,
+                    fee_details,
+                    warehouse,
+                    is_new_rule
+                )
+                if invoice_content.cost is not None:
+                    if invoice_content.type != 'combine':
+                        invoice_content.total_cost = float(invoice_content.cost) * float(invoice_content.total_pallet)
+                    elif invoice_content.type == 'combine':  #组合柜总价=单价
+                        invoice_content.total_cost = float(invoice_content.cost)
+                    else:
+                        invoice_content.total_cost = 0
+                invoice_content.save()
+
+                updated_pallets = []
+                for plt in pallet:
+                    try:
+                        invoice_delivery = plt.invoice_delivery
+                        if invoice_delivery and hasattr(invoice_delivery, "delete"):
+                            invoice_delivery.delete()
+                    except InvoiceDelivery.DoesNotExist:
+                        pass
+                    # pallet指向InvoiceDelivery表
+                    plt.invoice_delivery = invoice_content
+                    updated_pallets.append(plt)
+                bulk_update_with_history(
+                    updated_pallets, Pallet, fields=["invoice_delivery"]
+                )
 
         return self.handle_container_invoice_delivery_get(request)
 
@@ -2473,6 +2492,11 @@ class Accounting(View):
             "start_date_confirm": request.POST.get("start_date_confirm") or None,
             "end_date_confirm": request.POST.get("end_date_confirm") or None,
             "invoice_type": invoice_type,
+            "delivery_types": [
+                ("", ""),
+                ("公仓", "public"),
+                ("其他", "other"),
+            ],
         }
         if "mix_account" in groups:  # 如果公仓私仓都能看，就进总页面
             context["delivery_type"] = "mixed"
