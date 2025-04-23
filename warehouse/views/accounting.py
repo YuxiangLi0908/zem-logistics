@@ -2242,7 +2242,7 @@ class Accounting(View):
                 delivery_type=delivery_type,
             )
         except InvoiceWarehouse.DoesNotExist:
-            invoice_warehouse = InvoiceWarehouse(
+            invoice_warehouse = InvoiceWarehouse.objects.get(
                 invoice_number=invoice,
                 invoice_type=invoice_type,
                 delivery_type=delivery_type,
@@ -2268,7 +2268,9 @@ class Accounting(View):
                 "start_date": request.GET.get("start_date"),
                 "end_date": request.GET.get("end_date"),
                 "invoice_type": invoice_type,
-                "invoice_warehouse":invoice_warehouse
+                "invoice_warehouse":invoice_warehouse,
+                "surcharges": invoice_warehouse.surcharges,
+                "surcharge_notes": invoice_warehouse.surcharge_notes,
             }
             return self.template_invoice_warehouse_edit, context
         # 如果单价和数量都为空的话，就初始化
@@ -2290,7 +2292,7 @@ class Accounting(View):
             "invoice": invoice,
             "container_number": container_number,
             "surcharges": invoice_warehouse.surcharges,
-            "surcharges_notes": invoice_warehouse.surcharge_notes,
+            "surcharge_notes": invoice_warehouse.surcharge_notes,
             "start_date": request.GET.get("start_date"),
             "end_date": request.GET.get("end_date"),
             "redirect_step": redirect_step,
