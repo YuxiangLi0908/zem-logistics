@@ -2148,3 +2148,8 @@ IUSR:
   location: 1120 E Mount Olive Rd,GXO/ Amazon IUSR
   state: SC
   zipcode: '29330'
+SCK8:
+  city: OAKLEY
+  location: 4700 WILBUR AVE
+  state: CA
+  zipcode: '94561'
