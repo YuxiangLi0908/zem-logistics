@@ -1852,23 +1852,24 @@ class ShippingManagement(View):
             shipment_appointment = None
         #如果这个ISA备约已经登记过了，就把原记录删除    
         appointment_id = request.POST.get("appointment_id")
-        if appointment_id:
-            any_existing = await sync_to_async(
-                Shipment.objects.filter(
-                    appointment_id=appointment_id
-                ).exists
-            )()
-            if any_existing:
-                existing_with_null_batch = await sync_to_async(
+        if shipment.appointment_id != appointment_id:  #更改ISA的时候，才判断ISA是否已存在
+            if appointment_id:
+                any_existing = await sync_to_async(
                     Shipment.objects.filter(
-                        appointment_id=appointment_id,
-                        shipment_batch_number__isnull=True
-                    ).first  
+                        appointment_id=appointment_id
+                    ).exists
                 )()
-            if existing_with_null_batch:  #删除备约的记录
-                await sync_to_async(existing_with_null_batch.delete)()
-            else:                         #如果ISA已经有预约批次，就报错
-                raise ValueError('ISA已预约')
+                if any_existing:
+                    existing_with_null_batch = await sync_to_async(
+                        Shipment.objects.filter(
+                            appointment_id=appointment_id,
+                            shipment_batch_number__isnull=True
+                        ).first  
+                    )()
+                if existing_with_null_batch:  #删除备约的记录
+                    await sync_to_async(existing_with_null_batch.delete)()
+                else:                         #如果ISA已经有预约批次，就报错
+                    raise ValueError('ISA已预约')
             
         if shipment_type == shipment.shipment_type:
             if shipment_type == "FTL":
