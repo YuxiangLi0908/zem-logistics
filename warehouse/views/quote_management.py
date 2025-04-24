@@ -525,6 +525,71 @@ class QuoteManagement(View):
         fee_detail = FeeDetail(**fee_detail_data)
         fee_detail.save()
 
+    def process_combine_stipulate(self, df, file, quote):
+        result = {
+            "global_rules":{},
+            "warehouse_pricing":{},
+            "special_warehouse":{}
+        }
+        current_section = None
+        for index, row in df.iterrows():
+            if pd.notna(row.iloc[0]) and "▶" in str(row.iloc[0]):
+                current_section = str(row.iloc[0]).strip("▶ ").strip()
+                continue
+            if (
+                str(row.iloc[0]) == "参数名称"  # 检查是否标题行
+                or str(row.iloc[0]) == "仓库"  # 检查是否包含warehouse(不区分大小写)
+                or not pd.notna(row.iloc[0])  # 检查是否空值
+            ):
+                continue
+            if current_section == "global_rules":
+                rule_name = str(row.iloc[0])
+                rule_value = row.iloc[1]
+                exception_zone = row.iloc[2] if pd.notna(row.iloc[2]) else None
+                exception_value = row.iloc[3] if pd.notna(row.iloc[3]) else None
+                
+                result["global_rules"][rule_name] = {
+                    "default": rule_value,
+                    "exceptions": {exception_zone: exception_value} if exception_zone else {}
+                }
+            elif current_section == "warehouse_pricing":
+                warehouse = str(row.iloc[0])       
+                result["warehouse_pricing"][warehouse] = {
+                    "base_40ft": row.iloc[1],
+                    "base_45ft": row.iloc[2],
+                    "nonmix_40ft": row.iloc[3],
+                    "nonmix_45ft": row.iloc[4],
+                    "pickup_min": row.iloc[5],
+                    "pickup_max": row.iloc[6],
+                    "palletizing": row.iloc[7] if pd.notna(row.iloc[7]) else None,
+                }
+            elif current_section == "special_warehouse":
+                warehouse = str(row.iloc[0])
+                destination = str(row.iloc[1])
+                multiplier = str(row.iloc[2])
+                if warehouse in result["special_warehouse"]:
+                    if result["special_warehouse"][warehouse]["multiplier"] == multiplier:
+                        # 确保destination是列表形式
+                        if not isinstance(result["special_warehouse"][warehouse]["destination"], list):
+                            result["special_warehouse"][warehouse]["destination"] = [
+                                result["special_warehouse"][warehouse]["destination"]
+                            ]
+                        result["special_warehouse"][warehouse]["destination"].append(destination)
+                        continue
+                result["special_warehouse"][warehouse] = {
+                    "destination": [destination],  # 始终存储为列表
+                    "multiplier": multiplier
+                }
+        # 创建 FeeDetail 记录
+        fee_detail_data = {
+            "quotation_id": quote,
+            "fee_detail_id": str(uuid.uuid4())[:4].upper(),
+            "fee_type": "COMBINA_STIPULATE",
+            "details": result
+        }
+        fee_detail = FeeDetail(**fee_detail_data)
+        fee_detail.save()
+
     def process_direct_sheet(self, df, file, quote):
         # 从A列，先看下哪些单元格满足：是合并单元格且包含‘提拆’两个字，这种都是仓库的提拆费，因为不确定未来会增减仓库，所以这个是动态的
         file.seek(0)
@@ -722,6 +787,7 @@ class QuoteManagement(View):
                 "SAV亚马逊派送表": self.process_sav_amazon_sheet,  # 已验证，有仓点分类，记录冷门仓点
                 "SAV组合柜": self.process_sav_combina_sheet,  # 已验证，有仓点分类，记录冷门仓点
                 "整柜直送": self.process_direct_sheet,  # 已验证
+                "组合柜规则": self.process_combine_stipulate,
                 # "LA本地派送": self.process_la_local_sheet,
             }
             for sheet_name in excel_file.sheet_names:

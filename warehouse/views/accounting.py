@@ -49,6 +49,7 @@ from simple_history.utils import bulk_create_with_history, bulk_update_with_hist
 from warehouse.forms.order_form import OrderForm
 from warehouse.models.customer import Customer
 from warehouse.models.fee_detail import FeeDetail
+from warehouse.models.container import Container
 from warehouse.models.invoice import (
     Invoice,
     InvoiceItem,
@@ -106,6 +107,8 @@ class Accounting(View):
     # template_invoice_confirm_edit = "accounting/invoice_confirm_combina3.html"
     template_invoice_direct = "accounting/invoice_direct.html"
     template_invoice_direct_edit = "accounting/invoice_direct_edit.html"
+    template_invoice_combina = "accounting/invoice_combina.html"
+    template_invoice_combina_edit = "accounting/invoice_combina_edit.html"
     template_invoice_search = "accounting/invoice_search.html"
     allowed_group = "accounting"
     warehouse_options = {
@@ -131,6 +134,14 @@ class Accounting(View):
         elif step == "invoice_direct":
             if self._validate_user_invoice_direct(request.user):
                 template, context = self.handle_invoice_direct_get(request)
+                return render(request, template, context)
+            else:
+                return HttpResponseForbidden(
+                    "You are not authenticated to access this page!"
+                )
+        elif step == "invoice_combina":
+            if self._validate_user_invoice_combina(request.user):
+                template, context = self.handle_invoice_combina_get(request)
                 return render(request, template, context)
             else:
                 return HttpResponseForbidden(
@@ -177,6 +188,9 @@ class Accounting(View):
             return render(request, template, context)
         elif step == "container_direct":
             template, context = self.handle_container_invoice_direct_get(request)
+            return render(request, template, context)
+        elif step == "container_combina":
+            template, context = self.handle_container_invoice_combina_get(request)
             return render(request, template, context)
         elif step == "container_preport":
             template, context = self.handle_container_invoice_preport_get(request)
@@ -229,6 +243,9 @@ class Accounting(View):
             return render(request, template, context)
         elif step == "invoice_order_direct":
             template, context = self.handle_invoice_order_search_post(request, "direct")
+            return render(request, template, context)
+        elif step == "invoice_order_combina":
+            template, context = self.handle_invoice_order_search_post(request, "combina")
             return render(request, template, context)
         elif step == "invoice_order_preport":
             template, context = self.handle_invoice_order_search_post(
@@ -602,6 +619,95 @@ class Accounting(View):
         }
         return self.template_invoice_management, context
 
+    def handle_invoice_combina_get(
+        self,
+        request: HttpRequest,
+        start_date: str = None,
+        end_date: str = None,
+        customer: str = None,
+        warehouse: str = None,
+    ) -> tuple[Any, Any]:
+        current_date = datetime.now().date()
+        start_date = (
+            (current_date + timedelta(days=-90)).strftime("%Y-%m-%d")
+            if not start_date
+            else start_date
+        )
+        end_date = current_date.strftime("%Y-%m-%d") if not end_date else end_date
+        criteria = models.Q(
+            cancel_notification=False,
+            vessel_id__vessel_etd__gte=start_date,
+            vessel_id__vessel_etd__lte=end_date
+        )
+        if customer:
+            criteria &= models.Q(customer_name__zem_name=customer)
+
+        invoice_type = request.POST.get("invoice_type") or "receivable"
+        status_field = f"{invoice_type}_status"
+
+        # 查找转运组合，没有生成账单的柜子
+        order = Order.objects.select_related(
+            "customer_name", "container_number", "retrieval_id"
+        ).filter(
+            criteria,
+            models.Q(**{f"{status_field}__isnull": True})
+            | models.Q(  # 考虑账单编辑点的是暂存的情况
+                **{
+                    f"{invoice_type}_status__invoice_type": invoice_type,
+                    f"{invoice_type}_status__stage__in": ["unstarted"],
+                }
+            ),
+            order_type="转运组合",
+            container_number__account_order_type="转运组合",
+        )
+        order = self.process_orders_display_status(
+            order, invoice_type
+        )
+        # 已录入账单
+        previous_order = (
+            Order.objects.select_related(
+                "invoice_id",
+                "customer_name",
+                "container_number",
+                "invoice_id__statement_id",
+                f"{invoice_type}_status",
+            )
+            .values(
+                "invoice_status",
+                "container_number__container_number",
+                "customer_name__zem_name",
+                "created_at",
+                f"{invoice_type}_status",
+            )
+            .filter(
+                criteria,
+                order_type="转运组合",
+                container_number__account_order_type="转运组合",
+                **{
+                    f"{invoice_type}_status__isnull": False,
+                    f"{invoice_type}_status__invoice_type": invoice_type,
+                },
+            )
+            .exclude(
+                **{
+                    f"{invoice_type}_status__stage__in": ["preport", "unstarted"]
+                }
+            )
+        )
+        previous_order = self.process_orders_display_status(
+            previous_order, invoice_type
+        )
+        context = {
+            "order": order,
+            "order_form": OrderForm(),
+            "previous_order": previous_order,
+            "start_date": start_date,
+            "end_date": end_date,
+            "customer": customer,
+            "invoice_type_filter": invoice_type,
+        }
+        return self.template_invoice_combina, context
+    
     def handle_invoice_direct_get(
         self,
         request: HttpRequest,
@@ -2689,7 +2795,87 @@ class Accounting(View):
             ValueError("板数计算错误")
         delivery.save()
 
+    def find_matching_regions(destinations, combina_fee):
+        matching_regions = set() 
+        for region, fee_data_list in combina_fee.items():
+            for fee_data in fee_data_list:
+                locations = fee_data["location"]
+                if any(dest in locations for dest in destinations):
+                    matching_regions.add(region)
         
+        return list(matching_regions) 
+
+    def handle_container_invoice_combina_get(
+        self, request: HttpRequest
+    ) -> tuple[Any, Any]:
+        container_number = request.GET.get("container_number")
+        container = Container.objects.get(container_number=container_number)
+        order = Order.objects.select_related(
+            "retrieval_id", "container_number", "receivable_status", "payable_status"
+        ).get(container_number__container_number=container_number)
+        warehouse = order.retrieval_id.retrieval_destination_area
+        invoice_type = request.GET.get("invoice_type")
+        #组合柜计算流程
+        #先看有几个仓点，如果有超过14个仓点、组合柜区超过12个、非组合柜区超过2个、柜子转为转运类型
+        plts = Pallet.objects.filter(
+            container_number__container_number=container_number
+        ).aggregate(
+            unique_destinations=Count('destination', distinct=True),
+            total_weight=Sum('weight_lbs'),  # 示例：统计总重量
+            total_cbm=Sum('cbm'),
+            plt_id=Count('id'),
+        )
+        if plts['unique_destinations'] == 0:
+            context={
+                'reason':'未录入拆柜数据，请联系客户处理'
+            }
+        if plts['unique_destinations'] > 14:
+            container.account_order_type = '转运'
+            container.save()
+            context={
+                'reason':'超过14个仓点，转入转运流程计费'
+            }
+            return self.template_invoice_combina_edit, context
+        #查找该仓库下的组合柜范围，如果组合柜超过12个，非组合柜超过2个，转到转运
+        destinations = Pallet.objects.filter(
+            container_number__container_number=container_number
+        ).values_list('destination', flat=True).distinct()
+        #先查找etd,
+        vessel_etd = order.vesse_id.vessel_etd
+        quotations = QuotationMaster.objects.filter(
+                is_user_exclusive=False  # 过滤用户专属的记录
+            ).order_by('effective_date')
+        #确认使用哪个报价表的组合柜规则
+        matching_quotation = None
+        for quote in quotations:
+            if quote.effective_date and quote.effective_date <= vessel_etd:
+                matching_quotation = quote
+            else:
+                break
+        
+        COMBINA_FEE = FeeDetail.objects.get(quotation_id=matching_quotation.id, fee_type=f"{warehouse}_COMBINA")
+        matched_regions = self.find_matching_regions(destinations, COMBINA_FEE)  #找区，A区B区
+        
+        stipulate = FeeDetail.objects.get(quotation_id=matching_quotation.id, fee_type="COMBINA_STIPULATE")
+
+
+        #如果是组合柜
+            #查找组合柜的一口价费用
+                #如果是AB混区的，计算AB各占比例，分别*一口价
+
+            #计算组合柜之外的费用，看有没有多区、多仓点、多板子、超重的情况，没有就跳过
+                #多区，除了LA的AB区，其他都不能混区，混了就全按散板
+                #多仓点，计算提拆费和派送费
+                #多板子：计算总CBM/1.8，按照etd和冷门仓点计算最终板数，超过规定板数就是多的
+                #超重：计算总重，超过规定重量就是多的
+                #基础费
+                    #多仓点的费用，用仓点/cbm=板数（冷门热门按散板的看）*散板的单价，找一个最贵的
+                    #多板子的费用=多的板数*（最贵仓点的板子单价），如果在限高仓点，*倍数
+                    #超重的费用=自己输入（因为报价里是一个范围）
+                #提拆库内费
+                    #提差价*比例
+                    #自提费
+                    #打板费
 
 
     def handle_container_invoice_direct_get(
@@ -3211,6 +3397,10 @@ class Accounting(View):
             customer = None
         if status == "direct":
             return self.handle_invoice_direct_get(
+                request, start_date, end_date, customer, warehouse
+            )
+        elif status == "combina":
+            return self.handle_invoice_combina_get(
                 request, start_date, end_date, customer, warehouse
             )
         elif status == "preport":
@@ -3859,6 +4049,12 @@ class Accounting(View):
 
     def _validate_user_invoice_direct(self, user: User) -> bool:
         if user.is_staff or user.groups.filter(name="invoice_direct").exists():
+            return True
+        else:
+            return False
+    
+    def _validate_user_invoice_combina(self, user: User) -> bool:
+        if user.is_staff or user.groups.filter(name="invoice_combina").exists():
             return True
         else:
             return False
