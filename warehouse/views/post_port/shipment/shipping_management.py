@@ -1951,7 +1951,8 @@ class ShippingManagement(View):
                 shipment.fleet_number = None
                 shipment.ARM_BOL = None
                 shipment.ARM_PRO = None
-                await sync_to_async(fleet.delete)()
+                if fleet:
+                    await sync_to_async(fleet.delete)()
             elif shipment_type != "FTL":
                 shipment.shipment_type = shipment_type
                 shipment.shipment_account = request.POST.get("shipment_account")
