@@ -2242,7 +2242,7 @@ class Accounting(View):
                 delivery_type=delivery_type,
             )
         except InvoiceWarehouse.DoesNotExist:
-            invoice_warehouse = InvoiceWarehouse.objects.get(
+            invoice_warehouse,created = InvoiceWarehouse.objects.get_or_create(
                 invoice_number=invoice,
                 invoice_type=invoice_type,
                 delivery_type=delivery_type,
