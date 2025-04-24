@@ -2795,15 +2795,32 @@ class Accounting(View):
             ValueError("板数计算错误")
         delivery.save()
 
-    def find_matching_regions(destinations, combina_fee):
+    def find_matching_regions(destinations, combina_fee)->dict:
         matching_regions = set() 
-        for region, fee_data_list in combina_fee.items():
-            for fee_data in fee_data_list:
-                locations = fee_data["location"]
-                if any(dest in locations for dest in destinations):
-                    matching_regions.add(region)
+        destination_matches = {}
+        for dest in destinations:
+            dest_matches = [] 
+            for region, fee_data_list in combina_fee.items():
+                for fee_data in fee_data_list:
+                    locations = fee_data["location"]
+                    
+                    # 检查当前 destination 是否在 locations 中
+                    if dest in locations:
+                        matching_regions.add(region)  # 添加到匹配的区域集合
+                        dest_matches.append({
+                            "region": region,
+                            "location": dest,
+                            "prices": fee_data["prices"],  # 如果需要价格信息
+                        })
+            
+            # 如果当前 destination 有匹配项，存入 destination_matches
+            if dest_matches:
+                destination_matches[dest] = dest_matches
         
-        return list(matching_regions) 
+        return {
+            "regions": list(matching_regions),  # 所有匹配的区域（去重）
+            "matches": destination_matches,    # 每个 destination 的匹配详情
+        }
 
     def handle_container_invoice_combina_get(
         self, request: HttpRequest
@@ -2855,7 +2872,16 @@ class Accounting(View):
         
         COMBINA_FEE = FeeDetail.objects.get(quotation_id=matching_quotation.id, fee_type=f"{warehouse}_COMBINA")
         matched_regions = self.find_matching_regions(destinations, COMBINA_FEE)  #找区，A区B区
-        
+        #判断是否有混区
+        is_mix = False
+        if warehouse == "LA" and matched_regions == {"A区", "B区"}:
+            is_mix =False
+        else:
+            if len(matched_regions) > 1:
+                is_mix = True
+        #如果有混区的，就分组，每组分别计算组合柜费用和转运费用，找到最高费用的搭配
+        if is_mix:
+            for 
         stipulate = FeeDetail.objects.get(quotation_id=matching_quotation.id, fee_type="COMBINA_STIPULATE")
 
 
