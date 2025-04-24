@@ -1866,10 +1866,10 @@ class ShippingManagement(View):
                             shipment_batch_number__isnull=True
                         ).first  
                     )()
-                if existing_with_null_batch:  #删除备约的记录
-                    await sync_to_async(existing_with_null_batch.delete)()
-                else:                         #如果ISA已经有预约批次，就报错
-                    raise ValueError('ISA已预约')
+                    if existing_with_null_batch:  #删除备约的记录
+                        await sync_to_async(existing_with_null_batch.delete)()
+                    else:                         #如果ISA已经有预约批次，就报错
+                        raise ValueError('ISA已预约')
             
         if shipment_type == shipment.shipment_type:
             if shipment_type == "FTL":
