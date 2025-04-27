@@ -2850,7 +2850,6 @@ class Accounting(View):
                             "location": dest,
                             "prices": fee_data["prices"],
                         })
-                        print('---------------',region)
                         price_display[region]["price"] = fee_data["prices"][container_type]
                         price_display[region]["location"].add(dest)
                         matched = True
@@ -2910,8 +2909,6 @@ class Accounting(View):
         )
 
         # 3. 获取匹配的报价表
-        print('vessel_etd',vessel_etd)
-        print("数据库记录:", QuotationMaster.objects.filter(is_user_exclusive=False).values('is_user_exclusive','effective_date'))
         matching_quotation = QuotationMaster.objects.filter(
             effective_date__lte=vessel_etd
         ).order_by('-effective_date').first()
@@ -3043,7 +3040,6 @@ class Accounting(View):
             plts_by_destination = self._calculate_delivery_fee_cost(fee_details,warehouse,plts_by_destination,destinations,over_count)
             max_price = 0
             for plt_d in plts_by_destination:
-                print(plt_d['price'],plt_d['destination'])
                 if plt_d['is_fixed_price']:   #一口价的不用乘板数
                     max_price = max(float(plt_d['price']),max_price)
                 else:
@@ -3128,7 +3124,7 @@ class Accounting(View):
         }
         price_display = matched_regions['price_display']
         price_display_new = [
-            {"key": region, "price": data['price'], "location": data['location']}
+            {"key": region, "price": data['price'], "location":  ", ".join(data['location'])}
             for region, data in price_display.items()   
         ]
         display_data['combina_data']['destinations'] = price_display_new
@@ -3159,7 +3155,6 @@ class Accounting(View):
             'display_data': display_data,
             "invoice":invoice
         }
-        print(invoice)
         return self.template_invoice_combina_edit, context
     
     def _calculate_delivery_fee_cost(
