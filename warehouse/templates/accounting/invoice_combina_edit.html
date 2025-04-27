@@ -1,0 +1,281 @@
+{% extends 'base.html' %}
+
+{% block content %}
+<div class="container-fluid mt-4">
+    <!-- 顶部标题和总金额 -->
+    <div class="card mb-4 shadow-sm">
+        <div class="card-header bg-primary text-white">
+            <h4 class="mb-0">
+                <i class="bi bi-cash-stack me-2"></i>
+                组合柜费用总计: $<span class="total_amount">{{ total_amount }}</span>
+            </h4>
+        </div>
+    </div>
+
+    <!-- 账单确认表单 -->
+    <div class="card mb-4 shadow-sm">
+        <div class="card-body">
+            <form method="post" action="">
+                {% csrf_token %}
+                <div class="row align-items-center">
+                    <div class="col-md-8 text-center">
+                        <h5 class="mb-0"><b>{{ invoice }}</b></h5>
+                    </div>
+                    <div class="col-md-4 text-end">
+                        <input type="hidden" name="start_date_confirm" value="{{ start_date_confirm }}">
+                        <input type="hidden" name="end_date_confirm" value="{{ end_date_confirm }}">
+                        <input type="hidden" name="step" value="confirm_save">
+                        <input type="hidden" name="invoice_type" value="{{ invoice_type }}">
+                        <input type="hidden" name="container_number" value="{{ container_number }}">
+                        <button id="editButton" type="submit" class="btn btn-success" onclick="AmountForm()">
+                            <i class="bi bi-check-circle me-2"></i>账单确认
+                        </button>
+                    </div>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- 错误提示 -->
+    {% if reason %}
+    <div class="alert alert-danger mb-4" role="alert">
+        <i class="bi bi-exclamation-triangle-fill me-2"></i>
+        错误原因: {{ reason }}
+    </div>
+    {% endif %}
+
+    <!-- 组合柜费用 -->
+    <div class="card mb-4 shadow-sm">
+        <div class="card-header bg-info text-white">
+            <h5 class="mb-0">
+                <i class="bi bi-box-seam me-2"></i>
+                组合柜费用
+            </h5>
+        </div>
+        <div class="card-body">
+            <div class="row mb-3">
+                <div class="col-md-6">
+                    <div class="p-3 bg-light rounded">
+                        <h6><i class="bi bi-currency-dollar me-2"></i>基础费用</h6>
+                        <p class="fs-4">{{ display_data.combina_data.base_fee }}</p>
+                    </div>
+                </div>
+            </div>
+
+            <h5 class="mb-3"><i class="bi bi-pin-map me-2"></i>组合柜价格</h5>
+            <div class="table-responsive">
+                <table class="table table-striped table-hover">
+                    <thead class="table-light">
+                        <tr>
+                            <th><i class="bi bi-shop me-2"></i>区域</th>
+                            <th><i class="bi bi-map me-2"></i>价格</th>
+                            <th><i class="bi bi-tag me-2"></i>仓点</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for dest in display_data.combina_data.destinations %}
+                        <tr>
+                            <td>{{ dest.key }}</td>
+                            <td>{{ dest.price }}</td>
+                            <td class="text-end">{{ dest.location }}</td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+
+    <!-- 超重费用 -->
+    <div class="card mb-4 shadow-sm">
+        <div class="card-header bg-warning text-dark">
+            <h5 class="mb-0">
+                <i class="bi bi-speedometer2 me-2"></i>
+                超重费用
+            </h5>
+        </div>
+        <div class="card-body">
+            <div class="row mb-3">
+                <div class="col-md-6">
+                    <div class="p-3 bg-light rounded">
+                        <h6><i class="bi bi-box-seam me-2"></i>重量信息</h6>
+                        <div class="progress mb-2" style="height: 20px;">
+                            <div class="progress-bar bg-danger" role="progressbar" 
+                                 style="width: {% widthratio display_data.extra_fees.overweight.current_weight display_data.extra_fees.overweight.limit_weight 100 %}%" 
+                                 aria-valuenow="{{ display_data.extra_fees.overweight.current_weight }}" 
+                                 aria-valuemin="0" 
+                                 aria-valuemax="{{ display_data.extra_fees.overweight.limit_weight }}">
+                            </div>
+                        </div>
+                        <p class="mb-1">当前重量: {{ display_data.extra_fees.overweight.current_weight }}</p>
+                        <p class="mb-1">限制重量: {{ display_data.extra_fees.overweight.limit_weight }}</p>
+                    </div>
+                </div>
+                {% if display_data.extra_fees.overweight.is_over %}
+                <div class="col-md-6">
+                    <div class="p-3 bg-light rounded">
+                        <h6><i class="bi bi-exclamation-triangle me-2"></i>超重费用</h6>
+                        <div class="input-group">
+                            <span class="input-group-text">$</span>
+                            <input type="number" class="form-control" name="overweight_fee" 
+                                   value="{{ display_data.extra_fees.overweight.fee }}">
+                        </div>
+                    </div>
+                </div>
+                {% endif %}
+            </div>
+        </div>
+    </div>
+
+    <!-- 超板费用 -->
+    <div class="card mb-4 shadow-sm">
+        <div class="card-header bg-warning text-dark">
+            <h5 class="mb-0">
+                <i class="bi bi-palette me-2"></i>
+                超板费用
+            </h5>
+        </div>
+        <div class="card-body">
+            <div class="row mb-3">
+                <div class="col-md-6">
+                    <div class="p-3 bg-light rounded">
+                        <h6><i class="bi bi-palette me-2"></i>板数信息</h6>
+                        <p class="mb-1">当前板数: {{ display_data.extra_fees.overpallets.current_pallets }}</p>
+                        <p class="mb-1">限制板数: {{ display_data.extra_fees.overpallets.limit_pallets }}</p>
+                        <p class="mb-1">超出的板数: <span class="badge bg-danger">{{ display_data.extra_fees.overpallets.over_count }}</span></p>
+                    </div>
+                </div>
+                <div class="col-md-6">
+                    <div class="p-3 bg-light rounded">
+                        <h6><i class="bi bi-currency-dollar me-2"></i>采用的最大费用</h6>
+                        <p class="fs-4">{{ display_data.extra_fees.overpallets.max_price_used }}</p>
+                    </div>
+                </div>
+            </div>
+
+            <h5 class="mb-3"><i class="bi bi-tags me-2"></i>各仓点单价</h5>
+            <div class="table-responsive">
+                <table class="table table-striped table-hover">
+                    <thead class="table-light">
+                        <tr>
+                            <th>仓点</th>
+                            <th>价格</th>
+                            <th>类型</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for detail in display_data.extra_fees.overpallets.pallet_details %}
+                        <tr class="{% if detail.is_max_used %}table-success{% endif %}">
+                            <td>{{ detail.destination }}</td>
+                            <td class="text-end">{{ detail.price }}</td>
+                            <td>
+                                {% if detail.is_fixed_price %}
+                                <span class="badge bg-primary">一口价</span>
+                                {% else %}
+                                <span class="badge bg-secondary">单价</span>
+                                {% endif %}
+                            </td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+
+    <!-- 超区费用 -->
+    <div class="card mb-4 shadow-sm">
+        <div class="card-header bg-warning text-dark">
+            <h5 class="mb-0">
+                <i class="bi bi-map me-2"></i>
+                超区费用
+            </h5>
+        </div>
+        <div class="card-body">
+            <!-- 提拆费 -->
+            <div class="card mb-3 shadow-sm">
+                <div class="card-header bg-light">
+                    <h6 class="mb-0"><i class="bi bi-box-arrow-in-down me-2"></i>提拆费</h6>
+                </div>
+                <div class="card-body">
+                    <div class="row">
+                        <div class="col-md-6">
+                            <div class="p-3 bg-light rounded mb-3">
+                                <h6><i class="bi bi-box-seam me-2"></i>体积信息</h6>
+                                <p class="mb-1">超区体积: {{ display_data.extra_fees.overregion.pickup.non_combina_cbm }}</p>
+                                <p class="mb-1">总体积: {{ display_data.extra_fees.overregion.pickup.total_cbm }}</p>
+                                <p class="mb-1">体积占比: {{ display_data.extra_fees.overregion.pickup.ratio|floatformat:"%.2f" }}%</p>
+                            </div>
+                        </div>
+                        <div class="col-md-6">
+                            <div class="p-3 bg-light rounded mb-3">
+                                <h6><i class="bi bi-cash me-2"></i>费用信息</h6>
+                                <p class="mb-1">基础提拆费: {{ display_data.extra_fees.overregion.pickup.base_fee }}</p>
+                                <p class="mb-1">最终提拆费: <span class="fw-bold">{{ display_data.extra_fees.overregion.pickup.fee }}</span></p>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- 派送费 -->
+            <div class="card shadow-sm">
+                <div class="card-header bg-light">
+                    <h6 class="mb-0"><i class="bi bi-truck me-2"></i>派送费</h6>
+                </div>
+                <div class="card-body">
+                    <div class="table-responsive">
+                        <table class="table table-striped table-hover">
+                            <thead class="table-light">
+                                <tr>
+                                    <th>仓点</th>
+                                    <th>板数</th>
+                                    <th>单价</th>
+                                    <th>小计</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {% for detail in display_data.extra_fees.overregion.delivery.details %}
+                                <tr>
+                                    <td>{{ detail.destination }}</td>
+                                    <td>{{ detail.pallets }}</td>
+                                    <td class="text-end">{{ detail.price }}</td>
+                                    <td class="text-end fw-bold">{{ detail.subtotal }}</td>
+                                </tr>
+                                {% endfor %}
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<style>
+    .card {
+        border-radius: 10px;
+        border: none;
+    }
+    .card-header {
+        border-radius: 10px 10px 0 0 !important;
+    }
+    .progress {
+        border-radius: 10px;
+    }
+    .table th {
+        white-space: nowrap;
+    }
+    .total_amount {
+        font-size: 1.5em;
+        color: #dc3545;
+        font-weight: bold;
+    }
+    .badge {
+        font-size: 0.8em;
+    }
+    .bg-light {
+        background-color: #f8f9fa !important;
+    }
+</style>
+{% endblock %}

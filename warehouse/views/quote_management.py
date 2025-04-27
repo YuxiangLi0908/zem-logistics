@@ -232,10 +232,16 @@ class QuoteManagement(View):
     def process_nj_local_sheet(self, df, file, quote):
         # NJ本地派送也没有合并的问题，一行一行读
         result = {}
+        #从第一行的标题判断是哪一列开始出现邮编的
+        zipcode_col_index = None
+        for col_idx, col_name in enumerate(df.columns[:10]): 
+            if 'zipcode' in col_name.lower():  # 检查列名
+                zipcode_col_index = col_idx
+                break
         for index, row in df.iloc[1:].iterrows():
             if not pd.isnull(row.iloc[1]) and not pd.isnull(row.iloc[2]) and not pd.isnull(row.iloc[3]):
                 # zipcodes = row.iloc[5:].dropna().tolist()
-                zipcodes = list(map(int, row.iloc[4:].dropna().tolist()))
+                zipcodes = list(map(int, row.iloc[zipcode_col_index:].dropna().tolist()))
                 result[index] = {
                     "zipcodes": zipcodes,
                     "prices": [row.iloc[1], row.iloc[2], row.iloc[3]],
@@ -355,9 +361,9 @@ class QuoteManagement(View):
                 pd.notna(row.iloc[1])
                 and pd.notna(row.iloc[3])
             ):
-                cell_value = str(row.iloc[5])
-                if pd.notna(row.iloc[5]) and "冷门仓点" in cell_value:
-                    niche_warehouse.add(row.iloc[1])
+                if len(row) >= 6 and pd.notna(row.iloc[5]):                   
+                    if "冷门仓点" in row.iloc[5]:
+                        niche_warehouse.add(row.iloc[1])
                 result_amazon_dict[row.iloc[3]].add(row.iloc[1])
         result = {
                 key: self.extract_locations(list(values))
@@ -721,7 +727,7 @@ class QuoteManagement(View):
             loc = loc.split("（")[0].split("(")[0].strip()  #有的仓点后面会写上（新增），这个不要
             parts = loc.split("-")
             loc = (parts[1] if len(parts) > 1 else parts[0]).strip()  #有的仓点是沃尔玛-xx，只要后面的仓点名
-
+            loc = loc.replace("新增","")
             if '私人地址' in loc:
                 result.append(loc)
             else:

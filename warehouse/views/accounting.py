@@ -32,8 +32,10 @@ from django.db.models import (
     BooleanField,
     Min,
     Exists,
-    OuterRef
+    OuterRef,
+    ExpressionWrapper
 )
+from collections import defaultdict
 from django.db.models.functions import Cast, Coalesce
 from django.http import HttpRequest, HttpResponse, HttpResponseForbidden
 from django.shortcuts import render
@@ -794,6 +796,25 @@ class Accounting(View):
             "invoice_type_filter": invoice_type,
         }
         return self.template_invoice_direct, context
+
+    def handle_invoice_combina_save():
+        invoice_item_data.append(
+                {
+                    "invoice_number": invoice,
+                    "description": d,
+                    "warehouse_code": wc,
+                    "cbm": c if c else None,
+                    "weight": w if w else None,
+                    "qty": q if q else None,
+                    "rate": r if r else None,
+                    "amount": a if a else None,
+                    "note": n if n else "",
+                }
+            )
+        invoice_item_instances = [
+            InvoiceItem(**inv_itm_data) for inv_itm_data in invoice_item_data
+        ]
+        bulk_create_with_history(invoice_item_instances, InvoiceItem)
 
     def handle_invoice_search_get(
         self,
@@ -2001,7 +2022,7 @@ class Accounting(View):
                 cutoff_date = date(2025, 4, 1)
                 is_new_rule = vessel_etd >= cutoff_date
 
-                fee_details = self._get_fee_details(warehouse)
+                fee_details = self._get_fee_details(warehouse,None)
                 self._calculate_and_set_delivery_cost(
                     invoice_content,
                     container_type,
@@ -2568,7 +2589,7 @@ class Accounting(View):
         cutoff_date = date(2025, 4, 1)
         is_new_rule = vessel_etd >= cutoff_date
 
-        fee_details = self._get_fee_details(warehouse)
+        fee_details = self._get_fee_details(warehouse,None)
         delivery_groups = self._process_delivery_records(
             invoice.invoice_number,
             pallets,
@@ -2638,9 +2659,11 @@ class Accounting(View):
             else:
                 raise ValueError("没有权限")
 
-    def _get_fee_details(self, warehouse: str) -> dict:
+    def _get_fee_details(self, warehouse: str,id:int) -> dict:
         try:
-            quotation = QuotationMaster.objects.get(active=True)
+            if not id:
+                quotation = QuotationMaster.objects.get(active=True)
+                id = quotation.id
             fee_types = {
                 'NJ': ['NJ_LOCAL', 'NJ_PUBLIC', 'NJ_COMBINA'],
                 'SAV': ['SAV_PUBLIC', 'SAV_COMBINA'],
@@ -2650,7 +2673,7 @@ class Accounting(View):
             return {
                 fee.fee_type: fee
                 for fee in FeeDetail.objects.filter(
-                    quotation_id=quotation.id,
+                    quotation_id=id,
                     fee_type__in=fee_types
                 )
             }
@@ -2770,11 +2793,17 @@ class Accounting(View):
         else:
             delivery.cost = 0
         #计算板数
-        raw_p = float(delivery.total_cbm)/1.8
+        if delivery.type == "local" or (delivery.type == "amazon" and warehouse == "LA"):
+            is_new_rule = False
+        total_pallet = self._calculate_total_pallet(delivery.total_cbm,is_new_rule,is_niche_warehouse)
+        delivery.total_pallet = total_pallet
+        delivery.save()
+
+    def _calculate_total_pallet(self,cbm: float,is_new_rule: bool,is_niche_warehouse:bool) -> float:
+        raw_p = float(cbm)/1.8
         integer_part = int(raw_p)
         decimal_part = raw_p - integer_part
-        if delivery.type == "local" or (delivery.type == "amazon" and warehouse == "LA"):
-            is_new_rule = False    #本地派送的按照4.1之前的规则
+        #本地派送的按照4.1之前的规则
         if decimal_part > 0:
             if is_new_rule: #etd4.1之后的
                 if decimal_part > 0:
@@ -2788,121 +2817,414 @@ class Accounting(View):
                         additional = 1
                     else:
                         additional = 1 if decimal_part > 0.9 else 0.5
-            delivery.total_pallet = integer_part + additional
+            total_pallet = integer_part + additional
         elif decimal_part == 0:
-            delivery.total_pallet = integer_part
+            total_pallet = integer_part
         else:
             ValueError("板数计算错误")
-        delivery.save()
+        return total_pallet
 
-    def find_matching_regions(destinations, combina_fee)->dict:
-        matching_regions = set() 
-        destination_matches = {}
-        for dest in destinations:
-            dest_matches = [] 
+    def find_matching_regions(self,plts_by_destination: dict, combina_fee: dict,container_type) -> dict:
+        matching_regions = defaultdict(float)
+        des_match_quote = {}
+        destination_matches = set()
+        non_combina_dests = set()
+        price_display = defaultdict(lambda: {
+            "price": 0.0,
+            "location": set()
+        })
+
+        for plts in plts_by_destination:
+            dest = plts['destination']
+            cbm = plts['total_cbm']
+            dest_matches = []
+            matched = False
+            # 遍历所有区域和location
             for region, fee_data_list in combina_fee.items():
                 for fee_data in fee_data_list:
-                    locations = fee_data["location"]
-                    
-                    # 检查当前 destination 是否在 locations 中
-                    if dest in locations:
-                        matching_regions.add(region)  # 添加到匹配的区域集合
+                    if dest in fee_data["location"]:
+                        temp_cbm = matching_regions[region] + cbm
+                        matching_regions[region] = temp_cbm
                         dest_matches.append({
                             "region": region,
                             "location": dest,
-                            "prices": fee_data["prices"],  # 如果需要价格信息
+                            "prices": fee_data["prices"],
                         })
+                        print('---------------',region)
+                        price_display[region]["price"] = fee_data["prices"][container_type]
+                        price_display[region]["location"].add(dest)
+                        matched = True
             
-            # 如果当前 destination 有匹配项，存入 destination_matches
+            # 记录匹配结果
             if dest_matches:
-                destination_matches[dest] = dest_matches
-        
+                des_match_quote[dest] = dest_matches
+                destination_matches.add(dest)
+            elif not matched:
+                non_combina_dests.add(dest)  # 未匹配的仓点
+   
         return {
-            "regions": list(matching_regions),  # 所有匹配的区域（去重）
-            "matches": destination_matches,    # 每个 destination 的匹配详情
+            "des_match_quote":des_match_quote,
+            "matching_regions": matching_regions,
+            "combina_dests": destination_matches,
+            "non_combina_dests": non_combina_dests,
+            "price_display":price_display
         }
-
-    def handle_container_invoice_combina_get(
-        self, request: HttpRequest
-    ) -> tuple[Any, Any]:
+    
+    def is_mixed_region(self,matched_regions, warehouse) -> bool:
+        regions = list(matched_regions.keys())
+        
+        # LA仓库的特殊规则：CDEF区不能混
+        if warehouse == "LA":
+            forbidden_zones = {"C区", "D区", "E区", "F区"}
+            if any(zone in regions for zone in forbidden_zones):
+                # 如果有CDEF区，则检查是否有其他区混合
+                if len(set(regions) - forbidden_zones) > 1:
+                    return True
+        # 其他仓库无限制
+        return False
+    
+    def handle_container_invoice_combina_get(self, request: HttpRequest) -> tuple[Any, Any]:
         container_number = request.GET.get("container_number")
         container = Container.objects.get(container_number=container_number)
         order = Order.objects.select_related(
-            "retrieval_id", "container_number", "receivable_status", "payable_status"
+            "retrieval_id", "container_number", "vessel_id"
         ).get(container_number__container_number=container_number)
+        invoice = Invoice.objects.select_related("customer", "container_number").get(
+            container_number__container_number=container_number
+        )
+        # invoice_item = InvoiceItem.objects.filter(
+        #     invoice_number__invoice_number=invoice.invoice_number
+        # )
         warehouse = order.retrieval_id.retrieval_destination_area
-        invoice_type = request.GET.get("invoice_type")
-        #组合柜计算流程
-        #先看有几个仓点，如果有超过14个仓点、组合柜区超过12个、非组合柜区超过2个、柜子转为转运类型
+        vessel_etd = order.vessel_id.vessel_etd
+        
+        container_type = container.container_type 
+        # 1. 基础数据统计
         plts = Pallet.objects.filter(
             container_number__container_number=container_number
         ).aggregate(
             unique_destinations=Count('destination', distinct=True),
-            total_weight=Sum('weight_lbs'),  # 示例：统计总重量
+            total_weight=Sum('weight_lbs'),
             total_cbm=Sum('cbm'),
-            plt_id=Count('id'),
+            total_pallets=Count('id'),
         )
+
+        # 3. 获取匹配的报价表
+        print('vessel_etd',vessel_etd)
+        print("数据库记录:", QuotationMaster.objects.filter(is_user_exclusive=False).values('is_user_exclusive','effective_date'))
+        matching_quotation = QuotationMaster.objects.filter(
+            effective_date__lte=vessel_etd
+        ).order_by('-effective_date').first()
+        if not matching_quotation:
+            return self.template_invoice_combina_edit, {'reason': '找不到匹配报价表'}
+        # 4. 获取费用规则
+        try:
+            PICKUP_FEE = FeeDetail.objects.get(
+                quotation_id=matching_quotation.id, fee_type="preport"
+            )
+            combina_fee = FeeDetail.objects.get(
+                quotation_id=matching_quotation.id,
+                fee_type=f"{warehouse}_COMBINA"
+            ).details
+            fee_details = self._get_fee_details(warehouse,matching_quotation.id)
+            stipulate = FeeDetail.objects.get(
+                quotation_id=matching_quotation.id,
+                fee_type="COMBINA_STIPULATE"
+            ).details
+        except FeeDetail.DoesNotExist:
+            return self.template_invoice_combina_edit, {'reason': '费用规则不完整'}
+        if isinstance(combina_fee, str):
+            combina_fee = json.loads(combina_fee)
+        # 2. 检查基本条件
         if plts['unique_destinations'] == 0:
-            context={
-                'reason':'未录入拆柜数据，请联系客户处理'
-            }
-        if plts['unique_destinations'] > 14:
+            return self.template_invoice_combina_edit, {'reason': '未录入拆柜数据'}
+            
+        if plts['unique_destinations'] > stipulate["global_rules"]["bulk_threshold"]["default"]:
             container.account_order_type = '转运'
             container.save()
-            context={
-                'reason':'超过14个仓点，转入转运流程计费'
-            }
-            return self.template_invoice_combina_edit, context
-        #查找该仓库下的组合柜范围，如果组合柜超过12个，非组合柜超过2个，转到转运
+            return self.template_invoice_combina_edit, {'reason': '超过14个仓点'}
+
+        # 按区域统计
         destinations = Pallet.objects.filter(
             container_number__container_number=container_number
         ).values_list('destination', flat=True).distinct()
-        #先查找etd,
-        vessel_etd = order.vesse_id.vessel_etd
-        quotations = QuotationMaster.objects.filter(
-                is_user_exclusive=False  # 过滤用户专属的记录
-            ).order_by('effective_date')
-        #确认使用哪个报价表的组合柜规则
-        matching_quotation = None
-        for quote in quotations:
-            if quote.effective_date and quote.effective_date <= vessel_etd:
-                matching_quotation = quote
-            else:
-                break
-        
-        COMBINA_FEE = FeeDetail.objects.get(quotation_id=matching_quotation.id, fee_type=f"{warehouse}_COMBINA")
-        matched_regions = self.find_matching_regions(destinations, COMBINA_FEE)  #找区，A区B区
-        #判断是否有混区
-        is_mix = False
-        if warehouse == "LA" and matched_regions == {"A区", "B区"}:
-            is_mix =False
+        plts_by_destination = Pallet.objects.filter(
+            container_number__container_number=container_number   
+        ).values('destination').annotate(total_cbm=Sum('cbm'))
+        #区分组合柜区域和非组合柜区域
+        container_type = 0 if container_type == '40HQ/GP' else 1
+        matched_regions = self.find_matching_regions(plts_by_destination, combina_fee,container_type)
+        # 判断是否混区，除了LA的CDEF不能混，别的都能混
+        is_mix = self.is_mixed_region(matched_regions["matching_regions"], warehouse)
+
+        #非组合柜区域
+        non_combina_region_count = len(matched_regions['non_combina_dests'])
+        #组合柜区域
+        combina_region_count = len(matched_regions["combina_dests"])
+        #组合柜对应的区
+        des_match_quote = matched_regions["des_match_quote"]
+        #组合柜区域，各区及总cbm
+        matching_regions = matched_regions["matching_regions"]
+        if combina_region_count + non_combina_region_count != len(destinations):
+            raise ValueError('计算组合柜和非组合柜区域有误')
+
+        non_combina_cbm = Pallet.objects.filter(
+        container_number__container_number=container_number,
+            destination__in=matched_regions['non_combina_dests']  # 过滤非组合柜仓点
+        ).aggregate(Sum('cbm'))['cbm__sum'] or 0  # 处理可能为None的情况
+
+        # 4. 计算占比
+        if plts['total_cbm'] and plts['total_cbm'] > 0:
+            non_combina_cbm_ratio = non_combina_cbm / plts['total_cbm']
         else:
-            if len(matched_regions) > 1:
-                is_mix = True
-        #如果有混区的，就分组，每组分别计算组合柜费用和转运费用，找到最高费用的搭配
-        if is_mix:
-            for 
-        stipulate = FeeDetail.objects.get(quotation_id=matching_quotation.id, fee_type="COMBINA_STIPULATE")
+            non_combina_cbm_ratio = 0
 
+        if combina_region_count > stipulate["global_rules"]["max_mixed"]["default"] or non_combina_region_count > (stipulate["global_rules"]["bulk_threshold"]["default"] - stipulate["global_rules"]["max_mixed"]["default"]):
+            container.account_order_type = '转运'
+            container.save()
+            return self.template_invoice_combina_edit, {'reason': '区域超限'}
+        # 7.2 计算基础费用
+        base_fee = 0
+        extra_fees = {
+            'overweight': 0,
+            'overpallets': 0,
+            'overregion_pickup': 0,
+            'overregion_delivery': 0
+        }
+        base_fee = 0.0
+        if not is_mix:
+            # 单一区域情况
+            if des_match_quote == 1: 
+                region = des_match_quote[0]          
+                base_fee = combina_fee[region][0]['prices'][0 if container_type == '40HQ/GP' else 1]
+            else:  #允许混区的情况
+                total_cbm_sum = sum(total_cbm for region,total_cbm in matching_regions.items())
+                for region,total_cbm in matching_regions.items():
+                    fee = combina_fee[region][0]['prices'][0 if container_type == '40HQ/GP' else 1]
+                    base_fee += fee * total_cbm/total_cbm_sum
 
-        #如果是组合柜
-            #查找组合柜的一口价费用
-                #如果是AB混区的，计算AB各占比例，分别*一口价
+        # 7.3 检查超限情况
+        # 超重检查
+        if plts['total_weight'] > stipulate["global_rules"]["weight_limit"]["default"]:
+            extra_fees['overweight'] = '需人工录入'  # 实际业务中应有默认费率
 
-            #计算组合柜之外的费用，看有没有多区、多仓点、多板子、超重的情况，没有就跳过
-                #多区，除了LA的AB区，其他都不能混区，混了就全按散板
-                #多仓点，计算提拆费和派送费
-                #多板子：计算总CBM/1.8，按照etd和冷门仓点计算最终板数，超过规定板数就是多的
-                #超重：计算总重，超过规定重量就是多的
-                #基础费
-                    #多仓点的费用，用仓点/cbm=板数（冷门热门按散板的看）*散板的单价，找一个最贵的
-                    #多板子的费用=多的板数*（最贵仓点的板子单价），如果在限高仓点，*倍数
-                    #超重的费用=自己输入（因为报价里是一个范围）
-                #提拆库内费
-                    #提差价*比例
-                    #自提费
-                    #打板费
+        # 超板检查——确定上限的板数
+        if container_type == '40HQ/GP':
+            std_plt = stipulate["global_rules"]['std_40ft_plts']
+        else:
+            std_plt = stipulate["global_rules"]['std_45ft_plts']
+        exceptions_dict = std_plt["exceptions"]
+              
+        max_pallets = 0
+        for exception_des, exception_plt in exceptions_dict.items():
+            exception_warehouse = exception_des.split('_')[0]
+            exception_regions = list(exception_des.split('_')[1])
+            # 检查是否匹配当前 warehouse 和 region
+            if (exception_warehouse == warehouse and 
+                any(region in exception_regions for region,value in matched_regions["matching_regions"].items())):
+                max_pallets = exception_plt
+                break   
+        if max_pallets!= 0:
+            max_pallets = std_plt["default"]
+        #处理超的板数
+        #先计算实际板数
+        total_pallets = math.ceil(plts['total_cbm'] / 1.8)  #取上限
+        if total_pallets > max_pallets:
+            over_count = total_pallets - max_pallets
+            # 找每个仓点的单价，倒序排序
+            plts_by_destination = Pallet.objects.filter(
+                container_number__container_number=container_number   
+            ).values('destination').annotate(
+                total_cbm=Sum('cbm'),
+                price=Value(None, output_field=models.FloatField()),
+                is_fixed_price=Value(False, output_field=BooleanField()),
+                total_pallet=Count('id',output_field=FloatField())   
+            ) #形如{'destination': 'A', 'total_cbm': 10.5，'price':31.5,'is_fixed_price':True},
+            plts_by_destination = self._calculate_delivery_fee_cost(fee_details,warehouse,plts_by_destination,destinations,over_count)
+            max_price = 0
+            for plt_d in plts_by_destination:
+                print(plt_d['price'],plt_d['destination'])
+                if plt_d['is_fixed_price']:   #一口价的不用乘板数
+                    max_price = max(float(plt_d['price']),max_price)
+                else:
+                    max_price = max(float(plt_d['price'])*over_count,max_price)
+            extra_fees['overpallets'] = max_price
 
+        # 计算非组合柜费用的提拆费和派送费
+        if non_combina_region_count:
+            #提拆费，要计算下非组合柜区域占当前柜子的cbm比例*对应的提拆费
+            container_type = order.container_number.container_type
+            match = re.match(r"\d+", container_type)
+            if match:
+                pick_subkey = match.group()
+                pickup_fee = PICKUP_FEE.details[warehouse][pick_subkey]
+            extra_fees['overregion_pickup'] = non_combina_cbm_ratio*pickup_fee
+            #派送费
+            for item in matched_regions['non_combina_dests']:
+                #计算改区域的板数
+                plts_by_destination = Pallet.objects.filter(
+                    container_number__container_number=container_number   
+                ).values('destination').annotate(
+                    total_cbm=Sum('cbm'),
+                    total_pallet=Count('id',output_field=FloatField()),
+                    price=Value(None, output_field=models.FloatField()),
+                    is_fixed_price=Value(False, output_field=BooleanField())   
+                )
+                plts_by_destination = self._calculate_delivery_fee_cost(fee_details,warehouse,plts_by_destination,destinations,None)
+                sum_price = 0
+                for plt_d in plts_by_destination:
+                    if plt_d['is_fixed_price']:   #一口价的不用乘板数
+                        sum_price += float(plt_d['price'])
+                    else:
+                        sum_price += float(plt_d['price'])*over_count
+            extra_fees['overregion_delivery'] = sum_price
+        display_data = {
+            # 基础信息
+            'container_info': {
+                'number': container_number,
+                'type': container_type,
+                'warehouse': warehouse
+            },
+            
+            # 组合柜信息
+            'combina_data': {
+                'base_fee': base_fee,
+                'regions': [],
+                'destinations': []
+            },
+            
+            # 超限费用
+            'extra_fees': {
+                'overweight': {
+                    'is_over': plts['total_weight'] > stipulate["global_rules"]["weight_limit"]["default"],
+                    'current_weight': plts['total_weight'],
+                    'limit_weight': stipulate["global_rules"]["weight_limit"]["default"],
+                    'fee': extra_fees['overweight'],
+                    'input_field': True  # 显示输入框
+                },
+                'overpallets': {
+                    'is_over': total_pallets > max_pallets,
+                    'current_pallets': total_pallets,
+                    'limit_pallets': max_pallets,
+                    'over_count': over_count if total_pallets > max_pallets else 0,
+                    'pallet_details': [],
+                    'max_price_used': None,
+                    'fee': extra_fees['overpallets']
+                },
+                'overregion': {
+                    'pickup': {
+                        'non_combina_cbm': non_combina_cbm,
+                        'total_cbm': plts['total_cbm'],
+                        'ratio': non_combina_cbm_ratio,
+                        'base_fee': pickup_fee,
+                        'fee': extra_fees['overregion_pickup']
+                    },
+                    'delivery': {
+                        'fee': extra_fees['overregion_delivery'],
+                        'details': []
+                    }
+                }
+            }
+        }
+        price_display = matched_regions['price_display']
+        price_display_new = [
+            {"key": region, "price": data['price'], "location": data['location']}
+            for region, data in price_display.items()   
+        ]
+        display_data['combina_data']['destinations'] = price_display_new
+        
+        # 填充超板费详细信息
+        if total_pallets > max_pallets:
+            for plt in plts_by_destination:
+                display_data['extra_fees']['overpallets']['pallet_details'].append({
+                    'destination': plt['destination'],
+                    'price': plt['price'],
+                    'is_fixed_price': plt['is_fixed_price'],
+                    'is_max_used': plt['price'] == max_price  # 标记是否被采用
+                })
+            display_data['extra_fees']['overpallets']['max_price_used'] = max_price
+        
+        # 填充超区派送费详细信息
+        for plt in plts_by_destination:
+            if plt['destination'] in matched_regions['non_combina_dests']:
+                display_data['extra_fees']['overregion']['delivery']['details'].append({
+                    'destination': plt['destination'],
+                    'pallets': plt['total_pallet'],
+                    'price': plt['price'],
+                    'subtotal': plt['price'] * plt['total_pallet']
+                })
+
+        # 8. 返回结果
+        context = {
+            'display_data': display_data,
+            "invoice":invoice
+        }
+        print(invoice)
+        return self.template_invoice_combina_edit, context
+    
+    def _calculate_delivery_fee_cost(
+        self,
+        fee_details: dict,
+        warehouse: str,
+        plts_by_destination: list,
+        is_new_rule:bool,
+        over_count: float,
+    ) -> str:
+        is_niche_warehouse = True
+        if "LA" in warehouse:
+            amazon_data = fee_details.get(f"{warehouse}_PUBLIC").details
+            walmart_data = None
+        else:
+            amazon_data = fee_details.get(f"{warehouse}_PUBLIC").details.get(f"{warehouse}_AMAZON")
+            walmart_data = fee_details.get(f"{warehouse}_PUBLIC").details.get(f"{warehouse}_WALMART")
+        local_data = fee_details.get("NJ_LOCAL").details
+        for pl in plts_by_destination:
+            #从亚马逊、沃尔玛、本地报价表中挨个找
+            #先找亚马逊       
+            for price, locations in amazon_data.items():
+                if pl['destination'] in locations:
+                    pl['price'] = price
+                    break
+            if pl['price']:  #说明这个仓点在这个报价表里，确实是不是冷门仓点
+                niche_warehouse = fee_details.get(f"{warehouse}_PUBLIC").niche_warehouse
+                if pl['destination'] in niche_warehouse:
+                    is_niche_warehouse = True
+                else:
+                    is_niche_warehouse = False
+
+            #再找沃尔玛
+            if not pl['price'] and walmart_data:
+                for price, locations in walmart_data.items():
+                    if str(pl['destination']).upper() in [loc.upper() for loc in locations]:
+                        pl['price'] = price
+                        break
+                if pl['price']:
+                    niche_warehouse = fee_details.get(f"{warehouse}_PUBLIC").niche_warehouse
+                    if pl['destination'] in niche_warehouse:
+                        is_niche_warehouse = True
+                    else:
+                        is_niche_warehouse = False
+            #再找本地派送
+            if not pl['price'] and warehouse == "NJ":
+                for price, locations in local_data.items():
+                    if str(pl['destination']) in map(str,locations["zipcodes"]):
+                        pl['is_fixed_price'] = True  #表示一口价，等会就不会再乘以板数了
+                        costs = locations["prices"]
+                        if not over_count:
+                            total_pallet = self._calculate_total_pallet(pl['total_cbm'],is_new_rule,is_niche_warehouse)
+                        else:
+                            total_pallet = over_count
+                        if total_pallet <= 5:
+                            pl['price'] = int(costs[0])
+                        elif total_pallet >= 5:
+                            pl['price'] = int(costs[1])
+                        break
+            if not over_count:
+                total_pallet = self._calculate_total_pallet(pl['total_cbm'],is_new_rule,is_niche_warehouse)
+            else:
+                total_pallet = over_count
+            pl['total_pallet'] = total_pallet
+        return plts_by_destination
 
     def handle_container_invoice_direct_get(
         self, request: HttpRequest
@@ -3262,17 +3584,6 @@ class Accounting(View):
                 )
                 .order_by("destination", "-total_cbm")
             )
-            # packing_list = (
-            #     PackingList.objects.select_related("container_number", "pallet")
-            #     .filter(container_number__container_number=container_number)
-            #     .values("container_number__container_number", "destination")
-            #     .annotate(
-            #         total_cbm=Sum("pallet__cbm", output_field=FloatField()),
-            #         total_weight=Sum("pallet__weight_lbs", output_field=FloatField()),
-            #         total_n_pallet=Count("pallet__pallet_id", distinct=True),
-            #     )
-            #     .order_by("destination", "-total_cbm")
-            # )
         else:
             packing_list = (
                 Pallet.objects.select_related("container_number")
