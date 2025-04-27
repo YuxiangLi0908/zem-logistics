@@ -2907,6 +2907,7 @@ class Accounting(View):
             total_cbm=Sum('cbm'),
             total_pallets=Count('id'),
         )
+        plts['total_cbm'] = round(plts['total_cbm'], 3)
 
         # 3. 获取匹配的报价表
         matching_quotation = QuotationMaster.objects.filter(
@@ -2966,13 +2967,15 @@ class Accounting(View):
             raise ValueError('计算组合柜和非组合柜区域有误')
 
         non_combina_cbm = Pallet.objects.filter(
-        container_number__container_number=container_number,
-            destination__in=matched_regions['non_combina_dests']  # 过滤非组合柜仓点
-        ).aggregate(Sum('cbm'))['cbm__sum'] or 0  # 处理可能为None的情况
-
+            container_number__container_number=container_number,
+                destination__in=matched_regions['non_combina_dests']  # 过滤非组合柜仓点
+            ).aggregate(
+                Sum('cbm')
+            )['cbm__sum'] or 0  # 处理可能为None的情况
+        non_combina_cbm = round(float(non_combina_cbm), 3) if non_combina_cbm else 0.000
         # 4. 计算占比
         if plts['total_cbm'] and plts['total_cbm'] > 0:
-            non_combina_cbm_ratio = non_combina_cbm / plts['total_cbm']
+            non_combina_cbm_ratio = round(non_combina_cbm / plts['total_cbm'], 3)
         else:
             non_combina_cbm_ratio = 0
 
@@ -2999,6 +3002,7 @@ class Accounting(View):
                 for region,total_cbm in matching_regions.items():
                     fee = combina_fee[region][0]['prices'][0 if container_type == '40HQ/GP' else 1]
                     base_fee += fee * total_cbm/total_cbm_sum
+                base_fee = round(base_fee,3)
 
         # 7.3 检查超限情况
         # 超重检查
@@ -3021,7 +3025,7 @@ class Accounting(View):
                 any(region in exception_regions for region,value in matched_regions["matching_regions"].items())):
                 max_pallets = exception_plt
                 break   
-        if max_pallets!= 0:
+        if max_pallets== 0:
             max_pallets = std_plt["default"]
         #处理超的板数
         #先计算实际板数
@@ -3147,7 +3151,7 @@ class Accounting(View):
                     'destination': plt['destination'],
                     'pallets': plt['total_pallet'],
                     'price': plt['price'],
-                    'subtotal': plt['price'] * plt['total_pallet']
+                    'subtotal': float(plt['price']) * plt['total_pallet']
                 })
 
         # 8. 返回结果
