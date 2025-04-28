@@ -2907,7 +2907,8 @@ class Accounting(View):
             total_cbm=Sum('cbm'),
             total_pallets=Count('id'),
         )
-        plts['total_cbm'] = round(plts['total_cbm'], 3)
+        plts['total_cbm'] = round(plts['total_cbm'], 2)
+        plts['total_weight'] = round(plts['total_weight'], 2)
         # 3. 获取匹配的报价表
         matching_quotation = QuotationMaster.objects.filter(
             effective_date__lte=vessel_etd
@@ -3001,7 +3002,7 @@ class Accounting(View):
                 for region,total_cbm in matching_regions.items():
                     fee = combina_fee[region][0]['prices'][0 if container_type == '40HQ/GP' else 1]
                     base_fee += fee * total_cbm/total_cbm_sum
-                base_fee = round(base_fee,3)
+                base_fee = round(base_fee,2)
 
         # 7.3 检查超限情况
         # 超重检查
@@ -3101,6 +3102,7 @@ class Accounting(View):
                     'is_over': plts['total_weight'] > stipulate["global_rules"]["weight_limit"]["default"],
                     'current_weight': plts['total_weight'],
                     'limit_weight': stipulate["global_rules"]["weight_limit"]["default"],
+                    'extra_weight': round(plts['total_weight'] - stipulate["global_rules"]["weight_limit"]["default"],2),
                     'fee': extra_fees['overweight'],
                     'input_field': True  # 显示输入框
                 },
@@ -3154,6 +3156,7 @@ class Accounting(View):
                     'destination': plt['destination'],
                     'pallets': plt['total_pallet'],
                     'price': plt['price'],
+                    'cbm':round(plt['total_cbm'],3),
                     'subtotal': float(plt['price']) * plt['total_pallet']
                 })
         display_data['extra_fees']['overregion']['delivery']['fee'] = sum(
