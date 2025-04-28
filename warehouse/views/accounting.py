@@ -2110,12 +2110,9 @@ class Accounting(View):
         overregion_pickup_fee = float(request.POST.get('overregion_pickup_fee', 0))
         overregion_delivery_fee = float(request.POST.get('overregion_delivery_fee', 0))
         
-        # Get the display_data from session or recalculate
         display_data = request.session.get('display_data', {})
         
         invoice_item_data = []
-        
-        # 1. Add destination fees (派送费)
         for dest in display_data['combina_data']['destinations']:
             invoice_item_data.append({
                 'invoice_number': invoice_number,
@@ -2129,7 +2126,6 @@ class Accounting(View):
                 'note': None
             })
         
-        # 2. Add overweight fee (超重费)
         if overweight_fee > 0:
             invoice_item_data.append({
                 'invoice_number': invoice_number,
@@ -2143,7 +2139,6 @@ class Accounting(View):
                 'note': None
             })
         
-        # 3. Add overpallet fee (超板费)
         if overpallet_fee > 0:
             over_count = display_data['extra_fees']['overpallets']['over_count']
             invoice_item_data.append({
@@ -2158,7 +2153,6 @@ class Accounting(View):
                 'note': None
             })
         
-        # 4. Add overregion fees (超区费用)
         if overregion_pickup_fee > 0:
             invoice_item_data.append({
                 'invoice_number': invoice_number,
@@ -2172,8 +2166,7 @@ class Accounting(View):
                 'note': None
             })
             
-            # Skip duplicate destinations from initial 派送费
-            existing_warehouses = {item['warehouse_code'] for item in invoice_items if item['warehouse_code']}
+            existing_warehouses = {item['warehouse_code'] for item in invoice_item_data if item['warehouse_code']}
             
             for detail in display_data['extra_fees']['overregion']['delivery']['details']:
                 if detail['destination'] not in existing_warehouses:
@@ -2189,26 +2182,13 @@ class Accounting(View):
                         'note': None
                     })
     
-        #固定费用
-        for d, wc, c, w, q, r, a, n in zip(
-            description, warehouse_code, cbm, weight, qty, rate, amount, note
-        ):
-            invoice_item_data.append(
-                {
-                    "invoice_number": invoice,
-                    "description": d,
-                    "warehouse_code": wc,
-                    "cbm": c if c else None,
-                    "weight": w if w else None,
-                    "qty": q if q else None,
-                    "rate": r if r else None,
-                    "amount": a if a else None,
-                    "note": n if n else "",
-                }
-            )
         invoice_item_instances = [
             InvoiceItem(**inv_itm_data) for inv_itm_data in invoice_item_data
         ]
+        bulk_create_with_history(invoice_item_instances, InvoiceItem)
+        return self.handle_invoice_combina_get(
+                request, request.POST.get("start_date"), request.POST.get("end_date"), request.POST.get("customer"), request.POST.get("warehouse")
+            )
 
 
     def handle_invoice_dismiss_save(self, request: HttpRequest) -> tuple[Any, Any]:
