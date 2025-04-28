@@ -2103,8 +2103,92 @@ class Accounting(View):
 
     def handle_invoice_confirm_combina_save(self, request: HttpRequest) -> tuple[Any, Any]:
         container_number = request.POST.get('container_number')
-        invoice = request.POST.get("invoice")
+        invoice_number = request.POST.get("invoice_number")
+        base_fee = float(request.POST.get('base_fee', 0))
+        overweight_fee = float(request.POST.get('overweight_fee', 0))
+        overpallet_fee = float(request.POST.get('overpallet_fee', 0))
+        overregion_pickup_fee = float(request.POST.get('overregion_pickup_fee', 0))
+        overregion_delivery_fee = float(request.POST.get('overregion_delivery_fee', 0))
+        
+        # Get the display_data from session or recalculate
+        display_data = request.session.get('display_data', {})
+        
         invoice_item_data = []
+        
+        # 1. Add destination fees (派送费)
+        for dest in display_data['combina_data']['destinations']:
+            invoice_item_data.append({
+                'invoice_number': invoice_number,
+                'description': '派送费',
+                'warehouse_code': dest['key'],
+                'cbm': dest.get('total_cbm', 0),
+                'weight': dest.get('total_weight', 0),
+                'qty': None,
+                'rate': None,
+                'amount': float(dest['price']),
+                'note': None
+            })
+        
+        # 2. Add overweight fee (超重费)
+        if overweight_fee > 0:
+            invoice_item_data.append({
+                'invoice_number': invoice_number,
+                'description': '超重费',
+                'warehouse_code': None,
+                'cbm': None,
+                'weight': display_data['extra_fees']['overweight']['extra_weight'],
+                'qty': 1.0,
+                'rate': overweight_fee,
+                'amount': overweight_fee,
+                'note': None
+            })
+        
+        # 3. Add overpallet fee (超板费)
+        if overpallet_fee > 0:
+            over_count = display_data['extra_fees']['overpallets']['over_count']
+            invoice_item_data.append({
+                'invoice_number': invoice_number,
+                'description': '超板费',
+                'warehouse_code': None,
+                'cbm': None,
+                'weight': None,
+                'qty': over_count,
+                'rate': overpallet_fee / over_count if over_count > 0 else 0,
+                'amount': overpallet_fee,
+                'note': None
+            })
+        
+        # 4. Add overregion fees (超区费用)
+        if overregion_pickup_fee > 0:
+            invoice_item_data.append({
+                'invoice_number': invoice_number,
+                'description': '提拆费',
+                'warehouse_code': None,
+                'cbm': None,
+                'weight': None,
+                'qty': display_data['extra_fees']['overregion']['pickup']['ratio'],
+                'rate': display_data['extra_fees']['overregion']['pickup']['base_fee'],
+                'amount': overregion_pickup_fee,
+                'note': None
+            })
+            
+            # Skip duplicate destinations from initial 派送费
+            existing_warehouses = {item['warehouse_code'] for item in invoice_items if item['warehouse_code']}
+            
+            for detail in display_data['extra_fees']['overregion']['delivery']['details']:
+                if detail['destination'] not in existing_warehouses:
+                    invoice_item_data.append({
+                        'invoice_number': invoice_number,
+                        'description': '派送费',
+                        'warehouse_code': detail['destination'],
+                        'cbm': None,
+                        'weight': None,
+                        'qty': detail['pallets'],
+                        'rate': float(detail['price']),
+                        'amount': overregion_delivery_fee,
+                        'note': None
+                    })
+    
         #固定费用
         for d, wc, c, w, q, r, a, n in zip(
             description, warehouse_code, cbm, weight, qty, rate, amount, note
@@ -3179,7 +3263,7 @@ class Accounting(View):
         context = {
             'display_data': display_data,
             'total_amount': total_amount,
-            "invoice":invoice
+            "invoice_number":invoice.invoice_number
         }
         return self.template_invoice_combina_edit, context
     
