@@ -316,6 +316,9 @@ class Accounting(View):
         elif step == "invoice_search":
             template, context = self.handle_invoice_search_get(request)
             return render(request, template, context)
+        elif step == "confirm_combina_save":
+            template, context = self.handle_invoice_confirm_combina_save(request)
+            return render(request, template, context)
         else:
             raise ValueError(f"unknow request {step}")
 
@@ -796,25 +799,6 @@ class Accounting(View):
             "invoice_type_filter": invoice_type,
         }
         return self.template_invoice_direct, context
-
-    def handle_invoice_combina_save():
-        invoice_item_data.append(
-                {
-                    "invoice_number": invoice,
-                    "description": d,
-                    "warehouse_code": wc,
-                    "cbm": c if c else None,
-                    "weight": w if w else None,
-                    "qty": q if q else None,
-                    "rate": r if r else None,
-                    "amount": a if a else None,
-                    "note": n if n else "",
-                }
-            )
-        invoice_item_instances = [
-            InvoiceItem(**inv_itm_data) for inv_itm_data in invoice_item_data
-        ]
-        bulk_create_with_history(invoice_item_instances, InvoiceItem)
 
     def handle_invoice_search_get(
         self,
@@ -2117,6 +2101,32 @@ class Accounting(View):
         order.save()
         return self.handle_invoice_confirm_get(request)
 
+    def handle_invoice_confirm_combina_save(self, request: HttpRequest) -> tuple[Any, Any]:
+        container_number = request.POST.get('container_number')
+        invoice = request.POST.get("invoice")
+        invoice_item_data = []
+        #固定费用
+        for d, wc, c, w, q, r, a, n in zip(
+            description, warehouse_code, cbm, weight, qty, rate, amount, note
+        ):
+            invoice_item_data.append(
+                {
+                    "invoice_number": invoice,
+                    "description": d,
+                    "warehouse_code": wc,
+                    "cbm": c if c else None,
+                    "weight": w if w else None,
+                    "qty": q if q else None,
+                    "rate": r if r else None,
+                    "amount": a if a else None,
+                    "note": n if n else "",
+                }
+            )
+        invoice_item_instances = [
+            InvoiceItem(**inv_itm_data) for inv_itm_data in invoice_item_data
+        ]
+
+
     def handle_invoice_dismiss_save(self, request: HttpRequest) -> tuple[Any, Any]:
         container_number = request.POST.get("container_number")
         status = request.POST.get("status")
@@ -3070,8 +3080,9 @@ class Accounting(View):
                 ).values('destination').annotate(
                     total_cbm=Sum('cbm'),
                     total_pallet=Count('id',output_field=FloatField()),
+                    total_weight=Sum('weight_lbs'),
                     price=Value(None, output_field=models.FloatField()),
-                    is_fixed_price=Value(False, output_field=BooleanField())   
+                    is_fixed_price=Value(False, output_field=BooleanField()) 
                 )
                 plts_by_destination = self._calculate_delivery_fee_cost(fee_details,warehouse,plts_by_destination,destinations,None)
                 sum_price = 0
@@ -3083,6 +3094,7 @@ class Accounting(View):
             extra_fees['overregion_delivery'] = sum_price
         display_data = {
             # 基础信息
+            'plts_by_destination':plts_by_destination,
             'container_info': {
                 'number': container_number,
                 'type': container_type,

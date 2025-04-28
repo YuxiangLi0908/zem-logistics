@@ -1,27 +1,28 @@
 {% extends 'base.html' %}
 
 {% block content %}
+<form method="post" action="" class="mb-0">
+    {% csrf_token %}
+    <input type="hidden" name="container_number" value="{{ container_number }}">
+    <input type="hidden" name="step" value="confirm_combina_save">
+    <input type="hidden" name="plts_by_destination" value="{{ plts_by_destination }}">
 <div class="container-fluid mt-3">
     <div class="card-header p-2" style="background-color: #2c3e50; color: white; border-bottom: 1px solid #34495e;">
         <div class="d-flex justify-content-between align-items-center">
-            <h5 class="mb-0">
+            <!-- 左侧：金额总计 -->
+            <h5 class="mb-0 d-flex align-items-center">
                 <i class="bi bi-cash-stack me-1"></i>
-                组合柜费用总计: $<input id="totalAmountDisplay">
-                <span id="totalAmountDisplay"></span>
+                组合柜费用总计: $
+                <span id="totalAmountDisplay" class="mx-1"></span>
             </h5>
-            <form method="post" action="" class="mb-0">
-                {% csrf_token %}
-                <input type="hidden" name="start_date_confirm" value="{{ start_date_confirm }}">
-                <input type="hidden" name="end_date_confirm" value="{{ end_date_confirm }}">
-                <input type="hidden" name="step" value="confirm_save">
-                <input type="hidden" name="invoice_type" value="{{ invoice_type }}">
-                <input type="hidden" name="container_number" value="{{ container_number }}">
-                <button type="submit" class="btn btn-success btn-sm">
-                    <i class="bi bi-check-circle me-1"></i>确认账单
-                </button>
-            </form>
-        </div>
+    
+            <span name="invoice" class="mx-auto" style="font-size: 1rem; color: white;">{{ invoice }}</span>            
+            <button type="submit" class="btn btn-success btn-sm">
+                <i class="bi bi-check-circle me-1"></i>确认账单
+            </button>
+        </div>   
     </div>
+    
 
     <!-- 错误提示 -->
     {% if reason %}
@@ -45,6 +46,7 @@
                 <div class="col-md-4 border-end">
                     <div class="mb-3">
                         <h6 class="text-muted">固定费用</h6>
+                        <!--派送费-->
                         <input 
                             type="number" 
                             class="form-control text-primary" 
@@ -52,8 +54,7 @@
                             id="base_fee"
                             step="0.01" 
                             style="width:150px; font-size: 1.5rem; font-weight: bold;"
-                            value="{{ display_data.combina_data.base_fee }}"
-                            placeholder="请输入金额"
+                            value="{{ display_data.combina_data.base_fee }}"                         
                         >
                     </div>
                 </div>
@@ -98,7 +99,16 @@
                             <div class="d-flex justify-content-between align-items-center mb-3">
                                 <div>
                                     <h6 class="text-muted mb-1">超重费</h6>
-                                    <h4 id="feeDisplay" class="text-primary mb-0">$</h4>
+                                    <input 
+                                        type="number" 
+                                        id="overweight_fee"
+                                        class="form-control text-primary" 
+                                        name="overweight_fee" 
+                                        step="0.01" 
+                                        style="width:120px; font-size: 1.5rem; font-weight: bold;"
+                                        value=""
+                                        placeholder="请输入金额"
+                                    >
                                 </div>
                             </div>
                             <hr class="my-2">
@@ -138,16 +148,7 @@
                         <div class="input-group" style="width: 180px;">
                         <i class="bi bi-{% if display_data.extra_fees.overweight.is_over %}exclamation-triangle{% else %}check-circle{% endif %}-fill me-1"></i>
                         {% if display_data.extra_fees.overweight.is_over %}                     
-                            已超重 <input 
-                                type="number" 
-                                id="feeInput"
-                                class="form-control text-primary" 
-                                name="base_fee" 
-                                step="0.01" 
-                                style="width:120px; font-size: 1.5rem; font-weight: bold;"
-                                value=""
-                                placeholder="请输入金额"
-                            >
+                            已超重 
                         {% else %}
                         重量在允许范围内
                         {% endif %}
@@ -191,13 +192,35 @@
                                 <div class="col-6">
                                     <div class="p-2 border rounded">
                                         <small class="text-muted d-block">当前板数</small>
-                                        <strong class="h5">{{ display_data.extra_fees.overpallets.current_pallets }}</strong>
+                                        <strong class="h5">
+                                            <input 
+                                                type="number" 
+                                                id="overpallet_fee"
+                                                class="form-control" 
+                                                name="overpallet_fee" 
+                                                step="0.01" 
+                                                style="width:100px; font-size: 1rem; font-weight: bold;"
+                                                value="{{ display_data.extra_fees.overpallets.current_pallets }}"
+                                                placeholder="请输入金额"
+                                            >
+                                        </strong>
                                     </div>
                                 </div>
                                 <div class="col-6">
                                     <div class="p-2 border rounded bg-light">
                                         <small class="text-muted d-block">限制板数</small>
-                                        <strong class="h5">{{ display_data.extra_fees.overpallets.limit_pallets }}</strong>
+                                        <strong class="h5">
+                                            <input 
+                                                type="number" 
+                                                id="overpallet_fee"
+                                                class="form-control" 
+                                                name="overpallet_fee" 
+                                                step="0.01" 
+                                                style="width:100px; font-size: 1rem; font-weight: bold;"
+                                                value="{{ display_data.extra_fees.overpallets.limit_pallets }}"
+                                                placeholder="请输入金额"
+                                            >
+                                        </strong>
                                     </div>
                                 </div>
                             </div>
@@ -308,7 +331,7 @@
                 </div>  
                 <div class="col-md-8">
                     <div class="mb-3">
-                        <h6 class="text-muted">派送费</h6>
+                        <h6 class="text-muted">派送费</h6>                       
                         <input 
                             type="number" 
                             class="form-control text-primary" 
@@ -320,6 +343,7 @@
                             placeholder="请输入金额"
                         >
                     </div>
+                    <!--派送费-->
                     <table class="table table-sm table-bordered mb-0">
                         <thead class="table-light">
                             <tr>
@@ -348,7 +372,7 @@
     </div>
     {% endif %}
 </div>
-
+</form>
 <style>
     .card {
         border-radius: 5px;
@@ -369,23 +393,29 @@
 </style>
 <script>
     document.addEventListener('DOMContentLoaded', function() {
-        const feeInput = document.getElementById('feeInput');
-        const feeDisplay = document.getElementById('feeDisplay');      
-        
-        if (feeInput && feeDisplay) {
-            feeInput.addEventListener('input', function() {
-                feeDisplay.textContent = this.value;
-            });
-        }
         const totalAmountDisplay = document.getElementById('totalAmountDisplay');
         const base_fee = document.getElementById('base_fee');
         const overpallet_fee = document.getElementById('overpallet_fee');
         const overregion_pickup_fee = document.getElementById('overregion_pickup_fee');
         const overregion_delivery_fee = document.getElementById('overregion_delivery_fee');
-        console.log(feeInput.value,base_fee.value,overpallet_fee.value,overregion_pickup_fee.value,overregion_delivery_fee.value);
-        const right = base_fee.value + feeInput.value + overpallet_fee.value + overregion_pickup_fee.value + overregion_delivery_fee.value;
-        //const amount = float(overregion_pickup_fee.value) + float(overregion_delivery_fee.value);
-        totalAmountDisplay.textContent=right;
-    });   
+    
+        function updateTotalAmount() {
+            const amount = 
+                (parseFloat(base_fee.value) || 0) + 
+                (parseFloat(overpallet_fee.value) || 0) + 
+                (parseFloat(overregion_pickup_fee.value) || 0) + 
+                (parseFloat(overregion_delivery_fee.value) || 0) + 
+                (parseFloat(overweight_fee.value || 0));
+            
+            totalAmountDisplay.textContent = amount.toFixed(2);
+        }
+    
+        [base_fee, overweight_fee, overpallet_fee, overregion_pickup_fee, overregion_delivery_fee].forEach(input => {
+            if (input) {
+                input.addEventListener('input', updateTotalAmount);
+            }
+        });
+        updateTotalAmount();
+    });
 </script>
 {% endblock %}
