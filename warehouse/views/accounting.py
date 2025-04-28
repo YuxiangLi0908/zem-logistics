@@ -2908,7 +2908,6 @@ class Accounting(View):
             total_pallets=Count('id'),
         )
         plts['total_cbm'] = round(plts['total_cbm'], 3)
-
         # 3. 获取匹配的报价表
         matching_quotation = QuotationMaster.objects.filter(
             effective_date__lte=vessel_etd
@@ -3043,11 +3042,14 @@ class Accounting(View):
             ) #形如{'destination': 'A', 'total_cbm': 10.5，'price':31.5,'is_fixed_price':True},
             plts_by_destination = self._calculate_delivery_fee_cost(fee_details,warehouse,plts_by_destination,destinations,over_count)
             max_price = 0
+            max_single_price = 0
             for plt_d in plts_by_destination:
                 if plt_d['is_fixed_price']:   #一口价的不用乘板数
                     max_price = max(float(plt_d['price']),max_price)
+                    max_single_price = max_price
                 else:
                     max_price = max(float(plt_d['price'])*over_count,max_price)
+                    max_single_price = float(plt_d['price'])
             extra_fees['overpallets'] = max_price
 
         # 计算非组合柜费用的提拆费和派送费
@@ -3115,13 +3117,14 @@ class Accounting(View):
                     'pickup': {
                         'non_combina_cbm': non_combina_cbm,
                         'total_cbm': plts['total_cbm'],
-                        'ratio': non_combina_cbm_ratio,
+                        'ratio': non_combina_cbm_ratio*100,
                         'base_fee': pickup_fee,
                         'fee': extra_fees['overregion_pickup']
                     },
                     'delivery': {
                         'fee': extra_fees['overregion_delivery'],
-                        'details': []
+                        'details': [],
+                        'fee':0
                     }
                 }
             }
@@ -3140,7 +3143,7 @@ class Accounting(View):
                     'destination': plt['destination'],
                     'price': plt['price'],
                     'is_fixed_price': plt['is_fixed_price'],
-                    'is_max_used': plt['price'] == max_price  # 标记是否被采用
+                    'is_max_used': float(plt['price']) == max_single_price  # 标记是否被采用
                 })
             display_data['extra_fees']['overpallets']['max_price_used'] = max_price
         
@@ -3153,10 +3156,14 @@ class Accounting(View):
                     'price': plt['price'],
                     'subtotal': float(plt['price']) * plt['total_pallet']
                 })
-
+        display_data['extra_fees']['overregion']['delivery']['fee'] = sum(
+            item['subtotal'] for item in display_data['extra_fees']['overregion']['delivery']['details']
+        )
+        total_amount = base_fee + extra_fees['overpallets'] + extra_fees['overregion_pickup'] + extra_fees['overregion_delivery']
         # 8. 返回结果
         context = {
             'display_data': display_data,
+            'total_amount': total_amount,
             "invoice":invoice
         }
         return self.template_invoice_combina_edit, context
