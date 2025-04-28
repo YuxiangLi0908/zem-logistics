@@ -2153,3 +2153,8 @@ SCK8:
   location: 4700 WILBUR AVE
   state: CA
   zipcode: '94561'
+LAX2T:
+  city: Chino
+  location: 6730 Kimball Awe
+  state: CA
+  zipcode: '91708'
