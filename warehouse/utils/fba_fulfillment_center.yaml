@@ -2148,3 +2148,8 @@ IUSR:
   location: 1120 E Mount Olive Rd,GXO/ Amazon IUSR
   state: SC
   zipcode: '29330'
+IUST:
+  city: GREENCASTLE
+  location: 15651 Greenmount Rd
+  state: PA
+  zipcode: '17225'
