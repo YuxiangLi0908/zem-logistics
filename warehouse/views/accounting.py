@@ -2125,6 +2125,8 @@ class Accounting(View):
             expense = request.POST.getlist("expense")
             if type_value == "selfdelivery":  #自发的要加备注
                 note = request.POST.getlist("note")
+            else:
+                note = None
             # 将前端的每一条记录存为invoice_delivery的一条
             for i in range(len((new_plt_ids))):
                 ids = [int(id) for id in new_plt_ids[i]]
@@ -2143,10 +2145,11 @@ class Accounting(View):
                 if po_activation[i]:
                     invoice_content.po_activation = po_activation[i]
                 if type_value == "selfdelivery":
-                    if 'None' in note[i]:
-                        invoice_content.note = None
-                    else:
-                        invoice_content.note = note[i]
+                    if note:
+                        if 'None' in note[i]:
+                            invoice_content.note = None
+                        else:
+                            invoice_content.note = note[i]
                 invoice_content.save()
         # 如果是财务确认界面跳转的，需要重定向到财务确认界面，并且执行派送界面的账单确认操作
         if redirect_step == "True":
