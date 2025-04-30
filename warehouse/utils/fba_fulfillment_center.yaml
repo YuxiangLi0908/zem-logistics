@@ -2153,3 +2153,53 @@ IUST:
   location: 15651 Greenmount Rd
   state: PA
   zipcode: '17225'
+NJ3T:
+  city: Pedricktown
+  location: 7 Sorbello Rd
+  state: NJ
+  zipcode: '08067'
+Walmart-NJ3T:
+  city: Pedricktown
+  location: 7 Sorbello Rd
+  state: NJ
+  zipcode: '08067'
+沃尔玛NJ3T:
+  city: Pedricktown
+  location: 7 Sorbello Rd
+  state: NJ
+  zipcode: '08067'
+NJ3T沃尔玛:
+  city: Pedricktown
+  location: 7 Sorbello Rd
+  state: NJ
+  zipcode: '08067'
+WMNJ3T:
+  city: Pedricktown
+  location: 7 Sorbello Rd
+  state: NJ
+  zipcode: '08067'
+WMMNJ3T:
+  city: Pedricktown
+  location: 7 Sorbello Rd
+  state: NJ
+  zipcode: '08067'
+沃尔玛-NJ3T:
+  city: Pedricktown
+  location: 7 Sorbello Rd
+  state: NJ
+  zipcode: '08067'
+NJ3T-沃尔玛:
+  city: Pedricktown
+  location: 7 Sorbello Rd
+  state: NJ
+  zipcode: '08067'
+WM-NJ3T:
+  city: Pedricktown
+  location: 7 Sorbello Rd
+  state: NJ
+  zipcode: '08067'
+WMM-NJ3T:
+  city: Pedricktown
+  location: 7 Sorbello Rd
+  state: NJ
+  zipcode: '08067'
