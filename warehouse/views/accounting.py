@@ -2104,35 +2104,63 @@ class Accounting(View):
     def handle_invoice_confirm_combina_save(self, request: HttpRequest) -> tuple[Any, Any]:
         container_number = request.POST.get('container_number')
         invoice_number = request.POST.get("invoice_number")
+        invoice = Invoice.objects.get(invoice_number=invoice_number)
+        invoice_type = request.POST.get("invoice_type")
+        total_fee = float(request.POST.get('totalAmountDisplay',0))
         base_fee = float(request.POST.get('base_fee', 0))
         overweight_fee = float(request.POST.get('overweight_fee', 0))
         overpallet_fee = float(request.POST.get('overpallet_fee', 0))
         overregion_pickup_fee = float(request.POST.get('overregion_pickup_fee', 0))
-        overregion_delivery_fee = float(request.POST.get('overregion_delivery_fee', 0))
-        
-        display_data = request.session.get('display_data', {})
-        
+        overregion_delivery_fee = float(request.POST.get('overregion_delivery_fee', 0))    
+
+        plts_by_destination = Pallet.objects.filter(
+            container_number__container_number=container_number   
+        ).values('destination').annotate(total_cbm=Sum('cbm'),total_weight=Sum('weight_lbs'))
+        print('plts_by_destination',plts_by_destination)
         invoice_item_data = []
-        for dest in display_data['combina_data']['destinations']:
-            invoice_item_data.append({
-                'invoice_number': invoice_number,
-                'description': '派送费',
-                'warehouse_code': dest['key'],
-                'cbm': dest.get('total_cbm', 0),
-                'weight': dest.get('total_weight', 0),
-                'qty': None,
-                'rate': None,
-                'amount': float(dest['price']),
-                'note': None
-            })
-        
+
+        combina_data_des_key = request.POST.getlist("combina_data_des_key")
+        combina_data_des_cbm = request.POST.getlist("combina_data_des_cbm")
+        combina_data_des_price = request.POST.getlist("combina_data_des_price")
+        combina_data_des_location = request.POST.getlist("combina_data_des_location")
+        combina_data_des_rate = request.POST.getlist("combina_data_des_rate")
+        base_location=[]
+        for i in range(len(combina_data_des_key)):
+            location = combina_data_des_location[i].split(',')
+            for num in range(len(location)):
+                base_location.append(location[num])
+                if num == 0:
+                    qty = float(combina_data_des_rate[i])
+                    rate = float(combina_data_des_price[i])
+                    amount = qty*rate
+                else:
+                    qty = rate = amount = 0.00
+                for item in plts_by_destination:
+                    cleaned_item_dest = item['destination'].strip()
+                    cleaned_location = location[num].strip()
+                    if cleaned_item_dest == cleaned_location:
+                        cbm_d = item['total_cbm']
+                        weight_d = item['total_weight']
+                        break
+                invoice_item_data.append({
+                    'invoice_number': invoice,
+                    'description': '派送费',
+                    'warehouse_code': location[num],
+                    'cbm': cbm_d,
+                    'weight': weight_d,
+                    'qty': qty,
+                    'rate': rate,
+                    'amount': amount,
+                    'note': combina_data_des_key[i]
+                })
         if overweight_fee > 0:
+            overweight_extra_weight = request.POST.get("overweight_extra_weight")
             invoice_item_data.append({
-                'invoice_number': invoice_number,
+                'invoice_number': invoice,
                 'description': '超重费',
                 'warehouse_code': None,
                 'cbm': None,
-                'weight': display_data['extra_fees']['overweight']['extra_weight'],
+                'weight': overweight_extra_weight,
                 'qty': 1.0,
                 'rate': overweight_fee,
                 'amount': overweight_fee,
@@ -2140,9 +2168,11 @@ class Accounting(View):
             })
         
         if overpallet_fee > 0:
-            over_count = display_data['extra_fees']['overpallets']['over_count']
+            current_pallets = request.POST.get("current_pallets")
+            limit_pallets = request.POST.get("limit_pallets")
+            over_count = float(current_pallets) - float(limit_pallets)
             invoice_item_data.append({
-                'invoice_number': invoice_number,
+                'invoice_number': invoice,
                 'description': '超板费',
                 'warehouse_code': None,
                 'cbm': None,
@@ -2154,31 +2184,36 @@ class Accounting(View):
             })
         
         if overregion_pickup_fee > 0:
+            overregion_pickup_non_combina_cbm = request.POST.get('overregion_pickup_non_combina_cbm')
+            overregion_pickup_non_combina_base_fee = request.POST.get('overregion_pickup_non_combina_base_fee')
             invoice_item_data.append({
-                'invoice_number': invoice_number,
+                'invoice_number': invoice,
                 'description': '提拆费',
                 'warehouse_code': None,
                 'cbm': None,
                 'weight': None,
-                'qty': display_data['extra_fees']['overregion']['pickup']['ratio'],
-                'rate': display_data['extra_fees']['overregion']['pickup']['base_fee'],
+                'qty': overregion_pickup_non_combina_cbm,
+                'rate': overregion_pickup_non_combina_base_fee,
                 'amount': overregion_pickup_fee,
                 'note': None
             })
             
-            existing_warehouses = {item['warehouse_code'] for item in invoice_item_data if item['warehouse_code']}
-            
-            for detail in display_data['extra_fees']['overregion']['delivery']['details']:
-                if detail['destination'] not in existing_warehouses:
+            overregion_delivery_destination = request.POST.getlist("overregion_delivery_destination")
+            overregion_delivery_pallets = request.POST.getlist("overregion_delivery_pallets")
+            overregion_delivery_cbm = request.POST.getlist("overregion_delivery_cbm")
+            overregion_delivery_price = request.POST.getlist("overregion_delivery_price")
+            overregion_delivery_subtotal = request.POST.getlist("overregion_delivery_subtotal")
+            for i in range(len(overregion_delivery_destination)):
+                if overregion_delivery_destination[i] not in base_location:
                     invoice_item_data.append({
-                        'invoice_number': invoice_number,
+                        'invoice_number': invoice,
                         'description': '派送费',
-                        'warehouse_code': detail['destination'],
-                        'cbm': None,
+                        'warehouse_code': overregion_delivery_destination[i],
+                        'cbm': overregion_delivery_cbm[i],
                         'weight': None,
-                        'qty': detail['pallets'],
-                        'rate': float(detail['price']),
-                        'amount': overregion_delivery_fee,
+                        'qty': overregion_delivery_pallets[i],
+                        'rate': overregion_delivery_price[i],
+                        'amount': overregion_delivery_subtotal[i],
                         'note': None
                     })
     
@@ -2186,6 +2221,41 @@ class Accounting(View):
             InvoiceItem(**inv_itm_data) for inv_itm_data in invoice_item_data
         ]
         bulk_create_with_history(invoice_item_instances, InvoiceItem)
+
+        if invoice_type == "receivable":
+            invoice_status = InvoiceStatus.objects.get(
+                container_number__container_number=container_number, invoice_type="receivable"
+            )
+        elif invoice_type == "payable":
+            invoice_status = InvoiceStatus.objects.get(
+                container_number__container_number=container_number, invoice_type="payable"
+            )
+        invoice_status.stage = "confirmed"
+        invoice_status.save()
+        order = Order.objects.get(container_number__container_number=container_number)
+        
+        context = self._parse_invoice_excel_data(order, invoice, invoice_type)
+        workbook, invoice_data = self._generate_invoice_excel(context)
+        invoice.invoice_date = invoice_data["invoice_date"]
+        if invoice_type == "receivable":
+            invoice.invoice_link = invoice_data["invoice_link"]
+            invoice.receivable_total_amount = total_fee
+        elif invoice_type == "payable":
+            invoice.invoice_link = invoice_data["invoice_link"]
+            invoice.payable_total_amount = total_fee
+        else:
+            raise ValueError(f"Unknown invoice_type: {invoice_type}")
+        invoice.save()
+        if invoice_type == "receivable":
+            receivable_status = order.receivable_status
+            receivable_status.stage = "confirmed"
+            receivable_status.save()
+        else:
+            payable_status = order.payable_status
+            payable_status.stage = "confirmed"
+            payable_status.save() 
+        order.save()
+    
         return self.handle_invoice_combina_get(
                 request, request.POST.get("start_date"), request.POST.get("end_date"), request.POST.get("customer"), request.POST.get("warehouse")
             )
@@ -2923,6 +2993,7 @@ class Accounting(View):
                             "region": region,
                             "location": dest,
                             "prices": fee_data["prices"],
+                            'cbm':cbm,
                         })
                         price_display[region]["price"] = fee_data["prices"][container_type]
                         price_display[region]["location"].add(dest)
@@ -2965,6 +3036,7 @@ class Accounting(View):
         invoice = Invoice.objects.select_related("customer", "container_number").get(
             container_number__container_number=container_number
         )
+        invoice_type = request.GET.get('invoice_type')
         # invoice_item = InvoiceItem.objects.filter(
         #     invoice_number__invoice_number=invoice.invoice_number
         # )
@@ -3066,18 +3138,26 @@ class Accounting(View):
             'overregion_delivery': 0
         }
         base_fee = 0.0
+        price_display = matched_regions['price_display']
         if not is_mix:
             # 单一区域情况
             if des_match_quote == 1: 
                 region = des_match_quote[0]          
                 base_fee = combina_fee[region][0]['prices'][0 if container_type == '40HQ/GP' else 1]
+                price_display_new = [
+                    {"key": region, 'cbm':matching_regions[region], 'rate':100, "price": data['price'], "location":  ", ".join(data['location'])}
+                    for region, data in price_display.items()   
+                ]
             else:  #允许混区的情况
                 total_cbm_sum = sum(total_cbm for region,total_cbm in matching_regions.items())
                 for region,total_cbm in matching_regions.items():
                     fee = combina_fee[region][0]['prices'][0 if container_type == '40HQ/GP' else 1]
                     base_fee += fee * total_cbm/total_cbm_sum
                 base_fee = round(base_fee,2)
-
+                price_display_new = [
+                    {"key": region, 'cbm':matching_regions[region], 'rate':round(matching_regions[region]/total_cbm_sum,3), "price": data['price'], "location":  ", ".join(data['location'])}
+                    for region, data in price_display.items()   
+                ]
         # 7.3 检查超限情况
         # 超重检查
         if plts['total_weight'] > stipulate["global_rules"]["weight_limit"]["default"]:
@@ -3207,11 +3287,7 @@ class Accounting(View):
                 }
             }
         }
-        price_display = matched_regions['price_display']
-        price_display_new = [
-            {"key": region, "price": data['price'], "location":  ", ".join(data['location'])}
-            for region, data in price_display.items()   
-        ]
+        
         display_data['combina_data']['destinations'] = price_display_new
         
         # 填充超板费详细信息
@@ -3243,7 +3319,9 @@ class Accounting(View):
         context = {
             'display_data': display_data,
             'total_amount': total_amount,
-            "invoice_number":invoice.invoice_number
+            "invoice_number":invoice.invoice_number,
+            "container_number":container_number,
+            'invoice_type':invoice_type,
         }
         return self.template_invoice_combina_edit, context
     
