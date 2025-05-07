@@ -3983,7 +3983,7 @@ class Accounting(View):
                 "invoice_link": invoice_data["invoice_link"],
                 "customer": context["order"].customer_name,
                 "container_number": context["order"].container_number,
-                "total_amount": invoice_data["receivable_total_amount"],
+                "receivable_total_amount": invoice_data["total_amount"],
             }
         )
         invoice.save()
