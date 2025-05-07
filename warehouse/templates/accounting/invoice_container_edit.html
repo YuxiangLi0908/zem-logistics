@@ -37,7 +37,7 @@
                         <input type="checkbox" name="is_item_selected" onclick="toggleRowBackground(this)">
                     </td>
                     <td class="td"><input type="text" name="description" value="{{ inv_itm.description }}" required></td>
-                    <td class="td"><input type="text" name="warehouse_code" value="{{ inv_itm.warehouse_code }}"></td>
+                    <td class="td"><input type="text" name="warehouse_code" value="{{ inv_itm.warehouse_code|default_if_none:'' }}"></td>
                     <td class="td"><input type="number" name="cbm" step=0.01 oninput="calculateCbm(this)" value="{{ inv_itm.cbm|floatformat:2 }}"></td>
                     <td class="td"><input type="number" name="weight" step=0.01 oninput="calculateWeight(this)" value="{{ inv_itm.weight|floatformat:2 }}"></td>
                     <td class="td"><input type="number" name="qty" step=0.01 value="{{ inv_itm.qty }}" oninput="updateAmount(this)" required></td>

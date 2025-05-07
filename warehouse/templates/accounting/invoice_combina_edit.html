@@ -1,0 +1,465 @@
+{% extends 'base.html' %}
+
+{% block content %}
+<form method="post" action="" class="mb-0">
+    {% csrf_token %}
+    <input type="hidden" name="container_number" value="{{ container_number }}">
+    <input type="hidden" name="step" value="confirm_combina_save">
+    <input type="hidden" name="save_type" id="save_type" value="">
+    <input type="hidden" name="plts_by_destination" value="{{ plts_by_destination }}">
+    <input type="hidden" name="start_date" value="{{ start_date }}">
+    <input type="hidden" name="end_date" value="{{ end_date }}">
+    <input type="hidden" name="customer" value="{{ customer }}">
+    <input type="hidden" name="warehouse" value="{{ warehouse }}">
+<div class="container-fluid mt-3">
+    <div class="card-header p-2" style="background-color: #2c3e50; color: white; border-bottom: 1px solid #34495e;">
+        <div class="d-flex justify-content-between align-items-center">
+            <!-- 左侧：金额总计 -->
+            <h5 class="mb-0 d-flex align-items-center">
+                <i class="bi bi-cash-stack me-1"></i>
+                组合柜费用总计: $
+                <span id="totalAmountDisplay" name="totalAmountDisplay" class="mx-1"></span>
+            </h5>
+    
+            <span class="mx-auto" style="font-size: 1rem; color: white;">{{ invoice_number }}-{{ container_number }}</span>            
+            
+            <input type="hidden" name="invoice_number" value="{{ invoice_number }}">
+            <input type="hidden" name="invoice_type" value="{{ invoice_type }}">
+            <button type="submit" class="btn btn-primary btn-sm" onclick="modifyStatus('temporary')">
+                <i class="bi bi-pencil me-1"></i>暂存
+            </button>
+            &nbsp;&nbsp;
+            <button type="submit" class="btn btn-success btn-sm" onclick="modifyStatus('complete')">
+                <i class="bi bi-check-circle me-1"></i>确认账单
+            </button>
+        </div>   
+    </div>
+    
+
+    <!-- 错误提示 -->
+    {% if reason %}
+    <div class="alert alert-danger mb-3 p-2" role="alert">
+        <i class="bi bi-exclamation-triangle-fill me-1"></i>
+        错误: {{ reason }}
+    </div>
+    {% else %}
+
+    <!-- 组合柜费用 -->
+    <div class="card mb-3 shadow-sm">
+        <div class="card-header bg-light text-dark p-2 border-bottom">
+            <h6 class="mb-0 fw-bold text-dark">
+                <i class="bi bi-box-seam me-1"></i>
+                组合柜区域   
+            </h6>           
+        </div>
+        <div class="card-body p-2">
+            <div class="row">
+                <div class="col-md-4 border-end">
+                    <div class="mb-3">
+                        <h6 class="text-muted">固定费用</h6>
+                        <!--派送费-->
+                        <input 
+                            type="number" 
+                            class="form-control text-primary" 
+                            name="base_fee" 
+                            id="base_fee"
+                            step="0.01" 
+                            style="width:150px; font-size: 1.5rem; font-weight: bold;"
+                            value="{{ display_data.combina_data.base_fee }}"                         
+                        >
+                    </div>
+                </div>
+                
+                <div class="col-md-8">
+                    <table class="table table-sm table-bordered mb-0">
+                        <thead class="table-light">
+                            <tr>
+                                <th>区域</th>
+                                <th>cbm</th>
+                                <th class="text-end">价格</th>
+                                <th class="text-end">仓点</th>
+                                <th>cbm占比</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {% for dest in display_data.combina_data.destinations %}
+                            <tr>
+                                <td><input type="text" name="combina_data_des_key" value="{{ dest.key }}"></td>
+                                <td><input type="number" name="combina_data_des_cbm" value="{{ dest.cbm }}"></td>
+                                <td class="text-end"><input type="number" name="combina_data_des_price" value="{{ dest.price }}"></td>
+                                <td class="text-end"><input type="text" name="combina_data_des_location" value="{{ dest.location }}"></td>
+                                <td><input type="number" name="combina_data_des_rate" value="{{ dest.rate }}"></td>
+                            </tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- 超重费用 -->
+    <div class="card mb-3 shadow-sm">
+        <div class="card-header bg-light text-dark p-2">
+            <h6 class="mb-0 fw-bold fs-5 text-white bg-primary px-2 py-1 rounded d-inline-block">
+                <i class="bi bi-box-seam me-1"></i>
+                超重详情
+            </h6>
+        </div>
+        <div class="card-body p-2">
+            <div class="row">
+                <div class="col-md-4 border-end">
+                    <div class="card bg-light mb-3">
+                        <div class="card-body p-3">
+                            <div class="d-flex justify-content-between align-items-center mb-3">
+                                <div>
+                                    <h6 class="text-muted mb-1">超重费</h6>
+                                    <input 
+                                        type="number" 
+                                        id="overweight_fee"
+                                        class="form-control text-primary" 
+                                        name="overweight_fee" 
+                                        step="0.01" 
+                                        style="width:120px; font-size: 1.5rem; font-weight: bold;"
+                                        value="0.0"
+                                        placeholder="请输入金额"
+                                    >
+                                </div>
+                            </div>
+                            <hr class="my-2">
+                            <div class="d-flex flex-wrap gap-2">
+                                <div class="flex-grow-1 p-3 border rounded text-center">
+                                    <small class="text-muted d-block mb-1">当前重量</small>
+                                    <strong class="text-muted d-block">{{ display_data.extra_fees.overweight.current_weight }} 磅</strong>
+                                </div>
+                                
+                                <div class="flex-grow-1 p-3 border rounded bg-light text-center">
+                                    <small class="text-muted d-block mb-1">限制重量</small>
+                                    <strong class="text-muted d-block">{{ display_data.extra_fees.overweight.limit_weight }} 磅</strong>
+                                </div>
+                                {% if display_data.extra_fees.overweight.is_over %}
+                                <div class="flex-grow-1 p-3 border rounded bg-light text-center">
+                                    <small class="text-muted d-block mb-1">超出重量</small>
+                                    <strong class="text-muted d-block">
+                                        <input type="text" name="overweight_extra_weight" style="width:80px;" value="{{ display_data.extra_fees.overweight.extra_weight }}">磅</strong>
+                                </div> 
+                                {% endif %}  
+                            </div>
+                            <div class="progress mt-2" style="height: 20px;">
+                                <div class="progress-bar bg-{% if display_data.extra_fees.overweight.is_over %}danger{% else %}success{% endif %}" 
+                                    role="progressbar" 
+                                    style="width: {% widthratio display_data.extra_fees.overweight.current_weight display_data.extra_fees.overweight.limit_weight 100 %}%" 
+                                    aria-valuenow="{{ display_data.extra_fees.overweight.current_weight }}" 
+                                    aria-valuemin="0" 
+                                    aria-valuemax="{{ display_data.extra_fees.overweight.limit_weight }}">
+                                </div>
+                                {% widthratio display_data.extra_fees.overweight.current_weight display_data.extra_fees.overweight.limit_weight 100 %}%
+                            </div>
+                        </div>
+                    </div>
+                </div>  
+                
+                <div class="col-md-8">
+                    <div class="alert alert-{% if display_data.extra_fees.overweight.is_over %}danger{% else %}success{% endif %} mb-0">
+                        <div class="input-group" style="width: 180px;">
+                        <i class="bi bi-{% if display_data.extra_fees.overweight.is_over %}exclamation-triangle{% else %}check-circle{% endif %}-fill me-1"></i>
+                        {% if display_data.extra_fees.overweight.is_over %}                     
+                            已超重 
+                        {% else %}
+                        重量在允许范围内
+                        {% endif %}
+                    </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- 超板费用 -->
+    <div class="card mb-3 shadow-sm">
+        <div class="card-header bg-light text-dark p-2">
+            <h6 class="mb-0 fw-bold fs-5 text-white bg-primary px-2 py-1 rounded d-inline-block">
+                <i class="bi bi-box-seam me-1"></i>
+                超板详情
+            </h6>     
+        </div>
+        <div class="card-body p-2">
+            <div class="row">
+                <div class="col-md-4 border-end">
+                    <div class="card bg-light mb-3">
+                        <div class="card-body p-3">
+                            <div class="d-flex justify-content-between align-items-center mb-3">
+                                <div>
+                                    <h6 class="text-muted mb-1">超板费用</h6>
+                                    <input 
+                                        type="number" 
+                                        id="overpallet_fee"
+                                        class="form-control text-primary" 
+                                        name="overpallet_fee" 
+                                        step="0.01" 
+                                        style="width:150px; font-size: 1.5rem; font-weight: bold;"
+                                        value="{{ display_data.extra_fees.overpallets.max_price_used }}"
+                                        placeholder="请输入金额"
+                                    >
+                                </div>
+                            </div>
+                            <hr class="my-2">
+                            <div class="row g-2">
+                                <div class="col-6">
+                                    <div class="p-2 border rounded">
+                                        <small class="text-muted d-block">当前板数</small>
+                                        <strong class="h5">
+                                            <input 
+                                                type="number" 
+                                                id="current_pallets"
+                                                class="form-control" 
+                                                name="current_pallets" 
+                                                step="0.01" 
+                                                style="width:100px; font-size: 1rem; font-weight: bold;"
+                                                value="{{ display_data.extra_fees.overpallets.current_pallets }}"
+                                            >
+                                        </strong>
+                                    </div>
+                                </div>
+                                <div class="col-6">
+                                    <div class="p-2 border rounded bg-light">
+                                        <small class="text-muted d-block">限制板数</small>
+                                        <strong class="h5">
+                                            <input 
+                                                type="number" 
+                                                id="limit_pallets"
+                                                class="form-control" 
+                                                name="limit_pallets" 
+                                                step="0.01" 
+                                                style="width:100px; font-size: 1rem; font-weight: bold;"
+                                                value="{{ display_data.extra_fees.overpallets.limit_pallets }}"
+                                            >
+                                        </strong>
+                                    </div>
+                                </div>
+                            </div>
+                            {% if display_data.extra_fees.overpallets.over_count > 0 %}
+                            <div class="alert alert-warning mt-3 p-2 mb-0">
+                                <div class="d-flex align-items-center">
+                                    <i class="fas fa-exclamation-triangle me-2"></i>
+                                    <div>
+                                        <small>超出 <strong id="overCountDisplay" class="text-danger">{{ display_data.extra_fees.overpallets.over_count }}</strong> 板</small>
+                                        <div class="progress mt-1" style="height: 4px;width:150px;">
+                                            <div class="progress-bar bg-danger" 
+                                                 style="width: {% widthratio display_data.extra_fees.overpallets.over_count display_data.extra_fees.overpallets.limit_pallets 100 %}%">
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                            {% endif %}
+                        </div>
+                    </div>
+                </div>
+                <div class="col-md-8">
+                    <table class="table table-sm table-bordered mb-0">
+                        <thead class="table-light">
+                            <tr>
+                                <th>仓点</th>
+                                <th class="text-end">价格</th>
+                                <th class="text-end">类型</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {% for detail in display_data.extra_fees.overpallets.pallet_details %}
+                            <tr class="{% if detail.is_max_used %}table-success{% endif %}">
+                                <td>{{ detail.destination }}</td>
+                                <td class="text-end">${{ detail.price }}</td>
+                                <td class="text-end">
+                                    {% if detail.is_fixed_price %}
+                                    一口价
+                                    {% else %}
+                                    单价
+                                    {% endif %}
+                                </td>
+                            </tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- 超区费用 -->
+    <div class="card mb-3 shadow-sm">
+        <div class="card-header bg-light text-dark p-2">
+            <h6 class="mb-0 fw-bold fs-5 text-white bg-primary px-2 py-1 rounded d-inline-block">
+                <i class="bi bi-box-seam me-1"></i>
+                超区详情
+            </h6>
+        </div>
+        <div class="card-body p-2">
+            <div class="row">
+                <div class="col-md-4 border-end">
+                    <div class="card bg-light mb-3">
+                        <div class="card-body p-3">
+                            <div class="d-flex justify-content-between align-items-center mb-3">
+                                <div>
+                                    <h6 class="text-muted mb-1">提拆费</h6>
+                                    <input 
+                                        type="number" 
+                                        class="form-control text-primary" 
+                                        name="overregion_pickup_fee" 
+                                        id="overregion_pickup_fee"
+                                        step="0.01" 
+                                        style="width:150px; font-size: 1.5rem; font-weight: bold;"
+                                        value="{{ display_data.extra_fees.overregion.pickup.fee }}"
+                                        placeholder="请输入金额"
+                                    >
+                                </div>
+                            </div>
+                            <hr class="my-2">
+                            <div class="d-flex flex-wrap gap-2">
+                                <div class="flex-grow-1 p-3 border rounded text-center">
+                                    <small class="text-muted d-block mb-1">超区体积</small>
+                                    <strong class="text-muted d-block">
+                                        <input type="number" name="overregion_pickup_non_combina_cbm" style="width:80px;" value="{{ display_data.extra_fees.overregion.pickup.non_combina_cbm }}"> CBM</strong>
+                                </div>
+                                
+                                <div class="flex-grow-1 p-3 border rounded bg-light text-center">
+                                    <small class="text-muted d-block mb-1">总体积</small>
+                                    <strong class="text-muted d-block">{{ display_data.extra_fees.overregion.pickup.total_cbm }} CBM</strong>
+                                </div>
+                                <div class="flex-grow-1 p-3 border rounded bg-light text-center">
+                                    <small class="text-muted d-block mb-1">整柜提拆费</small>
+                                    <strong class="text-muted d-block">
+                                        <input type="number" name="overregion_pickup_non_combina_base_fee" style="width:80px;" value="{{ display_data.extra_fees.overregion.pickup.base_fee }}"></strong>
+                                </div>   
+                            </div>
+                            <div class="progress mt-2" style="height: 20px;">
+                                <div class="progress-bar bg-{% if display_data.extra_fees.overregion.pickup.ratio > 100 %}danger{% else %}info{% endif %}" 
+                                     role="progressbar" 
+                                     style="width: {{ display_data.extra_fees.overregion.pickup.ratio|floatformat:"0" }}%" 
+                                     aria-valuenow="{{ display_data.extra_fees.overregion.pickup.ratio }}" 
+                                     aria-valuemin="0" 
+                                     aria-valuemax="100">
+                                </div>
+                                {{ display_data.extra_fees.overregion.pickup.ratio|floatformat:"2" }}%
+                            </div>
+                        </div>
+                    </div>
+                </div>  
+                <div class="col-md-8">
+                    <div class="mb-3">
+                        <h6 class="text-muted">派送费</h6>                       
+                        <input 
+                            type="number" 
+                            class="form-control text-primary" 
+                            name="overregion_delivery_fee" 
+                            id="overregion_delivery_fee"
+                            step="0.01" 
+                            style="width:150px; font-size: 1.5rem; font-weight: bold;"
+                            value="{{ display_data.extra_fees.overregion.delivery.fee }}"
+                            placeholder="请输入金额"
+                        >
+                    </div>
+                    <!--派送费-->
+                    <table class="table table-sm table-bordered mb-0">
+                        <thead class="table-light">
+                            <tr>
+                                <th>仓点</th>
+                                <th class="text-end">板数</th>
+                                <th class="text-end">cbm</th>
+                                <th class="text-end">单价</th>
+                                <th class="text-end">小计</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {% for detail in display_data.extra_fees.overregion.delivery.details %}
+                            <tr>
+                                <td><input type="text" name="overregion_delivery_destination" style="width:80px;" value="{{ detail.destination }}"></td>
+                                <td class="text-end"><input type="number" name="overregion_delivery_pallets" style="width:80px;" value="{{ detail.pallets }}"></td>
+                                <td class="text-end"><input type="number" name="overregion_delivery_cbm" style="width:80px;" value="{{ detail.cbm }}"></td>
+                                <td class="text-end"><input type="number" name="overregion_delivery_price" style="width:80px;" value="{{ detail.price }}"></td>
+                                <td class="text-end"><input type="number" name="overregion_delivery_subtotal" style="width:80px;" value="{{ detail.subtotal }}"></td>
+                            </tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+    </div>
+    {% endif %}
+</div>
+</form>
+<style>
+    .card {
+        border-radius: 5px;
+    }
+    .card-header {
+        border-radius: 5px 5px 0 0 !important;
+    }
+    .table th, .table td {
+        padding: 0.3rem;
+    }
+    .badge {
+        font-size: 0.75em;
+        padding: 0.25em 0.4em;
+    }
+    .border-end {
+        border-right: 1px solid #dee2e6;
+    }
+</style>
+<script>
+    document.addEventListener('DOMContentLoaded', function() {
+        const currentPalletsInput = document.getElementById('current_pallets');
+        const limitPalletsInput = document.getElementById('limit_pallets'); 
+        const overpalletFeeInput = document.getElementById('overpallet_fee');
+        const maxPriceRow = document.querySelector('tr.table-success');
+        const palletPrice = maxPriceRow ? parseFloat(maxPriceRow.querySelector('td.text-end').textContent.replace('$', '')) : 0;
+        function calculateOverpalletFee() {
+            const currentPallets = parseFloat(currentPalletsInput.value) || 0;
+            const limitPallets = parseFloat(limitPalletsInput.value) || 0;
+            const overCount = currentPallets - limitPallets;
+            document.getElementById("overCountDisplay").textContent = overCount;
+            if (overCount > 0) {
+                overpalletFeeInput.value = (overCount * palletPrice).toFixed(2);
+            } else {
+                overpalletFeeInput.value = "0.00";
+            }
+            
+            updateTotalAmount();
+        }
+        if (currentPalletsInput && limitPalletsInput) {
+            currentPalletsInput.addEventListener('input', calculateOverpalletFee);
+            limitPalletsInput.addEventListener('input', calculateOverpalletFee);
+        }
+        
+        const totalAmountDisplay = document.getElementById('totalAmountDisplay');
+        const base_fee = document.getElementById('base_fee');
+        const overpallet_fee = document.getElementById('overpallet_fee');
+        const overregion_pickup_fee = document.getElementById('overregion_pickup_fee');
+        const overregion_delivery_fee = document.getElementById('overregion_delivery_fee');
+        const overweight_fee = document.getElementById('overweight_fee');
+        
+        function updateTotalAmount() {
+            const amount = 
+                (parseFloat(base_fee.value) || 0) + 
+                (parseFloat(overpallet_fee.value) || 0) + 
+                (parseFloat(overregion_pickup_fee.value) || 0) + 
+                (parseFloat(overregion_delivery_fee.value) || 0) + 
+                (parseFloat(overweight_fee.value || 0));
+            
+            totalAmountDisplay.textContent = amount.toFixed(2);
+        }
+    
+        [base_fee, overweight_fee, overpallet_fee, overregion_pickup_fee, overregion_delivery_fee].forEach(input => {
+            if (input) {
+                input.addEventListener('input', updateTotalAmount);
+            }
+        });
+        updateTotalAmount();
+    });
+    function modifyStatus(type) {
+        const saveTypeInput = document.getElementById('save_type');
+        saveTypeInput.value = type; 
+    }
+</script>
+{% endblock %}
