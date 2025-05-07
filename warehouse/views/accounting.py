@@ -2116,7 +2116,6 @@ class Accounting(View):
         plts_by_destination = Pallet.objects.filter(
             container_number__container_number=container_number   
         ).values('destination').annotate(total_cbm=Sum('cbm'),total_weight=Sum('weight_lbs'))
-        print('plts_by_destination',plts_by_destination)
         invoice_item_data = []
 
         combina_data_des_key = request.POST.getlist("combina_data_des_key")
@@ -2222,16 +2221,6 @@ class Accounting(View):
         ]
         bulk_create_with_history(invoice_item_instances, InvoiceItem)
 
-        if invoice_type == "receivable":
-            invoice_status = InvoiceStatus.objects.get(
-                container_number__container_number=container_number, invoice_type="receivable"
-            )
-        elif invoice_type == "payable":
-            invoice_status = InvoiceStatus.objects.get(
-                container_number__container_number=container_number, invoice_type="payable"
-            )
-        invoice_status.stage = "confirmed"
-        invoice_status.save()
         order = Order.objects.get(container_number__container_number=container_number)
         
         context = self._parse_invoice_excel_data(order, invoice, invoice_type)
@@ -2246,14 +2235,16 @@ class Accounting(View):
         else:
             raise ValueError(f"Unknown invoice_type: {invoice_type}")
         invoice.save()
-        if invoice_type == "receivable":
-            receivable_status = order.receivable_status
-            receivable_status.stage = "confirmed"
-            receivable_status.save()
-        else:
-            payable_status = order.payable_status
-            payable_status.stage = "confirmed"
-            payable_status.save() 
+        save_type = request.POST.get('save_type')
+        if save_type == "complete": #暂存的不改变状态
+            if invoice_type == "receivable":
+                receivable_status = order.receivable_status
+                receivable_status.stage = "confirmed"
+                receivable_status.save()
+            else:
+                payable_status = order.payable_status
+                payable_status.stage = "confirmed"
+                payable_status.save() 
         order.save()
     
         return self.handle_invoice_combina_get(
@@ -3037,9 +3028,16 @@ class Accounting(View):
             container_number__container_number=container_number
         )
         invoice_type = request.GET.get('invoice_type')
-        # invoice_item = InvoiceItem.objects.filter(
-        #     invoice_number__invoice_number=invoice.invoice_number
-        # )
+        #先查找是不是已经报错过数据了，如果保存了就读保存的数据，没有保存的数据就去匹配查找
+        invoice_item = InvoiceItem.objects.filter(
+            invoice_number__invoice_number=invoice.invoice_number
+        )
+        if invoice_item:
+            context = {
+                "invoice": invoice,
+                "invoice_item": invoice_item,
+            }
+            return self.template_invoice_container_edit, context
         warehouse = order.retrieval_id.retrieval_destination_area
         vessel_etd = order.vessel_id.vessel_etd
         

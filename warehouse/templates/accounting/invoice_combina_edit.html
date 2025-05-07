@@ -5,6 +5,7 @@
     {% csrf_token %}
     <input type="hidden" name="container_number" value="{{ container_number }}">
     <input type="hidden" name="step" value="confirm_combina_save">
+    <input type="hidden" name="save_type" id="save_type" value="">
     <input type="hidden" name="plts_by_destination" value="{{ plts_by_destination }}">
     <input type="hidden" name="start_date" value="{{ start_date }}">
     <input type="hidden" name="end_date" value="{{ end_date }}">
@@ -24,7 +25,11 @@
             
             <input type="hidden" name="invoice_number" value="{{ invoice_number }}">
             <input type="hidden" name="invoice_type" value="{{ invoice_type }}">
-            <button type="submit" class="btn btn-success btn-sm">
+            <button type="submit" class="btn btn-primary btn-sm" onclick="modifyStatus('temporary')">
+                <i class="bi bi-pencil me-1"></i>暂存
+            </button>
+            &nbsp;&nbsp;
+            <button type="submit" class="btn btn-success btn-sm" onclick="modifyStatus('complete')">
                 <i class="bi bi-check-circle me-1"></i>确认账单
             </button>
         </div>   
@@ -452,5 +457,9 @@
         });
         updateTotalAmount();
     });
+    function modifyStatus(type) {
+        const saveTypeInput = document.getElementById('save_type');
+        saveTypeInput.value = type; 
+    }
 </script>
 {% endblock %}
