@@ -243,7 +243,7 @@
                                 <div class="d-flex align-items-center">
                                     <i class="fas fa-exclamation-triangle me-2"></i>
                                     <div>
-                                        <small>超出 <strong class="text-danger">{{ display_data.extra_fees.overpallets.over_count }}</strong> 板</small>
+                                        <small>超出 <strong id="overCountDisplay" class="text-danger">{{ display_data.extra_fees.overpallets.over_count }}</strong> 板</small>
                                         <div class="progress mt-1" style="height: 4px;width:150px;">
                                             <div class="progress-bar bg-danger" 
                                                  style="width: {% widthratio display_data.extra_fees.overpallets.over_count display_data.extra_fees.overpallets.limit_pallets 100 %}%">
@@ -418,7 +418,7 @@
             const currentPallets = parseFloat(currentPalletsInput.value) || 0;
             const limitPallets = parseFloat(limitPalletsInput.value) || 0;
             const overCount = currentPallets - limitPallets;
-            
+            document.getElementById("overCountDisplay").textContent = overCount;
             if (overCount > 0) {
                 overpalletFeeInput.value = (overCount * palletPrice).toFixed(2);
             } else {
