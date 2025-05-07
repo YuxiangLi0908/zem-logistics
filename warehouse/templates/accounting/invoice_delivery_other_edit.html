@@ -193,6 +193,7 @@
                             <th class="th">目的地</th>
                             <th class="th">CBM</th>
                             <th class="th">重量</th>
+                            <th class="th">备注</th>
                         </tr>
                     </thead>
                     <tbody>
@@ -209,6 +210,7 @@
                             <td class="td"><input type="text" name="destination" value="{{ plt.destination }}"></td>
                             <td class="td"><input type="number" name="cbm" step = 0.01 value="{{ plt.total_cbm|floatformat:2 }}"></td>
                             <td class="td"><input type="number" name="weight_lbs" step = 0.01 value="{{ plt.total_weight_lbs|floatformat:2 }}"></td>
+                            <td class="td"><input type="text" name="note"  value="{{ plt.note|default:'' }}"></td>
                         </tr>
                         {% endfor %}
                         <tr>

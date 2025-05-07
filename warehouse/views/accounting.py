@@ -2383,9 +2383,8 @@ class Accounting(View):
             # 记录其中一种派送方式到invoice_delivery表
             plt_ids = request.POST.getlist("plt_ids")
             new_plt_ids = [ast.literal_eval(sub_plt_id) for sub_plt_id in plt_ids]
-            cost
             expense = request.POST.getlist("expense")
-            if type_value == "selfdelivery":  #自发的要加备注
+            if type_value == "selfdelivery" or type_value == "selfpickup":  #自发的要加备注
                 note = request.POST.getlist("note")
             else:
                 note = None
@@ -2406,12 +2405,11 @@ class Accounting(View):
                     invoice_content.expense = expense[i]
                 if po_activation[i]:
                     invoice_content.po_activation = po_activation[i]
-                if type_value == "selfdelivery":
-                    if note:
-                        if 'None' in note[i]:
-                            invoice_content.note = None
-                        else:
-                            invoice_content.note = note[i]
+                if note:
+                    if 'None' in note[i]:
+                        invoice_content.note = None
+                    else:
+                        invoice_content.note = note[i]
                 invoice_content.save()
         # 如果是财务确认界面跳转的，需要重定向到财务确认界面，并且执行派送界面的账单确认操作
         if redirect_step == "True":
