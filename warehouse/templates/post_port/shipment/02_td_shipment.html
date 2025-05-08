@@ -103,7 +103,7 @@
                                 <th class="th"></th>
                                 <th class="th" style="color: red; font-weight: bold;"></th>
                                 <th class="th" style="color: red; font-weight: bold;"></th>
-                                <th class="th"></th>
+                                <th class="th"><input type="text" id="deliverySearchInput" placeholder="搜索派送方式..." oninput="filterTable()" size="13" style="font-size: 11px;"></th>
                                 <th class="th" style="color: red; font-weight: bold;"></th>
                             </tr>
                         </thead>
@@ -291,8 +291,12 @@
         var containerInput, destinationInput, containerFilter, destinationFilter, table, tbody, tr, containerTd, destinationTd, i, containerTxtValue, destinationTxtValue;
         containerInput = document.getElementById("containerSearchInput");
         destinationInput = document.getElementById("destinationSearchInput");
+        deliveryInput = document.getElementById("deliverySearchInput");
+
         containerFilter = containerInput.value.toUpperCase();
         destinationFilter = destinationInput.value.toUpperCase();
+        deliveryFilter = deliveryInput.value.toUpperCase();
+
         table = document.getElementById("packing-list-table");
         tbody = table.getElementsByTagName("tbody")[0];
         tr = tbody.getElementsByTagName("tr");
@@ -304,10 +308,14 @@
         for (i = 0; i < tr.length; i++) {
             containerTd = tr[i].getElementsByTagName("td")[2]; 
             destinationTd = tr[i].getElementsByTagName("td")[3]; 
-            if (containerTd && destinationTd) {
+            deliveryTd = tr[i].getElementsByTagName("td")[11]; 
+            if (containerTd && destinationTd&&deliveryTd) {
                 containerTxtValue = containerTd.textContent || containerTd.innerText;
                 destinationTxtValue = destinationTd.textContent || destinationTd.innerText;
+                deliveryTxtValue = deliveryTd.textContent || deliveryTd.innerText;
+
                 var destinationDisplayStyle = destinationTxtValue.toUpperCase().indexOf(destinationFilter) > -1 ? "" : "none";
+                var deliveryDisplayStyle = deliveryTxtValue.toUpperCase().indexOf(deliveryFilter) > -1 ? "" : "none";
                 var containerDisplayStyle = "none";
                 if (parts.length >0){              //如果一次输入多个柜号，则分开处理柜号的显示属性
                     for(var j=0;j<parts.length;j++){
@@ -320,7 +328,7 @@
                     containerDisplayStyle = containerTxtValue.toUpperCase().indexOf(containerFilter) > -1 ? "" : "none";
                 }
                 
-                tr[i].style.display = containerDisplayStyle === "" && destinationDisplayStyle === "" ? "" : "none";
+                tr[i].style.display = containerDisplayStyle === "" && destinationDisplayStyle === "" && deliveryDisplayStyle === "" ? "" : "none";
             }
         }
     }
