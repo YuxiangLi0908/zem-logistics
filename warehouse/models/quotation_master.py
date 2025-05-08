@@ -19,4 +19,4 @@ class QuotationMaster(models.Model):
         verbose_name="生效日期",
     )
     def __str__(self) -> str:
-        return self.version
+        return str(self.effective_date)+'-'+self.version

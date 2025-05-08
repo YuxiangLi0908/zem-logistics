@@ -393,7 +393,12 @@ class Accounting(View):
             "surcharge_notes",
             "history",
         }
-        quotation = QuotationMaster.objects.get(active=True)
+        vessel_etd = order.vessel_id.vessel_etd
+        quotation = QuotationMaster.objects.filter(
+            effective_date__lte=vessel_etd
+        ).order_by('-effective_date').first()
+        if not quotation:
+            raise ValueError('找不到报价表')
         PICKUP_FEE = FeeDetail.objects.get(
             quotation_id=quotation.id, fee_type="preport"
         )
@@ -2008,7 +2013,7 @@ class Accounting(View):
                 cutoff_date = date(2025, 4, 1)
                 is_new_rule = vessel_etd >= cutoff_date
 
-                fee_details = self._get_fee_details(warehouse,None)
+                fee_details = self._get_fee_details(warehouse,vessel_etd)
                 self._calculate_and_set_delivery_cost(
                     invoice_content,
                     container_type,
@@ -2428,7 +2433,13 @@ class Accounting(View):
             container_number__container_number=container_number
         )
         warehouse = order.retrieval_id.retrieval_destination_area
-        quotation = QuotationMaster.objects.get(active=True)
+        vessel_etd = order.vessel_id.vessel_etd
+        quotation = QuotationMaster.objects.filter(
+            effective_date__lte=vessel_etd
+        ).order_by('-effective_date').first()
+        
+        if not quotation:
+            raise ValueError('找不到报价表')
         WAREHOUSE_FEE = FeeDetail.objects.get(
             quotation_id=quotation.id, fee_type="warehouse"
         )
@@ -2727,7 +2738,7 @@ class Accounting(View):
         cutoff_date = date(2025, 4, 1)
         is_new_rule = vessel_etd >= cutoff_date
 
-        fee_details = self._get_fee_details(warehouse,None)
+        fee_details = self._get_fee_details(warehouse,vessel_etd)
         delivery_groups = self._process_delivery_records(
             invoice.invoice_number,
             pallets,
@@ -2797,11 +2808,14 @@ class Accounting(View):
             else:
                 raise ValueError("没有权限")
 
-    def _get_fee_details(self, warehouse: str,id:int) -> dict:
+    def _get_fee_details(self, warehouse: str,vessel_etd) -> dict:
         try:
-            if not id:
-                quotation = QuotationMaster.objects.get(active=True)
-                id = quotation.id
+            quotation = QuotationMaster.objects.filter(
+                effective_date__lte=vessel_etd
+            ).order_by('-effective_date').first()
+            if not quotation:
+                raise ValueError('找不到报价表')
+            id = quotation.id
             fee_types = {
                 'NJ': ['NJ_LOCAL', 'NJ_PUBLIC', 'NJ_COMBINA'],
                 'SAV': ['SAV_PUBLIC', 'SAV_COMBINA'],
@@ -3071,7 +3085,7 @@ class Accounting(View):
                 quotation_id=matching_quotation.id,
                 fee_type=f"{warehouse}_COMBINA"
             ).details
-            fee_details = self._get_fee_details(warehouse,matching_quotation.id)
+            fee_details = self._get_fee_details(warehouse,vessel_etd)
             stipulate = FeeDetail.objects.get(
                 quotation_id=matching_quotation.id,
                 fee_type="COMBINA_STIPULATE"
@@ -3399,7 +3413,12 @@ class Accounting(View):
         ).get(container_number__container_number=container_number)
         warehouse = order.retrieval_id.retrieval_destination_area
         invoice_type = request.GET.get("invoice_type")
-        quotation = QuotationMaster.objects.get(active=True)
+        vessel_etd = order.vessel_id.vessel_etd
+        quotation = QuotationMaster.objects.filter(
+            effective_date__lte=vessel_etd
+        ).order_by('-effective_date').first()
+        if not quotation:
+            raise ValueError('找不到报价表')
         PICKUP_FEE = FeeDetail.objects.get(quotation_id=quotation.id, fee_type="direct")
         # 提拆、打托缠膜费用
         pickup_fee = 0
@@ -3580,7 +3599,12 @@ class Accounting(View):
         # 查看仓库和柜型，计算提拆费
         warehouse = order.retrieval_id.retrieval_destination_area
         container_type = order.container_number.container_type
-        quotation = QuotationMaster.objects.get(active=True)
+        vessel_etd = order.vessel_id.vessel_etd
+        quotation = QuotationMaster.objects.filter(
+            effective_date__lte=vessel_etd
+        ).order_by('-effective_date').first()
+        if not quotation:
+            raise ValueError('找不到报价表')
         PICKUP_FEE = FeeDetail.objects.get(
             quotation_id=quotation.id, fee_type="preport"
         )
