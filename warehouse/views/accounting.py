@@ -269,6 +269,11 @@ class Accounting(View):
                 request, "confirm"
             )
             return render(request, template, context)
+        elif step == "invoice_search":
+            template, context = self.handle_invoice_order_search_post(
+                request, "search"
+            )
+            return render(request, template, context)
         elif step == "invoice_order_select":
             return self.handle_invoice_order_select_post(request)
         elif step == "export_invoice":
@@ -312,9 +317,6 @@ class Accounting(View):
             return render(request, template, context)
         elif step == "migrate_status":
             template, context = self.migrate_status()
-            return render(request, template, context)
-        elif step == "invoice_search":
-            template, context = self.handle_invoice_search_get(request)
             return render(request, template, context)
         elif step == "confirm_combina_save":
             template, context = self.handle_invoice_confirm_combina_save(request)
@@ -3919,6 +3921,10 @@ class Accounting(View):
             end_date_confirm = request.POST.get("end_date_confirm")
             return self.handle_invoice_confirm_get(
                 request, start_date_confirm, end_date_confirm, customer, warehouse
+            )
+        elif status == "search":
+            return self.handle_invoice_search_get(
+                request, start_date, end_date, customer, warehouse
             )
         else:
             return self.handle_invoice_get(start_date, end_date, customer)
