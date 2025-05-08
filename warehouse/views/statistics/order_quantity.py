@@ -17,6 +17,8 @@ from django.views import View
 
 from warehouse.models.container import Container
 from warehouse.models.customer import Customer
+from warehouse.models.retrieval import Retrieval
+from warehouse.models.retrieval import HistoricalRetrieval
 from warehouse.models.invoice import Invoice
 from warehouse.models.order import Order
 from warehouse.utils.constants import MODEL_CHOICES
@@ -67,62 +69,45 @@ class OrderQuantity(View):
         self, request: HttpRequest
     ) -> tuple[str, dict[str, Any]]:
         table_name = request.POST.get("model").strip()
-        search_field = request.POST.get("search_field").strip()
-        search_value = request.POST.get("search_value").strip()
+        search_field = request.POST.get("search_field").strip() #界面上的查询字段
+        search_value = request.POST.get("search_value").strip() #查询值
 
         model_info = MODEL_CHOICES.get(table_name)
-        # try:
         original_model_name = model_info["model"]
         original_model = apps.get_model("warehouse", original_model_name)
-
-        # 处理外键查询
-        if (
-            "indirect_search" in model_info
-            and search_field == model_info["indirect_search"]["target_field"]
-        ):
-            container = await Container.objects.filter(
-                container_number=search_value
-            ).afirst()
-            if not container:
-                raise Http404(f"找不到柜号 {search_value}")
-            related_model = apps.get_model(
-                "warehouse", model_info["indirect_search"]["related_model"]
-            )
-
-            invoice = await related_model.objects.filter(
-                container_number_id=container.id
-            ).afirst()
-            if not invoice:
-                raise Http404(f"找不到柜号 {search_value}对应的账单记录")
-            # 异步查询关联对象
+        search_process = model_info["search_process"]
+        has_foreignKey = model_info["has_foreignKey"]
+        # 处理外键查询，就是不能直接通过界面的查询字段查到结果
+        transfer_table = model_info["transfer_table"]
+        if transfer_table:  #如果需要一张表中转，比如提拆柜账单，需要invoice表中转
+            filter_kwargs = {search_process: search_value}
+            transfer_model = apps.get_model("warehouse", transfer_table)
+            transfer_table = await sync_to_async(transfer_model.objects.get)(**filter_kwargs)
 
             history_records = (
-                original_model.objects.filter(invoice_number_id=invoice.id)
-                .select_related("history_user")
-                .order_by("-history_date")
-            )
-        elif search_field == "container_number" and hasattr(
-            original_model, "container_number"
-        ):
-            container = await Container.objects.filter(
-                container_number=search_value
-            ).afirst()
-            if not container:
-                raise Http404(f"找不到柜号 {search_value}")
-
-            history_records = (
-                original_model.objects.filter(container_number_id=container.id)
+                original_model.objects.filter(invoice_number__id=transfer_table.id)
                 .select_related("history_user")
                 .order_by("-history_date")
             )
         else:
-            history_records = (
-                original_model.objects.filter(
-                    **{f"{search_field}__icontains": search_value}
-                )
-                .select_related("history_user")
-                .order_by("-history_date")
-            )
+            if search_field == "container_number":
+                filter_kwargs = {search_process: search_value}
+                if has_foreignKey:  #有container_number外键，可以直接查找
+                    history_records = (
+                        original_model.objects.filter(**filter_kwargs)
+                        .select_related("history_user")
+                        .order_by("-history_date")
+                    )
+                else:           #没有外键，先找到原始表，再找历史表
+                    origin_table = await sync_to_async(original_model.objects.get)(**filter_kwargs)
+                    historical_table = 'Historical'+original_model_name
+                    original_model = apps.get_model("warehouse", historical_table)
+                    history_records = (
+                        original_model.objects.filter(id=origin_table.id)
+                        .select_related("history_user")
+                        .order_by("-history_date")
+                    )
+            
 
         # 转换为同步查询
         history_records = await sync_to_async(list)(history_records)
@@ -151,7 +136,13 @@ class OrderQuantity(View):
             # 异步获取所有字段值
             get_fields = sync_to_async(
                 lambda r: {
-                    f.name: getattr(r, f.name)
+                    f.name: getattr(r, f.name, None)  # 安全获取属性，不存在时返回None
+                    if not f.is_relation  # 如果不是关系字段
+                    else (
+                        getattr(r, f.name + "_id", None)  # 如果是关系字段，获取外键ID
+                        if getattr(r, f.name) is None  # 如果外键对象为None
+                        else getattr(r, f.name).pk  # 否则获取关联对象的主键
+                    )
                     for f in r.__class__._meta.get_fields()
                     if f.name
                     not in [
@@ -310,8 +301,10 @@ class OrderQuantity(View):
         # 比较日期有没有改变
         if hasattr(old_val, "isoformat") and hasattr(new_val, "isoformat"):
             return old_val.isoformat() != new_val.isoformat()
-
-        if str(old_val).strip() == str(new_val).strip():
+        
+        old_str = str(old_val.pk) if hasattr(old_val, 'pk') else str(old_val)
+        new_str = str(new_val.pk) if hasattr(new_val, 'pk') else str(new_val)
+        if str(old_str).strip() == str(new_str).strip():
             return False
 
         return old_val != new_val
