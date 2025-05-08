@@ -1465,7 +1465,7 @@ TPA2:
   zipcode: '33811'
 TPA3:
   city: Auburndale
-  location: 553P+5F
+  location: 576 C Fred Jones Blvd
   state: FL
   zipcode: '33823'
 TPA6:
@@ -2153,3 +2153,63 @@ SCK8:
   location: 4700 WILBUR AVE
   state: CA
   zipcode: '94561'
+Walmart-LAX2T:
+  city: Chino
+  location: 6730 Kimball Awe
+  state: CA
+  zipcode: '91708'
+IUST:
+  city: GREENCASTLE
+  location: 15651 Greenmount Rd
+  state: PA
+  zipcode: '17225'
+NJ3T:
+  city: Pedricktown
+  location: 7 Sorbello Rd
+  state: NJ
+  zipcode: '08067'
+Walmart-NJ3T:
+  city: Pedricktown
+  location: 7 Sorbello Rd
+  state: NJ
+  zipcode: '08067'
+沃尔玛NJ3T:
+  city: Pedricktown
+  location: 7 Sorbello Rd
+  state: NJ
+  zipcode: '08067'
+NJ3T沃尔玛:
+  city: Pedricktown
+  location: 7 Sorbello Rd
+  state: NJ
+  zipcode: '08067'
+WMNJ3T:
+  city: Pedricktown
+  location: 7 Sorbello Rd
+  state: NJ
+  zipcode: '08067'
+WMMNJ3T:
+  city: Pedricktown
+  location: 7 Sorbello Rd
+  state: NJ
+  zipcode: '08067'
+沃尔玛-NJ3T:
+  city: Pedricktown
+  location: 7 Sorbello Rd
+  state: NJ
+  zipcode: '08067'
+NJ3T-沃尔玛:
+  city: Pedricktown
+  location: 7 Sorbello Rd
+  state: NJ
+  zipcode: '08067'
+WM-NJ3T:
+  city: Pedricktown
+  location: 7 Sorbello Rd
+  state: NJ
+  zipcode: '08067'
+WMM-NJ3T:
+  city: Pedricktown
+  location: 7 Sorbello Rd
+  state: NJ
+  zipcode: '08067'

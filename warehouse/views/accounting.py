@@ -2386,6 +2386,8 @@ class Accounting(View):
             expense = request.POST.getlist("expense")
             if type_value == "selfdelivery" or type_value == "selfpickup":  #自发的要加备注
                 note = request.POST.getlist("note")
+            else:
+                note = None
             # 将前端的每一条记录存为invoice_delivery的一条
             for i in range(len((new_plt_ids))):
                 ids = [int(id) for id in new_plt_ids[i]]
@@ -2403,7 +2405,7 @@ class Accounting(View):
                     invoice_content.expense = expense[i]
                 if po_activation[i]:
                     invoice_content.po_activation = po_activation[i]
-                if type_value == "selfdelivery" or type_value == "selfpickup":
+                if note:
                     if 'None' in note[i]:
                         invoice_content.note = None
                     else:
@@ -2503,7 +2505,7 @@ class Accounting(View):
                 delivery_type=delivery_type,
             )
         except InvoiceWarehouse.DoesNotExist:
-            invoice_warehouse = InvoiceWarehouse.objects.get(
+            invoice_warehouse,created = InvoiceWarehouse.objects.get_or_create(
                 invoice_number=invoice,
                 invoice_type=invoice_type,
                 delivery_type=delivery_type,

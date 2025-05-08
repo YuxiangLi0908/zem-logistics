@@ -1092,6 +1092,7 @@ class OrderCreation(View):
                     df.loc[idx, "total_weight_lbs"] = round(
                         df.loc[idx, "total_weight_kg"] * 2.20462, 2
                     )
+            df["destination"] = df["destination"].str.strip()
             # 通过正则判断是否是公仓，公仓就是public，否则就是other
             df["delivery_type"] = df["destination"].apply(
                 lambda x: "public" if self.is_public_destination(x) else "other"
