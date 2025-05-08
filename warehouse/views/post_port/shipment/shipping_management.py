@@ -1262,7 +1262,7 @@ class ShippingManagement(View):
         area = request.POST.get("area")
         current_time = datetime.now()
         appointment_type = request.POST.get("type")
-        if appointment_type == "td":
+        if appointment_type == "td":  #首次预约、更新预约、取消预约都是这个类型
             shipment_data = ast.literal_eval(request.POST.get("shipment_data"))
             shipment_type = request.POST.get("shipment_type")
             appointment_id = request.POST.get("appointment_id", None)
@@ -1355,20 +1355,20 @@ class ShippingManagement(View):
                     shipmentappointment = request.POST.get("shipment_est_arrival", None)
                     if shipmentappointment == "":
                         shipmentappointment = current_time
-                    if "NJ" in str(
-                        request.POST.get("origin", "")
-                    ):  # NJ仓的，UPS预约完就结束，POD都不用传
-                        shipment_data["express_number"] = (
-                            request.POST.get("express_number")
-                            if request.POST.get("express_number")
-                            else ""
-                        )
-                        shipment_data["is_shipped"] = True
-                        shipment_data["shipped_at"] = shipmentappointment
-                        shipment_data["is_arrived"] = True
-                        shipment_data["arrived_at"] = shipmentappointment
-                        shipment_data["pod_link"] = "Without"
-                        shipment_data["pod_uploaded_at"] = timezone.now()
+                    # if "NJ" in str(
+                    #     request.POST.get("origin", "")
+                    # ):  # NJ仓的，UPS预约完就结束，POD都不用传，现在三个仓库都不用传了，这段就注释掉了
+                    shipment_data["express_number"] = (
+                        request.POST.get("express_number")
+                        if request.POST.get("express_number")
+                        else ""
+                    )
+                    shipment_data["is_shipped"] = True
+                    shipment_data["shipped_at"] = shipmentappointment
+                    shipment_data["is_arrived"] = True
+                    shipment_data["arrived_at"] = shipmentappointment
+                    shipment_data["pod_link"] = "Without"
+                    shipment_data["pod_uploaded_at"] = timezone.now()
                 else:
                     shipmentappointment = request.POST.get("shipment_appointment", None)
                     if shipment_type == "客户自提" and "NJ" in str(
