@@ -53,10 +53,7 @@ class OrderQuantity(View):
             return await sync_to_async(render)(request, self.template_shipment, context)
 
     async def post(self, request: HttpRequest) -> HttpResponse:
-        if not await self._validate_user_group(request.user):
-            return HttpResponseForbidden(
-                "You are not authenticated to access this page!"
-            )
+        
         step = request.POST.get("step")
         if step == "selection":
             template, context = await self.handle_order_quantity_get(request)
@@ -574,5 +571,5 @@ class OrderQuantity(View):
         if is_staff:
             return True
         return await sync_to_async(
-            lambda: user.groups.filter(name="manages").exists()
+            lambda: user.groups.filter(name="history_search").exists()
         )()
