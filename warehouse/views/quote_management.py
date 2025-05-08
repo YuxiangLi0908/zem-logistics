@@ -759,9 +759,7 @@ class QuoteManagement(View):
         if form.is_valid():
             uploaded_file = form.cleaned_data['file']
             base_name, extension = os.path.splitext(uploaded_file.name)
-            updated_count = QuotationMaster.objects.all().update(
-                active=False
-            )  # 每次上传一个报价表，就把以前的都设为不启用的状态
+            updated_count = QuotationMaster.objects.all().count()  
             count = updated_count + 1
             # 创建 FeeDetail 记录
             upload_date = datetime.now()

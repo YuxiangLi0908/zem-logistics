@@ -41,12 +41,10 @@
         <thead style="background: #e9ecef;">
             <tr>
                 <th style="padding: 15px; border-bottom: 2px solid #dee2e6; text-align: center;width:100px;">文件名</th>
-                <th style="padding: 15px; border-bottom: 2px solid #dee2e6; text-align: center; width:100px;">生效时间</th>            
+                <th style="padding: 15px; border-bottom: 2px solid #dee2e6; text-align: center; width:100px;">生效时间</th>
+                <th style="padding: 15px; border-bottom: 2px solid #dee2e6; text-align: center;width:100px;">上传时间</th>            
                 <th style="padding: 15px; border-bottom: 2px solid #dee2e6; text-align: center;width:100px;">是否通用</th>
-                <th style="padding: 15px; border-bottom: 2px solid #dee2e6; text-align: center;width:100px;">专属客户</th>
-                <th style="padding: 15px; border-bottom: 2px solid #dee2e6; text-align: center;width:100px;">状态</th>
-                <th style="padding: 15px; border-bottom: 2px solid #dee2e6; text-align: center;width:100px;">操作</th>
-                <th style="padding: 15px; border-bottom: 2px solid #dee2e6; text-align: center;width:100px;">上传时间</th>
+                <th style="padding: 15px; border-bottom: 2px solid #dee2e6; text-align: center;width:100px;">专属客户</th>         
             </tr>
         </thead>
         <tbody>
@@ -55,10 +53,11 @@
                 {% csrf_token %}
                 <tr style="background: {% cycle '#ffffff' '#f8f9fa' %};">
                     <td style="padding: 15px; text-align: center;">{{ q.filename }}</td>
-                    <td style="padding: 15px; text-align: center;">{{ q.effective_date|date:"Y-M-j" }}</td>                
+                    <td style="padding: 15px; text-align: center;">{{ q.effective_date|date:"Y-M-j" }}</td>   
+                    <td style="padding: 15px; text-align: center;">{{ q.upload_date|date:"M-j" }}</td>             
                     <td style="padding: 15px; text-align: center;">{{ q.is_user_exclusive|yesno:"否,是" }}</td>
                     <td style="padding: 15px; text-align: center;">{{ q.exclusive_user }}</td>
-                    <td style="padding: 15px; text-align: center; {% if q.active %}color: #28a745; font-weight: bold;{% else %}color: #dc3545; font-style: italic;{% endif %}">
+                    {% comment %} <td style="padding: 15px; text-align: center; {% if q.active %}color: #28a745; font-weight: bold;{% else %}color: #dc3545; font-style: italic;{% endif %}">
                         {% if q.active %}已启用{% else %}未启用{% endif %}
                     </td>
                     <td style="padding: 15px; text-align: center;">
@@ -67,8 +66,8 @@
                         <button type="submit" class="btn btn-success" style="padding: 6px 15px; font-size: 14px; width:80px; background: #28a745; border-color: #28a745;">
                             启用
                         </button>
-                    </td>
-                    <td style="padding: 15px; text-align: center;">{{ q.upload_date|date:"M-j" }}</td>
+                    </td> {% endcomment %}
+                    
                 </tr>            
             </form>    
             {% endfor %}
