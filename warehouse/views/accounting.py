@@ -1630,8 +1630,14 @@ class Accounting(View):
             new_request = request
             new_request.GET = modified_get
             return self.handle_container_invoice_confirm_get(new_request)
+        
+        order_form = OrderForm(request.POST)
+        if order_form.is_valid():
+            customer = order_form.cleaned_data.get("customer_name")
+        else:
+            customer = None
         return self.handle_invoice_warehouse_get(
-            request, request.POST.get("start_date"), request.POST.get("end_date")
+            request, request.POST.get("start_date"), request.POST.get("end_date"),customer,request.POST.get("warehouse")
         )
 
     def handle_invoice_direct_save_post(self, request: HttpRequest) -> tuple[Any, Any]:
