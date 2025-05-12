@@ -2747,17 +2747,21 @@ class Accounting(View):
         else:  #sav和la的自提要按唛头分组
             self_pickup_pallets = (
                 base_query.annotate(**common_annotations)
-                .filter(is_self_pickup=True)              
-                .values(*common_values, "shipping_mark")  # 自提组需要包含shipping_mark
+                .filter(is_self_pickup=True)  
+                .annotate(
+                    invoice_delivery_type=F('invoice_delivery__type')
+                )            
+                .values(*common_values, "shipping_mark","invoice_delivery_type")  # 自提组需要包含shipping_mark
                 .annotate(**common_aggregates)
                 .order_by(*common_ordering)   
             )
-            
             non_self_pickup_pallets = (
                 base_query.annotate(**common_annotations)
                 .filter(is_self_pickup=False)
-                .annotate(**common_annotations)
-                .values(*common_values)  # 非自提组不需要shipping_mark
+                .annotate(
+                    invoice_delivery_type=F('invoice_delivery__type')
+                ) 
+                .values(*common_values,"invoice_delivery_type")  # 非自提组不需要shipping_mark
                 .annotate(**common_aggregates)
                 .order_by(*common_ordering)   
             )
