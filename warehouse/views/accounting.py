@@ -2811,7 +2811,6 @@ class Accounting(View):
                 ("其他", "other"),
             ],
         }
-        print(pallets)
         if "mix_account" in groups:  # 如果公仓私仓都能看，就进总页面
             context["delivery_type"] = "mixed"
             context["has_delivery"] = has_delivery
