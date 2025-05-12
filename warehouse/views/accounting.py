@@ -8,6 +8,7 @@ import zipfile
 from datetime import datetime, timedelta,date
 from io import BytesIO
 from typing import Any
+from itertools import chain
 
 import openpyxl
 import openpyxl.workbook
@@ -63,6 +64,7 @@ from warehouse.models.invoice_details import (
     InvoicePreport,
     InvoiceWarehouse,
 )
+from django.db.models.query import QuerySet
 from warehouse.models.order import Order
 from warehouse.models.packing_list import PackingList
 from warehouse.models.pallet import Pallet
@@ -2684,57 +2686,83 @@ class Accounting(View):
         warehouse = order.retrieval_id.retrieval_destination_area
         vessel_etd = order.vessel_id.vessel_etd
         # 把pallet汇总
-        pallets = (
-            Pallet.objects.prefetch_related(
+        base_query = Pallet.objects.prefetch_related(
                 "container_number",
                 "container_number__order",
                 "container_number__order__warehouse",
                 "container_number__order__customer_name",
                 "invoice_delivery",
                 Prefetch("invoice_delivery__pallet_delivery", to_attr="delivered_pallets")
+            ).filter(container_number__container_number=container_number)
+        common_annotations = {
+            'str_id': Cast("id", CharField()),
+            'is_hold': Case(
+                When(delivery_method__contains="暂扣留仓", then=Value(True)),
+                default=Value(False),
+                output_field=BooleanField()
+            ),
+            'has_delivery': Case(
+                When(invoice_delivery__isnull=False, then=Value(True)),
+                default=Value(False),
+                output_field=BooleanField()
+            ),
+            'is_self_pickup': Case(
+                When(delivery_method__contains="客户自提", then=Value(True)),
+                default=Value(False),
+                output_field=BooleanField()
+            )   
+        }
+        common_values = [
+            "container_number__container_number",
+            "destination",
+            "zipcode",
+            "address",
+            "delivery_method",
+            "invoice_delivery__type",
+            "delivery_type",
+            "is_hold",
+            "has_delivery"   
+        ]
+        common_aggregates = {
+            'ids': StringAgg("str_id", delimiter=",", distinct=True, ordering="str_id"),
+            'total_cbm': Sum("cbm", output_field=FloatField()),
+            'total_weight_lbs': Sum("weight_lbs", output_field=FloatField()),
+            'total_pallet': Count("pallet_id", distinct=True),   
+        }
+        common_ordering = [
+            Case(
+                When(is_hold=True, then=Value(1)),
+                default=Value(0),
+                output_field=IntegerField()
+            ),
+            F("invoice_delivery__type").asc(nulls_first=True)   
+        ]
+        if 'NJ' in warehouse:
+            pallets = (
+                base_query.annotate(**common_annotations)
+                .values(*common_values)
+                .annotate(**common_aggregates)
+                .order_by(*common_ordering)
             )
-            .filter(container_number__container_number=container_number)
-            .annotate(
-                str_id=Cast("id", CharField()),
-                is_hold=Case(
-                    When(delivery_method__contains="暂扣留仓", then=Value(True)),
-                    default=Value(False),
-                    output_field=BooleanField()
-                ),
-                has_delivery=Case(
-                    When(invoice_delivery__isnull=False, then=Value(True)),
-                    default=Value(False),
-                    output_field=BooleanField()
-                )
+        else:  #sav和la的自提要按唛头分组
+            self_pickup_pallets = (
+                base_query.annotate(**common_annotations)
+                .filter(is_self_pickup=True)              
+                .values(*common_values, "shipping_mark")  # 自提组需要包含shipping_mark
+                .annotate(**common_aggregates)
+                .order_by(*common_ordering)   
             )
-            .values(
-                "container_number__container_number",
-                "destination",
-                "zipcode",
-                "address",
-                "delivery_method",
-                "invoice_delivery__type",
-                "delivery_type",
-                "is_hold",
-                "has_delivery"
+            
+            non_self_pickup_pallets = (
+                base_query.annotate(**common_annotations)
+                .filter(is_self_pickup=False)
+                .annotate(**common_annotations)
+                .values(*common_values)  # 非自提组不需要shipping_mark
+                .annotate(**common_aggregates)
+                .order_by(*common_ordering)   
             )
-            .annotate(
-                ids=StringAgg(
-                    "str_id", delimiter=",", distinct=True, ordering="str_id"
-                ),
-                total_cbm=Sum("cbm", output_field=FloatField()),
-                total_weight_lbs=Sum("weight_lbs", output_field=FloatField()),
-                total_pallet=Count("pallet_id", distinct=True),
-            )
-            .order_by(
-                Case(
-                    When(is_hold=True, then=Value(1)),  # is_hold=True 的记录排最后（值越大优先级越低）
-                    default=Value(0),
-                    output_field=IntegerField()
-                ),
-                F("invoice_delivery__type").asc(nulls_first=True)  # 保留原有排序
-            )
-        )
+            pallets = list(self_pickup_pallets) + list(non_self_pickup_pallets)          
+
         has_delivery = True
         for plt in pallets:
             if plt["has_delivery"] == False:
@@ -2790,7 +2818,7 @@ class Accounting(View):
             return self.template_invoice_delievery_edit, context
         else:
             if "NJ_mix_account" in groups or ("warehouse_other" in groups and "warehouse_public" not in groups):  #只看私仓
-                pallet = pallets.filter(delivery_type="other")
+                pallet = self._filter_pallets(pallets,'other')
                 has_delivery = True
                 for plt in pallet:
                     if plt["has_delivery"] == False:
@@ -2801,7 +2829,7 @@ class Accounting(View):
                 context["has_delivery"] = has_delivery
                 return self.template_invoice_delievery_other_edit, context
             elif "warehouse_public" in groups and "warehouse_other" not in groups:
-                pallet = pallets.filter(delivery_type="public")
+                pallet = self._filter_pallets(pallets,'public')
                 has_delivery = True
                 for plt in pallet:
                     if plt["has_delivery"] == False:
@@ -2814,6 +2842,22 @@ class Accounting(View):
             else:
                 raise ValueError("没有权限")
 
+    def _filter_pallets(self,pallets:Any,delivery_type:str) -> Any:
+        if isinstance(pallets, QuerySet):
+            return pallets.filter(delivery_type=delivery_type)
+        elif isinstance(pallets, list):
+            return [
+                pallet for pallet in pallets 
+                if (
+                    # 支持对象属性、字典键、或 getattr 安全访问
+                    pallet.get("delivery_type") == delivery_type 
+                    if isinstance(pallet, dict)
+                    else getattr(pallet, "delivery_type", None) == delivery_type
+                )
+            ]
+        else:
+            raise ValueError("pallets must be QuerySet or list")
+        
     def _get_fee_details(self, warehouse: str,vessel_etd) -> dict:
         try:
             quotation = QuotationMaster.objects.filter(
@@ -3149,7 +3193,12 @@ class Accounting(View):
         if combina_region_count > stipulate["global_rules"]["max_mixed"]["default"] or non_combina_region_count > (stipulate["global_rules"]["bulk_threshold"]["default"] - stipulate["global_rules"]["max_mixed"]["default"]):
             container.account_order_type = '转运'
             container.save()
-            return self.template_invoice_combina_edit, {'reason': '区域超限'}
+            if combina_region_count > stipulate["global_rules"]["max_mixed"]["default"]:
+                reason = f"规定{stipulate["global_rules"]["max_mixed"]["default"]}组合柜区,但实际有{combina_region_count}个:matched_regions['combina_dests']"
+            elif non_combina_region_count > (stipulate["global_rules"]["bulk_threshold"]["default"] - stipulate["global_rules"]["max_mixed"]["default"]):
+                stipulate_non_combina = stipulate["global_rules"]["bulk_threshold"]["default"] - stipulate["global_rules"]["max_mixed"]["default"]
+                reason = f"规定{stipulate_non_combina}个非组合柜区，但是有{non_combina_region_count}个：{matched_regions['non_combina_dests']}"
+            return self.template_invoice_combina_edit, {'reason': reason}
         # 7.2 计算基础费用
         base_fee = 0
         extra_fees = {
@@ -3207,26 +3256,28 @@ class Accounting(View):
         total_pallets = math.ceil(plts['total_cbm'] / 1.8)  #取上限
         if total_pallets > max_pallets:
             over_count = total_pallets - max_pallets
-            # 找每个仓点的单价，倒序排序
-            plts_by_destination = Pallet.objects.filter(
-                container_number__container_number=container_number   
-            ).values('destination').annotate(
-                total_cbm=Sum('cbm'),
-                price=Value(None, output_field=models.FloatField()),
-                is_fixed_price=Value(False, output_field=BooleanField()),
-                total_pallet=Count('id',output_field=FloatField())   
-            ) #形如{'destination': 'A', 'total_cbm': 10.5，'price':31.5,'is_fixed_price':True},
-            plts_by_destination = self._calculate_delivery_fee_cost(fee_details,warehouse,plts_by_destination,destinations,over_count)
-            max_price = 0
-            max_single_price = 0
-            for plt_d in plts_by_destination:
-                if plt_d['is_fixed_price']:   #一口价的不用乘板数
-                    max_price = max(float(plt_d['price']),max_price)
-                    max_single_price = max_price
-                else:
-                    max_price = max(float(plt_d['price'])*over_count,max_price)
-                    max_single_price = float(plt_d['price'])
-            extra_fees['overpallets'] = max_price
+        else:
+            over_count = 0
+        # 找每个仓点的单价，倒序排序，方便计算超板的（没有超板的也要查，可能前端会改板数）
+        plts_by_destination = Pallet.objects.filter(
+            container_number__container_number=container_number   
+        ).values('destination').annotate(
+            total_cbm=Sum('cbm'),
+            price=Value(None, output_field=models.FloatField()),
+            is_fixed_price=Value(False, output_field=BooleanField()),
+            total_pallet=Count('id',output_field=FloatField())   
+        ) #形如{'destination': 'A', 'total_cbm': 10.5，'price':31.5,'is_fixed_price':True},
+        plts_by_destination = self._calculate_delivery_fee_cost(fee_details,warehouse,plts_by_destination,destinations,over_count)
+        max_price = 0
+        max_single_price = 0
+        for plt_d in plts_by_destination:
+            if plt_d['is_fixed_price']:   #一口价的不用乘板数
+                max_price = max(float(plt_d['price']),max_price)
+                max_single_price = max(max_price,max_single_price)
+            else:
+                max_price = max(float(plt_d['price'])*over_count,max_price)
+                max_single_price = max(float(plt_d['price']),max_single_price)
+        extra_fees['overpallets'] = max_price
 
         # 计算非组合柜费用的提拆费和派送费
         if non_combina_region_count:
@@ -3240,8 +3291,9 @@ class Accounting(View):
             #派送费
             for item in matched_regions['non_combina_dests']:
                 #计算改区域的板数
-                plts_by_destination = Pallet.objects.filter(
-                    container_number__container_number=container_number   
+                plts_by_destination_overregion = Pallet.objects.filter(
+                    container_number__container_number=container_number,
+                    destination__in=matched_regions['non_combina_dests']   
                 ).values('destination').annotate(
                     total_cbm=Sum('cbm'),
                     total_pallet=Count('id',output_field=FloatField()),
@@ -3249,13 +3301,16 @@ class Accounting(View):
                     price=Value(None, output_field=models.FloatField()),
                     is_fixed_price=Value(False, output_field=BooleanField()) 
                 )
-                plts_by_destination = self._calculate_delivery_fee_cost(fee_details,warehouse,plts_by_destination,destinations,None)
+                
+
+                plts_by_destination_overregion = self._calculate_delivery_fee_cost(fee_details,warehouse,plts_by_destination_overregion,destinations,None)
+
                 sum_price = 0
-                for plt_d in plts_by_destination:
+                for plt_d in plts_by_destination_overregion:
                     if plt_d['is_fixed_price']:   #一口价的不用乘板数
                         sum_price += float(plt_d['price'])
                     else:
-                        sum_price += float(plt_d['price'])*over_count
+                        sum_price += float(plt_d['price'])*plt_d['total_pallet']
             extra_fees['overregion_delivery'] = sum_price
         display_data = {
             # 基础信息
@@ -3303,38 +3358,33 @@ class Accounting(View):
                     'delivery': {
                         'fee': extra_fees['overregion_delivery'],
                         'details': [],
-                        'fee':0
                     }
                 }
+                
             }
         }
-        
         display_data['combina_data']['destinations'] = price_display_new
         
-        # 填充超板费详细信息
-        if total_pallets > max_pallets:
-            for plt in plts_by_destination:
-                display_data['extra_fees']['overpallets']['pallet_details'].append({
-                    'destination': plt['destination'],
-                    'price': plt['price'],
-                    'is_fixed_price': plt['is_fixed_price'],
-                    'is_max_used': float(plt['price']) == max_single_price  # 标记是否被采用
-                })
-            display_data['extra_fees']['overpallets']['max_price_used'] = max_price
+        # 填充超板费详细信息，不超板也要展示详情，因为前端可以修改超的板数
+        #if total_pallets > max_pallets:
+        for plt in plts_by_destination:
+            display_data['extra_fees']['overpallets']['pallet_details'].append({
+                'destination': plt['destination'],
+                'price': plt['price'],
+                'is_fixed_price': plt['is_fixed_price'],
+                'is_max_used': float(plt['price']) == max_single_price  # 标记是否被采用
+            })
+        display_data['extra_fees']['overpallets']['max_price_used'] = max_price
         
         # 填充超区派送费详细信息
-        for plt in plts_by_destination:
-            if plt['destination'] in matched_regions['non_combina_dests']:
-                display_data['extra_fees']['overregion']['delivery']['details'].append({
-                    'destination': plt['destination'],
-                    'pallets': plt['total_pallet'],
-                    'price': plt['price'],
-                    'cbm':round(plt['total_cbm'],3),
-                    'subtotal': float(plt['price']) * plt['total_pallet']
-                })
-        display_data['extra_fees']['overregion']['delivery']['fee'] = sum(
-            item['subtotal'] for item in display_data['extra_fees']['overregion']['delivery']['details']
-        )
+        for plt in plts_by_destination_overregion:
+            display_data['extra_fees']['overregion']['delivery']['details'].append({
+                'destination': plt['destination'],
+                'pallets': plt['total_pallet'],
+                'price': plt['price'],
+                'cbm':round(plt['total_cbm'],3),
+                'subtotal': float(plt['price']) * plt['total_pallet']
+            })
         total_amount = base_fee + extra_fees['overpallets'] + extra_fees['overregion_pickup'] + extra_fees['overregion_delivery']
         # 8. 返回结果
         context = {
@@ -3389,9 +3439,10 @@ class Accounting(View):
                     else:
                         is_niche_warehouse = False
             #再找本地派送
-            if not pl['price'] and warehouse == "NJ":
+            if not pl['price'] and warehouse == "NJ":               
+                destination = re.sub(r'[^0-9]', '', str(pl['destination']))
                 for price, locations in local_data.items():
-                    if str(pl['destination']) in map(str,locations["zipcodes"]):
+                    if str(destination) in map(str,locations["zipcodes"]):
                         pl['is_fixed_price'] = True  #表示一口价，等会就不会再乘以板数了
                         costs = locations["prices"]
                         if not over_count:
@@ -3403,6 +3454,8 @@ class Accounting(View):
                         elif total_pallet >= 5:
                             pl['price'] = int(costs[1])
                         break
+            if not pl['price']:
+                pl['price'] = 0
             if not over_count:
                 total_pallet = self._calculate_total_pallet(pl['total_cbm'],is_new_rule,is_niche_warehouse)
             else:
