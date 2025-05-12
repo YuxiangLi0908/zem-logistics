@@ -2762,7 +2762,6 @@ class Accounting(View):
                 .order_by(*common_ordering)   
             )
             pallets = list(self_pickup_pallets) + list(non_self_pickup_pallets)          
-
         has_delivery = True
         for plt in pallets:
             if plt["has_delivery"] == False:
@@ -2812,6 +2811,7 @@ class Accounting(View):
                 ("其他", "other"),
             ],
         }
+        print(pallets)
         if "mix_account" in groups:  # 如果公仓私仓都能看，就进总页面
             context["delivery_type"] = "mixed"
             context["has_delivery"] = has_delivery
@@ -3194,10 +3194,12 @@ class Accounting(View):
             container.account_order_type = '转运'
             container.save()
             if combina_region_count > stipulate["global_rules"]["max_mixed"]["default"]:
-                reason = f"规定{stipulate["global_rules"]["max_mixed"]["default"]}组合柜区,但实际有{combina_region_count}个:matched_regions['combina_dests']"
+                reason = '不满足组合柜区域要求'
+                #reason = f"规定{stipulate["global_rules"]["max_mixed"]["default"]}组合柜区,但实际有{combina_region_count}个:matched_regions['combina_dests']"
             elif non_combina_region_count > (stipulate["global_rules"]["bulk_threshold"]["default"] - stipulate["global_rules"]["max_mixed"]["default"]):
                 stipulate_non_combina = stipulate["global_rules"]["bulk_threshold"]["default"] - stipulate["global_rules"]["max_mixed"]["default"]
-                reason = f"规定{stipulate_non_combina}个非组合柜区，但是有{non_combina_region_count}个：{matched_regions['non_combina_dests']}"
+                #reason = f"规定{stipulate_non_combina}个非组合柜区，但是有{non_combina_region_count}个：{matched_regions['non_combina_dests']}"
+                reason = '不满足组合柜区域要求'
             return self.template_invoice_combina_edit, {'reason': reason}
         # 7.2 计算基础费用
         base_fee = 0
