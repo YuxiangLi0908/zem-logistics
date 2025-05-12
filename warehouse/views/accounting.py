@@ -2752,6 +2752,7 @@ class Accounting(View):
                 .annotate(**common_aggregates)
                 .order_by(*common_ordering)   
             )
+            
             non_self_pickup_pallets = (
                 base_query.annotate(**common_annotations)
                 .filter(is_self_pickup=False)
@@ -2760,12 +2761,7 @@ class Accounting(View):
                 .annotate(**common_aggregates)
                 .order_by(*common_ordering)   
             )
-            pallets_list = list(self_pickup_pallets) + list(non_self_pickup_pallets)
-            pallets = [
-                {k: v for k, v in item.items() if k in common_values}
-                for item in pallets_list
-            ]
-            
+            pallets = list(self_pickup_pallets) + list(non_self_pickup_pallets)          
 
         has_delivery = True
         for plt in pallets:
@@ -2822,10 +2818,7 @@ class Accounting(View):
             return self.template_invoice_delievery_edit, context
         else:
             if "NJ_mix_account" in groups or ("warehouse_other" in groups and "warehouse_public" not in groups):  #只看私仓
-                print(pallets)
-                print('---------------------')
                 pallet = self._filter_pallets(pallets,'other')
-                print(pallet)
                 has_delivery = True
                 for plt in pallet:
                     if plt["has_delivery"] == False:
