@@ -2294,8 +2294,12 @@ class Accounting(View):
             elif delivery_type == "other":
                 invoice_status.stage_other = "warehouse_rejected"
         elif status == "delivery":
-            invoice_status.stage_public = "delivery_rejected"
-            invoice_status.stage_other = "delivery_rejected"
+            #检查时驳回公仓还是私仓
+            reject_type = request.POST.get("reject_type")
+            if reject_type == 'public':
+                invoice_status.stage_public = "delivery_rejected"
+            else:
+                invoice_status.stage_other = "delivery_rejected"
         invoice_status.is_rejected = "True"
         invoice_status.reject_reason = reject_reason
         invoice_status.save()
