@@ -3149,7 +3149,12 @@ class Accounting(View):
         if combina_region_count > stipulate["global_rules"]["max_mixed"]["default"] or non_combina_region_count > (stipulate["global_rules"]["bulk_threshold"]["default"] - stipulate["global_rules"]["max_mixed"]["default"]):
             container.account_order_type = '转运'
             container.save()
-            return self.template_invoice_combina_edit, {'reason': '区域超限'}
+            if combina_region_count > stipulate["global_rules"]["max_mixed"]["default"]:
+                reason = f"规定{stipulate["global_rules"]["max_mixed"]["default"]}组合柜区,但实际有{combina_region_count}个:matched_regions['combina_dests']"
+            elif non_combina_region_count > (stipulate["global_rules"]["bulk_threshold"]["default"] - stipulate["global_rules"]["max_mixed"]["default"]):
+                stipulate_non_combina = stipulate["global_rules"]["bulk_threshold"]["default"] - stipulate["global_rules"]["max_mixed"]["default"]
+                reason = f"规定{stipulate_non_combina}个非组合柜区，但是有{non_combina_region_count}个：{matched_regions['non_combina_dests']}"
+            return self.template_invoice_combina_edit, {'reason': reason}
         # 7.2 计算基础费用
         base_fee = 0
         extra_fees = {
@@ -3240,8 +3245,9 @@ class Accounting(View):
             #派送费
             for item in matched_regions['non_combina_dests']:
                 #计算改区域的板数
-                plts_by_destination = Pallet.objects.filter(
-                    container_number__container_number=container_number   
+                plts_by_destination_overregion = Pallet.objects.filter(
+                    container_number__container_number=container_number,
+                    destination__in=matched_regions['non_combina_dests']   
                 ).values('destination').annotate(
                     total_cbm=Sum('cbm'),
                     total_pallet=Count('id',output_field=FloatField()),
@@ -3249,13 +3255,16 @@ class Accounting(View):
                     price=Value(None, output_field=models.FloatField()),
                     is_fixed_price=Value(False, output_field=BooleanField()) 
                 )
-                plts_by_destination = self._calculate_delivery_fee_cost(fee_details,warehouse,plts_by_destination,destinations,None)
+                
+
+                plts_by_destination_overregion = self._calculate_delivery_fee_cost(fee_details,warehouse,plts_by_destination_overregion,destinations,None)
+
                 sum_price = 0
-                for plt_d in plts_by_destination:
+                for plt_d in plts_by_destination_overregion:
                     if plt_d['is_fixed_price']:   #一口价的不用乘板数
                         sum_price += float(plt_d['price'])
                     else:
-                        sum_price += float(plt_d['price'])*over_count
+                        sum_price += float(plt_d['price'])*plt_d['total_pallet']
             extra_fees['overregion_delivery'] = sum_price
         display_data = {
             # 基础信息
@@ -3303,38 +3312,33 @@ class Accounting(View):
                     'delivery': {
                         'fee': extra_fees['overregion_delivery'],
                         'details': [],
-                        'fee':0
                     }
                 }
+                
             }
         }
-        
         display_data['combina_data']['destinations'] = price_display_new
         
-        # 填充超板费详细信息
-        if total_pallets > max_pallets:
-            for plt in plts_by_destination:
-                display_data['extra_fees']['overpallets']['pallet_details'].append({
-                    'destination': plt['destination'],
-                    'price': plt['price'],
-                    'is_fixed_price': plt['is_fixed_price'],
-                    'is_max_used': float(plt['price']) == max_single_price  # 标记是否被采用
-                })
-            display_data['extra_fees']['overpallets']['max_price_used'] = max_price
+        # 填充超板费详细信息，不超板也要展示详情，因为前端可以修改超的板数
+        #if total_pallets > max_pallets:
+        for plt in plts_by_destination:
+            display_data['extra_fees']['overpallets']['pallet_details'].append({
+                'destination': plt['destination'],
+                'price': plt['price'],
+                'is_fixed_price': plt['is_fixed_price'],
+                'is_max_used': float(plt['price']) == max_single_price  # 标记是否被采用
+            })
+        display_data['extra_fees']['overpallets']['max_price_used'] = max_price
         
         # 填充超区派送费详细信息
-        for plt in plts_by_destination:
-            if plt['destination'] in matched_regions['non_combina_dests']:
-                display_data['extra_fees']['overregion']['delivery']['details'].append({
-                    'destination': plt['destination'],
-                    'pallets': plt['total_pallet'],
-                    'price': plt['price'],
-                    'cbm':round(plt['total_cbm'],3),
-                    'subtotal': float(plt['price']) * plt['total_pallet']
-                })
-        display_data['extra_fees']['overregion']['delivery']['fee'] = sum(
-            item['subtotal'] for item in display_data['extra_fees']['overregion']['delivery']['details']
-        )
+        for plt in plts_by_destination_overregion:
+            display_data['extra_fees']['overregion']['delivery']['details'].append({
+                'destination': plt['destination'],
+                'pallets': plt['total_pallet'],
+                'price': plt['price'],
+                'cbm':round(plt['total_cbm'],3),
+                'subtotal': float(plt['price']) * plt['total_pallet']
+            })
         total_amount = base_fee + extra_fees['overpallets'] + extra_fees['overregion_pickup'] + extra_fees['overregion_delivery']
         # 8. 返回结果
         context = {
@@ -3389,9 +3393,10 @@ class Accounting(View):
                     else:
                         is_niche_warehouse = False
             #再找本地派送
-            if not pl['price'] and warehouse == "NJ":
+            if not pl['price'] and warehouse == "NJ":               
+                destination = re.sub(r'[^0-9]', '', str(pl['destination']))
                 for price, locations in local_data.items():
-                    if str(pl['destination']) in map(str,locations["zipcodes"]):
+                    if str(destination) in map(str,locations["zipcodes"]):
                         pl['is_fixed_price'] = True  #表示一口价，等会就不会再乘以板数了
                         costs = locations["prices"]
                         if not over_count:
@@ -3403,6 +3408,8 @@ class Accounting(View):
                         elif total_pallet >= 5:
                             pl['price'] = int(costs[1])
                         break
+            if not pl['price']:
+                pl['price'] = 0
             if not over_count:
                 total_pallet = self._calculate_total_pallet(pl['total_cbm'],is_new_rule,is_niche_warehouse)
             else:
