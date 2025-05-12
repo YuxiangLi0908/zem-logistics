@@ -2213,3 +2213,53 @@ WMM-NJ3T:
   location: 7 Sorbello Rd
   state: NJ
   zipcode: '08067'
+CVG1N:
+  city: Monroe
+  location: 650 Gateway Blvd
+  state: OH
+  zipcode: '45050'
+Walmart-CVG1N:
+  city: Monroe
+  location: 650 Gateway Blvd
+  state: OH
+  zipcode: '45050'
+沃尔玛CVG1N:
+  city: Monroe
+  location: 650 Gateway Blvd
+  state: OH
+  zipcode: '45050'
+CVG1N沃尔玛:
+  city: Monroe
+  location: 650 Gateway Blvd
+  state: OH
+  zipcode: '45050'
+WMCVG1N:
+  city: Monroe
+  location: 650 Gateway Blvd
+  state: OH
+  zipcode: '45050'
+WMMCVG1N:
+  city: Monroe
+  location: 650 Gateway Blvd
+  state: OH
+  zipcode: '45050'
+沃尔玛-CVG1N:
+  city: Monroe
+  location: 650 Gateway Blvd
+  state: OH
+  zipcode: '45050'
+CVG1N-沃尔玛:
+  city: Monroe
+  location: 650 Gateway Blvd
+  state: OH
+  zipcode: '45050'
+WM-CVG1N:
+  city: Monroe
+  location: 650 Gateway Blvd
+  state: OH
+  zipcode: '45050'
+WMM-CVG1N:
+  city: Monroe
+  location: 650 Gateway Blvd
+  state: OH
+  zipcode: '45050'
