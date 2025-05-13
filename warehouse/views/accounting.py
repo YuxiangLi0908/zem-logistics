@@ -3163,8 +3163,20 @@ class Accounting(View):
                 quotation_id=matching_quotation.id,
                 fee_type="COMBINA_STIPULATE"
             ).details
-        except FeeDetail.DoesNotExist:
-            return self.template_invoice_combina_edit, {'reason': '费用规则不完整'}
+        except FeeDetail.DoesNotExist as e:
+            error_message = str(e)
+            if "preport" in error_message:
+                missing_fee = "preport"
+            elif f"{warehouse}_COMBINA" in error_message:
+                missing_fee = f"{warehouse}_COMBINA"
+            elif "COMBINA_STIPULATE" in error_message:
+                missing_fee = "COMBINA_STIPULATE"
+            else:
+                missing_fee = "unknown fee type"
+            
+            return self.template_invoice_combina_edit, {
+                'reason': f'费用规则不完整，缺少费用类型: {missing_fee}'
+            }
         if isinstance(combina_fee, str):
             combina_fee = json.loads(combina_fee)
         # 2. 检查基本条件
@@ -3217,12 +3229,12 @@ class Accounting(View):
             container.account_order_type = '转运'
             container.save()
             if combina_region_count > stipulate["global_rules"]["max_mixed"]["default"]:
-                reason = '不满足组合柜区域要求'
-                #reason = f"规定{stipulate["global_rules"]["max_mixed"]["default"]}组合柜区,但实际有{combina_region_count}个:matched_regions['combina_dests']"
+                #reason = '不满足组合柜区域要求'
+                reason = f"规定{stipulate['global_rules']['max_mixed']['default']}组合柜区,但实际有{combina_region_count}个:matched_regions['combina_dests']"
             elif non_combina_region_count > (stipulate["global_rules"]["bulk_threshold"]["default"] - stipulate["global_rules"]["max_mixed"]["default"]):
                 stipulate_non_combina = stipulate["global_rules"]["bulk_threshold"]["default"] - stipulate["global_rules"]["max_mixed"]["default"]
-                #reason = f"规定{stipulate_non_combina}个非组合柜区，但是有{non_combina_region_count}个：{matched_regions['non_combina_dests']}"
-                reason = '不满足组合柜区域要求'
+                reason = f"规定{stipulate_non_combina}个非组合柜区，但是有{non_combina_region_count}个：{matched_regions['non_combina_dests']}"
+                #reason = '不满足组合柜区域要求'
             return self.template_invoice_combina_edit, {'reason': reason}
         # 7.2 计算基础费用
         base_fee = 0
