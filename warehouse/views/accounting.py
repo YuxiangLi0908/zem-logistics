@@ -3150,33 +3150,18 @@ class Accounting(View):
         if not matching_quotation:
             return self.template_invoice_combina_edit, {'reason': '找不到匹配报价表'}
         # 4. 获取费用规则
-        try:
-            PICKUP_FEE = FeeDetail.objects.get(
-                quotation_id=matching_quotation.id, fee_type="preport"
-            )
-            combina_fee = FeeDetail.objects.get(
-                quotation_id=matching_quotation.id,
-                fee_type=f"{warehouse}_COMBINA"
-            ).details
-            fee_details = self._get_fee_details(warehouse,vessel_etd)
-            stipulate = FeeDetail.objects.get(
-                quotation_id=matching_quotation.id,
-                fee_type="COMBINA_STIPULATE"
-            ).details
-        except FeeDetail.DoesNotExist as e:
-            error_message = str(e)
-            if "preport" in error_message:
-                missing_fee = "preport"
-            elif f"{warehouse}_COMBINA" in error_message:
-                missing_fee = f"{warehouse}_COMBINA"
-            elif "COMBINA_STIPULATE" in error_message:
-                missing_fee = "COMBINA_STIPULATE"
-            else:
-                missing_fee = "unknown fee type"
-            
-            return self.template_invoice_combina_edit, {
-                'reason': f'费用规则不完整，缺少费用类型: {missing_fee}'
-            }
+        PICKUP_FEE = FeeDetail.objects.get(
+            quotation_id=matching_quotation.id, fee_type="preport"
+        )
+        combina_fee = FeeDetail.objects.get(
+            quotation_id=matching_quotation.id,
+            fee_type=f"{warehouse}_COMBINA"
+        ).details
+        fee_details = self._get_fee_details(warehouse,vessel_etd)
+        stipulate = FeeDetail.objects.get(
+            quotation_id=matching_quotation.id,
+            fee_type="COMBINA_STIPULATE"
+        ).details
         if isinstance(combina_fee, str):
             combina_fee = json.loads(combina_fee)
         # 2. 检查基本条件
