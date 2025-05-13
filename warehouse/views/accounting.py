@@ -3098,9 +3098,24 @@ class Accounting(View):
         order = Order.objects.select_related(
             "retrieval_id", "container_number", "vessel_id"
         ).get(container_number__container_number=container_number)
-        invoice = Invoice.objects.select_related("customer", "container_number").get(
-            container_number__container_number=container_number
-        )
+
+        try:
+            invoice = Invoice.objects.select_related(
+                "customer", "container_number"
+            ).get(container_number__container_number=container_number)
+        except Invoice.DoesNotExist:
+            current_date = datetime.now().date()
+            order_id = str(order.id)
+            customer_id = order.customer_name.id
+            invoice = Invoice(
+                **{
+                    "invoice_number": f"{current_date.strftime('%Y-%m-%d').replace('-', '')}C{customer_id}{order_id}",
+                    "customer": order.customer_name,
+                    "container_number": order.container_number,
+                }
+            )
+            invoice.save()
+            order.invoice_id = invoice
         invoice_type = request.GET.get('invoice_type')
         #先查找是不是已经报错过数据了，如果保存了就读保存的数据，没有保存的数据就去匹配查找
         invoice_item = InvoiceItem.objects.filter(
