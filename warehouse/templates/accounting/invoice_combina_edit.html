@@ -238,7 +238,7 @@
                                     </div>
                                 </div>
                             </div>
-                            {% if display_data.extra_fees.overpallets.over_count > 0 %}
+                            
                             <div class="alert alert-warning mt-3 p-2 mb-0">
                                 <div class="d-flex align-items-center">
                                     <i class="fas fa-exclamation-triangle me-2"></i>
@@ -252,7 +252,7 @@
                                     </div>
                                 </div>
                             </div>
-                            {% endif %}
+                            
                         </div>
                     </div>
                 </div>
@@ -294,6 +294,7 @@
                 超区详情
             </h6>
         </div>
+        {% if is_overregion %}
         <div class="card-body p-2">
             <div class="row">
                 <div class="col-md-4 border-end">
@@ -385,6 +386,14 @@
                 </div>
             </div>
         </div>
+        {% else %}
+        <div class="alert alert-success mb-0">
+            <div class="input-group" style="width: 180px;">
+                <i class="bi bi-check-circle-fill me-1"></i>
+                没有超区
+            </div>
+        </div>
+        {% endif %}
     </div>
     {% endif %}
 </div>
@@ -417,7 +426,10 @@
         function calculateOverpalletFee() {
             const currentPallets = parseFloat(currentPalletsInput.value) || 0;
             const limitPallets = parseFloat(limitPalletsInput.value) || 0;
+            console.log('现在板数',currentPallets);
+            console.log('限制板数',limitPallets);
             const overCount = currentPallets - limitPallets;
+            console.log('超出板数',overCount);
             document.getElementById("overCountDisplay").textContent = overCount;
             if (overCount > 0) {
                 overpalletFeeInput.value = (overCount * palletPrice).toFixed(2);
@@ -440,13 +452,17 @@
         const overweight_fee = document.getElementById('overweight_fee');
         
         function updateTotalAmount() {
-            const amount = 
-                (parseFloat(base_fee.value) || 0) + 
-                (parseFloat(overpallet_fee.value) || 0) + 
-                (parseFloat(overregion_pickup_fee.value) || 0) + 
-                (parseFloat(overregion_delivery_fee.value) || 0) + 
-                (parseFloat(overweight_fee.value || 0));
-            
+
+            let amount = parseFloat(base_fee.value) || 0;
+            amount += parseFloat(overpallet_fee.value) || 0;
+            if (overregion_pickup_fee) {
+                amount += parseFloat(overregion_pickup_fee.value) || 0;
+            }
+            if (overregion_delivery_fee) {
+                amount += parseFloat(overregion_delivery_fee.value) || 0;
+            }
+            amount += parseFloat(overweight_fee.value) || 0;
+
             totalAmountDisplay.textContent = amount.toFixed(2);
         }
     

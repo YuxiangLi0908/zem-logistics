@@ -3237,7 +3237,7 @@ class Accounting(View):
                 region = des_match_quote[0]          
                 base_fee = combina_fee[region][0]['prices'][0 if container_type == '40HQ/GP' else 1]
                 price_display_new = [
-                    {"key": region, 'cbm':matching_regions[region], 'rate':100, "price": data['price'], "location":  ", ".join(data['location'])}
+                    {"key": region, 'cbm':round(matching_regions[region],3), 'rate':100, "price": data['price'], "location":  ", ".join(data['location'])}
                     for region, data in price_display.items()   
                 ]
             else:  #允许混区的情况
@@ -3247,7 +3247,7 @@ class Accounting(View):
                     base_fee += fee * total_cbm/total_cbm_sum
                 base_fee = round(base_fee,2)
                 price_display_new = [
-                    {"key": region, 'cbm':matching_regions[region], 'rate':round(matching_regions[region]/total_cbm_sum,3), "price": data['price'], "location":  ", ".join(data['location'])}
+                    {"key": region, 'cbm':round(matching_regions[region],3), 'rate':round(matching_regions[region]/total_cbm_sum,3), "price": data['price'], "location":  ", ".join(data['location'])}
                     for region, data in price_display.items()   
                 ]
         # 7.3 检查超限情况
@@ -3334,6 +3334,8 @@ class Accounting(View):
                     else:
                         sum_price += float(plt_d['price'])*plt_d['total_pallet']
             extra_fees['overregion_delivery'] = sum_price
+        else:
+            pickup_fee = 0
         display_data = {
             # 基础信息
             'plts_by_destination':plts_by_destination,
@@ -3399,14 +3401,18 @@ class Accounting(View):
         display_data['extra_fees']['overpallets']['max_price_used'] = max_price
         
         # 填充超区派送费详细信息
-        for plt in plts_by_destination_overregion:
-            display_data['extra_fees']['overregion']['delivery']['details'].append({
-                'destination': plt['destination'],
-                'pallets': plt['total_pallet'],
-                'price': plt['price'],
-                'cbm':round(plt['total_cbm'],3),
-                'subtotal': float(plt['price']) * plt['total_pallet']
-            })
+        if non_combina_region_count:
+            is_overregion = True
+            for plt in plts_by_destination_overregion:
+                display_data['extra_fees']['overregion']['delivery']['details'].append({
+                    'destination': plt['destination'],
+                    'pallets': plt['total_pallet'],
+                    'price': plt['price'],
+                    'cbm':round(plt['total_cbm'],3),
+                    'subtotal': float(plt['price']) * plt['total_pallet']
+                })
+        else:
+            is_overregion = False
         total_amount = base_fee + extra_fees['overpallets'] + extra_fees['overregion_pickup'] + extra_fees['overregion_delivery']
         # 8. 返回结果
         context = {
@@ -3415,6 +3421,7 @@ class Accounting(View):
             "invoice_number":invoice.invoice_number,
             "container_number":container_number,
             'invoice_type':invoice_type,
+            'is_overregion':is_overregion
         }
         return self.template_invoice_combina_edit, context
     
