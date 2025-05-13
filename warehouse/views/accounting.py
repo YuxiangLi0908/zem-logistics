@@ -651,7 +651,8 @@ class Accounting(View):
         criteria = models.Q(
             cancel_notification=False,
             vessel_id__vessel_etd__gte=start_date,
-            vessel_id__vessel_etd__lte=end_date
+            vessel_id__vessel_etd__lte=end_date,
+            offload_id__offload_at__isnull=False,
         )
         if customer:
             criteria &= models.Q(customer_name__zem_name=customer)
