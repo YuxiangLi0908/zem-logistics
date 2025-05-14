@@ -923,7 +923,7 @@ class Accounting(View):
                 display_stage = (
                     STAGE_MAPPING.get(raw_stage, str(raw_stage))
                     if raw_stage
-                    else "未知状态"
+                    else "未录入任何费用"
                 )
 
             if is_dict_type:
