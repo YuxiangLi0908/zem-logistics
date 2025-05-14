@@ -217,6 +217,9 @@ class Inventory(View):
         # create new pallets
         new_pallets = []
         old_po_id = old_pallet[0].PO_ID
+
+        old_packinglist = await sync_to_async(list)(PackingList.objects.filter(PO_ID=old_po_id))
+        
         seq_num = 1
         for dest, dm, addr, zipcode, sm, fba, ref, p, n, note in zip(
             destinations,
@@ -256,6 +259,29 @@ class Inventory(View):
                 for i in range(n)
             ]
             seq_num += 1
+            #对应修改pl
+            if old_packinglist:
+                pl_to_update = []
+                for pl in old_packinglist:                 
+                    match = True
+                    if fba and pl.fba_id not in fba:
+                        match = False
+                    if ref and pl.ref_id not in ref:
+                        match = False
+                    if sm and pl.shipping_mark not in sm:
+                        match = False
+                    if match:
+                        pl.destination = dest
+                        pl.delivery_method = dm
+                        pl.address = addr
+                        pl.zipcode = zipcode
+                        pl.note = note
+                        pl_to_update.append(pl)
+                if pl_to_update:
+                    await sync_to_async(PackingList.objects.bulk_update)(
+                        pl_to_update,
+                        fields=["destination", "delivery_method", "address", "zipcode", "note"]
+                    )
         instances = [Pallet(**p) for p in new_pallets]
         await sync_to_async(bulk_create_with_history)(instances, Pallet)
         # await sync_to_async(Pallet.objects.bulk_create)(
