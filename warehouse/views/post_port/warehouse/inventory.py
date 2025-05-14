@@ -233,6 +233,22 @@ class Inventory(View):
             n_pallets,
             notes,
         ):
+            #判断是公仓/私仓
+            if (
+                re.fullmatch(r"^[A-Za-z]{4}\s*$", str(dest))
+                or
+                re.fullmatch(r"^[A-Za-z]{3}\s*\d$", str(dest))
+                or
+                re.fullmatch(r"^[A-Za-z]{3}\s*\d\s*[A-Za-z]$", str(dest))
+                or
+                any(
+                    kw.lower() in str(dest).lower()
+                    for kw in {"walmart", "沃尔玛"}  
+                )
+            ):
+                delivery_type = 'public'
+            else:
+                delivery_type = 'other'
             # TODOs: find a better way to allocate cbm and weight
             new_pallets += [
                 {
@@ -255,6 +271,7 @@ class Inventory(View):
                     "ref_id": ref if ref else "",
                     "location": old_pallet[0].location,
                     "PO_ID": f"{old_po_id}_{seq_num}",
+                    "delivery_type":delivery_type
                 }
                 for i in range(n)
             ]
@@ -276,6 +293,7 @@ class Inventory(View):
                         pl.address = addr
                         pl.zipcode = zipcode
                         pl.note = note
+                        pl.delivery_type = delivery_type
                         pl_to_update.append(pl)
                 if pl_to_update:
                     await sync_to_async(PackingList.objects.bulk_update)(
