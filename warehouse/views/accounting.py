@@ -2404,7 +2404,7 @@ class Accounting(View):
             plt_ids = request.POST.getlist("plt_ids")
             new_plt_ids = [ast.literal_eval(sub_plt_id) for sub_plt_id in plt_ids]
             expense = request.POST.getlist("expense")
-            if type_value == "selfdelivery" or type_value == "selfpickup":  #自发的要加备注
+            if type_value == "selfdelivery" or type_value == "selfpickup" or type_value == "upsdelivery":  #自发的要加备注
                 note = request.POST.getlist("note")
             else:
                 note = None
