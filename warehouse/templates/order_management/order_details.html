@@ -1,6 +1,6 @@
 {% extends 'base.html' %}
 {% block content %}
-<div style="display: flex;">
+<div style="display: flex; position: sticky; top: 0; background: white; z-index: 1000;">
     <div style="width: 100%; font-size: 11px;">
         <ul class="nav nav-tabs">
             <div style="margin-right: 10px;">
@@ -39,7 +39,7 @@
     </div>
 </div>
 
-<div id="order-info-sec" style="max-height: 500px;">
+<div id="order-info-sec" style="max-height: 800px; overflow-y: auto;">
     <div id="order-basic-info-sec" style="display: block;">
         <form method="post" action="" style="width: 100%;">
             {% csrf_token %}
