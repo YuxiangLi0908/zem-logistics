@@ -507,6 +507,7 @@
                         <th class="th" style = "width:80px;">目的地</th>
                         <th class="th" style = "width:70px;">CBM</th>
                         <th class="th" style = "width:70px;">重量</th>
+                        <th class="th" style = "width:70px;">备注</th>
                     </tr>
                 </thead>
                 <tbody>
@@ -519,6 +520,7 @@
                         <td class="td"><input type="text" style = "width:70px;" name="destination" value="{{ plt.destination }}" disabled></td>
                         <td class="td"><input type="number" style = "width:70px;" name="cbm" step = 0.01 value="{{ plt.total_cbm|floatformat:2 }}" disabled></td>
                         <td class="td"><input type="number" style = "width:70px;" name="weight_lbs" step = 0.01 value="{{ plt.total_weight_lbs }}" disabled></td>
+                        <td class="td"><input type="text" style = "width:70px;" name="note"  value="{{ plt.note|default:'' }}" disabled></td>
                     </tr>
                     {% endfor %}
                 </tbody>
@@ -536,6 +538,7 @@
                         <th class="th" style = "width:80px;">目的地</th>
                         <th class="th" style = "width:70px;">CBM</th>
                         <th class="th" style = "width:70px;">重量</th>
+                        <th class="th" style = "width:70px;">备注</th>
                     </tr>
                 </thead>
                 <tbody>
@@ -548,6 +551,7 @@
                         <td class="td"><input type="text" style = "width:70px;" name="destination" value="{{ plt.destination }}" disabled></td>
                         <td class="td"><input type="number" style = "width:70px;" name="cbm" step = 0.01 value="{{ plt.total_cbm|floatformat:2 }}" disabled></td>
                         <td class="td"><input type="number" style = "width:70px;" name="weight_lbs" step = 0.01 value="{{ plt.total_weight_lbs }}" disabled></td>
+                        <td class="td"><input type="text" style = "width:70px;" name="note"  value="{{ plt.note|default:'' }}" disabled></td>
                     </tr>
                     {% endfor %}
                 </tbody>
