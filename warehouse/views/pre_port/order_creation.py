@@ -698,7 +698,7 @@ class OrderCreation(View):
 
         # 处理PackingList
         batch_size = 10000
-        queryset = PackingList.objects.all().order_by("id")
+        queryset = PackingList.objects.filter(delivery_type__isnull=True).order_by("id")
         total = await sync_to_async(queryset.count)()
 
         for start in range(0, total, batch_size):
@@ -724,29 +724,28 @@ class OrderCreation(View):
             ]
 
             # 批量更新
-            await sync_to_async(PackingList.objects.filter(id__in=public_ids).update)(
-                delivery_type="public"
-            )
-            await sync_to_async(
-                PackingList.objects.filter(
-                    id__in=[
-                        item["id"] for item in batch if item["id"] not in public_ids
-                    ]
-                ).update
-            )(delivery_type="other")
+            if public_ids:
+                await sync_to_async(PackingList.objects.filter(id__in=public_ids).update)(
+                    delivery_type="public"
+                )
+            other_ids = [item["id"] for item in batch if item["id"] not in public_ids]
+            if other_ids:
+                await sync_to_async(PackingList.objects.filter(id__in=other_ids).update)(
+                    delivery_type="other"
+                )
 
         plt_size = 10000
-        queryset = Pallet.objects.all().order_by("id")
+        queryset = Pallet.objects.filter(delivery_type__isnull=True).order_by("id")
         total = await sync_to_async(queryset.count)()
 
         for start in range(0, total, plt_size):
-            batch = await sync_to_async(list)(
+            batch_plt = await sync_to_async(list)(
                 queryset[start : start + plt_size].values("id", "destination")
             )
 
             public_ids = [
                 item["id"]
-                for item in batch
+                for item in batch_plt
                 if (
                     re.fullmatch(r"^[A-Za-z]{4}\s*$", str(item["destination"]))
                     or
@@ -762,16 +761,15 @@ class OrderCreation(View):
             ]
 
             # 批量更新
-            await sync_to_async(PackingList.objects.filter(id__in=public_ids).update)(
-                delivery_type="public"
-            )
-            await sync_to_async(
-                Pallet.objects.filter(
-                    id__in=[
-                        item["id"] for item in batch if item["id"] not in public_ids
-                    ]
-                ).update
-            )(delivery_type="other")
+            if public_ids:
+                await sync_to_async(Pallet.objects.filter(id__in=public_ids).update)(
+                    delivery_type="public"
+                )
+            other_ids = [item["id"] for item in batch_plt if item["id"] not in public_ids]
+            if other_ids:
+                await sync_to_async(PackingList.objects.filter(id__in=other_ids).update)(
+                    delivery_type="other"
+                )
 
         return await self.handle_order_management_container_get(request)
 
