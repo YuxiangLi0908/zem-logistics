@@ -1598,33 +1598,41 @@ class Accounting(View):
                     container_number=order.container_number, invoice_type="payable"
                 )
             container_delivery_type = invoice_status.container_number.delivery_type
-            if container_delivery_type in ["public", "other"]:
-                # 如果这个柜子只有一类仓，就直接改变状态
-                invoice_status.stage = "delivery"
+            #如果这是被驳回的，就直接改主状态为待确认，其他不用动
+            if invoice_status.is_rejected == True:
+                invoice_status.stage = "tobeconfirmed"
+                invoice_status.stage_other = "delivery_completed"
+                invoice_status.stage_public = "delivery_completed"
                 invoice_status.is_rejected = False
                 invoice_status.reject_reason = ""
-                invoice_status.stage_public = "warehouse_completed"
-                invoice_status.stage_other = "warehouse_completed"
-            elif container_delivery_type == "mixed":
-                if delivery_type == "public":
-                    # 公仓组录完了，改变stage_public
-                    if invoice_status.stage_public not in ["delivery_completed","delivery_rejected"]:
-                        invoice_status.stage_public = "warehouse_completed"
-                        # 如果私仓也做完了，就改变主状态到派送阶段
-                        if invoice_status.stage_other not in ["pending","warehouse_rejected"]:
-                            invoice_status.stage = "delivery"
-                elif delivery_type == "other":
-                    # 私仓租录完了，改变stage_other
-                    if invoice_status.stage_other not in ["delivery_completed","delivery_rejected"]:
-                        invoice_status.stage_other = "warehouse_completed"
-                        # 如果公仓也做完了，就改变主状态
-                        if invoice_status.stage_public not in ["pending","warehouse_rejected"]:
-                            invoice_status.stage = "delivery"
-                else:
-                    raise ValueError("没有派送类别")
-                # 既有公仓权限，又有私仓权限的不知道咋处理，而且编辑页面也不好搞
-                invoice_status.is_rejected = False
-                invoice_status.reject_reason = ""
+            else:
+                if container_delivery_type in ["public", "other"]:
+                    # 如果这个柜子只有一类仓，就直接改变状态
+                    invoice_status.stage = "delivery"
+                    invoice_status.is_rejected = False
+                    invoice_status.reject_reason = ""
+                    invoice_status.stage_public = "warehouse_completed"
+                    invoice_status.stage_other = "warehouse_completed"
+                elif container_delivery_type == "mixed":
+                    if delivery_type == "public":
+                        # 公仓组录完了，改变stage_public
+                        if invoice_status.stage_public not in ["delivery_completed","delivery_rejected"]:
+                            invoice_status.stage_public = "warehouse_completed"
+                            # 如果私仓也做完了，就改变主状态到派送阶段
+                            if invoice_status.stage_other not in ["pending","warehouse_rejected"]:
+                                invoice_status.stage = "delivery"
+                    elif delivery_type == "other":
+                        # 私仓租录完了，改变stage_other
+                        if invoice_status.stage_other not in ["delivery_completed","delivery_rejected"]:
+                            invoice_status.stage_other = "warehouse_completed"
+                            # 如果公仓也做完了，就改变主状态
+                            if invoice_status.stage_public not in ["pending","warehouse_rejected"]:
+                                invoice_status.stage = "delivery"
+                    else:
+                        raise ValueError("没有派送类别")
+                    # 既有公仓权限，又有私仓权限的不知道咋处理，而且编辑页面也不好搞
+                    invoice_status.is_rejected = False
+                    invoice_status.reject_reason = ""
             invoice_status.save()
         elif save_type == "account_comlete":
             modified_get = request.GET.copy()
@@ -1854,8 +1862,7 @@ class Accounting(View):
 
             # 保存数量
             price_key = f"{field}_price"
-            
-            
+                      
             if price_key in data:
                 rate_data[field] = float(data.get(price_key, 1)) or 1
 
@@ -1910,16 +1917,20 @@ class Accounting(View):
             invoice_status.stage = "warehouse"
             invoice_status.is_rejected = "False"
             invoice_status.reject_reason = ""
-
         elif data.get("pending") == "False":
             # 审核失败，驳回账单
             invoice_status.is_rejected = "True"
             invoice_status.reject_reason = data.get("invoice_reject_reason", "")
         else:
             # 提拆柜录入完毕,如果是complete表示客服录入完成，订单状态进入下一步，否则不改状态
-            invoice_status.is_rejected = "False"
             if save_type == "complete":
-                invoice_status.stage = "preport"
+                #如果这是被财务驳回的，就直接改主状态为待确认，其他不用动
+                if invoice_status.is_rejected == True and (invoice_status.stage_public == "delivery_completed" or invoice_status.stage_other == "delivery_completed"):
+                    invoice_status.stage = "tobeconfirmed"
+                    invoice_status.reject_reason = ""
+                else:
+                    invoice_status.stage = "preport"
+                    invoice_status.reject_reason = ""
                 invoice_status.is_rejected = "False"
             elif (
                 save_type == "account_complete"
@@ -2354,7 +2365,6 @@ class Accounting(View):
                 "retrieval_id", "container_number"
             ).get(container_number__container_number=container_number)
             if redirect_step == "False":
-                # 如果不是从财务确认界面跳转来的，才需要改变状态
                 if invoice_type == "receivable":
                     invoice_status = InvoiceStatus.objects.get(
                         container_number=order.container_number,
@@ -2368,7 +2378,8 @@ class Accounting(View):
                     raise ValueError(f"unknown invoice_type: {invoice_type}")
                 container_delivery_type = invoice_status.container_number.delivery_type
                 groups = [group.name for group in request.user.groups.all()]
-                if "mix_account" in groups and "NJ_mix_account" not in groups:
+                # 如果不是从财务确认界面跳转来的，才需要改变状态
+                if "mix_account" in groups and "NJ_mix_account" not in groups:  #公仓//私仓权限都有的
                     invoice_status.stage_public = "delivery_completed"
                     invoice_status.stage_other = "delivery_completed"
                     invoice_status.stage = "tobeconfirmed"
