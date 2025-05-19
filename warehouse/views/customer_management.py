@@ -1,13 +1,24 @@
 from typing import Any
+import os
+from django.core.exceptions import ValidationError
 
 from django.contrib.auth.decorators import login_required
 from django.http import HttpRequest, HttpResponse
 from django.shortcuts import redirect, render
 from django.utils.decorators import method_decorator
 from django.views import View
+from datetime import datetime
 
+from office365.sharepoint.sharing.links.kind import SharingLinkKind
 from warehouse.forms.customer_form import CustomerForm
 from warehouse.models.customer import Customer
+from warehouse.models.transaction import Transaction
+from django.utils import timezone
+from warehouse.utils.constants import (
+    APP_ENV,
+    SP_DOC_LIB,
+    SYSTEM_FOLDER,
+)
 
 
 @method_decorator(login_required(login_url="login"), name="dispatch")
@@ -41,6 +52,12 @@ class CustomerManagement(View):
         elif step == "update_client_creds":
             self.handle_update_client_creds_post(request)
             return redirect("customer_management")
+        elif step == "adjustBalance":
+            template, context = self.handle_adjust_balance(request)
+            return render(request, template, context)
+        elif step == "transaction_history":
+            template, context = self.handle_transaction_history(request)
+            return render(request, template, context)
 
     def handle_all_customer_get(self, request: HttpRequest) -> dict[str, Any]:
         existing_customers = Customer.objects.all().order_by("zem_name")
@@ -112,3 +129,84 @@ class CustomerManagement(View):
         customer.username = username
         customer.set_password(password)
         customer.save()
+    
+    def handle_adjust_balance(self, request: HttpRequest) -> tuple[Any, Any]:
+        #记录元素
+        transaction_type = request.POST.get("transaction_type")
+        amount = float(request.POST.get("amount"))
+        note = request.POST.get("note")
+        customer_id = request.POST.get("customerId")
+        customer = Customer.objects.get(id=customer_id)
+        user = request.user if request.user.is_authenticated else None
+
+        #存储图片到云盘
+        conn = self._get_sharepoint_auth()
+        try:
+            receipt_image = request.FILES.get('receipt_image')
+            if receipt_image:
+                valid_extensions = ['.jpg', '.png', '.jpeg']
+                ext = os.path.splitext(receipt_image.name)[1].lower()
+                if ext not in valid_extensions:
+                    raise ValidationError("仅支持JPG/PNG格式图片")
+                if receipt_image.size > 5 * 1024 * 1024:  # 5MB
+                    raise ValidationError("图片大小不能超过5MB")
+        except ValidationError as e:
+            raise ValidationError('图片格式错误')
+        link = self._upload_image_to_sharepoint(
+                self, conn, receipt_image
+            )       
+        
+        transaction = Transaction.objects.create(
+            customer=customer,
+            amount=amount,
+            transaction_type=transaction_type,
+            note=note,
+            created_by=user,
+            created_at= timezone.now(),
+            image_link=link
+        )
+        if transaction_type == "recharge":
+            customer.balance = (customer.balance + amount) if customer.balance is not None else amount 
+        elif transaction_type == "write_off":
+            customer.balance = (customer.balance - amount) if customer.balance is not None else amount 
+        customer.save()
+
+        existing_customers = Customer.objects.all().order_by("zem_name")
+        context = {
+            "existing_customers": existing_customers,
+            "customer_form": CustomerForm(),
+        }
+        return self.template_main, context
+    
+    def _upload_image_to_sharepoint(
+        self, conn, image
+    ) -> None:
+        
+        image_name = image.name #提取文件名
+        file_path = os.path.join(SP_DOC_LIB, f"{SYSTEM_FOLDER}/transactions/{APP_ENV}")#文档库名称，系统文件夹名称，当前环境
+        #上传到SharePoint
+        sp_folder = conn.web.get_folder_by_server_relative_url(file_path)
+        resp = sp_folder.upload_file(
+            f"{image_name}", image
+        ).execute_query()
+        #生成并获取链接
+        link = (
+            resp.share_link(SharingLinkKind.OrganizationView)
+            .execute_query()
+            .value.to_json()["sharingLinkInfo"]["Url"]
+        )
+        return link
+
+    def handle_transaction_history(self, request: HttpRequest) -> tuple[Any, Any]:
+        customer_id = request.POST.get("customerId")
+        customer = Customer.objects.get(id=customer_id)
+        transaction_history = Transaction.objects.filter(customer=customer)
+        
+        existing_customers = Customer.objects.all().order_by("zem_name")
+        context = {
+            "existing_customers": existing_customers,
+            "customer_form": CustomerForm(),
+            "transaction_history":transaction_history,
+        }
+
+        return self.template_main, context

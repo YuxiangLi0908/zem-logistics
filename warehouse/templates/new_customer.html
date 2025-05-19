@@ -46,7 +46,7 @@
         <input type="hidden" name="step" value="new">
         <button type="submit" class="btn btn-primary" style="width: 100px; height: 35px;">确认</button>
         {% if duplicated %}
-        <p style="margin-top: 5px; font-style: italic;"">{{ customer_form.full_name.value }} 已存在!</p>
+        <p style="margin-top: 5px; font-style: italic;">{{ customer_form.full_name.value }} 已存在!</p>
         {% endif %}
     </div>
 </form>
@@ -58,10 +58,13 @@
         <thead>
             <tr style="position: sticky; top: 0;">
                 <th class="th">客户简称</th>
-                <th class="th">客户全称</th>
+                <th class="th" style="width:120px;">客户全称</th>
                 <th class="th">ZEM客户代码</th>
-                <th class="th">财务名称</th>
-                <th class="th">Email</th>
+                <th class="th" style="width:120px;">财务名称</th>
+                <th class="th">余额</th>
+                <th class="th">操作</th>
+                <th class="th">流水</th>
+                <th class="th" style="width:120px;">Email</th>
                 <th class="th">Phone</th>
                 <th class="th">地址</th>
                 <th class="th">备注</th>
@@ -70,6 +73,9 @@
             <tr style="position: sticky; top: 28px;">
                 <th class="th"><input type="text" id="zemNameSearchInput" placeholder="搜索..." oninput="filterCustomerTable()"></th>
                 <th class="th"><input type="text" id="fullNameSearchInput" placeholder="搜索..." oninput="filterCustomerTable()"></th>
+                <th class="th"></th>
+                <th class="th"></th>
+                <th class="th"></th>
                 <th class="th"></th>
                 <th class="th"></th>
                 <th class="th"></th>
@@ -86,6 +92,18 @@
                 <td class="td">{{ c.full_name }}</td>
                 <td class="td">{{ c.zem_code }}</td>
                 <td class="td">{{ c.accounting_name }}</td>
+                <td class="td balance-cell" data-customer-id="{{ c.id }}">¥{{ c.balance|default:"0.00" }}</td>
+                <td class="td">
+                    <button class="btn-recharge btn-sm" data-customer-id="{{ c.id }}" onclick="adjustBalance(this)">调整金额</button>                 
+                </td>
+                <td class="td">
+                    <form method="post" action="">
+                        {% csrf_token %}
+                        <input type="hidden" name="step" value="transaction_history">
+                        <input type="hidden" name="customerId" value="{{ c.id }}">
+                        <button class="btn-history btn-sm" data-customer-id="{{ c.id }}">流水</button>
+                    </form>
+                </td>
                 <td class="td">{{ c.email|default_if_none:'' }}</td>
                 <td class="td">{{ c.phone|default_if_none:'' }}</td>
                 <td class="td">{{ c.address|default_if_none:'' }}</td>
@@ -96,6 +114,110 @@
         </tbody>
     </table>
 </div>
+<!--调整余额的弹窗-->
+<div id="adjustBalanceModal" style="display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background-color: rgba(0,0,0,0.5); z-index: 999; overflow-y: auto;">
+    <div style="position: relative; top: 50%; left: 50%; transform: translate(-50%, -50%); width: 90%; max-width: 500px; background: white; border-radius: 8px; box-shadow: 0 4px 20px rgba(0,0,0,0.15); padding: 25px;">
+        <span class="close-modal" style="position: absolute; top: 15px; right: 15px; font-size: 24px; cursor: pointer; color: #666;">&times;</span>   
+        <h3 style="margin-top: 0; margin-bottom: 20px; color: #333; font-size: 18px; font-weight: 600;">调整客户余额</h3>
+        
+        <form method="post" action="" id="adjustBalanceForm" style="margin-bottom: 15px;" enctype="multipart/form-data">
+            {% csrf_token %}
+            <input type="hidden" name="step" value="adjustBalance">
+            <input type="hidden" name="customerId" id="selectCustomerId" value="">
+            <div class="form-group" style="margin-bottom: 15px;">
+                <label style="display: block; margin-bottom: 6px; font-size: 14px; color: #555;">调整类型：</label>
+                <select name="transaction_type" style="width: 100%; padding: 8px 12px; border: 1px solid #ddd; border-radius: 4px; font-size: 14px;" required>
+                    <option value="recharge" selected>充值</option>
+                    <option value="write_off">核销</option>
+                </select>
+            </div>
+            
+            <div class="form-group" style="margin-bottom: 15px;">
+                <div style="flex: 1;">
+                    <label style="display: block; margin-bottom: 6px; font-size: 14px; color: #555;">美元金额 (USD)：</label>
+                    <input type="number" id="usdAmount" 
+                        style="width: 100%; padding: 8px 12px; border: 1px solid #ddd; border-radius: 4px; font-size: 14px;"
+                        step="0.01" 
+                        min="0.01" 
+                        placeholder="输入美元金额"
+                        oninput="convertCurrency('usd', this.value)">
+                </div>
+                <div style="flex: 1;">
+                    <label style="display: block; margin-bottom: 6px; font-size: 14px; color: #555;">人民币金额 (CNY)：</label>
+                    <input type="number" id="cnyAmount" name="amount"
+                        style="width: 100%; padding: 8px 12px; border: 1px solid #ddd; border-radius: 4px; font-size: 14px;"
+                        step="0.01" 
+                        min="0.01" 
+                        placeholder="输入人民币金额"
+                        oninput="convertCurrency('cny', this.value)">
+                </div> 
+            </div>
+            <div class="form-group" style="margin-bottom: 15px;">
+                <label style="display: block; margin-bottom: 6px; font-size: 14px; color: #555;">上传凭证图片：</label>
+                <div style="border: 1px dashed #ddd; border-radius: 4px; padding: 15px; text-align: center; background: #f9f9f9;">
+                    <input type="file" name="receipt_image" id="receiptImage" accept="image/*" style="display: none;" onchange="handleImageUpload(this)">
+                    <!-- 添加uploadPrompt容器，方便控制显示/隐藏 -->
+                    <div id="uploadPrompt" style="cursor: pointer;">
+                        <label for="receiptImage" style="display: block;">
+                            <div style="font-size: 48px; color: #1890ff;">+</div>
+                            <div style="font-size: 12px; color: #888; margin-top: 8px;">点击上传图片</div>
+                        </label>
+                    </div>
+                    <div id="imagePreview" style="margin-top: 10px; display: none;">
+                        <div id="fileNameDisplay" style="font-size: 12px; color: #333; margin-bottom: 5px;"></div>
+                        <img id="previewImg" src="#" alt="预览图片" style="max-width: 100%; max-height: 150px; border-radius: 4px;">
+                        <div style="margin-top: 5px;" id="imageActions">
+                            <button type="button" onclick="removeImage()" style="padding: 3px 8px; background: #ff4d4f; color: white; border: none; border-radius: 2px; font-size: 12px; cursor: pointer;">删除图片</button>
+                        </div>
+                    </div>
+                </div>   
+            </div>
+
+            <div class="form-group" style="margin-bottom: 20px;">
+                <label style="display: block; margin-bottom: 6px; font-size: 14px; color: #555;">备注：</label>
+                <textarea name="note" 
+                        style="width: 100%; padding: 8px 12px; border: 1px solid #ddd; border-radius: 4px; font-size: 14px; min-height: 80px;"
+                        placeholder="请输入备注信息（可选）"></textarea>
+            </div>
+            
+            <div style="display: flex; justify-content: flex-end; gap: 10px;">
+                <button type="button" class="btn-cancel close-modal" style="padding: 8px 16px; background: #f0f0f0; border: none; border-radius: 4px; cursor: pointer; font-size: 14px;" onclick="adjustBalance()">取消</button>
+                <button type="submit" style="padding: 8px 16px; background: #1890ff; color: white; border: none; border-radius: 4px; cursor: pointer; font-size: 14px;">确认提交</button>
+            </div>
+        </form>
+    </div>
+</div>
+
+{% if transaction_history %}
+<div>
+    <table class="table" id="customer-table" style="font-size: 11px;">
+        <thead>
+            <tr style="position: sticky; top: 0;">
+                <th class="th">交易类型</th>
+                <th class="th">金额</th>
+                <th class="th">交易凭证</th>
+                <th class="th">备注</th>
+            </tr>
+        </thead>
+        <tbody>
+            {% for t in transaction_history %}
+            <tr>
+                <td class="td">{{ t.transaction_type }}</td>
+                <td class="td">{{ t.amount }}</td>
+                <td class="td">
+                    {% if t.image and t.image.url %}
+                        <img src="{{ t.image.url }}" style="max-height: 50px;" alt="交易凭证">
+                    {% else %}
+                        <span class="text-muted">无凭证</span>
+                    {% endif %}
+                </td>
+                <td class="td">{{ t.note }}</td>
+            </tr>
+            {% endfor %}
+        </tbody>
+    </table>
+</div>
+{% endif %}
 {% endif %}
 
 {% if customer_update_form %}
@@ -335,7 +457,62 @@
     }
 
     // Event listeners for real-time validation
-    document.getElementById('password').addEventListener('input', validatePassword);
-    document.getElementById('password_repeat').addEventListener('input', validatePassword);
+    const passwordInput = document.getElementById('password');
+    const passwordRepeatInput = document.getElementById('password_repeat');
+    if (passwordInput && passwordRepeatInput) {
+        passwordInput.addEventListener('input', validatePassword);
+        passwordRepeatInput.addEventListener('input', validatePassword);
+    }
+
+    function adjustBalance(button) {   //用户要编辑BOL中的表时，弹出表格框
+        const popup = document.getElementById('adjustBalanceModal');
+        popup.style.display = popup.style.display === 'none' ? 'block' : 'none';
+
+        const customerId = button.dataset.customerId;
+        document.getElementById('selectCustomerId').value = customerId;
+    }
+
+    const EXCHANGE_RATE = 7.2;
+    function convertCurrency(type, value) {
+        if (!value || isNaN(value)) {
+            document.getElementById('usdAmount').value = '';
+            document.getElementById('cnyAmount').value = '';
+            return;
+        }
+        if (type === 'usd') {
+            const cnyValue = parseFloat(value) * EXCHANGE_RATE;
+            document.getElementById('cnyAmount').value = cnyValue.toFixed(2);
+        } else if (type === 'cny') {
+            const usdValue = parseFloat(value) / EXCHANGE_RATE;
+            document.getElementById('usdAmount').value = usdValue.toFixed(2);
+        }
+    }
+
+    function handleImageUpload(input) {
+        const file = input.files[0];
+        if (!file) return;
+        document.getElementById('uploadPrompt').style.display = 'none';
+        document.getElementById('imagePreview').style.display = 'block';
+
+        document.getElementById('fileNameDisplay').textContent = `已选择: ${file.name}`;
+        
+        if (file.type.startsWith('image/')) {
+            const reader = new FileReader();
+            reader.onload = function(e) {
+                const previewImg = document.getElementById('previewImg');
+                previewImg.src = e.target.result;
+                previewImg.style.display = 'block';
+                document.getElementById('imageActions').style.display = 'block';
+            }
+            reader.readAsDataURL(file);
+        }
+    }
+
+    function removeImage() {
+        document.getElementById('receiptImage').value = '';
+        document.getElementById('fileNameDisplay').textContent = '';
+        document.getElementById('previewImg').style.display = 'none';
+        document.getElementById('imageActions').style.display = 'none';
+    }
 </script>
 {% endblock %}
