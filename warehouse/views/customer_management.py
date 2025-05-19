@@ -9,6 +9,8 @@ from django.utils.decorators import method_decorator
 from django.views import View
 from datetime import datetime
 
+from office365.runtime.auth.user_credential import UserCredential
+from office365.sharepoint.client_context import ClientContext
 from office365.sharepoint.sharing.links.kind import SharingLinkKind
 from warehouse.forms.customer_form import CustomerForm
 from warehouse.models.customer import Customer
@@ -17,6 +19,9 @@ from django.utils import timezone
 from warehouse.utils.constants import (
     APP_ENV,
     SP_DOC_LIB,
+    SP_PASS,
+    SP_URL,
+    SP_USER,
     SYSTEM_FOLDER,
 )
 
@@ -197,6 +202,9 @@ class CustomerManagement(View):
         )
         return link
 
+    def _get_sharepoint_auth(self) -> ClientContext:
+        return ClientContext(SP_URL).with_credentials(UserCredential(SP_USER, SP_PASS))
+    
     def handle_transaction_history(self, request: HttpRequest) -> tuple[Any, Any]:
         customer_id = request.POST.get("customerId")
         customer = Customer.objects.get(id=customer_id)
