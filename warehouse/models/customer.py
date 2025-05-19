@@ -14,6 +14,7 @@ class Customer(models.Model):
     address = models.CharField(max_length=500, null=True, blank=True)
     username = models.CharField(max_length=150, unique=True, null=True, blank=True)
     password = models.CharField(max_length=255, null=True, blank=True)
+    balance = models.FloatField(null=True, blank=True,default=0.0)
     history = HistoricalRecords()
 
     class Meta:

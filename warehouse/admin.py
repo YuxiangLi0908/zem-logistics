@@ -33,6 +33,7 @@ from warehouse.models.terminal49_webhook_raw import T49Raw
 from warehouse.models.transfer_location import TransferLocation
 from warehouse.models.vessel import Vessel
 from warehouse.models.warehouse import ZemWarehouse
+from warehouse.models.transaction import Transaction
 
 # Register your models here.
 admin.site.register(Clearance, SimpleHistoryAdmin)
@@ -63,3 +64,4 @@ admin.site.register(InvoiceDelivery, SimpleHistoryAdmin)
 admin.site.register(TransferLocation, SimpleHistoryAdmin)
 admin.site.register(QuotationMaster)
 admin.site.register(FeeDetail)
+admin.site.register(Transaction)
