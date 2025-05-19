@@ -158,7 +158,7 @@ class CustomerManagement(View):
         except ValidationError as e:
             raise ValidationError('图片格式错误')
         link = self._upload_image_to_sharepoint(
-                self, conn, receipt_image
+                conn, receipt_image
             )       
         
         transaction = Transaction.objects.create(
