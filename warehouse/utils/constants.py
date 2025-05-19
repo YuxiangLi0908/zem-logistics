@@ -406,7 +406,7 @@ MODEL_CHOICES = {
     },
 }
 file_path = Path(__file__).parent.resolve().joinpath("fba_fulfillment_center.yaml")
-with open(file_path, "r") as f:
+with open(file_path, "r",encoding='utf8') as f:
     amazon_fba_locations = yaml.safe_load(f)
 
 SP_USER = os.environ.get("MS_SP_USER")
@@ -415,6 +415,7 @@ SP_URL = os.environ.get("MS_SP_URL")
 SP_SITE = os.environ.get("MS_SP_SITE")
 SP_DOC_LIB = os.environ.get("MS_SP_DOC_LIB")
 SYSTEM_FOLDER = "system_archive"
+#未设置APP_ENV返回staging预发布环境，值为production返回prd生产环境，
 APP_ENV = "prd" if os.environ.get("APP_ENV", "staging") == "production" else "stg"
 
 ACCT_ACH_ROUTING_NUMBER = os.environ.get("ACCT_ACH_ROUTING_NUMBER")
