@@ -39,7 +39,7 @@
                                     <a href="{% url 'palletization' %}?step=abnormal_records" target="_blank">异常拆柜记录</a>            
                                 </div>
                             </div>
-                            <a href="{% url 'shipment_status' %}">货物状态查询</a>
+                            <a href="{% url 'shipment_status' %}" target="_blank">货物状态查询</a>
                         </div>
                     </div>
                 </li>
@@ -50,27 +50,27 @@
                             <div class="nested-dropdown">
                                 <a>预约管理</a>
                                 <div class="nested-dropdown-content">
-                                    <a href="{% url 'schedule_shipment' %}?step=appointment_management">备约</a>
-                                    <a href="{% url 'schedule_shipment' %}">预约出库</a>
-                                    <a href="{% url 'schedule_shipment' %}?step=batch_shipment">批量预约出库</a>
-                                    <a href="{% url 'schedule_shipment' %}?step=shipment_exceptions">异常预约</a>
+                                    <a href="{% url 'schedule_shipment' %}?step=appointment_management" target="_blank">备约</a>
+                                    <a href="{% url 'schedule_shipment' %}" target="_blank">预约出库</a>
+                                    <a href="{% url 'schedule_shipment' %}?step=batch_shipment" target="_blank">批量预约出库</a>
+                                    <a href="{% url 'schedule_shipment' %}?step=shipment_exceptions" target="_blank">异常预约</a>
                                 </div>
                             </div>
                             <div class="nested-dropdown">
                                 <a>车次管理</a>
                                 <div class="nested-dropdown-content">
-                                    <a href="{% url 'fleet_management' %}?step=fleet">排车</a>
-                                    <a href="{% url 'outbound' %}?step=outbound">出库管理</a>
-                                    <a href="{% url 'outbound' %}?step=delivery_and_pod">确认送达</a>
-                                    <a href="{% url 'pod' %}?step=pod_upload">POD上传</a>
+                                    <a href="{% url 'fleet_management' %}?step=fleet" target="_blank">排车</a>
+                                    <a href="{% url 'outbound' %}?step=outbound" target="_blank">出库管理</a>
+                                    <a href="{% url 'outbound' %}?step=delivery_and_pod" target="_blank">确认送达</a>
+                                    <a href="{% url 'pod' %}?step=pod_upload" target="_blank">POD上传</a>
                                 </div>
                             </div>
                             <div class="nested-dropdown">
                                 <a>表格导出</a>
                                 <div class="nested-dropdown-content">
-                                    <a href="{% url 'post_port_summary' %}?step=summary_table">报表导出</a>
-                                    <a href="{% url 'po' %}">PO导出</a>
-                                    <a href="{% url 'bol' %}">BOL导出</a>
+                                    <a href="{% url 'post_port_summary' %}?step=summary_table" target="_blank">报表导出</a>
+                                    <a href="{% url 'po' %}" target="_blank">PO导出</a>
+                                    <a href="{% url 'bol' %}" target="_blank">BOL导出</a>
                                 </div>
                             </div>
                             <a href="{% url 'timeout_warning' %}" target="_blank">库存预警</a>
@@ -82,17 +82,17 @@
                     <div class="dropdown">
                         <a class="nav-link">订单管理</a>
                         <div class="dropdown-content">
-                            <a href="{% url 'create_order' %}?step=order_management_list">订单列表</a>
-                            <a href="{% url 'po' %}">PO导出</a>
+                            <a href="{% url 'create_order' %}?step=order_management_list" target="_blank">订单列表</a>
+                            <a href="{% url 'po' %}" target="_blank">PO导出</a>
                             <div class="nested-dropdown">
                                 <a>PO校验</a>
                                 <div class="nested-dropdown-content">
-                                    <a href="{% url 'po' %}?step=po_check_eta">到港前一周</a>
-                                    <a href="{% url 'po' %}?step=po_check_retrieval">提柜前一天</a>
+                                    <a href="{% url 'po' %}?step=po_check_eta" target="_blank">到港前一周</a>
+                                    <a href="{% url 'po' %}?step=po_check_retrieval" target="_blank">提柜前一天</a>
                                 </div>
                             </div>                           
-                            <a href="{% url 'po' %}?step=po_invalid">PO失效</a>
-                            <a href="{% url 'po' %}?step=po_list">PO校验总表</a>
+                            <a href="{% url 'po' %}?step=po_invalid" target="_blank">PO失效</a>
+                            <a href="{% url 'po' %}?step=po_list" target="_blank">PO校验总表</a>
                         </div>
                     </div>
                 </li>
@@ -100,8 +100,8 @@
                     <div class="dropdown">
                         <a class="nav-link">报表汇总</a>
                         <div class="dropdown-content">
-                            <a href="{% url 'order_statistics' %}">订单量统计</a>
-                            <a href="{% url 'order_statistics' %}?step=historical_query">历史操作查询</a>
+                            <a href="{% url 'order_statistics' %}" target="_blank">订单量统计</a>
+                            <a href="{% url 'order_statistics' %}?step=historical_query" target="_blank">历史操作查询</a>
                         </div>
                     </div>
                 </li>
@@ -109,9 +109,9 @@
                     <div class="dropdown">
                         <a class="nav-link">批次管理</a>
                         <div class="dropdown-content">
-                            <a href="{% url 'pod_legacy' %}">确认送达</a>
-                            <a href="{% url 'shipment_status' %}">货物状态查询</a>
-                            <a href="{% url 'bol' %}">BOL导出</a>
+                            <a href="{% url 'pod_legacy' %}" target="_blank">确认送达</a>
+                            <a href="{% url 'shipment_status' %}" target="_blank">货物状态查询</a>
+                            <a href="{% url 'bol' %}" target="_blank">BOL导出</a>
                         </div>
                     </div>
                 </li>
@@ -119,7 +119,7 @@
                     <div class="dropdown">
                         <a class="nav-link">客户管理</a>
                         <div class="dropdown-content">
-                            <a href="{% url 'customer_management' %}">添加客户</a>
+                            <a href="{% url 'customer_management' %}" target="_blank">添加客户</a>
                         </div>
                     </div>
                 </li>
@@ -127,30 +127,30 @@
                     <div class="dropdown">
                         <a class="nav-link">财务管理</a>
                         <div class="dropdown-content">
-                            <a href="{% url 'accounting' %}?step=pallet_data">托盘数据</a>
-                            <a href="{% url 'accounting' %}?step=pl_data">派送清单</a>
+                            <a href="{% url 'accounting' %}?step=pallet_data" target="_blank">托盘数据</a>
+                            <a href="{% url 'accounting' %}?step=pl_data" target="_blank">派送清单</a>
                             <div class="nested-dropdown" >
                                 <a>账单</a>
                                 <div class="nested-dropdown-content">
-                                    <a href="{% url 'accounting' %}?step=invoice">货柜账单</a>
+                                    <a href="{% url 'accounting' %}?step=invoice" target="_blank">货柜账单</a>
                                     <div class="nested-dropdown-l1" >
                                         <a>账单录入</a>
                                         <div class="nested-dropdown-content-l1">
-                                            <a href="{% url 'accounting' %}?step=invoice_direct">整柜直送</a>
-                                            <a href="{% url 'accounting' %}?step=invoice_combina">组合柜</a>
+                                            <a href="{% url 'accounting' %}?step=invoice_direct" target="_blank">整柜直送</a>
+                                            <a href="{% url 'accounting' %}?step=invoice_combina" target="_blank">组合柜</a>
                                             <div class="nested-dropdown-l2" >
                                                 <a>拆送</a>
                                                 <div class="nested-dropdown-content-l2">
-                                                    <a href="{% url 'accounting' %}?step=invoice_preport">提拆柜</a>
-                                                    <a href="{% url 'accounting' %}?step=invoice_warehouse">库内操作</a>
-                                                    <a href="{% url 'accounting' %}?step=invoice_delivery">派送</a>
+                                                    <a href="{% url 'accounting' %}?step=invoice_preport" target="_blank">提拆柜</a>
+                                                    <a href="{% url 'accounting' %}?step=invoice_warehouse" target="_blank">库内操作</a>
+                                                    <a href="{% url 'accounting' %}?step=invoice_delivery" target="_blank">派送</a>
                                                 </div>
                                             </div>
                                         </div>
                                     </div>
-                                    <a href="{% url 'accounting' %}?step=invoice_confirm">账单确认</a>
-                                    <a href="{% url 'quote_management' %}?step=quote_master">报价表管理</a>
-                                    <a href="{% url 'accounting' %}?step=invoice_search">账单录入进度</a>
+                                    <a href="{% url 'accounting' %}?step=invoice_confirm" target="_blank">账单确认</a>
+                                    <a href="{% url 'quote_management' %}?step=quote_master" target="_blank">报价表管理</a>
+                                    <a href="{% url 'accounting' %}?step=invoice_search" target="_blank">账单录入进度</a>
                                 </div>
                             </div>
                         </div>
@@ -162,7 +162,7 @@
                         <a class="nav-link">后台管理</a>
                         <div class="dropdown-content">
                             <a href="{% url 'dbconn' %}">SQL Query</a>
-                            <a href="{% url 'stuff_user' %}?step=clean_data">清理数据</a>
+                            <a href="{% url 'stuff_user' %}?step=clean_data"">清理数据</a>
                             <a href="{% url 'container_tracking' %}">Tracking</a>
                             <div class="nested-dropdown" >
                                 <a>Test Async</a>
