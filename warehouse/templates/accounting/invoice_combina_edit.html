@@ -320,17 +320,17 @@
                                 <div class="flex-grow-1 p-3 border rounded text-center">
                                     <small class="text-muted d-block mb-1">超区体积</small>
                                     <strong class="text-muted d-block">
-                                        <input type="number" name="overregion_pickup_non_combina_cbm" style="width:80px;" value="{{ display_data.extra_fees.overregion.pickup.non_combina_cbm }}"> CBM</strong>
+                                        <input type="number" id="overregion_pickup_cbm" name="overregion_pickup_non_combina_cbm" style="width:80px;" value="{{ display_data.extra_fees.overregion.pickup.non_combina_cbm }}"> CBM</strong>
                                 </div>
                                 
-                                <div class="flex-grow-1 p-3 border rounded bg-light text-center">
+                                <div class="flex-grow-1 p-3 border rounded bg-light text-center" id="total-cbm-container">
                                     <small class="text-muted d-block mb-1">总体积</small>
                                     <strong class="text-muted d-block">{{ display_data.extra_fees.overregion.pickup.total_cbm }} CBM</strong>
                                 </div>
                                 <div class="flex-grow-1 p-3 border rounded bg-light text-center">
                                     <small class="text-muted d-block mb-1">整柜提拆费</small>
                                     <strong class="text-muted d-block">
-                                        <input type="number" name="overregion_pickup_non_combina_base_fee" style="width:80px;" value="{{ display_data.extra_fees.overregion.pickup.base_fee }}"></strong>
+                                        <input type="number" id="overregion_pickup_base_fee" name="overregion_pickup_non_combina_base_fee" style="width:80px;" value="{{ display_data.extra_fees.overregion.pickup.base_fee }}"></strong>
                                 </div>   
                             </div>
                             <div class="progress mt-2" style="height: 20px;">
@@ -375,9 +375,9 @@
                             {% for detail in display_data.extra_fees.overregion.delivery.details %}
                             <tr>
                                 <td><input type="text" name="overregion_delivery_destination" style="width:80px;" value="{{ detail.destination }}"></td>
-                                <td class="text-end"><input type="number" name="overregion_delivery_pallets" style="width:80px;" value="{{ detail.pallets }}"></td>
-                                <td class="text-end"><input type="number" name="overregion_delivery_cbm" style="width:80px;" value="{{ detail.cbm }}"></td>
-                                <td class="text-end"><input type="number" name="overregion_delivery_price" style="width:80px;" value="{{ detail.price }}"></td>
+                                <td class="text-end"><input type="number" id="overregion_delivery_pallet" name="overregion_delivery_pallets" style="width:80px;" value="{{ detail.pallets }}"></td>
+                                <td class="text-end"><input type="number" id="overregion_delivery_cbm" name="overregion_delivery_cbm" style="width:80px;" value="{{ detail.cbm }}"></td>
+                                <td class="text-end"><input type="number" id="overregion_delivery_price" name="overregion_delivery_price" style="width:80px;" value="{{ detail.price }}"></td>
                                 <td class="text-end"><input type="number" name="overregion_delivery_subtotal" style="width:80px;" value="{{ detail.subtotal }}"></td>
                             </tr>
                             {% endfor %}
@@ -426,10 +426,7 @@
         function calculateOverpalletFee() {
             const currentPallets = parseFloat(currentPalletsInput.value) || 0;
             const limitPallets = parseFloat(limitPalletsInput.value) || 0;
-            console.log('现在板数',currentPallets);
-            console.log('限制板数',limitPallets);
             const overCount = currentPallets - limitPallets;
-            console.log('超出板数',overCount);
             document.getElementById("overCountDisplay").textContent = overCount;
             if (overCount > 0) {
                 overpalletFeeInput.value = (overCount * palletPrice).toFixed(2);
@@ -443,12 +440,40 @@
             currentPalletsInput.addEventListener('input', calculateOverpalletFee);
             limitPalletsInput.addEventListener('input', calculateOverpalletFee);
         }
-        
+
+        const overregionDeliveryPriceInput = document.getElementById('overregion_delivery_price');
+        const overregionDeliveryPalletInput = document.getElementById('overregion_delivery_pallet');
+        const overregion_delivery_fee = document.getElementById('overregion_delivery_fee');
+        if (overregionDeliveryPriceInput&&overregionDeliveryPalletInput) {
+            overregionDeliveryPriceInput.addEventListener('input', calculateOverregionFee);
+            overregionDeliveryPalletInput.addEventListener('input', calculateOverregionFee);
+        }
+        function calculateOverregionFee(){
+            const deliveryPrice = parseFloat(overregionDeliveryPriceInput.value) || 0;
+            const deliveryPallet = parseFloat(overregionDeliveryPalletInput.value) || 0;
+            overregion_delivery_fee.value = (deliveryPrice * deliveryPallet).toFixed(2);
+            updateTotalAmount();
+        }
+
+        const overregionPickupBaseFeeInput = document.getElementById('overregion_pickup_base_fee');
+        const overregionPickupCbmInput = document.getElementById('overregion_pickup_cbm');
+        const overregion_pickup_fee = document.getElementById('overregion_pickup_fee');
+        const totalCbmText = document.querySelector('#total-cbm-container strong').textContent;
+        if (overregionPickupBaseFeeInput&&overregionPickupCbmInput) {
+            overregionPickupBaseFeeInput.addEventListener('input', calculateOverregionPickup);
+            overregionPickupCbmInput.addEventListener('input', calculateOverregionPickup);
+        }
+        function calculateOverregionPickup(){
+            const pickupBaseFee = parseFloat(overregionPickupBaseFeeInput.value) || 0;
+            const pickupCbm = parseFloat(overregionPickupCbmInput.value) || 0;
+            const amountCbm = parseFloat(totalCbmText) || 0;
+            overregion_pickup_fee.value = (pickupBaseFee * pickupCbm / amountCbm).toFixed(2);
+            updateTotalAmount();
+        }
+
         const totalAmountDisplay = document.getElementById('totalAmountDisplay');
         const base_fee = document.getElementById('base_fee');
         const overpallet_fee = document.getElementById('overpallet_fee');
-        const overregion_pickup_fee = document.getElementById('overregion_pickup_fee');
-        const overregion_delivery_fee = document.getElementById('overregion_delivery_fee');
         const overweight_fee = document.getElementById('overweight_fee');
         
         function updateTotalAmount() {
