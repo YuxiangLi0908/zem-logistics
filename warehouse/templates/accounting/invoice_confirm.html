@@ -129,7 +129,7 @@
                                     <a href="/accounting/?step=container_confirm&container_number={{ c.container_number__container_number }}&start_date_confirm={{ start_date_confirm }}&end_date_confirm={{ end_date_confirm }}&invoice_type={{ invoice_type_filter }}">{{ c.container_number__container_number }}</a>
                                 </td>
                                 <td class="td">{{ c.order_type }}</td>
-                                <td class="td">{{ c.retrieval_id.retrieval_destination_area }}</td>
+                                <td class="td">{{ c.retrieval_id__retrieval_destination_area }}</td>
                                 <td class="td">{{ c.invoice_id__invoice_number }}</td>
                                 <td class="td">{{ c.created_at|date:"Y-m-d" }}</td>
                                 <td class="td">{{ c.invoice_id__invoice_date|date:"Y-m-d" }}</td>
