@@ -2071,7 +2071,7 @@ class Accounting(View):
     def handle_invoice_confirm_save(self, request: HttpRequest) -> tuple[Any, Any]:
         save_type = request.POST.get("save_type", None)
         if save_type == "reject":
-            return self.handle_invoice_confirm_get(request)
+            return self.handle_invoice_confirm_get(request,request.POST.get('start_date_confirm'),request.POST.get('end_date_confirm'))
         invoice_type = request.POST.get("invoice_type")
         container_number = request.POST.get("container_number")
         order = Order.objects.select_related("retrieval_id", "container_number").get(
@@ -2127,7 +2127,7 @@ class Accounting(View):
             payable_status.stage = "confirmed"
             payable_status.save() 
         order.save()
-        return self.handle_invoice_confirm_get(request)
+        return self.handle_invoice_confirm_get(request,request.POST.get('start_date_confirm'),request.POST.get('end_date_confirm'))
 
     def handle_invoice_confirm_combina_save(self, request: HttpRequest) -> tuple[Any, Any]:
         container_number = request.POST.get('container_number')
