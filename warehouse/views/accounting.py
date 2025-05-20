@@ -1245,6 +1245,7 @@ class Accounting(View):
                 "created_at",
                 "invoice_id__invoice_date",
                 "order_type",
+                "retrieval_id__retrieval_destination_area",
                 f"invoice_id__{invoice_type}_total_amount",
                 f"invoice_id__{invoice_type}_preport_amount",
                 f"invoice_id__{invoice_type}_warehouse_amount",
