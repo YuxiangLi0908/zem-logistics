@@ -47,11 +47,13 @@
                             <th class="th">客户</th>
                             <th class="th" style="width:100px;">货柜号</th>
                             <th class="th">订单类型</th>
+                            <th class="th">仓库</th>
                             <th class="th">建单日期</th>
                         </tr>
                         <tr style="position: sticky; top: 28px;">
                             <th class="th"></th>
                             <th class="th"><input type="text" style="width:100px;" id="containerSearchInput" placeholder="搜索柜号..." oninput="filterTable(this, 1)" size="16" style="font-size: 14px;"></th>
+                            <th class="th"></th>
                             <th class="th"></th>
                             <th class="th"></th>
                         </tr>
@@ -64,6 +66,7 @@
                                     <a href="/accounting/?step=container_confirm&container_number={{ c.container_number }}&start_date_confirm={{ start_date_confirm }}&end_date_confirm={{ end_date_confirm }}&invoice_type={{ invoice_type_filter }}">{{ c.container_number }}</a>
                                 </td>
                                 <td class="td">{{ c.order_type }}</td>
+                                <td class="td">{{ c.retrieval_id.retrieval_destination_area }}</td>
                                 <td class="td">{{ c.created_at|date:"Y-m-d" }}</td>
                             </tr>
                         {% endfor %}
@@ -86,6 +89,7 @@
                             <th class="th">客户</th>
                             <th class="th">货柜号</th>
                             <th class="th">订单类型</th>
+                            <th class="th">仓库</th>
                             <th class="th">INVOICE #</th>
                             <th class="th">建单日期</th>
                             <th class="th">账单日期</th>
@@ -102,13 +106,14 @@
                             <th class="th"><input type="text" id="containerSearchInput" placeholder="搜索客户..." oninput="filterTable(this, 1, true)" size="16" style="font-size: 14px;"></th>
                             <th class="th"><input type="text" id="containerSearchInput" placeholder="搜索柜号..." oninput="filterTable(this, 2, true)" size="16" style="font-size: 14px;"></th>
                             <th class="th"></th>
-                            <th class="th"><input type="text" id="containerSearchInput" placeholder="搜索INVOICE #..." oninput="filterTable(this, 4, true)" size="16" style="font-size: 14px;"></th>
+                            <th class="th"></th>
+                            <th class="th"><input type="text" id="containerSearchInput" placeholder="搜索INVOICE #..." oninput="filterTable(this, 5, true)" size="16" style="font-size: 14px;"></th>
                             <th class="th"></th>
                             <th class="th"></th>
                             <th class="th"></th>
                             <th class="th"></th>
-                            <th class="th"><input type="text" id="containerSearchInput" placeholder="搜索STMT #..." oninput="filterTable(this, 9, false)" size="16" style="font-size: 14px;"></th>
-                            <th class="th"><input type="text" id="containerSearchInput" placeholder="搜索状态..." oninput="filterTable(this, 10, false)" size="16" style="font-size: 14px;"></th>
+                            <th class="th"><input type="text" id="containerSearchInput" placeholder="搜索STMT #..." oninput="filterTable(this, 10, false)" size="16" style="font-size: 14px;"></th>
+                            <th class="th"><input type="text" id="containerSearchInput" placeholder="搜索状态..." oninput="filterTable(this, 11, false)" size="16" style="font-size: 14px;"></th>
                         </tr>
                     </thead>
                     <tbody>
@@ -124,6 +129,7 @@
                                     <a href="/accounting/?step=container_confirm&container_number={{ c.container_number__container_number }}&start_date_confirm={{ start_date_confirm }}&end_date_confirm={{ end_date_confirm }}&invoice_type={{ invoice_type_filter }}">{{ c.container_number__container_number }}</a>
                                 </td>
                                 <td class="td">{{ c.order_type }}</td>
+                                <td class="td">{{ c.retrieval_id.retrieval_destination_area }}</td>
                                 <td class="td">{{ c.invoice_id__invoice_number }}</td>
                                 <td class="td">{{ c.created_at|date:"Y-m-d" }}</td>
                                 <td class="td">{{ c.invoice_id__invoice_date|date:"Y-m-d" }}</td>
