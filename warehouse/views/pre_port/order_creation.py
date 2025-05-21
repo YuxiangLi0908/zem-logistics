@@ -1101,9 +1101,11 @@ class OrderCreation(View):
         combina_fee = combina_fee_detail.details
         
         plts_by_destination = await sync_to_async(
-            lambda: list(Pallet.objects.filter(
-                container_number__container_number=container_number
-            ).values('destination'))
+            lambda: list(
+                PackingList.objects.filter(
+                    container_number__container_number=container_number
+                ).values('destination')
+            )
         )()
         matched_regions = self.find_matching_regions(plts_by_destination, combina_fee,container_type)
         matched_regions['combina_dests'] = list(matched_regions['combina_dests'])
