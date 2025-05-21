@@ -1473,6 +1473,7 @@ class Accounting(View):
     ) -> tuple[Any, Any]:
         data = request.POST.copy()
         save_type = request.POST.get("save_type")
+        print('保存类型',save_type)
         container_number = data.get("container_number")
         invoice = Invoice.objects.select_related("container_number").get(
             container_number__container_number=container_number
@@ -1568,7 +1569,7 @@ class Accounting(View):
         invoice_warehouse.save()
 
         # 因为现在分公仓私仓两条记录，所以汇总的时候，要从数据库查一遍
-        if save_type == "complete":
+        if save_type == "complete" or save_type == "account_comlete":
             invoice = Invoice.objects.select_related("container_number").get(
                 container_number__container_number=container_number,
             )
