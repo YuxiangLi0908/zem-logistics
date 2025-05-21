@@ -414,6 +414,8 @@ class OrderCreation(View):
             context['combina_region'] = combina_region
         else:
             context['check_destination'] = False
+            context['non_combina_region'] = non_combina_region
+            context['combina_region'] = combina_region
         return self.template_order_details, context
 
     async def handle_create_order_basic_post(
