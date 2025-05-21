@@ -1,0 +1,473 @@
+{% extends 'base.html' %}
+
+{% block content %}
+
+<div class="customer-list-container">
+    <div class="list-header">
+        <h2 class="list-title">客户列表</h2>
+        <div class="search-container">
+            <input type="text" id="zemNameSearchInput" class="search-input" placeholder="搜索客户简称或财务名称..." oninput="filterCustomerTable()">
+        </div>
+    </div>
+    
+    <div class="table-responsive">
+        <table class="customer-table" id="customer-table">
+            <thead>
+                <tr>
+                    <th class="th">客户简称</th>
+                    <th class="th">财务名称</th>
+                    <th class="th">当前余额</th>
+                    <th class="th">Email</th>
+                    <th class="th action-col">操作</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for c in existing_customers %}
+                <tr class="customer-row">
+                    <td class="td customer-name">
+                        <a href="/customer_management/{{c.zem_name}}/?step=update" class="customer-link">
+                            <span class="name-text">{{ c.zem_name }}</span>
+                            {% if c.note %}
+                            <span class="customer-note" title="{{ c.note }}">ℹ️</span>
+                            {% endif %}
+                        </a>
+                    </td>
+                    <td class="td accounting-name">{{ c.accounting_name|default:"-" }}</td>
+                    <td class="td balance-cell" data-customer-id="{{ c.id }}">
+                        <span class="balance-amount {% if c.balance < 0 %}negative-balance{% endif %}">
+                            ¥{{ c.balance|default:"0.00"|floatformat:2 }}
+                        </span>
+                    </td>
+                    <td class="td customer-email">{{ c.email|default:"-" }}</td>
+                    <td class="td action-buttons">
+                        <button class="btn-action btn-adjust" style="align-items:center;" data-customer-id="{{ c.id }}" onclick="adjustBalance(this)">
+                             充值
+                        </button>
+                        <form method="post" action="" class="history-form">
+                            {% csrf_token %}
+                            <input type="hidden" name="step" value="transaction_history">
+                            <input type="hidden" name="customerId" value="{{ c.id }}">
+                            <button type="submit" class="btn-action btn-history">
+                                 流水
+                            </button>
+                        </form>
+                    </td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+</div>
+<!--调整余额的弹窗-->
+<div id="adjustBalanceModal" style="display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background-color: rgba(0,0,0,0.5); z-index: 999; overflow-y: auto;">
+    <div style="position: relative; top: 50%; left: 50%; transform: translate(-50%, -50%); width: 90%; max-width: 500px; background: white; border-radius: 8px; box-shadow: 0 4px 20px rgba(0,0,0,0.15); padding: 25px;">
+        <span class="close-modal" style="position: absolute; top: 15px; right: 15px; font-size: 24px; cursor: pointer; color: #666;" onclick="adjustBalance()">&times;</span>   
+        <h3 style="margin-top: 0; margin-bottom: 20px; color: #333; font-size: 18px; font-weight: 600;">调整客户余额</h3>
+        
+        <form method="post" action="" id="adjustBalanceForm" style="margin-bottom: 15px;" enctype="multipart/form-data">
+            {% csrf_token %}
+            <input type="hidden" name="step" value="adjustBalance">
+            <input type="hidden" name="customerId" id="selectCustomerId" value="">
+            <div class="form-group" style="margin-bottom: 15px;">
+                <label style="display: block; margin-bottom: 6px; font-size: 14px; color: #555;">调整类型：</label>
+                <select name="transaction_type" style="width: 100%; padding: 8px 12px; border: 1px solid #ddd; border-radius: 4px; font-size: 14px;" required>
+                    <option value="recharge" selected>充值</option>
+                    <option value="write_off">核销</option>
+                </select>
+            </div>
+            
+            <div class="form-group" style="margin-bottom: 15px;">
+                <div style="flex: 1;">
+                    <label style="display: block; margin-bottom: 6px; font-size: 14px; color: #555;">美元金额 (USD)：</label>
+                    <input type="number" id="usdAmount" 
+                        style="width: 100%; padding: 8px 12px; border: 1px solid #ddd; border-radius: 4px; font-size: 14px;"
+                        step="0.01" 
+                        min="0.01" 
+                        placeholder="输入美元金额"
+                        oninput="convertCurrency('usd', this.value)">
+                </div>
+                <div style="flex: 1;">
+                    <label style="display: block; margin-bottom: 6px; font-size: 14px; color: #555;">人民币金额 (CNY)：</label>
+                    <input type="number" id="cnyAmount" name="amount"
+                        style="width: 100%; padding: 8px 12px; border: 1px solid #ddd; border-radius: 4px; font-size: 14px;"
+                        step="0.01" 
+                        min="0.01" 
+                        placeholder="输入人民币金额"
+                        oninput="convertCurrency('cny', this.value)">
+                </div> 
+            </div>
+            <div class="form-group" style="margin-bottom: 15px;">
+                <label style="display: block; margin-bottom: 6px; font-size: 14px; color: #555;">上传凭证图片：</label>
+                <div style="border: 1px dashed #ddd; border-radius: 4px; padding: 15px; text-align: center; background: #f9f9f9;">
+                    <input type="file" name="receipt_image" id="receiptImage" accept="image/*" style="display: none;" onchange="handleImageUpload(this)">
+                    <!-- 添加uploadPrompt容器，方便控制显示/隐藏 -->
+                    <div id="uploadPrompt" style="cursor: pointer;">
+                        <label for="receiptImage" style="display: block;">
+                            <div style="font-size: 48px; color: #1890ff;">+</div>
+                            <div style="font-size: 12px; color: #888; margin-top: 8px;">点击上传图片</div>
+                        </label>
+                    </div>
+                    <div id="imagePreview" style="margin-top: 10px; display: none;">
+                        <div id="fileNameDisplay" style="font-size: 12px; color: #333; margin-bottom: 5px;"></div>
+                        <img id="previewImg" src="#" alt="预览图片" style="max-width: 100%; max-height: 150px; border-radius: 4px;">
+                        <div style="margin-top: 5px;" id="imageActions">
+                            <button type="button" onclick="removeImage()" style="padding: 3px 8px; background: #ff4d4f; color: white; border: none; border-radius: 2px; font-size: 12px; cursor: pointer;">删除图片</button>
+                        </div>
+                    </div>
+                </div>   
+            </div>
+
+            <div class="form-group" style="margin-bottom: 20px;">
+                <label style="display: block; margin-bottom: 6px; font-size: 14px; color: #555;">备注：</label>
+                <textarea name="note" 
+                        style="width: 100%; padding: 8px 12px; border: 1px solid #ddd; border-radius: 4px; font-size: 14px; min-height: 80px;"
+                        placeholder="请输入备注信息（可选）"></textarea>
+            </div>
+            
+            <div style="display: flex; justify-content: flex-end; gap: 10px;">
+                <button type="button" class="btn-cancel close-modal" style="padding: 8px 16px; background: #f0f0f0; border: none; border-radius: 4px; cursor: pointer; font-size: 14px;" onclick="adjustBalance()">取消</button>
+                <button type="submit" style="padding: 8px 16px; background: #1890ff; color: white; border: none; border-radius: 4px; cursor: pointer; font-size: 14px;">确认提交</button>
+            </div>
+        </form>
+    </div>
+</div>
+
+{% if transaction_history %}
+<div id="transactionModal" class="modal" style="display: block;">
+    <div class="modal-content">
+        <span class="close-modal" style="position: absolute; top: 15px; right: 15px; font-size: 24px; cursor: pointer; color: #666;" onclick="closeModal('transactionModal')">&times;</span>   
+        <h3 style="margin-top: 0; margin-bottom: 20px; color: #333; font-size: 18px; font-weight: 600;">交易流水详情</h3>
+        <div id="modalBody">
+            <table class="table" id="customer-table" style="font-size: 11px;">
+                <thead>
+                    <tr style="position: sticky; top: 0;">
+                        <th class="th">交易类型</th>
+                        <th class="th">金额</th>
+                        <th class="th">交易凭证</th>
+                        <th class="th">备注</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for t in transaction_history %}
+                    <tr>
+                        <td class="td">
+                            {% if t.transaction_type == 'recharge' %}
+                                充值
+                            {% else %}
+                                核销
+                            {% endif %}
+                        </td>
+                        <td class="td">{{ t.amount }}</td>
+                        <td class="td">
+                            {% if t.image_link %}
+                                <a href="{{ t.image_link }}" target="_blank" title="点击查看原图">
+                                    <img src="{{ t.image_link }}" 
+                                        style="max-height: 50px;"
+                                        onerror="this.onerror=null;this.parentElement.innerHTML='<span class=\'text-danger\'>点击查看图片</span>'">
+                                </a>
+                            {% else %}
+                                <span class="text-muted">无凭证</span>
+                            {% endif %}
+                        </td>
+                        <td class="td">{{ t.note }}</td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </div>
+</div>
+{% endif %}
+
+
+<style>
+    /* 主容器样式 */
+    .customer-list-container {
+        background: #fff;
+        border-radius: 10px;
+        box-shadow: 0 2px 10px rgba(0, 0, 0, 0.08);
+        padding: 20px;
+        margin: 20px 0;
+    }
+    
+    /* 列表标题和搜索 */
+    .list-header {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        margin-bottom: 20px;
+        padding-bottom: 15px;
+        border-bottom: 1px solid #f0f0f0;
+    }
+    
+    .list-title {
+        font-size: 20px;
+        font-weight: 600;
+        color: #333;
+        margin: 0;
+    }
+    
+    .search-container {
+        position: relative;
+    }
+    
+    .search-input {
+        padding: 8px 15px 8px 35px;
+        border: 1px solid #ddd;
+        border-radius: 20px;
+        width: 250px;
+        font-size: 14px;
+        background: #f9f9f9 url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='16' height='16' fill='%23999' viewBox='0 0 16 16'%3E%3Cpath d='M11.742 10.344a6.5 6.5 0 1 0-1.397 1.398h-.001c.03.04.062.078.098.115l3.85 3.85a1 1 0 0 0 1.415-1.414l-3.85-3.85a1.007 1.007 0 0 0-.115-.1zM12 6.5a5.5 5.5 0 1 1-11 0 5.5 5.5 0 0 1 11 0z'/%3E%3C/svg%3E") no-repeat 12px center;
+        transition: all 0.3s;
+    }
+    
+    .search-input:focus {
+        outline: none;
+        border-color: #4a90e2;
+        box-shadow: 0 0 0 2px rgba(74, 144, 226, 0.2);
+        background-color: #fff;
+        width: 300px;
+    }
+    
+    /* 表格样式 */
+    .table-responsive {
+        overflow-x: auto;
+        max-height: 700px;
+        overflow-y: auto;
+    }
+    
+    .customer-table {
+        width: 100%;
+        border-collapse: separate;
+        border-spacing: 0;
+        font-size: 14px;
+    }
+    
+    .customer-table thead th {
+        position: sticky;
+        top: 0;
+        background: #f8f9fa;
+        color: #555;
+        font-weight: 600;
+        padding: 12px 15px;
+        border-bottom: 2px solid #eee;
+        z-index: 10;
+    }
+    
+    .customer-table tbody tr {
+        transition: background 0.2s;
+    }
+    
+    .customer-table tbody tr:hover {
+        background: #f8fafc;
+    }
+    
+    .customer-table td {
+        padding: 12px 15px;
+        border-bottom: 1px solid #f0f0f0;
+        vertical-align: middle;
+    }
+    
+    /* 客户名称样式 */
+    .customer-name {
+        min-width: 150px;
+    }
+    
+    .customer-link {
+        display: flex;
+        align-items: center;
+        color: #333;
+        text-decoration: none;
+    }
+    
+    .name-text {
+        font-weight: 500;
+    }
+    
+    .customer-note {
+        margin-left: 8px;
+        color: #666;
+        cursor: help;
+    }
+    
+    /* 余额样式 */
+    .balance-cell {
+        font-family: 'Roboto', sans-serif;
+        font-weight: 500;
+    }
+    
+    .balance-amount {
+        color: #2e7d32;
+    }
+    
+    .negative-balance {
+        color: #c62828;
+    }
+    
+    /* 操作按钮样式 */
+    .action-buttons {
+        display: flex;
+        gap: 8px;
+    }
+    
+    .btn-action {
+        display: inline-flex;
+        justify-content: center;
+        padding: 6px 12px;
+        border-radius: 4px;
+        font-size: 13px;
+        font-weight: 500;
+        cursor: pointer;
+        transition: all 0.2s;
+        border: none;
+    }
+    
+    .btn-adjust {
+        background: #e3f2fd;
+        color: #1565c0;
+    }
+    
+    .btn-adjust:hover {
+        background: #bbdefb;
+    }
+    
+    .btn-history {
+        background: #e8f5e9;
+        color: #2e7d32;
+    }
+    
+    .btn-history:hover {
+        background: #c8e6c9;
+    }
+    
+    /* 图标样式 */
+    .icon-adjust, .icon-history {
+        display: inline-block;
+        width: 16px;
+        height: 16px;
+        margin-right: 5px;
+        background-size: contain;
+        background-repeat: no-repeat;
+    }
+    
+    /* 响应式调整 */
+    @media (max-width: 768px) {
+        .list-header {
+            flex-direction: column;
+            align-items: flex-start;
+        }
+        
+        .search-container {
+            margin-top: 10px;
+            width: 100%;
+        }
+        
+        .search-input {
+            width: 100%;
+        }
+    }
+    .modal {
+        display: none;
+        position: fixed;
+        top: 0;
+        left: 0;
+        width: 100%;
+        height: 100%;
+        background: rgba(0, 0, 0, 0.5);
+        z-index: 1000;   
+    }
+    
+    .modal-content {
+        background: white;
+        margin: 15% auto;
+        padding: 20px;
+        width: 70%;
+        max-width: 600px;
+        border-radius: 8px;
+        position: relative;
+        box-shadow: 0 4px 8px rgba(0, 0, 0, 0.2);   
+    }
+</style>
+
+
+<script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
+<script>
+    function addCustomer(modalId){
+        document.getElementById(modalId).style.display = 'block';
+    }
+    function closeModal(modalId) {
+        document.getElementById(modalId).style.display = 'none';
+    }
+    function filterCustomerTable() {
+        var zemNameInput, zemNameFilter, table, tbody, tr, zemNameTd, i, zemNameTxtValue;
+        zemNameInput = document.getElementById("zemNameSearchInput");
+        zemNameFilter = zemNameInput.value.toUpperCase();
+        table = document.getElementById("customer-table");
+        tbody = table.getElementsByTagName("tbody")[0];
+        tr = tbody.getElementsByTagName("tr");
+
+        for (i = 0; i < tr.length; i++) {
+            zemNameTd = tr[i].getElementsByTagName("td")[0];
+            if (zemNameTd) {
+                zemNameTxtValue = zemNameTd.textContent || zemNameTd.innerText;
+                var zemNameDisplayStyle = zemNameTxtValue.toUpperCase().indexOf(zemNameFilter) > -1 ? "" : "none";
+                tr[i].style.display = zemNameDisplayStyle === "" ? "" : "none";
+            }
+        }
+    };
+
+    function adjustBalance(button) {  
+        const popup = document.getElementById('adjustBalanceModal');
+        popup.style.display = popup.style.display === 'none' ? 'block' : 'none';
+
+        const customerId = button.dataset.customerId;
+        document.getElementById('selectCustomerId').value = customerId;
+        
+        const balanceCell = document.querySelector(`.balance-cell[data-customer-id="${customerId}"]`);
+        const currentBalance = balanceCell ? balanceCell.textContent.trim() : '¥0.00';
+    }
+
+    const EXCHANGE_RATE = 7.2;
+    function convertCurrency(type, value) {
+        if (!value || isNaN(value)) {
+            document.getElementById('usdAmount').value = '';
+            document.getElementById('cnyAmount').value = '';
+            return;
+        }
+        if (type === 'usd') {
+            const cnyValue = parseFloat(value) * EXCHANGE_RATE;
+            document.getElementById('cnyAmount').value = cnyValue.toFixed(2);
+        } else if (type === 'cny') {
+            const usdValue = parseFloat(value) / EXCHANGE_RATE;
+            document.getElementById('usdAmount').value = usdValue.toFixed(2);
+        }
+    }
+
+    function handleImageUpload(input) {
+        const file = input.files[0];
+        if (!file) return;
+        document.getElementById('uploadPrompt').style.display = 'none';
+        document.getElementById('imagePreview').style.display = 'block';
+
+        document.getElementById('fileNameDisplay').textContent = `已选择: ${file.name}`;
+        
+        if (file.type.startsWith('image/')) {
+            const reader = new FileReader();
+            reader.onload = function(e) {
+                const previewImg = document.getElementById('previewImg');
+                previewImg.src = e.target.result;
+                previewImg.style.display = 'block';
+                document.getElementById('imageActions').style.display = 'block';
+            }
+            reader.readAsDataURL(file);
+        }
+    }
+
+    function removeImage() {
+        document.getElementById('receiptImage').value = '';
+        document.getElementById('fileNameDisplay').textContent = '';
+        document.getElementById('previewImg').style.display = 'none';
+        document.getElementById('imageActions').style.display = 'none';
+    }
+</script>
+{% endblock %}
