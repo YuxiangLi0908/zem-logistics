@@ -607,6 +607,9 @@
         <button type="submit" class="btn btn-primary" onclick="closeModal('customerFormContainer')">确认</button>
     </div>
 </div>
+{% else %}
+组合柜：{{ combina_region }}
+非组合柜：{{ non_combina_region }}
 {% endif %}
 
 <style>
