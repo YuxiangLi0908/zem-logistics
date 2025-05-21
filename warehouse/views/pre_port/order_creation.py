@@ -31,6 +31,8 @@ from warehouse.models.po_check_eta import PoCheckEtaSeven
 from warehouse.models.retrieval import Retrieval
 from warehouse.models.vessel import Vessel
 from warehouse.models.warehouse import ZemWarehouse
+from warehouse.models.quotation_master import QuotationMaster
+from warehouse.models.fee_detail import FeeDetail
 from warehouse.utils.constants import (
     ADDITIONAL_CONTAINER,
     CONTAINER_PICKUP_CARRIER,
@@ -87,7 +89,6 @@ class OrderCreation(View):
         if not await self._user_authenticate(request):
             return redirect("login")
         step = request.POST.get("step", None)
-        print("POST", step)
         if step == "create_order_basic":
             template, context = await self.handle_create_order_basic_post(request)
             return await sync_to_async(render)(request, template, context)
@@ -130,6 +131,9 @@ class OrderCreation(View):
             return await sync_to_async(render)(request, template, context)
         elif step == "cancel_notification":
             template, context = await self.handle_cancel_notification(request)
+            return await sync_to_async(render)(request, template, context)
+        elif step == "check_destination":
+            template, context = await self.handle_check_destination(request)
             return await sync_to_async(render)(request, template, context)
         elif step == "export_forecast":
             return await self.handle_export_forecast(request)
@@ -402,7 +406,14 @@ class OrderCreation(View):
             ("公仓", "public"),
             ("其他", "other"),
         ]
-
+        non_combina_region = getattr(request, 'non_combina_region', 0)
+        combina_region = getattr(request, 'combina_region', 0)
+        if combina_region or non_combina_region:
+            context['check_destination'] = True
+            context['non_combina_region'] = non_combina_region
+            context['combina_region'] = combina_region
+        else:
+            context['check_destination'] = False
         return self.template_order_details, context
 
     async def handle_create_order_basic_post(
@@ -1031,6 +1042,77 @@ class OrderCreation(View):
         else:
             return await self.handle_order_basic_info_get()
 
+    def find_matching_regions(self,plts_by_destination: dict, combina_fee: dict,container_type) -> dict:
+        destination_matches = set()
+        non_combina_dests = set()
+
+        for plts in plts_by_destination:
+            dest = plts['destination']
+            dest_matches = []
+            matched = False
+            # 遍历所有区域和location
+            for region, fee_data_list in combina_fee.items():
+                for fee_data in fee_data_list:
+                    if dest in fee_data["location"]:
+                        dest_matches.append({
+                            "region": region,
+                            "location": dest,
+                        })
+
+                        matched = True
+            
+            # 记录匹配结果
+            if dest_matches:
+                destination_matches.add(dest)
+            elif not matched:
+                non_combina_dests.add(dest)  # 未匹配的仓点
+   
+        return {
+            "combina_dests": destination_matches,
+            "non_combina_dests": non_combina_dests,
+        }
+    
+    async def handle_check_destination(self, request: HttpRequest) -> tuple[Any, Any]:
+        container_number = request.POST.get("container_number")
+        order = await sync_to_async(Order.objects.get)(
+            models.Q(container_number__container_number=container_number)
+        )
+        #准备参数
+        vessel_etd = await sync_to_async(lambda: order.vessel_id.vessel_etd)()
+        warehouse = await sync_to_async(lambda: order.retrieval_id.retrieval_destination_area)()
+        
+        container = await sync_to_async(Container.objects.get)(container_number=container_number)
+        container_type = container.container_type 
+        container_type = 0 if container_type == '40HQ/GP' else 1
+
+        #找报价表
+        matching_quotation = await sync_to_async(QuotationMaster.objects.filter(
+            effective_date__lte=vessel_etd
+        ).order_by('-effective_date').first)()
+        if not matching_quotation:
+            return ValueError('找不到报价表')
+        #找组合柜报价
+        combina_fee_detail = await FeeDetail.objects.aget(
+            quotation_id=matching_quotation.id,
+            fee_type=f"{warehouse}_COMBINA"
+        )
+        combina_fee = combina_fee_detail.details
+        
+        plts_by_destination = await sync_to_async(
+            lambda: list(Pallet.objects.filter(
+                container_number__container_number=container_number
+            ).values('destination'))
+        )()
+        matched_regions = self.find_matching_regions(plts_by_destination, combina_fee,container_type)
+        matched_regions['combina_dests'] = list(matched_regions['combina_dests'])
+        matched_regions['non_combina_dests'] = list(matched_regions['non_combina_dests'])
+        #非组合柜区域
+        request.non_combina_region = matched_regions['non_combina_dests']
+        #组合柜区域
+        request.combina_region = matched_regions["combina_dests"]
+
+        return await self.handle_order_management_container_get(request)
+    
     async def handle_cancel_notification(self, request: HttpRequest) -> tuple[Any, Any]:
         container_number = request.POST.get("container_number")
         # 查询order表的contain_number
