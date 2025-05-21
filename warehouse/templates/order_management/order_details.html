@@ -32,15 +32,15 @@
                     <button id="submit-btn-update-basic-info" onclick="confirmSubmit(this)" type="submit" class="btn btn-primary" style="width: 90px; height: 30px; margin-left: 20px; font-size: 13px;">
                     <b>取消预报</b></button>
                 </form>
-                <form method="post" action="">
-                    {% csrf_token %}
-                    <input type="hidden" name="step" value="check_destination">
-                    <input type="hidden" name="container_number" value="{{ selected_order.container_number.container_number }}">
-                    <button id="submit-btn-update-basic-info" type="submit" class="btn btn-primary" style="width: 90px; height: 30px; margin-left: 20px; font-size: 13px;">
-                    <b>检查仓点</b></button>
-                </form>
                {% endif %}
             {% endif %}
+            <form method="post" action="">
+                {% csrf_token %}
+                <input type="hidden" name="step" value="check_destination">
+                <input type="hidden" name="container_number" value="{{ selected_order.container_number.container_number }}">
+                <button id="submit-btn-update-basic-info" type="submit" class="btn btn-primary" style="width: 90px; height: 30px; margin-left: 20px; font-size: 13px;">
+                <b>检查仓点</b></button>
+            </form>
 
         </ul>
     </div>
