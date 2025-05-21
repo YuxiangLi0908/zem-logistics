@@ -1,0 +1,563 @@
+{% extends 'base.html' %}
+
+{% block content %}
+<div class="customer-list-container">
+    {% if existing_customers %}
+    <div class="customer-form-container" id="customer_form_container" style="display:none;">
+        <h3 class="form-title">创建新客户</h3>
+        <form method="post" class="customer-form">
+            {% csrf_token %}
+            <div class="form-grid">
+                <div class="form-group">
+                    <label class="form-label">客户全称</label>
+                    {{ customer_form.full_name }}
+                </div>
+                <div class="form-group">
+                    <label class="form-label">客户简称</label>
+                    {{ customer_form.zem_name }}
+                </div>
+                <div class="form-group">
+                    <label class="form-label">ZEM客户代码</label>
+                    {{ customer_form.zem_code }}
+                </div>
+                <div class="form-group">
+                    <label class="form-label">Email</label>
+                    {{ customer_form.email }}
+                </div>
+                <div class="form-group">
+                    <label class="form-label">Phone</label>
+                    {{ customer_form.phone }}
+                </div>
+                <div class="form-group">
+                    <label class="form-label">备注</label>
+                    {{ customer_form.note }}
+                </div>
+                <div class="form-group">
+                    <label class="form-label">财务名称</label>
+                    {{ customer_form.accounting_name }}
+                </div>
+                <div class="form-group">
+                    <label class="form-label">地址</label>
+                    {{ customer_form.address }}
+                </div>
+            </div>
+            
+            <div class="form-actions">
+                <input type="hidden" name="step" value="new">
+                <button type="submit" class="btn btn-primary">确认</button>
+                {% if duplicated %}
+                <p class="duplicate-warning">{{ customer_form.full_name.value }} 已存在!</p>
+                {% endif %}
+            </div>
+        </form>
+    </div>
+
+    <div class="list-header">
+        <span style="font-size: 18px; font-weight: 600; color: #333;">客户列表</span>
+        <button onclick="addCustomer('customer_form_container')" 
+            style="
+                padding: 8px 16px;
+                background-color: #1976D2;
+                color: white;
+                border: none;
+                border-radius: 4px;
+                cursor: pointer;
+                font-size: 14px;
+                transition: background-color 0.3s;
+            "
+            onmouseover="this.style.backgroundColor='#115293'"
+            onmouseout="this.style.backgroundColor='#1976D2'"
+        >添加客户</button>   
+    </div>   
+    <div style="overflow-x: auto; max-width: 100%; overflow-y: auto; max-height: 800px;">
+        <table class="table" id="customer-table" style="font-size: 11px;">
+            <thead>
+                <tr style="position: sticky; top: 0;">
+                    <th class="th">客户简称</th>
+                    <th class="th" style="width:120px;">客户全称</th>
+                    <th class="th">ZEM客户代码</th>
+                    <th class="th" style="width:120px;">财务名称</th>
+                    <th class="th" style="width:120px;">Email</th>
+                    <th class="th">Phone</th>
+                    <th class="th">地址</th>
+                    <th class="th">备注</th>
+                    <th class="th">用户名(客户端)</th>
+                </tr>
+                <tr style="position: sticky; top: 28px;">
+                    <th class="th"><input type="text" id="zemNameSearchInput" placeholder="搜索..." oninput="filterCustomerTable()"></th>
+                    <th class="th"><input type="text" id="fullNameSearchInput" placeholder="搜索..." oninput="filterCustomerTable()"></th>
+                    <th class="th"></th>
+                    <th class="th"></th>
+                    <th class="th"></th>
+                    <th class="th"></th>
+                    <th class="th"></th>
+                    <th class="th"></th>
+                    <th class="th"></th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for c in existing_customers %}
+                <tr>
+                    <td class="td"><a href="/customer_management/{{c.zem_name}}/?step=update">{{ c.zem_name }}</a></td>
+                    <td class="td">{{ c.full_name }}</td>
+                    <td class="td" style="width:120px;">{{ c.zem_code }}</td>
+                    <td class="td">{{ c.accounting_name }}</td>
+                    <td class="td" style="width:120px;">{{ c.email|default_if_none:'' }}</td>
+                    <td class="td">{{ c.phone|default_if_none:'' }}</td>
+                    <td class="td">{{ c.address|default_if_none:'' }}</td>
+                    <td class="td">{{ c.note|default_if_none:'' }}</td>
+                    <td class="td">{{ c.username|default_if_none:'' }}</td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+
+    {% endif %}
+    {% if customer_update_form %}
+    <b>更新客户信息</b>
+    <div style="display: flex;">
+        <div style="width: 30%; margin-top: .5%; margin-right: .5%; margin-bottom: 1%; border: 2px solid rgb(180, 180, 180); border-radius: 12px; padding: 1%;">
+            <b>基础信息</b>
+            <form method="post">
+                {% csrf_token %}
+                <div class="form-row" >
+                    <div class="form-group col-md-4">
+                        <label class="col-form-label" style="font-size: 13px; width: 100px; height: 40px;">客户全称</label>
+                        {{ customer_update_form.full_name }}
+                    </div>
+                </div>
+                <div class="form-row" >
+                    <div class="form-group col-md-4">
+                        <label class="col-form-label" style="font-size: 13px; width: 100px; height: 40px;">客户简称</label>
+                        {{ customer_update_form.zem_name }}
+                    </div>
+                </div>
+                <div class="form-row" >
+                    <div class="form-group col-md-4">
+                        <label class="col-form-label" style="font-size: 13px; width: 100px; height: 40px;">ZEM客户代码</label>
+                        {{ customer_update_form.zem_code }}
+                    </div>
+                </div>
+                <div class="form-row" >
+                    <div class="form-group col-md-4">
+                        <label class="col-form-label" style="font-size: 13px; width: 100px; height: 40px;">财务名称</label>
+                        {{ customer_update_form.accounting_name }}
+                    </div>
+                </div>
+                <div class="form-row" >
+                    <div class="form-group col-md-4">
+                        <label class="col-form-label" style="font-size: 13px; width: 100px; height: 40px;">Email</label>
+                        {{ customer_update_form.email }}
+                    </div>
+                </div>
+                <div class="form-row" >
+                    <div class="form-group col-md-4">
+                        <label class="col-form-label" style="font-size: 13px; width: 100px; height: 40px;">Phone</label>
+                        {{ customer_update_form.phone }}
+                    </div>
+                </div>
+                <div class="form-row" >
+                    <div class="form-group col-md-4">
+                        <label class="col-form-label" style="font-size: 13px; width: 100px; height: 40px;">地址</label>
+                        {{ customer_update_form.address }}
+                    </div>
+                </div>
+                <div class="form-row" >
+                    <div class="form-group col-md-4">
+                        <label class="col-form-label" style="font-size: 13px; width: 100px; height: 40px;">备注</label>
+                        {{ customer_update_form.note }}
+                    </div>
+                </div>
+                <div class="text-left">
+                    <input type="hidden" name="step" value="update_basic_info">
+                    <button type="submit" class="btn btn-primary" style="width: 100px; height: 35px;">确认</button>
+                </div>
+            </form>
+        </div>
+
+        <div style="width: 30%; margin-top: .5%; margin-right: .5%; margin-bottom: 1%; border: 2px solid rgb(180, 180, 180); border-radius: 12px; padding: 1%;">
+            <b>客户端信息</b>
+            <form method="post">
+                {% csrf_token %}
+                {% if customer.username %}
+                <div class="form-group">
+                    <label for="username" style="font-size: 13px;">用户名</label>
+                    <input type="text" name="username" class="form-control" value="{{ customer.username }}">
+                </div>
+                <div class="form-group">
+                    <label for="password" style="font-size: 13px;">输入新密码</label>
+                    <div class="password-container">
+                        <input type="password" id="password" name="password" class="form-control" placeholder="请输入密码" autocomplete="new-password" required>
+                        <i class="bi bi-eye-fill toggle-password" data-target="password"></i>
+                    </div>
+                </div>
+                <div class="form-group">
+                    <label for="password" style="font-size: 13px;">确认新密码</label>
+                    <div class="password-container">
+                        <input type="password" id="password_repeat" name="password_repeat" class="form-control" placeholder="请再次输入密码" required>
+                        <i class="bi bi-eye-fill toggle-password" data-target="password_repeat"></i>
+                    </div>
+                </div>
+                <ul id="password-requirements">
+                    <li class="invalid-feedback">At least one uppercase letter</li>
+                    <li class="invalid-feedback">At least one lowercase letter</li>
+                    <li class="invalid-feedback">At least one digit</li>
+                    <li class="invalid-feedback">No spaces allowed</li>
+                    <li class="invalid-feedback">Should be more than 4 characters</li>
+                    <li class="invalid-feedback">Passwords should match</li>
+                </ul>
+
+                <div class="text-left">
+                    <input type="hidden" name="step" value="update_client_creds">
+                    <button type="submit" id="update-creds" class="btn btn-primary" style="height: 35px; font-size: 13px;" onclick="validatePassword()">修改登录用户名与密码</button>
+                </div>
+                {% else %}
+                <div class="form-group">
+                    <label for="username" style="font-size: 13px;">用户名</label>
+                    <input type="text" name="username" class="form-control" placeholder="请输入用户名" required>
+                </div>
+                <div class="form-group">
+                    <label for="password" style="font-size: 13px;">输入密码</label>
+                    <div class="password-container">
+                        <input type="password" id="password" name="password" class="form-control" placeholder="请输入密码" autocomplete="new-password" required>
+                        <i class="bi bi-eye-fill toggle-password" data-target="password"></i>
+                    </div>
+                </div>
+                <div class="form-group">
+                    <label for="password" style="font-size: 13px;">确认密码</label>
+                    <div class="password-container">
+                        <input type="password" id="password_repeat" name="password_repeat" class="form-control" placeholder="请再次输入密码" required>
+                        <i class="bi bi-eye-fill toggle-password" data-target="password_repeat"></i>
+                    </div>
+                </div>
+                <ul id="password-requirements">
+                    <li class="invalid-feedback">At least one uppercase letter</li>
+                    <li class="invalid-feedback">At least one lowercase letter</li>
+                    <li class="invalid-feedback">At least one digit</li>
+                    <li class="invalid-feedback">No spaces allowed</li>
+                    <li class="invalid-feedback">Should be more than 4 characters</li>
+                    <li class="invalid-feedback">Passwords should match</li>
+                </ul>
+
+                <div class="text-left">
+                    <input type="hidden" name="step" value="update_client_creds">
+                    <input type="hidden" name="customer_id" value="{{ customer.id }}">
+                    <button type="submit" id="update-creds" class="btn btn-primary" style="height: 35px; font-size: 13px;">确认开通客户端</button>
+                </div>
+                {% endif %}
+            </form>
+        </div>
+    </div>
+    {% endif %}
+</div>
+<style>  
+    .customer-list-container {
+        background: #fff;
+        border-radius: 10px;
+        box-shadow: 0 2px 10px rgba(0, 0, 0, 0.08);
+        padding: 20px;
+        margin: 20px 0;
+    } 
+    .list-header {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        margin-bottom: 20px;
+        padding-bottom: 15px;
+        border-bottom: 1px solid #f0f0f0;
+    } 
+    body {
+        font-family: 'Segoe UI', sans-serif;
+        line-height: 1.6;
+        color: #333;   
+    }
+    
+    button {
+        background: #4CAF50;
+        color: white;
+        padding: 10px 20px;
+        border: none;
+        border-radius: 4px;
+        cursor: pointer;
+        transition: background 0.3s;   
+    }
+    
+    button:hover {
+        background: #45a049;   
+    }
+      
+    .modal {
+        display: none;
+        position: fixed;
+        top: 0;
+        left: 0;
+        width: 100%;
+        height: 100%;
+        background: rgba(0, 0, 0, 0.5);
+        z-index: 1000;   
+    }
+    
+    .modal-content {
+        background: white;
+        margin: 15% auto;
+        padding: 20px;
+        width: 70%;
+        max-width: 600px;
+        border-radius: 8px;
+        position: relative;
+        box-shadow: 0 4px 8px rgba(0, 0, 0, 0.2);   
+    }
+    
+    .close {
+        position: absolute;
+        right: 20px;
+        top: 10px;
+        font-size: 28px;
+        cursor: pointer;
+        color: #aaa;   
+    }
+    
+    .close:hover {
+        color: #666;   
+    }
+     
+    .transaction-item {
+        padding: 10px;
+        border-bottom: 1px solid #eee;
+        margin: 5px 0;   
+    }   
+    .table {
+        width: 100%;
+        border-collapse: collapse;
+        margin: 20px 0;
+        background: white;
+        box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+        border-radius: 8px;
+        overflow: hidden;
+        font-size: 14px;
+    }
+    
+    .th, .td {
+        padding: 14px 16px; 
+        text-align: left;
+        font-size: 14px;
+        border-bottom: 1px solid #e0e0e0;
+        line-height: 1.5; 
+    }
+    
+    .th {
+        background-color: #1B5E20;  
+        font-weight: 500;
+        font-size: 15px;
+        letter-spacing: 0.5px;   
+    }
+    
+    .customer-form-container {
+        max-width: 800px;
+        margin: 0 auto;
+        padding: 20px;
+        background-color: #f9f9f9;
+        border-radius: 8px;
+        box-shadow: 0 2px 10px rgba(0, 0, 0, 0.1);
+    }
+    
+    .form-title {
+        color: #333;
+        margin-bottom: 20px;
+        padding-bottom: 10px;
+        border-bottom: 1px solid #eee;
+    }
+    
+    .customer-form {
+        width: 100%;
+    }
+    
+    .form-grid {
+        display: grid;
+        grid-template-columns: repeat(auto-fill, minmax(250px, 1fr));
+        gap: 15px;
+    }
+    
+    .form-group {
+        display: flex;
+        flex-direction: column;
+        margin-bottom: 10px;
+    }
+    
+    .form-label {
+        font-size: 12px;
+        margin-bottom: 5px;
+        color: #555;
+        font-weight: 500;
+    }
+    
+    .form-group input,
+    .form-group textarea,
+    .form-group select {
+        padding: 8px 12px;
+        border: 1px solid #ddd;
+        border-radius: 4px;
+        font-size: 13px;
+        transition: border-color 0.3s;
+    }
+    
+    .form-group input:focus,
+    .form-group textarea:focus,
+    .form-group select:focus {
+        border-color: #4a90e2;
+        outline: none;
+        box-shadow: 0 0 0 2px rgba(74, 144, 226, 0.2);
+    }
+    
+    .form-actions {
+        margin-top: 20px;
+        display: flex;
+        flex-direction: column;
+        align-items: flex-start;
+        gap: 10px;
+    }
+    
+    .btn-primary {
+        background-color: #4a90e2;
+        color: white;
+        border: none;
+        padding: 8px 16px;
+        border-radius: 4px;
+        cursor: pointer;
+        font-size: 13px;
+        transition: background-color 0.3s;
+    }
+    
+    .btn-primary:hover {
+        background-color: #3a7bc8;
+    }
+    
+    .duplicate-warning {
+        margin-top: 5px;
+        font-style: italic;
+        color: #e74c3c;
+        font-size: 13px;
+    }
+    
+    /* 调整特定字段的宽度 */
+    .form-group textarea {
+        min-height: 60px;
+        resize: vertical;
+    }
+    
+</style>
+
+<script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
+<script>
+    function addCustomer(modalId){
+        document.getElementById(modalId).style.display = 'block';
+    }
+    function filterCustomerTable() {
+        var zemNameInput, fullNameInput, zemNameFilter, fullNameFilter, table, tbody, tr, zemNameTd, fullNameTd, i, zemNameTxtValue, fullNameTxtValue;
+        zemNameInput = document.getElementById("zemNameSearchInput");
+        fullNameInput = document.getElementById("fullNameSearchInput");
+        zemNameFilter = zemNameInput.value.toUpperCase();
+        fullNameFilter = fullNameInput.value.toUpperCase();
+        table = document.getElementById("customer-table");
+        tbody = table.getElementsByTagName("tbody")[0];
+        tr = tbody.getElementsByTagName("tr");
+
+        for (i = 0; i < tr.length; i++) {
+            zemNameTd = tr[i].getElementsByTagName("td")[0];
+            fullNameTd = tr[i].getElementsByTagName("td")[1]; 
+            if (zemNameTd && fullNameTd) {
+                zemNameTxtValue = zemNameTd.textContent || zemNameTd.innerText;
+                fullNameTxtValue = fullNameTd.textContent || fullNameTd.innerText;
+                var zemNameDisplayStyle = zemNameTxtValue.toUpperCase().indexOf(zemNameFilter) > -1 ? "" : "none";
+                var fullNameDisplayStyle = fullNameTxtValue.toUpperCase().indexOf(fullNameFilter) > -1 ? "" : "none";
+
+                tr[i].style.display = zemNameDisplayStyle === "" && fullNameDisplayStyle === "" ? "" : "none";
+            }
+        }
+    };
+
+    function generateUsername() {
+        // Get the value of the input field with id "id_zem_code"
+        let zemCode = document.getElementById("id_zem_code").value;
+        // Remove spaces and convert to uppercase
+        let formattedCode = zemCode.replace(/\s+/g, '').toUpperCase();
+
+        // Generate a 2-digit random number (10-99 to avoid single-digit numbers)
+        let randomNum = Math.floor(Math.random() * 90) + 10;
+
+        // Create the username
+        let username = `ZEM_${formattedCode}_${randomNum}`;
+        console.log(username)
+
+        // Set the generated username in the input with id "id_username"
+        document.getElementById("id_username").value = username;
+    };
+
+    document.getElementById("id_zem_code").addEventListener("input", generateUsername);
+
+    $(document).ready(function(){
+        $(".toggle-password").click(function(){
+            let targetInput = $("#" + $(this).data("target"));
+            let type = targetInput.attr("type") === "password" ? "text" : "password";
+            targetInput.attr("type", type);
+            
+            // Toggle eye icon
+            $(this).toggleClass("bi bi-eye-slash-fill");
+        });
+    });
+
+    function validatePassword() {
+        const password = document.getElementById('password').value;
+        const passwordRepeat = document.getElementById('password_repeat').value;
+
+        let isValid = true;
+
+        // Regex patterns for validation
+        const upperCasePattern = /[A-Z]/;
+        const lowerCasePattern = /[a-z]/;
+        const digitPattern = /\d/;
+        const noSpace = /\s/;
+
+        // Check each requirement
+        const checks = [
+            { check: upperCasePattern.test(password), message: 'At least one uppercase letter' },
+            { check: lowerCasePattern.test(password), message: 'At least one lowercase letter' },
+            { check: digitPattern.test(password), message: 'At least one digit' },
+            { check: !noSpace.test(password), message: 'No spaces allowed' },
+            { check: password.length > 4, message: 'Should be more than 4 characters' },
+            { check: password === passwordRepeat && password.length > 0, message: 'Passwords should match' },
+        ];
+
+        // Update the list with appropriate feedback
+        checks.forEach((item, index) => {
+            const li = document.querySelectorAll('#password-requirements li')[index];
+            if (item.check) {
+                li.classList.add('valid-feedback');
+                li.classList.remove('invalid-feedback');
+            } else {
+                li.classList.add('invalid-feedback');
+                li.classList.remove('valid-feedback');
+                isValid = false;
+            }
+        });
+
+        // Enable submit button if the password is valid
+        const submitBtn = document.getElementById('update-creds');
+        if (isValid) {
+            submitBtn.disabled = false;
+        } else {
+            submitBtn.disabled = true;
+        }
+    }
+
+    // Event listeners for real-time validation
+    const passwordInput = document.getElementById('password');
+    const passwordRepeatInput = document.getElementById('password_repeat');
+    if (passwordInput && passwordRepeatInput) {
+        passwordInput.addEventListener('input', validatePassword);
+        passwordRepeatInput.addEventListener('input', validatePassword);
+    }
+
+</script>
+{% endblock %}

@@ -4,11 +4,13 @@ from django.core.exceptions import ValidationError
 
 from django.contrib.auth.decorators import login_required
 from django.http import HttpRequest, HttpResponse
+from django.http import HttpRequest, HttpResponse, HttpResponseForbidden
 from django.shortcuts import redirect, render
 from django.utils.decorators import method_decorator
 from django.views import View
 from datetime import datetime
 
+from django.contrib.auth.models import User
 from office365.runtime.auth.user_credential import UserCredential
 from office365.sharepoint.client_context import ClientContext
 from office365.sharepoint.sharing.links.kind import SharingLinkKind
@@ -28,7 +30,8 @@ from warehouse.utils.constants import (
 
 @method_decorator(login_required(login_url="login"), name="dispatch")
 class CustomerManagement(View):
-    template_main = "new_customer.html"
+    template_main = "statistics/new_customer.html"
+    template_balance = "statistics/balance_customer.html"
 
     def get(self, request: HttpRequest, **kwargs) -> HttpResponse:
         customer_name = kwargs.get("name", None)
@@ -39,6 +42,16 @@ class CustomerManagement(View):
                 self.template_main,
                 self.handle_customer_update_get(request, customer_name),
             )
+        elif step == "customer_balance":
+            if self._validate_user_customer_balance(request.user):
+                return render(
+                    request, self.template_balance, self.handle_balance_customer_get(request)
+                )
+            else:
+                return HttpResponseForbidden(
+                    "You are not authenticated to access this page!"
+                )
+            
         else:
             return render(
                 request, self.template_main, self.handle_all_customer_get(request)
@@ -71,7 +84,7 @@ class CustomerManagement(View):
             "customer_form": CustomerForm(),
         }
         return context
-
+    
     def handle_customer_update_get(
         self, request: HttpRequest, customer_name: str
     ) -> dict[str, Any]:
@@ -134,6 +147,14 @@ class CustomerManagement(View):
         customer.username = username
         customer.set_password(password)
         customer.save()
+    
+    def handle_balance_customer_get(self, request: HttpRequest) -> dict[str, Any]:
+        existing_customers = Customer.objects.all().order_by("zem_name")
+        context = {
+            "existing_customers": existing_customers,
+            "customer_form": CustomerForm(),
+        }
+        return context
     
     def handle_adjust_balance(self, request: HttpRequest) -> tuple[Any, Any]:
         #记录元素
@@ -217,4 +238,11 @@ class CustomerManagement(View):
             "transaction_history":transaction_history,
         }
 
-        return self.template_main, context
+        return self.template_balance, context
+    
+    def _validate_user_customer_balance(self, user: User) -> bool:
+        if user.is_staff or user.groups.filter(name="customer_balance").exists():
+            return True
+        else:
+            return False
+    

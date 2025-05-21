@@ -120,6 +120,7 @@
                         <a class="nav-link">客户管理</a>
                         <div class="dropdown-content">
                             <a href="{% url 'customer_management' %}" target="_blank">添加客户</a>
+                            <a href="{% url 'customer_management' %}?step=customer_balance" target="_blank">余额管理</a>
                         </div>
                     </div>
                 </li>
@@ -162,7 +163,7 @@
                         <a class="nav-link">后台管理</a>
                         <div class="dropdown-content">
                             <a href="{% url 'dbconn' %}">SQL Query</a>
-                            <a href="{% url 'stuff_user' %}?step=clean_data"">清理数据</a>
+                            <a href="{% url 'stuff_user' %}?step=clean_data">清理数据</a>
                             <a href="{% url 'container_tracking' %}">Tracking</a>
                             <div class="nested-dropdown" >
                                 <a>Test Async</a>
