@@ -1473,7 +1473,6 @@ class Accounting(View):
     ) -> tuple[Any, Any]:
         data = request.POST.copy()
         save_type = request.POST.get("save_type")
-        print('保存类型',save_type)
         container_number = data.get("container_number")
         invoice = Invoice.objects.select_related("container_number").get(
             container_number__container_number=container_number
