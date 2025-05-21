@@ -20,6 +20,7 @@ from django.shortcuts import redirect, render
 from django.views import View
 from simple_history.utils import bulk_create_with_history, bulk_update_with_history
 
+from collections import defaultdict
 from warehouse.forms.upload_file import UploadFileForm
 from warehouse.models.container import Container
 from warehouse.models.customer import Customer
@@ -1045,32 +1046,27 @@ class OrderCreation(View):
             return await self.handle_order_basic_info_get()
 
     def find_matching_regions(self,plts_by_destination: dict, combina_fee: dict,container_type) -> dict:
-        destination_matches = set()
         non_combina_dests = set()
+        price_display = defaultdict(set)
 
         for plts in plts_by_destination:
             dest = plts['destination']
-            dest_matches = []
             matched = False
             # 遍历所有区域和location
             for region, fee_data_list in combina_fee.items():
                 for fee_data in fee_data_list:
                     if dest in fee_data["location"]:
-                        dest_matches.append({
-                            "region": region,
-                            "location": dest,
-                        })
-
+                        price_display[region].add(dest)
                         matched = True
             
             # 记录匹配结果
-            if dest_matches:
-                destination_matches.add(dest)
-            elif not matched:
+            if not matched:
                 non_combina_dests.add(dest)  # 未匹配的仓点
-   
+        combina_dests = {
+            k: list(v) for k, v in price_display.items()
+        }
         return {
-            "combina_dests": destination_matches,
+            "combina_dests": combina_dests,
             "non_combina_dests": non_combina_dests,
         }
     
@@ -1108,7 +1104,7 @@ class OrderCreation(View):
             )
         )()
         matched_regions = self.find_matching_regions(plts_by_destination, combina_fee,container_type)
-        matched_regions['combina_dests'] = list(matched_regions['combina_dests'])
+        matched_regions['combina_dests'] = matched_regions['combina_dests']
         matched_regions['non_combina_dests'] = list(matched_regions['non_combina_dests'])
         #非组合柜区域
         request.non_combina_region = matched_regions['non_combina_dests']
