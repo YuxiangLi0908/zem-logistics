@@ -209,7 +209,7 @@ class CustomerManagement(View):
     ) -> None:
         
         image_name = image.name #提取文件名
-        file_path = os.path.join(SP_DOC_LIB, f"{SYSTEM_FOLDER}/transactions")#文档库名称，系统文件夹名称，当前环境
+        file_path = os.path.join(SP_DOC_LIB, f"{SYSTEM_FOLDER}/transactions/{APP_ENV}")#文档库名称，系统文件夹名称，当前环境
         #上传到SharePoint
         sp_folder = conn.web.get_folder_by_server_relative_url(file_path)
         resp = sp_folder.upload_file(
