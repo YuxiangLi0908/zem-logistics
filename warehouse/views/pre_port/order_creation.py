@@ -1051,6 +1051,7 @@ class OrderCreation(View):
 
         for plts in plts_by_destination:
             dest = plts['destination']
+            dest = dest.replace("沃尔玛", "").split("-")[-1].strip()
             matched = False
             # 遍历所有区域和location
             for region, fee_data_list in combina_fee.items():
