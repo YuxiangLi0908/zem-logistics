@@ -159,14 +159,14 @@ class CustomerManagement(View):
     def handle_adjust_balance(self, request: HttpRequest) -> tuple[Any, Any]:
         #记录元素
         transaction_type = request.POST.get("transaction_type")
-        amount = float(request.POST.get("amount"))
+        amount = float(request.POST.get("usdamount"))
+        print('费用是',amount)
         note = request.POST.get("note")
         customer_id = request.POST.get("customerId")
         customer = Customer.objects.get(id=customer_id)
         user = request.user if request.user.is_authenticated else None
 
-        #存储图片到云盘
-        conn = self._get_sharepoint_auth()
+        #存储图片到云盘       
         try:
             receipt_image = request.FILES.get('receipt_image')
             if receipt_image:
@@ -178,9 +178,13 @@ class CustomerManagement(View):
                     raise ValidationError("图片大小不能超过5MB")
         except ValidationError as e:
             raise ValidationError('图片格式错误')
-        link = self._upload_image_to_sharepoint(
-                conn, receipt_image
-            )       
+        if receipt_image:
+            conn = self._get_sharepoint_auth()
+            link = self._upload_image_to_sharepoint(
+                    conn, receipt_image
+                )       
+        else:
+            link = ''
         
         transaction = Transaction.objects.create(
             customer=customer,
@@ -202,7 +206,7 @@ class CustomerManagement(View):
             "existing_customers": existing_customers,
             "customer_form": CustomerForm(),
         }
-        return self.template_main, context
+        return self.template_balance, context
     
     def _upload_image_to_sharepoint(
         self, conn, image

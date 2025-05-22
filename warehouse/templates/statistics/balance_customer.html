@@ -79,22 +79,12 @@
             <div class="form-group" style="margin-bottom: 15px;">
                 <div style="flex: 1;">
                     <label style="display: block; margin-bottom: 6px; font-size: 14px; color: #555;">美元金额 (USD)：</label>
-                    <input type="number" id="usdAmount" 
+                    <input type="number" id="usdAmount" name="usdamount"
                         style="width: 100%; padding: 8px 12px; border: 1px solid #ddd; border-radius: 4px; font-size: 14px;"
                         step="0.01" 
                         min="0.01" 
-                        placeholder="输入美元金额"
-                        oninput="convertCurrency('usd', this.value)">
+                        placeholder="输入美元金额">
                 </div>
-                <div style="flex: 1;">
-                    <label style="display: block; margin-bottom: 6px; font-size: 14px; color: #555;">人民币金额 (CNY)：</label>
-                    <input type="number" id="cnyAmount" name="amount"
-                        style="width: 100%; padding: 8px 12px; border: 1px solid #ddd; border-radius: 4px; font-size: 14px;"
-                        step="0.01" 
-                        min="0.01" 
-                        placeholder="输入人民币金额"
-                        oninput="convertCurrency('cny', this.value)">
-                </div> 
             </div>
             <div class="form-group" style="margin-bottom: 15px;">
                 <label style="display: block; margin-bottom: 6px; font-size: 14px; color: #555;">上传凭证图片：</label>
@@ -427,21 +417,6 @@
         const currentBalance = balanceCell ? balanceCell.textContent.trim() : '¥0.00';
     }
 
-    const EXCHANGE_RATE = 7.2;
-    function convertCurrency(type, value) {
-        if (!value || isNaN(value)) {
-            document.getElementById('usdAmount').value = '';
-            document.getElementById('cnyAmount').value = '';
-            return;
-        }
-        if (type === 'usd') {
-            const cnyValue = parseFloat(value) * EXCHANGE_RATE;
-            document.getElementById('cnyAmount').value = cnyValue.toFixed(2);
-        } else if (type === 'cny') {
-            const usdValue = parseFloat(value) / EXCHANGE_RATE;
-            document.getElementById('usdAmount').value = usdValue.toFixed(2);
-        }
-    }
 
     function handleImageUpload(input) {
         const file = input.files[0];
