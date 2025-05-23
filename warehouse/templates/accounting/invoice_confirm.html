@@ -303,7 +303,7 @@
     }
     
     function adjustBalance(button) { 
-        const selectedRows = document.querySelectorAll('#order-table tbody tr input[name="is_order_selected_click"]:checked');  
+        const selectedRows = document.querySelectorAll('#order-table-previous tbody tr input[name="is_order_selected_click"]:checked');  
         if (selectedRows.length === 0) {
             alert('未选中数据！');
             event.preventDefault();
