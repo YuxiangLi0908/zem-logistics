@@ -1,107 +1,141 @@
 {% extends 'base.html' %}
 {% block content %}
-<div><b>确认送达</b></div>
-<form method="post" action="">
-    {% csrf_token %}
-    <div>
-        <b style="margin-right: 5px;">出库批次:</b>
-        <input type="text" name="fleet_number" value="{{ fleet_number }}">
-        <b style="margin-right: 5px;">预约批次:</b>
-        <input type="text" name="batch_number" value="{{ batch_number }}">
-        <b style="margin-right: 5px;">所属仓:</b>
-        <select name="area">
-            {% for k, v in warehouse_options.items %}
-            <option value="{{ v }}" {% if k == area %}selected{% endif %}>{{ k }}</option>
-            {% endfor %}
-        </select>
-        <input type="hidden" name="step" value="fleet_delivery_search">
-        <button type="submit">确认</button>
+<div style="max-width: 98%; margin: 0 auto; padding: 15px;">
+    <div class="search-card" style="background: white; border-radius: 8px; padding: 15px; margin-bottom: 15px; box-shadow: 0 2px 8px rgba(0,0,0,0.1);">
+        <form method="post" action="">
+            {% csrf_token %}
+            <div style="display: grid; grid-template-columns: repeat(auto-fill, minmax(200px, 1fr)); gap: 15px; align-items: center;">
+                <div>
+                    <label class="filter-label"><b>出库批次</b></label>
+                    <input type="text" name="fleet_number" value="{{ fleet_number }}" class="form-input">
+                </div>
+                <div>
+                    <label class="filter-label"><b>预约批次</b></label>
+                    <input type="text" name="batch_number" value="{{ batch_number }}" class="form-input">
+                </div>
+                <div>
+                    <label class="filter-label"><b>所属仓</b></label>
+                    <select name="area" class="form-select">
+                        {% for k, v in warehouse_options.items %}
+                        <option value="{{ v }}" {% if k == area %}selected{% endif %}>{{ k }}</option>
+                        {% endfor %}
+                    </select>
+                </div>
+                <input type="hidden" name="step" value="fleet_delivery_search">
+                <button type="submit">确认</button>
+            </div>
+        </form>
     </div>
-</form>
 
-<div id="loading-bar">
-    <div class="spinner"></div>
-    <p>Loading, please wait...</p>
-</div
-
-<div style="max-height: 800px;">
-    <button id="confirm-all-button" class="btn btn-success" style="font-size: 14px; padding: 8px 16px; margin-bottom: 10px;margin-right:120px; float:right;background-color: #28a745; border: 1px solid #218838; box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1); color: white;">批量确认送达</button>
-    <table id="shipment-table" class="table" style="font-size: 11px; max-height: 95%; overflow-y: scroll;">
-        <thead>
-            <tr style="position: sticky; top: 0;">
-                <th class="th">出库批次</th>
-                <th class="th">预约批次</th>
-                <th class="th">预约号</th>
-                <th class="th">Carrier</th>
-                <th class="th">预约发车日期</th>
-                <th class="th">实际发车日期</th>
-                <th class="th">总重lbs</th>
-                <th class="th">总CBM</th>
-                <th class="th">总卡板数</th>
-                <th class="th">一提两卸</th>
-                <th class="th">备注</th>
-                <th class="th">实际送达时间</th>
-                <th class="th">车次异常</th>
-            </tr>
-            <tr style="position: sticky; top: 52px;" id="fleet-table-filter">
-                <th class="th"><input type="text" id="fleetSearchInput" placeholder="搜索出库批次..." oninput="filterTable(this, 0, true)" size="13" style="font-size: 11px;"></th>
-                <th class="th"><input type="text" id="fleetShipmentSearchInput" placeholder="搜索预约批次..." oninput="filterTable(this, 1, true)" size="13" style="font-size: 11px;"></th>
-                <th class="th"><input type="text" id="appointmentSearchInput" placeholder="搜索ISA..." oninput="filterTable(this, 2, true)" size="13" style="font-size: 11px;"></th>
-                <th class="th"><input type="text" id="carrierSearchInput" placeholder="搜索carrier..." oninput="filterTable(this, 3, true)" size="13" style="font-size: 11px;"></th>
-                <th class="th"></th>
-                <th class="th"></th>
-                <th class="th"></th>
-                <th class="th"></th>
-                <th class="th"></th>
-                <th class="th"></th>
-                <th class="th"></th>
-                <th class="th"></th>
-                <th class="th"></th>
-            </tr>
-        </thead>
-        <tbody>
-            {% for f in fleet %}
-            <form id="pod-form-{{ f.fleet_number }}" method="post" enctype="multipart/form-data" action="" style="overflow-x: auto; max-width: 100%; max-height: 98%; overflow-y: scroll;">
-                {% csrf_token %}
-                <tr>
-                    <td class="td" style="max-width: 120px; word-break: break-all;">{{ f.fleet_number }}</td>
-                    <td class="td" style="max-width: 120px; word-break: break-all;">{{ f.shipment_batch_numbers }}</td>
-                    <td class="td" style="max-width: 120px; word-break: break-all;">{{ f.appointment_ids }}</td>
-                    <td class="td">{{ f.carrier }}</td>
-                    <td class="td">{{ f.appointment_datetime|date:"M-j" }}</td>
-                    <td class="td">
-                        {% if f.arrival_status == "past_due" %}
-                        <span class="status-span-red">{{ f.departured_at|date:"M-j" }}</span>
-                        {% elif f.arrival_status == "need_attention" %}
-                        <span class="status-span-yellow">{{ f.departured_at|date:"M-j" }}</span>
-                        {% else %}
-                        {{ f.departured_at|date:"M-j" }}
-                        {% endif %}
-                    </td>
-                    <td class="td">{{ f.total_weight|floatformat:2 }}</td>
-                    <td class="td">{{ f.total_cbm|floatformat:2 }}</td>
-                    <td class="td">{{ f.total_pallet|floatformat:0 }}</td>
-                    <td class="td">
-                        {% if f.multipule_destination %}
-                        <i class="bi bi-check-square-fill" style="color: rgba(34, 153, 84, 0.873); font-size: 15px"></i>
-                        {% endif %}
-                    </td>
-                    <td class="td" style="max-width: 120px; word-break: break-all;">{{ f.note|default_if_none:"" }}</td>
-                    <td class="td">
-                        <input type="datetime-local" name="arrived_at" class="arrived-at-input" style="font-size: 13px;" required>
-                        <input type="hidden" name="step" value="confirm_delivery">
-                        <input type="hidden" name="fleet_number" value="{{ f.fleet_number }}">
-                        <input type="hidden" name="area" value="{{ area }}">
-                        <button type="submit" class="btn btn-success" style="font-size: 11px;">确认送达</button>
-                    </td>
-                    <td class="td">
-                        <button type="button" class="btn btn-danger" style="font-size: 11px;" onclick="abnormalPopUp('{{ f.fleet_number }}')">异常</button>
-                    </td>
-                </tr>            
-            </form>
-            {% endfor %}
-        </tbody>
-    </table>
+    <div id="loading-bar">
+        <div class="spinner"></div>
+        <p>Loading, please wait...</p>
+    </div>
+    
+    <div style="background: white; border-radius: 8px; padding: 15px; box-shadow: 0 2px 8px rgba(0,0,0,0.1);">
+        <div style="display: flex; justify-content: space-between; margin-bottom: 15px;">
+            <h3 style="margin: 0; font-size: 16px;">            
+                <i class="bi bi-list-check" style="font-size: 18px; color: #ff4d4f;"></i>
+                <span style="font-size: 20px; font-weight: 700; 
+                        text-shadow: 1px 1px 0 #fff, 2px 2px 0 rgba(255,77,79,0.3);
+                        color: #ff4d4f;">
+                    确认送达
+                </span>
+                <span class="badge" style="
+                    display: inline-block;
+                    padding: 3px 8px;
+                    background-color: #1890ff;
+                    color: white;
+                    border-radius: 12px;
+                    font-size: 12px;
+                    font-weight: 500;
+                    margin-left: 8px;
+                    box-shadow: 0 1px 3px rgba(0,0,0,0.1);
+                ">{{ fleet|length }}条</span>
+            </h3>
+            <button id="confirm-all-button" class="primary-btn">
+                <i class="bi bi-upload"></i> 批量确认送达
+            </button>
+        </div>
+        <div style="max-height: 65vh; overflow-y: auto;">
+            <table id="shipment-table" class="table" style="font-size: 11px; max-height: 95%; overflow-y: scroll;">
+                <thead>
+                    <tr style="position: sticky; top: 0;">
+                        <th class="th">出库批次</th>
+                        <th class="th">预约批次</th>
+                        <th class="th">预约号</th>
+                        <th class="th">Carrier</th>
+                        <th class="th">预约发车日期</th>
+                        <th class="th">实际发车日期</th>
+                        <th class="th">总重lbs</th>
+                        <th class="th">总CBM</th>
+                        <th class="th">总卡板数</th>
+                        <th class="th">一提两卸</th>
+                        <th class="th">备注</th>
+                        <th class="th">实际送达时间</th>
+                        <th class="th">车次异常</th>
+                    </tr>
+                    <tr style="position: sticky;" id="fleet-table-filter">
+                        <th class="th"><input type="text" id="fleetSearchInput" placeholder="搜索出库批次..." oninput="filterTable(this, 0, true)" size="13" style="font-size: 11px;"></th>
+                        <th class="th"><input type="text" id="fleetShipmentSearchInput" placeholder="搜索预约批次..." oninput="filterTable(this, 1, true)" size="13" style="font-size: 11px;"></th>
+                        <th class="th"><input type="text" id="appointmentSearchInput" placeholder="搜索ISA..." oninput="filterTable(this, 2, true)" size="13" style="font-size: 11px;"></th>
+                        <th class="th"><input type="text" id="carrierSearchInput" placeholder="搜索carrier..." oninput="filterTable(this, 3, true)" size="13" style="font-size: 11px;"></th>
+                        <th class="th"></th>
+                        <th class="th"></th>
+                        <th class="th"></th>
+                        <th class="th"></th>
+                        <th class="th"></th>
+                        <th class="th"></th>
+                        <th class="th"></th>
+                        <th class="th"></th>
+                        <th class="th"></th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for f in fleet %}
+                    <form id="pod-form-{{ f.fleet_number }}" method="post" enctype="multipart/form-data" action="" style="overflow-x: auto; max-width: 100%; max-height: 98%; overflow-y: scroll;">
+                        {% csrf_token %}
+                        <tr>
+                            <td class="td" style="max-width: 120px; word-break: break-all;">{{ f.fleet_number }}</td>
+                            <td class="td" style="max-width: 120px; word-break: break-all;">{{ f.shipment_batch_numbers }}</td>
+                            <td class="td" style="max-width: 120px; word-break: break-all;">{{ f.appointment_ids }}</td>
+                            <td class="td">{{ f.carrier }}</td>
+                            <td class="td">{{ f.appointment_datetime|date:"M-j" }}</td>
+                            <td class="td">
+                                {% if f.arrival_status == "past_due" %}
+                                <span class="status-span-red">{{ f.departured_at|date:"M-j" }}</span>
+                                {% elif f.arrival_status == "need_attention" %}
+                                <span class="status-span-yellow">{{ f.departured_at|date:"M-j" }}</span>
+                                {% else %}
+                                {{ f.departured_at|date:"M-j" }}
+                                {% endif %}
+                            </td>
+                            <td class="td">{{ f.total_weight|floatformat:2 }}</td>
+                            <td class="td">{{ f.total_cbm|floatformat:2 }}</td>
+                            <td class="td">{{ f.total_pallet|floatformat:0 }}</td>
+                            <td class="td">
+                                {% if f.multipule_destination %}
+                                <i class="bi bi-check-square-fill" style="color: rgba(34, 153, 84, 0.873); font-size: 15px"></i>
+                                {% endif %}
+                            </td>
+                            <td class="td" style="max-width: 120px; word-break: break-all;">{{ f.note|default_if_none:"" }}</td>
+                            <td class="td">
+                                <input type="datetime-local" name="arrived_at" class="arrived-at-input" style="font-size: 13px;" required>
+                                <input type="hidden" name="step" value="confirm_delivery">
+                                <input type="hidden" name="fleet_number" value="{{ f.fleet_number }}">
+                                <input type="hidden" name="area" value="{{ area }}">
+                                <button type="submit" class="btn btn-success" style="font-size: 11px;">确认送达</button>
+                            </td>
+                            <td class="td">
+                                <button type="button" class="btn btn-danger" style="font-size: 11px;" onclick="abnormalPopUp('{{ f.fleet_number }}')">异常</button>
+                            </td>
+                        </tr>            
+                    </form>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </div>
     <div class="popup-window" style="display: none; z-index:999; position: fixed; top: 50%; left: 50%; transform: translate(-50%, -50%); background-color: white; border: 1px solid gray; padding: 20px; max-height: 50%;">
         <form id="pod-form" method="post" enctype="multipart/form-data" action="" style="overflow-x: auto; max-width: 100%; max-height: 98%;">
             {% csrf_token %}
@@ -137,6 +171,86 @@
     </div>
 </div>
 
+<style>
+  .filter-label {
+    display: block;
+    margin-bottom: 5px;
+    font-size: 13px;
+    color: #555;
+  }
+  
+  .form-input, .form-select {
+    width: 100%;
+    padding: 8px 12px;
+    border: 1px solid #ddd;
+    border-radius: 4px;
+    font-size: 13px;
+  }
+  
+  .search-btn {
+    background: #1890ff;
+    color: white;
+    border: none;
+    padding: 8px 15px;
+    border-radius: 4px;
+    cursor: pointer;
+  }
+  
+  .primary-btn {
+    background: #28a745;
+    color: white;
+    border: none;
+    padding: 8px 15px;
+    border-radius: 4px;
+    display: flex;
+    align-items: center;
+    gap: 5px;
+  }
+  
+  .file-upload-btn {
+    border: 1px dashed #ccc;
+    padding: 5px 10px;
+    border-radius: 4px;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    gap: 5px;
+    font-size: 12px;
+  }
+  
+  .data-table {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: 12px;
+  }
+  
+  .data-table th {
+    background: #f5f7fa;
+    position: sticky;
+    top: 0;
+    padding: 10px;
+    text-align: left;
+  }
+  
+  .data-table td {
+    padding: 8px 10px;
+    border-bottom: 1px solid #eee;
+  }
+  
+  .data-row:hover {
+    background-color: #f9f9f9;
+  }
+  
+  .status-span-red {
+    color: #f5222d;
+    font-weight: bold;
+  }
+  
+  .status-span-yellow {
+    color: #faad14;
+    font-weight: bold;
+  }
+</style>
 <script>
     document.getElementById('confirm-all-button').addEventListener('click', function() {
         const form = document.createElement('form');
