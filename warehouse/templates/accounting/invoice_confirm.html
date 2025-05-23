@@ -34,9 +34,13 @@
     </form>
 </div>
 <hr class="Dashed" style="margin-top: 10px; margin-bottom: 10px;">
-<div style="display: flex; max-height: 720px;">
+<div style="display: flex; max-height: 720px;align-items: stretch;">
     <div style="overflow-y: auto; max-height: 100%; width: 30%; border: 2px solid rgb(180, 180, 180); border-radius: 12px; padding: 1%; margin: 1%;">
-        <div><b>待开账单</b></div>
+        <div style="background: #f8f9fa; padding: 8px 12px; border-radius: 6px 6px 0 0; 
+           display: flex;  align-items: center;">
+            <b>待开账单</b>&nbsp;
+            <span style="font-size: 12px; color: #666;">{{ order|length }}条记录</span>
+        </div>
         {% if order %}       
         <form method="post" action="">
             {% csrf_token %}
@@ -77,12 +81,29 @@
         {% endif %}
     </div>
     <div style="overflow-y: auto; max-height: 100%; width: 70%; border: 2px solid rgb(180, 180, 180); border-radius: 12px; padding: 1%; margin: 1%;">
-        <div><b>已开账单</b></div>
-        {% if previous_order %}       
+        <div style="background: #f8f9fa; padding: 8px 12px; border-radius: 6px 6px 0 0;
+            display: flex; justify-content: space-between; align-items: center;">
+            <div>
+                <b>已开账单</b>
+                <span style="font-size: 12px; color: #666;">{{ previous_order|length }}条记录</span>
+            </div>
+            <div style="display: flex; gap: 10px;">
+                <button type="button" onclick="filterByNotification(false)" class="btn btn-sm btn-info">
+                    <i class="bi bi-bell-slash"></i> 未通知
+                </button>
+                <button type="button" onclick="filterByUnsettled()" class="btn btn-sm btn-warning">
+                    <i class="bi bi-cash-coin"></i> 待核销
+                </button>
+                <button type="button" onclick="resetFilters()" class="btn btn-sm btn-secondary">
+                    <i class="bi bi-arrow-counterclockwise"></i> 重置
+                </button>
+            </div>   
+        </div>
+        {% if previous_order %}        
         <form method="post" action="">
             {% csrf_token %}
             <div style="overflow-x: auto; max-width: 100%; overflow-y: auto; max-height: 600px;">
-                <table class="table" id="order-table" style="font-size: 13px;">
+                <table class="table" id="order-table-previous" style="font-size: 13px;">
                     <thead>
                         <tr style="position: sticky; top: 0;">
                             <th class="th" style="max-width: 2%; min-width: 10px; text-align: center;"></th>
@@ -232,6 +253,34 @@
     //存储选中的柜号
     var selectedOrders = [];
     let selectedCustomer = null;
+    //筛选未通知的柜子
+    function filterByNotification(status) {
+        const rows = document.querySelectorAll('#order-table-previous tbody tr');
+        rows.forEach(row => {
+            const statusCell = row.cells[12]; // 通知状态列
+            const shouldShow = statusCell.textContent.trim() === '否';
+            row.style.display = shouldShow ? '' : 'none';
+        });
+    }
+
+    // 筛选待核销账单
+    function filterByUnsettled() {
+        const rows = document.querySelectorAll('#order-table-previous tbody tr');
+        console.log(rows);
+        rows.forEach(row => {
+            console.log(row.cells[2]);
+            const amountCell = row.cells[9]; // 待核销金额列
+            const amount = parseFloat(amountCell.textContent.replace('$', '').replace(/,/g, ''));
+            row.style.display = amount > 0 ? '' : 'none';
+        });
+    }
+
+    // 重置筛选
+    function resetFilters() {
+        document.querySelectorAll('#order-table-previous tbody tr').forEach(row => {
+            row.style.display = '';
+        });
+    }
     function closeModal(modalId) {
         document.getElementById(modalId).style.display = 'none';
     }
