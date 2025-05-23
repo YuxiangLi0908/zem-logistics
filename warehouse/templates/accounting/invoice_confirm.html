@@ -94,6 +94,7 @@
                             <th class="th">建单日期</th>
                             <th class="th">账单日期</th>
                             <th class="th">应收金额</th>
+                            <th class="th">待核销金额</th>
                             <th class="th">操作</th>                          
                             <th class="th">STMT #</th>
                             <th class="th">通知状态</th> 
@@ -108,6 +109,7 @@
                             <th class="th"></th>
                             <th class="th"></th>
                             <th class="th"><input type="text" id="containerSearchInput" placeholder="搜索INVOICE #..." oninput="filterTable(this, 5, true)" size="16" style="font-size: 14px;"></th>
+                            <th class="th"></th>
                             <th class="th"></th>
                             <th class="th"></th>
                             <th class="th"></th>
@@ -134,6 +136,7 @@
                                 <td class="td">{{ c.created_at|date:"Y-m-d" }}</td>
                                 <td class="td">{{ c.invoice_id__invoice_date|date:"Y-m-d" }}</td>
                                 <td class="td">${{ c.invoice_id__receivable_total_amount|floatformat:"2g" }}</td>
+                                <td class="td">${{ c.invoice_id__remain_offset|floatformat:"2g" }}</td>
                                 <td class="td">
                                     <a href="{{ c.invoice_id__invoice_link }}" style="margin-right: 10px;" target="_blank">
                                         <i class="bi bi-file-earmark-bar-graph-fill"></i>
@@ -164,20 +167,205 @@
                     </tbody>
                 </table>
             </div>
-            <!-- <input type="hidden" name="step" value="invoice_order_select"> -->
-            <input type="hidden" name="start_date" value="{{ start_date_confirm }}">
-            <input type="hidden" name="end_date" value="{{ end_date_confirm }}">
-            <input type="hidden" name="invoice_type" value="{{ invoice_type_filter }}">
-            <button type="submit" onclick="confirmSubmit(this, 'invoice_order_select')" class="btn btn-primary" style="width: 150px; height: 35px;">生成STMT <i class="bi bi-receipt"></i></button>
-            <button type="submit" onclick="confirmSubmit(this, 'invoice_order_batch_export')" class="btn btn-success" style="width: 150px; height: 35px;">导出INVOICE <i class="bi bi-file-earmark-bar-graph-fill"></i></button>
-            <button type="submit" onclick="confirmSubmit(this, 'invoice_order_delivered')" class="btn btn-primary" style="width: 150px; height: 35px;">通知客户
-            <button type="submit" onclick="confirmSubmit(this, 'invoice_order_reject')" class="btn btn-success" style="width: 150px; height: 35px;">重开账单
+            <div style="display: flex; flex-wrap: wrap; gap: 10px; margin-top: 15px;">
+                <button type="submit" onclick="confirmSubmit(this, 'invoice_order_select')" class="btn btn-primary" style="flex: 1; min-width: 120px; height: 35px;">
+                    <i class="bi bi-receipt"></i> 生成STMT
+                </button>
+                <button type="submit" onclick="confirmSubmit(this, 'invoice_order_batch_export')" class="btn btn-success" style="flex: 1; min-width: 120px; height: 35px;">
+                    <i class="bi bi-file-earmark-bar-graph-fill"></i> 导出
+                </button>
+                <button type="submit" onclick="confirmSubmit(this, 'invoice_order_delivered')" class="btn btn-primary" style="flex: 1; min-width: 120px; height: 35px;">
+                    <i class="bi bi-envelope"></i> 通知
+                </button>
+                <button type="submit" onclick="confirmSubmit(this, 'invoice_order_reject')" class="btn btn-warning" style="flex: 1; min-width: 120px; height: 35px;">
+                    <i class="bi bi-arrow-counterclockwise"></i> 重开
+                </button>
+                <button type="button" onclick="adjustBalance(this)" class="btn btn-danger" style="flex: 1; min-width: 120px; height: 35px;">
+                    <i class="bi bi-currency-dollar"></i> 核销
+                </button>
+            </div>
         </form>
         {% endif %}
     </div>
 </div>
+<!--核销余额的弹窗-->
+<div id="adjustBalanceModal" style="display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background-color: rgba(0,0,0,0.5); z-index: 999; overflow-y: auto;">
+    <div style="position: relative; top: 50%; left: 50%; transform: translate(-50%, -50%); width: 90%; max-width: 700px; background: white; border-radius: 8px; box-shadow: 0 4px 20px rgba(0,0,0,0.15); padding: 25px;">
+        <span class="close-modal" style="position: absolute; top: 15px; right: 15px; font-size: 24px; cursor: pointer; color: #666;" onclick="closeModal('adjustBalanceModal')">&times;</span>   
+        <h3 style="margin-top: 0; margin-bottom: 20px; color: #333; font-size: 18px; font-weight: 600;">核销客户余额</h3>
+        <!--选中的货柜详情-->
+        <div id="selectedOrdersInfo" style="margin-bottom: 20px;"></div>
+
+        <form method="post" action="" id="adjustBalanceForm" style="margin-bottom: 15px;" enctype="multipart/form-data">
+            {% csrf_token %}
+            <input type="hidden" name="step" value="adjustBalance">
+            <input type="hidden" name="customerId" id="selectCustomerId" value="">
+            <input type="hidden" name="start_date_confirm" value="{{ start_date_confirm }}">
+            <input type="hidden" name="end_date_confirm" value="{{ end_date_confirm }}">
+            <input type="hidden" name="selectedOrders" id="selectedOrdersData" value="">
+            <div class="form-group" style="margin-bottom: 15px;">
+                <div style="flex: 1;">
+                    <label style="display: block; margin-bottom: 6px; font-size: 14px; color: #555;">美元金额 (USD)：</label>
+                    <input type="number" id="usdAmount" name="usdamount"
+                        style="width: 100%; padding: 8px 12px; border: 1px solid #ddd; border-radius: 4px; font-size: 14px;"
+                        step="0.01" 
+                        min="0.01" 
+                        placeholder="输入美元金额">
+                </div>
+            </div>
+
+            <div class="form-group" style="margin-bottom: 20px;">
+                <label style="display: block; margin-bottom: 6px; font-size: 14px; color: #555;">备注：</label>
+                <textarea name="note" 
+                        style="width: 100%; padding: 8px 12px; border: 1px solid #ddd; border-radius: 4px; font-size: 14px; min-height: 80px;"
+                        placeholder="请输入备注信息（可选）"></textarea>
+            </div>
+            
+            <div style="display: flex; justify-content: flex-end; gap: 10px;">
+                <button type="button" class="btn-cancel close-modal" style="padding: 8px 16px; background: #f0f0f0; border: none; border-radius: 4px; cursor: pointer; font-size: 14px;" onclick="closeModal('adjustBalanceModal')">取消</button>
+                <button type="submit" style="padding: 8px 16px; background: #1890ff; color: white; border: none; border-radius: 4px; cursor: pointer; font-size: 14px;" onclick="ValidateWriteOff(event)">确认提交</button>
+            </div>
+        </form>
+    </div>
+</div>
 <script>
-    var selectedOrders = []; //存储选中的柜号
+    //存储选中的柜号
+    var selectedOrders = [];
+    let selectedCustomer = null;
+    function closeModal(modalId) {
+        document.getElementById(modalId).style.display = 'none';
+    }
+    function ValidateWriteOff(event){
+        event.preventDefault();
+        const usdAmountInput = document.getElementById('usdAmount');
+        const usdAmount = parseFloat(usdAmountInput.value);
+        if (isNaN(usdAmount) || usdAmount <= 0) {
+            alert('请输入有效的核销金额（必须大于0）');
+            usdAmountInput.focus();
+            return false;
+        }
+
+        const customerBalance = getCustomerBalance(selectedCustomer);
+        if (customerBalance<usdAmount){
+            alert(`客户余额不足！当前余额：$${customerBalance.toFixed(2)}，核销金额：$${usdAmount.toFixed(2)}`);
+            return false;
+        }
+        document.getElementById('adjustBalanceForm').submit();
+    }
+    
+    function adjustBalance(button) { 
+        const selectedRows = document.querySelectorAll('#order-table tbody tr input[name="is_order_selected_click"]:checked');  
+        if (selectedRows.length === 0) {
+            alert('未选中数据！');
+            event.preventDefault();
+            return;
+        } else {
+            const selectedOrdersInfo = [];
+            let customerName = null;
+            let sameCustomer = true;
+
+            selectedRows.forEach(row => {
+                const rowData = row.closest('tr');
+                const currentCustomer = rowData.cells[1].textContent.trim();
+
+                if (customerName === null) {
+                    customerName = currentCustomer;
+                } else if (customerName !== currentCustomer) {
+                    sameCustomer = false;
+                }
+                selectedOrdersInfo.push({
+                    containerNumber: rowData.cells[2].textContent.trim(),
+                    amount: rowData.cells[8].textContent.trim(),
+                    customerName: currentCustomer
+                });
+            });
+            //先验证选中的是不是同一个客户的
+            if (!sameCustomer){
+                alert('请选择同一客户的账单进行核销!');
+                return ;
+            }
+            //获取该客户的余额
+            const customerBalance = getCustomerBalance(customerName);
+
+            const popup = document.getElementById('adjustBalanceModal');
+            popup.style.display = 'block';
+            selectedCustomer = customerName;
+            
+            const ordersInfoContainer = document.getElementById('selectedOrdersInfo');
+            ordersInfoContainer.innerHTML = ''; 
+            //客户信息展示
+            const customerInfoDiv = document.createElement('div');
+            customerInfoDiv.style.marginBottom = '15px';
+            customerInfoDiv.style.padding = '10px';
+            customerInfoDiv.style.backgroundColor = '#f8f9fa';
+            customerInfoDiv.style.borderRadius = '4px';
+            customerInfoDiv.innerHTML = `
+                <div><strong>客户名称：</strong>${customerName}</div>
+                <div><strong>当前余额：</strong>$${customerBalance.toFixed(2)}</div>
+            `;
+            ordersInfoContainer.appendChild(customerInfoDiv);
+            //填充选中的货柜详情
+            const table = document.createElement('table');
+            table.style.width = '100%';
+            table.style.borderCollapse = 'collapse';
+            table.style.marginBottom = '15px';
+            
+            const thead = document.createElement('thead');
+            thead.innerHTML = `
+                <tr>
+                    <th style="border: 1px solid #ddd; padding: 8px; text-align: left; background-color: #f2f2f2;">货柜号</th>
+                    <th style="border: 1px solid #ddd; padding: 8px; text-align: left; background-color: #f2f2f2;">应收金额</th>
+                </tr>
+            `;
+            table.appendChild(thead);
+            const tbody = document.createElement('tbody');
+            selectedOrdersInfo.forEach(order => {
+                const row = document.createElement('tr');
+                row.innerHTML = `
+                    <td style="border: 1px solid #ddd; padding: 8px;">${order.containerNumber}</td>
+                    <td style="border: 1px solid #ddd; padding: 8px;">${order.amount}</td>
+                `;
+                tbody.appendChild(row);
+            });
+            table.appendChild(tbody);
+            
+            // 计算总计
+            const total = selectedOrdersInfo.reduce((sum, order) => {
+                return sum + parseFloat(order.amount.replace('$', '').replace(/,/g, ''));
+            }, 0);
+            
+            const totalRow = document.createElement('tr');
+            totalRow.innerHTML = `
+                <td style="border: 1px solid #ddd; padding: 8px; font-weight: bold;">总计</td>
+                <td style="border: 1px solid #ddd; padding: 8px; font-weight: bold;">$${total.toFixed(2)}</td>
+            `;
+            tbody.appendChild(totalRow);
+            
+            ordersInfoContainer.appendChild(table);
+            document.getElementById('selectCustomerId').value = getCustomerId(customerName);
+            document.getElementById('selectedOrdersData').value = JSON.stringify(selectedOrders);
+            
+        }
+    }
+    function getCustomerBalance(customerName) {
+        // 这里应该是从后端传入的数据中查找
+        // 假设 existing_customers 是一个全局变量，包含了所有客户数据
+        const customer = existing_customers.find(c => c.zem_name === customerName);
+        return customer ? customer.balance : 0;
+    }
+    function getCustomerId(customerName) {
+        const customer = existing_customers.find(c => c.zem_name === customerName);
+        return customer ? customer.id : '';
+    }
+    const existing_customers = [
+        {% for customer in existing_customers %}
+        {
+            id: '{{ customer.id }}',
+            zem_name: '{{ customer.zem_name }}',
+            balance: {{ customer.balance|default:0 }}
+        }{% if not forloop.last %},{% endif %}
+        {% endfor %}
+    ];
 
     document.getElementById('selectAll').addEventListener('click', function () {
         var checkboxes = document.getElementsByName('is_order_selected_click');

@@ -19,6 +19,7 @@ from django.contrib.auth.decorators import login_required
 from django.contrib.auth.models import User
 from django.contrib.postgres.aggregates import StringAgg
 from django.db import models
+from django.utils import timezone
 from django.db.models import (
     Case,
     CharField,
@@ -51,6 +52,7 @@ from simple_history.utils import bulk_create_with_history, bulk_update_with_hist
 
 from warehouse.forms.order_form import OrderForm
 from warehouse.models.customer import Customer
+from warehouse.models.transaction import Transaction
 from warehouse.models.fee_detail import FeeDetail
 from warehouse.models.container import Container
 from warehouse.models.invoice import (
@@ -323,26 +325,18 @@ class Accounting(View):
         elif step == "confirm_combina_save":
             template, context = self.handle_invoice_confirm_combina_save(request)
             return render(request, template, context)
+        elif step == "adjustBalance":
+            template, context = self.handle_adjust_balance_save(request)
+            return render(request, template, context)
         else:
             raise ValueError(f"unknow request {step}")
 
     def migrate_payable_to_receivable(self) -> tuple[Any, Any]:
         invoices = Invoice.objects.all()
         for invoice in invoices:
-            invoice.receivable_total_amount = invoice.payable_total_amount
-            invoice.receivable_preport_amount = invoice.payable_preport_amount
-            invoice.receivable_warehouse_amount = invoice.payable_warehouse_amount
-            invoice.receivable_delivery_amount = invoice.payable_delivery_amount
-            invoice.receivable_direct_amount = invoice.payable_direct_amount
-
-            # 将payable字段重置为0.0
-            invoice.payable_total_amount = 0.0
-            invoice.payable_preport_amount = 0.0
-            invoice.payable_warehouse_amount = 0.0
-            invoice.payable_delivery_amount = 0.0
-            invoice.payable_direct_amount = 0.0
-
-            invoice.save()
+            if invoice.receivable_total_amount:
+                invoice.remain_offset = invoice.receivable_total_amount
+                invoice.save()
         context = {}
         return self.template_invoice_preport, context
 
@@ -1256,6 +1250,7 @@ class Accounting(View):
                 "invoice_id__statement_id__invoice_statement_id",
                 "invoice_id__statement_id__statement_link",
                 "invoice_id__is_invoice_delivered",
+                "invoice_id__remain_offset"
             )
             .filter(criteria, **{f"{invoice_type}_status__stage": "confirmed"})
         )
@@ -1286,6 +1281,8 @@ class Accounting(View):
         previous_order = self.process_orders_display_status(
             previous_order, invoice_type
         )
+        #前端查询客户余额
+        existing_customers = Customer.objects.all().order_by("zem_name")
         context = {
             "order": order,
             "previous_order": previous_order,
@@ -1296,6 +1293,7 @@ class Accounting(View):
             "warehouse_options": self.warehouse_options,
             "warehouse_filter": warehouse,
             "invoice_type_filter": invoice_type,
+            "existing_customers": existing_customers,
         }
         return self.template_invoice_confirm, context
 
@@ -2100,8 +2098,14 @@ class Accounting(View):
             invoice.invoice_link = invoice_data["invoice_link"]
             if order.order_type =="直送":
                 invoice.receivable_total_amount = float(invoice.receivable_direct_amount or 0)
+                invoice.remain_offset = float(invoice.receivable_direct_amount or 0)
             else:
                 invoice.receivable_total_amount = (
+                    float(invoice.receivable_preport_amount or 0)
+                    + float(invoice.receivable_warehouse_amount or 0)
+                    + float(invoice.receivable_delivery_amount or 0)
+                )
+                invoice.remain_offset = (
                     float(invoice.receivable_preport_amount or 0)
                     + float(invoice.receivable_warehouse_amount or 0)
                     + float(invoice.receivable_delivery_amount or 0)
@@ -2257,6 +2261,7 @@ class Accounting(View):
         if invoice_type == "receivable":
             invoice.invoice_link = invoice_data["invoice_link"]
             invoice.receivable_total_amount = total_fee
+            invoice.remain_offset = total_fee
         elif invoice_type == "payable":
             invoice.invoice_link = invoice_data["invoice_link"]
             invoice.payable_total_amount = total_fee
@@ -3767,6 +3772,7 @@ class Accounting(View):
                     "payable_warehouse_amount": 0.0,
                     "payable_delivery_amount": 0.0,
                     "payable_direct_amount": 0.0,
+                    "remain_offset": 0.0,
                 }
             )
             invoice.save()
@@ -4112,6 +4118,7 @@ class Accounting(View):
                 "customer": context["order"].customer_name,
                 "container_number": context["order"].container_number,
                 "receivable_total_amount": invoice_data["total_amount"],
+                "remain_offset": invoice_data["total_amount"],
             }
         )
         invoice.save()
@@ -4230,6 +4237,7 @@ class Accounting(View):
         # invoice.invoice_date = invoice_data["invoice_date"]
         invoice.invoice_link = invoice_data["invoice_link"]
         invoice.receivable_total_amount = invoice_data["total_amount"]
+        invoice.remain_offset = invoice_data["total_amount"]
         invoice.save()
         # update invoice item information
         InvoiceItem.objects.filter(
@@ -4322,6 +4330,43 @@ class Accounting(View):
         response = HttpResponse(zip_buffer.read(), content_type="application/zip")
         response["Content-Disposition"] = 'attachment; filename="invoices.zip"'
         return response
+
+    def handle_adjust_balance_save(self, request: HttpRequest) -> tuple[Any, Any]:
+        customer_id = request.POST.get('customerId')      
+        customer = Customer.objects.get(id=customer_id)
+        amount = float(request.POST.get('usdamount'))
+        note = request.POST.get('note')
+        user = request.user if request.user.is_authenticated else None
+
+        selected_orders = json.loads(request.POST.get("selectedOrders", "[]"))
+        selected_orders = list(set(selected_orders))
+        #查账单，按待核销金额从小到大排序
+        invoices = Invoice.objects.filter(
+            container_number__container_number__in=selected_orders
+        ).order_by("remain_offset")
+        sum_offset = 0.0
+        for invoice in invoices:
+            if amount <= 0:
+                break
+            offset_amount = min(amount, invoice.remain_offset)
+            sum_offset += offset_amount
+            invoice.remain_offset -= offset_amount
+            invoice.save()
+            amount -= offset_amount
+        
+        transaction = Transaction.objects.create(
+            customer=customer,
+            amount=sum_offset,
+            transaction_type="write_off",
+            note=note,
+            created_by=user,
+            created_at= timezone.now(),
+        )
+        
+        customer.balance = (customer.balance - sum_offset)
+        customer.save()
+        return self.handle_invoice_confirm_get(request,request.POST.get('start_date_confirm'),request.POST.get('end_date_confirm'))
+
 
     def _generate_invoice_excel(
         self,

@@ -152,7 +152,6 @@ class CustomerManagement(View):
         existing_customers = Customer.objects.all().order_by("zem_name")
         context = {
             "existing_customers": existing_customers,
-            "customer_form": CustomerForm(),
         }
         return context
     
@@ -160,7 +159,6 @@ class CustomerManagement(View):
         #记录元素
         transaction_type = request.POST.get("transaction_type")
         amount = float(request.POST.get("usdamount"))
-        print('费用是',amount)
         note = request.POST.get("note")
         customer_id = request.POST.get("customerId")
         customer = Customer.objects.get(id=customer_id)
