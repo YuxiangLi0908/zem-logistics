@@ -188,6 +188,7 @@
                     </tbody>
                 </table>
             </div>
+            <input type="hidden" name="invoice_type" value="{{ invoice_type_filter }}">
             <div style="display: flex; flex-wrap: wrap; gap: 10px; margin-top: 15px;">
                 <button type="submit" onclick="confirmSubmit(this, 'invoice_order_select')" class="btn btn-primary" style="flex: 1; min-width: 120px; height: 35px;">
                     <i class="bi bi-receipt"></i> 生成STMT
