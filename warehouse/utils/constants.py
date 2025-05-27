@@ -312,6 +312,11 @@ INVOICE_ITEM_TABLE_MAPPING={
     "名称":"description",
     "仓库":"warehouse_code",
 }
+INVOICE_TABLE_MAPPING = {
+    "应收总金额":"receivable_total_amount",
+    "应付总金额":"payable_total_amount",
+    "通知客户":"is_invoice_delivered",
+}
 MODEL_CHOICES = {
     #直接根据container_number就能找的类型
     "packinglist": {
@@ -403,6 +408,17 @@ MODEL_CHOICES = {
         "station_field": [],
         "mapping": INVOICE_ITEM_TABLE_MAPPING,
         'transfer_table':'Invoice',
+    },
+    "invoice": {
+        "model": "HistoricalInvoice",
+        "name": "总账单",
+        "search_field": "invoice_number",
+        "search_process":"container_number__container_number",
+        "has_foreignKey":True,
+        "warehouse": "warehouse_invoice",
+        "station_field": [],
+        "mapping": INVOICE_TABLE_MAPPING,
+        'transfer_table':None,
     },
 }
 file_path = Path(__file__).parent.resolve().joinpath("fba_fulfillment_center.yaml")
