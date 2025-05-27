@@ -316,6 +316,17 @@ INVOICE_TABLE_MAPPING = {
     "应收总金额":"receivable_total_amount",
     "应付总金额":"payable_total_amount",
     "通知客户":"is_invoice_delivered",
+    "最新账单生成时间":"invoice_date",
+    "账单链接":"invoice_link",
+    "应收提拆费":"receivable_preport_amount",
+    "应收仓库费":"receivable_warehouse_amount",
+    "应收派送费":"receivable_delivery_amount",
+    "应收直送费":"receivable_direct_amount",
+    "应付提拆费":"payable_preport_amount",
+    "应付仓库费":"payable_warehouse_amount",
+    "应付派送费":"payable_delivery_amount",
+    "应付直送费":"payable_direct_amount",
+    "待核销金额":"remain_offset"
 }
 MODEL_CHOICES = {
     #直接根据container_number就能找的类型
