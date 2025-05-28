@@ -328,6 +328,9 @@ INVOICE_TABLE_MAPPING = {
     "应付直送费":"payable_direct_amount",
     "待核销金额":"remain_offset"
 }
+ORDER_TABLE_MAPPING = {
+    "柜型":"order_type",
+}
 MODEL_CHOICES = {
     #直接根据container_number就能找的类型
     "packinglist": {
@@ -350,6 +353,17 @@ MODEL_CHOICES = {
         "warehouse": "warehouse_pallet",
         "station_field": ["destination", "delivery_method"],
         "mapping": PALLET_TABLE_MAPPING,
+        'transfer_table':None,
+    },
+    "order": {
+        "model": "HistoricalOrder",
+        "name": "订单信息",
+        "search_field": "container_number",
+        "search_process":"container_number__container_number",
+        "has_foreignKey":True,
+        "warehouse": "warehouse_pallet",
+        "station_field": [],
+        "mapping": ORDER_TABLE_MAPPING,
         'transfer_table':None,
     },
     "shipment": {
