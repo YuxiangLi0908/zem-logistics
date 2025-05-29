@@ -4,11 +4,7 @@
 <div>
     <h4><b>直送应收账单编辑</b></h4>
     <span style="background: linear-gradient(to right, #096dd9, #40a9ff); color: white; padding: 3px 8px; border-radius: 4px;">
-        {% if invoice_type == 'receivable' %}
-            应收账单
-        {% else %}
-            应付账单
-        {% endif %}
+        应收账单
     </span>
 </div>
 <div  style="display: inline-block; width: 100%; margin: 0; padding: 0; max-width: 100%;">
@@ -206,7 +202,6 @@
             
         <input type="hidden" name="step" value="direct_save">
         <input type="hidden" name="save_type" id="save_type" value="">
-        <input type="hidden" name="invoice_type" value="{{ invoice_type }}">
         <input type="hidden" name="warehouse" value="{{warehouse}}">
         <input type="hidden" name="container_number" value="{{ container_number }}">
         <input type="hidden" name="start_date" value="{{ start_date }}">

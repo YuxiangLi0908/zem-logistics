@@ -4,11 +4,7 @@
 <div style="display: flex; align-items: center; gap: 8px;">
     <h4><b>派送账单编辑——总计 $<span class="total_amount">0</span></b></h4>
     <span style="background: linear-gradient(to right, #096dd9, #40a9ff); color: white; padding: 3px 8px; border-radius: 4px;">
-        {% if invoice_type == 'receivable' %}
-            应收账单
-        {% else %}
-            应付账单
-        {% endif %}
+        应收账单
     </span>
     <span style="background: linear-gradient(to right, #d4380d, #ff7a45); color: white; padding: 3px 8px; border-radius: 4px;">
         {% if delivery_type == 'public' %}
@@ -30,7 +26,6 @@
         <input type="hidden" name="amount" value="">
         <input type="hidden" name="start_date" value="{{ start_date }}">
         <input type="hidden" name="end_date" value="{{ end_date }}">
-        <input type="hidden" name="invoice_type" value="{{ invoice_type }}">
         <input type="hidden" name="warehouse" value="{{ warehouse }}">
         <input type="hidden" name="delivery_type" value="other">
         <input type="hidden" name="start_date_confirm" value="{{ start_date_confirm }}">
@@ -102,7 +97,6 @@
                         <input type="hidden" name="type" value="local">
                         <input type="hidden" name="start_date" value="{{ start_date }}">
                         <input type="hidden" name="end_date" value="{{ end_date }}">
-                        <input type="hidden" name="invoice_type" value="{{ invoice_type }}">
                         <input type="hidden" name="redirect_step" value="{{ redirect_step }}">
                         <input type="hidden" name="warehouse" value="{{ warehouse }}">
                         <input type="hidden" name="container_number" value={{ container_number }}>
@@ -165,7 +159,6 @@
                     <input type="hidden" name="type" value="selfdelivery">  
                     <input type="hidden" name="start_date" value="{{ start_date }}">
                     <input type="hidden" name="end_date" value="{{ end_date }}">
-                    <input type="hidden" name="invoice_type" value="{{ invoice_type }}">
                     <input type="hidden" name="redirect_step" value="{{ redirect_step }}">   
                     <input type="hidden" name="warehouse" value="{{ warehouse }}">              
                     <input type="hidden" name="container_number" value="{{ container_number }}">
@@ -227,7 +220,6 @@
                     <input type="hidden" name="type" value="selfpickup">  
                     <input type="hidden" name="start_date" value="{{ start_date }}">
                     <input type="hidden" name="end_date" value="{{ end_date }}">
-                    <input type="hidden" name="invoice_type" value="{{ invoice_type }}">
                     <input type="hidden" name="redirect_step" value="{{ redirect_step }}">   
                     <input type="hidden" name="warehouse" value="{{ warehouse }}">              
                     <input type="hidden" name="container_number" value="{{ container_number }}">
@@ -245,7 +237,6 @@
             <div style="display: flex;">
                 <input type="hidden" name="step" value="add_delivery_type">
                 <input type="hidden" id="alter_type" name="alter_type">
-                <input type="hidden" name="invoice_type" value="{{ invoice_type }}">
                 <input type="hidden" name="delivery_type" value="{{ delivery_type }}">
                 <input type="hidden" name="container_number" value="{{ container_number }}">
                 <input type="hidden" name="redirect_step" value="{{ redirect_step }}">

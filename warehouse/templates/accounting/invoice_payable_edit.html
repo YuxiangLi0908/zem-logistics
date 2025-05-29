@@ -1,0 +1,511 @@
+{% extends 'base.html' %}
+
+{% block content %}
+<form method="post" action="" class="mb-0">
+    {% csrf_token %}
+    <input type="hidden" name="step" value="payable_save">
+    <input type="hidden" name="save_type" id="save_type" value="">
+    <input type="hidden" name="container_number" value="{{ container_number }}">
+    <input type="hidden" name="start_date" value="{{ start_date }}">
+    <input type="hidden" name="end_date" value="{{ end_date }}">
+    <input type="hidden" name="warehouse" value="{{ warehouse }}">
+    <input type="hidden" name="warehouse_filter" value="{{ warehouse_filter }}">
+    <input type="hidden" name="invoice_number" value="{{ invoice_number }}">
+    <input type="hidden" id="total_amount_input" name="total_amount" value="0">
+
+<style>
+    .fee-table {
+        border-collapse: separate;
+        border-spacing: 0;
+        width: 100%;
+    }
+    .fee-table thead th {
+        background-color: #f1f5f9; 
+        color: #2c3e50; 
+        border-bottom: 2px solid #dee2e6;
+    }
+    .fee-table tbody tr {
+        transition: all 0.2s ease;
+    }
+    .fee-table tbody tr:hover {
+        background-color: #f8f9fa !important;
+    }
+    .fee-table td {
+        padding: 12px 15px;
+        border-bottom: 1px solid #e9ecef;
+        vertical-align: middle;
+    }
+    .fee-table tbody tr:last-child td {
+        border-bottom: 2px solid #dee2e6;
+    }
+    .fee-item {
+        display: flex;
+        align-items: center;
+        gap: 10px;
+    }
+    .fee-icon-container {
+        width: 32px;
+        height: 32px;
+        border-radius: 50%;
+        background-color: #e9f5ff;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+    }
+    .fee-icon {
+        color: #3498db;
+        font-size: 16px;
+    }
+    .fee-detail {
+        color: #7f8c8d;
+        font-size: 0.85rem;
+    }
+    .fee-amount {
+        font-weight: 600;
+        color: #2c3e50;
+    }
+    .supplier-select {
+        border: 1px solid #dfe6e9;
+        border-radius: 6px;
+        padding: 6px 12px;
+        background-color: white;
+        width: 100%;
+        max-width: 250px;
+    }
+    .invoice-header {
+        background-color: #2c3e50;
+        color: white;
+        border-bottom: 1px solid #34495e;
+    }
+    .total-amount {
+        font-size: 1.5rem;
+        color: #212529;
+    }
+    .fee-table {
+        background-color: #fff;
+    }
+    .fee-table thead {
+        background-color: #f8f9fa;
+    }
+    .fee-icon {
+        color: #6c757d;
+        margin-right: 8px;
+    }
+    .border-highlight {
+        border-left: 3px solid #e9ecef;
+        padding-left: 12px;
+    }
+    .btn-outline-light {
+        border-color: #dee2e6;
+    }
+    /* 其他费用样的样式 */
+    .additional-fees-header {
+        display: flex;
+        align-items: center;
+        margin-bottom: 15px;
+    }
+    .additional-fees-title {
+        flex-grow: 1;
+        color: #6c757d;
+    }
+    .add-fee-btn {
+        opacity: 1; 
+        transition: all 0.3s ease;
+    }
+    .add-fee-btn:hover {
+        transform: translateY(-1px);
+    }
+    .readonly-amount {
+        display: inline-block;
+        min-width: 80px;
+        padding: 6px 12px;
+        background-color: #f8f9fa;
+        border-radius: 4px;
+        font-weight: 600;
+        color: #2c3e50;
+    }
+</style>
+{% if reason %}
+    <div class="alert alert-danger d-flex align-items-center py-2 px-3 mb-0">
+        <i class="bi bi-exclamation-triangle-fill me-2"></i>
+        <span>{{ reason }}</span>
+    </div>
+{% else %}
+<div class="container-fluid mt-3">
+    <div class="card-header p-2 invoice-header">
+        <div class="d-flex justify-content-between align-items-center">
+            <h5 class="mb-0 d-flex align-items-center">
+                <i class="bi bi-cash-stack me-1"></i>
+                应付费用账单: $             
+                <span id="totalAmountDisplay" name="totalAmountDisplay" class="mx-1">0.0</span>
+            </h5>
+    
+            <span class="mx-auto" style="font-size: 1rem; color: white;">{{ invoice_number }}-{{ container_number }}
+                {% if is_save_invoice %} （数据库读取）{% else %}（报价表计算）{% endif %}
+            </span>            
+            
+            {% if not is_confirm_invoice %}
+                <button type="submit" class="btn btn-primary btn-sm" onclick="modifyStatus('temporary')">
+                    <i class="bi bi-pencil me-1"></i>暂存
+                </button>
+                &nbsp;&nbsp;
+                <button type="submit" class="btn btn-success btn-sm" onclick="modifyStatus('complete')">
+                    <i class="bi bi-check-circle me-1"></i>确认账单
+                </button>
+            {% else %}
+                <button type="submit" class="btn btn-success btn-sm" onclick="modifyStatus('return')">
+                    <i class="bi bi-check-circle me-1"></i>返回
+                </button>
+            {% endif %}
+        </div>   
+    </div>
+
+    <div class="card shadow-sm border-0 rounded-bottom">
+        <div class="card-body p-4">
+            <div class="row mb-4 g-4">
+                <div class="col-md-4">
+                    <div class="border-highlight">
+                        <h6 class="text-muted mb-2">仓库信息</h6>
+                        <h5 class="mb-0">{{ warehouse }}</h5>
+                    </div>
+                </div>
+                <div class="col-md-4">
+                    <div class="border-highlight">
+                        <h6 class="text-muted mb-2">柜型</h6>
+                        <h5 class="mb-0">{{ container_type }}</h5>
+                    </div>
+                </div>
+                <div class="col-md-4">
+                    <div class="border-highlight">
+                        <h6 class="text-muted mb-2">提柜供应商</h6>
+                        <h5 class="mb-0">{{ preport_carrier }}</h5>
+                    </div>
+                </div>
+            </div>
+
+            <div class="table-responsive">
+                <table class="table fee-table">
+                    <thead>
+                        <tr>
+                            <th width="40%">费用项目</th>
+                            <th width="40%">详情</th>
+                            <th width="20%" class="text-end">金额 (USD)</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        <tr>
+                            <td>
+                                <div class="fee-item">
+                                    <div class="fee-icon-container">
+                                        <i class="bi bi-truck fee-icon"></i>
+                                    </div>
+                                    <span>提柜费用</span>
+                                </div>
+                            </td>
+                            <td>
+                                <small class="fee-detail">基础费用</small>
+                            </td>
+                            <td class="text-end fee-amount">
+                                {% if is_confirm_invoice %}
+                                    <span class="readonly-amount">{{ basic_fee|floatformat:2 }}</span>
+                                {% else %}
+                                    <input type="text" name="basic_fee" value="{{ basic_fee }}">
+                                {% endif %}                           
+                            </td>
+                        </tr>
+
+                        {% if pallet_details %}                            
+                            <tr>
+                                <td>
+                                    <div class="fee-item">
+                                        <div class="fee-icon-container">
+                                            <i class="bi bi-box-seam fee-icon"></i>
+                                        </div>
+                                        <span>拆柜费用</span>
+                                    </div>
+                                </td>
+                                <td>
+                                    {% if not is_confirm_invoice %}
+                                        <select class="supplier-select" id="select_carrier" onchange="updateUnloadingFee(this)">
+                                            {% if not is_save_invoice %}
+                                            <option value="">-- 选择供应商 --</option>
+                                            {% endif %}
+                                            {% for key,value in pallet_details.items %}
+                                            <option value="{{ value }}" data-name="{{ key }}">{{ key }}</option>
+                                            {% endfor %}
+                                        </select>
+                                        <input type="hidden" id="palletization_carrier" name="palletization_carrier">
+                                    {% else %}
+                                        {% for key,value in pallet_details.items %}
+                                            <small class="fee-detail">{{ key }}</small>
+                                        {% endfor %}                                  
+                                    {% endif %}
+                                </td>
+                                <td class="text-end fee-amount">
+                                    {% if not is_save_invoice %}
+                                        <span id="unloading_fee_display">0.00</span>
+                                        <input type="hidden" id="unloading_fee" name="palletization_fee" value="0">
+                                    {% else %}
+                                        {% for key,value in pallet_details.items %}
+                                            <span class="readonly-amount">{{ value }}</span>
+                                        {% endfor %}                                         
+                                    {% endif %}
+                                </td>
+                            </tr>
+                        {% endif %}
+
+                        {% if arrive_fee %}
+                        <tr>
+                            <td>
+                                <div class="fee-item">
+                                    <div class="fee-icon-container" style="background-color: #e8f5e9;">
+                                        <i class="bi bi-box-arrow-in-down fee-icon" style="color: #27ae60;"></i>
+                                    </div>
+                                    <span>入库拆柜费</span>
+                                </div>
+                            </td>
+                            <td>
+                                <div class="fee-detail">基础费用</div>
+                            </td>
+                            <td class="text-end fee-amount">
+                                {% if is_confirm_invoice %}
+                                    <span id="unloading_fee_display">{{ arrive_fee }}</span>
+                                {% else %}
+                                    <input type="text" name="arrive_fee" value="{{ arrive_fee }}">
+                                {% endif %}
+                            </td>
+                        </tr>
+                        {% endif %}
+
+                        {% if not pallet_details and not arrive_fee%}
+                            <tr>
+                                <td>
+                                    <div class="fee-item">
+                                        <div class="fee-icon-container" style="background-color: #e8f5e9;">
+                                            <i class="bi bi-box-arrow-in-down fee-icon" style="color: #27ae60;"></i>
+                                        </div>
+                                        <span>入库拆柜费</span>
+                                    </div>
+                                </td>
+                                <td colspan="2">不产生费用</td>
+                            </tr>
+                        {% endif %}
+
+                        <tr>
+                            <td>
+                                <div class="fee-item">
+                                    <div class="fee-icon-container" style="background-color: #ffebee;">
+                                        <i class="bi bi-exclamation-triangle fee-icon" style="color: #e74c3c;"></i>
+                                    </div>
+                                    <span>超重费用</span>
+                                </div>
+                            </td>
+                            <td>
+                                <div class="fee-detail">当前重量: {{ actual_weight }} 磅 {% if overweight_fee %}(超过42,000磅){% else %}未超重{% endif %}</div>
+                            </td>
+                            
+                            {% if overweight_fee %}
+                            <td class="text-end fee-amount">
+                                {% if is_confirm_invoice %}
+                                    <span class="readonly-amount">{{ overweight_fee|floatformat:2 }}</span>
+                                {% else %}
+                                    <input type="text" name="overweight_fee" value="{{ overweight_fee }}">
+                                {% endif %} 
+                            </td>   
+                            {% else %}
+                                <td>不产生费用</td>
+                            {% endif %}                       
+                            </td>
+                        </tr>
+                        
+                        <tr>
+                            <td>
+                                <div class="fee-item">
+                                    <div class="fee-icon-container" style="background-color: #fff8e1;">
+                                        <i class="bi bi-truck-flatbed fee-icon" style="color: #f39c12;"></i>
+                                    </div>
+                                    <span>车架费用</span>
+                                </div>
+                            </td>
+                            {% if actual_day %}
+                                {% if chassis_fee %}
+                                    <td>
+                                        <div class="d-flex align-items-center gap-2">
+                                            <span class="badge bg-danger">已超期</span>
+                                            <span class="day-count">{{ actual_day }} 天</span>
+                                        </div>
+                                        
+                                    </td>
+                                    <td class="text-end fee-amount">
+                                        {% if is_confirm_invoice %}
+                                            <span class="readonly-amount">{{ chassis_fee|floatformat:2 }}</span>
+                                        {% else %}
+                                            <input type="text" name="chassis_fee" value="{{ chassis_fee }}">
+                                        {% endif %}                                 
+                                    </td>
+                                {% else %}                                
+                                    <td>
+                                        <div class="d-flex align-items-center gap-2">
+                                            <span class="badge bg-success">未超期</span>
+                                            <span class="day-count">{{ actual_day }} 天</span>
+                                        </div>
+                                    </td>
+                                    <td>不产生费用</td>
+                                {% endif %}
+                            {% else %}
+                                <td colspan="2">缺少LFD，无法计算</td>
+                            {% endif %}
+                        </tr>
+                    </tbody>
+                </table>
+            </div>
+
+            <div class="mt-4 pt-3 border-top">
+                <div class="d-flex justify-content-between align-items-center mb-3">
+                    <h6 class="mb-0 d-flex align-items-center text-muted">
+                        <i class="bi bi-plus-circle fee-icon me-2"></i>
+                        <span>其他费用</span>
+                    </h6>
+                    <button type="button" class="btn btn-primary btn-sm" onclick="addFeeGroup()">
+                        <i class="bi bi-plus me-1"></i>添加费用
+                    </button>
+                </div>
+                {% if not is_confirm_invoice %}
+                <div id="additional-fees-container">
+                    {% for fee in additional_fees %}
+                    <div class="fee-group row g-3 mb-3 align-items-center">
+                        <div class="col-md-5">
+                            <input type="text" class="form-control" name="fee_name" 
+                                value="{{ fee.name }}" placeholder="费用名称">
+                        </div>
+                        <div class="col-md-5">
+                            <div class="input-group">
+                                <input type="number" step="0.01" class="form-control fee-amount-input" 
+                                    name="fee_amount" value="{{ fee.amount }}" 
+                                    placeholder="金额" oninput="calculateTotal()">
+                                <span class="input-group-text">USD</span>
+                            </div>
+                        </div>
+                        <div class="col-md-2">
+                            <button type="button" class="btn btn-outline-danger w-100" 
+                                    onclick="removeFeeGroup(this)">
+                                <i class="bi bi-trash"></i>
+                            </button>
+                        </div>
+                    </div>
+                    {% endfor %}
+                </div>
+                {% else %}
+                    {% for fee_name, fee_amount in pallet_other_fee.items %}
+                        <div class="fee-group row g-3 mb-3 align-items-center">
+                            <div class="col-md-5">
+                                <span class="readonly-amount">{{ fee_name }}</span>
+                            </div>
+                            <div class="col-md-5">
+                                <span class="readonly-amount">{{ fee_amount|floatformat:2 }}</span>
+                            </div>
+                        </div>
+                    {% empty %}
+                        <div class="text-muted">无其他费用</div>
+                    {% endfor %}
+                {% endif %}
+            </div>
+
+            <div id="new-fee-template" style="display: none;">
+                <div class="fee-group row g-3 mb-3 align-items-center">
+                    <div class="col-md-5">
+                        <input type="text" class="form-control" name="fee_name" placeholder="费用名称">
+                    </div>
+                    <div class="col-md-5">
+                        <div class="input-group">
+                            <input type="number" step="0.01" class="form-control fee-amount-input" 
+                                name="fee_amount" placeholder="金额" oninput="calculateTotal()">
+                            <span class="input-group-text">USD</span>
+                        </div>
+                    </div>
+                    <div class="col-md-2">
+                        <button type="button" class="btn btn-outline-danger w-100" 
+                                onclick="removeFeeGroup(this)">
+                            <i class="bi bi-trash"></i>
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endif %}
+</form>
+
+<script>
+    document.addEventListener('DOMContentLoaded', function() {
+        calculateTotal();
+    });
+
+    function setSaveType(type) {
+        document.getElementById('save_type').value = type;
+    }
+
+    function addFeeGroup() {
+        const container = document.getElementById('additional-fees-container');
+        const template = document.getElementById('new-fee-template');
+        const newGroup = template.cloneNode(true);
+        newGroup.style.display = 'flex';
+        newGroup.removeAttribute('id');
+        container.appendChild(newGroup);
+    }
+
+    function removeFeeGroup(button) {
+        if (confirm('确定要删除此费用吗？')) {
+            const group = button.closest('.fee-group');
+            group.remove();
+            calculateTotal();
+        }
+    }
+
+    function updateUnloadingFee(select) {
+        const selectedOption = select.options[select.selectedIndex];
+        const feeValue = selectedOption.value;
+        const feeDisplay = document.getElementById('unloading_fee_display');
+        const feeInput = document.getElementById('unloading_fee');
+        
+        feeDisplay.textContent = parseFloat(feeValue).toFixed(2);
+        feeInput.value = feeValue;
+        
+        calculateTotal();
+
+        plt_carrier = select.options[select.selectedIndex].dataset.name;
+        document.getElementById('palletization_carrier').value = plt_carrier;
+        
+        console.log("plt_carrier",plt_carrier);
+    }
+
+    function calculateTotal() {
+        let total = 0;
+        
+        const fixedFees = [
+            parseFloat({{ basic_fee|default:0 }}),
+            parseFloat({{ overweight_fee|default:0 }}),
+            parseFloat({{ chassis_fee|default:0 }}),
+            parseFloat({{ arrive_fee|default:0 }}),
+            parseFloat(document.getElementById('unloading_fee')?.value || 0)
+        ];
+        
+        fixedFees.forEach(fee => {
+            if (!isNaN(fee)) total += fee;
+        });
+
+        document.querySelectorAll('input[name="fee_amount"]').forEach(input => {
+            const value = parseFloat(input.value);
+            if (!isNaN(value)) total += value;
+        });
+
+        document.getElementById('totalAmountDisplay').textContent = total.toFixed(2);
+        document.getElementById('total_amount_input').value = total.toFixed(2);
+    }
+    function modifyStatus(type) {
+        const saveTypeInput = document.getElementById('save_type');
+        saveTypeInput.value = type; 
+    }
+</script>
+{% endblock %}
