@@ -104,6 +104,13 @@ class OrderQuantity(View):
                         .select_related("history_user")
                         .order_by("-history_date")
                     )
+            else:
+                filter_kwargs = {search_field: search_value}
+                history_records = (
+                    original_model.objects.filter(**filter_kwargs)
+                    .select_related("history_user")
+                    .order_by("-history_date")
+                )
             
 
         # 转换为同步查询
