@@ -3,6 +3,7 @@ from simple_history.models import HistoricalRecords
 
 from warehouse.models.container import Container
 from warehouse.models.customer import Customer
+from django.db.models import JSONField
 
 
 class InvoiceStatement(models.Model):
@@ -38,10 +39,11 @@ class Invoice(models.Model):
     receivable_direct_amount = models.FloatField(null=True, blank=True)
 
     payable_total_amount = models.FloatField(null=True, blank=True)
-    payable_preport_amount = models.FloatField(null=True, blank=True)
-    payable_warehouse_amount = models.FloatField(null=True, blank=True)
-    payable_delivery_amount = models.FloatField(null=True, blank=True)
-    payable_direct_amount = models.FloatField(null=True, blank=True)
+    payable_basic = models.FloatField(null=True, blank=True)  #提柜费
+    payable_chassis = models.FloatField(null=True, blank=True) #车架费
+    payable_overweight = models.FloatField(null=True, blank=True) #超重费
+    payable_palletization = models.FloatField(null=True, blank=True) #拆柜费
+    payable_surcharge = JSONField(default=dict, null=True, blank=True)
 
     statement_id = models.ForeignKey(
         InvoiceStatement, null=True, blank=True, on_delete=models.SET_NULL

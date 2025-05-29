@@ -1,7 +1,7 @@
 {% extends 'base.html' %}
 
 {% block content %}
-<div><h4><b>直送账单管理</b></h4></div>
+<div><h4><b>应收直送账单管理</b></h4></div>
 <div style="width: 100%; display: flex; justify-content: space-between;">
     <form method="post" action="" style="width: 80%;">
         {% csrf_token %}
@@ -12,10 +12,6 @@
             <input type="date" name="start_date" value="{{ start_date }}">
             <input type="date" name="end_date" value="{{ end_date }}" style="margin-right: 5px;">
             <b style="margin-right: 5px; margin-left: 10px;">账单类型:</b>
-            <select name="invoice_type" style="margin-right: 5px;">
-                <option value="receivable" {% if invoice_type_filter == 'receivable' %}selected{% endif %}>应收账单</option>
-                <option value="payable" {% if invoice_type_filter == 'payable' %}selected{% endif %}>应付账单</option>
-            </select>
             <input type="hidden" name="step" value="invoice_order_direct">
             <button id="submit-btn" type="submit" class="btn btn-primary" style="width: 100px; height: 35px; margin-left: 20px;">查询</button>
         </div>
@@ -51,7 +47,7 @@
                             <tr>
                                 <td class="td">{{ c.customer_name.zem_name }}</td>
                                 <td class="td">
-                                    <a href="/accounting/?step=container_direct&container_number={{ c.container_number }}&start_date={{ start_date }}&end_date={{ end_date }}&invoice_type={{ invoice_type_filter }}">{{ c.container_number }}</a>
+                                    <a href="/accounting/?step=container_direct&container_number={{ c.container_number }}&start_date={{ start_date }}&end_date={{ end_date }}">{{ c.container_number }}</a>
                                 </td>
                                 <td class="td">{{ c.retrieval_id.retrieval_destination_area }}</td>
                                 <td class="td">{{ c.display_reject_reason }}</td>
@@ -91,7 +87,7 @@
                             <tr>
                                 <td class="td" style="vertical-align: middle;">{{ c.customer_name__zem_name }}</td>
                                 <td class="td" style="vertical-align: middle;">
-                                    <a href="/accounting/?step=container_direct&container_number={{ c.container_number__container_number }}&start_date={{ start_date }}&end_date={{ end_date }}&invoice_type={{ invoice_type_filter }}">{{ c.container_number__container_number }}</a>
+                                    <a href="/accounting/?step=container_direct&container_number={{ c.container_number__container_number }}&start_date={{ start_date }}&end_date={{ end_date }}">{{ c.container_number__container_number }}</a>
                                 </td>
                                 <td class="td" style="vertical-align: middle;">{{ c.created_at|date:"Y-m-d" }}</td>
                                 <td class="td" style="vertical-align: middle; white-space: pre-line;">{{ c.display_stage }}</td>

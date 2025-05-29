@@ -7,11 +7,7 @@
     <span style="background: linear-gradient(to right, #d4380d, #ff7a45); color: white; padding: 3px 8px; border-radius: 4px;">{{order_type}}</span>
     <span style="background: linear-gradient(to right, #1d39c4, #597ef7); color: white; padding: 3px 8px; border-radius: 4px;">{{container_type}}</span>
     <span style="background: linear-gradient(to right, #2ecc71, #27ae60); color: white; padding: 3px 8px; border-radius: 4px;">
-        {% if invoice_type == 'receivable' %}
-            应收账单
-        {% else %}
-            应付账单
-        {% endif %}
+        应收账单
     </span>
 </div>
 <div  style="display: inline-block; width: 100%; margin: 0; padding: 0; max-width: 100%;">
@@ -255,7 +251,6 @@
         <input type="hidden" name="container_number" value="{{ container_number }}">
         <input type="hidden" name="start_date" value="{{ start_date }}">
         <input type="hidden" name="end_date" value="{{ end_date }}">
-        <input type="hidden" name="invoice_type" value="{{ invoice_type }}">
         <input type="hidden" name="invoice_number" value="{{ invoice_preports.invoice_number }}">
         {% if status != 'confirmed' %}
             {% if redirect_step %}
