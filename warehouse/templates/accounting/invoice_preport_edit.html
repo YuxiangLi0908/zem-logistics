@@ -2,17 +2,10 @@
 
 {% block content %}
 <div style="display: flex; align-items: center; gap: 8px;">
-    <h4 style="margin: 0;"><b>提拆柜账单编辑</b></h4>  
+    <h4 style="margin: 0;"><b>应收提拆柜账单编辑</b></h4>  
     <span style="background: linear-gradient(to right, #096dd9, #40a9ff); color: white; padding: 3px 8px; border-radius: 4px;">{{warehouse}}</span>
     <span style="background: linear-gradient(to right, #d4380d, #ff7a45); color: white; padding: 3px 8px; border-radius: 4px;">{{order_type}}</span>
     <span style="background: linear-gradient(to right, #1d39c4, #597ef7); color: white; padding: 3px 8px; border-radius: 4px;">{{container_type}}</span>
-    <span style="background: linear-gradient(to right, #2ecc71, #27ae60); color: white; padding: 3px 8px; border-radius: 4px;">
-        {% if invoice_type == 'receivable' %}
-            应收账单
-        {% else %}
-            应付账单
-        {% endif %}
-    </span>
 </div>
 <div  style="display: inline-block; width: 100%; margin: 0; padding: 0; max-width: 100%;">
     <p style="text-align:center;"><b>{{ invoice_preports.invoice_number }}</b></p>
@@ -255,7 +248,6 @@
         <input type="hidden" name="container_number" value="{{ container_number }}">
         <input type="hidden" name="start_date" value="{{ start_date }}">
         <input type="hidden" name="end_date" value="{{ end_date }}">
-        <input type="hidden" name="invoice_type" value="{{ invoice_type }}">
         <input type="hidden" name="invoice_number" value="{{ invoice_preports.invoice_number }}">
         {% if status != 'confirmed' %}
             {% if redirect_step %}

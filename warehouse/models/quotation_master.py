@@ -6,7 +6,12 @@ class QuotationMaster(models.Model):
     quotation_id = models.CharField(max_length=200, null=True)
     upload_date = models.DateField(null=True, blank=True)
     version = models.CharField(max_length=2000, null=True, blank=True)
-    active = models.BooleanField(default=True)
+    quote_type = models.CharField(
+        max_length=20,
+        choices=[("receivable", "应收"), ("payable", "应付")],
+        default="receivable",
+        verbose_name="报价类型"
+    )
     filename = models.CharField(max_length=2000, null=True, blank=True)
     is_user_exclusive = models.BooleanField(
         default=False,

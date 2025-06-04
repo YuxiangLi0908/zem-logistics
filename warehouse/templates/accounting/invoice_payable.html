@@ -1,229 +1,144 @@
 {% extends 'base.html' %}
 
 {% block content %}
-<div style="display: flex; align-items: center; gap: 8px;">
-    <h4 style="margin: 0;"><b>提拆柜账单编辑</b></h4>  
-    <span style="background: linear-gradient(to right, #096dd9, #40a9ff); color: white; padding: 3px 8px; border-radius: 4px;">{{warehouse}}</span>
-    <span style="background: linear-gradient(to right, #d4380d, #ff7a45); color: white; padding: 3px 8px; border-radius: 4px;">{{order_type}}</span>
-    <span style="background: linear-gradient(to right, #1d39c4, #597ef7); color: white; padding: 3px 8px; border-radius: 4px;">{{container_type}}</span>
-    <span style="background: linear-gradient(to right, #2ecc71, #27ae60); color: white; padding: 3px 8px; border-radius: 4px;">
-        应付账单
-    </span>
-</div>
-<div  style="display: inline-block; width: 100%; margin: 0; padding: 0; max-width: 100%;">
-    <p style="text-align:center;"><b>{{ invoice_preports.invoice_number }}</b></p>
-</div>
-<div style="max-height: 100%; max-width: 1000px; padding: 20px; margin: 0 auto; background-color: #fff; border-radius: 8px; box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1);">
-    <form method="post" action="">
+<div><h4><b>应付账单管理</b></h4></div>
+<div style="width: 100%; display: flex; justify-content: space-between;">
+    <form method="post" action="" style="width: 80%;">
         {% csrf_token %}
-            {% if status == 'confirmed' %}
-                <div style="background: #f8f9fa; padding: 10px; margin-bottom: 15px; border-radius: 4px; text-align: center;">
-                    账单已确认，不可编辑
-                </div>
-            {% endif %}
-            <input type="hidden" name="start_date_confirm" value="{{ start_date_confirm }}">
-            <input type="hidden" name="end_date_confirm" value="{{ end_date_confirm }}">
-            <div style="display: flex; align-items: center; margin-bottom: 10px;">
-                <label style="width: 100px; font-weight: color:#483D8B;" >费用名称</label>
-                <span style="color: #808080; width: 150px; margin-left:30px;color:#483D8B;">报价提示</span>
-                <span style="color:#483D8B; width: 80px;">实际单价</span>
-                <span style="color:#483D8B; width: 80px;">数量</span>
-                <span style="color:#483D8B;">总价</span>
-                <span style="margin: 0 5px;"></span>
-                <span style="margin-left:60px; color:#483D8B;">附加费</span>
-                <span style="margin-left:35px; color:#483D8B;">附加费说明</span>
-            </div>
-            <div style="display: flex; align-items: center; margin-bottom: 10px;">
-                <label style="width: 120px; font-weight: bold;" for="pickup">提拆/打托缠膜:</label>
-                <span style="color: #808080; width: 150px;"></span>
-                <input type="number" style="width: 80px;" class="actual-price price-input" step="0.01" id="pickup_price" name="pickup_price" value="{{ invoice_preports.rate.pickup }}">
-                <input type="number" style="width: 80px;" class="quantity quantity-input" step="0.1" id="pickup_quantity" name="pickup_quantity" value="{{ invoice_preports.qty.pickup }}">
-                <input type="number" class="original-input" style="width: 80px;" id="pickup" name="pickup" value="{{ invoice_preports.pickup }}" readonly>         
-            </div>
-            <div style="display: flex; align-items: center; margin-bottom: 10px;">
-                <label style="width: 120px; font-weight: bold;" for="chassis">车架费</label>
-                <span style="color: #808080; width: 150px;">({{ FS.chassis }})</span>
-                <input type="number" style="width: 80px;" class="actual-price price-input" step="0.01" id="chassis_price" name="chassis_price" value="{{ invoice_preports.rate.chassis }}">
-                <input type="number" style="width: 80px;" class="quantity quantity-input" step="0.1" id="chassis_quantity" name="chassis_quantity" value="{{ invoice_preports.qty.chassis }}">
-                <input type="number" class="original-input" style="width: 80px; margin-right: 10px;" id="chassis" name="chassis" value="{{ invoice_preports.chassis }}" readonly>
-                <span style="margin: 0 5px;">+</span>
-                <input type="number" style="width: 70px; margin-right: 10px;" step="0.01" id="chassis_surcharge" name="chassis_surcharge" value="{{ surcharges.chassis }}">
-                <input type="text" style="width: 120px;" id="chassis_surcharge_note" name="chassis_surcharge_note" value="{{ surcharges_notes.chassis }}">
-            </div>
-            <div style="display: flex; align-items: center; margin-bottom: 10px;">
-                <label style="width: 120px; font-weight: bold;" for="chassis_split">超重费</label>
-                <span style="color: #808080; width: 150px;">({{ FS.chassis_split }})</span>
-                <input type="number" style="width: 80px;" class="actual-price price-input" step="0.01" id="chassis_split_price" name="chassis_split_price" value="{{ invoice_preports.rate.chassis_split }}">
-                <input type="number" style="width: 80px;" class="quantity quantity-input" step="0.1" id="chassis_split_quantity" name="chassis_split_quantity" value="{{ invoice_preports.qty.chassis_split }}">
-                <input type="number" class="original-input" style="width: 80px; margin-right: 10px;" id="chassis_split" name="chassis_split" value="{{ invoice_preports.chassis_split }}" readonly>
-                <span style="margin: 0 5px;">+</span>
-                <input type="number" style="width: 70px; margin-right: 10px;" step="0.01" id="chassis_split_surcharge" name="chassis_split_surcharge" value="{{ surcharges.chassis_split }}">
-                <input type="text" style="width: 120px;" id="chassis_split_surcharge_note" name="chassis_split_surcharge_note" value="{{ surcharges_notes.chassis_split }}">
-            </div>
-            <div style="display: flex; align-items: center; margin-bottom: 10px;">
-                <label style="width: 120px; font-weight: bold;" for="prepull">拆柜费</label>
-                <span style="color: #808080; width: 150px;">({{ FS.prepull }})</span>
-                <input type="number" style="width: 80px;" class="actual-price price-input" step="0.01" id="prepull_price" name="prepull_price" value="{{ invoice_preports.rate.prepull }}">
-                <input type="number" style="width: 80px;" class="quantity quantity-input" step="0.1" id="prepull_quantity" name="prepull_quantity" value="{{ invoice_preports.qty.prepull }}">
-                <input type="number" class="original-input" style="width: 80px; margin-right: 10px;" id="prepull" name="prepull" value="{{ invoice_preports.prepull }}" readonly>
-                <span style="margin: 0 5px;">+</span>
-                <input type="number" style="width: 70px; margin-right: 10px;" step="0.01" id="prepull_surcharge" name="prepull_surcharge" value="{{ surcharges.prepull }}">
-                <input type="text" style="width: 120px;" id="prepull_surcharge_note" name="prepull_surcharge_note" value="{{ surcharges_notes.prepull }}">
-            </div>
-            
-            
-            <div style="display: flex; align-items: center;">
-                <div style="width: 250px; padding-top: 10px; margin: 0 auto; text-align: center;">
-                  <button type="button" onclick="addNewFeeGroup()" 
-                          style="background:#6366f1;color:white;border:0;border-radius:6px;padding:8px 16px;cursor:pointer;font-size:14px;">
-                    + 添加
-                  </button>
-                </div>
-                
-                <div style="flex: 1;">
-                  {% for key,value in invoice_preports.other_fees.items %}
-                  <div style="display: flex; align-items: center; margin-bottom: 10px;">
-                    <input type="text" name="others_feename" value="{{ key }}" 
-                           style="width: 150px; margin-right: 10px;" placeholder="费用名称">
-                    <input type="number" name="others_feeamount" step="0.01" min="0" value="{{ value }}" style="width: 80px;" placeholder="金额">
-                    <button class="remove-fee-btn" style="background: #ff4444; color: white; border: none; border-radius: 50%; width: 20px; height: 20px; cursor: pointer; margin-left: 10px;display: flex;align-items: center;justify-content: center;padding: 0;line-height: 1;font-size: 14px;" onclick="removeFeeGroup(this)">×</button>
-                  </div>
-                  {% endfor %}
-                  
-                  <div id="new-fee-template" style="display: none; align-items: center; margin-bottom: 10px;">
-                    <input type="text" name="others_feename" 
-                           style="width: 150px; margin-right: 10px;" placeholder="费用名称">
-                    <input type="number" name="others_feeamount" step="0.01" min="0" style="width: 80px;" placeholder="金额">
-                    <button class="remove-fee-btn" style="background: #ff4444; color: white; border: none; border-radius: 50%; width: 20px; height: 20px; cursor: pointer; margin-left: 10px;display: flex;align-items: center;justify-content: center;padding: 0;line-height: 1;font-size: 14px;" onclick="removeFeeGroup(this)">×</button>
-                  </div>
-                </div>
-            </div>
-            <div style="margin-left: auto; display: inline-flex; align-items: center; height: 100%; padding: 0 12px; background: #f8f9fa; border-radius: 4px; border: 1px solid #e0e0e0;">
-                <span style="font-weight: bold; color: #555; margin-right: 5px;">总金额：</span>
-                <span id="total_amount" style="font-weight: bold; color: #2c3e50;">
-                    {{ invoice_preports.amount|default:"0" }}
-                </span>
-                <span style="font-weight: bold; color: #2c3e50; margin-left: 3px;">USD</span>
-                <input type="hidden" name="amount" id="amount" value="{{ invoice_preports.amount|default:'0' }}">
-            </div>
-        <input type="hidden" name="step" value="payable_save">
-        <input type="hidden" name="save_type" id="save_type" value="">
-        <input type="hidden" name="warehouse" value="{{warehouse}}">
-        <input type="hidden" name="container_number" value="{{ container_number }}">
-        <input type="hidden" name="start_date" value="{{ start_date }}">
-        <input type="hidden" name="end_date" value="{{ end_date }}">
-        <input type="hidden" name="invoice_type" value="{{ invoice_type }}">
-        <input type="hidden" name="invoice_number" value="{{ invoice_preports.invoice_number }}">
-        {% if status != 'confirmed' %}
-            {% if redirect_step %}
-                <input type="hidden" name="start_date_confirm" value={{ start_date_confirm }}>
-                <input type="hidden" name="end_date_confirm" value={{ end_date_confirm }}>
-                <button type="submit" class="btn btn-danger" style="width: 150px; height: 35px;" onclick="validateForm('account_complete')">财务修改账单确认</button>
-            {% endif %}
-            {% if "invoice_preport" in groups or "staff" in groups %}
-                <button type="submit" class="btn btn-danger" style="width: 150px; height: 35px;" onclick="validateForm('complete')">账单录入完成</button>
-                <button type="submit" class="btn btn-primary" style="width: 150px; height: 35px;" onclick="validateForm('temporary')">暂存未完成</button>
-            {% endif %}
-        {% endif %}
+        <div>
+            <b style="margin-right: 5px;">客户:</b>
+            {{ order_form.customer_name }}
+            <b style="margin-right: 5px; margin-left: 10px;">ETD时间:</b>
+            <input type="date" name="start_date" value="{{ start_date }}">
+            <input type="date" name="end_date" value="{{ end_date }}" style="margin-right: 5px;">
+            <b style="margin-right: 5px;">选择仓点区域:</b>
+                <select name="warehouse_filter">
+                    {% for k, v in warehouse_options.items %}
+                        {% if warehouse_filter == v %}
+                            <option value="{{ v }}" selected>{{ k }}</option>
+                        {% else %}
+                            <option value="{{ v }}">{{ k }}</option>
+                        {% endif %}
+                    {% endfor %}
+                </select>
+            </b>
+            <input type="hidden" name="step" value="invoice_order_payable">
+            <button id="submit-btn" type="submit" class="btn btn-primary" style="width: 100px; height: 35px; margin-left: 20px;">查询</button>
+        </div>
     </form>
+</div>
+<hr class="Dashed" style="margin-top: 10px; margin-bottom: 10px;">
+<div style="display: flex; max-height: 720px;">
+    <div style="overflow-y: auto; max-height: 100%; width: 40%; border: 2px solid rgb(180, 180, 180); border-radius: 12px; padding: 1%; margin: 1%;">
+        {% if order %}
+        <div><b>待录入账单</b></div>
+        <form method="post" action="">
+            {% csrf_token %}
+            <div style="overflow-x: auto; max-width: 100%; overflow-y: auto; max-height: 600px;">
+                <table class="table" id="order-table" style="font-size: 13px;">
+                    <thead>
+                        <tr style="position: sticky; top: 0;">
+                            <th class="th">客户</th>
+                            <th class="th">货柜号</th>                         
+                            {% if display_mix %}
+                                <th class="th">类别</th>
+                            {% endif %}
+                            <th class="th">驳回原因</th>
+                            <th class="th">建单日期</th>
+                        </tr>
+                        <tr style="position: sticky; top: 28px;">
+                            <th class="th"></th>
+                            <th class="th"><input type="text" id="containerSearchInput" placeholder="搜索柜号..." oninput="filterTable(this, 1)" size="16" style="font-size: 14px;"></th>
+                            {% if display_mix %}
+                                <th class="th"></th>
+                            {% endif %}
+                            <th class="th"></th>
+                            <th class="th"></th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for c in order %}
+                            <tr {% if c.payable_status.is_rejected %} style="background-color:#fff3cd; font-weight: bold;"{% endif %}>
+                                <td class="td">{{ c.customer_name.zem_name }}</td>
+                                <td class="td">
+                                    <a href="/accounting/?step=container_payable&container_number={{ c.container_number }}&start_date={{ start_date }}&end_date={{ end_date }}&warehouse={{ warehouse_filter }}">{{ c.container_number }}</a>
+                                <td class="td">{{ c.payable_status.reject_reason }}</td>
+                                <td class="td">{{ c.created_at|date:"Y-m-d" }}</td>
+                            </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+        </form>
+        {% endif %}
+    </div>
+    <div style="overflow-y: auto; max-height: 100%; width: 60%; border: 2px solid rgb(180, 180, 180); border-radius: 12px; padding: 1%; margin: 1%;">
+        {% if previous_order %}
+        <div><b>已录入账单</b></div>
+        <form method="post" action="">
+            {% csrf_token %}
+            <div style="overflow-x: auto; max-width: 100%; overflow-y: auto; max-height: 600px;">
+                <table class="table" id="order-table" style="font-size: 13px;">
+                    <thead>
+                        <tr style="position: sticky; top: 0;">
+                            <th class="th">客户</th>
+                            <th class="th">货柜号</th>
+                            {% if display_mix %}
+                                <th class="th">类别</th>
+                            {% endif %}
+                            <th class="th">账单状态</th>
+                            <th class="th">建单日期</th>
+                        </tr>
+                        <tr style="position: sticky; top: 28px;">
+                            <th class="th"></th>
+                            <th class="th"><input type="text" id="containerSearchInput" placeholder="搜索柜号..." oninput="filterTable(this, 1)" size="16" style="font-size: 14px;"></th>
+                            {% if display_mix %}
+                                <th class="th"></th>
+                            {% endif %}
+                            <th class="th"></th>
+                            <th class="th"></th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for c in previous_order %}
+                            <tr>
+                                <td class="td" style="vertical-align: middle;">{{ c.customer_name.zem_name }}</td>
+                                <td class="td" style="vertical-align: middle;">                                
+                                    <a href="/accounting/?step=container_payable&container_number={{ c.container_number }}&start_date={{ start_date }}&end_date={{ end_date }}&warehouse={{ warehouse_filter }}">{{ c.container_number }}</a>
+                                </td>
+                                <td class="td" style="vertical-align: middle; white-space: pre-line;">{{ c.display_stage }}</td>
+                                <td class="td" style="vertical-align: middle;">{{ c.created_at|date:"Y-m-d" }}</td>
+                            </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+        </form>
+        {% endif %}
+    </div>
 </div>
 
 <script>
-    function calculateAllTotals(forceUpdate = false) {
-        const feeFields = [
-            'pickup', 'chassis', 'chassis_split', 'prepull', 'yard_storage',
-            'handling_fee', 'pier_pass', 'congestion_fee', 'hanging_crane',
-            'dry_run', 'exam_fee', 'hazmat', 'over_weight', 'urgent_fee',
-            'other_serive', 'demurrage', 'per_diem', 'second_pickup'
-        ];
     
-        let grandTotal = 0;
-        let hasChanges = false;
+    function filterTable(filterInput, col_idx, trim) {
+        var containerInput, containerFilter, table, tbody, tr, containerTd, i, containerTxtValue;
+        containerFilter = filterInput.value.toUpperCase();
+        var table = filterInput.closest('table');
+        tbody = table.getElementsByTagName("tbody")[0];
+        tr = tbody.getElementsByTagName("tr");
 
-        // 1. 计算主要费用
-        feeFields.forEach(field => {
-            const priceEl = document.getElementById(`${field}_price`);
-            const qtyEl = document.getElementById(`${field}_quantity`);
-            const totalEl = document.getElementById(field);
-            const surchargeEl = document.getElementById(`${field}_surcharge`);
-            
-            // 检查是否用户修改过
-            const isModified = priceEl?.dataset.modified === 'true' || 
-                             qtyEl?.dataset.modified === 'true';
-            
-            if (forceUpdate || isModified) {
-                const price = parseFloat(priceEl?.value) || 0;
-                const quantity = parseFloat(qtyEl?.value) || 0;
-                const total = Math.round(price * quantity * 100) / 100;
+        for (i = 0; i < tr.length; i++) {
+            containerTd = tr[i].getElementsByTagName("td")[col_idx];
+            if (containerTd) {
+                containerTxtValue = containerTd.textContent || containerTd.innerText;
+                containerTxtValue = trim ? containerTxtValue.toUpperCase().trim() : containerTxtValue.toUpperCase()
+                var containerDisplayStyle_1 = containerTxtValue.indexOf(containerFilter) > -1 ? "" : "none";
+                var containerDisplayStyle_2 = containerFilter.indexOf(containerTxtValue) > -1 ? "" : "none";
                 
-                if(totalEl) {
-                    totalEl.value = total.toFixed(2);
-                    hasChanges = true;
-                }
+                tr[i].style.display = containerDisplayStyle_1 === "" || containerDisplayStyle_2 === "" ? "" : "none";
             }
-            
-            if(totalEl) {
-                grandTotal += parseFloat(totalEl.value) || 0;
-            }
-            if(surchargeEl) {
-                grandTotal += parseFloat(surchargeEl.value) || 0;
-            }
-        });
-
-        // 2. 计算自定义费用（不触发总价列变化）
-        document.querySelectorAll('[name="others_feeamount"]').forEach(input => {
-            grandTotal += parseFloat(input.value) || 0;
-        });
-
-        // 3. 更新总金额
-        const formattedTotal = Math.round(grandTotal * 100) / 100;
-        document.getElementById('total_amount').textContent = formattedTotal.toFixed(2);
-        document.getElementById('amount').value = formattedTotal;
-    };
-    
-    document.addEventListener('input', function(e) {
-        //单价和数量修改，就改变总价列
-        if (e.target.classList.contains('price-input') || 
-            e.target.classList.contains('quantity-input')) {
-            
-            e.target.dataset.modified = 'true';
-            calculateAllTotals();
         }
-        //附加费修改，不改变总价列
-        else if (e.target.id.includes('_surcharge')) {
-            calculateAllTotals();
-        }
-        //额外增加的费用，不改变总价
-        else if (e.target.getAttribute('name') === 'others_feeamount') {
-            calculateAllTotals();
-        }
-    });
-
-    function addNewFeeGroup() {
-        const template = document.getElementById('new-fee-template');
-        const newGroup = template.cloneNode(true);
-        newGroup.querySelector('input[type="text"]').value = '';
-        newGroup.querySelector('input[type="number"]').value = '';
-        newGroup.style.display = 'flex';
-        template.parentNode.insertBefore(newGroup, template);
-        calculateAllTotals();
     };
-    function removeFeeGroup(button) {
-        button.parentElement.remove();
-    };
-    
-    document.addEventListener('DOMContentLoaded', function() {
-        // 只需调用这一个即可
-        calculateAllTotals();
-        document.querySelectorAll('.price-input, .quantity-input').forEach(input => {
-            input.dataset.modified = 'false';
-        });
-    });  
 
-    function validateForm(type) {
-        const saveTypeInput = document.getElementById('save_type');
-        saveTypeInput.value = type; 
-    }
-    
 </script>
 {% endblock %}

@@ -33,6 +33,7 @@ class QuoteManagement(View):
     template_update = "quote/quote_list.html"
     template_edit = "quote/quote_edit.html"
     template_quote_master = "accounting/quote_master.html"
+    template_payable_quote_master = "accounting/payable_quote_master.html"
 
     def get(self, request: HttpRequest) -> HttpResponse:
         step = request.GET.get("step")
@@ -48,6 +49,9 @@ class QuoteManagement(View):
             return render(request, self.template_edit, self.handle_edit_get(request))
         elif step == "quote_master":
             template, context = self.handle_quote_master_get(request)
+            return render(request, template, context)
+        elif step == "payable_quote_master":
+            template, context = self.handle_payable_quote_master_get(request)
             return render(request, template, context)
         context = {}
         return render(request, self.template_create, context)
@@ -71,27 +75,27 @@ class QuoteManagement(View):
         elif step == "upload_quote_excel":
             template, context = self.handle_upload_quote_post(request)
             return render(request, template, context)
-        elif step == "activate_quotation":
-            template, context = self.handle_activate_quotation_post(request)
+        elif step == "upload_payable_quote_excel":
+            template, context = self.handle_upload_payable_quote_post(request)
             return render(request, template, context)
+        
 
-    def handle_quote_master_get(self, request: HttpRequest) -> dict[str, Any]:
+    def handle_payable_quote_master_get(self, request: HttpRequest) -> dict[str, Any]:
         # 查询历史版本
-        quotes = QuotationMaster.objects.all()
+        quotes = QuotationMaster.objects.filter(quote_type="payable")
         context = {
             "order_form": OrderForm(),
             "quotes": quotes
         }
-        return self.template_quote_master, context
-
-    def handle_activate_quotation_post(self, request: HttpRequest) -> dict[str, Any]:
-        QuotationMaster.objects.all().update(active=False)
-        quotation_id = request.POST.get("q_id")
-        q = QuotationMaster.objects.get(id=quotation_id)
-        q.active = True
-        q.save()
-        quotes = QuotationMaster.objects.all()
-        context = {"quotes": quotes}
+        return self.template_payable_quote_master, context
+    
+    def handle_quote_master_get(self, request: HttpRequest) -> dict[str, Any]:
+        # 查询历史版本
+        quotes = QuotationMaster.objects.filter(quote_type="receivable")
+        context = {
+            "order_form": OrderForm(),
+            "quotes": quotes
+        }
         return self.template_quote_master, context
 
     def process_preport_sheet(self, df, file, quote):
@@ -531,6 +535,123 @@ class QuoteManagement(View):
         fee_detail = FeeDetail(**fee_detail_data)
         fee_detail.save()
 
+    def process_payable_sheet(self, df, file, quote):
+        header_row_idx = None
+        for idx, row in df.iterrows():
+            if "目的港" in str(row.iloc[0]):
+                header_row_idx = idx
+                break
+        
+        if header_row_idx is None:
+            raise ValueError("未找到包含'目的港'的标题行")
+        
+        #找到供应商价格部分的最大列值，因为供应商和后面ZEM的有重复列名
+        max_col = len(df.columns)
+        flag = False
+        max_col = 0
+        for idx, row in df.iterrows():
+            for col_idx, cell in enumerate(row.iloc[0:]):
+                if isinstance(cell, str) and not flag and "提柜费" in cell:
+                    flag = True
+                elif isinstance(cell, str) and flag and "提柜费" in cell:
+                    max_col = col_idx-1
+            if flag:
+                break
+ 
+        # 获取各列的位置映射
+        col_mapping = {
+            "warehouse": None,       # 目的港
+            "warehouse_precise": None, # 仓库
+            "carrier": None,         # 供应商
+            "basic_40": None,        # 40尺
+            "basic_45": None,        # 45尺
+            "chassis": None,         # 车架费
+            "overweight": None,      # 提柜超重费
+            "arrive_warehouse": None,# 入库
+            "palletization": None    # 拆柜
+        }
+        #根据标题名确定标题的列
+        for col_idx, cell in enumerate(df.iloc[header_row_idx]):
+            if col_idx > max_col:
+                break
+            cell_value = str(cell).strip()
+            if cell_value == "目的港":
+                col_mapping["warehouse"] = col_idx
+            elif cell_value == "仓库":
+                col_mapping["warehouse_precise"] = col_idx
+            elif cell_value == "供应商":
+                col_mapping["carrier"] = col_idx
+            elif cell_value == "40尺":
+                col_mapping["basic_40"] = col_idx
+            elif cell_value == "45尺":
+                col_mapping["basic_45"] = col_idx
+            elif cell_value == "车架费价格":
+                col_mapping["chassis"] = col_idx
+            elif cell_value == "车架费免费天数":
+                col_mapping["chassis_free_day"] = col_idx
+            elif "提柜超重费" in cell_value:
+                col_mapping["overweight"] = col_idx
+
+        # 处理入库和拆柜列
+        prev_row = df.iloc[header_row_idx-1] if header_row_idx > 0 else None
+        if prev_row is not None:
+            for col_idx, cell in enumerate(prev_row):
+                if col_idx > max_col:
+                    break
+                cell_value = str(cell).strip()
+                if "入库" in cell_value:
+                    col_mapping["arrive_warehouse"] = col_idx
+                elif "拆柜" in cell_value:
+                    col_mapping["palletization"] = col_idx
+        # 初始化结果数据结构（使用defaultdict自动创建嵌套结构）
+        result = defaultdict(lambda: defaultdict(dict))
+        
+        # 处理数据行
+        for idx, row in df.iterrows():
+            # 跳过标题行和空行
+            if idx <= header_row_idx or pd.isna(row.iloc[col_mapping["warehouse"]]):
+                continue
+            
+            warehouse = str(row.iloc[col_mapping["warehouse"]]).strip()
+            warehouse_precise = str(row.iloc[col_mapping["warehouse_precise"]]).strip()
+            carrier = str(row.iloc[col_mapping["carrier"]]).strip()
+            
+            # 处理合并单元格情况（入库和拆柜）
+            arrive_warehouse = None
+            palletization = None
+            if col_mapping["arrive_warehouse"] is not None:
+                if col_mapping["palletization"] is None:  # 合并单元格情况
+                    arrive_warehouse = row.iloc[col_mapping["arrive_warehouse"]]
+                else:
+                    arrive_warehouse = row.iloc[col_mapping["arrive_warehouse"]]
+                    palletization = row.iloc[col_mapping["palletization"]]
+            
+            # 构建记录
+            record = {
+                "basic_40":row.iloc[col_mapping["basic_40"]] if col_mapping["basic_40"] is not None else None,
+                "basic_45":row.iloc[col_mapping["basic_45"]] if col_mapping["basic_45"] is not None else None,
+                "chassis": row.iloc[col_mapping["chassis"]] if col_mapping["chassis"] is not None else None,
+                "chassis_free_day": row.iloc[col_mapping["chassis_free_day"]] if col_mapping["chassis_free_day"] is not None else None,
+                "overweight": row.iloc[col_mapping["overweight"]] if col_mapping["overweight"] is not None else None,
+                "arrive_warehouse": arrive_warehouse,
+                "palletization": palletization
+            }
+            
+            # 清理空值
+            record = {k: v for k, v in record.items() if pd.notna(v)}
+            
+            # 添加到结果
+            result[warehouse][warehouse_precise][carrier] = record
+        # 创建 FeeDetail 记录
+        fee_detail_data = {
+            "quotation_id": quote,
+            "fee_detail_id": str(uuid.uuid4())[:4].upper(),
+            "fee_type": "PAYABLE",
+            "details": result
+        }
+        fee_detail = FeeDetail(**fee_detail_data)
+        fee_detail.save()
+    
     def process_combine_stipulate(self, df, file, quote):
         result = {
             "global_rules":{},
@@ -749,6 +870,49 @@ class QuoteManagement(View):
                     result.append(loc)
         return result
 
+    def handle_upload_payable_quote_post(self, request: HttpRequest) -> dict[str, Any]:
+        order_form = OrderForm(request.POST)
+        effective_date = request.POST.get("effective_date")
+        form = UploadFileForm(request.POST, request.FILES)
+        if form.is_valid():
+            uploaded_file = form.cleaned_data['file']
+            base_name, extension = os.path.splitext(uploaded_file.name)
+            updated_count = QuotationMaster.objects.filter(quote_type="payable").count()  
+            count = updated_count + 1
+            # 创建 FeeDetail 记录
+            upload_date = datetime.now()
+            quotation_id = upload_date.strftime("%m%d") + str(uuid.uuid4())[:4].upper()
+            quotation_id = quotation_id.replace(" ", "").upper()
+            quote_data = {
+                "quotation_id": quotation_id,
+                "upload_date": upload_date,
+                "version": count,
+                "filename":base_name,
+                "is_user_exclusive":False,
+                "exclusive_user":None,
+                "effective_date":effective_date,
+                "quote_type":"payable",
+            }
+            quote = QuotationMaster(**quote_data)
+            quote.save()
+            #读表内容
+            file = request.FILES["file"]
+            excel_file = pd.ExcelFile(file)
+            SHEET_HANDLERS = {
+                "提拆": self.process_payable_sheet,  # 已验证
+                #暂时不录入
+                #"直送": self.process_warehouse_sheet,  
+            }
+            for sheet_name in excel_file.sheet_names:
+                df = excel_file.parse(sheet_name)
+                if sheet_name in SHEET_HANDLERS:
+                    handler = SHEET_HANDLERS[sheet_name]
+                    handler(df, file, quote)
+        quotes = QuotationMaster.objects.filter(quote_type="payable")
+        context = {"quotes": quotes}
+        return self.template_payable_quote_master, context
+
+
     def handle_upload_quote_post(self, request: HttpRequest) -> dict[str, Any]:
         order_form = OrderForm(request.POST)
         if order_form.is_valid():
@@ -759,7 +923,7 @@ class QuoteManagement(View):
         if form.is_valid():
             uploaded_file = form.cleaned_data['file']
             base_name, extension = os.path.splitext(uploaded_file.name)
-            updated_count = QuotationMaster.objects.all().count()  
+            updated_count = QuotationMaster.objects.filter(quote_type="receivable").count()  
             count = updated_count + 1
             # 创建 FeeDetail 记录
             upload_date = datetime.now()
@@ -769,11 +933,11 @@ class QuoteManagement(View):
                 "quotation_id": quotation_id,
                 "upload_date": upload_date,
                 "version": count,
-                "active": True,
                 "filename":base_name,
                 "is_user_exclusive":(is_user_exclusive.lower() == 'on') if is_user_exclusive else False,
                 "exclusive_user":customer,
                 "effective_date":effective_date,
+                "quote_type":"receivable",
             }
             quote = QuotationMaster(**quote_data)
             quote.save()
@@ -799,7 +963,7 @@ class QuoteManagement(View):
                 if sheet_name in SHEET_HANDLERS:
                     handler = SHEET_HANDLERS[sheet_name]
                     handler(df, file, quote)
-        quotes = QuotationMaster.objects.all()
+        quotes = QuotationMaster.objects.filter(quote_type="receivable")
         context = {"quotes": quotes}
         return self.template_quote_master, context
 

@@ -135,7 +135,7 @@
                                 <div class="nested-dropdown-content">
                                     <a href="{% url 'accounting' %}?step=invoice" target="_blank">货柜账单</a>
                                     <div class="nested-dropdown-l1" >
-                                        <a>账单录入</a>
+                                        <a>应收账单</a>
                                         <div class="nested-dropdown-content-l1">
                                             <a href="{% url 'accounting' %}?step=invoice_direct" target="_blank">整柜直送</a>
                                             <a href="{% url 'accounting' %}?step=invoice_combina" target="_blank">组合柜</a>
@@ -149,8 +149,10 @@
                                             </div>
                                         </div>
                                     </div>
+                                    <a href="{% url 'accounting' %}?step=invoice_payable" target="_blank">应付账单</a>
                                     <a href="{% url 'accounting' %}?step=invoice_confirm" target="_blank">账单确认</a>
-                                    <a href="{% url 'quote_management' %}?step=quote_master" target="_blank">报价表管理</a>
+                                    <a href="{% url 'quote_management' %}?step=quote_master" target="_blank">应收报价表管理</a>
+                                    <a href="{% url 'quote_management' %}?step=payable_quote_master" target="_blank">应付报价表管理</a>
                                     <a href="{% url 'accounting' %}?step=invoice_search" target="_blank">账单录入进度</a>
                                 </div>
                             </div>

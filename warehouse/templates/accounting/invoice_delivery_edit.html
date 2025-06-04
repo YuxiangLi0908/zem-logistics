@@ -1,14 +1,15 @@
 {% extends 'base.html' %}
 
 {% block content %}
-<div><h4><b>派送账单编辑——总计 $<span class="total_amount">0</span></b></h4></div>
+<div>
+    <h4><b>应收派送账单编辑——总计 $<span class="total_amount">0</span></b></h4>
+</div>
 <p style="text-align:center;"><b>{{ invoice }}</b></p>
 {% if has_delivery %}
 <div  style="display: inline-block; width: 100%; margin: 0; padding: 0; max-width: 100%;">
     <form method="post" action="">
         {% csrf_token %}
         <input type="hidden" name="step" value="update_delivery_invoice">
-        <input type="hidden" name="invoice_type" value="{{ invoice_type }}">
         <input type="hidden" name="type" value="amount">
         <input type="hidden" name="amount" value="">
         <input type="hidden" name="warehouse" value="{{ warehouse }}">
@@ -335,7 +336,6 @@
                 <input type="hidden" id="alter_type" name="alter_type">
                 <input type="hidden" name="container_number" value="{{ container_number }}">
                 <input type="hidden" name="redirect_step" value="{{ redirect_step }}">
-                <input type="hidden" name="invoice_type" value="{{ invoice_type }}">
                 <input type="hidden" name="start_date" value="{{ start_date }}">
                 <input type="hidden" name="end_date" value="{{ end_date }}">
                 <input type="hidden" name="warehouse" value="{{ warehouse }}">
