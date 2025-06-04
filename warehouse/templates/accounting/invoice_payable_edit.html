@@ -527,28 +527,23 @@
 
         plt_carrier = select.options[select.selectedIndex].dataset.name;
         document.getElementById('palletization_carrier').value = plt_carrier;
-        
-        console.log("plt_carrier",plt_carrier);
     }
 
     function calculateTotal() {
         let total = 0;
         
-        // 1. 固定费用计算
         const feeFields = [
             'basic_fee',
             'overweight_fee',
             'chassis_fee',
             'arrive_fee',
-            'palletization_fee'  // 添加拆柜费用字段
+            'palletization_fee'  
         ];
         
         feeFields.forEach(field => {        
-            // 检查普通输入字段
             const input = document.querySelector(`input[name="${field}"]`);
             if (input && input.value !== "0") {
                 total += parseFloat(input.value) || 0;
-                console.log('费用',input.value,field);
             }
             else if (field === 'palletization_fee'){
                 const displaySpan = document.getElementById('unloading_fee_display');
@@ -557,13 +552,11 @@
                 }
             }
         });
-        console.log('遍历完总费用',total);
-        // 2. 其他费用计算
+
         document.querySelectorAll('input[name="fee_amount"]').forEach(input => {
             total += parseFloat(input.value) || 0;
         });
-        console.log('最后的遍历完总费用',total);
-        // 3. 更新显示
+
         document.getElementById('totalAmountDisplay').textContent = total.toFixed(2);
         document.getElementById('total_amount_input').value = total.toFixed(2);
     }
