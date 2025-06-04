@@ -87,6 +87,7 @@
                 <b>已开账单</b>
                 <span style="font-size: 12px; color: #666;">{{ previous_order|length }}条记录</span>
             </div>
+            {% if invoice_type == "receivable" %}
             <div style="display: flex; gap: 10px;">
                 <button type="button" onclick="filterByNotification(false)" class="btn btn-sm btn-info">
                     <i class="bi bi-bell-slash"></i> 未通知
@@ -97,7 +98,8 @@
                 <button type="button" onclick="resetFilters()" class="btn btn-sm btn-secondary">
                     <i class="bi bi-arrow-counterclockwise"></i> 重置
                 </button>
-            </div>   
+            </div>  
+            {% endif %} 
         </div>
         {% if previous_order %}        
         <form method="post" action="">
@@ -114,11 +116,15 @@
                             <th class="th">INVOICE #</th>
                             <th class="th">建单日期</th>
                             <th class="th">账单日期</th>
+                            {% if invoice_type == "receivable" %}
                             <th class="th">应收金额</th>
                             <th class="th">待核销金额</th>
                             <th class="th">操作</th>                          
                             <th class="th">STMT #</th>
                             <th class="th">通知状态</th> 
+                            {% else %}
+                            <th class="th">应付金额</th>
+                            {% endif %}
                             
                         </tr>
                         <tr style="position: sticky; top: 28px;">
@@ -133,10 +139,12 @@
                             <th class="th"></th>
                             <th class="th"></th>
                             <th class="th"></th>
+                            {% if invoice_type == "receivable" %}
                             <th class="th"></th>
                             <th class="th"></th>
                             <th class="th"><input type="text" id="containerSearchInput" placeholder="搜索STMT #..." oninput="filterTable(this, 10, false)" size="16" style="font-size: 14px;"></th>
                             <th class="th"><input type="text" id="containerSearchInput" placeholder="搜索状态..." oninput="filterTable(this, 11, false)" size="16" style="font-size: 14px;"></th>
+                            {% endif %}
                         </tr>
                     </thead>
                     <tbody>
@@ -156,6 +164,7 @@
                                 <td class="td">{{ c.invoice_id__invoice_number }}</td>
                                 <td class="td">{{ c.created_at|date:"Y-m-d" }}</td>
                                 <td class="td">{{ c.invoice_id__invoice_date|date:"Y-m-d" }}</td>
+                                {% if invoice_type == "receivable" %}
                                 <td class="td">${{ c.invoice_id__receivable_total_amount|floatformat:"2g" }}</td>
                                 <td class="td">${{ c.invoice_id__remain_offset|floatformat:"2g" }}</td>
                                 <td class="td">
@@ -183,12 +192,16 @@
                                         否
                                     {% endif %}
                                 </td>
+                                {% else %}
+                                <td class="td">${{ c.invoice_id__payable_total_amount|floatformat:"2g" }}</td>
+                                {% endif %}
                             </tr>
                         {% endfor %}
                     </tbody>
                 </table>
             </div>
             <input type="hidden" name="invoice_type" value="{{ invoice_type_filter }}">
+            {% if invoice_type_filter == "receivable" %}
             <div style="display: flex; flex-wrap: wrap; gap: 10px; margin-top: 15px;">
                 <button type="submit" onclick="confirmSubmit(this, 'invoice_order_select')" class="btn btn-primary" style="flex: 1; min-width: 120px; height: 35px;">
                     <i class="bi bi-receipt"></i> 生成STMT
@@ -206,6 +219,7 @@
                     <i class="bi bi-currency-dollar"></i> 核销
                 </button>
             </div>
+            {% endif %}
         </form>
         {% endif %}
     </div>
