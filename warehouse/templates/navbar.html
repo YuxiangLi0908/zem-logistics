@@ -131,9 +131,9 @@
                             <a href="{% url 'accounting' %}?step=pallet_data" target="_blank">托盘数据</a>
                             <a href="{% url 'accounting' %}?step=pl_data" target="_blank">派送清单</a>
                             <div class="nested-dropdown" >
-                                <a>账单</a>
+                                <a>账单录入</a>
                                 <div class="nested-dropdown-content">
-                                    <a href="{% url 'accounting' %}?step=invoice" target="_blank">货柜账单</a>
+                                    <a href="{% url 'accounting' %}?step=invoice" target="_blank">旧版货柜账单</a>
                                     <div class="nested-dropdown-l1" >
                                         <a>应收账单</a>
                                         <div class="nested-dropdown-content-l1">
@@ -148,12 +148,17 @@
                                                 </div>
                                             </div>
                                         </div>
-                                    </div>
-                                    <a href="{% url 'accounting' %}?step=invoice_payable" target="_blank">应付账单</a>
+                                    </div>                   
                                     <a href="{% url 'accounting' %}?step=invoice_confirm" target="_blank">账单确认</a>
+                                    <a href="{% url 'accounting' %}?step=invoice_payable" target="_blank">应付账单</a>
+                                    <a href="{% url 'accounting' %}?step=invoice_search" target="_blank">账单录入进度</a>
+                                </div>
+                            </div>
+                            <div class="nested-dropdown" >
+                                <a>报价表</a>
+                                <div class="nested-dropdown-content">
                                     <a href="{% url 'quote_management' %}?step=quote_master" target="_blank">应收报价表管理</a>
                                     <a href="{% url 'quote_management' %}?step=payable_quote_master" target="_blank">应付报价表管理</a>
-                                    <a href="{% url 'accounting' %}?step=invoice_search" target="_blank">账单录入进度</a>
                                 </div>
                             </div>
                         </div>
