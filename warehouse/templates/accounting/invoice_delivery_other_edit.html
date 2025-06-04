@@ -2,10 +2,7 @@
 
 {% block content %}
 <div style="display: flex; align-items: center; gap: 8px;">
-    <h4><b>派送账单编辑——总计 $<span class="total_amount">0</span></b></h4>
-    <span style="background: linear-gradient(to right, #096dd9, #40a9ff); color: white; padding: 3px 8px; border-radius: 4px;">
-        应收账单
-    </span>
+    <h4><b>应收派送账单编辑——总计 $<span class="total_amount">0</span></b></h4>
     <span style="background: linear-gradient(to right, #d4380d, #ff7a45); color: white; padding: 3px 8px; border-radius: 4px;">
         {% if delivery_type == 'public' %}
             公仓

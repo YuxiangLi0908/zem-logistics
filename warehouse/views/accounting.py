@@ -753,7 +753,7 @@ class Accounting(View):
         if customer:
             criteria &= models.Q(customer_name__zem_name=customer)
 
-        status_field = f"{invoice_type}_status"
+        status_field = "receivable_status"
 
         # 查找直送，没有生成账单的柜子
         order = Order.objects.select_related(
@@ -986,7 +986,7 @@ class Accounting(View):
             "invoice_id__statement_id",
         ).filter(
             criteria,
-            models.Q(**{"receivable__isnull": True})
+            models.Q(**{"receivable_status__isnull": True})
             | models.Q(  # 考虑账单编辑点的是暂存的情况
                 **{
                     "receivable_status__invoice_type": "receivable",
@@ -1089,7 +1089,6 @@ class Accounting(View):
             criteria &= models.Q(retrieval_id__retrieval_destination_precise=warehouse)
         if customer:
             criteria &= models.Q(customer_name__zem_name=customer)
-
         groups = [group.name for group in request.user.groups.all()]
         #表示是否可以看见公仓和私仓
         display_mix = False
