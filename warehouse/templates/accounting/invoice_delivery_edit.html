@@ -482,9 +482,14 @@
     // 更新单行数据（从单价/板数/激活）
     function updateRow(row, type) {
         const totalInput = row.querySelector(`input[id="${type}_cost"]`);
-        const newTotal = calculateRowTotal(row);
-        totalInput.value = newTotal.toFixed(2);
-        
+        if (type === 'combine') {
+            const price = parseFloat(row.querySelector('input[name="cost"]').value) || 0;
+            totalInput.value = price.toFixed(2);
+        } else {
+            const newTotal = calculateRowTotal(row);
+            totalInput.value = newTotal.toFixed(2);
+        }
+               
         updateTypeTotal(type);
         updateGlobalTotal();
     }
