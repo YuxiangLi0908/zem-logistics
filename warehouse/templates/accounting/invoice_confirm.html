@@ -87,7 +87,7 @@
                 <b>已开账单</b>
                 <span style="font-size: 12px; color: #666;">{{ previous_order|length }}条记录</span>
             </div>
-            {% if invoice_type == "receivable" %}
+            {% if invoice_type_filter == "receivable" %}
             <div style="display: flex; gap: 10px;">
                 <button type="button" onclick="filterByNotification(false)" class="btn btn-sm btn-info">
                     <i class="bi bi-bell-slash"></i> 未通知
@@ -116,7 +116,7 @@
                             <th class="th">INVOICE #</th>
                             <th class="th">建单日期</th>
                             <th class="th">账单日期</th>
-                            {% if invoice_type == "receivable" %}
+                            {% if invoice_type_filter == "receivable" %}
                             <th class="th">应收金额</th>
                             <th class="th">待核销金额</th>
                             <th class="th">操作</th>                          
@@ -139,7 +139,7 @@
                             <th class="th"></th>
                             <th class="th"></th>
                             <th class="th"></th>
-                            {% if invoice_type == "receivable" %}
+                            {% if invoice_type_filter == "receivable" %}
                             <th class="th"></th>
                             <th class="th"></th>
                             <th class="th"><input type="text" id="containerSearchInput" placeholder="搜索STMT #..." oninput="filterTable(this, 10, false)" size="16" style="font-size: 14px;"></th>
@@ -164,7 +164,7 @@
                                 <td class="td">{{ c.invoice_id__invoice_number }}</td>
                                 <td class="td">{{ c.created_at|date:"Y-m-d" }}</td>
                                 <td class="td">{{ c.invoice_id__invoice_date|date:"Y-m-d" }}</td>
-                                {% if invoice_type == "receivable" %}
+                                {% if invoice_type_filter == "receivable" %}
                                 <td class="td">${{ c.invoice_id__receivable_total_amount|floatformat:"2g" }}</td>
                                 <td class="td">${{ c.invoice_id__remain_offset|floatformat:"2g" }}</td>
                                 <td class="td">
