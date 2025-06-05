@@ -2283,51 +2283,61 @@ class Accounting(View):
         #客服手动录入的额外费用
         i = 0
         while f'port_fees[{i}][price]' in request.POST:
-            invoice_item_data.append({
-                'invoice_number': invoice,
-                'description': request.POST.get(f'port_fees[{i}][name]'),
-                'warehouse_code': None,
-                'cbm': None,
-                'weight': None,
-                'rate': request.POST.get(f'port_fees[{i}][price]'),
-                'qty': request.POST.get(f'port_fees[{i}][quantity]'),
-                'amount': float(request.POST.get(f'port_fees[{i}][value]', 0)) + 
-                        (float(request.POST.get(f'port_fees[{i}][surcharge]')) 
-                        if request.POST.get(f'port_fees[{i}][surcharge]') else 0),
-                'note': request.POST.get(f'port_fees[{i}][surcharge_note]'),
-            })
+            rate = request.POST.get(f'port_fees[{i}][price]')
+            qty = request.POST.get(f'port_fees[{i}][quantity]')
+            amount = float(request.POST.get(f'port_fees[{i}][value]', 0)) + (float(request.POST.get(f'port_fees[{i}][surcharge]')) 
+                        if request.POST.get(f'port_fees[{i}][surcharge]') else 0)
+            if qty>0 and rate>0 and amount>0:
+                invoice_item_data.append({
+                    'invoice_number': invoice,
+                    'description': request.POST.get(f'port_fees[{i}][name]'),
+                    'warehouse_code': None,
+                    'cbm': None,
+                    'weight': None,
+                    'rate': rate,
+                    'qty': qty,
+                    'amount': amount,
+                    'note': request.POST.get(f'port_fees[{i}][surcharge_note]'),
+                })
             i += 1
         
         j = 0
         while f'warehouse_fees[{j}][price]' in request.POST:
-            invoice_item_data.append({
-                'invoice_number': invoice,
-                'description': request.POST.get(f'warehouse_fees[{j}][name]'),
-                'warehouse_code': None,
-                'cbm': None,
-                'weight': None,
-                'rate': request.POST.get(f'warehouse_fees[{j}][price]'),
-                'qty': request.POST.get(f'warehouse_fees[{j}][quantity]'),
-                'amount': float(request.POST.get(f'warehouse_fees[{j}][value]', 0)) + 
-                        (float(request.POST.get(f'warehouse_fees[{j}][surcharge]')) 
-                        if request.POST.get(f'warehouse_fees[{j}][surcharge]') else 0),
-                'note': request.POST.get(f'warehouse_fees[{j}][surcharge_note]'),
-            })
+            rate = request.POST.get(f'warehouse_fees[{j}][price]')
+            qty = request.POST.get(f'warehouse_fees[{j}][quantity]')
+            amount = float(request.POST.get(f'warehouse_fees[{j}][value]', 0)) + (float(request.POST.get(f'warehouse_fees[{j}][surcharge]')) 
+                        if request.POST.get(f'warehouse_fees[{j}][surcharge]') else 0)
+            if qty>0 and rate>0 and amount>0:
+                invoice_item_data.append({
+                    'invoice_number': invoice,
+                    'description': request.POST.get(f'warehouse_fees[{j}][name]'),
+                    'warehouse_code': None,
+                    'cbm': None,
+                    'weight': None,
+                    'rate': rate,
+                    'qty': qty,
+                    'amount': amount,
+                    'note': request.POST.get(f'warehouse_fees[{j}][surcharge_note]'),
+                })
             j += 1
 
         k = 0
         while f'deliverys[{k}][destination]' in request.POST:
-            invoice_item_data.append({
-                'invoice_number': invoice,
-                'description': '超出仓点',
-                'warehouse_code': request.POST.get(f'deliverys[{k}][destination]'),
-                'cbm': request.POST.get(f'deliverys[{k}][total_cbm]'),
-                'weight': request.POST.get(f'deliverys[{k}][total_weight_lbs]'),
-                'qty': request.POST.get(f'deliverys[{k}][total_pallet]'),
-                'rate': request.POST.get(f'deliverys[{k}][cost]'),
-                'amount': request.POST.get(f'deliverys[{k}][total_cost]'),
-                'note': request.POST.get(f'deliverys[{k}][note]')
-            })
+            qty = float(request.POST.get(f'deliverys[{k}][total_pallet]'))
+            rate = float(request.POST.get(f'deliverys[{k}][cost]'))
+            amount = float(request.POST.get(f'deliverys[{k}][total_cost]'))
+            if qty>0 and rate>0 and amount>0:
+                invoice_item_data.append({
+                    'invoice_number': invoice,
+                    'description': '超出仓点',
+                    'warehouse_code': request.POST.get(f'deliverys[{k}][destination]'),
+                    'cbm': request.POST.get(f'deliverys[{k}][total_cbm]'),
+                    'weight': request.POST.get(f'deliverys[{k}][total_weight_lbs]'),
+                    'qty': qty,
+                    'rate': rate,
+                    'amount': amount,
+                    'note': request.POST.get(f'deliverys[{k}][note]')
+                })
             k += 1
         invoice_item = InvoiceItem.objects.filter(
             invoice_number__invoice_number=invoice.invoice_number
