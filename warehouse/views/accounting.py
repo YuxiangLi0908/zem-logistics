@@ -3647,7 +3647,7 @@ class Accounting(View):
                         'surcharge_note': None,
                     })
         
-        warehouse_fee = InvoiceWarehouse.objects.get(
+        warehouse_fees = InvoiceWarehouse.objects.filter(
             invoice_number__invoice_number=invoice.invoice_number,
             invoice_type="receivable",
         )
@@ -3660,27 +3660,34 @@ class Accounting(View):
         ]
         
         for field in warehouse_fields:
-            value = getattr(warehouse_fee, field)
-            if value is not None and value != 0:
+            total_value = 0
+            total_surcharge = 0
+            surcharge_notes = []
+
+            field_rate = None
+            field_qty = None
+            for warehouse_fee in warehouse_fees:
+                value = getattr(warehouse_fee, field)           
+                if value is not None and value != 0:
+                    total_value += value
+                    surcharge = warehouse_fee.surcharges.get(field, 0)
+                    if surcharge:
+                        total_surcharge += surcharge
+                    note = warehouse_fee.surcharge_notes.get(field, '')
+                    if note:
+                        surcharge_notes.append(note)
+                    if field_rate is None:
+                        field_rate = warehouse_fee.rate.get(field, '')
+                        field_qty = warehouse_fee.qty.get(field, '')
+            if total_value != 0:
                 extra_fees['warehouse'].append({
                     'name': InvoiceWarehouse._meta.get_field(field).verbose_name,
-                    'value': value,
-                    'rate': warehouse_fee.rate.get(field, ''),
-                    'qty': warehouse_fee.qty.get(field, ''),
-                    'surcharge': warehouse_fee.surcharges.get(field, ''),
-                    'surcharge_note': warehouse_fee.surcharge_notes.get(field, '')
+                    'value': total_value,
+                    'rate': field_rate,
+                    'qty': field_qty,
+                    'surcharge': total_surcharge,
+                    'surcharge_note': '; '.join(filter(None, surcharge_notes))
                 })
-        if warehouse_fee.other_fees:
-            for name, value in warehouse_fee.other_fees.items():
-                if value and value != 0:
-                    extra_fees['warehouse'].append({
-                        'name': name,
-                        'value': value,
-                        'rate': value,
-                        'qty': 1,
-                        'surcharge': None,
-                        'surcharge_note': None,
-                    })
 
         deliverys = InvoiceDelivery.objects.filter(
             invoice_number=invoice,
