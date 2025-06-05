@@ -14,7 +14,6 @@
 <div class="container-fluid mt-3">
     <div class="card-header p-2" style="background-color: #2c3e50; color: white; border-bottom: 1px solid #34495e;">
         <div class="d-flex justify-content-between align-items-center">
-            <!-- 左侧：金额总计 -->
             <h5 class="mb-0 d-flex align-items-center">
                 <i class="bi bi-cash-stack me-1"></i>
                 组合柜费用总计: $
@@ -24,9 +23,6 @@
             <span class="mx-auto" style="font-size: 1rem; color: white;">{{ invoice_number }}-{{ container_number }}</span>            
             
             <input type="hidden" name="invoice_number" value="{{ invoice_number }}">
-            <button type="submit" class="btn btn-primary btn-sm" onclick="modifyStatus('temporary')">
-                <i class="bi bi-pencil me-1"></i>暂存
-            </button>
             &nbsp;&nbsp;
             <button type="submit" class="btn btn-success btn-sm" onclick="modifyStatus('complete')">
                 <i class="bi bi-check-circle me-1"></i>确认账单
@@ -41,15 +37,15 @@
         <i class="bi bi-exclamation-triangle-fill me-1"></i>
         错误: {{ reason }}
     </div>
-    {% else %}
-
+    {% endif %}
+    {% if display_data.combina_data %}
     <!-- 组合柜费用 -->
     <div class="card mb-3 shadow-sm">
         <div class="card-header bg-light text-dark p-2 border-bottom">
-            <h6 class="mb-0 fw-bold text-dark">
+            <h6 class="mb-0 fw-bold fs-5 text-white bg-primary px-2 py-1 rounded d-inline-block">
                 <i class="bi bi-box-seam me-1"></i>
-                组合柜区域   
-            </h6>           
+                组合柜区域
+            </h6>         
         </div>
         <div class="card-body p-2">
             <div class="row">
@@ -96,7 +92,9 @@
             </div>
         </div>
     </div>
+    {% endif %}
 
+    {% if display_data.extra_fees.overweight %}
     <!-- 超重费用 -->
     <div class="card mb-3 shadow-sm">
         <div class="card-header bg-light text-dark p-2">
@@ -173,7 +171,9 @@
             </div>
         </div>
     </div>
+    {% endif %}
 
+    {% if display_data.extra_fees.overpallets %}
     <!-- 超板费用 -->
     <div class="card mb-3 shadow-sm">
         <div class="card-header bg-light text-dark p-2">
@@ -284,7 +284,9 @@
             </div>
         </div>
     </div>
+    {% endif %}
 
+    {% if display_data.extra_fees.extra_fees.overregion %}
     <!-- 超区费用 -->
     <div class="card mb-3 shadow-sm">
         <div class="card-header bg-light text-dark p-2">
@@ -292,6 +294,9 @@
                 <i class="bi bi-box-seam me-1"></i>
                 超区详情
             </h6>
+            <span class="badge" style="background-color: #e0f7fa; color: #00acc1;" title="系统自动计算">
+                <i class="bi bi-calculator me-1"></i>自动计算
+            </span>
         </div>
         {% if is_overregion %}
         <div class="card-body p-2">
@@ -302,16 +307,25 @@
                             <div class="d-flex justify-content-between align-items-center mb-3">
                                 <div>
                                     <h6 class="text-muted mb-1">提拆费</h6>
-                                    <input 
-                                        type="number" 
-                                        class="form-control text-primary" 
-                                        name="overregion_pickup_fee" 
-                                        id="overregion_pickup_fee"
-                                        step="0.01" 
-                                        style="width:150px; font-size: 1.5rem; font-weight: bold;"
-                                        value="{{ display_data.extra_fees.overregion.pickup.fee }}"
-                                        placeholder="请输入金额"
-                                    >
+                                    <div class="d-flex align-items-center">
+                                        <input 
+                                            type="number" 
+                                            class="form-control text-primary" 
+                                            name="overregion_pickup_fee" 
+                                            id="overregion_pickup_fee"
+                                            step="0.01" 
+                                            style="width:150px; font-size: 1.5rem; font-weight: bold;"
+                                            value="{{ display_data.extra_fees.overregion.pickup.fee }}"
+                                            placeholder="请输入金额"
+                                        >&nbsp;&nbsp;
+                                        <button type="button" class="btn btn-sm btn-outline-danger ms-2" 
+                                            onclick="
+                                                document.getElementById('overregion_pickup_fee').value = '0';
+                                                updateTotalAmount();
+                                            ">
+                                            <i class="bi bi-x-circle"></i> 清零
+                                        </button>
+                                 </div>
                                 </div>
                             </div>
                             <hr class="my-2">
@@ -347,17 +361,26 @@
                 </div>  
                 <div class="col-md-8">
                     <div class="mb-3">
-                        <h6 class="text-muted">派送费</h6>                       
-                        <input 
-                            type="number" 
-                            class="form-control text-primary" 
-                            name="overregion_delivery_fee" 
-                            id="overregion_delivery_fee"
-                            step="0.01" 
-                            style="width:150px; font-size: 1.5rem; font-weight: bold;"
-                            value="{{ display_data.extra_fees.overregion.delivery.fee }}"
-                            placeholder="请输入金额"
-                        >
+                        <h6 class="text-muted">派送费</h6>  
+                        <div class="d-flex align-items-center">                      
+                            <input 
+                                type="number" 
+                                class="form-control text-primary" 
+                                name="overregion_delivery_fee" 
+                                id="overregion_delivery_fee"
+                                step="0.01" 
+                                style="width:150px; font-size: 1.5rem; font-weight: bold;"
+                                value="{{ display_data.extra_fees.overregion.delivery.fee }}"
+                                placeholder="请输入金额"
+                            >&nbsp;&nbsp;
+                            <button type="button" class="btn btn-sm btn-outline-danger ms-2" 
+                                onclick="
+                                    document.getElementById('overregion_delivery_fee').value = '0';
+                                    updateTotalAmount();
+                                ">
+                                <i class="bi bi-x-circle"></i> 清零
+                            </button>
+                        </div>
                     </div>
                     <!--派送费-->
                     <table class="table table-sm table-bordered mb-0">
@@ -395,6 +418,238 @@
         {% endif %}
     </div>
     {% endif %}
+
+    {% if extra_fees %}
+    <!-- 额外费用 -->
+    <div class="card mb-3 shadow-sm">
+        <div class="card-header bg-light text-dark p-2">
+            <h6 class="mb-0 fw-bold fs-5 text-white bg-primary px-2 py-1 rounded d-inline-block">
+                <i class="bi bi-box-seam me-1"></i>
+                额外费用
+            </h6>
+            <span class="badge bg-warning text-dark ms-2" title="客服手动录入">
+                <i class="bi bi-pencil-square me-1"></i>客服录入
+            </span>
+        </div>
+        <div class="card-body p-2">
+            <!-- 港口相关费用 -->
+            {% if extra_fees.preports %}
+            <div class="card mb-3 border-0 shadow-sm">
+                <div class="card-header bg-light p-2">
+                    <h6 class="mb-0 fw-bold text-dark">
+                        <i class="bi bi-building me-1"></i>
+                        港口相关费用
+                    </h6>
+                </div>
+                <div class="card-body p-2">
+                    <div class="row mb-2 g-2 d-none d-md-flex">
+                        <div class="col-md-3"></div>
+                        <div class="col-md-2">
+                            <small class="text-muted">单价</small>
+                        </div>
+                        <div class="col-md-1">
+                            <small class="text-muted">数量</small>
+                        </div>                        
+                        <div class="col-md-2">
+                            <small class="text-muted">附加费</small>
+                        </div>
+                        <div class="col-md-2">
+                            <small class="text-muted">总价</small>
+                        </div>
+                        <div class="col-md-2">
+                            <small class="text-muted">说明</small>
+                        </div>
+                    </div>
+                    {% for fee in extra_fees.preports %}
+                    <div class="row align-items-center mb-2 g-2">
+                        <div class="col-md-3">
+                            <label class="form-label fw-bold">{{ fee.name }}:</label>
+                            <input type="hidden" class="form-control form-control-sm name-input" 
+                                name="port_fees[{{ forloop.counter0 }}][name]" value="{{ fee.name }}">
+                        </div>
+                        <div class="col-md-2">
+                            <small class="text-muted d-md-none">单价</small>
+                            <input type="number" class="form-control form-control-sm price-input" step="0.01" 
+                                name="port_fees[{{ forloop.counter0 }}][price]" value="{{ fee.rate }}">
+                        </div>
+                        <div class="col-md-1">
+                            <small class="text-muted d-md-none">数量</small>
+                            <input type="number" class="form-control form-control-sm quantity-input" step="0.1" 
+                                name="port_fees[{{ forloop.counter0 }}][quantity]" value="{{ fee.qty }}">
+                        </div>
+                        <div class="col-md-2">
+                            <small class="text-muted d-md-none">附加费</small>
+                            <input type="number" class="form-control form-control-sm surcharge-input" step="0.01"
+                                name="port_fees[{{ forloop.counter0 }}][surcharge]" value="{{ fee.surcharge }}">
+                        </div>
+                        <div class="col-md-2">
+                            <small class="text-muted d-md-none">总价</small>
+                            <input type="number" class="form-control form-control-sm total-input" readonly
+                                name="port_fees[{{ forloop.counter0 }}][value]" value="{{ fee.value }}">
+                        </div>                      
+                        <div class="col-md-2">
+                            <small class="text-muted d-md-none">说明</small>
+                            <input type="text" class="form-control form-control-sm" 
+                                name="port_fees[{{ forloop.counter0 }}][surcharge_note]" value="{{ fee.surcharge_note|default:'' }}">
+                        </div>
+                    </div>
+                    {% endfor %}
+                </div>
+            </div>
+            {% endif %}
+            
+            <!-- 仓库相关费用 -->
+            {% if extra_fees.warehouse %}
+            <div class="card border-0 shadow-sm">
+                <div class="card-header bg-light p-2">
+                    <h6 class="mb-0 fw-bold text-dark">
+                        <i class="bi bi-shop"></i> 
+                        仓库相关费用
+                    </h6>
+                </div>
+                <div class="card-body p-2">
+                    <div class="row mb-2 g-2 d-none d-md-flex">
+                        <div class="col-md-3"></div>
+                        <div class="col-md-2">
+                            <small class="text-muted">单价</small>
+                        </div>
+                        <div class="col-md-1">
+                            <small class="text-muted">数量</small>
+                        </div>
+                        <div class="col-md-2">
+                            <small class="text-muted">附加费</small>
+                        </div>
+                        <div class="col-md-2">
+                            <small class="text-muted">总价</small>
+                        </div>                      
+                        <div class="col-md-2">
+                            <small class="text-muted">说明</small>
+                        </div>
+                    </div>
+                    {% for fee in extra_fees.warehouse %}
+                    <div class="row align-items-center mb-2 g-2">
+                        <div class="col-md-3">
+                            <label class="form-label fw-bold">{{ fee.name }}:</label>
+                            <input type="hidden" class="form-control form-control-sm name-input" 
+                                name="warehouse_fees[{{ forloop.counter0 }}][name]" value="{{ fee.name }}">
+                        </div>
+                        <div class="col-md-2">
+                            <small class="text-muted d-md-none">单价</small>
+                            <input type="number" class="form-control form-control-sm price-input" step="0.01" 
+                                name="warehouse_fees[{{ forloop.counter0 }}][price]" value="{{ fee.rate }}">
+                        </div>
+                        <div class="col-md-1">
+                            <small class="text-muted d-md-none">数量</small>
+                            <input type="number" class="form-control form-control-sm quantity-input" step="0.1" 
+                                name="warehouse_fees[{{ forloop.counter0 }}][quantity]" value="{{ fee.qty }}">
+                        </div>
+                        <div class="col-md-2">
+                            <small class="text-muted d-md-none">附加费</small>
+                            <input type="number" class="form-control form-control-sm surcharge-input" step="0.01"
+                                name="warehouse_fees[{{ forloop.counter0 }}][surcharge]" value="{{ fee.surcharge }}">
+                        </div>
+                        <div class="col-md-2">
+                            <small class="text-muted d-md-none">总价</small>
+                            <input type="number" class="form-control form-control-sm total-input" readonly
+                                name="warehouse_fees[{{ forloop.counter0 }}][value]" value="{{ fee.value }}">
+                        </div>                   
+                        <div class="col-md-2">
+                            <small class="text-muted d-md-none">说明</small>
+                            <input type="text" class="form-control form-control-sm" 
+                                name="warehouse_fees[{{ forloop.counter0 }}][surcharge_note]" value="{{ fee.surcharge_note|default:'' }}">
+                        </div>
+                    </div>
+                    {% endfor %}
+                </div>
+            </div>
+            {% endif %}
+
+            <!-- 派送相关费用 -->
+            {% if extra_fees.deliverys %}
+            <div class="card mb-3 border-0 shadow-sm">
+                <div class="card-header bg-light p-2">
+                    <h6 class="mb-0 fw-bold text-dark">
+                        <i class="bi bi-truck me-1"></i>
+                        派送费用
+                    </h6>
+                </div>
+                <div class="card-body p-2">
+                    <div class="row mb-2 g-2 d-none d-md-flex">
+                        <div class="col-md-2">
+                            <small class="text-muted">目的地</small>
+                        </div>
+                        <div class="col-md-1">
+                            <small class="text-muted">单价</small>
+                        </div>
+                        <div class="col-md-1">
+                            <small class="text-muted">板数</small>
+                        </div>
+                        <div class="col-md-1">
+                            <small class="text-muted">体积(CBM)</small>
+                        </div>
+                        <div class="col-md-1">
+                            <small class="text-muted">重量(LBS)</small>
+                        </div>
+                        <div class="col-md-2">
+                            <small class="text-muted">总费用</small>
+                        </div>
+                        <div class="col-md-4">
+                            <small class="text-muted">备注</small>
+                        </div>
+                    </div>
+                    
+                    {% for delivery in extra_fees.deliverys %}
+                    <div class="row align-items-center mb-2 g-2">
+                        <div class="col-md-2">
+                            <small class="text-muted d-md-none">目的地</small>
+                            <input type="text" class="form-control form-control-sm" 
+                                name="deliverys[{{ forloop.counter0 }}][destination]" 
+                                value="{{ delivery.destination|default:'' }}">
+                        </div>
+                        <div class="col-md-1">
+                            <small class="text-muted d-md-none">单价</small>
+                            <input type="number" class="form-control form-control-sm price-input" step="0.1"
+                                name="deliverys[{{ forloop.counter0 }}][cost]" 
+                                value="{{ delivery.cost|default:0 }}">
+                        </div>
+                        <div class="col-md-1">
+                            <small class="text-muted d-md-none">板数</small>
+                            <input type="number" class="form-control form-control-sm quantity-input" step="0.1"
+                                name="deliverys[{{ forloop.counter0 }}][total_pallet]" 
+                                value="{{ delivery.total_pallet|default:0 }}">
+                        </div>
+                        <div class="col-md-1">
+                            <small class="text-muted d-md-none">体积(CBM)</small>
+                            <input type="number" class="form-control form-control-sm" step="0.01"
+                                name="deliverys[{{ forloop.counter0 }}][total_cbm]" 
+                                value="{{ delivery.total_cbm|default:0 }}">
+                        </div>
+                        <div class="col-md-1">
+                            <small class="text-muted d-md-none">重量(LBS)</small>
+                            <input type="number" class="form-control form-control-sm" step="0.1"
+                                name="deliverys[{{ forloop.counter0 }}][total_weight_lbs]" 
+                                value="{{ delivery.total_weight_lbs|default:0 }}">
+                        </div>
+                        <div class="col-md-2">
+                            <small class="text-muted d-md-none">总费用</small>
+                            <input type="number" class="form-control form-control-sm total-input" step="0.01"
+                                name="deliverys[{{ forloop.counter0 }}][total_cost]" 
+                                value="{{ delivery.total_cost|default:0 }}">
+                        </div>
+                        <div class="col-md-4">
+                            <small class="text-muted d-md-none">备注</small>
+                            <input type="text" class="form-control form-control-sm"
+                                name="deliverys[{{ forloop.counter0 }}][note]" 
+                                value="{{ delivery.note|default:'' }}">
+                        </div>
+                    </div>
+                    {% endfor %}
+                </div>
+            </div>
+            {% endif %}
+        </div>
+    </div>
+    {% endif %}
 </div>
 </form>
 <style>
@@ -416,6 +671,47 @@
     }
 </style>
 <script>
+    //计算每个费用的总价
+    function calculateFeeTotal(row) {
+        
+        const price = parseFloat(row.querySelector('.price-input').value) || 0;
+        const quantity = parseFloat(row.querySelector('.quantity-input').value) || 0;
+
+        const surchargeInput = row.querySelector('.surcharge-input');
+        const surcharge = surchargeInput ? parseFloat(surchargeInput.value) || 0 : 0;
+        const total = (price * quantity) + surcharge;
+        const totalInput = row.querySelector('.total-input');
+        if (totalInput) {
+            totalInput.value = total.toFixed(2);
+        }
+        return total;
+    }
+
+    function calculateExtraFeesTotal() {
+        let extraTotal = 0;
+        document.querySelectorAll('.row.align-items-center.mb-2.g-2').forEach(row => {
+            extraTotal += calculateFeeTotal(row);
+        });
+        return extraTotal;
+    }
+
+    // 为所有单价和数量输入框添加事件监听
+    document.addEventListener('DOMContentLoaded', function() {
+        // 为所有单价、数量和附加费输入框添加事件监听
+        document.querySelectorAll('.price-input, .quantity-input, .surcharge-input').forEach(input => {
+            input.addEventListener('input', function() {
+                const row = this.closest('.row.align-items-center.mb-2.g-2');
+                if (row) {
+                    calculateFeeTotal(row);
+                    updateTotalAmount();
+                }
+            });
+        });
+
+        // 初始化计算所有费用
+        updateTotalAmount();
+    });
+
     document.addEventListener('DOMContentLoaded', function() {
         const currentPalletsInput = document.getElementById('current_pallets');
         const limitPalletsInput = document.getElementById('limit_pallets'); 
@@ -474,21 +770,6 @@
         const base_fee = document.getElementById('base_fee');
         const overpallet_fee = document.getElementById('overpallet_fee');
         const overweight_fee = document.getElementById('overweight_fee');
-        
-        function updateTotalAmount() {
-
-            let amount = parseFloat(base_fee.value) || 0;
-            amount += parseFloat(overpallet_fee.value) || 0;
-            if (overregion_pickup_fee) {
-                amount += parseFloat(overregion_pickup_fee.value) || 0;
-            }
-            if (overregion_delivery_fee) {
-                amount += parseFloat(overregion_delivery_fee.value) || 0;
-            }
-            amount += parseFloat(overweight_fee.value) || 0;
-
-            totalAmountDisplay.textContent = amount.toFixed(2);
-        }
     
         [base_fee, overweight_fee, overpallet_fee, overregion_pickup_fee, overregion_delivery_fee].forEach(input => {
             if (input) {
@@ -497,6 +778,24 @@
         });
         updateTotalAmount();
     });
+    function updateTotalAmount() {
+        const base_fee = document.getElementById('base_fee');
+        const overpallet_fee = document.getElementById('overpallet_fee');
+        const overweight_fee = document.getElementById('overweight_fee');
+        const overregion_pickup_fee = document.getElementById('overregion_pickup_fee');
+        const overregion_delivery_fee = document.getElementById('overregion_delivery_fee');
+
+        let amount = parseFloat(base_fee.value) || 0;
+        amount += parseFloat(overpallet_fee.value) || 0;
+        amount += parseFloat(overweight_fee.value) || 0;
+        
+        if (overregion_pickup_fee) amount += parseFloat(overregion_pickup_fee.value) || 0;
+        if (overregion_delivery_fee) amount += parseFloat(overregion_delivery_fee.value) || 0;
+        
+        amount += calculateExtraFeesTotal();
+        
+        document.getElementById('totalAmountDisplay').textContent = amount.toFixed(2);
+    }
     function modifyStatus(type) {
         const saveTypeInput = document.getElementById('save_type');
         saveTypeInput.value = type; 
