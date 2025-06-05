@@ -3397,8 +3397,8 @@ class Accounting(View):
                 stipulate_non_combina = stipulate["global_rules"]["bulk_threshold"]["default"] - stipulate["global_rules"]["max_mixed"]["default"]
                 reason = f"规定{stipulate_non_combina}个非组合柜区，但是有{non_combina_region_count}个：{matched_regions['non_combina_dests']}，所以按照转运方式统计价格"
                 #reason = '不满足组合柜区域要求'
-            extra_fees = self._combina_get_extra_fees(invoice)
-            return self.template_invoice_combina_edit, {'reason': reason}
+            actual_fees = self._combina_get_extra_fees(invoice)
+            return self.template_invoice_combina_edit, {'reason': reason,'extra_fees':actual_fees}
         # 7.2 计算基础费用
         base_fee = 0
         extra_fees = {
@@ -3593,7 +3593,7 @@ class Accounting(View):
             is_overregion = False
         total_amount = base_fee + extra_fees['overpallets'] + extra_fees['overregion_pickup'] + extra_fees['overregion_delivery']
         #港前-仓库-派送录入的费用显示到界面上
-        extra_fees = self._combina_get_extra_fees(invoice)
+        actual_fees = self._combina_get_extra_fees(invoice)
         
         # 8. 返回结果
         context = {
@@ -3602,7 +3602,7 @@ class Accounting(View):
             "invoice_number":invoice.invoice_number,
             "container_number":container_number,
             'is_overregion':is_overregion,
-            "extra_fees":extra_fees
+            "extra_fees":actual_fees
         }
         return self.template_invoice_combina_edit, context
     
@@ -3715,7 +3715,8 @@ class Accounting(View):
         else:
             amazon_data = fee_details.get(f"{warehouse}_PUBLIC").details.get(f"{warehouse}_AMAZON")
             walmart_data = fee_details.get(f"{warehouse}_PUBLIC").details.get(f"{warehouse}_WALMART")
-        local_data = fee_details.get("NJ_LOCAL").details
+        if warehouse == "NJ":
+            local_data = fee_details.get("NJ_LOCAL").details
         for pl in plts_by_destination:
             #从亚马逊、沃尔玛、本地报价表中挨个找
             #先找亚马逊       
