@@ -41,7 +41,12 @@
                 <button id="submit-btn-update-basic-info" type="submit" class="btn btn-primary" style="width: 90px; height: 30px; margin-left: 20px; font-size: 13px;">
                 <b>检查仓点</b></button>
             </form>
-
+            <form method="post" action="">
+                {% csrf_token %}
+                <input type="hidden" name="step" value="check_order_type_destination">
+                <button id="submit-btn-update-basic-info" type="submit" class="btn btn-primary" style="width: 190px; height: 30px; margin-left: 20px; font-size: 13px;">
+                <b>核查转运仓点一致柜子</b></button>
+            </form>
         </ul>
     </div>
 </div>
@@ -616,7 +621,28 @@
 </div>
 {% endif %}
 
+{% if abnormal_container %}
+<div class="modal" id="abnormalContainer" style="display:block;">
+    <div class="modal-content">
+        <h3 class="form-title">异常柜子</h3>
+        <div class="region-display combina-region">
+            <div class="region-grid">
+                {% for co in abnormal_container %}  
+                    <span class="destination-tag abnormal-tag">{{ co }}</span>
+                {% endfor %}
+            </div>
+        </div>      
+        <button type="submit" class="btn btn-primary" onclick="closeModal('abnormalContainer')">确认</button>
+    </div>
+</div>
+{% endif %}
+
 <style>
+    .abnormal-tag {
+        background: #ffe0e0;
+        color: #d32f2f;
+        border: 1px solid #ef9a9a;
+    }
     .modal {
         display: none;
         position: fixed;

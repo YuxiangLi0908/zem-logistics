@@ -136,6 +136,9 @@ class OrderCreation(View):
         elif step == "check_destination":
             template, context = await self.handle_check_destination(request)
             return await sync_to_async(render)(request, template, context)
+        elif step == "check_order_type_destination":
+            template, context = await self.handle_check_order_type_destination(request)
+            return await sync_to_async(render)(request, template, context)
         elif step == "export_forecast":
             return await self.handle_export_forecast(request)
         elif step == "update_delivery_type_all":
@@ -409,6 +412,7 @@ class OrderCreation(View):
         ]
         non_combina_region = getattr(request, 'non_combina_region', 0)
         combina_region = getattr(request, 'combina_region', 0)
+        abnormal_container = getattr(request, 'abnormal_container', 0)
         if combina_region or non_combina_region:
             context['check_destination'] = True
             context['non_combina_region'] = non_combina_region
@@ -417,6 +421,7 @@ class OrderCreation(View):
             context['check_destination'] = False
             context['non_combina_region'] = non_combina_region
             context['combina_region'] = combina_region
+        context['abnormal_container'] = abnormal_container
         return self.template_order_details, context
 
     async def handle_create_order_basic_post(
@@ -1071,6 +1076,30 @@ class OrderCreation(View):
             "non_combina_dests": non_combina_dests,
         }
     
+    async def handle_check_order_type_destination(self, request: HttpRequest) -> tuple[Any, Any]:      
+        orders = await sync_to_async(list)(
+            Order.objects.filter(~models.Q(order_type='直送'))
+            .select_related('container_number')  # 优化查询性能
+            .values_list('container_number__container_number', flat=True)
+            .distinct()  # 确保柜号唯一
+        )
+        
+        matched_containers = []
+        
+        for container_number in orders:
+            destinations = await sync_to_async(
+                lambda: list(
+                    PackingList.objects.filter(container_number__container_number=container_number)
+                    .values_list('destination', flat=True)
+                    .distinct()
+                )
+            )()
+            if len(destinations) == 1:
+                matched_containers.append(container_number)
+        request.abnormal_container = matched_containers
+        return await self.handle_order_management_container_get(request)
+            
+
     async def handle_check_destination(self, request: HttpRequest) -> tuple[Any, Any]:
         container_number = request.POST.get("container_number")
         order = await sync_to_async(Order.objects.get)(
