@@ -210,6 +210,7 @@
 
                 <div class="text-left">
                     <input type="hidden" name="step" value="update_client_creds">
+                    <input type="hidden" name="customer_id" value="{{ customer.id }}">
                     <button type="submit" id="update-creds" class="btn btn-primary" style="height: 35px; font-size: 13px;" onclick="validatePassword()">修改登录用户名与密码</button>
                 </div>
                 {% else %}
