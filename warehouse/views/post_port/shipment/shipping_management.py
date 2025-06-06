@@ -2013,6 +2013,7 @@ class ShippingManagement(View):
                 if shipment.fleet_number:
                     await sync_to_async(shipment.fleet_number.delete)()
                 shipment.fleet_number = fleet
+        shipment.status = ''
         await sync_to_async(shipment.save)()
         mutable_get = request.GET.copy()
         mutable_get["warehouse"] = request.POST.get("warehouse")
