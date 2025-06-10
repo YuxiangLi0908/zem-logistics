@@ -328,6 +328,14 @@ INVOICE_TABLE_MAPPING = {
     "应付直送费":"payable_direct_amount",
     "待核销金额":"remain_offset"
 }
+INVOICESTATUS_TABLE_MAPPING = {
+    "账单类型":"invoice_type",
+    "主状态":"stage",
+    "公仓状态":"stage_public",
+    "私仓状态":"stage_other",
+    "拒绝":"is_rejected",
+    "拒绝原因":"reject_reason",
+}
 ORDER_TABLE_MAPPING = {
     "柜型":"order_type",
 }
@@ -443,6 +451,17 @@ MODEL_CHOICES = {
         "warehouse": "warehouse_invoice",
         "station_field": [],
         "mapping": INVOICE_TABLE_MAPPING,
+        'transfer_table':None,
+    },
+    "invoicestatus": {
+        "model": "HistoricalInvoiceStatus",
+        "name": "账单状态",
+        "search_field": "container_number",
+        "search_process":"container_number__container_number",
+        "has_foreignKey":True,
+        "warehouse": "warehouse_invoicstatus",
+        "station_field": [],
+        "mapping": INVOICESTATUS_TABLE_MAPPING,
         'transfer_table':None,
     },
 }

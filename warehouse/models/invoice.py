@@ -108,7 +108,7 @@ class InvoiceStatus(models.Model):
     )
     is_rejected = models.BooleanField(default=False)
     reject_reason = models.TextField(blank=True)
-
+    history = HistoricalRecords()
     class Meta:
         constraints = [
             models.UniqueConstraint(
