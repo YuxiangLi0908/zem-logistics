@@ -999,7 +999,9 @@ class Accounting(View):
                 "receivable_status__stage": "preport",
             },
         )
-
+        order_reject = self.process_orders_display_status(
+            order_reject, "receivable"
+        )
         # 查找待审核账单，给港前组长看
         order_pending = Order.objects.select_related(
             "invoice_id",
@@ -1039,6 +1041,7 @@ class Accounting(View):
             )
             .exclude(**{"receivable_status__stage__in": ["preport", "unstarted"]})
         )
+        
         previous_order = self.process_orders_display_status(
             previous_order, "receivable"
         )
