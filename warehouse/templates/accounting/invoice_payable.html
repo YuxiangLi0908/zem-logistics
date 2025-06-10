@@ -56,7 +56,10 @@
                         {% for c in order %}
                             <tr {% if c.payable_status.is_rejected %} style="background-color:#fff3cd; font-weight: bold;"{% endif %}>
                                 <td class="td">{{ c.customer_name.zem_name }}</td>
-                                <td class="td">{{ c.retrieval_id.retrieval_destination_area }}</td>
+                                <td class="td">{{ c.retrieval_id.retrieval_destination_precise }}</td>
+                                <td class="td">
+                                    <a href="/accounting/?step=container_payable&container_number={{ c.container_number }}&start_date={{ start_date }}&end_date={{ end_date }}&warehouse={{ warehouse_filter }}">{{ c.container_number }}</a>
+                                </td>
                                 <td class="td">{{ c.payable_status.reject_reason }}</td>
                                 <td class="td">{{ c.created_at|date:"Y-m-d" }}</td>
                             </tr>
@@ -94,7 +97,10 @@
                         {% for c in previous_order %}
                             <tr>
                                 <td class="td" style="vertical-align: middle;">{{ c.customer_name.zem_name }}</td>
-                                <td class="td">{{ c.retrieval_id.retrieval_destination_area }}</td>
+                                <td class="td">{{ c.retrieval_id.retrieval_destination_precise }}</td>
+                                <td class="td" style="vertical-align: middle;">                                
+                                    <a href="/accounting/?step=container_payable&container_number={{ c.container_number }}&start_date={{ start_date }}&end_date={{ end_date }}&warehouse={{ warehouse_filter }}">{{ c.container_number }}</a>
+                                </td>                     
                                 <td class="td" style="vertical-align: middle; white-space: pre-line;">{{ c.display_stage }}</td>
                                 <td class="td" style="vertical-align: middle;">{{ c.created_at|date:"Y-m-d" }}</td>
                             </tr>
