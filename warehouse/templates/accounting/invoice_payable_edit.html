@@ -388,7 +388,11 @@
                                     <td>不产生费用</td>
                                 {% endif %}
                             {% else %}
+                                {% if preport_carrier === '东海岸' %}
                                 <td colspan="2">缺少LFD，无法计算</td>
+                                {% else %}
+                                <td colspan="2">不产生车架费</td>
+                                {% endif %}
                             {% endif %}
                         </tr>
                     </tbody>
