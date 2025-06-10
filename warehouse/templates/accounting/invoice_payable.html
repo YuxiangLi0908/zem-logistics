@@ -39,19 +39,15 @@
                     <thead>
                         <tr style="position: sticky; top: 0;">
                             <th class="th">客户</th>
-                            <th class="th">货柜号</th>                         
-                            {% if display_mix %}
-                                <th class="th">类别</th>
-                            {% endif %}
+                            <th class="th">仓点</th>  
+                            <th class="th">货柜号</th>                                              
                             <th class="th">驳回原因</th>
                             <th class="th">建单日期</th>
                         </tr>
                         <tr style="position: sticky; top: 28px;">
                             <th class="th"></th>
-                            <th class="th"><input type="text" id="containerSearchInput" placeholder="搜索柜号..." oninput="filterTable(this, 1)" size="16" style="font-size: 14px;"></th>
-                            {% if display_mix %}
-                                <th class="th"></th>
-                            {% endif %}
+                            <th class="th"></th>  
+                            <th class="th"><input type="text" id="containerSearchInput" placeholder="搜索柜号..." oninput="filterTable(this, 1)" size="16" style="font-size: 14px;"></th>                      
                             <th class="th"></th>
                             <th class="th"></th>
                         </tr>
@@ -60,8 +56,10 @@
                         {% for c in order %}
                             <tr {% if c.payable_status.is_rejected %} style="background-color:#fff3cd; font-weight: bold;"{% endif %}>
                                 <td class="td">{{ c.customer_name.zem_name }}</td>
+                                <td class="td">{{ c.retrieval_id.retrieval_destination_precise }}</td>
                                 <td class="td">
                                     <a href="/accounting/?step=container_payable&container_number={{ c.container_number }}&start_date={{ start_date }}&end_date={{ end_date }}&warehouse={{ warehouse_filter }}">{{ c.container_number }}</a>
+                                </td>
                                 <td class="td">{{ c.payable_status.reject_reason }}</td>
                                 <td class="td">{{ c.created_at|date:"Y-m-d" }}</td>
                             </tr>
@@ -82,19 +80,15 @@
                     <thead>
                         <tr style="position: sticky; top: 0;">
                             <th class="th">客户</th>
+                            <th class="th">仓点</th>
                             <th class="th">货柜号</th>
-                            {% if display_mix %}
-                                <th class="th">类别</th>
-                            {% endif %}
                             <th class="th">账单状态</th>
                             <th class="th">建单日期</th>
                         </tr>
                         <tr style="position: sticky; top: 28px;">
                             <th class="th"></th>
+                            <th class="th"></th>
                             <th class="th"><input type="text" id="containerSearchInput" placeholder="搜索柜号..." oninput="filterTable(this, 1)" size="16" style="font-size: 14px;"></th>
-                            {% if display_mix %}
-                                <th class="th"></th>
-                            {% endif %}
                             <th class="th"></th>
                             <th class="th"></th>
                         </tr>
@@ -103,9 +97,10 @@
                         {% for c in previous_order %}
                             <tr>
                                 <td class="td" style="vertical-align: middle;">{{ c.customer_name.zem_name }}</td>
+                                <td class="td">{{ c.retrieval_id.retrieval_destination_precise }}</td>
                                 <td class="td" style="vertical-align: middle;">                                
                                     <a href="/accounting/?step=container_payable&container_number={{ c.container_number }}&start_date={{ start_date }}&end_date={{ end_date }}&warehouse={{ warehouse_filter }}">{{ c.container_number }}</a>
-                                </td>
+                                </td>                     
                                 <td class="td" style="vertical-align: middle; white-space: pre-line;">{{ c.display_stage }}</td>
                                 <td class="td" style="vertical-align: middle;">{{ c.created_at|date:"Y-m-d" }}</td>
                             </tr>
