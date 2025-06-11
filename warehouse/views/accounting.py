@@ -3215,11 +3215,10 @@ class Accounting(View):
         #本地派送的按照4.1之前的规则
         if decimal_part > 0:
             if is_new_rule: #etd4.1之后的
-                if decimal_part > 0:
-                    if is_niche_warehouse:
-                        additional = 2 if decimal_part > 0.5 else 1
-                    else:
-                        additional = 1 if decimal_part > 0.5 else 0
+                if is_niche_warehouse:
+                    additional = 1 if decimal_part > 0.5 else 0.5
+                else:
+                    additional = 1 if decimal_part > 0.5 else 0
             else:
                 if decimal_part > 0:
                     if is_niche_warehouse:
@@ -4153,7 +4152,8 @@ class Accounting(View):
                                 delta = returned_date - lfd
                                 
                             actual_day = delta.days + 1
-                        chassis_fee = (pickup_details.get("chassis_free_day"))*pickup_details.get("chassis")
+                            free_day = actual_day - int(pickup_details.get("chassis_free_day"))
+                            chassis_fee = free_day*pickup_details.get("chassis")
                     
                     arrive_fee = None
                     if pickup_details.get("arrive_warehouse") not in (None, "/"):
@@ -4182,6 +4182,9 @@ class Accounting(View):
             "palletization_fee":palletization_fee,
             "palletization_carrier":palletization_carrier,
             "payable_total_amount":payable_total_amount,
+            "lfd":lfd or None,
+            "arrive_date":arrive_date or None,
+            "returned_date":returned_date or None
         }
         return self.template_invoice_payable_edit, context
 
