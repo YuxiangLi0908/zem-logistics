@@ -3202,7 +3202,7 @@ class Accounting(View):
         else:
             delivery.cost = 0
         #计算板数
-        if delivery.type == "local" or (delivery.type == "amazon" and warehouse == "LA"):
+        if delivery.type == "local":
             is_new_rule = False
         total_pallet = self._calculate_total_pallet(delivery.total_cbm,is_new_rule,is_niche_warehouse)
         delivery.total_pallet = total_pallet
