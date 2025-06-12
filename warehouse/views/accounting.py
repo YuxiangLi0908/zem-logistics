@@ -2907,7 +2907,11 @@ class Accounting(View):
             ),
             'has_delivery': Case(
                 When(
-                    models.Q(invoice_delivery__isnull=False) & ~models.Q(delivery_method__contains="暂扣留仓"),
+                    models.Q(invoice_delivery__isnull=False) |
+                    models.Q(
+                        invoice_delivery__isnull=True,
+                        delivery_method__contains="暂扣留仓"
+                    ),
                     then=Value(True)
                 ),
                 default=Value(False),
@@ -2928,13 +2932,14 @@ class Accounting(View):
             "invoice_delivery__type",
             "delivery_type",
             "is_hold",
-            "has_delivery"   
+            "has_delivery"
         ]
-        common_aggregates = {
+        common_aggregates = {           
             'ids': StringAgg("str_id", delimiter=",", distinct=True, ordering="str_id"),
             'total_cbm': Sum("cbm", output_field=FloatField()),
             'total_weight_lbs': Sum("weight_lbs", output_field=FloatField()),
             'total_pallet': Count("pallet_id", distinct=True),   
+            
         }
         common_ordering = [
             Case(
