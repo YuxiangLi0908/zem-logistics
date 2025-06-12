@@ -2906,7 +2906,10 @@ class Accounting(View):
                 output_field=BooleanField()
             ),
             'has_delivery': Case(
-                When(invoice_delivery__isnull=False, then=Value(True)),
+                When(
+                    models.Q(invoice_delivery__isnull=False) & ~models.Q(delivery_method__contains="暂扣留仓"),
+                    then=Value(True)
+                ),
                 default=Value(False),
                 output_field=BooleanField()
             ),
