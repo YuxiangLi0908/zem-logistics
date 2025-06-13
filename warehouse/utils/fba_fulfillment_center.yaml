@@ -2268,3 +2268,8 @@ TCY2:
   location: 6201 Newcastle Rd
   state: CA
   zipcode: '95215'
+TCY1:
+  city: STOCKTON
+  location: 2690 EAST ARCH AIRPORT Rd
+  state: CA
+  zipcode: '95206'
