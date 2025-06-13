@@ -6,58 +6,58 @@ from django.db import migrations, models
 class Migration(migrations.Migration):
 
     dependencies = [
-        ('warehouse', '0198_remove_quotationmaster_active_and_more'),
+        ("warehouse", "0198_remove_quotationmaster_active_and_more"),
     ]
 
     operations = [
         migrations.RenameField(
-            model_name='historicalinvoice',
-            old_name='payable_delivery_amount',
-            new_name='payable_basic',
+            model_name="historicalinvoice",
+            old_name="payable_delivery_amount",
+            new_name="payable_basic",
         ),
         migrations.RenameField(
-            model_name='historicalinvoice',
-            old_name='payable_direct_amount',
-            new_name='payable_chassis',
+            model_name="historicalinvoice",
+            old_name="payable_direct_amount",
+            new_name="payable_chassis",
         ),
         migrations.RenameField(
-            model_name='historicalinvoice',
-            old_name='payable_preport_amount',
-            new_name='payable_overweight',
+            model_name="historicalinvoice",
+            old_name="payable_preport_amount",
+            new_name="payable_overweight",
         ),
         migrations.RenameField(
-            model_name='historicalinvoice',
-            old_name='payable_warehouse_amount',
-            new_name='payable_palletization',
+            model_name="historicalinvoice",
+            old_name="payable_warehouse_amount",
+            new_name="payable_palletization",
         ),
         migrations.RenameField(
-            model_name='invoice',
-            old_name='payable_delivery_amount',
-            new_name='payable_basic',
+            model_name="invoice",
+            old_name="payable_delivery_amount",
+            new_name="payable_basic",
         ),
         migrations.RenameField(
-            model_name='invoice',
-            old_name='payable_direct_amount',
-            new_name='payable_chassis',
+            model_name="invoice",
+            old_name="payable_direct_amount",
+            new_name="payable_chassis",
         ),
         migrations.RenameField(
-            model_name='invoice',
-            old_name='payable_preport_amount',
-            new_name='payable_overweight',
+            model_name="invoice",
+            old_name="payable_preport_amount",
+            new_name="payable_overweight",
         ),
         migrations.RenameField(
-            model_name='invoice',
-            old_name='payable_warehouse_amount',
-            new_name='payable_palletization',
+            model_name="invoice",
+            old_name="payable_warehouse_amount",
+            new_name="payable_palletization",
         ),
         migrations.AddField(
-            model_name='historicalinvoice',
-            name='payable_surcharge',
+            model_name="historicalinvoice",
+            name="payable_surcharge",
             field=models.JSONField(blank=True, default=dict, null=True),
         ),
         migrations.AddField(
-            model_name='invoice',
-            name='payable_surcharge',
+            model_name="invoice",
+            name="payable_surcharge",
             field=models.JSONField(blank=True, default=dict, null=True),
         ),
     ]

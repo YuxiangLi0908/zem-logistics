@@ -1,4 +1,4 @@
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
 from typing import Any
 
 import pandas as pd
@@ -384,6 +384,7 @@ class PrePortTracking(View):
         self, datetime_str: str, datetime_part: str = "date"
     ) -> str:
         datetime_obj = datetime.fromisoformat(datetime_str)
+        datetime_obj = datetime_obj.astimezone(timezone.utc)
         if datetime_part == "date":
             return datetime_obj.strftime("%Y-%m-%d")
         else:

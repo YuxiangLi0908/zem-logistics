@@ -1262,7 +1262,7 @@ class ShippingManagement(View):
         area = request.POST.get("area")
         current_time = datetime.now()
         appointment_type = request.POST.get("type")
-        if appointment_type == "td":  #首次预约、更新预约、取消预约都是这个类型
+        if appointment_type == "td":  # 首次预约、更新预约、取消预约都是这个类型
             shipment_data = ast.literal_eval(request.POST.get("shipment_data"))
             shipment_type = request.POST.get("shipment_type")
             appointment_id = request.POST.get("appointment_id", None)
@@ -1850,27 +1850,27 @@ class ShippingManagement(View):
         shipment_appointment = request.POST.get("shipment_appointment")
         if not shipment_appointment:
             shipment_appointment = None
-        #如果这个ISA备约已经登记过了，就把原记录删除    
+        # 如果这个ISA备约已经登记过了，就把原记录删除
         appointment_id = request.POST.get("appointment_id")
-        if shipment.appointment_id != appointment_id:  #更改ISA的时候，才判断ISA是否已存在
+        if (
+            shipment.appointment_id != appointment_id
+        ):  # 更改ISA的时候，才判断ISA是否已存在
             if appointment_id:
                 any_existing = await sync_to_async(
-                    Shipment.objects.filter(
-                        appointment_id=appointment_id
-                    ).exists
+                    Shipment.objects.filter(appointment_id=appointment_id).exists
                 )()
                 if any_existing:
                     existing_with_null_batch = await sync_to_async(
                         Shipment.objects.filter(
                             appointment_id=appointment_id,
-                            shipment_batch_number__isnull=True
-                        ).first  
+                            shipment_batch_number__isnull=True,
+                        ).first
                     )()
-                    if existing_with_null_batch:  #删除备约的记录
+                    if existing_with_null_batch:  # 删除备约的记录
                         await sync_to_async(existing_with_null_batch.delete)()
-                    else:                         #如果ISA已经有预约批次，就报错
-                        raise ValueError('ISA已预约')
-            
+                    else:  # 如果ISA已经有预约批次，就报错
+                        raise ValueError("ISA已预约")
+
         if shipment_type == shipment.shipment_type:
             if shipment_type == "FTL":
                 shipment.appointment_id = request.POST.get("appointment_id")
@@ -2013,7 +2013,7 @@ class ShippingManagement(View):
                 if shipment.fleet_number:
                     await sync_to_async(shipment.fleet_number.delete)()
                 shipment.fleet_number = fleet
-        shipment.status = ''
+        shipment.status = ""
         await sync_to_async(shipment.save)()
         mutable_get = request.GET.copy()
         mutable_get["warehouse"] = request.POST.get("warehouse")

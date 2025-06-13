@@ -2,8 +2,8 @@ import json
 from datetime import datetime, timedelta
 from typing import Any
 
-import pandas as pd
 import chardet
+import pandas as pd
 import pytz
 from asgiref.sync import async_to_sync, sync_to_async
 from django.contrib.auth.decorators import login_required
@@ -181,17 +181,17 @@ class PO(View):
     def read_csv_smart(self, file) -> pd.DataFrame:
         raw_data = file.read(10000)  # 读取前 10000 字节检测编码
         file.seek(0)
-        
+
         # 检测编码
         result = chardet.detect(raw_data)
-        encoding = result['encoding']
-        
+        encoding = result["encoding"]
+
         try:
-            file.seek(0)  
+            file.seek(0)
             df = pd.read_csv(file, encoding=encoding)
             return df
         except UnicodeDecodeError:
-            encodings_to_try = ['utf-8', 'gbk', 'gb18030', 'latin1']
+            encodings_to_try = ["utf-8", "gbk", "gb18030", "latin1"]
             for enc in encodings_to_try:
                 try:
                     file.seek(0)  # 每次尝试前重置文件指针
@@ -200,7 +200,7 @@ class PO(View):
                 except UnicodeDecodeError:
                     continue
             raise RuntimeError("无法识别文件编码，请检查文件格式！")
-        
+
     async def handle_upload_check_po_post(self, request: HttpRequest) -> tuple[Any]:
         time_code = request.POST.get("time_code")
         form = UploadFileForm(request.POST, request.FILES)

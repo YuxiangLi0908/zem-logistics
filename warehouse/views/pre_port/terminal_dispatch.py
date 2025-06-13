@@ -1,6 +1,7 @@
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
 from typing import Any
 
+import pytz
 from asgiref.sync import sync_to_async
 from django.db import models
 from django.http import HttpRequest, HttpResponse
@@ -164,31 +165,28 @@ class TerminalDispatch(View):
         retrieval = order.retrieval_id
         retrieval.retrieval_destination_precise = destination
         retrieval.retrieval_carrier = request.POST.get("retrieval_carrier").strip()
+        tzinfo = self._parse_tzinfo(destination)
         if request.POST.get("target_retrieval_timestamp"):
-            retrieval.target_retrieval_timestamp = request.POST.get(
-                "target_retrieval_timestamp"
-            )
+            ts = request.POST.get("target_retrieval_timestamp")
+            retrieval.target_retrieval_timestamp = self._parse_ts(ts, tzinfo)
         else:
             retrieval.target_retrieval_timestamp = None
         if request.POST.get("target_retrieval_timestamp_lower"):
-            retrieval.target_retrieval_timestamp_lower = request.POST.get(
-                "target_retrieval_timestamp_lower"
-            )
+            ts = request.POST.get("target_retrieval_timestamp_lower")
+            retrieval.target_retrieval_timestamp_lower = self._parse_ts(ts, tzinfo)
         else:
             retrieval.target_retrieval_timestamp_lower = None
         retrieval.note = request.POST.get("note", "").strip()
         retrieval.scheduled_at = datetime.now()
         if request.POST.get("retrieval_carrier") == "客户自提":
             if request.POST.get("target_retrieval_timestamp"):
-                retrieval.target_retrieval_timestamp = request.POST.get(
-                    "target_retrieval_timestamp"
-                )
+                ts = request.POST.get("target_retrieval_timestamp")
+                retrieval.target_retrieval_timestamp = self._parse_ts(ts, tzinfo)
             else:
                 retrieval.target_retrieval_timestamp = None
             if request.POST.get("target_retrieval_timestamp_lower"):
-                retrieval.target_retrieval_timestamp_lower = request.POST.get(
-                    "target_retrieval_timestamp_lower"
-                )
+                ts = request.POST.get("target_retrieval_timestamp_lower")
+                retrieval.target_retrieval_timestamp_lower = self._parse_ts(ts, tzinfo)
             else:
                 retrieval.target_retrieval_timestamp_lower = None
         await sync_to_async(retrieval.save)()
@@ -212,21 +210,17 @@ class TerminalDispatch(View):
         retrieval = await sync_to_async(Retrieval.objects.get)(
             order__container_number__container_number=container_number
         )
-        retrieval.actual_retrieval_timestamp = request.POST.get(
-            "actual_retrieval_timestamp"
-        )
+        tzinfo = self._parse_tzinfo(retrieval.retrieval_destination_precise)
+        ts = request.POST.get("actual_retrieval_timestamp")
+        actual_retrieval_ts = self._parse_ts(ts, tzinfo)
+        retrieval.actual_retrieval_timestamp = actual_retrieval_ts
         # 填了实际提柜但是没有写预计提柜的，就默认预计提柜时间为实际提柜时间
         if not retrieval.target_retrieval_timestamp:
-            retrieval.target_retrieval_timestamp = request.POST.get(
-                "actual_retrieval_timestamp"
-            )
+            retrieval.target_retrieval_timestamp = actual_retrieval_ts
         if not retrieval.target_retrieval_timestamp_lower:
-            retrieval.target_retrieval_timestamp_lower = request.POST.get(
-                "actual_retrieval_timestamp"
-            )
+            retrieval.target_retrieval_timestamp_lower = actual_retrieval_ts
         today = datetime.now()
-        actual_ts = request.POST.get("actual_retrieval_timestamp")
-        actual_ts = datetime.strptime(actual_ts, "%Y-%m-%dT%H:%M")
+        actual_ts = actual_retrieval_ts
         # 如果是当天提柜
         if actual_ts <= today + timedelta(days=1):
             orders = await sync_to_async(list)(
@@ -247,3 +241,19 @@ class TerminalDispatch(View):
         if await sync_to_async(lambda: request.user.is_authenticated)():
             return True
         return False
+
+    def _parse_tzinfo(self, s: str) -> str:
+        if "NJ" in s.upper():
+            return "America/New_York"
+        elif "SAV" in s.upper():
+            return "America/New_York"
+        elif "LA" in s.upper():
+            return "America/Los_Angeles"
+        else:
+            return "America/New_York"
+
+    def _parse_ts(self, ts: str, tzinfo: str) -> str:
+        ts_naive = datetime.fromisoformat(ts)
+        tz = pytz.timezone(tzinfo)
+        ts = tz.localize(ts_naive).astimezone(timezone.utc)
+        return ts.strftime("%Y-%m-%d %H:%M:%S")

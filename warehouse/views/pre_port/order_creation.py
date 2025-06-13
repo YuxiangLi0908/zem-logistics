@@ -4,36 +4,36 @@ import random
 import re
 import string
 import uuid
-from datetime import datetime, timedelta
+from collections import defaultdict
+from datetime import datetime, timedelta, timezone
 from pathlib import Path
 from typing import Any
 
 import chardet
 import numpy as np
 import pandas as pd
+import pytz
 from asgiref.sync import sync_to_async
 from django.core.exceptions import ObjectDoesNotExist
 from django.db import models
-from django.db.models import Case, Value, When
 from django.http import Http404, HttpRequest, HttpResponse
 from django.shortcuts import redirect, render
 from django.views import View
 from simple_history.utils import bulk_create_with_history, bulk_update_with_history
 
-from collections import defaultdict
 from warehouse.forms.upload_file import UploadFileForm
 from warehouse.models.container import Container
 from warehouse.models.customer import Customer
+from warehouse.models.fee_detail import FeeDetail
 from warehouse.models.offload import Offload
 from warehouse.models.order import Order
 from warehouse.models.packing_list import PackingList
 from warehouse.models.pallet import Pallet
 from warehouse.models.po_check_eta import PoCheckEtaSeven
+from warehouse.models.quotation_master import QuotationMaster
 from warehouse.models.retrieval import Retrieval
 from warehouse.models.vessel import Vessel
 from warehouse.models.warehouse import ZemWarehouse
-from warehouse.models.quotation_master import QuotationMaster
-from warehouse.models.fee_detail import FeeDetail
 from warehouse.utils.constants import (
     ADDITIONAL_CONTAINER,
     CONTAINER_PICKUP_CARRIER,
@@ -410,18 +410,18 @@ class OrderCreation(View):
             ("公仓", "public"),
             ("其他", "other"),
         ]
-        non_combina_region = getattr(request, 'non_combina_region', 0)
-        combina_region = getattr(request, 'combina_region', 0)
-        abnormal_container = getattr(request, 'abnormal_container', 0)
+        non_combina_region = getattr(request, "non_combina_region", 0)
+        combina_region = getattr(request, "combina_region", 0)
+        abnormal_container = getattr(request, "abnormal_container", 0)
         if combina_region or non_combina_region:
-            context['check_destination'] = True
-            context['non_combina_region'] = non_combina_region
-            context['combina_region'] = combina_region
+            context["check_destination"] = True
+            context["non_combina_region"] = non_combina_region
+            context["combina_region"] = combina_region
         else:
-            context['check_destination'] = False
-            context['non_combina_region'] = non_combina_region
-            context['combina_region'] = combina_region
-        context['abnormal_container'] = abnormal_container
+            context["check_destination"] = False
+            context["non_combina_region"] = non_combina_region
+            context["combina_region"] = combina_region
+        context["abnormal_container"] = abnormal_container
         return self.template_order_details, context
 
     async def handle_create_order_basic_post(
@@ -663,23 +663,30 @@ class OrderCreation(View):
         retrieval = await sync_to_async(Retrieval.objects.get)(
             models.Q(retrieval_id=order.retrieval_id)
         )
+        tzinfo = self._parse_tzinfo(retrieval.retrieval_destination_precise)
         retrieval.retrieval_carrier = request.POST.get("retrieval_carrier")
         retrieval.retrieval_destination_precise = request.POST.get(
             "retrieval_destination_precise"
         )
         target_retrieval_timestamp = request.POST.get("target_retrieval_timestamp")
         retrieval.target_retrieval_timestamp = (
-            target_retrieval_timestamp if target_retrieval_timestamp else None
+            self._parse_ts(target_retrieval_timestamp, tzinfo)
+            if target_retrieval_timestamp
+            else None
         )
         actual_retrieval_timestamp = request.POST.get("actual_retrieval_timestamp")
         retrieval.actual_retrieval_timestamp = (
-            actual_retrieval_timestamp if actual_retrieval_timestamp else None
+            self._parse_ts(actual_retrieval_timestamp, tzinfo)
+            if actual_retrieval_timestamp
+            else None
         )
 
         arrive_at = request.POST.get("arrive_at")
-        retrieval.arrive_at = arrive_at if arrive_at else None
+        retrieval.arrive_at = self._parse_ts(arrive_at, tzinfo) if arrive_at else None
         empty_returned_at = request.POST.get("empty_returned_at")
-        retrieval.empty_returned_at = empty_returned_at if empty_returned_at else None
+        retrieval.empty_returned_at = (
+            self._parse_ts(empty_returned_at, tzinfo) if empty_returned_at else None
+        )
 
         retrieval.note = request.POST.get("retrieval_note").strip()
         await sync_to_async(retrieval.save)()
@@ -730,28 +737,27 @@ class OrderCreation(View):
                 for item in batch
                 if (
                     re.fullmatch(r"^[A-Za-z]{4}\s*$", str(item["destination"]))
-                    or
-                    re.fullmatch(r"^[A-Za-z]{3}\s*\d$", str(item["destination"]))
-                    or
-                    re.fullmatch(r"^[A-Za-z]{3}\s*\d\s*[A-Za-z]$", str(item["destination"]))
-                    or
-                    any(
+                    or re.fullmatch(r"^[A-Za-z]{3}\s*\d$", str(item["destination"]))
+                    or re.fullmatch(
+                        r"^[A-Za-z]{3}\s*\d\s*[A-Za-z]$", str(item["destination"])
+                    )
+                    or any(
                         kw.lower() in str(item["destination"]).lower()
-                        for kw in {"walmart", "沃尔玛"}  
+                        for kw in {"walmart", "沃尔玛"}
                     )
                 )
             ]
 
             # 批量更新
             if public_ids:
-                await sync_to_async(PackingList.objects.filter(id__in=public_ids).update)(
-                    delivery_type="public"
-                )
+                await sync_to_async(
+                    PackingList.objects.filter(id__in=public_ids).update
+                )(delivery_type="public")
             other_ids = [item["id"] for item in batch if item["id"] not in public_ids]
             if other_ids:
-                await sync_to_async(PackingList.objects.filter(id__in=other_ids).update)(
-                    delivery_type="other"
-                )
+                await sync_to_async(
+                    PackingList.objects.filter(id__in=other_ids).update
+                )(delivery_type="other")
 
         plt_size = 10000
         queryset = Pallet.objects.filter(delivery_type__isnull=True).order_by("id")
@@ -767,14 +773,13 @@ class OrderCreation(View):
                 for item in batch_plt
                 if (
                     re.fullmatch(r"^[A-Za-z]{4}\s*$", str(item["destination"]))
-                    or
-                    re.fullmatch(r"^[A-Za-z]{3}\s*\d$", str(item["destination"]))
-                    or
-                    re.fullmatch(r"^[A-Za-z]{3}\s*\d\s*[A-Za-z]$", str(item["destination"]))
-                    or
-                    any(
+                    or re.fullmatch(r"^[A-Za-z]{3}\s*\d$", str(item["destination"]))
+                    or re.fullmatch(
+                        r"^[A-Za-z]{3}\s*\d\s*[A-Za-z]$", str(item["destination"])
+                    )
+                    or any(
                         kw.lower() in str(item["destination"]).lower()
-                        for kw in {"walmart", "沃尔玛"}  
+                        for kw in {"walmart", "沃尔玛"}
                     )
                 )
             ]
@@ -784,11 +789,13 @@ class OrderCreation(View):
                 await sync_to_async(Pallet.objects.filter(id__in=public_ids).update)(
                     delivery_type="public"
                 )
-            other_ids = [item["id"] for item in batch_plt if item["id"] not in public_ids]
+            other_ids = [
+                item["id"] for item in batch_plt if item["id"] not in public_ids
+            ]
             if other_ids:
-                await sync_to_async(PackingList.objects.filter(id__in=other_ids).update)(
-                    delivery_type="other"
-                )
+                await sync_to_async(
+                    PackingList.objects.filter(id__in=other_ids).update
+                )(delivery_type="other")
 
         return await self.handle_order_management_container_get(request)
 
@@ -1050,12 +1057,14 @@ class OrderCreation(View):
         else:
             return await self.handle_order_basic_info_get()
 
-    def find_matching_regions(self,plts_by_destination: dict, combina_fee: dict,container_type) -> dict:
+    def find_matching_regions(
+        self, plts_by_destination: dict, combina_fee: dict, container_type
+    ) -> dict:
         non_combina_dests = set()
         price_display = defaultdict(set)
 
         for plts in plts_by_destination:
-            dest = plts['destination']
+            dest = plts["destination"]
             dest = dest.replace("沃尔玛", "").split("-")[-1].strip()
             matched = False
             # 遍历所有区域和location
@@ -1064,33 +1073,35 @@ class OrderCreation(View):
                     if dest in fee_data["location"]:
                         price_display[region].add(dest)
                         matched = True
-            
+
             # 记录匹配结果
             if not matched:
                 non_combina_dests.add(dest)  # 未匹配的仓点
-        combina_dests = {
-            k: list(v) for k, v in price_display.items()
-        }
+        combina_dests = {k: list(v) for k, v in price_display.items()}
         return {
             "combina_dests": combina_dests,
             "non_combina_dests": non_combina_dests,
         }
-    
-    async def handle_check_order_type_destination(self, request: HttpRequest) -> tuple[Any, Any]:      
+
+    async def handle_check_order_type_destination(
+        self, request: HttpRequest
+    ) -> tuple[Any, Any]:
         orders = await sync_to_async(list)(
-            Order.objects.filter(~models.Q(order_type='直送'))
-            .select_related('container_number')  # 优化查询性能
-            .values_list('container_number__container_number', flat=True)
+            Order.objects.filter(~models.Q(order_type="直送"))
+            .select_related("container_number")  # 优化查询性能
+            .values_list("container_number__container_number", flat=True)
             .distinct()  # 确保柜号唯一
         )
-        
+
         matched_containers = []
-        
+
         for container_number in orders:
             destinations = await sync_to_async(
                 lambda: list(
-                    PackingList.objects.filter(container_number__container_number=container_number)
-                    .values_list('destination', flat=True)
+                    PackingList.objects.filter(
+                        container_number__container_number=container_number
+                    )
+                    .values_list("destination", flat=True)
                     .distinct()
                 )
             )()
@@ -1098,51 +1109,59 @@ class OrderCreation(View):
                 matched_containers.append(container_number)
         request.abnormal_container = matched_containers
         return await self.handle_order_management_container_get(request)
-            
 
     async def handle_check_destination(self, request: HttpRequest) -> tuple[Any, Any]:
         container_number = request.POST.get("container_number")
         order = await sync_to_async(Order.objects.get)(
             models.Q(container_number__container_number=container_number)
         )
-        #准备参数
+        # 准备参数
         vessel_etd = await sync_to_async(lambda: order.vessel_id.vessel_etd)()
-        warehouse = await sync_to_async(lambda: order.retrieval_id.retrieval_destination_area)()
-        
-        container = await sync_to_async(Container.objects.get)(container_number=container_number)
-        container_type = container.container_type 
-        container_type = 0 if container_type == '40HQ/GP' else 1
+        warehouse = await sync_to_async(
+            lambda: order.retrieval_id.retrieval_destination_area
+        )()
 
-        #找报价表
-        matching_quotation = await sync_to_async(QuotationMaster.objects.filter(
-            effective_date__lte=vessel_etd
-        ).order_by('-effective_date').first)()
+        container = await sync_to_async(Container.objects.get)(
+            container_number=container_number
+        )
+        container_type = container.container_type
+        container_type = 0 if container_type == "40HQ/GP" else 1
+
+        # 找报价表
+        matching_quotation = await sync_to_async(
+            QuotationMaster.objects.filter(effective_date__lte=vessel_etd)
+            .order_by("-effective_date")
+            .first
+        )()
         if not matching_quotation:
-            return ValueError('找不到报价表')
-        #找组合柜报价
+            return ValueError("找不到报价表")
+        # 找组合柜报价
         combina_fee_detail = await FeeDetail.objects.aget(
-            quotation_id=matching_quotation.id,
-            fee_type=f"{warehouse}_COMBINA"
+            quotation_id=matching_quotation.id, fee_type=f"{warehouse}_COMBINA"
         )
         combina_fee = combina_fee_detail.details
-        
+
         plts_by_destination = await sync_to_async(
             lambda: list(
                 PackingList.objects.filter(
                     container_number__container_number=container_number
-                ).values('destination')
+                ).values("destination")
             )
         )()
-        matched_regions = self.find_matching_regions(plts_by_destination, combina_fee,container_type)
-        matched_regions['combina_dests'] = matched_regions['combina_dests']
-        matched_regions['non_combina_dests'] = list(matched_regions['non_combina_dests'])
-        #非组合柜区域
-        request.non_combina_region = matched_regions['non_combina_dests']
-        #组合柜区域
+        matched_regions = self.find_matching_regions(
+            plts_by_destination, combina_fee, container_type
+        )
+        matched_regions["combina_dests"] = matched_regions["combina_dests"]
+        matched_regions["non_combina_dests"] = list(
+            matched_regions["non_combina_dests"]
+        )
+        # 非组合柜区域
+        request.non_combina_region = matched_regions["non_combina_dests"]
+        # 组合柜区域
         request.combina_region = matched_regions["combina_dests"]
 
         return await self.handle_order_management_container_get(request)
-    
+
     async def handle_cancel_notification(self, request: HttpRequest) -> tuple[Any, Any]:
         container_number = request.POST.get("container_number")
         # 查询order表的contain_number
@@ -1294,3 +1313,21 @@ class OrderCreation(View):
         if await sync_to_async(lambda: request.user.is_authenticated)():
             return True
         return False
+
+    def _parse_tzinfo(self, s: str | None) -> str:
+        if not s:
+            return "America/New_York"
+        elif "NJ" in s.upper():
+            return "America/New_York"
+        elif "SAV" in s.upper():
+            return "America/New_York"
+        elif "LA" in s.upper():
+            return "America/Los_Angeles"
+        else:
+            return "America/New_York"
+
+    def _parse_ts(self, ts: str, tzinfo: str) -> str:
+        ts_naive = datetime.fromisoformat(ts)
+        tz = pytz.timezone(tzinfo)
+        ts = tz.localize(ts_naive).astimezone(timezone.utc)
+        return ts.strftime("%Y-%m-%d %H:%M:%S")

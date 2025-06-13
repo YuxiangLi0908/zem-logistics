@@ -30,10 +30,10 @@ from warehouse.models.retrieval import Retrieval
 from warehouse.models.shipment import Shipment
 from warehouse.models.shipment_status import ShipmentStatus
 from warehouse.models.terminal49_webhook_raw import T49Raw
+from warehouse.models.transaction import Transaction
 from warehouse.models.transfer_location import TransferLocation
 from warehouse.models.vessel import Vessel
 from warehouse.models.warehouse import ZemWarehouse
-from warehouse.models.transaction import Transaction
 
 # Register your models here.
 admin.site.register(Clearance, SimpleHistoryAdmin)

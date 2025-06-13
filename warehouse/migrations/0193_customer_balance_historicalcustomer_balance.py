@@ -6,18 +6,18 @@ from django.db import migrations, models
 class Migration(migrations.Migration):
 
     dependencies = [
-        ('warehouse', '0192_container_account_order_type_and_more'),
+        ("warehouse", "0192_container_account_order_type_and_more"),
     ]
 
     operations = [
         migrations.AddField(
-            model_name='customer',
-            name='balance',
+            model_name="customer",
+            name="balance",
             field=models.FloatField(blank=True, null=True),
         ),
         migrations.AddField(
-            model_name='historicalcustomer',
-            name='balance',
+            model_name="historicalcustomer",
+            name="balance",
             field=models.FloatField(blank=True, null=True),
         ),
     ]

@@ -75,7 +75,7 @@ class TimeoutWarning(View):
                 shipment_type="FTL",
                 fleet_number__isnull=True,
                 origin=warehouse,
-                is_canceled=False
+                is_canceled=False,
             ).order_by("shipment_appointment")
         )
         # 提货时间已过期没有确认出库
