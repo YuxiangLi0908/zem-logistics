@@ -1187,14 +1187,16 @@ class FleetManagement(View):
         shipment = await sync_to_async(Shipment.objects.get)(
             shipment_batch_number=shipment_batch_number
         )
-        file_extension = os.path.splitext(file.name)[1] #提取扩展名
-        file_path = os.path.join(SP_DOC_LIB, f"{SYSTEM_FOLDER}/pod/{APP_ENV}")#文档库名称，系统文件夹名称，当前环境
-        #上传到SharePoint
+        file_extension = os.path.splitext(file.name)[1]  # 提取扩展名
+        file_path = os.path.join(
+            SP_DOC_LIB, f"{SYSTEM_FOLDER}/pod/{APP_ENV}"
+        )  # 文档库名称，系统文件夹名称，当前环境
+        # 上传到SharePoint
         sp_folder = conn.web.get_folder_by_server_relative_url(file_path)
         resp = sp_folder.upload_file(
             f"{shipment_batch_number}{file_extension}", file
         ).execute_query()
-        #生成并获取链接
+        # 生成并获取链接
         link = (
             resp.share_link(SharingLinkKind.OrganizationView)
             .execute_query()

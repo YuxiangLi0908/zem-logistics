@@ -6,18 +6,18 @@ from django.db import migrations, models
 class Migration(migrations.Migration):
 
     dependencies = [
-        ('warehouse', '0189_historicalinvoice_is_invoice_delivered_and_more'),
+        ("warehouse", "0189_historicalinvoice_is_invoice_delivered_and_more"),
     ]
 
     operations = [
         migrations.AlterField(
-            model_name='historicalinvoicedelivery',
-            name='total_pallet',
+            model_name="historicalinvoicedelivery",
+            name="total_pallet",
             field=models.FloatField(blank=True, null=True),
         ),
         migrations.AlterField(
-            model_name='invoicedelivery',
-            name='total_pallet',
+            model_name="invoicedelivery",
+            name="total_pallet",
             field=models.FloatField(blank=True, null=True),
         ),
     ]

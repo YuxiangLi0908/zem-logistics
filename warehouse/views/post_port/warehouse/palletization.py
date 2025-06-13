@@ -529,8 +529,7 @@ class Palletization(View):
         additional_pallets = request.POST.getlist("new_destinations")
         warehouse = order_selected.warehouse.name
         if not offload.offload_at:
-            cn = pytz.timezone("Asia/Shanghai")
-            current_time_cn = datetime.now(cn)
+            current_time = datetime.now()
             ids = request.POST.getlist("ids")
             ids = [i.split(",") for i in ids]
             n_pallet = [int(n) for n in request.POST.getlist("n_pallet")]
@@ -619,7 +618,7 @@ class Palletization(View):
                         {
                             "offload": offload,
                             "container_number": container,
-                            "created_at": current_time_cn,
+                            "created_at": current_time,
                             "is_resolved": False,
                             "destination": dest,
                             "delivery_method": d_m,
@@ -711,7 +710,7 @@ class Palletization(View):
                         {
                             "offload": offload,
                             "container_number": container,
-                            "created_at": current_time_cn,
+                            "created_at": current_time,
                             "is_resolved": False,
                             "destination": dest,
                             "delivery_method": d_m,
@@ -720,7 +719,7 @@ class Palletization(View):
                         }
                     )
             offload.total_pallet = total_pallet
-            offload.offload_at = current_time_cn
+            offload.offload_at = current_time
             await sync_to_async(offload.save)()
             pallet_instances = [Pallet(**d) for d in pallet_data]
             await sync_to_async(bulk_create_with_history)(pallet_instances, Pallet)

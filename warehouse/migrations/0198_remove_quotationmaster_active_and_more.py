@@ -6,17 +6,22 @@ from django.db import migrations, models
 class Migration(migrations.Migration):
 
     dependencies = [
-        ('warehouse', '0197_historicalinvoice_remain_offset_and_more'),
+        ("warehouse", "0197_historicalinvoice_remain_offset_and_more"),
     ]
 
     operations = [
         migrations.RemoveField(
-            model_name='quotationmaster',
-            name='active',
+            model_name="quotationmaster",
+            name="active",
         ),
         migrations.AddField(
-            model_name='quotationmaster',
-            name='quote_type',
-            field=models.CharField(choices=[('receivable', '应收'), ('payable', '应付')], default='receivable', max_length=20, verbose_name='报价类型'),
+            model_name="quotationmaster",
+            name="quote_type",
+            field=models.CharField(
+                choices=[("receivable", "应收"), ("payable", "应付")],
+                default="receivable",
+                max_length=20,
+                verbose_name="报价类型",
+            ),
         ),
     ]

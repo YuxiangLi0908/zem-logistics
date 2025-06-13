@@ -6,18 +6,18 @@ from django.db import migrations, models
 class Migration(migrations.Migration):
 
     dependencies = [
-        ('warehouse', '0191_remove_historicalinvoicedelivery_surcharge_notes_and_more'),
+        ("warehouse", "0191_remove_historicalinvoicedelivery_surcharge_notes_and_more"),
     ]
 
     operations = [
         migrations.AddField(
-            model_name='container',
-            name='account_order_type',
-            field=models.CharField(default='转运组合', max_length=255, null=True),
+            model_name="container",
+            name="account_order_type",
+            field=models.CharField(default="转运组合", max_length=255, null=True),
         ),
         migrations.AddField(
-            model_name='historicalcontainer',
-            name='account_order_type',
-            field=models.CharField(default='转运组合', max_length=255, null=True),
+            model_name="historicalcontainer",
+            name="account_order_type",
+            field=models.CharField(default="转运组合", max_length=255, null=True),
         ),
     ]

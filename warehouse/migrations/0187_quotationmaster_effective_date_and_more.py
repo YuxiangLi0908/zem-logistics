@@ -6,33 +6,45 @@ from django.db import migrations, models
 class Migration(migrations.Migration):
 
     dependencies = [
-        ('warehouse', '0186_alter_historicalinvoicepreport_other_fees_and_more'),
+        ("warehouse", "0186_alter_historicalinvoicepreport_other_fees_and_more"),
     ]
 
     operations = [
         migrations.AddField(
-            model_name='quotationmaster',
-            name='effective_date',
-            field=models.DateField(blank=True, null=True, verbose_name='生效日期'),
+            model_name="quotationmaster",
+            name="effective_date",
+            field=models.DateField(blank=True, null=True, verbose_name="生效日期"),
         ),
         migrations.AddField(
-            model_name='quotationmaster',
-            name='exclusive_user',
-            field=models.CharField(blank=True, max_length=2000, null=True, verbose_name='专属用户'),
+            model_name="quotationmaster",
+            name="exclusive_user",
+            field=models.CharField(
+                blank=True, max_length=2000, null=True, verbose_name="专属用户"
+            ),
         ),
         migrations.AddField(
-            model_name='quotationmaster',
-            name='filename',
+            model_name="quotationmaster",
+            name="filename",
             field=models.CharField(blank=True, max_length=2000, null=True),
         ),
         migrations.AddField(
-            model_name='quotationmaster',
-            name='is_user_exclusive',
-            field=models.BooleanField(default=False, verbose_name='用户专属'),
+            model_name="quotationmaster",
+            name="is_user_exclusive",
+            field=models.BooleanField(default=False, verbose_name="用户专属"),
         ),
         migrations.AlterField(
-            model_name='invoicestatus',
-            name='stage_public',
-            field=models.CharField(choices=[('pending', '仓库待处理'), ('warehouse_completed', '仓库已完成'), ('delivery_completed', '派送已完成'), ('warehouse_rejected', '仓库已驳回'), ('delivery_rejected', '派送已驳回')], default='pending', max_length=20),
+            model_name="invoicestatus",
+            name="stage_public",
+            field=models.CharField(
+                choices=[
+                    ("pending", "仓库待处理"),
+                    ("warehouse_completed", "仓库已完成"),
+                    ("delivery_completed", "派送已完成"),
+                    ("warehouse_rejected", "仓库已驳回"),
+                    ("delivery_rejected", "派送已驳回"),
+                ],
+                default="pending",
+                max_length=20,
+            ),
         ),
     ]

@@ -1,5 +1,6 @@
+import os
 import random
-import re,os
+import re
 import string
 import uuid
 from collections import defaultdict
@@ -18,13 +19,13 @@ from django.views import View
 from openpyxl import load_workbook
 from simple_history.utils import bulk_create_with_history
 
-from warehouse.forms.quote_form import QuoteForm
 from warehouse.forms.order_form import OrderForm
+from warehouse.forms.quote_form import QuoteForm
 from warehouse.forms.upload_file import UploadFileForm
 from warehouse.models.fee_detail import FeeDetail
+from warehouse.models.order import Order
 from warehouse.models.quotation_master import QuotationMaster
 from warehouse.models.quote import Quote
-from warehouse.models.order import Order
 
 
 @method_decorator(login_required(login_url="login"), name="dispatch")
@@ -78,24 +79,17 @@ class QuoteManagement(View):
         elif step == "upload_payable_quote_excel":
             template, context = self.handle_upload_payable_quote_post(request)
             return render(request, template, context)
-        
 
     def handle_payable_quote_master_get(self, request: HttpRequest) -> dict[str, Any]:
         # 查询历史版本
         quotes = QuotationMaster.objects.filter(quote_type="payable")
-        context = {
-            "order_form": OrderForm(),
-            "quotes": quotes
-        }
+        context = {"order_form": OrderForm(), "quotes": quotes}
         return self.template_payable_quote_master, context
-    
+
     def handle_quote_master_get(self, request: HttpRequest) -> dict[str, Any]:
         # 查询历史版本
         quotes = QuotationMaster.objects.filter(quote_type="receivable")
-        context = {
-            "order_form": OrderForm(),
-            "quotes": quotes
-        }
+        context = {"order_form": OrderForm(), "quotes": quotes}
         return self.template_quote_master, context
 
     def process_preport_sheet(self, df, file, quote):
@@ -236,16 +230,22 @@ class QuoteManagement(View):
     def process_nj_local_sheet(self, df, file, quote):
         # NJ本地派送也没有合并的问题，一行一行读
         result = {}
-        #从第一行的标题判断是哪一列开始出现邮编的
+        # 从第一行的标题判断是哪一列开始出现邮编的
         zipcode_col_index = None
-        for col_idx, col_name in enumerate(df.columns[:10]): 
-            if 'zipcode' in col_name.lower():  # 检查列名
+        for col_idx, col_name in enumerate(df.columns[:10]):
+            if "zipcode" in col_name.lower():  # 检查列名
                 zipcode_col_index = col_idx
                 break
         for index, row in df.iloc[1:].iterrows():
-            if not pd.isnull(row.iloc[1]) and not pd.isnull(row.iloc[2]) and not pd.isnull(row.iloc[3]):
+            if (
+                not pd.isnull(row.iloc[1])
+                and not pd.isnull(row.iloc[2])
+                and not pd.isnull(row.iloc[3])
+            ):
                 # zipcodes = row.iloc[5:].dropna().tolist()
-                zipcodes = list(map(int, row.iloc[zipcode_col_index:].dropna().tolist()))
+                zipcodes = list(
+                    map(int, row.iloc[zipcode_col_index:].dropna().tolist())
+                )
                 result[index] = {
                     "zipcodes": zipcodes,
                     "prices": [row.iloc[1], row.iloc[2], row.iloc[3]],
@@ -267,7 +267,7 @@ class QuoteManagement(View):
         flag_walmart = 0
         for index, row in df.iloc[1:].iterrows():
             cell_value = str(row.iloc[3])
-            if pd.notna(row.iloc[3]) and "冷门仓点" in cell_value:  
+            if pd.notna(row.iloc[3]) and "冷门仓点" in cell_value:
                 niche_warehouse.add(row.iloc[0])
             if not flag_walmart and "walmart" in str(row.iloc[0]).strip().lower():
                 flag_walmart = True
@@ -295,7 +295,7 @@ class QuoteManagement(View):
             "fee_detail_id": str(uuid.uuid4())[:4].upper(),
             "fee_type": "NJ_PUBLIC",
             "details": result,
-            "niche_warehouse":niche_warehouse
+            "niche_warehouse": niche_warehouse,
         }
         fee_detail = FeeDetail(**fee_detail_data)
         fee_detail.save()
@@ -309,7 +309,7 @@ class QuoteManagement(View):
         niche_warehouse = set()
         for index, row in df.iterrows():
             cell_value = str(row.iloc[5])
-            if pd.notna(row.iloc[5]) and "冷门仓点" in cell_value:  
+            if pd.notna(row.iloc[5]) and "冷门仓点" in cell_value:
                 niche_warehouse.add(row.iloc[1])
             if pd.notna(row.iloc[3]) and pd.notna(
                 row.iloc[4]
@@ -317,34 +317,37 @@ class QuoteManagement(View):
                 if group and current_region:
                     if current_region not in result:
                         result[current_region] = []
-                    result[current_region].append({
-                        "prices": current_prices,
-                        "location": self.extract_locations(group)
-                    })
+                    result[current_region].append(
+                        {
+                            "prices": current_prices,
+                            "location": self.extract_locations(group),
+                        }
+                    )
                     group = []
                 current_region = row.iloc[0]
                 current_prices = [row.iloc[3], row.iloc[4]]
                 if pd.notna(row.iloc[1]):
                     group.append(row.iloc[1])
-            elif pd.notna(row.iloc[1]):  #没有价格但是有仓库，就只记录仓库
+            elif pd.notna(row.iloc[1]):  # 没有价格但是有仓库，就只记录仓库
                 group.append(row.iloc[1])
-            elif all(pd.isna(row.iloc[i]) for i in range(0,5)):  #空行，就记录上一组
+            elif all(pd.isna(row.iloc[i]) for i in range(0, 5)):  # 空行，就记录上一组
                 if group and current_region:
                     if current_region not in result:
                         result[current_region] = []
-                    result[current_region].append({
-                        "prices": current_prices,
-                        "location": self.extract_locations(group)
-                    })
+                    result[current_region].append(
+                        {
+                            "prices": current_prices,
+                            "location": self.extract_locations(group),
+                        }
+                    )
                     group = []  # 重置仓库组
                     current_region = None  # 重置 region
-        if current_region and current_prices and group:  #记录最后一组
+        if current_region and current_prices and group:  # 记录最后一组
             if current_region not in result:
                 result[current_region] = []
-            result[current_region].append({
-                "prices": current_prices,
-                "location": self.extract_locations(group)
-            })
+            result[current_region].append(
+                {"prices": current_prices, "location": self.extract_locations(group)}
+            )
         niche_warehouse = self.extract_locations(niche_warehouse)
         # 创建 FeeDetail 记录
         fee_detail_data = {
@@ -352,7 +355,7 @@ class QuoteManagement(View):
             "fee_detail_id": str(uuid.uuid4())[:4].upper(),
             "fee_type": "NJ_COMBINA",
             "details": result,
-            "niche_warehouse":niche_warehouse
+            "niche_warehouse": niche_warehouse,
         }
         fee_detail = FeeDetail(**fee_detail_data)
         fee_detail.save()
@@ -361,26 +364,23 @@ class QuoteManagement(View):
         result_amazon_dict = defaultdict(set)
         niche_warehouse = set()
         for index, row in df.iloc[1:].iterrows():
-            if (
-                pd.notna(row.iloc[1])
-                and pd.notna(row.iloc[3])
-            ):
-                if len(row) >= 6 and pd.notna(row.iloc[5]):                   
+            if pd.notna(row.iloc[1]) and pd.notna(row.iloc[3]):
+                if len(row) >= 6 and pd.notna(row.iloc[5]):
                     if "冷门仓点" in row.iloc[5]:
                         niche_warehouse.add(row.iloc[1])
                 result_amazon_dict[row.iloc[3]].add(row.iloc[1])
         result = {
-                key: self.extract_locations(list(values))
-                for key, values in result_amazon_dict.items()
-            }
+            key: self.extract_locations(list(values))
+            for key, values in result_amazon_dict.items()
+        }
         niche_warehouse = self.extract_locations(niche_warehouse)
         # 创建 FeeDetail 记录
-        fee_detail_data = { 
+        fee_detail_data = {
             "quotation_id": quote,
             "fee_detail_id": str(uuid.uuid4())[:4].upper(),
             "fee_type": "LA_PUBLIC",
             "details": result,
-            "niche_warehouse":niche_warehouse
+            "niche_warehouse": niche_warehouse,
         }
         fee_detail = FeeDetail(**fee_detail_data)
         fee_detail.save()
@@ -400,20 +400,24 @@ class QuoteManagement(View):
                 ):  # 首先要判断下，如果这是一个新价格组，且已经记录了上一个价格组，先存储上一组价格组
                     if region not in result:
                         result[region] = []
-                    result[region].append({
-                        "prices":current_prices,
-                        "location":self.extract_locations(group)
-                    })
+                    result[region].append(
+                        {
+                            "prices": current_prices,
+                            "location": self.extract_locations(group),
+                        }
+                    )
                     group = []
                 # 然后开始存新的价格组，直接存价格和第一行仓库代码
-                region = region if pd.isna(row.iloc[0]) else row.iloc[0] #A区B区这种是外键
+                region = (
+                    region if pd.isna(row.iloc[0]) else row.iloc[0]
+                )  # A区B区这种是外键
                 current_prices = [row.iloc[5], row.iloc[6]]
                 group.extend(row.iloc[i] for i in range(2, 5) if pd.notna(row.iloc[i]))
             else:  # 如果这一行的价格已记录，直接加仓库代码就可以
                 group.extend(row.iloc[i] for i in range(2, 5) if pd.notna(row.iloc[i]))
                 if pd.notna(row.iloc[1]):
                     group.append(row.iloc[1])
-            #查看每一行是否有写冷门仓点
+            # 查看每一行是否有写冷门仓点
             cell_value = str(row.iloc[7])
             if pd.notna(row.iloc[7]) and "冷门仓点" in cell_value:
                 warehouses = cell_value.split("冷门仓点：")[-1].split("、")
@@ -421,19 +425,18 @@ class QuoteManagement(View):
         if region and current_prices and group:
             if region not in result:
                 result[region] = []
-            result[region].append({
-                "prices": current_prices,
-                "location": self.extract_locations(group)
-            })
+            result[region].append(
+                {"prices": current_prices, "location": self.extract_locations(group)}
+            )
         niche_warehouse = self.extract_locations(niche_warehouse)
-        
+
         # 创建 FeeDetail 记录
         fee_detail_data = {
             "quotation_id": quote,
             "fee_detail_id": str(uuid.uuid4())[:4].upper(),
             "fee_type": "LA_COMBINA",
             "details": result,
-            "niche_warehouse":niche_warehouse
+            "niche_warehouse": niche_warehouse,
         }
         fee_detail = FeeDetail(**fee_detail_data)
         fee_detail.save()
@@ -445,7 +448,7 @@ class QuoteManagement(View):
         flag_walmart = 0
         for index, row in df.iloc[1:].iterrows():
             cell_value = str(row.iloc[3])
-            if pd.notna(row.iloc[3]) and "冷门仓点" in cell_value:  
+            if pd.notna(row.iloc[3]) and "冷门仓点" in cell_value:
                 niche_warehouse.add(row.iloc[0])
             if not flag_walmart and "walmart" in str(row.iloc[0]).strip().lower():
                 flag_walmart = True  # 如果某一行第一列写了walmart，就切换result_walmart_dict处理后续工作
@@ -474,7 +477,7 @@ class QuoteManagement(View):
             "fee_detail_id": str(uuid.uuid4())[:4].upper(),
             "fee_type": "SAV_PUBLIC",
             "details": result,
-            "niche_warehouse":niche_warehouse
+            "niche_warehouse": niche_warehouse,
         }
         fee_detail = FeeDetail(**fee_detail_data)
         fee_detail.save()
@@ -487,7 +490,7 @@ class QuoteManagement(View):
         niche_warehouse = set()
         for index, row in df.iterrows():
             cell_value = str(row.iloc[5])
-            if pd.notna(row.iloc[5]) and "冷门仓点" in cell_value:  
+            if pd.notna(row.iloc[5]) and "冷门仓点" in cell_value:
                 niche_warehouse.add(row.iloc[1])
             if pd.notna(row.iloc[3]) and pd.notna(
                 row.iloc[4]
@@ -495,34 +498,37 @@ class QuoteManagement(View):
                 if group and current_region:
                     if current_region not in result:
                         result[current_region] = []
-                    result[current_region].append({
-                        "prices": current_prices,
-                        "location": self.extract_locations(group)
-                    })
+                    result[current_region].append(
+                        {
+                            "prices": current_prices,
+                            "location": self.extract_locations(group),
+                        }
+                    )
                     group = []
                 current_region = row.iloc[0]
                 current_prices = [row.iloc[3], row.iloc[4]]
                 if pd.notna(row.iloc[1]):
                     group.append(row.iloc[1])
-            elif pd.notna(row.iloc[1]):  #没有价格但是有仓库，就只记录仓库
+            elif pd.notna(row.iloc[1]):  # 没有价格但是有仓库，就只记录仓库
                 group.append(row.iloc[1])
-            elif all(pd.isna(row.iloc[i]) for i in range(0,5)):  #空行，就记录上一组
+            elif all(pd.isna(row.iloc[i]) for i in range(0, 5)):  # 空行，就记录上一组
                 if group and current_region:
                     if current_region not in result:
                         result[current_region] = []
-                    result[current_region].append({
-                        "prices": current_prices,
-                        "location": self.extract_locations(group)
-                    })
+                    result[current_region].append(
+                        {
+                            "prices": current_prices,
+                            "location": self.extract_locations(group),
+                        }
+                    )
                     group = []  # 重置仓库组
                     current_region = None  # 重置 region
-        if current_region and current_prices and group:  #记录最后一组
+        if current_region and current_prices and group:  # 记录最后一组
             if current_region not in result:
                 result[current_region] = []
-            result[current_region].append({
-                "prices": current_prices,
-                "location": self.extract_locations(group)
-            })
+            result[current_region].append(
+                {"prices": current_prices, "location": self.extract_locations(group)}
+            )
         niche_warehouse = self.extract_locations(niche_warehouse)
         # 创建 FeeDetail 记录
         fee_detail_data = {
@@ -530,7 +536,7 @@ class QuoteManagement(View):
             "fee_detail_id": str(uuid.uuid4())[:4].upper(),
             "fee_type": "SAV_COMBINA",
             "details": result,
-            "niche_warehouse":niche_warehouse
+            "niche_warehouse": niche_warehouse,
         }
         fee_detail = FeeDetail(**fee_detail_data)
         fee_detail.save()
@@ -541,11 +547,11 @@ class QuoteManagement(View):
             if "目的港" in str(row.iloc[0]):
                 header_row_idx = idx
                 break
-        
+
         if header_row_idx is None:
             raise ValueError("未找到包含'目的港'的标题行")
-        
-        #找到供应商价格部分的最大列值，因为供应商和后面ZEM的有重复列名
+
+        # 找到供应商价格部分的最大列值，因为供应商和后面ZEM的有重复列名
         max_col = len(df.columns)
         flag = False
         max_col = 0
@@ -554,23 +560,23 @@ class QuoteManagement(View):
                 if isinstance(cell, str) and not flag and "提柜费" in cell:
                     flag = True
                 elif isinstance(cell, str) and flag and "提柜费" in cell:
-                    max_col = col_idx-1
+                    max_col = col_idx - 1
             if flag:
                 break
- 
+
         # 获取各列的位置映射
         col_mapping = {
-            "warehouse": None,       # 目的港
-            "warehouse_precise": None, # 仓库
-            "carrier": None,         # 供应商
-            "basic_40": None,        # 40尺
-            "basic_45": None,        # 45尺
-            "chassis": None,         # 车架费
-            "overweight": None,      # 提柜超重费
-            "arrive_warehouse": None,# 入库
-            "palletization": None    # 拆柜
+            "warehouse": None,  # 目的港
+            "warehouse_precise": None,  # 仓库
+            "carrier": None,  # 供应商
+            "basic_40": None,  # 40尺
+            "basic_45": None,  # 45尺
+            "chassis": None,  # 车架费
+            "overweight": None,  # 提柜超重费
+            "arrive_warehouse": None,  # 入库
+            "palletization": None,  # 拆柜
         }
-        #根据标题名确定标题的列
+        # 根据标题名确定标题的列
         for col_idx, cell in enumerate(df.iloc[header_row_idx]):
             if col_idx > max_col:
                 break
@@ -593,7 +599,7 @@ class QuoteManagement(View):
                 col_mapping["overweight"] = col_idx
 
         # 处理入库和拆柜列
-        prev_row = df.iloc[header_row_idx-1] if header_row_idx > 0 else None
+        prev_row = df.iloc[header_row_idx - 1] if header_row_idx > 0 else None
         if prev_row is not None:
             for col_idx, cell in enumerate(prev_row):
                 if col_idx > max_col:
@@ -605,17 +611,17 @@ class QuoteManagement(View):
                     col_mapping["palletization"] = col_idx
         # 初始化结果数据结构（使用defaultdict自动创建嵌套结构）
         result = defaultdict(lambda: defaultdict(dict))
-        
+
         # 处理数据行
         for idx, row in df.iterrows():
             # 跳过标题行和空行
             if idx <= header_row_idx or pd.isna(row.iloc[col_mapping["warehouse"]]):
                 continue
-            
+
             warehouse = str(row.iloc[col_mapping["warehouse"]]).strip()
             warehouse_precise = str(row.iloc[col_mapping["warehouse_precise"]]).strip()
             carrier = str(row.iloc[col_mapping["carrier"]]).strip()
-            
+
             # 处理合并单元格情况（入库和拆柜）
             arrive_warehouse = None
             palletization = None
@@ -625,21 +631,41 @@ class QuoteManagement(View):
                 else:
                     arrive_warehouse = row.iloc[col_mapping["arrive_warehouse"]]
                     palletization = row.iloc[col_mapping["palletization"]]
-            
+
             # 构建记录
             record = {
-                "basic_40":row.iloc[col_mapping["basic_40"]] if col_mapping["basic_40"] is not None else None,
-                "basic_45":row.iloc[col_mapping["basic_45"]] if col_mapping["basic_45"] is not None else None,
-                "chassis": row.iloc[col_mapping["chassis"]] if col_mapping["chassis"] is not None else None,
-                "chassis_free_day": row.iloc[col_mapping["chassis_free_day"]] if col_mapping["chassis_free_day"] is not None else None,
-                "overweight": row.iloc[col_mapping["overweight"]] if col_mapping["overweight"] is not None else None,
+                "basic_40": (
+                    row.iloc[col_mapping["basic_40"]]
+                    if col_mapping["basic_40"] is not None
+                    else None
+                ),
+                "basic_45": (
+                    row.iloc[col_mapping["basic_45"]]
+                    if col_mapping["basic_45"] is not None
+                    else None
+                ),
+                "chassis": (
+                    row.iloc[col_mapping["chassis"]]
+                    if col_mapping["chassis"] is not None
+                    else None
+                ),
+                "chassis_free_day": (
+                    row.iloc[col_mapping["chassis_free_day"]]
+                    if col_mapping["chassis_free_day"] is not None
+                    else None
+                ),
+                "overweight": (
+                    row.iloc[col_mapping["overweight"]]
+                    if col_mapping["overweight"] is not None
+                    else None
+                ),
                 "arrive_warehouse": arrive_warehouse,
-                "palletization": palletization
+                "palletization": palletization,
             }
-            
+
             # 清理空值
             record = {k: v for k, v in record.items() if pd.notna(v)}
-            
+
             # 添加到结果
             result[warehouse][warehouse_precise][carrier] = record
         # 创建 FeeDetail 记录
@@ -647,17 +673,13 @@ class QuoteManagement(View):
             "quotation_id": quote,
             "fee_detail_id": str(uuid.uuid4())[:4].upper(),
             "fee_type": "PAYABLE",
-            "details": result
+            "details": result,
         }
         fee_detail = FeeDetail(**fee_detail_data)
         fee_detail.save()
-    
+
     def process_combine_stipulate(self, df, file, quote):
-        result = {
-            "global_rules":{},
-            "warehouse_pricing":{},
-            "special_warehouse":{}
-        }
+        result = {"global_rules": {}, "warehouse_pricing": {}, "special_warehouse": {}}
         current_section = None
         for index, row in df.iterrows():
             if pd.notna(row.iloc[0]) and "▶" in str(row.iloc[0]):
@@ -674,13 +696,15 @@ class QuoteManagement(View):
                 rule_value = row.iloc[1]
                 exception_zone = row.iloc[2] if pd.notna(row.iloc[2]) else None
                 exception_value = row.iloc[3] if pd.notna(row.iloc[3]) else None
-                
+
                 result["global_rules"][rule_name] = {
                     "default": rule_value,
-                    "exceptions": {exception_zone: exception_value} if exception_zone else {}
+                    "exceptions": (
+                        {exception_zone: exception_value} if exception_zone else {}
+                    ),
                 }
             elif current_section == "warehouse_pricing":
-                warehouse = str(row.iloc[0])       
+                warehouse = str(row.iloc[0])
                 result["warehouse_pricing"][warehouse] = {
                     "base_40ft": row.iloc[1],
                     "base_45ft": row.iloc[2],
@@ -695,24 +719,31 @@ class QuoteManagement(View):
                 destination = str(row.iloc[1])
                 multiplier = str(row.iloc[2])
                 if warehouse in result["special_warehouse"]:
-                    if result["special_warehouse"][warehouse]["multiplier"] == multiplier:
+                    if (
+                        result["special_warehouse"][warehouse]["multiplier"]
+                        == multiplier
+                    ):
                         # 确保destination是列表形式
-                        if not isinstance(result["special_warehouse"][warehouse]["destination"], list):
+                        if not isinstance(
+                            result["special_warehouse"][warehouse]["destination"], list
+                        ):
                             result["special_warehouse"][warehouse]["destination"] = [
                                 result["special_warehouse"][warehouse]["destination"]
                             ]
-                        result["special_warehouse"][warehouse]["destination"].append(destination)
+                        result["special_warehouse"][warehouse]["destination"].append(
+                            destination
+                        )
                         continue
                 result["special_warehouse"][warehouse] = {
                     "destination": [destination],  # 始终存储为列表
-                    "multiplier": multiplier
+                    "multiplier": multiplier,
                 }
         # 创建 FeeDetail 记录
         fee_detail_data = {
             "quotation_id": quote,
             "fee_detail_id": str(uuid.uuid4())[:4].upper(),
             "fee_type": "COMBINA_STIPULATE",
-            "details": result
+            "details": result,
         }
         fee_detail = FeeDetail(**fee_detail_data)
         fee_detail.save()
@@ -845,11 +876,15 @@ class QuoteManagement(View):
         result = []
         for loc in locations:
             loc = str(loc)
-            loc = loc.split("（")[0].split("(")[0].strip()  #有的仓点后面会写上（新增），这个不要
+            loc = (
+                loc.split("（")[0].split("(")[0].strip()
+            )  # 有的仓点后面会写上（新增），这个不要
             parts = loc.split("-")
-            loc = (parts[1] if len(parts) > 1 else parts[0]).strip()  #有的仓点是沃尔玛-xx，只要后面的仓点名
-            loc = loc.replace("新增","")
-            if '私人地址' in loc:
+            loc = (
+                parts[1] if len(parts) > 1 else parts[0]
+            ).strip()  # 有的仓点是沃尔玛-xx，只要后面的仓点名
+            loc = loc.replace("新增", "")
+            if "私人地址" in loc:
                 result.append(loc)
             else:
                 if "/" in str(loc):
@@ -863,7 +898,9 @@ class QuoteManagement(View):
                         if part.isdigit():  # 如果是纯数字
                             nums.append(part)
                         else:  # 如果不是纯数字（如 ONT8），提取末尾的数字
-                            nums.append("".join([char for char in part if char.isdigit()]))
+                            nums.append(
+                                "".join([char for char in part if char.isdigit()])
+                            )
                     # 组合前缀和数字
                     result.extend([f"{prefix}{num}" for num in nums])
                 else:
@@ -875,9 +912,9 @@ class QuoteManagement(View):
         effective_date = request.POST.get("effective_date")
         form = UploadFileForm(request.POST, request.FILES)
         if form.is_valid():
-            uploaded_file = form.cleaned_data['file']
+            uploaded_file = form.cleaned_data["file"]
             base_name, extension = os.path.splitext(uploaded_file.name)
-            updated_count = QuotationMaster.objects.filter(quote_type="payable").count()  
+            updated_count = QuotationMaster.objects.filter(quote_type="payable").count()
             count = updated_count + 1
             # 创建 FeeDetail 记录
             upload_date = datetime.now()
@@ -887,21 +924,21 @@ class QuoteManagement(View):
                 "quotation_id": quotation_id,
                 "upload_date": upload_date,
                 "version": count,
-                "filename":base_name,
-                "is_user_exclusive":False,
-                "exclusive_user":None,
-                "effective_date":effective_date,
-                "quote_type":"payable",
+                "filename": base_name,
+                "is_user_exclusive": False,
+                "exclusive_user": None,
+                "effective_date": effective_date,
+                "quote_type": "payable",
             }
             quote = QuotationMaster(**quote_data)
             quote.save()
-            #读表内容
+            # 读表内容
             file = request.FILES["file"]
             excel_file = pd.ExcelFile(file)
             SHEET_HANDLERS = {
                 "提拆": self.process_payable_sheet,  # 已验证
-                #暂时不录入
-                #"直送": self.process_warehouse_sheet,  
+                # 暂时不录入
+                # "直送": self.process_warehouse_sheet,
             }
             for sheet_name in excel_file.sheet_names:
                 df = excel_file.parse(sheet_name)
@@ -912,7 +949,6 @@ class QuoteManagement(View):
         context = {"quotes": quotes}
         return self.template_payable_quote_master, context
 
-
     def handle_upload_quote_post(self, request: HttpRequest) -> dict[str, Any]:
         order_form = OrderForm(request.POST)
         if order_form.is_valid():
@@ -921,9 +957,11 @@ class QuoteManagement(View):
         effective_date = request.POST.get("effective_date")
         form = UploadFileForm(request.POST, request.FILES)
         if form.is_valid():
-            uploaded_file = form.cleaned_data['file']
+            uploaded_file = form.cleaned_data["file"]
             base_name, extension = os.path.splitext(uploaded_file.name)
-            updated_count = QuotationMaster.objects.filter(quote_type="receivable").count()  
+            updated_count = QuotationMaster.objects.filter(
+                quote_type="receivable"
+            ).count()
             count = updated_count + 1
             # 创建 FeeDetail 记录
             upload_date = datetime.now()
@@ -933,11 +971,13 @@ class QuoteManagement(View):
                 "quotation_id": quotation_id,
                 "upload_date": upload_date,
                 "version": count,
-                "filename":base_name,
-                "is_user_exclusive":(is_user_exclusive.lower() == 'on') if is_user_exclusive else False,
-                "exclusive_user":customer,
-                "effective_date":effective_date,
-                "quote_type":"receivable",
+                "filename": base_name,
+                "is_user_exclusive": (
+                    (is_user_exclusive.lower() == "on") if is_user_exclusive else False
+                ),
+                "exclusive_user": customer,
+                "effective_date": effective_date,
+                "quote_type": "receivable",
             }
             quote = QuotationMaster(**quote_data)
             quote.save()
@@ -947,7 +987,7 @@ class QuoteManagement(View):
             SHEET_HANDLERS = {
                 "码头费用说明": self.process_preport_sheet,  # 已验证
                 "仓库库内操作费": self.process_warehouse_sheet,  # 已验证
-                "NJ本地派送": self.process_nj_local_sheet, #没有冷门仓点
+                "NJ本地派送": self.process_nj_local_sheet,  # 没有冷门仓点
                 "NJ亚马逊派送费": self.process_nj_amazon_sheet,  # 已验证，有仓点分类，记录冷门仓点
                 "NJ组合柜": self.process_nj_combina_sheet,  # 已验证，有仓点分类，记录冷门仓点
                 "LA亚马逊派送费": self.process_la_amazon_sheet,  # 已验证，有仓点分类，记录冷门仓点

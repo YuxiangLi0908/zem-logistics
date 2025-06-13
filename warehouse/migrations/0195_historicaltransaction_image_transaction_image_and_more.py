@@ -6,28 +6,47 @@ from django.db import migrations, models
 class Migration(migrations.Migration):
 
     dependencies = [
-        ('warehouse', '0194_historicaltransaction_transaction'),
+        ("warehouse", "0194_historicaltransaction_transaction"),
     ]
 
     operations = [
         migrations.AddField(
-            model_name='historicaltransaction',
-            name='image',
-            field=models.TextField(blank=True, max_length=100, null=True, verbose_name='凭证图片'),
+            model_name="historicaltransaction",
+            name="image",
+            field=models.TextField(
+                blank=True, max_length=100, null=True, verbose_name="凭证图片"
+            ),
         ),
         migrations.AddField(
-            model_name='transaction',
-            name='image',
-            field=models.ImageField(blank=True, null=True, upload_to='transactions/', verbose_name='凭证图片'),
+            model_name="transaction",
+            name="image",
+            field=models.ImageField(
+                blank=True,
+                null=True,
+                upload_to="transactions/",
+                verbose_name="凭证图片",
+            ),
         ),
         migrations.AlterField(
-            model_name='historicaltransaction',
-            name='amount',
-            field=models.DecimalField(blank=True, decimal_places=2, max_digits=10, null=True, verbose_name='交易金额'),
+            model_name="historicaltransaction",
+            name="amount",
+            field=models.DecimalField(
+                blank=True,
+                decimal_places=2,
+                max_digits=10,
+                null=True,
+                verbose_name="交易金额",
+            ),
         ),
         migrations.AlterField(
-            model_name='transaction',
-            name='amount',
-            field=models.DecimalField(blank=True, decimal_places=2, max_digits=10, null=True, verbose_name='交易金额'),
+            model_name="transaction",
+            name="amount",
+            field=models.DecimalField(
+                blank=True,
+                decimal_places=2,
+                max_digits=10,
+                null=True,
+                verbose_name="交易金额",
+            ),
         ),
     ]

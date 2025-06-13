@@ -17,10 +17,9 @@ from django.views import View
 
 from warehouse.models.container import Container
 from warehouse.models.customer import Customer
-from warehouse.models.retrieval import Retrieval
-from warehouse.models.retrieval import HistoricalRetrieval
 from warehouse.models.invoice import Invoice
 from warehouse.models.order import Order
+from warehouse.models.retrieval import HistoricalRetrieval, Retrieval
 from warehouse.utils.constants import MODEL_CHOICES
 
 
@@ -53,7 +52,7 @@ class OrderQuantity(View):
             return await sync_to_async(render)(request, self.template_shipment, context)
 
     async def post(self, request: HttpRequest) -> HttpResponse:
-        
+
         step = request.POST.get("step")
         if step == "selection":
             template, context = await self.handle_order_quantity_get(request)
@@ -66,8 +65,8 @@ class OrderQuantity(View):
         self, request: HttpRequest
     ) -> tuple[str, dict[str, Any]]:
         table_name = request.POST.get("model").strip()
-        search_field = request.POST.get("search_field").strip() #界面上的查询字段
-        search_value = request.POST.get("search_value").strip() #查询值
+        search_field = request.POST.get("search_field").strip()  # 界面上的查询字段
+        search_value = request.POST.get("search_value").strip()  # 查询值
 
         model_info = MODEL_CHOICES.get(table_name)
         original_model_name = model_info["model"]
@@ -76,10 +75,12 @@ class OrderQuantity(View):
         has_foreignKey = model_info["has_foreignKey"]
         # 处理外键查询，就是不能直接通过界面的查询字段查到结果
         transfer_table = model_info["transfer_table"]
-        if transfer_table:  #如果需要一张表中转，比如提拆柜账单，需要invoice表中转
+        if transfer_table:  # 如果需要一张表中转，比如提拆柜账单，需要invoice表中转
             filter_kwargs = {search_process: search_value}
             transfer_model = apps.get_model("warehouse", transfer_table)
-            transfer_table = await sync_to_async(transfer_model.objects.get)(**filter_kwargs)
+            transfer_table = await sync_to_async(transfer_model.objects.get)(
+                **filter_kwargs
+            )
 
             history_records = (
                 original_model.objects.filter(invoice_number__id=transfer_table.id)
@@ -89,15 +90,17 @@ class OrderQuantity(View):
         else:
             if search_field == "container_number":
                 filter_kwargs = {search_process: search_value}
-                if has_foreignKey:  #有container_number外键，可以直接查找
+                if has_foreignKey:  # 有container_number外键，可以直接查找
                     history_records = (
                         original_model.objects.filter(**filter_kwargs)
                         .select_related("history_user")
                         .order_by("-history_date")
                     )
-                else:           #没有外键，先找到原始表，再找历史表
-                    origin_table = await sync_to_async(original_model.objects.get)(**filter_kwargs)
-                    historical_table = 'Historical'+original_model_name
+                else:  # 没有外键，先找到原始表，再找历史表
+                    origin_table = await sync_to_async(original_model.objects.get)(
+                        **filter_kwargs
+                    )
+                    historical_table = "Historical" + original_model_name
                     original_model = apps.get_model("warehouse", historical_table)
                     history_records = (
                         original_model.objects.filter(id=origin_table.id)
@@ -111,7 +114,6 @@ class OrderQuantity(View):
                     .select_related("history_user")
                     .order_by("-history_date")
                 )
-            
 
         # 转换为同步查询
         history_records = await sync_to_async(list)(history_records)
@@ -140,12 +142,16 @@ class OrderQuantity(View):
             # 异步获取所有字段值
             get_fields = sync_to_async(
                 lambda r: {
-                    f.name: getattr(r, f.name, None)  # 安全获取属性，不存在时返回None
-                    if not f.is_relation  # 如果不是关系字段
-                    else (
-                        getattr(r, f.name + "_id", None)  # 如果是关系字段，获取外键ID
-                        if getattr(r, f.name) is None  # 如果外键对象为None
-                        else getattr(r, f.name).pk  # 否则获取关联对象的主键
+                    f.name: (
+                        getattr(r, f.name, None)  # 安全获取属性，不存在时返回None
+                        if not f.is_relation  # 如果不是关系字段
+                        else (
+                            getattr(
+                                r, f.name + "_id", None
+                            )  # 如果是关系字段，获取外键ID
+                            if getattr(r, f.name) is None  # 如果外键对象为None
+                            else getattr(r, f.name).pk  # 否则获取关联对象的主键
+                        )
                     )
                     for f in r.__class__._meta.get_fields()
                     if f.name
@@ -305,9 +311,9 @@ class OrderQuantity(View):
         # 比较日期有没有改变
         if hasattr(old_val, "isoformat") and hasattr(new_val, "isoformat"):
             return old_val.isoformat() != new_val.isoformat()
-        
-        old_str = str(old_val.pk) if hasattr(old_val, 'pk') else str(old_val)
-        new_str = str(new_val.pk) if hasattr(new_val, 'pk') else str(new_val)
+
+        old_str = str(old_val.pk) if hasattr(old_val, "pk") else str(old_val)
+        new_str = str(new_val.pk) if hasattr(new_val, "pk") else str(new_val)
         if str(old_str).strip() == str(new_str).strip():
             return False
 

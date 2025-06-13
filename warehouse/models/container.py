@@ -11,8 +11,8 @@ class Container(models.Model):
     delivery_type = models.CharField(
         max_length=20, choices=DELIVERY_TYPE_CHOICES, default="mixed"
     )
-    #因为组合柜存在整柜都按转运的方式计算，需要一个标识区分，因为order_type是转运的，所以
-    account_order_type = models.CharField(max_length=255, null=True,default="转运组合")  
+    # 因为组合柜存在整柜都按转运的方式计算，需要一个标识区分，因为order_type是转运的，所以
+    account_order_type = models.CharField(max_length=255, null=True, default="转运组合")
     note = models.CharField(max_length=100, null=True, blank=True)
     history = HistoricalRecords()
 

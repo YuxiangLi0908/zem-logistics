@@ -6,36 +6,36 @@ from django.db import migrations, models
 class Migration(migrations.Migration):
 
     dependencies = [
-        ('warehouse', '0195_historicaltransaction_image_transaction_image_and_more'),
+        ("warehouse", "0195_historicaltransaction_image_transaction_image_and_more"),
     ]
 
     operations = [
         migrations.RemoveField(
-            model_name='historicaltransaction',
-            name='image',
+            model_name="historicaltransaction",
+            name="image",
         ),
         migrations.RemoveField(
-            model_name='transaction',
-            name='image',
+            model_name="transaction",
+            name="image",
         ),
         migrations.AddField(
-            model_name='historicaltransaction',
-            name='image_link',
+            model_name="historicaltransaction",
+            name="image_link",
             field=models.CharField(blank=True, max_length=2000, null=True),
         ),
         migrations.AddField(
-            model_name='transaction',
-            name='image_link',
+            model_name="transaction",
+            name="image_link",
             field=models.CharField(blank=True, max_length=2000, null=True),
         ),
         migrations.AlterField(
-            model_name='customer',
-            name='balance',
+            model_name="customer",
+            name="balance",
             field=models.FloatField(blank=True, default=0.0, null=True),
         ),
         migrations.AlterField(
-            model_name='historicalcustomer',
-            name='balance',
+            model_name="historicalcustomer",
+            name="balance",
             field=models.FloatField(blank=True, default=0.0, null=True),
         ),
     ]

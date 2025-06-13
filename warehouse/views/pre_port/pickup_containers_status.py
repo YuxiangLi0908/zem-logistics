@@ -1,6 +1,7 @@
-from datetime import datetime
+from datetime import datetime, timezone
 from typing import Any
 
+import pytz
 from asgiref.sync import sync_to_async
 from django.db import models
 from django.http import HttpRequest, HttpResponse
@@ -135,6 +136,8 @@ class ContainerPickupStatus(View):
             Order.objects.select_related("retrieval_id", "offload_id").get
         )(container_number__container_number=container_number)
         retrieval = order.retrieval_id
+        tzinfo = self._parse_tzinfo(retrieval.retrieval_destination_precise)
+        arrive_at = self._parse_ts(arrive_at, tzinfo)
         retrieval.arrive_at = arrive_at
         retrieval.arrive_at_destination = True
         await sync_to_async(retrieval.save)()
@@ -150,6 +153,8 @@ class ContainerPickupStatus(View):
         retrieval = await sync_to_async(Retrieval.objects.get)(
             order__container_number__container_number=container_number
         )
+        tzinfo = self._parse_tzinfo(retrieval.retrieval_destination_precise)
+        empty_returned_at = self._parse_ts(empty_returned_at, tzinfo)
         retrieval.empty_returned = True
         retrieval.empty_returned_at = empty_returned_at
         await sync_to_async(retrieval.save)()
@@ -159,3 +164,21 @@ class ContainerPickupStatus(View):
         if await sync_to_async(lambda: request.user.is_authenticated)():
             return True
         return False
+
+    def _parse_tzinfo(self, s: str | None) -> str:
+        if not s:
+            return "America/New_York"
+        elif "NJ" in s.upper():
+            return "America/New_York"
+        elif "SAV" in s.upper():
+            return "America/New_York"
+        elif "LA" in s.upper():
+            return "America/Los_Angeles"
+        else:
+            return "America/New_York"
+
+    def _parse_ts(self, ts: str, tzinfo: str) -> str:
+        ts_naive = datetime.fromisoformat(ts)
+        tz = pytz.timezone(tzinfo)
+        ts = tz.localize(ts_naive).astimezone(timezone.utc)
+        return ts.strftime("%Y-%m-%d %H:%M:%S")

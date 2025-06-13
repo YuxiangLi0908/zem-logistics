@@ -1,9 +1,9 @@
 from django.db import models
+from django.db.models import JSONField
 from simple_history.models import HistoricalRecords
 
 from warehouse.models.container import Container
 from warehouse.models.customer import Customer
-from django.db.models import JSONField
 
 
 class InvoiceStatement(models.Model):
@@ -39,20 +39,20 @@ class Invoice(models.Model):
     receivable_direct_amount = models.FloatField(null=True, blank=True)
 
     payable_total_amount = models.FloatField(null=True, blank=True)
-    payable_basic = models.FloatField(null=True, blank=True)  #提柜费
-    payable_chassis = models.FloatField(null=True, blank=True) #车架费
-    payable_overweight = models.FloatField(null=True, blank=True) #超重费
-    payable_palletization = models.FloatField(null=True, blank=True) #拆柜费
+    payable_basic = models.FloatField(null=True, blank=True)  # 提柜费
+    payable_chassis = models.FloatField(null=True, blank=True)  # 车架费
+    payable_overweight = models.FloatField(null=True, blank=True)  # 超重费
+    payable_palletization = models.FloatField(null=True, blank=True)  # 拆柜费
     payable_surcharge = JSONField(default=dict, null=True, blank=True)
 
     statement_id = models.ForeignKey(
         InvoiceStatement, null=True, blank=True, on_delete=models.SET_NULL
     )
     received_amount = models.FloatField(null=True, blank=True)
-    #是否通知客户
+    # 是否通知客户
     is_invoice_delivered = models.BooleanField(default=False)
-    #待核销金额
-    remain_offset= models.FloatField(null=True, blank=True)
+    # 待核销金额
+    remain_offset = models.FloatField(null=True, blank=True)
     history = HistoricalRecords()
 
     def __str__(self) -> str:
@@ -109,6 +109,7 @@ class InvoiceStatus(models.Model):
     is_rejected = models.BooleanField(default=False)
     reject_reason = models.TextField(blank=True)
     history = HistoricalRecords()
+
     class Meta:
         constraints = [
             models.UniqueConstraint(

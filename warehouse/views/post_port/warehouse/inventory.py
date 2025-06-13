@@ -218,8 +218,10 @@ class Inventory(View):
         new_pallets = []
         old_po_id = old_pallet[0].PO_ID
 
-        old_packinglist = await sync_to_async(list)(PackingList.objects.filter(PO_ID=old_po_id))
-        
+        old_packinglist = await sync_to_async(list)(
+            PackingList.objects.filter(PO_ID=old_po_id)
+        )
+
         seq_num = 1
         for dest, dm, addr, zipcode, sm, fba, ref, p, n, note in zip(
             destinations,
@@ -233,22 +235,16 @@ class Inventory(View):
             n_pallets,
             notes,
         ):
-            #判断是公仓/私仓
+            # 判断是公仓/私仓
             if (
                 re.fullmatch(r"^[A-Za-z]{4}\s*$", str(dest))
-                or
-                re.fullmatch(r"^[A-Za-z]{3}\s*\d$", str(dest))
-                or
-                re.fullmatch(r"^[A-Za-z]{3}\s*\d\s*[A-Za-z]$", str(dest))
-                or
-                any(
-                    kw.lower() in str(dest).lower()
-                    for kw in {"walmart", "沃尔玛"}  
-                )
+                or re.fullmatch(r"^[A-Za-z]{3}\s*\d$", str(dest))
+                or re.fullmatch(r"^[A-Za-z]{3}\s*\d\s*[A-Za-z]$", str(dest))
+                or any(kw.lower() in str(dest).lower() for kw in {"walmart", "沃尔玛"})
             ):
-                delivery_type = 'public'
+                delivery_type = "public"
             else:
-                delivery_type = 'other'
+                delivery_type = "other"
             # TODOs: find a better way to allocate cbm and weight
             new_pallets += [
                 {
@@ -271,15 +267,15 @@ class Inventory(View):
                     "ref_id": ref if ref else "",
                     "location": old_pallet[0].location,
                     "PO_ID": f"{old_po_id}_{seq_num}",
-                    "delivery_type":delivery_type
+                    "delivery_type": delivery_type,
                 }
                 for i in range(n)
             ]
             seq_num += 1
-            #对应修改pl
+            # 对应修改pl
             if old_packinglist:
                 pl_to_update = []
-                for pl in old_packinglist:                 
+                for pl in old_packinglist:
                     match = True
                     if fba and pl.fba_id not in fba:
                         match = False
@@ -298,7 +294,13 @@ class Inventory(View):
                 if pl_to_update:
                     await sync_to_async(PackingList.objects.bulk_update)(
                         pl_to_update,
-                        fields=["destination", "delivery_method", "address", "zipcode", "note"]
+                        fields=[
+                            "destination",
+                            "delivery_method",
+                            "address",
+                            "zipcode",
+                            "note",
+                        ],
                     )
         instances = [Pallet(**p) for p in new_pallets]
         await sync_to_async(bulk_create_with_history)(instances, Pallet)

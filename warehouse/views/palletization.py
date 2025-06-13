@@ -4,7 +4,6 @@ import uuid
 from datetime import datetime
 from typing import Any
 
-import pytz
 from django.contrib.auth.decorators import login_required
 from django.contrib.postgres.aggregates import StringAgg
 from django.db import models
@@ -126,10 +125,9 @@ class Palletization(View):
             total_pallet = sum(n_pallet)
             for i, n, c in zip(ids, n_pallet, cbm):
                 self._split_pallet(i, n, c, pk)
-            cn = pytz.timezone("Asia/Shanghai")
-            current_time_cn = datetime.now(cn)
+            current_time = datetime.now()
             offload.total_pallet = total_pallet
-            offload.offload_at = current_time_cn
+            offload.offload_at = current_time
             offload.save()
             self._update_shipment_stats(ids)
         mutable_post = request.POST.copy()
