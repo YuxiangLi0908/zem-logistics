@@ -2263,3 +2263,8 @@ WMM-CVG1N:
   location: 650 Gateway Blvd
   state: OH
   zipcode: '45050'
+TCY2:
+  city: STOCKTON
+  location: 6201 Newcastle Rd
+  state: CA
+  zipcode: '95215'
