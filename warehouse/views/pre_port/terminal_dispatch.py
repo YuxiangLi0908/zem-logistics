@@ -220,7 +220,7 @@ class TerminalDispatch(View):
         if not retrieval.target_retrieval_timestamp_lower:
             retrieval.target_retrieval_timestamp_lower = actual_retrieval_ts
         today = datetime.now()
-        actual_ts = actual_retrieval_ts
+        actual_ts = datetime.fromisoformat(actual_retrieval_ts)
         # 如果是当天提柜
         if actual_ts <= today + timedelta(days=1):
             orders = await sync_to_async(list)(
