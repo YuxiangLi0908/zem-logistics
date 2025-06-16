@@ -18,6 +18,7 @@
                 <i class="bi bi-cash-stack me-1"></i>
                 组合柜费用总计: $
                 <span id="totalAmountDisplay" name="totalAmountDisplay" class="mx-1"></span>
+                <input type="hidden" id="totalAmount" name="totalAmount">
             </h5>
     
             <span class="mx-auto" style="font-size: 1rem; color: white;">{{ invoice_number }}-{{ container_number }}</span>            
@@ -757,6 +758,11 @@
     }
 </style>
 <script>
+    function shouldCalculateDeliveryTotal(type) {
+        // 这些类型不自动计算
+        const noCalcTypes = ["自发", "UPS", "本地派送"];
+        return !noCalcTypes.includes(type);
+    }
     //计算每个费用的总价
     function calculateFeeTotal(row) {
         const typeInput = row.querySelector('input[name*="[type]"]');
@@ -867,6 +873,7 @@
         }
 
         const totalAmountDisplay = document.getElementById('totalAmountDisplay');
+        const totalAmount = document.getElementById('totalAmount');
         const base_fee = document.getElementById('base_fee');
         const overpallet_fee = document.getElementById('overpallet_fee');
         const overweight_fee = document.getElementById('overweight_fee');
@@ -895,6 +902,8 @@
         amount += calculateExtraFeesTotal();
         
         document.getElementById('totalAmountDisplay').textContent = amount.toFixed(2);
+        document.getElementById('totalAmount').value = amount.toFixed(2);
+        
     }
     function modifyStatus(type) {
         const saveTypeInput = document.getElementById('save_type');
