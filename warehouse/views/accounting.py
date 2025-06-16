@@ -2462,7 +2462,7 @@ class Accounting(View):
             qty = float(request.POST.get(f"deliverys[{k}][total_pallet]"))
             rate = float(request.POST.get(f"deliverys[{k}][cost]"))
             amount = float(request.POST.get(f"deliverys[{k}][total_cost]"))
-            if qty > 0 and rate > 0 and amount > 0:
+            if qty > 0 and amount > 0:
                 invoice_item_data.append(
                     {
                         "invoice_number": invoice,
