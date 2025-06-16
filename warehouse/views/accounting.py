@@ -678,8 +678,7 @@ class Accounting(View):
             "customer_name", "container_number", "retrieval_id"
         ).filter(
             criteria,
-            models.Q(**{"receivable_status__isnull": True})
-            | models.Q(  # 考虑账单编辑点的是暂存的情况
+            models.Q(  # 考虑账单编辑点的是暂存的情况
                 **{
                     "receivable_status__invoice_type": "receivable",
                     "receivable_status__stage__in": ["tobeconfirmed"],
