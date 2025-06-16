@@ -3591,10 +3591,10 @@ class Accounting(View):
             ).aggregate(Sum("cbm"))["cbm__sum"]
             or 0
         )  # 处理可能为None的情况
-        non_combina_cbm = round(float(non_combina_cbm), 3) if non_combina_cbm else 0.000
+        non_combina_cbm = round(float(non_combina_cbm), 2) if non_combina_cbm else 0.000
         # 4. 计算占比
         if plts["total_cbm"] and plts["total_cbm"] > 0:
-            non_combina_cbm_ratio = round(non_combina_cbm / plts["total_cbm"], 3)
+            non_combina_cbm_ratio = round(non_combina_cbm / plts["total_cbm"], 2)
         else:
             non_combina_cbm_ratio = 0
 
@@ -3644,7 +3644,7 @@ class Accounting(View):
                 price_display_new = [
                     {
                         "key": region,
-                        "cbm": round(matching_regions[region], 3),
+                        "cbm": round(matching_regions[region], 2),
                         "rate": 100,
                         "price": data["price"],
                         "location": ", ".join(data["location"]),
@@ -3664,8 +3664,8 @@ class Accounting(View):
                 price_display_new = [
                     {
                         "key": region,
-                        "cbm": round(matching_regions[region], 3),
-                        "rate": round(matching_regions[region] / total_cbm_sum, 3),
+                        "cbm": round(matching_regions[region], 2),
+                        "rate": round(matching_regions[region] / total_cbm_sum, 2),
                         "price": data["price"],
                         "location": ", ".join(data["location"]),
                     }
@@ -3848,7 +3848,7 @@ class Accounting(View):
                         "destination": plt["destination"],
                         "pallets": plt["total_pallet"],
                         "price": plt["price"],
-                        "cbm": round(plt["total_cbm"], 3),
+                        "cbm": round(plt["total_cbm"], 2),
                         "subtotal": float(plt["price"]) * plt["total_pallet"],
                     }
                 )
@@ -3990,6 +3990,13 @@ class Accounting(View):
             invoice_number=invoice,
             invoice_type="receivable",
         ).exclude(type="combine")
+        DELIVERY_TYPE_MAPPING = {
+            'selfdelivery': '自发',
+            'upsdelivery': 'UPS',
+            'amazon': '亚马逊',
+            'walmart': '沃尔玛',
+            'local': '本地派送',
+        }
         for delivery in deliverys:
             extra_fees["deliverys"].append(
                 {
@@ -4000,7 +4007,7 @@ class Accounting(View):
                     "total_weight_lbs": delivery.total_weight_lbs,
                     "total_cost": delivery.total_cost,
                     "note": delivery.note,
-                    "type": delivery.type,
+                    "type": DELIVERY_TYPE_MAPPING.get(delivery.type, delivery.type),
                 }
             )
         return extra_fees
