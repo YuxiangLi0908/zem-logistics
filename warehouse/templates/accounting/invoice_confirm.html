@@ -40,6 +40,14 @@
            display: flex;  align-items: center;">
             <b>待开账单</b>&nbsp;
             <span style="font-size: 12px; color: #666;">{{ order|length }}条记录（仅转运）</span>
+            <div style="margin-left: auto;">
+                <button type="button" onclick="filterTransportOrders()" class="btn btn-sm btn-primary">
+                    <i class="bi bi-truck"></i> 仅显示转运
+                </button>
+                <button type="button" onclick="resetTransportFilter()" class="btn btn-sm btn-secondary">
+                    <i class="bi bi-arrow-counterclockwise"></i> 重置
+                </button>
+            </div>
         </div>
         {% if order %}       
         <form method="post" action="">
@@ -525,5 +533,20 @@
             }
         }
     };
+
+    function filterTransportOrders() {
+        const rows = document.querySelectorAll('#order-table tbody tr');
+        rows.forEach(row => {
+            const orderTypeCell = row.cells[2]; // 订单类型列
+            const shouldShow = orderTypeCell.textContent.trim() === '转运';
+            row.style.display = shouldShow ? '' : 'none';
+        });
+    }
+
+    function resetTransportFilter() {
+        document.querySelectorAll('#order-table tbody tr').forEach(row => {
+            row.style.display = '';
+        });
+    }
 </script>
 {% endblock %}
