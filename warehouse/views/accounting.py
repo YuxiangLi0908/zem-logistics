@@ -2319,6 +2319,7 @@ class Accounting(View):
                         "note": combina_data_des_key[i],
                     }
                 )
+        a = int(b)
         if overweight_fee > 0:
             overweight_extra_weight = request.POST.get("overweight_extra_weight")
             invoice_item_data.append(
