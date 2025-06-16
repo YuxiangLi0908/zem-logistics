@@ -575,7 +575,10 @@
                 </div>
                 <div class="card-body p-2">
                     <div class="row mb-2 g-2 d-none d-md-flex">
-                        <div class="col-md-2">
+                        <div class="col-md-1">
+                            <small class="text-muted">派送类型</small>
+                        </div>
+                        <div class="col-md-1">
                             <small class="text-muted">目的地</small>
                         </div>
                         <div class="col-md-1">
@@ -600,7 +603,13 @@
                     
                     {% for delivery in extra_fees.deliverys %}
                     <div class="row align-items-center mb-2 g-2">
-                        <div class="col-md-2">
+                        <div class="col-md-1">
+                            <small class="text-muted d-md-none">派送类型</small>
+                            <input type="text" class="form-control form-control-sm" 
+                                name="deliverys[{{ forloop.counter0 }}][type]" 
+                                value="{{ delivery.type|default:'' }}">
+                        </div>
+                        <div class="col-md-1">
                             <small class="text-muted d-md-none">目的地</small>
                             <input type="text" class="form-control form-control-sm" 
                                 name="deliverys[{{ forloop.counter0 }}][destination]" 
@@ -673,18 +682,32 @@
 <script>
     //计算每个费用的总价
     function calculateFeeTotal(row) {
-        
-        const price = parseFloat(row.querySelector('.price-input').value) || 0;
-        const quantity = parseFloat(row.querySelector('.quantity-input').value) || 0;
+        const typeInput = row.querySelector('input[name*="[type]"]');
+        if (typeInput) {  //判断是不是额外费用的派送费用
+            const type = typeInput.value.trim();
+            const price = parseFloat(row.querySelector('.price-input').value) || 0;
+            const quantity = parseFloat(row.querySelector('.quantity-input').value) || 0;
+            const totalInput = row.querySelector('.total-input');
+            
+            if (shouldCalculateDeliveryTotal(type) && totalInput) {
+                const total = price * quantity;
+                totalInput.value = total.toFixed(2);
+                return total;
+            }
+            return parseFloat(totalInput ? totalInput.value : 0) || 0;
+        } else {
+            const price = parseFloat(row.querySelector('.price-input').value) || 0;
+            const quantity = parseFloat(row.querySelector('.quantity-input').value) || 0;
 
-        const surchargeInput = row.querySelector('.surcharge-input');
-        const surcharge = surchargeInput ? parseFloat(surchargeInput.value) || 0 : 0;
-        const total = (price * quantity) + surcharge;
-        const totalInput = row.querySelector('.total-input');
-        if (totalInput) {
-            totalInput.value = total.toFixed(2);
-        }
-        return total;
+            const surchargeInput = row.querySelector('.surcharge-input');
+            const surcharge = surchargeInput ? parseFloat(surchargeInput.value) || 0 : 0;
+            const total = (price * quantity) + surcharge;
+            const totalInput = row.querySelector('.total-input');
+            if (totalInput) {
+                totalInput.value = total.toFixed(2);
+            }
+            return total;
+        }     
     }
 
     function calculateExtraFeesTotal() {
@@ -698,7 +721,7 @@
     // 为所有单价和数量输入框添加事件监听
     document.addEventListener('DOMContentLoaded', function() {
         // 为所有单价、数量和附加费输入框添加事件监听
-        document.querySelectorAll('.price-input, .quantity-input, .surcharge-input').forEach(input => {
+        document.querySelectorAll('.price-input, .quantity-input, .surcharge-input, input[name*="[type]"]').forEach(input => {
             input.addEventListener('input', function() {
                 const row = this.closest('.row.align-items-center.mb-2.g-2');
                 if (row) {
