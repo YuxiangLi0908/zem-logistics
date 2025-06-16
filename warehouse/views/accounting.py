@@ -2432,8 +2432,8 @@ class Accounting(View):
 
         j = 0
         while f"warehouse_fees[{j}][price]" in request.POST:
-            rate = request.POST.get(f"warehouse_fees[{j}][price]")
-            qty = request.POST.get(f"warehouse_fees[{j}][quantity]")
+            rate = float(request.POST.get(f"warehouse_fees[{j}][price]"))
+            qty = float(request.POST.get(f"warehouse_fees[{j}][quantity]"))
             amount = float(request.POST.get(f"warehouse_fees[{j}][value]", 0)) + (
                 float(request.POST.get(f"warehouse_fees[{j}][surcharge]"))
                 if request.POST.get(f"warehouse_fees[{j}][surcharge]")
