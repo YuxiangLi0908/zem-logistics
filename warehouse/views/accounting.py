@@ -2505,8 +2505,6 @@ class Accounting(View):
             receivable_status.stage = "confirmed"
             receivable_status.save()
         order.save()
-        print('数据集',invoice_item_data)
-        a = int(b)
         return self.handle_invoice_combina_get(
             request,
             request.POST.get("start_date"),
