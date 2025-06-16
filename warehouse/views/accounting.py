@@ -2297,7 +2297,7 @@ class Accounting(View):
                     qty = float(combina_data_des_rate[i])
                     rate = float(combina_data_des_price[i])
                     amount = qty * rate
-                else:
+                else:                    
                     qty = rate = amount = 0.00
                 for item in plts_by_destination:
                     cleaned_item_dest = item["destination"].strip()
@@ -2392,7 +2392,7 @@ class Accounting(View):
                     invoice_item_data.append(
                         {
                             "invoice_number": invoice,
-                            "description": "派送费",
+                            "description": "超区派送费",
                             "warehouse_code": overregion_delivery_destination[i],
                             "cbm": overregion_delivery_cbm[i],
                             "weight": None,
