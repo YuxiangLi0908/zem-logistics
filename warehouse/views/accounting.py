@@ -2484,8 +2484,7 @@ class Accounting(View):
             invoice_number__invoice_number=invoice.invoice_number
         )
         invoice_item.delete()
-        print('数据集',invoice_item_data)
-        a = int(b)
+        
         invoice_item_instances = [
             InvoiceItem(**inv_itm_data) for inv_itm_data in invoice_item_data
         ]
@@ -2506,7 +2505,8 @@ class Accounting(View):
             receivable_status.stage = "confirmed"
             receivable_status.save()
         order.save()
-
+        print('数据集',invoice_item_data)
+        a = int(b)
         return self.handle_invoice_combina_get(
             request,
             request.POST.get("start_date"),
