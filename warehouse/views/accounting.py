@@ -3871,6 +3871,8 @@ class Accounting(View):
             "container_number": container_number,
             "is_overregion": is_overregion,
             "extra_fees": actual_fees,
+            "destination_matches":matched_regions["combina_dests"],
+            "non_combina_dests":matched_regions["non_combina_dests"],
         }
         return self.template_invoice_combina_edit, context
 
