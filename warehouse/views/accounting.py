@@ -3563,9 +3563,9 @@ class Accounting(View):
             .annotate(total_cbm=Sum("cbm"))
         )
         # 区分组合柜区域和非组合柜区域
-        container_type = 0 if container_type == "40HQ/GP" else 1
+        container_type_temp = 0 if container_type == "40HQ/GP" else 1
         matched_regions = self.find_matching_regions(
-            plts_by_destination, combina_fee, container_type
+            plts_by_destination, combina_fee, container_type_temp
         )
         # 判断是否混区，除了LA的CDEF不能混，别的都能混
         is_mix = self.is_mixed_region(matched_regions["matching_regions"], warehouse)
@@ -3635,8 +3635,9 @@ class Accounting(View):
         price_display = matched_regions["price_display"]
         if not is_mix:
             # 单一区域情况
-            if des_match_quote == 1:
-                region = des_match_quote[0]
+            if len(matched_regions["price_display"]) == 1:
+                region_dict = matched_regions["price_display"]
+                region = list(region_dict.keys())[0]
                 base_fee = combina_fee[region][0]["prices"][
                     0 if container_type == "40HQ/GP" else 1
                 ]
