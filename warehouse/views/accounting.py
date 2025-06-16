@@ -2319,7 +2319,7 @@ class Accounting(View):
                         "note": combina_data_des_key[i],
                     }
                 )
-        a = int(b)
+        
         if overweight_fee > 0:
             overweight_extra_weight = request.POST.get("overweight_extra_weight")
             invoice_item_data.append(
@@ -2479,11 +2479,13 @@ class Accounting(View):
                     }
                 )
             k += 1
+        
         invoice_item = InvoiceItem.objects.filter(
             invoice_number__invoice_number=invoice.invoice_number
         )
         invoice_item.delete()
-
+        print('数据集',invoice_item_data)
+        a = int(b)
         invoice_item_instances = [
             InvoiceItem(**inv_itm_data) for inv_itm_data in invoice_item_data
         ]
@@ -3646,7 +3648,7 @@ class Accounting(View):
                     {
                         "key": region,
                         "cbm": round(matching_regions[region], 2),
-                        "rate": 100,
+                        "rate": 1,
                         "price": data["price"],
                         "location": ", ".join(data["location"]),
                     }
