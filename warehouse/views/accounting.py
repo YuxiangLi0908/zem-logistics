@@ -2407,8 +2407,8 @@ class Accounting(View):
         # 客服手动录入的额外费用
         i = 0
         while f"port_fees[{i}][price]" in request.POST:
-            rate = request.POST.get(f"port_fees[{i}][price]")
-            qty = request.POST.get(f"port_fees[{i}][quantity]")
+            rate = float(request.POST.get(f"port_fees[{i}][price]"))
+            qty = float(request.POST.get(f"port_fees[{i}][quantity]"))
             amount = float(request.POST.get(f"port_fees[{i}][value]", 0)) + (
                 float(request.POST.get(f"port_fees[{i}][surcharge]"))
                 if request.POST.get(f"port_fees[{i}][surcharge]")
