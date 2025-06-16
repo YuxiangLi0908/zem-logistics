@@ -2269,7 +2269,7 @@ class Accounting(View):
         container_number = request.POST.get("container_number")
         invoice_number = request.POST.get("invoice_number")
         invoice = Invoice.objects.get(invoice_number=invoice_number)
-        total_fee = float(request.POST.get("totalAmountDisplay", 0))
+        total_fee = float(request.POST.get("totalAmount", 0))
         base_fee = float(request.POST.get("base_fee", 0))
         overweight_fee = float(request.POST.get("overweight_fee", 0))
         overpallet_fee = float(request.POST.get("overpallet_fee", 0))
