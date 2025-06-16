@@ -1242,7 +1242,7 @@ class Accounting(View):
             "customer_name", "container_number", "retrieval_id"
         ).filter(
             criteria,
-            order_type="转运",
+            models.Q(order_type="转运") | models.Q(order_type="转运组合"),
             **{f"{invoice_type}_status__stage": "tobeconfirmed"},
         )
 
