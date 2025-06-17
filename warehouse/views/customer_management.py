@@ -145,6 +145,13 @@ class CustomerManagement(View):
         username = request.POST.get("username")
         password = request.POST.get("password")
         customer = Customer.objects.get(id=customer_id)
+        all_usernames = Customer.objects.exclude(id=customer_id).values_list(
+            "username", flat=True
+        )
+        if username in all_usernames:
+            raise ValueError(f"Username ({username}) has been taken")
+        elif username == "superuser":
+            raise ValueError(f"'superuser' cannot be used as username")
         customer.username = username
         customer.set_password(password)
         customer.save()
