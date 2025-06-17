@@ -504,36 +504,25 @@ class FleetManagement(View):
         if area == "None" or not area:
             area = None
         criteria = models.Q(
-            departured_at__isnull=False,
-            arrived_at__isnull=True,
+            is_arrived=False,
             is_canceled=False,
-            fleet_type__in=["FTL", "LTL", "外配/快递"],  # LTL和客户自提的不需要确认送达
-        )
+            shipment_type__in=["FTL", "LTL", "外配/快递"],  # LTL和客户自提的不需要确认送达
+        )& ~Q(status="Exception")
         if fleet_number:
-            criteria &= models.Q(fleet_number=fleet_number)
+            criteria &= models.Q(fleet_number__fleet_number=fleet_number)
         if batch_number:
-            criteria &= models.Q(shipment__shipment_batch_number=batch_number)
+            criteria &= models.Q(shipment_batch_number=batch_number)
         if area:
             criteria &= models.Q(origin=area)
-        fleet = await sync_to_async(list)(
-            Fleet.objects.prefetch_related("shipment")
+        shipments = await sync_to_async(list)(
+            Shipment.objects.prefetch_related("fleet_number")
             .filter(criteria)
-            .annotate(
-                shipment_batch_numbers=StringAgg(
-                    "shipment__shipment_batch_number", delimiter=","
-                ),
-                appointment_ids=StringAgg("shipment__appointment_id", delimiter=","),
-            )
-            .order_by("departured_at")
-        )
-        fleet_numbers = [f.fleet_number for f in fleet]
-        shipment = await sync_to_async(list)(
-            Shipment.objects.select_related("fleet_number").filter(
-                fleet_number__fleet_number__in=fleet_numbers
-            )
+            .order_by("shipped_at")
         )
         shipment_fleet_dict = {}
-        for s in shipment:
+        for s in shipments:
+            if s.fleet_number is None:
+                continue
             if s.shipment_appointment is None:
                 shipment_appointment = ""
             else:
@@ -562,11 +551,10 @@ class FleetManagement(View):
                         "origin": s.origin,
                     }
                 )
-
         context = {
             "fleet_number": fleet_number,
             "batch_number": batch_number,
-            "fleet": fleet,
+            "shipments": shipments,
             "abnormal_fleet_options": self.abnormal_fleet_options,
             "shipment": json.dumps(shipment_fleet_dict),
             "warehouse_options": self.warehouse_options,
@@ -583,6 +571,7 @@ class FleetManagement(View):
         area = request.POST.get("area") or None
         arrived_at = request.POST.get("arrived_at")
 
+        
         criteria = models.Q(
             models.Q(models.Q(pod_link__isnull=True) | models.Q(pod_link="")),
             shipped_at__isnull=False,
@@ -1138,30 +1127,26 @@ class FleetManagement(View):
         self, request: HttpRequest
     ) -> tuple[str, dict[str, Any]]:
         arrived_ats = request.POST.getlist("arrived_at")  # 使用 getlist 获取数组
-        fleet_numbers = request.POST.getlist("fleet_number")  # 使用 getlist 获取数组
+        #fleet_numbers = request.POST.getlist("fleet_number")  # 使用 getlist 获取数组
+        shipments = request.POST.getlist("shipment_batch_number")
         if not isinstance(arrived_ats, list):
             arrived_ats = [arrived_ats]
-        if not isinstance(fleet_numbers, list):
-            fleet_numbers = [fleet_numbers]
-        if len(arrived_ats) != len(fleet_numbers):
+        if not isinstance(shipments, list):
+            shipments = [shipments]
+        if len(arrived_ats) != len(shipments):
             raise ValueError(f"length is not valid!")
-        for arrived_at, fleet_number in zip(arrived_ats, fleet_numbers):
-            fleet = await sync_to_async(Fleet.objects.get)(fleet_number=fleet_number)
-            shipment = await sync_to_async(list)(
-                Shipment.objects.filter(fleet_number__fleet_number=fleet_number)
-            )
-            fleet.arrived_at = arrived_at
-            updated_shipment = []
-            for s in shipment:
-                s.arrived_at = arrived_at
-                s.is_arrived = True
-                updated_shipment.append(s)
-            await sync_to_async(fleet.save)()
-            await sync_to_async(bulk_update_with_history)(
-                updated_shipment,
-                Shipment,
-                fields=["arrived_at", "is_arrived"],
-            )
+        for arrived_at, ship in zip(arrived_ats, shipments):
+            shipment = await sync_to_async(
+                lambda: Shipment.objects.select_related("fleet_number").get(shipment_batch_number=ship)
+            )()
+            fleet = shipment.fleet_number
+
+            shipment.arrived_at = arrived_at
+            shipment.is_arrived = True
+            await sync_to_async(shipment.save)()
+            if fleet:
+                fleet.arrived_at = arrived_at
+                await sync_to_async(fleet.save)()
         return await self.handle_delivery_and_pod_get(request)
 
     async def handle_pod_upload_post(
@@ -1622,25 +1607,28 @@ class FleetManagement(View):
     ) -> tuple[str, dict[str, Any]]:
         status = request.POST.get("abnormal_status", "").strip()
         description = request.POST.get("abnormal_description", "").strip()
-        fleet_number = request.POST.get("fleet_number")
-        fleet = await sync_to_async(Fleet.objects.get)(fleet_number=fleet_number)
-        shipment = await sync_to_async(list)(
-            Shipment.objects.filter(fleet_number__fleet_number=fleet_number)
-        )
-        fleet.is_canceled = True
-        fleet.status = "Exception"
-        fleet.status_description = f"{status}-{description}"
+        #fleet_number = request.POST.get("fleet_number")
+        shipment_batch_number = request.POST.get("shipment_batch_number")
 
-        for s in shipment:
-            if not s.previous_fleets:
-                s.previous_fleets = fleet_number
-            else:
-                s.previous_fleets += f",{fleet_number}"
-            s.status = "Exception"
-            s.status_description = f"{status}-{description}"
-            s.fleet_number = None
-            await sync_to_async(s.save)()
-        await sync_to_async(fleet.save)()
+        shipment = await sync_to_async(
+                lambda: Shipment.objects.select_related("fleet_number").get(shipment_batch_number=shipment_batch_number)
+            )()
+        fleet = shipment.fleet_number
+        if fleet:
+            fleet.is_canceled = True
+            fleet.status = "Exception"
+            fleet.status_description = f"{status}-{description}"
+
+        if not shipment.previous_fleets:
+            shipment.previous_fleets = fleet.fleet_number
+        else:
+            shipment.previous_fleets += f",{fleet.fleet_number}"
+        shipment.status = "Exception"
+        shipment.status_description = f"{status}-{description}"
+        shipment.fleet_number = None
+        await sync_to_async(shipment.save)()
+        if fleet:
+            await sync_to_async(fleet.save)()
         return await self.handle_delivery_and_pod_get(request)
 
     # async def handle_fleet_warehouse_search_post(self, request: HttpRequest) -> tuple[str, dict[str, Any]]:

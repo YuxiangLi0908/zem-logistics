@@ -51,7 +51,7 @@
                     font-weight: 500;
                     margin-left: 8px;
                     box-shadow: 0 1px 3px rgba(0,0,0,0.1);
-                ">{{ fleet|length }}条</span>
+                ">{{ shipments|length }}条</span>
             </h3>
             <button id="confirm-all-button" class="primary-btn">
                 <i class="bi bi-upload"></i> 批量确认送达
@@ -92,42 +92,43 @@
                     </tr>
                 </thead>
                 <tbody>
-                    {% for f in fleet %}
-                    <form id="pod-form-{{ f.fleet_number }}" method="post" enctype="multipart/form-data" action="" style="overflow-x: auto; max-width: 100%; max-height: 98%; overflow-y: scroll;">
+                    {% for s in shipments %}
+                    <form id="pod-form-{{ s.fleet_number.fleet_number }}" method="post" enctype="multipart/form-data" action="" style="overflow-x: auto; max-width: 100%; max-height: 98%; overflow-y: scroll;">
                         {% csrf_token %}
                         <tr>
-                            <td class="td" style="max-width: 120px; word-break: break-all;">{{ f.fleet_number }}</td>
-                            <td class="td" style="max-width: 120px; word-break: break-all;">{{ f.shipment_batch_numbers }}</td>
-                            <td class="td" style="max-width: 120px; word-break: break-all;">{{ f.appointment_ids }}</td>
-                            <td class="td">{{ f.carrier }}</td>
-                            <td class="td">{{ f.appointment_datetime|date:"M-j" }}</td>
+                            <td class="td" style="max-width: 120px; word-break: break-all;">{{ s.fleet_number.fleet_number }}</td>
+                            <td class="td" style="max-width: 120px; word-break: break-all;">{{ s.shipment_batch_number }}</td>
+                            <td class="td" style="max-width: 120px; word-break: break-all;">{{ s.appointment_id }}</td>
+                            <td class="td">{{ s.fleet_number.carrier }}</td>
+                            <td class="td">{{ s.fleet_number.appointment_datetime|date:"M-j" }}</td>
                             <td class="td">
-                                {% if f.arrival_status == "past_due" %}
-                                <span class="status-span-red">{{ f.departured_at|date:"M-j" }}</span>
-                                {% elif f.arrival_status == "need_attention" %}
-                                <span class="status-span-yellow">{{ f.departured_at|date:"M-j" }}</span>
+                                {% if s.fleet_number.arrival_status == "past_due" %}
+                                <span class="status-span-red">{{ s.fleet_number.departured_at|date:"M-j" }}</span>
+                                {% elif s.fleet_number.arrival_status == "need_attention" %}
+                                <span class="status-span-yellow">{{ s.fleet_number.departured_at|date:"M-j" }}</span>
                                 {% else %}
-                                {{ f.departured_at|date:"M-j" }}
+                                {{ s.fleet_number.departured_at|date:"M-j" }}
                                 {% endif %}
                             </td>
-                            <td class="td">{{ f.total_weight|floatformat:2 }}</td>
-                            <td class="td">{{ f.total_cbm|floatformat:2 }}</td>
-                            <td class="td">{{ f.total_pallet|floatformat:0 }}</td>
+                            <td class="td">{{ s.total_weight|floatformat:2 }}</td>
+                            <td class="td">{{ s.total_cbm|floatformat:2 }}</td>
+                            <td class="td">{{ s.total_pallet|floatformat:0 }}</td>
                             <td class="td">
-                                {% if f.multipule_destination %}
+                                {% if s.fleet_number.multipule_destination %}
                                 <i class="bi bi-check-square-fill" style="color: rgba(34, 153, 84, 0.873); font-size: 15px"></i>
                                 {% endif %}
                             </td>
-                            <td class="td" style="max-width: 120px; word-break: break-all;">{{ f.note|default_if_none:"" }}</td>
+                            <td class="td" style="max-width: 120px; word-break: break-all;">{{ s.fleet_number.note|default_if_none:"" }}</td>
                             <td class="td">
                                 <input type="datetime-local" name="arrived_at" class="arrived-at-input" style="font-size: 13px;" required>
                                 <input type="hidden" name="step" value="confirm_delivery">
-                                <input type="hidden" name="fleet_number" value="{{ f.fleet_number }}">
+                                <input type="hidden" name="fleet_number" value="{{ s.fleet_number.fleet_number }}">
+                                <input type="hidden" name="shipment_batch_number" value="{{ s.shipment_batch_number }}">
                                 <input type="hidden" name="area" value="{{ area }}">
                                 <button type="submit" class="btn btn-success" style="font-size: 11px;">确认送达</button>
                             </td>
                             <td class="td">
-                                <button type="button" class="btn btn-danger" style="font-size: 11px;" onclick="abnormalPopUp('{{ f.fleet_number }}')">异常</button>
+                                <button type="button" class="btn btn-danger" style="font-size: 11px;" onclick="abnormalPopUp('{{ s.fleet_number.fleet_number }}','{{ s.shipment_batch_number }}')">异常</button>
                             </td>
                         </tr>            
                     </form>
@@ -142,8 +143,9 @@
             <div style="display: flex;">
                 <input type="hidden" name="step" value="abnormal_fleet">
                 <input type="hidden" name="fleet_number" value="">
+                <input type="hidden" name="shipment_batch_number" value="">
                 <button type="submit" class="btn btn-primary" style="font-size: 11px; margin-right: 5px;">确认</button>
-                <button id="editButton" type="button" class="btn btn-danger" onclick="abnormalPopUp('')" style="font-size: 11px;">返回</button>
+                <button id="editButton" type="button" class="btn btn-danger" onclick="abnormalPopUp('','')" style="font-size: 11px;">返回</button>
             </div>
             <table id="fleet-abnormal-description" class="table" style="font-size: 11px; max-height: 50%;">
                 <thead>
@@ -268,18 +270,18 @@
         document.querySelectorAll('.arrived-at-input').forEach(input => {
             console.log('input',input.closest('tr'));
             if (input.value) {
-                const fleetNumber = input.closest('tr').querySelector('input[name="fleet_number"]').value;
+                const shipemntNumber = input.closest('tr').querySelector('input[name="shipment_batch_number"]').value;
                 const arrivedAtInput = document.createElement('input');
                 arrivedAtInput.type = 'hidden';
                 arrivedAtInput.name = 'arrived_at';
                 arrivedAtInput.value = input.value;
                 form.appendChild(arrivedAtInput);
     
-                const fleetNumberInput = document.createElement('input');
-                fleetNumberInput.type = 'hidden';
-                fleetNumberInput.name = 'fleet_number';
-                fleetNumberInput.value = fleetNumber;
-                form.appendChild(fleetNumberInput);
+                const shipemntNumberInput = document.createElement('input');
+                shipemntNumberInput.type = 'hidden';
+                shipemntNumberInput.name = 'shipment_batch_number';
+                shipemntNumberInput.value = shipemntNumber;
+                form.appendChild(shipemntNumberInput);
             }
         });
     
@@ -319,9 +321,11 @@
 
     const shipment = JSON.parse('{{ shipment|safe }}');
 
-    function abnormalPopUp(fleetNumber) {
+    function abnormalPopUp(fleetNumber,shipmentNumber) {
         const fleetInput = document.querySelector('.popup-window input[name="fleet_number"]');
         fleetInput.value = fleetNumber;
+        const shipmentInput = document.querySelector('.popup-window input[name="shipment_batch_number"]');
+        shipmentInput.value = shipmentNumber;
         var popup = document.querySelector('.popup-window');
         var shipmentPopUp = document.querySelector('#shipment-reschedule-list');
         if (popup.style.display === 'none') {
