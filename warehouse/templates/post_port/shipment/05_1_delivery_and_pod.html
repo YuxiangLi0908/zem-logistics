@@ -102,14 +102,14 @@
                             <td class="td">{{ s.fleet_number.carrier }}</td>
                             <td class="td">{{ s.fleet_number.appointment_datetime|date:"M-j" }}</td>
                             <td class="td">
-                                {% if s.fleet_number.arrival_status == "past_due" %}
-                                <span class="status-span-red">{{ s.fleet_number.departured_at|date:"M-j" }}</span>
-                                {% elif s.fleet_number.arrival_status == "need_attention" %}
-                                <span class="status-span-yellow">{{ s.fleet_number.departured_at|date:"M-j" }}</span>
-                                {% else %}
-                                {{ s.fleet_number.departured_at|date:"M-j" }}
-                                {% endif %}
-                            </td>
+                            {% if s.fleet_number.arrival_status == "past_due" %}
+                            <span class="status-span-red" style="color: white">{{ s.fleet_number.departured_at|date:"M-j" }}</span>
+                            {% elif s.fleet_number.arrival_status == "need_attention" %}
+                            <span class="status-span-yellow" style="color: white">{{ s.fleet_number.departured_at|date:"M-j" }}</span>
+                            {% else %}
+                            <span style="color: white">{{ s.fleet_number.departured_at|date:"M-j" }}</span>
+                            {% endif %}
+                        </td>
                             <td class="td">{{ s.total_weight|floatformat:2 }}</td>
                             <td class="td">{{ s.total_cbm|floatformat:2 }}</td>
                             <td class="td">{{ s.total_pallet|floatformat:0 }}</td>
