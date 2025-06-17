@@ -3424,7 +3424,8 @@ class Accounting(View):
         price_display = defaultdict(lambda: {"price": 0.0, "location": set()})
 
         for plts in plts_by_destination:
-            dest = plts["destination"]
+            destination = plts["destination"]
+            dest = re.sub(r'.*[-_]|[\u4e00-\u9fff]', '', destination).strip()  #如果是沃尔玛的，只保留后面的名字，因为报价表里就是这么保留的
             cbm = plts["total_cbm"]
             dest_matches = []
             matched = False
