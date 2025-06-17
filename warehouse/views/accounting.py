@@ -5450,6 +5450,19 @@ class Accounting(View):
                 qty.append(1)
                 rate.append(v)
                 note.append("")
+        elif order.container_number.account_order_type =="转运组合": #组合柜就从invoiceItem表找就行了，转运的才去三个表找
+            invoice_item = InvoiceItem.objects.filter(
+                invoice_number__invoice_number=invoice.invoice_number
+            )
+            for item in invoice_item:
+                description.append(item.description)
+                warehouse_code.append(item.warehouse_code)
+                cbm.append(item.cbm)
+                weight.append(item.weight)
+                qty.append(item.qty)
+                rate.append(item.rate)
+                amount.append(item.amount)
+                note.append(item.note)
         else:
             invoice_preport = InvoicePreport.objects.get(
                 invoice_number__invoice_number=invoice.invoice_number,
