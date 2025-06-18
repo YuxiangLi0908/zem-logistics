@@ -506,6 +506,7 @@ class FleetManagement(View):
         criteria = models.Q(
             is_arrived=False,
             is_canceled=False,
+            is_shipped=True,
             shipment_type__in=["FTL", "LTL", "外配/快递"],  # LTL和客户自提的不需要确认送达
         )& ~Q(status="Exception")
         if fleet_number:
