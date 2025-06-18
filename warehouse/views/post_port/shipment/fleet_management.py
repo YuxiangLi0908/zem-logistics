@@ -1868,8 +1868,14 @@ class FleetManagement(View):
         else:
             return "America/New_York"
 
-    def _parse_ts(self, ts: str, tzinfo: str) -> str:
-        ts_naive = datetime.fromisoformat(ts)
-        tz = pytz.timezone(tzinfo)
-        ts = tz.localize(ts_naive).astimezone(timezone.utc)
-        return ts.strftime("%Y-%m-%d %H:%M:%S")
+    def _parse_ts(self, ts: Any, tzinfo: str) -> str:
+        if ts:
+            if isinstance(ts, str):
+                ts_naive = datetime.fromisoformat(ts)
+            else:
+                ts_naive = ts.replace(tzinfo=None)
+            tz = pytz.timezone(tzinfo)
+            ts = tz.localize(ts_naive).astimezone(timezone.utc)
+            return ts.strftime("%Y-%m-%d %H:%M:%S")
+        else:
+            return None

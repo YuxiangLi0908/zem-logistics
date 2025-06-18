@@ -1907,8 +1907,10 @@ class ShippingManagement(View):
                 shipment.shipment_appointment = (
                     shipment_appointment  # 界面的schedule_time
                 )
-                shipment.shipment_appointment_utc = self._parse_ts(
-                    shipment_appointment, tzinfo
+                shipment.shipment_appointment_utc = (
+                    self._parse_ts(shipment_appointment, tzinfo)
+                    if not shipment_appointment
+                    else None
                 )
                 shipment.note = request.POST.get("note")
                 shipment.destination = request.POST.get("destination").replace(
@@ -1921,8 +1923,10 @@ class ShippingManagement(View):
                 shipment.origin = request.POST.get("origin")
                 shipment.shipment_schduled_at = timezone.now()
                 shipment.shipment_appointment = shipment_appointment
-                shipment.shipment_appointment_utc = self._parse_ts(
-                    shipment_appointment, tzinfo
+                shipment.shipment_appointment_utc = (
+                    self._parse_ts(shipment_appointment, tzinfo)
+                    if not shipment_appointment
+                    else None
                 )
                 shipment.note = request.POST.get("note")
                 shipment.destination = request.POST.get("destination").replace(
@@ -2418,7 +2422,6 @@ class ShippingManagement(View):
                 tzinfo = self._parse_tzinfo(request.POST.get("origin", ""))
                 shipmentappointment = request.POST.get("shipment_appointment")
                 shipment_appointment = parse(shipmentappointment).replace(tzinfo=None)
-                shipmentappointment_utc = self._parse_ts(shipmentappointment, tzinfo)
                 shipment_data = {}
                 shipment_data["appointment_id"] = request.POST.get(
                     "appointment_id", ""
@@ -2867,7 +2870,13 @@ class ShippingManagement(View):
             return "America/New_York"
 
     def _parse_ts(self, ts: str, tzinfo: str) -> str:
-        ts_naive = datetime.fromisoformat(ts)
-        tz = pytz.timezone(tzinfo)
-        ts = tz.localize(ts_naive).astimezone(timezone.utc)
-        return ts.strftime("%Y-%m-%d %H:%M:%S")
+        if ts:
+            if isinstance(ts, str):
+                ts_naive = datetime.fromisoformat(ts)
+            else:
+                ts_naive = ts.replace(tzinfo=None)
+            tz = pytz.timezone(tzinfo)
+            ts = tz.localize(ts_naive).astimezone(timezone.utc)
+            return ts.strftime("%Y-%m-%d %H:%M:%S")
+        else:
+            return None
