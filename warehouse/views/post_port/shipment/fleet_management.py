@@ -3,7 +3,6 @@ import base64
 import io
 import json
 import os
-import pytz
 import re
 import uuid
 from datetime import datetime, timedelta
@@ -13,6 +12,7 @@ import barcode
 import matplotlib
 import matplotlib.pyplot as plt
 import pandas as pd
+import pytz
 from asgiref.sync import sync_to_async
 from barcode.writer import ImageWriter
 from django.contrib.postgres.aggregates import StringAgg
@@ -508,8 +508,12 @@ class FleetManagement(View):
             is_arrived=False,
             is_canceled=False,
             is_shipped=True,
-            shipment_type__in=["FTL", "LTL", "外配/快递"],  # LTL和客户自提的不需要确认送达
-        )& ~Q(status="Exception")
+            shipment_type__in=[
+                "FTL",
+                "LTL",
+                "外配/快递",
+            ],  # LTL和客户自提的不需要确认送达
+        ) & ~Q(status="Exception")
         if fleet_number:
             criteria &= models.Q(fleet_number__fleet_number=fleet_number)
         if batch_number:
@@ -573,7 +577,6 @@ class FleetManagement(View):
         area = request.POST.get("area") or None
         arrived_at = request.POST.get("arrived_at")
 
-        
         criteria = models.Q(
             models.Q(models.Q(pod_link__isnull=True) | models.Q(pod_link="")),
             shipped_at__isnull=False,
@@ -1132,7 +1135,7 @@ class FleetManagement(View):
         self, request: HttpRequest
     ) -> tuple[str, dict[str, Any]]:
         arrived_ats = request.POST.getlist("arrived_at")  # 使用 getlist 获取数组
-        #fleet_numbers = request.POST.getlist("fleet_number")  # 使用 getlist 获取数组
+        # fleet_numbers = request.POST.getlist("fleet_number")  # 使用 getlist 获取数组
         shipments = request.POST.getlist("shipment_batch_number")
         if not isinstance(arrived_ats, list):
             arrived_ats = [arrived_ats]
@@ -1142,10 +1145,12 @@ class FleetManagement(View):
             raise ValueError(f"length is not valid!")
         for arrived_at, ship in zip(arrived_ats, shipments):
             shipment = await sync_to_async(
-                lambda: Shipment.objects.select_related("fleet_number").get(shipment_batch_number=ship)
+                lambda: Shipment.objects.select_related("fleet_number").get(
+                    shipment_batch_number=ship
+                )
             )()
             fleet = shipment.fleet_number
-            
+
             tzinfo = self._parse_tzinfo(shipment.origin)
             shipment.arrived_at = arrived_at
             shipment.arrived_at_utc = self._parse_ts(arrived_at, tzinfo)
@@ -1614,12 +1619,14 @@ class FleetManagement(View):
     ) -> tuple[str, dict[str, Any]]:
         status = request.POST.get("abnormal_status", "").strip()
         description = request.POST.get("abnormal_description", "").strip()
-        #fleet_number = request.POST.get("fleet_number")
+        # fleet_number = request.POST.get("fleet_number")
         shipment_batch_number = request.POST.get("shipment_batch_number")
 
         shipment = await sync_to_async(
-                lambda: Shipment.objects.select_related("fleet_number").get(shipment_batch_number=shipment_batch_number)
-            )()
+            lambda: Shipment.objects.select_related("fleet_number").get(
+                shipment_batch_number=shipment_batch_number
+            )
+        )()
         fleet = shipment.fleet_number
         if fleet:
             fleet.is_canceled = True
@@ -1850,7 +1857,7 @@ class FleetManagement(View):
         if await sync_to_async(lambda: request.user.is_authenticated)():
             return True
         return False
-    
+
     def _parse_tzinfo(self, s: str) -> str:
         if "NJ" in s.upper():
             return "America/New_York"

@@ -1322,7 +1322,9 @@ class ShippingManagement(View):
                     ).strip()
                     shipmentappointment = request.POST.get("shipment_appointment", None)
                     shipment.shipment_appointment = shipmentappointment
-                    shipment.shipment_appointment_utc = self._parse_ts(shipmentappointment, tzinfo)
+                    shipment.shipment_appointment_utc = self._parse_ts(
+                        shipmentappointment, tzinfo
+                    )
                     # LTL的需要存ARM-BOL和ARM-PRO
                     shipment.ARM_BOL = (
                         request.POST.get("arm_bol")
@@ -1361,7 +1363,9 @@ class ShippingManagement(View):
                         shipmentappointment = current_time
                         shipmentappointment_utc = current_time
                     else:
-                        shipmentappointment_utc = self._parse_ts(shipmentappointment, tzinfo)
+                        shipmentappointment_utc = self._parse_ts(
+                            shipmentappointment, tzinfo
+                        )
                     # if "NJ" in str(
                     #     request.POST.get("origin", "")
                     # ):  # NJ仓的，UPS预约完就结束，POD都不用传，现在三个仓库都不用传了，这段就注释掉了
@@ -1381,7 +1385,9 @@ class ShippingManagement(View):
                 else:
                     shipmentappointment = request.POST.get("shipment_appointment", None)
                     tzinfo = self._parse_tzinfo(request.POST.get("origin", ""))
-                    shipmentappointment_utc = self._parse_ts(shipmentappointment, tzinfo)
+                    shipmentappointment_utc = self._parse_ts(
+                        shipmentappointment, tzinfo
+                    )
                     if shipment_type == "客户自提" and "NJ" in str(
                         request.POST.get("origin", "")
                     ):  # 客户自提的预约完要直接跳到POD上传,时间按预计提货时间
@@ -1901,7 +1907,9 @@ class ShippingManagement(View):
                 shipment.shipment_appointment = (
                     shipment_appointment  # 界面的schedule_time
                 )
-                shipment.shipment_appointment_utc = self._parse_ts(shipment_appointment, tzinfo)
+                shipment.shipment_appointment_utc = self._parse_ts(
+                    shipment_appointment, tzinfo
+                )
                 shipment.note = request.POST.get("note")
                 shipment.destination = request.POST.get("destination").replace(
                     "WALMART", "Walmart"
@@ -1913,7 +1921,9 @@ class ShippingManagement(View):
                 shipment.origin = request.POST.get("origin")
                 shipment.shipment_schduled_at = timezone.now()
                 shipment.shipment_appointment = shipment_appointment
-                shipment.shipment_appointment_utc = self._parse_ts(shipment_appointment, tzinfo)
+                shipment.shipment_appointment_utc = self._parse_ts(
+                    shipment_appointment, tzinfo
+                )
                 shipment.note = request.POST.get("note")
                 shipment.destination = request.POST.get("destination").replace(
                     "WALMART", "Walmart"
@@ -1962,7 +1972,9 @@ class ShippingManagement(View):
                 shipment.load_type = request.POST.get("load_type")
                 shipment.shipment_schduled_at = timezone.now()
                 shipment.shipment_appointment = shipment_appointment
-                shipment.shipment_appointment_utc = self._parse_ts(shipment_appointment, tzinfo)
+                shipment.shipment_appointment_utc = self._parse_ts(
+                    shipment_appointment, tzinfo
+                )
                 shipment.note = request.POST.get("note")
                 shipment.destination = request.POST.get("destination").replace(
                     "WALMART", "Walmart"
@@ -1979,7 +1991,9 @@ class ShippingManagement(View):
                 shipment.shipment_account = request.POST.get("shipment_account")
                 shipment.origin = request.POST.get("origin")
                 shipment.shipment_appointment = shipment_appointment
-                shipment.shipment_appointment_utc = self._parse_ts(shipment_appointment, tzinfo)
+                shipment.shipment_appointment_utc = self._parse_ts(
+                    shipment_appointment, tzinfo
+                )
                 shipment.note = request.POST.get("note")
                 shipment.destination = request.POST.get("destination").replace(
                     "WALMART", "Walmart"
@@ -2016,10 +2030,14 @@ class ShippingManagement(View):
                 ) and "NJ" in str(request.POST.get("origin")):
                     shipment.is_shipped = True
                     shipment.shipped_at = shipment_appointment
-                    shipment.shipped_at_utc = self._parse_ts(shipment_appointment, tzinfo)
+                    shipment.shipped_at_utc = self._parse_ts(
+                        shipment_appointment, tzinfo
+                    )
                     shipment.is_arrived = True
                     shipment.arrived_at = shipment_appointment
-                    shipment.arrived_at_utc = self._parse_ts(shipment_appointment, tzinfo)
+                    shipment.arrived_at_utc = self._parse_ts(
+                        shipment_appointment, tzinfo
+                    )
                     fleet.departured_at = shipment_appointment
                     fleet.arrived_at = shipment_appointment
                 if (
