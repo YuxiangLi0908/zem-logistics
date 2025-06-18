@@ -3,6 +3,7 @@ import base64
 import io
 import json
 import os
+import pytz
 import re
 import uuid
 from datetime import datetime, timedelta
@@ -1037,8 +1038,10 @@ class FleetManagement(View):
                 )
             else:
                 dumped_pallets = 0
+            tzinfo = self._parse_tzinfo(s.origin)
             s.is_shipped = True
             s.shipped_at = departured_at
+            s.shipped_at_utc = self._parse_ts(departured_at, tzinfo)
             s.shipped_pallet = s.total_pallet - dumped_pallets
             if dumped_pallets > 0:
                 dumped_weight = sum(
@@ -1089,6 +1092,7 @@ class FleetManagement(View):
             updated_shipment.append(s)
             if s.shipment_type == "客户自提":
                 s.arrived_at = departured_at
+                s.arrived_at_utc = self._parse_ts(departured_at, tzinfo)
                 s.is_arrived = True
         if fleet.fleet_type == "客户自提":
             fleet.arrived_at = departured_at
@@ -1141,8 +1145,10 @@ class FleetManagement(View):
                 lambda: Shipment.objects.select_related("fleet_number").get(shipment_batch_number=ship)
             )()
             fleet = shipment.fleet_number
-
+            
+            tzinfo = self._parse_tzinfo(shipment.origin)
             shipment.arrived_at = arrived_at
+            shipment.arrived_at_utc = self._parse_ts(arrived_at, tzinfo)
             shipment.is_arrived = True
             await sync_to_async(shipment.save)()
             if fleet:
@@ -1844,3 +1850,19 @@ class FleetManagement(View):
         if await sync_to_async(lambda: request.user.is_authenticated)():
             return True
         return False
+    
+    def _parse_tzinfo(self, s: str) -> str:
+        if "NJ" in s.upper():
+            return "America/New_York"
+        elif "SAV" in s.upper():
+            return "America/New_York"
+        elif "LA" in s.upper():
+            return "America/Los_Angeles"
+        else:
+            return "America/New_York"
+
+    def _parse_ts(self, ts: str, tzinfo: str) -> str:
+        ts_naive = datetime.fromisoformat(ts)
+        tz = pytz.timezone(tzinfo)
+        ts = tz.localize(ts_naive).astimezone(timezone.utc)
+        return ts.strftime("%Y-%m-%d %H:%M:%S")
