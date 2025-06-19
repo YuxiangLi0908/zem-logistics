@@ -2297,7 +2297,7 @@ class Accounting(View):
                     qty = float(combina_data_des_rate[i])
                     rate = float(combina_data_des_price[i])
                     amount = qty * rate
-                else:                    
+                else:
                     qty = rate = amount = 0.00
                 for item in plts_by_destination:
                     cleaned_item_dest = item["destination"].strip()
@@ -2319,7 +2319,7 @@ class Accounting(View):
                         "note": combina_data_des_key[i],
                     }
                 )
-        
+
         if overweight_fee > 0:
             overweight_extra_weight = request.POST.get("overweight_extra_weight")
             invoice_item_data.append(
@@ -2479,12 +2479,12 @@ class Accounting(View):
                     }
                 )
             k += 1
-        
+
         invoice_item = InvoiceItem.objects.filter(
             invoice_number__invoice_number=invoice.invoice_number
         )
         invoice_item.delete()
-        
+
         invoice_item_instances = [
             InvoiceItem(**inv_itm_data) for inv_itm_data in invoice_item_data
         ]
@@ -3425,7 +3425,9 @@ class Accounting(View):
 
         for plts in plts_by_destination:
             destination = plts["destination"]
-            dest = re.sub(r'.*[-_]|[\u4e00-\u9fff]', '', destination).strip()  #如果是沃尔玛的，只保留后面的名字，因为报价表里就是这么保留的
+            dest = re.sub(
+                r".*[-_]|[\u4e00-\u9fff]", "", destination
+            ).strip()  # 如果是沃尔玛的，只保留后面的名字，因为报价表里就是这么保留的
             cbm = plts["total_cbm"]
             dest_matches = []
             matched = False
@@ -3873,8 +3875,8 @@ class Accounting(View):
             "container_number": container_number,
             "is_overregion": is_overregion,
             "extra_fees": actual_fees,
-            "destination_matches":matched_regions["combina_dests"],
-            "non_combina_dests":matched_regions["non_combina_dests"],
+            "destination_matches": matched_regions["combina_dests"],
+            "non_combina_dests": matched_regions["non_combina_dests"],
         }
         return self.template_invoice_combina_edit, context
 
@@ -3995,11 +3997,11 @@ class Accounting(View):
             invoice_type="receivable",
         ).exclude(type="combine")
         DELIVERY_TYPE_MAPPING = {
-            'selfdelivery': '自发',
-            'upsdelivery': 'UPS',
-            'amazon': '亚马逊',
-            'walmart': '沃尔玛',
-            'local': '本地派送',
+            "selfdelivery": "自发",
+            "upsdelivery": "UPS",
+            "amazon": "亚马逊",
+            "walmart": "沃尔玛",
+            "local": "本地派送",
         }
         for delivery in deliverys:
             extra_fees["deliverys"].append(
@@ -5451,7 +5453,9 @@ class Accounting(View):
                 qty.append(1)
                 rate.append(v)
                 note.append("")
-        elif order.container_number.account_order_type =="转运组合": #组合柜就从invoiceItem表找就行了，转运的才去三个表找
+        elif (
+            order.container_number.account_order_type == "转运组合"
+        ):  # 组合柜就从invoiceItem表找就行了，转运的才去三个表找
             invoice_item = InvoiceItem.objects.filter(
                 invoice_number__invoice_number=invoice.invoice_number
             )

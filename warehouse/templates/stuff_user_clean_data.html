@@ -139,4 +139,20 @@
     {% endif %}
 </div>
 
+<div>
+    <form method="post" enctype="multipart/form-data" style="font-size: 11px;">
+        {% csrf_token %}
+        batch update_shipment_ts_utc_updated
+        <input type="hidden" name="step" value="update_shipment_ts_utc">
+        <input type="date" name="start_date" value="{{ start_date }}">
+        <input type="date" name="end_date" value="{{ end_date }}">
+        <button type="submit" class="btn btn-danger" style="height: 35px; font-size: 12px; margin: 5px;">
+            update_shipment_ts_utc
+        </button>
+    </form>
+    {% if update_shipment_ts_utc_updated %}
+    <b>Successfully update {{ count }} Shipment!</b>
+    {% endif %}
+</div>
+
 {% endblock %}

@@ -12,6 +12,7 @@ import barcode
 import matplotlib
 import matplotlib.pyplot as plt
 import pandas as pd
+import pytz
 from asgiref.sync import sync_to_async
 from barcode.writer import ImageWriter
 from django.contrib.postgres.aggregates import StringAgg
@@ -507,8 +508,12 @@ class FleetManagement(View):
             is_arrived=False,
             is_canceled=False,
             is_shipped=True,
-            shipment_type__in=["FTL", "LTL", "外配/快递"],  # LTL和客户自提的不需要确认送达
-        )& ~Q(status="Exception")
+            shipment_type__in=[
+                "FTL",
+                "LTL",
+                "外配/快递",
+            ],  # LTL和客户自提的不需要确认送达
+        ) & ~Q(status="Exception")
         if fleet_number:
             criteria &= models.Q(fleet_number__fleet_number=fleet_number)
         if batch_number:
@@ -572,7 +577,6 @@ class FleetManagement(View):
         area = request.POST.get("area") or None
         arrived_at = request.POST.get("arrived_at")
 
-        
         criteria = models.Q(
             models.Q(models.Q(pod_link__isnull=True) | models.Q(pod_link="")),
             shipped_at__isnull=False,
@@ -1037,8 +1041,10 @@ class FleetManagement(View):
                 )
             else:
                 dumped_pallets = 0
+            tzinfo = self._parse_tzinfo(s.origin)
             s.is_shipped = True
             s.shipped_at = departured_at
+            s.shipped_at_utc = self._parse_ts(departured_at, tzinfo)
             s.shipped_pallet = s.total_pallet - dumped_pallets
             if dumped_pallets > 0:
                 dumped_weight = sum(
@@ -1089,6 +1095,7 @@ class FleetManagement(View):
             updated_shipment.append(s)
             if s.shipment_type == "客户自提":
                 s.arrived_at = departured_at
+                s.arrived_at_utc = self._parse_ts(departured_at, tzinfo)
                 s.is_arrived = True
         if fleet.fleet_type == "客户自提":
             fleet.arrived_at = departured_at
@@ -1128,7 +1135,7 @@ class FleetManagement(View):
         self, request: HttpRequest
     ) -> tuple[str, dict[str, Any]]:
         arrived_ats = request.POST.getlist("arrived_at")  # 使用 getlist 获取数组
-        #fleet_numbers = request.POST.getlist("fleet_number")  # 使用 getlist 获取数组
+        # fleet_numbers = request.POST.getlist("fleet_number")  # 使用 getlist 获取数组
         shipments = request.POST.getlist("shipment_batch_number")
         if not isinstance(arrived_ats, list):
             arrived_ats = [arrived_ats]
@@ -1138,11 +1145,15 @@ class FleetManagement(View):
             raise ValueError(f"length is not valid!")
         for arrived_at, ship in zip(arrived_ats, shipments):
             shipment = await sync_to_async(
-                lambda: Shipment.objects.select_related("fleet_number").get(shipment_batch_number=ship)
+                lambda: Shipment.objects.select_related("fleet_number").get(
+                    shipment_batch_number=ship
+                )
             )()
             fleet = shipment.fleet_number
 
+            tzinfo = self._parse_tzinfo(shipment.origin)
             shipment.arrived_at = arrived_at
+            shipment.arrived_at_utc = self._parse_ts(arrived_at, tzinfo)
             shipment.is_arrived = True
             await sync_to_async(shipment.save)()
             if fleet:
@@ -1608,12 +1619,14 @@ class FleetManagement(View):
     ) -> tuple[str, dict[str, Any]]:
         status = request.POST.get("abnormal_status", "").strip()
         description = request.POST.get("abnormal_description", "").strip()
-        #fleet_number = request.POST.get("fleet_number")
+        # fleet_number = request.POST.get("fleet_number")
         shipment_batch_number = request.POST.get("shipment_batch_number")
 
         shipment = await sync_to_async(
-                lambda: Shipment.objects.select_related("fleet_number").get(shipment_batch_number=shipment_batch_number)
-            )()
+            lambda: Shipment.objects.select_related("fleet_number").get(
+                shipment_batch_number=shipment_batch_number
+            )
+        )()
         fleet = shipment.fleet_number
         if fleet:
             fleet.is_canceled = True
@@ -1844,3 +1857,25 @@ class FleetManagement(View):
         if await sync_to_async(lambda: request.user.is_authenticated)():
             return True
         return False
+
+    def _parse_tzinfo(self, s: str) -> str:
+        if "NJ" in s.upper():
+            return "America/New_York"
+        elif "SAV" in s.upper():
+            return "America/New_York"
+        elif "LA" in s.upper():
+            return "America/Los_Angeles"
+        else:
+            return "America/New_York"
+
+    def _parse_ts(self, ts: Any, tzinfo: str) -> str:
+        if ts:
+            if isinstance(ts, str):
+                ts_naive = datetime.fromisoformat(ts)
+            else:
+                ts_naive = ts.replace(tzinfo=None)
+            tz = pytz.timezone(tzinfo)
+            ts = tz.localize(ts_naive).astimezone(timezone.utc)
+            return ts.strftime("%Y-%m-%d %H:%M:%S")
+        else:
+            return None

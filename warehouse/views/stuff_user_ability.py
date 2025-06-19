@@ -6,11 +6,13 @@ from datetime import datetime
 from typing import Any
 
 import pandas as pd
+import pytz
 from django.contrib.auth.decorators import login_required
 from django.db import models
 from django.db.models import Count, FloatField, IntegerField, Sum
 from django.http import HttpRequest, HttpResponse, HttpResponseForbidden
 from django.shortcuts import render
+from django.utils import timezone
 from django.utils.decorators import method_decorator
 from django.views import View
 from simple_history.utils import bulk_update_with_history
@@ -84,6 +86,9 @@ class StuffPower(View):
             return render(request, template, context)
         elif step == "po_id_batch_generation":
             template, context = self.po_id_batch_generation(request)
+            return render(request, template, context)
+        elif step == "update_shipment_ts_utc":
+            template, context = self.update_shipment_ts_utc(request)
             return render(request, template, context)
         else:
             self._remove_offload()
@@ -706,6 +711,42 @@ class StuffPower(View):
         }
         return self.template_1, context
 
+    def update_shipment_ts_utc(self, request: HttpRequest) -> tuple[Any, Any]:
+        start_date = request.POST.get("start_date")
+        end_date = request.POST.get("end_date")
+        cnt = 0
+        shipment = Shipment.objects.filter(
+            shipment_appointment__gte=start_date, shipment_appointment__lte=end_date
+        )
+        for s in shipment:
+            tzinfo = self._parse_tzinfo(s.origin)
+            if s.shipment_appointment:
+                try:
+                    s.shipment_appointment_utc = self._parse_ts(
+                        s.shipment_appointment, tzinfo
+                    )
+                except Exception as e:
+                    raise ValueError(
+                        f"{e}: {s.shipment_appointment} - {tzinfo} - {s.origin}"
+                    )
+            if s.shipped_at:
+                s.shipped_at_utc = self._parse_ts(s.shipped_at, tzinfo)
+            if s.arrived_at:
+                s.arrived_at_utc = self._parse_ts(s.arrived_at, tzinfo)
+            cnt += 1
+        bulk_update_with_history(
+            shipment,
+            Shipment,
+            fields=["shipment_appointment_utc", "shipped_at_utc", "arrived_at_utc"],
+        )
+        context = {
+            "start_date": start_date,
+            "end_date": end_date,
+            "count": cnt,
+            "update_shipment_ts_utc_updated": True,
+        }
+        return self.template_1, context
+
     def _format_string_datetime(
         self, datetime_str: str, datetime_part: str = "date"
     ) -> str | None:
@@ -716,3 +757,24 @@ class StuffPower(View):
             return datetime_obj.strftime("%Y-%m-%d")
         else:
             return datetime_obj.strftime("%Y-%m-%d %H:%M:%S")
+
+    def _parse_tzinfo(self, s: str) -> str:
+        if not s:
+            return "America/New_York"
+        if "NJ" in s.upper():
+            return "America/New_York"
+        elif "SAV" in s.upper():
+            return "America/New_York"
+        elif "LA" in s.upper():
+            return "America/Los_Angeles"
+        else:
+            return "America/New_York"
+
+    def _parse_ts(self, ts: Any, tzinfo: str) -> str:
+        if isinstance(ts, str):
+            ts_naive = datetime.fromisoformat(ts)
+        else:
+            ts_naive = ts.replace(tzinfo=None)
+        tz = pytz.timezone(tzinfo)
+        ts = tz.localize(ts_naive).astimezone(timezone.utc)
+        return ts.strftime("%Y-%m-%d %H:%M:%S")
