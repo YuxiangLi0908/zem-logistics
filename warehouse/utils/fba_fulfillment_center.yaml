@@ -2273,3 +2273,33 @@ TCY1:
   location: 2690 EAST ARCH AIRPORT Rd
   state: CA
   zipcode: '95206'
+MCO1S:
+  city: Davenport
+  location: 5100 NORTH RIDGE TRAIL
+  state: FL
+  zipcode: '33897'
+Walmart-MCO1S:
+  city: Davenport
+  location: 5100 NORTH RIDGE TRAIL
+  state: FL
+  zipcode: '33897'
+沃尔玛MCO1S:
+  city: Davenport
+  location: 5100 NORTH RIDGE TRAIL
+  state: FL
+  zipcode: '33897'
+沃尔玛-MCO1S:
+  city: Davenport
+  location: 5100 NORTH RIDGE TRAIL
+  state: FL
+  zipcode: '33897'
+WMMMCO1S:
+  city: Davenport
+  location: 5100 NORTH RIDGE TRAIL
+  state: FL
+  zipcode: '33897'
+WMM-MCO1S:
+  city: Davenport
+  location: 5100 NORTH RIDGE TRAIL
+  state: FL
+  zipcode: '33897'
