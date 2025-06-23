@@ -1450,11 +1450,12 @@ class ShippingManagement(View):
                 )
                 for pl in packing_list:
                     pl.shipment_batch_number = shipment
+                    pl.actual_shipment = shipment  #预约出库时，默认该约为主约
                     container_number.add(pl.container_number.container_number)
                 await sync_to_async(bulk_update_with_history)(
                     packing_list,
                     PackingList,
-                    fields=["shipment_batch_number"],
+                    fields=["shipment_batch_number","actual_shipment"],
                 )
             except:
                 pass
@@ -1479,6 +1480,7 @@ class ShippingManagement(View):
                 updated_pl = []
                 for p in pallet:
                     p.shipment_batch_number = shipment
+                    p.actual_shipment = shipment
                     if p.shipping_mark:
                         pallet_shipping_marks += p.shipping_mark.split(",")
                     if p.fba_id:
@@ -1488,22 +1490,27 @@ class ShippingManagement(View):
                 for pl in packing_list:
                     if pl.shipping_mark and pl.shipping_mark in pallet_shipping_marks:
                         pl.shipment_batch_number = shipment
+                        pl.actual_shipment = shipment
                         updated_pl.append(pl)
                     elif pl.fba_id and pl.fba_id in pallet_fba_ids:
                         pl.shipment_batch_number = shipment
+                        pl.actual_shipment = shipment
                         updated_pl.append(pl)
                     elif pl.ref_id and pl.ref_id in pallet_ref_ids:
                         pl.shipment_batch_number = shipment
+                        pl.actual_shipment = shipment
                         updated_pl.append(pl)
+                    else:
+                        raise ValueError('板子不匹配po')
                 await sync_to_async(bulk_update_with_history)(
                     pallet,
                     Pallet,
-                    fields=["shipment_batch_number"],
+                    fields=["shipment_batch_number","actual_shipment"],
                 )
                 await sync_to_async(bulk_update_with_history)(
                     updated_pl,
                     PackingList,
-                    fields=["shipment_batch_number"],
+                    fields=["shipment_batch_number","actual_shipment"],
                 )
             except:
                 pass
@@ -1584,6 +1591,7 @@ class ShippingManagement(View):
                 )
                 for pl in packing_list:
                     pl.shipment_batch_number = shipment
+                    pl.actual_shipment = shipment
                     shipment.total_weight += pl.total_weight_lbs
                     shipment.total_pcs += pl.pcs
                     shipment.total_cbm += pl.cbm
@@ -1592,7 +1600,7 @@ class ShippingManagement(View):
                 await sync_to_async(bulk_update_with_history)(
                     packing_list,
                     PackingList,
-                    fields=["shipment_batch_number"],
+                    fields=["shipment_batch_number","actual_shipment"],
                 )
             except:
                 pass
@@ -1617,6 +1625,7 @@ class ShippingManagement(View):
                 updated_pl = []
                 for p in pallet:
                     p.shipment_batch_number = shipment
+                    p.actual_shipment = shipment
                     shipment.total_weight += p.weight_lbs
                     shipment.total_pcs += p.pcs
                     shipment.total_cbm += p.cbm
@@ -1629,23 +1638,28 @@ class ShippingManagement(View):
                 for pl in packing_list:
                     if pl.shipping_mark and pl.shipping_mark in pallet_shipping_marks:
                         pl.shipment_batch_number = shipment
+                        pl.actual_shipment = shipment
                         updated_pl.append(pl)
                     elif pl.fba_id and pl.fba_id in pallet_fba_ids:
                         pl.shipment_batch_number = shipment
+                        pl.actual_shipment = shipment
                         updated_pl.append(pl)
                     elif pl.ref_id and pl.ref_id in pallet_ref_ids:
                         pl.shipment_batch_number = shipment
+                        pl.actual_shipment = shipment
                         updated_pl.append(pl)
+                    else:
+                        raise ValueError("板子与PO不匹配")
                 shipment.total_pallet += len(set([p.pallet_id for p in pallet]))
                 await sync_to_async(bulk_update_with_history)(
                     pallet,
                     Pallet,
-                    fields=["shipment_batch_number"],
+                    fields=["shipment_batch_number","actual_shipment"],
                 )
                 await sync_to_async(bulk_update_with_history)(
                     updated_pl,
                     PackingList,
-                    fields=["shipment_batch_number"],
+                    fields=["shipment_batch_number","actual_shipment"],
                 )
             except:
                 pass
@@ -1688,15 +1702,17 @@ class ShippingManagement(View):
                     )
                 )
                 for pl in packing_list:
-                    pl.shipment_batch_number = None
+                    pl.shipment_batch_number = None                  
                     shipment.total_weight -= pl.total_weight_lbs
                     shipment.total_pcs -= pl.pcs
                     shipment.total_cbm -= pl.cbm
                     shipment.total_pallet -= int(pl.cbm / 2)
+                    if pl.shipment_batch_number == pl.actual_shipment:
+                        pl.actual_shipment = None
                 await sync_to_async(bulk_update_with_history)(
                     packing_list,
                     PackingList,
-                    fields=["shipment_batch_number"],
+                    fields=["shipment_batch_number","actual_shipment"],
                 )
             except:
                 pass
@@ -1721,6 +1737,8 @@ class ShippingManagement(View):
                 updated_pl = []
                 for p in pallet:
                     p.shipment_batch_number = None
+                    if p.shipment_batch_number == p.actual_shipment:
+                        p.actual_shipment = None
                     shipment.total_weight -= p.weight_lbs
                     shipment.total_pcs -= p.pcs
                     shipment.total_cbm -= p.cbm
@@ -1733,23 +1751,31 @@ class ShippingManagement(View):
                 for pl in packing_list:
                     if pl.shipping_mark and pl.shipping_mark in pallet_shipping_marks:
                         pl.shipment_batch_number = None
+                        if pl.shipment_batch_number == pl.actual_shipment:
+                            pl.actual_shipment = None
                         updated_pl.append(pl)
                     elif pl.fba_id and pl.fba_id in pallet_fba_ids:
                         pl.shipment_batch_number = None
+                        if pl.shipment_batch_number == pl.actual_shipment:
+                            pl.actual_shipment = None
                         updated_pl.append(pl)
                     elif pl.ref_id and pl.ref_id in pallet_ref_ids:
                         pl.shipment_batch_number = None
+                        if pl.shipment_batch_number == pl.actual_shipment:
+                            pl.actual_shipment = None
                         updated_pl.append(pl)
+                    else:
+                        raise ValueError("板子与PO不匹配")
                 shipment.total_pallet -= len(set([p.pallet_id for p in pallet]))
                 await sync_to_async(bulk_update_with_history)(
                     pallet,
                     Pallet,
-                    fields=["shipment_batch_number"],
+                    fields=["shipment_batch_number","actual_shipment"],
                 )
                 await sync_to_async(bulk_update_with_history)(
                     updated_pl,
                     PackingList,
-                    fields=["shipment_batch_number"],
+                    fields=["shipment_batch_number","actual_shipment"],
                 )
             except:
                 pass
@@ -1854,7 +1880,7 @@ class ShippingManagement(View):
         appointment_id = request.POST.get("appointment_id")
         if (
             shipment.appointment_id != appointment_id
-        ):  # 更改ISA的时候，才判断ISA是否已存在
+        ):  # 更改ISA的时候，才判断ISA是否已存在，改ISA跟主约没有关系
             if appointment_id:
                 any_existing = await sync_to_async(
                     Shipment.objects.filter(appointment_id=appointment_id).exists
@@ -2455,18 +2481,23 @@ class ShippingManagement(View):
                 )
             )
             for pl in packing_list:
+                if pl.actual_shipment == pl.shipment_batch_number:
+                    pl.actual_shipment = shipment
                 pl.shipment_batch_number = shipment
+                
             for p in pallet:
+                if p.actual_shipment == p.shipment_batch_number:
+                    p.actual_shipment = shipment
                 p.shipment_batch_number = shipment
             await sync_to_async(bulk_update_with_history)(
                 packing_list,
                 PackingList,
-                fields=["shipment_batch_number"],
+                fields=["shipment_batch_number","actual_shipment"],
             )
             await sync_to_async(bulk_update_with_history)(
                 pallet,
                 Pallet,
-                fields=["shipment_batch_number"],
+                fields=["shipment_batch_number","actual_shipment"],
             )
             old_shipment.is_canceled = True
             await sync_to_async(old_shipment.save)()
@@ -2491,17 +2522,21 @@ class ShippingManagement(View):
         )
         for pl in packing_list:
             pl.shipment_batch_number = None
+            if pl.actual_shipment == pl.shipment_batch_number:
+                pl.actual_shipment = None
         for p in pallet:
             p.shipment_batch_number = None
+            if p.actual_shipment == p.shipment_batch_number:
+                p.actual_shipment = None
         await sync_to_async(bulk_update_with_history)(
             packing_list,
             PackingList,
-            fields=["shipment_batch_number"],
+            fields=["shipment_batch_number","actual_shipment"],
         )
         await sync_to_async(bulk_update_with_history)(
             pallet,
             Pallet,
-            fields=["shipment_batch_number"],
+            fields=["shipment_batch_number","actual_shipment"],
         )
         shipment.is_canceled = True
         await sync_to_async(shipment.save)()

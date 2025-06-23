@@ -217,6 +217,7 @@ class FleetManagement(View):
         pallets = request.POST.getlist("pallets")  # 该仓点下原本没有约的板数
         container_numbers = request.POST.getlist("container")
         plt_id = request.POST.getlist("added_plt_ids")
+        po_id = request.POST.getlist("added_po_id")
         results = []
         des = set()
         # 按顺序记录选中的每一行加塞的信息
@@ -229,18 +230,29 @@ class FleetManagement(View):
             result["pallets"] = int(pallets[p])
             pid_list = [int(i) for i in plt_id[p].split(",") if i]
             result["ids"] = pid_list
+            po_list = po_id[p]
+            result["po_id"] = po_list
             results.append(result)
-        # 将总重、cbm、pallet、pcs加到出库批次里
         total_weight, total_cbm, total_pcs = 0.0, 0.0, 0
         plt_ids = [id for s, id in zip(selections, plt_id) if s == "on"]
         plt_ids = [int(i) for id in plt_ids for i in id.split(",") if i]
         Utilized_pallet_ids = []
         # 记录加塞的plt_id
         for r in range(len(results)):
+            results[r]["has_actual_shipment"] = True  #默认有主约，因为只有没有主约的时候才需要处理主约
             if results[r]["pallet_add"] < results[r]["pallets"]:
                 Utilized_pallet_ids += results[r]["ids"][: results[r]["pallet_add"]]
                 Utilized_pallet_ids = [int(i) for i in Utilized_pallet_ids]
                 results[r]["ids"] = Utilized_pallet_ids
+            elif results[r]["pallet_add"] == results[r]["pallets"]:
+                #如果加塞了当前剩余的全部板子，还要看该PO_ID下有没有主约，没有主约再加主约
+                has_actual_shipment = await sync_to_async(
+                    Pallet.objects.filter(PO_ID=results[r]["po_id"])
+                                .exclude(actual_shipment__isnull=True)
+                                .exists
+                )()
+                results[r]["has_actual_shipment"] = has_actual_shipment
+                
         pallet = await sync_to_async(list)(
             Pallet.objects.select_related("container_number").filter(
                 id__in=Utilized_pallet_ids
@@ -1696,6 +1708,7 @@ class FleetManagement(View):
                     "container_number__container_number",
                     "container_number__order__customer_name__zem_name",
                     "destination",
+                    "PO_ID",
                     "address",
                     "delivery_method",
                     "container_number__order__offload_id__offload_at",
@@ -1767,6 +1780,8 @@ class FleetManagement(View):
                     # 板子绑定要加塞的约
                     for plt in Utilized_pallets:
                         plt.shipment_batch_number = s
+                        if not p["has_actual_shipment"]:  
+                            plt.actual_shipment = s
                         s.total_weight += plt.weight_lbs
                         s.total_pcs += plt.pcs
                         s.total_cbm += plt.cbm
@@ -1776,9 +1791,12 @@ class FleetManagement(View):
                             pallet_fba_ids += plt.fba_id.split(",")
                         if plt.ref_id:
                             pallet_ref_ids += plt.ref_id.split(",")
+                        
                     # pl也绑定约
                     for pl in packing_list:
                         pl.shipment_batch_number = s
+                        if not p["has_actual_shipment"]:  
+                            pl.actual_shipment = s
                         if (
                             pl.shipping_mark
                             and pl.shipping_mark in pallet_shipping_marks
@@ -1795,12 +1813,12 @@ class FleetManagement(View):
                     await sync_to_async(bulk_update_with_history)(
                         Utilized_pallets,
                         Pallet,
-                        fields=["shipment_batch_number"],
+                        fields=["shipment_batch_number","actual_shipment"],
                     )
                     await sync_to_async(bulk_update_with_history)(
                         updated_pl,
                         PackingList,
-                        fields=["shipment_batch_number"],
+                        fields=["shipment_batch_number","actual_shipment"],
                     )
                     order = await sync_to_async(list)(
                         Order.objects.select_related(

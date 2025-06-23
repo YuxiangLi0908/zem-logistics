@@ -20,6 +20,13 @@ class Pallet(models.Model):
         on_delete=models.SET_NULL,
         related_name="pallet",
     )
+    actual_shipment = models.ForeignKey(
+        Shipment,
+        null=True,
+        blank=True,
+        on_delete=models.SET_NULL,
+        related_name="pallet_actual",
+    )
     transfer_batch_number = models.ForeignKey(
         TransferLocation,
         null=True,
