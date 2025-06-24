@@ -546,6 +546,9 @@ class Palletization(View):
             shipment_batch_number = [
                 d for d in request.POST.getlist("shipment_batch_number")
             ]
+            master_shipment_batch_number = [
+                d for d in request.POST.getlist("master_shipment_batch_number")
+            ]
             shipping_marks = request.POST.getlist("shipping_marks")
             fba_ids = request.POST.getlist("fba_ids")
             ref_ids = request.POST.getlist("ref_ids")
@@ -565,6 +568,7 @@ class Palletization(View):
                 d_t,
                 note,
                 shipment,
+                master_shipment,
                 shipping_mark,
                 fba_id,
                 ref_id,
@@ -583,6 +587,7 @@ class Palletization(View):
                 delivery_type,
                 notes,
                 shipment_batch_number,
+                master_shipment_batch_number,
                 shipping_marks,
                 fba_ids,
                 ref_ids,
@@ -604,6 +609,7 @@ class Palletization(View):
                         d_t,
                         note,
                         shipment,
+                        master_shipment,
                         shipping_mark,
                         fba_id,
                         ref_id,
@@ -697,6 +703,7 @@ class Palletization(View):
                         d_m,
                         delivery_type,
                         note,
+                        "None",
                         "None",
                         shipping_mark,
                         fba_id,
@@ -1064,6 +1071,7 @@ class Palletization(View):
         delivery_type: str,
         note: str,
         shipment_batch_number: str,
+        master_shipment_batch_number: str,
         shipping_mark: str,
         fba_id: str,
         ref_id: str,
@@ -1098,6 +1106,12 @@ class Palletization(View):
             await sync_to_async(shipment.save)()
         else:
             shipment = None
+        if master_shipment_batch_number != "None":
+            master_shipment = await sync_to_async(Shipment.objects.get)(
+                master_shipment_batch_number=master_shipment_batch_number
+            )
+        else:
+            master_shipment = None
         pallet_data = []
         pallet_pcs = [p_a // n for _ in range(n)]
         for i in range(p_a % n):
@@ -1119,6 +1133,7 @@ class Palletization(View):
                     "cbm": cbm_loaded,
                     "weight_lbs": weight_loaded,
                     "shipment_batch_number": shipment,
+                    "master_shipment_batch_number":master_shipment,
                     "note": note,
                     "shipping_mark": shipping_mark if shipping_mark else "",
                     "fba_id": fba_id if fba_id else "",

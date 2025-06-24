@@ -28,6 +28,7 @@ from django.db.models import (
     Value,
     When,
 )
+from django.db.models import Min, OuterRef, Subquery
 from django.db.models.functions import Cast
 from django.http import HttpRequest, HttpResponse
 from django.shortcuts import redirect, render
@@ -239,19 +240,20 @@ class FleetManagement(View):
         Utilized_pallet_ids = []
         # 记录加塞的plt_id
         for r in range(len(results)):
-            results[r]["has_actual_shipment"] = True  #默认有主约，因为只有没有主约的时候才需要处理主约
+            results[r]["has_master_shipment"] = True  #默认有主约，因为只有没有主约的时候才需要处理主约
             if results[r]["pallet_add"] < results[r]["pallets"]:
                 Utilized_pallet_ids += results[r]["ids"][: results[r]["pallet_add"]]
                 Utilized_pallet_ids = [int(i) for i in Utilized_pallet_ids]
                 results[r]["ids"] = Utilized_pallet_ids
             elif results[r]["pallet_add"] == results[r]["pallets"]:
                 #如果加塞了当前剩余的全部板子，还要看该PO_ID下有没有主约，没有主约再加主约
-                has_actual_shipment = await sync_to_async(
+                #这里包括两种情况：1、这是第一次被加塞，2、这不是第一次被加塞，不管是第几次只要没有剩余板子了，都需要确认主约
+                has_master_shipment = await sync_to_async(
                     Pallet.objects.filter(PO_ID=results[r]["po_id"])
                                 .exclude(actual_shipment__isnull=True)
                                 .exists
                 )()
-                results[r]["has_actual_shipment"] = has_actual_shipment
+                results[r]["has_master_shipment"] = has_master_shipment
                 
         pallet = await sync_to_async(list)(
             Pallet.objects.select_related("container_number").filter(
@@ -1777,11 +1779,25 @@ class FleetManagement(View):
                     )
                     pallet_shipping_marks, pallet_fba_ids, pallet_ref_ids = [], [], []
                     updated_pl = []
+
                     # 板子绑定要加塞的约
                     for plt in Utilized_pallets:
-                        plt.shipment_batch_number = s
-                        if not p["has_actual_shipment"]:  
-                            plt.actual_shipment = s
+                        if not p["has_master_shipment"]:  
+                            #这是没有主约又被完全加塞的情况，找到第一次被加塞的约为主约
+                            earliest_shipment = await sync_to_async(
+                                Shipment.objects.filter(
+                                    id__in=Pallet.objects.filter(PO_ID=plt.PO_ID)
+                                                            .exclude(shipment_batch_number__isnull=True)
+                                                            .values_list('shipment_batch_number', flat=True)
+                                )
+                                .order_by('shipped_at')
+                                .first
+                            )()
+                            if earliest_shipment:
+                                plt.master_shipment_batch_number = earliest_shipment
+                            else:
+                                plt.master_shipment_batch_number = s
+                        plt.shipment_batch_number = s                     
                         s.total_weight += plt.weight_lbs
                         s.total_pcs += plt.pcs
                         s.total_cbm += plt.cbm
@@ -1794,9 +1810,22 @@ class FleetManagement(View):
                         
                     # pl也绑定约
                     for pl in packing_list:
+                        if not pl["has_master_shipment"]:  
+                            #这是没有主约又被完全加塞的情况，找到第一次被加塞的约为主约
+                            earliest_shipment = await sync_to_async(
+                                Shipment.objects.filter(
+                                    id__in=PackingList.objects.filter(PO_ID=pl.PO_ID)
+                                                            .exclude(shipment_batch_number__isnull=True)
+                                                            .values_list('shipment_batch_number', flat=True)
+                                )
+                                .order_by('shipped_at')
+                                .first
+                            )()
+                            if earliest_shipment:
+                                pl.master_shipment_batch_number = earliest_shipment
+                            else:
+                                pl.master_shipment_batch_number = s
                         pl.shipment_batch_number = s
-                        if not p["has_actual_shipment"]:  
-                            pl.actual_shipment = s
                         if (
                             pl.shipping_mark
                             and pl.shipping_mark in pallet_shipping_marks
