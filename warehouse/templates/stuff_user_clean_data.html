@@ -52,90 +52,18 @@
 </div>
 
 <div>
-    <form method="post" action="">
-        {% csrf_token %}
-        <b>Update Delivery Method</b>
-        <input type="hidden" name="step" value="update_delivery_method">
-        <button type="submit" class="btn btn-danger" style="height: 35px; margin-left: 20px;">更新派送方式</button>
-    </form>
-    {% if delivery_update_success %}
-    <b>Successfully update {{ count }} packing list!</b>
-    {% endif %}
-</div>
-
-<div>
     <form method="post" enctype="multipart/form-data" style="font-size: 11px;">
         {% csrf_token %}
-        Refactor Pre Port Logic: Migrate Data
-        {{ pre_port_t49_tracking.file }}
-        <input type="hidden" name="step" value="pre_port_update_vessel_pl_data">
-        <button type="submit" class="btn btn-danger" style="height: 35px; font-size: 12px; margin: 5px;">
-            <i class="bi bi-cloud-arrow-up-fill"></i> 上传
-        </button>
-    </form>
-    
-    {% if vessel_pl_data_update_success %}
-    <b>Successfully update {{ orders_count }} orders!</b>
-    {% else %}
-    <b>0 order updated!</b>
-    {% endif %}
-</div>
-
-<div>
-    <form method="post" enctype="multipart/form-data" style="font-size: 11px;">
-        {% csrf_token %}
-        Update order pl upload status
-        <input type="hidden" name="step" value="update_pl_status">
-        <button type="submit" class="btn btn-danger" style="height: 35px; font-size: 12px; margin: 5px;">
-            更新
-        </button>
-    </form>
-    {% if order_packing_list_updloaded_updated %}
-    <b>Successfully update {{ count }} orders!</b>
-    {% endif %}
-</div>
-
-<div>
-    <form method="post" enctype="multipart/form-data" style="font-size: 11px;">
-        {% csrf_token %}
-        Update warehouse
-        <input type="hidden" name="step" value="update_warehouse">
-        <button type="submit" class="btn btn-danger" style="height: 35px; font-size: 12px; margin: 5px;">
-            更新
-        </button>
-    </form>
-    {% if warehouse_updated %}
-    <b>Successfully update {{ count }} orders!</b>
-    {% endif %}
-</div>
-
-<div>
-    <form method="post" enctype="multipart/form-data" style="font-size: 11px;">
-        {% csrf_token %}
-        fill order eta
-        <input type="hidden" name="step" value="update_order_eta">
-        <button type="submit" class="btn btn-danger" style="height: 35px; font-size: 12px; margin: 5px;">
-            fill order eta
-        </button>
-    </form>
-    {% if order_eta_updated %}
-    <b>Successfully update {{ count }} orders!</b>
-    {% endif %}
-</div>
-
-<div>
-    <form method="post" enctype="multipart/form-data" style="font-size: 11px;">
-        {% csrf_token %}
-        batch generate PO_ID
-        <input type="hidden" name="step" value="po_id_batch_generation">
+        backfill master shipment
+        <input type="hidden" name="step" value="backfill_master_shipment">
         <input type="date" name="start_date" value="{{ start_date }}">
         <input type="date" name="end_date" value="{{ end_date }}">
         <button type="submit" class="btn btn-danger" style="height: 35px; font-size: 12px; margin: 5px;">
-            update PO_ID
+            update master shipment
         </button>
     </form>
-    {% if po_id_updated %}
-    <b>Successfully update {{ count }} PO!</b>
+    {% if master_shipment_updated %}
+    <b>Successfully update {{ count }} Pallet!</b>
     {% endif %}
 </div>
 

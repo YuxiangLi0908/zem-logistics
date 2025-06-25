@@ -23,10 +23,7 @@ from django.db.models import (
     F,
     FloatField,
     IntegerField,
-    Min,
-    OuterRef,
     Q,
-    Subquery,
     Sum,
     Value,
     When,
@@ -37,7 +34,6 @@ from django.shortcuts import redirect, render
 from django.template.loader import get_template
 from django.utils import timezone
 from django.views import View
-from matplotlib.font_manager import FontProperties
 from office365.runtime.auth.user_credential import UserCredential
 from office365.sharepoint.client_context import ClientContext
 from office365.sharepoint.sharing.links.kind import SharingLinkKind
@@ -1596,12 +1592,6 @@ class FleetManagement(View):
         )
         # 将合并后的PDF内容写入响应
         # response.write(output_buf)
-        return response
-        if pisa_status.err:
-            raise ValueError(
-                "Error during PDF generation: %s" % pisa_status.err,
-                content_type="text/plain",
-            )
         return response
 
     async def handle_abnormal_fleet_post(
