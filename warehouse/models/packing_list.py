@@ -36,6 +36,13 @@ class PackingList(models.Model):
         on_delete=models.SET_NULL,
         related_name="packinglist",
     )
+    master_shipment_batch_number = models.ForeignKey(
+        Shipment,
+        null=True,
+        blank=True,
+        on_delete=models.SET_NULL,
+        related_name="packinglist_master",
+    )
     note = models.CharField(null=True, blank=True, max_length=2000)
     quote_id = models.ForeignKey(
         Quote, null=True, blank=True, on_delete=models.SET_NULL

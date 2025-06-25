@@ -125,7 +125,7 @@ class POD(View):
                 f"{batch_number}{file_extension}", file
             ).execute_query()
             link = (
-                resp.share_link(SharingLinkKind.OrganizationView)
+                resp.share_link(SharingLinkKind.AnonymousView)
                 .execute_query()
                 .value.to_json()["sharingLinkInfo"]["Url"]
             )

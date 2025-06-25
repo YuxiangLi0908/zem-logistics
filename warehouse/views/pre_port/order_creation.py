@@ -934,6 +934,7 @@ class OrderCreation(View):
                 po_ids,
                 strict=True,
             )
+
             pl_to_create = [
                 PackingList(
                     container_number=container,
