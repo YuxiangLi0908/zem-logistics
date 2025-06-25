@@ -1166,8 +1166,10 @@ class ShippingManagement(View):
             current_time = datetime.now()
             _, context = await self.handle_warehouse_post(request)
             packing_list_selected = await self._get_packing_list(
-                models.Q(id__in=selected) & models.Q(shipment_batch_number__isnull=True),
-                models.Q(id__in=selected_plt) & models.Q(shipment_batch_number__isnull=True),
+                models.Q(id__in=selected)
+                & models.Q(shipment_batch_number__isnull=True),
+                models.Q(id__in=selected_plt)
+                & models.Q(shipment_batch_number__isnull=True),
             )
             total_weight, total_cbm, total_pcs, total_pallet = 0.0, 0.0, 0, 0
             for pl in packing_list_selected:
@@ -1439,7 +1441,7 @@ class ShippingManagement(View):
                 shipment = Shipment(**shipment_data)
             await sync_to_async(shipment.save)()
 
-            #上面更新完约的信息，下面要更新packinglist绑定的约,这是未打板的，所有不用管板子
+            # 上面更新完约的信息，下面要更新packinglist绑定的约,这是未打板的，所有不用管板子
             container_number = set()
             pl_ids = request.POST.get("pl_ids").strip("][").split(", ")
             try:
@@ -1453,12 +1455,12 @@ class ShippingManagement(View):
                 pl_po_ids = set()
                 for pl in packing_list:
                     pl.shipment_batch_number = shipment
-                    if pl.master_shipment_batch_number is None: 
-                        #因为一个仓点的主约，每次都是一起更新，所以如果同PO_ID的任意一个没有主约，这个PO_ID下的pl都要更新主约
+                    if pl.master_shipment_batch_number is None:
+                        # 因为一个仓点的主约，每次都是一起更新，所以如果同PO_ID的任意一个没有主约，这个PO_ID下的pl都要更新主约
                         pl_po_ids.add(pl.PO_ID)
                         pl.master_shipment_batch_number = shipment
                     container_number.add(pl.container_number.container_number)
-                
+
                 if pl_po_ids:
                     await sync_to_async(
                         PackingList.objects.filter(PO_ID__in=pl_po_ids).update
@@ -1467,14 +1469,14 @@ class ShippingManagement(View):
                 await sync_to_async(bulk_update_with_history)(
                     packing_list,
                     PackingList,
-                    fields=["shipment_batch_number","master_shipment_batch_number"],
+                    fields=["shipment_batch_number", "master_shipment_batch_number"],
                 )
             except:
                 pass
-            
-            #再更新pl绑定的约
-            plt_master_po_ids = set() #需要改主约的
-            plt_shipment_po_ids = set() #需要改实际约的
+
+            # 再更新pl绑定的约
+            plt_master_po_ids = set()  # 需要改主约的
+            plt_shipment_po_ids = set()  # 需要改实际约的
             plt_ids = request.POST.get("plt_ids").strip("][").split(", ")
             try:
                 plt_ids = [int(i) for i in plt_ids]
@@ -1492,26 +1494,26 @@ class ShippingManagement(View):
                 await sync_to_async(bulk_update_with_history)(
                     pallet,
                     Pallet,
-                    fields=["shipment_batch_number","master_shipment_batch_number"],
+                    fields=["shipment_batch_number", "master_shipment_batch_number"],
                 )
-                #改同一PO_ID的板子的主约
+                # 改同一PO_ID的板子的主约
                 if plt_master_po_ids:
                     await sync_to_async(
                         Pallet.objects.filter(PO_ID__in=plt_master_po_ids).update
                     )(master_shipment_batch_number=shipment)
-                
-                #因为pl和plt的PO_ID相同，所以根据PO_ID去找pl
-                #改同一PO_ID的pl的主约
+
+                # 因为pl和plt的PO_ID相同，所以根据PO_ID去找pl
+                # 改同一PO_ID的pl的主约
                 if plt_master_po_ids:
                     await sync_to_async(
                         PackingList.objects.filter(PO_ID__in=plt_master_po_ids).update
                     )(master_shipment_batch_number=shipment)
-                #改plt对应的pl的实际约
+                # 改plt对应的pl的实际约
                 if plt_shipment_po_ids:
                     await sync_to_async(
                         PackingList.objects.filter(PO_ID__in=plt_shipment_po_ids).update
                     )(shipment_batch_number=shipment)
-                
+
             except:
                 pass
             order = await sync_to_async(list)(
@@ -1580,7 +1582,7 @@ class ShippingManagement(View):
         if alter_type == "add":
             container_number = set()
             selections = request.POST.getlist("is_shipment_added")
-            #添加PO，更新pl
+            # 添加PO，更新pl
             try:
                 pl_ids = request.POST.getlist("added_pl_ids")
                 pl_ids = [id for s, id in zip(selections, pl_ids) if s == "on"]
@@ -1593,7 +1595,9 @@ class ShippingManagement(View):
                 pl_master_po_ids = set()
                 for pl in packing_list:
                     pl.shipment_batch_number = shipment
-                    if pl.master_shipment_batch_number is None:  #添加PO时，主约为空就赋值给主约
+                    if (
+                        pl.master_shipment_batch_number is None
+                    ):  # 添加PO时，主约为空就赋值给主约
                         pl_master_po_ids.add(pl.PO_ID)
                         pl.master_shipment_batch_number = shipment
                     shipment.total_weight += pl.total_weight_lbs
@@ -1604,7 +1608,7 @@ class ShippingManagement(View):
                 await sync_to_async(bulk_update_with_history)(
                     packing_list,
                     PackingList,
-                    fields=["shipment_batch_number","actual_shipment"],
+                    fields=["shipment_batch_number", "actual_shipment"],
                 )
 
                 if pl_master_po_ids:
@@ -1614,8 +1618,8 @@ class ShippingManagement(View):
             except:
                 pass
 
-            #添加PO，是直接添加的板子
-            try:             
+            # 添加PO，是直接添加的板子
+            try:
                 plt_ids = request.POST.getlist("added_plt_ids")
                 plt_ids = [id for s, id in zip(selections, plt_ids) if s == "on"]
                 plt_ids = [int(i) for id in plt_ids for i in id.split(",") if i]
@@ -1624,8 +1628,8 @@ class ShippingManagement(View):
                         id__in=plt_ids
                     )
                 )
-                p_master_po_ids = set() #需要改主约的
-                p_shipment_po_ids = set() #需要改实际约的
+                p_master_po_ids = set()  # 需要改主约的
+                p_shipment_po_ids = set()  # 需要改实际约的
                 for p in pallet:
                     p.shipment_batch_number = shipment
                     p_shipment_po_ids.add(p.PO_ID)
@@ -1635,27 +1639,27 @@ class ShippingManagement(View):
                 await sync_to_async(bulk_update_with_history)(
                     pallet,
                     Pallet,
-                    fields=["shipment_batch_number","master_shipment_batch_number"],
+                    fields=["shipment_batch_number", "master_shipment_batch_number"],
                 )
-                #改同一PO_ID的板子的主约
+                # 改同一PO_ID的板子的主约
                 if p_master_po_ids:
                     await sync_to_async(
                         Pallet.objects.filter(PO_ID__in=p_master_po_ids).update
                     )(master_shipment_batch_number=shipment)
-                
-                #因为pl和板子的PO_ID相同，所以根据PO_ID去找pl
-                #改同一PO_ID的pl的主约
+
+                # 因为pl和板子的PO_ID相同，所以根据PO_ID去找pl
+                # 改同一PO_ID的pl的主约
                 if p_master_po_ids:
                     await sync_to_async(
                         PackingList.objects.filter(PO_ID__in=p_master_po_ids).update
                     )(master_shipment_batch_number=shipment)
-                #改板子对应的pl的实际约
+                # 改板子对应的pl的实际约
                 if p_shipment_po_ids:
                     await sync_to_async(
                         PackingList.objects.filter(PO_ID__in=p_shipment_po_ids).update
                     )(shipment_batch_number=shipment)
                 shipment.total_pallet += len(set([p.pallet_id for p in pallet]))
-                
+
             except:
                 pass
             order = await sync_to_async(list)(
@@ -1685,9 +1689,9 @@ class ShippingManagement(View):
                 Retrieval,
                 fields=["retrieval_destination_precise", "assigned_by_appt"],
             )
-        elif alter_type == "remove":  #删除PO
+        elif alter_type == "remove":  # 删除PO
             selections = request.POST.getlist("is_shipment_removed")
-            #未打板的
+            # 未打板的
             try:
                 pl_ids = request.POST.getlist("removed_pl_ids")
                 pl_ids = [id for s, id in zip(selections, pl_ids) if s == "on"]
@@ -1697,9 +1701,9 @@ class ShippingManagement(View):
                         id__in=pl_ids
                     )
                 )
-                pl_master_po_ids = set() #要移除主约的PO_ID
+                pl_master_po_ids = set()  # 要移除主约的PO_ID
                 for pl in packing_list:
-                    pl.shipment_batch_number = None                  
+                    pl.shipment_batch_number = None
                     shipment.total_weight -= pl.total_weight_lbs
                     shipment.total_pcs -= pl.pcs
                     shipment.total_cbm -= pl.cbm
@@ -1710,7 +1714,7 @@ class ShippingManagement(View):
                 await sync_to_async(bulk_update_with_history)(
                     packing_list,
                     PackingList,
-                    fields=["shipment_batch_number","master_shipment_batch_number"],
+                    fields=["shipment_batch_number", "master_shipment_batch_number"],
                 )
                 if pl_master_po_ids:
                     await sync_to_async(
@@ -1718,7 +1722,7 @@ class ShippingManagement(View):
                     )(master_shipment_batch_number=None)
             except:
                 pass
-            #打板的
+            # 打板的
             try:
                 plt_ids = request.POST.getlist("removed_plt_ids")
                 plt_ids = [id for s, id in zip(selections, plt_ids) if s == "on"]
@@ -1728,8 +1732,8 @@ class ShippingManagement(View):
                         id__in=plt_ids
                     )
                 )
-                plt_master_po_ids = set() #需要改主约的
-                plt_shipment_po_ids = set() #需要改实际约的
+                plt_master_po_ids = set()  # 需要改主约的
+                plt_shipment_po_ids = set()  # 需要改实际约的
                 for plt in pallet:
                     plt.shipment_batch_number = None
                     plt_shipment_po_ids.add(plt.PO_ID)
@@ -1740,22 +1744,22 @@ class ShippingManagement(View):
                 await sync_to_async(bulk_update_with_history)(
                     pallet,
                     Pallet,
-                    fields=["shipment_batch_number","master_shipment_batch_number"],
+                    fields=["shipment_batch_number", "master_shipment_batch_number"],
                 )
 
-                #改同一PO_ID的板子的主约
+                # 改同一PO_ID的板子的主约
                 if plt_master_po_ids:
                     await sync_to_async(
                         Pallet.objects.filter(PO_ID__in=plt_master_po_ids).update
                     )(master_shipment_batch_number=None)
-                
-                #因为pl和板子的PO_ID相同，所以根据PO_ID去找pl
-                #改同一PO_ID的pl的主约
+
+                # 因为pl和板子的PO_ID相同，所以根据PO_ID去找pl
+                # 改同一PO_ID的pl的主约
                 if plt_master_po_ids:
                     await sync_to_async(
                         PackingList.objects.filter(PO_ID__in=plt_master_po_ids).update
                     )(master_shipment_batch_number=None)
-                #改板子对应的pl的实际约
+                # 改板子对应的pl的实际约
                 if plt_shipment_po_ids:
                     await sync_to_async(
                         PackingList.objects.filter(PO_ID__in=plt_shipment_po_ids).update
@@ -1796,7 +1800,7 @@ class ShippingManagement(View):
         self, request: HttpRequest
     ) -> tuple[str, dict[str, Any]]:
         appointment_type = request.POST.get("type")
-        if appointment_type == "td":  #撤销预约是这种类型
+        if appointment_type == "td":  # 撤销预约是这种类型
             shipment_batch_number = request.POST.get("shipment_batch_number")
             shipment = await sync_to_async(Shipment.objects.get)(
                 shipment_batch_number=shipment_batch_number
@@ -2293,7 +2297,7 @@ class ShippingManagement(View):
             shipment.is_shipped = False
             shipment.shipped_at = None
             await sync_to_async(shipment.save)()
-        else:  #换约是这个选项
+        else:  # 换约是这个选项
             old_shipment = await sync_to_async(Shipment.objects.get)(
                 shipment_batch_number=shipment_batch_number
             )
@@ -2482,8 +2486,8 @@ class ShippingManagement(View):
                     shipment_batch_number__shipment_batch_number=shipment_batch_number
                 )
             )
-            #把旧约改成新约
-            pl_master_po_ids = set() #需要改主约的pl
+            # 把旧约改成新约
+            pl_master_po_ids = set()  # 需要改主约的pl
             for pl in packing_list:
                 if pl.master_shipment_batch_number == pl.shipment_batch_number:
                     pl_master_po_ids.add(pl.PO_ID)
@@ -2493,9 +2497,9 @@ class ShippingManagement(View):
             if pl_master_po_ids:
                 await sync_to_async(
                     PackingList.objects.filter(PO_ID__in=pl_master_po_ids).update
-                )(master_shipment_batch_number=shipment) 
+                )(master_shipment_batch_number=shipment)
 
-            plt_master_po_ids = set() #需要改主约的plt   
+            plt_master_po_ids = set()  # 需要改主约的plt
             for plt in pallet:
                 if plt.master_shipment_batch_number == plt.shipment_batch_number:
                     plt_master_po_ids.add(plt.PO_ID)
@@ -2504,17 +2508,17 @@ class ShippingManagement(View):
             if plt_master_po_ids:
                 await sync_to_async(
                     Pallet.objects.filter(PO_ID__in=plt_master_po_ids).update
-                )(master_shipment_batch_number=shipment) 
+                )(master_shipment_batch_number=shipment)
 
             await sync_to_async(bulk_update_with_history)(
                 packing_list,
                 PackingList,
-                fields=["shipment_batch_number","actual_shipment"],
+                fields=["shipment_batch_number", "actual_shipment"],
             )
             await sync_to_async(bulk_update_with_history)(
                 pallet,
                 Pallet,
-                fields=["shipment_batch_number","actual_shipment"],
+                fields=["shipment_batch_number", "actual_shipment"],
             )
             old_shipment.is_canceled = True
             await sync_to_async(old_shipment.save)()
@@ -2537,7 +2541,7 @@ class ShippingManagement(View):
                 shipment_batch_number__shipment_batch_number=shipment_batch_number
             )
         )
-        pl_master_po_ids = set() #需要更改主约的pl的PO_ID
+        pl_master_po_ids = set()  # 需要更改主约的pl的PO_ID
         for pl in packing_list:
             pl.shipment_batch_number = None
             if pl.master_shipment_batch_number == pl.shipment_batch_number:
@@ -2548,7 +2552,7 @@ class ShippingManagement(View):
                 PackingList.objects.filter(PO_ID__in=pl_master_po_ids).update
             )(master_shipment_batch_number=None)
 
-        plt_master_po_ids = set() #需要更改主约的plt的PO_ID
+        plt_master_po_ids = set()  # 需要更改主约的plt的PO_ID
         for plt in pallet:
             plt.shipment_batch_number = None
             if plt.master_shipment_batch_number == plt.shipment_batch_number:
@@ -2562,12 +2566,12 @@ class ShippingManagement(View):
         await sync_to_async(bulk_update_with_history)(
             packing_list,
             PackingList,
-            fields=["shipment_batch_number","actual_shipment"],
+            fields=["shipment_batch_number", "actual_shipment"],
         )
         await sync_to_async(bulk_update_with_history)(
             pallet,
             Pallet,
-            fields=["shipment_batch_number","actual_shipment"],
+            fields=["shipment_batch_number", "actual_shipment"],
         )
         shipment.is_canceled = True
         await sync_to_async(shipment.save)()

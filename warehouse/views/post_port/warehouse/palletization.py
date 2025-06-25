@@ -1133,7 +1133,7 @@ class Palletization(View):
                     "cbm": cbm_loaded,
                     "weight_lbs": weight_loaded,
                     "shipment_batch_number": shipment,
-                    "master_shipment_batch_number":master_shipment,
+                    "master_shipment_batch_number": master_shipment,
                     "note": note,
                     "shipping_mark": shipping_mark if shipping_mark else "",
                     "fba_id": fba_id if fba_id else "",
