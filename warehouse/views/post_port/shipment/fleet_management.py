@@ -250,7 +250,7 @@ class FleetManagement(View):
                 #这里包括两种情况：1、这是第一次被加塞，2、这不是第一次被加塞，不管是第几次只要没有剩余板子了，都需要确认主约
                 has_master_shipment = await sync_to_async(
                     Pallet.objects.filter(PO_ID=results[r]["po_id"])
-                                .exclude(actual_shipment__isnull=True)
+                                .exclude(master_shipment_batch_number__isnull=True)
                                 .exists
                 )()
                 results[r]["has_master_shipment"] = has_master_shipment
@@ -1790,7 +1790,7 @@ class FleetManagement(View):
                                                             .exclude(shipment_batch_number__isnull=True)
                                                             .values_list('shipment_batch_number', flat=True)
                                 )
-                                .order_by('shipped_at')
+                                .order_by('shipment_schduled_at')
                                 .first
                             )()
                             if earliest_shipment:
