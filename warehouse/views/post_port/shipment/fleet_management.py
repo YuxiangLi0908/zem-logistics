@@ -1039,7 +1039,6 @@ class FleetManagement(View):
         # raise ValueError(shipment_pallet)
         updated_shipment = []
         updated_pallet = []
-        sub_shipment = {s.shipment_batch_number: None for s in shipment}
         (
             fleet_shipped_weight,
             fleet_shipped_cbm,
@@ -1076,26 +1075,8 @@ class FleetManagement(View):
                 s.shipped_weight = s.total_weight - dumped_weight
                 s.shipped_cbm = s.total_weight - dumped_cbm
                 s.shipped_pcs = s.total_weight - dumped_pcs
-                sub_shipment_data = {
-                    "shipment_batch_number": f"{s.shipment_batch_number.split('_')[0]}_{s.batch + 1}",
-                    "master_batch_number": s.shipment_batch_number.split("_")[0],
-                    "batch": s.batch + 1,
-                    "appointment_id": s.appointment_id,
-                    "origin": s.origin,
-                    "destination": s.destination,
-                    "is_shipment_schduled": s.is_shipment_schduled,
-                    "shipment_schduled_at": s.shipment_schduled_at,
-                    "shipment_appointment": s.shipment_appointment,
-                    "load_type": s.load_type,
-                    "total_weight": dumped_weight,
-                    "total_cbm": dumped_cbm,
-                    "total_pallet": dumped_pallets,
-                    "total_pcs": dumped_pcs,
-                }
-                sub_shipment = Shipment(**sub_shipment_data)
-                await sync_to_async(sub_shipment.save)()
                 for p in shipment_pallet.get(s.shipment_batch_number):
-                    p.shipment_batch_number = sub_shipment
+                    p.shipment_batch_number = None
                     updated_pallet.append(p)
             else:
                 s.pallet_dumpped = 0
@@ -1139,9 +1120,6 @@ class FleetManagement(View):
             Pallet,
             fields=["shipment_batch_number"],
         )
-        # await sync_to_async(Pallet.objects.bulk_update)(
-        #     updated_pallet, ["shipment_batch_number"]
-        # )
         await sync_to_async(fleet.save)()
         return await self.handle_outbound_warehouse_search_post(request)
 
