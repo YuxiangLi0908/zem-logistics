@@ -1631,7 +1631,7 @@ class ShippingManagement(View):
                 await sync_to_async(bulk_update_with_history)(
                     packing_list,
                     PackingList,
-                    fields=["shipment_batch_number", "actual_shipment"],
+                    fields=["shipment_batch_number", "master_shipment_batch_number"],
                 )
 
                 if pl_master_po_ids:
@@ -2566,12 +2566,12 @@ class ShippingManagement(View):
             await sync_to_async(bulk_update_with_history)(
                 packing_list,
                 PackingList,
-                fields=["shipment_batch_number", "actual_shipment"],
+                fields=["shipment_batch_number", "master_shipment_batch_number"],
             )
             await sync_to_async(bulk_update_with_history)(
                 pallet,
                 Pallet,
-                fields=["shipment_batch_number", "actual_shipment"],
+                fields=["shipment_batch_number", "master_shipment_batch_number"],
             )
             old_shipment.is_canceled = True
             await sync_to_async(old_shipment.save)()
@@ -2619,12 +2619,12 @@ class ShippingManagement(View):
         await sync_to_async(bulk_update_with_history)(
             packing_list,
             PackingList,
-            fields=["shipment_batch_number", "actual_shipment"],
+            fields=["shipment_batch_number", "master_shipment_batch_number"],
         )
         await sync_to_async(bulk_update_with_history)(
             pallet,
             Pallet,
-            fields=["shipment_batch_number", "actual_shipment"],
+            fields=["shipment_batch_number", "master_shipment_batch_number"],
         )
         shipment.is_canceled = True
         await sync_to_async(shipment.save)()

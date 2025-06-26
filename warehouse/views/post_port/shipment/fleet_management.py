@@ -1827,12 +1827,12 @@ class FleetManagement(View):
                     await sync_to_async(bulk_update_with_history)(
                         Utilized_pallets,
                         Pallet,
-                        fields=["shipment_batch_number", "actual_shipment"],
+                        fields=["shipment_batch_number", "master_shipment_batch_number"],
                     )
                     await sync_to_async(bulk_update_with_history)(
                         updated_pl,
                         PackingList,
-                        fields=["shipment_batch_number", "actual_shipment"],
+                        fields=["shipment_batch_number", "master_shipment_batch_number"],
                     )
                     order = await sync_to_async(list)(
                         Order.objects.select_related(
