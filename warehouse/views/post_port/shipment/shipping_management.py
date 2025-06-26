@@ -1570,7 +1570,7 @@ class ShippingManagement(View):
             )
             shipment.shipment_appointment_utc = shipment_appointment_utc
             shipment.note = note
-            shipment.is_shipment_schduled = True
+            shipment.is_shipment_schduled = True 
             shipment.shipment_schduled_at = current_time
             # LTL的需要存ARM-BOL和ARM-PRO
             shipment.ARM_BOL = (

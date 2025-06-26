@@ -1835,7 +1835,7 @@ class FleetManagement(View):
                             o.warehouse = warehouse
                             o.retrieval_id.retrieval_destination_precise = (
                                 assigned_warehouse
-                            )
+                            ) 
                             o.retrieval_id.assigned_by_appt = True
                             updated_order.append(o)
                             updated_retrieval.append(o.retrieval_id)
