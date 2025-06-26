@@ -1106,7 +1106,7 @@ class Palletization(View):
             await sync_to_async(shipment.save)()
         else:
             shipment = None
-        if master_shipment_batch_number != "None":
+        if master_shipment_batch_number and master_shipment_batch_number != "None":
             master_shipment = await sync_to_async(Shipment.objects.get)(
                 shipment_batch_number=master_shipment_batch_number
             )
