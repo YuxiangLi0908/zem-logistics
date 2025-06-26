@@ -35,7 +35,6 @@ from django.shortcuts import redirect, render
 from django.template.loader import get_template
 from django.utils import timezone
 from django.views import View
-from matplotlib.font_manager import FontProperties
 from office365.runtime.auth.user_credential import UserCredential
 from office365.sharepoint.client_context import ClientContext
 from office365.sharepoint.sharing.links.kind import SharingLinkKind
@@ -218,6 +217,7 @@ class FleetManagement(View):
         pallets = request.POST.getlist("pallets")  # 该仓点下原本没有约的板数
         container_numbers = request.POST.getlist("container")
         plt_id = request.POST.getlist("added_plt_ids")
+        po_id = request.POST.getlist("added_po_id")
         results = []
         des = set()
         # 按顺序记录选中的每一行加塞的信息
@@ -230,18 +230,32 @@ class FleetManagement(View):
             result["pallets"] = int(pallets[p])
             pid_list = [int(i) for i in plt_id[p].split(",") if i]
             result["ids"] = pid_list
+            po_list = po_id[p]
+            result["po_id"] = po_list
             results.append(result)
-        # 将总重、cbm、pallet、pcs加到出库批次里
         total_weight, total_cbm, total_pcs = 0.0, 0.0, 0
         plt_ids = [id for s, id in zip(selections, plt_id) if s == "on"]
         plt_ids = [int(i) for id in plt_ids for i in id.split(",") if i]
         Utilized_pallet_ids = []
         # 记录加塞的plt_id
         for r in range(len(results)):
+            results[r][
+                "has_master_shipment"
+            ] = True  # 默认有主约，因为只有没有主约的时候才需要处理主约
             if results[r]["pallet_add"] < results[r]["pallets"]:
                 Utilized_pallet_ids += results[r]["ids"][: results[r]["pallet_add"]]
                 Utilized_pallet_ids = [int(i) for i in Utilized_pallet_ids]
                 results[r]["ids"] = Utilized_pallet_ids
+            elif results[r]["pallet_add"] == results[r]["pallets"]:
+                # 如果加塞了当前剩余的全部板子，还要看该PO_ID下有没有主约，没有主约再加主约
+                # 这里包括两种情况：1、这是第一次被加塞，2、这不是第一次被加塞，不管是第几次只要没有剩余板子了，都需要确认主约
+                has_master_shipment = await sync_to_async(
+                    Pallet.objects.filter(PO_ID=results[r]["po_id"])
+                    .exclude(master_shipment_batch_number__isnull=True)
+                    .exists
+                )()
+                results[r]["has_master_shipment"] = has_master_shipment
+
         pallet = await sync_to_async(list)(
             Pallet.objects.select_related("container_number").filter(
                 id__in=Utilized_pallet_ids
@@ -1022,7 +1036,6 @@ class FleetManagement(View):
         # raise ValueError(shipment_pallet)
         updated_shipment = []
         updated_pallet = []
-        sub_shipment = {s.shipment_batch_number: None for s in shipment}
         (
             fleet_shipped_weight,
             fleet_shipped_cbm,
@@ -1061,26 +1074,8 @@ class FleetManagement(View):
                 s.shipped_weight = s.total_weight - dumped_weight
                 s.shipped_cbm = s.total_weight - dumped_cbm
                 s.shipped_pcs = s.total_weight - dumped_pcs
-                sub_shipment_data = {
-                    "shipment_batch_number": f"{s.shipment_batch_number.split('_')[0]}_{s.batch + 1}",
-                    "master_batch_number": s.shipment_batch_number.split("_")[0],
-                    "batch": s.batch + 1,
-                    "appointment_id": s.appointment_id,
-                    "origin": s.origin,
-                    "destination": s.destination,
-                    "is_shipment_schduled": s.is_shipment_schduled,
-                    "shipment_schduled_at": s.shipment_schduled_at,
-                    "shipment_appointment": s.shipment_appointment,
-                    "load_type": s.load_type,
-                    "total_weight": dumped_weight,
-                    "total_cbm": dumped_cbm,
-                    "total_pallet": dumped_pallets,
-                    "total_pcs": dumped_pcs,
-                }
-                sub_shipment = Shipment(**sub_shipment_data)
-                await sync_to_async(sub_shipment.save)()
                 for p in shipment_pallet.get(s.shipment_batch_number):
-                    p.shipment_batch_number = sub_shipment
+                    p.shipment_batch_number = None
                     updated_pallet.append(p)
             else:
                 s.pallet_dumpped = 0
@@ -1125,9 +1120,6 @@ class FleetManagement(View):
             Pallet,
             fields=["shipment_batch_number"],
         )
-        # await sync_to_async(Pallet.objects.bulk_update)(
-        #     updated_pallet, ["shipment_batch_number"]
-        # )
         await sync_to_async(fleet.save)()
         return await self.handle_outbound_warehouse_search_post(request)
 
@@ -1195,7 +1187,7 @@ class FleetManagement(View):
         ).execute_query()
         # 生成并获取链接
         link = (
-            resp.share_link(SharingLinkKind.OrganizationView)
+            resp.share_link(SharingLinkKind.AnonymousView)
             .execute_query()
             .value.to_json()["sharingLinkInfo"]["Url"]
         )
@@ -1607,12 +1599,6 @@ class FleetManagement(View):
         # 将合并后的PDF内容写入响应
         # response.write(output_buf)
         return response
-        if pisa_status.err:
-            raise ValueError(
-                "Error during PDF generation: %s" % pisa_status.err,
-                content_type="text/plain",
-            )
-        return response
 
     async def handle_abnormal_fleet_post(
         self, request: HttpRequest
@@ -1709,6 +1695,7 @@ class FleetManagement(View):
                     "container_number__container_number",
                     "container_number__order__customer_name__zem_name",
                     "destination",
+                    "PO_ID",
                     "address",
                     "delivery_method",
                     "container_number__order__offload_id__offload_at",
@@ -1777,8 +1764,24 @@ class FleetManagement(View):
                     )
                     pallet_shipping_marks, pallet_fba_ids, pallet_ref_ids = [], [], []
                     updated_pl = []
+
                     # 板子绑定要加塞的约
                     for plt in Utilized_pallets:
+                        if not p["has_master_shipment"]:
+                            # 这是没有主约又被完全加塞的情况，找到第一次被加塞的约为主约
+                            earliest_shipment = await sync_to_async(
+                                Shipment.objects.filter(
+                                    id__in=Pallet.objects.filter(PO_ID=plt.PO_ID)
+                                    .exclude(shipment_batch_number__isnull=True)
+                                    .values_list("shipment_batch_number", flat=True)
+                                )
+                                .order_by("shipment_schduled_at")
+                                .first
+                            )()
+                            if earliest_shipment:
+                                plt.master_shipment_batch_number = earliest_shipment
+                            else:
+                                plt.master_shipment_batch_number = s
                         plt.shipment_batch_number = s
                         s.total_weight += plt.weight_lbs
                         s.total_pcs += plt.pcs
@@ -1789,8 +1792,24 @@ class FleetManagement(View):
                             pallet_fba_ids += plt.fba_id.split(",")
                         if plt.ref_id:
                             pallet_ref_ids += plt.ref_id.split(",")
+
                     # pl也绑定约
                     for pl in packing_list:
+                        if not pl["has_master_shipment"]:
+                            # 这是没有主约又被完全加塞的情况，找到第一次被加塞的约为主约
+                            earliest_shipment = await sync_to_async(
+                                Shipment.objects.filter(
+                                    id__in=PackingList.objects.filter(PO_ID=pl.PO_ID)
+                                    .exclude(shipment_batch_number__isnull=True)
+                                    .values_list("shipment_batch_number", flat=True)
+                                )
+                                .order_by("shipped_at")
+                                .first
+                            )()
+                            if earliest_shipment:
+                                pl.master_shipment_batch_number = earliest_shipment
+                            else:
+                                pl.master_shipment_batch_number = s
                         pl.shipment_batch_number = s
                         if (
                             pl.shipping_mark
@@ -1808,12 +1827,12 @@ class FleetManagement(View):
                     await sync_to_async(bulk_update_with_history)(
                         Utilized_pallets,
                         Pallet,
-                        fields=["shipment_batch_number"],
+                        fields=["shipment_batch_number", "master_shipment_batch_number"],
                     )
                     await sync_to_async(bulk_update_with_history)(
                         updated_pl,
                         PackingList,
-                        fields=["shipment_batch_number"],
+                        fields=["shipment_batch_number", "master_shipment_batch_number"],
                     )
                     order = await sync_to_async(list)(
                         Order.objects.select_related(
@@ -1835,7 +1854,7 @@ class FleetManagement(View):
                             o.warehouse = warehouse
                             o.retrieval_id.retrieval_destination_precise = (
                                 assigned_warehouse
-                            ) 
+                            )
                             o.retrieval_id.assigned_by_appt = True
                             updated_order.append(o)
                             updated_retrieval.append(o.retrieval_id)
