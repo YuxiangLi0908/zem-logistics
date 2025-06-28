@@ -16,6 +16,7 @@ import pytz
 from asgiref.sync import sync_to_async
 from barcode.writer import ImageWriter
 from django.contrib.postgres.aggregates import StringAgg
+from django.db import transaction
 from django.db import models
 from django.db.models import (
     Case,
@@ -242,6 +243,9 @@ class FleetManagement(View):
             results[r][
                 "has_master_shipment"
             ] = True  # 默认有主约，因为只有没有主约的时候才需要处理主约
+            results[r][
+                "is_fully_add"
+            ] = False  # 默认当前不是一次全部加塞
             if results[r]["pallet_add"] < results[r]["pallets"]:
                 Utilized_pallet_ids += results[r]["ids"][: results[r]["pallet_add"]]
                 Utilized_pallet_ids = [int(i) for i in Utilized_pallet_ids]
@@ -255,6 +259,12 @@ class FleetManagement(View):
                     .exists
                 )()
                 results[r]["has_master_shipment"] = has_master_shipment
+                pallet_count = await sync_to_async(
+                    Pallet.objects.filter(PO_ID=results[r]["po_id"])
+                    .count
+                )()
+                if pallet_count == results[r]["pallet_add"]:
+                    results[r]["is_fully_add"] = True
 
         pallet = await sync_to_async(list)(
             Pallet.objects.select_related("container_number").filter(
@@ -1752,88 +1762,84 @@ class FleetManagement(View):
                             id__in=p["ids"]
                         )
                     )
-                    pallet_container_number = [
-                        p.container_number.container_number for p in Utilized_pallets
-                    ]
-                    packing_list = await sync_to_async(list)(
-                        PackingList.objects.select_related(
-                            "shipment_batch_number"
-                        ).filter(
-                            container_number__container_number__in=pallet_container_number
-                        )
-                    )
-                    pallet_shipping_marks, pallet_fba_ids, pallet_ref_ids = [], [], []
-                    updated_pl = []
 
                     # 板子绑定要加塞的约
+                    master_shipment_mapping = {} #改主约的PO_ID和shipment组对
+                    plt_shipment_po_ids = set() # 需要改实际约的 
+                    master_shipment = None
+                    packing_lists_to_update = []
+                    pallet_lists_to_update = []
                     for plt in Utilized_pallets:
-                        if not p["has_master_shipment"]:
-                            # 这是没有主约又被完全加塞的情况，找到第一次被加塞的约为主约
-                            earliest_shipment = await sync_to_async(
-                                Shipment.objects.filter(
-                                    id__in=Pallet.objects.filter(PO_ID=plt.PO_ID)
-                                    .exclude(shipment_batch_number__isnull=True)
-                                    .values_list("shipment_batch_number", flat=True)
-                                )
-                                .order_by("shipment_schduled_at")
-                                .first
-                            )()
-                            if earliest_shipment:
-                                plt.master_shipment_batch_number = earliest_shipment
+                        if not p["has_master_shipment"]:  
+                            #没有主约时
+                            if p["is_fully_add"]:
+                                #如果是全部加塞
+                                master_shipment = s 
                             else:
-                                plt.master_shipment_batch_number = s
+                                # 这是没有主约又被完全加塞的情况，找到第一次被加塞的约为主约
+                                earliest_shipment = await sync_to_async(
+                                    Shipment.objects.filter(
+                                        id__in=Pallet.objects.filter(PO_ID=plt.PO_ID)
+                                        .exclude(shipment_batch_number__isnull=True)
+                                        .values_list("shipment_batch_number", flat=True)
+                                    )
+                                    .order_by("shipment_appointment")
+                                    .first
+                                )()
+                                master_shipment = earliest_shipment if earliest_shipment else s
+                            master_shipment_mapping[plt.PO_ID] = master_shipment
+                            plt.master_shipment_batch_number = master_shipment
+                            
                         plt.shipment_batch_number = s
+                        plt_shipment_po_ids.add(plt.PO_ID)
                         s.total_weight += plt.weight_lbs
                         s.total_pcs += plt.pcs
                         s.total_cbm += plt.cbm
-                        if plt.shipping_mark:
-                            pallet_shipping_marks += plt.shipping_mark.split(",")
-                        if plt.fba_id:
-                            pallet_fba_ids += plt.fba_id.split(",")
-                        if plt.ref_id:
-                            pallet_ref_ids += plt.ref_id.split(",")
 
-                    # pl也绑定约
-                    for pl in packing_list:
-                        if not pl["has_master_shipment"]:
-                            # 这是没有主约又被完全加塞的情况，找到第一次被加塞的约为主约
-                            earliest_shipment = await sync_to_async(
-                                Shipment.objects.filter(
-                                    id__in=PackingList.objects.filter(PO_ID=pl.PO_ID)
-                                    .exclude(shipment_batch_number__isnull=True)
-                                    .values_list("shipment_batch_number", flat=True)
-                                )
-                                .order_by("shipped_at")
-                                .first
-                            )()
-                            if earliest_shipment:
-                                pl.master_shipment_batch_number = earliest_shipment
-                            else:
-                                pl.master_shipment_batch_number = s
-                        pl.shipment_batch_number = s
-                        if (
-                            pl.shipping_mark
-                            and pl.shipping_mark in pallet_shipping_marks
-                        ):
-                            pl.shipment_batch_number = s
-                            updated_pl.append(pl)
-                        elif pl.fba_id and pl.fba_id in pallet_fba_ids:
-                            pl.shipment_batch_number = s
-                            updated_pl.append(pl)
-                        elif pl.ref_id and pl.ref_id in pallet_ref_ids:
-                            pl.shipment_batch_number = s
-                            updated_pl.append(pl)
+                    if master_shipment_mapping:
+                        master_pls = await sync_to_async(list)(
+                            PackingList.objects.filter(PO_ID__in=list(master_shipment_mapping.keys()))
+                        )
+                        for pl in master_pls:
+                            pl.master_shipment_batch_number = master_shipment_mapping[pl.PO_ID]
+                            packing_lists_to_update.append(pl)
+
+                        master_plts = await sync_to_async(list)(
+                            Pallet.objects.filter(PO_ID__in=list(master_shipment_mapping.keys()))
+                        )
+                        for plt in master_plts:
+                            plt.master_shipment_batch_number = master_shipment_mapping[plt.PO_ID]
+                            pallet_lists_to_update.append(plt)
+                        
+
+                    await sync_to_async(bulk_update_with_history)(
+                        packing_lists_to_update,
+                        PackingList,
+                        fields=["shipment_batch_number", "master_shipment_batch_number"],
+                    )
+                    await sync_to_async(bulk_update_with_history)(
+                        pallet_lists_to_update,
+                        Pallet,
+                        fields=["shipment_batch_number", "master_shipment_batch_number"],
+                    )
+                    # pl绑定实际约
+                    if plt_shipment_po_ids:
+                        packing_lists = await sync_to_async(list)(
+                            PackingList.objects.filter(PO_ID__in=list(plt_shipment_po_ids))
+                        )
+                        await sync_to_async(bulk_update_with_history)(
+                            packing_lists,
+                            PackingList,
+                            fields=["shipment_batch_number", "master_shipment_batch_number"],
+                        )
+                    
                     s.total_pallet += p["pallets"]
                     await sync_to_async(bulk_update_with_history)(
                         Utilized_pallets,
                         Pallet,
                         fields=["shipment_batch_number", "master_shipment_batch_number"],
                     )
-                    await sync_to_async(bulk_update_with_history)(
-                        updated_pl,
-                        PackingList,
-                        fields=["shipment_batch_number", "master_shipment_batch_number"],
-                    )
+
                     order = await sync_to_async(list)(
                         Order.objects.select_related(
                             "retrieval_id", "warehouse", "container_number"
