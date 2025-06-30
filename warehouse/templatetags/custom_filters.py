@@ -1,6 +1,7 @@
 from typing import Any
 
 from django import template
+import datetime
 
 register = template.Library()
 
@@ -41,3 +42,12 @@ def slice_filter(value, arg):
         return value
     except (ValueError, TypeError, AttributeError):
         return value
+
+
+@register.filter  
+#给月份加1
+def add_month(date):
+    try:
+        return date.replace(month=date.month + 1)
+    except ValueError:  # 处理12月+1的情况
+        return date.replace(year=date.year + 1, month=1)

@@ -11,6 +11,7 @@
     <input type="hidden" name="warehouse" value="{{ warehouse }}">
     <input type="hidden" name="warehouse_filter" value="{{ warehouse_filter }}">
     <input type="hidden" name="invoice_number" value="{{ invoice_number }}">
+    <input type="text" name="preport_carrier" value="{{ preport_carrier }}">
     <input type="hidden" id="total_amount_input" name="total_amount" value="0">
 
 <style>
@@ -148,7 +149,8 @@
                 {% if is_save_invoice %} （已存数据）{% else %}（报价表计算）{% endif %}
             </span>            
             
-            {% if not is_save_invoice or reject_reason %}
+            {% if not is_save_invoice or reject_reason %} 
+                <!--客服看到的-->
                 <button type="submit" class="btn btn-success btn-sm" onclick="modifyStatus('complete')">
                     <i class="bi bi-check-circle me-1"></i>确认账单
                 </button>
@@ -162,16 +164,37 @@
                         </div>
                     </div>
                 {% endif %}
-            {% else%}
+            {% else %}
                 {% if not account_confirm %}
-                <button type="submit" class="btn btn-success btn-sm me-3" onclick="modifyStatus('return')">
-                    <i class="bi bi-check-circle me-1"></i>返回
-                </button>
+                    {% if not payable_check %}
+                        <button type="submit" class="btn btn-success btn-sm me-3" onclick="modifyStatus('return')">
+                            <i class="bi bi-check-circle me-1"></i>返回
+                        </button>
+                    {% else %}
+                        <div class="d-flex align-items-stretch" style="gap: 1rem;">
+                            <div class="d-flex align-items-center position-relative">
+                                <button type="submit" class="btn btn-danger btn-sm px-3" onclick="modifyStatus('reject_check')">
+                                    <i class="bi bi-x-circle me-1"></i>初级审核驳回
+                                </button>
+                                
+                                <div class="mx-3" style="width: 200px;">
+                                    <input type="text" class="form-control form-control-sm" 
+                                        placeholder="请输入驳回原因" name="reject_reason">
+                                </div>
+                                
+                                <div class="vr mx-2" style="height: 30px;"></div>
+                                
+                                <button type="submit" class="btn btn-success btn-sm px-3" onclick="modifyStatus('check_confirm')">
+                                    <i class="bi bi-check-circle me-1"></i>初级审核通过
+                                </button>
+                            </div>
+                        </div>
+                    {% endif %}
                 {% else %}
                 <div class="d-flex align-items-stretch" style="gap: 1rem;">
                     <div class="d-flex align-items-center position-relative">
                         <button type="submit" class="btn btn-danger btn-sm px-3" onclick="modifyStatus('reject')">
-                            <i class="bi bi-x-circle me-1"></i>驳回
+                            <i class="bi bi-x-circle me-1"></i>财务驳回
                         </button>
                         
                         <div class="mx-3" style="width: 200px;">
@@ -182,7 +205,7 @@
                         <div class="vr mx-2" style="height: 30px;"></div>
                         
                         <button type="submit" class="btn btn-success btn-sm px-3" onclick="modifyStatus('account_confirm')">
-                            <i class="bi bi-check-circle me-1"></i>审核通过
+                            <i class="bi bi-check-circle me-1"></i>财务审核通过
                         </button>
                     </div>
                 </div>

@@ -1,5 +1,5 @@
 {% extends 'base.html' %}
-
+{% load custom_filters %}
 {% block content %}
 <div><h4><b>待确认账单</b></h4></div>
 <div style="width: 100%; display: flex; justify-content: space-between;">
@@ -32,6 +32,38 @@
             <button id="submit-btn" type="submit" class="btn btn-primary" style="width: 100px; height: 35px; margin-left: 20px;">查询</button>
         </div>
     </form>
+
+    {% if invoice_type_filter == "payable" %}
+    <div style="display: flex; align-items: center; gap: 15px;">
+        <!-- 供应商筛选 -->
+        <form method="post" action="">
+            {% csrf_token %}
+            <div style="display: flex; align-items: center;">
+                <label style="font-weight: bold; width:80px;">月份:</label>
+                <select id="monthSelectorCarrier" name="select_month" style="padding: 5px; border-radius: 4px; border: 1px solid #ddd;">
+                    {% for month in months %}
+                        <option value="{{ month.value }}" {% if month.selected %}selected{% endif %}>
+                            {{ month.label }}
+                        </option>
+                    {% endfor %}
+                </select>
+                <label style="margin-right: 8px; font-weight: bold; width:80px;">供应商:</label>
+                <select id="carrierFilter" name="select_carrier" class="form-control" style="width: 120px;">            
+                    {% for key,value in carriers.items %}
+                    <option value="{{ key }}">{{ value }}</option>
+                    {% endfor %}
+                </select>
+            </div>
+            
+            <button type="submit" class="btn btn-success" style="width:120px;">
+                导出Excel
+            </button>
+            <input type="hidden" name="start_date_confirm" value="{{ start_date_confirm }}">
+            <input type="hidden" name="end_date_confirm" value="{{ end_date_confirm }}">
+            <input type="hidden" name="step" value="invoice_payable_carrier_export">
+        </form>
+    </div>
+    {% endif %}
 </div>
 <hr class="Dashed" style="margin-top: 10px; margin-bottom: 10px;">
 <div style="display: flex; max-height: 720px;align-items: stretch;">
@@ -107,6 +139,28 @@
                     <i class="bi bi-arrow-counterclockwise"></i> 重置
                 </button>
             </div>  
+            {% else %}
+            <div style="display: flex; flex-wrap: wrap; gap: 10px; margin-top: 15px; align-items: center;">
+                <!-- 选择月份 -->
+                <div style="display: flex; align-items: center; gap: 5px;">
+                    <label style="font-weight: bold;">选择月份：</label>
+                    <select id="monthSelector" style="padding: 5px; border-radius: 4px; border: 1px solid #ddd;">
+                        {% for month in months %}
+                            <option value="{{ month.value }}" {% if month.selected %}selected{% endif %}>
+                                {{ month.label }}
+                            </option>
+                        {% endfor %}
+                    </select>
+                </div>
+                
+                <button type="button" onclick="calculateMonthlyTotal()" class="btn btn-primary" style="min-width: 120px; height: 35px;">
+                    <i class="bi bi-calculator"></i> 计算总金额
+                </button>
+                
+                <div id="monthlyTotalResult" style="font-weight: bold; color: #1890ff; padding: 5px 10px; border-radius: 4px; background: #f0f8ff;">
+                    总金额：$0.00
+                </div>
+            </div>
             {% endif %} 
         </div>
         {% if previous_order %}        
@@ -121,10 +175,14 @@
                             <th class="th">货柜号</th>
                             <th class="th">订单类型</th>
                             <th class="th">仓库</th>
-                            <th class="th">INVOICE #</th>
-                            <th class="th">建单日期</th>
+                            {% if invoice_type_filter == 'payable' %}
+                            <th class="th">实际提柜日期</th>
                             <th class="th">账单日期</th>
+                            {% endif %}
+                            <th class="th">INVOICE #</th>
+                            <th class="th">建单日期</th>                          
                             {% if invoice_type_filter == "receivable" %}
+                            <th class="th">账单日期</th>
                             <th class="th">应收金额</th>
                             <th class="th">待核销金额</th>
                             <th class="th">操作</th>                          
@@ -143,15 +201,20 @@
                             <th class="th"><input type="text" id="containerSearchInput" placeholder="搜索柜号..." oninput="filterTable(this, 2, true)" size="16" style="font-size: 14px;"></th>
                             <th class="th"></th>
                             <th class="th"></th>
+                            {% if invoice_type_filter == 'payable' %}
+                            <th class="th"></th>
+                            <th class="th"></th>
+                            {% endif %}
                             <th class="th"><input type="text" id="containerSearchInput" placeholder="搜索INVOICE #..." oninput="filterTable(this, 5, true)" size="16" style="font-size: 14px;"></th>
-                            <th class="th"></th>
-                            <th class="th"></th>
-                            <th class="th"></th>
+                            <th class="th"></th>                         
                             {% if invoice_type_filter == "receivable" %}
+                            <th class="th"></th>
                             <th class="th"></th>
                             <th class="th"></th>
                             <th class="th"><input type="text" id="containerSearchInput" placeholder="搜索STMT #..." oninput="filterTable(this, 11, false)" size="16" style="font-size: 14px;"></th>
                             <th class="th"><input type="text" id="containerSearchInput" placeholder="搜索状态..." oninput="filterTable(this, 12, false)" size="16" style="font-size: 14px;"></th>
+                            {% else %}
+                            <th class="th"></th>
                             {% endif %}
                         </tr>
                     </thead>
@@ -169,10 +232,16 @@
                                 </td>
                                 <td class="td">{{ c.order_type }}</td>
                                 <td class="td">{{ c.retrieval_id__retrieval_destination_area }}</td>
+                                {% if invoice_type_filter == 'payable' %}
+                                <td class="td">{{ c.retrieval_id__actual_retrieval_timestamp|date:"M j, Y" }}</td>
+                                <td class="td" data-bill-date="{{ c.retrieval_id__actual_retrieval_timestamp|date:'Y-m' }}">
+                                    {{ c.retrieval_id__actual_retrieval_timestamp|add_month|date:"M j, Y" }}
+                                </td>
+                                {% endif %}
                                 <td class="td">{{ c.invoice_id__invoice_number }}</td>
-                                <td class="td">{{ c.created_at|date:"Y-m-d" }}</td>
-                                <td class="td">{{ c.invoice_id__invoice_date|date:"Y-m-d" }}</td>
+                                <td class="td">{{ c.created_at|date:"Y-m-d" }}</td>                           
                                 {% if invoice_type_filter == "receivable" %}
+                                <td class="td">{{ c.invoice_id__invoice_date|date:"Y-m-d" }}</td>
                                 <td class="td">${{ c.invoice_id__receivable_total_amount|floatformat:"2g" }}</td>
                                 <td class="td">${{ c.invoice_id__remain_offset|floatformat:"2g" }}</td>
                                 <td class="td">
@@ -201,7 +270,9 @@
                                     {% endif %}
                                 </td>
                                 {% else %}
-                                <td class="td">${{ c.invoice_id__payable_total_amount|floatformat:"2g" }}</td>
+                                <td class="td" data-payable-amount="{{ c.invoice_id__payable_total_amount|default:'0' }}">
+                                    ${{ c.invoice_id__payable_total_amount|floatformat:"2g" }}
+                                </td>
                                 {% endif %}
                             </tr>
                         {% endfor %}
@@ -276,6 +347,7 @@
     //存储选中的柜号
     var selectedOrders = [];
     let selectedCustomer = null;
+
     //筛选未通知的柜子
     function filterByNotification(status) {
         const rows = document.querySelectorAll('#order-table-previous tbody tr');
@@ -547,6 +619,23 @@
         document.querySelectorAll('#order-table tbody tr').forEach(row => {
             row.style.display = '';
         });
+    }
+
+    function calculateMonthlyTotal() {
+        const selectedMonth = document.getElementById('monthSelector').value;
+        const rows = document.querySelectorAll('#order-table-previous tbody tr');
+        let total = 0;
+        rows.forEach(row => {
+            
+            const billDate = row.querySelector('[data-bill-date]')?.dataset.billDate;
+            const amountText = row.querySelector('[data-payable-amount]')?.dataset.payableAmount || '0';
+            if (billDate && billDate.startsWith(selectedMonth)) {
+                const amount = parseFloat(amountText.replace('$', '').replace(/,/g, ''));
+                total += amount;
+            }
+        });
+        document.getElementById('monthlyTotalResult').innerHTML = 
+            `总金额：$${total.toFixed(2)}`;
     }
 </script>
 {% endblock %}
