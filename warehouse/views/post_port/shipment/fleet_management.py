@@ -259,12 +259,6 @@ class FleetManagement(View):
                     .exists
                 )()
                 results[r]["has_master_shipment"] = has_master_shipment
-                pallet_count = await sync_to_async(
-                    Pallet.objects.filter(PO_ID=results[r]["po_id"])
-                    .count
-                )()
-                if pallet_count == results[r]["pallet_add"]:
-                    results[r]["is_fully_add"] = True
 
         pallet = await sync_to_async(list)(
             Pallet.objects.select_related("container_number").filter(
@@ -1772,21 +1766,17 @@ class FleetManagement(View):
                     for plt in Utilized_pallets:
                         if not p["has_master_shipment"]:  
                             #没有主约时
-                            if p["is_fully_add"]:
-                                #如果是全部加塞
-                                master_shipment = s 
-                            else:
-                                # 这是没有主约又被完全加塞的情况，找到第一次被加塞的约为主约
-                                earliest_shipment = await sync_to_async(
-                                    Shipment.objects.filter(
-                                        id__in=Pallet.objects.filter(PO_ID=plt.PO_ID)
-                                        .exclude(shipment_batch_number__isnull=True)
-                                        .values_list("shipment_batch_number", flat=True)
-                                    )
-                                    .order_by("shipment_appointment")
-                                    .first
-                                )()
-                                master_shipment = earliest_shipment if earliest_shipment else s
+                            # 这是没有主约又被完全加塞的情况，找到第一次被加塞的约为主约
+                            earliest_shipment = await sync_to_async(
+                                Shipment.objects.filter(
+                                    id__in=Pallet.objects.filter(PO_ID=plt.PO_ID)
+                                    .exclude(shipment_batch_number__isnull=True)
+                                    .values_list("shipment_batch_number", flat=True)
+                                )
+                                .order_by("shipment_appointment")
+                                .first
+                            )()
+                            master_shipment = earliest_shipment if earliest_shipment else s
                             master_shipment_mapping[plt.PO_ID] = master_shipment
                             plt.master_shipment_batch_number = master_shipment
                             
