@@ -1445,6 +1445,10 @@ class ShippingManagement(View):
                     ) and "NJ" in str(request.POST.get("origin", "")):
                         fleet.departured_at = shipmentappointment
                         fleet.arrived_at = shipmentappointment
+                    if shipment_type == "外配/快递" and "LA" in str(request.POST.get("origin", "")):
+                        fleet.departured_at = shipmentappointment
+                        fleet.arrived_at = shipmentappointment
+                        shipment_data["pod_link"] =" No Link"
                     await sync_to_async(fleet.save)()
                     shipment_data["fleet_number"] = fleet
                     # LTL的需要存ARM-BOL和ARM-PRO
