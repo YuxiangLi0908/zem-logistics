@@ -2,6 +2,8 @@ import json
 import os
 import re
 import uuid
+import openpyxl
+from io import BytesIO
 from datetime import datetime
 from pathlib import Path
 from typing import Any
@@ -90,6 +92,8 @@ class Inventory(View):
         elif step == "transfer_warehouse":
             template, context = await self.handle_transfer_location_post(request)
             return render(request, template, context)
+        elif step == "export_inventory":
+            return await self.handle_export_inventory(request)
         else:
             raise ValueError(f"Unknown step {request.POST.get('step')}")
 
@@ -100,6 +104,63 @@ class Inventory(View):
     async def handle_inventory_management_get(self) -> tuple[str, dict[str, Any]]:
         context = {"warehouse_options": self.warehouse_options}
         return self.template_inventory_management_main, context
+
+    async def handle_export_inventory(
+        self, request: HttpRequest
+    ) -> HttpResponse:
+        warehouse = request.POST.get("warehouse")
+        pallet = await self._get_inventory_pallet(warehouse)
+        # 创建Excel工作簿
+        wb = openpyxl.Workbook()
+        ws = wb.active
+        ws.title = f"{warehouse}__报表"
+        # 添加固定表头
+        headers = [
+            "客户名称", "柜号", "目的地", "派送方式", 
+            "重量(kg)", "件数", "体积(CBM)", "托盘数", 
+            "备注", "预约批次", "预约号"
+        ]
+        ws.append(headers)
+        
+        # 批量写入数据
+        for p in pallet:
+            # 处理运输方式特殊逻辑
+            delivery_method = p.get('delivery_method', '')
+            if '客户自提' in delivery_method:
+                delivery_method = f"{delivery_method} - {p.get('shipping_mark', '')}"
+            
+            # 按固定顺序构建行数据
+            row = [
+                p.get('customer_name', ''),
+                p.get('container', ''),
+                p.get('destination', ''),
+                delivery_method,
+                round(float(p.get('weight', 0)), 2),
+                int(float(p.get('pcs', 0))),
+                round(float(p.get('cbm', 0)), 2),
+                int(float(p.get('n_pallet', 0))),
+                p.get('note', ''),
+                p.get('shipment', ''),
+                p.get('appointment_id', '')
+            ]
+            ws.append(row)
+        
+        total_cbm = sum(float(p.get("cbm", 0)) for p in pallet)
+        total_pallet = sum(int(float(p.get("n_pallet", 0))) for p in pallet)
+        ws.append([
+            "总计", "", "", "",
+            "", "", round(total_cbm, 2), total_pallet,
+            "", "", ""
+        ])
+        
+        response = HttpResponse(
+            content_type='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'
+        )
+        filename = f"{warehouse}_库存报表.xlsx"
+        response['Content-Disposition'] = f'attachment; filename={filename}'
+        
+        wb.save(response)     
+        return response
 
     async def handle_warehouse_post(
         self, request: HttpRequest

@@ -48,6 +48,16 @@
             <!-- <li class="nav-item">
                 <button class="nav-link" onclick="showSection(this, 'order-retrieval-info-sec')"><b>库存调度</b></button>
             </li> -->
+            <li class="nav-item" style="margin-left: auto;">
+                <form method="post" action="">
+                    {% csrf_token %}
+                    <button class="nav-link" style="background-color: #28a745; color: white; border-radius: 4px;">
+                        <i class="fas fa-file-export"></i> <b>导出数据</b>
+                    </button>
+                    <input type="hidden" name="step" value="export_inventory">
+                    <input type="hidden" name="warehouse" value="{{ warehouse }}">
+                </form>
+            </li>
         </ul>
     </div>
 </div>
