@@ -134,6 +134,7 @@ class PrePortTracking(View):
         if form.is_valid():
             file = request.FILES["file"]
             df = pd.read_csv(file)
+            t49_container_numbers = df["Container"].to_list()
             orders = await sync_to_async(list)(
                 Order.objects.select_related(
                     "vessel_id",
@@ -142,9 +143,9 @@ class PrePortTracking(View):
                 ).filter(
                     models.Q(vessel_id__isnull=False)
                     & models.Q(retrieval_id__actual_retrieval_timestamp__isnull=True)
+                    & models.Q(container_number__container_number__in=t49_container_numbers)
                 )
             )
-            t49_container_numbers = df["Container"].to_list()
             vessels = []
             retrievals = []
             orders_updated = []
