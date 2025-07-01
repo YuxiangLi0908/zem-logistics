@@ -4506,6 +4506,8 @@ class Accounting(View):
         preport_carrier = order.retrieval_id.retrieval_carrier
         if preport_carrier == "大方广":
             preport_carrier = "ARM"
+        if preport_carrier == "kars":
+            preport_carrier = "Kars"
 
         # 是不是保存到数据库了，保存了就从数据库读值，没有就去报价表找
         is_save_invoice = False
