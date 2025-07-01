@@ -2389,15 +2389,10 @@ class Accounting(View):
                 if 'other_fee' in payable_surcharge and payable_surcharge['other_fee']:
                     all_fee_types.update(payable_surcharge['other_fee'].keys())
         
-        # 将费用类型排序，确保列顺序一致
         sorted_fee_types = sorted(all_fee_types)
         
-        # 设置表头（柜号 + 所有费用类型）
         headers = ["柜号"] + sorted_fee_types
         ws.append(headers)
-        
-        # 创建费用名称到列索引的映射
-        column_mapping = {fee: idx + 2 for idx, fee in enumerate(sorted_fee_types)}  # +2因为柜号占第一列
         
         # 填充数据
         for order in orders:
@@ -2433,18 +2428,14 @@ class Accounting(View):
                 dynamic_columns = [col for col in row_data.keys() if col not in fixed_columns]
                 final_columns = fixed_columns + sorted(dynamic_columns)
            
-                # 按最终列顺序填充数据
                 ordered_row = [row_data.get(col, "") for col in final_columns]
             ws.append(ordered_row)
-
-        # 设置响应
         response = HttpResponse(
             content_type='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'
         )
         filename = f"{select_carrier}_账单_{select_month}.xlsx"
         response['Content-Disposition'] = f'attachment; filename={filename}'
         
-        # 保存工作簿到响应
         wb.save(response)     
         return response
 
