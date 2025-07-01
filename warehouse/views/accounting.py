@@ -4622,7 +4622,7 @@ class Accounting(View):
                     # 否则，如果有入库拆柜费，那就是入库拆柜合并的费用
                     arrive_fee = invoice.payable_palletization
                 # 其他费用
-                pallet_other_fee = invoice.payable_surcharge["other_fee"]
+                pallet_other_fee = invoice.payable_surcharge.get("other_fee", 0) 
                 # 总费用
                 payable_total_amount = invoice.payable_total_amount
                 # 如果是驳回的账单，并且仓库是NJ的，可能需要重新填写拆柜费用，所以要去报价表找拆柜供应商
