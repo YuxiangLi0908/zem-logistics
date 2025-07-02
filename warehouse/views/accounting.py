@@ -4575,7 +4575,8 @@ class Accounting(View):
         # 车架费计费时间查找
         arrive_at = order.retrieval_id.arrive_at
         lfd = order.retrieval_id.temp_t49_lfd
-        empty_returned_at = order.retrieval_id.empty_returned_at
+        empty_returned_at = order.retrieval_id.empty_returned_at  #还空时间
+        actual_retrieval_timestamp = order.retrieval_id.actual_retrieval_timestamp  #提柜时间
         arrive_date = None
         returned_date = None
         if lfd and arrive_at and empty_returned_at:
@@ -4704,6 +4705,7 @@ class Accounting(View):
                     arrive_fee = None
                     if pickup_details.get("arrive_warehouse") not in (None, "/"):
                         arrive_fee = pickup_details.get("arrive_warehouse")
+        
         context = {
             "warehouse": warehouse,
             "container_number": container_number,
@@ -4732,6 +4734,8 @@ class Accounting(View):
             "lfd": lfd or None,
             "arrive_date": arrive_date or None,
             "returned_date": returned_date or None,
+            "empty_returned_at":empty_returned_at,
+            "actual_retrieval_timestamp":actual_retrieval_timestamp,
         }
         return self.template_invoice_payable_edit, context
 

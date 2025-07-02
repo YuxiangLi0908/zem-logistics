@@ -30,7 +30,7 @@ from django.db.models import (
     Value,
     When,
 )
-from django.db.models.functions import Cast
+from django.db.models.functions import Cast, Round
 from django.http import HttpRequest, HttpResponse
 from django.shortcuts import redirect, render
 from django.template.loader import get_template
@@ -80,6 +80,7 @@ class FleetManagement(View):
     template_delivery_and_pod = "post_port/shipment/05_1_delivery_and_pod.html"
     template_pod_upload = "post_port/shipment/05_2_delivery_and_pod.html"
     template_bol = "export_file/bol_base_template.html"
+    template_bol_pickup = "export_file/bol_template.html"
     template_ltl_label = "export_file/ltl_label.html"
     template_ltl_bol = "export_file/ltl_bol.html"
     template_abnormal_fleet_warehouse_search = (
@@ -444,8 +445,8 @@ class FleetManagement(View):
             packing_list[s["shipment_batch_number__shipment_batch_number"]] = pl
 
         pl_fleet = await sync_to_async(list)(
-            PackingList.objects.select_related(
-                "container_number", "shipment_batch_number", "pallet"
+            Pallet.objects.select_related(
+                "container_number", "shipment_batch_number", "packing_list"
             )
             .filter(
                 shipment_batch_number__fleet_number__fleet_number=selected_fleet_number
@@ -457,12 +458,32 @@ class FleetManagement(View):
                 "shipment_batch_number__shipment_appointment",
             )
             .annotate(
-                total_weight=Sum("pallet__weight_lbs"),
-                total_cbm=Sum("pallet__cbm"),
-                total_n_pallet=Count("pallet__pallet_id", distinct=True),
+                total_weight=Sum("weight_lbs"),
+                total_cbm=Round(Sum("cbm"), precision=2, output_field=FloatField()),
+                total_n_pallet=Count("pallet_id", distinct=True),
             )
             .order_by("-shipment_batch_number__shipment_appointment")
         )
+        shipments = await sync_to_async(list)(
+            Shipment.objects.filter(fleet_number__fleet_number=selected_fleet_number).order_by(
+                "-shipment_appointment"
+            ).values('id', 'shipment_batch_number', 'shipment_appointment')
+        )
+        if len(shipments) > 1:
+            shipment_order = {}
+            for i, s in enumerate(shipments, 1):
+                shipment_order[s['shipment_batch_number']] = i
+            
+            for item in pl_fleet:
+                batch_num = item['shipment_batch_number__shipment_batch_number']
+                order = shipment_order.get(batch_num, 0)
+                
+                if order == 1:
+                    item['load_position'] = 'inside 1'
+                elif order == len(shipments):
+                    item['load_position'] = f'outside {len(shipments)}'
+                else:
+                    item['load_position'] = f'inside {order}' 
         shipment_batch_numbers = []
         destinations = []
         for s in shipment:
@@ -933,7 +954,9 @@ class FleetManagement(View):
         batch_number = request.POST.get("shipment_batch_number")
         warehouse = request.POST.get("warehouse")
         customerInfo = request.POST.get("customerInfo")
-        pallet: list[Pallet] | None = None
+        pickupList = request.POST.get("pickupList")
+        fleet_number = request.POST.get("fleet_number")
+        
         # 进行判断，如果在前端进行了表的修改，就用修改后的表，如果没有修改，就用packing_list直接查询的
         if customerInfo:
             customer_info = json.loads(customerInfo)
@@ -973,18 +996,21 @@ class FleetManagement(View):
             if re.search(r"([A-Z]{2})[-,\s]?(\d{5})", shipment.destination.upper())
             else False
         )
+        #最后一页加上拣货单:
+        pallet = await self.pickupList_get(pickupList,fleet_number)  
         context = {
             "warehouse": warehouse_obj.address,
             "batch_number": batch_number,
             "fleet_number": shipment.fleet_number.fleet_number,
             "shipment": shipment,
             "packing_list": packing_list,
+            "pallet": pallet,
             "address_chinese_char": address_chinese_char,
             "destination_chinese_char": destination_chinese_char,
             "note_chinese_char": note_chinese_char,
             "is_private_warehouse": is_private_warehouse,
         }
-        template = get_template(self.template_bol)
+        template = get_template(self.template_bol_pickup)
         html = template.render(context)
         response = HttpResponse(content_type="application/pdf")
         response["Content-Disposition"] = (
@@ -998,6 +1024,76 @@ class FleetManagement(View):
             )
         return response
 
+    async def pickupList_get(
+        self,pickupList:json,fleet_number:str
+    )-> tuple[Any]:
+        pallet: list[Pallet] | None = None
+
+        if pickupList:  #有值就转成列表
+            pickupList = json.loads(pickupList)
+        if pickupList:  #判断是不是空列表     
+            pallet = []
+            for row in pickupList:
+                if not any(str(item).strip() for item in row):  # 检查列表所有元素是否为空
+                    continue
+                pallet_data = {
+                    "container_number__container_number": row[0].strip(),
+                    "shipment_batch_number__shipment_batch_number": row[1].strip(),
+                    "destination": row[2].strip(),
+                    "total_cbm": row[3].strip(),
+                    "total_n_pallet": row[4].strip(),
+                }
+                if len(row) >= 6 and row[5]:
+                    pallet_data["一提两卸"] = row[5].strip()
+                pallet.append(pallet_data)
+        else:
+            pallet = await sync_to_async(list)(
+                Pallet.objects.select_related(
+                    "container_number", "shipment_batch_number"
+                )
+                .filter(
+                    shipment_batch_number__fleet_number__fleet_number=fleet_number,
+                    container_number__order__offload_id__offload_at__isnull=False,
+                )
+                .values(
+                    "container_number__container_number",
+                    "destination",
+                    "shipment_batch_number__shipment_batch_number",
+                    "shipment_batch_number__shipment_appointment",
+                )
+                .annotate(
+                    total_weight=Sum("weight_lbs"),
+                    total_cbm=Sum("cbm"),
+                    total_n_pallet=Count("pallet_id", distinct=True),
+                )
+                .order_by("-shipment_batch_number__shipment_appointment")
+            )
+            shipments = await sync_to_async(list)(
+                Shipment.objects.filter(fleet_number__fleet_number=fleet_number).order_by(
+                    "-shipment_appointment"
+                )
+            )
+
+            df = pd.DataFrame(pallet)
+            if len(shipments) > 1:
+                total = len(shipments)  # 获取总数量
+                for i, s in enumerate(shipments, 1):  # 从1开始计数
+                    if i == 1:  # 第一个
+                        position = "inside1"
+                    elif i == total:  # 最后一个
+                        position = f"outside {total}"
+                    else:  # 中间的
+                        position = f"inside {i}"
+                    
+                    df.loc[
+                        df["shipment_batch_number__shipment_batch_number"] 
+                        == s.shipment_batch_number,
+                        "一提两卸",
+                    ] = position
+                
+                pallet = df.to_dict('records')
+        return pallet 
+    
     async def handle_fleet_departure_post(
         self, request: HttpRequest
     ) -> tuple[str, dict[str, Any]]:

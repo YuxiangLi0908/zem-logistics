@@ -40,7 +40,10 @@
                             <th class="th" style="text-align: center; border: 1px solid #141414">预约批次</th>
                             <th class="th" style="text-align: center; border: 1px solid #141414">仓点</th>
                             <th class="th" style="text-align: center; border: 1px solid #141414">CBM</th> 
-                            <th class="th" style="text-align: center; border: 1px solid #141414">板数</th>   
+                            <th class="th" style="text-align: center; border: 1px solid #141414">板数</th>  
+                            {% if pl_fleet.0.load_position %}
+                            <th class="th" style="text-align: center; border: 1px solid #141414">一提两卸</th>
+                            {% endif %} 
                         </thead>
                         {% for s in pl_fleet %}
                         <tr id="fleet-row">
@@ -49,6 +52,9 @@
                             <td style="text-align: center; border: 1px solid #141414; text-wrap: wrap; padding:10px;" data-editable="true">{{ s.destination }}</td>
                             <td style="text-align: center; border: 1px solid #141414; text-wrap: wrap; padding:10px;" data-editable="true">{{ s.total_cbm }}</td>
                             <td style="text-align: center; border: 1px solid #141414; padding:10px;" data-editable="true">{{ s.total_n_pallet }}</td>
+                            {% if s.load_position %}
+                            <td style="text-align: center; border: 1px solid #141414; padding:10px;" data-editable="true">{{ s.load_position }}</td>
+                            {% endif %}
                         </tr>
                         {% endfor %}
                         <tr id="fleet-row-empty-{{ selected_fleet.fleet_number }}" style="display: none;">
@@ -185,6 +191,7 @@
                 {% csrf_token %}
                 <input type="hidden" name="step" value="export_bol">
                 <input type="hidden" name="shipment_batch_number" value="{{ batch_number }}">
+                <input type="hidden" name="fleet_number" value="{{ selected_fleet.fleet_number }}">
                 <input type="hidden" name="warehouse" value="{{ warehouse }}">
                 <button type="submit" class="btn btn-success" style="font-size: 15px;">
                     <small>BOL- {{ batch_number }}</small>
@@ -518,7 +525,6 @@
                 }
             }
             var jsonCustomerInfo = JSON.stringify(customerInfo);
-            
             var newInput = document.createElement('input');
             newInput.value = jsonCustomerInfo;
             newInput.name = 'customerInfo';
@@ -527,12 +533,23 @@
                 var form = document.getElementById('download_ltl_bol');
                 var inputElements = form.querySelectorAll('input[name="customerInfo"]');
                 inputElements[0].value = jsonCustomerInfo;
+
                 var form1 = document.getElementById('download_ltl_label');
                 var inputElements1 = form1.querySelectorAll('input[name="customerInfo"]');
                 inputElements1[0].value = jsonCustomerInfo;
             }else if (name == "self_pickup") {
                 var form = document.getElementById('self-bol-upload');
                 form.appendChild(newInput);           
+            } else if (name == "fleet") {
+                //传给BOL下载的表格
+                var bolForms = document.querySelectorAll('form[id^="exportBOL-"]');
+                bolForms.forEach(function(form) {             
+                    var newInput = document.createElement('input');
+                    newInput.type = 'hidden';
+                    newInput.name = 'pickupList';
+                    newInput.value = jsonCustomerInfo;
+                    form.appendChild(newInput);
+                });
             } else {
                 form.appendChild(newInput);
             }
@@ -550,8 +567,26 @@
         }          
         else if (name == "fleet") {
             var table = document.getElementById('fleet-container-' + batch_number);
-            var newRow = document.querySelector('#fleet-row-empty-'+ batch_number).cloneNode(true);
+            //确认是否有 一提两卸 列
+            var hasLoadPosition = table.querySelector('thead th:nth-child(6)') !== null;
+            var emptyRow = document.querySelector('#fleet-row-empty-'+ batch_number);
+
+            var newRow = emptyRow.cloneNode(true);
             var newId = 'fleet-row-'+ Date.now();
+
+            if (hasLoadPosition && newRow.cells.length < 6) {
+                var newCell = document.createElement('td');
+                newCell.style.textAlign = 'center';
+                newCell.style.border = '1px solid #141414';
+                newCell.style.padding = '10px';
+                newCell.setAttribute('data-editable', 'true');
+                // 添加输入框
+                var input = document.createElement('input');
+                input.type = 'text';
+                input.size = 15;
+                newCell.appendChild(input);
+                newRow.appendChild(newCell);
+            }
         }
         else if (name == "arm_pickup") {
             var table = document.getElementById('arm_pickup-container-' + batch_number);
