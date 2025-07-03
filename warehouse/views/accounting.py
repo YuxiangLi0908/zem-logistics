@@ -2445,7 +2445,24 @@ class Accounting(View):
     ) -> tuple[Any, Any]:
         container_number = request.POST.get("container_number")
         invoice_number = request.POST.get("invoice_number")
-        invoice = Invoice.objects.get(invoice_number=invoice_number)
+        try:
+            invoice = Invoice.objects.get(invoice_number=invoice_number)
+        except Invoice.DoesNotExist:
+            order = Order.objects.select_related(
+                "container_number", "receivable_status", "payable_status"
+            ).get(container_number__container_number=container_number)
+            current_date = datetime.now().date()
+            order_id = str(order.id)
+            customer_id = order.customer_name.id
+            invoice = Invoice(
+                **{
+                    "invoice_number": f"{current_date.strftime('%Y-%m-%d').replace('-', '')}C{customer_id}{order_id}",
+                    "customer": order.customer_name,
+                    "container_number": order.container_number,
+                }
+            )
+            invoice.save()
+            order.invoice_id = invoice
         total_fee = float(request.POST.get("totalAmount", 0))
         base_fee = float(request.POST.get("base_fee", 0))
         overweight_fee = float(request.POST.get("overweight_fee", 0))
