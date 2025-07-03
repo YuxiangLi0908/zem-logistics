@@ -89,9 +89,10 @@
 <b>批次明细</b>
 <form method="post" action="">
     {% csrf_token %}
-    <input type="hidden" name="batch_number" value="{{ shipment_list.0.shipment_batch_number }}">
+    <input type="hidden" name="shipment_batch_number" value="{{ shipment_list.0.shipment_batch_number }}">
+    <input type="hidden" name="fleet_number" value="{{ shipment_list.0.fleet_number }}">
     <input type="hidden" name="step" value="export_bol">
-    <input type="hidden" name="warehouse" value="{% if warehouse %}{{ warehouse.address }}{% else %}none{% endif %}">
+    <input type="hidden" name="warehouse" value="{% if warehouse %}{{ warehouse.name }}{% else %}none{% endif %}">
     <button type="submit" class="btn btn-success" style="width: 100px; height: 35px;">导出BOL</button>
 </form>
 <div style="overflow-x: auto; max-width: 100%; overflow-y: auto; max-height: 1200px;">

@@ -31,6 +31,7 @@ from warehouse.models.pallet import Pallet
 from warehouse.models.shipment import Shipment
 from warehouse.models.warehouse import ZemWarehouse
 from warehouse.views.export_file import export_bol, export_report
+from warehouse.views.post_port.shipment.fleet_management import FleetManagement
 
 
 @method_decorator(login_required(login_url="login"), name="dispatch")
@@ -62,7 +63,7 @@ class BOL(View):
         if step == "search":
             return render(request, self.template_main, self.handle_search_post(request))
         elif step == "export_bol":
-            return export_bol(self.handle_bol_post(request))
+            return self.handle_bol_post(request)
         elif step == "summary_warehouse":
             context = async_to_sync(self.summary_table)(request)
             return render(request, self.template_summary, context)
@@ -406,6 +407,7 @@ class BOL(View):
                 "packinglist__container_number__order",
                 "packinglist__container_number__order__warehouse",
                 "order",
+                "fleet_number",
             )
             .filter(criteria)
             .distinct()
@@ -425,71 +427,10 @@ class BOL(View):
         }
         return context
 
-    def handle_bol_post(self, request: HttpRequest) -> dict[str, Any]:
-        batch_number = request.POST.get("batch_number")
-        warehouse = request.POST.get("warehouse")
-        shipment = Shipment.objects.get(shipment_batch_number=batch_number)
-        packing_list = list(
-            PackingList.objects.select_related("container_number").filter(
-                shipment_batch_number__shipment_batch_number=batch_number,
-            )
-        )
-        for pl in packing_list:
-            fba_ids = pl.fba_id
-            if fba_ids:
-                fba_ids = re.sub(r"[-,\s\/]+", "\n", fba_ids).strip()
-                pl.fba_id = fba_ids
-
-            ref_ids = pl.ref_id
-            if ref_ids:
-                ref_ids = re.sub(r"[-,\s\/]+", "\n", ref_ids).strip()
-                pl.ref_id = ref_ids
-        pallet = list(
-            Pallet.objects.select_related("container_number")
-            .filter(
-                shipment_batch_number__shipment_batch_number=batch_number,
-                container_number__order__offload_id__offload_at__isnull=False,
-            )
-            .values("container_number__container_number", "destination")
-            .annotate(
-                total_cbm=Sum("cbm"),
-                total_n_pallet=Count("pallet_id", distinct=True),
-            )
-            .order_by("container_number__container_number")
-        )
-        pallet += list(
-            PackingList.objects.select_related("container_number")
-            .filter(
-                shipment_batch_number__shipment_batch_number=batch_number,
-                container_number__order__offload_id__offload_at__isnull=True,
-            )
-            .values("container_number__container_number", "destination")
-            .annotate(
-                total_cbm=Sum("cbm"),
-                total_n_pallet=Sum("cbm") / 2,
-            )
-            .order_by("container_number__container_number")
-        )
-        address_chinese_char = False if shipment.address.isascii() else True
-        destination_chinese_char = False if shipment.destination.isascii() else True
-        is_private_warehouse = (
-            True
-            if re.search(r"([A-Z]{2})[-,\s]?(\d{5})", shipment.destination.upper())
-            else False
-        )
-        try:
-            note_chinese_char = False if shipment.note.isascii() else True
-        except:
-            note_chinese_char = False
-        context = {
-            "batch_number": batch_number,
-            "warehouse": warehouse,
-            "shipment": shipment,
-            "packing_list": packing_list,
-            "pallet": pallet,
-            "address_chinese_char": address_chinese_char,
-            "destination_chinese_char": destination_chinese_char,
-            "note_chinese_char": note_chinese_char,
-            "is_private_warehouse": is_private_warehouse,
-        }
-        return context
+    def handle_bol_post(self, request: HttpRequest) -> HttpResponse:
+        fm = FleetManagement()
+        mutable_post = request.POST.copy()
+        mutable_post["customerInfo"] = None
+        mutable_post["pickupList"] = None
+        request.POST = mutable_post
+        return async_to_sync(fm.handle_export_bol_post)(request)
