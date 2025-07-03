@@ -919,14 +919,20 @@ class FleetManagement(View):
 
         df = pd.DataFrame(packing_list)
         if len(shipment) > 1:
-            i = 1
-            for s in shipment:
+            total = len(shipment)  # 获取总数量
+            for i, s in enumerate(shipment, 1):  # 从1开始计数
+                if i == 1:  # 第一个
+                    position = "inside 1"
+                elif i == total:  # 最后一个
+                    position = f"outside {total}"
+                else:  # 中间的
+                    position = f"inside {i}"
+
                 df.loc[
                     df["shipment_batch_number__shipment_batch_number"]
                     == s.shipment_batch_number,
                     "一提两卸",
-                ] = f"第{i}装"
-                i += 1
+                ] = position
         df = df.rename(
             columns={
                 "container_number__container_number": "柜号",
@@ -934,10 +940,11 @@ class FleetManagement(View):
                 "shipment_batch_number__shipment_batch_number": "预约批次",
                 "total_cbm": "CBM",
                 "total_n_pallet": "板数",
+                "shipment_batch_number__shipment_appointment": "Appointment",
             }
         )
         if len(shipment) > 1:
-            df = df[["柜号", "预约批次", "仓点", "CBM", "板数", "一提两卸"]]
+            df = df[["柜号", "预约批次", "仓点", "CBM", "板数", "一提两卸", "Appointment"]]
         else:
             df = df[["柜号", "预约批次", "仓点", "CBM", "板数"]]
         response = HttpResponse(content_type="text/csv")
