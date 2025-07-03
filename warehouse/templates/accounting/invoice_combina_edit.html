@@ -4,6 +4,7 @@
 <form method="post" action="" class="mb-0">
     {% csrf_token %}
     <input type="hidden" name="container_number" value="{{ container_number }}">
+    <input type="hidden" name="invoice_number" value="{{ invoice_number }}">
     <input type="hidden" name="step" value="confirm_combina_save">
     <input type="hidden" name="save_type" id="save_type" value="">
     <input type="hidden" name="plts_by_destination" value="{{ plts_by_destination }}">
@@ -22,8 +23,6 @@
             </h5>
     
             <span class="mx-auto" style="font-size: 1rem; color: white;">{{ invoice_number }}-{{ container_number }}</span>            
-            
-            <input type="hidden" name="invoice_number" value="{{ invoice_number }}">
             &nbsp;&nbsp;
             <button type="submit" class="btn btn-success btn-sm" onclick="modifyStatus('complete')">
                 <i class="bi bi-check-circle me-1"></i>确认账单
@@ -859,7 +858,9 @@
         const overregionPickupBaseFeeInput = document.getElementById('overregion_pickup_base_fee');
         const overregionPickupCbmInput = document.getElementById('overregion_pickup_cbm');
         const overregion_pickup_fee = document.getElementById('overregion_pickup_fee');
-        const totalCbmText = document.querySelector('#total-cbm-container strong').textContent;
+
+        const totalCbmDisplay = document.querySelector('#total-cbm-container strong');
+        if (totalCbmDisplay) totalCbmText = totalCbmDisplay.textContent;
         if (overregionPickupBaseFeeInput&&overregionPickupCbmInput) {
             overregionPickupBaseFeeInput.addEventListener('input', calculateOverregionPickup);
             overregionPickupCbmInput.addEventListener('input', calculateOverregionPickup);
@@ -886,24 +887,24 @@
         updateTotalAmount();
     });
     function updateTotalAmount() {
-        const base_fee = document.getElementById('base_fee');
-        const overpallet_fee = document.getElementById('overpallet_fee');
-        const overweight_fee = document.getElementById('overweight_fee');
-        const overregion_pickup_fee = document.getElementById('overregion_pickup_fee');
-        const overregion_delivery_fee = document.getElementById('overregion_delivery_fee');
+        const getSafeNumberValue = (elementId) => {
+            const element = document.getElementById(elementId);
+            return element ? parseFloat(element.value) || 0 : 0;
+        };
+        let amount = 0;
 
-        let amount = parseFloat(base_fee.value) || 0;
-        amount += parseFloat(overpallet_fee.value) || 0;
-        amount += parseFloat(overweight_fee.value) || 0;
-        
-        if (overregion_pickup_fee) amount += parseFloat(overregion_pickup_fee.value) || 0;
-        if (overregion_delivery_fee) amount += parseFloat(overregion_delivery_fee.value) || 0;
-        
+        amount += getSafeNumberValue('base_fee');
+        amount += getSafeNumberValue('overpallet_fee');
+        amount += getSafeNumberValue('overweight_fee');
+        amount += getSafeNumberValue('overregion_pickup_fee');
+        amount += getSafeNumberValue('overregion_delivery_fee');
         amount += calculateExtraFeesTotal();
         
-        document.getElementById('totalAmountDisplay').textContent = amount.toFixed(2);
-        document.getElementById('totalAmount').value = amount.toFixed(2);
+        const totalDisplay = document.getElementById('totalAmountDisplay');
+        if (totalDisplay) totalDisplay.textContent = amount.toFixed(2);
         
+        const totalInput = document.getElementById('totalAmount');
+        if (totalInput) totalInput.value = amount.toFixed(2);       
     }
     function modifyStatus(type) {
         const saveTypeInput = document.getElementById('save_type');

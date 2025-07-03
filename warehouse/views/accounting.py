@@ -3714,16 +3714,17 @@ class Accounting(View):
         invoice_status = InvoiceStatus.objects.get(
             container_number=order.container_number, invoice_type="receivable"
         )
-
+        context = {
+            "invoice_number": invoice.invoice_number,
+            "container_number": container_number,
+        }
         # 查看是不是财务未确认状态，未确认就从报价表找+客服录的数据，确认了就从invoice_item表找
         if invoice_status.stage == "confirmed":
             invoice_item = InvoiceItem.objects.filter(
                 invoice_number__invoice_number=invoice.invoice_number
             )
-            context = {
-                "invoice": invoice,
-                "invoice_item": invoice_item,
-            }
+            context["invoice"] = invoice
+            context["invoice_item"] = invoice_item
             return self.template_invoice_container_edit, context
         # 从报价表找+客服录的数据
         warehouse = order.retrieval_id.retrieval_destination_area
@@ -3748,7 +3749,8 @@ class Accounting(View):
             .first()
         )
         if not matching_quotation:
-            return self.template_invoice_combina_edit, {"reason": "找不到匹配报价表"}
+            context["reason"] = "找不到匹配报价表"
+            return self.template_invoice_combina_edit, context
         # 4. 获取费用规则
         PICKUP_FEE = FeeDetail.objects.get(
             quotation_id=matching_quotation.id, fee_type="preport"
@@ -3764,7 +3766,8 @@ class Accounting(View):
             combina_fee = json.loads(combina_fee)
         # 2. 检查基本条件
         if plts["unique_destinations"] == 0:
-            return self.template_invoice_combina_edit, {"reason": "未录入拆柜数据"}
+            context["reason"] = "未录入拆柜数据"
+            return self.template_invoice_combina_edit, context
 
         if (
             plts["unique_destinations"]
@@ -3772,7 +3775,8 @@ class Accounting(View):
         ):
             container.account_order_type = "转运"
             container.save()
-            return self.template_invoice_combina_edit, {"reason": "超过14个仓点"}
+            context["reason"] = "超过14个仓点"
+            return self.template_invoice_combina_edit, context
 
         # 按区域统计
         destinations = (
@@ -3842,10 +3846,9 @@ class Accounting(View):
                 reason = f"规定{stipulate_non_combina}个非组合柜区，但是有{non_combina_region_count}个：{matched_regions['non_combina_dests']}，所以按照转运方式统计价格"
                 # reason = '不满足组合柜区域要求'
             actual_fees = self._combina_get_extra_fees(invoice)
-            return self.template_invoice_combina_edit, {
-                "reason": reason,
-                "extra_fees": actual_fees,
-            }
+            context["reason"] = reason
+            context["extra_fees"] = actual_fees
+            return self.template_invoice_combina_edit, context
         # 7.2 计算基础费用
         base_fee = 0
         extra_fees = {
