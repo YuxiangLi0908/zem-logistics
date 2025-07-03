@@ -1319,27 +1319,31 @@ class Accounting(View):
         # 前端查询客户余额
         existing_customers = Customer.objects.all().order_by("zem_name")
 
-        #应付账单，要构建一个月份列表，用于前端选择月份然后计算总金额
+        # 应付账单，要构建一个月份列表，用于前端选择月份然后计算总金额
         if invoice_type == "payable":
             current_year = datetime.now().year
             current_month = datetime.now().month
-            
+
             months = []
             for i in range(12):
                 month = (current_month - i - 1) % 12 + 1
-                year = current_year if (current_month - i - 1) >= 0 else current_year - 1
-                months.append({
-                    "value": f"{year}-{month:02d}",
-                    "label": f"{year}年{month}月",
-                    "selected": (month == current_month and year == current_year)
-                })
+                year = (
+                    current_year if (current_month - i - 1) >= 0 else current_year - 1
+                )
+                months.append(
+                    {
+                        "value": f"{year}-{month:02d}",
+                        "label": f"{year}年{month}月",
+                        "selected": (month == current_month and year == current_year),
+                    }
+                )
             carrier = {
-                "":"",
-                "Kars":"Kars",
-                "东海岸":"东海岸",
-                "ARM":"ARM",
-                "BBR":"BBR",
-                "KNO":"KNO",
+                "": "",
+                "Kars": "Kars",
+                "东海岸": "东海岸",
+                "ARM": "ARM",
+                "BBR": "BBR",
+                "KNO": "KNO",
             }
         else:
             months = None
@@ -1356,7 +1360,7 @@ class Accounting(View):
             "invoice_type_filter": invoice_type,
             "existing_customers": existing_customers,
             "months": reversed(months) if months else [],
-            "carriers":carrier,
+            "carriers": carrier,
         }
         return self.template_invoice_confirm, context
 
@@ -1580,13 +1584,13 @@ class Accounting(View):
                 None,
                 data.get("warehouse_filter"),
             )
-        elif save_type == "reject":  #财务驳回
+        elif save_type == "reject":  # 财务驳回
             invoice_status.stage = "unstarted"
             invoice_status.is_rejected = True
             invoice_status.reject_reason = data.get("reject_reason")
             invoice_status.save()
             return self.handle_invoice_confirm_get(request)
-        elif save_type == "reject_check": #初级审核驳回
+        elif save_type == "reject_check":  # 初级审核驳回
             invoice_status.stage = "unstarted"
             invoice_status.is_rejected = True
             invoice_status.reject_reason = data.get("reject_reason")
@@ -1602,7 +1606,7 @@ class Accounting(View):
             invoice_status.stage = "confirmed"
             invoice_status.save()
             return self.handle_invoice_confirm_get(request)
-        elif save_type == "check_confirm":  #初级审核确认完就转到财务审核
+        elif save_type == "check_confirm":  # 初级审核确认完就转到财务审核
             invoice_status.stage = "tobeconfirmed"
             invoice_status.save()
             return self.handle_invoice_payable_get(
@@ -1635,19 +1639,19 @@ class Accounting(View):
         if data.get("chassis_fee"):
             invoice.payable_chassis = data.get("chassis_fee")
         if data.get("arrive_fee"):
-            invoice.payable_palletization = data.get("arrive_fee")        
+            invoice.payable_palletization = data.get("arrive_fee")
         if invoice.payable_palletization == "None":
-            raise ValueError('未选择拆柜费用')
+            raise ValueError("未选择拆柜费用")
         invoice.payable_total_amount = total_amount
         invoice.payable_surcharge = {
             "palletization_carrier": palletization_carrier,
             "other_fee": fees,
-            "preport_carrier":data.get("preport_carrier"),
+            "preport_carrier": data.get("preport_carrier"),
         }
         invoice.save()
         # 如果确认，就改变状态
         if save_type == "complete":
-            invoice_status.stage = "preport"   #这是转给rose去审核
+            invoice_status.stage = "preport"  # 这是转给rose去审核
             invoice_status.is_rejected = False
             invoice_status.reject_reason = ""
             invoice_status.save()
@@ -2319,20 +2323,18 @@ class Accounting(View):
             request.POST.get("end_date_confirm"),
         )
 
-    def handle_carrier_invoice_export(
-        self, request: HttpRequest
-    ) -> HttpResponse:
+    def handle_carrier_invoice_export(self, request: HttpRequest) -> HttpResponse:
         select_month = request.POST.get("select_month")
         select_carrier = request.POST.get("select_carrier")
         if not select_month or not select_carrier:
             raise ValueError("请选择月份和供应商")
-        
-        year, month = map(int, select_month.split('-'))
+
+        year, month = map(int, select_month.split("-"))
         month = month - 1
         # 查找该月份，该供应商的所有费用
         # 先查账单时间满足月份的，就是实际提柜时间+1个月
-        if select_carrier in ['BBR', 'KNO']:
-            #如果是BBR和KNO，就只在invoice表的payable_surcharge的palletization_carrier里面能看到
+        if select_carrier in ["BBR", "KNO"]:
+            # 如果是BBR和KNO，就只在invoice表的payable_surcharge的palletization_carrier里面能看到
             order_list = Order.objects.filter(
                 retrieval_id__actual_retrieval_timestamp__year=year,
                 retrieval_id__actual_retrieval_timestamp__month=month,
@@ -2340,105 +2342,106 @@ class Accounting(View):
             )
             orders = []
             for order in order_list:
-                invoice = Invoice.objects.select_related("customer", "container_number").get(
-                    container_number__container_number=order.container_number
-                )
+                invoice = Invoice.objects.select_related(
+                    "customer", "container_number"
+                ).get(container_number__container_number=order.container_number)
                 if invoice.payable_surcharge["palletization_carrier"] == select_carrier:
                     orders.append(order)
         else:
-            #否则就看payable_surcharge的preport_carrier里面能看到
+            # 否则就看payable_surcharge的preport_carrier里面能看到
             order_list = Order.objects.filter(
-                retrieval_id__actual_retrieval_timestamp__month=month,     
+                retrieval_id__actual_retrieval_timestamp__month=month,
                 retrieval_id__actual_retrieval_timestamp__year=year,
-                payable_status__stage="confirmed",                      
-                #container_number__invoice__payable_surcharge__preport_carrier=select_carrier
+                payable_status__stage="confirmed",
+                # container_number__invoice__payable_surcharge__preport_carrier=select_carrier
             )
             orders = []
             for order in order_list:
-                invoice = Invoice.objects.select_related("customer", "container_number").get(
-                    container_number__container_number=order.container_number
-                )
+                invoice = Invoice.objects.select_related(
+                    "customer", "container_number"
+                ).get(container_number__container_number=order.container_number)
                 if invoice.payable_surcharge["preport_carrier"] == select_carrier:
-                    orders.append(order)   
+                    orders.append(order)
         if len(orders) == 0:
-            raise ValueError('未查询到符合条件的订单')
+            raise ValueError("未查询到符合条件的订单")
         # 创建Excel工作簿
         wb = openpyxl.Workbook()
         ws = wb.active
         ws.title = f"{select_carrier}_{select_month}账单"
-        
+
         all_fee_types = set()
         for order in orders:
             container_number = order.container_number.container_number
-            invoice = Invoice.objects.select_related("customer", "container_number").get(
-                container_number__container_number=container_number
-            )
+            invoice = Invoice.objects.select_related(
+                "customer", "container_number"
+            ).get(container_number__container_number=container_number)
             payable_surcharge = invoice.payable_surcharge
             # BBR/KNO特殊费用
-            if select_carrier in ['BBR', 'KNO']:
-                all_fee_types.add('打板费用')
+            if select_carrier in ["BBR", "KNO"]:
+                all_fee_types.add("打板费用")
             else:
-                all_fee_types.update(['总费用'])
-                all_fee_types.add('基本费用')
+                all_fee_types.update(["总费用"])
+                all_fee_types.add("基本费用")
                 if invoice.payable_chassis:
-                    all_fee_types.add('车架费')
+                    all_fee_types.add("车架费")
                 if invoice.payable_overweight:
-                    all_fee_types.add('超重费')
+                    all_fee_types.add("超重费")
 
                 # 其他自定义费用
-                if 'other_fee' in payable_surcharge and payable_surcharge['other_fee']:
-                    all_fee_types.update(payable_surcharge['other_fee'].keys())
-        
+                if "other_fee" in payable_surcharge and payable_surcharge["other_fee"]:
+                    all_fee_types.update(payable_surcharge["other_fee"].keys())
+
         sorted_fee_types = sorted(all_fee_types)
-        
+
         headers = ["柜号"] + sorted_fee_types
         ws.append(headers)
-        
+
         # 填充数据
         for order in orders:
             container_number = order.container_number.container_number
-            invoice = Invoice.objects.select_related("customer", "container_number").get(
-                container_number__container_number=container_number
-            )
+            invoice = Invoice.objects.select_related(
+                "customer", "container_number"
+            ).get(container_number__container_number=container_number)
             payable_surcharge = invoice.payable_surcharge
             total_amount = float(invoice.payable_total_amount or 0)
             palletization = float(invoice.payable_palletization or 0)
-            
+
             # 初始化行数据，所有费用初始为0或空
             row_data = {fee: "" for fee in sorted_fee_types}
             row_data["柜号"] = container_number
-            
+
             # 填充特定供应商的费用
-            if select_carrier in ['BBR', 'KNO']:
+            if select_carrier in ["BBR", "KNO"]:
                 row_data["打板费用"] = invoice.payable_palletization or 0
             else:
                 row_data["总费用"] = total_amount - palletization
                 row_data["基本费用"] = invoice.payable_basic or 0
                 row_data["超重费"] = invoice.payable_overweight or 0
                 row_data["车架费"] = invoice.payable_chassis or 0
-                        
+
                 # 其他自定义费用
-                if 'other_fee' in payable_surcharge and payable_surcharge['other_fee']:
+                if "other_fee" in payable_surcharge and payable_surcharge["other_fee"]:
                     for fee_name, fee_value in payable_surcharge["other_fee"].items():
                         row_data[fee_name] = fee_value
-            if select_carrier in ['BBR', 'KNO']:
+            if select_carrier in ["BBR", "KNO"]:
                 ordered_row = [row_data["柜号"], row_data["打板费用"]]
             else:
                 fixed_columns = ["柜号", "总费用", "基本费用", "超重费", "车架费"]
-                dynamic_columns = [col for col in row_data.keys() if col not in fixed_columns]
+                dynamic_columns = [
+                    col for col in row_data.keys() if col not in fixed_columns
+                ]
                 final_columns = fixed_columns + sorted(dynamic_columns)
-           
+
                 ordered_row = [row_data.get(col, "") for col in final_columns]
             ws.append(ordered_row)
         response = HttpResponse(
-            content_type='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'
+            content_type="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
         )
         filename = f"{select_carrier}_账单_{select_month}.xlsx"
-        response['Content-Disposition'] = f'attachment; filename={filename}'
-        
-        wb.save(response)     
-        return response
+        response["Content-Disposition"] = f"attachment; filename={filename}"
 
+        wb.save(response)
+        return response
 
     def handle_invoice_confirm_combina_save(
         self, request: HttpRequest
@@ -3059,7 +3062,7 @@ class Accounting(View):
         if customer:
             criteria &= models.Q(customer_name__zem_name=customer)
 
-        #先判断权限，如果是初级审核应付账单权限，状态就是preport
+        # 先判断权限，如果是初级审核应付账单权限，状态就是preport
         order_pending = None
         pre_order_pending = None
         order = None
@@ -3075,7 +3078,7 @@ class Accounting(View):
                 )
                 .filter(
                     criteria,
-                    models.Q(  
+                    models.Q(
                         **{
                             "payable_status__stage": "preport",
                         }
@@ -3103,7 +3106,7 @@ class Accounting(View):
                 criteria,
                 payable_status__isnull=False,
             )
-        
+
         if not is_payable_check or request.user.is_staff:
             # 查找待录入账单（未操作过的）
             order = (
@@ -3147,7 +3150,9 @@ class Accounting(View):
                 criteria,
                 payable_status__isnull=False,
             )
-            previous_order = self.process_orders_display_status(previous_order, "payable")
+            previous_order = self.process_orders_display_status(
+                previous_order, "payable"
+            )
         groups = [group.name for group in request.user.groups.all()]
         if request.user.is_staff:
             groups.append("staff")
@@ -3156,7 +3161,7 @@ class Accounting(View):
             "order_form": OrderForm(),
             "previous_order": previous_order,
             "order_pending": order_pending,
-            "pre_order_pending":pre_order_pending,
+            "pre_order_pending": pre_order_pending,
             "start_date": start_date,
             "end_date": end_date,
             "customer": customer,
@@ -4575,8 +4580,10 @@ class Accounting(View):
         # 车架费计费时间查找
         arrive_at = order.retrieval_id.arrive_at
         lfd = order.retrieval_id.temp_t49_lfd
-        empty_returned_at = order.retrieval_id.empty_returned_at  #还空时间
-        actual_retrieval_timestamp = order.retrieval_id.actual_retrieval_timestamp  #提柜时间
+        empty_returned_at = order.retrieval_id.empty_returned_at  # 还空时间
+        actual_retrieval_timestamp = (
+            order.retrieval_id.actual_retrieval_timestamp
+        )  # 提柜时间
         arrive_date = None
         returned_date = None
         if lfd and arrive_at and empty_returned_at:
@@ -4625,7 +4632,7 @@ class Accounting(View):
                     # 否则，如果有入库拆柜费，那就是入库拆柜合并的费用
                     arrive_fee = invoice.payable_palletization
                 # 其他费用
-                pallet_other_fee = invoice.payable_surcharge.get("other_fee", 0) 
+                pallet_other_fee = invoice.payable_surcharge.get("other_fee", 0)
                 # 总费用
                 payable_total_amount = invoice.payable_total_amount
                 # 如果是驳回的账单，并且仓库是NJ的，可能需要重新填写拆柜费用，所以要去报价表找拆柜供应商
@@ -4705,7 +4712,7 @@ class Accounting(View):
                     arrive_fee = None
                     if pickup_details.get("arrive_warehouse") not in (None, "/"):
                         arrive_fee = pickup_details.get("arrive_warehouse")
-        
+
         context = {
             "warehouse": warehouse,
             "container_number": container_number,
@@ -4734,8 +4741,8 @@ class Accounting(View):
             "lfd": lfd or None,
             "arrive_date": arrive_date or None,
             "returned_date": returned_date or None,
-            "empty_returned_at":empty_returned_at,
-            "actual_retrieval_timestamp":actual_retrieval_timestamp,
+            "empty_returned_at": empty_returned_at,
+            "actual_retrieval_timestamp": actual_retrieval_timestamp,
         }
         return self.template_invoice_payable_edit, context
 
@@ -5863,7 +5870,6 @@ class Accounting(View):
             container_number__container_number=container_number
         ).exists()
 
-    
     def _validate_user_invoice_payable_check(self, user: User) -> bool:
         if user.is_staff or user.groups.filter(name="invoice_paybale_check").exists():
             return True

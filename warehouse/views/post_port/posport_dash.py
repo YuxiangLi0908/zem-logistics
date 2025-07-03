@@ -112,8 +112,8 @@ class PostportDash(View):
             elif destination:
                 pl_criteria = models.Q(destination=destination)
                 plt_criteria = models.Q(
-                    container_number__order__offload_id__offload_at__isnull=True, #如果是查预报的仓点，就不看板子，所以这里加了一个不成立的条件
-                    container_number__container_number='0'
+                    container_number__order__offload_id__offload_at__isnull=True,  # 如果是查预报的仓点，就不看板子，所以这里加了一个不成立的条件
+                    container_number__container_number="0",
                 )
             if not destination:
                 pl_criteria = criteria & models.Q(

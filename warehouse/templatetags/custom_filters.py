@@ -1,7 +1,7 @@
+import datetime
 from typing import Any
 
 from django import template
-import datetime
 
 register = template.Library()
 
@@ -44,8 +44,8 @@ def slice_filter(value, arg):
         return value
 
 
-@register.filter  
-#给月份加1
+@register.filter
+# 给月份加1
 def add_month(date):
     try:
         return date.replace(month=date.month + 1)
