@@ -884,12 +884,19 @@ class FleetManagement(View):
                     "shipment_batch_number__shipment_appointment",
                 )
                 .annotate(
-                    total_weight=Sum("pallet__weight_lbs"),
-                    total_cbm=Sum("pallet__cbm"),
-                    total_n_pallet=Count("pallet__pallet_id", distinct=True),
+                    total_weight=Round(Sum("total_weight_lbs", output_field=FloatField()), 2),
+                    total_cbm=Round(Sum("cbm", output_field=FloatField()), 2),
+                    total_n_pallet=Sum("cbm", output_field=FloatField()) / 2,
                 )
                 .order_by("-shipment_batch_number__shipment_appointment")
             )
+            for s in packing_list:
+                if s["total_n_pallet"] < 1:
+                    s["total_n_pallet"] = 1
+                elif s["total_n_pallet"] % 1 >= 0.45:
+                    s["total_n_pallet"] = int(s["total_n_pallet"] // 1 + 1)
+                else:
+                    s["total_n_pallet"] = int(s["total_n_pallet"] // 1)
             packing_list += await sync_to_async(list)(
                 Pallet.objects.select_related(
                     "container_number", "shipment_batch_number"
@@ -905,8 +912,8 @@ class FleetManagement(View):
                     "shipment_batch_number__shipment_appointment",
                 )
                 .annotate(
-                    total_weight=Sum("weight_lbs"),
-                    total_cbm=Sum("cbm"),
+                    total_weight=Round(Sum("weight_lbs", output_field=FloatField()), 2),
+                    total_cbm=Round(Sum("cbm", output_field=FloatField()), 2),
                     total_n_pallet=Count("pallet_id", distinct=True),
                 )
                 .order_by("-shipment_batch_number__shipment_appointment")
@@ -1051,6 +1058,35 @@ class FleetManagement(View):
                 pallet.append(pallet_data)
         else:
             pallet = await sync_to_async(list)(
+                PackingList.objects.select_related(
+                    "container_number", "shipment_batch_number", "pallet"
+                )
+                .filter(
+                    shipment_batch_number__fleet_number__fleet_number=fleet_number,
+                    container_number__order__offload_id__offload_at__isnull=True,
+                )
+                .values(
+                    "container_number__container_number",
+                    "destination",
+                    "shipment_batch_number__shipment_batch_number",
+                    "shipment_batch_number__shipment_appointment",
+                )
+                .annotate(
+                    total_weight=Round(Sum("total_weight_lbs", output_field=FloatField()), 2),
+                    total_cbm=Round(Sum("cbm", output_field=FloatField()), 2),
+                    total_n_pallet=Sum("cbm", output_field=FloatField()) / 2,
+                )
+                .order_by("-shipment_batch_number__shipment_appointment")
+            )
+            for s in pallet:
+                if s["total_n_pallet"] < 1:
+                    s["total_n_pallet"] = 1
+                elif s["total_n_pallet"] % 1 >= 0.45:
+                    s["total_n_pallet"] = int(s["total_n_pallet"] // 1 + 1)
+                else:
+                    s["total_n_pallet"] = int(s["total_n_pallet"] // 1)
+                s["total_n_pallet"] = f"EST {s['total_n_pallet']}"
+            pallet += await sync_to_async(list)(
                 Pallet.objects.select_related(
                     "container_number", "shipment_batch_number"
                 )
@@ -1065,18 +1101,18 @@ class FleetManagement(View):
                     "shipment_batch_number__shipment_appointment",
                 )
                 .annotate(
-                    total_weight=Sum("weight_lbs"),
-                    total_cbm=Sum("cbm"),
-                    total_n_pallet=Count("pallet_id", distinct=True),
+                    total_weight=Round(Sum("weight_lbs", output_field=FloatField()), 2),
+                    total_cbm=Round(Sum("cbm", output_field=FloatField()), 2),
+                    total_n_pallet=Cast(Count("pallet_id", distinct=True), output_field=CharField()),
                 )
                 .order_by("-shipment_batch_number__shipment_appointment")
             )
+            pallet.sort(key=lambda x: x.get("shipment_batch_number__shipment_appointment", ""), reverse=True)
             shipments = await sync_to_async(list)(
                 Shipment.objects.filter(
                     fleet_number__fleet_number=fleet_number
                 ).order_by("-shipment_appointment")
             )
-
             df = pd.DataFrame(pallet)
             if len(shipments) > 1:
                 total = len(shipments)  # 获取总数量
@@ -1094,7 +1130,7 @@ class FleetManagement(View):
                         "一提两卸",
                     ] = position
 
-                pallet = df.to_dict("records")
+                pallet = df.to_dict("records")            
         return pallet
 
     async def handle_fleet_departure_post(
