@@ -220,9 +220,7 @@ class PO(View):
                     for index, row in df.iterrows()
                 ]
             else:
-                print(
-                    "Either 'PRO' or 'is_valid' column is not present in the DataFrame."
-                )
+                raise ValueError(df.columns)
 
             for bol, mark, fba, ref, check_id, is_valid in data_pairs:
                 if bol:
