@@ -207,7 +207,7 @@ class PO(View):
         if form.is_valid():
             file = request.FILES["file"]
             df = self.read_csv_smart(file)
-            if "shipping_mark" in df.columns and "is_valid" in df.columns:
+            if "check_id" in df.columns and "is_valid" in df.columns:
                 data_pairs = [
                     (
                         row["BOL"],
