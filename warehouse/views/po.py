@@ -188,7 +188,7 @@ class PO(View):
 
         try:
             file.seek(0)
-            df = pd.read_csv(file, encoding=encoding)
+            df = pd.read_csv(file, encoding=encoding, sep="\t")
             return df
         except UnicodeDecodeError:
             encodings_to_try = ["utf-8", "gbk", "gb18030", "latin1"]
