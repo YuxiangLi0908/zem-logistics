@@ -2679,6 +2679,10 @@ class Accounting(View):
         invoice.receivable_total_amount = total_fee
         invoice.remain_offset = total_fee
         invoice.save()
+        
+        if not order.invoice_id:
+            order.invoice = invoice
+            order.save()
         save_type = request.POST.get("save_type")
         if save_type == "complete":  # 暂存的不改变状态
             receivable_status = order.receivable_status
