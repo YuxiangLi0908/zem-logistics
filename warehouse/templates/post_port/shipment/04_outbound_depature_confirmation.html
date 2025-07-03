@@ -198,14 +198,14 @@
                     <i class="bi bi-cloud-arrow-down-fill"></i>
                 </button>
                 <button id="editButton" type="button" class="btn btn-primary" onclick="editBOL(this, '{{ batch_number }}')" style="font-size: 11px;">编辑</button>
-                <div class="popup-{{ batch_number }}" style="display: none; z-index:999; position: fixed; top: 50%; left: 50%; transform: translate(-50%, -50%); background-color: white; border: 1px solid gray; padding: 20px; max-height: 80vh; width: 80%; overflow-y: auto;">
+                <div class="popup-{{ batch_number }}" style="display: none; z-index:999; position: fixed; top: 20px; left: 50%; transform: translateX(-50%); background-color: white; border: 1px solid gray; padding: 15px; max-height: calc(100vh - 40px); width: 90%; overflow: auto;">
                     <div style="text-align:right;">
                         <button type="button" id="add-more-btn" class="btn btn-success" style="height: 35px; font-size: 12px; margin: 5px;" onclick="addRowBelow('BOL','{{ batch_number }}')">
                             <i class="bi bi-plus-lg"></i> 添加行
                         </button>
                         <button type="button" id="add-more-btn" class="btn btn-success" style="height: 35px; font-size: 12px; margin: 5px;" onclick="editTable('BOL', true, '{{ batch_number }}')">编辑</button>
                     </div>
-                    <table style=" margin: 10px; padding: 100px;" cellpadding='15' id="BOL-container-{{ batch_number }}">
+                    <table style="width: 100%; margin: 0; padding: 10px; border-collapse: collapse;" cellpadding='15' id="BOL-container-{{ batch_number }}">
                         <thead>                       
                             <th class="th" style="text-align: center; border: 1px solid #141414">Container</th>
                             <th class="th" style="text-align: center; border: 1px solid #141414">Shipment ID</th>
