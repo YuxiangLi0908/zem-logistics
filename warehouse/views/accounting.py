@@ -1246,7 +1246,7 @@ class Accounting(View):
             models.Q(order_type="转运") | models.Q(order_type="转运组合"),
             **{f"{invoice_type}_status__stage": "tobeconfirmed"},
         )
-
+        
         if invoice_type == "receivable":
             previous_order = (
                 Order.objects.select_related(
@@ -2681,7 +2681,7 @@ class Accounting(View):
         invoice.save()
         
         if not order.invoice_id:
-            order.invoice = invoice
+            order.invoice_id = invoice
             order.save()
         save_type = request.POST.get("save_type")
         if save_type == "complete":  # 暂存的不改变状态
@@ -3181,10 +3181,10 @@ class Accounting(View):
         container_number = request.GET.get("container_number")
         start_date_confirm = request.GET.get("start_date_confirm")
         end_date_confirm = request.GET.get("end_date_confirm")
-        invoice_type = request.GET.get("invoice_type")
+        invoice_type = request.GET.get("invoice_type")     
         invoice = Invoice.objects.get(
             container_number__container_number=container_number
-        )
+        )     
         order = Order.objects.select_related("container_number").get(
             container_number__container_number=container_number
         )
