@@ -3181,15 +3181,13 @@ class Accounting(View):
         container_number = request.GET.get("container_number")
         start_date_confirm = request.GET.get("start_date_confirm")
         end_date_confirm = request.GET.get("end_date_confirm")
-        invoice_type = request.GET.get("invoice_type")
+        invoice_type = request.GET.get("invoice_type")     
+        invoice = Invoice.objects.get(
+            container_number__container_number=container_number
+        )     
         order = Order.objects.select_related("container_number").get(
             container_number__container_number=container_number
         )
-        invoice = Invoice.objects.get(
-            container_number__container_number=container_number
-        )
-        
-        
         if invoice_type == "receivable":
             invoice_preports = InvoicePreport.objects.get(
                 invoice_number__invoice_number=invoice.invoice_number,
