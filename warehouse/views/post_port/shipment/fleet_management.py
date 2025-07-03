@@ -1005,7 +1005,7 @@ class FleetManagement(View):
         context = {
             "warehouse": warehouse_obj.address,
             "batch_number": batch_number,
-            "fleet_number": shipment.fleet_number.fleet_number,
+            "fleet_number": shipment.fleet_number.fleet_number if shipment.fleet_number else None,
             "shipment": shipment,
             "packing_list": packing_list,
             "pallet": pallet,
