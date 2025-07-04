@@ -1130,8 +1130,28 @@ class FleetManagement(View):
                         "一提两卸",
                     ] = position
 
-                pallet = df.to_dict("records")            
-        return pallet
+                pallet = df.to_dict("records")  
+        processed_pallet = [] 
+        prev_destination = None
+        for item in pallet:
+            current_destination = item.get("destination")
+            if prev_destination is not None and current_destination != prev_destination:
+                # 插入空行（创建一个包含所有必要字段的空字典）
+                empty_row = {
+                    "container_number__container_number": "  ",
+                    "destination": "  ",
+                    "total_cbm": "       ——",
+                    "total_n_pallet": "  ",
+                    "shipment_batch_number__shipment_batch_number": "  ",
+                    "shipment_batch_number__shipment_appointment": "  ",
+                    "一提两卸": "  ",
+                    "is_spacer": True,
+                    "force_text": True 
+                }
+                processed_pallet.append(empty_row)
+            processed_pallet.append(item)
+            prev_destination = current_destination         
+        return processed_pallet
 
     async def handle_fleet_departure_post(
         self, request: HttpRequest
