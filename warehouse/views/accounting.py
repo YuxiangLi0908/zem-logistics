@@ -3848,6 +3848,7 @@ class Accounting(View):
         }
         base_fee = 0.0
         price_display = matched_regions["price_display"]
+        price_display_new = None
         if not is_mix:
             # 单一区域情况
             if len(matched_regions["price_display"]) == 1:
@@ -3886,6 +3887,12 @@ class Accounting(View):
                     }
                     for region, data in price_display.items()
                 ]
+        if not price_display_new:
+            container.account_order_type = "转运"
+            container.save()
+            reason = "混区不符合规定"
+            context["reason"] = reason
+            return self.template_invoice_combina_edit, context
         # 7.3 检查超限情况
         # 超重检查
         if plts["total_weight"] > stipulate["global_rules"]["weight_limit"]["default"]:
