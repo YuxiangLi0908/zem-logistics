@@ -2282,7 +2282,7 @@ class Accounting(View):
             )
         invoice_status.stage = "confirmed"
         invoice_status.save()
-
+        
         context = self._parse_invoice_excel_data(order, invoice, invoice_type)
         workbook, invoice_data = self._generate_invoice_excel(context)
         invoice.invoice_date = invoice_data["invoice_date"]
@@ -5694,93 +5694,95 @@ class Accounting(View):
                 qty.append(1)
                 rate.append(v)
                 note.append("")
-        elif (
-            order.container_number.account_order_type == "转运组合"
-        ):  # 组合柜就从invoiceItem表找就行了，转运的才去三个表找
-            invoice_item = InvoiceItem.objects.filter(
-                invoice_number__invoice_number=invoice.invoice_number
-            )
-            for item in invoice_item:
-                description.append(item.description)
-                warehouse_code.append(item.warehouse_code)
-                cbm.append(item.cbm)
-                weight.append(item.weight)
-                qty.append(item.qty)
-                rate.append(item.rate)
-                amount.append(item.amount)
-                note.append(item.note)
-        else:
-            invoice_preport = InvoicePreport.objects.get(
-                invoice_number__invoice_number=invoice.invoice_number,
-                invoice_type=invoice_type,
-            )
-            invoice_warehouse = InvoiceWarehouse.objects.filter(
-                invoice_number__invoice_number=invoice.invoice_number
-            )
-            invoice_delivery = InvoiceDelivery.objects.filter(
-                invoice_number__invoice_number=invoice.invoice_number
-            )
+        else:       
+            if (order.order_type != "转运" and order.container_number.account_order_type == "转运组合"):
+                # 组合柜就从invoiceItem表找就行了，转运的才去三个表找
+                invoice_item = InvoiceItem.objects.filter(
+                    invoice_number__invoice_number=invoice.invoice_number
+                )
+                if invoice_item is None:
+                    raise ValueError("缺少账单明细表")                   
+                for item in invoice_item:
+                    description.append(item.description)
+                    warehouse_code.append(item.warehouse_code)
+                    cbm.append(item.cbm)
+                    weight.append(item.weight)
+                    qty.append(item.qty)
+                    rate.append(item.rate)
+                    amount.append(item.amount)
+                    note.append(item.note)
+            else:
+                invoice_preport = InvoicePreport.objects.get(
+                    invoice_number__invoice_number=invoice.invoice_number,
+                    invoice_type=invoice_type,
+                )
+                invoice_warehouse = InvoiceWarehouse.objects.filter(
+                    invoice_number__invoice_number=invoice.invoice_number
+                )
+                invoice_delivery = InvoiceDelivery.objects.filter(
+                    invoice_number__invoice_number=invoice.invoice_number
+                )
 
-            for field in invoice_preport._meta.fields:
-                if isinstance(field, models.FloatField) and field.name != "amount":
-                    value = getattr(invoice_preport, field.name)
-                    if value not in [None, 0]:
-                        description.append(field.verbose_name)
-                        warehouse_code.append("")
-                        cbm.append("")
-                        weight.append("")
-                        qty.append(invoice_preport.qty[field.name])
-                        rate.append(invoice_preport.rate[field.name])
-                        amount.append(value)
-                        note.append("")
-            for k, v in invoice_preport.other_fees.items():
-                if v not in [None, 0]:
-                    description.append(k)
-                    amount.append(v)
-                    warehouse_code.append("")
-                    cbm.append("")
-                    weight.append("")
-                    qty.append(1)
-                    rate.append(v)
-                    note.append("")
-            for warehouse in invoice_warehouse:
-                for field in warehouse._meta.fields:
+                for field in invoice_preport._meta.fields:
                     if isinstance(field, models.FloatField) and field.name != "amount":
-                        value = getattr(warehouse, field.name)
+                        value = getattr(invoice_preport, field.name)
                         if value not in [None, 0]:
                             description.append(field.verbose_name)
                             warehouse_code.append("")
                             cbm.append("")
                             weight.append("")
-                            qty.append(warehouse.qty[field.name])
-                            rate.append(warehouse.rate[field.name])
+                            qty.append(invoice_preport.qty[field.name])
+                            rate.append(invoice_preport.rate[field.name])
                             amount.append(value)
                             note.append("")
-            for warehouse in invoice_warehouse:
-                for k, v in warehouse.other_fees.items():
+                for k, v in invoice_preport.other_fees.items():
                     if v not in [None, 0]:
                         description.append(k)
+                        amount.append(v)
                         warehouse_code.append("")
                         cbm.append("")
                         weight.append("")
                         qty.append(1)
                         rate.append(v)
-                        amount.append(v)
                         note.append("")
-            for delivery in invoice_delivery:
-                if delivery.total_cost is None:
-                    raise ValueError("派送费为空")
-                description.append("派送费")
-                warehouse_code.append(delivery.destination.upper())
-                cbm.append(delivery.total_cbm)
-                weight.append(delivery.total_weight_lbs)
-                qty.append(delivery.total_pallet)
-                amount.append(delivery.total_cost)
-                note.append("")
-                try:
-                    rate.append(int(delivery.total_cost / delivery.total_pallet))
-                except:
-                    rate.append("")
+                for warehouse in invoice_warehouse:
+                    for field in warehouse._meta.fields:
+                        if isinstance(field, models.FloatField) and field.name != "amount":
+                            value = getattr(warehouse, field.name)
+                            if value not in [None, 0]:
+                                description.append(field.verbose_name)
+                                warehouse_code.append("")
+                                cbm.append("")
+                                weight.append("")
+                                qty.append(warehouse.qty[field.name])
+                                rate.append(warehouse.rate[field.name])
+                                amount.append(value)
+                                note.append("")
+                for warehouse in invoice_warehouse:
+                    for k, v in warehouse.other_fees.items():
+                        if v not in [None, 0]:
+                            description.append(k)
+                            warehouse_code.append("")
+                            cbm.append("")
+                            weight.append("")
+                            qty.append(1)
+                            rate.append(v)
+                            amount.append(v)
+                            note.append("")
+                for delivery in invoice_delivery:
+                    if delivery.total_cost is None:
+                        raise ValueError("派送费为空")
+                    description.append("派送费")
+                    warehouse_code.append(delivery.destination.upper())
+                    cbm.append(delivery.total_cbm)
+                    weight.append(delivery.total_weight_lbs)
+                    qty.append(delivery.total_pallet)
+                    amount.append(delivery.total_cost)
+                    note.append("")
+                    try:
+                        rate.append(int(delivery.total_cost / delivery.total_pallet))
+                    except:
+                        rate.append("")
         context = {
             "order": order,
             "container_number": order.container_number.container_number,
