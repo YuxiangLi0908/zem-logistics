@@ -2271,15 +2271,9 @@ class Accounting(View):
             container_number__container_number=container_number
         )
         # 更新状态
-        invoice_type = request.POST.get("invoice_type")
-        if invoice_type == "receivable":
-            invoice_status = InvoiceStatus.objects.get(
-                container_number=order.container_number, invoice_type="receivable"
-            )
-        elif invoice_type == "payable":
-            invoice_status = InvoiceStatus.objects.get(
-                container_number=order.container_number, invoice_type="payable"
-            )
+        invoice_status = InvoiceStatus.objects.get(
+            container_number=order.container_number, invoice_type="receivable"
+        )
         invoice_status.stage = "confirmed"
         invoice_status.save()
         
@@ -3072,7 +3066,7 @@ class Accounting(View):
         previous_order = None
 
         is_payable_check = self._validate_user_invoice_payable_check(request.user)
-        if is_payable_check:
+        if is_payable_check:  #审核应付看到的
             order_pending = (
                 Order.objects.select_related(
                     "customer_name",
