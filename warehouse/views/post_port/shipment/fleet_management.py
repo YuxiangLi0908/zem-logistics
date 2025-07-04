@@ -1009,6 +1009,8 @@ class FleetManagement(View):
         )
         # 最后一页加上拣货单:
         pallet = await self.pickupList_get(pickupList, fleet_number)
+        if not shipment.fleet_number:
+            raise ValueError('该约未排车')
         context = {
             "warehouse": warehouse_obj.address,
             "batch_number": batch_number,
