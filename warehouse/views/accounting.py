@@ -2282,6 +2282,7 @@ class Accounting(View):
             )
         invoice_status.stage = "confirmed"
         invoice_status.save()
+        
         context = self._parse_invoice_excel_data(order, invoice, invoice_type)
         workbook, invoice_data = self._generate_invoice_excel(context)
         invoice.invoice_date = invoice_data["invoice_date"]
