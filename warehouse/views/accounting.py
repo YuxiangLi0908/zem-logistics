@@ -2283,10 +2283,10 @@ class Accounting(View):
         invoice_status.stage = "confirmed"
         invoice_status.save()
         context = self._parse_invoice_excel_data(order, invoice, invoice_type)
-        #workbook, invoice_data = self._generate_invoice_excel(context)
-        #invoice.invoice_date = invoice_data["invoice_date"]
+        workbook, invoice_data = self._generate_invoice_excel(context)
+        invoice.invoice_date = invoice_data["invoice_date"]
         if invoice_type == "receivable":
-            #invoice.invoice_link = invoice_data["invoice_link"]
+            invoice.invoice_link = invoice_data["invoice_link"]
             if order.order_type == "直送":
                 invoice.receivable_total_amount = float(
                     invoice.receivable_direct_amount or 0
