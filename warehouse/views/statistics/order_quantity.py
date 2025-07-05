@@ -489,11 +489,11 @@ class OrderQuantity(View):
                 'profit': profit_per_container,
                 'profit_margin': profit_margin
             })
-        if profit_values:
+        if profit_values and len(profit_values) > 1:
             max_profit = max(profit_values)
             min_profit = min(profit_values)
         else:
-            max_profit = min_profit
+            max_profit = min_profit = 0
         #总利润率
         total_profit_margin = (total_profit / total_income * 100) if total_income else 0
         preport_profit_margin = (total_preport_receivable - total_preport_payable)/total_preport_receivable
