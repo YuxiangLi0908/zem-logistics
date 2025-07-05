@@ -101,6 +101,7 @@
                         <a class="nav-link">报表汇总</a>
                         <div class="dropdown-content">
                             <a href="{% url 'order_statistics' %}" target="_blank">订单量统计</a>
+                            <a href="{% url 'order_statistics' %}?step=profit_analysis" target="_blank">订单利润统计</a>
                             <a href="{% url 'order_statistics' %}?step=historical_query" target="_blank">历史操作查询</a>
                         </div>
                     </div>

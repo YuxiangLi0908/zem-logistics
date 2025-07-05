@@ -5,7 +5,9 @@
 {% load static custom_floor_division %}
 
 {% block content %}
-<div style="margin-right: 10px;"><b>订单量统计</b></div>
+    <h2 class="page-title">
+        订单量统计
+    </h2>
 <div style="display: flex;">
     <form method="post" action="" onsubmit="showLoadingBar()">
         {% csrf_token %}
@@ -136,6 +138,18 @@
     </div>
 </div>
 {% endif %}
+
+<style>   
+    .page-title {
+        color: #000000;
+        font-size: 22px;
+        font-weight: 700; 
+        margin: 20px 0 15px 0;
+        text-align: left;
+        letter-spacing: 1px;
+        text-shadow: 1px 1px 3px rgba(0,0,0,0.1); 
+    }
+</style>
 
 <script>
     const { Chart, ChartDataLabels } = window;

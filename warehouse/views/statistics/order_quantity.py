@@ -9,8 +9,8 @@ from asgiref.sync import sync_to_async
 from dateutil.relativedelta import relativedelta
 from django.apps import apps
 from django.contrib.auth.models import User
-from django.db.models import Count, Q
-from django.db.models.functions import TruncMonth
+from django.db.models import Count, Q, Sum, FloatField, Case, When
+from django.db.models.functions import TruncMonth, Cast
 from django.http import Http404, HttpRequest, HttpResponse, HttpResponseForbidden
 from django.shortcuts import render
 from django.views import View
@@ -26,6 +26,7 @@ from warehouse.utils.constants import MODEL_CHOICES
 class OrderQuantity(View):
     template_shipment = "statistics/order_quantity.html"
     template_historical = "statistics/historical.html"
+    template_profit = "statistics/profit.html"
     area_options = {"NJ": "NJ", "SAV": "SAV", "LA": "LA"}
 
     async def get(self, request: HttpRequest, **kwargs) -> HttpResponse:
@@ -38,6 +39,19 @@ class OrderQuantity(View):
             context = {"model_choices": MODEL_CHOICES}
             return await sync_to_async(render)(
                 request, self.template_historical, context
+            )
+        elif step == "profit_analysis":
+            if not await self._validate_user_manage(request.user):
+                return HttpResponseForbidden(
+                    "You are not authenticated to access this page!"
+                )      
+            customers = await sync_to_async(list)(Customer.objects.all())
+            customers = {c.zem_name: c.id for c in customers}
+            customers["----"] = None
+            customers = {"----": None, **customers}
+            context = {"area_options": self.area_options, "customers": customers}
+            return await sync_to_async(render)(
+                request, self.template_profit, context
             )
         else:
             if not await self._validate_user_group(request.user):
@@ -59,6 +73,9 @@ class OrderQuantity(View):
             return await sync_to_async(render)(request, template, context)
         elif step == "historical_selection":
             template, context = await self.handle_order_historical_get(request)
+            return await sync_to_async(render)(request, template, context)
+        elif step == "profit_selection":
+            template, context = await self.handle_order_profit_get(request)
             return await sync_to_async(render)(request, template, context)
 
     async def handle_order_historical_get(
@@ -334,7 +351,7 @@ class OrderQuantity(View):
         else:
             return f"{'已' if new_value else '未'}{field_name_cn}"
 
-    async def handle_order_quantity_get(
+    async def handle_order_profit_get(
         self, request: HttpRequest
     ) -> tuple[str, dict[str, Any]]:
         start_date = request.POST.get("start_date")
@@ -358,6 +375,139 @@ class OrderQuantity(View):
         customer_idlist = request.POST.getlist("customer")
         warehouse_list = request.POST.getlist("warehouse")
 
+        date_type = request.POST.get("date_type")
+
+        if date_type == "eta":
+            criteria = Q(
+                Q(vessel_id__vessel_eta__gte=start_date),
+                Q(vessel_id__vessel_eta__lte=end_date),
+                ~Q(order_type="直送"),
+            )
+        else:
+            criteria = Q(
+                Q(vessel_id__vessel_etd__gte=start_date),
+                Q(vessel_id__vessel_etd__lte=end_date),
+                ~Q(order_type="直送"),
+            )
+        if warehouse_list:
+            criteria &= Q(
+                retrieval_id__retrieval_destination_area__in=warehouse_list
+            )
+        if customer_idlist:
+            customer_list = await sync_to_async(list)(
+                Customer.objects.filter(id__in=customer_idlist).values("zem_name")
+            )
+            customer_idlist = [item["zem_name"] for item in customer_list]
+            criteria &= Q(customer_name__zem_name__in=customer_idlist)
+        orders = await sync_to_async(list)(
+            Order.objects.select_related("customer_name", "warehouse", "retrieval_id")
+            .filter(criteria)
+            .annotate(count=Count("id"))
+        )
+        container_numbers = await sync_to_async(lambda: [
+            order.container_number.container_number 
+            for order in orders 
+            if order.container_number
+        ])()
+
+        invoices = await sync_to_async(list)(
+            Invoice.objects.filter(container_number__container_number__in=container_numbers)
+            .values('container_number__container_number')
+            .annotate(
+                preport_receivable=Sum(Cast('receivable_preport_amount', FloatField())),
+                warehouse_fee=Sum(Cast('receivable_warehouse_amount', FloatField())),
+                delivery_fee=Sum(Cast('receivable_delivery_amount', FloatField())),
+                total_income=Sum(Cast('receivable_total_amount', FloatField())),
+                port_payable=Sum(Cast('payable_total_amount', FloatField()))
+            )
+        )
+        
+        invoice_dict = {inv['container_number__container_number']: inv for inv in invoices}
+        results = []
+        total_income = 0
+        total_expense = 0
+        total_profit = 0
+        profit_values = []
+        for order in orders:
+            if not order.container_number:
+                continue
+                
+            container_number = order.container_number.container_number
+            customer_name = order.customer_name.zem_name
+            invoice_data = invoice_dict.get(container_number, {})
+            
+            preport_receivable = invoice_data.get('preport_receivable', 0) or 0
+            warehouse_fee = invoice_data.get('warehouse_fee', 0) or 0
+            delivery_fee = invoice_data.get('delivery_fee', 0) or 0
+            port_payable = invoice_data.get('port_payable', 0) or 0
+            
+            total_income_per_container = preport_receivable + warehouse_fee + delivery_fee
+            total_expense_per_container = port_payable
+            profit_per_container = total_income_per_container - total_expense_per_container
+            profit_margin = (profit_per_container / total_income_per_container * 100) if total_income_per_container else 0
+            
+            total_income += total_income_per_container
+            total_expense += total_expense_per_container
+            total_profit += profit_per_container
+            profit_values.append(profit_per_container)
+            
+            results.append({
+                'container_number': container_number,  
+                "customer_name":customer_name,           
+                'preport_receivable': preport_receivable,
+                'port_payable': port_payable,
+                'warehouse_fee': warehouse_fee,
+                'delivery_fee': delivery_fee,
+                'total_income': total_income_per_container,
+                'total_expense': total_expense_per_container,
+                'profit': profit_per_container,
+                'profit_margin': profit_margin
+            })
+        if profit_values:
+            max_profit = max(profit_values)
+            min_profit = min(profit_values)
+            avg_profit_margin = sum(r['profit_margin'] for r in results) / len(results) if results else 0
+        else:
+            max_profit = min_profit = avg_profit_margin = 0
+        total_profit_margin = (total_profit / total_income * 100) if total_income else 0
+        context = {
+            'results': results,
+            'total_income': total_income,
+            'total_expense': total_expense,
+            'total_profit': total_profit,
+            'profit_margin': total_profit_margin,
+            'customers': customers,
+            "warehouse_list":warehouse_list,
+            "area_options": self.area_options,
+            'max_profit': max_profit,
+            'min_profit': min_profit,
+            'avg_profit_margin': avg_profit_margin,
+        }
+        return self.template_profit,context
+
+    async def handle_order_quantity_get(
+        self, request: HttpRequest
+    ) -> tuple[str, dict[str, Any]]:
+        start_date = request.POST.get("start_date")
+        end_date = request.POST.get("end_date")
+        today = datetime.today()
+        six_months_ago_first_day = (today + relativedelta(months=-6)).replace(day=1)
+        last_month_last_day = today + relativedelta(months=-1, day=31)
+
+        start_date = (
+            six_months_ago_first_day.strftime("%Y-%m-%d")
+            if not start_date
+            else start_date
+        )
+        end_date = (
+            last_month_last_day.strftime("%Y-%m-%d") if not end_date else end_date
+        )
+
+        customers = await sync_to_async(
+            lambda: {"----": None, **{c.zem_name: c.id for c in Customer.objects.all()}}
+        )()
+        customer_idlist = request.POST.getlist("customer")
+        warehouse_list = request.POST.getlist("warehouse")
         order_type = request.POST.get("order_type")
         date_type = request.POST.get("date_type")
         trunc_m = "vessel_id__vessel_eta" if date_type == "eta" else "created_at"
