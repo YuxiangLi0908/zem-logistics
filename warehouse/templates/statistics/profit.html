@@ -147,8 +147,8 @@
                         <td class="text-right summary-col highlight-expense">${{ container.total_expense|floatformat:2 }}</td>
                         <td class="text-right summary-col highlight-profit profit-value" 
                             data-profit="{{ container.profit }}"
-                            {% if max_profit != 0 and if container.profit == max_profit %}max-profit-cell{% endif %}
-                            {% if min_profit != 0 and if container.profit == min_profit %}min-profit-cell{% endif %}>
+                            {% if max_profit != 0 and container.profit == max_profit %}max-profit-cell{% endif %}
+                            {% if min_profit != 0 and container.profit == min_profit %}min-profit-cell{% endif %}>
                             ${{ container.profit|floatformat:2 }}
                         </td>
                         <td class="text-right summary-col highlight-margin margin-value" data-margin="{{ container.profit_margin }}">{{ container.profit_margin|floatformat:2 }}%</td>

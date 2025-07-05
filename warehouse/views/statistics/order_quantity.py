@@ -499,7 +499,7 @@ class OrderQuantity(View):
         if total_preport_receivable != 0:
             preport_profit_margin = (total_preport_receivable - total_preport_payable)/total_preport_receivable
         else:
-            preport_profit_margin = O
+            preport_profit_margin = 0
         delivery_profit_margin = 0
         context = {
             'results': results,
@@ -514,6 +514,9 @@ class OrderQuantity(View):
             "area_options": self.area_options,
             'max_profit': max_profit,
             'min_profit': min_profit,
+            "start_date": start_date,
+            "end_date": end_date,
+            "date_type": date_type,
         }
         return self.template_profit,context
 
