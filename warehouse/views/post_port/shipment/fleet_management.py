@@ -1081,13 +1081,7 @@ class FleetManagement(View):
                 .order_by("-shipment_batch_number__shipment_appointment")
             )
             for s in pallet:
-                if s["total_n_pallet"] < 1:
-                    s["total_n_pallet"] = 1
-                elif s["total_n_pallet"] % 1 >= 0.45:
-                    s["total_n_pallet"] = int(s["total_n_pallet"] // 1 + 1)
-                else:
-                    s["total_n_pallet"] = int(s["total_n_pallet"] // 1)
-                s["total_n_pallet"] = f"EST {s['total_n_pallet']}"
+                s["total_n_pallet"] = round(s["total_cbm"] / 2)
             pallet += await sync_to_async(list)(
                 Pallet.objects.select_related(
                     "container_number", "shipment_batch_number"
