@@ -91,7 +91,13 @@
                     <div style="flex: 1; padding-left: 10px; display: flex; flex-direction: column; justify-content: center;">
                         <div style="margin-bottom: 8px;">
                             <div style="font-size: 12px; color: #666;">港前利润率</div>
-                            <div class="card-value" style="font-size: 16px;">{{ preport_profit_margin|floatformat:2 }}%</div>
+                            <div class="card-value" style="font-size: 16px;">
+                                {% if preport_profit_margin == 0 %}
+                                    缺少数据
+                                {% else %}
+                                    {{ preport_profit_margin|floatformat:2 }}%
+                                {% endif %}
+                            </div>
                         </div>
                         <div>
                             <div style="font-size: 12px; color: #666;">港后利润率</div>
