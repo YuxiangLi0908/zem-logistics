@@ -401,7 +401,7 @@ class OrderQuantity(View):
             customer_idlist = [item["zem_name"] for item in customer_list]
             criteria &= Q(customer_name__zem_name__in=customer_idlist)
         #展示财务确认的账单
-        criteria &= Q(payable_status__stage="confirmed")
+        criteria &= Q(receivable_status__stage="confirmed")
         orders = await sync_to_async(list)(
             Order.objects.select_related("customer_name", "warehouse", "retrieval_id","payable_status")
             .filter(criteria)
