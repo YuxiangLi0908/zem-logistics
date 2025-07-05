@@ -82,8 +82,23 @@
                 <div class="card-value">${{ total_profit|floatformat:2 }}</div>           
             </div>
             <div class="summary-card avg-margin">
-                <div class="card-label">平均利润率</div>
-                <div class="card-value">{{ avg_profit_margin|floatformat:2 }}%</div>
+                <div style="display: flex; height: 100%;">
+                    <div style="flex: 1; border-right: 1px dashed #FFC107; padding-right: 10px; display: flex; flex-direction: column; justify-content: center;">
+                        <div class="card-label">平均利润率</div>
+                        <div class="card-value">{{ total_profit_margin|floatformat:2 }}%</div>
+                    </div>
+                    
+                    <div style="flex: 1; padding-left: 10px; display: flex; flex-direction: column; justify-content: center;">
+                        <div style="margin-bottom: 8px;">
+                            <div style="font-size: 12px; color: #666;">港前利润率</div>
+                            <div class="card-value" style="font-size: 16px;">{{ preport_profit_margin|floatformat:2 }}%</div>
+                        </div>
+                        <div>
+                            <div style="font-size: 12px; color: #666;">港后利润率</div>
+                            <div class="card-value" style="font-size: 16px;">{{ delivery_profit_margin|floatformat:2 }}%</div>
+                        </div>
+                    </div>
+                </div>
             </div>
         </div>
     </div>
@@ -119,7 +134,7 @@
                         <td class="container-number">{{ container.container_number }}</td>
                         <td>{{ container.customer_name }}</td>
                         <td class="text-right">${{ container.preport_receivable|floatformat:2 }}</td>
-                        <td class="text-right expense">${{ container.port_payable|floatformat:2 }}</td>
+                        <td class="text-right expense">${{ container.preport_payable|floatformat:2 }}</td>
                         <td class="text-right">${{ container.warehouse_fee|floatformat:2 }}</td>
                         <td class="text-right">${{ container.delivery_fee|floatformat:2 }}</td>
                         <td class="text-right summary-col highlight-income">${{ container.total_income|floatformat:2 }}</td>
@@ -359,6 +374,14 @@
     .avg-margin {
         background: linear-gradient(135deg, #fff8e1, #ffecb3);
         border-left: 4px solid #FFC107;
+        display: flex;
+        flex-direction: column;
+    }
+
+    .card-value {
+        font-size: 18px;
+        font-weight: 700;
+        margin: 4px 0;
     }
     .summary-card:hover {
         transform: translateY(-5px);   
@@ -389,12 +412,6 @@
         font-weight: 600;
         color: #555;
         margin-bottom: 10px;   
-    }
-    
-    .card-value {
-        font-size: 24px;
-        font-weight: 700;
-        margin-bottom: 5px;   
     }
     
     .card-currency {
