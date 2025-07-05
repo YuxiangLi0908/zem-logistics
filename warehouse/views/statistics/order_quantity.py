@@ -496,7 +496,10 @@ class OrderQuantity(View):
             max_profit = min_profit = 0
         #总利润率
         total_profit_margin = (total_profit / total_income * 100) if total_income else 0
-        preport_profit_margin = (total_preport_receivable - total_preport_payable)/total_preport_receivable
+        if total_preport_receivable != 0:
+            preport_profit_margin = (total_preport_receivable - total_preport_payable)/total_preport_receivable
+        else:
+            preport_profit_margin = O
         delivery_profit_margin = 0
         context = {
             'results': results,
