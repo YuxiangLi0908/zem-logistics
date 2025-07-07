@@ -3087,8 +3087,7 @@ class Accounting(View):
             )
             .order_by("reject_priority")
         )
-        # 查找客服已录入账单
-        
+            
         # 先判断权限，如果是初级审核应付账单权限，状态就是preport
         order_pending = None
         pre_order_pending = None     
@@ -3134,7 +3133,7 @@ class Accounting(View):
             )
 
         if not is_payable_check or request.user.is_staff:
-            # 查找待录入账单（未操作过的）
+            # 查找客服已录入账单
             previous_order = Order.objects.select_related(
                 "customer_name",
                 "container_number",
