@@ -9,7 +9,7 @@
             <b style="margin-right: 5px;">供应商:</b>
             <select name="preport_carrier" id="preport-carrier-select" style="font-size: 13px;">
                 {% for k, v in preport_carrier %}
-                <option value="{{ v }}">{{ k }}</option>
+                <option value="{{ v }}" {% if k == preport_carrier_filter %}selected{% endif %}>{{ k }}</option>
                 {% endfor %}
             </select>
             <b style="margin-right: 5px;">客户:</b>
