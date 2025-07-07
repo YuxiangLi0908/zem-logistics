@@ -3060,11 +3060,38 @@ class Accounting(View):
             criteria &= ~models.Q(order_type="直送")
         if customer:
             criteria &= models.Q(customer_name__zem_name=customer)
-
+        #待录入的订单
+        order = (
+            Order.objects.select_related(
+                "invoice_id",
+                "customer_name",
+                "container_number",
+                "invoice_id__statement_id",
+            )
+            .filter(
+                criteria,
+                models.Q(**{"payable_status__isnull": True})
+                | models.Q(  # 考虑账单编辑点的是暂存的情况
+                    **{
+                        "payable_status__invoice_type": "payable",
+                        "payable_status__stage": "unstarted",
+                    }
+                ),
+            )
+            .annotate(
+                reject_priority=Case(
+                    When(payable_status__is_rejected=True, then=Value(1)),
+                    default=Value(2),
+                    output_field=IntegerField(),
+                )
+            )
+            .order_by("reject_priority")
+        )
+        # 查找客服已录入账单
+        
         # 先判断权限，如果是初级审核应付账单权限，状态就是preport
         order_pending = None
-        pre_order_pending = None
-        order = None
+        pre_order_pending = None     
         previous_order = None
 
         is_payable_check = self._validate_user_invoice_payable_check(request.user)
@@ -3108,33 +3135,6 @@ class Accounting(View):
 
         if not is_payable_check or request.user.is_staff:
             # 查找待录入账单（未操作过的）
-            order = (
-                Order.objects.select_related(
-                    "invoice_id",
-                    "customer_name",
-                    "container_number",
-                    "invoice_id__statement_id",
-                )
-                .filter(
-                    criteria,
-                    models.Q(**{"payable_status__isnull": True})
-                    | models.Q(  # 考虑账单编辑点的是暂存的情况
-                        **{
-                            "payable_status__invoice_type": "payable",
-                            "payable_status__stage": "unstarted",
-                        }
-                    ),
-                )
-                .annotate(
-                    reject_priority=Case(
-                        When(payable_status__is_rejected=True, then=Value(1)),
-                        default=Value(2),
-                        output_field=IntegerField(),
-                    )
-                )
-                .order_by("reject_priority")
-            )
-            # 查找已录入账单
             previous_order = Order.objects.select_related(
                 "customer_name",
                 "container_number",
