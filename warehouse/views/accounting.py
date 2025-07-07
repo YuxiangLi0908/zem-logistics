@@ -2687,6 +2687,9 @@ class Accounting(View):
         status = request.POST.get("status")
         start_date_confirm = request.POST.get("start_date_confirm")
         end_date_confirm = request.POST.get("end_date_confirm")
+        start_date = request.POST.get("start_date")
+        end_date = request.POST.get("end_date")
+        
         reject_reason = request.POST.get("reject_reason")
         order = Order.objects.select_related("container_number").get(
             container_number__container_number=container_number
@@ -2703,7 +2706,7 @@ class Accounting(View):
             )
         invoice_status.stage = status
         if status == "warehouse":
-            delivery_type = container_number = request.POST.get("delivery_type")
+            delivery_type = request.POST.get("delivery_type")
             if delivery_type == "public":
                 invoice_status.stage_public = "warehouse_rejected"
             elif delivery_type == "other":
@@ -2718,9 +2721,16 @@ class Accounting(View):
         invoice_status.is_rejected = "True"
         invoice_status.reject_reason = reject_reason
         invoice_status.save()
-        return self.handle_invoice_confirm_get(
-            request, start_date_confirm, end_date_confirm
-        )
+        if start_date_confirm and end_date_confirm and start_date_confirm !='None' and end_date_confirm !='None':
+            return self.handle_invoice_confirm_get(
+                request, start_date_confirm, end_date_confirm
+            )
+        elif start_date and end_date:
+            return self.handle_invoice_combina_get(
+                request, start_date, end_date
+            )
+        else:
+            raise ValueError('缺少起止日期')
 
     def handle_invoice_redirect_post(self, request: HttpRequest) -> tuple[Any, Any]:
         status = request.POST.get("status")
@@ -3174,73 +3184,78 @@ class Accounting(View):
             container_number__container_number=container_number
         )
         if invoice_type == "receivable":
-            invoice_preports = InvoicePreport.objects.get(
-                invoice_number__invoice_number=invoice.invoice_number,
-                invoice_type=invoice_type,
-            )
-            if order.order_type in ["转运", "转运组合"]:
-                invoice_warehouses = InvoiceWarehouse.objects.filter(
+            #这里要区分一下，如果是组合柜的柜子，跳转就直接跳转到组合柜计算界面
+            if order.order_type == "转运组合" and order.container_number.account_order_type == "转运组合":
+                #这里表示是组合柜的方式计算，因为如果是报的组合柜但是不符合组合柜要求，那么account_order_type就是转运了
+                return self.handle_container_invoice_combina_get(request)
+            else:
+                invoice_preports = InvoicePreport.objects.get(
                     invoice_number__invoice_number=invoice.invoice_number,
                     invoice_type=invoice_type,
                 )
-                invoice_delivery = InvoiceDelivery.objects.filter(
-                    invoice_number__invoice_number=invoice.invoice_number,
-                    invoice_type=invoice_type,
-                )
-                amazon = []
-                local = []
-                combine = []
-                walmart = []
-                selfdelivery = []
-                upsdelivery = []
-                selfpickup = []
-                for delivery in invoice_delivery:
-                    if delivery.type == "amazon":
-                        amazon.append(delivery)
-                    elif delivery.type == "local":
-                        local.append(delivery)
-                    elif delivery.type == "combine":
-                        combine.append(delivery)
-                    elif delivery.type == "walmart":
-                        walmart.append(delivery)
-                    elif delivery.type == "selfdelivery":
-                        selfdelivery.append(delivery)
-                    elif delivery.type == "upsdelivery":
-                        upsdelivery.append(delivery)
-                    elif delivery.type == "selfpickup":
-                        selfpickup.append(delivery)
-                context = {
-                    "invoice": invoice,
-                    "order_type": order.order_type,
-                    "invoice_preports": invoice_preports,
-                    "invoice_warehouses": invoice_warehouses,
-                    "amazon": amazon,
-                    "local": local,
-                    "combine": combine,
-                    "walmart": walmart,
-                    "selfdelivery": selfdelivery,
-                    "upsdelivery": upsdelivery,
-                    "selfpickup": selfpickup,
-                    "container_number": container_number,
-                    "start_date_confirm": start_date_confirm,
-                    "end_date_confirm": end_date_confirm,
-                    "invoice_type": invoice_type,
-                    "delivery_amount": getattr(
-                        invoice, "receivable_delivery_amount", 0
-                    ),
-                    "total_amount": getattr(invoice, "receivable_total_amount", 0),
-                }
-                return self.template_invoice_confirm_edit, context
-            elif order.order_type == "直送":
-                modified_get = request.GET.copy()
-                modified_get["start_date_confirm"] = request.GET.get(
-                    "start_date_confirm"
-                )
-                modified_get["end_date_confirm"] = request.GET.get("end_date_confirm")
-                modified_get["confirm_step"] = True
-                new_request = request
-                new_request.GET = modified_get
-                return self.handle_container_invoice_direct_get(new_request)
+                if order.order_type in ["转运", "转运组合"]:
+                    invoice_warehouses = InvoiceWarehouse.objects.filter(
+                        invoice_number__invoice_number=invoice.invoice_number,
+                        invoice_type=invoice_type,
+                    )
+                    invoice_delivery = InvoiceDelivery.objects.filter(
+                        invoice_number__invoice_number=invoice.invoice_number,
+                        invoice_type=invoice_type,
+                    )
+                    amazon = []
+                    local = []
+                    combine = []
+                    walmart = []
+                    selfdelivery = []
+                    upsdelivery = []
+                    selfpickup = []
+                    for delivery in invoice_delivery:
+                        if delivery.type == "amazon":
+                            amazon.append(delivery)
+                        elif delivery.type == "local":
+                            local.append(delivery)
+                        elif delivery.type == "combine":
+                            combine.append(delivery)
+                        elif delivery.type == "walmart":
+                            walmart.append(delivery)
+                        elif delivery.type == "selfdelivery":
+                            selfdelivery.append(delivery)
+                        elif delivery.type == "upsdelivery":
+                            upsdelivery.append(delivery)
+                        elif delivery.type == "selfpickup":
+                            selfpickup.append(delivery)
+                    context = {
+                        "invoice": invoice,
+                        "order_type": order.order_type,
+                        "invoice_preports": invoice_preports,
+                        "invoice_warehouses": invoice_warehouses,
+                        "amazon": amazon,
+                        "local": local,
+                        "combine": combine,
+                        "walmart": walmart,
+                        "selfdelivery": selfdelivery,
+                        "upsdelivery": upsdelivery,
+                        "selfpickup": selfpickup,
+                        "container_number": container_number,
+                        "start_date_confirm": start_date_confirm,
+                        "end_date_confirm": end_date_confirm,
+                        "invoice_type": invoice_type,
+                        "delivery_amount": getattr(
+                            invoice, "receivable_delivery_amount", 0
+                        ),
+                        "total_amount": getattr(invoice, "receivable_total_amount", 0),
+                    }
+                    return self.template_invoice_confirm_edit, context
+                elif order.order_type == "直送":
+                    modified_get = request.GET.copy()
+                    modified_get["start_date_confirm"] = request.GET.get(
+                        "start_date_confirm"
+                    )
+                    modified_get["end_date_confirm"] = request.GET.get("end_date_confirm")
+                    modified_get["confirm_step"] = True
+                    new_request = request
+                    new_request.GET = modified_get
+                    return self.handle_container_invoice_direct_get(new_request)
         else:
             return self.handle_container_invoice_payable_get(request, True)
 
@@ -3706,6 +3721,10 @@ class Accounting(View):
         context = {
             "invoice_number": invoice.invoice_number,
             "container_number": container_number,
+            "start_date_confirm": request.GET.get("start_date_confirm"),
+            "end_date_confirm": request.GET.get("end_date_confirm"),
+            "start_date": request.GET.get("start_date"),
+            "end_date": request.GET.get("end_date"),
         }
         # 查看是不是财务未确认状态，未确认就从报价表找+客服录的数据，确认了就从invoice_item表找
         if invoice_status.stage == "confirmed":
@@ -4085,8 +4104,8 @@ class Accounting(View):
         # 港前-仓库-派送录入的费用显示到界面上
         actual_fees = self._combina_get_extra_fees(invoice)
 
-        # 8. 返回结果
-        context = {
+        # 8. 返回结果    
+        context.update({
             "display_data": display_data,
             "total_amount": total_amount,
             "invoice_number": invoice.invoice_number,
@@ -4095,7 +4114,7 @@ class Accounting(View):
             "extra_fees": actual_fees,
             "destination_matches": matched_regions["combina_dests"],
             "non_combina_dests": matched_regions["non_combina_dests"],
-        }
+        })
         return self.template_invoice_combina_edit, context
 
     def _combina_get_extra_fees(self, invoice) -> Any:
