@@ -1,17 +1,17 @@
 import json
 import random
+import re
 from collections import defaultdict
 from datetime import datetime
 from typing import Any
 
 import numpy as np
-import re
 from asgiref.sync import sync_to_async
 from dateutil.relativedelta import relativedelta
 from django.apps import apps
 from django.contrib.auth.models import User
-from django.db.models import Count, Q, Sum, FloatField, Case, When
-from django.db.models.functions import TruncMonth, Cast
+from django.db.models import Case, Count, FloatField, Q, Sum, When
+from django.db.models.functions import Cast, TruncMonth
 from django.http import Http404, HttpRequest, HttpResponse, HttpResponseForbidden
 from django.shortcuts import render
 from django.views import View
@@ -45,15 +45,13 @@ class OrderQuantity(View):
             if not await self._validate_user_manage(request.user):
                 return HttpResponseForbidden(
                     "You are not authenticated to access this page!"
-                )      
+                )
             customers = await sync_to_async(list)(Customer.objects.all())
             customers = {c.zem_name: c.id for c in customers}
             customers["----"] = None
             customers = {"----": None, **customers}
             context = {"area_options": self.area_options, "customers": customers}
-            return await sync_to_async(render)(
-                request, self.template_profit, context
-            )
+            return await sync_to_async(render)(request, self.template_profit, context)
         else:
             if not await self._validate_user_group(request.user):
                 return HttpResponseForbidden(
@@ -391,42 +389,48 @@ class OrderQuantity(View):
                 ~Q(order_type="直送"),
             )
         if warehouse_list:
-            criteria &= Q(
-                retrieval_id__retrieval_destination_area__in=warehouse_list
-            )
+            criteria &= Q(retrieval_id__retrieval_destination_area__in=warehouse_list)
         if customer_idlist:
             customer_list = await sync_to_async(list)(
                 Customer.objects.filter(id__in=customer_idlist).values("zem_name")
             )
             customer_idlist = [item["zem_name"] for item in customer_list]
             criteria &= Q(customer_name__zem_name__in=customer_idlist)
-        #展示财务确认的账单
+        # 展示财务确认的账单
         criteria &= Q(receivable_status__stage="confirmed")
         orders = await sync_to_async(list)(
-            Order.objects.select_related("customer_name", "warehouse", "retrieval_id","payable_status")
+            Order.objects.select_related(
+                "customer_name", "warehouse", "retrieval_id", "payable_status"
+            )
             .filter(criteria)
             .annotate(count=Count("id"))
         )
-        container_numbers = await sync_to_async(lambda: [
-            order.container_number.container_number 
-            for order in orders 
-            if order.container_number
-        ])()
+        container_numbers = await sync_to_async(
+            lambda: [
+                order.container_number.container_number
+                for order in orders
+                if order.container_number
+            ]
+        )()
 
         invoices = await sync_to_async(list)(
-            Invoice.objects.filter(container_number__container_number__in=container_numbers)
-            .values('container_number__container_number')
+            Invoice.objects.filter(
+                container_number__container_number__in=container_numbers
+            )
+            .values("container_number__container_number")
             .annotate(
-                preport_receivable=Sum(Cast('receivable_preport_amount', FloatField())),
-                warehouse_fee=Sum(Cast('receivable_warehouse_amount', FloatField())),
-                delivery_fee=Sum(Cast('receivable_delivery_amount', FloatField())),
-                total_income=Sum(Cast('receivable_total_amount', FloatField())),
-                payable_total=Sum(Cast('payable_total_amount', FloatField())),
-                payable_pallet=Sum(Cast('payable_palletization', FloatField()))
+                preport_receivable=Sum(Cast("receivable_preport_amount", FloatField())),
+                warehouse_fee=Sum(Cast("receivable_warehouse_amount", FloatField())),
+                delivery_fee=Sum(Cast("receivable_delivery_amount", FloatField())),
+                total_income=Sum(Cast("receivable_total_amount", FloatField())),
+                payable_total=Sum(Cast("payable_total_amount", FloatField())),
+                payable_pallet=Sum(Cast("payable_palletization", FloatField())),
             )
         )
-        
-        invoice_dict = {inv['container_number__container_number']: inv for inv in invoices}
+
+        invoice_dict = {
+            inv["container_number__container_number"]: inv for inv in invoices
+        }
         results = []
         total_income = 0
         total_expense = 0
@@ -437,24 +441,26 @@ class OrderQuantity(View):
         for order in orders:
             container_number = order.container_number.container_number
             customer_name = order.customer_name.zem_name
-            #因为都是财务确认的账单，如果是早期的账单或者当前的组合柜账单，都是以invoice_item表为准的，否则是以这三个表为准
+            # 因为都是财务确认的账单，如果是早期的账单或者当前的组合柜账单，都是以invoice_item表为准的，否则是以这三个表为准
             invoice = await sync_to_async(
                 Invoice.objects.select_related("customer", "container_number").get
-                )(container_number__container_number=container_number)
-            
+            )(container_number__container_number=container_number)
+
             has_items = await sync_to_async(
                 InvoiceItem.objects.filter(
                     invoice_number__invoice_number=invoice.invoice_number
                 ).exists
             )()
-            invoice_data = invoice_dict.get(container_number, {})    
-            print('总数据',invoice_data)
-            if not has_items: #没有说明是以三个表为准                  
-                preport_receivable = invoice_data.get('preport_receivable', 0) or 0  #港前提拆
-                warehouse_fee = invoice_data.get('warehouse_fee', 0) or 0       #库内
-                delivery_fee = invoice_data.get('delivery_fee', 0) or 0         #派送
-                payable_total = invoice_data.get('payable_total', 0) or 0   #应付
-                payable_pallet = invoice_data.get('payable_pallet', 0) or 0
+            invoice_data = invoice_dict.get(container_number, {})
+            print("总数据", invoice_data)
+            if not has_items:  # 没有说明是以三个表为准
+                preport_receivable = (
+                    invoice_data.get("preport_receivable", 0) or 0
+                )  # 港前提拆
+                warehouse_fee = invoice_data.get("warehouse_fee", 0) or 0  # 库内
+                delivery_fee = invoice_data.get("delivery_fee", 0) or 0  # 派送
+                payable_total = invoice_data.get("payable_total", 0) or 0  # 应付
+                payable_pallet = invoice_data.get("payable_pallet", 0) or 0
                 other_fees = 0
             else:
                 items = await sync_to_async(list)(
@@ -463,107 +469,172 @@ class OrderQuantity(View):
                     )
                 )
                 categorized = self.categorize_invoice_items(items)
-                preport_receivable = categorized['preport_receivable']  #港前提拆
-                warehouse_fee = categorized['warehouse_fee']       #库内
-                delivery_fee = categorized['delivery_fee']         #派送
-                other_fees = categorized['other_fees']
-                payable_total = invoice_data.get('payable_total', 0) or 0   #应付
-                payable_pallet = invoice_data.get('payable_pallet', 0) or 0
+                preport_receivable = categorized["preport_receivable"]  # 港前提拆
+                warehouse_fee = categorized["warehouse_fee"]  # 库内
+                delivery_fee = categorized["delivery_fee"]  # 派送
+                other_fees = categorized["other_fees"]
+                payable_total = invoice_data.get("payable_total", 0) or 0  # 应付
+                payable_pallet = invoice_data.get("payable_pallet", 0) or 0
             preport_payable = payable_total - payable_pallet
             total_preport_receivable += preport_receivable
             total_preport_payable += preport_payable
-            total_income_per_container = preport_receivable + warehouse_fee + delivery_fee + other_fees
+            total_income_per_container = (
+                preport_receivable + warehouse_fee + delivery_fee + other_fees
+            )
             total_expense_per_container = preport_payable
-            profit_per_container = total_income_per_container - total_expense_per_container
-            profit_margin = (profit_per_container / total_income_per_container * 100) if total_income_per_container else 0
-            
+            profit_per_container = (
+                total_income_per_container - total_expense_per_container
+            )
+            profit_margin = (
+                (profit_per_container / total_income_per_container * 100)
+                if total_income_per_container
+                else 0
+            )
+
             total_income += total_income_per_container
             total_expense += total_expense_per_container
             total_profit += profit_per_container
             profit_values.append(profit_per_container)
-            
-            results.append({
-                'container_number': container_number,  
-                "customer_name":customer_name,           
-                'preport_receivable': preport_receivable,
-                'preport_payable': preport_payable,
-                "payable_pallet": payable_pallet,
-                'warehouse_fee': warehouse_fee,
-                'delivery_fee': delivery_fee,
-                'total_income': total_income_per_container,
-                'total_expense': total_expense_per_container,
-                'profit': profit_per_container,
-                'profit_margin': profit_margin
-            })
+
+            results.append(
+                {
+                    "container_number": container_number,
+                    "customer_name": customer_name,
+                    "preport_receivable": preport_receivable,
+                    "preport_payable": preport_payable,
+                    "payable_pallet": payable_pallet,
+                    "warehouse_fee": warehouse_fee,
+                    "delivery_fee": delivery_fee,
+                    "total_income": total_income_per_container,
+                    "total_expense": total_expense_per_container,
+                    "profit": profit_per_container,
+                    "profit_margin": profit_margin,
+                }
+            )
         if profit_values and len(profit_values) > 1:
             max_profit = max(profit_values)
             min_profit = min(profit_values)
         else:
             max_profit = min_profit = 0
-        #总利润率
+        # 总利润率
         total_profit_margin = (total_profit / total_income * 100) if total_income else 0
         if total_preport_receivable != 0:
-            preport_profit_margin = (total_preport_receivable - total_preport_payable)/total_preport_receivable
+            preport_profit_margin = (
+                total_preport_receivable - total_preport_payable
+            ) / total_preport_receivable
         else:
             preport_profit_margin = 0
         delivery_profit_margin = 0
         context = {
-            'results': results,
-            'total_income': total_income,
-            'total_expense': total_expense,
-            'total_profit': total_profit,
-            'total_profit_margin': total_profit_margin,
+            "results": results,
+            "total_income": total_income,
+            "total_expense": total_expense,
+            "total_profit": total_profit,
+            "total_profit_margin": total_profit_margin,
             "preport_profit_margin": preport_profit_margin,
             "delivery_profit_margin": delivery_profit_margin,
-            'customers': customers,
-            "warehouse_list":warehouse_list,
+            "customers": customers,
+            "warehouse_list": warehouse_list,
             "area_options": self.area_options,
-            'max_profit': max_profit,
-            'min_profit': min_profit,
+            "max_profit": max_profit,
+            "min_profit": min_profit,
             "start_date": start_date,
             "end_date": end_date,
             "date_type": date_type,
         }
-        return self.template_profit,context
+        return self.template_profit, context
 
-    def categorize_invoice_items(self, items:Any) -> dict:
+    def categorize_invoice_items(self, items: Any) -> dict:
         # 定义分类规则（使用正则表达式匹配）
         category_patterns = {
-            'preport_receivable': [
-                r'滞[港箱]费', r'等待费', r'等候费', r'提拆', r'提柜', r'车架', 
-                r'查验费', r'超重', r'操作费', r'拥堵费', r'还空', r'跑空费',
-                r'升降机费', r'加急提柜', r'预提费', r'码头直送', r'打托费',
-                r'代付手续费', r'拖车费', r'底盘分离费', r'拆柜费', r'PNCT',
-                r'GD', r'NYCT Toll Fee', r'SOC', r'LA码头直送', r'DG'
+            "preport_receivable": [
+                r"滞[港箱]费",
+                r"等待费",
+                r"等候费",
+                r"提拆",
+                r"提柜",
+                r"车架",
+                r"查验费",
+                r"超重",
+                r"操作费",
+                r"拥堵费",
+                r"还空",
+                r"跑空费",
+                r"升降机费",
+                r"加急提柜",
+                r"预提费",
+                r"码头直送",
+                r"打托费",
+                r"代付手续费",
+                r"拖车费",
+                r"底盘分离费",
+                r"拆柜费",
+                r"PNCT",
+                r"GD",
+                r"NYCT Toll Fee",
+                r"SOC",
+                r"LA码头直送",
+                r"DG",
             ],
-            'warehouse_fee': [
-                r'FBA', r'贴标', r'仓储', r'仓租', r'标签', r'覆盖', 
-                r'拍照', r'拍视频', r'分拣', r'清点', r'拣货', r'修补',
-                r'修复', r'销毁', r'开封', r'打板', r'打托', r'缠胶',
-                r'出库', r'拦截', r'指定贴标', r'内外箱', r'托盘标签',
-                r'重复操作', r'重新打板', r'重新打托', r'货品清点'
+            "warehouse_fee": [
+                r"FBA",
+                r"贴标",
+                r"仓储",
+                r"仓租",
+                r"标签",
+                r"覆盖",
+                r"拍照",
+                r"拍视频",
+                r"分拣",
+                r"清点",
+                r"拣货",
+                r"修补",
+                r"修复",
+                r"销毁",
+                r"开封",
+                r"打板",
+                r"打托",
+                r"缠胶",
+                r"出库",
+                r"拦截",
+                r"指定贴标",
+                r"内外箱",
+                r"托盘标签",
+                r"重复操作",
+                r"重新打板",
+                r"重新打托",
+                r"货品清点",
             ],
-            'delivery_fee': [
-                r'派送', r'超[板区仓]', r'PO激活', r'激活', r'提货费',
-                r'改派', r'加班送仓', r'自提', r'外配费用', r'随仓单费',
-                r'MGE3', r'GA 30518'
-            ]
+            "delivery_fee": [
+                r"派送",
+                r"超[板区仓]",
+                r"PO激活",
+                r"激活",
+                r"提货费",
+                r"改派",
+                r"加班送仓",
+                r"自提",
+                r"外配费用",
+                r"随仓单费",
+                r"MGE3",
+                r"GA 30518",
+            ],
         }
 
         # 初始化分类结果
         categorized = {
-            'preport_receivable': 0,
-            'warehouse_fee': 0,
-            'delivery_fee': 0,
-            'other_fees': 0
+            "preport_receivable": 0,
+            "warehouse_fee": 0,
+            "delivery_fee": 0,
+            "other_fees": 0,
         }
 
         for item in items:
             description = item.description.strip()
-            amount = item.amount  
+            amount = item.amount
             # 标记是否已分类
             classified = False
-            
+
             # 检查每个分类
             for category, patterns in category_patterns.items():
                 for pattern in patterns:
@@ -573,11 +644,11 @@ class OrderQuantity(View):
                         break
                 if classified:
                     break
-            
+
             # 未匹配任何分类的项
             if not classified:
-                categorized['other_fees'] += amount
-        
+                categorized["other_fees"] += amount
+
         return categorized
 
     async def handle_order_quantity_get(

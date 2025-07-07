@@ -884,7 +884,9 @@ class FleetManagement(View):
                     "shipment_batch_number__shipment_appointment",
                 )
                 .annotate(
-                    total_weight=Round(Sum("total_weight_lbs", output_field=FloatField()), 2),
+                    total_weight=Round(
+                        Sum("total_weight_lbs", output_field=FloatField()), 2
+                    ),
                     total_cbm=Round(Sum("cbm", output_field=FloatField()), 2),
                     total_n_pallet=Sum("cbm", output_field=FloatField()) / 2,
                 )
@@ -951,7 +953,9 @@ class FleetManagement(View):
             }
         )
         if len(shipment) > 1:
-            df = df[["柜号", "预约批次", "仓点", "CBM", "板数", "一提两卸", "Appointment"]]
+            df = df[
+                ["柜号", "预约批次", "仓点", "CBM", "板数", "一提两卸", "Appointment"]
+            ]
         else:
             df = df[["柜号", "预约批次", "仓点", "CBM", "板数"]]
         response = HttpResponse(content_type="text/csv")
@@ -1010,7 +1014,7 @@ class FleetManagement(View):
         # 最后一页加上拣货单:
         pallet = await self.pickupList_get(pickupList, fleet_number)
         if not shipment.fleet_number:
-            raise ValueError('该约未排车')
+            raise ValueError("该约未排车")
         context = {
             "warehouse": warehouse_obj.address,
             "batch_number": batch_number,
@@ -1074,7 +1078,9 @@ class FleetManagement(View):
                     "shipment_batch_number__shipment_appointment",
                 )
                 .annotate(
-                    total_weight=Round(Sum("total_weight_lbs", output_field=FloatField()), 2),
+                    total_weight=Round(
+                        Sum("total_weight_lbs", output_field=FloatField()), 2
+                    ),
                     total_cbm=Round(Sum("cbm", output_field=FloatField()), 2),
                     total_n_pallet=Sum("cbm", output_field=FloatField()) / 2,
                 )
@@ -1099,11 +1105,16 @@ class FleetManagement(View):
                 .annotate(
                     total_weight=Round(Sum("weight_lbs", output_field=FloatField()), 2),
                     total_cbm=Round(Sum("cbm", output_field=FloatField()), 2),
-                    total_n_pallet=Cast(Count("pallet_id", distinct=True), output_field=CharField()),
+                    total_n_pallet=Cast(
+                        Count("pallet_id", distinct=True), output_field=CharField()
+                    ),
                 )
                 .order_by("-shipment_batch_number__shipment_appointment")
             )
-            pallet.sort(key=lambda x: x.get("shipment_batch_number__shipment_appointment", ""), reverse=True)
+            pallet.sort(
+                key=lambda x: x.get("shipment_batch_number__shipment_appointment", ""),
+                reverse=True,
+            )
             shipments = await sync_to_async(list)(
                 Shipment.objects.filter(
                     fleet_number__fleet_number=fleet_number
@@ -1126,8 +1137,8 @@ class FleetManagement(View):
                         "一提两卸",
                     ] = position
 
-                pallet = df.to_dict("records")  
-        processed_pallet = [] 
+                pallet = df.to_dict("records")
+        processed_pallet = []
         prev_destination = None
         for item in pallet:
             current_destination = item.get("destination")
@@ -1142,11 +1153,11 @@ class FleetManagement(View):
                     "shipment_batch_number__shipment_appointment": "  ",
                     "一提两卸": "  ",
                     "is_spacer": True,
-                    "force_text": True 
+                    "force_text": True,
                 }
                 processed_pallet.append(empty_row)
             processed_pallet.append(item)
-            prev_destination = current_destination         
+            prev_destination = current_destination
         return processed_pallet
 
     async def handle_fleet_departure_post(

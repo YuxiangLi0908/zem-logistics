@@ -143,7 +143,9 @@ class PrePortTracking(View):
                 ).filter(
                     models.Q(vessel_id__isnull=False)
                     & models.Q(retrieval_id__actual_retrieval_timestamp__isnull=True)
-                    & models.Q(container_number__container_number__in=t49_container_numbers)
+                    & models.Q(
+                        container_number__container_number__in=t49_container_numbers
+                    )
                 )
             )
             vessels = []
