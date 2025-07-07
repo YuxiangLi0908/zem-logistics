@@ -421,7 +421,8 @@ class OrderQuantity(View):
                 warehouse_fee=Sum(Cast('receivable_warehouse_amount', FloatField())),
                 delivery_fee=Sum(Cast('receivable_delivery_amount', FloatField())),
                 total_income=Sum(Cast('receivable_total_amount', FloatField())),
-                preport_payable=Sum(Cast('payable_total_amount', FloatField()))
+                payable_total=Sum(Cast('payable_total_amount', FloatField())),
+                payable_pallet=Sum(Cast('payable_palletization', FloatField()))
             )
         )
         
@@ -447,11 +448,13 @@ class OrderQuantity(View):
                 ).exists
             )()
             invoice_data = invoice_dict.get(container_number, {})    
+            print('总数据',invoice_data)
             if not has_items: #没有说明是以三个表为准                  
                 preport_receivable = invoice_data.get('preport_receivable', 0) or 0  #港前提拆
                 warehouse_fee = invoice_data.get('warehouse_fee', 0) or 0       #库内
                 delivery_fee = invoice_data.get('delivery_fee', 0) or 0         #派送
-                preport_payable = invoice_data.get('preport_payable', 0) or 0   #应付
+                payable_total = invoice_data.get('payable_total', 0) or 0   #应付
+                payable_pallet = invoice_data.get('payable_pallet', 0) or 0
                 other_fees = 0
             else:
                 items = await sync_to_async(list)(
@@ -464,7 +467,9 @@ class OrderQuantity(View):
                 warehouse_fee = categorized['warehouse_fee']       #库内
                 delivery_fee = categorized['delivery_fee']         #派送
                 other_fees = categorized['other_fees']
-                preport_payable = invoice_data.get('preport_payable', 0) or 0   #应付
+                payable_total = invoice_data.get('payable_total', 0) or 0   #应付
+                payable_pallet = invoice_data.get('payable_pallet', 0) or 0
+            preport_payable = payable_total - payable_pallet
             total_preport_receivable += preport_receivable
             total_preport_payable += preport_payable
             total_income_per_container = preport_receivable + warehouse_fee + delivery_fee + other_fees
@@ -482,6 +487,7 @@ class OrderQuantity(View):
                 "customer_name":customer_name,           
                 'preport_receivable': preport_receivable,
                 'preport_payable': preport_payable,
+                "payable_pallet": payable_pallet,
                 'warehouse_fee': warehouse_fee,
                 'delivery_fee': delivery_fee,
                 'total_income': total_income_per_container,
