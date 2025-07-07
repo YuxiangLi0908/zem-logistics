@@ -3173,6 +3173,7 @@ class Accounting(View):
             "warehouse_options": self.warehouse_options,
             "warehouse_filter": warehouse,
             "preport_carrier": CONTAINER_PICKUP_CARRIER,
+            "preport_carrier_filter": preport_carrier,
         }
         return self.template_invoice_payable, context
 
