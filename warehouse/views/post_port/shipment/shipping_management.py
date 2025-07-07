@@ -1500,10 +1500,12 @@ class ShippingManagement(View):
             plt_master_po_ids = set()  # 需要改主约的
             plt_shipment_po_ids = set()  # 需要改实际约的
             plt_ids = request.POST.get("plt_ids").strip("][").split(", ")
-            try:   #如果没有板子，就会报错，不用管
+            try:  # 如果没有板子，就会报错，不用管
                 plt_ids = [int(i) for i in plt_ids]
                 pallet = await sync_to_async(list)(
-                    Pallet.objects.select_related("container_number").filter(id__in=plt_ids)
+                    Pallet.objects.select_related("container_number").filter(
+                        id__in=plt_ids
+                    )
                 )
                 for p in pallet:
                     p.shipment_batch_number = shipment
