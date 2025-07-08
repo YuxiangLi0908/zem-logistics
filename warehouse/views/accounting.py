@@ -4645,7 +4645,8 @@ class Accounting(View):
             "container_type": container_type,
             "warehouse": warehouse,
             "payable_total_amount": payable_total_amount,
-        }      
+            "pallet_other_fee": pallet_other_fee,
+        }    
         #如果是直送的柜子，按如下计算
         if order.order_type =="直送":
             if is_save_invoice: #从数据库读
@@ -4654,8 +4655,7 @@ class Accounting(View):
                 chassis_fee = invoice.payable_chassis
                 chassis_comment = invoice.payable_surcharge["chassis_comment"]
                 context.update({
-                    'chassis_fee': chassis_fee,
-                    "pallet_other_fee": pallet_other_fee,
+                    'chassis_fee': chassis_fee,                  
                 })
             else:
                 #去查找供应商报价
@@ -4718,7 +4718,6 @@ class Accounting(View):
             basic_fee = None
             palletization_fee = None
             pallet_details = None
-            pallet_other_fee = None
             palletization_fee = None
             palletization_carrier = None
 
@@ -4756,9 +4755,6 @@ class Accounting(View):
                                 if details.get("basic_40") in (None, "/")
                                 and details.get("basic_45") in (None, "/")
                             }
-                    context.update({
-                        "pallet_other_fee": pallet_other_fee,
-                    })
                 else:
                     # 查找应付报价表
                     DETAILS = self._get_feetail(vessel_etd, "PAYABLE")
@@ -4833,7 +4829,8 @@ class Accounting(View):
             "overweight_fee": overweight_fee or None,
             "chassis_fee": chassis_fee or None,
             "arrive_fee": arrive_fee or None,                      
-            "reason": reason,          
+            "reason": reason,       
+            "pallet_other_fee": pallet_other_fee,   
             "palletization_fee": palletization_fee,
             "palletization_carrier": palletization_carrier,
             "lfd": lfd or None,
