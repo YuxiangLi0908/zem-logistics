@@ -541,6 +541,98 @@ class QuoteManagement(View):
         fee_detail = FeeDetail(**fee_detail_data)
         fee_detail.save()
 
+    def process_payable_direct_sheet(self, df, file, quote):
+        header_row_idx = None
+        for idx, row in df.iterrows():
+            if "目的港" in str(row.iloc[0]):
+                header_row_idx = idx
+                break
+
+        if header_row_idx is None:
+            raise ValueError("未找到包含'目的港'的标题行")
+        # 找到供应商价格部分的最大列值，因为供应商和后面ZEM的有重复列名，是以找到的第一个单元格为价格的前一个单元格的列值为准
+        max_col = len(df.columns)
+        max_col = 0
+        for idx, row in df.iterrows():
+            for col_idx, cell in enumerate(row.iloc[0:]):
+                if isinstance(cell, str) and "价格" in cell:
+                    max_col = col_idx - 1
+        # 获取各列的位置映射
+        col_mapping = {
+            "warehouse": None,  # 目的港
+            "warehouse_precise": None,  # 仓点
+            "carrier": None,  # 供应商
+            "price": None, #报价
+            "chassis": None, #等候费
+        }
+        for col_idx, cell in enumerate(df.iloc[header_row_idx]):
+            if col_idx > max_col:
+                break
+            cell_value = str(cell).strip()
+            if cell_value == "目的港":
+                col_mapping["warehouse"] = col_idx
+            elif cell_value == "仓点":
+                col_mapping["warehouse_precise"] = col_idx
+            elif cell_value == "供应商":
+                col_mapping["carrier"] = col_idx
+            elif cell_value == "报价":
+                col_mapping["price"] = col_idx
+            elif cell_value == "托架费/等候费/存储费":
+                col_mapping["chassis"] = col_idx
+        result = defaultdict(lambda: defaultdict(dict))
+
+        # 处理数据行
+        for idx, row in df.iterrows():
+            # 跳过标题行和空行
+            if idx <= header_row_idx or pd.isna(row.iloc[col_mapping["warehouse"]]):
+                continue
+
+            warehouse = str(row.iloc[col_mapping["warehouse"]]).strip()
+            warehouse_precise = str(row.iloc[col_mapping["warehouse_precise"]]).strip()
+            carrier = str(row.iloc[col_mapping["carrier"]]).strip()
+            price = str(row.iloc[col_mapping["price"]]).strip()
+            chassis = str(row.iloc[col_mapping["chassis"]]).strip()
+
+            # 构建记录
+            if "NJ" in warehouse or "NY" in warehouse:
+                warehouse = "NJ"
+            warehouse_precise = warehouse_precise.replace(" ", "")
+            if "/" in warehouse_precise:
+                warehouse_list = []
+                parts = warehouse_precise.split("/")
+                prefix = "".join(
+                    [char for char in parts[0] if not char.isdigit()]
+                )  # 提取前缀（去掉数字）
+                nums = []
+                for part in parts:
+                    if part.isdigit():  # 如果是纯数字
+                        nums.append(part)
+                    else:  # 如果不是纯数字（如 ONT8），提取末尾的数字
+                        nums.append(
+                            "".join([char for char in part if char.isdigit()])
+                        )
+                # 组合前缀和数字
+                warehouse_list.extend([f"{prefix}{num}" for num in nums])      
+                for wh in warehouse_list:
+                    result[warehouse][wh][carrier] = {
+                        "price": float(price),
+                        "chassis": chassis,
+                    }
+            else:
+                result[warehouse][warehouse_precise][carrier] = {
+                    "price": float(price),
+                    "chassis": chassis,
+                }
+        # 创建 FeeDetail 记录
+        fee_detail_data = {
+            "quotation_id": quote,
+            "fee_detail_id": str(uuid.uuid4())[:4].upper(),
+            "fee_type": "PAYABLE_DIRECT",
+            "details": result,
+        }
+        fee_detail = FeeDetail(**fee_detail_data)
+        fee_detail.save()
+
     def process_payable_sheet(self, df, file, quote):
         header_row_idx = None
         for idx, row in df.iterrows():
@@ -551,7 +643,7 @@ class QuoteManagement(View):
         if header_row_idx is None:
             raise ValueError("未找到包含'目的港'的标题行")
 
-        # 找到供应商价格部分的最大列值，因为供应商和后面ZEM的有重复列名
+        # 找到供应商价格部分的最大列值，因为供应商和后面ZEM的有重复列名，是以找到的第二个单元格为提柜费时的前一个单元格的列值为准
         max_col = len(df.columns)
         flag = False
         max_col = 0
@@ -937,8 +1029,7 @@ class QuoteManagement(View):
             excel_file = pd.ExcelFile(file)
             SHEET_HANDLERS = {
                 "提拆": self.process_payable_sheet,  # 已验证
-                # 暂时不录入
-                # "直送": self.process_warehouse_sheet,
+                "直送": self.process_payable_direct_sheet,
             }
             for sheet_name in excel_file.sheet_names:
                 df = excel_file.parse(sheet_name)

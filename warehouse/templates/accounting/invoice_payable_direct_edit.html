@@ -8,9 +8,10 @@
     <input type="hidden" name="container_number" value="{{ container_number }}">
     <input type="hidden" name="start_date" value="{{ start_date }}">
     <input type="hidden" name="end_date" value="{{ end_date }}">
-    <input type="text" name="warehouse_filter" value="{{ warehouse_filter }}">
+    <input type="hidden" name="warehouse_filter" value="{{ warehouse_filter }}">
     <input type="hidden" name="invoice_number" value="{{ invoice_number }}">
     <input type="hidden" name="preport_carrier" value="{{ preport_carrier }}">
+    <input type="hidden" name="chassis_comment" value="{{ chassis_comment }}">
     <input type="hidden" id="total_amount_input" name="total_amount" value="0">
 
 <style>
@@ -252,7 +253,7 @@
                                     <div class="fee-icon-container">
                                         <i class="bi bi-truck fee-icon"></i>
                                     </div>
-                                    <span>提柜费用</span>
+                                    <span>固定报价</span>
                                 </div>
                             </td>
                             <td>
@@ -265,185 +266,26 @@
                                     <input type="text" name="basic_fee" value="{{ basic_fee }}" oninput="calculateTotal()">
                                 {% endif %}                           
                             </td>
-                        </tr>
-
-                        {% if pallet_details or palletization_carrier or palletization_fee %}                            
-                            <tr>
-                                <td>
-                                    <div class="fee-item">
-                                        <div class="fee-icon-container">
-                                            <i class="bi bi-box-seam fee-icon"></i>
-                                        </div>
-                                        <span>拆柜费用</span>
-                                    </div>
-                                </td>
-                                <td>
-                                    {% if not is_save_invoice %}<!-- 没存过数据的，重新选 -->
-                                        <select class="supplier-select" id="select_carrier" onchange="updateUnloadingFee(this)">
-                                            <option value="">-- 选择供应商 --</option>
-                                            {% for key,value in pallet_details.items %}
-                                            <option value="{{ value }}" data-name="{{ key }}">{{ key }}</option>
-                                            {% endfor %}
-                                        </select>
-                                        <input type="hidden" id="palletization_carrier" name="palletization_carrier">
-                                    {% elif reject_reason %} <!-- 存过数据，但是被驳回了，还可以重新选，但是要默认选中原先选过的-->
-                                        <select class="supplier-select" id="select_carrier" onchange="updateUnloadingFee(this)">
-                                            {% for key,value in pallet_details.items %}
-                                            <option value="{{ value }}" data-name="{{ key }}" {% if key == palletization_carrier %}selected{% endif %}>{{ key }}</option>
-                                            {% endfor %}
-                                        </select>
-                                        <input type="hidden" id="palletization_carrier" name="palletization_carrier" value="{{palletization_carrier}}">
-                                    {% else %}
-                                        <small class="fee-detail">{{ palletization_carrier }}</small>                              
-                                    {% endif %}
-                                </td>
-                                <td class="text-end fee-amount">
-                                    {% if not is_save_invoice %}
-                                        <span id="unloading_fee_display">0.00</span>
-                                        <input type="hidden" id="unloading_fee" name="palletization_fee" value="0">
-                                    {% elif reject_reason %}
-                                        <span id="unloading_fee_display">{{ palletization_fee }}</span>
-                                        <input type="hidden" id="unloading_fee" name="palletization_fee" value="{{ palletization_fee }}">
-                                    {% else %}
-                                        <span class="readonly-amount">{{ palletization_fee|floatformat:2 }}</span>                                  
-                                    {% endif %}
-                                </td>
-                            </tr>
-                        {% endif %}
-
-                        {% if arrive_fee %}
-                        <tr>
-                            <td>
-                                <div class="fee-item">
-                                    <div class="fee-icon-container" style="background-color: #e8f5e9;">
-                                        <i class="bi bi-box-arrow-in-down fee-icon" style="color: #27ae60;"></i>
-                                    </div>
-                                    <span>入库拆柜费</span>
-                                </div>
-                            </td>
-                            <td>
-                                <div class="fee-detail">基础费用</div>
-                            </td>
-                            <td class="text-end fee-amount">
-                                {% if is_save_invoice and not reject_reason %}
-                                    <span id="unloading_fee_display">{{ arrive_fee }}</span>
-                                {% else %}
-                                    <input type="text" name="arrive_fee" value="{{ arrive_fee }}" oninput="calculateTotal()">
-                                {% endif %}
-                            </td>
-                        </tr>
-                        {% endif %}
-
-                        {% if not pallet_details and not arrive_fee and not palletization_carrier %}
-                            <tr>
-                                <td>
-                                    <div class="fee-item">
-                                        <div class="fee-icon-container" style="background-color: #e8f5e9;">
-                                            <i class="bi bi-box-arrow-in-down fee-icon" style="color: #27ae60;"></i>
-                                        </div>
-                                        <span>入库拆柜费</span>
-                                    </div>
-                                </td>
-                                <td colspan="2">不产生费用</td>
-                            </tr>
-                        {% endif %}
-
-                        <tr>
-                            <td>
-                                <div class="fee-item">
-                                    <div class="fee-icon-container" style="background-color: #ffebee;">
-                                        <i class="bi bi-exclamation-triangle fee-icon" style="color: #e74c3c;"></i>
-                                    </div>
-                                    <span>超重费用</span>
-                                </div>
-                            </td>
-                            <td>
-                                <div class="fee-detail">当前重量: {{ actual_weight }} 磅 {% if overweight_fee %}(超过42,000磅){% else %}未超重{% endif %}</div>
-                            </td>
-                            
-                            {% if overweight_fee %}
-                            <td class="text-end fee-amount">
-                                {% if is_save_invoice and not reject_reason %}
-                                    <span class="readonly-amount">{{ overweight_fee|floatformat:2 }}</span>
-                                {% else %}
-                                    <input type="text" name="overweight_fee" value="{{ overweight_fee }}" oninput="calculateTotal()">
-                                {% endif %} 
-                            </td>   
-                            {% else %}
-                                <td>不产生费用</td>
-                            {% endif %}                       
-                            </td>
-                        </tr>
-                        
+                        </tr>                   
                         <tr>
                             <td>
                                 <div class="fee-item">
                                     <div class="fee-icon-container" style="background-color: #fff8e1;">
                                         <i class="bi bi-truck-flatbed fee-icon" style="color: #f39c12;"></i>
                                     </div>
-                                    <span>车架费用</span>
+                                    <span>等待费</span>
                                 </div>
                             </td>
-                            {% if actual_day %}
-                                {% if chassis_fee %}
-                                    <td>
-                                        <div class="d-flex align-items-center gap-2">
-                                            <span class="badge bg-danger">已超期</span>
-                                            <span class="day-count">{{ actual_day }} 天</span>
-                                        </div>
-                                        <div class="timestamp-container bg-light rounded p-2">
-                                            <div class="d-flex align-items-center timestamp-item">
-                                                <i class="bi bi-calendar2-event me-2 text-secondary"></i>&nbsp;&nbsp;
-                                                <span class="text-muted small">提柜:&nbsp;&nbsp;</span>
-                                                <span class="ms-2 small fw-medium">{{ actual_retrieval_timestamp|date:"Y-m-d H:i"|default:"缺少时间" }}</span>
-                                            </div>
-                                            <div class="d-flex align-items-center timestamp-item">
-                                                <i class="bi bi-calendar2-event me-2 text-secondary"></i>&nbsp;&nbsp;
-                                                <span class="text-muted small">LFD:&nbsp;&nbsp;</span>
-                                                <span class="ms-2 small fw-medium">{{ lfd|date:"Y-m-d"|default:"缺少时间" }}</span>
-                                            </div>
-                                            <div class="d-flex align-items-center timestamp-item mt-1">
-                                                <i class="bi bi-calendar2-check me-2 text-secondary"></i>&nbsp;&nbsp;
-                                                <span class="text-muted small">还空:&nbsp;&nbsp;</span>
-                                                <span class="ms-2 small fw-medium">{{ empty_returned_at|date:"Y-m-d H:i"|default:"缺少时间" }}</span>
-                                            </div>
-                                        </div>                                   
-                                    </td>
-                                    <td class="text-end fee-amount">
-                                        {% if is_save_invoice and not reject_reason %}
-                                            <span class="readonly-amount">{{ chassis_fee|floatformat:2 }}</span>
-                                        {% else %}
-                                            <input type="text" name="chassis_fee" value="{{ chassis_fee }}" oninput="calculateTotal()">
-                                        {% endif %}                                 
-                                    </td>
-                                {% else %}                                
-                                    <td>
-                                        <div class="d-flex align-items-center gap-2">
-                                            <span class="badge bg-success">未超期</span>
-                                            <span class="day-count">{{ actual_day }} 天</span>
-                                        </div>
-                                        <div class="timestamp-container bg-light rounded p-2">
-                                            <div class="d-flex align-items-center timestamp-item">
-                                                <i class="bi bi-calendar2-event me-2 text-secondary"></i>
-                                                <span class="text-muted small">提柜:</span>
-                                                <span class="ms-2 small fw-medium">{{ actual_retrieval_timestamp|date:"Y-m-d H:i" }}</span>
-                                            </div>
-                                            <div class="d-flex align-items-center timestamp-item mt-1">
-                                                <i class="bi bi-calendar2-check me-2 text-secondary"></i>
-                                                <span class="text-muted small">还空:</span>
-                                                <span class="ms-2 small fw-medium">{{ empty_returned_at|date:"Y-m-d H:i" }}</span>
-                                            </div>
-                                        </div>    
-                                    </td>
-                                    <td>不产生费用</td>
-                                {% endif %}
-                            {% else %}
-                                {% if preport_carrier == '东海岸' %}
-                                <td colspan="2">缺少LFD，无法计算</td>
+                            <td>
+                                <small class="fee-detail">{{ chassis_comment }}</small>
+                            </td>
+                            <td class="text-end fee-amount">
+                                {% if is_save_invoice and not reject_reason %}
+                                    <span class="readonly-amount">{{ chassis_fee|floatformat:2 }}</span>
                                 {% else %}
-                                <td colspan="2">不产生车架费</td>
-                                {% endif %}
-                            {% endif %}
+                                    <input type="text" name="chassis_fee" value="{{ chassis_fee }}" oninput="calculateTotal()">
+                                {% endif %}                           
+                            </td>
                         </tr>
                     </tbody>
                 </table>
@@ -588,22 +430,13 @@
         
         const feeFields = [
             'basic_fee',
-            'overweight_fee',
-            'chassis_fee',
-            'arrive_fee',
-            'palletization_fee'  
+            'chassis_fee', 
         ];
         
         feeFields.forEach(field => {        
             const input = document.querySelector(`input[name="${field}"]`);
             if (input && input.value !== "0") {
                 total += parseFloat(input.value) || 0;
-            }
-            else if (field === 'palletization_fee'){
-                const displaySpan = document.getElementById('unloading_fee_display');
-                if (displaySpan) {
-                    total += parseFloat(displaySpan.textContent) || 0;
-                }
             }
         });
 
