@@ -2308,3 +2308,8 @@ WMM-MCO1S:
   location: 5100 NORTH RIDGE TRAIL
   state: FL
   zipcode: '33897'
+HLI2:
+  city: Hollister
+  location: 600 Ernie Dr
+  state: CA
+  zipcode: '95023'
