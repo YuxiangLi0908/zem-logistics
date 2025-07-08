@@ -2377,10 +2377,8 @@ class Accounting(View):
             else:
                 all_fee_types.update(["总费用"])
                 all_fee_types.add("基本费用")
-                if invoice.payable_chassis:
-                    all_fee_types.add("车架费")
-                if invoice.payable_overweight:
-                    all_fee_types.add("超重费")
+                all_fee_types.add("车架费")
+                all_fee_types.add("超重费")
 
                 # 其他自定义费用
                 if "other_fee" in payable_surcharge and payable_surcharge["other_fee"]:
