@@ -3044,7 +3044,7 @@ class Accounting(View):
 
         criteria = models.Q(cancel_notification=False) & models.Q(
             vessel_id__vessel_etd__gte=start_date, vessel_id__vessel_etd__lte=end_date
-        )
+        )&models.Q(retrieval_id__empty_returned=True)
         if warehouse:
             if warehouse == "直送":
                 criteria &= models.Q(order_type="直送")
@@ -3148,6 +3148,31 @@ class Accounting(View):
         groups = [group.name for group in request.user.groups.all()]
         if request.user.is_staff:
             groups.append("staff")
+
+        #导出excel的筛选框
+        current_year = datetime.now().year
+        current_month = datetime.now().month
+        months = []
+        for i in range(12):
+            month = (current_month - i - 1) % 12 + 1
+            year = (
+                current_year if (current_month - i - 1) >= 0 else current_year - 1
+            )
+            months.append(
+                {
+                    "value": f"{year}-{month:02d}",
+                    "label": f"{year}年{month}月",
+                    "selected": (month == current_month and year == current_year),
+                }
+            )
+        carriers = {
+            "": "",
+            "Kars": "Kars",
+            "东海岸": "东海岸",
+            "ARM": "ARM",
+            "BBR": "BBR",
+            "KNO": "KNO",
+        } 
         context = {
             "order": order,
             "order_form": OrderForm(),
@@ -3160,6 +3185,9 @@ class Accounting(View):
             "groups": groups,
             "warehouse_options": self.warehouse_options,
             "warehouse_filter": warehouse,
+            "is_payable_check": is_payable_check,
+            "months": reversed(months) if months else [],
+            "carriers": carriers,
         }
         return self.template_invoice_payable, context
 
@@ -4579,7 +4607,6 @@ class Accounting(View):
             payable_check = True
         else:
             payable_check = False
-
         if invoice_status.stage != "unstarted":  # 只有未录入状态，才显示未保存
             is_save_invoice = True
         if invoice_status.stage == "unstarted" and invoice_status.is_rejected == True:
@@ -4589,7 +4616,7 @@ class Accounting(View):
         # 总费用
         payable_total_amount = invoice.payable_total_amount
         # 其他费用
-        pallet_other_fee = invoice.payable_surcharge.get("other_fee", 0)   
+        pallet_other_fee = invoice.payable_surcharge.get("other_fee", 0)        
         context = {
             "start_date": request.GET.get("start_date"),
             "end_date": request.GET.get("end_date"),
