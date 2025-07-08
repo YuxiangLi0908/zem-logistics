@@ -1315,6 +1315,7 @@ class Accounting(View):
                     "order_type",
                     "retrieval_id__retrieval_destination_area",
                     "retrieval_id__actual_retrieval_timestamp",
+                    "retrieval_id__retrieval_carrier",
                     "invoice_id__payable_total_amount",
                     "invoice_id__invoice_number",
                 )
@@ -2376,9 +2377,9 @@ class Accounting(View):
                 all_fee_types.add("拆柜费")
             else:
                 all_fee_types.update(["总费用"])
-                all_fee_types.add("基本费用")
-                all_fee_types.add("车架费")
+                all_fee_types.add("基本费用")              
                 all_fee_types.add("超重费")
+                all_fee_types.add("车架费")
 
                 # 其他自定义费用
                 if "other_fee" in payable_surcharge and payable_surcharge["other_fee"]:

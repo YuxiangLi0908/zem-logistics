@@ -176,6 +176,7 @@
                             <th class="th">订单类型</th>
                             <th class="th">仓库</th>
                             {% if invoice_type_filter == 'payable' %}
+                            <th class="th">供应商</th>
                             <th class="th">实际提柜日期</th>
                             <th class="th">账单日期</th>
                             {% endif %}
@@ -202,6 +203,7 @@
                             <th class="th"></th>
                             <th class="th"></th>
                             {% if invoice_type_filter == 'payable' %}
+                            <th class="th"></th>
                             <th class="th"></th>
                             <th class="th"></th>
                             {% endif %}
@@ -233,6 +235,7 @@
                                 <td class="td">{{ c.order_type }}</td>
                                 <td class="td">{{ c.retrieval_id__retrieval_destination_area }}</td>
                                 {% if invoice_type_filter == 'payable' %}
+                                <td class="td">{{ c.retrieval_id__retrieval_carrier }}</td>
                                 <td class="td">{{ c.retrieval_id__actual_retrieval_timestamp|date:"M j, Y" }}</td>
                                 <td class="td" data-bill-date="{{ c.retrieval_id__actual_retrieval_timestamp|date:'Y-m' }}">
                                     {{ c.retrieval_id__actual_retrieval_timestamp|add_month|date:"M j, Y" }}
