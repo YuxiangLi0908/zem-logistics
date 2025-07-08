@@ -67,7 +67,8 @@
     {% endif %}
 </div>
 <hr class="Dashed" style="margin-top: 10px; margin-bottom: 10px;">
-<div style="display: flex; max-height: 720px;">
+
+<div style="display: flex; max-height: 360px; margin-bottom: 20px;">
     {% if order %}
     <div style="overflow-y: auto; max-height: 100%; width: 40%; border: 2px solid rgb(180, 180, 180); border-radius: 12px; padding: 1%; margin: 1%;">     
         <div><b>客服待录入账单</b></div>
@@ -151,7 +152,9 @@
         </form>        
     </div>
     {% endif %}
+</div>
 
+<div style="display: flex; max-height: 360px;">
     {% if order_pending %}
     <div style="overflow-y: auto; max-height: 100%; width: 40%; border: 2px solid rgb(180, 180, 180); border-radius: 12px; padding: 1%; margin: 1%;">     
         <div><b>待审核账单</b></div>
