@@ -79,6 +79,7 @@ from warehouse.utils.constants import (
     ACCT_BENEFICIARY_NAME,
     ACCT_SWIFT_CODE,
     APP_ENV,
+    CONTAINER_PICKUP_CARRIER,
     SP_DOC_LIB,
     SP_PASS,
     SP_URL,
@@ -1252,7 +1253,7 @@ class Accounting(View):
             criteria,
             **{f"{invoice_type}_status__stage": "tobeconfirmed"},
         )
-        
+
         if invoice_type == "receivable":
             previous_order = (
                 Order.objects.select_related(
@@ -2285,7 +2286,7 @@ class Accounting(View):
         )
         invoice_status.stage = "confirmed"
         invoice_status.save()
-        
+
         context = self._parse_invoice_excel_data(order, invoice, invoice_type)
         workbook, invoice_data = self._generate_invoice_excel(context)
         invoice.invoice_date = invoice_data["invoice_date"]
@@ -2673,7 +2674,7 @@ class Accounting(View):
         invoice.receivable_total_amount = total_fee
         invoice.remain_offset = total_fee
         invoice.save()
-        
+
         if not order.invoice_id:
             order.invoice_id = invoice
             order.save()
@@ -2698,7 +2699,7 @@ class Accounting(View):
         end_date_confirm = request.POST.get("end_date_confirm")
         start_date = request.POST.get("start_date")
         end_date = request.POST.get("end_date")
-        
+
         reject_reason = request.POST.get("reject_reason")
         order = Order.objects.select_related("container_number").get(
             container_number__container_number=container_number
@@ -2730,16 +2731,19 @@ class Accounting(View):
         invoice_status.is_rejected = "True"
         invoice_status.reject_reason = reject_reason
         invoice_status.save()
-        if start_date_confirm and end_date_confirm and start_date_confirm !='None' and end_date_confirm !='None':
+        if (
+            start_date_confirm
+            and end_date_confirm
+            and start_date_confirm != "None"
+            and end_date_confirm != "None"
+        ):
             return self.handle_invoice_confirm_get(
                 request, start_date_confirm, end_date_confirm
             )
         elif start_date and end_date:
-            return self.handle_invoice_combina_get(
-                request, start_date, end_date
-            )
+            return self.handle_invoice_combina_get(request, start_date, end_date)
         else:
-            raise ValueError('缺少起止日期')
+            raise ValueError("缺少起止日期")
 
     def handle_invoice_redirect_post(self, request: HttpRequest) -> tuple[Any, Any]:
         status = request.POST.get("status")
@@ -3032,6 +3036,7 @@ class Accounting(View):
         end_date: str = None,
         customer: str = None,
         warehouse: str = None,
+        preport_carrier: str = None,
     ) -> tuple[Any, Any]:
         # 库内操作费
         current_date = datetime.now().date()
@@ -3055,7 +3060,9 @@ class Accounting(View):
                 )
         if customer:
             criteria &= models.Q(customer_name__zem_name=customer)
-        #待录入的订单
+        if preport_carrier:
+            criteria &= models.Q(retrieval_id__retrieval_carrier=preport_carrier)
+        # 待录入的订单
         order = (
             Order.objects.select_related(
                 "invoice_id",
@@ -3081,14 +3088,13 @@ class Accounting(View):
             )
             .order_by("reject_priority")
         )
-            
         # 先判断权限，如果是初级审核应付账单权限，状态就是preport
         order_pending = None
-        pre_order_pending = None     
+        pre_order_pending = None
         previous_order = None
 
         is_payable_check = self._validate_user_invoice_payable_check(request.user)
-        if is_payable_check:  #审核应付看到的
+        if is_payable_check:  # 审核应付看到的
             order_pending = (
                 Order.objects.select_related(
                     "customer_name",
@@ -3188,6 +3194,8 @@ class Accounting(View):
             "is_payable_check": is_payable_check,
             "months": reversed(months) if months else [],
             "carriers": carriers,
+            "preport_carrier": CONTAINER_PICKUP_CARRIER,
+            "preport_carrier_filter": preport_carrier,
         }
         return self.template_invoice_payable, context
 
@@ -3197,17 +3205,20 @@ class Accounting(View):
         container_number = request.GET.get("container_number")
         start_date_confirm = request.GET.get("start_date_confirm")
         end_date_confirm = request.GET.get("end_date_confirm")
-        invoice_type = request.GET.get("invoice_type")     
+        invoice_type = request.GET.get("invoice_type")
         invoice = Invoice.objects.get(
             container_number__container_number=container_number
-        )     
+        )
         order = Order.objects.select_related("container_number").get(
             container_number__container_number=container_number
         )
         if invoice_type == "receivable":
-            #这里要区分一下，如果是组合柜的柜子，跳转就直接跳转到组合柜计算界面
-            if order.order_type == "转运组合" and order.container_number.account_order_type == "转运组合":
-                #这里表示是组合柜的方式计算，因为如果是报的组合柜但是不符合组合柜要求，那么account_order_type就是转运了
+            # 这里要区分一下，如果是组合柜的柜子，跳转就直接跳转到组合柜计算界面
+            if (
+                order.order_type == "转运组合"
+                and order.container_number.account_order_type == "转运组合"
+            ):
+                # 这里表示是组合柜的方式计算，因为如果是报的组合柜但是不符合组合柜要求，那么account_order_type就是转运了
                 return self.handle_container_invoice_combina_get(request)
             else:
                 invoice_preports = InvoicePreport.objects.get(
@@ -3272,7 +3283,9 @@ class Accounting(View):
                     modified_get["start_date_confirm"] = request.GET.get(
                         "start_date_confirm"
                     )
-                    modified_get["end_date_confirm"] = request.GET.get("end_date_confirm")
+                    modified_get["end_date_confirm"] = request.GET.get(
+                        "end_date_confirm"
+                    )
                     modified_get["confirm_step"] = True
                     new_request = request
                     new_request.GET = modified_get
@@ -4125,17 +4138,19 @@ class Accounting(View):
         # 港前-仓库-派送录入的费用显示到界面上
         actual_fees = self._combina_get_extra_fees(invoice)
 
-        # 8. 返回结果    
-        context.update({
-            "display_data": display_data,
-            "total_amount": total_amount,
-            "invoice_number": invoice.invoice_number,
-            "container_number": container_number,
-            "is_overregion": is_overregion,
-            "extra_fees": actual_fees,
-            "destination_matches": matched_regions["combina_dests"],
-            "non_combina_dests": matched_regions["non_combina_dests"],
-        })
+        # 8. 返回结果
+        context.update(
+            {
+                "display_data": display_data,
+                "total_amount": total_amount,
+                "invoice_number": invoice.invoice_number,
+                "container_number": container_number,
+                "is_overregion": is_overregion,
+                "extra_fees": actual_fees,
+                "destination_matches": matched_regions["combina_dests"],
+                "non_combina_dests": matched_regions["non_combina_dests"],
+            }
+        )
         return self.template_invoice_combina_edit, context
 
     def _combina_get_extra_fees(self, invoice) -> Any:
@@ -5173,6 +5188,7 @@ class Accounting(View):
             customer = order_form.cleaned_data.get("customer_name")
         else:
             customer = None
+        preport_carrier = request.POST.get("preport_carrier", None)
         if status == "direct":
             return self.handle_invoice_direct_get(
                 request, start_date, end_date, customer, warehouse
@@ -5195,7 +5211,7 @@ class Accounting(View):
             )
         elif status == "payable":
             return self.handle_invoice_payable_get(
-                request, start_date, end_date, customer, warehouse
+                request, start_date, end_date, customer, warehouse, preport_carrier
             )
         elif status == "confirm":
             start_date_confirm = request.POST.get("start_date_confirm")
@@ -5771,14 +5787,17 @@ class Accounting(View):
                 qty.append(1)
                 rate.append(v)
                 note.append("")
-        else:       
-            if (order.order_type != "转运" and order.container_number.account_order_type == "转运组合"):
+        else:
+            if (
+                order.order_type != "转运"
+                and order.container_number.account_order_type == "转运组合"
+            ):
                 # 组合柜就从invoiceItem表找就行了，转运的才去三个表找
                 invoice_item = InvoiceItem.objects.filter(
                     invoice_number__invoice_number=invoice.invoice_number
                 )
                 if invoice_item is None:
-                    raise ValueError("缺少账单明细表")                   
+                    raise ValueError("缺少账单明细表")
                 for item in invoice_item:
                     description.append(item.description)
                     warehouse_code.append(item.warehouse_code)
@@ -5824,7 +5843,10 @@ class Accounting(View):
                         note.append("")
                 for warehouse in invoice_warehouse:
                     for field in warehouse._meta.fields:
-                        if isinstance(field, models.FloatField) and field.name != "amount":
+                        if (
+                            isinstance(field, models.FloatField)
+                            and field.name != "amount"
+                        ):
                             value = getattr(warehouse, field.name)
                             if value not in [None, 0]:
                                 description.append(field.verbose_name)
