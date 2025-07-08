@@ -118,6 +118,7 @@ class Accounting(View):
     template_invoice_search = "accounting/invoice_search.html"
     template_invoice_payable = "accounting/invoice_payable.html"
     template_invoice_payable_edit = "accounting/invoice_payable_edit.html"
+    template_invoice_payable_direct_edit = "accounting/invoice_payable_direct_edit.html"
     allowed_group = "accounting"
     warehouse_options = {
         "": "",
@@ -1230,7 +1231,13 @@ class Accounting(View):
             models.Q(vessel_id__vessel_etd__lte=end_date_confirm),
         )
         if warehouse:
-            criteria &= models.Q(retrieval_id__retrieval_destination_precise=warehouse)
+            if warehouse == "直送":
+                criteria &= models.Q(order_type="直送")
+            else:
+                # 这是非直送的筛选，标记一下加上直送的筛选
+                criteria &= models.Q(
+                    retrieval_id__retrieval_destination_precise=warehouse
+                )
         if customer:
             criteria &= models.Q(customer_name__zem_name=customer)
 
@@ -1619,6 +1626,8 @@ class Accounting(View):
         total_amount = data.get("total_amount")
         # 拆柜供应商
         palletization_carrier = data.get("palletization_carrier")
+        #直送的托架费提示信息
+        chassis_comment = data.get("chassis_comment")
         # 将额外费用构建键值对
         fee_names = data.getlist("fee_name")
         fee_amounts = data.getlist("fee_amount")
@@ -1641,12 +1650,13 @@ class Accounting(View):
         if data.get("arrive_fee"):
             invoice.payable_palletization = data.get("arrive_fee")
         if invoice.payable_palletization == "None":
-            raise ValueError("未选择拆柜费用")
+            raise ValueError("未选择打板费")
         invoice.payable_total_amount = total_amount
         invoice.payable_surcharge = {
             "palletization_carrier": palletization_carrier,
             "other_fee": fees,
             "preport_carrier": data.get("preport_carrier"),
+            "chassis_comment": chassis_comment,
         }
         invoice.save()
         # 如果确认，就改变状态
@@ -1655,7 +1665,6 @@ class Accounting(View):
             invoice_status.is_rejected = False
             invoice_status.reject_reason = ""
             invoice_status.save()
-
         return self.handle_invoice_payable_get(
             request,
             data.get("start_date"),
@@ -2364,7 +2373,7 @@ class Accounting(View):
             payable_surcharge = invoice.payable_surcharge
             # BBR/KNO特殊费用
             if select_carrier in ["BBR", "KNO"]:
-                all_fee_types.add("打板费用")
+                all_fee_types.add("拆柜费")
             else:
                 all_fee_types.update(["总费用"])
                 all_fee_types.add("基本费用")
@@ -2398,7 +2407,7 @@ class Accounting(View):
 
             # 填充特定供应商的费用
             if select_carrier in ["BBR", "KNO"]:
-                row_data["打板费用"] = invoice.payable_palletization or 0
+                row_data["拆柜费"] = invoice.payable_palletization or 0
             else:
                 row_data["总费用"] = total_amount - palletization
                 row_data["基本费用"] = invoice.payable_basic or 0
@@ -2410,7 +2419,7 @@ class Accounting(View):
                     for fee_name, fee_value in payable_surcharge["other_fee"].items():
                         row_data[fee_name] = fee_value
             if select_carrier in ["BBR", "KNO"]:
-                ordered_row = [row_data["柜号"], row_data["打板费用"]]
+                ordered_row = [row_data["柜号"], row_data["拆柜费"]]
             else:
                 fixed_columns = ["柜号", "总费用", "基本费用", "超重费", "车架费"]
                 dynamic_columns = [
@@ -3040,29 +3049,15 @@ class Accounting(View):
 
         criteria = models.Q(cancel_notification=False) & models.Q(
             vessel_id__vessel_etd__gte=start_date, vessel_id__vessel_etd__lte=end_date
-        )
+        )&models.Q(retrieval_id__empty_returned=True)
         if warehouse:
             if warehouse == "直送":
-                excluded_warehouses = [
-                    "NJ-07001",
-                    "SAV-31326",
-                    "LA-91761",
-                    "MO-62025",
-                    "TX-77503",
-                ]
-                exclude_condition = models.Q()
-                for warehouse in excluded_warehouses:
-                    exclude_condition |= models.Q(
-                        retrieval_id__retrieval_destination_precise=warehouse
-                    )
-                criteria &= ~exclude_condition
+                criteria &= models.Q(order_type="直送")
             else:
                 # 这是非直送的筛选，标记一下加上直送的筛选
                 criteria &= models.Q(
                     retrieval_id__retrieval_destination_precise=warehouse
                 )
-        else:
-            criteria &= ~models.Q(order_type="直送")
         if customer:
             criteria &= models.Q(customer_name__zem_name=customer)
         if preport_carrier:
@@ -3080,7 +3075,6 @@ class Accounting(View):
                 models.Q(**{"payable_status__isnull": True})
                 | models.Q(  # 考虑账单编辑点的是暂存的情况
                     **{
-                        "payable_status__invoice_type": "payable",
                         "payable_status__stage": "unstarted",
                     }
                 ),
@@ -3160,6 +3154,31 @@ class Accounting(View):
         groups = [group.name for group in request.user.groups.all()]
         if request.user.is_staff:
             groups.append("staff")
+
+        #导出excel的筛选框
+        current_year = datetime.now().year
+        current_month = datetime.now().month
+        months = []
+        for i in range(12):
+            month = (current_month - i - 1) % 12 + 1
+            year = (
+                current_year if (current_month - i - 1) >= 0 else current_year - 1
+            )
+            months.append(
+                {
+                    "value": f"{year}-{month:02d}",
+                    "label": f"{year}年{month}月",
+                    "selected": (month == current_month and year == current_year),
+                }
+            )
+        carriers = {
+            "": "",
+            "Kars": "Kars",
+            "东海岸": "东海岸",
+            "ARM": "ARM",
+            "BBR": "BBR",
+            "KNO": "KNO",
+        } 
         context = {
             "order": order,
             "order_form": OrderForm(),
@@ -3172,6 +3191,9 @@ class Accounting(View):
             "groups": groups,
             "warehouse_options": self.warehouse_options,
             "warehouse_filter": warehouse,
+            "is_payable_check": is_payable_check,
+            "months": reversed(months) if months else [],
+            "carriers": carriers,
             "preport_carrier": CONTAINER_PICKUP_CARRIER,
             "preport_carrier_filter": preport_carrier,
         }
@@ -4531,8 +4553,8 @@ class Accounting(View):
 
     def handle_container_invoice_payable_get(
         self, request: HttpRequest, account_confirm: str
-    ) -> tuple[Any, Any]:
-        container_number = request.GET.get("container_number")
+    ) -> tuple[Any, Any]:      
+        container_number = request.GET.get("container_number")             
         order = Order.objects.select_related(
             "retrieval_id", "container_number", "warehouse"
         ).get(container_number__container_number=container_number)
@@ -4562,7 +4584,7 @@ class Accounting(View):
             invoice_status.save()
             order.payable_status = invoice_status
         order.save()
-
+        #建立invoice表
         try:
             invoice = Invoice.objects.select_related(
                 "customer", "container_number"
@@ -4600,182 +4622,226 @@ class Accounting(View):
             payable_check = True
         else:
             payable_check = False
-
         if invoice_status.stage != "unstarted":  # 只有未录入状态，才显示未保存
             is_save_invoice = True
         if invoice_status.stage == "unstarted" and invoice_status.is_rejected == True:
             is_save_invoice = True
             reject_reason = invoice_status.reject_reason
-
-        # 重量查找
-        actual_weight = order.container_number.weight_lbs
-        # 车架费计费时间查找
-        arrive_at = order.retrieval_id.arrive_at
-        lfd = order.retrieval_id.temp_t49_lfd
-        empty_returned_at = order.retrieval_id.empty_returned_at  # 还空时间
-        actual_retrieval_timestamp = (
-            order.retrieval_id.actual_retrieval_timestamp
-        )  # 提柜时间
-        arrive_date = None
-        returned_date = None
-        if lfd and arrive_at and empty_returned_at:
-            # 统一转换为日期对象比较
-            arrive_date = arrive_at.date()
-            returned_date = empty_returned_at.date()
-
-            if arrive_date < lfd:
-                delta = returned_date - arrive_date
-            else:
-                delta = returned_date - lfd
-
-            actual_day = delta.days + 1
-        else:
-            actual_day = None
-        overweight_fee = None
-        chassis_fee = None
-        arrive_fee = None
-        basic_fee = None
-        palletization_fee = None
-        pallet_details = None
-        pallet_other_fee = None
-        palletization_fee = None
-        palletization_carrier = None
-        payable_total_amount = None
-
-        reason = None
-        if not preport_carrier or preport_carrier == "None":
-            reason = "缺少提柜供应商，无法计算"
-        else:
-            if is_save_invoice:  # 读数据库的数据
-                basic_fee = invoice.payable_basic
-                if invoice.payable_overweight and float(invoice.payable_overweight) > 0:
-                    overweight_fee = invoice.payable_overweight
-
-                if invoice.payable_chassis and float(invoice.payable_chassis) > 0:
-                    chassis_fee = invoice.payable_chassis
-
-                # 如果是NJ的并且还有入库拆柜费，那就是拆柜费
-                if invoice.payable_palletization and "NJ" in warehouse:
-                    palletization_fee = invoice.payable_palletization
-                    palletization_carrier = invoice.payable_surcharge[
-                        "palletization_carrier"
-                    ]
-                else:
-                    # 否则，如果有入库拆柜费，那就是入库拆柜合并的费用
-                    arrive_fee = invoice.payable_palletization
-                # 其他费用
-                pallet_other_fee = invoice.payable_surcharge.get("other_fee", 0)
-                # 总费用
-                payable_total_amount = invoice.payable_total_amount
-                # 如果是驳回的账单，并且仓库是NJ的，可能需要重新填写拆柜费用，所以要去报价表找拆柜供应商
-                if invoice_status.is_rejected == True and warehouse == "NJ":
-                    DETAILS = self._get_feetail(vessel_etd, "PAYABLE")
-                    pickup_details = DETAILS[warehouse]["NJ 07001"][preport_carrier]
-                    if pickup_details:
-                        search_carrier = DETAILS[warehouse]["NJ 07001"]
-                        pallet_details = {
-                            carrier: details.get("palletization")
-                            for carrier, details in search_carrier.items()
-                            if details.get("basic_40") in (None, "/")
-                            and details.get("basic_45") in (None, "/")
-                        }
-            else:
-                # 查找应付报价表
-                DETAILS = self._get_feetail(vessel_etd, "PAYABLE")
-                precise_warehouse = precise_warehouse.replace("-", " ")
-                pickup_details = None
-                try:
-                    if warehouse == "NJ":
-                        pickup_details = DETAILS[warehouse]["NJ 07001"][preport_carrier]
-                    else:
-                        pickup_details = DETAILS[warehouse][precise_warehouse][
-                            preport_carrier
-                        ]
-                except Exception as e:
-                    reason = f"找不到{preport_carrier}供应商的报价"
-
-                if pickup_details:
-                    # 如果是NJ的，还需要找拆柜供应商
-                    if warehouse == "NJ":
-                        search_carrier = DETAILS[warehouse]["NJ 07001"]
-                        pallet_details = {
-                            carrier: details.get("palletization")
-                            for carrier, details in search_carrier.items()
-                            if details.get("basic_40") in (None, "/")
-                            and details.get("basic_45") in (None, "/")
-                        }
-                    else:
-                        pallet_details = None
-
-                    basic_fee = 0
-                    if "40" in container_type:
-                        basic_fee = pickup_details["basic_40"]
-                    else:
-                        basic_fee = pickup_details["basic_45"]
-
-                    if pickup_details.get("overweight") not in (None, "/"):
-                        if float(actual_weight) > 42000:
-                            overweight_fee = pickup_details.get("overweight")
-
-                    if pickup_details.get("chassis") not in (
-                        None,
-                        "/",
-                    ) and pickup_details.get("chassis_free_day") not in (None, "/"):
-                        # 先找到仓时间和LFD
-                        arrive_at = order.retrieval_id.arrive_at
-                        lfd = order.retrieval_id.temp_t49_lfd
-                        empty_returned_at = order.retrieval_id.empty_returned_at
-                        if lfd and arrive_at and empty_returned_at:
-                            # 统一转换为日期对象比较
-                            arrive_date = arrive_at.date()
-                            returned_date = empty_returned_at.date()
-
-                            if arrive_date < lfd:
-                                delta = returned_date - arrive_date
-                            else:
-                                delta = returned_date - lfd
-
-                            actual_day = delta.days + 1
-                            free_day = actual_day - int(
-                                pickup_details.get("chassis_free_day")
-                            )
-                            chassis_fee = free_day * pickup_details.get("chassis")
-
-                    arrive_fee = None
-                    if pickup_details.get("arrive_warehouse") not in (None, "/"):
-                        arrive_fee = pickup_details.get("arrive_warehouse")
-
+        
+        # 总费用
+        payable_total_amount = invoice.payable_total_amount
+        # 其他费用
+        pallet_other_fee = invoice.payable_surcharge.get("other_fee", 0)        
         context = {
-            "warehouse": warehouse,
+            "start_date": request.GET.get("start_date"),
+            "end_date": request.GET.get("end_date"),
+            "warehouse_filter": request.GET.get("warehouse_filter"),
+            "is_save_invoice": is_save_invoice,
+            "reject_reason": reject_reason,
+            "account_confirm": account_confirm,
+            "payable_check": payable_check,
+            "invoice_number": invoice.invoice_number,
             "container_number": container_number,
             "container_type": container_type,
+            "warehouse": warehouse,
+            "payable_total_amount": payable_total_amount,
+        }      
+        #如果是直送的柜子，按如下计算
+        if order.order_type =="直送":
+            if is_save_invoice: #从数据库读
+                carrier = invoice.payable_surcharge["preport_carrier"]
+                basic_fee = invoice.payable_basic
+                chassis_fee = invoice.payable_chassis
+                chassis_comment = invoice.payable_surcharge["chassis_comment"]
+                context.update({
+                    'chassis_fee': chassis_fee,
+                    "pallet_other_fee": pallet_other_fee,
+                })
+            else:
+                #去查找供应商报价
+                DETAILS = self._get_feetail(vessel_etd, "PAYABLE_DIRECT")
+                #查找直送的地址
+                destination = order.retrieval_id.retrieval_destination_area
+                carrier = order.retrieval_id.retrieval_carrier
+                result = None
+                destination_exists = False
+                destination_carriers = None  # 存储该目的地下的所有供应商
+                for warehouse,destinations in DETAILS.items():          
+                    if destination in destinations:
+                        destination_exists = True   
+                        destination_carriers = destinations[destination]
+                        if carrier in destination_carriers:
+                            result = destination_carriers[carrier]
+                            break
+                if not result:
+                    if not destination_exists:
+                        raise ValueError(f'报价表中没找到目的地 {destination} 的报价')
+                    else:
+                        raise ValueError(f'报价表中 {destination} 没有 {carrier} 供应商的报价')
+                basic_fee = result["price"]
+                chassis_comment = result["chassis"]
+            context.update({
+                "preport_carrier": carrier,
+                "basic_fee": basic_fee,
+                "chassis_comment": chassis_comment,              
+            })
+            return self.template_invoice_payable_direct_edit, context
+
+        else:
+            # 重量查找
+            actual_weight = order.container_number.weight_lbs
+            # 车架费计费时间查找
+            arrive_at = order.retrieval_id.arrive_at
+            lfd = order.retrieval_id.temp_t49_lfd
+            empty_returned_at = order.retrieval_id.empty_returned_at  # 还空时间
+            actual_retrieval_timestamp = (
+                order.retrieval_id.actual_retrieval_timestamp
+            )  # 提柜时间
+            arrive_date = None
+            returned_date = None
+            if lfd and arrive_at and empty_returned_at:
+                # 统一转换为日期对象比较
+                arrive_date = arrive_at.date()
+                returned_date = empty_returned_at.date()
+
+                if arrive_date < lfd:
+                    delta = returned_date - arrive_date
+                else:
+                    delta = returned_date - lfd
+
+                actual_day = delta.days + 1
+            else:
+                actual_day = None
+            overweight_fee = None
+            chassis_fee = None
+            arrive_fee = None
+            basic_fee = None
+            palletization_fee = None
+            pallet_details = None
+            pallet_other_fee = None
+            palletization_fee = None
+            palletization_carrier = None
+
+            reason = None
+            if not preport_carrier or preport_carrier == "None":
+                reason = "缺少提柜供应商，无法计算"
+            else:
+                if is_save_invoice:  # 读数据库的数据
+                    basic_fee = invoice.payable_basic
+                    if invoice.payable_overweight and float(invoice.payable_overweight) > 0:
+                        overweight_fee = invoice.payable_overweight
+
+                    if invoice.payable_chassis and float(invoice.payable_chassis) > 0:
+                        chassis_fee = invoice.payable_chassis
+
+                    # 如果是NJ的并且还有入库拆柜费，那就是拆柜费
+                    if invoice.payable_palletization and "NJ" in warehouse:
+                        palletization_fee = invoice.payable_palletization
+                        palletization_carrier = invoice.payable_surcharge[
+                            "palletization_carrier"
+                        ]
+                    else:
+                        # 否则，如果有入库拆柜费，那就是入库拆柜合并的费用
+                        arrive_fee = invoice.payable_palletization
+                                    
+                    # 如果是驳回的账单，并且仓库是NJ的，可能需要重新填写拆柜费用，所以要去报价表找拆柜供应商
+                    if invoice_status.is_rejected == True and warehouse == "NJ":
+                        DETAILS = self._get_feetail(vessel_etd, "PAYABLE")
+                        pickup_details = DETAILS[warehouse]["NJ 07001"][preport_carrier]
+                        if pickup_details:
+                            search_carrier = DETAILS[warehouse]["NJ 07001"]
+                            pallet_details = {
+                                carrier: details.get("palletization")
+                                for carrier, details in search_carrier.items()
+                                if details.get("basic_40") in (None, "/")
+                                and details.get("basic_45") in (None, "/")
+                            }
+                    context.update({
+                        "pallet_other_fee": pallet_other_fee,
+                    })
+                else:
+                    # 查找应付报价表
+                    DETAILS = self._get_feetail(vessel_etd, "PAYABLE")
+                    precise_warehouse = precise_warehouse.replace("-", " ")
+                    pickup_details = None
+                    try:
+                        if warehouse == "NJ":
+                            pickup_details = DETAILS[warehouse]["NJ 07001"][preport_carrier]
+                        else:
+                            pickup_details = DETAILS[warehouse][precise_warehouse][
+                                preport_carrier
+                            ]
+                    except Exception as e:
+                        reason = f"找不到{preport_carrier}供应商的报价"
+
+                    if pickup_details:
+                        # 如果是NJ的，还需要找拆柜供应商
+                        if warehouse == "NJ":
+                            search_carrier = DETAILS[warehouse]["NJ 07001"]
+                            pallet_details = {
+                                carrier: details.get("palletization")
+                                for carrier, details in search_carrier.items()
+                                if details.get("basic_40") in (None, "/")
+                                and details.get("basic_45") in (None, "/")
+                            }
+                        else:
+                            pallet_details = None
+
+                        basic_fee = 0
+                        if "40" in container_type:
+                            basic_fee = pickup_details["basic_40"]
+                        else:
+                            basic_fee = pickup_details["basic_45"]
+
+                        if pickup_details.get("overweight") not in (None, "/"):
+                            if float(actual_weight) > 42000:
+                                overweight_fee = pickup_details.get("overweight")
+
+                        if pickup_details.get("chassis") not in (
+                            None,
+                            "/",
+                        ) and pickup_details.get("chassis_free_day") not in (None, "/"):
+                            # 先找到仓时间和LFD
+                            arrive_at = order.retrieval_id.arrive_at
+                            lfd = order.retrieval_id.temp_t49_lfd
+                            empty_returned_at = order.retrieval_id.empty_returned_at
+                            if lfd and arrive_at and empty_returned_at:
+                                # 统一转换为日期对象比较
+                                arrive_date = arrive_at.date()
+                                returned_date = empty_returned_at.date()
+
+                                if arrive_date < lfd:
+                                    delta = returned_date - arrive_date
+                                else:
+                                    delta = returned_date - lfd
+
+                                actual_day = delta.days + 1
+                                free_day = actual_day - int(
+                                    pickup_details.get("chassis_free_day")
+                                )
+                                chassis_fee = free_day * pickup_details.get("chassis")
+
+                        arrive_fee = None
+                        if pickup_details.get("arrive_warehouse") not in (None, "/"):
+                            arrive_fee = pickup_details.get("arrive_warehouse")
+        context.update({
             "actual_weight": actual_weight,
-            "actual_day": actual_day or None,
-            "invoice_number": invoice.invoice_number,
+            "actual_day": actual_day or None,           
             "pallet_details": pallet_details or None,
             "preport_carrier": preport_carrier,
             "basic_fee": basic_fee,
             "overweight_fee": overweight_fee or None,
             "chassis_fee": chassis_fee or None,
-            "arrive_fee": arrive_fee or None,
-            "start_date": request.GET.get("start_date"),
-            "end_date": request.GET.get("end_date"),
-            "warehouse_filter": request.GET.get("warehouse"),
-            "is_save_invoice": is_save_invoice,
-            "account_confirm": account_confirm,
-            "payable_check": payable_check,
-            "pallet_other_fee": pallet_other_fee,
-            "reason": reason,
-            "reject_reason": reject_reason,
+            "arrive_fee": arrive_fee or None,                      
+            "reason": reason,          
             "palletization_fee": palletization_fee,
             "palletization_carrier": palletization_carrier,
-            "payable_total_amount": payable_total_amount,
             "lfd": lfd or None,
             "arrive_date": arrive_date or None,
             "returned_date": returned_date or None,
             "empty_returned_at": empty_returned_at,
             "actual_retrieval_timestamp": actual_retrieval_timestamp,
-        }
+        })
         return self.template_invoice_payable_edit, context
 
     def _get_feetail(self, vessel_etd, TABLENAME: str) -> Any:
