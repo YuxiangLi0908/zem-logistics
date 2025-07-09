@@ -8,8 +8,11 @@
         <div>
             <b style="margin-right: 5px;">客户:</b>
             {{ order_form.customer_name }}
+            {% if invoice_type_filter == 'receivable' %}
             <b style="margin-right: 5px; margin-left: 10px;">ETD时间:</b>
-            {{ context }}
+            {% elif invoice_type_filter == 'payable' %}
+            <b style="margin-right: 5px; margin-left: 10px;">ETA时间:</b>
+            {% endif %}
             <input type="date" name="start_date_confirm" value="{{ start_date_confirm }}">
             <input type="date" name="end_date_confirm" value="{{ end_date_confirm }}" style="margin-right: 5px;">
             <b style="margin-right: 5px;">选择仓点区域:</b>
@@ -238,7 +241,11 @@
                                 <td class="td">{{ c.retrieval_id__retrieval_carrier }}</td>
                                 <td class="td">{{ c.retrieval_id__actual_retrieval_timestamp|date:"M j, Y" }}</td>
                                 <td class="td" data-bill-date="{{ c.retrieval_id__actual_retrieval_timestamp|date:'Y-m' }}">
-                                    {{ c.retrieval_id__actual_retrieval_timestamp|add_month|date:"M j, Y" }}
+                                    {% if c.retrieval_id__actual_retrieval_timestamp %}
+                                        {{ c.retrieval_id__actual_retrieval_timestamp|add_month|date:"M j, Y" }}
+                                    {% else %}
+                                        缺少数据
+                                    {% endif %}
                                 </td>
                                 {% endif %}
                                 <td class="td">{{ c.invoice_id__invoice_number }}</td>

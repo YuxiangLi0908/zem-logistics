@@ -1226,10 +1226,22 @@ class Accounting(View):
             if not end_date_confirm
             else end_date_confirm
         )
-        criteria = models.Q(
-            models.Q(vessel_id__vessel_etd__gte=start_date_confirm),
-            models.Q(vessel_id__vessel_etd__lte=end_date_confirm),
+        # 客服录入完毕的账单
+        invoice_type = (
+            request.POST.get("invoice_type")
+            or request.GET.get("invoice_type")
+            or "receivable"
         )
+        if invoice_type == "receivable":
+            criteria = models.Q(
+                models.Q(vessel_id__vessel_etd__gte=start_date_confirm),
+                models.Q(vessel_id__vessel_etd__lte=end_date_confirm),
+            )
+        else:
+            criteria = models.Q(
+                models.Q(vessel_id__vessel_eta__gte=start_date_confirm),
+                models.Q(vessel_id__vessel_eta__lte=end_date_confirm),
+            )
         if warehouse:
             if warehouse == "直送":
                 criteria &= models.Q(order_type="直送")
@@ -1241,12 +1253,7 @@ class Accounting(View):
         if customer:
             criteria &= models.Q(customer_name__zem_name=customer)
 
-        # 客服录入完毕的账单
-        invoice_type = (
-            request.POST.get("invoice_type")
-            or request.GET.get("invoice_type")
-            or "receivable"
-        )
+        
         order = Order.objects.select_related(
             "customer_name", "container_number", "retrieval_id"
         ).filter(
@@ -3047,7 +3054,7 @@ class Accounting(View):
         end_date = current_date.strftime("%Y-%m-%d") if not end_date else end_date
 
         criteria = models.Q(cancel_notification=False) & models.Q(
-            vessel_id__vessel_etd__gte=start_date, vessel_id__vessel_etd__lte=end_date
+            vessel_id__vessel_eta__gte=start_date, vessel_id__vessel_eta__lte=end_date
         )&models.Q(retrieval_id__empty_returned=True)
         if warehouse:
             if warehouse == "直送":
