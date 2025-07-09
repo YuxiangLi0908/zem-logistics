@@ -380,7 +380,7 @@ class Accounting(View):
             for pallet in pallets:
                 if pallet.container_number:
                     packing_lists = PackingList.objects.filter(
-                        container_number=pallet.container_number.container_number
+                        container_number__container_number=pallet.container_number.container_number
                     ) 
                 else:
                     continue
