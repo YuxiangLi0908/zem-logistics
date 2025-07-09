@@ -88,7 +88,7 @@ class QuoteManagement(View):
 
     def handle_quote_master_get(self, request: HttpRequest) -> dict[str, Any]:
         # 查询历史版本
-        quotes = QuotationMaster.objects.filter(quote_type="receivable")
+        quotes = QuotationMaster.objects.filter(quote_type="receivable").order_by('-effective_date')
         context = {"order_form": OrderForm(), "quotes": quotes}
         return self.template_quote_master, context
 
