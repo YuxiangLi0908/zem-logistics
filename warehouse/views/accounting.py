@@ -372,136 +372,28 @@ class Accounting(View):
             return "pending", "pending"  # 默认返回原状态
 
     def migrate_status(self) -> tuple[Any, Any]:
-        # 把派送表里，total_cost为空的，自动计算
-        updated = (
-            InvoiceDelivery.objects.filter(total_cost__isnull=True)
-            .exclude(cost=0)
-            .exclude(total_pallet__isnull=True)
-            .update(total_cost=Coalesce(F("cost") * F("total_pallet"), Value(0)))
-        )
-        context = {}
-        return self.template_invoice_preport, context
-
-        for item in InvoiceStatus.objects.all():
-            if item.stage == "tobeconfirmed":
-                container_number = item.container_number
-                invoice = Invoice.objects.get(container_number=item.container_number)
-                delivery_amount = (
-                    InvoiceDelivery.objects.filter(
-                        invoice_number=invoice,
-                        invoice_type="receivable",
-                    ).aggregate(total_amount=Sum("total_cost"))["total_amount"]
-                    or 0
+        #查找pallet表，目的地符合条件的
+        destinations = ['NY 11220', 'NJ 08518', 'NJ 08861']
+        for destination in destinations:
+            pallets = Pallet.objects.filter(destination=destination)
+            
+            for pallet in pallets:
+                packing_lists = PackingList.objects.filter(
+                    container_number__container_number=pallet.container_number.container_number
                 )
-                invoice.receivable_delivery_amount = delivery_amount
-                invoice.save()
-        # 提取单价信息
-        excluded_fields = {
-            "id",
-            "invoice_number",
-            "invoice_type",
-            "amount",
-            "qty",
-            "rate",
-            "other_fees",
-            "surcharges",
-            "surcharge_notes",
-            "history",
-        }
-        vessel_etd = order.vessel_id.vessel_etd
-        quotation = (
-            QuotationMaster.objects.filter(effective_date__lte=vessel_etd)
-            .order_by("-effective_date")
-            .first()
-        )
-        if not quotation:
-            raise ValueError("找不到报价表")
-        PICKUP_FEE = FeeDetail.objects.get(
-            quotation_id=quotation.id, fee_type="preport"
-        )
-        # 提拆、打托缠膜费用
-        # match = re.match(r"\d+", container_type)
-
-        FS_constrain = {
-            key: float(re.search(r"\d+(\.\d+)?", value).group())
-            for key, value in PICKUP_FEE.details.items()
-            if not isinstance(value, dict)
-            and "/" in str(value)
-            and re.search(r"\d+(\.\d+)?", value)
-        }
-        for item in InvoicePreport.objects.all():
-            invoice = item.invoice_number
-            order = Order.objects.get(
-                container_number=invoice.container_number,
-            )
-            if order:
-                warehouse = order.warehouse
-                # container_type = invoice.container_number.container_type if invoice.container_number else None
-                order_type = order.order_type
-            if order_type != "直送":
-                if not item.qty or not item.rate:
-                    qty_data, rate_data = self._extract_unit_price(
-                        model=InvoicePreport,
-                        unit_prices=FS_constrain,
-                        pickup_fee=item.pickup,
-                        excluded_fields=excluded_fields,
-                    )
-                    item.qty = qty_data
-                    item.rate = rate_data
-                    item.save()
-
-        for st in InvoiceStatus.objects.all():
-            if (
-                st.stage_public == "delivery_completed"
-                and st.stage_other == "delivery_completed"
-                and st.stage == "preport"
-            ):
-                st.stage = "tobeconfirmed"
-                st.save()
-        context = {}
-        return self.template_invoice_preport, context
-
-        deliverys = InvoiceDelivery.objects.all()
-        for dl in deliverys:
-            if dl.type == "self_delivery":
-                dl.type = "selfdelivery"
-                dl.save()
-        context = {}
-        STATUS_MAPPING = {
-            "record_preport": "preport",
-            "record_warehouse": "warehouse",
-            "record_delivery": "delivery",  # 修正为正确的映射
-            "tobeconfirmed": "tobeconfirmed",
-            "confirmed": "confirmed",
-            None: "unstarted",  # 处理空值情况
-        }
-        orders = (
-            Order.objects.select_related("container_number").filter(
-                invoice_status__isnull=False
-            )
-        ).exclude(invoice_status="")
-        for order in orders:
-            main_stage = STATUS_MAPPING.get(order.invoice_status, "unstarted")
-            stage_public, stage_other = self.get_special_stages(main_stage)
-
-            invoice_status, created = InvoiceStatus.objects.get_or_create(
-                container_number=order.container_number,
-                invoice_type="receivable",
-                defaults={
-                    "stage": main_stage,
-                    "stage_public": stage_public,
-                    "stage_other": stage_other,
-                },
-            )
-
-            if not created:
-                invoice_status.stage = main_stage
-                invoice_status.stage_public = stage_public
-                invoice_status.stage_other = stage_other
-                invoice_status.save()
-
-            order.receivable_status = invoice_status
-            order.save()
+                matching_packing_list = packing_lists.filter(
+                    shipping_mark=pallet.shipping_mark
+                ).first()
+                
+                if matching_packing_list:
+                    if (pallet.shipment_batch_number and 
+                        matching_packing_list.shipment_batch_number and
+                        pallet.shipment_batch_number == matching_packing_list.shipment_batch_number):
+                        pallet.PO_ID = matching_packing_list.PO_ID
+                        pallet.save()
+                    elif not pallet.shipment_batch_number or not matching_packing_list.shipment_batch_number:
+                        pallet.PO_ID = matching_packing_list.PO_ID
+                        pallet.save()
         context = {}
         return self.template_invoice_preport, context
 
