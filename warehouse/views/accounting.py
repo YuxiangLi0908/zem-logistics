@@ -378,9 +378,12 @@ class Accounting(View):
             pallets = Pallet.objects.filter(destination=destination)
             
             for pallet in pallets:
-                packing_lists = PackingList.objects.filter(
-                    container_number__container_number=pallet.container_number.container_number
-                )
+                if pallet.container_number:
+                    packing_lists = PackingList.objects.filter(
+                        container_number=pallet.container_number.container_number
+                    ) 
+                else:
+                    continue
                 matching_packing_list = packing_lists.filter(
                     shipping_mark=pallet.shipping_mark
                 ).first()
