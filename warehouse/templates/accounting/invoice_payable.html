@@ -2,53 +2,61 @@
 
 {% block content %}
 <div><h4><b>应付账单管理</b></h4></div>
-<div style="width: 100%; display: flex; justify-content: space-between;">
-    <div style="width: 100%; display: flex; justify-content: space-between;">
-        <form method="post" action="" style="width: 80%;">
-            {% csrf_token %}
-            <div>
-                <b style="margin-right: 5px;">供应商:</b>
-                <select name="preport_carrier" id="preport-carrier-select" style="font-size: 13px;">
-                    {% for k, v in preport_carrier %}
-                    <option value="{{ v }}" {% if k == preport_carrier_filter %}selected{% endif %}>{{ k }}</option>
-                    {% endfor %}
-                </select>
-                <b style="margin-right: 5px;">客户:</b>
-                {{ order_form.customer_name }}
-                <b style="margin-right: 5px; margin-left: 10px;">ETD时间:</b>
-                <input type="date" name="start_date" value="{{ start_date }}">
-                <input type="date" name="end_date" value="{{ end_date }}" style="margin-right: 5px;">
-                <b style="margin-right: 5px;">选择仓点区域:</b>
-                    <select name="warehouse_filter">
-                        {% for k, v in warehouse_options.items %}
-                            {% if warehouse_filter == v %}
-                                <option value="{{ v }}" selected>{{ k }}</option>
-                            {% else %}
-                                <option value="{{ v }}">{{ k }}</option>
-                            {% endif %}
-                        {% endfor %}
-                    </select>
-                </b>
-                <input type="hidden" name="step" value="invoice_order_payable">
-                <button id="submit-btn" type="submit" class="btn btn-primary" style="width: 100px; height: 35px; margin-left: 20px;">查询</button>
-            </div>
-        </form>
-    </div>
+<div style="width: 100%; display: flex; justify-content: space-between; align-items: center;">
+    <form method="post" action="" style="flex: 1; display: flex; align-items: center; gap: 10px; flex-wrap: wrap;">
+        {% csrf_token %}
+        <div style="display: flex; align-items: center; gap: 10px; flex-wrap: nowrap; white-space: nowrap;">
+            <b>供应商:</b>
+            <select name="preport_carrier" id="preport-carrier-select" style="font-size: 13px;">
+                {% for k, v in preport_carrier %}
+                <option value="{{ v }}" {% if k == preport_carrier_filter %}selected{% endif %}>{{ k }}</option>
+                {% endfor %}
+            </select>
+        </div>
+        
+        <div style="display: flex; align-items: center; gap: 10px; flex-wrap: nowrap; white-space: nowrap;">
+            <b>客户:</b>
+            {{ order_form.customer_name }}
+        </div>
+        
+        <div style="display: flex; align-items: center; gap: 10px; flex-wrap: nowrap; white-space: nowrap;">
+            <b>ETA时间:</b>
+            <input type="date" name="start_date" value="{{ start_date }}" style="width: 140px;">
+            <input type="date" name="end_date" value="{{ end_date }}" style="width: 140px;">
+        </div>
+        
+        <div style="display: flex; align-items: center; gap: 10px; flex-wrap: nowrap; white-space: nowrap;">
+            <b>选择仓点区域:</b>
+            <select name="warehouse_filter" style="width: 120px;">
+                {% for k, v in warehouse_options.items %}
+                    {% if warehouse_filter == v %}
+                        <option value="{{ v }}" selected>{{ k }}</option>
+                    {% else %}
+                        <option value="{{ v }}">{{ k }}</option>
+                    {% endif %}
+                {% endfor %}
+            </select>
+        </div>
+        
+        <input type="hidden" name="step" value="invoice_order_payable">
+        <button id="submit-btn" type="submit" class="btn btn-primary" style="width: 100px; height: 35px;">查询</button>
+    </form>
+
     {% if is_payable_check %}
-    <div style="display: flex; align-items: center; gap: 15px;">
+    <div style="display: flex; align-items: center; gap: 15px; flex-shrink: 0;">
         <!-- 供应商筛选 -->
-        <form method="post" action="">
+        <form method="post" action="" style="display: flex; align-items: center; gap: 10px;">
             {% csrf_token %}
-            <div style="display: flex; align-items: center;">
-                <label style="font-weight: bold; width:80px;">月份:</label>
-                <select id="monthSelectorCarrier" name="select_month" style="padding: 5px; border-radius: 4px; border: 1px solid #ddd;">
+            <div style="display: flex; align-items: center; gap: 10px;">
+                <label style="font-weight: bold;">月份:</label>
+                <select id="monthSelectorCarrier" name="select_month" style="padding: 5px; border-radius: 4px; border: 1px solid #ddd; width: 120px;">
                     {% for month in months %}
                         <option value="{{ month.value }}" {% if month.selected %}selected{% endif %}>
                             {{ month.label }}
                         </option>
                     {% endfor %}
                 </select>
-                <label style="margin-right: 8px; font-weight: bold; width:80px;">供应商:</label>
+                <label style="font-weight: bold;">供应商:</label>
                 <select id="carrierFilter" name="select_carrier" class="form-control" style="width: 120px;">            
                     {% for key,value in carriers.items %}
                     <option value="{{ key }}">{{ value }}</option>
