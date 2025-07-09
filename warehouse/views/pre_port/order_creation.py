@@ -891,9 +891,9 @@ class OrderCreation(View):
                 if dm in ["暂扣留仓(HOLD)", "暂扣留仓"]:
                     po_id_hkey = f"{dm}-{sm}-{dest}-{fba}"
                     po_id_seg = (
-                        f"H{fba[-4:]}"
+                        f"H{fba[-4:]}{sm[-4:]}"
                         if fba
-                        else f"H{''.join(random.choices(string.ascii_letters.upper() + string.digits, k=4))}"
+                        else f"H{sm[-4:] if sm else ''.join(random.choices(string.ascii_letters.upper() + string.digits, k=4))}"
                     )
                 elif dm == "客户自提" or dest == "客户自提":
                     po_id_hkey = f"{dm}-{sm}-{dest}-{fba}"
