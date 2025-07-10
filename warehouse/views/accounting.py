@@ -376,10 +376,10 @@ class Accounting(View):
 
         container_numbers = (
             PackingList.objects.exclude(PO_ID__isnull=True)
-            .values_list('container_number__container_number', flat=True) #flat=True表示将值变成一维的数组
-            .distinct()
+            .order_by('-id')  # 按 ID 降序（假设 id 是自增主键）
+            .values_list('container_number__container_number', flat=True)
+            .distinct()[:100000]  # 限制 10 万条
         )
-        print('container_number',container_numbers)
         for container_number in container_numbers:
             packinglists = PackingList.objects.filter(
                 container_number__container_number=container_number
