@@ -378,7 +378,7 @@ class Accounting(View):
             PackingList.objects.exclude(PO_ID__isnull=True)
             .order_by('-id')  # 按 ID 降序（假设 id 是自增主键）
             .values_list('container_number__container_number', flat=True)
-            .distinct()[:10000]  # 限制 10 万条
+            .distinct()[50000:10000]  # 限制 10 万条
         )
         for container_number in container_numbers:
             packinglists = PackingList.objects.filter(
@@ -393,21 +393,30 @@ class Accounting(View):
                 if len(pl_list) > 1:
                     # 检查destination或shipping_mark是否不同
                     first_pl = pl_list[0]
-                    has_conflict = any(
-                        pl.destination != first_pl.destination
-                        for pl in pl_list[1:]
-                    )  #任一结果不同就是True
+                    conflicting_pls = [
+                        pl for pl in pl_list[1:] 
+                        if pl.destination != first_pl.destination
+                    ]
                     
-                    if has_conflict:
-                        # 添加冲突记录到结果
-                        for pl in pl_list:
+                    if conflicting_pls:
+                        conflict_data.append({
+                            'Container Number': container_number,
+                            'PO_ID': po_id,
+                            'ID': first_pl.id,
+                            'Destination': first_pl.destination,
+                            'Shipping Mark': first_pl.shipping_mark,
+                            'Batch Number': first_pl.shipment_batch_number,
+                            'Conflict Reason': 'Base Record'  # 标记基准记录
+                        })
+                        for pl in conflicting_pls:
                             conflict_data.append({
                                 'Container Number': container_number,
                                 'PO_ID': po_id,
                                 'ID': pl.id,
                                 'Destination': pl.destination,
                                 'Shipping Mark': pl.shipping_mark,
-                                'Batch Number': pl.shipment_batch_number
+                                'Batch Number': pl.shipment_batch_number,
+                                'Conflict Reason': f"Differs from {first_pl.id}"  # 标记冲突原因
                             })
         
         # 创建DataFrame并导出Excel
