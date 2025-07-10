@@ -10,7 +10,8 @@ from asgiref.sync import sync_to_async
 from dateutil.relativedelta import relativedelta
 from django.apps import apps
 from django.contrib.auth.models import User
-from django.db.models import Case, Count, FloatField, Q, Sum, When
+from django.db.models import Case, Count, FloatField, Q, Sum, When, Model
+from django.core.exceptions import ObjectDoesNotExist
 from django.db.models.functions import Cast, TruncMonth
 from django.http import Http404, HttpRequest, HttpResponse, HttpResponseForbidden
 from django.shortcuts import render
@@ -162,12 +163,11 @@ class OrderQuantity(View):
                         getattr(r, f.name, None)  # 安全获取属性，不存在时返回None
                         if not f.is_relation  # 如果不是关系字段
                         else (
-                            getattr(
-                                r, f.name + "_id", None
-                            )  # 如果是关系字段，获取外键ID
-                            if getattr(r, f.name) is None  # 如果外键对象为None
-                            else getattr(r, f.name).pk  # 否则获取关联对象的主键
-                        )
+                            getattr(r, f.name + "_id", None)  # 先尝试获取外键ID
+                            if getattr(r, f.name + "_id", None) is not None  # 如果有外键ID
+                            else None  # 没有外键ID则返回None
+                        ) if f.many_to_one or f.one_to_one  # 只处理多对一和一对一关系
+                        else [obj.pk for obj in getattr(r, f.name).all()]  # 处理多对多关系
                     )
                     for f in r.__class__._meta.get_fields()
                     if f.name
@@ -312,10 +312,36 @@ class OrderQuantity(View):
         return self.template_historical, context
 
     async def safe_get_attr(self, obj, attr_name):
-        value = getattr(obj, attr_name)
-        if hasattr(value, "_meta"):  # 如果是模型实例
-            return await sync_to_async(str)(value)  # 异步转字符串
-        return str(value) if value is not None else "空"
+        # 同步处理函数
+        def _sync_get_attr(obj, attr_name):
+            try:
+                # 先尝试直接获取外键ID而不触发查询
+                field_id = getattr(obj, f"{attr_name}_id", None)
+                
+                # 如果外键ID存在，再尝试获取对象
+                if field_id is not None:
+                    try:
+                        value = getattr(obj, attr_name)
+                        if isinstance(value, Model):
+                            return str(value)
+                    except ObjectDoesNotExist:
+                        return f"关联对象(ID:{field_id})不存在"
+                
+                # 处理普通字段或空值
+                value = getattr(obj, attr_name, None)
+                if value is None:
+                    return "空"
+                    
+                # 处理ManyToMany等关系
+                if hasattr(value, "all"):
+                    return ", ".join(str(item) for item in value.all()[:5])
+                    
+                return str(value)
+                
+            except Exception as e:
+                return f"错误: {str(e)}"
+        
+        return await sync_to_async(_sync_get_attr, thread_sensitive=True)(obj, attr_name)
 
     # 智能判断值是否真正发生变化
     def is_value_changed(self, old_val, new_val):
