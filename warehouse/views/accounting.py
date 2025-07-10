@@ -378,7 +378,7 @@ class Accounting(View):
             PackingList.objects.exclude(PO_ID__isnull=True)
             .order_by('-id')  # 按 ID 降序（假设 id 是自增主键）
             .values_list('container_number__container_number', flat=True)
-            .distinct()[:5000]  # 限制 10 万条
+            .distinct()[:10000]  # 限制 10 万条
         )
         for container_number in container_numbers:
             packinglists = PackingList.objects.filter(
@@ -394,8 +394,7 @@ class Accounting(View):
                     # 检查destination或shipping_mark是否不同
                     first_pl = pl_list[0]
                     has_conflict = any(
-                        pl.destination != first_pl.destination or 
-                        pl.shipping_mark != first_pl.shipping_mark
+                        pl.destination != first_pl.destination
                         for pl in pl_list[1:]
                     )  #任一结果不同就是True
                     
