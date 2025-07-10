@@ -378,7 +378,7 @@ class Accounting(View):
             PackingList.objects.exclude(PO_ID__isnull=True)
             .order_by('-id')  # 按 ID 降序（假设 id 是自增主键）
             .values_list('container_number__container_number', flat=True)
-            .distinct()[50000:10000]  # 限制 10 万条
+            .distinct() # 限制 10 万条
         )
         for container_number in container_numbers:
             packinglists = PackingList.objects.filter(
