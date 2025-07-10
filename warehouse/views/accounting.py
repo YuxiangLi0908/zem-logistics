@@ -341,7 +341,7 @@ class Accounting(View):
             template, context = self.migrate_payable_to_receivable()
             return render(request, template, context)
         elif step == "migrate_status":
-            template, context = self.migrate_status()
+            return self.migrate_status()
             return render(request, template, context)
         elif step == "confirm_combina_save":
             template, context = self.handle_invoice_confirm_combina_save(request)
@@ -371,32 +371,59 @@ class Accounting(View):
         else:
             return "pending", "pending"  # 默认返回原状态
 
-    def migrate_status(self) -> tuple[Any, Any]:
-        #查找pallet表，目的地符合条件的
-        destinations = ['NY 11220', 'NJ 08518', 'NJ 08861']
-        for destination in destinations:
-            pallets = Pallet.objects.filter(destination=destination)
+    def migrate_status(self) -> HttpRequest:
+        conflict_data = []
+
+        container_numbers = (
+            PackingList.objects.exclude(PO_ID__isnull=True)
+            .values_list('container_number__container_number', flat=True) #flat=True表示将值变成一维的数组
+            .distinct()
+        )
+        print('container_number',container_numbers)
+        for container_number in container_numbers:
+            packinglists = PackingList.objects.filter(
+                container_number__container_number=container_number
+            ).exclude(PO_ID__isnull=True)
+            po_id_groups = {}
+            for pl in packinglists:   #将pl按照PO_ID分类
+                po_id_groups.setdefault(pl.PO_ID, []).append(pl)
             
-            for pallet in pallets:
-                if pallet.container_number:
-                    packing_lists = PackingList.objects.filter(
-                        container_number__container_number=pallet.container_number.container_number
-                    ) 
-                else:
-                    continue
-                matching_packing_list = packing_lists.filter(
-                    shipping_mark=pallet.shipping_mark
-                ).first()
-                
-                if matching_packing_list:
-                    if (pallet.shipment_batch_number and 
-                        matching_packing_list.shipment_batch_number and
-                        pallet.shipment_batch_number == matching_packing_list.shipment_batch_number):
-                        pallet.PO_ID = matching_packing_list.PO_ID
-                        pallet.save()
-                    elif not pallet.shipment_batch_number or not matching_packing_list.shipment_batch_number:
-                        pallet.PO_ID = matching_packing_list.PO_ID
-                        pallet.save()
+            # 检查每个PO_ID组内的差异
+            for po_id, pl_list in po_id_groups.items():
+                if len(pl_list) > 1:
+                    # 检查destination或shipping_mark是否不同
+                    first_pl = pl_list[0]
+                    has_conflict = any(
+                        pl.destination != first_pl.destination or 
+                        pl.shipping_mark != first_pl.shipping_mark
+                        for pl in pl_list[1:]
+                    )  #任一结果不同就是True
+                    
+                    if has_conflict:
+                        # 添加冲突记录到结果
+                        for pl in pl_list:
+                            conflict_data.append({
+                                'Container Number': container_number,
+                                'PO_ID': po_id,
+                                'ID': pl.id,
+                                'Destination': pl.destination,
+                                'Shipping Mark': pl.shipping_mark,
+                                'Batch Number': pl.shipment_batch_number
+                            })
+        
+        # 创建DataFrame并导出Excel
+        if conflict_data:
+            df = pd.DataFrame(conflict_data)
+            response = HttpResponse(
+                content_type="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
+            )
+            response["Content-Disposition"] = f"attachment; filename=111.xlsx"
+            df.to_excel(excel_writer=response, index=False, columns=df.columns)
+            return response
+            
+        else:
+            raise ValueError('没有异常数据')
+        
         context = {}
         return self.template_invoice_preport, context
 
