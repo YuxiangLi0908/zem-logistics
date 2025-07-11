@@ -4611,11 +4611,13 @@ class Accounting(View):
                             break
                 if not result:
                     if not destination_exists:
-                        raise ValueError(f'报价表中没找到目的地 {destination} 的报价')
+                        basic_fee = 0
+                        chassis_comment = '无相关信息'
                     else:
                         raise ValueError(f'报价表中 {destination} 没有 {carrier} 供应商的报价')
-                basic_fee = result["price"]
-                chassis_comment = result["chassis"]
+                else:
+                    basic_fee = result["price"]
+                    chassis_comment = result["chassis"]
             context.update({
                 "preport_carrier": carrier,
                 "basic_fee": basic_fee,
