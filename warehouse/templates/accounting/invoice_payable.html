@@ -79,7 +79,10 @@
 <div style="display: flex; max-height: 360px; margin-bottom: 20px;">
     {% if order %}
     <div style="overflow-y: auto; max-height: 100%; width: 40%; border: 2px solid rgb(180, 180, 180); border-radius: 12px; padding: 1%; margin: 1%;">     
-        <div><b>客服待录入账单</b></div>
+        <div>
+            <b>客服待录入账单</b>
+            <span style="font-size: 12px; color: #666;">{{ order|length }}条记录</span>
+        </div>
         <form method="post" action="">
             {% csrf_token %}
             <div style="overflow-x: auto; max-width: 100%; overflow-y: auto; max-height: 600px;">
@@ -121,7 +124,10 @@
 
     {% if previous_order %}
     <div style="overflow-y: auto; max-height: 100%; width: 60%; border: 2px solid rgb(180, 180, 180); border-radius: 12px; padding: 1%; margin: 1%;">       
-        <div><b>客服已录入账单</b></div>
+        <div>
+            <b>客服已录入账单</b>
+            <span style="font-size: 12px; color: #666;">{{ previous_order|length }}条记录</span>
+        </div>
         <form method="post" action="">
             {% csrf_token %}
             <div style="overflow-x: auto; max-width: 100%; overflow-y: auto; max-height: 600px;">
@@ -165,7 +171,10 @@
 <div style="display: flex; max-height: 360px;">
     {% if order_pending %}
     <div style="overflow-y: auto; max-height: 100%; width: 40%; border: 2px solid rgb(180, 180, 180); border-radius: 12px; padding: 1%; margin: 1%;">     
-        <div><b>待审核账单</b></div>
+        <div>
+            <b>待审核账单</b>
+            <span style="font-size: 12px; color: #666;">{{ order_pending|length }}条记录</span>
+        </div>
         <form method="post" action="">
             {% csrf_token %}
             <div style="overflow-x: auto; max-width: 100%; overflow-y: auto; max-height: 600px;">
@@ -207,7 +216,10 @@
 
     {% if pre_order_pending %}
     <div style="overflow-y: auto; max-height: 100%; width: 40%; border: 2px solid rgb(180, 180, 180); border-radius: 12px; padding: 1%; margin: 1%;">      
-        <div><b>已审核账单</b></div>
+        <div>
+            <b>已审核账单</b>
+            <span style="font-size: 12px; color: #666;">{{ pre_order_pending|length }}条记录</span>
+        </div>
         <form method="post" action="">
             {% csrf_token %}
             <div style="overflow-x: auto; max-width: 100%; overflow-y: auto; max-height: 600px;">
