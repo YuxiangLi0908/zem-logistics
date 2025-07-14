@@ -4698,15 +4698,15 @@ class Accounting(View):
                     DETAILS = self._get_feetail(vessel_etd, "PAYABLE")
                     precise_warehouse = precise_warehouse.replace("-", " ")
                     pickup_details = None
-                    #try:
-                    if warehouse == "NJ":
-                        pickup_details = DETAILS[warehouse]["NJ 07001"][preport_carrier]
-                    else:
-                        pickup_details = DETAILS[warehouse][precise_warehouse][
-                            preport_carrier
-                        ]
-                    # except Exception as e:
-                    #     reason = f"找不到{preport_carrier}供应商的报价"
+                    try:
+                        if warehouse == "NJ":
+                            pickup_details = DETAILS[warehouse]["NJ 07001"][preport_carrier]
+                        else:
+                            pickup_details = DETAILS[warehouse][precise_warehouse][
+                                preport_carrier
+                            ]
+                    except Exception as e:
+                        reason = f"找不到{preport_carrier}供应商的报价"
 
                     if pickup_details:
                         # 如果是NJ的，还需要找拆柜供应商
