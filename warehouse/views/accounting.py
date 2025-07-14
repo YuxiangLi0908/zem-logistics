@@ -2622,8 +2622,8 @@ class Accounting(View):
         order.save()
         return self.handle_invoice_combina_get(
             request,
-            request.POST.get("start_date"),
-            request.POST.get("end_date"),
+            request.POST.get("start_date_confirm"),
+            request.POST.get("end_date_confirm"),
             request.POST.get("customer"),
             request.POST.get("warehouse"),
         )
