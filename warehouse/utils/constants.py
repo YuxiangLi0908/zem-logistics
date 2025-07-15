@@ -43,6 +43,7 @@ CONTAINER_PICKUP_CARRIER = [
     ("大方广", "大方广"),
     ("Eric", "Eric"),
     ("客户自提", "客户自提"),
+    ("GM", "GM"),
 ]
 
 CLEARANCE_OPTIONS = [
