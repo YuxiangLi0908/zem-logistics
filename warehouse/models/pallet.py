@@ -53,6 +53,7 @@ class Pallet(models.Model):
     weight_lbs = models.FloatField(null=True, blank=True)
     abnormal_palletization = models.BooleanField(default=False, null=True, blank=True)
     po_expired = models.BooleanField(default=False, null=True, blank=True)
+    expense = models.FloatField(null=True, blank=True)
     note = models.CharField(max_length=2000, null=True, blank=True)
     priority = models.CharField(max_length=20, null=True, blank=True)
     location = models.CharField(max_length=100, null=True, blank=True)

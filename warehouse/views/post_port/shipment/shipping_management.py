@@ -45,6 +45,7 @@ from warehouse.models.retrieval import Retrieval
 from warehouse.models.shipment import Shipment
 from warehouse.models.transfer_location import TransferLocation
 from warehouse.models.warehouse import ZemWarehouse
+from warehouse.models.fleet_shipment_pallet import FleetShipmentPallet
 from warehouse.utils.constants import (
     LOAD_TYPE_OPTIONS,
     SP_PASS,
@@ -1723,6 +1724,8 @@ class ShippingManagement(View):
             )
         elif alter_type == "remove":  # 删除PO
             selections = request.POST.getlist("is_shipment_removed")
+            #记录要删除PO的PO_ID,因为pl和plt的相同，所以不用区分
+            fleet_po_ids = set()
             # 未打板的
             try:
                 pl_ids = request.POST.getlist("removed_pl_ids")
@@ -1735,6 +1738,7 @@ class ShippingManagement(View):
                 )
                 pl_master_po_ids = set()  # 要移除主约的PO_ID
                 for pl in packing_list:
+                    fleet_po_ids.add(pl.PO_ID)
                     shipment.total_weight -= pl.total_weight_lbs
                     shipment.total_pcs -= pl.pcs
                     shipment.total_cbm -= pl.cbm
@@ -1765,7 +1769,6 @@ class ShippingManagement(View):
             except:
                 pass
             # 打板的
-            # try:
             plt_ids = request.POST.getlist("removed_plt_ids")
             plt_ids = [id for s, id in zip(selections, plt_ids) if s == "on"]
             plt_ids = [int(i) for id in plt_ids for i in id.split(",") if i]
@@ -1775,6 +1778,7 @@ class ShippingManagement(View):
             plt_master_po_ids = set()  # 需要改主约的
             plt_shipment_po_ids = set()  # 需要改实际约的
             for plt in pallet:
+                fleet_po_ids.add(plt.PO_ID)
                 plt_shipment_po_ids.add(plt.PO_ID)
 
                 plt_master_shipment = await sync_to_async(
@@ -1796,6 +1800,14 @@ class ShippingManagement(View):
                 fields=["shipment_batch_number", "master_shipment_batch_number"],
             )
 
+            #把fleet_shipment_pallet表里，以上PO_ID相同并且shipment相同的记录都删除
+            if fleet_po_ids:
+                deleted_count, _ = await sync_to_async(
+                    FleetShipmentPallet.objects.filter(
+                        PO_ID__in=fleet_po_ids,
+                        shipment_batch_number=shipment,
+                    ).delete
+                )()
             # 改同一PO_ID的板子的主约
             if plt_master_po_ids:
                 await sync_to_async(
@@ -1803,7 +1815,7 @@ class ShippingManagement(View):
                 )(master_shipment_batch_number=None)
 
             # 因为pl和板子的PO_ID相同，所以根据PO_ID去找pl
-            # 改同一PO_ID的pl的主约
+            # 改同一PO_ID的pl的主约f
             if plt_master_po_ids:
                 await sync_to_async(
                     PackingList.objects.filter(PO_ID__in=plt_master_po_ids).update

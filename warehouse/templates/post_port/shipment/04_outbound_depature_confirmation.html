@@ -377,7 +377,7 @@
                             </td>
                             <input type="hidden" name="batch_number" value="{{ s.shipment_batch_number__shipment_batch_number }}">
                             <input type="hidden" name="pl_ids" value="{{ s.ids }}">
-                            <input type="hidden" name="plt_ids" value="{{ s.plt_ids }}">
+                            <input type="text" name="plt_ids" value="{{ s.plt_ids }}">
                         </tr>
                         {% endfor %}
                         <tr id="amount-total-row">

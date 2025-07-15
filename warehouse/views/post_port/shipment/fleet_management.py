@@ -52,6 +52,7 @@ from warehouse.models.pallet import Pallet
 from warehouse.models.retrieval import Retrieval
 from warehouse.models.shipment import Shipment
 from warehouse.models.warehouse import ZemWarehouse
+from warehouse.models.fleet_shipment_pallet import FleetShipmentPallet
 from warehouse.utils.constants import (
     APP_ENV,
     DELIVERY_METHOD_OPTIONS,
@@ -78,6 +79,7 @@ class FleetManagement(View):
     )
     template_delivery_and_pod = "post_port/shipment/05_1_delivery_and_pod.html"
     template_pod_upload = "post_port/shipment/05_2_delivery_and_pod.html"
+    template_fleet_cost_record = "post_port/shipment/fleet_cost_record.html"
     template_bol = "export_file/bol_base_template.html"
     template_bol_pickup = "export_file/bol_template.html"
     template_ltl_label = "export_file/ltl_label.html"
@@ -117,6 +119,7 @@ class FleetManagement(View):
         if not await self._user_authenticate(request):
             return redirect("login")
         step = request.GET.get("step")
+        print('step',step)
         if step == "outbound":
             context = {"warehouse_form": ZemWarehouseForm()}
             return render(request, self.template_outbound, context)
@@ -134,6 +137,9 @@ class FleetManagement(View):
             return render(request, template, context)
         elif step == "pod_upload":
             template, context = await self.handle_pod_upload_get(request)
+            return render(request, template, context)
+        elif step =="fleet_cost_record":
+            template, context = await self.handle_fleet_cost_record_get(request)
             return render(request, template, context)
         else:
             context = {"warehouse_form": ZemWarehouseForm()}
@@ -202,6 +208,15 @@ class FleetManagement(View):
             return await self._export_ltl_label(request)
         elif step == "download_LTL_BOL":
             return await self._export_ltl_bol(request)
+        elif step =="fleet_cost_record":
+            template, context = await self.handle_fleet_cost_record_get(request)
+            return render(request, template, context)
+        elif step == "fleet_cost_confirm":
+            template, context = await self.handle_fleet_cost_confirm_get(request)
+            return render(request, template, context)
+        elif step == "upload_fleet_cost":
+            template, context = await self.handle_upload_fleet_cost_get(request)
+            return render(request, template, context)
         else:
             return await self.get(request)
 
@@ -603,6 +618,115 @@ class FleetManagement(View):
             "area": area,
         }
         return self.template_delivery_and_pod, context
+    
+    async def handle_upload_fleet_cost_get(
+        self, request: HttpRequest
+    ) -> tuple[Any, Any]:
+        form = UploadFileForm(request.POST, request.FILES)
+        if form.is_valid():
+            file = request.FILES["file"]
+            df = self.read_csv_smart(file)
+            
+
+            
+
+    async def handle_fleet_cost_confirm_get(
+        self, request: HttpRequest
+    ) -> tuple[Any, Any]:
+        fleet_number = request.POST.get("fleet_number", "")       
+        fleet_cost = float(request.POST.get("fleet_cost", ""))
+        fleet = await sync_to_async(Fleet.objects.get)(fleet_number=fleet_number)
+        fleet.fleet_cost = fleet_cost
+        await sync_to_async(fleet.save)()
+
+        fleet_shipments = await sync_to_async(list)(
+            FleetShipmentPallet.objects.filter(fleet_number__fleet_number=fleet_number)
+            .only("PO_ID", "total_pallet")
+        )
+        total_pallets_in_fleet = sum([fs.total_pallet for fs in fleet_shipments if fs.total_pallet])
+        if total_pallets_in_fleet == 0:
+            raise ValueError('未查找该车次下的相关板子记录')
+        cost_per_pallet = fleet_cost / total_pallets_in_fleet
+        
+        updated_pallets = []
+        for fs in fleet_shipments:
+            if not fs.PO_ID or not fs.total_pallet:
+                continue
+            
+            pallets = await sync_to_async(list)(
+                Pallet.objects.filter(PO_ID=fs.PO_ID)
+                .select_related('shipment_batch_number__fleet_number') 
+            )
+            matching_pallets = [
+                p for p in pallets 
+                if p.shipment_batch_number and 
+                p.shipment_batch_number.fleet_number and 
+                p.shipment_batch_number.fleet_number == fleet_number
+            ]  #如果不是异常车次，就能查到当前是哪几个板子匹配的，去给这几个板子加费用
+            #如果是之前的异常车次，就取前几个板子加费用
+
+            if matching_pallets:
+                # 如果存在匹配的pallet
+                if len(matching_pallets) != int(fs.total_pallet):
+                    raise ValueError('车次绑定的当前板子数量和FleetShipmentPallet表的记录不匹配')
+                selected_pallets = matching_pallets
+            else:
+                # 如果没有匹配的pallet，按原逻辑取前几个
+                selected_pallets = pallets[:int(fs.total_pallet)]
+            
+            # 更新每个板子的费用
+            for pallet in selected_pallets:
+                pallet.expense = (pallet.expense or 0) + cost_per_pallet
+                updated_pallets.append(pallet)
+        
+        # 批量更新板子费用
+        if updated_pallets:
+            await sync_to_async(Pallet.objects.bulk_update)(
+                updated_pallets, ["expense"]
+            )
+        request.POST = request.POST.copy()  
+        request.POST["fleet_number"] = "" 
+        return await self.handle_fleet_cost_record_get(request)
+
+    async def handle_fleet_cost_record_get(
+        self, request: HttpRequest
+    ) -> tuple[str, dict[str, Any]]:
+        pickup_number = request.POST.get("pickup_number", "")
+        fleet_number = request.POST.get("fleet_number", "")
+        batch_number = request.POST.get("batch_number", "")
+        area = request.POST.get("area") or None
+        criteria = models.Q(
+            pod_uploaded_at__isnull=False,
+            shipped_at__isnull=False,
+            arrived_at__isnull=False,
+            shipment_schduled_at__gte="2024-12-01",
+            fleet_number__fleet_cost__isnull=True,
+        )
+        if pickup_number:
+            criteria &= models.Q(fleet_number__pickup_number=pickup_number)
+        if fleet_number:
+            criteria &= models.Q(fleet_number__fleet_number=fleet_number)
+        if batch_number:
+            criteria &= models.Q(shipment_batch_number=batch_number)
+        if area and area is not None and area != "None":
+            criteria &= models.Q(origin=area)
+        
+        shipment = await sync_to_async(list)(
+            Shipment.objects.select_related("fleet_number")
+            .filter(criteria)
+            .order_by("shipped_at")
+        )
+        context = {
+            "pickup_number": pickup_number,
+            "fleet_number": fleet_number,
+            "batch_number": batch_number,
+            "fleet": shipment,
+            "upload_file_form": UploadFileForm(required=True),
+            "warehouse_options": self.warehouse_options,
+            "area": area,
+        }
+        return self.template_fleet_cost_record, context
+
 
     async def handle_pod_upload_get(
         self, request: HttpRequest
@@ -764,6 +888,7 @@ class FleetManagement(View):
                     ),
                     "dot_number": request.POST.get("dot_number", ""),
                     "third_party_address": request.POST.get("third_party_address", ""),
+                    "pickup_number": request.POST.get("pickup_number", ""),
                     "appointment_datetime": request.POST.get("appointment_datetime"),
                     "scheduled_at": current_time,
                     "note": request.POST.get("note", ""),
@@ -794,6 +919,7 @@ class FleetManagement(View):
         fleet = await sync_to_async(Fleet.objects.get)(fleet_number=fleet_number)
         fleet.carrier = request.POST.get("carrier", "")
         fleet.third_party_address = request.POST.get("third_party_address", "")
+        fleet.pickup_number = request.POST.get("pickup_number", "")
         fleet.appointment_datetime = request.POST.get("appointment_datetime")
         fleet.note = request.POST.get("note", "")
         await sync_to_async(fleet.save)()
@@ -1176,6 +1302,7 @@ class FleetManagement(View):
         batch_number = request.POST.getlist("batch_number")
         plt_ids = request.POST.getlist("plt_ids")
         plt_ids = [ids.split(",") for ids in plt_ids]
+        print('分组的plt',plt_ids)
         fleet = await sync_to_async(Fleet.objects.get)(fleet_number=fleet_number)
         shipment = await sync_to_async(list)(
             Shipment.objects.filter(shipment_batch_number__in=batch_number).order_by(
@@ -1287,6 +1414,42 @@ class FleetManagement(View):
             fields=["shipment_batch_number"],
         )
         await sync_to_async(fleet.save)()
+        #await sync_to_async(lambda: None)()
+        #构建fleet_shipment_pallet表
+        #获取每行记录的第一个板子的id，为了读PO_ID
+        sample_pallet_ids = [group.split(",")[0] for group in request.POST.getlist("plt_ids")]
+        pallets = await sync_to_async(list)(
+            Pallet.objects.filter(pallet_id__in=sample_pallet_ids)
+            .select_related('shipment_batch_number','container_number')
+            .only('pallet_id', 'PO_ID', 'shipment_batch_number', 'container_number')
+        )
+        pallet_mapping = {
+            p.pallet_id: (p.PO_ID, p.shipment_batch_number, p.container_number)
+            for p in pallets
+            if p.PO_ID and p.shipment_batch_number
+        }
+        new_fleet_shipment_pallets = []
+        for (first_pallet_id, actual_pallets) in zip(sample_pallet_ids, actual_shipped_pallet):
+            if first_pallet_id not in pallet_mapping:
+                continue
+                
+            po_id, shipment,container_number = pallet_mapping[first_pallet_id]
+            new_record = FleetShipmentPallet(
+                fleet_number=fleet,
+                pickup_number=fleet.pickup_number,
+                shipment_batch_number=shipment, 
+                PO_ID=po_id,
+                total_pallet=actual_pallets,
+                container_number=container_number,
+            )
+            new_fleet_shipment_pallets.append(new_record)
+
+        if new_fleet_shipment_pallets:
+            await sync_to_async(FleetShipmentPallet.objects.bulk_create)(
+                new_fleet_shipment_pallets,
+                batch_size=500  
+            )
+            
         return await self.handle_outbound_warehouse_search_post(request)
 
     async def handle_confirm_delivery_post(

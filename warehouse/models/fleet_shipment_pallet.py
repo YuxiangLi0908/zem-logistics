@@ -4,23 +4,21 @@ from simple_history.models import HistoricalRecords
 from warehouse.models.fleet import Fleet
 from warehouse.models.pallet import Pallet
 from warehouse.models.shipment import Shipment
+from .container import Container
 
 
 class FleetShipmentPallet(models.Model):
     fleet_number = models.ForeignKey(
         Fleet, null=True, blank=True, on_delete=models.SET_NULL
     )
+    pickup_number = models.CharField(max_length=255, null=True, blank=True)
     shipment_batch_number = models.ForeignKey(
         Shipment, null=True, blank=True, on_delete=models.SET_NULL
     )
-    pallet_id = models.ForeignKey(
-        Pallet, null=True, blank=True, on_delete=models.SET_NULL
-    )
-    fleet_number_str = models.CharField(max_length=255, null=True, blank=True)
-    shipment_batch_number_str = models.CharField(max_length=255, null=True, blank=True)
-    pallet_id_str = models.CharField(max_length=255, null=True, blank=True)
-    created_at = models.DateTimeField(null=True, blank=True)
+    container_number = models.ForeignKey(Container, null=True, on_delete=models.CASCADE)
+    PO_ID = models.CharField(max_length=20, null=True, blank=True)
+    total_pallet = models.FloatField(null=True, default=0)
     history = HistoricalRecords()
 
     def __str__(self) -> str:
-        return self.shipment_batch_number
+        return self.PO_ID

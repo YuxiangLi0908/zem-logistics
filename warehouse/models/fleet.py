@@ -20,6 +20,8 @@ class Fleet(models.Model):
     scheduled_at = models.DateTimeField(null=True, blank=True)
     departured_at = models.DateTimeField(null=True, blank=True)
     arrived_at = models.DateTimeField(null=True, blank=True)
+    pickup_number = models.CharField(max_length=500, null=True, blank=True)
+    fleet_cost = models.FloatField(null=True, blank=True)
     total_weight = models.FloatField(null=True)
     total_cbm = models.FloatField(null=True)
     total_pallet = models.FloatField(null=True)
