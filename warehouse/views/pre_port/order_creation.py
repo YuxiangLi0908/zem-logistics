@@ -949,7 +949,7 @@ class OrderCreation(View):
                     contact_method=d[8],
                     address=d[9],
                     zipcode=d[10],
-                    pcs=d[11],
+                    pcs=int(d[11]),
                     total_weight_kg=d[12],
                     total_weight_lbs=d[13],
                     cbm=d[14],
