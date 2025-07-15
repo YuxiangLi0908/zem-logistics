@@ -1806,6 +1806,7 @@ class ShippingManagement(View):
                     FleetShipmentPallet.objects.filter(
                         PO_ID__in=fleet_po_ids,
                         shipment_batch_number=shipment,
+                        fleet_number=shipment.fleet_number,
                     ).delete
                 )()
             # 改同一PO_ID的板子的主约

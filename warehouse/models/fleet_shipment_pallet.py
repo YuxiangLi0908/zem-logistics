@@ -18,6 +18,7 @@ class FleetShipmentPallet(models.Model):
     container_number = models.ForeignKey(Container, null=True, on_delete=models.CASCADE)
     PO_ID = models.CharField(max_length=20, null=True, blank=True)
     total_pallet = models.FloatField(null=True, default=0)
+    expense = models.FloatField(null=True, blank=True)
     history = HistoricalRecords()
 
     def __str__(self) -> str:

@@ -5,6 +5,7 @@ import json
 import os
 import re
 import uuid
+import openpyxl
 from datetime import datetime, timedelta
 from typing import Any
 
@@ -217,6 +218,8 @@ class FleetManagement(View):
         elif step == "upload_fleet_cost":
             template, context = await self.handle_upload_fleet_cost_get(request)
             return render(request, template, context)
+        elif step =="download_fleet_cost_template":
+            return self.handle_fleet_cost_export(request)
         else:
             return await self.get(request)
 
@@ -619,6 +622,21 @@ class FleetManagement(View):
         }
         return self.template_delivery_and_pod, context
     
+    async def handle_fleet_cost_export(self, request: HttpRequest) -> HttpResponse:
+        wb = openpyxl.Workbook()
+        ws = wb.active
+        ws.title = "Fleet Cost Template"
+        headers = ["PickUp Number", "费用"]
+        ws.append(headers)
+        
+        response = HttpResponse(
+            content_type="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
+        )
+        response["Content-Disposition"] = "attachment; filename=fleet_cost_template.xlsx"
+        wb.save(response)
+        
+        return response
+
     async def handle_upload_fleet_cost_get(
         self, request: HttpRequest
     ) -> tuple[Any, Any]:
@@ -626,10 +644,40 @@ class FleetManagement(View):
         if form.is_valid():
             file = request.FILES["file"]
             df = self.read_csv_smart(file)
-            
+            if "PickUp Number" in df.columns and "fleet_cost" in df.columns:
+                valid_rows = [
+                    (str(row["PickUp Number"]).strip(), float(row["fleet_cost"]))
+                    for _, row in df.iterrows()
+                    if pd.notna(row["PickUp Number"]) and pd.notna(row["fleet_cost"])
+                ]
+            else:
+                raise ValueError(f"Missing required columns. Found: {df.columns.tolist()}")
+            for pickup_number, fleet_cost in valid_rows:
+                if fleet_cost <= 0:
+                    continue
+                fleet_shipments = await sync_to_async(
+                    lambda: list(
+                        FleetShipmentPallet.objects.filter(pickup_number=pickup_number)
+                        .only("id", "total_pallet", "expense")
+                    )
+                )()
+                total_pallets = sum(fs.total_pallet for fs in fleet_shipments if fs.total_pallet)
+                if total_pallets <= 0:
+                    continue
+                cost_per_pallet = fleet_cost / total_pallets
 
-            
-
+                updates = []
+                for shipment in fleet_shipments:
+                    if shipment.total_pallet:
+                        shipment.expense = cost_per_pallet * shipment.total_pallet
+                        updates.append(shipment)
+                if updates:
+                    await sync_to_async(FleetShipmentPallet.objects.bulk_update)(
+                        updates, 
+                        ['expense']
+                    )
+        return await self.handle_fleet_cost_record_get(request)
+    
     async def handle_fleet_cost_confirm_get(
         self, request: HttpRequest
     ) -> tuple[Any, Any]:
@@ -648,42 +696,15 @@ class FleetManagement(View):
             raise ValueError('未查找该车次下的相关板子记录')
         cost_per_pallet = fleet_cost / total_pallets_in_fleet
         
-        updated_pallets = []
-        for fs in fleet_shipments:
-            if not fs.PO_ID or not fs.total_pallet:
-                continue
-            
-            pallets = await sync_to_async(list)(
-                Pallet.objects.filter(PO_ID=fs.PO_ID)
-                .select_related('shipment_batch_number__fleet_number') 
-            )
-            matching_pallets = [
-                p for p in pallets 
-                if p.shipment_batch_number and 
-                p.shipment_batch_number.fleet_number and 
-                p.shipment_batch_number.fleet_number == fleet_number
-            ]  #如果不是异常车次，就能查到当前是哪几个板子匹配的，去给这几个板子加费用
-            #如果是之前的异常车次，就取前几个板子加费用
+        for shipment in fleet_shipments:
+            if shipment.total_pallet:  
+                shipment.expense = cost_per_pallet * shipment.total_pallet
 
-            if matching_pallets:
-                # 如果存在匹配的pallet
-                if len(matching_pallets) != int(fs.total_pallet):
-                    raise ValueError('车次绑定的当前板子数量和FleetShipmentPallet表的记录不匹配')
-                selected_pallets = matching_pallets
-            else:
-                # 如果没有匹配的pallet，按原逻辑取前几个
-                selected_pallets = pallets[:int(fs.total_pallet)]
-            
-            # 更新每个板子的费用
-            for pallet in selected_pallets:
-                pallet.expense = (pallet.expense or 0) + cost_per_pallet
-                updated_pallets.append(pallet)
+        await sync_to_async(FleetShipmentPallet.objects.bulk_update)(
+            fleet_shipments, 
+            ['expense']
+        )
         
-        # 批量更新板子费用
-        if updated_pallets:
-            await sync_to_async(Pallet.objects.bulk_update)(
-                updated_pallets, ["expense"]
-            )
         request.POST = request.POST.copy()  
         request.POST["fleet_number"] = "" 
         return await self.handle_fleet_cost_record_get(request)
@@ -700,7 +721,7 @@ class FleetManagement(View):
             shipped_at__isnull=False,
             arrived_at__isnull=False,
             shipment_schduled_at__gte="2024-12-01",
-            fleet_number__fleet_cost__isnull=True,
+            #fleet_number__fleet_cost__isnull=True,
         )
         if pickup_number:
             criteria &= models.Q(fleet_number__pickup_number=pickup_number)
@@ -1417,7 +1438,7 @@ class FleetManagement(View):
         #await sync_to_async(lambda: None)()
         #构建fleet_shipment_pallet表
         #获取每行记录的第一个板子的id，为了读PO_ID
-        sample_pallet_ids = [group.split(",")[0] for group in request.POST.getlist("plt_ids")]
+        sample_pallet_ids = [group.split(",")[-1] for group in request.POST.getlist("plt_ids")]
         pallets = await sync_to_async(list)(
             Pallet.objects.filter(pallet_id__in=sample_pallet_ids)
             .select_related('shipment_batch_number','container_number')
@@ -1426,7 +1447,7 @@ class FleetManagement(View):
         pallet_mapping = {
             p.pallet_id: (p.PO_ID, p.shipment_batch_number, p.container_number)
             for p in pallets
-            if p.PO_ID and p.shipment_batch_number
+            if p.PO_ID
         }
         new_fleet_shipment_pallets = []
         for (first_pallet_id, actual_pallets) in zip(sample_pallet_ids, actual_shipped_pallet):
