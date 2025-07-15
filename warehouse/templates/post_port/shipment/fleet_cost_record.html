@@ -66,14 +66,14 @@
                 <input type="file" name="file">
                 <input type="hidden" name="step" value="upload_fleet_cost">
                 <input type="hidden" name="area" value="{{ area }}">
-                <button id="upload_fleet_cost" type="submit" class="btn btn-success" style="height: 30px; margin-left: 20px; font-size: 13px;" onclick="updatePayload(this)">
+                <button type="submit" class="btn btn-success" style="height: 30px; margin-left: 20px; font-size: 13px;">
                     批量上传成本
                 </button>
             </form>
             <form method="post" enctype="multipart/form-data" style="font - size:11px;float: right;">   
                 {% csrf_token %}
-                <input type="hidden" name="download_fleet_cost_template">
-                <button id="upload_fleet_cost" type="submit" class="btn btn-success" style="height: 30px; margin-left: 20px; font-size: 13px;">
+                <input type="hidden" name="step" value="download_fleet_cost_template">
+                <button type="submit" class="btn btn-success" style="height: 30px; margin-left: 20px; font-size: 13px;">
                     下载模版
                 </button>
             </form>

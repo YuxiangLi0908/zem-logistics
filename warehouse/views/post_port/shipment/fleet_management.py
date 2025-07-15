@@ -2,6 +2,7 @@ import ast
 import base64
 import io
 import json
+import chardet
 import os
 import re
 import uuid
@@ -219,7 +220,7 @@ class FleetManagement(View):
             template, context = await self.handle_upload_fleet_cost_get(request)
             return render(request, template, context)
         elif step =="download_fleet_cost_template":
-            return self.handle_fleet_cost_export(request)
+            return await self.handle_fleet_cost_export(request)
         else:
             return await self.get(request)
 
@@ -637,35 +638,69 @@ class FleetManagement(View):
         
         return response
 
+    def read_csv_smart(self, file) -> pd.DataFrame:
+        raw_data = file.read(10000)  # 读取前 10000 字节检测编码
+        file.seek(0)
+
+        # 检测编码
+        result = chardet.detect(raw_data)
+        encoding = result["encoding"]
+
+        try:
+            file.seek(0)
+            df = pd.read_csv(file, encoding=encoding)
+            return df
+        except UnicodeDecodeError:
+            encodings_to_try = ["utf-8", "gbk", "gb18030", "latin1"]
+            for enc in encodings_to_try:
+                try:
+                    file.seek(0)  # 每次尝试前重置文件指针
+                    df = pd.read_csv(file, encoding=enc)
+                    return df
+                except UnicodeDecodeError:
+                    continue
+            raise RuntimeError("无法识别文件编码，请检查文件格式！")
+          
     async def handle_upload_fleet_cost_get(
         self, request: HttpRequest
     ) -> tuple[Any, Any]:
         form = UploadFileForm(request.POST, request.FILES)
         if form.is_valid():
             file = request.FILES["file"]
-            df = self.read_csv_smart(file)
-            if "PickUp Number" in df.columns and "fleet_cost" in df.columns:
+            df = pd.read_excel(file)
+            if "PickUp Number" in df.columns and "费用" in df.columns:
                 valid_rows = [
-                    (str(row["PickUp Number"]).strip(), float(row["fleet_cost"]))
+                    (str(row["PickUp Number"]).strip(), float(row["费用"]))
                     for _, row in df.iterrows()
-                    if pd.notna(row["PickUp Number"]) and pd.notna(row["fleet_cost"])
+                    if pd.notna(row["PickUp Number"]) and pd.notna(row["费用"])
                 ]
             else:
                 raise ValueError(f"Missing required columns. Found: {df.columns.tolist()}")
+            
             for pickup_number, fleet_cost in valid_rows:
                 if fleet_cost <= 0:
                     continue
+                #更新车次表的价格
+                fleet_query = await sync_to_async(list)(Fleet.objects.filter(pickup_number=pickup_number).only('id', 'fleet_number', 'pickup_number'))
+                if len(fleet_query) > 1:
+                    raise ValueError('该PickUp Number被多个车次录入',fleet_query)
+                fleet = await sync_to_async(Fleet.objects.get)(pickup_number=pickup_number)
+                fleet.fleet_cost = fleet_cost
+                await sync_to_async(fleet.save)()
+
+                #更新fleetshipmentpallet表
                 fleet_shipments = await sync_to_async(
                     lambda: list(
                         FleetShipmentPallet.objects.filter(pickup_number=pickup_number)
                         .only("id", "total_pallet", "expense")
                     )
                 )()
+                
                 total_pallets = sum(fs.total_pallet for fs in fleet_shipments if fs.total_pallet)
                 if total_pallets <= 0:
                     continue
                 cost_per_pallet = fleet_cost / total_pallets
-
+                
                 updates = []
                 for shipment in fleet_shipments:
                     if shipment.total_pallet:
