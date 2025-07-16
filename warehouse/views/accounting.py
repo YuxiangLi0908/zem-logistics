@@ -375,7 +375,7 @@ class Accounting(View):
         conflict_data = []
 
         total_count = PackingList.objects.exclude(PO_ID__isnull=True).count()
-        start_index = max(0, total_count - 50000)  # 最后5万条的起始位置
+        start_index = max(0, total_count - 10000)  # 最后5万条的起始位置
 
         container_numbers = (
             PackingList.objects.exclude(PO_ID__isnull=True)
