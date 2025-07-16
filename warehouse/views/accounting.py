@@ -375,13 +375,13 @@ class Accounting(View):
         conflict_data = []
 
         total_count = PackingList.objects.exclude(PO_ID__isnull=True).count()
-        start_index = max(0, total_count - 300000)
+        start_index = max(0, total_count - 100000)  # 最后10万条的起始位置
 
         container_numbers = (
             PackingList.objects.exclude(PO_ID__isnull=True)
             .order_by('-id')
             .values_list('container_number__container_number', flat=True)
-            .distinct()[start_index:]  # 获取最后30万条
+            .distinct()[start_index:]  # 获取最后10万条
         )
         for container_number in container_numbers:
             packinglists = PackingList.objects.filter(
