@@ -10,6 +10,8 @@ from datetime import date, datetime, timedelta
 from io import BytesIO
 from itertools import chain
 from typing import Any
+from itertools import groupby
+from operator import attrgetter
 
 import openpyxl
 import openpyxl.workbook
@@ -374,54 +376,49 @@ class Accounting(View):
     def migrate_status(self) -> HttpRequest:
         conflict_data = []
 
-        total_count = PackingList.objects.exclude(PO_ID__isnull=True).count()
-        start_index = max(0, total_count - 50000)  # 最后5万条的起始位置
+        hold_records = PackingList.objects.filter(
+            delivery_method='暂扣留仓(HOLD)',
+            PO_ID__isnull=False
+        ).order_by('-id')[:50000]
 
-        container_numbers = (
-            PackingList.objects.exclude(PO_ID__isnull=True)
-            .order_by('-id')
-            .values_list('container_number__container_number', flat=True)
-            .distinct()[start_index:]  # 获取最后5万条
-        )
-        for container_number in container_numbers:
-            packinglists = PackingList.objects.filter(
-                container_number__container_number=container_number,
-                delivery_method='暂扣留仓(HOLD)',
-            ).exclude(PO_ID__isnull=True)
-            po_id_groups = {}
-            for pl in packinglists:   #将pl按照PO_ID分类
-                po_id_groups.setdefault(pl.PO_ID, []).append(pl)
-            
-            # 检查每个PO_ID组内的差异
-            for po_id, pl_list in po_id_groups.items():
-                if len(pl_list) > 1:
-                    # 检查destination或shipping_mark是否不同
-                    first_pl = pl_list[0]
-                    conflicting_pls = [
-                        pl for pl in pl_list[1:] 
-                        if pl.destination != first_pl.destination
-                    ]
+        sorted_records = sorted(hold_records, key=lambda x: (x.container_number_id, x.PO_ID))
+
+        for (container_num, po_id), group in groupby(
+            sorted_records, 
+            key=attrgetter('container_number', 'PO_ID')
+        ):
+            group_list = list(group)
+            if len(group_list) > 1:  # 同一container和PO下有多个记录
+                # 检查destination是否一致
+                first_record = group_list[0]
+                conflicts = [
+                    rec for rec in group_list[1:] 
+                    if rec.destination != first_record.destination
+                ]
+                
+                if conflicts:
+                    # 添加基准记录
+                    conflict_data.append({
+                        'Container Number ID': container_num,
+                        'PO_ID': po_id,
+                        'ID': first_record.id,
+                        'Destination': first_record.destination,
+                        'Shipping Mark': first_record.shipping_mark,
+                        'Batch Number': first_record.shipment_batch_number,
+                        'Conflict Reason': 'Base Record'
+                    })
                     
-                    if conflicting_pls:
+                    # 添加冲突记录
+                    for conflict_rec in conflicts:
                         conflict_data.append({
-                            'Container Number': container_number,
+                            'Container Number ID': container_num,
                             'PO_ID': po_id,
-                            'ID': first_pl.id,
-                            'Destination': first_pl.destination,
-                            'Shipping Mark': first_pl.shipping_mark,
-                            'Batch Number': first_pl.shipment_batch_number,
-                            'Conflict Reason': 'Base Record'  # 标记基准记录
+                            'ID': conflict_rec.id,
+                            'Destination': conflict_rec.destination,
+                            'Shipping Mark': conflict_rec.shipping_mark,
+                            'Batch Number': conflict_rec.shipment_batch_number,
+                            'Conflict Reason': f"Differs from {first_record.id}"
                         })
-                        for pl in conflicting_pls:
-                            conflict_data.append({
-                                'Container Number': container_number,
-                                'PO_ID': po_id,
-                                'ID': pl.id,
-                                'Destination': pl.destination,
-                                'Shipping Mark': pl.shipping_mark,
-                                'Batch Number': pl.shipment_batch_number,
-                                'Conflict Reason': f"Differs from {first_pl.id}"  # 标记冲突原因
-                            })
         
         # 创建DataFrame并导出Excel
         if conflict_data:
