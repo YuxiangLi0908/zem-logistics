@@ -385,7 +385,8 @@ class Accounting(View):
         )
         for container_number in container_numbers:
             packinglists = PackingList.objects.filter(
-                container_number__container_number=container_number
+                container_number__container_number=container_number,
+                delivery_method='暂扣留仓(HOLD)',
             ).exclude(PO_ID__isnull=True)
             po_id_groups = {}
             for pl in packinglists:   #将pl按照PO_ID分类
