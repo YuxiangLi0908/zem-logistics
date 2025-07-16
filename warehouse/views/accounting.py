@@ -5667,7 +5667,7 @@ class Accounting(View):
             )
         else:
             invoice_link = ""
-        invoice_link = ""
+
         worksheet["A9"].font = Font(color="00FFFFFF")
         worksheet["A9"].fill = PatternFill(
             start_color="00000000", end_color="00000000", fill_type="solid"
