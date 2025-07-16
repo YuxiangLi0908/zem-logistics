@@ -51,120 +51,120 @@
                 <label style="width: 120px; font-weight: bold;" for="chassis">托架费</label>
                 <input type="number" class="original-input" style="width: 70px; margin-right: 10px;" id="chassis" name="chassis" value="{{ invoice_preports.chassis }}" disabled>
                 <span style="margin: 0 5px;">+</span>
-                <input type="number" style="width: 70px; margin-right: 10px;" id="chassis_surcharge" name="chassis_surcharge" value="{{ surcharges.chassis }}" disabled>
-                <input type="text" style="width: 70px;" id="chassis_surcharge_note" name="chassis_surcharge_note" value="{{ surcharges_notes.chassis }}" disabled>
+                <input type="number" style="width: 70px; margin-right: 10px;" id="chassis_surcharge" name="chassis_surcharge" value="{{ invoice_preports.surcharges.chassis }}" disabled>
+                <input type="text" style="width: 70px;" id="chassis_surcharge_note" name="chassis_surcharge_note" value="{{ invoice_preports.surcharge_notes.chassis }}" disabled>
             </div>
             <div style="display: flex; align-items: center; margin-bottom: 10px;">
                 <label style="width: 120px; font-weight: bold;" for="chassis_split">托架提取费</label>
                 <input type="number" class="original-input" style="width: 70px; margin-right: 10px;" id="chassis_split" name="chassis_split" value="{{ invoice_preports.chassis_split }}" disabled>
                 <span style="margin: 0 5px;">+</span>
-                <input type="number" style="width: 70px; margin-right: 10px;" id="chassis_split_surcharge" name="chassis_split_surcharge" value="{{ surcharges.chassis_split }}" disabled>
-                <input type="text" style="width: 70px;" id="chassis_split_surcharge_note" name="chassis_split_surcharge_note" value="{{ surcharges_notes.chassis_split }}" disabled>
+                <input type="number" style="width: 70px; margin-right: 10px;" id="chassis_split_surcharge" name="chassis_split_surcharge" value="{{ invoice_preports.surcharges.chassis_split }}" disabled>
+                <input type="text" style="width: 70px;" id="chassis_split_surcharge_note" name="chassis_split_surcharge_note" value="{{ invoice_preports.surcharge_notes.chassis_split }}" disabled>
             </div>
             <div style="display: flex; align-items: center; margin-bottom: 10px;">
                 <label style="width: 120px; font-weight: bold;" for="prepull">预提费</label>
                 <input type="number" class="original-input" style="width: 70px; margin-right: 10px;" id="prepull" name="prepull" value="{{ invoice_preports.prepull }}" disabled>
                 <span style="margin: 0 5px;">+</span>
-                <input type="number" style="width: 70px; margin-right: 10px;" id="prepull_surcharge" name="prepull_surcharge" value="{{ surcharges.prepull }}" disabled>
-                <input type="text" style="width: 70px;" id="prepull_surcharge_note" name="prepull_surcharge_note" value="{{ surcharges_notes.prepull }}" disabled>
+                <input type="number" style="width: 70px; margin-right: 10px;" id="prepull_surcharge" name="prepull_surcharge" value="{{ invoice_preports.surcharges.prepull }}" disabled>
+                <input type="text" style="width: 70px;" id="prepull_surcharge_note" name="prepull_surcharge_note" value="{{ invoice_preports.surcharge_notes.prepull }}" disabled>
             </div>
             <div style="display: flex; align-items: center; margin-bottom: 10px;">
                 <label style="width: 120px; font-weight: bold;" for="yard_storage">货柜放置费</label>
                 <input type="number" class="original-input" style="width: 70px; margin-right: 10px;" id="yard_storage" name="yard_storage" value="{{ invoice_preports.yard_storage }}" disabled>
                 <span style="margin: 0 5px;">+</span>
-                <input type="number" style="width: 70px; margin-right: 10px;" id="yard_storage_surcharge" name="yard_storage_surcharge" value="{{ surcharges.yard_storage }}" disabled>
-                <input type="text" style="width: 70px;" id="yard_storage_surcharge_note" name="yard_storage_surcharge_note" value="{{ surcharges_notes.yard_storage }}" disabled>
+                <input type="number" style="width: 70px; margin-right: 10px;" id="yard_storage_surcharge" name="yard_storage_surcharge" value="{{ invoice_preports.surcharges.yard_storage }}" disabled>
+                <input type="text" style="width: 70px;" id="yard_storage_surcharge_note" name="yard_storage_surcharge_note" value="{{ invoice_preports.surcharge_notes.yard_storage }}" disabled>
             </div>
             <div style="display: flex; align-items: center; margin-bottom: 10px;">
                 <label style="width: 120px; font-weight: bold;" for="handling_fee">操作处理费</label>
                 <input type="number" class="original-input" style="width: 70px; margin-right: 10px;" id="handling_fee" name="handling_fee" value="{{ invoice_preports.handling_fee }}" disabled>
                 <span style="margin: 0 5px;">+</span>
-                <input type="number" style="width: 70px; margin-right: 10px;" id="handling_fee_surcharge" name="handling_fee_surcharge" value="{{ surcharges.handling_fee }}" disabled>
-                <input type="text" style="width: 70px;" id="handling_fee_surcharge_note" name="handling_fee_surcharge_note" value="{{ surcharges_notes.handling_fee }}" disabled>
+                <input type="number" style="width: 70px; margin-right: 10px;" id="handling_fee_surcharge" name="handling_fee_surcharge" value="{{ invoice_preports.surcharges.handling_fee }}" disabled>
+                <input type="text" style="width: 70px;" id="handling_fee_surcharge_note" name="handling_fee_surcharge_note" value="{{ invoice_preports.surcharge_notes.handling_fee }}" disabled>
             </div>
             <div style="display: flex; align-items: center; margin-bottom: 10px;">
                 <label style="width: 120px; font-weight: bold;" for="pier_pass">码头</label>
                 <input type="number" class="original-input" style="width: 70px; margin-right: 10px;" id="pier_pass" name="pier_pass" value="{{ invoice_preports.pier_pass }}" disabled>
                 <span style="margin: 0 5px;">+</span>
-                <input type="number" style="width: 70px; margin-right: 10px;" id="pier_pass_surcharge" name="pier_pass_surcharge" value="{{ surcharges.pier_pass }}" disabled>
-                <input type="text" style="width: 70px;" id="pier_pass_surcharge_note" name="pier_pass_surcharge_note" value="{{ surcharges_notes.pier_pass }}" disabled>
+                <input type="number" style="width: 70px; margin-right: 10px;" id="pier_pass_surcharge" name="pier_pass_surcharge" value="{{ invoice_preports.surcharges.pier_pass }}" disabled>
+                <input type="text" style="width: 70px;" id="pier_pass_surcharge_note" name="pier_pass_surcharge_note" value="{{ invoice_preports.surcharge_notes.pier_pass }}" disabled>
             </div>
             <div style="display: flex; align-items: center; margin-bottom: 10px;">
                 <label style="width: 120px; font-weight: bold;" for="congestion_fee">港口拥堵费</label>
                 <input type="number" class="original-input" style="width: 70px; margin-right: 10px;" id="congestion_fee" name="congestion_fee" value="{{ invoice_preports.congestion_fee }}" disabled>
                 <span style="margin: 0 5px;">+</span>
-                <input type="number" style="width: 70px; margin-right: 10px;" id="congestion_fee_surcharge" name="congestion_fee_surcharge" value="{{ surcharges.congestion_fee }}" disabled>
-                <input type="text" style="width: 70px;" id="congestion_fee_surcharge_note" name="congestion_fee_surcharge_note" value="{{ surcharges_notes.congestion_fee }}" disabled>
+                <input type="number" style="width: 70px; margin-right: 10px;" id="congestion_fee_surcharge" name="congestion_fee_surcharge" value="{{ invoice_preports.surcharges.congestion_fee }}" disabled>
+                <input type="text" style="width: 70px;" id="congestion_fee_surcharge_note" name="congestion_fee_surcharge_note" value="{{ invoice_preports.surcharge_notes.congestion_fee }}" disabled>
             </div>
             <div style="display: flex; align-items: center; margin-bottom: 10px;">
                 <label style="width: 120px; font-weight: bold;" for="hanging_crane">吊柜费</label>
                 <input type="number" class="original-input" style="width: 70px; margin-right: 10px;" id="hanging_crane" name="hanging_crane" value="{{ invoice_preports.hanging_crane }}" disabled>
                 <span style="margin: 0 5px;">+</span>
-                <input type="number" style="width: 70px; margin-right: 10px;" id="hanging_crane_surcharge" name="hanging_crane_surcharge" value="{{ surcharges.hanging_crane }}" disabled>
-                <input type="text" style="width: 70px;" id="hanging_crane_surcharge_note" name="hanging_crane_surcharge_note" value="{{ surcharges_notes.hanging_crane }}" disabled>
+                <input type="number" style="width: 70px; margin-right: 10px;" id="hanging_crane_surcharge" name="hanging_crane_surcharge" value="{{ invoice_preports.surcharges.hanging_crane }}" disabled>
+                <input type="text" style="width: 70px;" id="hanging_crane_surcharge_note" name="hanging_crane_surcharge_note" value="{{ invoice_preports.surcharge_notes.hanging_crane }}" disabled>
             </div>           
             <div style="display: flex; align-items: center; margin-bottom: 10px;">
                 <label style="width: 120px; font-weight: bold;" for="dry_run">空跑费</label>
                 <input type="number" class="original-input" style="width: 70px; margin-right: 10px;" id="dry_run" name="dry_run" value="{{ invoice_preports.dry_run }}" disabled>
                 <span style="margin: 0 5px;">+</span>
-                <input type="number" style="width: 70px; margin-right: 10px;" id="dry_run_surcharge" name="dry_run_surcharge" value="{{ surcharges.dry_run }}" disabled>
-                <input type="text" style="width: 70px;" id="dry_run_surcharge_note" name="dry_run_surcharge_note" value="{{ surcharges_notes.dry_run }}" disabled>
+                <input type="number" style="width: 70px; margin-right: 10px;" id="dry_run_surcharge" name="dry_run_surcharge" value="{{ invoice_preports.surcharges.dry_run }}" disabled>
+                <input type="text" style="width: 70px;" id="dry_run_surcharge_note" name="dry_run_surcharge_note" value="{{ invoice_preports.surcharge_notes.dry_run }}" disabled>
             </div>
             <div style="display: flex; align-items: center; margin-bottom: 10px;">
                 <label style="width: 120px; font-weight: bold;" for="exam_fee">查验费</label>
                 <input type="number" class="original-input" style="width: 70px; margin-right: 10px;" id="exam_fee" name="exam_fee" value="{{ invoice_preports.exam_fee }}" disabled>
                 <span style="margin: 0 5px;">+</span>
-                <input type="number" style="width: 70px; margin-right: 10px;" id="exam_fee_surcharge" name="exam_fee_surcharge" value="{{ surcharges.exam_fee }}" disabled>
-                <input type="text" style="width: 70px;" id="exam_fee_surcharge_note" name="exam_fee_surcharge_note" value="{{ surcharges_notes.exam_fee }}" disabled>
+                <input type="number" style="width: 70px; margin-right: 10px;" id="exam_fee_surcharge" name="exam_fee_surcharge" value="{{ invoice_preports.surcharges.exam_fee }}" disabled>
+                <input type="text" style="width: 70px;" id="exam_fee_surcharge_note" name="exam_fee_surcharge_note" value="{{ invoice_preports.surcharge_notes.exam_fee }}" disabled>
             </div>
             <div style="display: flex; align-items: center; margin-bottom: 10px;">
                 <label style="width: 120px; font-weight: bold;" for="hazmat">危险品</label>
                 <input type="number" class="original-input" style="width: 70px; margin-right: 10px;" id="hazmat" name="hazmat" value="{{ invoice_preports.hazmat }}" disabled>
                 <span style="margin: 0 5px;">+</span>
-                <input type="number" style="width: 70px; margin-right: 10px;" id="hazmat_surcharge" name="hazmat_surcharge" value="{{ surcharges.hazmat }}" disabled>
-                <input type="text" style="width: 70px;" id="hazmat_surcharge_note" name="hazmat_surcharge_note" value="{{ surcharges_notes.hazmat }}" disabled>
+                <input type="number" style="width: 70px; margin-right: 10px;" id="hazmat_surcharge" name="hazmat_surcharge" value="{{ invoice_preports.surcharges.hazmat }}" disabled>
+                <input type="text" style="width: 70px;" id="hazmat_surcharge_note" name="hazmat_surcharge_note" value="{{ invoice_preports.surcharge_notes.hazmat }}" disabled>
             </div>
             <div style="display: flex; align-items: center; margin-bottom: 10px;">
                 <label style="width: 120px; font-weight: bold;" for="over_weight">超重费</label>
                 <input type="number" class="original-input" style="width: 70px; margin-right: 10px;" id="over_weight" name="over_weight" value="{{ invoice_preports.over_weight }}" disabled>
                 <span style="margin: 0 5px;">+</span>
-                <input type="number" style="width: 70px; margin-right: 10px;" id="over_weight_surcharge" name="over_weight_surcharge" value="{{ surcharges.over_weight }}" disabled>
-                <input type="text" style="width: 70px;" id="over_weight_surcharge_note" name="over_weight_surcharge_note" value="{{ surcharges_notes.over_weight }}" disabled>
+                <input type="number" style="width: 70px; margin-right: 10px;" id="over_weight_surcharge" name="over_weight_surcharge" value="{{ invoice_preports.surcharges.over_weight }}" disabled>
+                <input type="text" style="width: 70px;" id="over_weight_surcharge_note" name="over_weight_surcharge_note" value="{{ invoice_preports.surcharge_notes.over_weight }}" disabled>
             </div>
             <div style="display: flex; align-items: center; margin-bottom: 10px;">
                 <label style="width: 120px; font-weight: bold;" for="urgent_fee">加急费</label>
                 <input type="number" class="original-input" style="width: 70px; margin-right: 10px;" id="urgent_fee" name="urgent_fee" value="{{ invoice_preports.urgent_fee }}" disabled>
                 <span style="margin: 0 5px;">+</span>
-                <input type="number" style="width: 70px; margin-right: 10px;" id="urgent_fee_surcharge" name="urgent_fee_surcharge" value="{{ surcharges.urgent_fee }}" disabled>
-                <input type="text" style="width: 70px;" id="urgent_fee_surcharge_note" name="urgent_fee_surcharge_note" value="{{ surcharges_notes.urgent_fee }}" disabled>
+                <input type="number" style="width: 70px; margin-right: 10px;" id="urgent_fee_surcharge" name="urgent_fee_surcharge" value="{{ invoice_preports.surcharges.urgent_fee }}" disabled>
+                <input type="text" style="width: 70px;" id="urgent_fee_surcharge_note" name="urgent_fee_surcharge_note" value="{{ invoice_preports.surcharge_notes.urgent_fee }}" disabled>
             </div>
             <div style="display: flex; align-items: center; margin-bottom: 10px;">
                 <label style="width: 120px; font-weight: bold;" for="other_serive">其他服务</label>
                 <input type="number" class="original-input" step="0.01" style="width: 70px; margin-right: 10px;" id="other_serive" name="other_serive" value="{{ invoice_preports.other_serive }}" disabled>
                 <span style="margin: 0 5px;">+</span>
-                <input type="number" style="width: 70px; margin-right: 10px;" id="other_serive_surcharge" name="other_serive_surcharge" value="{{ surcharges.other_serive }}" disabled>
-                <input type="text" style="width: 70px;" id="other_serive_surcharge_note" name="other_serive_surcharge_note" value="{{ surcharges_notes.other_serive }}" disabled>
+                <input type="number" style="width: 70px; margin-right: 10px;" id="other_serive_surcharge" name="other_serive_surcharge" value="{{ invoice_preports.surcharges.other_serive }}" disabled>
+                <input type="text" style="width: 70px;" id="other_serive_surcharge_note" name="other_serive_surcharge_note" value="{{ invoice_preports.surcharge_notes.other_serive }}" disabled>
             </div>
             <div style="display: flex; align-items: center; margin-bottom: 10px;">
                 <label style="width: 120px; font-weight: bold;" for="demurrage">港内滞期费</label>
                 <input type="number" class="original-input" style="width: 70px; margin-right: 10px;" id="demurrage" name="demurrage" value="{{ invoice_preports.demurrage }}" disabled>
                 <span style="margin: 0 5px;">+</span>
-                <input type="number" style="width: 70px; margin-right: 10px;" id="demurrage_surcharge" name="demurrage_surcharge" value="{{ surcharges.demurrage }}" disabled>
-                <input type="text" style="width: 70px;" id="demurrage_surcharge_note" name="demurrage_surcharge_note" value="{{ surcharges_notes.demurrage }}" disabled>
+                <input type="number" style="width: 70px; margin-right: 10px;" id="demurrage_surcharge" name="demurrage_surcharge" value="{{ invoice_preports.surcharges.demurrage }}" disabled>
+                <input type="text" style="width: 70px;" id="demurrage_surcharge_note" name="demurrage_surcharge_note" value="{{ invoice_preports.surcharge_notes.demurrage }}" disabled>
             </div>
             <div style="display: flex; align-items: center; margin-bottom: 10px;">
                 <label style="width: 120px; font-weight: bold;" for="per_diem">港外滞期费</label>
                 <input type="number" class="original-input" style="width: 70px; margin-right: 10px;" id="per_diem" name="per_diem" value="{{ invoice_preports.per_diem }}" disabled>
                 <span style="margin: 0 5px;">+</span>
-                <input type="number" style="width: 70px; margin-right: 10px;" id="per_diem_surcharge" name="per_diem_surcharge" value="{{ surcharges.per_diem }}" disabled>
-                <input type="text" style="width: 70px;" id="per_diem_surcharge_note" name="per_diem_surcharge_note" value="{{ surcharges_notes.per_diem }}" disabled>
+                <input type="number" style="width: 70px; margin-right: 10px;" id="per_diem_surcharge" name="per_diem_surcharge" value="{{ invoice_preports.surcharges.per_diem }}" disabled>
+                <input type="text" style="width: 70px;" id="per_diem_surcharge_note" name="per_diem_surcharge_note" value="{{ invoice_preports.surcharge_notes.per_diem }}" disabled>
             </div>
             <div style="display: flex; align-items: center; margin-bottom: 10px;">
                 <label style="width: 120px; font-weight: bold;" for="second_pickup">二次提货</label>
                 <input type="number" class="original-input" style="width: 70px; margin-right: 10px;" id="second_pickup" name="second_pickup" value="{{ invoice_preports.second_pickup }}" disabled>
                 <span style="margin: 0 5px;">+</span>
-                <input type="number" style="width: 70px; margin-right: 10px;" id="second_pickup_surcharge" name="second_pickup_surcharge" value="{{ surcharges.second_pickup }}" disabled>
-                <input type="text" style="width: 70px;" id="second_pickup_surcharge_note" name="second_pickup_serive_surcharge_note" value="{{ surcharges_notes.second_pickup }}" disabled>
+                <input type="number" style="width: 70px; margin-right: 10px;" id="second_pickup_surcharge" name="second_pickup_surcharge" value="{{ invoice_preports.surcharges.second_pickup }}" disabled>
+                <input type="text" style="width: 70px;" id="second_pickup_surcharge_note" name="second_pickup_serive_surcharge_note" value="{{ invoice_preports.surcharge_notes.second_pickup }}" disabled>
             </div>
             {% for key,value in invoice_preports.other_fees.items %}
             <div style="display: flex; align-items: center; margin-bottom: 10px;">

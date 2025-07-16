@@ -2026,6 +2026,7 @@ class Accounting(View):
         surcharges = {}
         surcharge_notes = {}
         for field in fields:
+            
             surcharge_key = f"{field}_surcharge"
             note_key = f"{field}_surcharge_note"
 
@@ -3202,6 +3203,7 @@ class Accounting(View):
                             upsdelivery.append(delivery)
                         elif delivery.type == "selfpickup":
                             selfpickup.append(delivery)
+                    
                     context = {
                         "invoice": invoice,
                         "order_type": order.order_type,
@@ -5659,13 +5661,13 @@ class Accounting(View):
         excel_file = io.BytesIO()  # 创建一个BytesIO对象
         workbook.save(excel_file)  # 将workbook保存到BytesIO中
         excel_file.seek(0)  # 将文件指针移动到文件开头
-        if save_to_sharepoint:
-            invoice_link = self._upload_excel_to_sharepoint(
-                excel_file, "invoice", f"INVOICE-{context['container_number']}.xlsx"
-            )
-        else:
-            invoice_link = ""
-
+        # if save_to_sharepoint:
+        #     invoice_link = self._upload_excel_to_sharepoint(
+        #         excel_file, "invoice", f"INVOICE-{context['container_number']}.xlsx"
+        #     )
+        # else:
+        #     invoice_link = ""
+        invoice_link = ""
         worksheet["A9"].font = Font(color="00FFFFFF")
         worksheet["A9"].fill = PatternFill(
             start_color="00000000", end_color="00000000", fill_type="solid"
@@ -5722,6 +5724,8 @@ class Accounting(View):
                         qty.append(invoice_preport.qty[field.name])
                         rate.append(invoice_preport.rate[field.name])
                         amount.append(value)
+                        if field.verbose_name == "港口拥堵费":
+                            note.append(invoice_preport.surcharge_notes.get(field.name))
 
             for k, v in invoice_preport.other_fees.items():
                 description.append(k)
@@ -5776,6 +5780,8 @@ class Accounting(View):
                             rate.append(invoice_preport.rate[field.name])
                             amount.append(value)
                             note.append("")
+                        if field.verbose_name == "港口拥堵费":
+                            note.append(invoice_preport.surcharge_notes.get(field.name))
                 for k, v in invoice_preport.other_fees.items():
                     if v not in [None, 0]:
                         description.append(k)
