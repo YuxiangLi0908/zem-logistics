@@ -376,10 +376,19 @@ class Accounting(View):
     def migrate_status(self) -> HttpRequest:
         conflict_data = []
 
+        total_count = PackingList.objects.filter(
+            delivery_method='暂扣留仓(HOLD)',
+            PO_ID__isnull=False
+        ).count()
+
+        # 计算切片范围：最后20万条的起始位置和最后5万条的起始位置
+        start_index = max(0, total_count - 200000)  # 最后20万条的起始位置
+        end_index = max(0, total_count - 50000) 
+
         hold_records = PackingList.objects.filter(
             delivery_method='暂扣留仓(HOLD)',
             PO_ID__isnull=False
-        ).order_by('-id')[:50000]
+        ).order_by('-id')[start_index:end_index]
 
         sorted_records = sorted(hold_records, key=lambda x: (x.container_number_id, x.PO_ID))
 
