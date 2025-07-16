@@ -375,7 +375,7 @@ class Accounting(View):
         conflict_data = []
 
         total_count = PackingList.objects.exclude(PO_ID__isnull=True).count()
-        start_index = max(0, total_count - 10000)  # 最后5万条的起始位置
+        start_index = max(0, total_count - 50000)  # 最后5万条的起始位置
 
         container_numbers = (
             PackingList.objects.exclude(PO_ID__isnull=True)
@@ -385,7 +385,8 @@ class Accounting(View):
         )
         for container_number in container_numbers:
             packinglists = PackingList.objects.filter(
-                container_number__container_number=container_number
+                container_number__container_number=container_number,
+                delivery_method='暂扣留仓(HOLD)',
             ).exclude(PO_ID__isnull=True)
             po_id_groups = {}
             for pl in packinglists:   #将pl按照PO_ID分类
