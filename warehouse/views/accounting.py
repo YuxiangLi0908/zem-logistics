@@ -5661,12 +5661,12 @@ class Accounting(View):
         excel_file = io.BytesIO()  # 创建一个BytesIO对象
         workbook.save(excel_file)  # 将workbook保存到BytesIO中
         excel_file.seek(0)  # 将文件指针移动到文件开头
-        # if save_to_sharepoint:
-        #     invoice_link = self._upload_excel_to_sharepoint(
-        #         excel_file, "invoice", f"INVOICE-{context['container_number']}.xlsx"
-        #     )
-        # else:
-        #     invoice_link = ""
+        if save_to_sharepoint:
+            invoice_link = self._upload_excel_to_sharepoint(
+                excel_file, "invoice", f"INVOICE-{context['container_number']}.xlsx"
+            )
+        else:
+            invoice_link = ""
         invoice_link = ""
         worksheet["A9"].font = Font(color="00FFFFFF")
         worksheet["A9"].fill = PatternFill(
