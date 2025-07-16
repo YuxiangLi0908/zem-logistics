@@ -2313,3 +2313,8 @@ HLI2:
   location: 600 Ernie Dr
   state: CA
   zipcode: '95023'
+POC2:
+  city: Ontario
+  location: 4000 Hamner Ave
+  state: CA
+  zipcode: '91761'
