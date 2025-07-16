@@ -2026,6 +2026,7 @@ class Accounting(View):
         surcharges = {}
         surcharge_notes = {}
         for field in fields:
+            
             surcharge_key = f"{field}_surcharge"
             note_key = f"{field}_surcharge_note"
 
@@ -3202,6 +3203,7 @@ class Accounting(View):
                             upsdelivery.append(delivery)
                         elif delivery.type == "selfpickup":
                             selfpickup.append(delivery)
+                    
                     context = {
                         "invoice": invoice,
                         "order_type": order.order_type,
@@ -5722,6 +5724,8 @@ class Accounting(View):
                         qty.append(invoice_preport.qty[field.name])
                         rate.append(invoice_preport.rate[field.name])
                         amount.append(value)
+                        if field.verbose_name == "港口拥堵费":
+                            note.append(invoice_preport.surcharge_notes.get(field.name))
 
             for k, v in invoice_preport.other_fees.items():
                 description.append(k)
@@ -5776,6 +5780,8 @@ class Accounting(View):
                             rate.append(invoice_preport.rate[field.name])
                             amount.append(value)
                             note.append("")
+                        if field.verbose_name == "港口拥堵费":
+                            note.append(invoice_preport.surcharge_notes.get(field.name))
                 for k, v in invoice_preport.other_fees.items():
                     if v not in [None, 0]:
                         description.append(k)
