@@ -374,11 +374,14 @@ class Accounting(View):
     def migrate_status(self) -> HttpRequest:
         conflict_data = []
 
+        total_count = PackingList.objects.exclude(PO_ID__isnull=True).count()
+        start_index = max(0, total_count - 300000)
+
         container_numbers = (
             PackingList.objects.exclude(PO_ID__isnull=True)
-            .order_by('-id')  # 按 ID 降序（假设 id 是自增主键）
+            .order_by('-id')
             .values_list('container_number__container_number', flat=True)
-            .distinct()[-300000:]  # 最后30万条
+            .distinct()[start_index:]  # 获取最后30万条
         )
         for container_number in container_numbers:
             packinglists = PackingList.objects.filter(
