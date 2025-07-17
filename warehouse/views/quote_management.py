@@ -385,6 +385,58 @@ class QuoteManagement(View):
         fee_detail = FeeDetail(**fee_detail_data)
         fee_detail.save()
 
+    def process_la_combina_new_sheet(self, df, file, quote):
+        result = {}
+        group = []
+        region = None
+        current_prices = None
+        for index, row in df.iloc[1:].iterrows():
+            if pd.notna(row.iloc[1]):
+                if pd.notna(row.iloc[2]) and pd.notna(row.iloc[3]) and pd.notna(row.iloc[4]):  # 如果值不为空，说明是一个新的价格组
+                    if (
+                        len(group) > 0
+                    ):  # 首先要判断下，如果这是一个新价格组，且已经记录了上一个价格组，先存储上一组价格组
+                        if region not in result:
+                            result[region] = []
+                        new_group = [
+                            item.split("-")[-1] if "Walmart" in item else item
+                            for item in group
+                        ]
+                        result[region].append(
+                            {
+                                "prices": current_prices,
+                                "location": new_group,
+                            }
+                        )
+                        group = []
+                    # 然后开始存新的价格组，直接存价格和第一行仓库代码
+                    region = (
+                        region if pd.isna(row.iloc[0]) else row.iloc[0]
+                    )  # A区B区这种是外键
+                    current_prices = [row.iloc[2], row.iloc[3], row.iloc[4]]
+                    group_partial = row.iloc[1].replace('\n', '/').split('/')
+                    group.extend(group_partial)
+                else:  # 如果这一行的价格已记录，直接加仓库代码就可以
+                    group_partial = row.iloc[1].replace('\n', '/').split('/')
+                    group.extend(group_partial)
+
+        if region and current_prices and group:
+            if region not in result:
+                result[region] = []
+            result[region].append(
+                {"prices": current_prices, "location": self.extract_locations(group)}
+            )
+
+        # 创建 FeeDetail 记录
+        fee_detail_data = {
+            "quotation_id": quote,
+            "fee_detail_id": str(uuid.uuid4())[:4].upper(),
+            "fee_type": "LA_COMBINA",
+            "details": result,
+        }
+        fee_detail = FeeDetail(**fee_detail_data)
+        fee_detail.save()
+
     def process_la_combina_sheet(self, df, file, quote):
         result = {}
         group = []
@@ -998,7 +1050,7 @@ class QuoteManagement(View):
                 else:
                     result.append(loc)
         return result
-
+        
     def handle_upload_payable_quote_post(self, request: HttpRequest) -> dict[str, Any]:
         order_form = OrderForm(request.POST)
         effective_date = request.POST.get("effective_date")
@@ -1075,6 +1127,13 @@ class QuoteManagement(View):
 
             file = request.FILES["file"]
             excel_file = pd.ExcelFile(file)
+
+            #因为7/15之后的组合柜报价格式变了，所以需要判断一下
+            la_combina_handler = self.process_la_combina_sheet
+            effective_date_obj = datetime.strptime(effective_date, "%Y-%m-%d").date()
+            cutoff_date = datetime.strptime("2025-07-15", "%Y-%m-%d").date()
+            if effective_date_obj >= cutoff_date:
+                la_combina_handler = self.process_la_combina_new_sheet
             SHEET_HANDLERS = {
                 "码头费用说明": self.process_preport_sheet,  # 已验证
                 "仓库库内操作费": self.process_warehouse_sheet,  # 已验证
@@ -1082,7 +1141,7 @@ class QuoteManagement(View):
                 "NJ亚马逊派送费": self.process_nj_amazon_sheet,  # 已验证，有仓点分类，记录冷门仓点
                 "NJ组合柜": self.process_nj_combina_sheet,  # 已验证，有仓点分类，记录冷门仓点
                 "LA亚马逊派送费": self.process_la_amazon_sheet,  # 已验证，有仓点分类，记录冷门仓点
-                "LA组合柜": self.process_la_combina_sheet,  # 已验证，有仓点分类，记录冷门仓点
+                "LA组合柜": la_combina_handler,  # 已验证，有仓点分类，记录冷门仓点
                 "SAV亚马逊派送表": self.process_sav_amazon_sheet,  # 已验证，有仓点分类，记录冷门仓点
                 "SAV组合柜": self.process_sav_combina_sheet,  # 已验证，有仓点分类，记录冷门仓点
                 "整柜直送": self.process_direct_sheet,  # 已验证
