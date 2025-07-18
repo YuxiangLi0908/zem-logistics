@@ -1,0 +1,340 @@
+{% extends 'base.html' %}
+{% block content %}
+<div style="max-width: 98%; margin: 0 auto; padding: 15px;">
+    <div class="search-card" style="background: white; border-radius: 8px; padding: 15px; margin-bottom: 15px; box-shadow: 0 2px 8px rgba(0,0,0,0.1);">
+        <form method="post" action="">
+            {% csrf_token %}
+            <div style="display: grid; grid-template-columns: repeat(auto-fill, minmax(200px, 1fr)); gap: 15px; align-items: center;">
+                <div>
+                    <label class="filter-label"><b>PickUp Numer</b></label>
+                    <input type="text" name="pickup_number" value="{{ pickup_number }}" class="form-input">
+                </div>
+                <div>
+                    <label class="filter-label"><b>出库批次</b></label>
+                    <input type="text" name="fleet_number" value="{{ fleet_number }}" class="form-input">
+                </div>
+                <div>
+                    <label class="filter-label"><b>预约批次</b></label>
+                    <input type="text" name="batch_number" value="{{ batch_number }}" class="form-input">
+                </div>
+                <div>
+                    <label class="filter-label"><b>所属仓</b></label>
+                    <select name="area" class="form-select">
+                        {% for k, v in warehouse_options.items %}
+                        <option value="{{ v }}" {% if k == area %}selected{% endif %}>{{ k }}</option>
+                        {% endfor %}
+                    </select>
+                </div>
+                <div style="align-self: end;">
+                    <button type="submit" class="search-btn">
+                        <i class="bi bi-search"></i> 查询
+                    </button>
+                </div>
+            </div>
+            <input type="hidden" name="step" value="fleet_cost">
+        </form>
+    </div>
+
+    <div id="loading-bar">
+        <div class="spinner"></div>
+        <p>Loading, please wait...</p>
+    </div>
+
+    <div style="background: white; border-radius: 8px; padding: 15px; box-shadow: 0 2px 8px rgba(0,0,0,0.1);">
+        <div style="display: flex; justify-content: space-between; margin-bottom: 15px;">
+            <h3 style="margin: 0; font-size: 16px;">
+                <i class="bi bi-list-check" style="font-size: 18px; color: #ff4d4f;"></i>
+                <span style="font-size: 20px; font-weight: 700; 
+                        text-shadow: 1px 1px 0 #fff, 2px 2px 0 rgba(255,77,79,0.3);
+                        color: #ff4d4f;">
+                    派送成本录入
+                </span>
+                <span class="badge" style="
+                    display: inline-block;
+                    padding: 3px 8px;
+                    background-color: #1890ff;
+                    color: white;
+                    border-radius: 12px;
+                    font-size: 12px;
+                    font-weight: 500;
+                    margin-left: 8px;
+                    box-shadow: 0 1px 3px rgba(0,0,0,0.1);
+                ">{{ fleet|length }}条</span>
+            </h3>
+            <form method="post" enctype="multipart/form-data" style="font - size:11px;float: right;">   
+                {% csrf_token %}
+                <input type="file" name="file">
+                <input type="hidden" name="step" value="upload_fleet_cost">
+                <input type="hidden" name="area" value="{{ area }}">
+                <button type="submit" class="btn btn-success" style="height: 30px; margin-left: 20px; font-size: 13px;">
+                    批量上传成本
+                </button>
+            </form>
+            <form method="post" enctype="multipart/form-data" style="font - size:11px;float: right;">   
+                {% csrf_token %}
+                <input type="hidden" name="step" value="download_fleet_cost_template">
+                <button type="submit" class="btn btn-success" style="height: 30px; margin-left: 20px; font-size: 13px;">
+                    下载模版
+                </button>
+            </form>
+        </div>
+        <div style="max-height: 65vh; overflow-y: auto;">
+            <table id="shipment-table" class="table" style="font-size: 11px; max-height: 95%; overflow-y: scroll;">
+                <thead>
+                    <tr style="position: sticky; top: 0;">
+                        <th class="th">PickUp Number</th>
+                        <th class="th">费用</th>
+                        <th class="th">出库批次</th>
+                        <th class="th">预约批次</th>
+                        <th class="th">预约号</th>
+                        <th class="th">Carrier</th>
+                        <th class="th">预约发车日期</th>
+                        <th class="th">实际发车日期</th>
+                        <th class="th">总重lbs</th>
+                        <th class="th">总CBM</th>
+                        <th class="th">总卡板数</th>
+                        <th class="th">备注</th>                      
+                    </tr>
+                    <tr style="position: sticky;" id="fleet-table-filter">
+                        <th class="th"><input type="text" id="fleetSearchInput" placeholder="搜索出库批次..." size="13" style="font-size: 11px;"></th>
+                        <th class="th"></th>
+                        <th class="th"><input type="text" id="fleetSearchInput" placeholder="搜索出库批次..." size="13" style="font-size: 11px;"></th>
+                        <th class="th"><input type="text" id="fleetShipmentSearchInput" placeholder="搜索预约批次..." size="13" style="font-size: 11px;"></th>
+                        <th class="th"><input type="text" id="appointmentSearchInput" placeholder="搜索ISA..." size="13" style="font-size: 11px;"></th>
+                        <th class="th"><input type="text" id="carrierSearchInput" placeholder="搜索carrier..." size="13" style="font-size: 11px;"></th>
+                        <th class="th"></th>                      
+                        <th class="th"></th>
+                        <th class="th"></th>
+                        <th class="th"></th>
+                        <th class="th"></th>
+                        <th class="th"></th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for f in fleet %}
+                    <form id="pod-form" method="post" enctype="multipart/form-data" action="" style="overflow-x: auto; max-width: 100%; max-height: 98%; overflow-y: scroll;">
+                        {% csrf_token %}
+                        <tr>
+                            <td class="td" style="max-width: 120px; word-break: break-all;">{{ f.fleet_number.pickup_number }}</td>
+                            <td class="td">                               
+                                <input type="number" name="fleet_cost" value="{{ f.fleet_number.fleet_cost }}">
+                                <input type="hidden" name="fleet_number" value="{{ f.fleet_number }}">
+                                <input type="hidden" name="step" value="fleet_cost_confirm">
+                                <input type="hidden" name="area" value="{{ area }}">
+                                <button type="submit" class="btn btn-success" style="font-size: 11px;">确认</button>
+                            </td>
+                            <td class="td" style="max-width: 120px; word-break: break-all;">{{ f.fleet_number.fleet_number }}</td>
+                            <td class="td">{{ f.shipment_batch_number }}</td>
+                            <td class="td">{{ f.appointment_id|default_if_none:"" }}</td>
+                            <td class="td">{{ f.carrier|default_if_none:"" }}</td>
+                            <td class="td">{{ f.fleet_number.appointment_datetime|date:"M-j" }}</td>
+                            <td class="td">
+                                {% if f.arrival_status == "past_due" %}
+                                <span class="status-span-red">{{ f.fleet_number.departured_at|date:"M-j" }}</span>
+                                {% elif f.arrival_status == "need_attention" %}
+                                <span class="status-span-yellow">{{ f.fleet_number.departured_at|date:"M-j" }}</span>
+                                {% else %}
+                                {{ f.fleet_number.departured_at|date:"M-j" }}
+                                {% endif %}
+                            </td>
+                            <td class="td">{{ f.shipped_weight|floatformat:2 }}</td>
+                            <td class="td">{{ f.shipped_cbm|floatformat:2 }}</td>
+                            <td class="td">{{ f.shipped_pallet|floatformat:0 }}</td>
+                            <td class="td" style="max-width: 120px; word-break: break-all;">{{ f.note|default_if_none:"" }}</td>
+                        </tr>            
+                    </form>    
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </div>
+</div>
+
+<style>
+  .filter-label {
+    display: block;
+    margin-bottom: 5px;
+    font-size: 13px;
+    color: #555;
+  }
+  
+  .form-input, .form-select {
+    width: 100%;
+    padding: 8px 12px;
+    border: 1px solid #ddd;
+    border-radius: 4px;
+    font-size: 13px;
+  }
+  
+  .search-btn {
+    background: #1890ff;
+    color: white;
+    border: none;
+    padding: 8px 15px;
+    border-radius: 4px;
+    cursor: pointer;
+  }
+  
+  .primary-btn {
+    background: #28a745;
+    color: white;
+    border: none;
+    padding: 8px 15px;
+    border-radius: 4px;
+    display: flex;
+    align-items: center;
+    gap: 5px;
+  }
+  
+  .file-upload-btn {
+    border: 1px dashed #ccc;
+    padding: 5px 10px;
+    border-radius: 4px;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    gap: 5px;
+    font-size: 12px;
+  }
+  
+  .data-table {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: 12px;
+  }
+  
+  .data-table th {
+    background: #f5f7fa;
+    position: sticky;
+    top: 0;
+    padding: 10px;
+    text-align: left;
+  }
+  
+  .data-table td {
+    padding: 8px 10px;
+    border-bottom: 1px solid #eee;
+  }
+  
+  .data-row:hover {
+    background-color: #f9f9f9;
+  }
+  
+  .status-span-red {
+    color: #f5222d;
+    font-weight: bold;
+  }
+  
+  .status-span-yellow {
+    color: #faad14;
+    font-weight: bold;
+  }
+</style>
+
+<script>
+    document.getElementById('confirm-all-button').addEventListener('click', function() {
+        const form = document.createElement('form');
+        form.method = 'post';
+        form.action = ''; 
+        form.enctype = 'multipart/form-data';
+    
+        const csrfToken = document.querySelector('input[name="csrfmiddlewaretoken"]').value;
+        const csrfInput = document.createElement('input');
+        csrfInput.type = 'hidden';
+        csrfInput.name = 'csrfmiddlewaretoken';
+        csrfInput.value = csrfToken;
+        form.appendChild(csrfInput);
+        document.querySelectorAll('.file-input').forEach(input => {
+            if (input.files.length > 0) {
+                const file = input.files[0];
+                const fileInput = document.createElement('input');
+                fileInput.type = 'file';
+                fileInput.name = 'file';
+                fileInput.files = input.files;
+                form.appendChild(fileInput);
+    
+                const shipmentBatchNumber = input.closest('tr').querySelector('input[name="shipment_batch_number"]').value;
+                const shipmentBatchNumberInput = document.createElement('input');
+                shipmentBatchNumberInput.type = 'hidden';
+                shipmentBatchNumberInput.name = 'shipment_batch_number';
+                shipmentBatchNumberInput.value = shipmentBatchNumber;
+                form.appendChild(shipmentBatchNumberInput);
+            }
+        });
+    
+        const stepInput = document.createElement('input');
+        stepInput.type = 'hidden';
+        stepInput.name = 'step';
+        stepInput.value = 'pod_upload';
+        form.appendChild(stepInput);
+    
+        const areaInput = document.createElement('input');
+        areaInput.type = 'hidden';
+        areaInput.name = 'area';
+        areaInput.value = '{{ area }}';
+        form.appendChild(areaInput);
+    
+        const arrivedAtInput = document.createElement('input');
+        arrivedAtInput.type = 'hidden';
+        arrivedAtInput.name = 'arrived_at';
+        arrivedAtInput.value = '{{ arrived_at }}';
+        form.appendChild(arrivedAtInput);
+    
+        document.body.appendChild(form);
+        form.submit();
+    });
+
+    function showLoadingBar() {
+        document.getElementById('loading-bar').style.display = 'block';
+    }
+
+    // Hide loading bar when page is fully loaded
+    window.onload = function() {
+        document.getElementById('loading-bar').style.display = 'none';
+    };
+
+    document.addEventListener('DOMContentLoaded', function() {
+        const form = document.getElementById('pod-form');
+        if (form) {
+            form.addEventListener('submit', function() {
+                showLoadingBar();
+            });
+        }
+    });
+
+    function filterTable() {
+        const table = document.getElementById('shipment-table');
+        const filterInputs = table.querySelectorAll('#fleet-table-filter input[type="text"]');
+        const rows = table.querySelectorAll('tbody tr');
+        
+        const filters = Array.from(filterInputs).map(input => ({
+            value: input.value.trim().toUpperCase(),
+            colIndex: Array.from(input.closest('th').parentNode.children).indexOf(input.closest('th'))
+        })).filter(filter => filter.value !== '');
+
+        rows.forEach(row => {
+            let shouldShow = true;
+            
+            for (const filter of filters) {
+                const cell = row.querySelector(`td:nth-child(${filter.colIndex + 1})`);
+                if (!cell) continue;
+                
+                const cellText = (cell.textContent || cell.innerText).trim().toUpperCase();
+                if (!cellText.includes(filter.value)) {
+                    shouldShow = false;
+                    break;
+                }
+            }
+            
+            row.style.display = shouldShow ? '' : 'none';
+        });
+    };
+
+    document.addEventListener('DOMContentLoaded', function() {
+        const inputs = document.querySelectorAll('#fleet-table-filter input[type="text"]');
+        inputs.forEach(input => {
+            input.addEventListener('input', filterTable);
+        });
+    });
+</script>
+{% endblock %}

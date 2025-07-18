@@ -310,6 +310,8 @@ class Inventory(View):
                 delivery_type = "public"
             else:
                 delivery_type = "other"
+            base_pcs = p//n
+            remainder = p%n
             # TODOs: find a better way to allocate cbm and weight
             new_pallets += [
                 {
@@ -323,9 +325,9 @@ class Inventory(View):
                     "address": addr,
                     "zipcode": zipcode,
                     "delivery_method": dm,
-                    "pcs": p,
-                    "cbm": total_cbm * p / total_pcs,
-                    "weight_lbs": total_weight * p / total_pcs,
+                    "pcs": base_pcs + (1 if i < remainder else 0),
+                    "cbm": total_cbm * (base_pcs + (1 if i < remainder else 0)) /p,
+                    "weight_lbs": total_weight * (base_pcs + (1 if i < remainder else 0)) /p,
                     "note": note,
                     "shipping_mark": sm if sm else "",
                     "fba_id": fba if fba else "",
