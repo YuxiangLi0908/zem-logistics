@@ -57,6 +57,7 @@
                                 <th class="th">CBM</th>
                                 <th class="th">重量</th>
                                 <th class="th">邮编</th>
+                                <th class="th">备注</th>
                             </tr>
                         </thead>
                         <tbody>
@@ -78,6 +79,7 @@
                                 <td class="td"><input type="number" name="cbm" step = 0.01 value="{{ plt.total_cbm|floatformat:2 }}"></td>
                                 <td class="td"><input type="number" name="weight_lbs" step = 0.01 value="{{ plt.total_weight_lbs|floatformat:2 }}"></td>
                                 <td class="td"><input type="number" name="zipcode" step = 0.01 value="{{ plt.zipcode }}"></td>
+                                <td class="td"><input type="text" name="note" step = 0.01 value="{{ plt.note }}"></td>
                             </tr>
                             {% endfor %}
                             <tr>
@@ -85,7 +87,7 @@
                                 <td class="td">
                                     <input type="number" id="local_total" step="0.01" name="total" disabled>
                                 </td>
-                                <td colspan="6"></td>
+                                <td colspan="7"></td>
                             </tr>
                         </tbody>
                     </table>
