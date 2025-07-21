@@ -21,6 +21,8 @@ from warehouse.models.container import Container
 from warehouse.models.customer import Customer
 from warehouse.models.invoice import Invoice, InvoiceItem
 from warehouse.models.order import Order
+from warehouse.models.pallet import Pallet
+from warehouse.models.fleet_shipment_pallet import FleetShipmentPallet
 from warehouse.models.retrieval import HistoricalRetrieval, Retrieval
 from warehouse.utils.constants import MODEL_CHOICES
 
@@ -478,7 +480,7 @@ class OrderQuantity(View):
                 ).exists
             )()
             invoice_data = invoice_dict.get(container_number, {})
-            print("总数据", invoice_data)
+            
             if not has_items:  # 没有说明是以三个表为准
                 preport_receivable = (
                     invoice_data.get("preport_receivable", 0) or 0
@@ -504,22 +506,33 @@ class OrderQuantity(View):
             preport_payable = payable_total - payable_pallet
             total_preport_receivable += preport_receivable
             total_preport_payable += preport_payable
+            #总收入
             total_income_per_container = (
                 preport_receivable + warehouse_fee + delivery_fee + other_fees
             )
+            #提拆的成本
             total_expense_per_container = preport_payable
+            #总的派送成本
+            po_ids = Pallet.objects.filter(container_number=container_number).values_list('PO_ID', flat=True)
+            delivery_expense = FleetShipmentPallet.objects.filter(PO_ID__in=po_ids).aggregate(total=Sum('expense'))['total']
+            #柜子的利润
             profit_per_container = (
-                total_income_per_container - total_expense_per_container
+                total_income_per_container - total_expense_per_container - delivery_expense
             )
+            #利润率
             profit_margin = (
                 (profit_per_container / total_income_per_container * 100)
                 if total_income_per_container
                 else 0
             )
-
+            #总收入
             total_income += total_income_per_container
+            #总支出
             total_expense += total_expense_per_container
+            total_expense += delivery_expense
+            #总利润
             total_profit += profit_per_container
+            #所有柜子的利润
             profit_values.append(profit_per_container)
 
             results.append(
@@ -535,6 +548,7 @@ class OrderQuantity(View):
                     "total_expense": total_expense_per_container,
                     "profit": profit_per_container,
                     "profit_margin": profit_margin,
+                    "delivery_expense": delivery_expense,
                 }
             )
         if profit_values and len(profit_values) > 1:
