@@ -5,12 +5,13 @@ from collections import defaultdict
 from datetime import datetime
 from typing import Any
 
+
 import numpy as np
 from asgiref.sync import sync_to_async
 from dateutil.relativedelta import relativedelta
 from django.apps import apps
 from django.contrib.auth.models import User
-from django.db.models import Case, Count, FloatField, Q, Sum, When, Model
+from django.db.models import Case, Count, FloatField, Q, Sum, Model
 from django.core.exceptions import ObjectDoesNotExist
 from django.db.models.functions import Cast, TruncMonth
 from django.http import Http404, HttpRequest, HttpResponse, HttpResponseForbidden
@@ -514,7 +515,10 @@ class OrderQuantity(View):
             total_expense_per_container = preport_payable
             #总的派送成本
             po_ids = Pallet.objects.filter(container_number__container_number=container_number).values_list('PO_ID', flat=True)
-            delivery_expense = FleetShipmentPallet.objects.filter(PO_ID__in=po_ids).aggregate(total=Sum('expense'))['total']
+            delivery_expense = await sync_to_async(
+                lambda: FleetShipmentPallet.objects.filter(PO_ID__in=po_ids).aggregate(total=Sum('expense'))['total']
+            )()
+            delivery_expense = delivery_expense or 0
             #柜子的利润
             profit_per_container = (
                 total_income_per_container - total_expense_per_container - delivery_expense
