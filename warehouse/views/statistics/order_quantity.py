@@ -513,7 +513,7 @@ class OrderQuantity(View):
             #提拆的成本
             total_expense_per_container = preport_payable
             #总的派送成本
-            po_ids = Pallet.objects.filter(container_number=container_number).values_list('PO_ID', flat=True)
+            po_ids = Pallet.objects.filter(container_number__container_number=container_number).values_list('PO_ID', flat=True)
             delivery_expense = FleetShipmentPallet.objects.filter(PO_ID__in=po_ids).aggregate(total=Sum('expense'))['total']
             #柜子的利润
             profit_per_container = (
