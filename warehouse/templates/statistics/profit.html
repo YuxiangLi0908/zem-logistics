@@ -126,9 +126,10 @@
                         <th>客户</th>
                         <th class="text-right">港前应收</th>
                         <th class="text-right">港前应付</th>
-                        <th class="text-right">库内费用</th>
-                        <th class="text-right">打板应付</th>
-                        <th class="text-right">派送费用</th>
+                        <th class="text-right">库内应收</th>
+                        <th class="text-right">库内应付</th>
+                        <th class="text-right">派送应收</th>
+                        <th class="text-right">派送应付</th>
                         <th class="text-right summary-col highlight-income">总收入</th>
                         <th class="text-right summary-col highlight-expense">总支出</th>
                         <th class="text-right summary-col highlight-profit">总利润</th>
@@ -144,6 +145,7 @@
                         <td class="text-right expense">${{ container.preport_payable|floatformat:2 }}</td>
                         <td class="text-right">${{ container.warehouse_fee|floatformat:2 }}</td>
                         <td class="text-right expense">${{ container.payable_pallet|floatformat:2 }}</td>
+                        <td class="text-right">${{ container.delivery_fee|floatformat:2 }}</td>
                         <td class="text-right">${{ container.delivery_expense|floatformat:2 }}</td>
                         <td class="text-right summary-col highlight-income">${{ container.total_income|floatformat:2 }}</td>
                         <td class="text-right summary-col highlight-expense">${{ container.total_expense|floatformat:2 }}</td>
