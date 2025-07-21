@@ -34,6 +34,7 @@ SHIPPING_LINE_OPTIONS = [
     ("SeaLead", "SeaLead"),
     ("Matson", "Matson"),
     ("TSL", "TSL"),
+    ("KMTC", "KMTC"),
 ]
 
 CONTAINER_PICKUP_CARRIER = [
