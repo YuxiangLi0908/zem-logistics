@@ -46,7 +46,7 @@ class OrderQuantity(View):
                 request, self.template_historical, context
             )
         elif step == "profit_analysis":
-            if not await self._validate_user_manage(request.user):
+            if not await self._validate_user_profit(request.user):
                 return HttpResponseForbidden(
                     "You are not authenticated to access this page!"
                 )
@@ -945,4 +945,12 @@ class OrderQuantity(View):
             return True
         return await sync_to_async(
             lambda: user.groups.filter(name="history_search").exists()
+        )()
+    
+    async def _validate_user_profit(self, user: User) -> bool:
+        is_staff = await sync_to_async(lambda: user.is_staff)()
+        if is_staff:
+            return True
+        return await sync_to_async(
+            lambda: user.groups.filter(name="order_profit").exists()
         )()
