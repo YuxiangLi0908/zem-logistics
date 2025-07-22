@@ -93,11 +93,13 @@ class TimeoutWarning(View):
             )
             .order_by("appointment_datetime")
         )
+        target_date = datetime(2025, 6, 1)
         un_confirmed_fleets = await sync_to_async(list)(
             Fleet.objects.filter(
                 departured_at__isnull=False,
                 origin=warehouse,
-                shipment__shipment_appointment__lte=now-timedelta(days=3)
+                shipment__shipment_appointment__lte=now-timedelta(days=3),
+                shipment__shipment_appointment__gte=target_date
             )
             .annotate(
                 shipment_batch_numbers=StringAgg(
