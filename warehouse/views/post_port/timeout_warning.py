@@ -93,12 +93,28 @@ class TimeoutWarning(View):
             )
             .order_by("appointment_datetime")
         )
+        un_confirmed_fleets = await sync_to_async(list)(
+            Fleet.objects.filter(
+                departured_at__isnull=False,
+                origin=warehouse,
+                shipment__shipment_appointment__lte=now-timedelta(days=3)
+            )
+            .annotate(
+                shipment_batch_numbers=StringAgg(
+                    "shipment__shipment_batch_number", delimiter=","
+                ),
+                appointment_ids=StringAgg("shipment__appointment_id", delimiter=","),
+            )
+            .order_by("appointment_datetime")
+        )
+        #过了确认出库时间
         context = {
             "warehouse": warehouse,
             "warehouse_options": self.warehouse_options,
-            "pallets": pallets,
-            "shipments": shipments,
-            "fleets": fleets,
+            "pallets": pallets, #未预约
+            "shipments": shipments, #未排车
+            "fleets": fleets, #未出库
+            "un_confirmed_fleets":un_confirmed_fleets,
         }
         return self.template_shipment, context
 
