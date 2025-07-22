@@ -137,7 +137,7 @@
             <h5 class="mb-0 d-flex align-items-center">
                 <i class="bi bi-cash-stack me-1"></i>
                 应付费用账单: $        
-                {% if not is_save_invoice or reject_reason %}     
+                {% if not is_save_invoice or is_rejected %}     
                     <span id="totalAmountDisplay" name="totalAmountDisplay" class="mx-1">0.0</span>
                 {% else %}
                     <span> {{ payable_total_amount }} </span>
@@ -148,13 +148,13 @@
                 {% if is_save_invoice %} （已存数据）{% else %}（报价表计算）{% endif %}
             </span>            
             
-            {% if not is_save_invoice %} 
+            {% if not is_save_invoice or is_rejected %} 
                 <!--客服看到的-->
                 <button type="submit" class="btn btn-success btn-sm" onclick="modifyStatus('complete')">
                     <i class="bi bi-check-circle me-1"></i>确认账单
                 </button>
                 &nbsp;&nbsp;
-                {% if reject_reason %}
+                {% if is_rejected %}
                     <div class="alert alert-warning py-1 mb-0 d-flex align-items-center">
                         <i class="bi bi-exclamation-triangle-fill me-2"></i>
                         <div>
@@ -259,7 +259,7 @@
                                 <small class="fee-detail">基础费用</small>
                             </td>
                             <td class="text-end fee-amount">
-                                {% if is_save_invoice %}
+                                {% if is_save_invoice or not is_rejected %}
                                     <span class="readonly-amount">{{ basic_fee|floatformat:2 }}</span>
                                 {% else %}
                                     <input type="text" name="basic_fee" value="{{ basic_fee }}" oninput="calculateTotal()">
@@ -286,7 +286,7 @@
                                             {% endfor %}
                                         </select>
                                         <input type="hidden" id="palletization_carrier" name="palletization_carrier">
-                                    {% elif reject_reason %} <!-- 存过数据，但是被驳回了，还可以重新选，但是要默认选中原先选过的-->
+                                    {% elif is_rejected %} <!-- 存过数据，但是被驳回了，还可以重新选，但是要默认选中原先选过的-->
                                         <select class="supplier-select" id="select_carrier" onchange="updateUnloadingFee(this)">
                                             {% for key,value in pallet_details.items %}
                                             <option value="{{ value }}" data-name="{{ key }}" {% if key == palletization_carrier %}selected{% endif %}>{{ key }}</option>
@@ -301,7 +301,7 @@
                                     {% if not is_save_invoice %}
                                         <span id="unloading_fee_display">0.00</span>
                                         <input type="hidden" id="unloading_fee" name="palletization_fee" value="0">
-                                    {% elif reject_reason %}
+                                    {% elif is_rejected %}
                                         <span id="unloading_fee_display">{{ palletization_fee }}</span>
                                         <input type="hidden" id="unloading_fee" name="palletization_fee" value="{{ palletization_fee }}">
                                     {% else %}
@@ -325,7 +325,7 @@
                                 <div class="fee-detail">基础费用</div>
                             </td>
                             <td class="text-end fee-amount">
-                                {% if is_save_invoice %}
+                                {% if is_save_invoice or not is_rejected %}
                                     <span id="unloading_fee_display">{{ arrive_fee }}</span>
                                 {% else %}
                                     <input type="text" name="arrive_fee" value="{{ arrive_fee }}" oninput="calculateTotal()">
@@ -363,7 +363,7 @@
                             
                             {% if overweight_fee %}
                             <td class="text-end fee-amount">
-                                {% if is_save_invoice %}
+                                {% if is_save_invoice or not is_rejected %}
                                     <span class="readonly-amount">{{ overweight_fee|floatformat:2 }}</span>
                                 {% else %}
                                     <input type="text" name="overweight_fee" value="{{ overweight_fee }}" oninput="calculateTotal()">
@@ -410,7 +410,7 @@
                                         </div>                                   
                                     </td>
                                     <td class="text-end fee-amount">
-                                        {% if is_save_invoice and not reject_reason %}
+                                        {% if is_save_invoice or not is_rejected %}
                                             <span class="readonly-amount">{{ chassis_fee|floatformat:2 }}</span>
                                         {% else %}
                                             <input type="text" name="chassis_fee" value="{{ chassis_fee }}" oninput="calculateTotal()">
@@ -463,7 +463,7 @@
                 {% for fee_name, fee_amount in pallet_other_fee.items %}
                     <div class="fee-group row g-3 mb-3 align-items-center">
                         <div class="fee-group row g-3 mb-3 align-items-center">
-                            {% if reject_reason %}
+                            {% if is_rejected %}
                                 <div class="col-md-5">
                                     <input type="text" class="form-control" name="fee_name" 
                                         value="{{ fee_name }}" placeholder="费用名称">
