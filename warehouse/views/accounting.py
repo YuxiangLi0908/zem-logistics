@@ -2477,8 +2477,8 @@ class Accounting(View):
             )
 
         if overregion_pickup_fee > 0:
-            overregion_pickup_non_combina_cbm = request.POST.get(
-                "overregion_pickup_non_combina_cbm"
+            overregion_pickup_non_combina_cbm_ratio = request.POST.get(
+                "overregion_pickup_non_combina_cbm_ratio"
             )
             overregion_pickup_non_combina_base_fee = request.POST.get(
                 "overregion_pickup_non_combina_base_fee"
@@ -2490,7 +2490,7 @@ class Accounting(View):
                     "warehouse_code": None,
                     "cbm": None,
                     "weight": None,
-                    "qty": overregion_pickup_non_combina_cbm,
+                    "qty": overregion_pickup_non_combina_cbm_ratio/100,
                     "rate": overregion_pickup_non_combina_base_fee,
                     "amount": overregion_pickup_fee,
                     "note": None,
@@ -3773,6 +3773,7 @@ class Accounting(View):
             .values("destination")
             .annotate(total_cbm=Sum("cbm"))
         )
+        total_cbm_sum = sum(item['total_cbm'] for item in plts_by_destination)
         # 区分组合柜区域和非组合柜区域
         container_type_temp = 0 if container_type == "40HQ/GP" else 1
         matched_regions = self.find_matching_regions(
@@ -3863,9 +3864,6 @@ class Accounting(View):
                     for region, data in price_display.items()
                 ]
             else:  # 允许混区的情况
-                total_cbm_sum = sum(
-                    total_cbm for region, total_cbm in matching_regions.items()
-                )
                 for region, total_cbm in matching_regions.items():
                     fee = combina_fee[region][0]["prices"][
                         0 if container_type == "40HQ/GP" else 1
