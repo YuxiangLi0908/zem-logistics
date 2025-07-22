@@ -2490,7 +2490,7 @@ class Accounting(View):
                     "warehouse_code": None,
                     "cbm": None,
                     "weight": None,
-                    "qty": overregion_pickup_non_combina_cbm_ratio/100,
+                    "qty": float(overregion_pickup_non_combina_cbm_ratio)/100,
                     "rate": overregion_pickup_non_combina_base_fee,
                     "amount": overregion_pickup_fee,
                     "note": None,
