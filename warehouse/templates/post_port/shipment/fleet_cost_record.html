@@ -69,6 +69,7 @@
                 <button type="submit" class="btn btn-success" style="height: 30px; margin-left: 20px; font-size: 13px;">
                     批量上传成本
                 </button>
+                <small style="color: #666; margin-left: 0px;">（每行的PickUp Number、出库批次和预约批次填一个就行）</small>
             </form>
             <form method="post" enctype="multipart/form-data" style="font - size:11px;float: right;">   
                 {% csrf_token %}
@@ -117,7 +118,7 @@
                         <tr>
                             <td class="td" style="max-width: 120px; word-break: break-all;">{{ f.fleet_number.pickup_number }}</td>
                             <td class="td">                               
-                                <input type="number" name="fleet_cost" value="{{ f.fleet_number.fleet_cost }}">
+                                <input type="number" width="50px" name="fleet_cost" value="{{ f.fleet_number.fleet_cost }}">
                                 <input type="hidden" name="fleet_number" value="{{ f.fleet_number }}">
                                 <input type="hidden" name="step" value="fleet_cost_confirm">
                                 <input type="hidden" name="area" value="{{ area }}">

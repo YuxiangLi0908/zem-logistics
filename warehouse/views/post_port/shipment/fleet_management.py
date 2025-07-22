@@ -627,7 +627,7 @@ class FleetManagement(View):
         wb = openpyxl.Workbook()
         ws = wb.active
         ws.title = "Fleet Cost Template"
-        headers = ["PickUp Number", "费用"]
+        headers = ["PickUp Number", "出库批次", "预约批次", "费用"]
         ws.append(headers)
         
         response = HttpResponse(
@@ -670,31 +670,68 @@ class FleetManagement(View):
             df = pd.read_excel(file)
             if "PickUp Number" in df.columns and "费用" in df.columns:
                 valid_rows = [
-                    (str(row["PickUp Number"]).strip(), float(row["费用"]))
-                    for _, row in df.iterrows()
-                    if pd.notna(row["PickUp Number"]) and pd.notna(row["费用"])
+                    (str(row["PickUp Number"]).strip() if pd.notna(row["PickUp Number"]) else "",
+                    str(row["出库批次"]).strip() if pd.notna(row["出库批次"]) else "",
+                    str(row["预约批次"]).strip() if pd.notna(row["预约批次"]) else "",
+                    float(row["费用"]) if pd.notna(row["费用"]) else 0.0  # 假设费用可以为0
+                )
+                for _, row in df.iterrows()
+                # 满足：费用存在 或 (PickUp Number/出库批次/预约批次 至少一个存在)
+                if pd.notna(row["费用"]) or any([
+                    pd.notna(row.get("PickUp Number")),
+                    pd.notna(row.get("出库批次")),
+                    pd.notna(row.get("预约批次"))
+                ])
                 ]
             else:
                 raise ValueError(f"Missing required columns. Found: {df.columns.tolist()}")
             
-            for pickup_number, fleet_cost in valid_rows:
+            for pickup_number, fleet_number, shipment_batch_number, fleet_cost in valid_rows:
+                
                 if fleet_cost <= 0:
-                    continue
+                    raise ValueError('价格怎么是负的')
                 #更新车次表的价格
-                fleet_query = await sync_to_async(list)(Fleet.objects.filter(pickup_number=pickup_number).only('id', 'fleet_number', 'pickup_number'))
-                if len(fleet_query) > 1:
-                    raise ValueError('该PickUp Number被多个车次录入',fleet_query)
-                fleet = await sync_to_async(Fleet.objects.get)(pickup_number=pickup_number)
+                if pickup_number:             
+                    fleet_query = await sync_to_async(list)(Fleet.objects.filter(pickup_number=pickup_number).only('id', 'fleet_number', 'pickup_number'))
+                    if len(fleet_query) > 1:
+                        raise ValueError('该PickUp Number被多个车次录入',fleet_query)
+                    fleet = await sync_to_async(Fleet.objects.get)(pickup_number=pickup_number)
+                elif shipment_batch_number:
+                    fleet = await sync_to_async(
+                        lambda: Shipment.objects.get(shipment_batch_number=shipment_batch_number).fleet_number
+                    )()
+                elif fleet_number:
+                    fleet = await sync_to_async(Fleet.objects.get)(fleet_number=fleet_number)
+                else:
+                    raise ValueError('缺少车次等信息')
+                
                 fleet.fleet_cost = fleet_cost
                 await sync_to_async(fleet.save)()
 
                 #更新fleetshipmentpallet表
-                fleet_shipments = await sync_to_async(
-                    lambda: list(
-                        FleetShipmentPallet.objects.filter(pickup_number=pickup_number)
-                        .only("id", "total_pallet", "expense")
-                    )
-                )()
+                if pickup_number:
+                    fleet_shipments = await sync_to_async(
+                        lambda: list(
+                            FleetShipmentPallet.objects.filter(pickup_number=pickup_number)
+                            .only("id", "total_pallet", "expense")
+                        )
+                    )()
+                elif shipment_batch_number:
+                    fleet_shipments = await sync_to_async(
+                        lambda: list(
+                            FleetShipmentPallet.objects.filter(shipment_batch_number__shipment_batch_number=shipment_batch_number)
+                            .only("id", "total_pallet", "expense")
+                        )
+                    )()
+                elif fleet_number:
+                    fleet_shipments = await sync_to_async(
+                        lambda: list(
+                            FleetShipmentPallet.objects.filter(fleet_number__fleet_number=fleet_number)
+                            .only("id", "total_pallet", "expense")
+                        )
+                    )()
+                else:
+                    raise ValueError('缺少车次等信息')
                 
                 total_pallets = sum(fs.total_pallet for fs in fleet_shipments if fs.total_pallet)
                 if total_pallets <= 0:
@@ -756,7 +793,7 @@ class FleetManagement(View):
             shipped_at__isnull=False,
             arrived_at__isnull=False,
             shipment_schduled_at__gte="2024-12-01",
-            #fleet_number__fleet_cost__isnull=True,
+            fleet_number__fleet_cost__isnull=True,
         )
         if pickup_number:
             criteria &= models.Q(fleet_number__pickup_number=pickup_number)
@@ -1200,6 +1237,7 @@ class FleetManagement(View):
         context = {
             "warehouse": warehouse_obj.address,
             "batch_number": batch_number,
+            "pickup_number": shipment.fleet_number.pickup_number if shipment.fleet_number and shipment.fleet_number.pickup_number else None,
             "fleet_number": shipment.fleet_number.fleet_number,
             "shipment": shipment,
             "packing_list": packing_list,

@@ -31,6 +31,11 @@
                 </td>
                 <td style="border: 1px solid #141414;">
                     <table>
+                        {% if pickup_number %}
+                        <tr>
+                            <td style="margin-left: 5px;">PickUp number: {{ pickup_number }}</td>
+                        </tr>
+                        {% endif %}
                         {% if fleet_number %}
                         <tr>
                             <td style="margin-left: 5px;">Fleet number: {{ fleet_number }}</td>
