@@ -148,7 +148,7 @@
                 {% if is_save_invoice %} （已存数据）{% else %}（报价表计算）{% endif %}
             </span>            
             
-            {% if not is_save_invoice or reject_reason %} 
+            {% if not is_save_invoice %} 
                 <!--客服看到的-->
                 <button type="submit" class="btn btn-success btn-sm" onclick="modifyStatus('complete')">
                     <i class="bi bi-check-circle me-1"></i>确认账单
