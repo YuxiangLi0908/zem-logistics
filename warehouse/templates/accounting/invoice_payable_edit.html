@@ -259,7 +259,7 @@
                                 <small class="fee-detail">基础费用</small>
                             </td>
                             <td class="text-end fee-amount">
-                                {% if is_save_invoice and not reject_reason %}
+                                {% if is_save_invoice %}
                                     <span class="readonly-amount">{{ basic_fee|floatformat:2 }}</span>
                                 {% else %}
                                     <input type="text" name="basic_fee" value="{{ basic_fee }}" oninput="calculateTotal()">
@@ -325,7 +325,7 @@
                                 <div class="fee-detail">基础费用</div>
                             </td>
                             <td class="text-end fee-amount">
-                                {% if is_save_invoice and not reject_reason %}
+                                {% if is_save_invoice %}
                                     <span id="unloading_fee_display">{{ arrive_fee }}</span>
                                 {% else %}
                                     <input type="text" name="arrive_fee" value="{{ arrive_fee }}" oninput="calculateTotal()">
@@ -363,7 +363,7 @@
                             
                             {% if overweight_fee %}
                             <td class="text-end fee-amount">
-                                {% if is_save_invoice and not reject_reason %}
+                                {% if is_save_invoice %}
                                     <span class="readonly-amount">{{ overweight_fee|floatformat:2 }}</span>
                                 {% else %}
                                     <input type="text" name="overweight_fee" value="{{ overweight_fee }}" oninput="calculateTotal()">
