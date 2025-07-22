@@ -4562,12 +4562,13 @@ class Accounting(View):
             payable_check = True
         else:
             payable_check = False
+        is_rejected = False
         if invoice_status.stage != "unstarted":  # 只有未录入状态，才显示未保存
             is_save_invoice = True
         if invoice_status.stage == "unstarted" and invoice_status.is_rejected == True:
             is_save_invoice = True
             reject_reason = invoice_status.reject_reason
-        
+            is_rejected = True
         # 总费用
         payable_total_amount = invoice.payable_total_amount
         # 其他费用
@@ -4577,6 +4578,7 @@ class Accounting(View):
             "end_date": request.GET.get("end_date"),
             "warehouse_filter": request.GET.get("warehouse_filter"),
             "is_save_invoice": is_save_invoice,
+            "is_rejected": is_rejected,
             "reject_reason": reject_reason,
             "account_confirm": account_confirm,
             "payable_check": payable_check,
