@@ -1509,6 +1509,7 @@ class FleetManagement(View):
                 "shipped_pcs",
                 "is_shipped",
                 "shipped_at",
+                "shipped_at_utc",
                 "pallet_dumpped",
                 "is_full_out",
                 "arrived_at",
