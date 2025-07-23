@@ -6,6 +6,7 @@ from datetime import datetime
 from io import BytesIO
 from pathlib import Path
 from typing import Any
+from django.db import transaction
 
 import openpyxl
 import pandas as pd
@@ -24,6 +25,7 @@ from warehouse.forms.upload_file import UploadFileForm
 from warehouse.models.container import Container
 from warehouse.models.packing_list import PackingList
 from warehouse.models.pallet import Pallet
+from warehouse.models.pallet_destroyed import PalletDestroyed
 from warehouse.models.shipment import Shipment
 from warehouse.models.transfer_location import TransferLocation
 from warehouse.utils.constants import DELIVERY_METHOD_OPTIONS
@@ -423,6 +425,9 @@ class Inventory(View):
         }
         return self.template_inventory_po_update, context
 
+    async def get_related_async(related_field):
+        return await sync_to_async(lambda: related_field)()  
+
     async def handle_update_po_post(
         self, request: HttpRequest
     ) -> tuple[str, dict[str, Any]]:
@@ -431,6 +436,50 @@ class Inventory(View):
         pl_ids = request.POST.getlist("pl_ids")
         pl_ids = [int(i) for i in pl_ids]
         container_number = request.POST.get("container_number")
+        #判断是不是要销毁
+        is_destroyed = request.POST.get("is_destroyed") == "True"
+        if is_destroyed:
+            pallets_to_destroy = await sync_to_async(list)(
+                Pallet.objects.filter(id__in=plt_ids).select_related('container_number', 'packing_list')
+            )
+            
+            destroyed_pallets = []
+            for pallet in pallets_to_destroy:          
+                destroyed_pallet = PalletDestroyed(
+                    packing_list=pallet.packing_list,
+                    container_number=pallet.container_number if pallet.container_number else None,
+                    destination=pallet.destination,
+                    address=pallet.address,
+                    zipcode=pallet.zipcode,
+                    delivery_method=pallet.delivery_method,
+                    delivery_type=pallet.delivery_type,
+                    PO_ID=pallet.PO_ID,
+                    shipping_mark=pallet.shipping_mark,
+                    fba_id=pallet.fba_id,
+                    ref_id=pallet.ref_id,
+                    pcs=pallet.pcs,
+                    sequence_number=pallet.sequence_number,
+                    length=pallet.length,
+                    width=pallet.width,
+                    height=pallet.height,
+                    cbm=pallet.cbm,
+                    weight_lbs=pallet.weight_lbs,
+                    abnormal_palletization=pallet.abnormal_palletization,
+                    po_expired=pallet.po_expired,
+                    note=pallet.note,
+                    priority=pallet.priority,
+                    location=pallet.location,
+                    contact_name=pallet.contact_name,
+                )
+                destroyed_pallets.append(destroyed_pallet)
+            @sync_to_async
+            def async_transaction():
+                with transaction.atomic():
+                    Pallet.objects.filter(id__in=plt_ids).delete()
+                    PalletDestroyed.objects.bulk_create(destroyed_pallets)
+            
+            await async_transaction()
+            return await self.handle_warehouse_post(request)
         destination_new = request.POST.get("destination").strip()
         address_new = request.POST.get("address").strip()
         zipcode_new = request.POST.get("zipcode").strip()
