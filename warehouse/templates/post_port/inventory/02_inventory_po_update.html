@@ -12,8 +12,13 @@
     <input type="hidden" name="warehouse" value="{{ warehouse }}">
     <input type="hidden" name="plt_ids" value="{{ plt_ids }}">
     <input type="hidden" name="container_number" value="{{ pallet.container }}">
+    <input type="hidden" name="is_destroyed" id="is_destroyed" value="False">
     <!-- <input type="hidden" name="pl_ids" value="{{ pl_ids }}"> -->
-    <button type="submit" class="btn btn-success" style="font-size: 11px;">更新PO</button>
+    <div style="display: flex; justify-content: space-between; width: 100%;">
+        <button type="submit" class="btn btn-success" style="font-size: 11px;">更新PO</button>
+        <button type="submit" class="btn btn-danger" style="font-size: 11px;" 
+                onclick="setDestroyedAndSubmit(this.form)">销毁PO</button>
+    </div>
     <table class="table" id="pallets-info" style="font-size: 11px; width: 100%;">
         <thead>
             <th class="th">客户</th>
@@ -90,5 +95,8 @@
     function showLoadingBar() {
         document.getElementById('loading-bar').style.display = 'block';
     };
+    function setDestroyedAndSubmit(form) {
+        document.getElementById('is_destroyed').value = "True";
+    }
 </script>
 {% endblock %}
