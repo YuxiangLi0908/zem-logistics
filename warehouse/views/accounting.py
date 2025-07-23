@@ -2631,13 +2631,23 @@ class Accounting(View):
             receivable_status.stage = "confirmed"
             receivable_status.save()
         order.save()
-        return self.handle_invoice_combina_get(
-            request,
-            request.POST.get("start_date_confirm"),
-            request.POST.get("end_date_confirm"),
-            request.POST.get("customer"),
-            request.POST.get("warehouse"),
-        )
+        is_from_account_confirmation = request.POST.get("is_from_account_confirmation")
+        if is_from_account_confirmation:
+            #返回账单确认界面
+            return self.handle_invoice_confirm_get(
+                request,
+                request.POST.get("start_date_confirm"),
+                request.POST.get("end_date_confirm"),
+            )
+        else:
+            #返回组合柜列表
+            return self.handle_invoice_combina_get(
+                request,
+                request.POST.get("start_date_confirm"),
+                request.POST.get("end_date_confirm"),
+                request.POST.get("customer"),
+                request.POST.get("warehouse"),
+            )
 
     def handle_invoice_dismiss_save(self, request: HttpRequest) -> tuple[Any, Any]:
         container_number = request.POST.get("container_number")
@@ -3160,6 +3170,7 @@ class Accounting(View):
                 and order.container_number.account_order_type == "转运组合"
             ):
                 # 这里表示是组合柜的方式计算，因为如果是报的组合柜但是不符合组合柜要求，那么account_order_type就是转运了
+                setattr(request, 'is_from_account_confirmation', True)
                 return self.handle_container_invoice_combina_get(request)
             else:
                 invoice_preports = InvoicePreport.objects.get(
@@ -3694,6 +3705,7 @@ class Accounting(View):
         invoice_status = InvoiceStatus.objects.get(
             container_number=order.container_number, invoice_type="receivable"
         )
+        is_from_account_confirmation = getattr(request, 'is_from_billing_confirmation', False)
         context = {
             "invoice_number": invoice.invoice_number,
             "container_number": container_number,
@@ -3701,6 +3713,7 @@ class Accounting(View):
             "end_date_confirm": request.GET.get("end_date_confirm"),
             "start_date": request.GET.get("start_date"),
             "end_date": request.GET.get("end_date"),
+            "is_from_account_confirmation":is_from_account_confirmation,
         }
         # 查看是不是财务未确认状态，未确认就从报价表找+客服录的数据，确认了就从invoice_item表找
         if invoice_status.stage == "confirmed":
