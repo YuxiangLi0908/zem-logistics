@@ -44,6 +44,9 @@
             <li class="nav-item">
                 <button class="nav-link" onclick="showSection(this, 'overdue-unconfirmed-sec')"><b>逾期未确认</b></button>
             </li>
+            <li class="nav-item">
+                <button class="nav-link" onclick="showSection(this, 'overdue-unconfirmed-sec')"><b>POD时效预警</b></button>
+            </li>
         </ul>
     </div>
 </div>
@@ -344,6 +347,76 @@
             </tbody>
         </table>
     </div>
+
+    <div id="overdue-podlink-sec" style="display: none;">
+        <table id="podlink-table" class="table" style="font-size: 11px; max-height: 95%; overflow-y: scroll;">
+            <thead>
+                <tr style="position: sticky; top: 30px;">
+                    <th class="th" style="min-width: 40px; text-align: center;"></th>
+                    <th class="th">出库批次</th>
+                    <th class="th">预约批次</th>
+                    <th class="th">ISA</th>
+                    <th class="th">Carrier</th>
+                    <th class="th">发车日期</th>
+                    <th class="th">总重lbs</th>
+                    <th class="th">总CBM</th>
+                    <th class="th">总卡板数</th>
+                    <th class="th">一提两卸</th>
+                    <th class="th">备注</th>
+                </tr>
+                <tr style="position: sticky; top: 52px;" id="podlink-table-filter">
+                    <th class="th" style="min-width: 40px;"></th>
+                    <th class="th"><input type="text" id="podlinkInput" placeholder="搜索出库批次..." oninput="filterTable(this, 1, true,'podlink')" size="13" style="font-size: 11px;"></th>
+                    <th class="th"><input type="text" id="podlinkInput" placeholder="搜索预约批次..." oninput="filterTable(this, 2, true,'podlink')" size="13" style="font-size: 11px;"></th>
+                    <th class="th"><input type="text" id="podlinkInput" placeholder="搜索ISA..." oninput="filterTable(this, 3, true,'podlink')" size="13" style="font-size: 11px;"></th>
+                    <th class="th"><input type="text" id="podlinkInput" placeholder="搜索carrier..." oninput="filterTable(this, 4, true,'podlink')" size="13" style="font-size: 11px;"></th>
+                    <th class="th"></th>
+                    <th class="th"></th>
+                    <th class="th"></th>
+                    <th class="th"></th>
+                    <th class="th"></th>
+                    <th class="th"></th>
+                </tr>
+            </thead>
+            <tbody id="overdue-unconfirmed">
+                {% for f in un_podlinks %}
+                <tr>
+                    <td class="td" style="min-width: 40px; text-align: center;">
+                        <input type='checkbox' name='is_appointment_added' onclick="toggleRowBackground(this)" {% if s.id in shipment_ids %}checked{% endif %} {% if s.abnormal_palletization or s.po_expired %}disabled{% endif %}>
+                        <input type="hidden" name="is_appointment_added", value='off'>
+                        <input type="hidden" name="shipment_ids", value='{{ s.id }}'>
+                    </td>
+                    <td class="td" style="max-width: 80px; word-break: break-all;">
+                        <a href="/fleet_management/?step=fleet_depature&fleet_number={{ f.fleet_number }}&warehouse={{ warehouse }}">
+                            {{ f.fleet_number }}
+                        </a>
+                    </td>
+                    <td class="td">{{ f.shipment_batch_numbers }}</td>
+                    <td class="td">{{ f.appointment_ids }}</td>
+                    <td class="td">{{ f.carrier }}</td>
+                    <td class="td">
+                        {% if f.departure_status == "past_due" %}
+                        <span class="status-span-red">{{ f.appointment_datetime|date:"M-j" }} {{ f.appointment_datetime|time:"H:i" }}</span>
+                        {% elif f.departure_status == "need_attention" %}
+                        <span class="status-span-yellow">{{ f.appointment_datetime|date:"M-j" }} {{ f.appointment_datetime|time:"H:i" }}</span>
+                        {% else %}
+                        {{ f.appointment_datetime|date:"M-j" }}  {{ f.appointment_datetime|time:"H:i" }}
+                        {% endif %}
+                    </td>
+                    <td class="td">{{ f.total_weight|floatformat:2 }}</td>
+                    <td class="td">{{ f.total_cbm|floatformat:2 }}</td>
+                    <td class="td">{{ f.total_pallet|floatformat:0 }}</td>
+                    <td class="td">
+                        {% if f.multipule_destination %}
+                        <i class="bi bi-check-square-fill" style="color: rgba(34, 153, 84, 0.873); font-size: 15px"></i>
+                        {% endif %}
+                    </td>
+                    <td class="td" style="max-width: 120px; word-break: break-all;">{{ f.note }}</td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
 </div>
 <script>
     let selectedOrders = [];
@@ -409,6 +482,10 @@
             var tr = document.querySelectorAll("#overdue-unconfirmed tr");
             var filterRow = document.getElementById("unconfirmed-table-filter");
             var filters = filterRow.querySelectorAll('input#unconfirmedInput');
+        }else if (tableName == 'podlink'){
+            var tr = document.querySelectorAll("#overdue-podlink tr");
+            var filterRow = document.getElementById("podlink-table-filter");
+            var filters = filterRow.querySelectorAll('input#podlinkInput');
         }
         
         
