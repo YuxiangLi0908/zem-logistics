@@ -101,6 +101,7 @@ class TimeoutWarning(View):
             Fleet.objects.filter(
                 departured_at__isnull=False,
                 origin=warehouse,
+                arrived_at__isnull=True,
             ).filter(
                 models.Q(shipment__shipment_appointment__lte=now-timedelta(days=3))&
                 models.Q(shipment__shipment_appointment__gte=target_date)
@@ -118,9 +119,11 @@ class TimeoutWarning(View):
             Fleet.objects.filter(
                 departured_at__isnull=False,
                 origin=warehouse,
+                arrived_at__isnull=False,
             ).filter(
                 models.Q(shipment__pod_link__isnull=True) &
-                models.Q(shipment__shipment_appointment__isnull=False)
+                models.Q(shipment__shipment_appointment__isnull=False) &
+                models.Q(shipment__shipment_appointment__gte=target_date)
             ).annotate(
                 shipment_batch_numbers=Coalesce(
                     Subquery(
