@@ -187,6 +187,9 @@
                     <th style="text-align: center; border: 1px solid #141414; padding-top: 1px;">Shipment ID</th>
                     <th style="text-align: center; border: 1px solid #141414; padding-top: 1px;">Ref ID</th>
                     <th style="text-align: center; border: 1px solid #141414; padding-top: 1px;">Qty</th>
+                    {% if is_NJ_private %}
+                    <th style="text-align: center; border: 1px solid #141414; padding-top: 1px;">Pallet</th>
+                    {% endif %}
                 </tr>
             </thead>
             <tbody>
@@ -199,6 +202,9 @@
                         <td style="text-align: center; border: 1px solid #141414; text-wrap: wrap; padding-top: 1px;">{{ c.fba_id }}</td>
                         <td style="text-align: center; border: 1px solid #141414; text-wrap: wrap; padding-top: 1px;">{{ c.ref_id }}</td>
                         <td style="text-align: center; border: 1px solid #141414; padding-top: 1px;">{{ c.pcs }}</td>
+                        {% if is_NJ_private %}
+                        <td style="text-align: center; border: 1px solid #141414; padding-top: 1px;">{{ pallet_count }}</td>
+                        {% endif %}
                     </tr>
                 {% endfor %}
             </tbody>

@@ -1211,6 +1211,7 @@ class FleetManagement(View):
                     shipment_batch_number__shipment_batch_number=batch_number,
                 )
             )
+            
         warehouse_obj = (
             await sync_to_async(ZemWarehouse.objects.get)(name=warehouse)
             if warehouse
@@ -1234,6 +1235,16 @@ class FleetManagement(View):
         pallet = await self.pickupList_get(pickupList, fleet_number)
         if not shipment.fleet_number:
             raise ValueError("该约未排车")
+        #判断一下是不是NJ私仓的，因为NJ私仓的要多加一列板数
+        is_NJ_private = False
+        pallet_count = 0
+        
+        if "NJ" in shipment.origin and shipment.shipment_type == "LTL":
+            is_NJ_private = True
+            #查找板数，因为私仓都是一票一个约，所以就查这个约里有几个板子，就是板数
+            pallet_count = await sync_to_async(Pallet.objects.filter(
+                shipment_batch_number__shipment_batch_number=batch_number
+            ).count)()
         context = {
             "warehouse": warehouse_obj.address,
             "batch_number": batch_number,
@@ -1241,6 +1252,8 @@ class FleetManagement(View):
             "fleet_number": shipment.fleet_number.fleet_number,
             "shipment": shipment,
             "packing_list": packing_list,
+            "is_NJ_private": is_NJ_private,
+            "pallet_count": pallet_count,
             "pallet": pallet,
             "address_chinese_char": address_chinese_char,
             "destination_chinese_char": destination_chinese_char,
