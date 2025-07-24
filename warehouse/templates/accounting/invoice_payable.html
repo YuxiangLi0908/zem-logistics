@@ -86,7 +86,7 @@
         <form method="post" action="">
             {% csrf_token %}
             <div style="overflow-x: auto; max-width: 100%; overflow-y: auto; max-height: 600px;">
-                <table class="table" id="order-table" style="font-size: 13px;">
+                <table class="table" id="pending-table" style="font-size: 13px;">
                     <thead>
                         <tr style="position: sticky; top: 0; background-color: #f8f9fa;">
                             <th class="th">客户</th>
@@ -161,9 +161,9 @@
                                             <div style="display: flex; flex-direction: column; gap: 4px;">
                                                 <input type="text" 
                                                        name="reject_reason" 
-                                                       placeholder="请输入驳回原因" 
+                                                       placeholder="驳回原因" 
                                                        required
-                                                       style="padding: 4px; font-size: 12px; border: 1px solid #ced4da; border-radius: 4px;"
+                                                       style="width:70px; padding: 4px; font-size: 12px; border: 1px solid #ced4da; border-radius: 4px;"
                                                        title="请输入驳回原因">
                                                 <button type="submit" class="btn btn-danger btn-sm" style="width: 50%;" title="审核驳回">
                                                     <i class="bi bi-x-lg"></i> 
@@ -182,7 +182,7 @@
     {% endif %}
 
     {% if pre_order_pending %}
-    <div style="overflow-y: auto; max-height: 100%; width: 40%; border: 2px solid rgb(180, 180, 180); border-radius: 12px; padding: 1%; margin: 1%;">      
+    <div style="overflow-y: auto; max-height: 100%; width: 30%; border: 2px solid rgb(180, 180, 180); border-radius: 12px; padding: 1%; margin: 1%;">      
         <div>
             <b>已审核账单</b>
             <span style="font-size: 12px; color: #666;">{{ pre_order_pending|length }}条记录</span>
@@ -195,15 +195,13 @@
                         <tr style="position: sticky; top: 0;">
                             <th class="th">客户</th>
                             <th class="th">仓点</th>  
-                            <th class="th">货柜号</th>                                              
-                            <th class="th">驳回原因</th>
+                            <th class="th">货柜号</th> 
                             <th class="th">建单日期</th>
                         </tr>
                         <tr style="position: sticky; top: 28px;">
                             <th class="th"></th>
                             <th class="th"></th>  
                             <th class="th"><input type="text" id="containerSearchInput" placeholder="搜索柜号..." oninput="filterTable(this, 2)" size="16" style="font-size: 14px;"></th>                      
-                            <th class="th"></th>
                             <th class="th"></th>
                         </tr>
                     </thead>
@@ -215,7 +213,6 @@
                                 <td class="td">
                                     <a href="/accounting/?step=container_payable&container_number={{ c.container_number }}&start_date={{ start_date }}&end_date={{ end_date }}&warehouse={{ warehouse_filter }}">{{ c.container_number }}</a>
                                 </td>
-                                <td class="td">{{ c.payable_status.reject_reason }}</td>
                                 <td class="td">{{ c.created_at|date:"Y-m-d" }}</td>
                             </tr>
                         {% endfor %}
@@ -336,10 +333,21 @@
         z-index: 100;
         box-shadow: 0 0 10px rgba(0,0,0,0.1);
     }
-    /* 操作列最小宽度，防止内容挤压 */
-    #order-table th:nth-child(11),
-    #order-table td:nth-child(11) {
-        min-width: 120px;
+    #pending-table th:nth-last-child(-n+2),
+    #pending-table td:nth-last-child(-n+2) {
+        width: 80px !important;    /* 固定宽度 */
+        min-width: 80px !important;
+        max-width: 80px !important;
+        padding: 2px !important;   /* 减少内边距 */
+    }
+    
+    .compact-btn {
+        width: 24px !important;
+        height: 24px !important;
+        padding: 0 !important;
+        display: flex !important;
+        align-items: center !important;
+        justify-content: center !important;
     }
 </style>
 <script>
