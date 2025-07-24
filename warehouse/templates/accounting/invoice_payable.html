@@ -76,6 +76,157 @@
 </div>
 <hr class="Dashed" style="margin-top: 10px; margin-bottom: 10px;">
 
+<div style="display: flex; max-height: 360px;">
+    {% if order_pending %}
+    <div style="overflow-y: auto; max-height: 100%; width: 70%; border: 2px solid rgb(180, 180, 180); border-radius: 12px; padding: 1%; margin: 1%;">     
+        <div>
+            <b>待审核账单</b>
+            <span style="font-size: 12px; color: #666;">{{ order_pending|length }}条记录</span>
+        </div>
+        <form method="post" action="">
+            {% csrf_token %}
+            <div style="overflow-x: auto; max-width: 100%; overflow-y: auto; max-height: 600px;">
+                <table class="table" id="order-table" style="font-size: 13px;">
+                    <thead>
+                        <tr style="position: sticky; top: 0; background-color: #f8f9fa;">
+                            <th class="th">客户</th>
+                            <th class="th">仓点</th>  
+                            <th class="th">货柜号</th>
+                            <th class="th">柜型</th>
+                            <th class="th">提柜费</th>
+                            <th class="th">拆柜费</th>
+                            <th class="th">超重费</th>
+                            <th class="th">车架费</th>
+                            <th class="th">其他费用</th>
+                            <th class="th">总费用</th>
+                            <th class="th" style="width: 5px;">通过</th>
+                            <th class="th" style="width: 5px;">不通过</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for c in order_pending %}
+                            <tr {% if c.payable_status.is_rejected %} style="background-color:#fff3cd; font-weight: bold;"{% endif %}>
+                                <td>{{ c.customer_name.zem_name }}</td>
+                                <td>{{ c.retrieval_id.retrieval_destination_precise }}</td>
+                                <td>
+                                    <a href="/accounting/?step=container_payable&container_number={{ c.container_number }}&start_date={{ start_date }}&end_date={{ end_date }}&warehouse_filter={{ warehouse_filter }}" 
+                                    title="点击查看详情">{{ c.container_number }}</a>
+                                </td>
+                                <td>{{ c.container_number.container_type }}</td>
+                                <td>{{ c.basic_fee|floatformat:2 }}</td>
+                                <td>{{ c.palletization_fee|floatformat:2 }}</td>
+                                <td>{{ c.overweight_fee|floatformat:2 }}</td>
+                                <td>{{ c.chassis_fee|floatformat:2 }}</td>
+                                <td>
+                                    {% if c.other_fee %}
+                                        <div class="other-fees-tooltip">
+                                            {% for name, amount in c.other_fee.items %}
+                                                <div>{{ name }}: ${{ amount|floatformat:2 }}</div>
+                                            {% endfor %}
+                                        </div>
+                                    {% else %}
+                                        -
+                                    {% endif %}
+                                </td>
+                                <td style="font-weight: bold;">{{ c.total_amount|floatformat:2 }}</td>
+                                <td style="width: 5px; padding: 2px; vertical-align: middle; text-align:center;">
+                                    <!-- 审核通过按钮 -->
+                                    <div style="margin-bottom: 8px;">
+                                        <form method="post" action="" class="mb-0">
+                                            {% csrf_token %}
+                                            <input type="hidden" name="container_number" value="{{ c.container_number }}">
+                                            <input type="hidden" name="step" value="payable_save">
+                                            <input type="hidden" name="save_type" value="check_confirm">
+                                            <input type="hidden" name="start_date" value="{{ start_date }}">
+                                            <input type="hidden" name="end_date" value="{{ end_date }}">
+                                            <input type="hidden" name="warehouse_filter" value="{{ warehouse_filter }}">
+                                            <button type="submit" class="btn btn-success btn-sm" style="width: 50%;" title="审核通过">
+                                                <i class="bi bi-check-lg"></i> 
+                                            </button>
+                                        </form>
+                                    </div>
+                                </td> 
+                                <td style="width: 5px; padding: 2px; vertical-align: middle; text-align:center;">   
+                                    <!-- 驳回操作区域 -->
+                                    <div>
+                                        <form method="post" action="" class="mb-0">
+                                            {% csrf_token %}
+                                            <input type="hidden" name="container_number" value="{{ c.container_number }}">
+                                            <input type="hidden" name="step" value="payable_save">
+                                            <input type="hidden" name="save_type" value="reject_check">
+                                            <input type="hidden" name="start_date" value="{{ start_date }}">
+                                            <input type="hidden" name="end_date" value="{{ end_date }}">
+                                            <input type="hidden" name="warehouse_filter" value="{{ warehouse_filter }}">
+                                            
+                                            <div style="display: flex; flex-direction: column; gap: 4px;">
+                                                <input type="text" 
+                                                       name="reject_reason" 
+                                                       placeholder="请输入驳回原因" 
+                                                       required
+                                                       style="padding: 4px; font-size: 12px; border: 1px solid #ced4da; border-radius: 4px;"
+                                                       title="请输入驳回原因">
+                                                <button type="submit" class="btn btn-danger btn-sm" style="width: 50%;" title="审核驳回">
+                                                    <i class="bi bi-x-lg"></i> 
+                                                </button>
+                                            </div>
+                                        </form>
+                                    </div>
+                                </td>
+                            </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+        </form>
+    </div>
+    {% endif %}
+
+    {% if pre_order_pending %}
+    <div style="overflow-y: auto; max-height: 100%; width: 40%; border: 2px solid rgb(180, 180, 180); border-radius: 12px; padding: 1%; margin: 1%;">      
+        <div>
+            <b>已审核账单</b>
+            <span style="font-size: 12px; color: #666;">{{ pre_order_pending|length }}条记录</span>
+        </div>
+        <form method="post" action="">
+            {% csrf_token %}
+            <div style="overflow-x: auto; max-width: 100%; overflow-y: auto; max-height: 600px;">
+                <table class="table" id="order-table" style="font-size: 13px;">
+                    <thead>
+                        <tr style="position: sticky; top: 0;">
+                            <th class="th">客户</th>
+                            <th class="th">仓点</th>  
+                            <th class="th">货柜号</th>                                              
+                            <th class="th">驳回原因</th>
+                            <th class="th">建单日期</th>
+                        </tr>
+                        <tr style="position: sticky; top: 28px;">
+                            <th class="th"></th>
+                            <th class="th"></th>  
+                            <th class="th"><input type="text" id="containerSearchInput" placeholder="搜索柜号..." oninput="filterTable(this, 2)" size="16" style="font-size: 14px;"></th>                      
+                            <th class="th"></th>
+                            <th class="th"></th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for c in pre_order_pending %}
+                            <tr {% if c.payable_status.is_rejected %} style="background-color:#fff3cd; font-weight: bold;"{% endif %}>
+                                <td class="td">{{ c.customer_name.zem_name }}</td>
+                                <td class="td">{{ c.retrieval_id.retrieval_destination_precise }}</td>
+                                <td class="td">
+                                    <a href="/accounting/?step=container_payable&container_number={{ c.container_number }}&start_date={{ start_date }}&end_date={{ end_date }}&warehouse={{ warehouse_filter }}">{{ c.container_number }}</a>
+                                </td>
+                                <td class="td">{{ c.payable_status.reject_reason }}</td>
+                                <td class="td">{{ c.created_at|date:"Y-m-d" }}</td>
+                            </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+        </form>
+    </div>
+    {% endif %}
+</div>
+
 <div style="display: flex; max-height: 360px; margin-bottom: 20px;">
     {% if order %}
     <div style="overflow-y: auto; max-height: 100%; width: 40%; border: 2px solid rgb(180, 180, 180); border-radius: 12px; padding: 1%; margin: 1%;">     
@@ -168,98 +319,29 @@
     {% endif %}
 </div>
 
-<div style="display: flex; max-height: 360px;">
-    {% if order_pending %}
-    <div style="overflow-y: auto; max-height: 100%; width: 40%; border: 2px solid rgb(180, 180, 180); border-radius: 12px; padding: 1%; margin: 1%;">     
-        <div>
-            <b>待审核账单</b>
-            <span style="font-size: 12px; color: #666;">{{ order_pending|length }}条记录</span>
-        </div>
-        <form method="post" action="">
-            {% csrf_token %}
-            <div style="overflow-x: auto; max-width: 100%; overflow-y: auto; max-height: 600px;">
-                <table class="table" id="order-table" style="font-size: 13px;">
-                    <thead>
-                        <tr style="position: sticky; top: 0;">
-                            <th class="th">客户</th>
-                            <th class="th">仓点</th>  
-                            <th class="th">货柜号</th>                                              
-                            <th class="th">驳回原因</th>
-                            <th class="th">建单日期</th>
-                        </tr>
-                        <tr style="position: sticky; top: 28px;">
-                            <th class="th"></th>
-                            <th class="th"></th>  
-                            <th class="th"><input type="text" id="containerSearchInput" placeholder="搜索柜号..." oninput="filterTable(this, 2)" size="16" style="font-size: 14px;"></th>                      
-                            <th class="th"></th>
-                            <th class="th"></th>
-                        </tr>
-                    </thead>
-                    <tbody>
-                        {% for c in order_pending %}
-                            <tr {% if c.payable_status.is_rejected %} style="background-color:#fff3cd; font-weight: bold;"{% endif %}>
-                                <td class="td">{{ c.customer_name.zem_name }}</td>
-                                <td class="td">{{ c.retrieval_id.retrieval_destination_precise }}</td>
-                                <td class="td">
-                                    <a href="/accounting/?step=container_payable&container_number={{ c.container_number }}&start_date={{ start_date }}&end_date={{ end_date }}&warehouse_filter={{ warehouse_filter }}">{{ c.container_number }}</a>
-                                </td>
-                                <td class="td">{{ c.payable_status.reject_reason }}</td>
-                                <td class="td">{{ c.created_at|date:"Y-m-d" }}</td>
-                            </tr>
-                        {% endfor %}
-                    </tbody>
-                </table>
-            </div>
-        </form>
-    </div>
-    {% endif %}
-
-    {% if pre_order_pending %}
-    <div style="overflow-y: auto; max-height: 100%; width: 40%; border: 2px solid rgb(180, 180, 180); border-radius: 12px; padding: 1%; margin: 1%;">      
-        <div>
-            <b>已审核账单</b>
-            <span style="font-size: 12px; color: #666;">{{ pre_order_pending|length }}条记录</span>
-        </div>
-        <form method="post" action="">
-            {% csrf_token %}
-            <div style="overflow-x: auto; max-width: 100%; overflow-y: auto; max-height: 600px;">
-                <table class="table" id="order-table" style="font-size: 13px;">
-                    <thead>
-                        <tr style="position: sticky; top: 0;">
-                            <th class="th">客户</th>
-                            <th class="th">仓点</th>  
-                            <th class="th">货柜号</th>                                              
-                            <th class="th">驳回原因</th>
-                            <th class="th">建单日期</th>
-                        </tr>
-                        <tr style="position: sticky; top: 28px;">
-                            <th class="th"></th>
-                            <th class="th"></th>  
-                            <th class="th"><input type="text" id="containerSearchInput" placeholder="搜索柜号..." oninput="filterTable(this, 2)" size="16" style="font-size: 14px;"></th>                      
-                            <th class="th"></th>
-                            <th class="th"></th>
-                        </tr>
-                    </thead>
-                    <tbody>
-                        {% for c in pre_order_pending %}
-                            <tr {% if c.payable_status.is_rejected %} style="background-color:#fff3cd; font-weight: bold;"{% endif %}>
-                                <td class="td">{{ c.customer_name.zem_name }}</td>
-                                <td class="td">{{ c.retrieval_id.retrieval_destination_precise }}</td>
-                                <td class="td">
-                                    <a href="/accounting/?step=container_payable&container_number={{ c.container_number }}&start_date={{ start_date }}&end_date={{ end_date }}&warehouse={{ warehouse_filter }}">{{ c.container_number }}</a>
-                                </td>
-                                <td class="td">{{ c.payable_status.reject_reason }}</td>
-                                <td class="td">{{ c.created_at|date:"Y-m-d" }}</td>
-                            </tr>
-                        {% endfor %}
-                    </tbody>
-                </table>
-            </div>
-        </form>
-    </div>
-    {% endif %}
-</div>
-
+<style>
+    other-fees-tooltip {
+        max-width: 200px;
+        white-space: nowrap;
+        overflow: hidden;
+        text-overflow: ellipsis;
+    }
+    .other-fees-tooltip:hover {
+        white-space: normal;
+        overflow: visible;
+        position: absolute;
+        background: white;
+        border: 1px solid #ddd;
+        padding: 5px;
+        z-index: 100;
+        box-shadow: 0 0 10px rgba(0,0,0,0.1);
+    }
+    /* 操作列最小宽度，防止内容挤压 */
+    #order-table th:nth-child(11),
+    #order-table td:nth-child(11) {
+        min-width: 120px;
+    }
+</style>
 <script>
     
     function filterTable(filterInput, col_idx, trim) {

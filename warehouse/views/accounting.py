@@ -32,6 +32,7 @@ from django.db.models import (
     F,
     FloatField,
     IntegerField,
+    JSONField,
     Min,
     OuterRef,
     Prefetch,
@@ -3046,29 +3047,59 @@ class Accounting(View):
 
         is_payable_check = self._validate_user_invoice_payable_check(request.user)
         if is_payable_check:  # 审核应付看到的
+            #将应付的费用直接加到审核的列表上
             order_pending = (
                 Order.objects.select_related(
                     "customer_name",
                     "container_number",
                     "invoice_id__statement_id",
+                    "retrieval_id",
+                    "vessel_id",
                 )
                 .filter(
                     criteria,
-                    models.Q(
-                        **{
-                            "payable_status__stage": "preport",
-                        }
-                    ),
+                    models.Q(**{"payable_status__stage": "preport"}),
                 )
                 .annotate(
                     reject_priority=Case(
                         When(payable_status__is_rejected=True, then=Value(1)),
                         default=Value(2),
                         output_field=IntegerField(),
+                    ),
+                    basic_fee=Coalesce(
+                        Cast(F('invoice_id__payable_basic'), FloatField()),
+                        Value(0.0),
+                        output_field=FloatField()
+                    ),
+                    overweight_fee=Coalesce(
+                        Cast(F('invoice_id__payable_overweight'), FloatField()),
+                        Value(0.0),
+                        output_field=FloatField()
+                    ),
+                    chassis_fee=Coalesce(
+                        Cast(F('invoice_id__payable_chassis'), FloatField()),
+                        Value(0.0),
+                        output_field=FloatField()
+                    ),
+                    palletization_fee=Coalesce(
+                        Cast(F('invoice_id__payable_palletization'), FloatField()),
+                        Value(0.0),
+                        output_field=FloatField()
+                    ),
+                    total_amount=Coalesce(
+                        Cast(F('invoice_id__payable_total_amount'), FloatField()),
+                        Value(0.0),
+                        output_field=FloatField()
                     )
                 )
                 .order_by("reject_priority")
             )
+
+            for o in order_pending:
+                if hasattr(o, 'invoice_id') and o.invoice_id and hasattr(o.invoice_id, 'payable_surcharge'):
+                    o.other_fee = o.invoice_id.payable_surcharge.get('other_fee', {})
+                else:
+                    o.other_fee = {}
             pre_order_pending = Order.objects.select_related(
                 "customer_name",
                 "container_number",
