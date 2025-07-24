@@ -182,7 +182,7 @@
     {% endif %}
 
     {% if pre_order_pending %}
-    <div style="overflow-y: auto; max-height: 100%; width: 40%; border: 2px solid rgb(180, 180, 180); border-radius: 12px; padding: 1%; margin: 1%;">      
+    <div style="overflow-y: auto; max-height: 100%; width: 30%; border: 2px solid rgb(180, 180, 180); border-radius: 12px; padding: 1%; margin: 1%;">      
         <div>
             <b>已审核账单</b>
             <span style="font-size: 12px; color: #666;">{{ pre_order_pending|length }}条记录</span>
@@ -195,15 +195,13 @@
                         <tr style="position: sticky; top: 0;">
                             <th class="th">客户</th>
                             <th class="th">仓点</th>  
-                            <th class="th">货柜号</th>                                              
-                            <th class="th">驳回原因</th>
+                            <th class="th">货柜号</th> 
                             <th class="th">建单日期</th>
                         </tr>
                         <tr style="position: sticky; top: 28px;">
                             <th class="th"></th>
                             <th class="th"></th>  
                             <th class="th"><input type="text" id="containerSearchInput" placeholder="搜索柜号..." oninput="filterTable(this, 2)" size="16" style="font-size: 14px;"></th>                      
-                            <th class="th"></th>
                             <th class="th"></th>
                         </tr>
                     </thead>
@@ -215,7 +213,6 @@
                                 <td class="td">
                                     <a href="/accounting/?step=container_payable&container_number={{ c.container_number }}&start_date={{ start_date }}&end_date={{ end_date }}&warehouse={{ warehouse_filter }}">{{ c.container_number }}</a>
                                 </td>
-                                <td class="td">{{ c.payable_status.reject_reason }}</td>
                                 <td class="td">{{ c.created_at|date:"Y-m-d" }}</td>
                             </tr>
                         {% endfor %}
