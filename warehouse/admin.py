@@ -34,6 +34,7 @@ from warehouse.models.transaction import Transaction
 from warehouse.models.transfer_location import TransferLocation
 from warehouse.models.vessel import Vessel
 from warehouse.models.warehouse import ZemWarehouse
+from warehouse.models.pallet_destroyed import PalletDestroyed
 
 # Register your models here.
 admin.site.register(Clearance, SimpleHistoryAdmin)
@@ -65,3 +66,4 @@ admin.site.register(TransferLocation, SimpleHistoryAdmin)
 admin.site.register(QuotationMaster)
 admin.site.register(FeeDetail)
 admin.site.register(Transaction)
+admin.site.register(PalletDestroyed, SimpleHistoryAdmin)
