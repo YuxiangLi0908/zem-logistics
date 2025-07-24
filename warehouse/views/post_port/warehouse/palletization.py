@@ -1293,6 +1293,7 @@ class Palletization(View):
                     "custom_delivery_method",
                     "note",
                     "shipment_batch_number__shipment_batch_number",
+                    "master_shipment_batch_number__shipment_batch_number",
                     "PO_ID",
                     "delivery_type",
                 )
