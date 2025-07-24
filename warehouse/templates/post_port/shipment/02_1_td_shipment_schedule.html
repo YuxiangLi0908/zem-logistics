@@ -393,7 +393,9 @@
             originSelectValue = 'origin-select-1';
         } else if (shipmentType == "LTL") {
             originSelectValue = 'origin-select-2';
-        } else if (shipmentType == "外配/快递") {
+        } else if (shipmentType == "外配") {
+            originSelectValue = 'origin-select-3';
+        } else if (shipmentType == "快递") {
             originSelectValue = 'origin-select-3';
         } else if (shipmentType == "客户自提") {
             originSelectValue = 'origin-select-4';
@@ -428,7 +430,11 @@
             shipmentFormFTL.remove();
             shipmentFormOther.remove();
             shipmentFormSelf.remove();
-        } else if(shipmentType == "外配/快递") {
+        } else if(shipmentType == "外配") {
+            shipmentFormFTL.remove();
+            shipmentFormLTL.remove();
+            shipmentFormSelf.remove();
+        } else if(shipmentType == "快递") {
             shipmentFormFTL.remove();
             shipmentFormLTL.remove();
             shipmentFormSelf.remove();
@@ -455,7 +461,12 @@
             shipmentFormLTL.style.display = 'block';
             shipmentFormOther.style.display = 'none';
             shipmentFormSelf.style.display = 'none';
-        }else if (selectedValue == "外配/快递") {
+        } else if (selectedValue == "外配") {
+            shipmentFormFTL.style.display = 'none';
+            shipmentFormLTL.style.display = 'none';
+            shipmentFormOther.style.display = 'block';
+            shipmentFormSelf.style.display = 'none';
+        } else if (selectedValue == "快递") {
             shipmentFormFTL.style.display = 'none';
             shipmentFormLTL.style.display = 'none';
             shipmentFormOther.style.display = 'block';

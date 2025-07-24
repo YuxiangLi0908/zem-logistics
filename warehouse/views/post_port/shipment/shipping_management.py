@@ -109,7 +109,8 @@ class ShippingManagement(View):
         "": "",
         "FTL": "FTL",
         "LTL": "LTL",
-        "外配/快递": "外配/快递",
+        "外配": "外配",
+        "快递": "快递",
         "客户自提": "客户自提",
     }
 
@@ -1360,7 +1361,7 @@ class ShippingManagement(View):
                     ].strip()
                 except:
                     pass
-                if shipment_type == "外配/快递":
+                if shipment_type == "快递":
                     shipmentappointment = request.POST.get("shipment_est_arrival", None)
                     tzinfo = self._parse_tzinfo(request.POST.get("origin", ""))
                     if shipmentappointment == "":
@@ -1386,6 +1387,27 @@ class ShippingManagement(View):
                     shipment_data["arrived_at_utc"] = shipmentappointment_utc
                     shipment_data["pod_link"] = "Without"
                     shipment_data["pod_uploaded_at"] = timezone.now()
+                elif shipment_type == "外配":
+                    shipmentappointment = request.POST.get("shipment_est_arrival", None)
+                    tzinfo = self._parse_tzinfo(request.POST.get("origin", ""))
+                    if shipmentappointment == "":
+                        shipmentappointment = current_time
+                        shipmentappointment_utc = current_time
+                    else:
+                        shipmentappointment_utc = self._parse_ts(
+                            shipmentappointment, tzinfo
+                        )
+                    shipment_data["express_number"] = (
+                        request.POST.get("express_number")
+                        if request.POST.get("express_number")
+                        else ""
+                    )
+                    shipment_data["is_shipped"] = True
+                    shipment_data["shipped_at"] = shipmentappointment
+                    shipment_data["shipped_at_utc"] = shipmentappointment_utc
+                    shipment_data["is_arrived"] = True
+                    shipment_data["arrived_at"] = shipmentappointment
+                    shipment_data["arrived_at_utc"] = shipmentappointment_utc
                 else:
                     shipmentappointment = request.POST.get("shipment_appointment", None)
                     tzinfo = self._parse_tzinfo(request.POST.get("origin", ""))
@@ -1442,7 +1464,7 @@ class ShippingManagement(View):
                     )
                     # NJ仓的客户自提和UPS，都不需要确认出库和确认到达，客户自提需要POD上传
                     if (
-                        shipment_type == "客户自提" or shipment_type == "外配/快递"
+                        shipment_type == "客户自提" or shipment_type == "外配" or shipment_type == "快递"
                     ) and "NJ" in str(request.POST.get("origin", "")):
                         fleet.departured_at = shipmentappointment
                         fleet.arrived_at = shipmentappointment
@@ -2120,7 +2142,7 @@ class ShippingManagement(View):
                     }
                 )
                 if (
-                    shipment_type == "客户自提" or shipment_type == "外配/快递"
+                    shipment_type == "客户自提" or shipment_type == "外配" or shipment_type == "快递"
                 ) and "NJ" in str(request.POST.get("origin")):
                     shipment.is_shipped = True
                     shipment.shipped_at = shipment_appointment
@@ -2135,7 +2157,7 @@ class ShippingManagement(View):
                     fleet.departured_at = shipment_appointment
                     fleet.arrived_at = shipment_appointment
                 if (
-                    shipment_type == "外配/快递"
+                    shipment_type == "快递"
                 ):  # UPS的比客户自提的，系统上还少一步POD上传
                     shipment.express_number = (
                         request.POST.get("express_number")
@@ -2144,6 +2166,14 @@ class ShippingManagement(View):
                     )
                     shipment.pod_link = "Without"
                     shipment.pod_uploaded_at = timezone.now()
+                if (
+                    shipment_type == "外配"
+                ):  # UPS的比客户自提的，系统上还少一步POD上传
+                    shipment.express_number = (
+                        request.POST.get("express_number")
+                        if request.POST.get("express_number")
+                        else ""
+                    )
 
                 await sync_to_async(fleet.save)()
                 if shipment.fleet_number:
@@ -2490,7 +2520,7 @@ class ShippingManagement(View):
                         await sync_to_async(fleet.save)()
                         shipment.fleet_number = fleet
                         # LTL的需要存ARM-BOL和ARM-PRO
-                        if shipment_type in ["LTL", "外配/快递"]:
+                        if shipment_type in ["LTL", "外配", "快递"]:
                             shipment.ARM_BOL = (
                                 request.POST.get("arm_bol")
                                 if request.POST.get("arm_bol")
@@ -2525,7 +2555,11 @@ class ShippingManagement(View):
                     "shipment_account", ""
                 ).strip()
                 shipment_data["note"] = request.POST.get("note", "").strip()
-                if shipment_type == "外配/快递":
+                if shipment_type == "外配":
+                    shipment_data["shipment_appointment"] = request.POST.get(
+                        "shipment_est_arrival", None
+                    )
+                elif shipment_type == "快递":
                     shipment_data["shipment_appointment"] = request.POST.get(
                         "shipment_est_arrival", None
                     )
@@ -2563,7 +2597,7 @@ class ShippingManagement(View):
                 shipment_data["shipped_pcs"] = old_shipment.shipped_pcs
                 shipment_data["pallet_dumpped"] = old_shipment.pallet_dumpped
                 shipment_data["previous_fleets"] = old_shipment.previous_fleets
-                if shipment_type in ["LTL", "外配/快递"]:
+                if shipment_type in ["LTL", "外配", "快递"]:
                     shipment_data["ARM_BOL"] = request.POST.get("arm_bol", "").strip()
                     shipment_data["ARM_PRO"] = request.POST.get("arm_pro", "").strip()
                     fleet = Fleet(

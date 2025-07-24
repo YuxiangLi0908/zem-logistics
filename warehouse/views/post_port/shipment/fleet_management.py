@@ -99,7 +99,7 @@ class FleetManagement(View):
         "MO-62025": "MO-62025",
         "TX-77503": "TX-77503",
     }
-    shipment_type_options = {"": "", "FTL/LTL": "FTL/LTL", "外配/快递": "外配/快递"}
+    shipment_type_options = {"": "", "FTL/LTL": "FTL/LTL", "外配": "外配", "快递": "快递"}
     abnormal_fleet_options = {
         "": "",
         "司机未按时提货": "司机未按时提货",
@@ -566,7 +566,8 @@ class FleetManagement(View):
             shipment_type__in=[
                 "FTL",
                 "LTL",
-                "外配/快递",
+                "外配",
+                "快递",
             ],  # LTL和客户自提的不需要确认送达
         ) & ~Q(status="Exception")
         if fleet_number:
