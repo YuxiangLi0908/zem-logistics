@@ -89,7 +89,7 @@ class PrePortTracking(View):
                 )
                 & models.Q(offload_id__offload_at__isnull=True)
                 & models.Q(cancel_notification=False)
-                # & models.Q(add_to_t49=False)
+                & models.Q(add_to_t49=False)
             )
         )
         orders_under_tracking = await sync_to_async(list)(
