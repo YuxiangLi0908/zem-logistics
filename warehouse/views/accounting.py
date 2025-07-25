@@ -2181,7 +2181,8 @@ class Accounting(View):
                 warehouse = order.retrieval_id.retrieval_destination_area
                 vessel_etd = order.vessel_id.vessel_etd
                 cutoff_date = date(2025, 4, 1)
-                is_new_rule = vessel_etd >= cutoff_date
+                cutoff_datetime = datetime.combine(cutoff_date, time.min).replace(tzinfo=pytz.UTC)  
+                is_new_rule = vessel_etd >= cutoff_datetime
 
                 fee_details = self._get_fee_details(warehouse, vessel_etd)
                 self._calculate_and_set_delivery_cost(
@@ -3386,8 +3387,7 @@ class Accounting(View):
                 break
         # 需要重新规范板数，就是total_n_pallet
         cutoff_date = date(2025, 4, 1)
-        cutoff_datetime = datetime.combine(cutoff_date, time.min).replace(tzinfo=pytz.UTC)
-        
+        cutoff_datetime = datetime.combine(cutoff_date, time.min).replace(tzinfo=pytz.UTC)   
         is_new_rule = vessel_etd >= cutoff_datetime
 
         fee_details = self._get_fee_details(warehouse, vessel_etd)
