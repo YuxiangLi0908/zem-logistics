@@ -17,11 +17,14 @@ from warehouse.models.po_check_eta import PoCheckEtaSeven
 from warehouse.models.retrieval import Retrieval
 from warehouse.models.vessel import Vessel
 
+from warehouse.models.terminal49_data_sync import T49Containers
+
 
 class PrePortTracking(View):
     template_t49_tracking = (
         "pre_port/vessel_terminal_tracking/01_pre_port_tracking.html"
     )
+    test_template = "pre_port/vessel_terminal_tracking/test.html"
 
     async def get(self, request: HttpRequest) -> HttpResponse:
         if not await self._user_authenticate(request):
@@ -29,6 +32,9 @@ class PrePortTracking(View):
         step = request.GET.get("step", None)
         if step == "all":
             template, context = await self.handle_all_get()
+            return render(request, template, context)
+        elif step == "test":
+            template, context = await self.handle_test_get()
             return render(request, template, context)
         else:
             context = {}
@@ -43,6 +49,15 @@ class PrePortTracking(View):
         elif step == "t49_tracking_upload":
             template, context = await self.handle_t49_tracking_upload_post(request)
             return render(request, template, context)
+
+    async def handle_test_get(self) -> tuple[Any, Any]:
+        container = await sync_to_async(list)(
+            T49Containers.objects.order_by("?")[:10]
+        )
+        context = {
+            "containers": container,
+        }
+        return self.test_template, context
 
     async def handle_all_get(self) -> tuple[Any, Any]:
         orders_need_track = await sync_to_async(list)(
@@ -72,24 +87,37 @@ class PrePortTracking(View):
                 & models.Q(
                     vessel_id__vessel_eta__lte=datetime.now() + timedelta(weeks=2)
                 )
-                & models.Q(add_to_t49=False)
+                & models.Q(offload_id__offload_at__isnull=True)
                 & models.Q(cancel_notification=False)
+                & models.Q(add_to_t49=False)
             )
         )
         orders_under_tracking = await sync_to_async(list)(
-            Order.objects.select_related(
-                "vessel_id",
+            T49Containers.objects.values(
                 "container_number",
-                "customer_name",
-                "retrieval_id",
-                "offload_id",
+                "pod_city",
+                "pod_terminal_nickname",
+                "shipment_bill_of_lading_number",
+                "pod_vessel_name",
+                "pod_voyage_number",
+                "pod_eta_at",
+                "pod_arrived_at",
+                "pod_discharged_at",
+                "available_for_pickup",
+                "holds_at_pod_terminal",
+                "pod_last_free_day_on",
+                "pod_pickup_appointment_at",
+                "pod_full_out_at",
             ).filter(
-                add_to_t49=True,
-                retrieval_id__actual_retrieval_timestamp__isnull=True,
-                cancel_notification=False,
-                created_at__gte="2024-10-01",
+                pod_full_out_at__isnull=True,
+                empty_terminated_at__isnull=True,
+                line_tracking_stopped_at__isnull=True,
+            ).order_by(
+                "pod_eta_at"
             )
         )
+        tracked_container_numbers = [o["container_number"] for o in orders_under_tracking]
+        orders_need_track = [o for o in orders_need_track if o["container_number__container_number"] not in tracked_container_numbers]
         context = {
             "orders_need_track": orders_need_track,
             "orders_under_tracking": orders_under_tracking,
