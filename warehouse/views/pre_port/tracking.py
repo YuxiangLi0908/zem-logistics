@@ -24,7 +24,6 @@ class PrePortTracking(View):
     template_t49_tracking = (
         "pre_port/vessel_terminal_tracking/01_pre_port_tracking.html"
     )
-    test_template = "pre_port/vessel_terminal_tracking/test.html"
 
     async def get(self, request: HttpRequest) -> HttpResponse:
         if not await self._user_authenticate(request):
@@ -32,9 +31,6 @@ class PrePortTracking(View):
         step = request.GET.get("step", None)
         if step == "all":
             template, context = await self.handle_all_get()
-            return render(request, template, context)
-        elif step == "test":
-            template, context = await self.handle_test_get()
             return render(request, template, context)
         else:
             context = {}
@@ -49,15 +45,6 @@ class PrePortTracking(View):
         elif step == "t49_tracking_upload":
             template, context = await self.handle_t49_tracking_upload_post(request)
             return render(request, template, context)
-
-    async def handle_test_get(self) -> tuple[Any, Any]:
-        container = await sync_to_async(list)(
-            T49Containers.objects.order_by("?")[:10]
-        )
-        context = {
-            "containers": container,
-        }
-        return self.test_template, context
 
     async def handle_all_get(self) -> tuple[Any, Any]:
         orders_need_track = await sync_to_async(list)(

@@ -4680,7 +4680,7 @@ class Accounting(View):
             actual_weight = order.container_number.weight_lbs
             # 车架费计费时间查找
             arrive_at = order.retrieval_id.arrive_at
-            lfd = order.retrieval_id.temp_t49_lfd
+            lfd = order.retrieval_id.temp_t49_lfd.date()
             empty_returned_at = order.retrieval_id.empty_returned_at  # 还空时间
             actual_retrieval_timestamp = (
                 order.retrieval_id.actual_retrieval_timestamp
@@ -4787,7 +4787,7 @@ class Accounting(View):
                         ) and pickup_details.get("chassis_free_day") not in (None, "/"):
                             # 先找到仓时间和LFD
                             arrive_at = order.retrieval_id.arrive_at
-                            lfd = order.retrieval_id.temp_t49_lfd
+                            lfd = order.retrieval_id.temp_t49_lfd.date()
                             empty_returned_at = order.retrieval_id.empty_returned_at
                             if lfd and arrive_at and empty_returned_at:
                                 # 统一转换为日期对象比较

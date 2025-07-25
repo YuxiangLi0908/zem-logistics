@@ -34,7 +34,7 @@ class Retrieval(models.Model):
     empty_returned = models.BooleanField(default=False, blank=True)
     empty_returned_at = models.DateTimeField(null=True, blank=True)
     # temporary fields
-    temp_t49_lfd = models.DateField(null=True, blank=True)
+    temp_t49_lfd = models.DateTimeField(null=True, blank=True)
     temp_t49_available_for_pickup = models.BooleanField(default=False, blank=True)
     temp_t49_pod_arrive_at = models.DateTimeField(null=True, blank=True)
     temp_t49_pod_discharge_at = models.DateTimeField(null=True, blank=True)
@@ -63,9 +63,9 @@ class Retrieval(models.Model):
     @property
     def lfd_status(self) -> str:
         today = datetime.now().today()
-        if self.temp_t49_lfd <= today:
+        if self.temp_t49_lfd.date() <= today:
             return "past_due"
-        elif self.temp_t49_lfd <= today + timedelta(days=3):
+        elif self.temp_t49_lfd.date() <= today + timedelta(days=3):
             return "need_attention"
         else:
             return "on_time"
