@@ -4680,7 +4680,7 @@ class Accounting(View):
             actual_weight = order.container_number.weight_lbs
             # 车架费计费时间查找
             arrive_at = order.retrieval_id.arrive_at
-            lfd = order.retrieval_id.temp_t49_lfd.date()
+            lfd = order.retrieval_id.temp_t49_lfd
             empty_returned_at = order.retrieval_id.empty_returned_at  # 还空时间
             actual_retrieval_timestamp = (
                 order.retrieval_id.actual_retrieval_timestamp
@@ -4692,10 +4692,10 @@ class Accounting(View):
                 arrive_date = arrive_at.date()
                 returned_date = empty_returned_at.date()
 
-                if arrive_date < lfd:
+                if arrive_date < lfd.date():
                     delta = returned_date - arrive_date
                 else:
-                    delta = returned_date - lfd
+                    delta = returned_date - lfd.date()
 
                 actual_day = delta.days + 1
             else:
@@ -4787,17 +4787,17 @@ class Accounting(View):
                         ) and pickup_details.get("chassis_free_day") not in (None, "/"):
                             # 先找到仓时间和LFD
                             arrive_at = order.retrieval_id.arrive_at
-                            lfd = order.retrieval_id.temp_t49_lfd.date()
+                            lfd = order.retrieval_id.temp_t49_lfd
                             empty_returned_at = order.retrieval_id.empty_returned_at
                             if lfd and arrive_at and empty_returned_at:
                                 # 统一转换为日期对象比较
                                 arrive_date = arrive_at.date()
                                 returned_date = empty_returned_at.date()
 
-                                if arrive_date < lfd:
+                                if arrive_date < lfd.date():
                                     delta = returned_date - arrive_date
                                 else:
-                                    delta = returned_date - lfd
+                                    delta = returned_date - lfd.date()
 
                                 actual_day = delta.days + 1
                                 free_day = actual_day - int(
