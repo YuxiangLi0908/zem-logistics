@@ -4,6 +4,7 @@ import json
 import math
 import os
 import re
+import pytz
 import zipfile
 from collections import defaultdict
 from datetime import date, datetime, timedelta, time
@@ -3385,8 +3386,8 @@ class Accounting(View):
                 break
         # 需要重新规范板数，就是total_n_pallet
         cutoff_date = date(2025, 4, 1)
-        cutoff_datetime = datetime.combine(cutoff_date, time.min)
-        temp = type(vessel_etd)
+        cutoff_datetime = datetime.combine(cutoff_date, time.min).replace(tzinfo=pytz.UTC)
+        
         is_new_rule = vessel_etd >= cutoff_datetime
 
         fee_details = self._get_fee_details(warehouse, vessel_etd)
