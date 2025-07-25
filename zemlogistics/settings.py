@@ -109,6 +109,9 @@ else:
         'PASSWORD': os.environ.get("POSTGRESQL_PWD"),
         'HOST': '127.0.0.1', 
         'PORT': '5432',
+        'OPTIONS': {
+            'options': '-c search_path=terminal_data_sync,public',
+        }
     }
 }
 
