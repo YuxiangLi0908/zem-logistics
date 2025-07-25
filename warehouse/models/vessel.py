@@ -12,8 +12,8 @@ class Vessel(models.Model):
     shipping_line = models.CharField(max_length=255, null=True, blank=True)
     vessel = models.CharField(max_length=100, blank=True, null=True)
     voyage = models.CharField(max_length=100, blank=True, null=True)
-    vessel_etd = models.DateField(null=True, blank=True)
-    vessel_eta = models.DateField(null=True, blank=True)
+    vessel_etd = models.DateTimeField(null=True, blank=True)
+    vessel_eta = models.DateTimeField(null=True, blank=True)
     history = HistoricalRecords()
 
     class Meta:
@@ -30,9 +30,9 @@ class Vessel(models.Model):
     @property
     def eta_status(self) -> str:
         today = datetime.now().date()
-        if self.vessel_eta <= today:
+        if self.vessel_eta.date() <= today:
             return "past_due"
-        elif self.vessel_eta <= today + timedelta(weeks=1):
+        elif self.vessel_eta.date() <= today + timedelta(weeks=1):
             return "within_one_week"
         else:
             return "on_time"
