@@ -107,14 +107,14 @@
                         <td class="td">{{ o.warehouse }}</td>
                         <td class="td">
                             {% if o.vessel_id %}
-                                {{o.vessel_id.vessel_eta}}
+                                {{ o.vessel_id.vessel_eta|date:"M d, Y" }}
                             {% else  %}
                                 {{o.eta}}
                             {% endif %}
                         </td>   
                         <td class="td">
                             {% if o.vessel_id %}
-                                {{o.vessel_id.vessel_etd}}
+                                {{ o.vessel_id.vessel_etd|date:"M d, Y" }}
                             {% else  %}
                                 {{o.etd}}
                             {% endif %}
