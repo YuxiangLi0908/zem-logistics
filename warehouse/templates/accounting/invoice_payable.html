@@ -102,6 +102,18 @@
                             <th class="th" style="width: 5px;">通过</th>
                             <th class="th" style="width: 5px;">不通过</th>
                         </tr>
+                        <tr style="position: sticky; top: 28px;">
+                            <th class="th"></th>
+                            <th class="th"></th>  
+                            <th class="th"><input type="text" id="containerSearchInput" placeholder="搜索柜号..." oninput="filterTable(this, 2)" size="16" style="font-size: 14px;"></th>                      
+                            <th class="th"></th>
+                            <th class="th"></th>
+                            <th class="th"></th>
+                            <th class="th"></th>
+                            <th class="th"></th>
+                            <th class="th"></th>
+                            <th class="th"></th>
+                        </tr>
                     </thead>
                     <tbody>
                         {% for c in order_pending %}
