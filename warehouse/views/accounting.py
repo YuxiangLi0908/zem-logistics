@@ -2178,7 +2178,7 @@ class Accounting(View):
                 ).get(container_number__container_number=container_number)
                 container_type = order.container_number.container_type
                 warehouse = order.retrieval_id.retrieval_destination_area
-                vessel_etd = order.vessel_id.vessel_etd
+                vessel_etd = order.vessel_id.vessel_etd.date()
                 cutoff_date = date(2025, 4, 1)
                 is_new_rule = vessel_etd >= cutoff_date
 
@@ -2830,7 +2830,7 @@ class Accounting(View):
             container_number__container_number=container_number
         )
         warehouse = order.retrieval_id.retrieval_destination_area
-        vessel_etd = order.vessel_id.vessel_etd
+        vessel_etd = order.vessel_id.vessel_etd.date()
         quotation = (
             QuotationMaster.objects.filter(effective_date__lte=vessel_etd)
             .order_by("-effective_date")
@@ -3289,7 +3289,7 @@ class Accounting(View):
             "retrieval_id", "container_number", "vessel_id"
         ).get(container_number__container_number=container_number)
         warehouse = order.retrieval_id.retrieval_destination_area
-        vessel_etd = order.vessel_id.vessel_etd
+        vessel_etd = order.vessel_id.vessel_etd.date()
         # 把pallet汇总
         base_query = Pallet.objects.prefetch_related(
             "container_number",
@@ -3756,7 +3756,7 @@ class Accounting(View):
             return self.template_invoice_container_edit, context
         # 从报价表找+客服录的数据
         warehouse = order.retrieval_id.retrieval_destination_area
-        vessel_etd = order.vessel_id.vessel_etd
+        vessel_etd = order.vessel_id.vessel_etd.date()
 
         container_type = container.container_type
         # 1. 基础数据统计
@@ -4365,7 +4365,7 @@ class Accounting(View):
             "retrieval_id", "container_number", "receivable_status", "payable_status"
         ).get(container_number__container_number=container_number)
         warehouse = order.retrieval_id.retrieval_destination_area
-        vessel_etd = order.vessel_id.vessel_etd
+        vessel_etd = order.vessel_id.vessel_etd.date()
         quotation = (
             QuotationMaster.objects.filter(effective_date__lte=vessel_etd)
             .order_by("-effective_date")
@@ -4542,7 +4542,7 @@ class Accounting(View):
         order = Order.objects.select_related(
             "retrieval_id", "container_number", "warehouse"
         ).get(container_number__container_number=container_number)
-        vessel_etd = order.vessel_id.vessel_etd
+        vessel_etd = order.vessel_id.vessel_etd.date()
         warehouse = order.retrieval_id.retrieval_destination_area
         precise_warehouse = order.retrieval_id.retrieval_destination_precise
         container_type = order.container_number.container_type
@@ -4856,7 +4856,7 @@ class Accounting(View):
         # 查看仓库和柜型，计算提拆费
         warehouse = order.retrieval_id.retrieval_destination_area
         container_type = order.container_number.container_type
-        vessel_etd = order.vessel_id.vessel_etd
+        vessel_etd = order.vessel_id.vessel_etd.date()
         quotation = (
             QuotationMaster.objects.filter(effective_date__lte=vessel_etd)
             .order_by("-effective_date")
