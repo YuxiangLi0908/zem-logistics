@@ -1374,7 +1374,6 @@ class FleetManagement(View):
                 pallet = df.to_dict("records")
         #遍历pallet，判断是不是转仓来的，如果是就标记一下哪个仓来的
         for plt in pallet:
-            #order = await sync_to_async(Order.objects.get)(container_number__container_number=plt["container_number__container_number"])
             order = await sync_to_async(Order.objects.get)(
                 container_number__container_number=plt["container_number__container_number"]
             )
@@ -1382,7 +1381,7 @@ class FleetManagement(View):
             warehouse_plt = str(warehouse_plt)
             if warehouse_plt and warehouse_plt != warehouse:
                 warehouse_prefix = warehouse_plt.split("-")[0]
-                plt["destination"] = f"{plt["destination"]} ({warehouse_prefix})"
+                plt['destination'] = f"{plt['destination']} ({warehouse_prefix})"
         processed_pallet = []
         prev_destination = None
         for item in pallet:
