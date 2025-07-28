@@ -5749,6 +5749,8 @@ class Accounting(View):
                     if value not in [None, 0]:
                         if field.verbose_name == "操作处理费":
                             description.append("等待费")
+                        elif field.verbose_name == "提拆/打托缠膜":
+                            description.append("提派")
                         else:
                             description.append(field.verbose_name)
                         surcharge = invoice_preport.surcharges.get(field.name, 0)
