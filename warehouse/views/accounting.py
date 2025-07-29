@@ -3941,8 +3941,12 @@ class Accounting(View):
         # 超板检查——确定上限的板数
         if container_type == "40HQ/GP":
             std_plt = stipulate["global_rules"]["std_40ft_plts"]
+            if warehouse == "LA" and "LA_std_40ft_plts" in stipulate["global_rules"]:
+                std_plt = stipulate["global_rules"]["LA_std_40ft_plts"]         
         else:
             std_plt = stipulate["global_rules"]["std_45ft_plts"]
+            if warehouse == "LA" and "LA_std_45ft_plts" in stipulate["global_rules"]:
+                std_plt = stipulate["global_rules"]["LA_std_45ft_plts"]  
         exceptions_dict = std_plt["exceptions"]
 
         max_pallets = 0
@@ -4034,6 +4038,23 @@ class Accounting(View):
             extra_fees["overregion_delivery"] = sum_price
         else:
             pickup_fee = 0
+        #超仓点的加收费用
+        addition_fee = 0
+        if "tiered_pricing" in stipulate:
+            region_count = combina_region_count + non_combina_region_count
+            if warehouse in stipulate["tiered_pricing"]:
+                for rule in stipulate["tiered_pricing"][warehouse]:
+                    min_points = rule.get("min_points")
+                    max_points = rule.get("max_points")
+                    if min_points <= region_count <= max_points:
+                        addition_fee = {
+                            "min_points": min_points,
+                            "max_points": max_points,
+                            "add_fee": rule.get("addition_fee")
+                        }
+        else:
+            addition_fee = None
+        
         display_data = {
             # 基础信息
             "plts_by_destination": plts_by_destination,
@@ -4083,6 +4104,7 @@ class Accounting(View):
                         "details": [],
                     },
                 },
+                "addition_fee": addition_fee,
             },
         }
         display_data["combina_data"]["destinations"] = price_display_new
