@@ -4828,7 +4828,10 @@ class Accounting(View):
                                 free_day = actual_day - int(
                                     pickup_details.get("chassis_free_day")
                                 )
-                                chassis_fee = free_day * pickup_details.get("chassis")
+                                if free_day < 0:
+                                    chassis_fee = 0
+                                else:
+                                    chassis_fee = free_day * pickup_details.get("chassis")
 
                         arrive_fee = None
                         if pickup_details.get("arrive_warehouse") not in (None, "/"):
