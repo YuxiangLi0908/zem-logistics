@@ -823,7 +823,7 @@ class QuoteManagement(View):
         fee_detail.save()
 
     def process_combine_stipulate(self, df, file, quote):
-        result = {"global_rules": {}, "warehouse_pricing": {}, "special_warehouse": {}}
+        result = {"global_rules": {}, "warehouse_pricing": {}, "special_warehouse": {}, "tiered_pricing": {}}
         current_section = None
         for index, row in df.iterrows():
             if pd.notna(row.iloc[0]) and "▶" in str(row.iloc[0]):
@@ -832,6 +832,7 @@ class QuoteManagement(View):
             if (
                 str(row.iloc[0]) == "参数名称"  # 检查是否标题行
                 or str(row.iloc[0]) == "仓库"  # 检查是否包含warehouse(不区分大小写)
+                or str(row.iloc[0]) == "warehouse"
                 or not pd.notna(row.iloc[0])  # 检查是否空值
             ):
                 continue
@@ -882,6 +883,21 @@ class QuoteManagement(View):
                     "destination": [destination],  # 始终存储为列表
                     "multiplier": multiplier,
                 }
+            elif current_section == "tiered_pricing":  #LA附加的超出仓点数量加收费用
+                warehouse = str(row.iloc[0])
+                min_points = str(row.iloc[1])
+                max_points = str(row.iloc[2])
+                fee = int(row.iloc[3])
+                note = str(row.iloc[4].strip())
+                addition_rule = {
+                    "min_points": min_points,
+                    "max_points": max_points,
+                    "fee": fee,
+                    "note": note
+                }
+                if warehouse not in result["tiered_pricing"]:
+                    result["tiered_pricing"][warehouse] = []
+                result["tiered_pricing"][warehouse].append(addition_rule)
         # 创建 FeeDetail 记录
         fee_detail_data = {
             "quotation_id": quote,
