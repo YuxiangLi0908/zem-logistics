@@ -184,22 +184,42 @@
 
         var filters = document.querySelectorAll('thead input[type="text"], thead select');
         var filterValues = Array.from(filters).map(function(filter) {
-            return filter.value.toUpperCase().trim();
+            // 如果是柜号搜索框（第0列），则按空格分割为数组，其他列保持原样
+            return filter === filterInput && col_idx === 0 
+                ? filter.value.toUpperCase().split(/\s+/).filter(Boolean)
+                : [filter.value.toUpperCase().trim()];
         });
 
         for (var i = 0; i < tr.length; i++) {
             var row = tr[i];
             var showRow = true;
+            
             for (var j = 0; j < filters.length; j++) {
                 var colIdx = j;
-                var filterValue = filterValues[j];
+                var filterValueList = filterValues[j];
                 var cell = row.getElementsByTagName("td")[colIdx];
-                if (cell) {
+                
+                if (cell && filterValueList.length > 0 && filterValueList[0] !== "") {
                     var cellText = cell.textContent || cell.innerText;
                     var cellValue = trim ? cellText.toUpperCase().trim() : cellText.toUpperCase();
-                    if (filterValue !== "" && cellValue.indexOf(filterValue) === -1) {
-                        showRow = false;
-                        break;
+                    
+                    // 如果是柜号列（第0列），检查是否匹配任一柜号
+                    if (colIdx === 0) {
+                        var matchFound = filterValueList.some(function(filterValue) {
+                            return cellValue.includes(filterValue) || 
+                                filterValue.includes(cellValue);
+                        });
+                        if (!matchFound) {
+                            showRow = false;
+                            break;
+                        }
+                    } 
+                    // 其他列保持原来的精确匹配逻辑
+                    else {
+                        if (cellValue.indexOf(filterValueList[0]) === -1) {
+                            showRow = false;
+                            break;
+                        }
                     }
                 }
             }
