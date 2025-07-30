@@ -305,7 +305,6 @@ class OrderQuantity(View):
                 record_data["changes"] = changes
 
             records_data.append(record_data)
-        a = b
         context = {
             "model_choices": MODEL_CHOICES,
             "table_name": table_name,

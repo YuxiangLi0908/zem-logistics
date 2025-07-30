@@ -99,7 +99,7 @@
                         <td style="padding: 0.75rem; vertical-align: top;">{{ record.date|date:"Y-m-d H:i" }}</td>
                         <td style="padding: 0.75rem; vertical-align: top;">
                             {% if record.user %}
-                                {{ record.user.get_full_name|default:record.user.username }}
+                                {{ record.user|default:record.user.username }}
                             {% else %}
                                 账号已注销
                             {% endif %}
