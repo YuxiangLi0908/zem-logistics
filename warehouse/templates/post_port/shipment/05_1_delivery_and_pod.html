@@ -100,12 +100,12 @@
                             <td class="td" style="max-width: 120px; word-break: break-all;">{{ s.shipment_batch_number }}</td>
                             <td class="td" style="max-width: 120px; word-break: break-all;">{{ s.appointment_id }}</td>
                             <td class="td">{{ s.fleet_number.carrier }}</td>
-                            <td class="td">{{ s.fleet_number.appointment_datetime|date:"M-j" }}</td>
+                            <td class="td">{{ s.fleet_number.appointment_datetime|date:"M-j H:i" }}</td>
                             <td class="td">
                             {% if s.fleet_number.arrival_status == "past_due" %}
-                            <span class="status-span-red" style="color: white">{{ s.fleet_number.departured_at|date:"M-j" }}</span>
+                            <span class="status-span-red" style="color: white">{{ s.fleet_number.departured_at|date:"M-j H:i" }}</span>
                             {% elif s.fleet_number.arrival_status == "need_attention" %}
-                            <span class="status-span-yellow" style="color: white">{{ s.fleet_number.departured_at|date:"M-j" }}</span>
+                            <span class="status-span-yellow" style="color: white">{{ s.fleet_number.departured_at|date:"M-j H:i" }}</span>
                             {% else %}
                             <span style="color: white">{{ s.fleet_number.departured_at|date:"M-j" }}</span>
                             {% endif %}
