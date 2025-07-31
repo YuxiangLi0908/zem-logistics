@@ -5785,18 +5785,17 @@ class Accounting(View):
                                 f"{invoice_preport.surcharge_notes.get(field.name)}: ${surcharge}"
                             )
                         else:
-                            note.append("")
+                            surcharge_note = invoice_preport.surcharge_notes.get(field.name)
+                            if surcharge_note and surcharge_note.strip(): 
+                                note.append(surcharge_note)
+                            else:
+                                note.append("")
                         warehouse_code.append("")
                         cbm.append("")
                         weight.append("")
                         qty.append(invoice_preport.qty[field.name])
                         rate.append(invoice_preport.rate[field.name])
                         amount.append(value)
-                        surcharge_note = invoice_preport.surcharge_notes.get(field.name)
-                        if surcharge_note and surcharge_note.strip(): 
-                            note.append(surcharge_note)
-                        else:
-                            note.append('')
 
             for k, v in invoice_preport.other_fees.items():
                 description.append(k)
