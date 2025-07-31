@@ -104,7 +104,8 @@ class TimeoutWarning(View):
                 arrived_at__isnull=True,
             ).filter(
                 models.Q(shipment__shipment_appointment__lte=now-timedelta(days=3))&
-                models.Q(shipment__shipment_appointment__gte=target_date)
+                models.Q(shipment__shipment_appointment__gte=target_date)&
+                models.Q(shipment__arrived_at__isnull=True)
             )
             .annotate(
                 shipment_batch_numbers=StringAgg(
