@@ -5792,8 +5792,9 @@ class Accounting(View):
                         qty.append(invoice_preport.qty[field.name])
                         rate.append(invoice_preport.rate[field.name])
                         amount.append(value)
-                        if field.verbose_name == "港口拥堵费":
-                            note.append(invoice_preport.surcharge_notes.get(field.name))
+                        surcharge_note = invoice_preport.surcharge_notes.get(field.name)
+                        if surcharge_note and surcharge_note.strip(): 
+                            note.append(surcharge_note)
 
             for k, v in invoice_preport.other_fees.items():
                 description.append(k)
