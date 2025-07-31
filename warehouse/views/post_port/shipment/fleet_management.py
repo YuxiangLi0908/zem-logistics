@@ -1119,6 +1119,7 @@ class FleetManagement(View):
                     s["total_n_pallet"] = int(s["total_n_pallet"] // 1 + 1)
                 else:
                     s["total_n_pallet"] = int(s["total_n_pallet"] // 1)
+                s["total_n_pallet"] = f"预 {s['total_n_pallet']}"
             packing_list += await sync_to_async(list)(
                 Pallet.objects.select_related(
                     "container_number", "shipment_batch_number"
@@ -1275,7 +1276,7 @@ class FleetManagement(View):
             )
         return response
 
-    async def pickupList_get(self, pickupList: json, fleet_number: str, warehouse:str) -> tuple[Any]:
+    async def pickupList_get(self, pickupList: Any, fleet_number: str, warehouse:str) -> tuple[Any]:
         pallet: list[Pallet] | None = None
         if pickupList:  # 有值就转成列表
             pickupList = json.loads(pickupList)
@@ -1321,7 +1322,7 @@ class FleetManagement(View):
                 .order_by("-shipment_batch_number__shipment_appointment")
             )
             for s in pallet:
-                s["total_n_pallet"] = round(s["total_cbm"] / 2)
+                s["total_n_pallet"] = f"预 {round(s['total_cbm'] / 2)}"
             pallet += await sync_to_async(list)(
                 Pallet.objects.select_related(
                     "container_number", "shipment_batch_number"

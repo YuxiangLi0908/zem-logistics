@@ -239,8 +239,10 @@ class ShippingManagement(View):
                 container_number__order__offload_id__offload_at__isnull=False,
             ),
         )
-
-        note = packing_list_selected[0]["note"]
+        try:
+            note = packing_list_selected[0]["note"]
+        except Exception as e:
+            note = ""
         context.update(
             {
                 "shipment": shipment,
