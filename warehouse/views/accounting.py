@@ -5795,6 +5795,8 @@ class Accounting(View):
                         surcharge_note = invoice_preport.surcharge_notes.get(field.name)
                         if surcharge_note and surcharge_note.strip(): 
                             note.append(surcharge_note)
+                        else:
+                            note.append('')
 
             for k, v in invoice_preport.other_fees.items():
                 description.append(k)
