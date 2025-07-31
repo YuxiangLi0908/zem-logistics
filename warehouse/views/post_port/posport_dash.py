@@ -227,7 +227,11 @@ class PostportDash(View):
                         "卡板数": n_pallet,
                         "箱数": pl.get("total_pcs"),
                         "总重lbs": pl.get("total_weight_lbs"),
-                        "ETA": pl.get("container_number__order__vessel_id__vessel_eta"),
+                        "ETA": (
+                            pl.get("container_number__order__vessel_id__vessel_eta").replace(tzinfo=None)
+                            if pl.get("container_number__order__vessel_id__vessel_eta")
+                            else None
+                        ),
                         "提柜时间": retrieval_datetime,
                         "入仓时间": (
                             pl.get(

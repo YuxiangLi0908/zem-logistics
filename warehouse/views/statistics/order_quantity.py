@@ -141,6 +141,7 @@ class OrderQuantity(View):
         # 准备显示数据
         records_data = []
         user_ids = {r.history_user_id for r in history_records if r.history_user_id}
+        
         users = await sync_to_async(
             lambda: User.objects.filter(id__in=user_ids).in_bulk()
         )()
@@ -304,7 +305,6 @@ class OrderQuantity(View):
                 record_data["changes"] = changes
 
             records_data.append(record_data)
-
         context = {
             "model_choices": MODEL_CHOICES,
             "table_name": table_name,

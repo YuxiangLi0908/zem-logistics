@@ -502,7 +502,7 @@ class PO(View):
                                 po_check_dict = {
                                     "container_number": container_number,
                                     "customer_name": order.customer_name,
-                                    "vessel_eta": order.vessel_id.vessel_eta,
+                                    "vessel_eta": order.vessel_id.vessel_eta.date() if order.vessel_id.vessel_eta else None,
                                     "packing_list": pl,
                                     "time_status": False,
                                     "destination": pl.destination,
@@ -527,7 +527,7 @@ class PO(View):
                                     po_check_dict = {
                                         "container_number": container_number,
                                         "customer_name": order.customer_name,
-                                        "vessel_eta": order.vessel_id.vessel_eta,
+                                        "vessel_eta": order.vessel_id.vessel_eta.date() if order.vessel_id.vessel_eta else None,
                                         "packing_list": pl,
                                         "time_status": False,
                                         "destination": pl.destination,
@@ -546,7 +546,7 @@ class PO(View):
                             po_check_dict = {
                                 "container_number": container_number,
                                 "customer_name": order.customer_name,
-                                "vessel_eta": order.vessel_id.vessel_eta,
+                                "vessel_eta": order.vessel_id.vessel_eta.date() if order.vessel_id.vessel_eta else None,
                                 "packing_list": pl,
                                 "time_status": True,
                                 "destination": pl.destination,

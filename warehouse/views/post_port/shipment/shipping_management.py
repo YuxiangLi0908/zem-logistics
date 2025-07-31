@@ -1736,6 +1736,7 @@ class ShippingManagement(View):
                     o.retrieval_id.assigned_by_appt = True
                     updated_order.append(o)
                     updated_retrieval.append(o.retrieval_id)
+            shipment.in_use = True
             await sync_to_async(bulk_update_with_history)(
                 updated_order,
                 Order,

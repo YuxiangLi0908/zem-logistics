@@ -1234,7 +1234,7 @@ class FleetManagement(View):
             else False
         )
         # 最后一页加上拣货单:
-        pallet = await self.pickupList_get(pickupList, fleet_number)
+        pallet = await self.pickupList_get(pickupList, fleet_number, warehouse)
         if not shipment.fleet_number:
             raise ValueError("该约未排车")
         #判断一下是不是NJ私仓的，因为NJ私仓的要多加一列板数
@@ -1276,7 +1276,7 @@ class FleetManagement(View):
             )
         return response
 
-    async def pickupList_get(self, pickupList: Any, fleet_number: str) -> tuple[Any]:
+    async def pickupList_get(self, pickupList: Any, fleet_number: str, warehouse:str) -> tuple[Any]:
         pallet: list[Pallet] | None = None
         if pickupList:  # 有值就转成列表
             pickupList = json.loads(pickupList)
@@ -1373,6 +1373,15 @@ class FleetManagement(View):
                     ] = position
 
                 pallet = df.to_dict("records")
+        for plt in pallet:
+            order = await sync_to_async(Order.objects.get)(
+                container_number__container_number=plt["container_number__container_number"]
+            )
+            warehouse_plt = await sync_to_async(getattr)(order, "warehouse")
+            warehouse_plt = str(warehouse_plt)
+            if warehouse_plt and warehouse_plt != warehouse:
+                warehouse_prefix = warehouse_plt.split("-")[0]
+                plt['destination'] = f"{plt['destination']} ({warehouse_prefix})"
         processed_pallet = []
         prev_destination = None
         for item in pallet:

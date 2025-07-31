@@ -4,9 +4,10 @@ import json
 import math
 import os
 import re
+import pytz
 import zipfile
 from collections import defaultdict
-from datetime import date, datetime, timedelta
+from datetime import date, datetime, timedelta, time
 from io import BytesIO
 from itertools import chain
 from typing import Any
@@ -2180,7 +2181,8 @@ class Accounting(View):
                 warehouse = order.retrieval_id.retrieval_destination_area
                 vessel_etd = order.vessel_id.vessel_etd
                 cutoff_date = date(2025, 4, 1)
-                is_new_rule = vessel_etd >= cutoff_date
+                cutoff_datetime = datetime.combine(cutoff_date, time.min).replace(tzinfo=pytz.UTC)  
+                is_new_rule = vessel_etd >= cutoff_datetime
 
                 fee_details = self._get_fee_details(warehouse, vessel_etd)
                 self._calculate_and_set_delivery_cost(
@@ -3385,7 +3387,8 @@ class Accounting(View):
                 break
         # 需要重新规范板数，就是total_n_pallet
         cutoff_date = date(2025, 4, 1)
-        is_new_rule = vessel_etd >= cutoff_date
+        cutoff_datetime = datetime.combine(cutoff_date, time.min).replace(tzinfo=pytz.UTC)   
+        is_new_rule = vessel_etd >= cutoff_datetime
 
         fee_details = self._get_fee_details(warehouse, vessel_etd)
         delivery_groups = self._process_delivery_records(
@@ -3938,8 +3941,12 @@ class Accounting(View):
         # 超板检查——确定上限的板数
         if container_type == "40HQ/GP":
             std_plt = stipulate["global_rules"]["std_40ft_plts"]
+            if warehouse == "LA" and "LA_std_40ft_plts" in stipulate["global_rules"]:
+                std_plt = stipulate["global_rules"]["LA_std_40ft_plts"]         
         else:
             std_plt = stipulate["global_rules"]["std_45ft_plts"]
+            if warehouse == "LA" and "LA_std_45ft_plts" in stipulate["global_rules"]:
+                std_plt = stipulate["global_rules"]["LA_std_45ft_plts"]  
         exceptions_dict = std_plt["exceptions"]
 
         max_pallets = 0
@@ -4031,6 +4038,23 @@ class Accounting(View):
             extra_fees["overregion_delivery"] = sum_price
         else:
             pickup_fee = 0
+        #超仓点的加收费用
+        addition_fee = 0
+        if "tiered_pricing" in stipulate:
+            region_count = combina_region_count + non_combina_region_count
+            if warehouse in stipulate["tiered_pricing"]:
+                for rule in stipulate["tiered_pricing"][warehouse]:
+                    min_points = rule.get("min_points")
+                    max_points = rule.get("max_points")
+                    if min_points <= region_count <= max_points:
+                        addition_fee = {
+                            "min_points": min_points,
+                            "max_points": max_points,
+                            "add_fee": rule.get("addition_fee")
+                        }
+        else:
+            addition_fee = None
+        
         display_data = {
             # 基础信息
             "plts_by_destination": plts_by_destination,
@@ -4080,6 +4104,7 @@ class Accounting(View):
                         "details": [],
                     },
                 },
+                "addition_fee": addition_fee,
             },
         }
         display_data["combina_data"]["destinations"] = price_display_new
@@ -4692,10 +4717,10 @@ class Accounting(View):
                 arrive_date = arrive_at.date()
                 returned_date = empty_returned_at.date()
 
-                if arrive_date < lfd:
+                if arrive_date < lfd.date():
                     delta = returned_date - arrive_date
                 else:
-                    delta = returned_date - lfd
+                    delta = returned_date - lfd.date()
 
                 actual_day = delta.days + 1
             else:
@@ -4794,16 +4819,19 @@ class Accounting(View):
                                 arrive_date = arrive_at.date()
                                 returned_date = empty_returned_at.date()
 
-                                if arrive_date < lfd:
+                                if arrive_date < lfd.date():
                                     delta = returned_date - arrive_date
                                 else:
-                                    delta = returned_date - lfd
+                                    delta = returned_date - lfd.date()
 
                                 actual_day = delta.days + 1
                                 free_day = actual_day - int(
                                     pickup_details.get("chassis_free_day")
                                 )
-                                chassis_fee = free_day * pickup_details.get("chassis")
+                                if free_day < 0:
+                                    chassis_fee = 0
+                                else:
+                                    chassis_fee = free_day * pickup_details.get("chassis")
 
                         arrive_fee = None
                         if pickup_details.get("arrive_warehouse") not in (None, "/"):
@@ -5746,6 +5774,8 @@ class Accounting(View):
                     if value not in [None, 0]:
                         if field.verbose_name == "操作处理费":
                             description.append("等待费")
+                        elif field.verbose_name == "提拆/打托缠膜":
+                            description.append("提派")
                         else:
                             description.append(field.verbose_name)
                         surcharge = invoice_preport.surcharges.get(field.name, 0)

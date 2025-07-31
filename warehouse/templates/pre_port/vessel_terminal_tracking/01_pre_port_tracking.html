@@ -59,23 +59,12 @@
                     货柜状态
                 </b>
             </div>
-            <div class="text-right" style="width: 70%;">
-                <form method="post" enctype="multipart/form-data" style="font-size: 11px;">
-                    {% csrf_token %}
-                    导入T49 Data: 
-                    {{ t49_tracking_data.file }}
-                    <input type="hidden" name="step" value="t49_tracking_upload">
-                    <button type="submit" class="btn btn-success" style="width: 100px; height: 35px; font-size: 12px; margin: 5px;">
-                        <i class="bi bi-cloud-arrow-up-fill"></i> 上传
-                    </button>
-                </form>
-            </div>
         </div>
         <div style="overflow-y: scroll; max-height: 700px;">
             <table class="table" id="tracking-order-table" style="font-size: 11px;">
                 <thead>
                     <tr style="position: sticky; top: 0;">
-                        <th class="th">仓库/地址</th>
+                        <th class="th">港口</th>
                         <th class="th">柜号</th>
                         <th class="th">MBL</th>
                         <th class="th">船名船次</th>
@@ -88,7 +77,7 @@
                     </tr>
                     <tr style="position: sticky; top: 28px;">
                         <th class="th">
-                            <input type="text" id="ctnSearch" placeholder="搜索仓库/地址..." oninput="filterTable(this, 0, true)" size="13" style="font-size: 11px;">
+                            <input type="text" id="ctnSearch" placeholder="搜索港口..." oninput="filterTable(this, 0, true)" size="13" style="font-size: 11px;">
                         </th>
                         <th class="th">
                             <input type="text" id="ctnSearch" placeholder="搜索柜号..." oninput="filterTable(this, 1, true)" size="13" style="font-size: 11px;">
@@ -108,23 +97,23 @@
                 <tbody>
                     {% for o in orders_under_tracking %}
                     <tr>
-                        <td class="td">{{ o.retrieval_id.retrieval_destination_area }}</td>
-                        <td class="td">{{ o.container_number.container_number }}</td>
-                        <td class="td">{{ o.vessel_id.master_bill_of_lading }}</td>
-                        <td class="td">{{ o.vessel_id.vessel }} - {{ o.vessel_id.voyage }}</td>
-                        <td class="td">{{ o.vessel_id.vessel_eta|date:"Y-m-d" }}</td>
-                        <td class="td">{{ o.retrieval_id.temp_t49_pod_arrive_at|date:"Y-m-d" }}</td>
-                        <td class="td">{{ o.retrieval_id.temp_t49_pod_discharge_at|date:"Y-m-d" }}</td>
-                        <td class="td">{{ o.retrieval_id.temp_t49_lfd|date:"Y-m-d" }}</td>
+                        <td class="td">{{ o.pod_city }} - {{ o.pod_terminal_nickname }}</td>
+                        <td class="td">{{ o.container_number }}</td>
+                        <td class="td">{{ o.shipment_bill_of_lading_number }}</td>
+                        <td class="td">{{ o.pod_vessel_name|default_if_none:'' }} - {{ o.pod_voyage_number|default_if_none:'' }}</td>
+                        <td class="td">{{ o.pod_eta_at|date:"Y-m-d" }}</td>
+                        <td class="td">{{ o.pod_arrived_at|date:"Y-m-d" }}</td>
+                        <td class="td">{{ o.pod_discharged_at|date:"Y-m-d" }}</td>
+                        <td class="td">{{ o.pod_last_free_day_on|date:"Y-m-d" }}</td>
                         <td class="td" style="font-size: 20px;">
-                            {% if o.retrieval_id.temp_t49_available_for_pickup %}
+                            {% if o.available_for_pickup == 'Yes' %}
                             <i class="bi bi-check-square-fill" style="color: rgb(7, 171, 53);"></i>
                             {% else  %}
                             <i class="bi bi-dash-square-fill" style="color: rgb(225, 6, 6);"></i>
                             {% endif %}
                         </td>
                         <td class="td" style="font-size: 20px;">
-                            {% if o.retrieval_id.temp_t49_hold_status %}
+                            {% if o.holds_at_pod_terminal %}
                             <i class="bi bi-exclamation-circle-fill" style="color: rgb(225, 6, 6);"></i>
                             {% endif %}
                         </td>

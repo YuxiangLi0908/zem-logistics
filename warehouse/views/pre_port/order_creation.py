@@ -1015,7 +1015,7 @@ class OrderCreation(View):
                     # 如果po_check表没有这条po，新建这一条
                     po_check_dict = {
                         "container_number": container,
-                        "vessel_eta": order.vessel_id.vessel_eta,
+                        "vessel_eta": order.vessel_id.vessel_eta.date() if order.vessel_id.vessel_eta else None,
                         "packing_list": pl,
                         "time_status": True,
                         "destination": pl.destination,
