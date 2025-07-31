@@ -3710,16 +3710,17 @@ class Accounting(View):
             "price_display": price_display,
         }
 
-    def is_mixed_region(self, matched_regions, warehouse) -> bool:
+    def is_mixed_region(self, matched_regions, warehouse, vessel_etd) -> bool:
         regions = list(matched_regions.keys())
-
         # LA仓库的特殊规则：CDEF区不能混
         if warehouse == "LA":
-            forbidden_zones = {"C区", "D区", "E区", "F区"}
-            if any(zone in regions for zone in forbidden_zones):
-                # 如果有CDEF区，则检查是否有其他区混合
-                if len(set(regions) - forbidden_zones) > 1:
-                    return True
+            if vessel_etd.month > 7 or (vessel_etd.month == 7 and vessel_etd.day >= 15): #715之后没有混区限制
+                return False
+            if len(regions) <= 1:#只有一个区，就没有混区的情况
+                return False
+            if set(regions) == {"A区", "B区"}: #如果只有A区和B区，也满足混区规则
+                return False       
+            return True
         # 其他仓库无限制
         return False
 
@@ -3827,7 +3828,7 @@ class Accounting(View):
             plts_by_destination, combina_fee, container_type_temp
         )
         # 判断是否混区，除了LA的CDEF不能混，别的都能混
-        is_mix = self.is_mixed_region(matched_regions["matching_regions"], warehouse)
+        is_mix = self.is_mixed_region(matched_regions["matching_regions"], warehouse, vessel_etd)
 
         # 非组合柜区域
         non_combina_region_count = len(matched_regions["non_combina_dests"])
