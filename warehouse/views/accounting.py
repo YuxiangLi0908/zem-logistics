@@ -4808,7 +4808,7 @@ class Accounting(View):
                                 carrier: value
                                 for carrier, details in search_carrier.items()
                                 for key in ["palletization", "arrive_warehouse"]
-                                if (value := details.get(key)) is not None
+                                if (value := details.get(key)) is not None and value != "/"
                             } 
                             
 
