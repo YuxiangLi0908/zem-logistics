@@ -4572,6 +4572,7 @@ class Accounting(View):
         ).get(container_number__container_number=container_number)
         vessel_etd = order.vessel_id.vessel_etd
         warehouse = order.retrieval_id.retrieval_destination_area
+        warehouse_precise = order.retrieval_id.retrieval_destination_precise
         precise_warehouse = order.retrieval_id.retrieval_destination_precise
         container_type = order.container_number.container_type
         preport_carrier = order.retrieval_id.retrieval_carrier
@@ -4762,9 +4763,15 @@ class Accounting(View):
                     # 如果是驳回的账单，并且仓库是NJ的，可能需要重新填写拆柜费用，所以要去报价表找拆柜供应商
                     if invoice_status.is_rejected == True and warehouse == "NJ":
                         DETAILS = self._get_feetail(vessel_etd, "PAYABLE")
-                        pickup_details = DETAILS[warehouse]["NJ 07001"][preport_carrier]
+                        if "08817" in warehouse_precise:
+                            pickup_details = DETAILS[warehouse]["NJ 08817"][preport_carrier]
+                        else:
+                            pickup_details = DETAILS[warehouse]["NJ 07001"][preport_carrier]
                         if pickup_details:
-                            search_carrier = DETAILS[warehouse]["NJ 07001"]
+                            if "08817" in warehouse_precise:
+                                search_carrier = DETAILS[warehouse]["NJ 08817"]
+                            else:
+                                search_carrier = DETAILS[warehouse]["NJ 07001"]
                             pallet_details = {
                                 carrier: details.get("palletization")
                                 for carrier, details in search_carrier.items()
@@ -4778,7 +4785,10 @@ class Accounting(View):
                     pickup_details = None
                     try:
                         if warehouse == "NJ":
-                            pickup_details = DETAILS[warehouse]["NJ 07001"][preport_carrier]
+                            if "08817" in warehouse_precise:
+                                pickup_details = DETAILS[warehouse]["NJ 08817"][preport_carrier]
+                            else:
+                                pickup_details = DETAILS[warehouse]["NJ 07001"][preport_carrier]
                         else:
                             pickup_details = DETAILS[warehouse][precise_warehouse][
                                 preport_carrier
@@ -4789,7 +4799,10 @@ class Accounting(View):
                     if pickup_details:
                         # 如果是NJ的，还需要找拆柜供应商
                         if warehouse == "NJ":
-                            search_carrier = DETAILS[warehouse]["NJ 07001"]
+                            if "08817" in warehouse_precise:
+                                search_carrier = DETAILS[warehouse]["NJ 08817"]
+                            else:
+                                search_carrier = DETAILS[warehouse]["NJ 07001"]
                             pallet_details = {
                                 carrier: details.get("palletization")
                                 for carrier, details in search_carrier.items()
