@@ -4803,12 +4803,15 @@ class Accounting(View):
                                 search_carrier = DETAILS[warehouse]["NJ 08817"]
                             else:
                                 search_carrier = DETAILS[warehouse]["NJ 07001"]
+                            #查看报价表里这个仓库下有没有入库费和拆柜费有值的，有值就放到前端供客服选择
                             pallet_details = {
-                                carrier: details.get("palletization")
+                                carrier: value
                                 for carrier, details in search_carrier.items()
-                                if details.get("basic_40") in (None, "/")
-                                and details.get("basic_45") in (None, "/")
-                            }
+                                for key in ["palletization", "arrive_warehouse"]
+                                if (value := details.get(key)) is not None
+                            } 
+                            
+
                         else:
                             pallet_details = None
 
