@@ -1301,6 +1301,7 @@ class Accounting(View):
                 "ARM": "ARM",
                 "BBR": "BBR",
                 "KNO": "KNO",
+                "GM": "GM",
             }
         else:
             months = None
@@ -3162,6 +3163,7 @@ class Accounting(View):
             "ARM": "ARM",
             "BBR": "BBR",
             "KNO": "KNO",
+            "GM": "GM",
         } 
         context = {
             "order": order,
