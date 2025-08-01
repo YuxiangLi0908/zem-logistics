@@ -15,6 +15,7 @@
                 <col style="width: 15%">
                 <col style="width: 10%"> 
                 <col style="width: 10%"> 
+                <col style="width: 10%"> 
                 {% if pallet.0.一提两卸 %}<col style="width: 15%">{% endif %}
                 {% if pallet.0.shipment_batch_number__shipment_appointment %}<col style="width: 15%">{% endif %}
                 <col style="width: 20%"> 
@@ -23,6 +24,7 @@
                 <tr style="height: 80px;">
                     <th style="border: 1px solid #000; padding: 8px 4px; text-align: center; background-color: #f2f2f2; font-weight: bold;">Container Number</th>
                     <th style="border: 1px solid #000; padding: 8px 4px; text-align: center; background-color: #f2f2f2; font-weight: bold;">Destination</th>
+                    <th style="border: 1px solid #000; padding: 8px 4px; text-align: center; background-color: #f2f2f2; font-weight: bold;">weight</th>
                     <th style="border: 1px solid #000; padding: 8px 4px; text-align: center; background-color: #f2f2f2; font-weight: bold;">CBM</th>
                     <th style="border: 1px solid #000; padding: 8px 4px; text-align: center; background-color: #f2f2f2; font-weight: bold;">Pallet</th>
                     {% if pallet.0.一提两卸 %}
@@ -45,6 +47,7 @@
                     <td style="border: 1px solid #000; padding: 8px 4px; text-align: center; 
                         {% if c.force_text %}white-space: nowrap;{% endif %}"> </td>
                     <td style="border: 1px solid #000; padding: 8px 4px; text-align: center;"> </td>
+                    <td style="border: 1px solid #000; padding: 8px 4px; text-align: center;"> </td>
                     {% if pallet.0.一提两卸 %}
                     <td style="border: 1px solid #000; padding: 8px 4px; text-align: center;"> </td>
                     {% endif %}
@@ -57,6 +60,7 @@
                 <tr style="height: 80px;">
                     <td style="border: 1px solid #000; padding: 8px 4px; text-align: center;">{{ c.container_number__container_number }}</td>
                     <td style="border: 1px solid #000; padding: 8px 4px; text-align: center;">{{ c.destination }}</td>
+                    <td style="border: 1px solid #000; padding: 8px 4px; text-align: center;">{{ c.total_weight }}</td>
                     <td style="border: 1px solid #000; padding: 8px 4px; text-align: center;">{{ c.total_cbm|floatformat:2 }}</td>
                     <td style="border: 1px solid #000; padding: 8px 4px; text-align: center; font-family: STSong-Light;">{{ c.total_n_pallet }}</td>
                     {% if c.一提两卸 %}

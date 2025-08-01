@@ -1291,8 +1291,9 @@ class FleetManagement(View):
                     "container_number__container_number": row[0].strip(),
                     "shipment_batch_number__shipment_batch_number": row[1].strip(),
                     "destination": row[2].strip(),
-                    "total_cbm": row[3].strip(),
-                    "total_n_pallet": row[4].strip(),
+                    "total_weight": row[3].strip(),
+                    "total_cbm": row[4].strip(),
+                    "total_n_pallet": row[5].strip(),
                 }
                 if len(row) >= 6 and row[5]:
                     pallet_data["一提两卸"] = row[5].strip()
@@ -1392,11 +1393,12 @@ class FleetManagement(View):
                     "container_number__container_number": "  ",
                     "destination": "  ",
                     "total_cbm": "       ——",
+                    "total_weight_lbs": "  ",
                     "total_n_pallet": "  ",
                     "shipment_batch_number__shipment_batch_number": "  ",
                     "shipment_batch_number__shipment_appointment": "  ",
                     "一提两卸": "  ",
-                    "is_spacer": True,
+                    "is_spacer": True, #表示是否是空行
                     "force_text": True,
                 }
                 processed_pallet.append(empty_row)

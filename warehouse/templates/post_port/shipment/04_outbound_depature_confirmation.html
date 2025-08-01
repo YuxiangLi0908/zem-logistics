@@ -39,6 +39,7 @@
                             <th class="th" style="text-align: center; border: 1px solid #141414">柜号</th>
                             <th class="th" style="text-align: center; border: 1px solid #141414">预约批次</th>
                             <th class="th" style="text-align: center; border: 1px solid #141414">仓点</th>
+                            <th class="th" style="text-align: center; border: 1px solid #141414">weight</th> 
                             <th class="th" style="text-align: center; border: 1px solid #141414">CBM</th> 
                             <th class="th" style="text-align: center; border: 1px solid #141414">板数</th>  
                             {% if pl_fleet.0.load_position %}
@@ -50,6 +51,7 @@
                             <td style="text-align: center; border: 1px solid #141414; padding:10px;" data-editable="true">{{ s.container_number__container_number }}</td>
                             <td style="text-align: center; border: 1px solid #141414; text-wrap: wrap; padding:10px;" data-editable="true">{{ s.shipment_batch_number__shipment_batch_number }}</td>
                             <td style="text-align: center; border: 1px solid #141414; text-wrap: wrap; padding:10px;" data-editable="true">{{ s.destination }}</td>
+                            <td style="text-align: center; border: 1px solid #141414; text-wrap: wrap; padding:10px;" data-editable="true">{{ s.total_weight }}</td>
                             <td style="text-align: center; border: 1px solid #141414; text-wrap: wrap; padding:10px;" data-editable="true">{{ s.total_cbm }}</td>
                             <td style="text-align: center; border: 1px solid #141414; padding:10px;" data-editable="true">{{ s.total_n_pallet }}</td>
                             {% if s.load_position %}
