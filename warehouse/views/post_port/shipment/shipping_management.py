@@ -438,6 +438,8 @@ class ShippingManagement(View):
             container_number__order__packing_list_updloaded=True,
             shipment_batch_number__isnull=True,
             container_number__order__created_at__gte="2025-01-01",
+            container_number__order__vessel_id__vessel_eta__gte="2025-01-01",
+            container_number__order__vessel_id__vessel_etd__gte="2025-01-01",
         )
         pl_criteria = criteria_p & models.Q(
             container_number__order__vessel_id__vessel_eta__gte=start_date,
