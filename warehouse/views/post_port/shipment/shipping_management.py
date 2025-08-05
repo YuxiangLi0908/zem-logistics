@@ -447,7 +447,9 @@ class ShippingManagement(View):
             container_number__order__offload_id__offload_at__isnull=True,
         )
         plt_criteria = criteria_p & models.Q(
-            container_number__order__offload_id__offload_at__isnull=False
+            container_number__order__offload_id__offload_at__isnull=False,
+            container_number__order__vessel_id__vessel_eta__gte=start_date,
+            container_number__order__vessel_id__vessel_eta__lte=end_date,
         )
         if area == "NJ/SAV/LA":
             pl_criteria &= models.Q(
@@ -1080,7 +1082,7 @@ class ShippingManagement(View):
             ),
             container_number__order__packing_list_updloaded=True,
             shipment_batch_number__isnull=True,
-            container_number__order__created_at__gte="2024-09-01",
+            #container_number__order__created_at__gte="2024-09-01",
         )
         pl_criteria = criteria_p & models.Q(
             container_number__order__vessel_id__vessel_eta__gte=start_date,
@@ -1088,7 +1090,9 @@ class ShippingManagement(View):
             container_number__order__offload_id__offload_at__isnull=True,
         )
         plt_criteria = criteria_p & models.Q(
-            container_number__order__offload_id__offload_at__isnull=False
+            container_number__order__offload_id__offload_at__isnull=False,
+            container_number__order__vessel_id__vessel_eta__gte=start_date,
+            container_number__order__vessel_id__vessel_eta__lte=end_date,
         )
         if area == "NJ/SAV/LA":
             pl_criteria &= models.Q(
@@ -1110,7 +1114,6 @@ class ShippingManagement(View):
                 container_number__order__retrieval_id__retrieval_destination_area=area
             )
             plt_criteria &= models.Q(location__startswith=area)
-
         packing_list_not_scheduled = await self._get_packing_list(
             pl_criteria, plt_criteria
         )
