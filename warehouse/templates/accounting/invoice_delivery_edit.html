@@ -31,7 +31,7 @@
 <div>   <!--亚马逊-->
     <form method="post" action="">
         {% csrf_token %}
-        <div style="margin:auto; max-height: 800px;max-width:1500px;margin-bottom:50px;">
+        <div style="margin:auto; max-width:1500px;margin-bottom:50px;">
             <button id="editButton" type="button" class="btn btn-primary" onclick="add_delivery(this)" style="font-size: 11px;">亚马逊派送</button>
             {% if amazon %}
                 <table class="table" id="amazon-table" style="font-size: 13px">
@@ -90,7 +90,7 @@
 <div>   <!--沃尔玛-->
     <form method="post" action="">
         {% csrf_token %}
-        <div style="margin:auto; max-height: 800px;max-width:1500px;margin-bottom:50px;">
+        <div style="margin:auto; max-width:1500px;margin-bottom:50px;">
             <button id="editButton" type="button" class="btn btn-primary" onclick="add_delivery(this)" style="font-size: 11px;">沃尔玛派送</button>
             {% if walmart %}
                 <table class="table" id="walmart-table" style="font-size: 13px">
@@ -149,7 +149,7 @@
 <div>   <!--本地派送-->
     <form method="post" action="">
         {% csrf_token %}
-        <div style="margin:auto; max-height: 800px;max-width:1500px;margin-bottom:50px;">
+        <div style="margin:auto; max-width:1500px;margin-bottom:50px;">
             {% if warehouse != "SAV" %}
                 <button id="editButton" type="button" class="btn btn-primary" onclick="add_delivery(this)" style="font-size: 11px;">本地派送</button>
                 {% if local %}
@@ -214,7 +214,7 @@
 <div>   <!--组合柜-->
     <form method="post" action="">
         {% csrf_token %}
-        <div style="margin:auto; max-height: 800px;max-width:1500px;margin-bottom:50px;">
+        <div style="margin:auto; max-width:1500px;margin-bottom:50px;">
             <button id="editButton" type="button" class="btn btn-primary" onclick="add_delivery(this)" style="font-size: 11px;">组合柜派送</button>
             {% if combine %}
                 <table class="table" id="combine-table" style="font-size: 13px;">
@@ -273,7 +273,7 @@
 <div>   <!--客户自提-->
     <form method="post" action="">
         {% csrf_token %}
-        <div style="margin:auto; max-height: 800px;max-width:1500px;margin-bottom:50px;">
+        <div style="margin:auto; max-width:1500px;margin-bottom:50px;">
             <button id="editButton" type="button" class="btn btn-primary" onclick="add_delivery(this)" style="font-size: 11px;">自发</button>
             {% if selfdelivery %}
                 <table class="table" id="selfdelivery-table" style="font-size: 13px">
@@ -332,7 +332,7 @@
 <div>   <!--UPS-->
     <form method="post" action="">
         {% csrf_token %}
-        <div style="margin:auto; max-height: 800px;max-width:1500px;margin-bottom:50px;">
+        <div style="margin:auto; max-width:1500px;margin-bottom:50px;">
             <button id="editButton" type="button" class="btn btn-primary" onclick="add_delivery(this)" style="font-size: 11px;">UPS</button>
             {% if upsdelivery %}
                 <table class="table" id="upsdelivery-table" style="font-size: 13px">

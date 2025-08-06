@@ -110,7 +110,7 @@
 <div>   <!--自发派送-->
     <form method="post" action="">
         {% csrf_token %}
-        <div style="margin:auto; max-height: 800px;max-width:1500px;margin-bottom:50px;">
+        <div style="margin:auto; max-width:1500px;margin-bottom:50px;">
             <button id="editButton" type="button" class="btn btn-primary" onclick="add_delivery(this)" style="font-size: 11px;">自发</button>
             {% if selfdelivery %}
                 <table class="table" id="selfdelivery-table" style="font-size: 13px">
@@ -171,7 +171,7 @@
 <div>   <!--客户自提-->
     <form method="post" action="">
         {% csrf_token %}
-        <div style="margin:auto; max-height: 800px;max-width:1500px;margin-bottom:50px;">
+        <div style="margin:auto; max-width:1500px;margin-bottom:50px;">
             <button id="editButton" type="button" class="btn btn-primary" onclick="add_delivery(this)" style="font-size: 11px;">客户自提</button>
             {% if selfpickup %}
                 <table class="table" id="selfpickup-table" style="font-size: 13px">
@@ -232,7 +232,7 @@
 <div>   <!--UPS-->
     <form method="post" action="">
         {% csrf_token %}
-        <div style="margin:auto; max-height: 800px;max-width:1500px;margin-bottom:50px;">
+        <div style="margin:auto; max-width:1500px;margin-bottom:50px;">
             <button id="editButton" type="button" class="btn btn-primary" onclick="add_delivery(this)" style="font-size: 11px;">UPS</button>
             {% if upsdelivery %}
                 <table class="table" id="upsdelivery-table" style="font-size: 13px">
