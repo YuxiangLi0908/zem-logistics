@@ -4207,8 +4207,6 @@ class Accounting(View):
             container.account_order_type = "转运"
             container.save()
             reason = "混区不符合规定"
-            print('price_display',price_display)
-            print('matching_regions',matching_regions)
             context["reason"] = reason
             return self.template_invoice_combina_edit, context
         # 7.3 检查超限情况
