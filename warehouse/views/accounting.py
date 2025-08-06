@@ -3581,7 +3581,7 @@ class Accounting(View):
                                     delivery_type = "walmart"
                                     cost = zone
                         if delivery_type:
-                            invoice_delivery = f"{current_date.strftime('%Y-%m-%d').replace('-', '')}-{delivery_type}-{pallet["destination"]}-{pallet["total_pallet"]}"
+                            invoice_delivery = f"{current_date.strftime('%Y-%m-%d').replace('-', '')}-{delivery_type}-{pallet['destination']}-{pallet['total_pallet']}"
                             invoice_content = InvoiceDelivery(
                                 **{
                                     "invoice_delivery": invoice_delivery,
