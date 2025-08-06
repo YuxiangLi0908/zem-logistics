@@ -3521,6 +3521,7 @@ class Accounting(View):
             if not is_transfer: 
                 #转运组合的，判断下是否符合组合柜规则
                 iscombina = self._is_combina(container_number)
+                print('是不是组合',iscombina)
             else:
                 iscombina = False
             if iscombina:
@@ -3917,6 +3918,8 @@ class Accounting(View):
                 for fee_data in fee_data_list:
                     #如果匹配到组合柜仓点，就登记到组合柜集合中
                     if dest in fee_data["location"]:
+                        temp_cbm = matching_regions[region] + cbm
+                        matching_regions[region] = temp_cbm
                         dest_matches.append(
                             {
                                 "region": region,
@@ -3925,6 +3928,10 @@ class Accounting(View):
                                 "cbm": cbm,
                             }
                         )
+                        price_display[region]["price"] = fee_data["prices"][
+                            container_type
+                        ]
+                        price_display[region]["location"].add(dest)
                         matched = True
                         
 
@@ -4179,6 +4186,7 @@ class Accounting(View):
                     for region, data in price_display.items()
                 ]
             else:  # 允许混区的情况
+                price_display_new = None
                 for region, total_cbm in matching_regions.items():
                     fee = combina_fee[region][0]["prices"][
                         0 if container_type == "40HQ/GP" else 1
@@ -4199,6 +4207,8 @@ class Accounting(View):
             container.account_order_type = "转运"
             container.save()
             reason = "混区不符合规定"
+            print('price_display',price_display)
+            print('matching_regions',matching_regions)
             context["reason"] = reason
             return self.template_invoice_combina_edit, context
         # 7.3 检查超限情况
@@ -5172,6 +5182,7 @@ class Accounting(View):
         if warehouse != "LA" and order.order_type == "转运组合":         
             #转运组合的，判断下是否符合组合柜规则,因为LA的建单会人工确认是不是组合柜，所以LA的不用管
             iscombina = self._is_combina(container_number)
+            print('是不是组合',iscombina)
             #order_type用于在提拆录入费用界面显示，防止不符合组合柜规定但建单是组合柜的，被提拆同事当组合柜录
             order_type = order.container_number.account_order_type
         else:
