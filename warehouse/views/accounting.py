@@ -3537,7 +3537,7 @@ class Accounting(View):
                                 cost = item['prices'][container_type_temp]
                                 break
                         if delivery_type:
-                            invoice_delivery = f"{current_date.strftime('%Y-%m-%d').replace('-', '')}-{delivery_type}-{pallet["destination"]}-{len(pallet["total_pallet"])}"
+                            invoice_delivery = f"{current_date.strftime('%Y-%m-%d').replace('-', '')}-{delivery_type}-{pallet['destination']}-{pallet['total_pallet']}"
                             invoice_content = InvoiceDelivery(
                                 **{
                                     "invoice_delivery": invoice_delivery,
