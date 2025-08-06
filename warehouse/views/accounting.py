@@ -4074,7 +4074,7 @@ class Accounting(View):
         ):
             container.account_order_type = "转运"
             container.save()
-            context["reason"] = f"超过{stipulate["global_rules"]["bulk_threshold"]["default"]}个仓点"
+            context["reason"] = f"超过{stipulate['global_rules']['bulk_threshold']['default']}个仓点"
             return self.template_invoice_combina_edit, context
 
         # 按区域统计
