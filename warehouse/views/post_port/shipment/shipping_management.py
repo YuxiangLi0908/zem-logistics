@@ -144,6 +144,7 @@ class ShippingManagement(View):
         if not await self._user_authenticate(request):
             return redirect("login")
         step = request.POST.get("step")
+        print('post step',step)
         if step == "warehouse":
             template, context = await self.handle_warehouse_post(request)
             return render(request, template, context)
@@ -396,6 +397,8 @@ class ShippingManagement(View):
             criteria = models.Q(
                 packinglist__container_number__order__retrieval_id__retrieval_destination_area=area
             ) | models.Q(pallet__location__startswith=area)
+
+        year_2025 = datetime(2025, 1, 1)
         shipment = await sync_to_async(list)(
             Shipment.objects.prefetch_related(
                 "packinglist",
@@ -411,6 +414,7 @@ class ShippingManagement(View):
                     is_shipped=True,
                     in_use=True,
                     is_canceled=False,
+                    shipment_appointment_gt=year_2025
                 )
             )
             .distinct()
@@ -1033,6 +1037,7 @@ class ShippingManagement(View):
             criteria = models.Q(
                 packinglist__container_number__order__retrieval_id__retrieval_destination_area=area
             ) | models.Q(pallet__location__startswith=area)
+        year_2025 = datetime(2025, 1, 1)
         shipment = await sync_to_async(list)(
             Shipment.objects.prefetch_related(
                 "packinglist",
@@ -1049,6 +1054,7 @@ class ShippingManagement(View):
                     is_shipped=False,
                     in_use=True,
                     is_canceled=False,
+                    shipment_appointment__gt=year_2025
                 )
             )
             .distinct()
