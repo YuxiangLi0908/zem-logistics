@@ -6099,6 +6099,8 @@ class Accounting(View):
                             description.append("等待费")
                         elif field.verbose_name == "提拆/打托缠膜":
                             description.append("提派")
+                        elif field.verbose_name == "货柜放置费":
+                            description.append("货柜储存费")
                         else:
                             description.append(field.verbose_name)
                         surcharge = invoice_preport.surcharges.get(field.name, 0)
