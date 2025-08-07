@@ -3521,7 +3521,6 @@ class Accounting(View):
             if not is_transfer: 
                 #转运组合的，判断下是否符合组合柜规则
                 iscombina = self._is_combina(container_number)
-                print('是不是组合',iscombina)
             else:
                 iscombina = False
             if iscombina:
@@ -4187,17 +4186,32 @@ class Accounting(View):
                 ]
             else:  # 允许混区的情况
                 price_display_new = None
-                for region, total_cbm in matching_regions.items():
+
+                #计算所有的cbm_ratio
+                cbm_ratios = []
+                fees = []
+                regions_list = list(matching_regions.items()) 
+                for region, total_cbm in regions_list:
                     fee = combina_fee[region][0]["prices"][
                         0 if container_type == "40HQ/GP" else 1
                     ]
-                    base_fee += fee * total_cbm / total_cbm_sum
+                    cbm_ratio = round(total_cbm / total_cbm_sum,4)
+                    cbm_ratios.append(cbm_ratio)
+                    fees.append(fee)
+                sum_ratios = sum(cbm_ratios)
+                max_ratio_idx = cbm_ratios.index(max(cbm_ratios))
+                cbm_ratios[max_ratio_idx] += (1 - sum_ratios)
+
+                for i, (region, total_cbm) in enumerate(regions_list):
+                    adjusted_ratio = cbm_ratios[i]
+                    base_fee += fees[i] * adjusted_ratio
+                
                 base_fee = round(base_fee, 2)
                 price_display_new = [
                     {
                         "key": region,
                         "cbm": round(matching_regions[region], 2),
-                        "rate": round(matching_regions[region] / total_cbm_sum, 2),
+                        "rate": next((cbm_ratios[i] for i, (r, _) in enumerate(regions_list) if r == region), 0),
                         "price": data["price"],
                         "location": ", ".join(data["location"]),
                     }
@@ -4277,7 +4291,10 @@ class Accounting(View):
             match = re.match(r"\d+", container_type)
             if match:
                 pick_subkey = match.group()
-                pickup_fee = PICKUP_FEE.details[warehouse][pick_subkey]
+                #这个提拆费是从组合柜规则的warehouse_pricing的nonmix_40ft 45ft取
+                c_type = f"nonmix_{pick_subkey}ft"
+                pickup_fee = stipulate["warehouse_pricing"][warehouse][c_type]
+                
             extra_fees["overregion_pickup"] = non_combina_cbm_ratio * pickup_fee
             # 派送费
             for item in matched_regions["non_combina_dests"]:
@@ -5180,7 +5197,6 @@ class Accounting(View):
         if warehouse != "LA" and order.order_type == "转运组合":         
             #转运组合的，判断下是否符合组合柜规则,因为LA的建单会人工确认是不是组合柜，所以LA的不用管
             iscombina = self._is_combina(container_number)
-            print('是不是组合',iscombina)
             #order_type用于在提拆录入费用界面显示，防止不符合组合柜规定但建单是组合柜的，被提拆同事当组合柜录
             order_type = order.container_number.account_order_type
         else:
