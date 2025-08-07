@@ -2740,6 +2740,12 @@ class Accounting(View):
                 or 0
             )
             invoice.receivable_delivery_amount = delivery_amount
+            #派送账单确认的时候，就计算一遍总费用
+            invoice.receivable_total_amount = (
+                float(invoice.receivable_preport_amount or 0)
+                + float(invoice.receivable_warehouse_amount or 0)
+                + float(invoice.receivable_delivery_amount or 0)
+            )
             invoice.save()
 
             order = Order.objects.select_related(
