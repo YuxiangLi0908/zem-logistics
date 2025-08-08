@@ -43,7 +43,7 @@
         {% csrf_token %}
         <div style="margin:auto; max-height: 800px;max-width:1500px;margin-bottom:50px;">
             {% if warehouse != "SAV" %}
-                <button id="editButton" type="button" class="btn btn-primary" onclick="add_delivery(this)" style="font-size: 11px;">本地派送</button>
+                <button id="editButton" type="button" class="btn btn-primary" onclick="add_delivery(this)" style="font-size: 11px;">本地派送</button>(按距离收费)
                 {% if local %}
                     <table class="table" id="local-table" style="font-size: 13px;">
                         <thead>
@@ -66,7 +66,7 @@
                                 {% if warehouse == "NJ" %}
                                     <td class="td"><input type="text" name="cost" value="{{ plt.cost }}"></td>
                                 {% else %}
-                                    <td class="td"><input type="text" name="cost" value="{{ plt.cost }}"></td>(按距离收费)
+                                    <td class="td"><input type="text" name="cost" value="{{ plt.cost }}"></td>
                                 {% endif %}
                                 <td class="td"><input type="text" name="total_pallet" value="{{ plt.total_pallet }}"></td>
                                 <td class="td">
@@ -385,7 +385,7 @@
                 const totalInput = row.querySelector(`input[id="${type}_cost"]`);
 
                 // 如果是 UPS 类型，不自动计算初始值
-                if (type !== 'upsdelivery' && (!totalInput.value || parseFloat(totalInput.value) === 0)) {
+                if ((type !== 'upsdelivery' || type !== 'local' )&&(!totalInput.value || parseFloat(totalInput.value) === 0)) {
                     const price = parseFloat(priceInput.value) || 0;
                     const pallets = parseFloat(palletInput.value) || 0;
                     const activation = parseFloat(activationInput.value) || 0;
@@ -403,29 +403,10 @@
                 const newActivationInput = row.querySelector('input[name="po_activation"]');
                 const newTotalInput = row.querySelector(`input[id="${type}_cost"]`);
     
-                if (type === 'upsdelivery') {
-                    newPriceInput.addEventListener('input', () => {
-                        updateTypeTotal(type);
-                        updateGlobalTotal();
-                    });
-                    newPalletInput.addEventListener('input', () => {
-                        updateTypeTotal(type);
-                        updateGlobalTotal();
-                    });
-                    newActivationInput.addEventListener('input', () => {
-                        updateTypeTotal(type);
-                        updateGlobalTotal();
-                    });
-                    newTotalInput.addEventListener('input', () => {
-                        updateTypeTotal(type);
-                        updateGlobalTotal();
-                    });
-                } else {
-                    newPriceInput.addEventListener('input', () => updateRow(row, type));
-                    newPalletInput.addEventListener('input', () => updateRow(row, type));
-                    newActivationInput.addEventListener('input', () => updateRow(row, type));
-                    newTotalInput.addEventListener('input', () => updateRowFromTotal(row, type));
-                }
+                newPriceInput.addEventListener('input', () => updateRow(row, type));
+                newPalletInput.addEventListener('input', () => updateRow(row, type));
+                newActivationInput.addEventListener('input', () => updateRow(row, type));
+                newTotalInput.addEventListener('input', () => updateRowFromTotal(row, type));
             });
         });
     }
@@ -451,16 +432,14 @@
         });
     }
 
-    // 计算单行总价（单价×板数+激活）
-    function calculateRowTotal(row) {
-        const price = parseFloat(row.querySelector('input[name="cost"]').value) || 0;
-        const pallets = parseFloat(row.querySelector('input[name="total_pallet"]').value) || 0;
-        const activation = parseFloat(row.querySelector('input[name="po_activation"]').value) || 0;
-        return (price * pallets) + activation;
-    }
-
     // 更新单行数据（从单价/板数/激活）
-    function updateRow(row, type) {       
+    function updateRow(row, type) {    
+        const totalInput = row.querySelector(`input[id="${type}_cost"]`);
+        //本地派送的单价等于总价
+        if (type === 'local') {
+            const price = parseFloat(row.querySelector('input[name="cost"]').value) || 0;
+            totalInput.value = price.toFixed(2);
+        }
         updateTypeTotal(type);
         updateGlobalTotal();
     }
