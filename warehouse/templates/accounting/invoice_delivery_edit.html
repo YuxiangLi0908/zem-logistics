@@ -567,7 +567,7 @@
     // 更新单行数据（从单价/板数/激活）
     function updateRow(row, type) {
         const totalInput = row.querySelector(`input[id="${type}_cost"]`);
-        if (type === 'combine') {
+        if (type === 'combine' || type === 'local') {
             const price = parseFloat(row.querySelector('input[name="cost"]').value) || 0;
             totalInput.value = price.toFixed(2);
         } else {
