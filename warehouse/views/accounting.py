@@ -5090,27 +5090,26 @@ class Accounting(View):
                                 preport_carrier
                             ]
                     except Exception as e:
-                        reason = f"找不到{preport_carrier}供应商的报价"
+                        #找不到供应商的报价
+                        basic_fee = 0
 
-                    if pickup_details:
-                        # 如果是NJ的，还需要找拆柜供应商
-                        if warehouse == "NJ":
-                            if "08817" in warehouse_precise:
-                                search_carrier = DETAILS[warehouse]["NJ 08817"]
-                            else:
-                                search_carrier = DETAILS[warehouse]["NJ 07001"]
-                            #查看报价表里这个仓库下有没有入库费和拆柜费有值的，有值就放到前端供客服选择
-                            pallet_details = {
-                                carrier: value
-                                for carrier, details in search_carrier.items()
-                                for key in ["palletization", "arrive_warehouse"]
-                                if (value := details.get(key)) is not None and value != "/"
-                            } 
-                            
-
+                    # 如果是NJ的，还需要找拆柜供应商
+                    if warehouse == "NJ":
+                        if "08817" in warehouse_precise:
+                            search_carrier = DETAILS[warehouse]["NJ 08817"]
                         else:
-                            pallet_details = None
-
+                            search_carrier = DETAILS[warehouse]["NJ 07001"]
+                        #查看报价表里这个仓库下有没有入库费和拆柜费有值的，有值就放到前端供客服选择
+                        pallet_details = {
+                            carrier: value
+                            for carrier, details in search_carrier.items()
+                            for key in ["palletization", "arrive_warehouse"]
+                            if (value := details.get(key)) is not None and value != "/"
+                        } 
+                    else:
+                        pallet_details = None
+                        
+                    if pickup_details:
                         basic_fee = 0
                         if "40" in container_type:
                             basic_fee = pickup_details["basic_40"]
