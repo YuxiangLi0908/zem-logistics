@@ -24,6 +24,7 @@ from warehouse.models.invoice import Invoice, InvoiceItem
 from warehouse.models.order import Order
 from warehouse.models.pallet import Pallet
 from warehouse.models.fleet_shipment_pallet import FleetShipmentPallet
+from warehouse.models.invoice_details import InvoiceDelivery
 from warehouse.models.retrieval import HistoricalRetrieval, Retrieval
 from warehouse.utils.constants import MODEL_CHOICES
 
@@ -514,9 +515,12 @@ class OrderQuantity(View):
             #提拆的成本
             total_expense_per_container = preport_payable
             #总的派送成本
-            po_ids = Pallet.objects.filter(container_number__container_number=container_number).values_list('PO_ID', flat=True)
+            # po_ids = Pallet.objects.filter(container_number__container_number=container_number).values_list('PO_ID', flat=True)
             delivery_expense = await sync_to_async(
-                lambda: FleetShipmentPallet.objects.filter(PO_ID__in=po_ids).aggregate(total=Sum('expense'))['total']
+                lambda: InvoiceDelivery.objects.filter(
+                invoice_number=invoice,
+                invoice_type="receivable"
+            ).aggregate(total_expense=Sum('expense'))['total_expense']
             )()
             delivery_expense = delivery_expense or 0
             #柜子的利润

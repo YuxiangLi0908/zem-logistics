@@ -75,6 +75,7 @@ from warehouse.models.packing_list import PackingList
 from warehouse.models.pallet import Pallet
 from warehouse.models.quotation_master import QuotationMaster
 from warehouse.models.transaction import Transaction
+from warehouse.models.fleet_shipment_pallet import FleetShipmentPallet
 from warehouse.utils.constants import (
     ACCT_ACH_ROUTING_NUMBER,
     ACCT_BANK_NAME,
@@ -1527,6 +1528,46 @@ class Accounting(View):
         }
         return self.template_invoice_delivery, context
 
+    def handle_invoice_delivery_calc_expense(self,container_number:str) -> None:
+        fleet_expenses = FleetShipmentPallet.objects.values('PO_ID','pickup_number').annotate(
+            total_expense=Sum('expense'),
+            total_pallet=Sum('total_pallet')
+        ).filter(container_number__container_number=container_number)  
+        for expense_group in fleet_expenses:
+            po_id = expense_group['PO_ID']
+            total_expense = expense_group['total_expense']
+            if not total_expense:
+                raise ValueError(f"{expense_group['pickup_number']}车次成本未记录")
+            total_pallet = expense_group['total_pallet']
+            # 找到该po_id的所有板子，根据外键找到对应的invoice_delivery
+            pallets = Pallet.objects.filter(PO_ID=po_id).select_related('invoice_delivery')
+            delivery_groups = {}
+            #将板数按照invoice_delivery去分组，记录每组的板数
+            for pallet in pallets:
+                if pallet.invoice_delivery:
+                    delivery_id = pallet.invoice_delivery.id
+                    if delivery_id not in delivery_groups:
+                        delivery_groups[delivery_id] = {
+                            'delivery': pallet.invoice_delivery,
+                            'pallet_count': 0,
+                            'pallets': []
+                        }
+                    delivery_groups[delivery_id]['pallet_count'] += 1
+                    delivery_groups[delivery_id]['pallets'].append(pallet)
+            # 遍历每组的invoice_delivery，
+            for group in delivery_groups.values():
+                delivery = group['delivery']
+                pallet_count = group["pallet_count"]
+                # 根据板数的比列，去计算成本
+                allocated_expense = (pallet_count / total_pallet) * total_expense
+                InvoiceDelivery.objects.filter(id=delivery.id).update(
+                    expense=allocated_expense,
+                    total_pallet=pallet_count
+                )
+
+        
+         
+
     def handle_invoice_payable_save_post(self, request: HttpRequest) -> tuple[Any, Any]:
         data = request.POST.copy()
         save_type = data.get("save_type")
@@ -1560,7 +1601,9 @@ class Accounting(View):
                 None,
                 data.get("warehouse_filter"),
             )
-        elif save_type == "account_confirm":
+        elif save_type == "account_confirm":          
+            #这里加一个方法，给invoice_delivery表计算每条记录的成本
+            self.handle_invoice_delivery_calc_expense(container_number)
             invoice_status.stage = "confirmed"
             invoice_status.save()
             return self.handle_invoice_confirm_get(request)
@@ -1575,40 +1618,75 @@ class Accounting(View):
                 data.get("warehouse_filter"),
             )
         total_amount = data.get("total_amount")
-        # 拆柜供应商
-        palletization_carrier = data.get("palletization_carrier")
         #直送的托架费提示信息
         chassis_comment = data.get("chassis_comment")
         # 将额外费用构建键值对
-        fee_names = data.getlist("fee_name")
-        fee_amounts = data.getlist("fee_amount")
-        fees = {}
-        for name, amount in zip(fee_names, fee_amounts):
+        pickup_fee_names = data.getlist("pickup_fee_name")
+        pickup_fee_amounts = data.getlist("pickup_fee_amount")
+        pickup_fees = {}
+        for name, amount in zip(pickup_fee_names, pickup_fee_amounts):
             if name and amount:
-                fees[name] = float(amount)
+                pickup_fees[name] = float(amount)
+        
+        pallet_fee_names = data.getlist("pallet_fee_name")
+        pallet_fee_amounts = data.getlist("pallet_fee_amount")
+        pallet_fees = {}
+        for name, amount in zip(pallet_fee_names, pallet_fee_amounts):
+            if name and amount:
+                pallet_fees[name] = float(amount)
         # 存到invoice表里
         invoice = Invoice.objects.get(
             container_number__container_number=container_number
         )
-        if data.get("basic_fee"):
-            invoice.payable_basic = data.get("basic_fee")
+        try:
+            invoice_preports = InvoicePreport.objects.get(
+                invoice_number__invoice_number=invoice.invoice_number,
+                invoice_type="payable",
+            )
+        except InvoicePreport.DoesNotExist:
+            invoice_preports = InvoicePreport(
+                **{"invoice_number": invoice, "invoice_type": "payable"}
+            )
+        
+        try:
+            invoice_warehouse = InvoiceWarehouse.objects.get(
+                invoice_number__invoice_number=invoice.invoice_number,
+                invoice_type="payable",
+            )
+        except InvoiceWarehouse.DoesNotExist:
+            invoice_warehouse = InvoiceWarehouse(
+                **{"invoice_number": invoice, "invoice_type": "payable"}
+            )
         if data.get("palletization_fee"):
-            invoice.payable_palletization = data.get("palletization_fee")
-        if data.get("overweight_fee"):
-            invoice.payable_overweight = data.get("overweight_fee")
-        if data.get("chassis_fee"):
-            invoice.payable_chassis = data.get("chassis_fee")
+            invoice_warehouse.palletization_fee = data.get("palletization_fee")          
         if data.get("arrive_fee"):
-            invoice.payable_palletization = data.get("arrive_fee")
+            invoice_warehouse.arrive_fee = data.get("arrive_fee")
+        #拆柜供应商
+        invoice_warehouse.carrier = data.get("palletization_carrier")
+        if data.get("basic_fee"):#提柜费
+            invoice_preports.pickup = data.get("basic_fee")
+        if data.get("overweight_fee"):#超重费
+            invoice_preports.over_weight = data.get("overweight_fee")   
+        if data.get("chassis_fee"): #车架费
+            invoice_preports.chassis = data.get("chassis_fee")
+        if data.get("demurrage_fee"):#滞港费
+            invoice_preports.demurrage = data.get("demurrage_fee")
+        if data.get("per_diem_fee"):#滞箱费
+            invoice_preports.per_diem = data.get("per_diem_fee")
         if invoice.payable_palletization == "None":
             raise ValueError("未选择打板费")
-        invoice.payable_total_amount = total_amount
-        invoice.payable_surcharge = {
-            "palletization_carrier": palletization_carrier,
-            "other_fee": fees,
-            "preport_carrier": data.get("preport_carrier"),
+        invoice_preports.other_fees = {
+            "other_fee": pickup_fees,
             "chassis_comment": chassis_comment,
         }
+        invoice_preports.save()
+        invoice_warehouse.other_fees = {
+            "other_fee": pallet_fees,
+        }
+        invoice_warehouse.save()
+
+        invoice.payable_total_amount = total_amount
+        
         invoice.save()
         # 如果确认，就改变状态
         if save_type == "complete":
@@ -4940,8 +5018,10 @@ class Accounting(View):
             is_rejected = True
         # 总费用
         payable_total_amount = invoice.payable_total_amount
-        # 其他费用
-        pallet_other_fee = invoice.payable_surcharge.get("other_fee", 0)        
+        # 提柜的其他费用
+        pickup_other_fee = None
+        # 拆柜的其他费用
+        pallet_other_fee = None      
         context = {
             "start_date": request.GET.get("start_date"),
             "end_date": request.GET.get("end_date"),
@@ -4956,15 +5036,21 @@ class Accounting(View):
             "container_type": container_type,
             "warehouse": warehouse,
             "payable_total_amount": payable_total_amount,
+            "pickup_other_fee": pickup_other_fee,
             "pallet_other_fee": pallet_other_fee,
         }    
         #如果是直送的柜子，按如下计算
         if order.order_type =="直送":
             if is_save_invoice: #从数据库读
-                carrier = invoice.payable_surcharge["preport_carrier"]
-                basic_fee = invoice.payable_basic
-                chassis_fee = invoice.payable_chassis
-                chassis_comment = invoice.payable_surcharge["chassis_comment"]
+                # 读数据库的数据
+                invoice_preport = InvoicePreport.objects.get(
+                    invoice_number__invoice_number=invoice.invoice_number,
+                    invoice_type="payable",
+                )
+                carrier = order.retrieval_id.retrieval_carrier
+                basic_fee = invoice_preport.pickup
+                chassis_fee = invoice_preport.chassis
+                chassis_comment = invoice_preport.other_fees["chassis_comment"]
                 context.update({
                     'chassis_fee': chassis_fee,                  
                 })
@@ -5033,29 +5119,41 @@ class Accounting(View):
             pallet_details = None
             palletization_fee = None
             palletization_carrier = None
+            demurrage_fee = None
+            per_diem_fee = None
 
             reason = None
             if not preport_carrier or preport_carrier == "None":
                 reason = "缺少提柜供应商，无法计算"
             else:
-                if is_save_invoice:  # 读数据库的数据
-                    basic_fee = invoice.payable_basic
-                    if invoice.payable_overweight and float(invoice.payable_overweight) > 0:
-                        overweight_fee = invoice.payable_overweight
+                if is_save_invoice:  
+                    # 读数据库的数据
+                    invoice_preport = InvoicePreport.objects.get(
+                        invoice_number__invoice_number=invoice.invoice_number,
+                        invoice_type="payable",
+                    )
+                    invoice_warehouse = InvoiceWarehouse.objects.get(
+                        invoice_number__invoice_number=invoice.invoice_number,
+                        invoice_type="payable",
+                    )
 
-                    if invoice.payable_chassis and float(invoice.payable_chassis) > 0:
-                        chassis_fee = invoice.payable_chassis
-
-                    # 如果是NJ的并且还有入库拆柜费，那就是拆柜费
-                    if invoice.payable_palletization and "NJ" in warehouse:
-                        palletization_fee = invoice.payable_palletization
-                        palletization_carrier = invoice.payable_surcharge[
-                            "palletization_carrier"
-                        ]
-                    else:
-                        # 否则，如果有入库拆柜费，那就是入库拆柜合并的费用
-                        arrive_fee = invoice.payable_palletization
-                                    
+                    basic_fee = invoice_preport.pickup  #提柜费
+                    if invoice_preport.over_weight and float(invoice_preport.over_weight) > 0:#超重费
+                        overweight_fee = invoice_preport.over_weight
+                    if invoice_preport.chassis and float(invoice_preport.chassis) > 0:#车架费
+                        chassis_fee = invoice_preport.chassis
+                    if invoice_preport.demurrage and float(invoice_preport.demurrage) > 0:#滞港费
+                        demurrage_fee = invoice_preport.demurrage
+                    if invoice_preport.per_diem and float(invoice_preport.per_diem) > 0:#滞箱费
+                        per_diem_fee = invoice_preport.per_diem
+                    
+                    if invoice_warehouse.palletization_fee and float(invoice_warehouse.palletization_fee) > 0:#拆柜费
+                        palletization_fee = invoice_warehouse.palletization_fee
+                    if invoice_warehouse.arrive_fee and float(invoice_warehouse.arrive_fee) > 0:#入库费
+                        arrive_fee = invoice_warehouse.arrive_fee
+                    if invoice_warehouse.carrier:#供应商
+                        palletization_carrier = invoice_warehouse.carrier
+             
                     # 如果是驳回的账单，并且仓库是NJ的，可能需要重新填写拆柜费用，所以要去报价表找拆柜供应商
                     if invoice_status.is_rejected == True and warehouse == "NJ":
                         DETAILS = self._get_feetail(vessel_etd, "PAYABLE")
@@ -5074,6 +5172,13 @@ class Accounting(View):
                                 if details.get("basic_40") in (None, "/")
                                 and details.get("basic_45") in (None, "/")
                             }
+                    pickup_other_fee = invoice_preport.other_fees.get("other_fee", 0) 
+                    # 拆柜的其他费用
+                    pallet_other_fee = invoice_warehouse.other_fees.get("other_fee", 0) 
+                    context.update({
+                        "pickup_other_fee": pickup_other_fee,
+                        "pallet_other_fee": pallet_other_fee,        
+                    })
                 else:
                     # 查找应付报价表
                     DETAILS = self._get_feetail(vessel_etd, "PAYABLE")
@@ -5108,7 +5213,7 @@ class Accounting(View):
                         } 
                     else:
                         pallet_details = None
-                        
+
                     if pickup_details:
                         basic_fee = 0
                         if "40" in container_type:
@@ -5168,6 +5273,8 @@ class Accounting(View):
             "returned_date": returned_date or None,
             "empty_returned_at": empty_returned_at,
             "actual_retrieval_timestamp": actual_retrieval_timestamp,
+            "demurrage_fee": demurrage_fee,
+            "per_diem_fee": per_diem_fee,
         })
         return self.template_invoice_payable_edit, context
 
