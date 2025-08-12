@@ -377,25 +377,6 @@ class ShippingManagement(View):
             area = None
         if request.POST.get("area"):
             area = request.POST.get("area")
-        if area == "NJ/SAV/LA":
-            criteria = (
-                models.Q(
-                    packinglist__container_number__order__retrieval_id__retrieval_destination_area="NJ"
-                )
-                | models.Q(
-                    packinglist__container_number__order__retrieval_id__retrieval_destination_area="SAV"
-                )
-                | models.Q(
-                    packinglist__container_number__order__retrieval_id__retrieval_destination_area="LA"
-                )
-                | models.Q(pallet__location__startswith="NJ")
-                | models.Q(pallet__location__startswith="SAV")
-                | models.Q(pallet__location__startswith="LA")
-            )
-        else:
-            criteria = models.Q(
-                packinglist__container_number__order__retrieval_id__retrieval_destination_area=area
-            ) | models.Q(pallet__location__startswith=area)
 
         year_2025 = datetime(2025, 1, 1)
         shipment = await sync_to_async(list)(
@@ -413,7 +394,7 @@ class ShippingManagement(View):
                     is_shipped=True,
                     in_use=True,
                     is_canceled=False,
-                    shipment_appointment_gt=year_2025
+                    shipment_appointment__gt=year_2025
                 )
             )
             .distinct()
@@ -1053,6 +1034,7 @@ class ShippingManagement(View):
                     is_shipped=False,
                     in_use=True,
                     is_canceled=False,
+                    shipment_appointment__isnull=False,
                     shipment_appointment__gt=year_2025
                 )
             )
