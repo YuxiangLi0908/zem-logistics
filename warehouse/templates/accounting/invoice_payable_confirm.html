@@ -1,151 +1,293 @@
 {% extends 'base.html' %}
 {% load custom_filters %}
 {% block content %}
+<style>
+    .tabs {
+        display: flex;
+        border-bottom: 1px solid #ddd;
+        margin-bottom: 20px;
+    }
+    .tab-button {
+        padding: 10px 20px;
+        background: #f1f1f1;
+        border: 1px solid #ddd;
+        border-bottom: none;
+        cursor: pointer;
+        margin-right: 5px;
+        border-radius: 5px 5px 0 0;
+    }
+    .tab-button.active {
+        background: #fff;
+        border-bottom: 1px solid #fff;
+        margin-bottom: -1px;
+    }
+    .tab-content {
+        display: none;
+        padding: 20px;
+        border: 1px solid #ddd;
+        border-top: none;
+    }
+    .tab-content.active {
+        display: block;
+    }
+    .sub-tabs {
+        margin-top: 20px;
+    }
+    .table {
+        width: 100%;
+        border-collapse: collapse;
+    }
+    .table th, .table td {
+        padding: 8px;
+        border: 1px solid #ddd;
+        text-align: left;
+    }
+    .table th {
+        background-color: #f2f2f2;
+    }
+    .form-row {
+        display: flex;
+        flex-wrap: wrap;
+        margin-bottom: 15px;
+    }
+    .form-group {
+        margin-right: 15px;
+        margin-bottom: 15px;
+    }
+    .btn {
+        padding: 8px 16px;
+        background-color: #4CAF50;
+        color: white;
+        border: none;
+        cursor: pointer;
+        border-radius: 4px;
+    }
+    .btn-primary {
+        background-color: #007bff;
+    }
+    .btn-info {
+        background-color: #17a2b8;
+    }
+    .btn-warning {
+        background-color: #ffc107;
+        color: #212529;
+    }
+    .btn-success {
+        background-color: #28a745;
+    }
+    .btn-danger {
+        background-color: #dc3545;
+    }
+    .alert {
+        padding: 15px;
+        margin-bottom: 20px;
+        border: 1px solid transparent;
+        border-radius: 4px;
+    }
+    .alert-info {
+        color: #0c5460;
+        background-color: #d1ecf1;
+        border-color: #bee5eb;
+    }
+    .search-container {
+        display: flex;
+        align-items: center;
+        margin-bottom: 15px;
+    }
+    .search-container input[type="text"] {
+        padding: 6px 12px;
+        border: 1px solid #ddd;
+        border-radius: 4px;
+        width: 200px;
+    }
+    .action-buttons {
+        margin-top: 15px;
+    }
+    .header-actions {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        margin-bottom: 15px;
+    }
+    .flex-row {
+        display: flex;
+        align-items: center;
+    }
+    .flex-row > * {
+        margin-right: 10px;
+    }
+    .flex-row > *:last-child {
+        margin-right: 0;
+    }
+    .date-range-container {
+        display: flex;
+        align-items: center;
+    }
+    .date-range-container span {
+        margin: 0 5px;
+    }
+    .card-header {
+        padding: 12px 20px;
+    }
+    .export-options {
+        display: flex;
+        align-items: center;
+        background: #f8f9fa;
+        padding: 10px;
+        border-radius: 4px;
+        margin-bottom: 15px;
+    }
+    .export-form {
+        display: flex;
+        align-items: center;
+        margin-right: 15px;
+    }
+    .export-form label {
+        margin-right: 5px;
+        font-weight: bold;
+    }
+    .export-form select, 
+    .export-form input {
+        margin-right: 10px;
+        padding: 5px;
+    }
+    html, body {
+        overflow: auto;
+    }
+    body {
+        overflow-y: scroll;
+    }
+</style>
+
+<div><h4><b>待确认账单</b></h4></div>
+<div style="width: 100%; display: flex; justify-content: space-between;">
+    <form method="post" action="" style="width: 80%;">
+        {% csrf_token %}
+        <div>
+            <b style="margin-right: 5px;">客户:</b>
+            {{ order_form.customer_name }}
+            {% if invoice_type_filter == 'receivable' %}
+            <b style="margin-right: 5px; margin-left: 10px;">ETD时间:</b>
+            {% elif invoice_type_filter == 'payable' %}
+            <b style="margin-right: 5px; margin-left: 10px;">ETA时间:</b>
+            {% endif %}
+            <input type="date" name="start_date_confirm" value="{{ start_date_confirm }}">
+            <input type="date" name="end_date_confirm" value="{{ end_date_confirm }}" style="margin-right: 5px;">
+            <b style="margin-right: 5px;">选择仓点区域:</b>
+                <select name="warehouse_filter">
+                    {% for k, v in warehouse_options.items %}
+                        {% if warehouse_filter == v %}
+                            <option value="{{ v }}" selected>{{ k }}</option>
+                        {% else %}
+                            <option value="{{ v }}">{{ k }}</option>
+                        {% endif %}
+                    {% endfor %}
+                </select>
+            </b>
+            <b style="margin-right: 5px; margin-left: 10px;">账单类型:</b>
+            <select name="invoice_type" style="margin-right: 5px;">
+                <option value="receivable" {% if invoice_type_filter == 'receivable' %}selected{% endif %}>应收账单</option>
+                <option value="payable" {% if invoice_type_filter == 'payable' %}selected{% endif %}>应付账单</option>
+            </select>
+            <input type="hidden" name="step" value="invoice_order_confirm">
+            <button id="submit-btn" type="submit" class="btn btn-primary" style="width: 100px; height: 35px; margin-left: 20px;">查询</button>
+        </div>
+    </form>
+</div>
 <div class="container-fluid">
-    <!-- 查询条件区域 -->
     <div class="card mb-4">
         <div class="card-header">
-            <h5><b>账单查询条件</b></h5>
+            <div style="display: flex; justify-content: space-between; align-items: center;">
+                <div class="tabs" id="billTypeTabs">
+                    <button class="tab-button active" onclick="switchTab('pick')">提拆账单</button>
+                    <button class="tab-button" onclick="switchTab('warehouse')">库内账单</button>
+                    <button class="tab-button" onclick="switchTab('delivery')">派送账单</button>
+                </div>
+                <div class="search-container" style="margin-left: auto;">
+                    <input type="text" id="global-search" placeholder="搜索货柜号..." onkeyup="filterCurrentTable()">
+                </div>
+            </div>
         </div>
         <div class="card-body">
-            <form method="post" action="">
-                {% csrf_token %}
-                <div class="row">
-                    <div class="col-md-3">
-                        <div class="form-group">
-                            <label><b>客户:</b></label>
-                            {{ order_form.customer_name }}
-                        </div>
+            <div id="pick-content" class="tab-content active">
+                <div style="display: flex; justify-content: space-between; align-items: center;">
+                    <div class="header-actions">
+                        <h5><b>提拆账单</b></h5>
                     </div>
-                    <div class="col-md-3">
-                        <div class="form-group">
-                            <label><b>ETA时间范围:</b></label>
-                            <div class="input-group">
-                                <input type="date" class="form-control" name="start_date_confirm" value="{{ start_date_confirm }}">
-                                <span class="input-group-text">至</span>
-                                <input type="date" class="form-control" name="end_date_confirm" value="{{ end_date_confirm }}">
-                            </div>
-                        </div>
-                    </div>
-                    <div class="col-md-2">
-                        <div class="form-group">
-                            <label><b>仓点区域:</b></label>
-                            <select name="warehouse_filter" class="form-control">
-                                {% for k, v in warehouse_options.items %}
-                                    <option value="{{ v }}" {% if warehouse_filter == v %}selected{% endif %}>{{ k }}</option>
+                    <div class="export-options">
+                        <h6 style="margin-right: 15px;"><b>导出选项:</b></h6>
+                        <form method="post" class="export-form">
+                            {% csrf_token %}
+                            <b style="margin-right: 5px; margin-left: 10px;">账单时间:</b>
+                            <input type="date" name="start_date_export" value="{{ start_date_export }}">
+                            <input type="date" name="end_date_export" value="{{ end_date_export }}" style="margin-right: 5px;">
+                            
+                            <label>供应商:</label>
+                            <select name="select_carrier">
+                                {% for key,value in pickup_carriers.items %}
+                                <option value="{{ key }}">{{ value }}</option>
                                 {% endfor %}
                             </select>
-                        </div>
-                    </div>
-                    <div class="col-md-2">
-                        <div class="form-group">
-                            <label><b>账单类型:</b></label>
-                            <select name="invoice_type" class="form-control">
-                                <option value="receivable" {% if invoice_type_filter == 'receivable' %}selected{% endif %}>应收账单</option>
-                                <option value="payable" {% if invoice_type_filter == 'payable' %}selected{% endif %}>应付账单</option>
-                            </select>
-                        </div>
-                    </div>
-                    <div class="col-md-2 d-flex align-items-end">
-                        <input type="hidden" name="step" value="invoice_order_confirm">
-                        <button type="submit" class="btn btn-primary btn-block">查询</button>
+                            
+                            <input type="hidden" name="step" value="export_carrier_payable">
+                            <input type="hidden" name="confirm_phase" value="pickup">
+                            <button type="submit" class="btn btn-info btn-sm">导出Excel</button>
+                        </form>
                     </div>
                 </div>
-            </form>
-        </div>
-    </div>
-
-    <!-- 账单类型标签页 -->
-    <div class="card mb-4">
-        <div class="card-header">
-            <ul class="nav nav-tabs card-header-tabs" id="billTypeTabs" role="tablist">
-                <li class="nav-item" role="presentation">
-                    <button class="nav-link active" id="pick-tab" data-bs-toggle="tab" data-bs-target="#pick-content" type="button" role="tab">
-                        提拆账单
-                    </button>
-                </li>
-                <li class="nav-item" role="presentation">
-                    <button class="nav-link" id="warehouse-tab" data-bs-toggle="tab" data-bs-target="#warehouse-content" type="button" role="tab">
-                        库内账单
-                    </button>
-                </li>
-                <li class="nav-item" role="presentation">
-                    <button class="nav-link" id="delivery-tab" data-bs-toggle="tab" data-bs-target="#delivery-content" type="button" role="tab">
-                        派送账单
-                    </button>
-                </li>
-            </ul>
-        </div>
-        <div class="card-body">
-            <div class="tab-content" id="billTypeTabsContent">
-                <!-- 提拆账单内容 -->
-                <div class="tab-pane fade show active" id="pick-content" role="tabpanel">
-                    <div class="d-flex justify-content-between align-items-center mb-3">
-                        <h5 class="mb-0"><b>提拆账单</b></h5>
-                        <div class="dropdown">
-                            <button class="btn btn-sm btn-info dropdown-toggle" type="button" id="dropdownMenuPick" data-bs-toggle="dropdown" aria-expanded="false">
-                                导出供应商
-                            </button>
-                            <ul class="dropdown-menu" aria-labelledby="dropdownMenuPick">
-                                {% for supplier in pick_suppliers %}
-                                <li>
-                                    <form method="post" class="d-inline">
-                                        {% csrf_token %}
-                                        <input type="hidden" name="supplier_id" value="{{ supplier.id }}">
-                                        <input type="hidden" name="account_type" value="pick">
-                                        <button type="submit" class="dropdown-item" name="step" value="export_supplier">{{ supplier.name }}</button>
-                                    </form>
-                                </li>
-                                {% endfor %}
-                            </ul>
-                        </div>
+                
+                <div class="sub-tabs">
+                    <div class="tabs">
+                        <button class="tab-button active" onclick="switchSubTab('pick', 'pending')">待确认 ({{ pick_pending_orders|length }})</button>
+                        <button class="tab-button" onclick="switchSubTab('pick', 'confirmed')">已确认 ({{ pick_confirmed_orders|length }})</button>
                     </div>
                     
-                    <ul class="nav nav-tabs" id="pickTab" role="tablist">
-                        <li class="nav-item" role="presentation">
-                            <button class="nav-link active" id="pick-pending-tab" data-bs-toggle="tab" data-bs-target="#pick-pending" type="button" role="tab">待确认 ({{ pick_pending_count }})</button>
-                        </li>
-                        <li class="nav-item" role="presentation">
-                            <button class="nav-link" id="pick-confirmed-tab" data-bs-toggle="tab" data-bs-target="#pick-confirmed" type="button" role="tab">已确认 ({{ pick_confirmed_count }})</button>
-                        </li>
-                    </ul>
-                    <div class="tab-content p-3 border border-top-0" id="pickTabContent">
-                        <div class="tab-pane fade show active" id="pick-pending" role="tabpanel">
-                            {% if pick_pending_accounts %}
-                                <div class="table-responsive">
-                                    <table class="table table-hover">
+                    <div id="pick-pending" class="tab-content active">
+                        {% if pick_pending_orders %}
+                            <form method="post" id="pick-confirm-form">
+                                {% csrf_token %}
+                                <input type="hidden" name="step" value="payable_confirm_phase">
+                                <input type="hidden" name="confirm_phase" value="pickup">
+                                <div style="overflow-x: auto;">
+                                    <table class="table" id="pick-pending-table">
                                         <thead>
                                             <tr>
-                                                <th class="th">客户</th>
-                                                <th class="th">仓点</th>  
-                                                <th class="th">货柜号</th>
-                                                <th class="th">柜型</th>
-                                                <th class="th">提柜费</th>
-                                                <th class="th">拆柜费</th>
-                                                <th class="th">超重费</th>
-                                                <th class="th">车架费</th>
-                                                <th class="th">其他费用</th>
-                                                <th class="th">总费用</th>
+                                                <th><input type="checkbox" id="pick-select-all" onclick="toggleSelectAll('pick-select-all', 'pick-orders')"></th>
+                                                <th>客户</th>
+                                                <th>仓点</th>  
+                                                <th>供应商</th>
+                                                <th>货柜号</th>
+                                                <th>提柜费</th>
+                                                <th>超重费</th>
+                                                <th>车架费</th>
+                                                <th>滞港费</th>
+                                                <th>滞箱费</th>
+                                                <th>其他费用</th>
+                                                <th>总费用</th>
                                             </tr>
                                         </thead>
                                         <tbody>
                                             {% for p in pick_pending_orders %}
                                             <tr>
-                                                <td>{{ p.customer_name.zem_name }}</td>
-                                                <td>{{ p.retrieval_id.retrieval_destination_precise }}</td>
                                                 <td>
-                                                    <a href="/accounting/?step=container_payable&container_number={{ p.container_number }}&start_date={{ start_date }}&end_date={{ end_date }}&warehouse_filter={{ warehouse_filter }}" 
-                                                    title="点击查看详情">{{ p.container_number }}</a>
+                                                    <input type="checkbox" name="containers" value="{{ p.container_number__container_number }}" class="pick-orders">
                                                 </td>
-                                                <td>{{ p.container_number.container_type }}</td>
-                                                <td>{{ p.basic_fee|floatformat:2 }}</td>
-                                                <td>{{ p.palletization_fee|floatformat:2 }}</td>
-                                                <td>{{ p.overweight_fee|floatformat:2 }}</td>
-                                                <td>{{ p.chassis_fee|floatformat:2 }}</td>
+                                                <td>{{ p.customer_name__zem_name }}</td>
+                                                <td>{{ p.retrieval_id__retrieval_destination_area }}</td>                              
+                                                <td>{{ p.retrieval_id__retrieval_carrier }}</td>
                                                 <td>
-                                                    {% if p.other_fee %}
-                                                        <div class="other-fees-tooltip">
-                                                            {% for name, amount in p.other_fee.items %}
+                                                    <a href="/accounting/?step=container_payable&container_number={{ p.container_number__container_number }}&start_date={{ start_date }}&end_date={{ end_date }}&warehouse_filter={{ warehouse_filter }}" 
+                                                    title="点击查看详情">{{ p.container_number__container_number }}</a>
+                                                </td>
+                                                <td>{{ p.payable_pickup|default:0|floatformat:2 }}</td>
+                                                <td>{{ p.payable_over_weight|default:0|floatformat:2 }}</td>
+                                                <td>{{ p.payable_chassis|default:0|floatformat:2 }}</td>
+                                                <td>{{ p.payable_demurrage|default:0|floatformat:2 }}</td>
+                                                <td>{{ p.payable_per_diem|default:0|floatformat:2 }}</td>
+                                                <td>
+                                                    {% if p.payable_other_fee_data %}
+                                                        <div>
+                                                            {% for name, amount in p.payable_other_fee_data.items %}
                                                                 <div>{{ name }}: ${{ amount|floatformat:2 }}</div>
                                                             {% endfor %}
                                                         </div>
@@ -153,230 +295,378 @@
                                                         -
                                                     {% endif %}
                                                 </td>
-                                                <td style="font-weight: bold;">{{ p.total_amount|floatformat:2 }}</td>
+                                                <td style="font-weight: bold;">{{ p.invoice_id__payable_preport_amount|default:0|floatformat:2 }}</td>
                                             </tr>
                                             {% endfor %}
                                         </tbody>
                                     </table>
                                 </div>
-                            {% else %}
-                                <div class="alert alert-info">暂无待确认的提拆账单</div>
-                            {% endif %}
-                        </div>
-                        <div class="tab-pane fade" id="pick-confirmed" role="tabpanel">
-                            {% if pick_confirmed_accounts %}
-                                <div class="table-responsive">
-                                    <table class="table table-hover">
-                                        <thead>
-                                            <tr>
-                                                <th>账单编号</th>
-                                                <th>供应商</th>
-                                                <th>确认时间</th>
-                                                <th>金额</th>
-                                            </tr>
-                                        </thead>
-                                        <tbody>
-                                            {% for pc in pick_confirmed_orders %}
-                                            <tr>
-                                                <td>{{ pc.number }}</td>
-                                                <td>{{ pc.supplier.name }}</td>
-                                                <td>{{ pc.confirmed_at|date:"Y-m-d H:i" }}</td>
-                                                <td>{{ pc.total_amount|floatformat:2 }}</td>
-                                            </tr>
-                                            {% endfor %}
-                                        </tbody>
-                                    </table>
+                                <div class="action-buttons">
+                                    <button type="submit" name="save_type" value="confirmed" class="btn btn-success">确认账单</button>
+                                    <button type="button" class="btn btn-danger" onclick="showRejectModal('pick')">驳回账单</button>
                                 </div>
-                            {% else %}
-                                <div class="alert alert-info">暂无已确认的提拆账单</div>
-                            {% endif %}
-                        </div>
-                    </div>
-                </div>
-
-                <!-- 库内账单内容 -->
-                <div class="tab-pane fade" id="warehouse-content" role="tabpanel">
-                    <div class="d-flex justify-content-between align-items-center mb-3">
-                        <h5 class="mb-0"><b>库内账单</b></h5>
-                        <div class="dropdown">
-                            <button class="btn btn-sm btn-success dropdown-toggle" type="button" id="dropdownMenuStorage" data-bs-toggle="dropdown" aria-expanded="false">
-                                导出供应商
-                            </button>
-                            <ul class="dropdown-menu" aria-labelledby="dropdownMenuStorage">
-                                {% for supplier in warehouse_suppliers %}
-                                <li>
-                                    <form method="post" class="d-inline">
-                                        {% csrf_token %}
-                                        <input type="hidden" name="supplier_id" value="{{ supplier.id }}">
-                                        <input type="hidden" name="account_type" value="warehouse">
-                                        <button type="submit" class="dropdown-item" name="step" value="export_supplier">{{ supplier.name }}</button>
-                                    </form>
-                                </li>
-                                {% endfor %}
-                            </ul>
-                        </div>
+                                <div id="pick-rejectModal" style="display: none; position: fixed; z-index: 1000; left: 0; top: 0; width: 100%; height: 100%; background-color: rgba(0,0,0,0.4);">
+                                    <div style="background-color: #fefefe; margin: 15% auto; padding: 20px; border: 1px solid #888; width: 50%;">
+                                        <h5>驳回原因</h5>
+                                        <textarea id="pick-rejectReason" rows="4" style="width: 100%; margin-bottom: 10px;"></textarea>
+                                        <div>
+                                            <button type="button" class="btn btn-secondary" onclick="hideRejectModal('pick')">取消</button>
+                                            <button type="submit" name="save_type" value="reject" class="btn btn-danger" onclick="setRejectReason('pick')">确认驳回</button>
+                                        </div>
+                                    </div>
+                                </div>
+                                <input type="hidden" id="pick-rejectReasonInput" name="reject_reason" value="">
+                            </form>
+                        {% else %}
+                            <div class="alert alert-info">暂无待确认的提拆账单</div>
+                        {% endif %}
                     </div>
                     
-                    <ul class="nav nav-tabs" id="warehouseTab" role="tablist">
-                        <li class="nav-item" role="presentation">
-                            <button class="nav-link active" id="warehouse-pending-tab" data-bs-toggle="tab" data-bs-target="#warehouse-pending" type="button" role="tab">待确认 ({{ warehouse_pending_count }})</button>
-                        </li>
-                        <li class="nav-item" role="presentation">
-                            <button class="nav-link" id="warehouse-confirmed-tab" data-bs-toggle="tab" data-bs-target="#warehouse-confirmed" type="button" role="tab">已确认 ({{ warehouse_confirmed_count }})</button>
-                        </li>
-                    </ul>
-                    <div class="tab-content p-3 border border-top-0" id="warehouseTabContent">
-                        <div class="tab-pane fade show active" id="warehouse-pending" role="tabpanel">
-                            {% if warehouse_pending_accounts %}
-                                <div class="table-responsive">
-                                    <table class="table table-hover">
-                                        <thead>
-                                            <tr>
-                                                <th>账单编号</th>
-                                                <th>供应商</th>
-                                                <th>金额</th>
-                                                <th>操作</th>
-                                            </tr>
-                                        </thead>
-                                        <tbody>
-                                            {% for wp in warehouse_pending_orders %}
-                                            <tr>
-                                                <td>{{ wp.number }}</td>
-                                                <td>{{ wp.supplier.name }}</td>
-                                                <td>{{ wp.total_amount|floatformat:2 }}</td>
-                                                <td>
-                                                    <a href="{% url 'wp_detail' wp.id %}" class="btn btn-sm btn-outline-primary">查看</a>
-                                                </td>
-                                            </tr>
-                                            {% endfor %}
-                                        </tbody>
-                                    </table>
-                                </div>
-                            {% else %}
-                                <div class="alert alert-info">暂无待确认的库内账单</div>
-                            {% endif %}
-                        </div>
-                        <div class="tab-pane fade" id="warehouse-confirmed" role="tabpanel">
-                            {% if warehouse_confirmed_accounts %}
-                                <div class="table-responsive">
-                                    <table class="table table-hover">
-                                        <thead>
-                                            <tr>
-                                                <th>账单编号</th>
-                                                <th>供应商</th>
-                                                <th>确认时间</th>
-                                                <th>金额</th>
-                                            </tr>
-                                        </thead>
-                                        <tbody>
-                                            {% for wc in warehouse_confirmed_orders %}
-                                            <tr>
-                                                <td>{{ wc.number }}</td>
-                                                <td>{{ wc.supplier.name }}</td>
-                                                <td>{{ wc.confirmed_at|date:"Y-m-d H:i" }}</td>
-                                                <td>{{ wc.total_amount|floatformat:2 }}</td>
-                                            </tr>
-                                            {% endfor %}
-                                        </tbody>
-                                    </table>
-                                </div>
-                            {% else %}
-                                <div class="alert alert-info">暂无已确认的库内账单</div>
-                            {% endif %}
-                        </div>
+                    <div id="pick-confirmed" class="tab-content">
+                        {% if pick_confirmed_orders %}
+                            <div style="overflow-x: auto;">
+                                <table class="table">
+                                    <thead>
+                                        <tr>
+                                            <th><input type="checkbox" id="pick-select-all" onclick="toggleSelectAll('pick-select-all', 'pick-orders')"></th>
+                                            <th>客户</th>
+                                            <th>仓点</th>  
+                                            <th>供应商</th>  
+                                            <th>货柜号</th>
+                                            <th>提柜费</th>
+                                            <th>超重费</th>
+                                            <th>车架费</th>
+                                            <th>滞港费</th>
+                                            <th>滞箱费</th>
+                                            <th>其他费用</th>
+                                            <th>总费用</th>
+                                        </tr>
+                                    </thead>
+                                   <tbody>
+                                        {% for p in pick_confirmed_orders %}
+                                        <tr>
+                                            <td><input type="checkbox" name="containers" value="{{ p.container_number__container_number }}" class="pick-orders"></td>
+                                            <td>{{ p.customer_name__zem_name }}</td>
+                                            <td>{{ p.retrieval_id__retrieval_destination_area }}</td>
+                                            <td>{{ p.retrieval_id__retrieval_carrier }}</td>
+                                            <td>
+                                                <a href="/accounting/?step=container_payable&container_number={{ p.container_number__container_number }}&start_date={{ start_date }}&end_date={{ end_date }}&warehouse_filter={{ warehouse_filter }}" 
+                                                title="点击查看详情">{{ p.container_number__container_number }}</a>
+                                            </td>
+                                            <td>{{ p.payable_pickup|default:0|floatformat:2 }}</td>
+                                            <td>{{ p.payable_over_weight|default:0|floatformat:2 }}</td>
+                                            <td>{{ p.payable_chassis|default:0|floatformat:2 }}</td>
+                                            <td>{{ p.payable_demurrage|default:0|floatformat:2 }}</td>
+                                            <td>{{ p.payable_per_diem|default:0|floatformat:2 }}</td>
+                                            <td>
+                                                {% if p.payable_other_fee_data %}
+                                                    <div>
+                                                        {% for name, amount in p.payable_other_fee_data.items %}
+                                                            <div>{{ name }}: ${{ amount|floatformat:2 }}</div>
+                                                        {% endfor %}
+                                                    </div>
+                                                {% else %}
+                                                    -
+                                                {% endif %}
+                                            </td>
+                                            <td style="font-weight: bold;">{{ p.invoice_id__payable_preport_amount|default:0|floatformat:2 }}</td>
+                                        </tr>
+                                        {% endfor %}
+                                    </tbody>
+                                </table>
+                            </div>
+                        {% else %}
+                            <div class="alert alert-info">暂无已确认的提拆账单</div>
+                        {% endif %}
                     </div>
                 </div>
-
-                <!-- 派送账单内容 -->
-                <div class="tab-pane fade" id="delivery-content" role="tabpanel">
-                    <div class="d-flex justify-content-between align-items-center mb-3">
-                        <h5 class="mb-0"><b>派送账单</b></h5>
-                        <div class="dropdown">
-                            <button class="btn btn-sm btn-warning dropdown-toggle" type="button" id="dropdownMenuDelivery" data-bs-toggle="dropdown" aria-expanded="false">
-                                导出供应商
-                            </button>
-                            <ul class="dropdown-menu" aria-labelledby="dropdownMenuDelivery">
-                                {% for supplier in delivery_suppliers %}
-                                <li>
-                                    <form method="post" class="d-inline">
-                                        {% csrf_token %}
-                                        <input type="hidden" name="supplier_id" value="{{ supplier.id }}">
-                                        <input type="hidden" name="account_type" value="delivery">
-                                        <button type="submit" class="dropdown-item" name="step" value="export_supplier">{{ supplier.name }}</button>
-                                    </form>
-                                </li>
+            </div>
+            
+            <div id="warehouse-content" class="tab-content">
+                <div style="display: flex; justify-content: space-between; align-items: center;">
+                    <div class="header-actions">
+                        <h5><b>库内账单</b></h5>
+                    </div>            
+                    <div class="export-options">
+                        <h6 style="margin-right: 15px;"><b>导出选项:</b></h6>                  
+                        <form method="post" class="export-form">
+                            {% csrf_token %}
+                            <b style="margin-right: 5px; margin-left: 10px;">账单时间:</b>
+                            <input type="date" name="start_date_export" value="{{ start_date_export }}">
+                            <input type="date" name="end_date_export" value="{{ end_date_export }}" style="margin-right: 5px;">
+                            
+                            <label>供应商:</label>
+                            <select name="select_carrier">
+                                {% for key,value in warehouse_carriers.items %}
+                                <option value="{{ key }}">{{ value }}</option>
                                 {% endfor %}
-                            </ul>
-                        </div>
+                            </select>
+                            
+                            <input type="hidden" name="step" value="export_carrier_payable">
+                            <input type="hidden" name="confirm_phase" value="pickup">
+                            <button type="submit" class="btn btn-success btn-sm">导出Excel</button>
+                        </form>                        
+                    </div>
+                </div>
+                
+                <div class="sub-tabs">
+                    <div class="tabs">
+                        <button class="tab-button active" onclick="switchSubTab('warehouse', 'pending')">待确认 ({{ warehouse_pending_orders|length }})</button>
+                        <button class="tab-button" onclick="switchSubTab('warehouse', 'confirmed')">已确认 ({{ warehouse_confirmed_orders|length }})</button>
                     </div>
                     
-                    <ul class="nav nav-tabs" id="deliveryTab" role="tablist">
-                        <li class="nav-item" role="presentation">
-                            <button class="nav-link active" id="delivery-pending-tab" data-bs-toggle="tab" data-bs-target="#delivery-pending" type="button" role="tab">待确认 ({{ delivery_pending_count }})</button>
-                        </li>
-                        <li class="nav-item" role="presentation">
-                            <button class="nav-link" id="delivery-confirmed-tab" data-bs-toggle="tab" data-bs-target="#delivery-confirmed" type="button" role="tab">已确认 ({{ delivery_confirmed_count }})</button>
-                        </li>
-                    </ul>
-                    <div class="tab-content p-3 border border-top-0" id="deliveryTabContent">
-                        <div class="tab-pane fade show active" id="delivery-pending" role="tabpanel">
-                            {% if delivery_pending_accounts %}
-                                <div class="table-responsive">
-                                    <table class="table table-hover">
+                    <div id="warehouse-pending" class="tab-content active">
+                        {% if warehouse_pending_orders %}
+                            <form method="post" id="warehouse-confirm-form">
+                                {% csrf_token %}
+                                <input type="hidden" name="step" value="payable_confirm_phase">
+                                <input type="hidden" name="confirm_phase" value="warehouse">
+                                <div style="overflow-x: auto;">
+                                    <table class="table" id="warehouse-pending-table">
                                         <thead>
                                             <tr>
-                                                <th>账单编号</th>
+                                                <th><input type="checkbox" id="pick-select-all" onclick="toggleSelectAll('warehouse-select-all', 'warehouse-orders')"></th>
+                                                <th>客户</th>
+                                                <th>仓点</th>  
+                                                <th>货柜号</th>
+                                                <th>拆柜费</th>
+                                                <th>入库费</th>
                                                 <th>供应商</th>
-                                                <th>金额</th>
-                                                <th>操作</th>
+                                                <th>其他费用</th>
+                                                <th>总费用</th>
                                             </tr>
                                         </thead>
                                         <tbody>
-                                            {% for dp in delivery_pending_orders %}
+                                            {% for p in warehouse_pending_orders %}
                                             <tr>
-                                                <td>{{ dp.number }}</td>
-                                                <td>{{ dp.supplier.name }}</td>
-                                                <td>{{ dp.total_amount|floatformat:2 }}</td>
                                                 <td>
-                                                    <a href="{% url 'dp_detail' dp.id %}" class="btn btn-sm btn-outline-primary">查看</a>
+                                                    <input type="checkbox" name="containers" value="{{ p.container_number__container_number }}" class="warehouse-orders">
                                                 </td>
+                                                <td>{{ p.customer_name__zem_name }}</td>
+                                                <td>{{ p.retrieval_id__retrieval_destination_area }}</td>
+                                                <td>
+                                                    <a href="/accounting/?step=container_payable&container_number={{ p.container_number__container_number }}&start_date={{ start_date }}&end_date={{ end_date }}&warehouse_filter={{ warehouse_filter }}" 
+                                                    title="点击查看详情">{{ p.container_number__container_number }}</a>
+                                                </td>
+                                                <td>{{ p.payable_palletization_fee|default:0|floatformat:2 }}</td>
+                                                <td>{{ p.payable_arrive_fee|default:0|floatformat:2 }}</td>
+                                                <td>{{ p.payable_carrier|default:0|floatformat:2 }}</td>
+                                                <td>
+                                                    {% if p.payable_other_fee_data %}
+                                                        <div>
+                                                            {% for name, amount in p.payable_other_fee_data.items %}
+                                                                <div>{{ name }}: ${{ amount|floatformat:2 }}</div>
+                                                            {% endfor %}
+                                                        </div>
+                                                    {% else %}
+                                                        -
+                                                    {% endif %}
+                                                </td>
+                                                <td style="font-weight: bold;">{{ p.invoice_id__payable_warehouse_amount|default:0|floatformat:2 }}</td>
                                             </tr>
                                             {% endfor %}
                                         </tbody>
                                     </table>
                                 </div>
-                            {% else %}
-                                <div class="alert alert-info">暂无待确认的派送账单</div>
-                            {% endif %}
-                        </div>
-                        <div class="tab-pane fade" id="delivery-confirmed" role="tabpanel">
-                            {% if delivery_confirmed_accounts %}
-                                <div class="table-responsive">
-                                    <table class="table table-hover">
+                                <div class="action-buttons">
+                                    <button type="submit" name="save_type" value="confirmed" class="btn btn-success">确认账单</button>
+                                    <button type="button" class="btn btn-danger" onclick="showRejectModal('warehouse')">驳回账单</button>
+                                </div>
+                                <div id="warehouse-rejectModal" style="display: none; position: fixed; z-index: 1000; left: 0; top: 0; width: 100%; height: 100%; background-color: rgba(0,0,0,0.4);">
+                                    <div style="background-color: #fefefe; margin: 15% auto; padding: 20px; border: 1px solid #888; width: 50%;">
+                                        <h5>驳回原因</h5>
+                                        <textarea id="warehouse-rejectReason" rows="4" style="width: 100%; margin-bottom: 10px;"></textarea>
+                                        <div>
+                                            <button type="button" class="btn btn-secondary" onclick="hideRejectModal('warehouse')">取消</button>
+                                            <button type="submit" name="save_type" value="reject" class="btn btn-danger" onclick="setRejectReason('warehouse')">确认驳回</button>
+                                        </div>
+                                    </div>
+                                </div>
+                                <input type="hidden" id="warehouse-rejectReasonInput" name="reject_reason" value="">
+                            </form>
+                        {% else %}
+                            <div class="alert alert-info">暂无待确认的库内账单</div>
+                        {% endif %}
+                    </div>
+                    
+                    <div id="warehouse-confirmed" class="tab-content">
+                        {% if warehouse_confirmed_orders %}
+                            <div style="overflow-x: auto;">
+                                <table class="table" id="warehouse-pending-table">
+                                    <thead>
+                                        <tr>
+                                            <th><input type="checkbox" id="pick-select-all" onclick="toggleSelectAll('warehouse-select-all', 'warehouse-orders')"></th>
+                                            <th>客户</th>
+                                            <th>仓点</th>  
+                                            <th>货柜号</th>
+                                            <th>拆柜费</th>
+                                            <th>入库费</th>
+                                            <th>供应商</th>
+                                            <th>其他费用</th>
+                                            <th>总费用</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody>
+                                        {% for p in warehouse_pending_orders %}
+                                        <tr>
+                                            <td>
+                                                <input type="checkbox" name="containers" value="{{ p.container_number__container_number }}" class="warehouse-orders">
+                                            </td>
+                                            <td>{{ p.customer_name__zem_name }}</td>
+                                            <td>{{ p.retrieval_id__retrieval_destination_area }}</td>
+                                            <td>
+                                                <a href="/accounting/?step=container_payable&container_number={{ p.container_number__container_number }}&start_date={{ start_date }}&end_date={{ end_date }}&warehouse_filter={{ warehouse_filter }}" 
+                                                title="点击查看详情">{{ p.container_number__container_number }}</a>
+                                            </td>
+                                            <td>{{ p.payable_palletization_fee|default:0|floatformat:2 }}</td>
+                                            <td>{{ p.payable_arrive_fee|default:0|floatformat:2 }}</td>
+                                            <td>{{ p.payable_carrier }}</td>
+                                            <td>
+                                                {% if p.payable_other_fee_data %}
+                                                    <div>
+                                                        {% for name, amount in p.payable_other_fee_data.items %}
+                                                            <div>{{ name }}: ${{ amount|floatformat:2 }}</div>
+                                                        {% endfor %}
+                                                    </div>
+                                                {% else %}
+                                                    -
+                                                {% endif %}
+                                            </td>
+                                            <td style="font-weight: bold;">{{ p.invoice_id__payable_warehouse_amount|default:0|floatformat:2 }}</td>
+                                        </tr>
+                                        {% endfor %}
+                                    </tbody>
+                                </table>
+                            </div>
+                        {% else %}
+                            <div class="alert alert-info">暂无已确认的库内账单</div>
+                        {% endif %}
+                    </div>
+                </div>
+            </div>
+            
+            <div id="delivery-content" class="tab-content">
+                <div style="display: flex; justify-content: space-between; align-items: center;">
+                    <div class="header-actions">
+                        <h5><b>派送账单</b></h5>
+                    </div>
+                    <div class="export-options">
+                        <h6 style="margin-right: 15px;"><b>导出选项:</b></h6>                  
+                        <form method="post" class="export-form">
+                            {% csrf_token %}
+                            <b style="margin-right: 5px; margin-left: 10px;">账单时间:</b>
+                            <input type="date" name="start_date_export" value="{{ start_date_export }}">
+                            <input type="date" name="end_date_export" value="{{ end_date_export }}" style="margin-right: 5px;">
+                            
+                            <label>供应商:</label>
+                            <select name="select_carrier">
+                                {% for key,value in CARRIER_FLEET.items %}
+                                <option value="{{ key }}">{{ value }}</option>
+                                {% endfor %}
+                            </select>
+                            
+                            <input type="hidden" name="step" value="export_carrier_payable">
+                            <input type="hidden" name="confirm_phase" value="pickup">
+                            <button type="submit" class="btn btn-warning btn-sm">导出Excel</button>
+                        </form>
+                    </div>
+                </div>
+                
+                <div class="sub-tabs">
+                    <div class="tabs">
+                        <button class="tab-button active" onclick="switchSubTab('delivery', 'pending')">总计 ({{ delivery_pending_orders|length }})</button>
+                    </div>
+                    
+                    <div id="delivery-pending" class="tab-content active">
+                        {% if delivery_pending_orders %}
+                            <form method="post" id="delivery-confirm-form">
+                                {% csrf_token %}
+                                <input type="hidden" name="step" value="payable_confirm_phase">
+                                <input type="hidden" name="confirm_phase" value="delivery">
+                                <div style="overflow-x: auto;">
+                                    <table class="table" id="delivery-pending-table" style="width:100%;">
                                         <thead>
                                             <tr>
-                                                <th>账单编号</th>
-                                                <th>供应商</th>
-                                                <th>确认时间</th>
-                                                <th>金额</th>
+                                                <th rowspan="2" style="vertical-align: middle;">Carrier</th>
+                                                <th rowspan="2" style="vertical-align: middle;">Pickup Number</th>
+                                                <th rowspan="2" style="vertical-align: middle;">ISA</th>
+                                                <th rowspan="2" style="vertical-align: middle;">柜号</th>
+                                                <th rowspan="2" style="vertical-align: middle;">目的地</th>
+                                                <th rowspan="2" style="vertical-align: middle;">板数</th>
+                                                <th rowspan="2" style="vertical-align: middle;">价格</th>
+                                                <th rowspan="2" style="vertical-align: middle;">单板成本</th>
+                                                <th rowspan="2" style="vertical-align: middle;">车次总板数</th>
+                                                <th rowspan="2" style="vertical-align: middle;">车次总成本</th>
                                             </tr>
                                         </thead>
                                         <tbody>
-                                            {% for dc in delivery_confirmed_orders %}
-                                            <tr>
-                                                <td>{{ dc.number }}</td>
-                                                <td>{{ dc.supplier.name }}</td>
-                                                <td>{{ dc.confirmed_at|date:"Y-m-d H:i" }}</td>
-                                                <td>{{ dc.total_amount|floatformat:2 }}</td>
-                                            </tr>
+                                            {% for fleet in delivery_pending_orders %}
+                                                {% for pickup_number, pickup_data in fleet.fleets.items %}
+                                                    {% for appointment_id, appointment_data in pickup_data.appointments.items %}
+                                                        {% for order in appointment_data.orders %}
+                                                            <tr>
+                                                                {% if forloop.parentloop.first and forloop.first %}
+                                                                    <td rowspan="{{ pickup_data.total_rows }}" style="vertical-align: middle;">{{ fleet.carrier|default_if_none:"" }}</td>
+                                                                    <td rowspan="{{ pickup_data.total_rows }}" style="vertical-align: middle;">{{ pickup_number|default_if_none:"" }}</td>
+                                                                {% endif %}
+                                                            
+                                                                {% if forloop.first %}
+                                                                    <td rowspan="{{ appointment_data.rowspan }}" style="vertical-align: middle;">{{ appointment_id|default_if_none:"" }}</td>
+                                                                {% endif %}
+                                                                
+                                                                <td style="vertical-align: middle;">{{ order.container_num }}</td>
+                                                                <td style="vertical-align: middle;">{{ order.pallet_destination }}</td>
+                                                                <td style="vertical-align: middle;">{{ order.cn_total_pallet }}</td>
+                                                                <td style="vertical-align: middle;">{{ order.cn_total_expense }}</td>
+                                                                <td style="vertical-align: middle;">{{ order.cn_per_expense }}</td>
+                                                                {% if forloop.parentloop.first and forloop.first %}
+                                                                    <td rowspan="{{ pickup_data.total_rows }}" style="vertical-align: middle;">{{ pickup_data.ISA_total_pallets }}</td>
+                                                                    <td rowspan="{{ pickup_data.total_rows }}" style="vertical-align: middle;">${{ pickup_data.ISA_total_expense }}</td>
+                                                                {% endif %}
+                                                            </tr>
+                                                        {% endfor %}
+                                                    {% endfor %}
+                                                {% endfor %}
                                             {% endfor %}
                                         </tbody>
                                     </table>
                                 </div>
-                            {% else %}
-                                <div class="alert alert-info">暂无已确认的派送账单</div>
-                            {% endif %}
-                        </div>
+                                <div class="action-buttons">
+                                    <button type="submit" class="btn btn-success">确认选中账单</button>
+                                </div>
+                            </form>
+                        {% else %}
+                            <div class="alert alert-info">暂无待确认的派送账单</div>
+                        {% endif %}
+                    </div>
+                    
+                    <div id="delivery-confirmed" class="tab-content">
+                        {% if delivery_confirmed_accounts %}
+                            <div style="overflow-x: auto;">
+                                <table class="table">
+                                    <thead>
+                                        <tr>
+                                            <th>账单编号</th>
+                                            <th>供应商</th>
+                                            <th>确认时间</th>
+                                            <th>金额</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody>
+                                        {% for dc in delivery_confirmed_orders %}
+                                        <tr>
+                                            <td>{{ dc.number }}</td>
+                                            <td>{{ dc.supplier.name }}</td>
+                                            <td>{{ dc.confirmed_at|date:"Y-m-d H:i" }}</td>
+                                            <td>{{ dc.total_amount|floatformat:2 }}</td>
+                                        </tr>
+                                        {% endfor %}
+                                    </tbody>
+                                </table>
+                            </div>
+                        {% else %}
+                            <div class="alert alert-info">暂无已确认的派送账单</div>
+                        {% endif %}
                     </div>
                 </div>
             </div>
@@ -384,59 +674,109 @@
     </div>
 </div>
 
-<!-- 月份和供应商筛选 -->
-<div class="card mb-4">
-    <div class="card-header">
-        <h5><b>供应商账单导出</b></h5>
-    </div>
-    <div class="card-body">
-        <form method="post" action="">
-            {% csrf_token %}
-            <div class="row">
-                <div class="col-md-3">
-                    <div class="form-group">
-                        <label><b>月份:</b></label>
-                        <select id="monthSelectorCarrier" name="select_month" class="form-control">
-                            {% for month in months %}
-                                <option value="{{ month.value }}" {% if month.selected %}selected{% endif %}>
-                                    {{ month.label }}
-                                </option>
-                            {% endfor %}
-                        </select>
-                    </div>
-                </div>
-                <div class="col-md-4">
-                    <div class="form-group">
-                        <label><b>供应商:</b></label>
-                        <select id="carrierFilter" name="select_carrier" class="form-control">
-                            {% for key,value in carriers.items %}
-                            <option value="{{ key }}">{{ value }}</option>
-                            {% endfor %}
-                        </select>
-                    </div>
-                </div>
-                <div class="col-md-2 d-flex align-items-end">
-                    <button type="submit" class="btn btn-success">
-                        导出Excel
-                    </button>
-                    <input type="hidden" name="start_date_confirm" value="{{ start_date_confirm }}">
-                    <input type="hidden" name="end_date_confirm" value="{{ end_date_confirm }}">
-                    <input type="hidden" name="step" value="invoice_payable_carrier_export">
-                </div>
-            </div>
-        </form>
-    </div>
-</div>
-{% endblock %}
-
-{% block scripts %}
 <script>
-    $(document).ready(function() {
-        $('#pick-tab').tab('show');
+    function showRejectModal(type) {
+        console.log('type',type);
+        const checkboxes = document.querySelectorAll('.' + type + '-orders:checked');
+        if (checkboxes.length === 0) {
+            alert('请至少选择一条记录');
+            return;
+        }
+        document.getElementById(type + '-rejectModal').style.display = 'block';
+    }
+
+    function hideRejectModal(type) {
+        document.getElementById(type + '-rejectModal').style.display = 'none';
+    }
+
+    function setRejectReason(type) {
+        const reason = document.getElementById(type + '-rejectReason').value;
+        if (!reason) {
+            alert('请输入驳回原因');
+            return;
+        }
+        document.getElementById(type + '-rejectReasonInput').value = reason;
+        document.getElementById(type + '-confirm-form').submit();
+    }
+
+    function switchTab(tabName) {
+        document.querySelectorAll('.tab-content').forEach(content => {
+            content.classList.remove('active');
+        });
         
-        $('#pick-pending-tab').tab('show');
-        $('#warehouse-pending-tab').tab('show');
-        $('#delivery-pending-tab').tab('show');
-    });
+        document.querySelectorAll('#billTypeTabs .tab-button').forEach(button => {
+            button.classList.remove('active');
+        });
+        
+        document.getElementById(tabName + '-content').classList.add('active');
+        event.currentTarget.classList.add('active');
+        
+        const firstSubTab = document.querySelector('#' + tabName + '-content .tab-button');
+        if (firstSubTab) {
+            firstSubTab.click();
+        }
+    }
+    
+    function switchSubTab(parentTab, subTab) {
+        const parentContent = document.getElementById(parentTab + '-content');
+        
+        parentContent.querySelectorAll('.sub-tabs .tab-content').forEach(content => {
+            content.classList.remove('active');
+        });
+        
+        parentContent.querySelectorAll('.sub-tabs .tab-button').forEach(button => {
+            button.classList.remove('active');
+        });
+        
+        document.getElementById(parentTab + '-' + subTab).classList.add('active');
+        event.currentTarget.classList.add('active');
+    }
+    
+    function toggleSelectAll(selectAllId, checkboxClass) {
+        const selectAll = document.getElementById(selectAllId);
+        const checkboxes = document.getElementsByClassName(checkboxClass);
+        
+        for (let checkbox of checkboxes) {
+            checkbox.checked = selectAll.checked;
+        }
+    }
+    
+    function filterCurrentTable() {
+        const activeTab = document.querySelector('.tab-button.active').textContent.trim();
+        const searchTerm = document.getElementById('global-search').value.toUpperCase();
+        
+        let tableId = '';
+        if (activeTab === '提拆账单') {
+            tableId = 'pick-pending-table';
+        } else if (activeTab === '库内账单') {
+            tableId = 'warehouse-pending-table';
+        } else if (activeTab === '派送账单') {
+            tableId = 'delivery-pending-table';
+        }
+        
+        if (tableId) {
+            const table = document.getElementById(tableId);
+            if (table) {
+                const tr = table.getElementsByTagName("tr");
+                
+                for (let i = 1; i < tr.length; i++) {
+                    let found = false;
+                    const td = tr[i].getElementsByTagName("td");
+                    
+                    for (let j = 0; j < td.length; j++) {
+                        if (td[j]) {
+                            const txtValue = td[j].textContent || td[j].innerText;
+                            if (txtValue.toUpperCase().indexOf(searchTerm) > -1) {
+                                found = true;
+                                break;
+                            }
+                        }
+                    }
+                    
+                    tr[i].style.display = found ? "" : "none";
+                }
+            }
+        }
+    }
 </script>
 {% endblock %}
