@@ -39,6 +39,9 @@ class Invoice(models.Model):
     receivable_direct_amount = models.FloatField(null=True, blank=True)
 
     payable_total_amount = models.FloatField(null=True, blank=True)
+    payable_preport_amount = models.FloatField(null=True, blank=True)
+    payable_warehouse_amount = models.FloatField(null=True, blank=True)
+    payable_delivery_amount = models.FloatField(null=True, blank=True)
     payable_basic = models.FloatField(null=True, blank=True)  # 提柜费
     payable_chassis = models.FloatField(null=True, blank=True)  # 车架费
     payable_overweight = models.FloatField(null=True, blank=True)  # 超重费
@@ -88,7 +91,7 @@ class InvoiceStatus(models.Model):
         max_length=20,
         default="pending",
         choices=[
-            ("pending", "仓库待处理"),
+            ("pending", "待处理"),
             ("warehouse_completed", "仓库已完成"),
             ("delivery_completed", "派送已完成"),
             ("warehouse_rejected", "仓库已驳回"),
@@ -106,6 +109,11 @@ class InvoiceStatus(models.Model):
             ("delivery_rejected", "派送已驳回"),
         ],
     )
+    payable_status = models.JSONField(default={
+        "pickup": "pending",  # 提拆状态
+        "warehouse": "pending",             # 仓库状态
+        "delivery": "pending"               # 派送状态
+    })
     is_rejected = models.BooleanField(default=False)
     reject_reason = models.TextField(blank=True)
     history = HistoricalRecords()

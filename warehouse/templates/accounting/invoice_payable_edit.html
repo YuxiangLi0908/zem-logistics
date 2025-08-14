@@ -246,11 +246,12 @@
                         </tr>
                     </thead>
                     <tbody>
+                        <!-- 提柜费用 -->
                         <tr>
                             <td>
                                 <div class="fee-item">
-                                    <div class="fee-icon-container">
-                                        <i class="bi bi-truck fee-icon"></i>
+                                    <div class="fee-icon-container" style="background-color: #e3f2fd;">
+                                        <i class="bi bi-truck fee-icon" style="color: #1565c0;"></i>
                                     </div>
                                     <span>提柜费用</span>
                                 </div>
@@ -269,6 +270,7 @@
                             </td>
                         </tr>
 
+                        <!-- 入库费/拆柜费 -->
                         {% if pallet_details or palletization_carrier or palletization_fee %}                            
                             <tr>
                                 <td>
@@ -351,7 +353,8 @@
                                 <td colspan="2">不产生费用</td>
                             </tr>
                         {% endif %}
-
+                        
+                        <!-- 超重费 -->
                         <tr>
                             <td>
                                 <div class="fee-item">
@@ -381,6 +384,7 @@
                             </td>
                         </tr>
                         
+                        <!-- 车架费 -->
                         <tr>
                             <td>
                                 <div class="fee-item">
@@ -453,6 +457,36 @@
                                 {% endif %}
                             {% endif %}
                         </tr>
+
+                        <!-- 港内滞港费 -->
+                        <tr>
+                            <td>
+                                <div class="fee-item">
+                                   <div class="fee-icon-container" style="background-color: #e3f2fd;">
+                                        <i class="bi bi-shop" style="color: #1565c0;"></i>
+                                    </div>
+                                    <span>滞港费用</span>
+                                </div>
+                            </td>                       
+                            <td colspan="2">
+                                <input type="text" name="demurrage_fee" value="{{ demurrage_fee|default:'' }}" oninput="calculateTotal()">
+                            </td>                      
+                        </tr>
+
+                         <!-- 港外滞港费 -->
+                        <tr>
+                            <td>
+                                <div class="fee-item">
+                                    <div class="fee-icon-container" style="background-color: #ffebee;">
+                                        <i class="bi bi-box-seam" style="color: #b71c1c;"></i>
+                                    </div>
+                                    <span>滞箱费用</span>
+                                </div>
+                            </td>                       
+                            <td colspan="2">
+                                <input type="text" name="per_diem_fee" value="{{ per_diem_fee|default:'' }}" oninput="calculateTotal()">
+                            </td>                      
+                        </tr>
                     </tbody>
                 </table>
             </div>
@@ -462,83 +496,137 @@
                     <h6 class="mb-3 d-flex align-items-center text-muted">
                         <i class="bi bi-plus-circle fee-icon me-2"></i>
                         <span>其他费用&nbsp;&nbsp;</span>
-                        <button type="button" class="btn btn-primary btn-sm ms-3" onclick="addFeeGroup()">
-                            <i class="bi bi-plus me-1"></i>添加费用
-                        </button>
                     </h6>
                 </div>
                 
-                {% for fee_name, fee_amount in pallet_other_fee.items %}
-                    <div class="fee-group row g-3 mb-3 align-items-center">
-                        <div class="fee-group row g-3 mb-3 align-items-center">
-                            {% if is_rejected %}
-                                <div class="col-md-5">
-                                    <input type="text" class="form-control" name="fee_name" 
-                                        value="{{ fee_name }}" placeholder="费用名称">
+                <div class="row">
+                    <!-- 提柜其他费用 (左侧) -->
+                    <div class="col-md-6">
+                        <div class="card mb-4">
+                            <div class="card-header py-2" style="background-color: #e3f7ff; border-left: 4px solid #1890ff;">
+                                <span class="fw-bold text-primary">
+                                    <i class="bi bi-truck me-2"></i>提柜其他费用
+                                </span>
+                                <button type="button" class="btn btn-primary btn-sm" onclick="addFeeGroup('pickup')">
+                                    <i class="bi bi-plus me-1"></i>添加费用
+                                </button>
+                            </div>
+                            <div class="card-body p-2">
+                                <div id="pickup-fees-container">
+                                    {% for fee_name, fee_amount in pickup_other_fee.items %}
+                                    <div class="fee-group row g-2 mb-2 align-items-center">
+                                        <div class="col-7">
+                                            {% if is_rejected %}
+                                                <input type="text" class="form-control form-control-sm" 
+                                                    name="pickup_fee_name" value="{{ fee_name }}" placeholder="费用名称">
+                                            {% else %}
+                                                <span class="readonly-amount">{{ fee_name }}</span>
+                                            {% endif %}
+                                        </div>
+                                        <div class="col-4">
+                                            {% if is_rejected %}
+                                                <input type="number" step="0.01" class="form-control form-control-sm fee-amount-input" 
+                                                    name="pickup_fee_amount" value="{{ fee_amount|floatformat:2 }}" 
+                                                    placeholder="金额" oninput="calculateTotal()">
+                                            {% else %}
+                                                <span class="readonly-amount">{{ fee_amount|floatformat:2 }}</span>
+                                            {% endif %}
+                                        </div>
+                                        <div class="col-1">
+                                            {% if is_rejected %}
+                                            <button type="button" class="btn btn-outline-danger btn-sm" 
+                                                    onclick="removeFeeGroup(this, 'pickup')">
+                                                <i class="bi bi-trash"></i>
+                                            </button>
+                                            {% endif %}
+                                        </div>
+                                    </div>
+                                    {% endfor %}
                                 </div>
-                                <div class="col-md-5">
-                                    <input type="number" step="0.01" class="form-control fee-amount-input" 
-                                            name="fee_amount" value="{{ fee_amount|floatformat:2 }}" 
-                                            placeholder="金额" oninput="calculateTotal()">
-                                </div>
-                                <div class="col-md-2">
-                                    <button type="button" class="btn btn-outline-danger w-100" 
-                                            onclick="removeFeeGroup(this)">
-                                        <i class="bi bi-trash"></i>
-                                    </button>
-                                </div>
-                            {% else%}
-                                <div class="col-md-5">
-                                    <span class="readonly-amount">{{ fee_name }}</span>
-                                </div>
-                                <div class="col-md-5">
-                                    <span class="readonly-amount">{{ fee_amount|floatformat:2 }}</span>
-                                </div>
-                            {% endif %}
-                        </div>
-                    </div>
-                {% endfor %}
-                <div id="additional-fees-container">
-                    {% for fee in additional_fees %}
-                    <div class="fee-group row g-3 mb-3 align-items-center">
-                        <div class="col-md-5">
-                            <input type="text" class="form-control" name="fee_name" 
-                                value="{{ fee.name }}" placeholder="费用名称">
-                        </div>
-                        <div class="col-md-5">
-                            <div class="input-group">
-                                <input type="number" step="0.01" class="form-control fee-amount-input" 
-                                    name="fee_amount" value="{{ fee.amount }}" 
-                                    placeholder="金额" oninput="calculateTotal()">
-                                <span class="input-group-text">USD</span>
                             </div>
                         </div>
-                        <div class="col-md-2">
-                            <button type="button" class="btn btn-outline-danger w-100" 
-                                    onclick="removeFeeGroup(this)">
-                                <i class="bi bi-trash"></i>
-                            </button>
+                    </div>
+                    
+                    <!-- 拆柜其他费用 (右侧) -->
+                    <div class="col-md-6">
+                        <div class="card mb-4">
+                            <div class="card-header py-2" style="background-color: #fff8e6; border-left: 4px solid #ffa940;">
+                                <span class="fw-bold" style="color: #d46b08;">
+                                    <i class="bi bi-box-seam me-2"></i>拆柜其他费用
+                                </span>
+                                <button type="button" class="btn btn-sm" style="background-color: #ffa940; color: white;" onclick="addFeeGroup('pallet')">
+                                    <i class="bi bi-plus me-1"></i>添加费用
+                                </button>
+                            </div>
+                            <div class="card-body p-2">
+                                <div id="pallet-fees-container">
+                                    {% for fee_name, fee_amount in pallet_other_fee.items %}
+                                    <div class="fee-group row g-2 mb-2 align-items-center">
+                                        <div class="col-7">
+                                            {% if is_rejected %}
+                                                <input type="text" class="form-control form-control-sm" 
+                                                    name="pallet_fee_name" value="{{ fee_name }}" placeholder="费用名称">
+                                            {% else %}
+                                                <span class="readonly-amount">{{ fee_name }}</span>
+                                            {% endif %}
+                                        </div>
+                                        <div class="col-4">
+                                            {% if is_rejected %}
+                                                <input type="number" step="0.01" class="form-control form-control-sm fee-amount-input" 
+                                                    name="pallet_fee_amount" value="{{ fee_amount|floatformat:2 }}" 
+                                                    placeholder="金额" oninput="calculateTotal()">
+                                            {% else %}
+                                                <span class="readonly-amount">{{ fee_amount|floatformat:2 }}</span>
+                                            {% endif %}
+                                        </div>
+                                        <div class="col-1">
+                                            {% if is_rejected %}
+                                            <button type="button" class="btn btn-outline-danger btn-sm" 
+                                                    onclick="removeFeeGroup(this, 'pallet')">
+                                                <i class="bi bi-trash"></i>
+                                            </button>
+                                            {% endif %}
+                                        </div>
+                                    </div>
+                                    {% endfor %}
+                                </div>
+                            </div>
                         </div>
                     </div>
-                    {% endfor %}
+                </div>        
+            </div>
+
+            <!-- 模板部分 -->
+            <div id="pickup-fee-template" style="display: none;">
+                <div class="fee-group row g-2 mb-2 align-items-center">
+                    <div class="col-7">
+                        <input type="text" class="form-control form-control-sm" name="pickup_fee_name" placeholder="费用名称">
+                    </div>
+                    <div class="col-4">
+                        <input type="number" step="0.01" class="form-control form-control-sm fee-amount-input" 
+                            name="pickup_fee_amount" placeholder="金额" oninput="calculateTotal()">
+                    </div>
+                    <div class="col-1">
+                        <button type="button" class="btn btn-outline-danger btn-sm" 
+                                onclick="removeFeeGroup(this, 'pickup')">
+                            <i class="bi bi-trash"></i>
+                        </button>
+                    </div>
                 </div>
             </div>
 
-            <div id="new-fee-template" style="display: none;">
-                <div class="fee-group row g-3 mb-3 align-items-center">
-                    <div class="col-md-5">
-                        <input type="text" class="form-control" name="fee_name" placeholder="费用名称">
+            <div id="pallet-fee-template" style="display: none;">
+                <div class="fee-group row g-2 mb-2 align-items-center">
+                    <div class="col-7">
+                        <input type="text" class="form-control form-control-sm" name="pallet_fee_name" placeholder="费用名称">
                     </div>
-                    <div class="col-md-5">
-                        <div class="input-group">
-                            <input type="number" step="0.01" class="form-control fee-amount-input" 
-                                name="fee_amount" placeholder="金额" oninput="calculateTotal()">
-                            <span class="input-group-text">USD</span>
-                        </div>
+                    <div class="col-4">
+                        <input type="number" step="0.01" class="form-control form-control-sm fee-amount-input" 
+                            name="pallet_fee_amount" placeholder="金额" oninput="calculateTotal()">
                     </div>
-                    <div class="col-md-2">
-                        <button type="button" class="btn btn-outline-danger w-100" 
-                                onclick="removeFeeGroup(this)">
+                    <div class="col-1">
+                        <button type="button" class="btn btn-outline-danger btn-sm" 
+                                onclick="removeFeeGroup(this, 'pallet')">
                             <i class="bi bi-trash"></i>
                         </button>
                     </div>
@@ -559,9 +647,10 @@
         document.getElementById('save_type').value = type;
     }
 
-    function addFeeGroup() {
-        const container = document.getElementById('additional-fees-container');
-        const template = document.getElementById('new-fee-template');
+    function addFeeGroup(type) {
+        console.log('增加新组');
+        const container = document.getElementById(`${type}-fees-container`);
+        const template = document.getElementById(`${type}-fee-template`);
         const newGroup = template.cloneNode(true);
         newGroup.style.display = 'flex';
         newGroup.removeAttribute('id');
@@ -599,7 +688,9 @@
             'overweight_fee',
             'chassis_fee',
             'arrive_fee',
-            'palletization_fee'  
+            'palletization_fee',
+            'demurrage_fee',
+            'per_diem_fee'
         ];
         
         feeFields.forEach(field => {        
@@ -615,10 +706,12 @@
             }
         });
 
-        document.querySelectorAll('input[name="fee_amount"]').forEach(input => {
+        document.querySelectorAll('input[name="pickup_fee_amount"]').forEach(input => {
             total += parseFloat(input.value) || 0;
         });
-
+        document.querySelectorAll('input[name="pallet_fee_amount"]').forEach(input => {
+            total += parseFloat(input.value) || 0;
+        });
         document.getElementById('totalAmountDisplay').textContent = total.toFixed(2);
         document.getElementById('total_amount_input').value = total.toFixed(2);
     }
