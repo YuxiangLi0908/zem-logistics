@@ -1767,6 +1767,7 @@ class FleetManagement(View):
                     "total_pallet",
                     "total_pcs",
                     "shipment_batch_number__fleet_number__carrier",
+                    "shipment_batch_number__note"
                 ]
             ]
             for row in customerInfo:
@@ -1792,6 +1793,7 @@ class FleetManagement(View):
                         int(row[4].strip()),
                         int(row[5].strip()),
                         row[6].strip(),
+                        row[9].strip(),
                     ]
                 )
             keys = arm_pickup[0]
@@ -1816,6 +1818,7 @@ class FleetManagement(View):
                     "shipment_batch_number__fleet_number__fleet_type",
                     "destination",
                     "shipping_mark",
+                    "shipment_batch_number__note"
                 )
                 .annotate(
                     total_pcs=Sum("pcs"),
