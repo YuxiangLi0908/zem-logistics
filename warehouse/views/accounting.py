@@ -3569,10 +3569,9 @@ class Accounting(View):
             else:
                 #去亚马逊/沃尔玛表找
                 rules = fee_details.get(f"{warehouse}_PUBLIC").details
-                # if warehouse=="LA":
-                #     details["LA_AMAZON"] = rules
-                # else:
-                #     details = rules
+                if warehouse=="LA":
+                    rules["LA_AMAZON"] = rules
+                
                 for pallet in pallets:
                     destination = pallet["destination"]                
                     delivery_type = None
