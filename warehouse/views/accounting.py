@@ -3569,6 +3569,7 @@ class Accounting(View):
             else:
                 #去亚马逊/沃尔玛表找
                 rules = fee_details.get(f"{warehouse}_PUBLIC").details
+                details = {}
                 if "LA" in warehouse:
                     details["LA_AMAZON"] = rules
                 else:
