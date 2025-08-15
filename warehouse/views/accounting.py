@@ -3570,13 +3570,14 @@ class Accounting(View):
                 #去亚马逊/沃尔玛表找
                 rules = fee_details.get(f"{warehouse}_PUBLIC").details
                 if "LA" in warehouse:
-                    rules["LA_AMAZON"] = rules
-                
+                    details["LA_AMAZON"] = rules
+                else:
+                    details = rules
                 for pallet in pallets:
                     destination = pallet["destination"]                
                     delivery_type = None
                     cost = 0
-                    for category, zones in rules.items():
+                    for category, zones in details.items():
                         for zone, locations in zones.items():
                             if destination in locations:
                                 if "AMAZON" in category:
