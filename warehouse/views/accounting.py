@@ -2202,9 +2202,12 @@ class Accounting(View):
 
                 updated_pallets = []
                 for plt in pallets:
+                    invoices_to_check = set()
+
                     old_invoice_delivery = plt.invoice_delivery
                     if old_invoice_delivery:
-                        old_invoice_delivery.delete()
+                        invoices_to_check.add(plt.invoice_delivery)
+                        #old_invoice_delivery.delete()
                     # try:
                     #     invoice_delivery = plt.invoice_delivery
                     #     if invoice_delivery and hasattr(invoice_delivery, "delete"):
@@ -2214,6 +2217,8 @@ class Accounting(View):
                     # pallet指向InvoiceDelivery表
                     plt.invoice_delivery = invoice_content
                     updated_pallets.append(plt)
+                for inv in invoices_to_check:
+                    inv.delete() 
                 bulk_update_with_history(
                     updated_pallets, Pallet, fields=["invoice_delivery"]
                 )
