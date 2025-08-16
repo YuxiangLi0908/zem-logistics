@@ -2115,7 +2115,7 @@ class Accounting(View):
         plt_ids = [id for s, id in zip(selections, plt_ids) if s == "on"]
         alter_type = request.POST.get("alter_type")
 
-        # 如果是改公仓/私仓，是一个方法，否则是旧方法
+        # 如果是改公仓/私仓，是一个方法，否则是选派送类别
         if alter_type == "transferDes":
             # 更改公仓/私仓类别
             plt_delivery_type = request.POST.getlist("plt_delivery_type")
@@ -2157,9 +2157,9 @@ class Accounting(View):
             for i in range(len((plt_ids))):
                 ids = plt_ids[i].split(",")
                 ids = [int(id) for id in ids]
-                pallet = Pallet.objects.filter(id__in=ids)
+                pallets = Pallet.objects.filter(id__in=ids)
                 current_date = datetime.now().date()
-                invoice_delivery = f"{current_date.strftime('%Y-%m-%d').replace('-', '')}-{alter_type}-{destination[i]}-{len(pallet)}"
+                invoice_delivery = f"{current_date.strftime('%Y-%m-%d').replace('-', '')}-{alter_type}-{destination[i]}-{len(pallets)}"
                 invoice_content = InvoiceDelivery(
                     **{
                         "invoice_delivery": invoice_delivery,
@@ -2201,13 +2201,16 @@ class Accounting(View):
                 invoice_content.save()
 
                 updated_pallets = []
-                for plt in pallet:
-                    try:
-                        invoice_delivery = plt.invoice_delivery
-                        if invoice_delivery and hasattr(invoice_delivery, "delete"):
-                            invoice_delivery.delete()
-                    except InvoiceDelivery.DoesNotExist:
-                        pass
+                for plt in pallets:
+                    old_invoice_delivery = pallet.invoice_delivery
+                    if old_invoice_delivery:
+                        old_invoice_delivery.delete()
+                    # try:
+                    #     invoice_delivery = plt.invoice_delivery
+                    #     if invoice_delivery and hasattr(invoice_delivery, "delete"):
+                    #         invoice_delivery.delete()
+                    # except InvoiceDelivery.DoesNotExist:
+                    #     pass
                     # pallet指向InvoiceDelivery表
                     plt.invoice_delivery = invoice_content
                     updated_pallets.append(plt)
@@ -3504,6 +3507,7 @@ class Accounting(View):
             "delivery_method",
             "invoice_delivery__type",
             "delivery_type",
+            "PO_ID",
         ]
         common_aggregates = {
             "total_cbm": Sum("cbm", output_field=FloatField()),
