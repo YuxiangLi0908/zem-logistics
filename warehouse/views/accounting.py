@@ -3504,7 +3504,6 @@ class Accounting(View):
             "delivery_method",
             "invoice_delivery__type",
             "delivery_type",
-            "pallet_id",
         ]
         common_aggregates = {
             "total_cbm": Sum("cbm", output_field=FloatField()),
