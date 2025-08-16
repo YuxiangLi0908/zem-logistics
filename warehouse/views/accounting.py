@@ -2202,7 +2202,7 @@ class Accounting(View):
 
                 updated_pallets = []
                 for plt in pallets:
-                    old_invoice_delivery = pallet.invoice_delivery
+                    old_invoice_delivery = plt.invoice_delivery
                     if old_invoice_delivery:
                         old_invoice_delivery.delete()
                     # try:
