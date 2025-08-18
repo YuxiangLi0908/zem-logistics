@@ -282,6 +282,7 @@ class PO(View):
                 models.Q(last_eta_checktime__isnull=True)
                 & models.Q(vessel_eta__lte=today + timedelta(days=7))
                 & models.Q(vessel_eta__gte=today)
+                & models.Q(ref_id__isnull=False)
             )
             area = request.POST.get("area")
             query &= models.Q(
@@ -317,6 +318,7 @@ class PO(View):
             query = (
                 models.Q(last_retrieval_checktime__isnull=True)
                 & models.Q(vessel_eta__lte=today + timedelta(days=7))
+                & models.Q(ref_id__isnull=False)
                 & models.Q(
                     container_number__order__retrieval_id__target_retrieval_timestamp__gte=today
                 )
@@ -359,6 +361,7 @@ class PO(View):
                 query &= models.Q(
                     container_number__order__retrieval_id__retrieval_destination_area=area
                 )
+            query &= models.Q(ref_id__isnull=False)
             po_checks = await sync_to_async(PoCheckEtaSeven.objects.filter)(query)
             po_checks_list = await sync_to_async(list)(po_checks)
             po_checks_list.sort(key=lambda po: po.is_notified)
@@ -399,6 +402,7 @@ class PO(View):
             criteria &= models.Q(
                 container_number__order__retrieval_id__retrieval_destination_area=area
             )
+            criteria &= models.Q(ref_id__isnull=False)
             # 1、按ETA去筛选记录，2、将失效的记录排在前面
             po_checks = await sync_to_async(PoCheckEtaSeven.objects.filter)(criteria)
             po_checks = po_checks.annotate(
