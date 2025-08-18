@@ -198,7 +198,6 @@
         <th style="width: 13.1%; border:1px solid black;">pallets</th>
         <th style="width: 13.1%; border:1px solid black;">pcs</th>
         <th style="width: 12.9%; border:1px solid black;">carrier</th>
-        <th style="width: 12.9%; border:1px solid black;">note</th>
         <th style="width: 7.1%; border: none;"></th>
     </thead>
     {% for p in arm_pickup %}
@@ -210,10 +209,9 @@
         <td style="text-align:center; border:1px solid black;">{{ p.total_pallet }}</td>
         <td style="text-align:center; border:1px solid black;">{{ p.total_pcs }}</td>
         <td style="text-align:center; border:1px solid black;">{{ p.shipment_batch_number__fleet_number__carrier }}</td>
-        <td style="text-align:center; border:1px solid black;">{{ p.shipment_batch_number__note }}</td>
         <th style="width: 7.1%; border: none;"></th>
     </tr>
     {% endfor %}
 </table>
-</table>
+{{ p.shipment_batch_number__note }}
 {% endblock %}
