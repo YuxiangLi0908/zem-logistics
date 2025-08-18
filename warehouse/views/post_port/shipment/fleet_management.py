@@ -2040,10 +2040,11 @@ class FleetManagement(View):
                     else:
                         cell.set_width(0.12)
 
-                table_bottom = len(df) * 0.03  
-                note_position = table_bottom + 0.05  
-
-                ax.text(0.05, -(note_position), f"Notes: {notes}", fontsize=12, va='top', ha='left')
+                table_bbox = the_table.get_window_extent(renderer=ax.figure.canvas.get_renderer())
+                table_bbox = table_bbox.transformed(ax.transAxes.inverted())  # 转换为相对坐标
+                table_bottom = table_bbox.y0
+                ax.text(0.05, table_bottom - 0.01, f"Notes: {notes}", fontsize=12, va='top', ha='left',
+                        transform=ax.transAxes)
 
                 # 保存表格和 Notes 内容到 buffer
                 buf_table = io.BytesIO()
