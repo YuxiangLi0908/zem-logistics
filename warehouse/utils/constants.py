@@ -45,6 +45,7 @@ CONTAINER_PICKUP_CARRIER = [
     ("Eric", "Eric"),
     ("客户自提", "客户自提"),
     ("GM", "GM"),
+    ("客户自送", "客户自送"),
 ]
 
 CLEARANCE_OPTIONS = [
