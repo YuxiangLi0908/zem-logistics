@@ -151,6 +151,7 @@ class FleetManagement(View):
         if not await self._user_authenticate(request):
             return redirect("login")
         step = request.POST.get("step")
+        print('post step',step)
         if step == "fleet_warehouse_search":
             template, context = await self.handle_fleet_warehouse_search_post(request)
             return render(request, template, context)
@@ -1833,6 +1834,7 @@ class FleetManagement(View):
         pallet = 0
         pcs = 0
         shipping_mark = ""
+        notes = ""
         for arm in arm_pickup:
             arm_pro = arm["shipment_batch_number__ARM_PRO"]
             carrier = arm["shipment_batch_number__fleet_number__carrier"]
@@ -1841,6 +1843,7 @@ class FleetManagement(View):
             container_number = arm["container_number__container_number"]
             destination = arm["destination"]
             shipping_mark += arm["shipping_mark"]
+            notes += arm["shipment_batch_number__note"]
             marks = arm["shipping_mark"]
             if marks:
                 array = marks.split(",")
@@ -1887,6 +1890,7 @@ class FleetManagement(View):
             "contact": contact,
             "contact_flag": contact_flag,
             "pickup_time": pickup_time,
+            "notes": notes,
         }
         template = get_template(self.template_ltl_bol)
         html = template.render(context)
@@ -1906,6 +1910,7 @@ class FleetManagement(View):
     async def handle_bol_upload_post(self, request: HttpRequest) -> HttpResponse:
         fleet_number = request.POST.get("fleet_number")
         customerInfo = request.POST.get("customerInfo")
+        notes = ""
         # 如果在界面输入了，就用界面添加后的值
         if customerInfo and customerInfo != "[]":
             customer_info = json.loads(customerInfo)
@@ -1953,6 +1958,7 @@ class FleetManagement(View):
                     "shipment_batch_number__fleet_number__fleet_type",
                     "shipment_batch_number__fleet_number__carrier",
                     "shipment_batch_number__fleet_number__appointment_datetime",
+                    "shipment_batch_number__note"
                 )
                 .annotate(
                     total_pcs=Count("pcs", distinct=True),
@@ -1984,6 +1990,7 @@ class FleetManagement(View):
                             p_time,
                         ]
                     )
+                    notes += p["shipment_batch_number__note"]
                 arm_pickup = [
                     [
                         "container",
@@ -1995,6 +2002,8 @@ class FleetManagement(View):
                         "pickup",
                     ]
                 ] + new_list
+            else:
+                raise ValueError('柜子未拆柜，请核实')
             s_time = arm_pickup[1][-1]
             dt = datetime.strptime(s_time, "%Y-%m-%d")
             new_string = dt.strftime("%m-%d")
@@ -2004,19 +2013,20 @@ class FleetManagement(View):
         files = request.FILES.getlist("files")
         if files:
             for file in files:
-                # 文件有固定的命名格式，第一个-后面的是日期，需要将文件放到指令目录下按照日期存放
-                # 需要加拣货单
-                fig, ax = plt.subplots(figsize=(10.4, 8.5))
+                fig, ax = plt.subplots(figsize=(10.4, 8.5)) 
                 ax.axis("tight")
                 ax.axis("off")
                 fig.subplots_adjust(top=1.5)
+
+                # 创建表格
                 the_table = ax.table(
                     cellText=df.values,
                     colLabels=df.columns,
                     loc="upper center",
                     cellLoc="center",
                 )
-                # 规定拣货单的表格大小
+
+                # 设置表格样式
                 for pos, cell in the_table.get_celld().items():
                     cell.set_fontsize(50)
                     if pos[0] != 1:
@@ -2030,20 +2040,29 @@ class FleetManagement(View):
                     else:
                         cell.set_width(0.12)
 
-                buf = io.BytesIO()
-                fig.savefig(buf, format="pdf", bbox_inches="tight")
-                buf.seek(0)
+                table_bottom = len(df) * 0.03  
+                note_position = table_bottom + 0.05  
+
+                ax.text(0.05, -(note_position), f"Notes: {notes}", fontsize=12, va='top', ha='left')
+
+                # 保存表格和 Notes 内容到 buffer
+                buf_table = io.BytesIO()
+                fig.savefig(buf_table, format="pdf", bbox_inches="tight")
+                buf_table.seek(0)
+
+                # 合并PDF
                 merger = PdfMerger()
                 temp_pdf_io = io.BytesIO(file.read())
-                temp_pdf_reader = PdfReader(temp_pdf_io)
-                merger.append(temp_pdf_reader)
-                buf.seek(0)
-                merger.append(PdfReader(buf))
+                merger.append(PdfReader(temp_pdf_io))  
+                merger.append(PdfReader(buf_table))   
+
+                # 写入输出文件
                 output_buf = io.BytesIO()
                 merger.write(output_buf)
                 output_buf.seek(0)
-                # merger.close()
+
                 file_name = file.name
+
         response = HttpResponse(output_buf.getvalue(), content_type="application/pdf")
         # response = StreamingHttpResponse(new_file, content_type="application/pdf")
         response["Content-Disposition"] = (
