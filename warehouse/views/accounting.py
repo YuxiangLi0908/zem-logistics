@@ -2369,9 +2369,9 @@ class Accounting(View):
             invoice_status.reject_reason = ""
             
         #修改payable_status字段
-        for key, value in invoice_status.items():
+        for key, value in invoice_status.payable_status.items():
             if value != "confirmed":
-                invoice_status[key] = "pending"
+                invoice_status.payable_status[key] = "pending"
         invoice_status.save()
         return self.handle_invoice_payable_get(
             request,
