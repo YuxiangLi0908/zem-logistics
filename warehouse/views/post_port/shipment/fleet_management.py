@@ -2050,7 +2050,7 @@ class FleetManagement(View):
                     0.05,
                     table_bottom - 0.01,
                     f"Notes: {notes}",
-                    fontdict={'family': 'SimHei', 'size': 12},
+                    fontdict={'family': 'STSong-Light', 'size': 12},
                     va='top',
                     ha='left',
                     transform=ax.transAxes
