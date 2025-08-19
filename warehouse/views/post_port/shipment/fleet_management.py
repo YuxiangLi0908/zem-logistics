@@ -2043,8 +2043,15 @@ class FleetManagement(View):
                 table_bbox = the_table.get_window_extent(renderer=ax.figure.canvas.get_renderer())
                 table_bbox = table_bbox.transformed(ax.transAxes.inverted())  # 转换为相对坐标
                 table_bottom = table_bbox.y0
-                ax.text(0.05, table_bottom - 0.01, f"Notes: {notes}", fontdict={'family': 'STSong-Light', 'size': 12}, va='top', ha='left',
-                        transform=ax.transAxes)
+                ax.text(
+                    0.05, 
+                    table_bottom - 0.01, 
+                    f"Notes: {notes}", 
+                    fontdict={'family': 'SimHei', 'size': 12}, 
+                    va='top', 
+                    ha='left',
+                    transform=ax.transAxes
+                )
 
                 # 保存表格和 Notes 内容到 buffer
                 buf_table = io.BytesIO()
