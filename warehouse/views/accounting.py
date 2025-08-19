@@ -3680,11 +3680,11 @@ class Accounting(View):
             .values("destination")
             .annotate(total_cbm=Sum("cbm"))
         )
-    
+        total_cbm_sum = sum(item['total_cbm'] for item in plts_by_destination)
         # 区分组合柜区域和非组合柜区域
         container_type_temp = 0 if container_type == "40HQ/GP" else 1
         matched_regions = self.find_matching_regions(
-            plts_by_destination, combina_fee, container_type_temp
+            plts_by_destination, combina_fee, container_type_temp, total_cbm_sum
         )
         # 判断是否混区，False表示满足混区条件
         is_mix = self.is_mixed_region(matched_regions["matching_regions"], warehouse, vessel_etd)
@@ -3694,7 +3694,7 @@ class Accounting(View):
             container.save()
             return False
         # 非组合柜区域
-        non_combina_region_count = len(matched_regions["non_combina_dests"])
+        non_combina_region_count = len(matched_regions["non_combina_dests"].keys())
         # 组合柜区域
         combina_region_count = len(matched_regions["combina_dests"])
         
@@ -4026,8 +4026,6 @@ class Accounting(View):
                 non_combina_dests[largest_dest]["cbm_ratio"] = round(
                     non_combina_dests[largest_dest]["cbm_ratio"] + diff, 4
                 )
-        print('des_match_quote',des_match_quote)
-        print('non_combina_dests',non_combina_dests)
         return {
             "des_match_quote": des_match_quote,
             "matching_regions": matching_regions,
@@ -4147,10 +4145,8 @@ class Accounting(View):
             .values("destination")
             .annotate(total_cbm=Sum("cbm"))
         )
-        print('plts_by_destination',plts_by_destination)
         #这里之前是
         total_cbm_sum = sum(item['total_cbm'] for item in plts_by_destination)
-        print(total_cbm_sum)
         # 区分组合柜区域和非组合柜区域
         container_type_temp = 0 if container_type == "40HQ/GP" else 1
         matched_regions = self.find_matching_regions(
@@ -4232,7 +4228,14 @@ class Accounting(View):
                     {
                         "key": region,
                         "cbm": round(matching_regions[region], 2),
-                        "rate": 1,
+                        "rate": round(
+                            sum(
+                                match["cbm_ratio"] 
+                                for dest in data["location"]  
+                                for match in des_match_quote.get(dest, []) 
+                            ),
+                            4,  
+                        ),
                         "price": data["price"],
                         "location": ", ".join(data["location"]),
                     }
@@ -4251,7 +4254,6 @@ class Accounting(View):
                     ]
 
                     cbm_ratio = round(total_cbm / total_cbm_sum,4)
-                    print('cbm_ratio',cbm_ratio)
                     cbm_ratios.append(cbm_ratio)
                     fees.append(fee)
                 sum_ratios = sum(cbm_ratios)
@@ -4263,15 +4265,19 @@ class Accounting(View):
                     base_fee += fees[i] * adjusted_ratio
                 
                 base_fee = round(base_fee, 2)
-                print('cbm_ratios',cbm_ratios)
-                for region, data in price_display.items():
-                    print(region)
-                    print(data)
+                
                 price_display_new = [
                     {
                         "key": region,
                         "cbm": round(matching_regions[region], 2),
-                        "rate": next((cbm_ratios[i] for i, (r, _) in enumerate(regions_list) if r == region), 0),
+                        "rate": round(
+                            sum(
+                                match["cbm_ratio"]  # 遍历所有匹配的 location 并累加 cbm_ratio
+                                for dest in data["location"]  # 遍历当前 region 的所有 location
+                                for match in des_match_quote.get(dest, [])  # 获取该 location 的所有匹配项
+                            ),
+                            4,  
+                        ),
                         "price": data["price"],
                         "location": ", ".join(data["location"]),
                     }
