@@ -68,6 +68,8 @@ from warehouse.views.export_file import link_callback
 
 matplotlib.use("Agg")
 matplotlib.rcParams["font.size"] = 100
+matplotlib.rcParams["font.family"] = ["SimHei", "WenQuanYi Micro Hei", "Heiti TC"]
+matplotlib.rcParams["axes.unicode_minus"] = False
 plt.rcParams["font.sans-serif"] = ["SimHei"]
 
 
@@ -2044,16 +2046,11 @@ class FleetManagement(View):
                     else:
                         cell.set_width(0.12)
 
-                    if pos[0] - 1 == len(df):  # 如果是最后一行
-                        cell.set_edgecolor('none')  # 隐藏该行的边框
-                        if pos[1] - 1 == len(df.columns) - 1:  # 最后一列的 notes 单元格
-                            cell.set_text_props(ha='center', va='center')  # 对齐方式
-
-                        # 合并最后一行的所有单元格
-                        if pos[0] - 1 == len(df):  
-                            if pos[1] != len(df.columns) - 1:  # 合并行的其他单元格
-                                cell.set_edgecolor('none')  # 隐藏边框
-                                cell.set_text_props(visible=False)  # 隐藏文本内容
+                table_bbox = the_table.get_window_extent(renderer=ax.figure.canvas.get_renderer())
+                table_bbox = table_bbox.transformed(ax.transAxes.inverted())  # 转换为相对坐标
+                table_bottom = table_bbox.y0
+                ax.text(0.05, table_bottom - 0.01, f"Notes: {notes}", fontsize=12, va='top', ha='left',
+                        transform=ax.transAxes)
 
                 # 保存表格内容到 buffer
                 buf_table = io.BytesIO()
