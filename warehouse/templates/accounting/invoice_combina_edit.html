@@ -945,9 +945,9 @@
             newRow.className = 'row align-items-center mb-2 g-2';
             newRow.innerHTML = `
                 <div class="col-md-3">
-                    <label class="form-label fw-bold">新费用:</label>
-                    <input type="hidden" class="form-control form-control-sm name-input" 
-                        name="${namePrefix}[${index}][name]" value="新费用">
+                    <small class="text-muted d-md-none">费用名称</small>
+                    <input type="text" class="form-control form-control-sm name-input" 
+                        name="${namePrefix}[${index}][name]" value="" placeholder="输入费用名称">
                 </div>
                 <div class="col-md-2">
                     <small class="text-muted d-md-none">单价</small>
