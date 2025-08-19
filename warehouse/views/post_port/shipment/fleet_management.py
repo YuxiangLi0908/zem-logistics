@@ -68,7 +68,9 @@ from warehouse.views.export_file import link_callback
 
 matplotlib.use("Agg")
 matplotlib.rcParams["font.size"] = 100
-plt.rcParams["font.sans-serif"] = ["SimHei"]
+matplotlib.rcParams["font.family"] = ["SimHei", "WenQuanYi Micro Hei", "Heiti TC"]
+matplotlib.rcParams["axes.unicode_minus"] = False
+plt.rcParams["font.sans-serif"] = ["Microsoft YaHei"]
 
 
 class FleetManagement(View):
