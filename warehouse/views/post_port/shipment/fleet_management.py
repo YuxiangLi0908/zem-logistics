@@ -2047,11 +2047,11 @@ class FleetManagement(View):
                 table_bbox = table_bbox.transformed(ax.transAxes.inverted())  # 转换为相对坐标
                 table_bottom = table_bbox.y0
                 ax.text(
-                    0.05, 
-                    table_bottom - 0.01, 
-                    f"Notes: {notes}", 
-                    fontdict={'family': 'SimHei', 'size': 12}, 
-                    va='top', 
+                    0.05,
+                    table_bottom - 0.01,
+                    f"Notes: {notes}",
+                    fontdict={'family': 'STSong-Light', 'size': 12},
+                    va='top',
                     ha='left',
                     transform=ax.transAxes
                 )
