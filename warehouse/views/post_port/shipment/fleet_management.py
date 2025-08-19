@@ -2013,14 +2013,18 @@ class FleetManagement(View):
         files = request.FILES.getlist("files")
         if files:
             for file in files:
-                fig, ax = plt.subplots(figsize=(10.4, 8.5)) 
+                fig, ax = plt.subplots(figsize=(10.4, 8.5))  # 保持页面大小不变
                 ax.axis("tight")
                 ax.axis("off")
                 fig.subplots_adjust(top=1.5)
 
+                # 创建表格数据，包括 df 的内容和一个新的用于显示 notes 的行
+                notes_row = [notes] + [''] * (len(df.columns) - 1)  # 将 notes 填充为一行，最后一个单元格显示 notes
+                table_data = df.values.tolist() + [notes_row]  # 将 notes 行添加为最后一行
+
                 # 创建表格
                 the_table = ax.table(
-                    cellText=df.values,
+                    cellText=table_data,
                     colLabels=df.columns,
                     loc="upper center",
                     cellLoc="center",
@@ -2029,7 +2033,7 @@ class FleetManagement(View):
                 # 设置表格样式
                 for pos, cell in the_table.get_celld().items():
                     cell.set_fontsize(50)
-                    if pos[0] != 1:
+                    if pos[0] != 1:  # 第一行的标题行
                         cell.set_height(0.03)
                     else:
                         cell.set_height(0.02)
@@ -2040,12 +2044,18 @@ class FleetManagement(View):
                     else:
                         cell.set_width(0.12)
 
-                table_bottom = len(df) * 0.03  
-                note_position = table_bottom + 0.05  
+                    if pos[0] - 1 == len(df):  # 如果是最后一行
+                        cell.set_edgecolor('none')  # 隐藏该行的边框
+                        if pos[1] - 1 == len(df.columns) - 1:  # 最后一列的 notes 单元格
+                            cell.set_text_props(ha='center', va='center')  # 对齐方式
 
-                ax.text(0.05, -(note_position), f"Notes: {notes}", fontsize=12, va='top', ha='left')
+                        # 合并最后一行的所有单元格
+                        if pos[0] - 1 == len(df):  
+                            if pos[1] != len(df.columns) - 1:  # 合并行的其他单元格
+                                cell.set_edgecolor('none')  # 隐藏边框
+                                cell.set_text_props(visible=False)  # 隐藏文本内容
 
-                # 保存表格和 Notes 内容到 buffer
+                # 保存表格内容到 buffer
                 buf_table = io.BytesIO()
                 fig.savefig(buf_table, format="pdf", bbox_inches="tight")
                 buf_table.seek(0)
@@ -2053,15 +2063,15 @@ class FleetManagement(View):
                 # 合并PDF
                 merger = PdfMerger()
                 temp_pdf_io = io.BytesIO(file.read())
-                merger.append(PdfReader(temp_pdf_io))  
-                merger.append(PdfReader(buf_table))   
+                merger.append(PdfReader(temp_pdf_io))  # 原始上传的PDF
+                merger.append(PdfReader(buf_table))    # 添加表格和 notes
 
                 # 写入输出文件
                 output_buf = io.BytesIO()
                 merger.write(output_buf)
                 output_buf.seek(0)
-
                 file_name = file.name
+
 
         response = HttpResponse(output_buf.getvalue(), content_type="application/pdf")
         # response = StreamingHttpResponse(new_file, content_type="application/pdf")

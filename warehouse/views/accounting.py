@@ -3909,12 +3909,12 @@ class Accounting(View):
         return total_pallet
 
     def find_matching_regions(
-        self, plts_by_destination: dict, combina_fee: dict, container_type
+        self, plts_by_destination: dict, combina_fee: dict, container_type, total_cbm_sum:FloatField
     ) -> dict:
         matching_regions = defaultdict(float)  #各区的cbm总和
         des_match_quote = {}  #各仓点的匹配详情
         destination_matches = set() #组合柜的仓点
-        non_combina_dests = set()  #非组合柜的仓点
+        non_combina_dests = {}  #非组合柜的仓点
         price_display = defaultdict(lambda: {"price": 0.0, "location": set()}) #各区的价格和仓点
         dest_cbm_list = []  #临时存储初筛组合柜内的cbm和匹配信息
 
@@ -3948,7 +3948,6 @@ class Accounting(View):
                         price_display[region]["location"].add(dest)
                         matched = True
                         
-
             # 记录匹配结果
             if dest_matches:
                 des_match_quote[dest] = dest_matches
@@ -3961,7 +3960,7 @@ class Accounting(View):
                 destination_matches.add(dest)
             elif not matched:
                 # 非组合柜仓点
-                non_combina_dests.add(dest)  
+                non_combina_dests[dest] = {"cbm": cbm}
         
         if len(destination_matches) > 12:
             #按cbm降序排序，将cbm大的归到非组合
@@ -3987,9 +3986,48 @@ class Accounting(View):
             
             # 其余仓点转为非组合柜
             for item in sorted_dests[12:]:
-                non_combina_dests.add(item["dest"])
+                non_combina_dests[item["dest"]] = {"cbm": item["cbm"]}
                 # 将cbm大的从组合柜集合中删除
                 des_match_quote.pop(item["dest"], None) 
+
+        #下面开始计算组合柜和非组合柜各仓点占总体积的比例
+        total_ratio = 0.0
+        ratio_info = []
+        
+        # 处理组合柜仓点的cbm_ratio
+        for dest, matches in des_match_quote.items():
+            cbm = matches[0]["cbm"]  # 同一个dest的cbm在所有matches中相同
+            ratio = round(cbm / total_cbm_sum, 4)
+            total_ratio += ratio
+            ratio_info.append((dest, ratio, cbm, True))  # 最后一个参数表示是否是组合柜
+            for match in matches:
+                match["cbm_ratio"] = ratio
+        
+        # 处理非组合柜仓点的cbm_ratio
+        for dest, data in non_combina_dests.items():
+            cbm = data["cbm"]
+            ratio = round(cbm / total_cbm_sum, 4)
+            total_ratio += ratio
+            ratio_info.append((dest, ratio, cbm, False))
+            data["cbm_ratio"] = ratio
+        
+        # 处理四舍五入导致的误差
+        if abs(total_ratio - 1.0) > 0.0001:  # 考虑浮点数精度
+            # 找到CBM最大的仓点
+            ratio_info.sort(key=lambda x: x[2], reverse=True)
+            largest_dest, largest_ratio, largest_cbm, is_combi = ratio_info[0]
+            
+            # 调整最大的仓点的ratio
+            diff = 1.0 - total_ratio
+            if is_combi:
+                for match in des_match_quote[largest_dest]:
+                    match["cbm_ratio"] = round(match["cbm_ratio"] + diff, 4)
+            else:
+                non_combina_dests[largest_dest]["cbm_ratio"] = round(
+                    non_combina_dests[largest_dest]["cbm_ratio"] + diff, 4
+                )
+        print('des_match_quote',des_match_quote)
+        print('non_combina_dests',non_combina_dests)
         return {
             "des_match_quote": des_match_quote,
             "matching_regions": matching_regions,
@@ -4109,11 +4147,14 @@ class Accounting(View):
             .values("destination")
             .annotate(total_cbm=Sum("cbm"))
         )
+        print('plts_by_destination',plts_by_destination)
+        #这里之前是
         total_cbm_sum = sum(item['total_cbm'] for item in plts_by_destination)
+        print(total_cbm_sum)
         # 区分组合柜区域和非组合柜区域
         container_type_temp = 0 if container_type == "40HQ/GP" else 1
         matched_regions = self.find_matching_regions(
-            plts_by_destination, combina_fee, container_type_temp
+            plts_by_destination, combina_fee, container_type_temp,total_cbm_sum
         )
         # 判断是否混区，除了LA的CDEF不能混，别的都能混
         is_mix = self.is_mixed_region(matched_regions["matching_regions"], warehouse, vessel_etd)
@@ -4210,7 +4251,9 @@ class Accounting(View):
                     fee = combina_fee[region][0]["prices"][
                         0 if container_type == "40HQ/GP" else 1
                     ]
+
                     cbm_ratio = round(total_cbm / total_cbm_sum,4)
+                    print('cbm_ratio',cbm_ratio)
                     cbm_ratios.append(cbm_ratio)
                     fees.append(fee)
                 sum_ratios = sum(cbm_ratios)
@@ -4222,6 +4265,10 @@ class Accounting(View):
                     base_fee += fees[i] * adjusted_ratio
                 
                 base_fee = round(base_fee, 2)
+                print('cbm_ratios',cbm_ratios)
+                for region, data in price_display.items():
+                    print(region)
+                    print(data)
                 price_display_new = [
                     {
                         "key": region,
