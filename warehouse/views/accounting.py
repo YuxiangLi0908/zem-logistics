@@ -4160,7 +4160,7 @@ class Accounting(View):
         is_mix = self.is_mixed_region(matched_regions["matching_regions"], warehouse, vessel_etd)
 
         # 非组合柜区域
-        non_combina_region_count = len(matched_regions["non_combina_dests"])
+        non_combina_region_count = len(matched_regions["non_combina_dests"].keys())
         # 组合柜区域
         combina_region_count = len(matched_regions["combina_dests"])
         # 组合柜对应的区
@@ -4173,9 +4173,7 @@ class Accounting(View):
         non_combina_cbm = (
             Pallet.objects.filter(
                 container_number__container_number=container_number,
-                destination__in=matched_regions[
-                    "non_combina_dests"
-                ],  # 过滤非组合柜仓点
+                destination__in=matched_regions["non_combina_dests"].keys(),  # 过滤非组合柜仓点
             ).aggregate(Sum("cbm"))["cbm__sum"]
             or 0
         )  # 处理可能为None的情况
@@ -4205,7 +4203,7 @@ class Accounting(View):
                     stipulate["global_rules"]["bulk_threshold"]["default"]
                     - stipulate["global_rules"]["max_mixed"]["default"]
                 )
-                reason = f"规定{stipulate_non_combina}个非组合柜区，但是有{non_combina_region_count}个：{matched_regions['non_combina_dests']}，所以按照转运方式统计价格"
+                reason = f"规定{stipulate_non_combina}个非组合柜区，但是有{non_combina_region_count}个：{list(matched_regions['non_combina_dests'].keys())}，所以按照转运方式统计价格"
                 # reason = '不满足组合柜区域要求'
             actual_fees = self._combina_get_extra_fees(invoice)
             context["reason"] = reason
@@ -4364,7 +4362,7 @@ class Accounting(View):
                 plts_by_destination_overregion = (
                     Pallet.objects.filter(
                         container_number__container_number=container_number,
-                        destination__in=matched_regions["non_combina_dests"],
+                        destination__in=matched_regions["non_combina_dests"].keys(),
                     )
                     .values("destination")
                     .annotate(
@@ -4512,7 +4510,7 @@ class Accounting(View):
                 "is_overregion": is_overregion,
                 "extra_fees": actual_fees,
                 "destination_matches": matched_regions["combina_dests"],
-                "non_combina_dests": matched_regions["non_combina_dests"],
+                "non_combina_dests": list(matched_regions["non_combina_dests"].keys()),
             }
         )
         return self.template_invoice_combina_edit, context
