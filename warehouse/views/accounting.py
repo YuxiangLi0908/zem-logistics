@@ -4224,6 +4224,13 @@ class Accounting(View):
                 base_fee = combina_fee[region][0]["prices"][
                     0 if container_type == "40HQ/GP" else 1
                 ]
+                total_ratio = sum(
+                    match["cbm_ratio"]
+                    for dest in des_match_quote.keys() 
+                    for match in des_match_quote[dest]  
+                    if match["region"] == region 
+                )
+                base_fee *= total_ratio
                 price_display_new = [
                     {
                         "key": region,
@@ -4243,26 +4250,6 @@ class Accounting(View):
                 ]
             else:  # 允许混区的情况
                 price_display_new = None
-
-                #计算所有的cbm_ratio
-                cbm_ratios = []
-                fees = []
-                regions_list = list(matching_regions.items()) 
-                for region, total_cbm in regions_list:
-                    fee = combina_fee[region][0]["prices"][
-                        0 if container_type == "40HQ/GP" else 1
-                    ]
-
-                    cbm_ratio = round(total_cbm / total_cbm_sum,4)
-                    cbm_ratios.append(cbm_ratio)
-                    fees.append(fee)
-                sum_ratios = sum(cbm_ratios)
-                max_ratio_idx = cbm_ratios.index(max(cbm_ratios))
-                cbm_ratios[max_ratio_idx] += (1 - sum_ratios)
-
-                for i, (region, total_cbm) in enumerate(regions_list):
-                    adjusted_ratio = cbm_ratios[i]
-                    base_fee += fees[i] * adjusted_ratio
                 
                 base_fee = round(base_fee, 2)
                 
@@ -4283,6 +4270,10 @@ class Accounting(View):
                     }
                     for region, data in price_display.items()
                 ]
+                base_fee = round(
+                    sum(item["price"] * item["rate"] for item in price_display_new),
+                    2
+                )
         if not price_display_new:
             container.account_order_type = "转运"
             container.save()
