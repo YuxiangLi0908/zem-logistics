@@ -68,9 +68,7 @@ from warehouse.views.export_file import link_callback
 
 matplotlib.use("Agg")
 matplotlib.rcParams["font.size"] = 100
-matplotlib.rcParams["font.family"] = ["SimHei", "WenQuanYi Micro Hei", "Heiti TC"]
-matplotlib.rcParams["axes.unicode_minus"] = False
-plt.rcParams["font.sans-serif"] = ["Microsoft YaHei"]
+plt.rcParams["font.sans-serif"] = ["SimHei"]
 
 
 class FleetManagement(View):
@@ -1836,7 +1834,7 @@ class FleetManagement(View):
         pallet = 0
         pcs = 0
         shipping_mark = ""
-        notes = ""
+        notes = set()
         for arm in arm_pickup:
             arm_pro = arm["shipment_batch_number__ARM_PRO"]
             carrier = arm["shipment_batch_number__fleet_number__carrier"]
@@ -1845,7 +1843,7 @@ class FleetManagement(View):
             container_number = arm["container_number__container_number"]
             destination = arm["destination"]
             shipping_mark += arm["shipping_mark"]
-            notes += arm["shipment_batch_number__note"]
+            notes.add(arm["shipment_batch_number__note"])
             marks = arm["shipping_mark"]
             if marks:
                 array = marks.split(",")
@@ -1858,6 +1856,7 @@ class FleetManagement(View):
                 else:
                     new_marks = marks
             arm["shipping_mark"] = new_marks
+        notes_str = "<br>".join(filter(None, notes))
         # 生成条形码
 
         barcode_type = "code128"
@@ -1892,7 +1891,7 @@ class FleetManagement(View):
             "contact": contact,
             "contact_flag": contact_flag,
             "pickup_time": pickup_time,
-            "notes": notes,
+            "notes": notes_str,
         }
         template = get_template(self.template_ltl_bol)
         html = template.render(context)
@@ -2045,8 +2044,15 @@ class FleetManagement(View):
                 table_bbox = the_table.get_window_extent(renderer=ax.figure.canvas.get_renderer())
                 table_bbox = table_bbox.transformed(ax.transAxes.inverted())  # 转换为相对坐标
                 table_bottom = table_bbox.y0
-                ax.text(0.05, table_bottom - 0.01, f"Notes: {notes}", fontsize=12, va='top', ha='left',
-                        transform=ax.transAxes)
+                ax.text(
+                    0.05,
+                    table_bottom - 0.01,
+                    f"Notes: {notes}",
+                    fontdict={'family': 'SimHei', 'size': 12},
+                    va='top',
+                    ha='left',
+                    transform=ax.transAxes
+                )
 
                 # 保存表格和 Notes 内容到 buffer
                 buf_table = io.BytesIO()
