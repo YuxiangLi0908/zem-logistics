@@ -470,8 +470,6 @@ class Palletization(View):
         height = request.POST.getlist("height")
         pcs = request.POST.getlist("pcs")
         weight = request.POST.getlist("weight")
-        destination_list = request.POST.getlist("destination")
-        destination = destination_list if destination_list else False
         pallets = []
         for i in range(len(plt_ids)):
             plt_id = int(plt_ids[i])
@@ -491,11 +489,8 @@ class Palletization(View):
                 * 0.0254,
                 5,
             )
-            if destination:
-                pallet.sequence_number = i + 1
-                pallet.PO_ID = f"{pallet.PO_ID}_{i+1}"
-            else:
-                raise ValueError('缺少板子的目的地')
+            pallet.sequence_number = i + 1
+            pallet.PO_ID = f"{pallet.PO_ID}_{i+1}"
             pallets.append(pallet)
         await sync_to_async(bulk_update_with_history)(
             pallets,
