@@ -22,6 +22,8 @@ class PackingList(models.Model):
     contact_method = models.CharField(max_length=400, null=True, blank=True)
     ref_id = models.CharField(max_length=400, null=True, blank=True)
     pcs = models.IntegerField(null=True)
+    delivery_window_start = models.DateField(null=True, blank=True)
+    delivery_window_end = models.DateField(null=True, blank=True)
     unit_weight_lbs = models.FloatField(null=True, blank=True)
     total_weight_lbs = models.FloatField(null=True)
     total_weight_kg = models.FloatField(null=True)
