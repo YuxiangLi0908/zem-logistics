@@ -15,6 +15,8 @@ from itertools import groupby
 from operator import attrgetter
 from django.db import transaction
 from django.db.models.fields.json import KeyTextTransform
+from django.core.paginator import Paginator
+
 
 import openpyxl
 import openpyxl.workbook
@@ -674,60 +676,67 @@ class Accounting(View):
         return delivery_pending_orders
     
     def migrate_payable_to_receivable(self) -> tuple[Any, Any]:
-        with transaction.atomic():
-            invoices = Invoice.objects.filter(payable_basic__isnull=False)
-            for invoice in invoices:
-                preport, created = InvoicePreport.objects.get_or_create(
-                    invoice_number=invoice,
-                    invoice_type="payable",
-                    defaults={
-                        'pickup': invoice.payable_basic,
-                        'over_weight': invoice.payable_overweight,
-                        'chassis': invoice.payable_chassis,
-                        'amount': float(invoice.payable_total_amount) - float(invoice.payable_palletization),
-                        'other_fees': {
-                            'other_fee': invoice.payable_surcharge.get('other_fee')
-                            if invoice.payable_surcharge and 'other_fee' in invoice.payable_surcharge
-                            else None,
-                            'chassis_comment': invoice.payable_surcharge.get('chassis_comment') 
-                            if invoice.payable_surcharge and 'chassis_comment' in invoice.payable_surcharge 
-                            and invoice.payable_surcharge['chassis_comment'] is not None 
-                            else None
-                            } 
-                        }
-                )
-                if not created:
-                    preport.pickup = invoice.payable_basic
-                    preport.over_weight = invoice.payable_overweight
-                    preport.chassis = invoice.payable_chassis
-                    preport.amount = float(invoice.payable_total_amount) - float(invoice.payable_palletization)
-                    other_fees = preport.other_fees if preport.other_fees else {}
-                    if invoice.payable_surcharge and 'other_fee' in invoice.payable_surcharge:
-                        other_fees['other_fee'] = invoice.payable_surcharge['other_fee']
-                    if invoice.payable_surcharge and 'chassis_comment' in invoice.payable_surcharge and invoice.payable_surcharge['chassis_comment'] is not None:
-                        other_fees['chassis_comment'] = invoice.payable_surcharge['chassis_comment']
-                    preport.other_fees = other_fees              
-                    preport.save() 
+        #with transaction.atomic():
+        batch_size = 100 
+        invoices = Invoice.objects.filter(payable_basic__isnull=False)
+        paginator = Paginator(invoices, batch_size)
+        for page_num in range(1, paginator.num_pages + 1):
+            with transaction.atomic():
+                batch_invoices = paginator.page(page_num).object_list
                 
-                wh, created_wh = InvoiceWarehouse.objects.get_or_create(
-                    invoice_number=invoice,
-                    invoice_type="payable",
-                    defaults={
-                        'palletization_fee': invoice.payable_palletization,
-                        #'arrive_fee': invoice.arrive_fee,
-                        "amount": invoice.payable_palletization,
-                        'carrier': invoice.payable_surcharge.get('palletization_carrier') 
-                        if invoice.payable_surcharge and 'palletization_carrier' in invoice.payable_surcharge
-                        else None        
-                    }
-                )
-                if not created_wh:
-                    wh.palletization_fee = invoice.payable_palletization
-                    wh.amount = invoice.payable_palletization
-                    if invoice.payable_surcharge and 'palletization_carrier' in invoice.payable_surcharge:
-                        wh.carrier = invoice.payable_surcharge.get('palletization_carrier')                
+                for invoice in batch_invoices:
+                #for invoice in invoices:
+                    preport, created = InvoicePreport.objects.get_or_create(
+                        invoice_number=invoice,
+                        invoice_type="payable",
+                        defaults={
+                            'pickup': invoice.payable_basic,
+                            'over_weight': invoice.payable_overweight,
+                            'chassis': invoice.payable_chassis,
+                            'amount': float(invoice.payable_total_amount) - float(invoice.payable_palletization),
+                            'other_fees': {
+                                'other_fee': invoice.payable_surcharge.get('other_fee')
+                                if invoice.payable_surcharge and 'other_fee' in invoice.payable_surcharge
+                                else None,
+                                'chassis_comment': invoice.payable_surcharge.get('chassis_comment') 
+                                if invoice.payable_surcharge and 'chassis_comment' in invoice.payable_surcharge 
+                                and invoice.payable_surcharge['chassis_comment'] is not None 
+                                else None
+                                } 
+                            }
+                    )
+                    if not created:
+                        preport.pickup = invoice.payable_basic
+                        preport.over_weight = invoice.payable_overweight
+                        preport.chassis = invoice.payable_chassis
+                        preport.amount = float(invoice.payable_total_amount) - float(invoice.payable_palletization)
+                        other_fees = preport.other_fees if preport.other_fees else {}
+                        if invoice.payable_surcharge and 'other_fee' in invoice.payable_surcharge:
+                            other_fees['other_fee'] = invoice.payable_surcharge['other_fee']
+                        if invoice.payable_surcharge and 'chassis_comment' in invoice.payable_surcharge and invoice.payable_surcharge['chassis_comment'] is not None:
+                            other_fees['chassis_comment'] = invoice.payable_surcharge['chassis_comment']
+                        preport.other_fees = other_fees              
+                        preport.save() 
                     
-                    wh.save()
+                    wh, created_wh = InvoiceWarehouse.objects.get_or_create(
+                        invoice_number=invoice,
+                        invoice_type="payable",
+                        defaults={
+                            'palletization_fee': invoice.payable_palletization,
+                            #'arrive_fee': invoice.arrive_fee,
+                            "amount": invoice.payable_palletization,
+                            'carrier': invoice.payable_surcharge.get('palletization_carrier') 
+                            if invoice.payable_surcharge and 'palletization_carrier' in invoice.payable_surcharge
+                            else None        
+                        }
+                    )
+                    if not created_wh:
+                        wh.palletization_fee = invoice.payable_palletization
+                        wh.amount = invoice.payable_palletization
+                        if invoice.payable_surcharge and 'palletization_carrier' in invoice.payable_surcharge:
+                            wh.carrier = invoice.payable_surcharge.get('palletization_carrier')                
+                        
+                        wh.save()
         context = {}
         return self.template_invoice_preport, context
 
