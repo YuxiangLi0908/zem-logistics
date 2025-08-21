@@ -709,7 +709,7 @@ class Accounting(View):
                         preport.pickup = invoice.payable_basic
                         preport.over_weight = invoice.payable_overweight
                         preport.chassis = invoice.payable_chassis
-                        preport.amount = float(invoice.payable_total_amount) - float(invoice.payable_palletization)
+                        preport.amount = float(invoice.payable_total_amount) - (float(invoice.payable_palletization) if invoice.payable_palletization is not None else 0)
                         other_fees = preport.other_fees if preport.other_fees else {}
                         if invoice.payable_surcharge and 'other_fee' in invoice.payable_surcharge:
                             other_fees['other_fee'] = invoice.payable_surcharge['other_fee']
