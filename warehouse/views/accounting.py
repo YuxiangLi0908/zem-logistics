@@ -686,13 +686,14 @@ class Accounting(View):
                         'chassis': invoice.payable_chassis,
                         'amount': float(invoice.payable_total_amount) - float(invoice.payable_palletization),
                         'other_fees': {
-                            'other_fee': invoice.payable_surcharge.get('other_fee')} 
+                            'other_fee': invoice.payable_surcharge.get('other_fee')
                             if invoice.payable_surcharge and 'other_fee' in invoice.payable_surcharge
                             else None,
                             'chassis_comment': invoice.payable_surcharge.get('chassis_comment') 
                             if invoice.payable_surcharge and 'chassis_comment' in invoice.payable_surcharge 
                             and invoice.payable_surcharge['chassis_comment'] is not None 
                             else None
+                            } 
                         }
                 )
                 if not created:
