@@ -26,7 +26,9 @@ class InvoicePreport(models.Model):
     over_weight = models.FloatField(null=True, blank=True, verbose_name="超重费")
     urgent_fee = models.FloatField(null=True, blank=True, verbose_name="加急费")
     other_serive = models.FloatField(null=True, blank=True, verbose_name="其他服务")
+    #这个是没及时提柜
     demurrage = models.FloatField(null=True, blank=True, verbose_name="港内滞期费")
+    #这个是没及时拆柜导致还柜延误
     per_diem = models.FloatField(null=True, blank=True, verbose_name="港外滞期费")
     second_pickup = models.FloatField(null=True, blank=True, verbose_name="二次提货")
     amount = models.FloatField(null=True, blank=True)
@@ -84,6 +86,10 @@ class InvoiceWarehouse(models.Model):
     amount = models.FloatField(null=True, blank=True)
     rate = JSONField(default=dict, verbose_name="基础单价", null=True, blank=True)
     qty = JSONField(default=dict, verbose_name="数量", null=True, blank=True)
+    #应付账单，拆柜的供应商
+    palletization_fee = models.FloatField(null=True, blank=True, verbose_name="应付拆柜费")
+    arrive_fee = models.FloatField(null=True, blank=True, verbose_name="应付入库费")
+    carrier = models.CharField(max_length=255, null=True, blank=True)
     other_fees = JSONField(default=dict, null=True, blank=True)
     surcharges = JSONField(default=dict, null=True, blank=True)
     surcharge_notes = JSONField(default=dict, null=True, blank=True)

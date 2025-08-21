@@ -35,38 +35,6 @@
             <button id="submit-btn" type="submit" class="btn btn-primary" style="width: 100px; height: 35px; margin-left: 20px;">查询</button>
         </div>
     </form>
-
-    {% if invoice_type_filter == "payable" %}
-    <div style="display: flex; align-items: center; gap: 15px;">
-        <!-- 供应商筛选 -->
-        <form method="post" action="">
-            {% csrf_token %}
-            <div style="display: flex; align-items: center;">
-                <label style="font-weight: bold; width:80px;">月份:</label>
-                <select id="monthSelectorCarrier" name="select_month" style="padding: 5px; border-radius: 4px; border: 1px solid #ddd;">
-                    {% for month in months %}
-                        <option value="{{ month.value }}" {% if month.selected %}selected{% endif %}>
-                            {{ month.label }}
-                        </option>
-                    {% endfor %}
-                </select>
-                <label style="margin-right: 8px; font-weight: bold; width:80px;">供应商:</label>
-                <select id="carrierFilter" name="select_carrier" class="form-control" style="width: 120px;">            
-                    {% for key,value in carriers.items %}
-                    <option value="{{ key }}">{{ value }}</option>
-                    {% endfor %}
-                </select>
-            </div>
-            
-            <button type="submit" class="btn btn-success" style="width:120px;">
-                导出Excel
-            </button>
-            <input type="hidden" name="start_date_confirm" value="{{ start_date_confirm }}">
-            <input type="hidden" name="end_date_confirm" value="{{ end_date_confirm }}">
-            <input type="hidden" name="step" value="invoice_payable_carrier_export">
-        </form>
-    </div>
-    {% endif %}
 </div>
 <hr class="Dashed" style="margin-top: 10px; margin-bottom: 10px;">
 <div style="display: flex; max-height: 720px;align-items: stretch;">

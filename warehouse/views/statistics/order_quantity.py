@@ -24,6 +24,7 @@ from warehouse.models.invoice import Invoice, InvoiceItem
 from warehouse.models.order import Order
 from warehouse.models.pallet import Pallet
 from warehouse.models.fleet_shipment_pallet import FleetShipmentPallet
+from warehouse.models.invoice_details import InvoiceDelivery
 from warehouse.models.retrieval import HistoricalRetrieval, Retrieval
 from warehouse.utils.constants import MODEL_CHOICES
 
@@ -429,37 +430,12 @@ class OrderQuantity(View):
         criteria &= Q(receivable_status__stage="confirmed")
         orders = await sync_to_async(list)(
             Order.objects.select_related(
-                "customer_name", "warehouse", "retrieval_id", "payable_status"
+                "customer_name", "warehouse", "retrieval_id", "payable_status","container_number"
             )
             .filter(criteria)
             .annotate(count=Count("id"))
         )
-        container_numbers = await sync_to_async(
-            lambda: [
-                order.container_number.container_number
-                for order in orders
-                if order.container_number
-            ]
-        )()
-
-        invoices = await sync_to_async(list)(
-            Invoice.objects.filter(
-                container_number__container_number__in=container_numbers
-            )
-            .values("container_number__container_number")
-            .annotate(
-                preport_receivable=Sum(Cast("receivable_preport_amount", FloatField())),
-                warehouse_fee=Sum(Cast("receivable_warehouse_amount", FloatField())),
-                delivery_fee=Sum(Cast("receivable_delivery_amount", FloatField())),
-                total_income=Sum(Cast("receivable_total_amount", FloatField())),
-                payable_total=Sum(Cast("payable_total_amount", FloatField())),
-                payable_pallet=Sum(Cast("payable_palletization", FloatField())),
-            )
-        )
-
-        invoice_dict = {
-            inv["container_number__container_number"]: inv for inv in invoices
-        }
+       
         results = []
         total_income = 0
         total_expense = 0
@@ -480,16 +456,11 @@ class OrderQuantity(View):
                     invoice_number__invoice_number=invoice.invoice_number
                 ).exists
             )()
-            invoice_data = invoice_dict.get(container_number, {})
             
             if not has_items:  # 没有说明是以三个表为准
-                preport_receivable = (
-                    invoice_data.get("preport_receivable", 0) or 0
-                )  # 港前提拆
-                warehouse_fee = invoice_data.get("warehouse_fee", 0) or 0  # 库内
-                delivery_fee = invoice_data.get("delivery_fee", 0) or 0  # 派送
-                payable_total = invoice_data.get("payable_total", 0) or 0  # 应付
-                payable_pallet = invoice_data.get("payable_pallet", 0) or 0
+                receivable_preport = float(invoice.receivable_preport_amount) if invoice.receivable_preport_amount is not None else 0.0 # 港前提拆
+                receivable_warehouse = float(invoice.receivable_warehouse_amount) if invoice.receivable_warehouse_amount is not None else 0.0  # 库内
+                receivable_delivery = float(invoice.receivable_delivery_amount) if invoice.receivable_delivery_amount is not None else 0.0  # 派送
                 other_fees = 0
             else:
                 items = await sync_to_async(list)(
@@ -498,30 +469,27 @@ class OrderQuantity(View):
                     )
                 )
                 categorized = self.categorize_invoice_items(items)
-                preport_receivable = categorized["preport_receivable"]  # 港前提拆
-                warehouse_fee = categorized["warehouse_fee"]  # 库内
-                delivery_fee = categorized["delivery_fee"]  # 派送
+                receivable_preport = categorized["preport_receivable"]  # 港前提拆
+                receivable_warehouse = categorized["warehouse_fee"]  # 库内
+                receivable_delivery = categorized["delivery_fee"]  # 派送
                 other_fees = categorized["other_fees"]
-                payable_total = invoice_data.get("payable_total", 0) or 0  # 应付
-                payable_pallet = invoice_data.get("payable_pallet", 0) or 0
-            preport_payable = payable_total - payable_pallet
-            total_preport_receivable += preport_receivable
-            total_preport_payable += preport_payable
+                
+            payable_preport = float(invoice.payable_preport_amount) if invoice.payable_preport_amount is not None else 0.0 #港前应付
+            payable_warehouse = float(invoice.payable_warehouse_amount) if invoice.payable_warehouse_amount is not None else 0.0 #库内应付
+            payable_delivery = float(invoice.payable_delivery_amount) if invoice.payable_delivery_amount is not None else 0.0
+
+            total_preport_receivable += receivable_preport
+            total_preport_payable += payable_preport
             #总收入
             total_income_per_container = (
-                preport_receivable + warehouse_fee + delivery_fee + other_fees
+                receivable_preport + receivable_warehouse + receivable_delivery + other_fees
             )
             #提拆的成本
-            total_expense_per_container = preport_payable
-            #总的派送成本
-            po_ids = Pallet.objects.filter(container_number__container_number=container_number).values_list('PO_ID', flat=True)
-            delivery_expense = await sync_to_async(
-                lambda: FleetShipmentPallet.objects.filter(PO_ID__in=po_ids).aggregate(total=Sum('expense'))['total']
-            )()
-            delivery_expense = delivery_expense or 0
+            total_expense_per_container = payable_preport
+           
             #柜子的利润
             profit_per_container = (
-                total_income_per_container - total_expense_per_container - delivery_expense
+                total_income_per_container - total_expense_per_container - payable_delivery
             )
             #利润率
             profit_margin = (
@@ -533,7 +501,7 @@ class OrderQuantity(View):
             total_income += total_income_per_container
             #总支出
             total_expense += total_expense_per_container
-            total_expense += delivery_expense
+            total_expense += payable_delivery
             #总利润
             total_profit += profit_per_container
             #所有柜子的利润
@@ -543,16 +511,18 @@ class OrderQuantity(View):
                 {
                     "container_number": container_number,
                     "customer_name": customer_name,
-                    "preport_receivable": preport_receivable,
-                    "preport_payable": preport_payable,
-                    "payable_pallet": payable_pallet,
-                    "warehouse_fee": warehouse_fee,
-                    "delivery_fee": delivery_fee,
+                    "receivable_preport": receivable_preport,
+                    "receivable_warehouse": receivable_warehouse,
+                    "receivable_delivery": receivable_delivery,
+
+                    "payable_preport": payable_preport,
+                    "payable_warehouse": payable_warehouse,
+                    "payable_delivery": payable_delivery,
+                                      
                     "total_income": total_income_per_container,
                     "total_expense": total_expense_per_container,
                     "profit": profit_per_container,
                     "profit_margin": profit_margin,
-                    "delivery_expense": delivery_expense,
                 }
             )
         if profit_values and len(profit_values) > 1:

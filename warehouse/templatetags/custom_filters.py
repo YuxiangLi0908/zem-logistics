@@ -43,6 +43,40 @@ def slice_filter(value, arg):
     except (ValueError, TypeError, AttributeError):
         return value
 
+@register.filter
+def filter_by_fleet(queryset, fleet_id):
+    return [item for item in queryset if item.fleet_number_id == fleet_id]
+
+@register.filter
+def filter_by_pickup(queryset, pickup_number):
+    return [item for item in queryset if item.pickup_number == pickup_number]
+
+@register.filter
+def dict_values(dictionary):
+    """返回字典的值列表"""
+    return list(dictionary.values())
+
+@register.filter
+def sum_attr(values_list, attr_path):
+    """计算对象列表中指定属性的总和"""
+    total = 0
+    for item in values_list:
+        # 处理属性路径（如 'orders|length'）
+        attrs = attr_path.split('|')
+        obj = item
+        for attr in attrs:
+            if hasattr(obj, attr):
+                obj = getattr(obj, attr)
+            elif isinstance(obj, dict) and attr in obj:
+                obj = obj[attr]
+            else:
+                obj = None
+                break
+        
+        # 如果是可计算长度的对象
+        if hasattr(obj, '__len__'):
+            total += len(obj)
+    return total
 
 @register.filter
 # 给月份加1

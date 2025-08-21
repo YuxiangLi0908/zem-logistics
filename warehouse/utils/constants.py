@@ -468,6 +468,16 @@ MODEL_CHOICES = {
         "transfer_table": None,
     },
 }
+
+CARRIER_FLEET = {
+    "": "",
+    "Arm-AMF": "Arm-AMF",
+    "Zem-AMF": "Zem-AMF",
+    "ASH": "ASH",
+    "Arm": "Arm",
+    "ZEM": "ZEM",
+    "LiFeng": "LiFeng",
+}
 file_path = Path(__file__).parent.resolve().joinpath("fba_fulfillment_center.yaml")
 with open(file_path, "r", encoding='utf-8') as f:
     amazon_fba_locations = yaml.safe_load(f)

@@ -13,6 +13,8 @@ from itertools import chain
 from typing import Any
 from itertools import groupby
 from operator import attrgetter
+from django.db import transaction
+from django.db.models.fields.json import KeyTextTransform
 
 import openpyxl
 import openpyxl.workbook
@@ -29,12 +31,10 @@ from django.db.models import (
     CharField,
     Count,
     Exists,
-    ExpressionWrapper,
     F,
     FloatField,
     IntegerField,
-    JSONField,
-    Min,
+    Subquery,
     OuterRef,
     Prefetch,
     Sum,
@@ -75,6 +75,7 @@ from warehouse.models.packing_list import PackingList
 from warehouse.models.pallet import Pallet
 from warehouse.models.quotation_master import QuotationMaster
 from warehouse.models.transaction import Transaction
+from warehouse.models.fleet_shipment_pallet import FleetShipmentPallet
 from warehouse.utils.constants import (
     ACCT_ACH_ROUTING_NUMBER,
     ACCT_BANK_NAME,
@@ -89,6 +90,7 @@ from warehouse.utils.constants import (
     SP_URL,
     SP_USER,
     SYSTEM_FOLDER,
+    CARRIER_FLEET
 )
 from warehouse.views.export_file import export_invoice
 
@@ -114,6 +116,7 @@ class Accounting(View):
         "accounting/invoice_delivery_other_edit.html"
     )
     template_invoice_confirm = "accounting/invoice_confirm.html"
+    template_invoice_payable_confirm = "accounting/invoice_payable_confirm.html"
     template_invoice_confirm_edit = "accounting/invoice_confirm_edit.html"
     template_invoice_direct = "accounting/invoice_direct.html"
     template_invoice_direct_edit = "accounting/invoice_direct_edit.html"
@@ -346,7 +349,6 @@ class Accounting(View):
             return render(request, template, context)
         elif step == "migrate_status":
             return self.migrate_status()
-            return render(request, template, context)
         elif step == "confirm_combina_save":
             template, context = self.handle_invoice_confirm_combina_save(request)
             return render(request, template, context)
@@ -355,15 +357,376 @@ class Accounting(View):
             return render(request, template, context)
         elif step == "invoice_payable_carrier_export":
             return self.handle_carrier_invoice_export(request)
+        elif step == "payable_confirm_phase":
+            template, context = self.handle_invoice_payable_confirm_phase(request)
+            return render(request, template, context)
+        elif step == "export_carrier_payable":
+            return self.handle_export_carrier_payable_phase(request)
         else:
             raise ValueError(f"unknow request {step}")
+ 
+    def handle_export_carrier_payable_phase(self,request) -> HttpRequest:
+        confirm_phase = request.POST.get("confirm_phase")
+        start_date_export = request.POST.get("start_date_export")
+        end_date_export = request.POST.get("end_date_export")
+        select_carrier = request.POST.get("select_carrier")
+        if select_carrier == "ARM":
+            select_carrier = "大方广"
+        if not start_date_export or not select_carrier:
+            raise ValueError("请选择月份和供应商")
 
+        wb = openpyxl.Workbook()
+        ws = wb.active
+        ws.title = f"{select_carrier}账单"
+        # 查找该月份，该供应商的所有费用
+        # 先查账单时间满足月份的，就是实际提柜时间+1个月
+        if confirm_phase == "delivery":
+            delivery_data = self._get_deliverys(start_date_export,end_date_export,select_carrier)
+            # 设置表头
+            headers = [
+                "Carrier", "Pickup Number", "ISA", "柜号", 
+                "目的地", "板数", "价格", "单板成本", 
+                "车次总板数", "车次总成本"
+            ]
+            ws.append(headers)
+            
+            # 填充数据并处理合并单元格
+            for fleet in delivery_data:
+                carrier = fleet['carrier']
+                fleet_rows = fleet['fleets']
+                fleet_start_row = ws.max_row + 1
+
+                for pickup_number, pickup_data in fleet_rows.items():
+                    isa_rows = pickup_data['appointments']
+                    pickup_start_row = ws.max_row + 1
+                    
+                    for isa, isa_data in isa_rows.items():
+                        orders = isa_data['orders']
+                        isa_start_row = ws.max_row + 1
+                        
+                        for order in orders:
+                            row_data = [
+                                carrier,
+                                pickup_number,
+                                isa if isa else "",
+                                order['container_num'],
+                                order['pallet_destination'],
+                                order['cn_total_pallet'],
+                                order['cn_total_expense'],
+                                order['cn_per_expense'],
+                                pickup_data['ISA_total_pallets'],
+                                f"${pickup_data['ISA_total_expense']}"
+                            ]
+                            ws.append(row_data)
+                        
+                        # 合并ISA列
+                        if len(orders) > 1:
+                            ws.merge_cells(
+                                start_row=isa_start_row, 
+                                end_row=isa_start_row + len(orders) - 1,
+                                start_column=3, end_column=3
+                            )
+                        
+                    pickup_end_row = ws.max_row
+                    if pickup_end_row > pickup_start_row:
+                        ws.merge_cells(
+                            start_row=pickup_start_row, 
+                            end_row=pickup_end_row,
+                            start_column=2, end_column=2
+                        )
+                        
+                        # 合并车次总板数和车次总成本列（按pickup级别合并）
+                        ws.merge_cells(
+                            start_row=pickup_start_row,
+                            end_row=pickup_end_row,
+                            start_column=9, end_column=9
+                        )
+                        ws.merge_cells(
+                            start_row=pickup_start_row,
+                            end_row=pickup_end_row,
+                            start_column=10, end_column=10
+                        )
+                fleet_end_row = ws.max_row
+                if fleet_end_row > fleet_start_row:
+                    ws.merge_cells(
+                        start_row=fleet_start_row, 
+                        end_row=fleet_end_row,
+                        start_column=1, end_column=1
+                    )
+        else:
+            if confirm_phase == "warehouse":
+                # 筛选库内账单确认的，时间符合要求的
+                order_list = Order.objects.filter(
+                    retrieval_id__actual_retrieval_timestamp__gte=start_date_export,
+                    retrieval_id__actual_retrieval_timestamp__lte=end_date_export,
+                    payable_status__isnull=False, 
+                    payable_status__payable_status__has_key="warehouse",
+                    payable_status__payable_status__warehouse="confirmed",
+                )
+
+                orders = []
+                for order in order_list:
+                    invoice = Invoice.objects.select_related(
+                        "customer", "container_number"
+                    ).get(container_number__container_number=order.container_number)
+                    invoice_warehouse = InvoiceWarehouse.objects.get(
+                        invoice_number__invoice_number=invoice.invoice_number,
+                        invoice_type="payable",
+                    )
+                    if invoice_warehouse.carrier == select_carrier:
+                        orders.append(order)
+            elif confirm_phase == "pickup":
+                # 否则就看payable_surcharge的preport_carrier里面能看到
+                order_list = Order.objects.filter(
+                    retrieval_id__actual_retrieval_timestamp__gte=start_date_export,
+                    retrieval_id__actual_retrieval_timestamp__lte=end_date_export,
+                    payable_status__isnull=False, 
+                    payable_status__payable_status__has_key="pickup",
+                    payable_status__payable_status__pickup="confirmed",
+                )
+                orders = []
+                for order in order_list:
+                    if order.retrieval_id.retrieval_carrier == select_carrier:
+                        orders.append(order)
+            if len(orders) == 0:
+                raise ValueError("未查询到符合条件的订单")
+
+            all_fee_types = set()
+            for order in orders:
+                container_number = order.container_number.container_number
+                invoice = Invoice.objects.select_related(
+                    "customer", "container_number"
+                ).get(container_number__container_number=container_number)
+                invoice_warehouse = InvoiceWarehouse.objects.get(
+                    invoice_number__invoice_number=invoice.invoice_number,
+                    invoice_type="payable",
+                )
+                invoice_preport = InvoicePreport.objects.get(
+                    invoice_number__invoice_number=invoice.invoice_number,
+                    invoice_type="payable",
+                )
+                preport_other_fee = invoice_preport.other_fees
+                warehouse_other_fee = invoice_warehouse.other_fees
+                if confirm_phase == "warehouse":
+                    all_fee_types.add("拆柜费")
+                    if warehouse_other_fee:
+                        all_fee_types.update(warehouse_other_fee.keys())
+                elif confirm_phase == "pickup":
+                    all_fee_types.update(["总费用"])
+                    all_fee_types.add("基本费用")              
+                    all_fee_types.add("超重费")
+                    all_fee_types.add("车架费")
+
+                    # 其他自定义费用
+                    if "other_fee" in preport_other_fee and preport_other_fee["other_fee"]:
+                        all_fee_types.update(preport_other_fee["other_fee"].keys())
+
+            sorted_fee_types = sorted(all_fee_types)
+
+            headers = ["柜号"] + sorted_fee_types
+            ws.append(headers)
+
+            # 填充数据
+            for order in orders:
+                container_number = order.container_number.container_number
+                invoice = Invoice.objects.select_related(
+                    "customer", "container_number"
+                ).get(container_number__container_number=container_number)
+                payable_surcharge = invoice.payable_surcharge
+                total_amount = float(invoice.payable_total_amount or 0)
+                palletization = float(invoice.payable_palletization or 0)
+
+                # 初始化行数据，所有费用初始为0或空
+                row_data = {fee: "" for fee in sorted_fee_types}
+                row_data["柜号"] = container_number
+
+                # 填充特定供应商的费用
+                if select_carrier in ["BBR", "KNO"]:
+                    row_data["拆柜费"] = invoice.payable_palletization or 0
+                else:
+                    row_data["总费用"] = total_amount - palletization
+                    row_data["基本费用"] = invoice.payable_basic or 0
+                    row_data["超重费"] = invoice.payable_overweight or 0
+                    row_data["车架费"] = invoice.payable_chassis or 0
+
+                    # 其他自定义费用
+                    if "other_fee" in payable_surcharge and payable_surcharge["other_fee"]:
+                        for fee_name, fee_value in payable_surcharge["other_fee"].items():
+                            row_data[fee_name] = fee_value
+                if select_carrier in ["BBR", "KNO"]:
+                    ordered_row = [row_data["柜号"], row_data["拆柜费"]]
+                else:
+                    fixed_columns = ["柜号", "总费用", "基本费用", "超重费", "车架费"]
+                    dynamic_columns = [
+                        col for col in row_data.keys() if col not in fixed_columns
+                    ]
+                    final_columns = fixed_columns + sorted(dynamic_columns)
+
+                    ordered_row = [row_data.get(col, "") for col in final_columns]
+                ws.append(ordered_row)
+        response = HttpResponse(
+            content_type="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
+        )
+        filename = f"{select_carrier}_账单.xlsx"
+        response["Content-Disposition"] = f"attachment; filename={filename}"
+
+        wb.save(response)
+        return response
+    
+
+    def _get_deliverys(self,start_date_export,end_date_export,select_carrier) -> Any:
+        criteria = models.Q()
+        criteria &= models.Q(
+            models.Q(vessel_id__vessel_etd__gte=start_date_export),
+            models.Q(vessel_id__vessel_etd__lte=end_date_export),
+        )
+        container_numbers = Order.objects.filter(criteria).values_list('container_number', flat=True)
+        delivery_po_ids = (
+            Pallet.objects.filter(container_number__in=container_numbers)
+            .values_list('PO_ID', flat=True)
+            .distinct() 
+        )
+        delivery_pending_orders = FleetShipmentPallet.objects.select_related(
+            'fleet_number',  # 确保预取关联的Fleet对象
+            'shipment_batch_number',
+            'container_number'
+        ).filter(
+            expense__isnull=False,
+            PO_ID__in=delivery_po_ids,
+        ).annotate(
+            appointment_id=F('shipment_batch_number__appointment_id'),
+            container_num=F('container_number__container_number'),
+            pallet_destination=Subquery(
+                Pallet.objects.filter(
+                    PO_ID=OuterRef('PO_ID'),
+                    shipment_batch_number=OuterRef('shipment_batch_number')
+                ).values('destination')[:1]
+            )
+        ).order_by('fleet_number', 'pickup_number', 'container_num')
+
+        deliverys = {}
+        for order in delivery_pending_orders:
+            fleet_id = order.fleet_number_id
+            if fleet_id not in deliverys:
+                # 获取carrier信息
+                carrier = order.fleet_number.carrier if order.fleet_number else None
+                if carrier != select_carrier:
+                    continue
+                deliverys[fleet_id] = {
+                    'fleets': {},
+                    'total_pallets': 0,  
+                    'total_expense': 0,
+                    'total_rows': 0,     
+                    'carrier': carrier    
+                }
+            
+            if order.pickup_number not in deliverys[fleet_id]['fleets']:
+                deliverys[fleet_id]['fleets'][order.pickup_number] = {
+                    'appointments': {},
+                    'ISA_total_pallets': 0, 
+                    'ISA_total_expense': 0,
+                    'total_rows': 0,        
+                }
+            
+            if order.appointment_id not in deliverys[fleet_id]['fleets'][order.pickup_number]['appointments']:
+                deliverys[fleet_id]['fleets'][order.pickup_number]['appointments'][order.appointment_id] = {
+                    'orders': [],
+                    'total_pallets': 0, 
+                    'total_expense': 0,
+                    'rowspan': 0        
+                }
+            
+            # 计算单板成本并保留2位小数
+            per_expense = round(order.expense / int(order.total_pallet), 2) if order.total_pallet else 0
+            
+            # 为每个order添加统计字段
+            order_data = {
+                'object': order,
+                'cn_total_pallet': int(order.total_pallet) if order.total_pallet else 0,  
+                'cn_total_expense': order.expense or 0,
+                'cn_per_expense': per_expense,  
+                'container_num': order.container_num,
+                'pallet_destination': order.pallet_destination,
+                'carrier': deliverys[fleet_id]['carrier']  
+            }
+            
+            deliverys[fleet_id]['fleets'][order.pickup_number]['appointments'][order.appointment_id]['orders'].append(order_data)
+            
+            deliverys[fleet_id]['fleets'][order.pickup_number]['appointments'][order.appointment_id]['total_pallets'] += int(order_data['cn_total_pallet'])
+            deliverys[fleet_id]['fleets'][order.pickup_number]['appointments'][order.appointment_id]['total_expense'] += order_data['cn_total_expense']
+            deliverys[fleet_id]['fleets'][order.pickup_number]['appointments'][order.appointment_id]['rowspan'] += 1
+            
+            deliverys[fleet_id]['fleets'][order.pickup_number]['ISA_total_pallets'] += int(order_data['cn_total_pallet'])
+            deliverys[fleet_id]['fleets'][order.pickup_number]['ISA_total_expense'] += order_data['cn_total_expense']
+            deliverys[fleet_id]['fleets'][order.pickup_number]['total_rows'] += 1
+            
+            deliverys[fleet_id]['total_pallets'] += int(order_data['cn_total_pallet'])
+            deliverys[fleet_id]['total_expense'] += order_data['cn_total_expense']
+            deliverys[fleet_id]['total_rows'] += 1
+
+        # 转换数据结构
+        delivery_pending_orders = [{
+            'fleets': fleet_data['fleets'],
+            'total_pallets': int(fleet_data['total_pallets']),  
+            'total_expense': fleet_data['total_expense'],
+            'carrier': fleet_data['carrier']  
+        } for fleet_data in deliverys.values()]
+        return delivery_pending_orders
+    
     def migrate_payable_to_receivable(self) -> tuple[Any, Any]:
-        invoices = Invoice.objects.all()
-        for invoice in invoices:
-            if invoice.receivable_total_amount:
-                invoice.remain_offset = invoice.receivable_total_amount
-                invoice.save()
+        with transaction.atomic():
+            invoices = Invoice.objects.filter(payable_basic__isnull=False)
+            for invoice in invoices:
+                preport, created = InvoicePreport.objects.get_or_create(
+                    invoice_number=invoice,
+                    invoice_type="payable",
+                    defaults={
+                        'pickup': invoice.payable_basic,
+                        'over_weight': invoice.payable_overweight,
+                        'chassis': invoice.payable_chassis,
+                        'amount': float(invoice.payable_total_amount) - float(invoice.payable_palletization),
+                        'other_fees': {
+                            'other_fee': invoice.payable_surcharge.get('other_fee')} 
+                            if invoice.payable_surcharge and 'other_fee' in invoice.payable_surcharge
+                            else None,
+                            'chassis_comment': invoice.payable_surcharge.get('chassis_comment') 
+                            if invoice.payable_surcharge and 'chassis_comment' in invoice.payable_surcharge 
+                            and invoice.payable_surcharge['chassis_comment'] is not None 
+                            else None
+                        }
+                )
+                if not created:
+                    preport.pickup = invoice.payable_basic
+                    preport.over_weight = invoice.payable_overweight
+                    preport.chassis = invoice.payable_chassis
+                    preport.amount = float(invoice.payable_total_amount) - float(invoice.payable_palletization)
+                    other_fees = preport.other_fees if preport.other_fees else {}
+                    if invoice.payable_surcharge and 'other_fee' in invoice.payable_surcharge:
+                        other_fees['other_fee'] = invoice.payable_surcharge['other_fee']
+                    if invoice.payable_surcharge and 'chassis_comment' in invoice.payable_surcharge and invoice.payable_surcharge['chassis_comment'] is not None:
+                        other_fees['chassis_comment'] = invoice.payable_surcharge['chassis_comment']
+                    preport.other_fees = other_fees              
+                    preport.save() 
+                
+                wh, created_wh = InvoiceWarehouse.objects.get_or_create(
+                    invoice_number=invoice,
+                    invoice_type="payable",
+                    defaults={
+                        'palletization_fee': invoice.payable_palletization,
+                        #'arrive_fee': invoice.arrive_fee,
+                        "amount": invoice.payable_palletization,
+                        'carrier': invoice.payable_surcharge.get('palletization_carrier') 
+                        if invoice.payable_surcharge and 'palletization_carrier' in invoice.payable_surcharge
+                        else None        
+                    }
+                )
+                if not created_wh:
+                    wh.palletization_fee = invoice.payable_palletization
+                    wh.amount = invoice.payable_palletization
+                    if invoice.payable_surcharge and 'palletization_carrier' in invoice.payable_surcharge:
+                        wh.carrier = invoice.payable_surcharge.get('palletization_carrier')                
+                    
+                    wh.save()
         context = {}
         return self.template_invoice_preport, context
 
@@ -1174,16 +1537,7 @@ class Accounting(View):
             or request.GET.get("invoice_type")
             or "receivable"
         )
-        if invoice_type == "receivable":
-            criteria = models.Q(
-                models.Q(vessel_id__vessel_etd__gte=start_date_confirm),
-                models.Q(vessel_id__vessel_etd__lte=end_date_confirm),
-            )
-        else:
-            criteria = models.Q(
-                models.Q(vessel_id__vessel_eta__gte=start_date_confirm),
-                models.Q(vessel_id__vessel_eta__lte=end_date_confirm),
-            )
+        criteria = models.Q()
         if warehouse:
             if warehouse == "直送":
                 criteria &= models.Q(order_type="直送")
@@ -1194,16 +1548,19 @@ class Accounting(View):
                 )
         if customer:
             criteria &= models.Q(customer_name__zem_name=customer)
-
-        
-        order = Order.objects.select_related(
-            "customer_name", "container_number", "retrieval_id"
-        ).filter(
-            criteria,
-            **{f"{invoice_type}_status__stage": "tobeconfirmed"},
-        )
-
         if invoice_type == "receivable":
+            criteria = models.Q(
+                models.Q(vessel_id__vessel_etd__gte=start_date_confirm),
+                models.Q(vessel_id__vessel_etd__lte=end_date_confirm),
+            )
+        
+            order = Order.objects.select_related(
+                "customer_name", "container_number", "retrieval_id"
+            ).filter(
+                criteria,
+                **{f"{invoice_type}_status__stage": "tobeconfirmed"},
+            )
+
             previous_order = (
                 Order.objects.select_related(
                     "customer_name", "container_number", "retrieval_id"
@@ -1251,76 +1608,369 @@ class Accounting(View):
                     output_field=IntegerField(),
                 )
             )
-        else:
-            previous_order = (
-                Order.objects.select_related(
-                    "customer_name", "container_number", "retrieval_id"
-                )
-                .values(
-                    "container_number__container_number",
-                    "customer_name__zem_name",
-                    "created_at",
-                    "invoice_id__invoice_date",
-                    "order_type",
-                    "retrieval_id__retrieval_destination_area",
-                    "retrieval_id__actual_retrieval_timestamp",
-                    "retrieval_id__retrieval_carrier",
-                    "invoice_id__payable_total_amount",
-                    "invoice_id__invoice_number",
-                )
-                .filter(criteria, **{"payable_status__stage": "confirmed"})
+            
+            previous_order = self.process_orders_display_status(
+                previous_order, invoice_type
             )
-        previous_order = self.process_orders_display_status(
-            previous_order, invoice_type
-        )
-        # 前端查询客户余额
-        existing_customers = Customer.objects.all().order_by("zem_name")
-
-        # 应付账单，要构建一个月份列表，用于前端选择月份然后计算总金额
-        if invoice_type == "payable":
-            current_year = datetime.now().year
-            current_month = datetime.now().month
-
-            months = []
-            for i in range(12):
-                month = (current_month - i - 1) % 12 + 1
-                year = (
-                    current_year if (current_month - i - 1) >= 0 else current_year - 1
-                )
-                months.append(
-                    {
-                        "value": f"{year}-{month:02d}",
-                        "label": f"{year}年{month}月",
-                        "selected": (month == current_month and year == current_year),
-                    }
-                )
-            carrier = {
-                "": "",
-                "Kars": "Kars",
-                "东海岸": "东海岸",
-                "ARM": "ARM",
-                "BBR": "BBR",
-                "KNO": "KNO",
-                "GM": "GM",
+            # 前端查询客户余额
+            existing_customers = Customer.objects.all().order_by("zem_name")
+            context = {
+                "order": order,
+                "previous_order": previous_order,
+                "order_form": OrderForm(),
+                "start_date_confirm": start_date_confirm,
+                "end_date_confirm": end_date_confirm,
+                "customer": customer,
+                "warehouse_options": self.warehouse_options,
+                "warehouse_filter": warehouse,
+                "invoice_type_filter": invoice_type,
+                "existing_customers": existing_customers,
+                
             }
+            return self.template_invoice_confirm, context
         else:
-            months = None
-            carrier = None
+            return self._payable_confirm_get(request)
+    
+    def handle_invoice_payable_confirm_phase(self,request):
+        #判断是提拆/库内/派送哪个阶段的
+        confirm_phase = request.POST.get("confirm_phase")
+        cotainers = request.POST.getlist("containers")
+        save_type = request.POST.get("save_type")
+        reject_reason = request.POST.get("reject_reason")
+
+        orders = Order.objects.filter(container_number__container_number__in=cotainers)
+        container_numbers = [order.container_number for order in orders]
+        invoice_statuses = InvoiceStatus.objects.filter(
+            container_number__in=container_numbers,
+            invoice_type="payable"
+        ).select_related('container_number')
+
+        status_map = {status.container_number.container_number: status for status in invoice_statuses}
+        for order in orders:
+            invoicestatus = status_map.get(order.container_number.container_number)
+            if not invoicestatus:
+                continue
+            if save_type == "confirmed":
+                invoicestatus.payable_status[confirm_phase] = "confirmed"
+            elif save_type == "reject":
+                invoicestatus.payable_status[confirm_phase] = "rejected"
+                invoicestatus.is_rejected = True
+                invoicestatus.reject_reason = reject_reason
+            invoicestatus.save() 
+        return self._payable_confirm_get(request)
+
+    def _payable_confirm_get(self,request):
+        warehouse = request.POST.get("warehouse")
+        customer = request.POST.get("customer")
+        current_date = datetime.now().date()
+        start_date_confirm = request.POST.get("start_date_confirm")
+        end_date_confirm = request.POST.get("end_date_confirm")
+        start_date_confirm = (
+            (current_date + timedelta(days=-90)).strftime("%Y-%m-%d")
+            if not start_date_confirm
+            else start_date_confirm
+        )
+        end_date_confirm = (
+            current_date.strftime("%Y-%m-%d")
+            if not end_date_confirm
+            else end_date_confirm
+        )
+        criteria = models.Q()
+        if warehouse:
+            if warehouse == "直送":
+                criteria &= models.Q(order_type="直送")
+            else:
+                # 这是非直送的筛选，标记一下加上直送的筛选
+                criteria &= models.Q(
+                    retrieval_id__retrieval_destination_precise=warehouse
+                )
+        if customer:
+            criteria &= models.Q(customer_name__zem_name=customer)
+        criteria &= models.Q(
+            models.Q(vessel_id__vessel_etd__gte=start_date_confirm),
+            models.Q(vessel_id__vessel_etd__lte=end_date_confirm),
+        )
+        #查找提拆的待开和已开
+        payable_preport_subquery = InvoicePreport.objects.filter(
+            invoice_number=OuterRef("invoice_id"),
+            invoice_type="payable"
+        )
+        payable_other_fee_subquery = InvoicePreport.objects.filter(
+            invoice_number=OuterRef("invoice_id"),
+            invoice_type="payable"
+        ).values("other_fees__other_fee")[:1]
+        pick_pending_orders = (
+            Order.objects.select_related(
+                "customer_name", "container_number", "retrieval_id", "invoice_id"
+            )
+            .annotate(
+                payable_pickup=Subquery(payable_preport_subquery.values("pickup")[:1]),
+                payable_chassis=Subquery(payable_preport_subquery.values("chassis")[:1]),
+                payable_over_weight=Subquery(payable_preport_subquery.values("over_weight")[:1]),
+                payable_demurrage=Subquery(payable_preport_subquery.values("demurrage")[:1]),
+                payable_per_diem=Subquery(payable_preport_subquery.values("per_diem")[:1]),
+                payable_other_fee_data=Subquery(payable_other_fee_subquery),
+            )
+            .filter(
+                criteria,
+                models.Q(payable_status__stage="tobeconfirmed") | models.Q(payable_status__stage="confirmed"),
+                payable_status__isnull=False,   
+                payable_status__payable_status__has_key="pickup",
+                payable_status__payable_status__pickup="pending",
+            )
+            .values(
+                "container_number__container_number",
+                "customer_name__zem_name",
+                "retrieval_id__retrieval_destination_area",
+                "invoice_id__invoice_number",
+                "payable_pickup",  # 提柜费
+                "payable_over_weight",  # 超重费
+                "payable_chassis",  # 车架费
+                "payable_demurrage",  # 滞港费
+                "payable_per_diem",  # 滞箱费
+                "payable_other_fee_data",  # 其他费用
+                "invoice_id__payable_preport_amount",  # 总费用
+                "invoice_id",
+                "retrieval_id__retrieval_carrier",
+            )
+        )
+        
+        pick_confirmed_orders = (
+            Order.objects.select_related(
+                "customer_name", "container_number", "retrieval_id", "invoice_id"
+            )
+            .annotate(
+                payable_pickup=Subquery(payable_preport_subquery.values("pickup")[:1]),
+                payable_chassis=Subquery(payable_preport_subquery.values("chassis")[:1]),
+                payable_over_weight=Subquery(payable_preport_subquery.values("over_weight")[:1]),
+                payable_demurrage=Subquery(payable_preport_subquery.values("demurrage")[:1]),
+                payable_per_diem=Subquery(payable_preport_subquery.values("per_diem")[:1]),
+                payable_other_fee_data=Subquery(payable_other_fee_subquery),
+            )
+            .filter(
+                criteria,
+                models.Q(payable_status__stage="tobeconfirmed") | models.Q(payable_status__stage="confirmed"),
+                payable_status__isnull=False,
+                payable_status__payable_status__has_key="pickup",
+                payable_status__payable_status__pickup="confirmed",
+            )
+            .values(
+                "container_number__container_number",
+                "customer_name__zem_name",
+                "retrieval_id__retrieval_destination_area",
+                "invoice_id__invoice_number",
+                "payable_pickup",  # 提柜费
+                "payable_over_weight",  # 超重费
+                "payable_chassis",  # 车架费
+                "payable_demurrage",  # 滞港费
+                "payable_per_diem",  # 滞箱费
+                "payable_other_fee_data",  # 其他费用
+                "invoice_id__payable_preport_amount",  # 总费用
+                "retrieval_id__retrieval_carrier",
+            )
+        )
+        
+        #查找提拆的待开和已开
+        payable_warehouse_subquery = InvoiceWarehouse.objects.filter(
+            invoice_number=OuterRef("invoice_id"),
+            invoice_type="payable"
+        )
+        payable_other_fee_wh_subquery = InvoiceWarehouse.objects.filter(
+            invoice_number=OuterRef("invoice_id"),
+            invoice_type="payable"
+        ).values("other_fees__other")[:1]
+        warehouse_pending_orders = (
+            Order.objects.select_related(
+                "customer_name", "container_number", "retrieval_id", "invoice_id"
+            )
+            .annotate(
+                payable_palletization_fee=Subquery(payable_warehouse_subquery.values("palletization_fee")[:1]), 
+                payable_arrive_fee=Subquery(payable_warehouse_subquery.values("arrive_fee")[:1]),
+                payable_carrier=Subquery(payable_warehouse_subquery.values("carrier")[:1]),
+                payable_other_fee_data=Subquery(payable_other_fee_wh_subquery),
+            )
+            .filter(
+                criteria,
+                models.Q(payable_status__stage="tobeconfirmed") | models.Q(payable_status__stage="confirmed"),
+                payable_status__isnull=False,   
+                payable_status__payable_status__has_key="warehouse",
+                payable_status__payable_status__warehouse="pending",
+            )
+            .values(
+                "container_number__container_number",
+                "customer_name__zem_name",
+                "retrieval_id__retrieval_destination_area",
+                "invoice_id__invoice_number",
+                "payable_palletization_fee",  #拆柜费
+                "payable_arrive_fee",   #入库费
+                "payable_carrier",  # 供应商
+                "payable_other_fee_data",  # 其他费用
+                "invoice_id__payable_warehouse_amount",  # 总费用
+                "invoice_id",
+            )
+        )
+        warehouse_confirmed_orders = (
+            Order.objects.select_related(
+                "customer_name", "container_number", "retrieval_id", "invoice_id"
+            )
+            .annotate(
+                payable_palletization_fee=Subquery(payable_warehouse_subquery.values("palletization_fee")[:1]), 
+                payable_arrive_fee=Subquery(payable_warehouse_subquery.values("arrive_fee")[:1]),
+                payable_carrier=Subquery(payable_warehouse_subquery.values("carrier")[:1]),
+                payable_other_fee_data=Subquery(payable_other_fee_wh_subquery),
+            )
+            .filter(
+                criteria,
+                models.Q(payable_status__stage="tobeconfirmed") | models.Q(payable_status__stage="confirmed"),
+                payable_status__isnull=False, 
+                payable_status__payable_status__has_key="warehouse",
+                payable_status__payable_status__warehouse="confirmed",
+            )
+            .values(
+                "container_number__container_number",
+                "customer_name__zem_name",
+                "retrieval_id__retrieval_destination_area",
+                "invoice_id__invoice_number",
+                "payable_palletization_fee",  #拆柜费
+                "payable_arrive_fee",   #入库费
+                "payable_carrier",  # 供应商
+                "payable_other_fee_data",  # 其他费用
+                "invoice_id__payable_warehouse_amount",  # 总费用
+                "invoice_id",
+            )
+        )
+        
+        #criteria和fleetshipmentpallet表直接关联较为复杂，所以先筛选pallet表，然后根据PO_ID去筛选
+        container_numbers = Order.objects.filter(criteria).values_list('container_number', flat=True)
+        delivery_po_ids = (
+            Pallet.objects.filter(container_number__in=container_numbers)
+            .values_list('PO_ID', flat=True)
+            .distinct() 
+        )
+        print('delivery_po_ids',delivery_po_ids)
+        delivery_pending_orders = FleetShipmentPallet.objects.select_related(
+            'fleet_number',  # 确保预取关联的Fleet对象
+            'shipment_batch_number',
+            'container_number'
+        ).filter(
+            expense__isnull=False,
+            PO_ID__in=delivery_po_ids,
+        ).annotate(
+            appointment_id=F('shipment_batch_number__appointment_id'),
+            container_num=F('container_number__container_number'),
+            pallet_destination=Subquery(
+                Pallet.objects.filter(
+                    PO_ID=OuterRef('PO_ID'),
+                    shipment_batch_number=OuterRef('shipment_batch_number')
+                ).values('destination')[:1]
+            )
+        ).order_by('fleet_number', 'pickup_number', 'container_num')
+
+        deliverys = {}
+        for order in delivery_pending_orders:
+            fleet_id = order.fleet_number_id
+            if fleet_id not in deliverys:
+                # 获取carrier信息
+                carrier = order.fleet_number.carrier if order.fleet_number else None
+                
+                deliverys[fleet_id] = {
+                    'fleets': {},
+                    'total_pallets': 0,  
+                    'total_expense': 0,
+                    'total_rows': 0,     
+                    'carrier': carrier    
+                }
+            
+            if order.pickup_number not in deliverys[fleet_id]['fleets']:
+                deliverys[fleet_id]['fleets'][order.pickup_number] = {
+                    'appointments': {},
+                    'ISA_total_pallets': 0, 
+                    'ISA_total_expense': 0,
+                    'total_rows': 0,        
+                }
+            
+            if order.appointment_id not in deliverys[fleet_id]['fleets'][order.pickup_number]['appointments']:
+                deliverys[fleet_id]['fleets'][order.pickup_number]['appointments'][order.appointment_id] = {
+                    'orders': [],
+                    'total_pallets': 0, 
+                    'total_expense': 0,
+                    'rowspan': 0        
+                }
+            
+            # 计算单板成本并保留2位小数
+            per_expense = round(order.expense / int(order.total_pallet), 2) if order.total_pallet else 0
+            
+            # 为每个order添加统计字段
+            order_data = {
+                'object': order,
+                'cn_total_pallet': int(order.total_pallet) if order.total_pallet else 0,  
+                'cn_total_expense': order.expense or 0,
+                'cn_per_expense': per_expense,  
+                'container_num': order.container_num,
+                'pallet_destination': order.pallet_destination,
+                'carrier': deliverys[fleet_id]['carrier']  
+            }
+            
+            deliverys[fleet_id]['fleets'][order.pickup_number]['appointments'][order.appointment_id]['orders'].append(order_data)
+            
+            deliverys[fleet_id]['fleets'][order.pickup_number]['appointments'][order.appointment_id]['total_pallets'] += int(order_data['cn_total_pallet'])
+            deliverys[fleet_id]['fleets'][order.pickup_number]['appointments'][order.appointment_id]['total_expense'] += order_data['cn_total_expense']
+            deliverys[fleet_id]['fleets'][order.pickup_number]['appointments'][order.appointment_id]['rowspan'] += 1
+            
+            deliverys[fleet_id]['fleets'][order.pickup_number]['ISA_total_pallets'] += int(order_data['cn_total_pallet'])
+            deliverys[fleet_id]['fleets'][order.pickup_number]['ISA_total_expense'] += order_data['cn_total_expense']
+            deliverys[fleet_id]['fleets'][order.pickup_number]['total_rows'] += 1
+            
+            deliverys[fleet_id]['total_pallets'] += int(order_data['cn_total_pallet'])
+            deliverys[fleet_id]['total_expense'] += order_data['cn_total_expense']
+            deliverys[fleet_id]['total_rows'] += 1
+
+        # 转换数据结构
+        delivery_pending_orders = [{
+            'fleets': fleet_data['fleets'],
+            'total_pallets': int(fleet_data['total_pallets']),  
+            'total_expense': fleet_data['total_expense'],
+            'carrier': fleet_data['carrier']  
+        } for fleet_data in deliverys.values()]
+
+        start_date_export = (
+            (current_date + timedelta(days=-15)).strftime("%Y-%m-%d")
+        )
+        end_date_export = (
+            current_date.strftime("%Y-%m-%d")
+        )
+        pickup_carriers = {
+            "Kars": "Kars",
+            "东海岸": "东海岸",
+            "ARM": "ARM",
+            "GM": "GM",
+        }
+        warehouse_carriers = {
+            "BBR": "BBR",
+            "KNO": "KNO",
+        }
+        existing_customers = Customer.objects.all().order_by("zem_name")
         context = {
-            "order": order,
-            "previous_order": previous_order,
+            "pickup_carriers": pickup_carriers,
+            "warehouse_carriers": warehouse_carriers,
+            "pick_pending_orders": pick_pending_orders,
+            "pick_confirmed_orders": pick_confirmed_orders,
+            "warehouse_pending_orders": warehouse_pending_orders,
+            "warehouse_confirmed_orders":warehouse_confirmed_orders,
+            "delivery_pending_orders": delivery_pending_orders,
+            "delivery_confirmed_orders":None,
+            "warehouse_options": self.warehouse_options,
+            "existing_customers": existing_customers,
             "order_form": OrderForm(),
             "start_date_confirm": start_date_confirm,
             "end_date_confirm": end_date_confirm,
-            "customer": customer,
-            "warehouse_options": self.warehouse_options,
-            "warehouse_filter": warehouse,
-            "invoice_type_filter": invoice_type,
-            "existing_customers": existing_customers,
-            "months": reversed(months) if months else [],
-            "carriers": carrier,
+            "start_date_export": start_date_export,
+            "end_date_export": end_date_export,
+            "invoice_type_filter":"payable",
+            "CARRIER_FLEET": CARRIER_FLEET,
+            "warehouse_filter": request.POST.get("warehouse_filter"),
         }
-        return self.template_invoice_confirm, context
+        return self.template_invoice_payable_confirm, context
 
     def handle_invoice_delivery_get(
         self,
@@ -1527,6 +2177,53 @@ class Accounting(View):
         }
         return self.template_invoice_delivery, context
 
+    def handle_invoice_delivery_calc_expense(self,container_number:str) -> None:
+        fleet_expenses = FleetShipmentPallet.objects.values('PO_ID','pickup_number').annotate(
+            total_expense=Sum('expense'),
+            total_pallet=Sum('total_pallet')
+        ).filter(container_number__container_number=container_number)  
+        payable_delivery_amount = 0
+        for expense_group in fleet_expenses:
+            po_id = expense_group['PO_ID']
+            total_expense = expense_group['total_expense']
+            payable_delivery_amount += total_expense
+            if not total_expense:
+                raise ValueError(f"{expense_group['pickup_number']}车次成本未记录")
+            total_pallet = expense_group['total_pallet']
+            # 找到该po_id的所有板子，根据外键找到对应的invoice_delivery
+            pallets = Pallet.objects.filter(PO_ID=po_id).select_related('invoice_delivery')
+            delivery_groups = {}
+            #将板数按照invoice_delivery去分组，记录每组的板数
+            for pallet in pallets:
+                if pallet.invoice_delivery:
+                    delivery_id = pallet.invoice_delivery.id
+                    if delivery_id not in delivery_groups:
+                        delivery_groups[delivery_id] = {
+                            'delivery': pallet.invoice_delivery,
+                            'pallet_count': 0,
+                            'pallets': []
+                        }
+                    delivery_groups[delivery_id]['pallet_count'] += 1
+                    delivery_groups[delivery_id]['pallets'].append(pallet)
+            # 遍历每组的invoice_delivery，
+            for group in delivery_groups.values():
+                delivery = group['delivery']
+                pallet_count = group["pallet_count"]
+                # 根据板数的比列，去计算成本
+                allocated_expense = (pallet_count / total_pallet) * total_expense
+                InvoiceDelivery.objects.filter(id=delivery.id).update(
+                    expense=allocated_expense,
+                    total_pallet=pallet_count
+                )
+        #给invoice的delivery_amount赋值
+        invoice = Invoice.objects.get(
+            container_number__container_number=container_number
+        )
+        invoice.payable_delivery_amount = payable_delivery_amount
+        invoice.save()
+        
+         
+
     def handle_invoice_payable_save_post(self, request: HttpRequest) -> tuple[Any, Any]:
         data = request.POST.copy()
         save_type = data.get("save_type")
@@ -1560,7 +2257,9 @@ class Accounting(View):
                 None,
                 data.get("warehouse_filter"),
             )
-        elif save_type == "account_confirm":
+        elif save_type == "account_confirm":          
+            #这里加一个方法，给invoice_delivery表计算每条记录的成本
+            self.handle_invoice_delivery_calc_expense(container_number)
             invoice_status.stage = "confirmed"
             invoice_status.save()
             return self.handle_invoice_confirm_get(request)
@@ -1575,47 +2274,105 @@ class Accounting(View):
                 data.get("warehouse_filter"),
             )
         total_amount = data.get("total_amount")
-        # 拆柜供应商
-        palletization_carrier = data.get("palletization_carrier")
         #直送的托架费提示信息
         chassis_comment = data.get("chassis_comment")
         # 将额外费用构建键值对
-        fee_names = data.getlist("fee_name")
-        fee_amounts = data.getlist("fee_amount")
-        fees = {}
-        for name, amount in zip(fee_names, fee_amounts):
+        pickup_fee_names = data.getlist("pickup_fee_name")
+        pickup_fee_amounts = data.getlist("pickup_fee_amount")
+        pt_amount = 0
+        pickup_fees = {}
+        for name, amount in zip(pickup_fee_names, pickup_fee_amounts):
             if name and amount:
-                fees[name] = float(amount)
+                pt_amount += float(amount)
+                pickup_fees[name] = float(amount)
+        
+        pallet_fee_names = data.getlist("pallet_fee_name")
+        pallet_fee_amounts = data.getlist("pallet_fee_amount")
+
+        wh_amount = 0
+        pallet_fees = {}
+        for name, amount in zip(pallet_fee_names, pallet_fee_amounts):
+            if name and amount:
+                wh_amount += float(amount)
+                pallet_fees[name] = float(amount)
         # 存到invoice表里
         invoice = Invoice.objects.get(
             container_number__container_number=container_number
         )
-        if data.get("basic_fee"):
-            invoice.payable_basic = data.get("basic_fee")
+        try:
+            invoice_preports = InvoicePreport.objects.get(
+                invoice_number__invoice_number=invoice.invoice_number,
+                invoice_type="payable",
+            )
+        except InvoicePreport.DoesNotExist:
+            invoice_preports = InvoicePreport(
+                **{"invoice_number": invoice, "invoice_type": "payable"}
+            )
+        
+        try:
+            invoice_warehouse = InvoiceWarehouse.objects.get(
+                invoice_number__invoice_number=invoice.invoice_number,
+                invoice_type="payable",
+            )
+        except InvoiceWarehouse.DoesNotExist:
+            invoice_warehouse = InvoiceWarehouse(
+                **{"invoice_number": invoice, "invoice_type": "payable"}
+            )
+        
         if data.get("palletization_fee"):
-            invoice.payable_palletization = data.get("palletization_fee")
-        if data.get("overweight_fee"):
-            invoice.payable_overweight = data.get("overweight_fee")
-        if data.get("chassis_fee"):
-            invoice.payable_chassis = data.get("chassis_fee")
+            invoice_warehouse.palletization_fee = data.get("palletization_fee")   
+            wh_amount += float(data.get("palletization_fee"))        
         if data.get("arrive_fee"):
-            invoice.payable_palletization = data.get("arrive_fee")
+            invoice_warehouse.arrive_fee = data.get("arrive_fee")
+            wh_amount += float(data.get("arrive_fee"))
+        #拆柜供应商
+        invoice_warehouse.carrier = data.get("palletization_carrier")
+        invoice_warehouse.amount = wh_amount
+        invoice.payable_warehouse_amount = wh_amount
+        
+        if data.get("basic_fee"):#提柜费
+            invoice_preports.pickup = data.get("basic_fee")
+            pt_amount += float(data.get("basic_fee"))
+        if data.get("overweight_fee"):#超重费
+            invoice_preports.over_weight = data.get("overweight_fee")  
+            pt_amount += float(data.get("overweight_fee")) 
+        if data.get("chassis_fee"): #车架费
+            invoice_preports.chassis = data.get("chassis_fee")
+            pt_amount += float(data.get("chassis_fee")) 
+        if data.get("demurrage_fee"):#滞港费
+            invoice_preports.demurrage = data.get("demurrage_fee")
+            pt_amount += float(data.get("demurrage_fee")) 
+        if data.get("per_diem_fee"):#滞箱费
+            invoice_preports.per_diem = data.get("per_diem_fee")
+            pt_amount += float(data.get("per_diem_fee")) 
         if invoice.payable_palletization == "None":
             raise ValueError("未选择打板费")
-        invoice.payable_total_amount = total_amount
-        invoice.payable_surcharge = {
-            "palletization_carrier": palletization_carrier,
-            "other_fee": fees,
-            "preport_carrier": data.get("preport_carrier"),
+        invoice_preports.amount = pt_amount
+        invoice.payable_preport_amount = pt_amount
+        invoice_preports.other_fees = {
+            "other_fee": pickup_fees,
             "chassis_comment": chassis_comment,
         }
+        invoice_preports.save()
+        invoice_warehouse.other_fees = {
+            "other_fee": pallet_fees,
+        }
+        invoice_warehouse.save()
+
+        invoice.payable_total_amount = total_amount
+        
         invoice.save()
         # 如果确认，就改变状态
         if save_type == "complete":
             invoice_status.stage = "preport"  # 这是转给rose去审核
             invoice_status.is_rejected = False
             invoice_status.reject_reason = ""
-            invoice_status.save()
+            
+        #修改payable_status字段
+        for key, value in invoice_status.payable_status.items():
+            if value != "confirmed":
+                invoice_status.payable_status[key] = "pending"
+        invoice_status.save()
         return self.handle_invoice_payable_get(
             request,
             data.get("start_date"),
@@ -3040,13 +3797,12 @@ class Accounting(View):
                 "invoice_id__statement_id",
             )
             .filter(
-                criteria,
-                models.Q(**{"payable_status__isnull": True})
-                | models.Q(  # 考虑账单编辑点的是暂存的情况
-                    **{
-                        "payable_status__stage": "unstarted",
-                    }
-                ),
+                criteria
+            )
+            .filter(
+                models.Q(payable_status__is_rejected=True) |
+                models.Q(payable_status__isnull=True) |
+                models.Q(payable_status__stage="unstarted")
             )
             .annotate(
                 reject_priority=Case(
@@ -3117,6 +3873,7 @@ class Accounting(View):
                     o.other_fee = o.invoice_id.payable_surcharge.get('other_fee', {})
                 else:
                     o.other_fee = {}
+            #已审核账单
             pre_order_pending = Order.objects.select_related(
                 "customer_name",
                 "container_number",
@@ -3139,12 +3896,9 @@ class Accounting(View):
                 "invoice_id__statement_id",
                 "payable_status",
             ).filter(
-                models.Q(
-                    models.Q(payable_status__stage="preport")
-                    | models.Q(payable_status__stage="tobeconfirmed")
-                    | models.Q(payable_status__stage="confirmed")
-                ),
                 criteria,
+                ~models.Q(payable_status__is_rejected=True),
+                payable_status__stage__in=["preport", "tobeconfirmed", "confirmed"],              
                 payable_status__isnull=False,
             )
             previous_order = self.process_orders_display_status(
@@ -4991,8 +5745,10 @@ class Accounting(View):
             is_rejected = True
         # 总费用
         payable_total_amount = invoice.payable_total_amount
-        # 其他费用
-        pallet_other_fee = invoice.payable_surcharge.get("other_fee", 0)        
+        # 提柜的其他费用
+        pickup_other_fee = None
+        # 拆柜的其他费用
+        pallet_other_fee = None      
         context = {
             "start_date": request.GET.get("start_date"),
             "end_date": request.GET.get("end_date"),
@@ -5007,15 +5763,21 @@ class Accounting(View):
             "container_type": container_type,
             "warehouse": warehouse,
             "payable_total_amount": payable_total_amount,
+            "pickup_other_fee": pickup_other_fee,
             "pallet_other_fee": pallet_other_fee,
         }    
         #如果是直送的柜子，按如下计算
         if order.order_type =="直送":
             if is_save_invoice: #从数据库读
-                carrier = invoice.payable_surcharge["preport_carrier"]
-                basic_fee = invoice.payable_basic
-                chassis_fee = invoice.payable_chassis
-                chassis_comment = invoice.payable_surcharge["chassis_comment"]
+                # 读数据库的数据
+                invoice_preport = InvoicePreport.objects.get(
+                    invoice_number__invoice_number=invoice.invoice_number,
+                    invoice_type="payable",
+                )
+                carrier = order.retrieval_id.retrieval_carrier
+                basic_fee = invoice_preport.pickup
+                chassis_fee = invoice_preport.chassis
+                chassis_comment = invoice_preport.other_fees["chassis_comment"]
                 context.update({
                     'chassis_fee': chassis_fee,                  
                 })
@@ -5084,29 +5846,41 @@ class Accounting(View):
             pallet_details = None
             palletization_fee = None
             palletization_carrier = None
+            demurrage_fee = None
+            per_diem_fee = None
 
             reason = None
             if not preport_carrier or preport_carrier == "None":
                 reason = "缺少提柜供应商，无法计算"
             else:
-                if is_save_invoice:  # 读数据库的数据
-                    basic_fee = invoice.payable_basic
-                    if invoice.payable_overweight and float(invoice.payable_overweight) > 0:
-                        overweight_fee = invoice.payable_overweight
+                if is_save_invoice:  
+                    # 读数据库的数据
+                    invoice_preport = InvoicePreport.objects.get(
+                        invoice_number__invoice_number=invoice.invoice_number,
+                        invoice_type="payable",
+                    )
+                    invoice_warehouse = InvoiceWarehouse.objects.get(
+                        invoice_number__invoice_number=invoice.invoice_number,
+                        invoice_type="payable",
+                    )
 
-                    if invoice.payable_chassis and float(invoice.payable_chassis) > 0:
-                        chassis_fee = invoice.payable_chassis
-
-                    # 如果是NJ的并且还有入库拆柜费，那就是拆柜费
-                    if invoice.payable_palletization and "NJ" in warehouse:
-                        palletization_fee = invoice.payable_palletization
-                        palletization_carrier = invoice.payable_surcharge[
-                            "palletization_carrier"
-                        ]
-                    else:
-                        # 否则，如果有入库拆柜费，那就是入库拆柜合并的费用
-                        arrive_fee = invoice.payable_palletization
-                                    
+                    basic_fee = invoice_preport.pickup  #提柜费
+                    if invoice_preport.over_weight and float(invoice_preport.over_weight) > 0:#超重费
+                        overweight_fee = invoice_preport.over_weight
+                    if invoice_preport.chassis and float(invoice_preport.chassis) > 0:#车架费
+                        chassis_fee = invoice_preport.chassis
+                    if invoice_preport.demurrage and float(invoice_preport.demurrage) > 0:#滞港费
+                        demurrage_fee = invoice_preport.demurrage
+                    if invoice_preport.per_diem and float(invoice_preport.per_diem) > 0:#滞箱费
+                        per_diem_fee = invoice_preport.per_diem
+                    
+                    if invoice_warehouse.palletization_fee and float(invoice_warehouse.palletization_fee) > 0:#拆柜费
+                        palletization_fee = invoice_warehouse.palletization_fee
+                    if invoice_warehouse.arrive_fee and float(invoice_warehouse.arrive_fee) > 0:#入库费
+                        arrive_fee = invoice_warehouse.arrive_fee
+                    if invoice_warehouse.carrier:#供应商
+                        palletization_carrier = invoice_warehouse.carrier
+             
                     # 如果是驳回的账单，并且仓库是NJ的，可能需要重新填写拆柜费用，所以要去报价表找拆柜供应商
                     if invoice_status.is_rejected == True and warehouse == "NJ":
                         DETAILS = self._get_feetail(vessel_etd, "PAYABLE")
@@ -5125,6 +5899,13 @@ class Accounting(View):
                                 if details.get("basic_40") in (None, "/")
                                 and details.get("basic_45") in (None, "/")
                             }
+                    pickup_other_fee = invoice_preport.other_fees.get("other_fee", 0) 
+                    # 拆柜的其他费用
+                    pallet_other_fee = invoice_warehouse.other_fees.get("other_fee", 0) 
+                    context.update({
+                        "pickup_other_fee": pickup_other_fee,
+                        "pallet_other_fee": pallet_other_fee,        
+                    })
                 else:
                     # 查找应付报价表
                     DETAILS = self._get_feetail(vessel_etd, "PAYABLE")
@@ -5159,7 +5940,7 @@ class Accounting(View):
                         } 
                     else:
                         pallet_details = None
-                        
+
                     if pickup_details:
                         basic_fee = 0
                         if "40" in container_type:
@@ -5219,6 +6000,8 @@ class Accounting(View):
             "returned_date": returned_date or None,
             "empty_returned_at": empty_returned_at,
             "actual_retrieval_timestamp": actual_retrieval_timestamp,
+            "demurrage_fee": demurrage_fee,
+            "per_diem_fee": per_diem_fee,
         })
         return self.template_invoice_payable_edit, context
 

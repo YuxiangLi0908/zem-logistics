@@ -690,8 +690,7 @@ class FleetManagement(View):
             else:
                 raise ValueError(f"Missing required columns. Found: {df.columns.tolist()}")
             
-            for pickup_number, fleet_number, shipment_batch_number, fleet_cost in valid_rows:
-                
+            for pickup_number, fleet_number, shipment_batch_number, fleet_cost in valid_rows:            
                 if fleet_cost <= 0:
                     raise ValueError('价格怎么是负的')
                 #更新车次表的价格
@@ -710,33 +709,67 @@ class FleetManagement(View):
                     raise ValueError('缺少车次等信息')
                 
                 fleet.fleet_cost = fleet_cost
+                
                 await sync_to_async(fleet.save)()
 
                 #更新fleetshipmentpallet表
                 if pickup_number:
-                    fleet_shipments = await sync_to_async(
-                        lambda: list(
-                            FleetShipmentPallet.objects.filter(pickup_number=pickup_number)
-                            .only("id", "total_pallet", "expense")
-                        )
-                    )()
+                    criteria = models.Q(pickup_number=pickup_number)                  
                 elif shipment_batch_number:
-                    fleet_shipments = await sync_to_async(
-                        lambda: list(
-                            FleetShipmentPallet.objects.filter(shipment_batch_number__shipment_batch_number=shipment_batch_number)
-                            .only("id", "total_pallet", "expense")
-                        )
-                    )()
+                    criteria = models.Q(shipment_batch_number__shipment_batch_number=shipment_batch_number)
                 elif fleet_number:
-                    fleet_shipments = await sync_to_async(
-                        lambda: list(
-                            FleetShipmentPallet.objects.filter(fleet_number__fleet_number=fleet_number)
-                            .only("id", "total_pallet", "expense")
-                        )
-                    )()
+                    criteria = models.Q(fleet_number__fleet_number=fleet_number) 
                 else:
                     raise ValueError('缺少车次等信息')
+                fleet_shipments = await sync_to_async(
+                    lambda: list(
+                        FleetShipmentPallet.objects.filter(criteria)
+                        .only("id", "total_pallet", "expense")
+                    )
+                )()
                 
+                if not fleet_shipments:
+                    #如果找不到，说明这个车次，在系统上没有经过确认出库那一步，这里再补上
+                    if shipment_batch_number:
+                        criteria_plt = models.Q(
+                            shipment_batch_number__shipment_batch_number=shipment_batch_number
+                        )
+                    elif fleet_number:
+                        criteria_plt = models.Q(
+                            shipment_batch_number__fleet_number=fleet_number
+                        )
+                    elif pickup_number:
+                        criteria_plt = models.Q(
+                            shipment_batch_number__fleet_number__pickup_number=pickup_number
+                        )
+                    grouped_pallets = await sync_to_async(list)(
+                        Pallet.objects.filter(criteria_plt)
+                        .values('shipment_batch_number', 'PO_ID', 'container_number')
+                        .annotate(actual_pallets=Count('pallet_id'))  # 计算每组的板子数量
+                        .order_by('shipment_batch_number', 'PO_ID')
+                    )
+                    new_fleet_shipment_pallets = []
+                    for group in grouped_pallets:                      
+                        new_record = FleetShipmentPallet(
+                            fleet_number=fleet,
+                            pickup_number=fleet.pickup_number,
+                            shipment_batch_number_id=group['shipment_batch_number'], 
+                            PO_ID=group['PO_ID'],
+                            total_pallet=group['actual_pallets'],  
+                            container_number_id=group['container_number']  
+                        )
+                        new_fleet_shipment_pallets.append(new_record)
+
+                    await sync_to_async(FleetShipmentPallet.objects.bulk_create)(
+                        new_fleet_shipment_pallets,
+                        batch_size=500  
+                    )
+                    fleet_shipments = await sync_to_async(
+                        lambda: list(
+                            FleetShipmentPallet.objects.filter(criteria)
+                            .only("id", "total_pallet", "expense")
+                        )
+                    )()
                 total_pallets = sum(fs.total_pallet for fs in fleet_shipments if fs.total_pallet)
                 if total_pallets <= 0:
                     continue
@@ -1425,7 +1458,6 @@ class FleetManagement(View):
         batch_number = request.POST.getlist("batch_number")
         plt_ids = request.POST.getlist("plt_ids")
         plt_ids = [ids.split(",") for ids in plt_ids]
-        print('分组的plt',plt_ids)
         fleet = await sync_to_async(Fleet.objects.get)(fleet_number=fleet_number)
         shipment = await sync_to_async(list)(
             Shipment.objects.filter(shipment_batch_number__in=batch_number).order_by(
