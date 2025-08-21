@@ -29,7 +29,12 @@
             {% comment %} text-align:left; {% endcomment %}
             {% comment %} padding-left: 0; {% endcomment %}
         }
-        
+        .smaller-text {
+            font-size: 30px;
+            line-height: 2;
+            margin-bottom: 0;
+            
+        }
         .small-text {
             font-size: 40px;
             line-height: 2;
@@ -72,10 +77,18 @@
         <table border="none">
             <tr style="border-top: 1px solid black;">
                 <td colspan="2" class="small-text" style="border-right: 1px solid black; text-align: left;"><i>Customer</i></td>
+                {% if d.has_delivery_window %}
+                <td class="smaller-text" style="border-right: 1px solid black; text-align: center;"><i>Date Window</i></td>
+                {% endif %}
                 <td class="small-text" style="text-align: center;"><i>Date</i></td>
             </tr>
             <tr style="border-bottom: 1px solid black;">
                 <td colspan="2" class="small-text" style="border-right: 1px solid black; text-align: center;"><b>{{d.customer}}</b></td>
+                {% if d.has_delivery_window %}
+                <td class="smaller-text" style="border-right: 1px solid black; text-align: center;">
+                    <b>{{d.dw_st}} - {{d.dw_end}}</b>
+                </td>
+                {% endif %}
                 <td class="small-text" style="text-align: center;"><b>{{d.date}}</b></td>
             </tr>
         </table>

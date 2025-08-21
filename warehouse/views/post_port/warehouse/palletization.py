@@ -6,7 +6,7 @@ import random
 import re
 import string
 import uuid
-from datetime import datetime
+from datetime import datetime,date
 from typing import Any
 
 import barcode
@@ -107,7 +107,6 @@ class Palletization(View):
         if not await self._user_authenticate(request):
             return redirect("login")
         step = request.POST.get("step")
-        print("POST STEP",step)
         if step == "warehouse":
             template, context = await self.handle_warehouse_post(request)
             return render(request, template, context)
@@ -548,7 +547,9 @@ class Palletization(View):
             shipping_marks = request.POST.getlist("shipping_marks")
             fba_ids = request.POST.getlist("fba_ids")
             ref_ids = request.POST.getlist("ref_ids")
-            notes = [d for d in request.POST.getlist("note")]
+            dw_sts = request.POST.getlist("delivery_window_starts")
+            dw_ends = request.POST.getlist("delivery_window_ends")
+            notes = [d for d in request.POST.getlist("notes")]
             po_ids = request.POST.getlist("po_ids")
             total_pallet = sum(n_pallet)
             abnormal_offloads = []
@@ -572,6 +573,8 @@ class Palletization(View):
                 zipcode,
                 contact_name,
                 po_id,
+                dw_st,
+                dw_end
             ) in zip(
                 n_pallet,
                 pcs_actual,
@@ -591,8 +594,21 @@ class Palletization(View):
                 zipcodes,
                 contact_names,
                 po_ids,
+                dw_sts,
+                dw_ends
             ):
                 if p_a > 0:  # 如果实际箱数大于0，才构建板子的信息
+                    if isinstance(dw_st, str):
+                        if dw_st == "None" or dw_st.strip() == "":
+                            dw_st = None
+                        else:
+                            dw_st = datetime.strptime(dw_st, "%b. %d, %Y").date()
+                        
+                    if isinstance(dw_end, str):
+                        if dw_end == "None" or dw_end.strip() == "":
+                            dw_end = None
+                        else:
+                            dw_end = datetime.strptime(dw_end, "%b. %d, %Y").date()
                     pallet_data += await self._split_pallet(
                         order_selected,
                         n,
@@ -614,6 +630,8 @@ class Palletization(View):
                         addr,
                         zipcode,
                         contact_name,
+                        dw_st,
+                        dw_end
                     )  # 循环遍历每个汇总的板数
                 if p_a != p_r:
                     abnormal_offloads.append(
@@ -642,6 +660,8 @@ class Palletization(View):
                 shipping_marks = request.POST.getlist("new_shipping_marks")
                 fba_ids = request.POST.getlist("new_fba_ids")
                 ref_ids = request.POST.getlist("new_ref_ids")
+                new_dw_sts = request.POST.getlist("new_delivery_window_starts")
+                new_dw_ends = request.POST.getlist("new_delivery_window_ends")
                 new_notes = request.POST.getlist("new_notes")
                 new_cbm = [
                     float(value) if value else 0
@@ -661,7 +681,7 @@ class Palletization(View):
                         f"A{container.container_number[-4:]}{po_id_seg}{seq_num}"
                     )
                     seq_num += 1
-                # 生成pallet
+
                 for (
                     n,
                     p_a,
@@ -673,6 +693,8 @@ class Palletization(View):
                     fba_id,
                     ref_id,
                     po_id,
+                    dw_st,
+                    dw_end
                 ) in zip(
                     new_pallets,
                     new_pcs_actul,
@@ -684,10 +706,24 @@ class Palletization(View):
                     fba_ids,
                     ref_ids,
                     new_po_ids,
+                    new_dw_sts,
+                    new_dw_ends
                 ):
                     delivery_type = (
                         "public" if self.is_public_destination(dest) else "other"
                     )
+                    if isinstance(dw_st, str):
+                        if dw_st == "None" or dw_st.strip() == "":
+                            dw_st = None
+                        else:
+                            dw_st = datetime.strptime(dw_st, "%Y-%m-%d",).date()
+                        
+                    if isinstance(dw_end, str):
+                        if dw_end == "None" or dw_end.strip() == "":
+                            dw_end = None
+                        else:
+                            dw_end = datetime.strptime(dw_end, "%Y-%m-%d",).date()
+                    
                     pallet_data += await self._split_pallet(
                         order_selected,
                         n,
@@ -706,8 +742,11 @@ class Palletization(View):
                         ref_id,
                         po_id,
                         pk,
-                        seed=1,
+                        dw_st,
+                        dw_end,
+                        seed=1,                        
                     )
+                    
                     # 记录异常拆柜
                     abnormal_offloads.append(
                         {
@@ -719,6 +758,8 @@ class Palletization(View):
                             "delivery_method": d_m,
                             "pcs_reported": 0,
                             "pcs_actual": p_a,
+                            "delivery_window_start":dw_st,
+                            "delivery_window_end":dw_end,
                         }
                     )
             offload.total_pallet = total_pallet
@@ -1009,7 +1050,8 @@ class Palletization(View):
                     fba_ids = pl.get("fba_ids")
                 else:
                     fba_ids = None
-
+                dw_st = pl.get("delivery_window_start").strftime("%m/%d") if pl.get("delivery_window_start") else None
+                dw_end = pl.get("delivery_window_end").strftime("%m/%d") if pl.get("delivery_window_end") else None
                 for num in range(cbm):
                     i = num // n_label + 1
                     barcode_type = "code128"
@@ -1037,6 +1079,9 @@ class Palletization(View):
                         "barcode": barcode_base64,
                         "shipping_marks": new_marks,
                         "pcs": pl.get("pcs"),
+                        "has_delivery_window": bool(dw_st and dw_end),
+                        "dw_st":dw_st,
+                        "dw_end":dw_end,
                     }
                     data.append(new_data)
         context = {"data": data}
@@ -1075,7 +1120,9 @@ class Palletization(View):
         pk: int,
         address: str | None = None,
         zipcode: str | None = None,
-        contact_name: str | None = None,
+        contact_name: str | None = None,        
+        dw_st:date | None = None,
+        dw_end:date | None = None,
         seed: int = 0,
     ) -> list[dict[str, Any]]:
         if n == 0 or n is None:
@@ -1130,13 +1177,15 @@ class Palletization(View):
                     "weight_lbs": weight_loaded,
                     "shipment_batch_number": shipment,
                     "master_shipment_batch_number": master_shipment,
-                    "note": note,
+                    "note": None if note == "None" else note,
                     "shipping_mark": shipping_mark if shipping_mark else "",
                     "fba_id": fba_id if fba_id else "",
                     "ref_id": ref_id if ref_id else "",
                     "abnormal_palletization": p_a != p_r,
                     "location": order.warehouse.name,
                     "PO_ID": po_id,
+                    "delivery_window_start":dw_st,
+                    "delivery_window_end":dw_end,
                 }
             )
         return pallet_data
@@ -1292,6 +1341,8 @@ class Palletization(View):
                     "master_shipment_batch_number__shipment_batch_number",
                     "PO_ID",
                     "delivery_type",
+                    "delivery_window_start",
+                    "delivery_window_end", 
                 )
                 .annotate(
                     fba_ids=StringAgg("str_fba_id", delimiter=",", distinct=True),
@@ -1309,6 +1360,7 @@ class Palletization(View):
                     ),
                 )
                 .order_by("-cbm")
+                .order_by("destination","delivery_window_start")
             )
         elif status == "palletized":
             return await sync_to_async(list)(
@@ -1333,6 +1385,8 @@ class Palletization(View):
                     "note",
                     "PO_ID",
                     "delivery_type",
+                    "delivery_window_start",
+                    "delivery_window_end", 
                 )
                 .annotate(
                     pcs=Sum("pcs", output_field=IntegerField()),
@@ -1357,6 +1411,7 @@ class Palletization(View):
                     ),
                 )
                 .order_by("-cbm")
+                .order_by("destination","delivery_window_start")
             )
         else:
             raise ValueError(f"invalid status: {status}")
