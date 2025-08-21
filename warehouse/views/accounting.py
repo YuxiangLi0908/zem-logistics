@@ -693,7 +693,7 @@ class Accounting(View):
                             'pickup': invoice.payable_basic,
                             'over_weight': invoice.payable_overweight,
                             'chassis': invoice.payable_chassis,
-                            'amount': float(invoice.payable_total_amount) - float(invoice.payable_palletization),
+                            'amount': float(invoice.payable_total_amount) - (float(invoice.payable_palletization) if invoice.payable_palletization is not None else 0),
                             'other_fees': {
                                 'other_fee': invoice.payable_surcharge.get('other_fee')
                                 if invoice.payable_surcharge and 'other_fee' in invoice.payable_surcharge
