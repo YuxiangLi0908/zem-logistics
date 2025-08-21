@@ -68,7 +68,7 @@
                 {% if "SAV-31326" == warehouse %}
                 ZEM RINCON<br>1001 Trade Center Pkwy<br>Rincon,GA,31326<br>LEON &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;9342267717<br>delivery@zemlogistics.com
                 {% elif "LA-91761" == warehouse %}
-                ZEM RINCON<br>5450E Francis St Ontario<br>CA,91761,United States<br>Yannie &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;9096958989<br>delivery@zemlogistics.com
+                ZEM RINCON<br>5450E Francis St Ontario<br>CA,91761,United States<br>Gina &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;6264354246<br>delivery@zemlogistics.com
                 {% else %}
                 <br><br><br><br>
                 {% endif %}
@@ -201,7 +201,7 @@
         <th style="width: 7.1%; border: none;"></th>
     </thead>
     {% for p in arm_pickup %}
-    <trstyle="text-align:center;">
+    <tr style="text-align:center;">
         <th style="width: 7.1%; border: none;"></th>
         <td style="text-align:center; border:1px solid black;">{{ p.container_number__container_number }}</td>
         <td style="text-align:center; border:1px solid black;">{{ p.destination }}</td>
@@ -213,5 +213,8 @@
     </tr>
     {% endfor %}
 </table>
-</table>
+<br/><br/>
+<div style="font-size: 18px; font-family: STSong-Light; padding-left: 80px;">
+{{ notes|safe }}
+</div>
 {% endblock %}

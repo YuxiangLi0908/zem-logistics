@@ -475,7 +475,7 @@
     </div>
     {% endif %}
 
-    {% if extra_fees %}
+    
     <!-- 额外费用 -->
     <div class="card mb-3 shadow-sm">
         <div class="card-header bg-light text-dark p-2">
@@ -486,16 +486,42 @@
             <span class="badge bg-warning text-dark ms-2" title="客服手动录入">
                 <i class="bi bi-pencil-square me-1"></i>客服录入
             </span>
+            <button type="button" class="btn btn-sm btn-primary ms-2" onclick="showAddFeeModal()">
+                <i class="bi bi-plus-circle me-1"></i>添加费用
+            </button>
         </div>
         <div class="card-body p-2">
-            <!-- 港口相关费用 -->
-            {% if extra_fees.preports %}
-            <div class="card mb-3 border-0 shadow-sm">
-                <div class="card-header bg-light p-2">
+            <div id="feeTypeModal" style="display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background-color: rgba(0,0,0,0.5); z-index: 1000;">
+                <div style="position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%); background: white; padding: 20px; border-radius: 5px; max-width: 500px; width: 90%;">
+                    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 15px;">
+                        <h5 style="margin: 0;">选择费用类型</h5>
+                        <button type="button" onclick="hideAddFeeModal()" style="background: none; border: none; font-size: 1.5rem; cursor: pointer;">&times;</button>
+                    </div>
+                    <div>
+                        <div class="list-group">
+                            <button type="button" class="list-group-item list-group-item-action" onclick="addFeeRow('port')" style="padding: 10px; border: 1px solid #ddd; margin-bottom: 5px; background: none; width: 100%; text-align: left; cursor: pointer;">
+                                <i class="bi bi-building me-2"></i>港口相关费用
+                            </button>
+                            <button type="button" class="list-group-item list-group-item-action" onclick="addFeeRow('warehouse')" style="padding: 10px; border: 1px solid #ddd; margin-bottom: 5px; background: none; width: 100%; text-align: left; cursor: pointer;">
+                                <i class="bi bi-shop me-2"></i>仓库相关费用
+                            </button>
+                            <button type="button" class="list-group-item list-group-item-action" onclick="addFeeRow('delivery')" style="padding: 10px; border: 1px solid #ddd; margin-bottom: 5px; background: none; width: 100%; text-align: left; cursor: pointer;">
+                                <i class="bi bi-truck me-2"></i>派送费用
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            <!-- 港口相关费用 -->       
+            <div id="portFeesSection" class="card mb-3 border-0 shadow-sm">
+                <div class="card-header bg-light p-2 d-flex justify-content-between align-items-center">
                     <h6 class="mb-0 fw-bold text-dark">
                         <i class="bi bi-building me-1"></i>
                         港口相关费用
                     </h6>
+                    <button type="button" class="btn btn-sm btn-outline-primary" onclick="addFeeRow('port')">
+                        <i class="bi bi-plus"></i> 添加
+                    </button>
                 </div>
                 <div class="card-body p-2">
                     <div class="row mb-2 g-2 d-none d-md-flex">
@@ -516,52 +542,60 @@
                             <small class="text-muted">说明</small>
                         </div>
                     </div>
-                    {% for fee in extra_fees.preports %}
-                    <div class="row align-items-center mb-2 g-2">
-                        <div class="col-md-3">
-                            <label class="form-label fw-bold">{{ fee.name }}:</label>
-                            <input type="hidden" class="form-control form-control-sm name-input" 
-                                name="port_fees[{{ forloop.counter0 }}][name]" value="{{ fee.name }}">
-                        </div>
-                        <div class="col-md-2">
-                            <small class="text-muted d-md-none">单价</small>
-                            <input type="number" class="form-control form-control-sm price-input" step="0.01" 
-                                name="port_fees[{{ forloop.counter0 }}][price]" value="{{ fee.rate }}">
-                        </div>
-                        <div class="col-md-1">
-                            <small class="text-muted d-md-none">数量</small>
-                            <input type="number" class="form-control form-control-sm quantity-input" step="0.1" 
-                                name="port_fees[{{ forloop.counter0 }}][quantity]" value="{{ fee.qty }}">
-                        </div>
-                        <div class="col-md-2">
-                            <small class="text-muted d-md-none">附加费</small>
-                            <input type="number" class="form-control form-control-sm surcharge-input" step="0.01"
-                                name="port_fees[{{ forloop.counter0 }}][surcharge]" value="{{ fee.surcharge }}">
-                        </div>
-                        <div class="col-md-2">
-                            <small class="text-muted d-md-none">总价</small>
-                            <input type="number" class="form-control form-control-sm total-input" readonly
-                                name="port_fees[{{ forloop.counter0 }}][value]" value="{{ fee.value }}">
-                        </div>                      
-                        <div class="col-md-2">
-                            <small class="text-muted d-md-none">说明</small>
-                            <input type="text" class="form-control form-control-sm" 
-                                name="port_fees[{{ forloop.counter0 }}][surcharge_note]" value="{{ fee.surcharge_note|default:'' }}">
-                        </div>
+                    <div id="portFeesContainer">
+                        {% if extra_fees and extra_fees.preports %}
+                            {% for fee in extra_fees.preports %}
+                            <div class="row align-items-center mb-2 g-2">
+                                <div class="col-md-3">
+                                    <label class="form-label fw-bold">{{ fee.name }}:</label>
+                                    <input type="hidden" class="form-control form-control-sm name-input" 
+                                        name="port_fees[{{ forloop.counter0 }}][name]" value="{{ fee.name }}">
+                                </div>
+                                <div class="col-md-2">
+                                    <small class="text-muted d-md-none">单价</small>
+                                    <input type="number" class="form-control form-control-sm price-input" step="0.01" 
+                                        name="port_fees[{{ forloop.counter0 }}][price]" value="{{ fee.rate }}">
+                                </div>
+                                <div class="col-md-1">
+                                    <small class="text-muted d-md-none">数量</small>
+                                    <input type="number" class="form-control form-control-sm quantity-input" step="0.1" 
+                                        name="port_fees[{{ forloop.counter0 }}][quantity]" value="{{ fee.qty }}">
+                                </div>
+                                <div class="col-md-2">
+                                    <small class="text-muted d-md-none">附加费</small>
+                                    <input type="number" class="form-control form-control-sm surcharge-input" step="0.01"
+                                        name="port_fees[{{ forloop.counter0 }}][surcharge]" value="{{ fee.surcharge }}">
+                                </div>
+                                <div class="col-md-2">
+                                    <small class="text-muted d-md-none">总价</small>
+                                    <input type="number" class="form-control form-control-sm total-input" readonly
+                                        name="port_fees[{{ forloop.counter0 }}][value]" value="{{ fee.value }}">
+                                </div>                      
+                                <div class="col-md-2">
+                                    <small class="text-muted d-md-none">说明</small>
+                                    <input type="text" class="form-control form-control-sm" 
+                                        name="port_fees[{{ forloop.counter0 }}][surcharge_note]" value="{{ fee.surcharge_note|default:'' }}">
+                                    <button type="button" class="btn btn-sm btn-outline-danger mt-1" onclick="removeFeeRow(this, 'port')">
+                                        <i class="bi bi-trash"></i> 删除
+                                    </button>
+                                </div>
+                            </div>
+                            {% endfor %}
+                        {% endif %}
                     </div>
-                    {% endfor %}
                 </div>
             </div>
-            {% endif %}
-            
+                     
             <!-- 仓库相关费用 -->
-            {% if extra_fees.warehouse %}
-            <div class="card border-0 shadow-sm">
-                <div class="card-header bg-light p-2">
+            <div id="warehouseFeesSection" class="card mb-3 border-0 shadow-sm">
+                <div class="card-header bg-light p-2 d-flex justify-content-between align-items-center">
                     <h6 class="mb-0 fw-bold text-dark">
-                        <i class="bi bi-shop"></i> 
+                        <i class="bi bi-shop me-1"></i>
                         仓库相关费用
                     </h6>
+                    <button type="button" class="btn btn-sm btn-outline-primary" onclick="addFeeRow('warehouse')">
+                        <i class="bi bi-plus"></i> 添加
+                    </button>
                 </div>
                 <div class="card-body p-2">
                     <div class="row mb-2 g-2 d-none d-md-flex">
@@ -582,52 +616,59 @@
                             <small class="text-muted">说明</small>
                         </div>
                     </div>
-                    {% for fee in extra_fees.warehouse %}
-                    <div class="row align-items-center mb-2 g-2">
-                        <div class="col-md-3">
-                            <label class="form-label fw-bold">{{ fee.name }}:</label>
-                            <input type="hidden" class="form-control form-control-sm name-input" 
-                                name="warehouse_fees[{{ forloop.counter0 }}][name]" value="{{ fee.name }}">
-                        </div>
-                        <div class="col-md-2">
-                            <small class="text-muted d-md-none">单价</small>
-                            <input type="number" class="form-control form-control-sm price-input" step="0.01" 
-                                name="warehouse_fees[{{ forloop.counter0 }}][price]" value="{{ fee.rate }}">
-                        </div>
-                        <div class="col-md-1">
-                            <small class="text-muted d-md-none">数量</small>
-                            <input type="number" class="form-control form-control-sm quantity-input" step="0.1" 
-                                name="warehouse_fees[{{ forloop.counter0 }}][quantity]" value="{{ fee.qty }}">
-                        </div>
-                        <div class="col-md-2">
-                            <small class="text-muted d-md-none">附加费</small>
-                            <input type="number" class="form-control form-control-sm surcharge-input" step="0.01"
-                                name="warehouse_fees[{{ forloop.counter0 }}][surcharge]" value="{{ fee.surcharge }}">
-                        </div>
-                        <div class="col-md-2">
-                            <small class="text-muted d-md-none">总价</small>
-                            <input type="number" class="form-control form-control-sm total-input" readonly
-                                name="warehouse_fees[{{ forloop.counter0 }}][value]" value="{{ fee.value }}">
-                        </div>                   
-                        <div class="col-md-2">
-                            <small class="text-muted d-md-none">说明</small>
-                            <input type="text" class="form-control form-control-sm" 
-                                name="warehouse_fees[{{ forloop.counter0 }}][surcharge_note]" value="{{ fee.surcharge_note|default:'' }}">
-                        </div>
+                    <div id="warehouseFeesContainer">
+                        {% if extra_fees and extra_fees.warehouse %}
+                            {% for fee in extra_fees.warehouse %}
+                            <div class="row align-items-center mb-2 g-2">
+                                <div class="col-md-3">
+                                    <label class="form-label fw-bold">{{ fee.name }}:</label>
+                                    <input type="hidden" class="form-control form-control-sm name-input" 
+                                        name="warehouse_fees[{{ forloop.counter0 }}][name]" value="{{ fee.name }}">
+                                </div>
+                                <div class="col-md-2">
+                                    <small class="text-muted d-md-none">单价</small>
+                                    <input type="number" class="form-control form-control-sm price-input" step="0.01" 
+                                        name="warehouse_fees[{{ forloop.counter0 }}][price]" value="{{ fee.rate }}">
+                                </div>
+                                <div class="col-md-1">
+                                    <small class="text-muted d-md-none">数量</small>
+                                    <input type="number" class="form-control form-control-sm quantity-input" step="0.1" 
+                                        name="warehouse_fees[{{ forloop.counter0 }}][quantity]" value="{{ fee.qty }}">
+                                </div>
+                                <div class="col-md-2">
+                                    <small class="text-muted d-md-none">附加费</small>
+                                    <input type="number" class="form-control form-control-sm surcharge-input" step="0.01"
+                                        name="warehouse_fees[{{ forloop.counter0 }}][surcharge]" value="{{ fee.surcharge }}">
+                                </div>
+                                <div class="col-md-2">
+                                    <small class="text-muted d-md-none">总价</small>
+                                    <input type="number" class="form-control form-control-sm total-input" readonly
+                                        name="warehouse_fees[{{ forloop.counter0 }}][value]" value="{{ fee.value }}">
+                                </div>                   
+                                <div class="col-md-2">
+                                    <small class="text-muted d-md-none">说明</small>
+                                    <input type="text" class="form-control form-control-sm" 
+                                        name="warehouse_fees[{{ forloop.counter0 }}][surcharge_note]" value="{{ fee.surcharge_note|default:'' }}">
+                                    <button type="button" class="btn btn-sm btn-outline-danger mt-1" onclick="removeFeeRow(this, 'warehouse')">
+                                        <i class="bi bi-trash"></i> 删除
+                                    </button>
+                                </div>
+                            </div>
+                            {% endfor %}
+                        {% endif %}
                     </div>
-                    {% endfor %}
                 </div>
             </div>
-            {% endif %}
-
             <!-- 派送相关费用 -->
-            {% if extra_fees.deliverys %}
-            <div class="card mb-3 border-0 shadow-sm">
-                <div class="card-header bg-light p-2">
+            <div id="deliveryFeesSection" class="card mb-3 border-0 shadow-sm">
+                <div class="card-header bg-light p-2 d-flex justify-content-between align-items-center">
                     <h6 class="mb-0 fw-bold text-dark">
                         <i class="bi bi-truck me-1"></i>
                         派送费用
                     </h6>
+                    <button type="button" class="btn btn-sm btn-outline-primary" onclick="addFeeRow('delivery')">
+                        <i class="bi bi-plus"></i> 添加
+                    </button>
                 </div>
                 <div class="card-body p-2">
                     <div class="row mb-2 g-2 d-none d-md-flex">
@@ -656,67 +697,69 @@
                             <small class="text-muted">备注</small>
                         </div>
                     </div>
-                    
-                    {% for delivery in extra_fees.deliverys %}
-                    <div class="row align-items-center mb-2 g-2">
-                        <div class="col-md-1">
-                            <small class="text-muted d-md-none">派送类型</small>
-                            <input type="text" class="form-control form-control-sm" 
-                                name="deliverys[{{ forloop.counter0 }}][type]" 
-                                value="{{ delivery.type|default:'' }}">
-                        </div>
-                        <div class="col-md-1">
-                            <small class="text-muted d-md-none">目的地</small>
-                            <input type="text" class="form-control form-control-sm" 
-                                name="deliverys[{{ forloop.counter0 }}][destination]" 
-                                value="{{ delivery.destination|default:'' }}">
-                        </div>
-                        <div class="col-md-1">
-                            <small class="text-muted d-md-none">单价</small>
-                            <input type="number" class="form-control form-control-sm price-input" step="0.1"
-                                name="deliverys[{{ forloop.counter0 }}][cost]" 
-                                value="{{ delivery.cost|default:0 }}">
-                        </div>
-                        <div class="col-md-1">
-                            <small class="text-muted d-md-none">板数</small>
-                            <input type="number" class="form-control form-control-sm quantity-input" step="0.1"
-                                name="deliverys[{{ forloop.counter0 }}][total_pallet]" 
-                                value="{{ delivery.total_pallet|default:0 }}">
-                        </div>
-                        <div class="col-md-1">
-                            <small class="text-muted d-md-none">体积(CBM)</small>
-                            <input type="number" class="form-control form-control-sm" step="0.01"
-                                name="deliverys[{{ forloop.counter0 }}][total_cbm]" 
-                                value="{{ delivery.total_cbm|default:0 }}">
-                        </div>
-                        <div class="col-md-1">
-                            <small class="text-muted d-md-none">重量(LBS)</small>
-                            <input type="number" class="form-control form-control-sm" step="0.1"
-                                name="deliverys[{{ forloop.counter0 }}][total_weight_lbs]" 
-                                value="{{ delivery.total_weight_lbs|default:0 }}">
-                        </div>
-                        <div class="col-md-2">
-                            <small class="text-muted d-md-none">总费用</small>
-                            <input type="number" class="form-control form-control-sm total-input" step="0.01"
-                                name="deliverys[{{ forloop.counter0 }}][total_cost]" 
-                                value="{{ delivery.total_cost|default:0 }}">
-                        </div>
-                        <div class="col-md-4">
-                            <small class="text-muted d-md-none">备注</small>
-                            <input type="text" class="form-control form-control-sm"
-                                name="deliverys[{{ forloop.counter0 }}][note]" 
-                                value="{{ delivery.note|default:'' }}">
-                        </div>
+                    <div id="deliveryFeesContainer">
+                        {% if extra_fees and extra_fees.deliverys %}
+                            {% for delivery in extra_fees.deliverys %}
+                            <div class="row align-items-center mb-2 g-2">
+                                <div class="col-md-1">
+                                    <small class="text-muted d-md-none">派送类型</small>
+                                    <input type="text" class="form-control form-control-sm" 
+                                        name="deliverys[{{ forloop.counter0 }}][type]" 
+                                        value="{{ delivery.type|default:'' }}">
+                                </div>
+                                <div class="col-md-1">
+                                    <small class="text-muted d-md-none">目的地</small>
+                                    <input type="text" class="form-control form-control-sm" 
+                                        name="deliverys[{{ forloop.counter0 }}][destination]" 
+                                        value="{{ delivery.destination|default:'' }}">
+                                </div>
+                                <div class="col-md-1">
+                                    <small class="text-muted d-md-none">单价</small>
+                                    <input type="number" class="form-control form-control-sm price-input" step="0.1"
+                                        name="deliverys[{{ forloop.counter0 }}][cost]" 
+                                        value="{{ delivery.cost|default:0 }}">
+                                </div>
+                                <div class="col-md-1">
+                                    <small class="text-muted d-md-none">板数</small>
+                                    <input type="number" class="form-control form-control-sm quantity-input" step="0.1"
+                                        name="deliverys[{{ forloop.counter0 }}][total_pallet]" 
+                                        value="{{ delivery.total_pallet|default:0 }}">
+                                </div>
+                                <div class="col-md-1">
+                                    <small class="text-muted d-md-none">体积(CBM)</small>
+                                    <input type="number" class="form-control form-control-sm" step="0.01"
+                                        name="deliverys[{{ forloop.counter0 }}][total_cbm]" 
+                                        value="{{ delivery.total_cbm|default:0 }}">
+                                </div>
+                                <div class="col-md-1">
+                                    <small class="text-muted d-md-none">重量(LBS)</small>
+                                    <input type="number" class="form-control form-control-sm" step="0.1"
+                                        name="deliverys[{{ forloop.counter0 }}][total_weight_lbs]" 
+                                        value="{{ delivery.total_weight_lbs|default:0 }}">
+                                </div>
+                                <div class="col-md-2">
+                                    <small class="text-muted d-md-none">总费用</small>
+                                    <input type="number" class="form-control form-control-sm total-input" step="0.01"
+                                        name="deliverys[{{ forloop.counter0 }}][total_cost]" 
+                                        value="{{ delivery.total_cost|default:0 }}">
+                                </div>
+                                <div class="col-md-4">
+                                    <small class="text-muted d-md-none">备注</small>
+                                    <input type="text" class="form-control form-control-sm"
+                                        name="deliverys[{{ forloop.counter0 }}][note]" 
+                                        value="{{ delivery.note|default:'' }}">
+                                    <button type="button" class="btn btn-sm btn-outline-danger mt-1" onclick="removeFeeRow(this, 'delivery')">
+                                        <i class="bi bi-trash"></i> 删除
+                                    </button>
+                                </div>
+                            </div>
+                            {% endfor %}
+                        {% endif %}
                     </div>
-                    {% endfor %}
                 </div>
             </div>
-            {% endif %}
         </div>
-    </div>
-    {% endif %}
-
-    
+    </div> 
 </div>
 </form>
 <form method="post" action="" class="mb-0">
@@ -864,6 +907,152 @@
     }
 </style>
 <script>
+    function showAddFeeModal() {
+        document.getElementById('feeTypeModal').style.display = 'block';
+    }
+    function hideAddFeeModal() {
+        document.getElementById('feeTypeModal').style.display = 'none';
+    }
+
+    function addFeeRow(feeType) {
+        let containerId, namePrefix, index;
+        switch(feeType) {
+            case 'port':
+                containerId = 'portFeesContainer';
+                namePrefix = 'port_fees';
+                index = document.querySelectorAll('#portFeesContainer .row.align-items-center.mb-2.g-2').length;
+                break;
+            case 'warehouse':
+                containerId = 'warehouseFeesContainer';
+                namePrefix = 'warehouse_fees';
+                index = document.querySelectorAll('#warehouseFeesContainer .row.align-items-center.mb-2.g-2').length;
+                break;
+            case 'delivery':
+                containerId = 'deliveryFeesContainer';
+                namePrefix = 'deliverys';
+                index = document.querySelectorAll('#deliveryFeesContainer .row.align-items-center.mb-2.g-2').length;
+                break;
+            default:
+                return;
+        }
+
+        const container = document.getElementById(containerId);     
+
+        let newRow;
+
+        if (feeType === 'port' || feeType === 'warehouse') {
+            newRow = document.createElement('div');
+            newRow.className = 'row align-items-center mb-2 g-2';
+            newRow.innerHTML = `
+                <div class="col-md-3">
+                    <small class="text-muted d-md-none">费用名称</small>
+                    <input type="text" class="form-control form-control-sm name-input" 
+                        name="${namePrefix}[${index}][name]" value="" placeholder="输入费用名称">
+                </div>
+                <div class="col-md-2">
+                    <small class="text-muted d-md-none">单价</small>
+                    <input type="number" class="form-control form-control-sm price-input" step="0.01" 
+                        name="${namePrefix}[${index}][price]" value="0">
+                </div>
+                <div class="col-md-1">
+                    <small class="text-muted d-md-none">数量</small>
+                    <input type="number" class="form-control form-control-sm quantity-input" step="0.1" 
+                        name="${namePrefix}[${index}][quantity]" value="0">
+                </div>
+                <div class="col-md-2">
+                    <small class="text-muted d-md-none">附加费</small>
+                    <input type="number" class="form-control form-control-sm surcharge-input" step="0.01"
+                        name="${namePrefix}[${index}][surcharge]" value="0">
+                </div>
+                <div class="col-md-2">
+                    <small class="text-muted d-md-none">总价</small>
+                    <input type="number" class="form-control form-control-sm total-input" readonly
+                        name="${namePrefix}[${index}][value]" value="0">
+                </div>                      
+                <div class="col-md-2">
+                    <small class="text-muted d-md-none">说明</small>
+                    <input type="text" class="form-control form-control-sm" 
+                        name="${namePrefix}[${index}][surcharge_note]" value="">
+                    <button type="button" class="btn btn-sm btn-outline-danger mt-1" onclick="removeFeeRow(this, '${feeType}')">
+                        <i class="bi bi-trash"></i> 删除
+                    </button>
+                </div>
+            `;
+        } else if (feeType === 'delivery') {
+            newRow = document.createElement('div');
+            newRow.className = 'row align-items-center mb-2 g-2';
+            newRow.innerHTML = `
+                <div class="col-md-1">
+                    <small class="text-muted d-md-none">派送类型</small>
+                    <input type="text" class="form-control form-control-sm" 
+                        name="${namePrefix}[${index}][type]" value="">
+                </div>
+                <div class="col-md-1">
+                    <small class="text-muted d-md-none">目的地</small>
+                    <input type="text" class="form-control form-control-sm" 
+                        name="${namePrefix}[${index}][destination]" value="">
+                </div>
+                <div class="col-md-1">
+                    <small class="text-muted d-md-none">单价</small>
+                    <input type="number" class="form-control form-control-sm price-input" step="0.1"
+                        name="${namePrefix}[${index}][cost]" value="0">
+                </div>
+                <div class="col-md-1">
+                    <small class="text-muted d-md-none">板数</small>
+                    <input type="number" class="form-control form-control-sm quantity-input" step="0.1"
+                        name="${namePrefix}[${index}][total_pallet]" value="0">
+                </div>
+                <div class="col-md-1">
+                    <small class="text-muted d-md-none">体积(CBM)</small>
+                    <input type="number" class="form-control form-control-sm" step="0.01"
+                        name="${namePrefix}[${index}][total_cbm]" value="0">
+                </div>
+                <div class="col-md-1">
+                    <small class="text-muted d-md-none">重量(LBS)</small>
+                    <input type="number" class="form-control form-control-sm" step="0.1"
+                        name="${namePrefix}[${index}][total_weight_lbs]" value="0">
+                </div>
+                <div class="col-md-2">
+                    <small class="text-muted d-md-none">总费用</small>
+                    <input type="number" class="form-control form-control-sm total-input" step="0.01"
+                        name="${namePrefix}[${index}][total_cost]" value="0">
+                </div>
+                <div class="col-md-4">
+                    <small class="text-muted d-md-none">备注</small>
+                    <input type="text" class="form-control form-control-sm"
+                        name="${namePrefix}[${index}][note]" value="">
+                    <button type="button" class="btn btn-sm btn-outline-danger mt-1" onclick="removeFeeRow(this, '${feeType}')">
+                        <i class="bi bi-trash"></i> 删除
+                    </button>
+                </div>
+            `;
+        }
+
+        container.appendChild(newRow);
+        
+        // 为新增行的输入框添加事件监听
+        const inputs = newRow.querySelectorAll('.price-input, .quantity-input, .surcharge-input');
+        inputs.forEach(input => {
+            input.addEventListener('input', function() {
+                const row = this.closest('.row.align-items-center.mb-2.g-2');
+                if (row) {
+                    calculateFeeTotal(row);
+                    updateTotalAmount();
+                }
+            });
+        });
+
+        // 隐藏模态框
+        hideAddFeeModal();
+    }
+
+    function removeFeeRow(button, feeType) {
+        const row = button.closest('.row.align-items-center.mb-2.g-2');
+        if (row) {
+            row.remove();
+            updateTotalAmount();
+        }
+    }
     document.addEventListener('DOMContentLoaded', function() {
         const rejectPhase = document.getElementById('rejectPhase');
         const warehouseTypeContainer = document.getElementById('warehouseTypeContainer');
@@ -886,9 +1075,15 @@
         const noCalcTypes = ["自发", "UPS", "本地派送"];
         return !noCalcTypes.includes(type);
     }
+    document.querySelectorAll('.total-input').forEach(input => {
+        if (!input.readOnly) { 
+            input.addEventListener('input', updateTotalAmount);
+        }
+    });
     //计算每个费用的总价
     function calculateFeeTotal(row) {
         const typeInput = row.querySelector('input[name*="[type]"]');
+        const totalInput = row.querySelector('.total-input');
         if (typeInput) {  //判断是不是额外费用的派送费用
             const type = typeInput.value.trim();
             const price = parseFloat(row.querySelector('.price-input').value) || 0;

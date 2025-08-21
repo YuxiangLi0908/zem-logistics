@@ -107,6 +107,7 @@ class Palletization(View):
         if not await self._user_authenticate(request):
             return redirect("login")
         step = request.POST.get("step")
+        print("POST STEP",step)
         if step == "warehouse":
             template, context = await self.handle_warehouse_post(request)
             return render(request, template, context)
@@ -469,15 +470,11 @@ class Palletization(View):
         height = request.POST.getlist("height")
         pcs = request.POST.getlist("pcs")
         weight = request.POST.getlist("weight")
-        destination = (
-            request.POST.getlist("destination")
-            if request.POST.getlist("destination")
-            else False
-        )
         pallets = []
         for i in range(len(plt_ids)):
             plt_id = int(plt_ids[i])
             pallet = await sync_to_async(Pallet.objects.get)(id=plt_id)
+            
             pallet.length = length[i]
             pallet.width = width[i]
             pallet.height = height[i]
@@ -492,9 +489,8 @@ class Palletization(View):
                 * 0.0254,
                 5,
             )
-            if destination:
-                pallet.sequence_number = i + 1
-                pallet.PO_ID = f"{pallet.PO_ID}_{i+1}"
+            pallet.sequence_number = i + 1
+            pallet.PO_ID = f"{pallet.PO_ID}_{i+1}"
             pallets.append(pallet)
         await sync_to_async(bulk_update_with_history)(
             pallets,

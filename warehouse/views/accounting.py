@@ -2872,7 +2872,7 @@ class Accounting(View):
         plt_ids = [id for s, id in zip(selections, plt_ids) if s == "on"]
         alter_type = request.POST.get("alter_type")
 
-        # 如果是改公仓/私仓，是一个方法，否则是旧方法
+        # 如果是改公仓/私仓，是一个方法，否则是选派送类别
         if alter_type == "transferDes":
             # 更改公仓/私仓类别
             plt_delivery_type = request.POST.getlist("plt_delivery_type")
@@ -2914,9 +2914,9 @@ class Accounting(View):
             for i in range(len((plt_ids))):
                 ids = plt_ids[i].split(",")
                 ids = [int(id) for id in ids]
-                pallet = Pallet.objects.filter(id__in=ids)
+                pallets = Pallet.objects.filter(id__in=ids)
                 current_date = datetime.now().date()
-                invoice_delivery = f"{current_date.strftime('%Y-%m-%d').replace('-', '')}-{alter_type}-{destination[i]}-{len(pallet)}"
+                invoice_delivery = f"{current_date.strftime('%Y-%m-%d').replace('-', '')}-{alter_type}-{destination[i]}-{len(pallets)}"
                 invoice_content = InvoiceDelivery(
                     **{
                         "invoice_delivery": invoice_delivery,
@@ -2958,16 +2958,24 @@ class Accounting(View):
                 invoice_content.save()
 
                 updated_pallets = []
-                for plt in pallet:
-                    try:
-                        invoice_delivery = plt.invoice_delivery
-                        if invoice_delivery and hasattr(invoice_delivery, "delete"):
-                            invoice_delivery.delete()
-                    except InvoiceDelivery.DoesNotExist:
-                        pass
+                for plt in pallets:
+                    invoices_to_check = set()
+
+                    old_invoice_delivery = plt.invoice_delivery
+                    if old_invoice_delivery:
+                        invoices_to_check.add(plt.invoice_delivery)
+                        #old_invoice_delivery.delete()
+                    # try:
+                    #     invoice_delivery = plt.invoice_delivery
+                    #     if invoice_delivery and hasattr(invoice_delivery, "delete"):
+                    #         invoice_delivery.delete()
+                    # except InvoiceDelivery.DoesNotExist:
+                    #     pass
                     # pallet指向InvoiceDelivery表
                     plt.invoice_delivery = invoice_content
                     updated_pallets.append(plt)
+                for inv in invoices_to_check:
+                    inv.delete() 
                 bulk_update_with_history(
                     updated_pallets, Pallet, fields=["invoice_delivery"]
                 )
@@ -4258,7 +4266,7 @@ class Accounting(View):
             "delivery_method",
             "invoice_delivery__type",
             "delivery_type",
-            "pallet_id",
+            "PO_ID",
         ]
         common_aggregates = {
             "total_cbm": Sum("cbm", output_field=FloatField()),
@@ -4323,7 +4331,8 @@ class Accounting(View):
             else:
                 #去亚马逊/沃尔玛表找
                 rules = fee_details.get(f"{warehouse}_PUBLIC").details
-                if warehouse=="LA":
+                details = {}
+                if "LA" in warehouse:
                     details["LA_AMAZON"] = rules
                 else:
                     details = rules
@@ -4331,7 +4340,7 @@ class Accounting(View):
                     destination = pallet["destination"]                
                     delivery_type = None
                     cost = 0
-                    for category, zones in rules.items():
+                    for category, zones in details.items():
                         for zone, locations in zones.items():
                             if destination in locations:
                                 if "AMAZON" in category:
@@ -4425,11 +4434,11 @@ class Accounting(View):
             .values("destination")
             .annotate(total_cbm=Sum("cbm"))
         )
-    
+        total_cbm_sum = sum(item['total_cbm'] for item in plts_by_destination)
         # 区分组合柜区域和非组合柜区域
         container_type_temp = 0 if container_type == "40HQ/GP" else 1
         matched_regions = self.find_matching_regions(
-            plts_by_destination, combina_fee, container_type_temp
+            plts_by_destination, combina_fee, container_type_temp, total_cbm_sum
         )
         # 判断是否混区，False表示满足混区条件
         is_mix = self.is_mixed_region(matched_regions["matching_regions"], warehouse, vessel_etd)
@@ -4439,7 +4448,7 @@ class Accounting(View):
             container.save()
             return False
         # 非组合柜区域
-        non_combina_region_count = len(matched_regions["non_combina_dests"])
+        non_combina_region_count = len(matched_regions["non_combina_dests"].keys())
         # 组合柜区域
         combina_region_count = len(matched_regions["combina_dests"])
         
@@ -4654,12 +4663,12 @@ class Accounting(View):
         return total_pallet
 
     def find_matching_regions(
-        self, plts_by_destination: dict, combina_fee: dict, container_type
+        self, plts_by_destination: dict, combina_fee: dict, container_type, total_cbm_sum:FloatField
     ) -> dict:
         matching_regions = defaultdict(float)  #各区的cbm总和
         des_match_quote = {}  #各仓点的匹配详情
         destination_matches = set() #组合柜的仓点
-        non_combina_dests = set()  #非组合柜的仓点
+        non_combina_dests = {}  #非组合柜的仓点
         price_display = defaultdict(lambda: {"price": 0.0, "location": set()}) #各区的价格和仓点
         dest_cbm_list = []  #临时存储初筛组合柜内的cbm和匹配信息
 
@@ -4693,7 +4702,6 @@ class Accounting(View):
                         price_display[region]["location"].add(dest)
                         matched = True
                         
-
             # 记录匹配结果
             if dest_matches:
                 des_match_quote[dest] = dest_matches
@@ -4706,7 +4714,7 @@ class Accounting(View):
                 destination_matches.add(dest)
             elif not matched:
                 # 非组合柜仓点
-                non_combina_dests.add(dest)  
+                non_combina_dests[dest] = {"cbm": cbm}
         
         if len(destination_matches) > 12:
             #按cbm降序排序，将cbm大的归到非组合
@@ -4732,9 +4740,46 @@ class Accounting(View):
             
             # 其余仓点转为非组合柜
             for item in sorted_dests[12:]:
-                non_combina_dests.add(item["dest"])
+                non_combina_dests[item["dest"]] = {"cbm": item["cbm"]}
                 # 将cbm大的从组合柜集合中删除
                 des_match_quote.pop(item["dest"], None) 
+
+        #下面开始计算组合柜和非组合柜各仓点占总体积的比例
+        total_ratio = 0.0
+        ratio_info = []
+        
+        # 处理组合柜仓点的cbm_ratio
+        for dest, matches in des_match_quote.items():
+            cbm = matches[0]["cbm"]  # 同一个dest的cbm在所有matches中相同
+            ratio = round(cbm / total_cbm_sum, 4)
+            total_ratio += ratio
+            ratio_info.append((dest, ratio, cbm, True))  # 最后一个参数表示是否是组合柜
+            for match in matches:
+                match["cbm_ratio"] = ratio
+        
+        # 处理非组合柜仓点的cbm_ratio
+        for dest, data in non_combina_dests.items():
+            cbm = data["cbm"]
+            ratio = round(cbm / total_cbm_sum, 4)
+            total_ratio += ratio
+            ratio_info.append((dest, ratio, cbm, False))
+            data["cbm_ratio"] = ratio
+        
+        # 处理四舍五入导致的误差
+        if abs(total_ratio - 1.0) > 0.0001:  # 考虑浮点数精度
+            # 找到CBM最大的仓点
+            ratio_info.sort(key=lambda x: x[2], reverse=True)
+            largest_dest, largest_ratio, largest_cbm, is_combi = ratio_info[0]
+            
+            # 调整最大的仓点的ratio
+            diff = 1.0 - total_ratio
+            if is_combi:
+                for match in des_match_quote[largest_dest]:
+                    match["cbm_ratio"] = round(match["cbm_ratio"] + diff, 4)
+            else:
+                non_combina_dests[largest_dest]["cbm_ratio"] = round(
+                    non_combina_dests[largest_dest]["cbm_ratio"] + diff, 4
+                )
         return {
             "des_match_quote": des_match_quote,
             "matching_regions": matching_regions,
@@ -4854,17 +4899,18 @@ class Accounting(View):
             .values("destination")
             .annotate(total_cbm=Sum("cbm"))
         )
+        #这里之前是
         total_cbm_sum = sum(item['total_cbm'] for item in plts_by_destination)
         # 区分组合柜区域和非组合柜区域
         container_type_temp = 0 if container_type == "40HQ/GP" else 1
         matched_regions = self.find_matching_regions(
-            plts_by_destination, combina_fee, container_type_temp
+            plts_by_destination, combina_fee, container_type_temp,total_cbm_sum
         )
         # 判断是否混区，除了LA的CDEF不能混，别的都能混
         is_mix = self.is_mixed_region(matched_regions["matching_regions"], warehouse, vessel_etd)
 
         # 非组合柜区域
-        non_combina_region_count = len(matched_regions["non_combina_dests"])
+        non_combina_region_count = len(matched_regions["non_combina_dests"].keys())
         # 组合柜区域
         combina_region_count = len(matched_regions["combina_dests"])
         # 组合柜对应的区
@@ -4877,9 +4923,7 @@ class Accounting(View):
         non_combina_cbm = (
             Pallet.objects.filter(
                 container_number__container_number=container_number,
-                destination__in=matched_regions[
-                    "non_combina_dests"
-                ],  # 过滤非组合柜仓点
+                destination__in=matched_regions["non_combina_dests"].keys(),  # 过滤非组合柜仓点
             ).aggregate(Sum("cbm"))["cbm__sum"]
             or 0
         )  # 处理可能为None的情况
@@ -4909,7 +4953,7 @@ class Accounting(View):
                     stipulate["global_rules"]["bulk_threshold"]["default"]
                     - stipulate["global_rules"]["max_mixed"]["default"]
                 )
-                reason = f"规定{stipulate_non_combina}个非组合柜区，但是有{non_combina_region_count}个：{matched_regions['non_combina_dests']}，所以按照转运方式统计价格"
+                reason = f"规定{stipulate_non_combina}个非组合柜区，但是有{non_combina_region_count}个：{list(matched_regions['non_combina_dests'].keys())}，所以按照转运方式统计价格"
                 # reason = '不满足组合柜区域要求'
             actual_fees = self._combina_get_extra_fees(invoice)
             context["reason"] = reason
@@ -4934,11 +4978,25 @@ class Accounting(View):
                 base_fee = combina_fee[region][0]["prices"][
                     0 if container_type == "40HQ/GP" else 1
                 ]
+                total_ratio = sum(
+                    match["cbm_ratio"]
+                    for dest in des_match_quote.keys() 
+                    for match in des_match_quote[dest]  
+                    if match["region"] == region 
+                )
+                base_fee *= total_ratio
                 price_display_new = [
                     {
                         "key": region,
                         "cbm": round(matching_regions[region], 2),
-                        "rate": 1,
+                        "rate": round(
+                            sum(
+                                match["cbm_ratio"] 
+                                for dest in data["location"]  
+                                for match in des_match_quote.get(dest, []) 
+                            ),
+                            4,  
+                        ),
                         "price": data["price"],
                         "location": ", ".join(data["location"]),
                     }
@@ -4946,37 +5004,30 @@ class Accounting(View):
                 ]
             else:  # 允许混区的情况
                 price_display_new = None
-
-                #计算所有的cbm_ratio
-                cbm_ratios = []
-                fees = []
-                regions_list = list(matching_regions.items()) 
-                for region, total_cbm in regions_list:
-                    fee = combina_fee[region][0]["prices"][
-                        0 if container_type == "40HQ/GP" else 1
-                    ]
-                    cbm_ratio = round(total_cbm / total_cbm_sum,4)
-                    cbm_ratios.append(cbm_ratio)
-                    fees.append(fee)
-                sum_ratios = sum(cbm_ratios)
-                max_ratio_idx = cbm_ratios.index(max(cbm_ratios))
-                cbm_ratios[max_ratio_idx] += (1 - sum_ratios)
-
-                for i, (region, total_cbm) in enumerate(regions_list):
-                    adjusted_ratio = cbm_ratios[i]
-                    base_fee += fees[i] * adjusted_ratio
                 
                 base_fee = round(base_fee, 2)
+                
                 price_display_new = [
                     {
                         "key": region,
                         "cbm": round(matching_regions[region], 2),
-                        "rate": next((cbm_ratios[i] for i, (r, _) in enumerate(regions_list) if r == region), 0),
+                        "rate": round(
+                            sum(
+                                match["cbm_ratio"]  # 遍历所有匹配的 location 并累加 cbm_ratio
+                                for dest in data["location"]  # 遍历当前 region 的所有 location
+                                for match in des_match_quote.get(dest, [])  # 获取该 location 的所有匹配项
+                            ),
+                            4,  
+                        ),
                         "price": data["price"],
                         "location": ", ".join(data["location"]),
                     }
                     for region, data in price_display.items()
                 ]
+                base_fee = round(
+                    sum(item["price"] * item["rate"] for item in price_display_new),
+                    2
+                )
         if not price_display_new:
             container.account_order_type = "转运"
             container.save()
@@ -5062,7 +5113,7 @@ class Accounting(View):
                 plts_by_destination_overregion = (
                     Pallet.objects.filter(
                         container_number__container_number=container_number,
-                        destination__in=matched_regions["non_combina_dests"],
+                        destination__in=matched_regions["non_combina_dests"].keys(),
                     )
                     .values("destination")
                     .annotate(
@@ -5210,7 +5261,7 @@ class Accounting(View):
                 "is_overregion": is_overregion,
                 "extra_fees": actual_fees,
                 "destination_matches": matched_regions["combina_dests"],
-                "non_combina_dests": matched_regions["non_combina_dests"],
+                "non_combina_dests": list(matched_regions["non_combina_dests"].keys()),
             }
         )
         return self.template_invoice_combina_edit, context
