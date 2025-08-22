@@ -4929,8 +4929,7 @@ class Accounting(View):
         matching_regions = matched_regions["matching_regions"]
         if combina_region_count + non_combina_region_count != len(destinations):
             raise ValueError("计算组合柜和非组合柜区域有误")
-        for data in matched_regions["non_combina_dests"].values():
-            print(data)
+
         non_combina_cbm_ratio = round(sum(data["cbm_ratio"] for data in matched_regions["non_combina_dests"].values()), 4)
         non_combina_cbm = round(sum(data["cbm"] for data in matched_regions["non_combina_dests"].values()), 4)
 
