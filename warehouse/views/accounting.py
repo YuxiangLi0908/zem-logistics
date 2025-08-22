@@ -1857,7 +1857,6 @@ class Accounting(View):
             .values_list('PO_ID', flat=True)
             .distinct() 
         )
-        print('delivery_po_ids',delivery_po_ids)
         delivery_pending_orders = FleetShipmentPallet.objects.select_related(
             'fleet_number',  # 确保预取关联的Fleet对象
             'shipment_batch_number',
