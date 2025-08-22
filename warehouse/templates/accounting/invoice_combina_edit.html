@@ -1072,7 +1072,7 @@
     });
     function shouldCalculateDeliveryTotal(type) {
         // 这些类型不自动计算
-        const noCalcTypes = ["自发", "UPS", "本地派送"];
+        const noCalcTypes = ["自发", "UPS", "本地派送","客户自提","selfpickup"];
         return !noCalcTypes.includes(type);
     }
     document.querySelectorAll('.total-input').forEach(input => {
