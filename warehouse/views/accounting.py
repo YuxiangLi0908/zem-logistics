@@ -4929,20 +4929,10 @@ class Accounting(View):
         matching_regions = matched_regions["matching_regions"]
         if combina_region_count + non_combina_region_count != len(destinations):
             raise ValueError("计算组合柜和非组合柜区域有误")
-
-        non_combina_cbm = (
-            Pallet.objects.filter(
-                container_number__container_number=container_number,
-                destination__in=matched_regions["non_combina_dests"].keys(),  # 过滤非组合柜仓点
-            ).aggregate(Sum("cbm"))["cbm__sum"]
-            or 0
-        )  # 处理可能为None的情况
-        non_combina_cbm = round(float(non_combina_cbm), 2) if non_combina_cbm else 0.000
-        # 4. 计算占比
-        if plts["total_cbm"] and plts["total_cbm"] > 0:
-            non_combina_cbm_ratio = round(non_combina_cbm / plts["total_cbm"], 2)
-        else:
-            non_combina_cbm_ratio = 0
+        for data in matched_regions["non_combina_dests"].values():
+            print(data)
+        non_combina_cbm_ratio = round(sum(data["cbm_ratio"] for data in matched_regions["non_combina_dests"].values()), 4)
+        non_combina_cbm = round(sum(data["cbm"] for data in matched_regions["non_combina_dests"].values()), 4)
 
         if combina_region_count > stipulate["global_rules"]["max_mixed"][
             "default"
