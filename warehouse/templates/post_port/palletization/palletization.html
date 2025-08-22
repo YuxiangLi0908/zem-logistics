@@ -154,9 +154,13 @@
                                                 <th class="th" style="text-align: center; border: 1px solid #141414">唛头</th>
                                                 <th class="th" style="text-align: center; border: 1px solid #141414">fba</th>
                                                 <th class="th" style="text-align: center; border: 1px solid #141414">目的地</th>
-                                                <th class="th" style="text-align: center; border: 1px solid #141414">派送方式</th>
+                                                <th class="th" style="text-align: center; border: 1px solid #141414">派送方式</th>                                                
                                                 <th class="th" style="text-align: center; border: 1px solid #141414">板号</th>
                                                 <th class="th" style="text-align: center; border: 1px solid #141414">日期</th>
+                                                <!--
+                                                <th class="th" style="text-align: center; border: 1px solid #141414">最早派送日期</th>
+                                                <th class="th" style="text-align: center; border: 1px solid #141414">最晚派送日期</th>
+                                                -->
                                                 <th class="th" style="text-align: center; border: 1px solid #141414">是否扣货</th>   
                                             </thead>
                                             <tr id="lable-row">
@@ -167,13 +171,13 @@
                                                     <input value="{{ c.customer_name.zem_code }}">
                                                 </td>
                                                 <td style="text-align: center; border: 1px solid #141414; text-wrap: wrap; padding:10px;" data-editable="true">
-                                                    <input type="text">
+                                                    <input type="text" style="width: 100px;">
                                                 </td>
                                                 <td style="text-align: center; border: 1px solid #141414; text-wrap: wrap; padding:10px;" data-editable="true">
-                                                    <input type="text">
+                                                    <input type="text" style="width: 100px;">
                                                 </td>
                                                 <td style="text-align: center; border: 1px solid #141414; text-wrap: wrap; padding:10px;" data-editable="true">
-                                                    <input type="text">
+                                                    <input type="text" style="width: 100px;">
                                                 </td>
                                                 <td style="text-align: center; border: 1px solid #141414; padding:10px;" data-editable="true">
                                                     <select>
@@ -183,11 +187,19 @@
                                                     </select>
                                                 </td>         
                                                 <td style="text-align: center; border: 1px solid #141414; padding:10px;" data-editable="true">
-                                                    <input type="text">
+                                                    <input type="text" style="width: 50px;">
                                                 </td>
                                                 <td style="text-align: center; border: 1px solid #141414; padding:10px;" data-editable="true">
                                                     <input type="date" data-editable="true">
                                                 </td>
+                                                <!--
+                                                <td style="text-align: center; border: 1px solid #141414; padding:10px;" data-editable="true">
+                                                    <input type="date" data-editable="true">
+                                                </td>
+                                                <td style="text-align: center; border: 1px solid #141414; padding:10px;" data-editable="true">
+                                                    <input type="date" data-editable="true">
+                                                </td>
+                                                -->
                                                 <td style="text-align: center; border: 1px solid #141414; padding:10px;" data-editable="true">
                                                     <select>
                                                         <option value="是">是</option>
@@ -358,7 +370,7 @@
             });
         }
     });
-    function print_label(button) {   //用户要编辑BOL中的表时，弹出表格框
+    function print_label(button) {   //用户要编辑手动打印托盘标的表时，弹出表格框
         var popup = document.querySelector('.popup');
         if (popup.style.display === 'none') {
             popup.style.display = 'block';

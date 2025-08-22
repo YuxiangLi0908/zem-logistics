@@ -22,6 +22,8 @@ class AbnormalOffloadStatus(models.Model):
     delivery_method = models.CharField(max_length=255, null=True, blank=True)
     pcs_reported = models.IntegerField(null=True, blank=True)
     pcs_actual = models.IntegerField(null=True, blank=True)
+    delivery_window_start = models.DateField(null=True, blank=True)
+    delivery_window_end = models.DateField(null=True, blank=True)
     abnormal_reason = models.CharField(max_length=255, null=True, blank=True)
     note = models.CharField(max_length=1000, null=True, blank=True)
     history = HistoricalRecords()
