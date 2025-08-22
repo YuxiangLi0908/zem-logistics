@@ -172,6 +172,8 @@ PACKING_LIST_TEMP_COL_MAPPING = {
     "Amazon Reference ID": "ref_id",
     "派送方式": "delivery_method",
     "备注": "note",
+    "最早派送时间": "delivery_window_start",
+    "最晚派送时间": "delivery_window_end",
 }
 SHIPMENT_TABLE_MAPPING = {
     "预约批次号": "shipment_batch_number",

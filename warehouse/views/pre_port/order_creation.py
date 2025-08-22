@@ -842,6 +842,8 @@ class OrderCreation(View):
                 pl.address = request.POST.getlist("address")[idx]
                 pl.zipcode = request.POST.getlist("zipcode")[idx]
                 pl.note = request.POST.getlist("note")[idx]
+                pl.delivery_window_start = request.POST.getlist("delivery_window_start")[idx]
+                pl.delivery_window_end = request.POST.getlist("delivery_window_end")[idx]
                 updated_pl.append(pl)
             await sync_to_async(bulk_update_with_history)(
                 updated_pl,
@@ -859,6 +861,8 @@ class OrderCreation(View):
                     "address",
                     "zipcode",
                     "note",
+                    "delivery_window_start",
+                    "delivery_window_end"
                 ],
             )
         else:
@@ -932,6 +936,8 @@ class OrderCreation(View):
                 request.POST.getlist("cbm"),
                 request.POST.getlist("note"),
                 po_ids,
+                request.POST.getlist("delivery_window_start"),
+                request.POST.getlist("delivery_window_end"),
                 strict=True,
             )
 
@@ -955,6 +961,8 @@ class OrderCreation(View):
                     cbm=d[14],
                     note=d[15],
                     PO_ID=d[16],
+                    delivery_window_start = d[17] if d[17].strip() else None,
+                    delivery_window_end = d[18] if d[18].strip() else None
                 )
                 for d in pl_data
             ]
@@ -1231,6 +1239,11 @@ class OrderCreation(View):
             model_fields = [field.name for field in PackingList._meta.fields]
             col = [c for c in df.columns if c in model_fields]
             pl_data = df[col].to_dict("records")
+            for data in pl_data:
+                if pd.isna(data["delivery_window_start"]):
+                    data["delivery_window_start"]= None
+                if pd.isna(data["delivery_window_end"]):
+                    data["delivery_window_end"] = None
             packing_list = [PackingList(**data) for data in pl_data]
         else:
             raise ValueError(f"invalid file format!")
