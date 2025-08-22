@@ -927,6 +927,10 @@ class Palletization(View):
             customer_info = json.loads(customerInfo)
             packing_list = []
             for row in customer_info:
+                if len(row) > 10:
+                    is_hold = row[10].strip()
+                else:
+                    is_hold = row[8].strip()
                 date_str = row[7].strip()
                 parts = date_str.split("-")
                 month_day = f"{parts[1]}-{parts[2]}"
@@ -968,7 +972,8 @@ class Palletization(View):
                     barcode_base64 = base64.b64encode(buffer.read()).decode(
                         "utf-8"
                     )  # 编码
-                    if row[8].strip() == "是":
+                    
+                    if is_hold == "是":
                         fba_ids = row[3].strip()
                     else:
                         fba_ids = None
@@ -977,12 +982,23 @@ class Palletization(View):
                         "destination": f"{destination}-{num}",
                         "date": month_day,
                         "customer": row[1].strip(),
-                        "hold": (row[8].strip() == "是"),
+                        "hold": (is_hold == "是"),
                         "fba_ids": fba_ids,
                         "barcode": barcode_base64,
                         "shipping_marks": new_marks,
                     }
-
+                    if len(row) > 10:
+                        new_data.update({
+                            "has_delivery_window": True,
+                            "dw_st": row[8].split('-', 1)[1] if row[8] else None,
+                            "dw_end": row[9].split('-', 1)[1] if row[8] else None,
+                        })
+                    else:
+                        new_data.update({
+                            "has_delivery_window": False,
+                            "dw_st": None,
+                            "dw_end": None,
+                        })
                     for i in range(4):
                         data.append(new_data)
         else:

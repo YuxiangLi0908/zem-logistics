@@ -76,16 +76,16 @@
         
         <table border="none">
             <tr style="border-top: 1px solid black;">
-                <td colspan="2" class="small-text" style="border-right: 1px solid black; text-align: left;"><i>Customer</i></td>
+                <td class="small-text" style="border-right: 1px solid black; text-align: left;"><i>Customer</i></td>
                 {% if d.has_delivery_window %}
-                <td class="smaller-text" style="border-right: 1px solid black; text-align: center;"><i>Date Window</i></td>
+                <td class="small-text" style="border-right: 1px solid black; text-align: center;"><i>Date Window</i></td>
                 {% endif %}
                 <td class="small-text" style="text-align: center;"><i>Date</i></td>
             </tr>
             <tr style="border-bottom: 1px solid black;">
-                <td colspan="2" class="small-text" style="border-right: 1px solid black; text-align: center;"><b>{{d.customer}}</b></td>
+                <td class="small-text" style="border-right: 1px solid black; text-align: center;"><b>{{d.customer}}</b></td>
                 {% if d.has_delivery_window %}
-                <td class="smaller-text" style="border-right: 1px solid black; text-align: center;">
+                <td class="small-text" style="border-right: 1px solid black; text-align: center;">
                     <b>{{d.dw_st}} - {{d.dw_end}}</b>
                 </td>
                 {% endif %}
