@@ -673,7 +673,6 @@ class Palletization(View):
                 new_dw_ends = request.POST.getlist("new_delivery_window_ends")
                 new_slots = request.POST.getlist("new_slots")
                 new_directions = request.POST.getlist("new_directions")
-                print('新增的数据是',new_dw_sts,new_dw_ends,new_slots,new_directions)
                 new_notes = request.POST.getlist("new_notes")
                 new_cbm = [
                     float(value) if value else 0
@@ -739,8 +738,6 @@ class Palletization(View):
                             dw_end = None
                         else:
                             dw_end = datetime.strptime(dw_end, "%Y-%m-%d").date()
-                    print('时间格式',dw_st,dw_end)
-                    print('slot等是',slot,direction)
                     pallet_data += await self._split_pallet(
                         order_selected,
                         n,
@@ -787,7 +784,6 @@ class Palletization(View):
             offload.total_pallet = total_pallet
             offload.offload_at = current_time
             await sync_to_async(offload.save)()
-            #print('数据是',pallet_data)
             pallet_instances = [Pallet(**d) for d in pallet_data]
             await sync_to_async(bulk_create_with_history)(pallet_instances, Pallet)
 
@@ -1166,11 +1162,6 @@ class Palletization(View):
         direction: str | None = None,
         seed: int = 0,
     ) -> list[dict[str, Any]]:
-        print(f"传入 _split_pallet 的参数:")
-        print(f"dw_st: {dw_st} (类型: {type(dw_st)})")
-        print(f"dw_end: {dw_end} (类型: {type(dw_end)})")
-        print(f"slot: {slot}")
-        print(f"direction: {direction}")
         if n == 0 or n is None:
             return
         pallet_ids = [
@@ -1236,8 +1227,6 @@ class Palletization(View):
                     "direction": direction,
                 }
             )
-            if seed:
-                print('传来的时间',dw_st,dw_end,slot,direction)
         return pallet_data
 
     async def _update_shipment_stats(self, ids: list[Any]) -> None:
