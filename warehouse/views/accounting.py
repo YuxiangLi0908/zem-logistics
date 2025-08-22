@@ -7035,9 +7035,10 @@ class Accounting(View):
                         if (
                             isinstance(field, models.FloatField)
                             and field.name != "amount"
+                            and field.name not in ["palletization_fee", "arrive_fee", "carrier"]
                         ):
                             value = getattr(warehouse, field.name)
-                            if value not in [None, 0, "palletization_fee", "arrive_fee", "carrier"]:
+                            if value not in [None, 0]:
                                 description.append(field.verbose_name)
                                 warehouse_code.append("")
                                 cbm.append("")
