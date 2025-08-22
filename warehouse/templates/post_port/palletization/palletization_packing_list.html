@@ -79,8 +79,8 @@
                             <td class="td">{{ pl_form.n_pallet }}</td> 
                             {% endif %}
                             <td class="td">{{ pl.PO_ID }}</td>
-                            <td class="td">{{ pl.delivery_window_start|default_if_none:''  }}</td>
-                            <td class="td">{{ pl.delivery_window_end|default_if_none:''  }}</td>
+                            <td class="td">{{ pl.delivery_window_start|default_if_none:''|date:'Y/m/d'  }}</td>
+                            <td class="td">{{ pl.delivery_window_end|default_if_none:''|date:'Y/m/d'  }}</td>
                             <td class="td">{{ pl.note|default_if_none:"" }}</td>
                             <input type="hidden" name="ids" value="{{pl.ids}}">
                             <input type="hidden" name="shipping_marks" value="{{pl.shipping_marks}}">
