@@ -7037,7 +7037,7 @@ class Accounting(View):
                             and field.name != "amount"
                         ):
                             value = getattr(warehouse, field.name)
-                            if value not in [None, 0]:
+                            if value not in [None, 0, "palletization_fee", "arrive_fee", "carrier"]:
                                 description.append(field.verbose_name)
                                 warehouse_code.append("")
                                 cbm.append("")
