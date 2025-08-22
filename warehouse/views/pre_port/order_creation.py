@@ -842,6 +842,8 @@ class OrderCreation(View):
                 pl.address = request.POST.getlist("address")[idx]
                 pl.zipcode = request.POST.getlist("zipcode")[idx]
                 pl.note = request.POST.getlist("note")[idx]
+                pl.delivery_window_start = request.POST.getlist("delivery_window_start")[idx]
+                pl.delivery_window_end = request.POST.getlist("delivery_window_end")[idx]
                 updated_pl.append(pl)
             await sync_to_async(bulk_update_with_history)(
                 updated_pl,
@@ -859,6 +861,8 @@ class OrderCreation(View):
                     "address",
                     "zipcode",
                     "note",
+                    "delivery_window_start",
+                    "delivery_window_end"
                 ],
             )
         else:
@@ -878,10 +882,12 @@ class OrderCreation(View):
             po_ids = []
             po_id_hash = {}
             seq_num = 1
-            for dm, sm, fba, dest in zip(
+            for dm, sm, fba, dws, dwe, dest in zip(
                 request.POST.getlist("delivery_method"),
                 request.POST.getlist("shipping_mark"),
                 request.POST.getlist("fba_id"),
+                request.POST.getlist("delivery_window_start"),
+                request.POST.getlist("delivery_window_end"),
                 destination_list,
                 strict=True,
             ):
@@ -889,22 +895,24 @@ class OrderCreation(View):
                 po_id_seg: str = ""
                 po_id_hkey: str = ""
                 if dm in ["暂扣留仓(HOLD)", "暂扣留仓"]:
-                    po_id_hkey = f"{dm}-{dest}-{fba}"
+                    po_id_hkey = f"{dm}-{dest}-{fba}-{dws}-{dwe}"
                     po_id_seg = (
-                        f"H{fba[-4:]}{sm[-4:]}"
-                        if fba
-                        else f"H{sm[-4:] if sm else ''.join(random.choices(string.ascii_letters.upper() + string.digits, k=4))}"
+                        f"H{fba[-2:]}{sm[-2:]}{dws[-2:]}{dwe[-2:]}"
+                        if fba and dws and dwe
+                        else f"H{sm[-2:]+dws[-2:]+dwe[-2:] if sm and dws and dwe else ''.join(random.choices(string.ascii_letters.upper() + string.digits, k=4))}"
                     )
                 elif dm == "客户自提" or dest == "客户自提":
-                    po_id_hkey = f"{dm}-{dest}-{fba}"
+                    po_id_hkey = f"{dm}-{dest}-{fba}-{dws}-{dwe}"
                     po_id_seg = (
-                        f"S{sm[-4:]}"
-                        if sm
+                        f"S{sm[-2:]}{dws[-2:]}{dwe[-2:]}"
+                        if sm and dws and dwe
                         else f"S{''.join(random.choices(string.ascii_letters.upper() + string.digits, k=4))}"
                     )
                 else:
-                    po_id_hkey = f"{dm}-{dest}"
-                    po_id_seg = f"{DELIVERY_METHOD_CODE.get(dm, 'UN')}{dest.replace(' ', '').split('-')[-1]}"
+                    po_id_hkey = f"{dm}-{dest}-{dws}-{dwe}"
+                    po_id_seg = (f"{DELIVERY_METHOD_CODE.get(dm, 'UN')}{dest.replace(' ', '').split('-')[-1]}{dws[-2:]}{dwe[-2:]}"
+                                 if dws and dwe
+                                 else f"{DELIVERY_METHOD_CODE.get(dm, 'UN')}{dest.replace(' ', '').split('-')[-1]}")
                 if po_id_hkey in po_id_hash:
                     po_id = po_id_hash.get(po_id_hkey)
                 else:
@@ -932,6 +940,8 @@ class OrderCreation(View):
                 request.POST.getlist("cbm"),
                 request.POST.getlist("note"),
                 po_ids,
+                request.POST.getlist("delivery_window_start"),
+                request.POST.getlist("delivery_window_end"),
                 strict=True,
             )
 
@@ -955,6 +965,8 @@ class OrderCreation(View):
                     cbm=d[14],
                     note=d[15],
                     PO_ID=d[16],
+                    delivery_window_start = d[17] if d[17].strip() else None,
+                    delivery_window_end = d[18] if d[18].strip() else None
                 )
                 for d in pl_data
             ]
@@ -1231,6 +1243,11 @@ class OrderCreation(View):
             model_fields = [field.name for field in PackingList._meta.fields]
             col = [c for c in df.columns if c in model_fields]
             pl_data = df[col].to_dict("records")
+            for data in pl_data:
+                if pd.isna(data["delivery_window_start"]):
+                    data["delivery_window_start"]= None
+                if pd.isna(data["delivery_window_end"]):
+                    data["delivery_window_end"] = None
             packing_list = [PackingList(**data) for data in pl_data]
         else:
             raise ValueError(f"invalid file format!")

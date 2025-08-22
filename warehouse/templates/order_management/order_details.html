@@ -291,6 +291,8 @@
                                     <th class="th">总重量-lbs</th>
                                     <th class="th">CBM</th>
                                     <th class="th">备注</th>
+                                    <th class="th">最早发货时间</th>
+                                    <th class="th">最晚发货时间</th>
                                 </tr>
                                 <tr style="position: sticky; top: 18px;" id="packing-list-table-filter">
                                     <th class="th" style="max-width: 2%; min-width: 10px; text-align: center;">
@@ -303,6 +305,8 @@
                                     <th class="th"><input type="text" id="fbaSearchInput" placeholder="搜索fba号..." oninput="filterTable(this, 4, true)"></th>
                                     <th class="th"><input type="text" id="refSearchInput" placeholder="搜索ref..." oninput="filterTable(this, 5, true)"></th>
                                     <th class="th"><input type="text" id="detinationSearchInput" placeholder="搜索目的地..." oninput="filterTable(this, 6, true)"></th>
+                                    <th class="th"></th>
+                                    <th class="th"></th>
                                     <th class="th"></th>
                                     <th class="th"></th>
                                     <th class="th"></th>
@@ -347,6 +351,9 @@
                                     <td class="td"><input type="number" step="0.01" name="total_weight_lbs" oninput="updateWeight(this)" required></td>
                                     <td class="td"><input type="number" step="0.01" name="cbm" required></td>
                                     <td class="td"><input type="text" name="note"></td>
+                                    <td class="td"><input type="date" name="delivery_window_start"></td>
+                                    <td class="td"><input type="date" name="delivery_window_end"></td>
+
                                 </tr>
                                 {% for pl in packing_list %}
                                 <tr id="packing-list-row">
@@ -400,6 +407,12 @@
                                     </td>
                                     {% endif %}
                                     <td class="td"><input type="text" name="note" {% if pl.note %}value="{{ pl.note }}"{% endif %}></td>
+                                    <td class="td">
+                                        <input type="date" name="delivery_window_start" {% if pl.delivery_window_start %}value="{{ pl.delivery_window_start |date:'Y-m-d' }}"{% endif %}>
+                                    </td>
+                                    <td class="td">
+                                        <input type="date" name="delivery_window_end" {% if pl.delivery_window_end %}value="{{ pl.delivery_window_end |date:'Y-m-d' }}"{% endif %}>
+                                    </td>
                                     <input type="hidden" name="pl_id" value="{{ pl.id }}">
                                 </tr>
                                 {% endfor %}
@@ -421,6 +434,8 @@
                                     <td class="td" id="sub_table_summary_weight">0</td>
                                     <td class="td" id="sub_table_summary_cbm">0</td>
                                     <td class="td"></td>
+                                    <td class="td"></td>
+                                    <td class="td"></td>
                                 </tr>
                                 <tr id="table_summary" style="position: sticky; bottom: 0; background-color: #f2f2f2;">
                                     <td class="td" id="table_summary_cnt"><b>总计</b></td>
@@ -439,6 +454,8 @@
                                     <td class="td" id="table_summary_weight_kg">0</td>
                                     <td class="td" id="table_summary_weight">0</td>
                                     <td class="td" id="table_summary_cbm">0</td>
+                                    <td class="td"></td>
+                                    <td class="td"></td>
                                     <td class="td"></td>
                                 </tr>
                             </tbody>
