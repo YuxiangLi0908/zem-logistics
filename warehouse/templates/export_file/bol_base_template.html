@@ -24,7 +24,7 @@
                         <tr>
                             <td style="margin-left: 5px;">
                                 <br>ZEM LOGISTICS INC<br>
-                                {{ warehouse }}
+                                {{ warehouse_obj }}
                             </td>
                         </tr>
                     </table>
@@ -345,8 +345,14 @@
         </div>
     </div>
 </div>
-
-{% block packing_list_section %}
-        
-{% endblock %}
+{% if warehouse == 'LA-91761'%}
+    qq
+    {% block LA_packing_list_section %}
+            
+    {% endblock %}
+{%else%}
+    {% block packing_list_section %}
+            
+    {% endblock %}
+{% endif %}
 {% endblock %}

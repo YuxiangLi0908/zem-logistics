@@ -86,6 +86,7 @@ class FleetManagement(View):
     template_fleet_cost_record = "post_port/shipment/fleet_cost_record.html"
     template_bol = "export_file/bol_base_template.html"
     template_bol_pickup = "export_file/bol_template.html"
+    template_la_bol_pickup = "export_file/la_bol_template.html"
     template_ltl_label = "export_file/ltl_label.html"
     template_ltl_bol = "export_file/ltl_bol.html"
     template_abnormal_fleet_warehouse_search = (
@@ -123,7 +124,6 @@ class FleetManagement(View):
         if not await self._user_authenticate(request):
             return redirect("login")
         step = request.GET.get("step")
-        print('step',step)
         if step == "outbound":
             context = {"warehouse_form": ZemWarehouseForm()}
             return render(request, self.template_outbound, context)
@@ -153,7 +153,6 @@ class FleetManagement(View):
         if not await self._user_authenticate(request):
             return redirect("login")
         step = request.POST.get("step")
-        print('post step',step)
         if step == "fleet_warehouse_search":
             template, context = await self.handle_fleet_warehouse_search_post(request)
             return render(request, template, context)
@@ -1258,7 +1257,6 @@ class FleetManagement(View):
                 
                 if pl.ref_id:
                     pl.ref_id = pl.ref_id.replace("/", "\n")
-            
         warehouse_obj = (
             await sync_to_async(ZemWarehouse.objects.get)(name=warehouse)
             if warehouse
@@ -1280,6 +1278,8 @@ class FleetManagement(View):
         )
         # 最后一页加上拣货单:
         pallet = await self.pickupList_get(pickupList, fleet_number, warehouse)
+        for plt in pallet:
+            print(plt)
         if not shipment.fleet_number:
             raise ValueError("该约未排车")
         #判断一下是不是NJ私仓的，因为NJ私仓的要多加一列板数
@@ -1293,7 +1293,8 @@ class FleetManagement(View):
                 shipment_batch_number__shipment_batch_number=batch_number
             ).count)()
         context = {
-            "warehouse": warehouse_obj.address,
+            "warehouse_obj": warehouse_obj.address,
+            "warehouse": warehouse,
             "batch_number": batch_number,
             "pickup_number": shipment.fleet_number.pickup_number if shipment.fleet_number and shipment.fleet_number.pickup_number else None,
             "fleet_number": shipment.fleet_number.fleet_number,
@@ -1307,7 +1308,10 @@ class FleetManagement(View):
             "note_chinese_char": note_chinese_char,
             "is_private_warehouse": is_private_warehouse,
         }
-        template = get_template(self.template_bol_pickup)
+        if warehouse =="LA-91761":
+            template = get_template(self.template_la_bol_pickup)
+        else:
+            template = get_template(self.template_bol_pickup)
         html = template.render(context)
         response = HttpResponse(content_type="application/pdf")
         response["Content-Disposition"] = (
@@ -1369,7 +1373,9 @@ class FleetManagement(View):
             )
             for s in pallet:
                 s["total_n_pallet"] = f"预 {round(s['total_cbm'] / 2)}"
-            pallet += await sync_to_async(list)(
+                s["slot"] = ""  # 添加空slot字段
+                s["direction"] = ""  # 添加空direction字段
+            plt = await sync_to_async(list)(
                 Pallet.objects.select_related(
                     "container_number", "shipment_batch_number"
                 )
@@ -1382,6 +1388,8 @@ class FleetManagement(View):
                     "destination",
                     "shipment_batch_number__shipment_batch_number",
                     "shipment_batch_number__shipment_appointment",
+                    "slot",
+                    "direction"
                 )
                 .annotate(
                     total_weight=Round(Sum("weight_lbs", output_field=FloatField()), 2),
@@ -1392,6 +1400,7 @@ class FleetManagement(View):
                 )
                 .order_by("-shipment_batch_number__shipment_appointment")
             )
+            pallet += plt
             pallet.sort(
                 key=lambda x: x.get("shipment_batch_number__shipment_appointment", ""),
                 reverse=True,
@@ -1442,6 +1451,8 @@ class FleetManagement(View):
                     "total_n_pallet": "  ",
                     "shipment_batch_number__shipment_batch_number": "  ",
                     "shipment_batch_number__shipment_appointment": "  ",
+                    "slot": "  ", 
+                    "direction": "  ",
                     "一提两卸": "  ",
                     "is_spacer": True, #表示是否是空行
                     "force_text": True,
