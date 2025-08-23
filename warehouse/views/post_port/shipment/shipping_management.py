@@ -2249,6 +2249,7 @@ class ShippingManagement(View):
                     | models.Q(origin="")
                     | models.Q(origin=warehouse)
                 ),
+                models.Q(appointment_id__isnull=False),
                 models.Q(in_use=False, is_canceled=False),
             ).order_by("shipment_appointment")
         )
