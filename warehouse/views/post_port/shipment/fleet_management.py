@@ -1249,6 +1249,33 @@ class FleetManagement(View):
                     shipment_batch_number__shipment_batch_number=batch_number,
                 )
             )
+            for pl in packing_list:
+                if pl.shipping_mark:
+                    shipping_array = pl.shipping_mark.split(",")
+                    if len(shipping_array) > 1:
+                        shipping_parts = []
+                        for i in range(0, len(shipping_array)):
+                            part = ",".join(shipping_array[i:i + 1])
+                            shipping_parts.append(part)
+                        pl.shipping_mark = "\n".join(shipping_parts)
+                if pl.fba_id:
+                    fba_array = pl.fba_id.split(",")
+                    if len(fba_array) > 1:
+                        fba_parts = []
+                        for i in range(0, len(fba_array)):
+                            part = ",".join(fba_array[i:i + 1])
+                            fba_parts.append(part)
+                        pl.fba_id = "\n".join(fba_parts)
+                
+                # 处理 ref_id 字段
+                if pl.ref_id:
+                    ref_array = pl.ref_id.split(",")
+                    if len(ref_array) > 1:
+                        ref_parts = []
+                        for i in range(0, len(ref_array)):
+                            part = ",".join(ref_array[i:i + 1])
+                            ref_parts.append(part)
+                        pl.ref_id = "\n".join(ref_parts)
             
         warehouse_obj = (
             await sync_to_async(ZemWarehouse.objects.get)(name=warehouse)
