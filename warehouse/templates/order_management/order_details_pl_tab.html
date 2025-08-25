@@ -40,6 +40,7 @@
                         <th class="th">柜重</th>
                         <th class="th">特殊柜型</th>
                         <th class="th" id="special-container-note-th" {% if not selected_order.container_number.is_special_container %}style="display: none;"{% endif %}>备注(特殊柜型)</th>
+                        <th class="th">保时效</th>
                     </tr>
                 </thead>
                 <tbody>
@@ -86,6 +87,9 @@
                         </td>
                         <td class="td" id="special-container-note" {% if not selected_order.container_number.is_special_container %}style="display: none;"{% endif %}>
                             <input type="text" name="note" value="{{ selected_order.container_number.note }}">
+                        </td>
+                        <td class="td">
+                            <input type="checkbox" name="is_expiry_guaranteed" {% if selected_order.container_number.is_expiry_guaranteed %}checked{% endif %}>
                         </td>
                     </tr>
                 </tbody>

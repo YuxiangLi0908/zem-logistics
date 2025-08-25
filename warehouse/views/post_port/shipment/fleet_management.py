@@ -86,7 +86,7 @@ class FleetManagement(View):
     template_fleet_cost_record = "post_port/shipment/fleet_cost_record.html"
     template_bol = "export_file/bol_base_template.html"
     template_bol_pickup = "export_file/bol_template.html"
-    template_la_bol_pickup = "export_file/la_bol_template.html"
+    template_la_bol_pickup = "export_file/LA_bol_template.html"
     template_ltl_label = "export_file/ltl_label.html"
     template_ltl_bol = "export_file/ltl_bol.html"
     template_abnormal_fleet_warehouse_search = (
@@ -1278,8 +1278,6 @@ class FleetManagement(View):
         )
         # 最后一页加上拣货单:
         pallet = await self.pickupList_get(pickupList, fleet_number, warehouse)
-        for plt in pallet:
-            print(plt)
         if not shipment.fleet_number:
             raise ValueError("该约未排车")
         #判断一下是不是NJ私仓的，因为NJ私仓的要多加一列板数
@@ -1308,10 +1306,10 @@ class FleetManagement(View):
             "note_chinese_char": note_chinese_char,
             "is_private_warehouse": is_private_warehouse,
         }
-        if warehouse =="LA-91761":
-            template = get_template(self.template_la_bol_pickup)
-        else:
-            template = get_template(self.template_bol_pickup)
+        # if warehouse =="LA-91761":
+        #     template = get_template(self.template_la_bol_pickup)
+        # else:   因为目前没有库位信息，所以BOL先不加这个信息
+        template = get_template(self.template_bol_pickup)
         html = template.render(context)
         response = HttpResponse(content_type="application/pdf")
         response["Content-Disposition"] = (

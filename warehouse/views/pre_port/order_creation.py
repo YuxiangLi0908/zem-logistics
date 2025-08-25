@@ -464,6 +464,9 @@ class OrderCreation(View):
         is_special_container = (
             True if request.POST.get("is_special_container", None) else False
         )
+        is_expiry_guaranteed  = (
+            True if request.POST.get("is_expiry_guaranteed", None) else False
+        )
         order_id = str(
             uuid.uuid3(
                 uuid.NAMESPACE_DNS,
@@ -480,6 +483,7 @@ class OrderCreation(View):
             "container_type": request.POST.get("container_type"),
             "weight_lbs": weight,
             "is_special_container": is_special_container,
+            "is_expiry_guaranteed": is_expiry_guaranteed,
             "note": request.POST.get("note"),
         }
         container = Container(**container_data)
@@ -543,6 +547,9 @@ class OrderCreation(View):
         container.weight_lbs = request.POST.get("weight")
         container.is_special_container = (
             True if request.POST.get("is_special_container", None) else False
+        )
+        container.is_expiry_guaranteed = (
+            True if request.POST.get("is_expiry_guaranteed", None) else False
         )
         if not request.POST.get("is_special_container", None):
             container.note = ""

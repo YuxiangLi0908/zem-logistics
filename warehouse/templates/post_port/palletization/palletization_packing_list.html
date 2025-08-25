@@ -6,12 +6,12 @@
         <div class="container mt-3" style="max-width: 100%;">
             {% if status == 'non_palletized' %}
             <div class="text-right">
-                {% if warehouse == "LA-91761" %}
+                {% comment %} {% if warehouse == "LA-91761" %}
                 <button type="button" class="btn btn-secondary" style="width: 130px; height: 35px; margin-right: 10px;" 
                         onclick="showBatchLocationDialog()">批量设置库位</button>
                 <button type="button" class="btn btn-secondary" style="width: 130px; height: 35px; margin-right: 10px;" 
                         onclick="showBatchDirectionDialog()">批量设置方向</button>
-                {% endif %}
+                {% endif %} {% endcomment %}
                 <button id="addRowButton" type="button" class="btn btn-primary" style="width: 100px; height: 35px;" onclick="addRowBelow()">添加行</button>
                 <button id="addRowButton" type="button" class="btn btn-primary" style="width: 100px; height: 35px;" onclick="rmLastRow()">删除行</button>            
             </div>
@@ -34,10 +34,10 @@
                             <th class="th">CBM</th>
                             <th class="th">打板数</th>
                             <th class="th">PO_ID</th>
-                            {% if warehouse == "LA-91761" %}
+                            {% comment %} {% if warehouse == "LA-91761" %}
                             <th class="th">库位</th>
                             <th class="th">方向</th>
-                            {% endif %}
+                            {% endif %} {% endcomment %}
                             <th class="th">最早派送时间</th>
                             <th class="th">最晚派送时间</th>
                             <th class="th">备注</th>
@@ -89,7 +89,7 @@
                             <td class="td">{{ pl_form.n_pallet }}</td> 
                             {% endif %}
                             <td class="td">{{ pl.PO_ID }}</td>
-                            {% if warehouse == "LA-91761" %}
+                            {% comment %} {% if warehouse == "LA-91761" %}
                                 {% if status == 'non_palletized' %}
                                 <td class="td">
                                     <input type="text" name="slots" value="{{ pl.slot|default_if_none:'' }}" 
@@ -106,7 +106,7 @@
                                 <td class="td">{{ pl.slot  }}</td>
                                 <td class="td">{{ pl.direction  }}</td>
                                 {% endif %}
-                            {% endif %}
+                            {% endif %} {% endcomment %}
                             <td class="td">{{ pl.delivery_window_start|default_if_none:''|date:'Y/m/d'  }}</td>
                             <td class="td">{{ pl.delivery_window_end|default_if_none:''|date:'Y/m/d'  }}</td>
                             <td class="td">{{ pl.note|default_if_none:"" }}</td>
@@ -159,7 +159,7 @@
                             <td class="td"><input type="number" name="new_cbms" step="0.01" placeholder="optional"></td>
                             <td class="td"><input type="number" step="1" name="new_pallets" required></td>
                             <td class="td"><input type="text" name="po_ids" disabled></td>
-                            {% if warehouse == "LA-91761" %}
+                            {% comment %} {% if warehouse == "LA-91761" %}
                             <td class="td">
                                 <input type="text" name="new_slots" style="width: 80px; font-size: 11px;">
                             </td>
@@ -170,7 +170,7 @@
                                     <option value="right">right</option>
                                 </select>
                             </td>
-                            {% endif %}
+                            {% endif %} {% endcomment %}
                             <td class="td"><input type="date" name="new_delivery_window_starts"></td>
                             <td class="td"><input type="date" name="new_delivery_window_ends"></td>
                             <td class="td"><input type="text" name="new_notes"></td>
