@@ -386,18 +386,20 @@
             <button type="submit">上传BOL</button>        
         </form>
         {% else %}
-        <form method="post" action="" style="display: inline-block;" id="exportBOL-{{ batch_number }}">
-            {% csrf_token %}
-            <input type="hidden" name="step" value="export_bol">
-            <input type="hidden" name="shipment_batch_number" value="{{ batch_number }}">
-            <input type="hidden" name="fleet_number" value="{{ selected_fleet.fleet_number }}">
-            <input type="hidden" name="warehouse" value="{{ warehouse }}">
-            <button type="submit" class="btn btn-success" style="font-size: 15px;">
-                <small>BOL- {{ batch_number }}</small>
-                <i class="bi bi-cloud-arrow-down-fill"></i>
-            </button>
-            {% comment %} <script src="script.js"></script> {% endcomment %}
-        </form> 
+            {% for batch_number in shipment_batch_numbers %}
+            <form method="post" action="" style="display: inline-block;" id="exportBOL-{{ batch_number }}">
+                {% csrf_token %}
+                <input type="hidden" name="step" value="export_bol">
+                <input type="hidden" name="shipment_batch_number" value="{{ batch_number }}">
+                <input type="hidden" name="fleet_number" value="{{ selected_fleet.fleet_number }}">
+                <input type="hidden" name="warehouse" value="{{ warehouse }}">
+                <button type="submit" class="btn btn-success" style="font-size: 15px;">
+                    <small>BOL- {{ batch_number }}</small>
+                    <i class="bi bi-cloud-arrow-down-fill"></i>
+                </button>
+                {% comment %} <script src="script.js"></script> {% endcomment %}
+            </form> 
+            {% endfor %}
         {% endif %}
         
         </div>
