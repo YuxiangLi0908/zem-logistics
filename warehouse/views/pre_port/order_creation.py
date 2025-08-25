@@ -508,6 +508,7 @@ class OrderCreation(View):
             "retrieval_id": retrieval,
             "offload_id": offload,
             "packing_list_updloaded": False,
+            "unpacking_priority": 'P2' if is_expiry_guaranteed else 'P4',
         }
         order = Order(**order_data)
         await sync_to_async(container.save)()
@@ -548,9 +549,10 @@ class OrderCreation(View):
         container.is_special_container = (
             True if request.POST.get("is_special_container", None) else False
         )
-        container.is_expiry_guaranteed = (
+        is_expiry_guaranteed = (
             True if request.POST.get("is_expiry_guaranteed", None) else False
         )
+        container.is_expiry_guaranteed = is_expiry_guaranteed
         if not request.POST.get("is_special_container", None):
             container.note = ""
         else:
@@ -591,6 +593,7 @@ class OrderCreation(View):
                     retrieval.retrieval_destination_area = (
                         request.POST.get("destination").upper().strip()
                     )
+        order.unpacking_priority = 'P2' if is_expiry_guaranteed else 'P4'
 
         await sync_to_async(offload.save)()
         await sync_to_async(retrieval.save)()
@@ -873,6 +876,7 @@ class OrderCreation(View):
                 ],
             )
         else:
+            #没打板的，才考虑，判断是否有快递，然后修改为P1等级
             await sync_to_async(
                 PackingList.objects.filter(
                     container_number__container_number=container_number
@@ -977,9 +981,14 @@ class OrderCreation(View):
                 )
                 for d in pl_data
             ]
+            
             await sync_to_async(bulk_create_with_history)(pl_to_create, PackingList)
             # await sync_to_async(PackingList.objects.bulk_create)(pl_to_create)
             order.packing_list_updloaded = True
+            delivery_methods = request.POST.getlist("delivery_method")
+            is_priority = any('UPS' in method or 'FEDEX' in method for method in delivery_methods)
+            if is_priority:
+                order.unpacking_priority = 'P1'
             await sync_to_async(order.save)()
         # 查找新建的pl，和现在的pocheck比较，如果内容没有变化，pocheck该记录不变，如果有变化就对应修改
 
