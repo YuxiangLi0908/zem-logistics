@@ -345,14 +345,13 @@
         </div>
     </div>
 </div>
-{% if warehouse == 'LA-91761'%}
-    qq
+{% comment %} {% if warehouse == 'LA-91761'%}
     {% block LA_packing_list_section %}
             
     {% endblock %}
-{%else%}
-    {% block packing_list_section %}
-            
-    {% endblock %}
-{% endif %}
+{%else%} {% endcomment %}
+{% block packing_list_section %}
+        
+{% endblock %}
+{% comment %} {% endif %} {% endcomment %}
 {% endblock %}
