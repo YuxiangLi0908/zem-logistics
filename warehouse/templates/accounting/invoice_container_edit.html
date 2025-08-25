@@ -38,11 +38,11 @@
                     </td>
                     <td class="td"><input type="text" name="description" value="{{ inv_itm.description }}" required></td>
                     <td class="td"><input type="text" name="warehouse_code" value="{{ inv_itm.warehouse_code|default_if_none:'' }}"></td>
-                    <td class="td"><input type="number" name="cbm" step=0.01 oninput="calculateCbm(this)" value="{{ inv_itm.cbm|floatformat:2 }}"></td>
-                    <td class="td"><input type="number" name="weight" step=0.01 oninput="calculateWeight(this)" value="{{ inv_itm.weight|floatformat:2 }}"></td>
-                    <td class="td"><input type="number" name="qty" step=0.01 value="{{ inv_itm.qty }}" oninput="updateAmount(this)" required></td>
-                    <td class="td"><input type="number" name="rate" step=0.01 value="{{ inv_itm.rate|floatformat:2 }}" oninput="updateAmount(this)" required></td>
-                    <td class="td"><input type="number" name="amount" step=0.01 value="{{ inv_itm.amount|floatformat:2 }}" oninput="updateAmount(this)" required></td>
+                    <td class="td"><input type="number" name="cbm" step=0.0001 oninput="calculateCbm(this)" value="{{ inv_itm.cbm|floatformat:2 }}"></td>
+                    <td class="td"><input type="number" name="weight" step=0.0001 oninput="calculateWeight(this)" value="{{ inv_itm.weight|floatformat:2 }}"></td>
+                    <td class="td"><input type="number" name="qty" step=0.0001 value="{{ inv_itm.qty }}" oninput="updateAmount(this)" required></td>
+                    <td class="td"><input type="number" name="rate" step=0.0001 value="{{ inv_itm.rate|floatformat:2 }}" oninput="updateAmount(this)" required></td>
+                    <td class="td"><input type="number" name="amount" step=0.0001 value="{{ inv_itm.amount|floatformat:2 }}" oninput="updateAmount(this)" required></td>
                     <td class="td"><input type="text" name="note" value="{{ inv_itm.note|default_if_none:'' }}"></td>
                 </tr>
                 {% endfor %}
@@ -147,11 +147,11 @@
                 </td>
                 <td class="td"><input type="text" name="description" value="" required></td>
                 <td class="td"><input type="text" name="warehouse_code" value=""></td>
-                <td class="td"><input type="number" name="cbm" step=0.01 oninput="calculateCbm(this)" value=""></td>
-                <td class="td"><input type="number" name="weight" step=0.01 oninput="calculateWeight(this)" value=""></td>
-                <td class="td"><input type="number" name="qty" step=0.01 value="" oninput="updateAmount(this)" required></td>
-                <td class="td"><input type="number" name="rate" step=0.01 oninput="updateAmount(this)" required></td>
-                <td class="td"><input type="number" name="amount" step=0.01 oninput="updateAmount(this)" required></td>
+                <td class="td"><input type="number" name="cbm" step=0.0001 oninput="calculateCbm(this)" value=""></td>
+                <td class="td"><input type="number" name="weight" step=0.0001 oninput="calculateWeight(this)" value=""></td>
+                <td class="td"><input type="number" name="qty" step=0.0001 value="" oninput="updateAmount(this)" required></td>
+                <td class="td"><input type="number" name="rate" step=0.0001 oninput="updateAmount(this)" required></td>
+                <td class="td"><input type="number" name="amount" step=0.0001 oninput="updateAmount(this)" required></td>
                 <td class="td"><input type="text" name="note" rows="4"></td>
             </tr>
         `;
