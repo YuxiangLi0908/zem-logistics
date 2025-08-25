@@ -396,40 +396,6 @@
                 <small>BOL- {{ batch_number }}</small>
                 <i class="bi bi-cloud-arrow-down-fill"></i>
             </button>
-            <button id="editButton" type="button" class="btn btn-primary" onclick="editBOL(this, '{{ batch_number }}')" style="font-size: 11px;">编辑</button>
-            <div class="popup-{{ batch_number }}" style="display: none; z-index:999; position: fixed; top: 50%; left: 50%; transform: translate(-50%, -50%); background-color: white; border: 1px solid gray; padding: 20px; max-height: 80vh; width: 50%; overflow-y: auto;">
-                <div style="text-align:right;">
-                    <button type="button" id="add-more-btn" class="btn btn-success" style="height: 35px; font-size: 12px; margin: 5px;" onclick="addRowBelow('BOL','{{ batch_number }}')">
-                        <i class="bi bi-plus-lg"></i> 添加行
-                    </button>
-                    <button type="button" id="add-more-btn" class="btn btn-success" style="height: 35px; font-size: 12px; margin: 5px;" onclick="editTable('BOL', true, '{{ batch_number }}')">编辑</button>
-                </div>
-                <table style="margin: 10px; padding: 10px; width:90%;" cellpadding='15' id="BOL-container-{{ batch_number }}">
-                    <thead>                       
-                        <th class="th" style="text-align: center; border: 1px solid #141414">Container</th>
-                        <th class="th" style="text-align: center; border: 1px solid #141414">Shipment ID</th>
-                        <th class="th" style="text-align: center; border: 1px solid #141414">Ref ID</th>
-                        <th class="th" style="text-align: center; border: 1px solid #141414">Qty</th>   
-                    </thead>
-                    {% for c in packing_list|get:batch_number %}
-                    <tr id="BOL-row">
-                        <td style="text-align: center; border: 1px solid #141414; padding:10px;" data-editable="true">{{ c.container_number }}</td>
-                        <td style="text-align: center; border: 1px solid #141414; text-wrap: wrap; padding:10px;" data-editable="true">{{ c.fba_id }}</td>
-                        <td style="text-align: center; border: 1px solid #141414; text-wrap: wrap; padding:10px;" data-editable="true">{{ c.ref_id }}</td>
-                        <td style="text-align: center; border: 1px solid #141414; padding:10px;" data-editable="true">{{ c.pcs }}</td>
-                    </tr>
-                    {% endfor %}
-                    <tr id="BOL-row-empty-{{ batch_number }}" style="display: none;">
-                        <td style="text-align: center; border: 1px solid #141414; padding:10px;" data-editable="true"></td>
-                        <td style="text-align: center; border: 1px solid #141414; text-wrap: wrap; padding:10px;" data-editable="true"></td>
-                        <td style="text-align: center; border: 1px solid #141414; text-wrap: wrap; padding:10px;" data-editable="true"></td>
-                        <td style="text-align: center; border: 1px solid #141414; padding:10px;" data-editable="true"></td>
-                    </tr> 
-                </table>
-                <div style="text-align:right;">
-                    <button id="confirmButton" type="button" class="btn btn-primary"  style="font-size: 11px;" onclick="editTable('BOL', false, '{{ batch_number }}')">确认</button>
-                </div>
-            </div>
             {% comment %} <script src="script.js"></script> {% endcomment %}
         </form> 
         {% endif %}
