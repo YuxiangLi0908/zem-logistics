@@ -1,0 +1,513 @@
+{% extends 'base.html' %}
+
+{% block content %}
+    <style>
+        .merge-btn {
+            display: inline-flex;
+            align-items: center;
+            gap: 8px;
+            padding: 8px 16px;
+            background: linear-gradient(135deg, #3875d7 0%, #2a62c9 100%); /* 蓝色渐变背景 */
+            color: #fff;
+            border: none;
+            border-radius: 8px;
+            font-size: 14px;
+            font-weight: 500;
+            cursor: pointer;
+            box-shadow: 0 2px 6px rgba(56, 117, 215, 0.3);
+            transition: all 0.3s ease;
+            outline: none;
+        }
+
+        .merge-btn:hover {
+            background: linear-gradient(135deg, #2a62c9 0%, #1e4aa1 100%);
+            box-shadow: 0 4px 12px rgba(42, 98, 201, 0.4);
+            transform: translateY(-1px);
+        }
+
+        .merge-btn:active {
+            transform: translateY(0);
+            box-shadow: 0 1px 3px rgba(56, 117, 215, 0.3);
+        }
+
+        .merge-btn:disabled {
+            background: linear-gradient(135deg, #b3c6e7 0%, #a0b9e0 100%);
+            cursor: not-allowed;
+            box-shadow: none;
+            transform: none;
+        }
+
+        .merge-btn__icon {
+            width: 16px;
+            height: 16px;
+            fill: currentColor;
+        }
+
+        .merge-btn.loading {
+            position: relative;
+            padding-left: 36px;
+            pointer-events: none;
+        }
+
+        .merge-btn.loading::before {
+            content: "";
+            position: absolute;
+            left: 12px;
+            top: 50%;
+            transform: translateY(-50%);
+            width: 16px;
+            height: 16px;
+            border: 2px solid rgba(255, 255, 255, 0.5);
+            border-top-color: #fff;
+            border-radius: 50%;
+            animation: spin 1s linear infinite;
+        }
+
+        @keyframes spin {
+            to {
+                transform: translateY(-50%) rotate(360deg);
+            }
+        }
+
+        .group-bg-1 {
+            background-color: #f0f9ff;
+        }
+
+        .group-bg-2 {
+            background-color: #f0fff4;
+        }
+
+        .group-bg-3 {
+            background-color: #fffbf0;
+        }
+        .group-bg-4 {
+            background-color: #fff0f6;
+        }
+
+        .group-bg-5 {
+            background-color: #f9f0ff;
+        }
+
+        .group-bg-6 {
+            background-color: #f0fdfa;
+        }
+
+
+        #inventory-summary-table tbody tr.selected {
+            background-color: #ffeeba !important;
+        }
+
+        #inventory-summary-table tbody tr.time-empty {
+            background-color: #f8f9fa;
+            color: #6c757d;
+        }
+
+        #inventory-summary-table tbody tr:hover {
+            background-color: #e9ecef !important;
+        }
+    </style>
+    <div style="display: flex;">
+        <div style="margin-right: 10px;"><b>合板管理</b></div>
+        <form method="post" action="" onsubmit="showLoadingBar()">
+            {% csrf_token %}
+            <div>
+                <b style="margin-right: 5px;">仓库:</b>
+                <select name="warehouse">
+                    {% for k, v in warehouse_options.items %}
+                        <option value="{{ v }}" {% if k == warehouse %}selected{% endif %}>{{ k }}</option>
+                    {% endfor %}
+                </select>
+                <input type="hidden" name="step" value="merge_pallet">
+                <button type="submit">确认</button>
+            </div>
+        </form>
+    </div>
+
+    <div id="loading-bar">
+        <div class="spinner"></div>
+        <p>Loading, please wait...</p>
+    </div>
+
+    <div style="display: flex;">
+        <div style="width: 100%; font-size: 11px;">
+            <ul class="nav nav-tabs">
+                <div style="margin-right: 10px;">
+                    <b style="background-color: rgb(208, 208, 208); border-radius: 20px; display:inline-flex; color: rgb(100, 100, 100); padding: 5px;">
+                        库存信息 - {{ warehouse }}
+                    </b>
+                </div>
+                <li class="nav-item">
+                    <button class="nav-link active" onclick="showSection(this, 'inventory-summary-sec')"><b>合板管理</b>
+                    </button>
+                </li>
+            </ul>
+        </div>
+    </div>
+    <div id="inventory-info-sec" style="max-height: 500px;">
+        <div id="inventory-summary-sec" style="display: block;">
+            <div class="mb-4">
+                <button
+                        id="mergePalletsBtn"
+                        class="merge-btn"
+                        onclick="prepareMergeForm()"
+                        title="选择2行及以上有效数据后合板"
+                >
+                    <svg class="merge-btn__icon" xmlns="http://www.w3.org/2000/svg" width="16" height="16"
+                         fill="currentColor"
+                         viewBox="0 0 16 16">
+                        <path d="M8 3.5a.5.5 0 0 0-1 0V9a.5.5 0 0 0 .252.434l3.5 2a.5.5 0 0 0 .496-.868L8 8.71V3.5z"/>
+                        <path d="M8 16A8 8 0 1 0 8 0a8 8 0 0 0 0 16zm7-8A7 7 0 1 1 1 8a7 7 0 0 1 14 0z"/>
+                    </svg>
+                    合板操作
+                </button>
+                <!-- 合板结果提示（后端返回后显示） -->
+                {% if merge_message %}
+                    <span class="ml-4 {% if merge_status == 'success' %}text-green-500{% else %}text-red-500{% endif %}">
+                        {{ merge_message }}
+                    </span>
+                {% endif %}
+
+                <form method="post" action="" id="mergePalletForm" style="display: none;">
+                    {% csrf_token %}
+                    <input type="hidden" name="warehouse" value="{{ warehouse|default_if_none:'' }}">
+                    <input type="hidden" name="step" value="merge_pallet_post">
+                    <input type="hidden" name="new_po_id" id="mergeNewPoId">
+                    <input type="hidden" name="pallet_ids" id="mergePalletIds">
+                </form>
+            </div>
+
+            <table class="table" id="inventory-summary-table"
+                   style="font-size: 11px; max-height: 95%; overflow-y: scroll;">
+                <thead>
+                <tr>
+                    <th class="th">合板勾选</th>
+                    <th class="th">pallet_id</th>
+                    <th class="th">客户</th>
+                    <th class="th">柜号</th>
+                    <th class="th">目的地</th>
+                    <th class="th">派送方式</th>
+                    <th class="th">weight(lbs)</th>
+                    <th class="th">pcs</th>
+                    <th class="th">cbm</th>
+                    <th class="th">卡板数</th>
+                    <th class="th" style="max-width: 200px; word-break: break-all;">备注</th>
+                    <th class="th">最早配送时间</th>
+                    <th class="th">最晚配送时间</th>
+                    <th class="th">PO_ID</th>
+                </tr>
+                </thead>
+                <tbody>
+                {% for p in pallet %}
+                    <tr
+                            data-pallet-id="{{ p.pallet_id|default_if_none:'' }}"
+                            data-destination="{{ p.destination|default_if_none:'' }}"
+                            data-deliverymethod="{{ p.delivery_method|default_if_none:'' }}"
+                            data-note="{{ p.note|default_if_none:'' }}"
+                            data-dws="{{ p.delivery_window_start|date:'Y-m-d'|default_if_none:'' }}"
+                            data-dwe="{{ p.delivery_window_end|date:'Y-m-d'|default_if_none:'' }}"
+                            data-poid="{{ p.PO_ID|default_if_none:'' }}">
+
+                        <td class="td">
+                            <input type="checkbox"
+                                   name="selected_pallets"
+                                   value="{{ p.pallet_id|default_if_none:'' }}"
+                                   class="form-checkbox h-4 w-4 text-primary rounded"
+                                   id="pallet_{{ p.pallet_id|default_if_none:'' }}">
+                        </td>
+                        <td class="td">{{ p.pallet_id|default_if_none:"" }}</td>
+                        <td class="td">{{ p.customer_name }}</td>
+                        <td class="td">{{ p.container }}</td>
+                        <td class="td">{{ p.destination }}</td>
+                        <td class="td">
+                            {% if '客户自提' in p.delivery_method %}
+                                {{ p.delivery_method }} - {{ p.shipping_mark }}
+                            {% else %}
+                                {{ p.delivery_method }}
+                            {% endif %}
+                        </td>
+                        <td class="td">{{ p.weight|floatformat:2 }}</td>
+                        <td class="td">{{ p.pcs|floatformat:0 }}</td>
+                        <td class="td">{{ p.cbm|floatformat:2 }}</td>
+                        <td class="td">{{ p.n_pallet|floatformat:0 }}</td>
+                        <td class="td"
+                            style="max-width: 200px; word-break: break-all;">{{ p.note|default_if_none:"" }}</td>
+                        <td class="td">{{ p.delivery_window_start|date:'Y-m-d'|default_if_none:"" }}</td>
+                        <td class="td">{{ p.delivery_window_end|date:'Y-m-d'|default_if_none:"" }}</td>
+                        <td class="td po-id-column">{{ p.PO_ID|default_if_none:"" }}</td>
+                    </tr>
+                {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </div>
+
+    <form method="post" action="" style="display: inline-block;" id="transfer-warehouse">
+        {% csrf_token %}
+        <input type="hidden" name="step" value="transfer_warehouse">
+        <input type="hidden" name="warehouse" value="{{ warehouse }}">
+    </form>
+
+    <script>
+        document.addEventListener('DOMContentLoaded', function () {
+            const tableRows = document.querySelectorAll('#inventory-summary-table tbody tr');
+            const groupColors = ['group-bg-1', 'group-bg-2', 'group-bg-3', 'group-bg-4', 'group-bg-5', 'group-bg-6'];
+            const groupMap = new Map();
+            let currentGroupIndex = 0;
+
+            tableRows.forEach(row => {
+                const dws = row.dataset.dws || '';
+                const dwe = row.dataset.dwe || '';
+
+                if (!dws || !dwe) {
+                    row.classList.add('time-empty');
+                    const checkbox = row.querySelector('input[name="selected_pallets"]');
+                    if (checkbox) {
+                        checkbox.disabled = true;
+                        checkbox.title = "配送时间为空，无法合板";
+                    }
+                    return;
+                }
+
+                const destination = row.dataset.destination || '';
+                const deliverymethod = row.dataset.deliverymethod || '';
+                const note = row.dataset.note || '';
+                const groupKey = `${destination}|||${deliverymethod}|||${note}|||${dws}|||${dwe}`;
+
+                if (!groupMap.has(groupKey)) {
+                    groupMap.set(groupKey, currentGroupIndex % groupColors.length);
+                    currentGroupIndex++;
+                }
+
+                const groupIdx = groupMap.get(groupKey);
+                row.classList.add(groupColors[groupIdx]);
+
+                const checkbox = row.querySelector('input[name="selected_pallets"]');
+                if (checkbox) {
+                    checkbox.addEventListener('change', function () {
+                        this.checked ? row.classList.add('selected') : row.classList.remove('selected');
+                    });
+                }
+            });
+        });
+
+        function prepareMergeForm() {
+            // 1. 获取核心元素
+            const checkedBoxes = document.querySelectorAll('input[name="selected_pallets"]:checked');
+            const mergeForm = document.getElementById('mergePalletForm');
+            const newPoIdInput = document.getElementById('mergeNewPoId');
+            const palletIdsInput = document.getElementById('mergePalletIds');
+            const warehouseInput = document.querySelector('#mergePalletForm input[name="warehouse"]');
+            if (!warehouseInput.value.trim()) {
+                alert('请先选择仓库并点击"确认"加载数据！');
+                return;
+            }
+
+            // 2. 基础校验：至少选中2行
+            if (checkedBoxes.length < 2) {
+                alert('请至少选择2行数据进行合板操作！');
+                return;
+            }
+
+            // 3. 提取选中行的关键信息（用于校验和取值）
+            const selectedRows = Array.from(checkedBoxes).map(checkbox => checkbox.closest('tr')).filter(tr => tr);
+            const palletIds = selectedRows.map(row => row.dataset.palletId).filter(id => id.trim()); // 过滤空pallet_id
+            const firstRow = selectedRows[0];
+            const targetPOId = firstRow.dataset.poid; // 目标PO_ID（第一行的PO_ID）
+
+            // 4. 校验：pallet_id有效且PO_ID非空
+            if (palletIds.length < 2) {
+                alert('部分选中行缺少pallet_id，无法合板！');
+                return;
+            }
+            if (!targetPOId) {
+                alert('选中行的第一行无有效PO_ID，无法合板！');
+                return;
+            }
+
+            // 5. 校验：所有选中行的关键字段一致（目的地、派送方式等）
+            const targetDest = firstRow.dataset.destination;
+            const targetDm = firstRow.dataset.deliverymethod;
+            const targetNote = firstRow.dataset.note;
+            const targetDws = firstRow.dataset.dws;
+            const targetDwe = firstRow.dataset.dwe;
+            const isAllMatch = selectedRows.every(row =>
+                row.dataset.destination === targetDest &&
+                row.dataset.deliverymethod === targetDm &&
+                row.dataset.note === targetNote &&
+                row.dataset.dws === targetDws &&
+                row.dataset.dwe === targetDwe
+            );
+            if (!isAllMatch) {
+                alert('选中的数据配送仓点、派送方式、备注、配送时间不一致，无法合板！');
+                return;
+            }
+
+            // 6. 填充表单隐藏字段（将数据传递给后端）
+            newPoIdInput.value = targetPOId; // 目标PO_ID
+            palletIdsInput.value = palletIds.join(','); // pallet_id列表（用逗号分隔，后端可split解析）
+
+            // 7. 提交表单（触发后端处理）
+            mergeForm.submit();
+        }
+
+        function checkRepalletizeForm() {
+            var requiredFieldValid = checkRequiredFields();
+            var fiedlsAddedUp = checkFieldsAddedUp();
+            if (requiredFieldValid && fiedlsAddedUp) {
+                var firstEmptyRow = document.getElementById('repalletize-row-empty');
+                if (firstEmptyRow && firstEmptyRow.style.display === 'none') {
+                    var inputs = firstEmptyRow.querySelectorAll('input, select');
+                    inputs.forEach(function (input) {
+                        if (input.hasAttribute('required')) {
+                            input.removeAttribute('required');
+                        }
+                        input.disabled = true;
+                    });
+                }
+            }
+        };
+
+        function checkRequiredFields() {
+            const deliverySelect = document.querySelectorAll('#repalletize-row select[name="delivery_method_repalletize"]');
+            const shippingMarkInput = document.querySelectorAll('#repalletize-row input[name="shipping_mark_repalletize"]');
+            const FbaInput = document.querySelectorAll('#repalletize-row input[name="fba_id_repalletize"]');
+            const RefInput = document.querySelectorAll('#repalletize-row input[name="ref_id_repalletize"]');
+            const originalShippingMark = document.querySelector('#form-input input[name="shipping_mark"]').value.trim();
+            const originalFba = document.querySelector('#form-input input[name="fba_id"]').value.trim();
+            const originalRef = document.querySelector('#form-input input[name="ref_id"]').value.trim();
+            var isDeliveryValid = true;
+            var isShippingMarkValid = true;
+            var isFbaValid = true;
+            var isRefValid = true;
+            deliverySelect.forEach(function (select) {
+                if (!select.disabled) {
+                    if (select.value.trim() === '') {
+                        isDeliveryValid = false;
+                        select.style.border = '2px solid red';
+                    } else {
+                        select.style.border = '';
+                    }
+                }
+            });
+            if (originalShippingMark) {
+                shippingMarkInput.forEach(function (input) {
+                    if (!input.disabled) {
+                        if (input.value.trim() === '') {
+                            isShippingMarkValid = false;
+                            input.style.border = '2px solid red';
+                        } else {
+                            input.style.border = '';
+                        }
+                    }
+                });
+            }
+            if (originalFba) {
+                FbaInput.forEach(function (input) {
+                    if (!input.disabled) {
+                        if (input.value.trim() === '') {
+                            isFbaValid = false;
+                            input.style.border = '2px solid red';
+                        } else {
+                            input.style.border = '';
+                        }
+                    }
+                });
+            }
+            if (originalRef) {
+                RefInput.forEach(function (input) {
+                    if (!input.disabled) {
+                        if (input.value.trim() === '') {
+                            isRefValid = false;
+                            input.style.border = '2px solid red';
+                        } else {
+                            input.style.border = '';
+                        }
+                    }
+                });
+            }
+            if (!isDeliveryValid) {
+                event.preventDefault();
+                alert("请填写'派送方式'!");
+            }
+            if (!isShippingMarkValid) {
+                event.preventDefault();
+                alert("请填写'唛头'!");
+            }
+            if (!isFbaValid) {
+                event.preventDefault();
+                alert("请填写'FBA'!");
+            }
+            if (!isRefValid) {
+                event.preventDefault();
+                alert("请选择'REF'!");
+            }
+            return isDeliveryValid && isFbaValid && isRefValid && isShippingMarkValid;
+        };
+
+        function checkFieldsAddedUp() {
+            var originalShippingMark = document.querySelector("#form-input input[name='shipping_mark']").value.trim().split(",").sort();
+            var originalFBA = document.querySelector("#form-input input[name='fba_id']").value.trim().split(",").sort();
+            var originalREF = document.querySelector("#form-input input[name='ref_id']").value.trim().split(",").sort();
+            var originalPCS = parseInt(document.querySelector("#form-input input[name='pcs']").value.trim());
+            var newShippingMark = document.querySelectorAll("#repalletize-table input[name='shipping_mark_repalletize']");
+            var newFBA = document.querySelectorAll("#repalletize-table input[name='fba_id_repalletize']");
+            var newREF = document.querySelectorAll("#repalletize-table input[name='ref_id_repalletize']");
+            var newPCS = document.querySelectorAll("#repalletize-table input[name='pcs_repalletize']");
+            var newShippingMarkArray = Array();
+            var newFBAArray = Array();
+            var newREFArray = Array();
+            var newPCSSum = 0;
+
+            for (i = 1; i < newShippingMark.length; i++) {
+                var shippingMarkValues = newShippingMark[i].value.trim().split(",");
+                for (j = 0; j < shippingMarkValues.length; j++) {
+                    if (!newShippingMarkArray.includes(shippingMarkValues[j])) {
+                        newShippingMarkArray.push(shippingMarkValues[j]);
+                    }
+                }
+                var FBAValues = newFBA[i].value.trim().split(",");
+                for (j = 0; j < FBAValues.length; j++) {
+                    if (!newFBAArray.includes(FBAValues[j])) {
+                        newFBAArray.push(FBAValues[j]);
+                    }
+                }
+                var REFValues = newREF[i].value.trim().split(",");
+                for (j = 0; j < REFValues.length; j++) {
+                    if (!newREFArray.includes(REFValues[j])) {
+                        newREFArray.push(REFValues[j]);
+                    }
+                }
+                newPCSSum += parseInt(newPCS[i].value) || 0;
+            }
+            newShippingMarkArray.sort();
+            newFBAArray.sort();
+            newREFArray.sort();
+            if (JSON.stringify(originalShippingMark) !== JSON.stringify(newShippingMarkArray)) {
+                event.preventDefault();
+                alert("请检查唛头是否一致!");
+                return false;
+            }
+            if (JSON.stringify(originalFBA) !== JSON.stringify(newFBAArray)) {
+                event.preventDefault();
+                alert("请检查FBA是否一致!");
+                return false;
+            }
+            if (JSON.stringify(originalREF) !== JSON.stringify(newREFArray)) {
+                event.preventDefault();
+                alert("请检查REF是否一致!");
+                return false;
+            }
+            if (originalPCS !== newPCSSum) {
+                event.preventDefault();
+                alert("请检查箱数是否一致!");
+                return false;
+            }
+            return true;
+        };
+
+        function showLoadingBar() {
+            const loadingBar = document.getElementById('loading-bar');
+            if (loadingBar) loadingBar.style.display = 'block';
+        }
+    </script>
+{% endblock %}
