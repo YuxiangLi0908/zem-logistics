@@ -80,6 +80,7 @@
         .group-bg-3 {
             background-color: #fffbf0;
         }
+
         .group-bg-4 {
             background-color: #fff0f6;
         }
@@ -280,13 +281,32 @@
 
                 const groupIdx = groupMap.get(groupKey);
                 row.classList.add(groupColors[groupIdx]);
+                row.dataset.groupKey = groupKey;
+            });
 
-                const checkbox = row.querySelector('input[name="selected_pallets"]');
-                if (checkbox) {
-                    checkbox.addEventListener('change', function () {
-                        this.checked ? row.classList.add('selected') : row.classList.remove('selected');
+            const enabledCheckboxes = document.querySelectorAll(
+                'input[name="selected_pallets"]:not(:disabled)'
+            );
+            enabledCheckboxes.forEach(checkbox => {
+                checkbox.addEventListener('change', function () {
+                    const isChecked = this.checked;
+                    const currentRow = this.closest('tr');
+                    const currentGroupKey = currentRow.dataset.groupKey;
+                    if (!currentGroupKey) return;
+
+                    const sameGroupRows = document.querySelectorAll(
+                        `#inventory-summary-table tbody tr[data-group-key="${currentGroupKey}"]:not(.time-empty)`
+                    );
+
+                    sameGroupRows.forEach(row => {
+                        const rowCheckbox = row.querySelector('input[name="selected_pallets"]');
+                        if (rowCheckbox && !rowCheckbox.disabled) {
+                            rowCheckbox.checked = isChecked;
+                            // 同步行的选中背景色（和原有逻辑一致）
+                            isChecked ? row.classList.add('selected') : row.classList.remove('selected');
+                        }
                     });
-                }
+                });
             });
         });
 
