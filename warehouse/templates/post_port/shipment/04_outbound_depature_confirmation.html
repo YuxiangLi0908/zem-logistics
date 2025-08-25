@@ -330,8 +330,65 @@
             <input type="file" name="files" accept=".pdf" multiple>
             <button type="submit">上传BOL</button>        
         </form>
+        {% else %}
+        <form method="post" action="" style="display: inline-block;" id="exportfleet-{{ selected_fleet.fleet_number }}">
+            {% csrf_token %}
+            <input type="hidden" name="step" value="export_packing_list">
+            <input type="hidden" name="fleet_number" value="{{ selected_fleet.fleet_number }}">
+            <button type="submit" class="btn btn-success" style="font-size: 15px;">
+                <small>拣货单</small>
+                <i class="bi bi-cloud-arrow-down-fill"></i>
+            </button>
+            <button id="editButton" type="button" class="btn btn-primary" onclick="editBOL(this, '{{ selected_fleet.fleet_number }}')" style="font-size: 11px;">编辑</button>
+            <div class="popup-{{ selected_fleet.fleet_number }}" style="display: none; z-index:999; position: fixed; top: 50%; left: 50%; transform: translate(-50%, -50%); background-color: white; border: 1px solid gray; padding: 20px;">
+                <div style="text-align:right;">
+                    <button type="button" id="add-more-btn" class="btn btn-success" style="height: 35px; font-size: 12px; margin: 5px;" onclick="addRowBelow('fleet','{{ selected_fleet.fleet_number }}')">
+                        <i class="bi bi-plus-lg"></i> 添加行
+                    </button>
+                    <button type="button" id="add-more-btn" class="btn btn-success" style="height: 35px; font-size: 12px; margin: 5px;" onclick="editTable('fleet', true, '{{ selected_fleet.fleet_number }}')">编辑</button>
+                </div>                 
+                <table style=" max-height:90%; overflow-y:scroll; margin: 10px; padding: 100px;" cellpadding='15' id="fleet-container-{{ selected_fleet.fleet_number }}">
+                    <thead>                       
+                        <th class="th" style="text-align: center; border: 1px solid #141414">柜号</th>
+                        <th class="th" style="text-align: center; border: 1px solid #141414">预约批次</th>
+                        <th class="th" style="text-align: center; border: 1px solid #141414">仓点</th>
+                        <th class="th" style="text-align: center; border: 1px solid #141414">weight</th> 
+                        <th class="th" style="text-align: center; border: 1px solid #141414">CBM</th> 
+                        <th class="th" style="text-align: center; border: 1px solid #141414">板数</th>  
+                        {% if pl_fleet.0.load_position %}
+                        <th class="th" style="text-align: center; border: 1px solid #141414">一提两卸</th>
+                        {% endif %} 
+                    </thead>
+                    {% for s in pl_fleet %}
+                    <tr id="fleet-row">
+                        <td style="text-align: center; border: 1px solid #141414; padding:10px;" data-editable="true">{{ s.container_number__container_number }}</td>
+                        <td style="text-align: center; border: 1px solid #141414; text-wrap: wrap; padding:10px;" data-editable="true">{{ s.shipment_batch_number__shipment_batch_number }}</td>
+                        <td style="text-align: center; border: 1px solid #141414; text-wrap: wrap; padding:10px;" data-editable="true">{{ s.destination }}</td>
+                        <td style="text-align: center; border: 1px solid #141414; text-wrap: wrap; padding:10px;" data-editable="true">{{ s.total_weight }}</td>
+                        <td style="text-align: center; border: 1px solid #141414; text-wrap: wrap; padding:10px;" data-editable="true">{{ s.total_cbm }}</td>
+                        <td style="text-align: center; border: 1px solid #141414; padding:10px;" data-editable="true">{{ s.total_n_pallet }}</td>
+                        {% if s.load_position %}
+                        <td style="text-align: center; border: 1px solid #141414; padding:10px;" data-editable="true">{{ s.load_position }}</td>
+                        {% endif %}
+                    </tr>
+                    {% endfor %}
+                    <tr id="fleet-row-empty-{{ selected_fleet.fleet_number }}" style="display: none;">
+                        <td style="text-align: center; border: 1px solid #141414; padding:10px;" data-editable="true"></td>
+                        <td style="text-align: center; border: 1px solid #141414; text-wrap: wrap; padding:10px;" data-editable="true"></td>
+                        <td style="text-align: center; border: 1px solid #141414; text-wrap: wrap; padding:10px;" data-editable="true"></td>
+                        <td style="text-align: center; border: 1px solid #141414; text-wrap: wrap; padding:10px;" data-editable="true"></td>
+                        <td style="text-align: center; border: 1px solid #141414; padding:10px;" data-editable="true"></td>
+                    </tr>  
+                </table>
+                <div style="text-align:right;">
+                    <button id="confirmButton" type="button" class="btn btn-primary"  style="font-size: 11px;" onclick="editTable('fleet', false, '{{ selected_fleet.fleet_number }}')">确认</button>
+                </div>
+            </div>              
+        </form>    
         {% endif %}
-            
+        
+       
+
         </div>
         <div style="overflow-x: auto; max-width: 100%; overflow-y: auto; max-height: 60%;">
             <form method="post" action="" style="width: 100%;">
