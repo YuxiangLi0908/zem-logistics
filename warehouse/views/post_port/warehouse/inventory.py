@@ -224,41 +224,54 @@ class Inventory(View):
     async def handle_merge_operation(self, request: HttpRequest) -> Tuple[str, dict[str, Any]]:
         """处理合板核心逻辑"""
         try:
-            if request.POST.get('step') == "merge_pallet_post":
-                new_po_id = request.POST.get('new_po_id', '').strip()
-                pallet_ids_str = request.POST.get('pallet_ids', '')
-                pallet_ids = [pid.strip() for pid in pallet_ids_str.split(',') if pid.strip()]
-                warehouse = request.POST.get('warehouse', '')
+            new_po_id = request.POST.get('new_po_id', '').strip()
+            pallet_ids_str = request.POST.get('pallet_ids', '')
+            pallet_ids = [pid.strip() for pid in pallet_ids_str.split(',') if pid.strip()]
+            warehouse = request.POST.get('warehouse', '')
 
-                if not new_po_id:
-                    context = {
-                        'warehouse': warehouse,
-                        'pallet': await self._get_inventory_pallet_merge(warehouse),
-                        'merge_status': 'error',
-                        'merge_message': '目标PO_ID不能为空'
-                    }
-                    return self.template_inventory_list_and_merge, context
-
-                if len(pallet_ids) < 2:
-                    context = {
-                        'warehouse': warehouse,
-                        'pallet': await self._get_inventory_pallet_merge(warehouse),
-                        'merge_status': 'error',
-                        'merge_message': '请至少选择2个有效pallet_id'
-                    }
-                    return self.template_inventory_list_and_merge, context
-
-                def update_pallets():
-                    return Pallet.objects.filter(pallet_id__in=pallet_ids).update(PO_ID=new_po_id)
-                updated_count = await sync_to_async(update_pallets)()
-
+            if not new_po_id:
                 context = {
                     'warehouse': warehouse,
                     'pallet': await self._get_inventory_pallet_merge(warehouse),
-                    'merge_status': 'success',
-                    'merge_message': f'合板成功！共更新 {updated_count} 个卡板'
+                    'merge_status': 'error',
+                    'merge_message': '目标PO_ID不能为空'
                 }
                 return self.template_inventory_list_and_merge, context
+
+            if len(pallet_ids) < 2:
+                context = {
+                    'warehouse': warehouse,
+                    'pallet': await self._get_inventory_pallet_merge(warehouse),
+                    'merge_status': 'error',
+                    'merge_message': '请至少选择2个有效pallet_id'
+                }
+                return self.template_inventory_list_and_merge, context
+
+            def update_pallets():
+                return Pallet.objects.filter(pallet_id__in=pallet_ids).update(PO_ID=new_po_id)
+            updated_count = await sync_to_async(update_pallets)()
+
+            def get_container_ids():
+                return list(
+                    Pallet.objects.filter(
+                        pallet_id__in=pallet_ids
+                    ).values_list('container_number_id', flat=True)
+                )
+
+            container_ids = await sync_to_async(get_container_ids)()
+            def update_packinglists():
+                return PackingList.objects.filter(
+                    container_number_id__in=container_ids
+                ).update(PO_ID=new_po_id)
+
+            updated_count_p = await sync_to_async(update_packinglists)()
+            context = {
+                'warehouse': warehouse,
+                'pallet': await self._get_inventory_pallet_merge(warehouse),
+                'merge_status': 'success',
+                'merge_message': f'合板成功！共更新 {updated_count} 个卡板, PackingList更新{updated_count_p}条数据'
+            }
+            return self.template_inventory_list_and_merge, context
 
         except Exception as e:
             warehouse = request.POST.get('warehouse', '')
