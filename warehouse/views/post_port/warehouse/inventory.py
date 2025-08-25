@@ -266,6 +266,7 @@ class Inventory(View):
 
             updated_count_p = await sync_to_async(update_packinglists)()
             context = {
+                'warehouse_options': self.warehouse_options,
                 'warehouse': warehouse,
                 'pallet': await self._get_inventory_pallet_merge(warehouse),
                 'merge_status': 'success',
