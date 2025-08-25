@@ -52,7 +52,18 @@
                             {% elif status == 'palletized' %}
                                 {% if " " in pl.destination or "自提" in pl.destination %}
                                 <td id="destination - {{ pl.id }}" class="td">
-                                    <a href="#" onclick="showPallet({{ pl }})">{{ pl.destination }}</a>
+                                    <a href="#"
+                                        onclick="showPalletFromLink(this)"
+                                        data-destination="{{ pl.destination }}"
+                                        data-ids="{{ pl.ids }}"
+                                        data-length="{{ pl.length|default_if_none:'' }}"
+                                        data-width="{{ pl.width|default_if_none:'' }}"
+                                        data-height="{{ pl.height|default_if_none:'' }}"
+                                        data-npcs="{{ pl.n_pcs }}"
+                                        data-number="{{ pl.number|default_if_none:'' }}"
+                                        data-weight="{{ pl.weight }}">
+                                        {{ pl.destination }}
+                                    </a>
                                 </td>
                                 {% else %}
                                 <td class="td">{{ pl.destination }}</td>
@@ -254,6 +265,20 @@
     </form>
 
 <script>
+    function showPalletFromLink(el) {
+        const d = el.dataset;
+        const payload = {
+        destination: d.destination || '',
+        ids: d.ids || '',
+        length: d.length || '',
+        width: d.width || '',
+        height: d.height || '',
+        n_pcs: d.npcs || '',
+        number: d.number || '',
+        weight: d.weight || ''
+        };
+        showPallet(payload);
+    }
     function edit_add_payload(button){  //这里不知道为啥改个名就执行不了
         var tbody = document.getElementById('edit-pallet-table').getElementsByTagName('tbody')[0];
         var rows = tbody.getElementsByTagName('tr');
