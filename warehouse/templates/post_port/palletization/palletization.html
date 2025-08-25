@@ -161,7 +161,8 @@
                                                 <th class="th" style="text-align: center; border: 1px solid #141414">最早派送日期</th>
                                                 <th class="th" style="text-align: center; border: 1px solid #141414">最晚派送日期</th>
                                                 -->
-                                                <th class="th" style="text-align: center; border: 1px solid #141414">是否扣货</th>   
+                                                <th class="th" style="text-align: center; border: 1px solid #141414">是否扣货</th>  
+                                                <th class="th" style="text-align: center; border: 1px solid #141414">PO_ID</th>  
                                             </thead>
                                             <tr id="lable-row">
                                                 <td style="text-align: center; border: 1px solid #141414; padding:10px;" data-editable="true">
@@ -205,7 +206,10 @@
                                                         <option value="是">是</option>
                                                         <option value="否">否</option>
                                                     </select>
-                                                </td>                                        
+                                                </td>  
+                                                <td style="text-align: center; border: 1px solid #141414; padding:10px;" data-editable="true">
+                                                    <input value="{{ c.PO_ID }}">
+                                                </td>                                      
                                             </tr>
                                         </table>
                                         <div style="text-align:right;">

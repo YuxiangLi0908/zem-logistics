@@ -948,8 +948,10 @@ class Palletization(View):
             for row in customer_info:
                 if len(row) > 10:
                     is_hold = row[10].strip()
+                    PO_ID = row[11].strip()
                 else:
                     is_hold = row[8].strip()
+                    PO_ID = row[9].strip()
                 date_str = row[7].strip()
                 parts = date_str.split("-")
                 month_day = f"{parts[1]}-{parts[2]}"
@@ -981,7 +983,7 @@ class Palletization(View):
                     # 生成条形码
                     barcode_type = "code128"
                     barcode_class = barcode.get_barcode_class(barcode_type)
-                    barcode_content = f"{row[0].strip()}|{destination}-{num}"
+                    barcode_content = f"{row[0].strip()}|{destination}-{num}-{PO_ID}"
                     my_barcode = barcode_class(
                         barcode_content, writer=ImageWriter()
                     )  # 将条形码转换为图像形式
@@ -1087,11 +1089,12 @@ class Palletization(View):
                     fba_ids = None
                 dw_st = pl.get("delivery_window_start").strftime("%m/%d") if pl.get("delivery_window_start") else None
                 dw_end = pl.get("delivery_window_end").strftime("%m/%d") if pl.get("delivery_window_end") else None
+                po_id = pl.get("PO_ID")
                 for num in range(cbm):
                     i = num // n_label + 1
                     barcode_type = "code128"
                     barcode_class = barcode.get_barcode_class(barcode_type)
-                    barcode_content = f"{pl.get('container_number__container_number')}|{destination}-{i}"
+                    barcode_content = f"{pl.get('container_number__container_number')}|{destination}-{i}-{po_id}"
                     my_barcode = barcode_class(
                         barcode_content, writer=ImageWriter()
                     )  # 将条形码转换为图像形式
