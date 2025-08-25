@@ -1017,7 +1017,7 @@ class ShippingManagement(View):
             criteria = models.Q(
                 packinglist__container_number__order__retrieval_id__retrieval_destination_area=area
             ) | models.Q(pallet__location__startswith=area)
-        year_2025 = datetime(2025, 1, 1)
+        year_2025 = datetime(2025, 4, 1)
         shipment = await sync_to_async(list)(
             Shipment.objects.prefetch_related(
                 "packinglist",
@@ -1252,6 +1252,18 @@ class ShippingManagement(View):
                     "express_number": note,
                 }
             )
+            #更新完约的信息后，加一个功能，把预约出库时选中的pl对应的order表等级改为P3
+            orders_to_update = await sync_to_async(list)(
+                Order.objects.filter(container_number__packinglist__id__in=selected)
+            )
+            for order in orders_to_update:
+                order.unpacking_priority = 'P3'
+            await sync_to_async(bulk_update_with_history)(
+                orders_to_update,
+                Order,
+                fields=["unpacking_priority"],
+            )
+    
             return self.template_td_schedule, context
         else:
             return await self.handle_warehouse_post(request)
@@ -1662,6 +1674,17 @@ class ShippingManagement(View):
                     await sync_to_async(
                         PackingList.objects.filter(PO_ID__in=pl_master_po_ids).update
                     )(master_shipment_batch_number=shipment)
+                #把添加的pl对应的order表等级改为P3
+                orders_to_update = await sync_to_async(list)(
+                    Order.objects.filter(container_number__packinglist__id__in=pl_ids)
+                )
+                for order in orders_to_update:
+                    order.unpacking_priority = 'P3'
+                await sync_to_async(bulk_update_with_history)(
+                    orders_to_update,
+                    Order,
+                    fields=["unpacking_priority"],
+                )
             except:
                 pass
 
