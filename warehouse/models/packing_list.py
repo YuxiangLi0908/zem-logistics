@@ -1,4 +1,6 @@
-from django.core.validators import MinValueValidator
+from decimal import Decimal
+
+from django.core.validators import MinValueValidator, DecimalValidator
 from django.db import models
 from simple_history.models import HistoricalRecords
 
@@ -46,6 +48,34 @@ class PackingList(models.Model):
         related_name="packinglist_master",
     )
     note = models.CharField(null=True, blank=True, max_length=2000)
+    express_number = models.CharField(null=True, blank=True, verbose_name="快递单号")
+    long = models.DecimalField(
+        max_digits=10,
+        decimal_places=2,
+        null=True,
+        blank=True,
+        verbose_name="长",
+        validators=[
+            MinValueValidator(Decimal('0.01')),
+            DecimalValidator(max_digits=10, decimal_places=2)
+        ]
+    )
+    width = models.DecimalField(
+        max_digits=10,
+        decimal_places=2,
+        null=True,
+        blank=True,
+        verbose_name="宽",
+        validators=[MinValueValidator(Decimal('0.01')), DecimalValidator(max_digits=10, decimal_places=2)]
+    )
+    height = models.DecimalField(
+        max_digits=10,
+        decimal_places=2,
+        null=True,
+        blank=True,
+        verbose_name="高",
+        validators=[MinValueValidator(Decimal('0.01')), DecimalValidator(max_digits=10, decimal_places=2)]
+    )
     quote_id = models.ForeignKey(
         Quote, null=True, blank=True, on_delete=models.SET_NULL
     )
