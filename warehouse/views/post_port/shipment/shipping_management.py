@@ -1452,10 +1452,17 @@ class ShippingManagement(View):
                         appointment_datetime = current_time
                     if not appointment_datetime:
                         appointment_datetime = None
+                    #自动生成pickupNumber
+                    wh = request.POST.get("origin", "").split('-')[1]
+                    ca = request.POST.get("carrier").strip()
+                    dt = datetime.fromisoformat(shipmentappointment.replace('Z', '+00:00'))
+                    month_day = dt.strftime("%m%d")
+                    pickupNumber = 'ZEM'+ '-' + wh + '-' + '' + month_day + ca
                     fleet = Fleet(
                         **{
                             "carrier": request.POST.get("carrier").strip(),
                             "fleet_type": shipment_type,
+                            "pickup_number": pickupNumber,
                             "appointment_datetime": appointment_datetime,  # 车次的提货时间
                             "fleet_number": "FO"
                             + current_time.strftime("%m%d%H%M%S")
@@ -2071,10 +2078,17 @@ class ShippingManagement(View):
                     await sync_to_async(fleet.save)()
                 else:
                     current_time = datetime.now()
+                    #给非FTL排车时，加上pickupNumber
+                    wh = request.POST.get("origin", "").split('-')[1]
+                    ca = request.POST.get("carrier").strip()
+                    dt = datetime.fromisoformat(shipment_appointment.replace('Z', '+00:00'))
+                    month_day = dt.strftime("%m%d")
+                    pickupNumber = 'ZEM'+ '-' + wh + '-' + '' + month_day + ca
                     fleet = Fleet(
                         **{
                             "carrier": request.POST.get("carrier").strip(),
                             "fleet_type": shipment_type,
+                            "pickup_number": pickupNumber,
                             "appointment_datetime": shipment_appointment,
                             "fleet_number": "FO"
                             + current_time.strftime("%m%d%H%M%S")
@@ -2143,10 +2157,17 @@ class ShippingManagement(View):
                     request.POST.get("arm_pro") if request.POST.get("arm_pro") else ""
                 )
                 current_time = datetime.now()
+                #给非FTL的车，加上pickupNumber
+                wh = request.POST.get("origin", "").split('-')[1]
+                ca = request.POST.get("carrier").strip()
+                dt = datetime.fromisoformat(shipment_appointment.replace('Z', '+00:00'))
+                month_day = dt.strftime("%m%d")
+                pickupNumber = 'ZEM'+ '-' + wh + '-' + '' + month_day + ca
                 fleet = Fleet(
                     **{
                         "carrier": request.POST.get("carrier").strip(),
                         "fleet_type": shipment_type,
+                        "pickup_number": pickupNumber,
                         "appointment_datetime": shipment_appointment,
                         "fleet_number": "FO"
                         + current_time.strftime("%m%d%H%M%S")
