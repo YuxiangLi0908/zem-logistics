@@ -2983,10 +2983,10 @@ class Accounting(View):
                     # pallet指向InvoiceDelivery表
                     plt.invoice_delivery = invoice_content
                     updated_pallets.append(plt)
-                invoice_deliverys_deletes = InvoiceDelivery.objects.filter(
-                    invoice_number=invoice,
-                    destination=
-                )
+                # invoice_deliverys_deletes = InvoiceDelivery.objects.filter(
+                #     invoice_number=invoice,
+                #     destination=destination[i]
+                # )
                 for inv in invoices_to_check:
                     inv.delete() 
                 bulk_update_with_history(
@@ -5152,10 +5152,10 @@ class Accounting(View):
                 for rule in stipulate["tiered_pricing"][warehouse]:
                     min_points = rule.get("min_points")
                     max_points = rule.get("max_points")
-                    if min_points <= region_count <= max_points:
+                    if int(min_points) <= region_count <= int(max_points):
                         addition_fee = {
-                            "min_points": min_points,
-                            "max_points": max_points,
+                            "min_points": int(min_points),
+                            "max_points": int(max_points),
                             "add_fee": rule.get("addition_fee")
                         }
         else:
