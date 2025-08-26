@@ -28,6 +28,11 @@
         </div>
     </form>
 </div>
+<form method="post" action="" style="width: 80%;">
+    {% csrf_token %}    
+    <input type="hidden" name="step" value="check_unreferenced_delivery">
+    <button id="submit-btn" type="submit" class="btn btn-secondary" style="width: 100px; height: 35px; margin-left: 20px;">查验所有未绑定的派送记录</button>
+</form>
 <hr class="Dashed" style="margin-top: 10px; margin-bottom: 10px;">
 <div style="display: flex; max-height: 720px;">
     <div style="overflow-y: auto; max-height: 100%; width: 40%; border: 2px solid rgb(180, 180, 180); border-radius: 12px; padding: 1%; margin: 1%;">

@@ -33,11 +33,6 @@
     <input type="hidden" name="step" value="migrate_payable_receivable_amount">
     <button id="submit-btn" type="submit" class="btn btn-primary" style="width: 250px; height: 35px; margin-left: 20px;">invoice到preport/warehouse</button>
 </form>
-<form method="post" action="" style="width: 80%;">
-    {% csrf_token %}    
-    <input type="hidden" name="step" value="migrate_status">
-    <button id="submit-btn" type="submit" class="btn btn-primary" style="width: 100px; height: 35px; margin-left: 20px;">迁移状态</button>
-</form>
 {% endif %}
 {% if "invoice_preport" in groups or "staff" in groups %}
 <div style="display: flex; max-height: 720px;">
