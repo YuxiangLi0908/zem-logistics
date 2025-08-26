@@ -841,40 +841,37 @@ class OrderCreation(View):
                     destination_list[idx] = destination.upper().strip()
             for pl in packing_list:
                 idx = pl_id_idx_mapping[pl.id]
-                pl.product_name = request.POST.getlist("product_name")[idx]
                 pl.delivery_method = request.POST.getlist("delivery_method")[idx]
-                pl.delivery_type = request.POST.getlist("delivery_type")[idx]
                 pl.shipping_mark = request.POST.getlist("shipping_mark")[idx].strip()
                 pl.fba_id = request.POST.getlist("fba_id")[idx].strip()
                 pl.ref_id = request.POST.getlist("ref_id")[idx].strip()
                 pl.destination = destination_list[idx]
-                pl.contact_name = request.POST.getlist("contact_name")[idx]
-                pl.contact_method = request.POST.getlist("contact_method")[idx]
                 pl.address = request.POST.getlist("address")[idx]
-                pl.zipcode = request.POST.getlist("zipcode")[idx]
                 pl.note = request.POST.getlist("note")[idx]
+                pl.long = request.POST.getlist("long")[idx]
+                pl.width = request.POST.getlist("width")[idx]
+                pl.height = request.POST.getlist("height")[idx]
+                pl.express_number = request.POST.getlist("express_number")[idx]
                 start_date_str = request.POST.getlist("delivery_window_start")[idx].strip()
                 pl.delivery_window_start = parse_date(start_date_str) if start_date_str else None
                 end_date_str = request.POST.getlist("delivery_window_end")[idx].strip()
                 pl.delivery_window_end = parse_date(end_date_str) if end_date_str else None
-
                 updated_pl.append(pl)
             await sync_to_async(bulk_update_with_history)(
                 updated_pl,
                 PackingList,
                 fields=[
-                    "product_name",
                     "delivery_method",
-                    "delivery_type",
                     "shipping_mark",
                     "fba_id",
                     "ref_id",
                     "destination",
-                    "contact_name",
-                    "contact_method",
                     "address",
-                    "zipcode",
                     "note",
+                    "long",
+                    "width",
+                    "height",
+                    "express_number",
                     "delivery_window_start",
                     "delivery_window_end"
                 ],
@@ -934,22 +931,21 @@ class OrderCreation(View):
                 po_ids.append(po_id)
             del po_id_hash, po_id, po_id_seg, po_id_hkey
             pl_data = zip(
-                request.POST.getlist("product_name"),
                 request.POST.getlist("delivery_method"),
-                request.POST.getlist("delivery_type"),
                 request.POST.getlist("shipping_mark"),
                 request.POST.getlist("fba_id"),
                 request.POST.getlist("ref_id"),
                 destination_list,
-                request.POST.getlist("contact_name"),
-                request.POST.getlist("contact_method"),
                 request.POST.getlist("address"),
-                request.POST.getlist("zipcode"),
                 request.POST.getlist("pcs"),
                 request.POST.getlist("total_weight_kg"),
                 request.POST.getlist("total_weight_lbs"),
                 request.POST.getlist("cbm"),
                 request.POST.getlist("note"),
+                request.POST.getlist("long"),
+                request.POST.getlist("width"),
+                request.POST.getlist("height"),
+                request.POST.getlist("express_number"),
                 po_ids,
                 request.POST.getlist("delivery_window_start"),
                 request.POST.getlist("delivery_window_end"),
@@ -959,25 +955,24 @@ class OrderCreation(View):
             pl_to_create = [
                 PackingList(
                     container_number=container,
-                    product_name=d[0],
-                    delivery_method=d[1],
-                    delivery_type=d[2],
-                    shipping_mark=d[3].strip(),
-                    fba_id=d[4].strip(),
-                    ref_id=d[5].strip(),
-                    destination=d[6],
-                    contact_name=d[7],
-                    contact_method=d[8],
-                    address=d[9],
-                    zipcode=d[10],
-                    pcs=int(float(d[11])),
-                    total_weight_kg=d[12],
-                    total_weight_lbs=d[13],
-                    cbm=d[14],
-                    note=d[15],
-                    PO_ID=d[16],
-                    delivery_window_start = d[17] if d[17].strip() else None,
-                    delivery_window_end = d[18] if d[18].strip() else None
+                    delivery_method=d[0],
+                    shipping_mark=d[1].strip(),
+                    fba_id=d[2].strip(),
+                    ref_id=d[3].strip(),
+                    destination=d[4],
+                    address=d[5],
+                    pcs=int(float(d[6])),
+                    total_weight_kg=d[7],
+                    total_weight_lbs=d[8],
+                    cbm=d[9],
+                    note=d[10],
+                    long=d[11],
+                    width=d[12],
+                    height=d[13],
+                    express_number=d[14],
+                    PO_ID=d[15],
+                    delivery_window_start = d[16] if d[16].strip() else None,
+                    delivery_window_end = d[17] if d[17].strip() else None
                 )
                 for d in pl_data
             ]
@@ -1067,8 +1062,6 @@ class OrderCreation(View):
                 raise ValueError("不存在")
         # 更新完pl之后，更新container的delivery_type
         types = set(pl.delivery_type for pl in packing_list if pl.delivery_type)
-        if not types:
-            raise ValueError("缺少派送类型")
         new_type = types.pop() if len(types) == 1 else "mixed"
         container = await sync_to_async(Container.objects.get, thread_sensitive=True)(
             container_number=container_number
@@ -1242,10 +1235,6 @@ class OrderCreation(View):
             if df["pcs"].isna().sum():
                 raise ValueError(f"boxes number N/A error!")
             for idx, row in df.iterrows():  # 转换单位
-                if row["unit_weight_kg"] and not row["unit_weight_lbs"]:
-                    df.loc[idx, "unit_weight_lbs"] = round(
-                        df.loc[idx, "unit_weight_kg"] * 2.20462, 2
-                    )
                 if row["total_weight_kg"] and not row["total_weight_lbs"]:
                     df.loc[idx, "total_weight_lbs"] = round(
                         df.loc[idx, "total_weight_kg"] * 2.20462, 2

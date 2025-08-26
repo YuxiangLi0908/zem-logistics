@@ -206,62 +206,65 @@
                         <table class="packing-list-table" style="margin-top: 10px; font-size: 11px; max-width: 100%; table-layout: fixed;">
                             <thead>
                                 <tr style="position: sticky; top: 0;">
-                                    <th class="th">物品名</th>
-                                    <th class="th">派送方式</th>
-                                    <th class="th">派送类型</th>
                                     <th class="th">唛头</th>
-                                    <th class="th">FBA号</th>
-                                    <th class="th">refid</th>
-                                    <th class="th">目的地</th>
-                                    <th class="th">收件人</th>
-                                    <th class="th">联系方式</th>
-                                    <th class="th">地址</th>
-                                    <th class="th">邮编</th>
                                     <th class="th">箱数</th>
-                                    <th class="th">总重量-kg</th>
-                                    <th class="th">总重量-lbs</th>
-                                    <th class="th">CBM</th>
+                                    <th class="th">总重量kg</th>
+                                    <th class="th">总箱磅(lb)</th>
+                                    <th class="th">总CBM</th>
+                                    <th class="th">长</th>
+                                    <th class="th">宽</th>
+                                    <th class="th">高</th>
+                                    <th class="th">仓库代码</th>
+                                    <th class="th">仓库/私人 地址</th>
+                                    <th class="th">FBA号</th>
+                                    <td class="th">Amazon Reference ID</td>
+                                    <th class="th">派送方式</th>
+                                    <th class="th">快递单号</th>
                                     <th class="th">备注</th>
-                                    <th class="th">最早发货时间</th>
-                                    <th class="th">最晚发货时间</th>
+                                    <th class="th">最早配送时间</th>
+                                    <th class="th">最晚配送时间</th>
                                 </tr>
                             </thead>
                             <tbody id="packing-list-container">
                                 <tr id="packing-list-row-empty" style="display: none;">
-                                    <td class="td"><input type="text" name="product_name"></td>
-                                    <td class="td">
-                                        <select name="delivery_method"  class="delivery-method">
-                                        {% for k, v in delivery_options %}
-                                        <option value="{{ v }}">{{ k }}</option>
-                                        {% endfor %}
-                                        </select>
-                                    </td>
-                                    <td class="td">
-                                        <select name="delivery_type"  class="delivery-method">
-                                        {% for k, v in delivery_types %}
-                                        <option value="{{ v }}">{{ k }}</option>
-                                        {% endfor %}
-                                        </select>
-                                    </td>
                                     <td class="td"><input type="text" name="shipping_mark"></td>
-                                    <td class="td"><input type="text" name="fba_id"></td>
-                                    <td class="td"><input type="text" name="ref_id"></td>
-                                    <td class="td"><input type="text" name="destination" required></td>
-                                    <td class="td"><input type="text" name="contact_name"></td>
-                                    <td class="td"><input type="text" name="contact_method"></td>
-                                    <td class="td"><input type="text" name="address"></td>
-                                    <td class="td"><input type="text" name="zipcode"></td>
                                     <td class="td"><input type="number" step="0.01" name="pcs" required></td>
                                     <td class="td"><input type="number" step="0.01" name="total_weight_kg" oninput="updateWeight(this)" required></td>
                                     <td class="td"><input type="number" step="0.01" name="total_weight_lbs" oninput="updateWeight(this)" required></td>
                                     <td class="td"><input type="number" step="0.01" name="cbm" required></td>
+                                    <td class="td"><input type="number" step="0.01" name="long" required></td>
+                                    <td class="td"><input type="number" step="0.01" name="width" required></td>
+                                    <td class="td"><input type="number" step="0.01" name="height" required></td>
+                                    <td class="td"><input type="text" name="destination" required></td>
+                                    <td class="td"><input type="text" name="address"></td>
+                                    <td class="td"><input type="text" name="fba_id"></td>
+                                    <td class="td"><input type="text" name="ref_id"></td>
+                                    <td class="td">
+                                        <select name="delivery_method" class="delivery-method">
+                                            {% for k, v in delivery_options %}
+                                                <option value="{{ v }}">{{ k }}</option>
+                                            {% endfor %}
+                                        </select>
+                                    </td>
+                                    <td class="td"><input type="text" name="express_number"></td>
                                     <td class="td"><input type="text" name="note"></td>
                                     <td class="td"><input type="date" name="delivery_window_start"></td>
                                     <td class="td"><input type="date" name="delivery_window_end"></td>
                                 </tr>
                                 {% for pl in packing_list %}
                                 <tr id="packing-list-row">
-                                    <td class="td"><input type="text" name="product_name" {% if pl.product_name %}value="{{ pl.product_name }}"{% endif %}></td>
+                                    <td class="td"><input type="text" name="shipping_mark" {% if pl.shipping_mark %}value="{{ pl.shipping_mark }}"{% endif %}></td>
+                                    <td class="td"><input type="number" step="0.01" name="pcs" {% if pl.pcs %}value="{{ pl.pcs }}"{% endif %} required></td>
+                                    <td class="td"><input type="number" step="0.01" name="total_weight_kg" {% if pl.total_weight_kg %}value="{{ pl.total_weight_kg }}"{% endif %} oninput="updateWeight(this)" required></td>
+                                    <td class="td"><input type="number" step="0.01" name="total_weight_lbs" {% if pl.total_weight_lbs %}value="{{ pl.total_weight_lbs }}"{% endif %} oninput="updateWeight(this)" required></td>
+                                    <td class="td"><input type="number" step="0.01" name="cbm" {% if pl.cbm %}value="{{ pl.cbm }}"{% endif %} required></td>
+                                    <td class="td"><input type="number" step="0.01" name="long" {% if pl.long %}value="{{ pl.long }}"{% endif %} required></td>
+                                    <td class="td"><input type="number" step="0.01" name="width" {% if pl.width %}value="{{ pl.width }}"{% endif %} required></td>
+                                    <td class="td"><input type="number" step="0.01" name="height" {% if pl.height %}value="{{ pl.height }}"{% endif %} required></td>
+                                    <td class="td"><input type="text" name="destination" {% if pl.destination %}value="{{ pl.destination }}"{% endif %} required></td>
+                                    <td class="td"><input type="text" name="address" {% if pl.address %}value="{{ pl.address }}"{% endif %}></td>
+                                    <td class="td"><input type="text" name="fba_id" {% if pl.fba_id %}value="{{ pl.fba_id }}"{% endif %}></td>
+                                    <td class="td"><input type="text" name="ref_id" {% if pl.ref_id %}value="{{ pl.ref_id }}"{% endif %}></td>
                                     <td class="td">
                                         <select name="delivery_method" class="delivery-method">
                                             {% for k, v in delivery_options %}
@@ -269,28 +272,14 @@
                                             {% endfor %}
                                         </select>
                                     </td>
-                                    <td class="td">
-                                        <select name="delivery_type" class="delivery-method">
-                                            {% for k, v in delivery_types %}
-                                            <option value="{{ v }}" {% if pl.delivery_type == v %}selected{% endif %}>{{ k }}</option>
-                                            {% endfor %}
-                                        </select>
-                                    </td>
-                                    <td class="td"><input type="text" name="shipping_mark" {% if pl.shipping_mark %}value="{{ pl.shipping_mark }}"{% endif %}></td>
-                                    <td class="td"><input type="text" name="fba_id" {% if pl.fba_id %}value="{{ pl.fba_id }}"{% endif %}></td>
-                                    <td class="td"><input type="text" name="ref_id" {% if pl.ref_id %}value="{{ pl.ref_id }}"{% endif %}></td>
-                                    <td class="td"><input type="text" name="destination" {% if pl.destination %}value="{{ pl.destination }}"{% endif %} required></td>
-                                    <td class="td"><input type="text" name="contact_name" {% if pl.contact_name %}value="{{ pl.contact_name }}"{% endif %}></td>
-                                    <td class="td"><input type="text" name="contact_method" {% if pl.contact_method %}value="{{ pl.contact_method }}"{% endif %}></td>
-                                    <td class="td"><input type="text" name="address" {% if pl.address %}value="{{ pl.address }}"{% endif %}></td>
-                                    <td class="td"><input type="text" name="zipcode" {% if pl.zipcode %}value="{{ pl.zipcode }}"{% endif %}></td>
-                                    <td class="td"><input type="number" step="0.01" name="pcs" {% if pl.pcs %}value="{{ pl.pcs }}"{% endif %} required></td>
-                                    <td class="td"><input type="number" step="0.01" name="total_weight_kg" {% if pl.total_weight_kg %}value="{{ pl.total_weight_kg }}"{% endif %} oninput="updateWeight(this)" required></td>
-                                    <td class="td"><input type="number" step="0.01" name="total_weight_lbs" {% if pl.total_weight_lbs %}value="{{ pl.total_weight_lbs }}"{% endif %} oninput="updateWeight(this)" required></td>
-                                    <td class="td"><input type="number" step="0.01" name="cbm" {% if pl.cbm %}value="{{ pl.cbm }}"{% endif %} required></td>
+                                    <td class="td"><input type="text" name="express_number" {% if pl.express_number %}value="{{ pl.express_number }}"{% endif %}></td>
                                     <td class="td"><input type="text" name="note" {% if pl.note %}value="{{ pl.note }}"{% endif %}></td>
-                                    <td class="td"><input type="date" name="delivery_window_start" {% if pl.delivery_window_start %}value="{{ pl.delivery_window_start |date:'Y-m-d' }}"{% endif %}></td>
-                                    <td class="td"><input type="date" name="delivery_window_end" {% if pl.delivery_window_end %}value="{{ pl.delivery_window_end |date:'Y-m-d' }}"{% endif %}></td>
+                                    <td class="td">
+                                        <input type="date" name="delivery_window_start" {% if pl.delivery_window_start %}value="{{ pl.delivery_window_start |date:'Y-m-d' }}"{% endif %}>
+                                    </td>
+                                    <td class="td">
+                                        <input type="date" name="delivery_window_end" {% if pl.delivery_window_end %}value="{{ pl.delivery_window_end |date:'Y-m-d' }}"{% endif %}>
+                                    </td>
                                     <input type="hidden" name="pl_id" value="{{ pl.id }}">
                                 </tr>
                                 {% endfor %}
