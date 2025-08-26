@@ -2983,6 +2983,10 @@ class Accounting(View):
                     # pallet指向InvoiceDelivery表
                     plt.invoice_delivery = invoice_content
                     updated_pallets.append(plt)
+                invoice_deliverys_deletes = InvoiceDelivery.objects.filter(
+                    invoice_number=invoice,
+                    destination=
+                )
                 for inv in invoices_to_check:
                     inv.delete() 
                 bulk_update_with_history(
