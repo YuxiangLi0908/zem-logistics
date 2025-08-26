@@ -364,6 +364,9 @@ class Accounting(View):
             return render(request, template, context)
         elif step == "export_carrier_payable":
             return self.handle_export_carrier_payable_phase(request)
+        elif step == "check_unreferenced_delivery":
+            template, context = self.handle_check_unreferenced_delivery(request)
+            return render(request, template, context)
         else:
             raise ValueError(f"unknow request {step}")
  
@@ -740,6 +743,13 @@ class Accounting(View):
         context = {}
         return self.template_invoice_preport, context
 
+    def handle_check_unreferenced_delivery(self,request)  -> tuple[Any, Any]:
+        unreferenced_invoices = InvoiceDelivery.objects.filter(pallet_delivery__isnull=True)
+        # 先查看数量确认
+        deleted_count, _ = unreferenced_invoices.delete()
+        context = {}
+        return self.template_invoice_delivery, context
+    
     def get_special_stages(self, main_stage) -> tuple[str, str]:
         if main_stage == "delivery":
             return "warehouse_completed", "warehouse_completed"
@@ -2983,10 +2993,6 @@ class Accounting(View):
                     # pallet指向InvoiceDelivery表
                     plt.invoice_delivery = invoice_content
                     updated_pallets.append(plt)
-                # invoice_deliverys_deletes = InvoiceDelivery.objects.filter(
-                #     invoice_number=invoice,
-                #     destination=destination[i]
-                # )
                 for inv in invoices_to_check:
                     inv.delete() 
                 bulk_update_with_history(
