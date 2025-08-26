@@ -542,10 +542,10 @@
         // Loop through each row in the table body
         var rows = document.querySelectorAll("#packing-list-container tr:not(#table_summary):not(#sub_table_summary):not(#packing-list-row-empty)");
         for (i = 0; i < rows.length; i++) {
-            var pcs = parseInt(rows[i].getElementsByTagName("td")[10].textContent.trim())|| parseInt(rows[i].getElementsByTagName("td")[10].querySelector("input").value) || 0;
-            var weightKg = parseFloat(rows[i].getElementsByTagName("td")[11].textContent.trim())|| parseFloat(rows[i].getElementsByTagName("td")[11].querySelector("input").value) || 0;
-            var weight = parseFloat(rows[i].getElementsByTagName("td")[12].textContent.trim())|| parseFloat(rows[i].getElementsByTagName("td")[12].querySelector("input").value) || 0;
-            var cbm = parseFloat(rows[i].getElementsByTagName("td")[13].textContent.trim())|| parseFloat(rows[i].getElementsByTagName("td")[13].querySelector("input").value) || 0;
+            var pcs = parseInt(rows[i].getElementsByTagName("td")[2].textContent.trim())|| parseInt(rows[i].getElementsByTagName("td")[2].querySelector("input").value) || 0;
+            var weightKg = parseFloat(rows[i].getElementsByTagName("td")[3].textContent.trim())|| parseFloat(rows[i].getElementsByTagName("td")[3].querySelector("input").value) || 0;
+            var weight = parseFloat(rows[i].getElementsByTagName("td")[4].textContent.trim())|| parseFloat(rows[i].getElementsByTagName("td")[4].querySelector("input").value) || 0;
+            var cbm = parseFloat(rows[i].getElementsByTagName("td")[5].textContent.trim())|| parseFloat(rows[i].getElementsByTagName("td")[5].querySelector("input").value) || 0;
             totalPcs += pcs;
             totalWeightKg += weightKg;
             totalWeight += weight;
