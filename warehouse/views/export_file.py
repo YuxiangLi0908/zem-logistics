@@ -158,7 +158,7 @@ async def export_palletization_list(request: HttpRequest) -> HttpResponse:
                     "str_id", delimiter=",", distinct=True, ordering="str_id"
                 ),
             )
-            .order_by("-cbm","destination","delivery_window_start")
+            .order_by("-cbm")
         )
     elif status == "palletized":
         packing_list = await sync_to_async(list)(
@@ -181,7 +181,7 @@ async def export_palletization_list(request: HttpRequest) -> HttpResponse:
                 cbm=Sum("cbm", output_field=FloatField()),
                 n_pallet=Count("pallet_id", distinct=True),
             )
-            .order_by("-cbm","destination","delivery_window_start")
+            .order_by("-cbm")
         )
         packing_list_complement = await sync_to_async(list)(
             PackingList.objects.select_related("container_number", "pallet")
@@ -241,7 +241,7 @@ async def export_palletization_list(request: HttpRequest) -> HttpResponse:
                     "str_id", delimiter=",", distinct=True, ordering="str_id"
                 ),
             )
-            .order_by("-cbm","destination","delivery_window_start")
+            .order_by("-cbm")
         )
         existing_po = {
             (plt["container_number__container_number"], plt["destination"])

@@ -1398,7 +1398,7 @@ class Palletization(View):
                         "str_id", delimiter=",", distinct=True, ordering="str_id"
                     ),
                 )
-                .order_by("-cbm","destination","delivery_window_start")
+                .order_by("-cbm")
             )
         elif status == "palletized":
             return await sync_to_async(list)(
@@ -1450,7 +1450,7 @@ class Palletization(View):
                         "str_weight", delimiter=",", ordering="str_weight"
                     ),
                 )
-                .order_by("-cbm","destination","delivery_window_start")
+                .order_by("-cbm")
             )
         else:
             raise ValueError(f"invalid status: {status}")
