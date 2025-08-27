@@ -232,9 +232,9 @@
                                     <td class="td"><input type="number" step="0.01" name="total_weight_kg" oninput="updateWeight(this)" required></td>
                                     <td class="td"><input type="number" step="0.01" name="total_weight_lbs" oninput="updateWeight(this)" required></td>
                                     <td class="td"><input type="number" step="0.01" name="cbm" required></td>
-                                    <td class="td"><input type="number" step="0.01" name="long" required></td>
-                                    <td class="td"><input type="number" step="0.01" name="width" required></td>
-                                    <td class="td"><input type="number" step="0.01" name="height" required></td>
+                                    <td class="td"><input type="number" step="0.01" name="long"></td>
+                                    <td class="td"><input type="number" step="0.01" name="width"></td>
+                                    <td class="td"><input type="number" step="0.01" name="height"></td>
                                     <td class="td"><input type="text" name="destination" required></td>
                                     <td class="td"><input type="text" name="address"></td>
                                     <td class="td"><input type="text" name="fba_id"></td>
@@ -258,9 +258,9 @@
                                     <td class="td"><input type="number" step="0.01" name="total_weight_kg" {% if pl.total_weight_kg %}value="{{ pl.total_weight_kg }}"{% endif %} oninput="updateWeight(this)" required></td>
                                     <td class="td"><input type="number" step="0.01" name="total_weight_lbs" {% if pl.total_weight_lbs %}value="{{ pl.total_weight_lbs }}"{% endif %} oninput="updateWeight(this)" required></td>
                                     <td class="td"><input type="number" step="0.01" name="cbm" {% if pl.cbm %}value="{{ pl.cbm }}"{% endif %} required></td>
-                                    <td class="td"><input type="number" step="0.01" name="long" {% if pl.long %}value="{{ pl.long }}"{% endif %} required></td>
-                                    <td class="td"><input type="number" step="0.01" name="width" {% if pl.width %}value="{{ pl.width }}"{% endif %} required></td>
-                                    <td class="td"><input type="number" step="0.01" name="height" {% if pl.height %}value="{{ pl.height }}"{% endif %} required></td>
+                                    <td class="td"><input type="number" step="0.01" name="long" {% if pl.long %}value="{{ pl.long }}"{% endif %} ></td>
+                                    <td class="td"><input type="number" step="0.01" name="width" {% if pl.width %}value="{{ pl.width }}"{% endif %} ></td>
+                                    <td class="td"><input type="number" step="0.01" name="height" {% if pl.height %}value="{{ pl.height }}"{% endif %} ></td>
                                     <td class="td"><input type="text" name="destination" {% if pl.destination %}value="{{ pl.destination }}"{% endif %} required></td>
                                     <td class="td"><input type="text" name="address" {% if pl.address %}value="{{ pl.address }}"{% endif %}></td>
                                     <td class="td"><input type="text" name="fba_id" {% if pl.fba_id %}value="{{ pl.fba_id }}"{% endif %}></td>
