@@ -1,0 +1,150 @@
+{% extends 'base.html' %}
+{% block content %}
+<style>
+.upload-container {
+    display: flex;
+    gap: 40px;
+    margin: 20px 0;
+    flex-wrap: wrap;
+}
+.upload-card {
+    flex: 1;
+    min-width: 350px;
+    border: 1px solid #dee2e6;
+    border-radius: 8px;
+    padding: 20px;
+    box-shadow: 0 2px 8px rgba(0,0,0,0.08);
+}
+.upload-card h4 {
+    border-bottom: 1px solid #eee;
+    padding-bottom: 10px;
+    margin-bottom: 15px;
+    color: #3875d7;
+}
+.form-group {
+    margin-bottom: 15px;
+}
+.form-label {
+    font-weight: 500;
+    margin-bottom: 8px;
+    display: block;
+}
+.file-input {
+    width: 100%;
+    padding: 8px;
+    border: 1px solid #ced4da;
+    border-radius: 4px;
+}
+.upload-btn {
+    background: linear-gradient(135deg, #3875d7 0%, #2a62c9 100%);
+    color: #fff;
+    border: none;
+    border-radius: 6px;
+    padding: 8px 20px;
+    font-weight: 500;
+    cursor: pointer;
+    transition: all 0.3s ease;
+}
+.upload-btn:hover {
+    background: linear-gradient(135deg, #2a62c9 0%, #1e4aa1 100%);
+    transform: translateY(-1px);
+}
+.alert {
+    padding: 12px;
+    border-radius: 6px;
+    margin-bottom: 20px;
+    font-size: 14px;
+}
+.alert-success {
+    background-color: #d4edda;
+    color: #155724;
+    border: 1px solid #c3e6cb;
+}
+.alert-danger {
+    background-color: #f8d7da;
+    color: #721c24;
+    border: 1px solid #f5c6cb;
+}
+</style>
+
+<div class="page-header">
+    <h3>Pallet库位更新 - 上传操作</h3>
+</div>
+
+{% if messages %}
+    {% for message in messages %}
+        <div class="alert alert-{{ message.tags }}">
+            {{ message }}
+        </div>
+    {% endfor %}
+{% endif %}
+
+<div class="upload-container">
+    <div class="upload-card">
+    <h4>1. 条形码上传（更新单条库位）</h4>
+    <form method="post" enctype="multipart/form-data" onsubmit="showUploadLoading(this)">
+        {% csrf_token %}
+        <input type="hidden" name="step" value="upload_barcode">
+
+        <div class="form-group">
+            <label class="form-label" for="barcode_file">选择条形码图片</label>
+            <input
+                type="file"
+                id="barcode_file"
+                name="barcode_file"
+                class="file-input"
+                accept="image/png,image/jpg,image/jpeg"
+                required
+            >
+            <small class="form-text text-muted">
+                支持格式：PNG/JPG/JPEG<br>
+                条形码需包含 Pallet 标识信息（如：PalletID、库位等）
+            </small>
+        </div>
+
+        <div class="form-group">
+                <label class="form-label" for="barcode_slot">目标库位（Slot）</label>
+                <input
+                    type="text"
+                    id="barcode_slot"
+                    name="barcode_slot"
+                    class="form-control"
+                    placeholder="例如：NJ-3"
+                    required
+                >
+                <small class="form-text text-muted">输入该条形码对应Pallet的新库位</small>
+            </div>
+
+        <button type="submit" class="upload-btn" id="barcode-submit-btn">
+            确认上传并解析条形码
+        </button>
+    </form>
+    </div>
+
+    <!-- 2. Excel上传表单 -->
+    <div class="upload-card">
+        <h4>2. Excel上传（批量更新库位）</h4>
+        <form method="post" enctype="multipart/form-data">
+            {% csrf_token %}
+            <input type="hidden" name="step" value="upload_excel">
+
+            <div class="form-group">
+                <label class="form-label" for="excel_file">选择Excel文件</label>
+                <input
+                    type="file"
+                    id="excel_file"
+                    name="excel_file"
+                    class="file-input"
+                    accept=".xlsx,.xls"
+                    required
+                >
+                <small class="form-text text-muted">支持格式：.xlsx/.xls，文件需包含【柜号】,【仓点】和【库位】列</small>
+            </div>
+
+            <button type="submit" class="upload-btn">确认上传Excel并批量更新</button>
+        </form>
+    </div>
+</div>
+
+
+{% endblock %}

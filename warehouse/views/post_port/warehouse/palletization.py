@@ -10,11 +10,14 @@ from datetime import datetime,date
 from typing import Any
 
 import barcode
+import pandas as pd
 import pytz
+from zxingcpp import read_barcodes, TextMode
 from asgiref.sync import sync_to_async
 from barcode.writer import ImageWriter
+from django.contrib import messages
 from django.contrib.postgres.aggregates import StringAgg
-from django.db import models
+from django.db import models, transaction
 from django.db.models import (
     Case,
     CharField,
@@ -71,6 +74,7 @@ class Palletization(View):
         "post_port/palletization/palletization_abnormal_records_display.html"
     )
     template_pallet_daily_operation = "post_port/palletization/daily_operation.html"
+    template_pallet_upload_excel = "post_port/palletization/palletization_upload_excel.html"
     warehouse_options = {
         "": "",
         "NJ-07001": "NJ-07001",
@@ -91,6 +95,9 @@ class Palletization(View):
                 request, pk
             )
             return render(request, template, context)
+        elif step == "upload_excel":
+            template, context = await self.upload_excel_get(request)
+            return render(request, self.template_pallet_upload_excel, context)
         elif step == "abnormal":
             template, context = await self.handle_palletization_abnormal_get()
             return render(request, template, context)
@@ -110,6 +117,12 @@ class Palletization(View):
         if step == "warehouse":
             template, context = await self.handle_warehouse_post(request)
             return render(request, template, context)
+        elif step == "upload_barcode":
+            template, context = await self.upload_barcode_post(request)
+            return render(request, template)
+        elif step == "upload_excel":
+            template, context = await self.upload_excel_post(request)
+            return render(request, template)
         elif step == "warehouse_abnormal":
             template, context = await self.handle_warehosue_abnormal_post(request)
             return render(request, template, context)
@@ -1133,6 +1146,167 @@ class Palletization(View):
                 content_type="text/plain",
             )
         return response
+
+    async def upload_excel_get(self, request: HttpRequest) -> tuple[str, dict[str, str]]:
+        context = {
+            "title": "上传条形码更新库位"
+        }
+        return self.template_pallet_upload_excel, context
+
+    async def upload_barcode_post(self, request: HttpRequest) -> tuple[str, dict[str, Any]]:
+        barcode_file = request.FILES.get("barcode_file")
+        if not barcode_file:
+            raise ValueError("请选择要上传的条形码图片！")
+        try:
+            with Image.open(barcode_file) as img:
+                if img.mode in ('RGBA', 'P', 'L'):
+                    img = img.convert('RGB')
+                try:
+                    text_mode = TextMode.HRI
+                except AttributeError:
+                    try:
+                        text_mode = TextMode.Raw
+                    except AttributeError:
+                        text_mode = None
+                if text_mode is not None:
+                    results = read_barcodes(image=img, text_mode=text_mode)
+                if not results:
+                    raise ValueError("未识别到条形码内容，请确保图片清晰、无遮挡")
+                barcode_value = results[0].text.strip()
+                if "|" not in barcode_value:
+                    raise ValueError(f"条形码格式错误，缺少分隔符'|'（当前值：{barcode_value}）")
+
+        except Exception as e:
+            raise ValueError(f"条形码解析失败：{str(e)}")
+
+        # 处理条形码值
+        try:
+            container_number, destination = barcode_value.split("|", 1)
+            container_number = container_number.strip()
+            destination = destination.split("-")[0].strip()
+        except ValueError as e:
+            raise ValueError(f"条形码内容格式错误：{str(e)}")
+
+        @sync_to_async
+        def update_pallet_slot(container_number, destination, slot):
+            with transaction.atomic():
+                base_query = Pallet.objects.filter(
+                    container_number__container_number=container_number,
+                    destination=destination, shipment_batch_number__is_shipped = None
+                )
+                shipped_query = Pallet.objects.filter(
+                    container_number__container_number=container_number,
+                    destination=destination, shipment_batch_number__is_shipped = False
+                )
+                base_query.update(slot=slot)
+                shipped_query.update(slot=slot)
+
+        try:
+            slot = request.POST.get("barcode_slot")
+            await update_pallet_slot(container_number, destination, slot)
+        except Exception as e:
+            raise ValueError(f"更新库位失败：{str(e)}")
+
+        messages.success(
+            request,
+            f"条形码上传并解析成功！\n条形码值：{barcode_value}\n 库位已更新为：{slot}"
+        )
+        return self.template_pallet_upload_excel, {
+            "success_message": messages.get_messages(request)
+        }
+
+    async def upload_excel_post(self, request: HttpRequest) -> tuple[str, dict[str, Any]]:
+        excel_file = request.FILES.get('excel_file')
+        if not excel_file:
+            raise ValueError("请选择要上传的Excel文件！")
+        if not excel_file.name.endswith(('.xlsx', '.xls')):
+            raise ValueError("请上传.xlsx或.xls格式的Excel文件")
+
+        try:
+            df = pd.read_excel(excel_file)
+            required_columns = ['柜号', '仓点', '库位']
+            missing_columns = [col for col in required_columns if col not in df.columns]
+            if missing_columns:
+                raise ValueError(f"Excel文件缺少必要的列：{', '.join(missing_columns)}")
+            df = df.dropna(subset=['柜号', '仓点'])
+            if df.empty:
+                raise ValueError("Excel文件中没有有效的数据行")
+
+            update_result = await self.process_excel_data(df)
+
+            success_message = (
+                f"Excel上传并处理成功！\n"
+                f"总处理记录: {update_result['total_records']}条\n"
+                f"成功更新: {update_result['updated']}条\n"
+                f"未找到匹配记录: {update_result['not_found']}条"
+            )
+            messages.success(request, success_message)
+
+            return self.template_pallet_upload_excel, {
+                "success": True,
+                "result": update_result
+            }
+
+        except Exception as e:
+            messages.error(request, f"处理Excel失败：{str(e)}")
+            return self.template_pallet_upload_excel, {
+                "success": False,
+                "error": str(e)
+            }
+
+    @sync_to_async
+    def process_excel_data(self, df):
+        with transaction.atomic():
+            total_records = 0
+            not_found = 0
+            updated_count = 0
+            update_log = []
+
+            for index, row in df.iterrows():
+                try:
+                    container_number = str(row['柜号']).strip()
+                    destination = str(row['仓点']).strip()
+                    slot = str(row['库位']).strip()
+                    if not all([container_number, destination, slot]):
+                        update_log.append(f"行{index + 1}：数据不完整，跳过处理")
+                        continue
+                    base_query = Pallet.objects.filter(
+                        container_number__container_number=container_number,
+                        destination=destination, shipment_batch_number__is_shipped=None
+                    )
+                    shipped_query = Pallet.objects.filter(
+                        container_number__container_number=container_number,
+                        destination=destination, shipment_batch_number__is_shipped=False
+                    )
+                    base_query.update(slot=slot)
+                    shipped_query.update(slot=slot)
+
+                    matching_count = base_query.count() + shipped_query.count()
+
+                    if matching_count > 0:
+                        updated_base_count = base_query.update(slot=slot)
+                        updated_shipped_count = shipped_query.update(slot=slot)
+                        updated_count = updated_base_count + updated_shipped_count
+                        update_log.append(
+                            f"行{index + 1}：成功更新 {updated_count} 条记录 "
+                            f"(柜号: {container_number}, 仓点: {destination}, 新库位: {slot})"
+                        )
+                    else:
+                        not_found += 1
+                        update_log.append(
+                            f"行{index + 1}：未找到匹配记录 "
+                            f"(柜号: {container_number}, 仓点: {destination})"
+                        )
+                    total_records += 1
+                except Exception as e:
+                    update_log.append(f"行{index + 1}：处理失败 - {str(e)}")
+                    continue
+            return {
+                "total_records": total_records,
+                "updated": updated_count,
+                "not_found": not_found,
+                "log": update_log
+            }
 
     async def _split_pallet(
         self,
