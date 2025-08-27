@@ -6828,6 +6828,8 @@ class Accounting(View):
         total_cbm = 0.0
         total_weight = 0.0
         for d, wc, cbm, weight, qty, r, amt, n in context["data"]:
+            if r == {}:
+                continue
             worksheet.append(
                 [context["container_number"], d, wc, cbm, weight, qty, r, amt, n]
             )  # 添加数据
