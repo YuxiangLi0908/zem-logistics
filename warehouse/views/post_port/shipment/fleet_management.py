@@ -1306,10 +1306,10 @@ class FleetManagement(View):
             "note_chinese_char": note_chinese_char,
             "is_private_warehouse": is_private_warehouse,
         }
-        # if warehouse =="LA-91761":
-        #     template = get_template(self.template_la_bol_pickup)
-        # else:   因为目前没有库位信息，所以BOL先不加这个信息
-        template = get_template(self.template_bol_pickup)
+        if warehouse =="LA-91761":
+            template = get_template(self.template_la_bol_pickup)
+        else:   #因为目前没有库位信息，所以BOL先不加这个信息
+            template = get_template(self.template_bol_pickup)
         html = template.render(context)
         response = HttpResponse(content_type="application/pdf")
         response["Content-Disposition"] = (
