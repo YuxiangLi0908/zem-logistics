@@ -6,6 +6,7 @@ import string
 import uuid
 from collections import defaultdict
 from datetime import datetime, timedelta, timezone
+from decimal import Decimal, InvalidOperation
 from pathlib import Path
 from typing import Any
 
@@ -848,9 +849,14 @@ class OrderCreation(View):
                 pl.destination = destination_list[idx]
                 pl.address = request.POST.getlist("address")[idx]
                 pl.note = request.POST.getlist("note")[idx]
-                pl.long = request.POST.getlist("long")[idx]
-                pl.width = request.POST.getlist("width")[idx]
-                pl.height = request.POST.getlist("height")[idx]
+                long = request.POST.getlist("long")[idx]
+                pl.long = Decimal(long) if long else None
+                width = request.POST.getlist("width")[idx]
+                pl.width = Decimal(width) if width else None
+
+                height = request.POST.getlist("height")[idx]
+                pl.height = Decimal(height) if height else None
+
                 pl.express_number = request.POST.getlist("express_number")[idx]
                 start_date_str = request.POST.getlist("delivery_window_start")[idx].strip()
                 pl.delivery_window_start = parse_date(start_date_str) if start_date_str else None
@@ -952,6 +958,13 @@ class OrderCreation(View):
                 strict=True,
             )
 
+            def parse_decimal(value):
+                if not value or str(value).strip() == "":
+                    return None
+                try:
+                    return Decimal(str(value).strip())
+                except InvalidOperation:
+                    raise ValueError(f"无效的数值格式: {value}")
             pl_to_create = [
                 PackingList(
                     container_number=container,
@@ -966,9 +979,9 @@ class OrderCreation(View):
                     total_weight_lbs=d[8],
                     cbm=d[9],
                     note=d[10],
-                    long=d[11],
-                    width=d[12],
-                    height=d[13],
+                    long=parse_decimal(d[11]),
+                    width=parse_decimal(d[12]),
+                    height=parse_decimal(d[13]),
                     express_number=d[14],
                     PO_ID=d[15],
                     delivery_window_start = d[16] if d[16].strip() else None,
