@@ -3070,7 +3070,7 @@ class Accounting(View):
             order_list = Order.objects.filter(
                 retrieval_id__actual_retrieval_timestamp__year=year,
                 retrieval_id__actual_retrieval_timestamp__month=month,
-                payable_status__stage="confirmed",
+                #payable_status__stage="confirmed",
             )
             orders = []
             for order in order_list:
@@ -3084,7 +3084,7 @@ class Accounting(View):
             order_list = Order.objects.filter(
                 retrieval_id__actual_retrieval_timestamp__month=month,
                 retrieval_id__actual_retrieval_timestamp__year=year,
-                payable_status__stage="confirmed",
+                #payable_status__stage="confirmed",
                 # container_number__invoice__payable_surcharge__preport_carrier=select_carrier
             )
             orders = []

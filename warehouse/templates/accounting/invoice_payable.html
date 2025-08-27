@@ -48,7 +48,7 @@
         <form method="post" action="" style="display: flex; align-items: center; gap: 10px;">
             {% csrf_token %}
             <div style="display: flex; align-items: center; gap: 10px;">
-                <label style="font-weight: bold;">月份:</label>
+                <label style="font-weight: bold;">提柜月份-1:</label>
                 <select id="monthSelectorCarrier" name="select_month" style="padding: 5px; border-radius: 4px; border: 1px solid #ddd; width: 120px;">
                     {% for month in months %}
                         <option value="{{ month.value }}" {% if month.selected %}selected{% endif %}>
