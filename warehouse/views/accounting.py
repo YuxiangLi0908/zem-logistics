@@ -3092,7 +3092,7 @@ class Accounting(View):
                 invoice = Invoice.objects.select_related(
                     "customer", "container_number"
                 ).get(container_number__container_number=order.container_number)
-                if invoice.payable_surcharge["preport_carrier"] == select_carrier:
+                if order.retrieval_id.retrieval_carrier == select_carrier:
                     orders.append(order)
         if len(orders) == 0:
             raise ValueError("未查询到符合条件的订单")
