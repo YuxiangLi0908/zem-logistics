@@ -7007,7 +7007,7 @@ class Accounting(View):
                 for field in invoice_preport._meta.fields:
                     if isinstance(field, models.FloatField) and field.name != "amount" and field.name != "other_fees":
                         value = getattr(invoice_preport, field.name)
-                        if value not in [None, 0]:
+                        if value not in [None, 0, {}]:
                             description.append(field.verbose_name)
                             warehouse_code.append("")
                             cbm.append("")
