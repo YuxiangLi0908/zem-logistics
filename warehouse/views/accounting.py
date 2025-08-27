@@ -3160,14 +3160,7 @@ class Accounting(View):
             invoice = Invoice.objects.select_related(
                 "customer", "container_number"
             ).get(container_number__container_number=container_number)
-            invoice_preports = InvoicePreport.objects.get(
-                invoice_number__invoice_number=invoice.invoice_number,
-                invoice_type="payable",
-            )
-            invoice_warehouses = InvoiceWarehouse.objects.get(
-                invoice_number__invoice_number=invoice.invoice_number,
-                invoice_type="payable",
-            )
+           
             total_amount = float(invoice.payable_total_amount or 0)
             palletization = float(invoice_warehouses.palletization_fee or 0)
 
@@ -3177,8 +3170,22 @@ class Accounting(View):
 
             # 填充特定供应商的费用
             if select_carrier in ["BBR", "KNO"]:
+                try:
+                    invoice_warehouses = InvoiceWarehouse.objects.get(
+                        invoice_number__invoice_number=invoice.invoice_number,
+                        invoice_type="payable",
+                    )
+                except Exception as e:
+                    continue
                 row_data["拆柜费"] = invoice_warehouses.palletization_fee or 0
             else:
+                try:
+                    invoice_preports = InvoicePreport.objects.get(
+                        invoice_number__invoice_number=invoice.invoice_number,
+                        invoice_type="payable",
+                    )
+                except Exception as e:
+                    continue
                 row_data["总费用"] = total_amount - palletization
                 row_data["基本费用"] = invoice_preports.pickup or 0
                 row_data["超重费"] = invoice_preports.over_weight or 0
