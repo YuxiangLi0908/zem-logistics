@@ -2337,7 +2337,6 @@ class Accounting(View):
             invoice_warehouse = InvoiceWarehouse(
                 **{"invoice_number": invoice, "invoice_type": "payable"}
             )
-        
         if data.get("palletization_fee"):
             invoice_warehouse.palletization_fee = data.get("palletization_fee")   
             wh_amount += float(data.get("palletization_fee"))        
@@ -3077,8 +3076,15 @@ class Accounting(View):
                 invoice = Invoice.objects.select_related(
                     "customer", "container_number"
                 ).get(container_number__container_number=order.container_number)
-                if invoice.payable_surcharge["palletization_carrier"] == select_carrier:
-                    orders.append(order)
+                try:
+                    invoice_warehouses = InvoiceWarehouse.objects.get(
+                        invoice_number__invoice_number=invoice.invoice_number,
+                        invoice_type="payable",
+                    )
+                    if invoice_warehouses.carrier == select_carrier:
+                        orders.append(order)
+                except Exception as e:
+                    continue
         else:
             # 否则就看payable_surcharge的preport_carrier里面能看到
             order_list = Order.objects.filter(
@@ -3088,11 +3094,17 @@ class Accounting(View):
                 # container_number__invoice__payable_surcharge__preport_carrier=select_carrier
             )
             orders = []
+            if select_carrier == "ARM":
+                s_carrier = "大方广"
+            elif select_carrier == "Kars":
+                s_carrier = "kars"
+            else:
+                s_carrier = select_carrier
             for order in order_list:
                 invoice = Invoice.objects.select_related(
                     "customer", "container_number"
                 ).get(container_number__container_number=order.container_number)
-                if order.retrieval_id.retrieval_carrier == select_carrier:
+                if order.retrieval_id.retrieval_carrier == s_carrier:
                     orders.append(order)
         if len(orders) == 0:
             raise ValueError("未查询到符合条件的订单")
@@ -3107,10 +3119,20 @@ class Accounting(View):
             invoice = Invoice.objects.select_related(
                 "customer", "container_number"
             ).get(container_number__container_number=container_number)
+            invoice_preports = InvoicePreport.objects.get(
+                invoice_number__invoice_number=invoice.invoice_number,
+                invoice_type="payable",
+            )
+            invoice_warehouses = InvoiceWarehouse.objects.get(
+                invoice_number__invoice_number=invoice.invoice_number,
+                invoice_type="payable",
+            )
             payable_surcharge = invoice.payable_surcharge
             # BBR/KNO特殊费用
             if select_carrier in ["BBR", "KNO"]:
                 all_fee_types.add("拆柜费")
+                if "other_fee" in invoice_warehouses.other_fees and invoice_warehouses.other_fees["other_fee"]:
+                    all_fee_types.update(invoice_preports.other_fees["other_fee"].keys())
             else:
                 all_fee_types.update(["总费用"])
                 all_fee_types.add("基本费用")              
@@ -3118,8 +3140,8 @@ class Accounting(View):
                 all_fee_types.add("车架费")
 
                 # 其他自定义费用
-                if "other_fee" in payable_surcharge and payable_surcharge["other_fee"]:
-                    all_fee_types.update(payable_surcharge["other_fee"].keys())
+                if "other_fee" in invoice_preports.other_fees and invoice_preports.other_fees["other_fee"]:
+                    all_fee_types.update(invoice_preports.other_fees["other_fee"].keys())
 
         sorted_fee_types = sorted(all_fee_types)
 
@@ -3132,9 +3154,16 @@ class Accounting(View):
             invoice = Invoice.objects.select_related(
                 "customer", "container_number"
             ).get(container_number__container_number=container_number)
-            payable_surcharge = invoice.payable_surcharge
+            invoice_preports = InvoicePreport.objects.get(
+                invoice_number__invoice_number=invoice.invoice_number,
+                invoice_type="payable",
+            )
+            invoice_warehouses = InvoiceWarehouse.objects.get(
+                invoice_number__invoice_number=invoice.invoice_number,
+                invoice_type="payable",
+            )
             total_amount = float(invoice.payable_total_amount or 0)
-            palletization = float(invoice.payable_palletization or 0)
+            palletization = float(invoice_warehouses.palletization_fee or 0)
 
             # 初始化行数据，所有费用初始为0或空
             row_data = {fee: "" for fee in sorted_fee_types}
@@ -3142,16 +3171,16 @@ class Accounting(View):
 
             # 填充特定供应商的费用
             if select_carrier in ["BBR", "KNO"]:
-                row_data["拆柜费"] = invoice.payable_palletization or 0
+                row_data["拆柜费"] = invoice_warehouses.palletization_fee or 0
             else:
                 row_data["总费用"] = total_amount - palletization
-                row_data["基本费用"] = invoice.payable_basic or 0
-                row_data["超重费"] = invoice.payable_overweight or 0
-                row_data["车架费"] = invoice.payable_chassis or 0
+                row_data["基本费用"] = invoice_preports.pickup or 0
+                row_data["超重费"] = invoice_preports.over_weight or 0
+                row_data["车架费"] = invoice_preports.chassis or 0
 
                 # 其他自定义费用
-                if "other_fee" in payable_surcharge and payable_surcharge["other_fee"]:
-                    for fee_name, fee_value in payable_surcharge["other_fee"].items():
+                if "other_fee" in invoice_preports.other_fees and invoice_preports.other_fees["other_fee"]:
+                    for fee_name, fee_value in invoice_preports.other_fees["other_fee"].items():
                         row_data[fee_name] = fee_value
             if select_carrier in ["BBR", "KNO"]:
                 ordered_row = [row_data["柜号"], row_data["拆柜费"]]
@@ -5890,23 +5919,28 @@ class Accounting(View):
                         palletization_carrier = invoice_warehouse.carrier
              
                     # 如果是驳回的账单，并且仓库是NJ的，可能需要重新填写拆柜费用，所以要去报价表找拆柜供应商
+                    
                     if invoice_status.is_rejected == True and warehouse == "NJ":
                         DETAILS = self._get_feetail(vessel_etd, "PAYABLE")
-                        if "08817" in warehouse_precise:
-                            pickup_details = DETAILS[warehouse]["NJ 08817"][preport_carrier]
-                        else:
-                            pickup_details = DETAILS[warehouse]["NJ 07001"][preport_carrier]
-                        if pickup_details:
+                        try:
                             if "08817" in warehouse_precise:
-                                search_carrier = DETAILS[warehouse]["NJ 08817"]
+                                pickup_details = DETAILS[warehouse]["NJ 08817"][preport_carrier]
                             else:
-                                search_carrier = DETAILS[warehouse]["NJ 07001"]
-                            pallet_details = {
-                                carrier: details.get("palletization")
-                                for carrier, details in search_carrier.items()
-                                if details.get("basic_40") in (None, "/")
-                                and details.get("basic_45") in (None, "/")
-                            }
+                                pickup_details = DETAILS[warehouse]["NJ 07001"][preport_carrier]
+                        except Exception as e:
+                            #找不到供应商的报价
+                            pickup_details = None
+                        #if pickup_details:
+                        if "08817" in warehouse_precise:
+                            search_carrier = DETAILS[warehouse]["NJ 08817"]
+                        else:
+                            search_carrier = DETAILS[warehouse]["NJ 07001"]
+                        pallet_details = {
+                            carrier: details.get("palletization")
+                            for carrier, details in search_carrier.items()
+                            if details.get("basic_40") in (None, "/")
+                            and details.get("basic_45") in (None, "/")
+                        }
                     pickup_other_fee = invoice_preport.other_fees.get("other_fee", 0) 
                     # 拆柜的其他费用
                     pallet_other_fee = invoice_warehouse.other_fees.get("other_fee", 0) 
