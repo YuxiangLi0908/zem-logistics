@@ -3119,29 +3119,35 @@ class Accounting(View):
             invoice = Invoice.objects.select_related(
                 "customer", "container_number"
             ).get(container_number__container_number=container_number)
-            invoice_preports = InvoicePreport.objects.get(
-                invoice_number__invoice_number=invoice.invoice_number,
-                invoice_type="payable",
-            )
-            invoice_warehouses = InvoiceWarehouse.objects.get(
-                invoice_number__invoice_number=invoice.invoice_number,
-                invoice_type="payable",
-            )
-            payable_surcharge = invoice.payable_surcharge
+            
             # BBR/KNO特殊费用
             if select_carrier in ["BBR", "KNO"]:
-                all_fee_types.add("拆柜费")
-                if "other_fee" in invoice_warehouses.other_fees and invoice_warehouses.other_fees["other_fee"]:
-                    all_fee_types.update(invoice_preports.other_fees["other_fee"].keys())
+                try:
+                    invoice_warehouses = InvoiceWarehouse.objects.get(
+                        invoice_number__invoice_number=invoice.invoice_number,
+                        invoice_type="payable",
+                    )
+                    all_fee_types.add("拆柜费")
+                    if "other_fee" in invoice_warehouses.other_fees and invoice_warehouses.other_fees["other_fee"]:
+                        all_fee_types.update(invoice_warehouses.other_fees["other_fee"].keys())
+                except Exception:
+                    continue
             else:
-                all_fee_types.update(["总费用"])
-                all_fee_types.add("基本费用")              
-                all_fee_types.add("超重费")
-                all_fee_types.add("车架费")
+                try:
+                    invoice_preports = InvoicePreport.objects.get(
+                        invoice_number__invoice_number=invoice.invoice_number,
+                        invoice_type="payable",
+                    )
+                    all_fee_types.update(["总费用"])
+                    all_fee_types.add("基本费用")              
+                    all_fee_types.add("超重费")
+                    all_fee_types.add("车架费")
 
-                # 其他自定义费用
-                if "other_fee" in invoice_preports.other_fees and invoice_preports.other_fees["other_fee"]:
-                    all_fee_types.update(invoice_preports.other_fees["other_fee"].keys())
+                    # 其他自定义费用
+                    if "other_fee" in invoice_preports.other_fees and invoice_preports.other_fees["other_fee"]:
+                        all_fee_types.update(invoice_preports.other_fees["other_fee"].keys())
+                except Exception:
+                    continue
 
         sorted_fee_types = sorted(all_fee_types)
 
