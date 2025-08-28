@@ -927,14 +927,14 @@
             var weightInput = row.querySelector('input[name="total_weight_lbs"]');
             var cbmInput = row.querySelector('input[name="cbm"]');
 
-            totalPcs += parseFloat(pcsInput.value) || 0;
+            totalPcs += parseInt(pcsInput.value) || 0;
             totalWeightKg += parseFloat(weightKgInput.value) || 0;
             totalWeight += parseFloat(weightInput.value) || 0;
             totalCbm += parseFloat(cbmInput.value) || 0;
         });
 
         document.getElementById('table_summary_cnt').innerHTML = `<b>总计: ${rows.length}</b>`;
-        document.getElementById('table_summary_pcs').textContent = totalPcs.toFixed(2);
+        document.getElementById('table_summary_pcs').textContent = totalPcs;
         document.getElementById('table_summary_weight_kg').textContent = totalWeightKg.toFixed(2);
         document.getElementById('table_summary_weight').textContent = totalWeight.toFixed(2);
         document.getElementById('table_summary_cbm').textContent = totalCbm.toFixed(2);
@@ -957,7 +957,7 @@
                     var weightInput = row.querySelector('input[name="total_weight_lbs"]');
                     var cbmInput = row.querySelector('input[name="cbm"]');
 
-                    totalPcs += parseFloat(pcsInput.value) || 0;
+                    totalPcs += parseInt(pcsInput.value) || 0;
                     totalWeightKg += parseFloat(weightKgInput.value) || 0;
                     totalWeight += parseFloat(weightInput.value) || 0;
                     totalCbm += parseFloat(cbmInput.value) || 0;
@@ -967,7 +967,7 @@
         });
 
         document.getElementById('sub_table_summary_cnt').innerHTML = `<b>已筛选: ${selectedCount}</b>`;
-        document.getElementById('sub_table_summary_pcs').textContent = totalPcs.toFixed(2);
+        document.getElementById('sub_table_summary_pcs').textContent = totalPcs;
         document.getElementById('sub_table_summary_weight_kg').textContent = totalWeightKg.toFixed(2);
         document.getElementById('sub_table_summary_weight').textContent = totalWeight.toFixed(2);
         document.getElementById('sub_table_summary_cbm').textContent = totalCbm.toFixed(2);
