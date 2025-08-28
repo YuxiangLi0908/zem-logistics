@@ -2,7 +2,6 @@
 
 {% block content %}
 <style>
-    /* 添加自定义样式 */
     .inventory-container {
         padding: 15px;
         background: #f8f9fa;
@@ -54,8 +53,7 @@
     .btn-transfer:hover {
         background: #218838;
     }
-    
-    /* 其他样式保持不变... */
+
     .table-container {
         max-height: 70vh;
         overflow-y: auto;
@@ -128,6 +126,25 @@
     /* 选中行高亮 */
     .selected-row {
         background-color: #e3f2fd !important;
+    }
+    .transfer-info-table {
+        font-size: 14px;        
+        width: 100%;
+        border-collapse: collapse;
+    }
+
+    .transfer-info-table td {
+        padding: 10px;         
+        vertical-align: middle;
+    }
+
+    .transfer-info-table input,
+    .transfer-info-table select {
+        font-size: 14px;        
+        padding: 6px 8px;       
+        width: 100%;
+        border: 1px solid #ced4da;
+        border-radius: 4px;
     }
 </style>
 
@@ -236,7 +253,7 @@
         <input type="hidden" name="step" value="transfer_warehouse">
         <input type="hidden" name="warehouse" value="{{ warehouse }}">
         
-        <table class="table" style="width: 100%; margin-bottom: 15px;">
+        <table class="transfer-info-table" style="width: 100%; margin-bottom: 15px;">
             <tr>
                 <td><strong>发货仓库:</strong></td>
                 <td>
@@ -264,6 +281,10 @@
             <tr>
                 <td><strong>carrier:</strong></td>
                 <td><input type="text" name="carrier" style="width: 100%; padding: 5px; border-radius: 4px; border: 1px solid #ced4da;"></td>
+            </tr>
+            <tr>
+                <td><strong>备注:</strong></td>
+                <td><input type="text" name="note" style="width: 100%; padding: 5px; border-radius: 4px; border: 1px solid #ced4da;"></td>
             </tr>
             <tr>
                 <td><strong>发货时间:</strong></td>

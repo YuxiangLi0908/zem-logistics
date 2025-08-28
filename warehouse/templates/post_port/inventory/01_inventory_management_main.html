@@ -279,75 +279,6 @@
             </form>
         </div>
     </div>
-    <div id="warehouse-transfer-sec" style="display: none;">
-        <button type="submit" id='transfer-btn' class="btn btn-success" onclick="editTransfer(this)" style="font-size: 11px; display:none;">转仓</button>
-        <table class="table" id="inventory-summary-table" style="font-size: 11px; max-height: 95%; overflow-y: scroll;">
-            <thead>
-                <tr style="position: sticky; top: 0px;">
-                    <th class="th" style="width: 5px;"></th>
-                    <th class="th">客户</th>
-                    <th class="th">柜号</th>
-                    <th class="th">目的地</th>
-                    <th class="th">派送方式</th>
-                    <th class="th" style="min-width: 300px; max-width: 400px; word-break: break-all;">唛头</th>
-                    <th class="th" style="min-width: 300px; max-width: 400px; word-break: break-all;">FBA</th>
-                    <th class="th" style="min-width: 300px; max-width: 400px; word-break: break-all;">REF</th>
-                    <th class="th">weight(lbs)</th>
-                    <th class="th">pcs</th>
-                    <th class="th">cbm</th>
-                    <th class="th">卡板数</th>
-                    <th class="th" style="max-width: 200px; word-break: break-all;">备注</th>
-                    <th class="th">预约批次</th>
-                    <th class="th">预约号</th>
-                </tr>
-                <tr style="position: sticky; top: 22px;" id="warehouse-trans-filter">
-                    <th class="th" style="text-align: center;">
-                        <input type="checkbox" id="selectAll">
-                    </th>
-                    <th class="th"></th>
-                    <th class="th"><input type="text" id="TransSearchInput" placeholder="搜索柜号..." oninput="filterTrans(this, 3, true)" style="width:70px;"></th>
-                    <th class="th"><input type="text" id="TransSearchInput" placeholder="目的地..." oninput="filterTrans(this, 4, true)" style="width:60px;"></th>
-                    <th class="th"><input type="text" id="TransSearchInput" placeholder="派送方式..." oninput="filterTrans(this, 5, true)" style="width:60px;"></th>
-                    <th class="th"><input type="text" id="TransSearchInput" placeholder="搜索FBA..." oninput="filterTrans(this, 6, true)"></th>
-                    <th class="th"><input type="text" id="TransSearchInput" placeholder="搜索REF..." oninput="filterTrans(this, 7, true)"></th>
-                    <th class="th"></th>
-                    <th class="th"></th>
-                    <th class="th"></th>
-                    <th class="th"></th>
-                    <th class="th"></th>
-                    <th class="th"></th>
-                    <th class="th"></th>
-                    <th class="th"></th>
-                </tr>
-            </thead>
-            <tbody id="warehouse-trans">
-                {% for p in pallet %}
-                <tr>
-                    <td class="td" style="text-align: center;">
-                        <input type='checkbox' name='is_pallet_selected_click' onclick="toggleRowBackground(this)">
-                        <input type="hidden" name="is_pallet_selected", value='off'>                         
-                        <input type="hidden" name="plt_ids", value='{{ p.plt_ids }}'>
-                        <input type="hidden" name="orders", value='{{ p.container }}'>
-                    </td>
-                    <td class="td">{{ p.customer_name }}</td>
-                    <td class="td">{{ p.container }}</td>
-                    <td class="td">{{ p.destination }}</td>
-                    <td class="td">{{ p.delivery_method }}</td>
-                    <td class="td" style="min-width: 300px; max-width: 400px; word-break: break-all;">{{ p.shipping_mark }}</td>
-                    <td class="td" style="min-width: 300px; max-width: 400px; word-break: break-all;">{{ p.fba_id|default_if_none:"" }}</td>
-                    <td class="td" style="min-width: 300px; max-width: 400px; word-break: break-all;">{{ p.ref_id|default_if_none:"" }}</td>
-                    <td class="td">{{ p.weight|floatformat:2 }}</td>
-                    <td class="td">{{ p.pcs|floatformat:0 }}</td>
-                    <td class="td">{{ p.cbm|floatformat:2 }}</td>
-                    <td class="td">{{ p.n_pallet|floatformat:0 }}</td>
-                    <td class="td" style="max-width: 200px; word-break: break-all;">{{ p.note|default_if_none:"" }}</td>
-                    <td class="td">{{ p.shipment|default_if_none:"" }}</td>
-                    <td class="td">{{ p.appointment_id|default_if_none:"" }}</td>
-                </tr>
-                {% endfor %}
-            </tbody>
-        </table>
-    </div>
     <div id="inventory-counting-sec" style="display: none;">
         <form method="post" action="" onsubmit="showLoadingBar()" style="max-height: 98%; overflow-y: scroll;">
             {% csrf_token %}
@@ -398,62 +329,6 @@
     </div>
 </div>
 
-<form method="post" action="" style="display: inline-block;" id="transfer-warehouse">
-    {% csrf_token %}
-    <input type="hidden" name="step" value="transfer_warehouse">
-    <input type="hidden" name="warehouse" value="{{ warehouse }}">
-    
-    <div class="transferWare" class="popup" style="display: none; z-index:999; position: fixed; top: 50%; left: 50%; transform: translate(-50%, -50%); background-color: white; border: 1px solid gray; padding: 20px;">               
-        <div style="text-align:right;">          
-            <button id="confirmButton" type="submit" class="btn btn-danger"  style="font-size: 11px;" onclick="editTransfer()">返回</button>
-        </div>
-        <p style="text-align:center;">转仓信息</p>
-        
-        <table id="transfer-table-2" class="table" style="font-size: 11px; overflow-x: scroll; max-width: 100%;">
-            <thead>
-                <tr>
-                    <th class="th">发货仓库</th>
-                    <th class="th">收货仓库</th>
-                </tr>
-            </thead>
-            <tbody>
-                <tr>
-                    <td class="td">
-                        <select name="shipping_warehouse" id="shipment-account-select" style="font-size: 13px;">
-                            {% for k, v in warehouse_options.items %}
-                                <option value="{{ v }}" {% if k == warehouse %}selected{% endif %}>{{ k }}</option>
-                            {% endfor %}
-                        </select>                       
-                    </td>
-                    <td class="td">
-                        <select name="receiving_warehouse" id="shipment-account-select" style="font-size: 13px;">
-                            {% for k, v in warehouse_options.items %}
-                                <option value="{{ v }}">{{ k }}</option>
-                            {% endfor %}
-                        </select>
-                    </td>
-                </tr>
-            </tbody>
-        </table>
-        <table id="transfer-table-2" class="table" style="font-size: 11px; overflow-x: scroll; max-width: 100%;">
-            <thead>
-                <tr>
-                    <th class="th">发货时间</th>
-                    <th class="th">预计到达时间</th>
-                </tr>
-            </thead>
-            <tbody>
-                <tr>
-                    <td class="td"><input type="datetime-local" name="shipping_time" style="font-size: 13px;" required></td>
-                    <td class="td"><input type="datetime-local" name="ETA" style="font-size: 13px;" required></td>
-                </tr>
-            </tbody>
-        </table>
-        <div style="text-align:right;">
-            <button id="confirmButton" type="submit" class="btn btn-primary"  style="font-size: 11px;" onclick="transWare(this)">确认</button>
-        </div>
-    </div>              
-</form>
 <script>
     let selectedOrders = [];
     let selectedIds = [];
