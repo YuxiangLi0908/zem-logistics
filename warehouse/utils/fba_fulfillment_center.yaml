@@ -2318,3 +2318,8 @@ POC2:
   location: 4000 Hamner Ave
   state: CA
   zipcode: '91761'
+XPB2:
+  city: Apopka
+  location: 4661 Apopka Logistics Pkwy
+  state: FL
+  zipcode: '32712'
