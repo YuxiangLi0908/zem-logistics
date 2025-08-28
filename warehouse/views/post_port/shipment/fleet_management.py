@@ -1824,8 +1824,11 @@ class FleetManagement(View):
                     "shipment_batch_number__note"
                 ]
             ]
+            has_slot_column = any(len(row) > 10 for row in customerInfo)
+            if has_slot_column:
+                arm_pickup[0].append("slot")
             for row in customerInfo:
-                if row[8] != "":
+                if row[8] != "" and "None" not in row[8]:
                     contact_flag = True
                     contact = row[8]
                     contact = re.sub("[\u4e00-\u9fff]", " ", contact)
@@ -1848,6 +1851,7 @@ class FleetManagement(View):
                         int(row[5].strip()),
                         row[6].strip(),
                         row[9].strip(),
+                        row[10].strip() if len(row) > 10 and row[10] is not None else ""
                     ]
                 )
             keys = arm_pickup[0]
@@ -1960,6 +1964,9 @@ class FleetManagement(View):
                 content_type="text/plain",
             )
         return response
+    
+    def safe_value(value, default=""):
+        return value.strip() if value is not None else default
 
     # 上传客户自提的BOL文件
     async def handle_bol_upload_post(self, request: HttpRequest) -> HttpResponse:
