@@ -1457,7 +1457,7 @@ class Palletization(View):
 
     async def _get_order_not_palletized(self, warehouse: str) -> Order:
         # 查未打板的，在pallet表
-        packinglist += await sync_to_async(list)(
+        packinglist = await sync_to_async(list)(
             Order.objects.select_related(
                 "customer_name",
                 "container_number",
