@@ -156,6 +156,7 @@
                             <th class="th" style="text-align: center; border: 1px solid #141414">address</th> 
                             <th class="th" style="text-align: center; border: 1px solid #141414">地址详情</th> 
                             <th class="th" style="text-align: center; border: 1px solid #141414">备注</th>
+                            <th class="th" style="text-align: center; border: 1px solid #141414">库位</th>
                         </thead>
                         {% for s in arm_pickup %}
                         <tr id="arm_pickup-row">
@@ -168,7 +169,7 @@
                             <td style="text-align: center; border: 1px solid #141414; padding:10px;" data-editable="true">{{ s.shipment_batch_number__fleet_number__carrier }}</td>
                             <td style="text-align: center; border: 1px solid #141414; padding:10px;" data-editable="true">{{ s.address }}</td>
                             <td style="text-align: center; border: 1px solid #141414; padding:10px;" data-editable="true">{{ s.shipment_batch_number__note }}</td>
-                            <td style="text-align: center; border: 1px solid #141414; padding:10px;" data-editable="true"></td>
+                            <td style="text-align: center; border: 1px solid #141414; padding:10px;" data-editable="true">{{ s.slot }}</td>
                         </tr>
                         {% endfor %}
                         <tr id="arm_pickup-row-empty-{{ selected_fleet.fleet_number }}" style="display: none;">
@@ -176,6 +177,7 @@
                             <td style="text-align: center; border: 1px solid #141414; text-wrap: wrap; padding:10px;" data-editable="true"></td>
                             <td style="text-align: center; border: 1px solid #141414; text-wrap: wrap; padding:10px;" data-editable="true"></td>
                             <td style="text-align: center; border: 1px solid #141414; text-wrap: wrap; padding:10px;" data-editable="true"></td>
+                            <td style="text-align: center; border: 1px solid #141414; padding:10px;" data-editable="true"></td>
                             <td style="text-align: center; border: 1px solid #141414; padding:10px;" data-editable="true"></td>
                             <td style="text-align: center; border: 1px solid #141414; padding:10px;" data-editable="true"></td>
                             <td style="text-align: center; border: 1px solid #141414; padding:10px;" data-editable="true"></td>
