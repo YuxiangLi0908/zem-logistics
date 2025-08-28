@@ -2,8 +2,12 @@ import openpyxl
 import re
 import json
 import pandas as pd
+import ast
 import uuid
+import random
+import string
 from typing import Any, Tuple
+from collections import defaultdict
 from datetime import datetime, date
 from ast import literal_eval
 from asgiref.sync import sync_to_async
@@ -15,16 +19,21 @@ from django.db.models.functions import Cast
 from django.http import Http404, HttpRequest, HttpResponse, HttpResponseForbidden, JsonResponse
 from django.shortcuts import redirect, render
 from django.views import View
+from itertools import groupby
 from django.views.decorators.csrf import csrf_protect
 from simple_history.utils import bulk_create_with_history, bulk_update_with_history
 
+from django.template.loader import get_template
 from warehouse.forms.upload_file import UploadFileForm
 from warehouse.models.container import Container
 from warehouse.models.packing_list import PackingList
 from warehouse.models.pallet import Pallet
-from warehouse.models.pallet_destroyed import PalletDestroyed
+from warehouse.models.warehouse import ZemWarehouse
+from warehouse.models.fleet_shipment_pallet import FleetShipmentPallet
 from warehouse.models.fleet import Fleet
 from warehouse.models.transfer_location import TransferLocation
+from warehouse.views.export_file import link_callback
+from xhtml2pdf import pisa
 from warehouse.utils.constants import DELIVERY_METHOD_OPTIONS
 
 
@@ -35,6 +44,7 @@ class TransferPallet(View):
     template_transfer_history = (
         "post_port/transfer_pallet/01_transfer_history.html"
     )
+    template_transfer_bol = "export_file/bol_transfer_template.html"
     warehouse_options = {
         "": "",
         "NJ-07001": "NJ-07001",
@@ -75,8 +85,7 @@ class TransferPallet(View):
             template, context = await self.handle_transfer_confirm_arrived_post(request)
             return render(request, template, context)
         elif step == "export_bol_transfer":
-            template, context = await self.handle_export_bol_transfer_post(request)
-            return render(request, template, context)
+            return await self.handle_export_bol_transfer_post(request)
         
 
     async def handle_transfer_warehouse_post(
@@ -86,6 +95,7 @@ class TransferPallet(View):
         receiving_warehouse = request.POST.get("receiving_warehouse")
         pickup_number = request.POST.get("pickup_number",None)
         shipping_time = request.POST.get("shipping_time", None)
+        note = request.POST.get("note", None)
         eta = request.POST.get("ETA", None)
         selectedIds = request.POST.getlist("plt_ids")
         ids = []
@@ -126,7 +136,8 @@ class TransferPallet(View):
             rec_w = receiving_warehouse.split('-')[0]
             ca = request.POST.get("carrier").strip()
             month_day = current_time.strftime("%m%d")
-            pickup_number = 'ZEM-'+ ship_w +'to' + rec_w + '-' + '' + month_day + ca
+            random_code = ''.join(random.choices(string.ascii_uppercase + string.digits, k=2))
+            pickup_number = 'ZEM-'+ ship_w +'to' + rec_w + '-' + '' + month_day + ca +'-' + random_code
         fleet = Fleet(
             **{
                 "carrier": request.POST.get("carrier").strip(),
@@ -160,6 +171,7 @@ class TransferPallet(View):
                 "total_cbm": total_cbm,
                 "total_weight": total_weight,
                 "fleet_number": fleet,
+                "note": note,
             }
         )
         await sync_to_async(transfer_location.save)()
@@ -183,11 +195,12 @@ class TransferPallet(View):
             TransferLocation.objects.filter(
                 receiving_warehouse=warehouse,
                 fleet_number__arrived_at__isnull=True
-            )
+            ).select_related("fleet_number")
         )
         not_arrived = []
 
         for t in not_arrived_raw:
+            pickup_number = t.fleet_number.pickup_number if t.fleet_number else ""
             if t.plt_ids:
                 try:
                     plt_id_list = literal_eval(t.plt_ids)
@@ -216,18 +229,20 @@ class TransferPallet(View):
                 not_arrived.append({
                     "transfer": t,
                     "pairs": pairs, 
+                    "pickup_number": pickup_number,
                 })
             else:
                 not_arrived.append({
                     "transfer": t,
                     "pairs": "",
+                    "pickup_number": pickup_number,
                 })
         
         arrived_row = await sync_to_async(list)(
             TransferLocation.objects.filter(
                 receiving_warehouse = warehouse,
                 fleet_number__arrived_at__isnull=False
-            )
+            ).select_related("fleet_number")
         )
         arrived = []
 
@@ -240,6 +255,7 @@ class TransferPallet(View):
             else:
                 plt_id_list = []
 
+            pickup_number = t.fleet_number.pickup_number if t.fleet_number else ""
             if plt_id_list:
                 pallets = await sync_to_async(list)(
                     Pallet.objects.filter(id__in=plt_id_list)
@@ -260,11 +276,13 @@ class TransferPallet(View):
                 arrived.append({
                     "transfer": t,
                     "pairs": pairs, 
+                    "pickup_number": pickup_number,
                 })
             else:
                 arrived.append({
                     "transfer": t,
                     "pairs": "",
+                    "pickup_number": pickup_number,
                 })
         context = {
             "not_arrived": not_arrived,
@@ -274,6 +292,63 @@ class TransferPallet(View):
         }
         return self.template_transfer_history, context
     
+    async def handle_export_bol_transfer_post(
+        self, request: HttpRequest
+    )-> HttpResponse:
+
+        transfer_id = request.POST.get("transfer_id")
+        transfer = await sync_to_async(TransferLocation.objects.select_related('fleet_number').get)(
+            id=transfer_id
+        )
+        fleet = transfer.fleet_number
+        plt_ids = ast.literal_eval(transfer.plt_ids)
+        pallets = await sync_to_async(list)(
+            Pallet.objects.filter(id__in=plt_ids)
+            .values(
+                'container_number__container_number',
+                'destination'
+            )
+            .annotate(
+                total_cbm=Sum('cbm'),
+                total_pallets=Count('id')
+            )
+            .order_by('container_number__container_number', 'destination')
+        )
+        for _, group in groupby(pallets, key=lambda x: x["container_number__container_number"]):
+            group_list = list(group)
+            rowspan = len(group_list)
+            for idx, g in enumerate(group_list):
+                g["rowspan"] = rowspan if idx == 0 else 0   # 只有第一行才显示
+                g["show_container"] = idx == 0
+        warehouse = transfer.receiving_warehouse
+        pickup_number = fleet.pickup_number
+        recv_warehouse = await sync_to_async(ZemWarehouse.objects.get)(name=transfer.receiving_warehouse)
+        ship_warehouse = await sync_to_async(ZemWarehouse.objects.get)(name=transfer.shipping_warehouse)
+        context = {
+            "recv_warehouse": recv_warehouse,
+            "ship_warehouse": ship_warehouse,
+            "s_warehouse": transfer.shipping_warehouse,
+            "r_warehouse": transfer.receiving_warehouse,
+            "pickup_number": pickup_number,
+            "fleet_number": transfer.fleet_number,
+            "pallets": pallets,
+            "note": transfer.note,
+            "transfer":transfer
+        }
+        template = get_template(self.template_transfer_bol)
+        html = template.render(context)
+        response = HttpResponse(content_type="application/pdf")
+        response["Content-Disposition"] = (
+            f'attachment; filename="{warehouse}+{pickup_number}+BOL.pdf"'
+        )
+        pisa_status = pisa.CreatePDF(html, dest=response, link_callback=link_callback)
+        if pisa_status.err:
+            raise ValueError(
+                "Error during PDF generation: %s" % pisa_status.err,
+                content_type="text/plain",
+            )
+        return response
+
     async def handle_transfer_confirm_arrived_post(
         self, request: HttpRequest
     ) -> tuple[Any, Any]:
@@ -284,11 +359,38 @@ class TransferPallet(View):
         transfer = await sync_to_async(TransferLocation.objects.select_related('fleet_number').get)(
             id=transfer_id
         )
-        fleet = transfer.fleet_number
-        
+        fleet = transfer.fleet_number       
         fleet.arrived_at = arrival_date
-        await sync_to_async(fleet.save)()
 
+        #构建fleetshipmentpallet表
+        plt_ids = ast.literal_eval(transfer.plt_ids)
+        pallets = await sync_to_async(list)(
+            Pallet.objects.filter(id__in=plt_ids)
+            .select_related('container_number') 
+        )
+        grouped_by_po = defaultdict(list)
+        for pallet in pallets:
+            grouped_by_po[pallet.PO_ID].append(pallet)
+
+        new_fleet_shipment_pallets = []
+        for po_id, pallet_list in grouped_by_po.items():
+            container = pallet_list[0].container_number
+            new_record = FleetShipmentPallet(
+                fleet_number=fleet,
+                pickup_number=fleet.pickup_number,
+                transfer_number=transfer,
+                PO_ID=po_id,
+                total_pallet=transfer.total_pallet,
+                container_number=container,  
+            )
+            new_fleet_shipment_pallets.append(new_record)
+
+        if new_fleet_shipment_pallets:
+            await sync_to_async(FleetShipmentPallet.objects.bulk_create)(
+                new_fleet_shipment_pallets,
+                batch_size=500  
+            )
+        await sync_to_async(fleet.save)()
         return await self.handle_transfer_history_warehouse_post(request)
 
     async def handle_operation_get(self) -> tuple[str, dict[str, Any]]:

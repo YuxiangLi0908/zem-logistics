@@ -1,0 +1,338 @@
+{% block content %}
+<style>
+    @media print {
+        .page-break {
+            page-break-before: always;
+        }
+    }
+    .pallet-table th,
+    .pallet-table td {
+        text-align: center;
+        vertical-align: middle;
+        padding: 4px;
+    }
+</style>
+
+<div style="position: relative; min-height: 100%; font-size: 13px;">
+    <div style="text-align: center;">
+        <h2><b>BILL OF LADING</b></h2>
+    </div>
+    <div>
+        <table style="width: 100%; border: 1px solid #141414;">
+            <tr>
+                <td style="width: 60%; border: 1px solid #141414;">
+                    <table>
+                        <tr>
+                            <td style="text-align: center; color: white; background-color: #141414; padding-top: 1px;">
+                                <b>SHIP FROM</b>
+                            </td>
+                        </tr>
+                        <tr>
+                            <td style="margin-left: 5px;">
+                                <br>ZEM LOGISTICS INC<br>
+                                {{ ship_warehouse }}<br>
+                                {% if "SAV" in s_warehouse %}
+                                LEON &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;9342267717
+                                {% elif "LA-91761" == s_warehouse %}
+                                Gina &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;6264354246
+                                {% else %}
+                                <br>
+                                {% endif %}
+                            </td>
+                        </tr>
+                    </table>
+                </td>
+                <td style="border: 1px solid #141414;">
+                    <table>
+                        {% if pickup_number %}
+                        <tr>
+                            <td style="margin-left: 5px;">PickUp number: {{ pickup_number }}</td>
+                        </tr>
+                        {% endif %}
+                        {% if fleet_number %}
+                        <tr>
+                            <td style="margin-left: 5px;">Fleet number: {{ fleet_number }}</td>
+                        </tr>
+                        {% endif %}
+                    </table>
+                </td>
+            </tr>
+    
+            <tr>
+                <td style="width: 60%; border: 1px solid #141414;">
+                    <table>
+                        <tr>
+                            <td style="text-align: center; color: white; background-color: #141414; padding-top: 1px;">
+                                <b>SHIP TO</b>
+                            </td>
+                        </tr>
+                        <tr>
+                            <td style="margin-left: 5px;">
+                                <div style="margin-left: 5px;">
+                                    <br>ZEM LOGISTICS INC
+                                    <br>{{ r_warehouse }}<br>
+                                    {% if "SAV" in s_warehouse %}
+                                    LEON &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;9342267717
+                                    {% elif "LA-91761" == s_warehouse %}
+                                    Gina &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;6264354246
+                                    {% else %}
+                                    <br>
+                                    {% endif %}
+                                </div>
+                            </td>
+                        </tr>
+                    </table>
+                </td>
+                <td style="border: 1px solid #141414;">
+                    <table>
+                        <tr>
+                            <td style="margin-left: 5px;">
+                                Scheduled Time: {{ transfer.ETA|date:"Y-m-d" }}
+                            </td>
+                        </tr>
+                        <tr>
+                            <td style="margin-left: 5px; font-family: STSong-Light;">
+                                Note: {{ transfer.note }}
+                            </td>
+                        </tr>
+                    </table>
+                </td>
+            </tr>
+    
+            <tr>
+                <td style="width: 60%; border: 1px solid #141414;">
+                    <table>
+                        <tr>
+                            <td style="text-align: center; color: white; background-color: #141414; vertical-align: middle; padding-top: 1px;" colspan="2">
+                                <b>THIRD PARTY FREIGHT CHARGES BILL TO</b>
+                            </td>
+                        </tr>
+                        <tr>
+                            <td style="margin-left: 5px;">
+                                {{ transfer.carrier }}
+                            </td>
+                        </tr>
+                    </table>
+                </td>
+                <td style="border: 1px solid #141414;">
+                    <table>
+                        <tr>
+                            <td style="margin-left: 5px;">
+                                <br>Freight Charge Terms: (freight charges are prepaid unless marked otherwise)
+                            </td>
+                        </tr>
+                    </table>
+                </td>
+            </tr>
+    
+            <tr>
+                <td style="width: 60%; border: 1px solid #141414;">
+                    <table>
+                        <tr>
+                            <td style="margin-left: 5px;">
+                                <br>SPECIAL INSTRUCTIONS:
+                            </td>
+                        </tr>
+                    </table>
+                </td>
+                <td style="border: 1px solid #141414;">
+                    <table>
+                        <tr>
+                            <td style="margin-left: 5px;">
+                                _ Prepaid
+                            </td>
+                            <td style="margin-left: 5px;">
+                                _ Collec
+                            </td>
+                            <td style="margin-left: 5px;">
+                                _ 3rd Party
+                            </td>
+                        </tr>
+                    </table>
+                </td>
+            </tr>
+        </table>
+    
+        <table style="margin-bottom: 30px; text-wrap: wrap;">
+            <tr>
+                <td style="width: 100%; border: solid #141414; margin-top: 10px;">
+                    <table>
+                        <tr>
+                            <td style="text-align: center; color: white; background-color: #141414; vertical-align: baseline; padding-top: 1px;" colspan="2">
+                                CUSTOMER ORDER INFORMATION
+                            </td>
+                        </tr>
+                    </table>
+                </td>
+            </tr>
+        </table>
+        <table class="pallet-table">
+            <thead>
+                <tr>
+                    <th style="border: 1px solid #141414; padding-top: 1px; font-family: STSong-Light;">柜号</th>
+                    <th style="border: 1px solid #141414; padding-top: 1px; font-family: STSong-Light;">仓点</th>
+                    <th style="border: 1px solid #141414; padding-top: 1px;">CBM</th>
+                    <th style="border: 1px solid #141414; padding-top: 1px; font-family: STSong-Light;">板数</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for plt in pallets %}
+                    <tr>
+                        {% if plt.show_container %}
+                            <td rowspan="{{ plt.rowspan }}" style="border: 1px solid #141414; vertical-align: middle;">
+                                {{ plt.container_number__container_number }}
+                            </td>
+                        {% endif %}
+                        <td style="border: 1px solid #141414;">
+                            {{ plt.destination }}
+                        </td>
+                        <td style="border: 1px solid #141414;">
+                            {{ plt.total_cbm|floatformat:2 }}
+                        </td>
+                        <td style="border: 1px solid #141414;">
+                            {{ plt.total_pallets }}
+                        </td>
+                    </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+        
+    
+        <div style="position: relative; bottom: 0;">
+            <table>
+                <tr>
+                    <td style="width: 60%; border: solid #141414; margin-left: 5px;">
+                        <table>
+                            <tr>
+                                <td>
+                                    <br>
+                                    Where the rate is dependent on value, shippers are required to state specifically in writing the
+                                    agreed or declared value of the property as follows:
+                                    "The agreed or declared value of the property is specifically stated by the shipper to be not
+                                    exceeding
+                                    __________________ per ___________________."
+                                </td>
+                            </tr>
+                        </table>
+                    </td>
+                    <td style="border: solid #141414; margin-left: 5px;">
+                        <table>
+                            <tr>
+                                <td>
+                                    COD Amount: _____________________
+                                </td>
+                            </tr>
+                            <tr>
+                                <td>
+                                    Fee Terms: _ Collect  _ Perpaid  _ Customer Check
+                                </td>
+                            </tr>
+                        </table>
+                    </td>
+                </tr>
+                <tr>
+                    <td style="width: 100%; border: solid #141414; margin-left: 5px;" colspan="2">
+                        <br>
+                        NOTE Liability Limitation for loss or damage in this shipment may be applicable. See 49 U.S.C. § 14706(c)(1)(A) and (B)
+                    </td>
+                </tr>
+                <tr>
+                    <td style="width: 60%; border: solid #141414; margin-left: 5px;">
+                        <br>
+                        RECEIVED, subject to individually determined rates or contracts that have been agreed upon in writing
+                        between the carrier and shipper, if applicable, otherwise to the rates, classifications and rules that have
+                        been established by the carrier and are available to the shipper, on request, and to all applicable state and
+                        federal regulations.
+                    </td>
+                    <td style="border: solid #141414; margin-left: 5px;">
+                        The carrier shall not make delivery of this shipment
+                        without payment of freight and all other lawful charges.<br>
+                        Shipper Signature
+                    </td>
+                </tr>
+            </table>
+            <table style="width: 100%; border: 1px solid #141414;">
+                <tr>
+                    <td style="margin-left: 5px;">
+                        <table>
+                            <tr>
+                                <td>
+                                    <br>
+                                </td>
+                            </tr>
+                            <tr>
+                                <td>
+                                    SHIPPER SIGNATURE / DATE
+                                </td>
+                            </tr>
+                            <tr>
+                                <td>
+                                    This is to certify thatthe above named materials are properly
+                                    classified, described, packaged, marked and labeled, and are
+                                    in proper condition for transporta tion according to the
+                                    applicable regulations of the U.S. DO
+                                </td>
+                            </tr>
+                        </table>
+                    </td>
+                    <td>
+                        <table style="text-align: center;">
+                            <tr>
+                                <td>
+                                    Trailer Loaded
+                                </td>
+                                <td>
+                                    Freight Counted
+                                </td>
+                            </tr>
+                            <tr>
+                                <td>
+                                    <br>
+                                </td>
+                                <td>
+                                    <br>
+                                </td>
+                            </tr>
+                            <tr>
+                                <td>
+                                    _ By Shipper<br>
+                                    _ By Driver
+                                </td>
+                                <td>
+                                    _ By Shipper<br>
+                                    _ By Driver/Pallets<br>
+                                    _ By Driver/Pieces
+                                </td>
+                            </tr>
+                        </table>
+                    </td>
+                    <td>
+                        <table>
+                            <tr>
+                                <td>
+                                    <br>
+                                </td>
+                            </tr>
+                            <tr>
+                                <td>
+                                    CARRIER SIGNATURE / PICKUP DAT
+                                </td>
+                            </tr>
+                            <tr>
+                                <td>
+                                    Carrier acknowledges receipt of packages and required
+                                    placards. Carrier certifies emergency response information
+                                    was made available and/or carrier has the U.S. DOT emergency
+                                    response guidebook or equivalent documentation in the vehicle.<br>
+
+                                    Property described above is received in good order, except as noted.
+                                </td>
+                            </tr>
+                        </table>
+                    </td>
+                </tr>
+            </table>
+        </div>
+    </div>
+</div>
+{% endblock %}

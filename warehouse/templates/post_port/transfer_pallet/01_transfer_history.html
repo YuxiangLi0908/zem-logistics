@@ -14,7 +14,7 @@
         border-radius: 12px; 
         margin: 20px auto; 
         box-shadow: 0 4px 12px rgba(0,0,0,0.08);
-        max-width: 1200px;
+        width: 90%;
     }
 
     .header-section {
@@ -172,7 +172,7 @@
             </div>
             <form method="post" action="" onsubmit="showLoadingBar()" class="warehouse-selector">
                 {% csrf_token %}
-                <b>仓库:</b>
+                <b>目的仓库:</b>
                 <select name="warehouse">
                     {% for k, v in warehouse_options.items %}
                     <option value="{{ v }}" {% if k == warehouse %}selected{% endif %}>{{ k }}</option>
@@ -193,11 +193,13 @@
         <table class="table" id="notArrivedTable">
             <thead>
                 <tr>
-                    <th>批次号</th>
+                    <th>批次号</th>                 
                     <th>柜号</th>
+                    <th>PickupNumber</th>
                     <th>卡板数</th>
                     <th>重量</th>
                     <th>体积</th>
+                    <th>备注</th>
                     <th>下载BOL</th>
                     <th>确认送达</th>
                 </tr>
@@ -213,9 +215,11 @@
                             {% endfor %}
                         </div>
                     </td>
+                    <td>{{ t.pickup_number }}</td>
                     <td>{{ t.transfer.total_pallet }}</td>
                     <td>{{ t.transfer.total_weight|floatformat:2 }}</td>
                     <td>{{ t.transfer.total_cbm|floatformat:2 }}</td>
+                    <td>{{ t.transfer.note|default_if_none:'' }}</td>
                     <td>
                         <form method="post">
                             {% csrf_token %}
@@ -248,13 +252,14 @@
         <table class="table" id="arrivedTable">
             <thead>
                 <tr>
-                    <th>批次号</th>
+                    <th>批次号</th>                  
                     <th>柜号</th>
+                    <th>PickupNumber</th>
                     <th>卡板数</th>
                     <th>重量</th>
                     <th>体积</th>
+                    <th>备注</th>
                     <th>下载BOL</th>
-                    <th>确认送达</th>
                 </tr>
             </thead>
             <tbody>
@@ -268,23 +273,18 @@
                             {% endfor %}
                         </div>
                     </td>
+                    <td>{{ t.pickup_number }}</td>
                     <td>{{ t.transfer.total_pallet }}</td>
                     <td>{{ t.transfer.total_weight|floatformat:2 }}</td>
                     <td>{{ t.transfer.total_cbm|floatformat:2 }}</td>
+                    <td>{{ t.transfer.note|default_if_none:'' }}</td>
                     <td>
                         <form method="post">
                             {% csrf_token %}
-                            <button type="submit" class="action-btn download-btn">下载</button>
-                        </form>
-                    </td>
-                    <td>
-                        <form method="post">
-                            {% csrf_token %}
-                            <input type="hidden" name="step" value="confirm_arrived">
-                            <input type="hidden" name="warehouse" value="warehouse">
+                            <input type="hidden" name="step" value="export_bol_transfer">
+                            <input type="hidden" name="warehouse" value="{{ warehouse }}">
                             <input type="hidden" name="transfer_id" value="{{ t.transfer.id }}">
-                            <input type="date" name="arrival_date" class="date-input" required>
-                            <button type="submit" class="action-btn confirm-btn">确认</button>
+                            <button type="submit" class="action-btn download-btn">下载</button>
                         </form>
                     </td>
                 </tr>
