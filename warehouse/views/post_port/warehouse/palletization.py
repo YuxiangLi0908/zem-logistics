@@ -1630,26 +1630,7 @@ class Palletization(View):
             raise ValueError(f"invalid status: {status}")
 
     async def _get_order_not_palletized(self, warehouse: str) -> Order:
-        # 一方面，查找所有转仓的，没有确认送达的在transfer_location表
-        packinglist = await sync_to_async(list)(
-            TransferLocation.objects.values(
-                "batch_number",
-                "id",
-                "container_number",
-                "shipping_warehouse",
-                "receiving_warehouse",
-                "ETA",
-                "total_pallet",
-                "arrival_time",
-            ).filter(models.Q(receiving_warehouse=warehouse, arrival_time__isnull=True))
-        )
-        for pl in packinglist:
-            container_number = pl.get("container_number", "")
-            new_container_number = (
-                container_number.replace("'", "").replace("[", "").replace("]", "")
-            )
-            pl["container_number"] = new_container_number
-        # 另一方面查未打板的，在pallet表
+        # 查未打板的，在pallet表
         packinglist += await sync_to_async(list)(
             Order.objects.select_related(
                 "customer_name",

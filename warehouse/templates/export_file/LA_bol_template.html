@@ -64,7 +64,7 @@
                         {% elif c.shipment_batch_number__shipment_appointment %}{{ c.shipment_batch_number__shipment_appointment }}
                         {% endif %}
                     </td>
-                    <td style="border: 1px solid #000; text-align: center;">{{ c.slot }}</td>
+                    <td style="border: 1px solid #000; text-align: center;">{{ c.slot|default_if_none:"" }}</td>
                     <td style="border-left: 1px solid #000;"></td>
                 </tr>
                 {% endif %}
