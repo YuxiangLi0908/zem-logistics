@@ -357,6 +357,7 @@ class FleetManagement(View):
                 "shipment_batch_number__fleet_number__carrier",
                 "shipment_batch_number__fleet_number__appointment_datetime",
                 "address",
+                "slot"
             )
             .annotate(
                 total_pcs=Sum("pcs", distinct=True),
@@ -1871,7 +1872,8 @@ class FleetManagement(View):
                     "shipment_batch_number__fleet_number__fleet_type",
                     "destination",
                     "shipping_mark",
-                    "shipment_batch_number__note"
+                    "shipment_batch_number__note",
+                    "slot",
                 )
                 .annotate(
                     total_pcs=Sum("pcs"),
