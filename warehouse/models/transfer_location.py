@@ -1,4 +1,5 @@
 from django.db import models
+from warehouse.models.fleet import Fleet
 from simple_history.models import HistoricalRecords
 
 
@@ -11,6 +12,9 @@ class TransferLocation(models.Model):
     batch_number = models.CharField(max_length=2000, null=True, blank=True)
     container_number = models.CharField(max_length=2000, null=True, blank=True)
     plt_ids = models.CharField(max_length=2000, null=True, blank=True)
+    fleet_number = models.ForeignKey(
+        Fleet, null=True, blank=True, on_delete=models.SET_NULL, related_name="transferlocation"
+    )
     total_pallet = models.IntegerField(null=True, blank=True)
     total_pcs = models.IntegerField(null=True, blank=True)
     total_cbm = models.FloatField(null=True, blank=True)

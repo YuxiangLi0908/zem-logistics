@@ -69,6 +69,13 @@
                                 </div>
                             </div>
                             <div class="nested-dropdown">
+                                <a>卡板转仓</a>
+                                <div class="nested-dropdown-content">
+                                    <a href="{% url 'transferpallet' %}?step=operation">转仓操作</a>
+                                    <a href="{% url 'transferpallet' %}?step=transfer_history">转仓BOL</a>
+                                </div>
+                            </div>
+                            <div class="nested-dropdown">
                                 <a>表格导出</a>
                                 <div class="nested-dropdown-content">
                                     <a href="{% url 'post_port_summary' %}?step=summary_table" target="_blank">报表导出</a>

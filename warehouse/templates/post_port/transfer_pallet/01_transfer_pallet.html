@@ -1,0 +1,367 @@
+{% extends 'base.html' %}
+
+{% block content %}
+<style>
+    /* 添加自定义样式 */
+    .inventory-container {
+        padding: 15px;
+        background: #f8f9fa;
+        border-radius: 8px;
+        margin: 10px 0;
+    }
+    
+    .header-section {
+        display: flex;
+        align-items: center;
+        justify-content: flex-start; /* 改为左对齐 */
+        gap: 20px; /* 添加间距 */
+        margin-bottom: 15px;
+        padding: 10px;
+        background: white;
+        border-radius: 6px;
+        box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+        flex-wrap: wrap; /* 允许换行 */
+    }
+    
+    .title-section {
+        display: flex;
+        align-items: center;
+        gap: 10px;
+        font-size: 16px;
+    }
+    
+    .warehouse-selector {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+    }
+    
+    .transfer-btn-container {
+        margin: 10px 0;
+        text-align: right;
+    }
+    
+    .btn-transfer {
+        background: #28a745;
+        color: white;
+        border: none;
+        padding: 8px 16px;
+        border-radius: 4px;
+        cursor: pointer;
+        font-size: 11px;
+    }
+    
+    .btn-transfer:hover {
+        background: #218838;
+    }
+    
+    /* 其他样式保持不变... */
+    .table-container {
+        max-height: 70vh;
+        overflow-y: auto;
+        background: white;
+        border-radius: 6px;
+        box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+    }
+    
+    .table {
+        width: 100%;
+        border-collapse: collapse;
+        font-size: 11px;
+    }
+    
+    .th, .td {
+        padding: 6px 8px;
+        border: 1px solid #dee2e6;
+        text-align: left;
+    }
+    
+    .th {
+        background: #e9ecef;
+        position: sticky;
+        top: 0;
+        z-index: 10;
+    }
+    
+    .filter-row th {
+        background: #f8f9fa;
+        padding: 4px;
+    }
+    
+    .filter-input {
+        width: 100%;
+        padding: 3px;
+        font-size: 11px;
+        border: 1px solid #ced4da;
+        border-radius: 3px;
+    }
+    
+    /* 弹出窗口样式 */
+    .transfer-popup {
+        display: none;
+        position: fixed;
+        top: 50%;
+        left: 50%;
+        transform: translate(-50%, -50%);
+        background: white;
+        border: 1px solid #ccc;
+        padding: 20px;
+        border-radius: 8px;
+        box-shadow: 0 4px 8px rgba(0,0,0,0.2);
+        z-index: 1000;
+        min-width: 400px;
+    }
+    
+    .popup-header {
+        text-align: center;
+        margin-bottom: 15px;
+        font-weight: bold;
+        color: #333;
+    }
+    
+    .popup-buttons {
+        display: flex;
+        justify-content: space-between;
+        margin-top: 15px;
+    }
+    
+    /* 选中行高亮 */
+    .selected-row {
+        background-color: #e3f2fd !important;
+    }
+</style>
+
+<div class="inventory-container">
+    <div class="header-section">
+        <div class="title-section">
+            <b>库存管理</b>
+            <form method="post" action="" onsubmit="showLoadingBar()" class="warehouse-selector">
+                {% csrf_token %}
+                <b style="margin-right: 5px;">仓库:</b>
+                <select name="warehouse" style="padding: 5px; border-radius: 4px; border: 1px solid #ced4da;">
+                    {% for k, v in warehouse_options.items %}
+                    <option value="{{ v }}" {% if k == warehouse %}selected{% endif %}>{{ k }}</option>
+                    {% endfor %}
+                </select>
+                <input type="hidden" name="step" value="warehouse">
+                <button type="submit" style="padding: 5px 10px; background: #007bff; color: white; border: none; border-radius: 4px; cursor: pointer;">
+                    确认
+                </button>
+            </form>
+        </div>
+    </div>
+
+    {% if pallet %}
+    <div class="transfer-btn-container">
+        <button type="button" id="transfer-btn" class="btn-transfer" onclick="editTransfer()">
+            📦 转仓操作
+        </button>
+    </div>
+
+    <div class="table-container">
+        <table class="table" id="inventory-summary-table">
+            <thead>
+                <tr>
+                    <th class="th" style="width: 30px; text-align: center;">
+                        <input type="checkbox" id="selectAll" onclick="toggleAllSelection()">
+                    </th>
+                    <th class="th">客户</th>
+                    <th class="th">柜号</th>
+                    <th class="th">目的地</th>
+                    <th class="th">派送方式</th>
+                    <th class="th" style="min-width: 200px;">唛头</th>
+                    <th class="th" style="min-width: 200px;">FBA</th>
+                    <th class="th" style="min-width: 200px;">REF</th>
+                    <th class="th">重量(lbs)</th>
+                    <th class="th">数量</th>
+                    <th class="th">体积(CBM)</th>
+                    <th class="th">卡板数</th>
+                    <th class="th" style="min-width: 150px;">备注</th>
+                    <th class="th">预约批次</th>
+                    <th class="th">预约号</th>
+                </tr>
+                <tr class="filter-row">
+                    <th class="th"></th>
+                    <th class="th"></th>
+                    <th class="th"><input type="text" class="filter-input" placeholder="搜索柜号..." oninput="filterTable(this, 2)"></th>
+                    <th class="th"><input type="text" class="filter-input" placeholder="目的地..." oninput="filterTable(this, 3)"></th>
+                    <th class="th"><input type="text" class="filter-input" placeholder="派送方式..." oninput="filterTable(this, 4)"></th>
+                    <th class="th"><input type="text" class="filter-input" placeholder="搜索唛头..." oninput="filterTable(this, 5)"></th>
+                    <th class="th"><input type="text" class="filter-input" placeholder="搜索FBA..." oninput="filterTable(this, 6)"></th>
+                    <th class="th"><input type="text" class="filter-input" placeholder="搜索REF..." oninput="filterTable(this, 7)"></th>
+                    <th class="th"></th>
+                    <th class="th"></th>
+                    <th class="th"></th>
+                    <th class="th"></th>
+                    <th class="th"></th>
+                    <th class="th"></th>
+                    <th class="th"></th>
+                </tr>
+            </thead>
+            <tbody id="warehouse-trans">
+                {% for p in pallet %}
+                <tr id="row-{{ forloop.counter }}">
+                    <td class="td" style="text-align: center;">
+                        <input type='checkbox' name='is_pallet_selected' onclick="toggleRowSelection(this, {{ forloop.counter }})">
+                        <input type="hidden" name="plt_ids" value='{{ p.plt_ids }}'>
+                        <input type="hidden" name="orders" value='{{ p.container }}'>
+                    </td>
+                    <td class="td">{{ p.customer_name }}</td>
+                    <td class="td">{{ p.container }}</td>
+                    <td class="td">{{ p.destination }}</td>
+                    <td class="td">{{ p.delivery_method }}</td>
+                    <td class="td" style="word-break: break-all;">{{ p.shipping_mark }}</td>
+                    <td class="td" style="word-break: break-all;">{{ p.fba_id|default_if_none:"" }}</td>
+                    <td class="td" style="word-break: break-all;">{{ p.ref_id|default_if_none:"" }}</td>
+                    <td class="td">{{ p.weight|floatformat:2 }}</td>
+                    <td class="td">{{ p.pcs|floatformat:0 }}</td>
+                    <td class="td">{{ p.cbm|floatformat:2 }}</td>
+                    <td class="td">{{ p.n_pallet|floatformat:0 }}</td>
+                    <td class="td" style="word-break: break-all;">{{ p.note|default_if_none:"" }}</td>
+                    <td class="td">{{ p.shipment|default_if_none:"" }}</td>
+                    <td class="td">{{ p.appointment_id|default_if_none:"" }}</td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+    {% endif %}
+</div>
+
+<!-- 转仓弹出窗口 -->
+<div class="transfer-popup" id="transferPopup">
+    <div class="popup-header">转仓信息</div>
+    <form method="post" action="" id="transferForm">
+        {% csrf_token %}
+        <input type="hidden" name="step" value="transfer_warehouse">
+        <input type="hidden" name="warehouse" value="{{ warehouse }}">
+        
+        <table class="table" style="width: 100%; margin-bottom: 15px;">
+            <tr>
+                <td><strong>发货仓库:</strong></td>
+                <td>
+                    <select name="shipping_warehouse" style="width: 100%; padding: 5px; border-radius: 4px; border: 1px solid #ced4da;">
+                        {% for k, v in warehouse_options.items %}
+                            <option value="{{ v }}" {% if k == warehouse %}selected{% endif %}>{{ k }}</option>
+                        {% endfor %}
+                    </select>
+                </td>
+            </tr>
+            <tr>
+                <td><strong>收货仓库:</strong></td>
+                <td>
+                    <select name="receiving_warehouse" style="width: 100%; padding: 5px; border-radius: 4px; border: 1px solid #ced4da;">
+                        {% for k, v in warehouse_options.items %}
+                            <option value="{{ v }}">{{ k }}</option>
+                        {% endfor %}
+                    </select>
+                </td>
+            </tr>
+            <tr>
+                <td><strong>pickupNumber:</strong></td>
+                <td><input type="text" name="pickup_number" placeholder="没有可以不输入" style="width: 100%; padding: 5px; border-radius: 4px; border: 1px solid #ced4da;"></td>
+            </tr>
+            <tr>
+                <td><strong>carrier:</strong></td>
+                <td><input type="text" name="carrier" style="width: 100%; padding: 5px; border-radius: 4px; border: 1px solid #ced4da;"></td>
+            </tr>
+            <tr>
+                <td><strong>发货时间:</strong></td>
+                <td><input type="datetime-local" name="shipping_time" style="width: 100%; padding: 5px; border-radius: 4px; border: 1px solid #ced4da;" required></td>
+            </tr>
+            <tr>
+                <td><strong>预计到达:</strong></td>
+                <td><input type="datetime-local" name="ETA" style="width: 100%; padding: 5px; border-radius: 4px; border: 1px solid #ced4da;" required></td>
+            </tr>
+        </table>
+        
+        <div class="popup-buttons">
+            <button type="button" class="btn btn-secondary" onclick="closeTransferPopup()" style="padding: 5px 15px; background: #6c757d; color: white; border: none; border-radius: 4px; cursor: pointer;">
+                取消
+            </button>
+            <button type="submit" class="btn btn-primary" style="padding: 5px 15px; background: #007bff; color: white; border: none; border-radius: 4px; cursor: pointer;">
+                确认转仓
+            </button>
+        </div>
+    </form>
+</div>
+
+<script>
+    // 显示/隐藏转仓弹出窗口，并把选中的 plt_ids 塞到 form 里
+    function editTransfer() {
+        const popup = document.getElementById('transferPopup');
+        const form = document.getElementById('transferForm');
+
+        const checkboxes = document.querySelectorAll('input[name="is_pallet_selected"]:checked');
+        if (checkboxes.length === 0) {
+            alert('请至少选择一个托盘进行转仓操作');
+            return;
+        }
+
+        // 先清除旧的 hidden inputs，避免重复
+        form.querySelectorAll('input[name="plt_ids"]').forEach(el => el.remove());
+
+        // 遍历勾选的行，把 plt_ids 动态添加到 form
+        checkboxes.forEach(checkbox => {
+            const row = checkbox.closest('tr');
+            const pltId = row.querySelector('input[name="plt_ids"]').value;
+
+            const hidden = document.createElement('input');
+            hidden.type = 'hidden';
+            hidden.name = 'plt_ids';
+            hidden.value = pltId;
+            form.appendChild(hidden);
+        });
+
+        popup.style.display = 'block';
+    }
+
+    
+    function closeTransferPopup() {
+        document.getElementById('transferPopup').style.display = 'none';
+    }
+    
+    // 全选/取消全选
+    function toggleAllSelection() {
+        const selectAll = document.getElementById('selectAll');
+        const checkboxes = document.querySelectorAll('input[name="is_pallet_selected"]');
+        
+        checkboxes.forEach(checkbox => {
+            checkbox.checked = selectAll.checked;
+            toggleRowSelection(checkbox, checkbox.closest('tr').id.replace('row-', ''));
+        });
+    }
+    
+    // 行选择高亮
+    function toggleRowSelection(checkbox, rowId) {
+        const row = document.getElementById('row-' + rowId);
+        if (checkbox.checked) {
+            row.classList.add('selected-row');
+        } else {
+            row.classList.remove('selected-row');
+        }
+    }
+    
+    // 表格筛选
+    function filterTable(input, columnIndex) {
+        const filter = input.value.toLowerCase();
+        const rows = document.querySelectorAll('#warehouse-trans tr');
+        
+        rows.forEach(row => {
+            const cell = row.cells[columnIndex];
+            if (cell) {
+                const text = cell.textContent.toLowerCase();
+                row.style.display = text.includes(filter) ? '' : 'none';
+            }
+        });
+    }
+    
+    // 点击外部关闭弹出窗口
+    document.addEventListener('click', function(e) {
+        const popup = document.getElementById('transferPopup');
+        if (popup.style.display === 'block' && !popup.contains(e.target) && e.target.id !== 'transfer-btn') {
+            closeTransferPopup();
+        }
+    });
+</script>
+{% endblock %}

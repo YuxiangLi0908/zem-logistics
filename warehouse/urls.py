@@ -18,6 +18,7 @@ from warehouse.views.post_port.shipment.fleet_management import FleetManagement
 from warehouse.views.post_port.shipment.shipping_management import ShippingManagement
 from warehouse.views.post_port.timeout_warning import TimeoutWarning
 from warehouse.views.post_port.warehouse.inventory import Inventory
+from warehouse.views.post_port.warehouse.transfer_pallet import TransferPallet
 from warehouse.views.post_port.warehouse.palletization import Palletization
 from warehouse.views.pre_port.order_creation import OrderCreation
 from warehouse.views.pre_port.pickup_containers_status import ContainerPickupStatus
@@ -112,4 +113,6 @@ urlpatterns = [
     ),
     path("outbound_legacy/", ShipmentDispatch.as_view(), name="outbound_legacy"),
     path("pod_legacy/", POD.as_view(), name="pod_legacy"),
+    path("inventory/", Inventory.as_view(), name="inventory"),
+    path("transferpallet/", TransferPallet.as_view(), name="transferpallet"),
 ] + static(settings.STATIC_URL, document_root=settings.STATIC_ROOT)
