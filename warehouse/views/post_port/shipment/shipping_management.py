@@ -1455,7 +1455,7 @@ class ShippingManagement(View):
                     #自动生成pickupNumber
                     wh = request.POST.get("origin", "").split('-')[1]
                     ca = request.POST.get("carrier").strip()
-                    dt = datetime.fromisoformat(shipmentappointment.replace('Z', '+00:00'))
+                    dt = datetime.fromisoformat(appointment_datetime.replace('Z', '+00:00'))
                     month_day = dt.strftime("%m%d")
                     pickupNumber = 'ZEM'+ '-' + wh + '-' + '' + month_day + ca
                     fleet = Fleet(
