@@ -3069,8 +3069,7 @@ class Accounting(View):
             order_list = Order.objects.filter(
                 retrieval_id__actual_retrieval_timestamp__year=year,
                 retrieval_id__actual_retrieval_timestamp__month=month,
-                #payable_status__stage="confirmed",
-            )
+            ).exclude(payable_status__stage="unstarted")
             orders = []
             for order in order_list:
                 invoice = Invoice.objects.select_related(
@@ -3090,9 +3089,7 @@ class Accounting(View):
             order_list = Order.objects.filter(
                 retrieval_id__actual_retrieval_timestamp__month=month,
                 retrieval_id__actual_retrieval_timestamp__year=year,
-                #payable_status__stage="confirmed",
-                # container_number__invoice__payable_surcharge__preport_carrier=select_carrier
-            )
+            ).exclude(payable_status__stage="unstarted")
             orders = []
             if select_carrier == "ARM":
                 s_carrier = "大方广"
@@ -3114,6 +3111,7 @@ class Accounting(View):
         ws.title = f"{select_carrier}_{select_month}账单"
 
         all_fee_types = set()
+        
         for order in orders:
             container_number = order.container_number.container_number
             invoice = Invoice.objects.select_related(
