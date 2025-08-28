@@ -3064,146 +3064,113 @@ class Accounting(View):
         month = month - 1
         # 查找该月份，该供应商的所有费用
         # 先查账单时间满足月份的，就是实际提柜时间+1个月
+        order_list = Order.objects.filter(
+            retrieval_id__actual_retrieval_timestamp__year=year,
+            retrieval_id__actual_retrieval_timestamp__month=month,
+        ).exclude(payable_status__stage="unstarted")
+        orders = []
+
         if select_carrier in ["BBR", "KNO"]:
-            # 如果是BBR和KNO，就只在invoice表的payable_surcharge的palletization_carrier里面能看到
-            order_list = Order.objects.filter(
-                retrieval_id__actual_retrieval_timestamp__year=year,
-                retrieval_id__actual_retrieval_timestamp__month=month,
-            ).exclude(payable_status__stage="unstarted")
-            orders = []
+            # 如果是BBR和KNO，就只读InvoiceWarehouse表
             for order in order_list:
-                invoice = Invoice.objects.select_related(
-                    "customer", "container_number"
-                ).get(container_number__container_number=order.container_number)
                 try:
-                    invoice_warehouses = InvoiceWarehouse.objects.get(
+                    invoice = Invoice.objects.get(container_number__container_number=order.container_number)
+                    invoice_warehouse = InvoiceWarehouse.objects.get(
                         invoice_number__invoice_number=invoice.invoice_number,
                         invoice_type="payable",
                     )
-                    if invoice_warehouses.carrier == select_carrier:
-                        orders.append(order)
-                except Exception as e:
+                    if invoice_warehouse.carrier == select_carrier:
+                        orders.append((order, invoice, invoice_warehouse, None))
+                except InvoiceWarehouse.DoesNotExist:
                     continue
         else:
-            # 否则就看payable_surcharge的preport_carrier里面能看到
-            order_list = Order.objects.filter(
-                retrieval_id__actual_retrieval_timestamp__month=month,
-                retrieval_id__actual_retrieval_timestamp__year=year,
-            ).exclude(payable_status__stage="unstarted")
-            orders = []
             if select_carrier == "ARM":
                 s_carrier = "大方广"
             elif select_carrier == "Kars":
                 s_carrier = "kars"
             else:
                 s_carrier = select_carrier
+
             for order in order_list:
-                invoice = Invoice.objects.select_related(
-                    "customer", "container_number"
-                ).get(container_number__container_number=order.container_number)
-                if order.retrieval_id.retrieval_carrier == s_carrier:
-                    orders.append(order)
-        if len(orders) == 0:
+                if order.retrieval_id.retrieval_carrier != s_carrier:
+                    continue
+                try:
+                    invoice = Invoice.objects.get(container_number__container_number=order.container_number)
+                    invoice_preport = InvoicePreport.objects.get(
+                        invoice_number__invoice_number=invoice.invoice_number,
+                        invoice_type="payable",
+                    )
+                    try:
+                        invoice_warehouse = InvoiceWarehouse.objects.get(
+                            invoice_number__invoice_number=invoice.invoice_number,
+                            invoice_type="payable",
+                        )
+                    except InvoiceWarehouse.DoesNotExist:
+                        invoice_warehouse = None
+                    orders.append((order, invoice, invoice_warehouse, invoice_preport))
+                except InvoicePreport.DoesNotExist:
+                    continue
+        if not orders:
             raise ValueError("未查询到符合条件的订单")
         # 创建Excel工作簿
         wb = openpyxl.Workbook()
         ws = wb.active
         ws.title = f"{select_carrier}_{select_month}账单"
 
-        all_fee_types = set()
-        
-        for order in orders:
-            container_number = order.container_number.container_number
-            invoice = Invoice.objects.select_related(
-                "customer", "container_number"
-            ).get(container_number__container_number=container_number)
-            
-            # BBR/KNO特殊费用
+        all_fee_types = set()       
+        for _, invoice, warehouse, preport in orders:
             if select_carrier in ["BBR", "KNO"]:
-                try:
-                    invoice_warehouses = InvoiceWarehouse.objects.get(
-                        invoice_number__invoice_number=invoice.invoice_number,
-                        invoice_type="payable",
-                    )
-                    all_fee_types.add("拆柜费")
-                    if "other_fee" in invoice_warehouses.other_fees and invoice_warehouses.other_fees["other_fee"]:
-                        all_fee_types.update(invoice_warehouses.other_fees["other_fee"].keys())
-                except Exception:
-                    continue
+                if warehouse:
+                    all_fee_types.add(InvoiceWarehouse._meta.get_field('palletization_fee').verbose_name)  # 应付拆柜费
+                    all_fee_types.add(InvoiceWarehouse._meta.get_field('arrive_fee').verbose_name)        # 应付入库费
+                    if warehouse.other_fees:
+                        all_fee_types.update(warehouse.other_fees.keys())
+                    all_fee_types.add("总费用")
             else:
-                try:
-                    invoice_preports = InvoicePreport.objects.get(
-                        invoice_number__invoice_number=invoice.invoice_number,
-                        invoice_type="payable",
-                    )
-                    all_fee_types.update(["总费用"])
-                    all_fee_types.add("基本费用")              
-                    all_fee_types.add("超重费")
-                    all_fee_types.add("车架费")
-
-                    # 其他自定义费用
-                    if "other_fee" in invoice_preports.other_fees and invoice_preports.other_fees["other_fee"]:
-                        all_fee_types.update(invoice_preports.other_fees["other_fee"].keys())
-                except Exception:
-                    continue
+                # 固定列
+                all_fee_types.update(["基本费用", "超重费", "车架费"])
+                if preport and preport.other_fees and "other_fee" in preport.other_fees:
+                    all_fee_types.update(preport.other_fees["other_fee"].keys())
+                if warehouse:
+                    all_fee_types.add(InvoiceWarehouse._meta.get_field('palletization_fee').verbose_name)
+                    all_fee_types.add(InvoiceWarehouse._meta.get_field('arrive_fee').verbose_name)
+                all_fee_types.add("总费用")
 
         sorted_fee_types = sorted(all_fee_types)
-
         headers = ["柜号"] + sorted_fee_types
         ws.append(headers)
 
-        # 填充数据
-        for order in orders:
-            container_number = order.container_number.container_number
-            invoice = Invoice.objects.select_related(
-                "customer", "container_number"
-            ).get(container_number__container_number=container_number)
-           
-            total_amount = float(invoice.payable_total_amount or 0)
-            palletization = float(invoice_warehouses.palletization_fee or 0)
-
-            # 初始化行数据，所有费用初始为0或空
+        for order, invoice, warehouse, preport in orders:
             row_data = {fee: "" for fee in sorted_fee_types}
-            row_data["柜号"] = container_number
+            row_data["柜号"] = order.container_number.container_number
 
-            # 填充特定供应商的费用
             if select_carrier in ["BBR", "KNO"]:
-                try:
-                    invoice_warehouses = InvoiceWarehouse.objects.get(
-                        invoice_number__invoice_number=invoice.invoice_number,
-                        invoice_type="payable",
-                    )
-                except Exception as e:
-                    continue
-                row_data["拆柜费"] = invoice_warehouses.palletization_fee or 0
+                if warehouse:
+                    row_data[InvoiceWarehouse._meta.get_field('palletization_fee').verbose_name] = warehouse.palletization_fee or 0
+                    row_data[InvoiceWarehouse._meta.get_field('arrive_fee').verbose_name] = warehouse.arrive_fee or 0
+                    if warehouse.other_fees:
+                        for k, v in warehouse.other_fees.items():
+                            row_data[k] = v
+                    row_data["总费用"] = warehouse.amount or 0
             else:
-                try:
-                    invoice_preports = InvoicePreport.objects.get(
-                        invoice_number__invoice_number=invoice.invoice_number,
-                        invoice_type="payable",
-                    )
-                except Exception as e:
-                    continue
-                row_data["总费用"] = total_amount - palletization
-                row_data["基本费用"] = invoice_preports.pickup or 0
-                row_data["超重费"] = invoice_preports.over_weight or 0
-                row_data["车架费"] = invoice_preports.chassis or 0
-
-                # 其他自定义费用
-                if "other_fee" in invoice_preports.other_fees and invoice_preports.other_fees["other_fee"]:
-                    for fee_name, fee_value in invoice_preports.other_fees["other_fee"].items():
-                        row_data[fee_name] = fee_value
-            if select_carrier in ["BBR", "KNO"]:
-                ordered_row = [row_data["柜号"], row_data["拆柜费"]]
-            else:
-                fixed_columns = ["柜号", "总费用", "基本费用", "超重费", "车架费"]
-                dynamic_columns = [
-                    col for col in row_data.keys() if col not in fixed_columns
-                ]
-                final_columns = fixed_columns + sorted(dynamic_columns)
-
-                ordered_row = [row_data.get(col, "") for col in final_columns]
-            ws.append(ordered_row)
+                # 其他供应商
+                total_amount = float(preport.amount or 0)
+                if warehouse:
+                    total_amount += float(warehouse.amount or 0)
+                    row_data[InvoiceWarehouse._meta.get_field('palletization_fee').verbose_name] = warehouse.palletization_fee or 0
+                    row_data[InvoiceWarehouse._meta.get_field('arrive_fee').verbose_name] = warehouse.arrive_fee or 0
+                    if warehouse.other_fees:
+                        for k, v in warehouse.other_fees.items():
+                            row_data[k] = v
+                row_data["总费用"] = total_amount
+                row_data["基本费用"] = preport.pickup or 0
+                row_data["超重费"] = preport.over_weight or 0
+                row_data["车架费"] = preport.chassis or 0
+                if preport.other_fees and "other_fee" in preport.other_fees:
+                    for k, v in preport.other_fees["other_fee"].items():
+                        row_data[k] = v
+            ws.append([row_data.get(col, "") for col in headers])
+        
         response = HttpResponse(
             content_type="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
         )
@@ -3854,6 +3821,7 @@ class Accounting(View):
                 "customer_name",
                 "container_number",
                 "invoice_id__statement_id",
+                "vessel_id",
             )
             .filter(
                 criteria
@@ -3884,6 +3852,7 @@ class Accounting(View):
                 Order.objects.select_related(
                     "customer_name",
                     "container_number",
+                    "invoice_id",
                     "invoice_id__statement_id",
                     "retrieval_id",
                     "vessel_id",
@@ -3936,8 +3905,10 @@ class Accounting(View):
             pre_order_pending = Order.objects.select_related(
                 "customer_name",
                 "container_number",
+                "invoice_id",
                 "invoice_id__statement_id",
                 "payable_status",
+                "vessel_id",
             ).filter(
                 models.Q(
                     models.Q(payable_status__stage="tobeconfirmed")
@@ -3952,8 +3923,10 @@ class Accounting(View):
             previous_order = Order.objects.select_related(
                 "customer_name",
                 "container_number",
+                "invoice_id",
                 "invoice_id__statement_id",
                 "payable_status",
+                "vessel_id",
             ).filter(
                 criteria,
                 ~models.Q(payable_status__is_rejected=True),
