@@ -93,6 +93,8 @@
                             <th class="th">仓点</th>  
                             <th class="th">货柜号</th>
                             <th class="th">柜型</th>
+                            <th class="th">提柜时间</th>
+                            <th class="th">码头</th>
                             <th class="th">提柜费</th>
                             <th class="th">拆柜费</th>
                             <th class="th">超重费</th>
@@ -113,6 +115,10 @@
                             <th class="th"></th>
                             <th class="th"></th>
                             <th class="th"></th>
+                            <th class="th"></th>
+                            <th class="th"></th>
+                            <th class="th"></th>  
+                            <th class="th"></th>  
                         </tr>
                     </thead>
                     <tbody>
@@ -125,6 +131,8 @@
                                     title="点击查看详情">{{ c.container_number }}</a>
                                 </td>
                                 <td>{{ c.container_number.container_type }}</td>
+                                <td class="td">{{ c.retrieval_id.actual_retrieval_timestamp|date:"Y/m/d" }}</td>
+                                <td class="td">{{ c.vessel_id.destination_port }}</td>
                                 <td>{{ c.basic_fee|floatformat:2 }}</td>
                                 <td>{{ c.palletization_fee|floatformat:2 }}</td>
                                 <td>{{ c.overweight_fee|floatformat:2 }}</td>
@@ -208,11 +216,15 @@
                             <th class="th">客户</th>
                             <th class="th">仓点</th>  
                             <th class="th">货柜号</th> 
+                            <th class="th">提柜时间</th>
+                            <th class="th">码头</th>
                         </tr>
                         <tr style="position: sticky; top: 28px;">
                             <th class="th"></th>
                             <th class="th"></th>  
                             <th class="th"><input type="text" style="width:80px;" id="containerSearchInput" placeholder="搜索柜号..." oninput="filterTable(this, 2)" size="16" style="font-size: 14px;"></th>                      
+                            <th class="th"></th>  
+                            <th class="th"></th>  
                         </tr>
                     </thead>
                     <tbody>
@@ -223,6 +235,8 @@
                                 <td class="td">
                                     <a href="/accounting/?step=container_payable&container_number={{ c.container_number }}&start_date={{ start_date }}&end_date={{ end_date }}&warehouse={{ warehouse_filter }}">{{ c.container_number }}</a>
                                 </td>
+                                <td class="td">{{ c.retrieval_id.actual_retrieval_timestamp|date:"Y/m/d" }}</td>
+                                <td class="td">{{ c.vessel_id.destination_port }}</td>
                             </tr>
                         {% endfor %}
                     </tbody>
@@ -250,11 +264,15 @@
                             <th class="th">仓点</th>  
                             <th class="th">货柜号</th>                                              
                             <th class="th">驳回原因</th>
+                            <th class="th">提柜时间</th>
+                            <th class="th">码头</th>
                         </tr>
                         <tr style="position: sticky; top: 28px;">
                             <th class="th"></th>
                             <th class="th"></th>  
                             <th class="th"><input type="text" id="containerSearchInput" placeholder="搜索柜号..." oninput="filterTable(this, 2)" size="16" style="font-size: 14px;"></th>                      
+                            <th class="th"></th>
+                            <th class="th"></th>
                             <th class="th"></th>
                         </tr>
                     </thead>
@@ -267,6 +285,8 @@
                                     <a href="/accounting/?step=container_payable&container_number={{ c.container_number }}&start_date={{ start_date }}&end_date={{ end_date }}&warehouse_filter={{ warehouse_filter }}">{{ c.container_number }}</a>
                                 </td>
                                 <td class="td">{{ c.payable_status.reject_reason }}</td>
+                                <td class="td">{{ c.retrieval_id.actual_retrieval_timestamp|date:"Y/m/d" }}</td>
+                                <td class="td">{{ c.vessel_id.destination_port }}</td>
                             </tr>
                         {% endfor %}
                     </tbody>
@@ -291,12 +311,16 @@
                             <th class="th">客户</th>
                             <th class="th">仓点</th>
                             <th class="th">货柜号</th>
+                            <th class="th">提柜时间</th>
+                            <th class="th">码头</th>
                             <th class="th">账单状态</th>
                         </tr>
                         <tr style="position: sticky; top: 28px;">
                             <th class="th"></th>
                             <th class="th"></th>
                             <th class="th"><input type="text" id="containerSearchInput" placeholder="搜索柜号..." oninput="filterTable(this, 2)" size="16" style="font-size: 14px;"></th>
+                            <th class="th"></th>
+                            <th class="th"></th>
                             <th class="th"></th>
                         </tr>
                     </thead>
@@ -309,6 +333,8 @@
                                     <a href="/accounting/?step=container_payable&container_number={{ c.container_number }}&start_date={{ start_date }}&end_date={{ end_date }}&warehouse_filter={{ warehouse_filter }}">{{ c.container_number }}</a>
                                 </td>                     
                                 <td class="td" style="vertical-align: middle; white-space: pre-line;">{{ c.display_stage }}</td>
+                                <td class="td">{{ c.retrieval_id.actual_retrieval_timestamp|date:"Y/m/d" }}</td>
+                                <td class="td">{{ c.vessel_id.destination_port }}</td>
                             </tr>
                         {% endfor %}
                     </tbody>
