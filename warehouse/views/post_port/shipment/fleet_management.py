@@ -1372,8 +1372,7 @@ class FleetManagement(View):
             )
             for s in pallet:
                 s["total_n_pallet"] = f"预 {round(s['total_cbm'] / 2)}"
-                s["slot"] = ""  # 添加空slot字段
-                s["direction"] = ""  # 添加空direction字段
+                s["slot"] = "" 
             plt = await sync_to_async(list)(
                 Pallet.objects.select_related(
                     "container_number", "shipment_batch_number"
@@ -1388,7 +1387,6 @@ class FleetManagement(View):
                     "shipment_batch_number__shipment_batch_number",
                     "shipment_batch_number__shipment_appointment",
                     "slot",
-                    "direction"
                 )
                 .annotate(
                     total_weight=Round(Sum("weight_lbs", output_field=FloatField()), 2),
@@ -1451,7 +1449,6 @@ class FleetManagement(View):
                     "shipment_batch_number__shipment_batch_number": "  ",
                     "shipment_batch_number__shipment_appointment": "  ",
                     "slot": "  ", 
-                    "direction": "  ",
                     "一提两卸": "  ",
                     "is_spacer": True, #表示是否是空行
                     "force_text": True,
