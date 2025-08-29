@@ -560,9 +560,8 @@ class Palletization(View):
             shipping_marks = request.POST.getlist("shipping_marks")
             fba_ids = request.POST.getlist("fba_ids")
             ref_ids = request.POST.getlist("ref_ids")
-            #因为库位和方向，只有LA仓库有，所以前端没传过来值，就构建一个空的
+            #因为库位只有LA仓库有，所以前端没传过来值，就构建一个空的
             slots = request.POST.getlist("slots") if "slots" in request.POST else [None] * len(n_pallet)
-            directions = request.POST.getlist("directions") if "directions" in request.POST else [None] * len(n_pallet)
             dw_sts = request.POST.getlist("delivery_window_starts")
             dw_ends = request.POST.getlist("delivery_window_ends")
             notes = [d for d in request.POST.getlist("notes")]
@@ -592,7 +591,6 @@ class Palletization(View):
                 dw_st,
                 dw_end,
                 slot,
-                direction
             ) in zip(
                 n_pallet,
                 pcs_actual,
@@ -615,7 +613,6 @@ class Palletization(View):
                 dw_sts,
                 dw_ends,
                 slots,
-                directions
             ):
                 if p_a > 0:  # 如果实际箱数大于0，才构建板子的信息
                     if isinstance(dw_st, str):
@@ -653,7 +650,6 @@ class Palletization(View):
                         dw_st,
                         dw_end,
                         slot,
-                        direction,
                     )  # 循环遍历每个汇总的板数
                 if p_a != p_r:
                     abnormal_offloads.append(
@@ -685,7 +681,6 @@ class Palletization(View):
                 new_dw_sts = request.POST.getlist("new_delivery_window_starts")
                 new_dw_ends = request.POST.getlist("new_delivery_window_ends")
                 new_slots = request.POST.getlist("new_slots")
-                new_directions = request.POST.getlist("new_directions")
                 new_notes = request.POST.getlist("new_notes")
                 new_cbm = [
                     float(value) if value else 0
@@ -722,7 +717,6 @@ class Palletization(View):
                     dw_st,
                     dw_end,
                     slot,
-                    direction,
                 ) in zip(
                     new_pallets,
                     new_pcs_actul,
@@ -737,7 +731,6 @@ class Palletization(View):
                     new_dw_sts,
                     new_dw_ends,
                     new_slots,
-                    new_directions
                 ):
                     delivery_type = (
                         "public" if self.is_public_destination(dest) else "other"
@@ -777,7 +770,6 @@ class Palletization(View):
                         dw_st,
                         dw_end,
                         slot,
-                        direction,
                         seed=1,                        
                     )
                     
@@ -1335,7 +1327,6 @@ class Palletization(View):
         dw_st:date | None = None,
         dw_end:date | None = None,
         slot: str | None = None,
-        direction: str | None = None,
         seed: int = 0,
     ) -> list[dict[str, Any]]:
         if n == 0 or n is None:
@@ -1400,7 +1391,6 @@ class Palletization(View):
                     "delivery_window_start":dw_st,
                     "delivery_window_end":dw_end,
                     "slot": slot,
-                    "direction": direction,
                 }
             )
         return pallet_data
@@ -1602,7 +1592,6 @@ class Palletization(View):
                     "delivery_window_start",
                     "delivery_window_end", 
                     "slot",
-                    "direction"
                 )
                 .annotate(
                     pcs=Sum("pcs", output_field=IntegerField()),

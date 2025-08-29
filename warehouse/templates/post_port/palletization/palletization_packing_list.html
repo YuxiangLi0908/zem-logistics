@@ -9,8 +9,6 @@
                 {% if warehouse == "LA-91761" %}
                 <button type="button" class="btn btn-secondary" style="width: 130px; height: 35px; margin-right: 10px;" 
                         onclick="showBatchLocationDialog()">批量设置库位</button>
-                <button type="button" class="btn btn-secondary" style="width: 130px; height: 35px; margin-right: 10px;" 
-                        onclick="showBatchDirectionDialog()">批量设置方向</button>
                 {% endif %}
                 <button id="addRowButton" type="button" class="btn btn-primary" style="width: 100px; height: 35px;" onclick="addRowBelow()">添加行</button>
                 <button id="addRowButton" type="button" class="btn btn-primary" style="width: 100px; height: 35px;" onclick="rmLastRow()">删除行</button>            
@@ -36,7 +34,6 @@
                             <th class="th">PO_ID</th>
                             {% if warehouse == "LA-91761" %}
                             <th class="th">库位</th>
-                            <th class="th">方向</th>
                             {% endif %}
                             <th class="th">最早派送时间</th>
                             <th class="th">最晚派送时间</th>
@@ -106,16 +103,8 @@
                                     <input type="text" name="slots" value="{{ pl.slot|default_if_none:'' }}" 
                                         style="width: 80px; font-size: 11px;">
                                 </td>
-                                <td class="td">
-                                    <select name="directions" style="width: 80px; font-size: 11px;">
-                                        <option value="">--选择--</option>
-                                        <option value="left" {% if pl.direction == "left" %}selected{% endif %}>left</option>
-                                        <option value="right" {% if pl.direction == "right" %}selected{% endif %}>right</option>
-                                    </select>
-                                </td>
                                 {% else %}
                                 <td class="td">{{ pl.slot  }}</td>
-                                <td class="td">{{ pl.direction  }}</td>
                                 {% endif %}
                             {% endif %}
                             <td class="td">{{ pl.delivery_window_start|default_if_none:''|date:'Y/m/d'  }}</td>
@@ -174,13 +163,6 @@
                             <td class="td">
                                 <input type="text" name="new_slots" style="width: 80px; font-size: 11px;">
                             </td>
-                            <td class="td">
-                                <select name="new_directions" style="width: 80px; font-size: 11px;">
-                                    <option value="">--选择--</option>
-                                    <option value="left">left</option>
-                                    <option value="right">right</option>
-                                </select>
-                            </td>
                             {% endif %}
                             <td class="td"><input type="date" name="new_delivery_window_starts"></td>
                             <td class="td"><input type="date" name="new_delivery_window_ends"></td>
@@ -208,18 +190,6 @@
         <div style="display: flex; justify-content: space-between; gap: 10px;">
             <button type="button" onclick="applyBatchLocation()" style="padding: 10px 20px; background: #4CAF50; color: white; border: none; border-radius: 6px; cursor: pointer; font-size: 14px; flex: 1;">确认</button>
             <button type="button" onclick="closeBatchDialog('batchLocationDialog')" style="padding: 10px 20px; background: #f44336; color: white; border: none; border-radius: 6px; cursor: pointer; font-size: 14px; flex: 1;">取消</button>
-        </div>
-    </div>
-    <div id="batchDirectionDialog" style="display: none; position: fixed; top: 50%; left: 50%; transform: translate(-50%, -50%); background: white; padding: 25px; border: 1px solid #ddd; border-radius: 12px; z-index: 1000; box-shadow: 0 5px 20px rgba(0,0,0,0.15); width: 320px;">
-        <h3 style="margin-top: 0; margin-bottom: 25px; font-size: 18px; color: #333;">批量设置方向</h3>
-        <select id="batchDirectionValue" style="width: 100%; padding: 12px; margin-bottom: 25px; border: 1px solid #ccc; border-radius: 6px; font-size: 14px; box-sizing: border-box;">
-            <option value="">--选择方向--</option>
-            <option value="left">left</option>
-            <option value="right">right</option>
-        </select>
-        <div style="display: flex; justify-content: space-between; gap: 10px;">
-            <button type="button" onclick="applyBatchDirection()" style="padding: 10px 20px; background: #4CAF50; color: white; border: none; border-radius: 6px; cursor: pointer; font-size: 14px; flex: 1;">确认</button>
-            <button type="button" onclick="closeBatchDialog('batchDirectionDialog')" style="padding: 10px 20px; background: #f44336; color: white; border: none; border-radius: 6px; cursor: pointer; font-size: 14px; flex: 1;">取消</button>
         </div>
     </div>
     <form method="post" action="" style="display: inline-block; float: right;" id="exportPallet-add">
@@ -495,9 +465,6 @@
     function showBatchLocationDialog() {
         document.getElementById('batchLocationDialog').style.display = 'block';
     }
-    function showBatchDirectionDialog() {
-        document.getElementById('batchDirectionDialog').style.display = 'block';
-    }
     function closeBatchDialog(dialogId) {
         document.getElementById(dialogId).style.display = 'none';
     }
@@ -515,18 +482,5 @@
         }
     }
     
-    // 应用批量方向设置
-    function applyBatchDirection() {
-        var directionValue = document.getElementById('batchDirectionValue').value;
-        if (directionValue) {
-            var directionSelects = document.querySelectorAll('select[name="directions"], select[name="new_directions"]');
-            directionSelects.forEach(function(select) {
-                select.value = directionValue;
-            });
-            closeBatchDialog('batchDirectionDialog');
-        } else {
-            alert('请选择方向');
-        }
-    }
 </script>
 {% endblock %}

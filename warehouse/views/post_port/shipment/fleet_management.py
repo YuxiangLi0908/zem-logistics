@@ -1372,8 +1372,7 @@ class FleetManagement(View):
             )
             for s in pallet:
                 s["total_n_pallet"] = f"预 {round(s['total_cbm'] / 2)}"
-                s["slot"] = ""  # 添加空slot字段
-                s["direction"] = ""  # 添加空direction字段
+                s["slot"] = "" 
             plt = await sync_to_async(list)(
                 Pallet.objects.select_related(
                     "container_number", "shipment_batch_number"
@@ -1388,7 +1387,6 @@ class FleetManagement(View):
                     "shipment_batch_number__shipment_batch_number",
                     "shipment_batch_number__shipment_appointment",
                     "slot",
-                    "direction"
                 )
                 .annotate(
                     total_weight=Round(Sum("weight_lbs", output_field=FloatField()), 2),
@@ -1451,7 +1449,6 @@ class FleetManagement(View):
                     "shipment_batch_number__shipment_batch_number": "  ",
                     "shipment_batch_number__shipment_appointment": "  ",
                     "slot": "  ", 
-                    "direction": "  ",
                     "一提两卸": "  ",
                     "is_spacer": True, #表示是否是空行
                     "force_text": True,
@@ -1489,6 +1486,15 @@ class FleetManagement(View):
         ):
             if p_schedule > p_shipped:
                 unshipped_pallet_ids += plt_id[: p_schedule - p_shipped]
+
+        #把出库的板子的slot改为空
+        all_flat_ids = [pid for group in plt_ids for pid in group] 
+        await sync_to_async(
+            lambda: Pallet.objects.filter(pallet_id__in=all_flat_ids)
+                                .exclude(pallet_id__in=unshipped_pallet_ids)
+                                .update(slot=None)
+        )()
+
         unshipped_pallet = await sync_to_async(list)(
             Pallet.objects.select_related("shipment_batch_number").filter(
                 pallet_id__in=unshipped_pallet_ids
@@ -1500,7 +1506,6 @@ class FleetManagement(View):
                 shipment_pallet[p.shipment_batch_number.shipment_batch_number] = [p]
             else:
                 shipment_pallet[p.shipment_batch_number.shipment_batch_number].append(p)
-        # raise ValueError(shipment_pallet)
         updated_shipment = []
         updated_pallet = []
         (
