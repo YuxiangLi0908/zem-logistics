@@ -195,7 +195,7 @@
     </div>
 
 <div class="show_table">
-        <form id="warehouse-form" class="d-flex align-items-center gap-2">
+        <form id="warehouse-form" method="post" class="d-flex align-items-center gap-2">
             {% csrf_token %}
             <input type="hidden" name="step" value="upload_warehouse">
             {{ warehouse_form.name }}
@@ -207,7 +207,6 @@
                 {% if order_packing_list %}
                     <form method="post" action="" onsubmit="return confirm('确定要保存更新吗？')">
                         {% csrf_token %}
-
                         <input type="hidden" name="step" value="update_warehouse">
                         <input type="hidden" name="warehouse" value="{{ warehouse|default:'' }}">
                         <table>
