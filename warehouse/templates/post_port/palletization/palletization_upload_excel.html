@@ -1,75 +1,130 @@
 {% extends 'base.html' %}
 {% block content %}
 <style>
-.upload-container {
-    display: flex;
-    gap: 40px;
-    margin: 20px 0;
-    flex-wrap: wrap;
-}
-.upload-card {
-    flex: 1;
-    min-width: 350px;
-    border: 1px solid #dee2e6;
-    border-radius: 8px;
-    padding: 20px;
-    box-shadow: 0 2px 8px rgba(0,0,0,0.08);
-}
-.upload-card h4 {
-    border-bottom: 1px solid #eee;
-    padding-bottom: 10px;
-    margin-bottom: 15px;
-    color: #3875d7;
-}
-.form-group {
-    margin-bottom: 15px;
-}
-.form-label {
-    font-weight: 500;
-    margin-bottom: 8px;
-    display: block;
-}
-.file-input {
-    width: 100%;
-    padding: 8px;
-    border: 1px solid #ced4da;
-    border-radius: 4px;
-}
-.upload-btn {
-    background: linear-gradient(135deg, #3875d7 0%, #2a62c9 100%);
-    color: #fff;
-    border: none;
-    border-radius: 6px;
-    padding: 8px 20px;
-    font-weight: 500;
-    cursor: pointer;
-    transition: all 0.3s ease;
-}
-.upload-btn:hover {
-    background: linear-gradient(135deg, #2a62c9 0%, #1e4aa1 100%);
-    transform: translateY(-1px);
-}
-.alert {
-    padding: 12px;
-    border-radius: 6px;
-    margin-bottom: 20px;
-    font-size: 14px;
-}
-.alert-success {
-    background-color: #d4edda;
-    color: #155724;
-    border: 1px solid #c3e6cb;
-}
-.alert-danger {
-    background-color: #f8d7da;
-    color: #721c24;
-    border: 1px solid #f5c6cb;
-}
+    #warehouse-select {
+        background-color: #0d6efd !important;
+        color: white !important;
+        border-color: #0d6efd !important;
+        appearance: none;
+        -webkit-appearance: none;
+        background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='16' height='16' fill='white' class='bi bi-chevron-down' viewBox='0 0 16 16'%3E%3Cpath d='M1.646 4.646a.5.5 0 0 1 .708 0L8 10.293l5.646-5.647a.5.5 0 0 1 .708.708l-6 6a.5.5 0 0 1-.708 0l-6-6a.5.5 0 0 1 0-.708z'/%3E%3C/svg%3E");
+        background-repeat: no-repeat;
+        background-position: right 0.7rem center;
+        padding-right: 2.5rem;
+    }
+    #warehouse-select option {
+        background-color: white;
+        color: #212529;
+    }
+    #warehouse-select option:checked {
+        background-color: #0d6efd;
+        color: white;
+    }
+    #warehouse-select:focus {
+        box-shadow: 0 0 0 0.25rem rgba(49, 132, 253, 0.5);
+        outline: none;
+    }
+    .upload-container {
+        display: flex;
+        gap: 20px;
+        margin: 10px 0;
+        flex-wrap: wrap;
+    }
+    .upload-card {
+        min-width: 300px;
+        border: 1px solid #dee2e6;
+        border-radius: 6px;
+        padding: 10px;
+        box-shadow: 0 1px 4px rgba(0, 0, 0, 0.05);
+    }
+    .upload-card h4 {
+        border-bottom: 1px solid #eee;
+        padding-bottom: 6px;
+        margin: 0 0 8px 0;
+        color: #3875d7;
+        font-size: 14px;
+    }
+    .form-group {
+        margin-bottom: 8px;
+        display: inline-block;
+    }
+    .form-label {
+        font-weight: 500;
+        margin-bottom: 4px;
+        display: block;
+        font-size: 12px;
+    }
+    .file-input {
+        width: 200px;
+        height: 33px;
+        padding: 0 6px;
+        border: 1px solid #ced4da;
+        border-radius: 4px;
+        line-height: 24px;
+        font-size: 12px;
+        appearance: none;
+        -webkit-appearance: none;
+        -moz-appearance: none;
+    }
+    .upload-btn {
+        color: #fff;
+        border: none;
+        border-radius: 4px;
+        padding: 5px 12px;
+        font-weight: 500;
+        font-size: 12px;
+        cursor: pointer;
+        transition: all 0.3s ease;
+        height: 33px;
+    }
+    .upload-btn:hover {
+        background: linear-gradient(135deg, #2a62c9 0%, #1e4aa1 100%);
+        transform: translateY(-1px);
+    }
+    .form-text.text-muted {
+        font-size: 11px;
+        margin-top: 2px;
+    }
+    .alert {
+        padding: 8px 10px;
+        border-radius: 4px;
+        margin-bottom: 10px;
+        font-size: 12px;
+    }
+    .form-control {
+        width: 100%;
+        height: 33px;
+        padding: 0 6px;
+        border: 1px solid #ced4da;
+        border-radius: 4px;
+        line-height: 24px;
+        font-size: 12px;
+    }
+    .list-area {
+        margin-top: 15px;
+        padding-top: 10px;
+        border-top: 1px dashed #eee;
+    }
+    table {
+        width: 100%;
+        border-collapse: collapse;
+        margin-top: 10px;
+    }
+    th, td {
+        border: 1px solid #dee2e6;
+        padding: 8px;
+        text-align: left;
+        font-size: 12px;
+    }
+    th {
+        background-color: #f8f9fa;
+    }
+    .loading {
+        padding: 20px;
+        text-align: center;
+        color: #0d6efd;
+    }
 </style>
-
-<div class="page-header">
-    <h3>Pallet库位更新 - 上传操作</h3>
-</div>
 
 {% if messages %}
     {% for message in messages %}
@@ -78,73 +133,242 @@
         </div>
     {% endfor %}
 {% endif %}
+{% if result %}
+    {% for log in result.log %}
+            {{ log }}
+    {% endfor %}
+{% endif %}
 
 <div class="upload-container">
-    <div class="upload-card">
-    <h4>1. 条形码上传（更新单条库位）</h4>
-    <form method="post" enctype="multipart/form-data" onsubmit="showUploadLoading(this)">
-        {% csrf_token %}
-        <input type="hidden" name="step" value="upload_barcode">
-
-        <div class="form-group">
-            <label class="form-label" for="barcode_file">选择条形码图片</label>
-            <input
-                type="file"
-                id="barcode_file"
-                name="barcode_file"
-                class="file-input"
-                accept="image/png,image/jpg,image/jpeg"
-                required
-            >
-            <small class="form-text text-muted">
-                支持格式：PNG/JPG/JPEG<br>
-                条形码需包含 Pallet 标识信息（如：PalletID、库位等）
-            </small>
+        <div class="upload-card">
+            <h4>1. 条形码上传（更新单条库位）</h4>
+            <form method="post" enctype="multipart/form-data" onsubmit="showUploadLoading(this)">
+                {% csrf_token %}
+                <input type="hidden" name="step" value="upload_barcode">
+                <div class="form-group">
+                    <label class="form-label" for="barcode_file">选择条形码图片</label>
+                    <input
+                            type="file"
+                            id="barcode_file"
+                            name="barcode_file"
+                            class="file-input"
+                            accept="image/png,image/jpg,image/jpeg"
+                            required
+                    >
+                </div>
+                <div class="form-group">
+                    <label class="form-label" for="barcode_slot">目标库位（Slot）</label>
+                    <input
+                            type="text"
+                            id="barcode_slot"
+                            name="barcode_slot"
+                            class="form-control"
+                            placeholder="例如：NJ-3"
+                            required
+                    >
+                </div>
+                <button type="submit" class="upload-btn btn btn-primary" id="barcode-submit-btn">
+                    确认上传并解析条形码
+                </button>
+            </form>
         </div>
 
-        <div class="form-group">
-                <label class="form-label" for="barcode_slot">目标库位（Slot）</label>
-                <input
-                    type="text"
-                    id="barcode_slot"
-                    name="barcode_slot"
-                    class="form-control"
-                    placeholder="例如：NJ-3"
-                    required
-                >
-                <small class="form-text text-muted">输入该条形码对应Pallet的新库位</small>
-            </div>
-
-        <button type="submit" class="upload-btn" id="barcode-submit-btn">
-            确认上传并解析条形码
-        </button>
-    </form>
+        <div class="upload-card">
+            <h4>2. Excel上传（批量更新库位）</h4>
+            <form method="post" enctype="multipart/form-data">
+                {% csrf_token %}
+                <input type="hidden" name="step" value="upload_excel">
+                <div class="form-group">
+                    <label class="form-label" for="excel_file">选择Excel文件</label>
+                    <input
+                            type="file"
+                            id="excel_file"
+                            name="excel_file"
+                            class="file-input"
+                            accept=".xlsx,.xls"
+                            required
+                    >
+                </div>
+                <button type="submit" class="upload-btn btn btn-primary">确认上传Excel并批量更新</button>
+            </form>
+        </div>
     </div>
 
-    <!-- 2. Excel上传表单 -->
-    <div class="upload-card">
-        <h4>2. Excel上传（批量更新库位）</h4>
-        <form method="post" enctype="multipart/form-data">
+<div class="show_table">
+        <form id="warehouse-form" class="d-flex align-items-center gap-2">
             {% csrf_token %}
-            <input type="hidden" name="step" value="upload_excel">
-
-            <div class="form-group">
-                <label class="form-label" for="excel_file">选择Excel文件</label>
-                <input
-                    type="file"
-                    id="excel_file"
-                    name="excel_file"
-                    class="file-input"
-                    accept=".xlsx,.xls"
-                    required
-                >
-                <small class="form-text text-muted">支持格式：.xlsx/.xls，文件需包含【柜号】,【仓点】和【库位】列</small>
-            </div>
-
-            <button type="submit" class="upload-btn">确认上传Excel并批量更新</button>
+            <input type="hidden" name="step" value="upload_warehouse">
+            {{ warehouse_form.name }}
+            <button type="submit" class="btn btn-outline-primary">确认</button>
         </form>
+
+        <div id="table-container">
+            {% if warehouse %}
+                {% if order_packing_list %}
+                    <form method="post" action="" onsubmit="return confirm('确定要保存更新吗？')">
+                        {% csrf_token %}
+
+                        <input type="hidden" name="step" value="update_warehouse">
+                        <input type="hidden" name="warehouse" value="{{ warehouse|default:'' }}">
+                        <table>
+                            <thead>
+                            <tr>
+                                <th>PO_ID</th>
+                                <th>货柜</th>
+                                <th>目的仓库</th>
+                                <th>派送方式</th>
+                                <th>打板数</th>
+                                <th>库位</th>
+                                <th>库位板数</th>
+                            </tr>
+                            </thead>
+                            <tbody id="pallet-table-body">
+                            {% for p in order_packing_list %}
+                                <tr>
+                                    <input type="hidden" name="po_id_{{ forloop.counter }}"
+                                           value="{{ p.PO_ID|default:'' }}">
+                                    <input type="hidden" name="n_pallet_{{ forloop.counter }}"
+                                           value="{{ p.n_pallet|default:0 }}">
+                                    <input type="hidden" name="container_{{ forloop.counter }}"
+                                           value="{{ p.container_number__container_number|default:'' }}">
+                                    <input type="hidden" name="destination_{{ forloop.counter }}"
+                                           value="{{ p.destination|default:'' }}">
+                                    <input type="hidden" name="delivery_method_{{ forloop.counter }}"
+                                           value="{{ p.delivery_method|default:'' }}">
+
+                                    <td>{{ p.PO_ID|default:"" }}</td>
+                                    <td>{{ p.container_number__container_number|default:"" }}</td>
+                                    <td>{{ p.destination|default:"" }}</td>
+                                    <td>{{ p.delivery_method|default:"" }}</td>
+                                    <td>{{ p.n_pallet|default:"" }}</td>
+                                    <td><input type="text" name="slot_{{ forloop.counter }}"
+                                               value='{{ p.slot|default:"" }}'></td>
+                                    <td><input type="number" name="slot_count_{{ forloop.counter }}"
+                                               class="form-control" min="0" max="{{ p.n_pallet }}"
+                                               value='{{ p.slot_count|default:0 }}'></td>
+                                </tr>
+                            {% empty %}
+                                <tr>
+                                    <td colspan="8" class="text-center">没有找到数据</td>
+                                </tr>
+                            {% endfor %}
+                            </tbody>
+                            <div style="text-align: center; margin-top: 10px;">
+                                <button id="save-update-btn" class="btn btn-primary">保存更新</button>
+                            </div>
+
+                        </table>
+                    </form>
+                {% else %}
+                    <div class="alert alert-info">没有找到该仓库的相关数据</div>
+                {% endif %}
+            {% else %}
+                <div class="alert alert-info">请选择一个仓库查看数据</div>
+            {% endif %}
+        </div>
     </div>
-</div>
 
 
+<script>
+        document.getElementById('warehouse-form').addEventListener('submit', function (e) {
+            e.preventDefault();
+            const formData = new FormData(this);
+
+            const tableContainer = document.getElementById('table-container');
+            tableContainer.innerHTML = '<div class="loading">加载中...</div>';
+
+            fetch('', {
+                method: 'POST',
+                body: formData
+            })
+                .then(response => {
+                    if (!response.ok) throw new Error(`请求失败（状态码：${response.status}）`);
+                    return response.text();
+                })
+                .then(html => {
+                    const tempDom = document.createElement('div');
+                    tempDom.innerHTML = html;
+
+                    let newTableContent = '';
+                    const tempTableContainer = tempDom.querySelector('#table-container');
+                    if (tempTableContainer) {
+                        newTableContent = tempTableContainer.innerHTML;
+                    } else {
+                        const tempTable = tempDom.querySelector('table');
+                        const tempAlert = tempDom.querySelector('.alert');
+                        if (tempTable) {
+                            newTableContent = tempTable.outerHTML;
+                        } else if (tempAlert) {
+                            newTableContent = tempAlert.outerHTML;
+                        } else {
+                            newTableContent = '<div class="alert alert-warning">未找到表格数据</div>';
+                        }
+                    }
+                    tableContainer.innerHTML = newTableContent;
+                })
+                .catch(error => {
+                    tableContainer.innerHTML = `<div class="alert alert-danger">加载失败：${error.message}</div>`;
+                });
+        });
+
+        function showUploadLoading(form) {
+            const submitBtn = form.querySelector('button[type="submit"]');
+            submitBtn.disabled = true;
+            submitBtn.innerHTML = '上传中...';
+        }
+document.addEventListener('DOMContentLoaded', function() {
+    const saveBtn = document.getElementById('save-update-btn');
+    const tableBody = document.getElementById('pallet-table-body');
+    const form = saveBtn.closest('form');  // 获取表单元素
+
+    saveBtn.addEventListener('click', async function() {
+        const formData = new FormData(form);
+        const warehouse = document.querySelector('input[name="warehouse"]').value;
+        formData.append('warehouse', warehouse);
+
+        try {
+            const response = await fetch('/palletize/?step=upload_excel/', {
+                method: 'POST',
+                body: formData,
+                headers: {
+                    {% csrf_token %}
+                    'X-CSRFToken': document.querySelector('[name=csrfmiddlewaretoken]').value
+                }
+            });
+
+            const result = await response.json();
+            if (result.status === 'success') {
+                let newTableHtml = '';
+                result.table_data.forEach((item, index) => {
+                    newTableHtml += `
+                        <tr>
+                            <input type="hidden" name="po_id_${index + 1}" value="${item.PO_ID || ''}">
+                            <input type="hidden" name="n_pallet_${index + 1}" value="${item.n_pallet || 0}">
+                            <input type="hidden" name="container_${index + 1}" value="${item.container_number__container_number || ''}">
+                            <input type="hidden" name="destination_${index + 1}" value="${item.destination || ''}">
+                            <input type="hidden" name="delivery_method_${index + 1}" value="${item.delivery_method || ''}">
+
+                            <td>${item.PO_ID || ''}</td>
+                            <td>${item.container_number__container_number || ''}</td>
+                            <td>${item.destination || ''}</td>
+                            <td>${item.delivery_method || ''}</td>
+                            <td>${item.n_pallet || ''}</td>
+                            <td><input type="text" name="slot_${index + 1}" value="${item.slot || ''}"></td>
+                            <td><input type="number" name="slot_count_${index + 1}" class="form-control" min="0" max="${item.n_pallet}" value="${item.slot_count || 0}"></td>
+                        </tr>
+                    `;
+                });
+
+                tableBody.innerHTML = newTableHtml;
+                alert(result.message);
+            } else {
+                alert('更新失败：' + result.message);
+            }
+        } catch (error) {
+            {#console.error('异步提交错误：', error);#}
+            {#alert('更新出错，请重试');#}
+        }
+    });
+});
+    </script>
 {% endblock %}
