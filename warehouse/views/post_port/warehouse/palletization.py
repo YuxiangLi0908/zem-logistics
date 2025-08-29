@@ -688,8 +688,10 @@ class Palletization(View):
                         po_id_seg = f"S{''.join(random.choices(string.ascii_letters.upper() + string.digits, k=4))}"
                     else:
                         po_id_seg = f"{DELIVERY_METHOD_CODE.get(dm, 'UN')}{''.join(random.choices(string.ascii_letters.upper() + string.digits, k=4))}"
+                    random.seed(container.container_number[-4:])
+                    random_code = ''.join(random.choices(string.ascii_uppercase + string.digits, k=6))
                     new_po_ids.append(
-                        f"A{container.container_number[-4:]}{po_id_seg}{seq_num}"
+                        f"A{random_code}{po_id_seg}{seq_num}"
                     )
                     seq_num += 1
 
