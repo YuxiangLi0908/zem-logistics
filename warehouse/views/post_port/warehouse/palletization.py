@@ -74,7 +74,7 @@ class Palletization(View):
         "post_port/palletization/palletization_abnormal_records_display.html"
     )
     template_pallet_daily_operation = "post_port/palletization/daily_operation.html"
-    template_pallet_upload_excel = "post_port/palletization/palletization_upload_excel.html"
+    template_pallet_warehouse_zone = "post_port/palletization/palletization_warehouse_zone.html"
     warehouse_options = {
         "": "",
         "NJ-07001": "NJ-07001",
@@ -95,9 +95,9 @@ class Palletization(View):
                 request, pk
             )
             return render(request, template, context)
-        elif step == "upload_excel":
-            template, context = await self.upload_excel_get(request)
-            return render(request, self.template_pallet_upload_excel, context)
+        elif step == "warehouse_zone":
+            template, context = await self.warehouse_zone_get(request)
+            return render(request, self.template_pallet_warehouse_zone, context)
         elif step == "abnormal":
             template, context = await self.handle_palletization_abnormal_get()
             return render(request, template, context)
@@ -429,10 +429,10 @@ class Palletization(View):
                 context["order_packing_list"] = order_packing_list
                 context["warehouse_form"] = ZemWarehouseForm(initial={"name": warehouse})
                 context["warehouse"] = warehouse
-            return self.template_pallet_upload_excel, context
+            return self.template_pallet_warehouse_zone, context
         else:
             context = {"warehouse_form": ZemWarehouseForm()}
-        return self.template_pallet_upload_excel, context
+        return self.template_pallet_warehouse_zone, context
 
 
     async def handle_container_palletization_get(
@@ -1245,12 +1245,12 @@ class Palletization(View):
             )
         return response
 
-    async def upload_excel_get(self, request: HttpRequest) -> tuple[str, dict[str, str]]:
+    async def warehouse_zone_get(self, request: HttpRequest) -> tuple[str, dict[str, str]]:
         context = {
             "title": "上传条形码更新库位",
             "warehouse_form": ZemWarehouseForm()
         }
-        return self.template_pallet_upload_excel, context
+        return self.template_pallet_warehouse_zone, context
 
     async def upload_barcode_post(self, request: HttpRequest) -> tuple[str, dict[str, Any]]:
         barcode_file = request.FILES.get("barcode_file")
@@ -1314,7 +1314,7 @@ class Palletization(View):
             "warehouse_form": ZemWarehouseForm(),
             "success_message": messages.get_messages(request)
         }
-        return self.template_pallet_upload_excel, context
+        return self.template_pallet_warehouse_zone, context
 
     async def upload_excel_post(self, request: HttpRequest) -> tuple[str, dict[str, Any]]:
         excel_file = request.FILES.get('excel_file')
@@ -1343,7 +1343,7 @@ class Palletization(View):
             )
             messages.success(request, success_message)
 
-            return self.template_pallet_upload_excel, {
+            return self.template_pallet_warehouse_zone, {
                 "success": True,
                 "result": update_result,
                 "warehouse_form": ZemWarehouseForm()
@@ -1351,7 +1351,7 @@ class Palletization(View):
 
         except Exception as e:
             messages.error(request, f"处理Excel失败：{str(e)}")
-            return self.template_pallet_upload_excel, {
+            return self.template_pallet_warehouse_zone, {
                 "success": False,
                 "error": str(e)
             }
