@@ -3120,9 +3120,8 @@ class Accounting(View):
                 all_fee_types.add(arrive_name)
 
         sorted_fee_types = sorted(all_fee_types)
-        headers = ["柜号"] + sorted_fee_types
-        ws.append(headers)
-
+        
+        rows = []
         for order, invoice, warehouse, preport in orders:
             row_data = {fee: "" for fee in sorted_fee_types}
             row_data["柜号"] = order.container_number.container_number
@@ -3134,7 +3133,6 @@ class Accounting(View):
                     if warehouse.other_fees and isinstance(warehouse.other_fees, dict):
                         for k, v in warehouse.other_fees.items():
                             row_data[str(k)] = v
-                    # BBR/KNO 总费用来自 InvoiceWarehouse.amount
                     row_data["总费用"] = getattr(warehouse, "amount", 0) or 0
             else:
                 total_amount = 0
@@ -3155,10 +3153,20 @@ class Accounting(View):
                     if warehouse.other_fees and isinstance(warehouse.other_fees, dict):
                         for k, v in warehouse.other_fees.items():
                             row_data[str(k)] = v
-
                 row_data["总费用"] = total_amount
 
-            ws.append([row_data.get(col, "") for col in headers])
+            rows.append(row_data)
+
+        valid_headers = ["柜号"]
+        for col in sorted_fee_types:
+            col_values = [row[col] for row in rows if row.get(col, "") not in ("", None)]
+            if any(v not in (0, "0") for v in col_values):
+                valid_headers.append(col)
+        ws.append(valid_headers)
+
+        for row in rows:
+            ws.append([row.get(col, "") for col in valid_headers])
+
         
         response = HttpResponse(
             content_type="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
