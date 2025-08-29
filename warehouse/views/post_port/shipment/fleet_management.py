@@ -1489,6 +1489,15 @@ class FleetManagement(View):
         ):
             if p_schedule > p_shipped:
                 unshipped_pallet_ids += plt_id[: p_schedule - p_shipped]
+
+        #把出库的板子的slot改为空
+        all_flat_ids = [pid for group in plt_ids for pid in group] 
+        await sync_to_async(
+            lambda: Pallet.objects.filter(pallet_id__in=all_flat_ids)
+                                .exclude(pallet_id__in=unshipped_pallet_ids)
+                                .update(slot=None)
+        )()
+
         unshipped_pallet = await sync_to_async(list)(
             Pallet.objects.select_related("shipment_batch_number").filter(
                 pallet_id__in=unshipped_pallet_ids
@@ -1500,7 +1509,6 @@ class FleetManagement(View):
                 shipment_pallet[p.shipment_batch_number.shipment_batch_number] = [p]
             else:
                 shipment_pallet[p.shipment_batch_number.shipment_batch_number].append(p)
-        # raise ValueError(shipment_pallet)
         updated_shipment = []
         updated_pallet = []
         (
