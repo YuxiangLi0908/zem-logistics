@@ -761,74 +761,53 @@ class Accounting(View):
     def migrate_status(self) -> HttpRequest:
         conflict_data = []
 
-        total_count = PackingList.objects.filter(
-            delivery_method='暂扣留仓(HOLD)',
+        # 获取所有有PO_ID的pallet记录，并预取相关对象
+        pallets = Pallet.objects.filter(
             PO_ID__isnull=False
-        ).count()
+        ).select_related(
+            'container_number',  
+            'invoice_delivery'   
+        ).order_by('PO_ID', 'invoice_delivery_id')
 
-        # 计算切片范围：最后20万条的起始位置和最后5万条的起始位置
-        start_index = max(0, total_count - 200000)  # 最后20万条的起始位置
-        end_index = max(0, total_count - 50000) 
-
-        hold_records = PackingList.objects.filter(
-            delivery_method='暂扣留仓(HOLD)',
-            PO_ID__isnull=False
-        ).order_by('-id')[start_index:end_index]
-
-        sorted_records = sorted(hold_records, key=lambda x: (x.container_number_id, x.PO_ID))
-
-        for (container_num, po_id), group in groupby(
-            sorted_records, 
-            key=attrgetter('container_number', 'PO_ID')
-        ):
-            group_list = list(group)
-            if len(group_list) > 1:  # 同一container和PO下有多个记录
-                # 检查destination是否一致
-                first_record = group_list[0]
-                conflicts = [
-                    rec for rec in group_list[1:] 
-                    if rec.destination != first_record.destination
-                ]
-                
-                if conflicts:
-                    # 添加基准记录
-                    conflict_data.append({
-                        'Container Number ID': container_num,
-                        'PO_ID': po_id,
-                        'ID': first_record.id,
-                        'Destination': first_record.destination,
-                        'Shipping Mark': first_record.shipping_mark,
-                        'Batch Number': first_record.shipment_batch_number,
-                        'Conflict Reason': 'Base Record'
-                    })
-                    
-                    # 添加冲突记录
-                    for conflict_rec in conflicts:
-                        conflict_data.append({
-                            'Container Number ID': container_num,
-                            'PO_ID': po_id,
-                            'ID': conflict_rec.id,
-                            'Destination': conflict_rec.destination,
-                            'Shipping Mark': conflict_rec.shipping_mark,
-                            'Batch Number': conflict_rec.shipment_batch_number,
-                            'Conflict Reason': f"Differs from {first_record.id}"
-                        })
+        # 按PO_ID分组，检查每组中的invoice_delivery是否相同
+        sorted_pallets = sorted(pallets, key=attrgetter('PO_ID'))
         
-        # 创建DataFrame并导出Excel
+        for po_id, group in groupby(sorted_pallets, key=attrgetter('PO_ID')):
+            group_list = list(group)
+            #查看每个组内，是否有不同的invoice_delivery
+            if len(group_list) > 1:
+                first_invoice = group_list[0].invoice_delivery
+                has_conflict = any(
+                    pallet.invoice_delivery != first_invoice 
+                    for pallet in group_list[1:]
+                )
+                
+                if has_conflict:
+                    for pallet in group_list:
+                        conflict_data.append({
+                            'PO_ID': pallet.PO_ID,
+                            'Container Number': pallet.container_number.container_number if pallet.container_number else '',
+                            'Destination': pallet.destination,
+                            'Invoice Delivery': pallet.invoice_delivery.invoice_number if pallet.invoice_delivery else 'None',
+                            'Invoice Delivery ID': pallet.invoice_delivery_id,
+                            'Pallet ID': pallet.id,
+                            'Shipping Mark': pallet.shipping_mark,
+                            'FBA ID': pallet.fba_id,
+                            'CBM': pallet.cbm,
+                            'Weight (lbs)': pallet.weight_lbs,
+                            'Location': pallet.location
+                        })
+
         if conflict_data:
             df = pd.DataFrame(conflict_data)
             response = HttpResponse(
                 content_type="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
             )
-            response["Content-Disposition"] = f"attachment; filename=111.xlsx"
-            df.to_excel(excel_writer=response, index=False, columns=df.columns)
+            response["Content-Disposition"] = "attachment; filename=invoice_delivery_conflicts.xlsx"
+            df.to_excel(excel_writer=response, index=False)
             return response
-            
         else:
-            raise ValueError('没有异常数据')
-        
-        context = {}
-        return self.template_invoice_preport, context
+            raise ValueError('没有发现PO_ID相同但invoice_delivery不同的记录')
 
     def replace_keywords(data):
         KEYWORD_MAPPING = {
@@ -3158,7 +3137,6 @@ class Accounting(View):
                     # BBR/KNO 总费用来自 InvoiceWarehouse.amount
                     row_data["总费用"] = getattr(warehouse, "amount", 0) or 0
             else:
-                # 其他供应商：总费用 = InvoicePreport.amount + (InvoiceWarehouse.amount if exists)
                 total_amount = 0
                 if preport:
                     total_amount += float(preport.amount or 0)
