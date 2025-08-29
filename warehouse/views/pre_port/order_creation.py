@@ -930,7 +930,8 @@ class OrderCreation(View):
                 if po_id_hkey in po_id_hash:
                     po_id = po_id_hash.get(po_id_hkey)
                 else:
-                    po_id = f"{container_number[-4:]}{po_id_seg}{seq_num}"
+                    random.seed(container_number[-4:])
+                    po_id = f"{''.join(random.choices(string.ascii_uppercase + string.digits, k=6))}{po_id_seg}{seq_num}"
                     po_id = re.sub(r"[\u4e00-\u9fff]", "", po_id)
                     po_id_hash[po_id_hkey] = po_id
                     seq_num += 1
