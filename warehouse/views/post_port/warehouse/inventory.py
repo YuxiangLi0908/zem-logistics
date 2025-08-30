@@ -505,26 +505,30 @@ class Inventory(View):
         plt_ids = [int(i) for i in plt_ids.split(",")]
         # pallet = await sync_to_async(list)(Pallet.objects.select_related("container_number").filter(id__in=plt_ids))
         pallet = await self._get_inventory_pallet(warehouse, models.Q(id__in=plt_ids))
+        PO_ID = pallet[0].get("PO_ID")
         container_number = pallet[0].get("container")
-        shipping_mark = pallet[0].get("shipping_mark")
-        fba_id = pallet[0].get("fba_id")
-        ref_id = pallet[0].get("ref_id")
-        shipping_mark = shipping_mark.split(",") if shipping_mark else ""
-        fba_id = fba_id.split(",") if fba_id else ""
-        ref_id = ref_id.split(",") if ref_id else ""
-        criteria = models.Q(container_number__container_number=container_number)
-        if shipping_mark:
-            criteria &= models.Q(shipping_mark__in=shipping_mark)
-        else:
-            criteria &= models.Q(shipping_mark__isnull=True)
-        if fba_id:
-            criteria &= models.Q(fba_id__in=fba_id)
-        else:
-            criteria &= models.Q(fba_id__isnull=True)
-        if ref_id:
-            criteria &= models.Q(ref_id__in=ref_id)
-        else:
-            criteria &= models.Q(ref_id__isnull=True)
+        # shipping_mark = pallet[0].get("shipping_mark")
+        # fba_id = pallet[0].get("fba_id")
+        # ref_id = pallet[0].get("ref_id")
+        # shipping_mark = shipping_mark.split(",") if shipping_mark else ""
+        # fba_id = fba_id.split(",") if fba_id else ""
+        # ref_id = ref_id.split(",") if ref_id else ""
+        criteria = models.Q(
+            container_number__container_number=container_number,
+            PO_ID=PO_ID,
+        )
+        # if shipping_mark:
+        #     criteria &= models.Q(shipping_mark__in=shipping_mark)
+        # else:
+        #     criteria &= models.Q(shipping_mark__isnull=True)
+        # if fba_id:
+        #     criteria &= models.Q(fba_id__in=fba_id)
+        # else:
+        #     criteria &= models.Q(fba_id__isnull=True)
+        # if ref_id:
+        #     criteria &= models.Q(ref_id__in=ref_id)
+        # else:
+        #     criteria &= models.Q(ref_id__isnull=True)
         packing_list = await sync_to_async(list)(PackingList.objects.filter(criteria))
         pl_ids = ",".join([str(pl.id) for pl in packing_list])
         context = {
@@ -921,6 +925,7 @@ class Inventory(View):
                 "fba_id",
                 "ref_id",
                 "note",
+                "PO_ID",
                 "address",
                 "zipcode",
                 "location",
