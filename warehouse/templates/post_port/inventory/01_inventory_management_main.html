@@ -37,9 +37,6 @@
             <li class="nav-item">
                 <button class="nav-link" onclick="showSection(this, 'warehouse-special-process-sec')"><b>库内操作</b></button>
             </li>
-            <li class="nav-item">
-                <button class="nav-link" onclick="showSection(this, 'warehouse-transfer-sec')" id="warehouse-transfer-btn"><b>卡板转仓</b></button>
-            </li>
             {% if user.is_authenticated and user.is_staff %}
             <li class="nav-item">
                 <button class="nav-link" onclick="showSection(this, 'inventory-counting-sec')"><b>库存盘点</b></button>
@@ -385,56 +382,6 @@
             section.style.display = section.id === secId ? "":"none";
         });
     };
-
-    function toggleRowBackground(checkbox) {
-        var row = checkbox.closest('tr');
-        if (checkbox.checked) {
-            row.style.backgroundColor = '#ADD8E6'; // Change to your desired color
-        } else {
-            row.style.backgroundColor = ''; // Reset to default color
-        }
-        var td = checkbox.closest('td');
-        const OrderInput = td.querySelector('input[name="orders"]');
-        const pltIdsInput = td.querySelector('input[name="plt_ids"]');
-        if (checkbox.checked){
-            selectedOrders.push(OrderInput.value);
-            selectedIds.push(pltIdsInput.value);
-        } else {
-            let index = selectedOrders.indexOf(OrderInput.value);
-            if (index > -1) {
-                selectedOrders.splice(index, 1);
-            }
-            let indexId = selectedIds.indexOf(pltIdsInput.value);
-            if (indexId > -1) {
-                selectedIds.splice(indexId, 1);
-            }
-        };
-        console.log('selectorders',selectedOrders);
-        console.log('selectorders',selectedIds);
-    };
-
-    //全选的操作
-    document.getElementById('selectAll').addEventListener('click', function () {
-        var checkboxes = document.getElementsByName('is_pallet_selected_click');
-        for (var i = 0; i < checkboxes.length; i++) {
-            tr = checkboxes[i].parentNode.parentNode;   
-            if(tr.style.display === ""){
-                checkboxes[i].checked = this.checked;
-                if (this.checked){
-                    let checkbox = checkboxes[i];
-                    let row = checkbox.parentNode.parentNode;
-                    let IdsElement = row.children[2];
-                    let Ids = IdsElement? IdsElement.textContent : '';
-                    
-
-                    let OrderElement = row.children[3];
-                    let Orders = OrderElement? OrderElement.textContent : '';
-                    
-                }
-            }
-            toggleRowBackground(checkboxes[i]);
-        }
-    });
 
     const palletData = JSON.parse('{{ pallet_json|safe }}');
 
