@@ -331,6 +331,9 @@ class Accounting(View):
         elif step == "update_delivery_invoice":
             template, context = self.handle_invoice_delivery_save(request)
             return render(request, template, context)
+        elif step == "swicth_delivery_invoice":
+            template, context = self.handle_swicth_delivery_save(request)
+            return render(request, template, context)
         elif step == "confirm_save":
             template, context = self.handle_invoice_confirm_save(request)
             return render(request, template, context)
@@ -3506,6 +3509,41 @@ class Accounting(View):
         elif status == "direct":
             return self.handle_container_invoice_direct_get(request)
 
+    def handle_swicth_delivery_save(self, request: HttpRequest) -> tuple[Any, Any]:
+        #这个方法是，切换公仓派送的类别，如果当前是组合柜，就切换到亚马逊/沃尔玛，反之相同
+        container_number = request.POST.get("container_number")
+        distinct_types = (
+            Pallet.objects.filter(
+                container_number__container_number=container_number,
+                delivery_type="public",
+            )
+            .exclude(invoice_delivery__isnull=True) 
+            .values_list('invoice_delivery__type', flat=True)
+            .distinct()
+        )
+        distinct_types_list = list(distinct_types)
+        print(distinct_types_list,len(distinct_types_list))
+        if "combine" in distinct_types_list and len(distinct_types_list) == 1:  
+            #如果只有组合柜，那就转为亚马逊
+            iscombina = True
+        else:
+            #否则就转为组合柜
+            iscombina = False  
+        order = Order.objects.select_related(
+            "retrieval_id", "container_number", "vessel_id"
+        ).get(container_number__container_number=container_number)
+        warehouse = order.retrieval_id.retrieval_destination_area
+        vessel_etd = order.vessel_id.vessel_etd
+        is_transfer = False
+        if order.order_type == "转运":
+            is_transfer = True
+        fee_details = self._get_fee_details(warehouse, vessel_etd)
+        print('要转成组合柜么',iscombina)
+        self._auto_classify_pallet(container_number,fee_details,warehouse,'True',iscombina, is_transfer)
+        return self.handle_container_invoice_delivery_get(request)
+        
+
+
     def handle_invoice_delivery_save(self, request: HttpRequest) -> tuple[Any, Any]:
         container_number = request.POST.get("container_number")
         delivery_type = request.POST.get("delivery_type")
@@ -4100,7 +4138,7 @@ class Accounting(View):
             container_number=order.container_number, invoice_type="receivable"
         )
         if invoice_status.stage not in ["confirmed","tobeconfirmed"]:
-            self._auto_classify_pallet(container_number,fee_details,warehouse,is_transfer)
+            self._auto_classify_pallet(container_number,fee_details,warehouse,'False','False', is_transfer)
         # 把pallet汇总
         base_query = Pallet.objects.prefetch_related(
             "container_number",
@@ -4272,7 +4310,7 @@ class Accounting(View):
             else:
                 raise ValueError("没有权限")
             
-    def _auto_classify_pallet(self, container_number: str,fee_details:dict, warehouse: str,is_transfer:bool) -> None:
+    def _auto_classify_pallet(self, container_number: str,fee_details:dict, warehouse: str,is_specific_type:bool, iscombina:bool, is_transfer:bool) -> None:
         #查找公仓、没有派送类别、没有暂扣的板子
         base_query = Pallet.objects.prefetch_related(
             "container_number",
@@ -4281,12 +4319,15 @@ class Accounting(View):
             "container_number__order__customer_name",
             "invoice_delivery",
             Prefetch("invoice_delivery__pallet_delivery", to_attr="delivered_pallets"),
-        ).filter(container_number__container_number=container_number,
-            delivery_type='public',
-            invoice_delivery__isnull=True
+        ).filter(
+            container_number__container_number=container_number,
+            delivery_type='public', 
         ).exclude(
             delivery_method='暂扣留仓(HOLD)'  # 排除暂扣留仓的
         )
+        if not is_specific_type:
+            #如果没指定类型，只看没有处理的板子，指定了的话，要看全部的，因为是公仓全部转类型
+            base_query.filter(invoice_delivery__isnull=True)
         common_values = [
             "container_number__container_number",
             "destination",
@@ -4314,12 +4355,17 @@ class Accounting(View):
                 container_number__container_number=container_number
             )
             current_date = datetime.now().date()  
-
-            if not is_transfer: 
-                #转运组合的，判断下是否符合组合柜规则
-                iscombina = self._is_combina(container_number)
-            else:
-                iscombina = False
+            print('是否指定',is_specific_type)
+            if not is_specific_type:
+                #如果没有指定是亚马逊还是组合柜，就去判断，指定了就按指定的
+                print('没指定')
+                if not is_transfer: 
+                    #转运组合的，判断下是否符合组合柜规则
+                    iscombina = self._is_combina(container_number)
+                else:
+                    iscombina = False
+                print('是不是组合柜',iscombina)
+            print('指定了是不是组合柜',iscombina)
             if iscombina:
                 #按组合柜算，就去组合柜表找
                 rules = fee_details.get(f"{warehouse}_COMBINA").details
