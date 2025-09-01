@@ -3512,34 +3512,29 @@ class Accounting(View):
     def handle_swicth_delivery_save(self, request: HttpRequest) -> tuple[Any, Any]:
         #这个方法是，切换公仓派送的类别，如果当前是组合柜，就切换到亚马逊/沃尔玛，反之相同
         container_number = request.POST.get("container_number")
-        distinct_types = (
-            Pallet.objects.filter(
-                container_number__container_number=container_number,
-                delivery_type="public",
-            )
-            .exclude(invoice_delivery__isnull=True) 
-            .values_list('invoice_delivery__type', flat=True)
-            .distinct()
+        public_pallets = Pallet.objects.filter(
+            container_number__container_number=container_number,
+            delivery_type="public",
+            invoice_delivery__isnull=False
         )
-        distinct_types_list = list(distinct_types)
-        print(distinct_types_list,len(distinct_types_list))
-        if "combine" in distinct_types_list and len(distinct_types_list) == 1:  
-            #如果只有组合柜，那就转为亚马逊
-            iscombina = True
-        else:
-            #否则就转为组合柜
-            iscombina = False  
+        has_combine = public_pallets.filter(invoice_delivery__type="combine").exists()
+        has_other = public_pallets.exclude(invoice_delivery__type="combine").exists()
+        
+        # 决定切换方向：如果有组合柜且没有其他类型，切换到非组合柜；否则切换到组合柜
+        iscombina = not (has_combine and not has_other)
+        
         order = Order.objects.select_related(
             "retrieval_id", "container_number", "vessel_id"
         ).get(container_number__container_number=container_number)
         warehouse = order.retrieval_id.retrieval_destination_area
         vessel_etd = order.vessel_id.vessel_etd
-        is_transfer = False
-        if order.order_type == "转运":
-            is_transfer = True
+        is_transfer = order.order_type == "转运"
+
         fee_details = self._get_fee_details(warehouse, vessel_etd)
-        print('要转成组合柜么',iscombina)
-        self._auto_classify_pallet(container_number,fee_details,warehouse,'True',iscombina, is_transfer)
+        self._auto_classify_pallet(
+            container_number, fee_details, warehouse, 
+            True, iscombina, is_transfer
+        )
         return self.handle_container_invoice_delivery_get(request)
         
 
@@ -4078,7 +4073,11 @@ class Accounting(View):
                             upsdelivery.append(delivery)
                         elif delivery.type == "selfpickup":
                             selfpickup.append(delivery)
-                    
+                    container = Container.objects.get(container_number=container_number)
+                    if order.order_type == "转运组合" and container.account_order_type == "转运":
+                        non_combina_reason = container.non_combina_reason
+                    else:
+                        non_combina_reason = None
                     context = {
                         "invoice": invoice,
                         "order_type": order.order_type,
@@ -4095,6 +4094,7 @@ class Accounting(View):
                         "start_date_confirm": start_date_confirm,
                         "end_date_confirm": end_date_confirm,
                         "invoice_type": invoice_type,
+                        "non_combina_reason": non_combina_reason,
                         "delivery_amount": getattr(
                             invoice, "receivable_delivery_amount", 0
                         ),
@@ -4138,7 +4138,16 @@ class Accounting(View):
             container_number=order.container_number, invoice_type="receivable"
         )
         if invoice_status.stage not in ["confirmed","tobeconfirmed"]:
-            self._auto_classify_pallet(container_number,fee_details,warehouse,'False','False', is_transfer)
+            has_unclassified_public_pallets = Pallet.objects.filter(
+                container_number__container_number=container_number,
+                delivery_type='public',
+                invoice_delivery__isnull=True
+            ).exclude(
+                delivery_method='暂扣留仓(HOLD)'
+            ).exists()
+            #如果有未绑定派送类型的时候，才去归类
+            if has_unclassified_public_pallets:
+                self._auto_classify_pallet(container_number,fee_details,warehouse,False,False, is_transfer)
         # 把pallet汇总
         base_query = Pallet.objects.prefetch_related(
             "container_number",
@@ -4254,6 +4263,13 @@ class Accounting(View):
         redirect_step = (step == "redirect") or (
             request.POST.get("redirect_step") == "True"
         )
+        
+        container = Container.objects.get(container_number=container_number)
+        if order.order_type == "转运组合" and container.account_order_type == "转运":
+            non_combina_reason = container.non_combina_reason
+        else:
+            non_combina_reason = None
+
         context = {
             "warehouse": request.GET.get("warehouse"),
             "invoice": invoice,
@@ -4272,6 +4288,7 @@ class Accounting(View):
             "start_date_confirm": request.POST.get("start_date_confirm") or None,
             "end_date_confirm": request.POST.get("end_date_confirm") or None,
             "invoice_type": invoice_type,
+            "non_combina_reason": non_combina_reason,
             "delivery_types": [
                 ("", ""),
                 ("公仓", "public"),
@@ -4311,6 +4328,25 @@ class Accounting(View):
                 raise ValueError("没有权限")
             
     def _auto_classify_pallet(self, container_number: str,fee_details:dict, warehouse: str,is_specific_type:bool, iscombina:bool, is_transfer:bool) -> None:
+        # 如果是切换模式，先删除所有相关的invoice_delivery记录
+        if is_specific_type:
+            delete_query = Pallet.objects.filter(
+                container_number__container_number=container_number,
+                delivery_type='public',
+                invoice_delivery__isnull=False
+            ).exclude(
+                delivery_method='暂扣留仓(HOLD)'
+            )
+            
+            invoice_delivery_ids = list(delete_query.values_list(
+                'invoice_delivery_id', flat=True
+            ).distinct())
+            # 先解除关联
+            delete_query.update(invoice_delivery=None)
+            # 删除invoice_delivery记录
+            if invoice_delivery_ids:
+                with transaction.atomic():
+                    InvoiceDelivery.objects.filter(id__in=invoice_delivery_ids).delete()
         #查找公仓、没有派送类别、没有暂扣的板子
         base_query = Pallet.objects.prefetch_related(
             "container_number",
@@ -4327,7 +4363,7 @@ class Accounting(View):
         )
         if not is_specific_type:
             #如果没指定类型，只看没有处理的板子，指定了的话，要看全部的，因为是公仓全部转类型
-            base_query.filter(invoice_delivery__isnull=True)
+            base_query = base_query.filter(invoice_delivery__isnull=True) 
         common_values = [
             "container_number__container_number",
             "destination",
@@ -4348,106 +4384,84 @@ class Accounting(View):
             base_query.values(*common_values)
             .annotate(**common_aggregates)
         )
-        if pallets.exists():
-            container = Container.objects.get(container_number=container_number)
-            container_type_temp = 0 if container.container_type == "40HQ/GP" else 1
-            invoice = Invoice.objects.select_related("customer", "container_number").get(
-                container_number__container_number=container_number
-            )
-            current_date = datetime.now().date()  
-            print('是否指定',is_specific_type)
-            if not is_specific_type:
-                #如果没有指定是亚马逊还是组合柜，就去判断，指定了就按指定的
-                print('没指定')
-                if not is_transfer: 
-                    #转运组合的，判断下是否符合组合柜规则
-                    iscombina = self._is_combina(container_number)
-                else:
-                    iscombina = False
-                print('是不是组合柜',iscombina)
-            print('指定了是不是组合柜',iscombina)
+        if not pallets.exists():
+            return
+        
+        container = Container.objects.get(container_number=container_number)
+        container_type_temp = 0 if container.container_type == "40HQ/GP" else 1
+        invoice = Invoice.objects.select_related("customer", "container_number").get(
+            container_number__container_number=container_number
+        )
+        current_date = datetime.now().date()  
+        
+        # 如果没有指定类型，自动判断是否为组合柜
+        if not is_specific_type and not is_transfer:
+            iscombina = self._is_combina(container_number)
+
+        for pallet in pallets:
+            destination = pallet["destination"]
+            delivery_type = None
+            cost = 0
+            
             if iscombina:
                 #按组合柜算，就去组合柜表找
                 rules = fee_details.get(f"{warehouse}_COMBINA").details
-                for pallet in pallets:
-                    destination = pallet["destination"]
-                    delivery_type = None
-                    cost = 0
-                    for region, region_data in rules.items():
-                        for item in region_data:
-                            if destination in item['location']:
-                                delivery_type = "combine"
-                                cost = item['prices'][container_type_temp]
-                                break
-                        if delivery_type:
-                            invoice_delivery = f"{current_date.strftime('%Y-%m-%d').replace('-', '')}-{delivery_type}-{pallet['destination']}-{pallet['total_pallet']}"
-                            invoice_content = InvoiceDelivery(
-                                **{
-                                    "invoice_delivery": invoice_delivery,
-                                    "invoice_number": invoice,
-                                    "delivery_type": "public",
-                                    "type": delivery_type,  
-                                    "zipcode": pallet["zipcode"],
-                                    "cost":cost,
-                                    "total_cost":float(cost)*float(pallet["total_pallet"]),
-                                    "destination": pallet["destination"],
-                                    "total_pallet": pallet["total_pallet"],
-                                    "total_cbm": pallet["total_cbm"],
-                                    "total_weight_lbs": pallet["total_weight_lbs"],
-                                }
-                            )
-                            invoice_content.save()
-
-                            if pallet['pallet_ids']:
-                                Pallet.objects.filter(pallet_id__in=pallet['pallet_ids']).update(
-                                    invoice_delivery=invoice_content
-                                )
+                for region, region_data in rules.items():
+                    for item in region_data:
+                        if destination in item['location']:
+                            delivery_type = "combine"
+                            cost = item['prices'][container_type_temp]
                             break
+                    if delivery_type:
+                        break
             else:
                 #去亚马逊/沃尔玛表找
                 rules = fee_details.get(f"{warehouse}_PUBLIC").details
-                details = {}
-                if "LA" in warehouse:
-                    details["LA_AMAZON"] = rules
-                else:
-                    details = rules
-                for pallet in pallets:
-                    destination = pallet["destination"]                
-                    delivery_type = None
-                    cost = 0
-                    for category, zones in details.items():
-                        for zone, locations in zones.items():
-                            if destination in locations:
-                                if "AMAZON" in category:
-                                    delivery_type = "amazon"
-                                    cost = zone
-                                elif "WALMART" in category:
-                                    delivery_type = "walmart"
-                                    cost = zone
-                        if delivery_type:
-                            invoice_delivery = f"{current_date.strftime('%Y-%m-%d').replace('-', '')}-{delivery_type}-{pallet['destination']}-{pallet['total_pallet']}"
-                            invoice_content = InvoiceDelivery(
-                                **{
-                                    "invoice_delivery": invoice_delivery,
-                                    "invoice_number": invoice,
-                                    "delivery_type": "public",
-                                    "type": delivery_type,  # 沃尔玛/亚马逊等
-                                    "zipcode": pallet["zipcode"],
-                                    "cost":cost,
-                                    "total_cost":float(cost)*float(pallet["total_pallet"]),
-                                    "destination": pallet["destination"],
-                                    "total_pallet": pallet["total_pallet"],
-                                    "total_cbm": pallet["total_cbm"],
-                                    "total_weight_lbs": pallet["total_weight_lbs"],
-                                }
-                            )
-                            invoice_content.save()
-                            
-                            if pallet['pallet_ids']:
-                                Pallet.objects.filter(pallet_id__in=pallet['pallet_ids']).update(
-                                    invoice_delivery=invoice_content
-                                )
-                            break         
+                details = rules.get("LA_AMAZON", rules) if "LA" in warehouse else rules
+                for category, zones in details.items():
+                    for zone, locations in zones.items():
+                        if destination in locations:
+                            if "AMAZON" in category:
+                                delivery_type = "amazon"
+                                cost = zone
+                            elif "WALMART" in category:
+                                delivery_type = "walmart"
+                                cost = zone
+                    if delivery_type:
+                        break  
+            if not delivery_type:
+                continue      
+            invoice_delivery_id = f"{current_date.strftime('%Y%m%d')}-{delivery_type}-{destination}-{pallet['total_pallet']}"
+            existing_deliveries = InvoiceDelivery.objects.filter(
+                invoice_delivery=invoice_delivery_id
+            )
+            
+            # 删除所有已存在的相同invoice_delivery记录
+            if existing_deliveries.exists():
+                # 先解除关联这些invoice_delivery的所有托盘
+                Pallet.objects.filter(invoice_delivery__in=existing_deliveries).update(invoice_delivery=None)
+                # 删除invoice_delivery记录
+                existing_deliveries.delete()
+            invoice_content = InvoiceDelivery(
+                invoice_delivery=invoice_delivery_id,
+                invoice_number=invoice,
+                delivery_type="public",
+                type=delivery_type,
+                zipcode=pallet["zipcode"],
+                cost=cost,
+                total_cost=float(cost) * float(pallet["total_pallet"]),
+                destination=destination,
+                total_pallet=pallet["total_pallet"],
+                total_cbm=pallet["total_cbm"],
+                total_weight_lbs=pallet["total_weight_lbs"],
+            )
+            invoice_content.save()
+            
+            # 更新托盘的invoice_delivery关联
+            if pallet['pallet_ids']:
+                Pallet.objects.filter(pallet_id__in=pallet['pallet_ids']).update(
+                    invoice_delivery=invoice_content
+                )
             
     def _is_combina(
         self, container_number: str
@@ -4536,7 +4550,7 @@ class Accounting(View):
         ):
             #当非组合柜的区域数量超出时，不能按转运组合
             container.account_order_type = "转运"
-            container.non_combina_reason = "非组合柜数量不符合标准"
+            container.non_combina_reason = "非组合柜区的数量不符合标准"
             container.save()
             return False
         return True
