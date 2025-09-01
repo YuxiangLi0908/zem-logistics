@@ -11,9 +11,18 @@
         {% endif %}
     </span>
 </div>
-<p style="text-align:center;"><b>{{ invoice }}</b></p>
-{% if has_delivery %}
+<div style="display: flex; align-items: center; justify-content: center; gap: 20px; margin: 10px 0;">
+    <p style="text-align:center; margin: 0;"><b>{{ invoice }}</b></p>
+    
+    {% if non_combina_reason %}
+    <span style="background: #f0f0f0; color: #d4380d; padding: 4px 12px; border-radius: 4px; border: 1px solid #ddd; font-size: 12px;">
+        ⚠️ {{ non_combina_reason }}
+    </span>
+    {% endif %}
+</div>
+
 <div  style="display: inline-block; width: 100%; margin: 0; padding: 0; max-width: 100%;">
+    {% if has_delivery %}
     <form method="post" action="">
         {% csrf_token %}
         <input type="hidden" name="step" value="update_delivery_invoice">
@@ -30,12 +39,42 @@
         <input type="hidden" name="container_number" value="{{ container_number }}">
         <button id="editButton" type="submit" class="btn btn-primary" onclick="AmountForm()" style="background-color:green; font-size: 13px; float:right; padding:10px 20px; margin-right:80px;">派送账单确认</button>  
     </form>
+    {% else %}
+    <form method="post" action="">
+        {% csrf_token %}
+        <input type="hidden" name="step" value="invoice_order_delivery">
+        <input type="hidden" name="start_date" value="{{ start_date }}">
+        <input type="hidden" name="warehouse" value="{{ warehouse }}">
+        <input type="hidden" name="end_date" value="{{ end_date }}">
+        <input type="hidden" name="invoice_type" value="{{ invoice_type }}">
+        <input type="hidden" name="start_date_confirm" value="{{ start_date_confirm }}">
+        <input type="hidden" name="end_date_confirm" value="{{ end_date_confirm }}">
+        <button type="submit" class="btn btn-secondary" style="font-size: 13px; float:right; padding:10px 20px; margin-right:80px;">返回</button>
+    {% endif %}
 <div>
-{% endif %}
-<div style="margin:auto; max-height: 800px;max-width:1500px;margin-bottom:50px;">
-    <button class="btn btn-info" onclick="add_delivery(this)">
+
+<div style="display: flex; justify-content: flex-start; align-items: center; max-width: 1500px; margin: auto; margin-bottom: 50px;">
+    <button class="btn btn-info" onclick="add_delivery(this)" style="margin-right: 15px;">
          更改仓点类型
     </button>
+    <form method="post" action="">
+        {% csrf_token %}
+        <input type="hidden" name="step" value="swicth_delivery_invoice">
+        <input type="hidden" name="type" value="amount">
+        <input type="hidden" name="amount" value="">
+        <input type="hidden" name="start_date" value="{{ start_date }}">
+        <input type="hidden" name="warehouse" value="{{ warehouse }}">
+        <input type="hidden" name="end_date" value="{{ end_date }}">
+        <input type="hidden" name="invoice_type" value="{{ invoice_type }}">
+        <input type="hidden" name="delivery_type" value="public">
+        <input type="hidden" name="start_date_confirm" value="{{ start_date_confirm }}">
+        <input type="hidden" name="end_date_confirm" value="{{ end_date_confirm }}">
+        <input type="hidden" name="redirect_step" value="{{ redirect_step }}">
+        <input type="hidden" name="container_number" value="{{ container_number }}">
+        <button class="btn btn-warning">
+            组合柜和非组合柜派送类型切换
+        </button>
+    </form>
 </div>
 <div>   <!--亚马逊-->
     <form method="post" action="">
