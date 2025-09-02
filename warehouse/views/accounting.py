@@ -3101,42 +3101,31 @@ class Accounting(View):
 
         pallet_name = str(InvoiceWarehouse._meta.get_field('palletization_fee').verbose_name)
         arrive_name = str(InvoiceWarehouse._meta.get_field('arrive_fee').verbose_name)
-        all_fee_types = set()       
-        for _, invoice, warehouse, preport in orders:
-            if select_carrier in ["BBR", "KNO"]:
-                if warehouse:
-                    all_fee_types.add(pallet_name)  # 应付拆柜费
-                    all_fee_types.add(arrive_name)       # 应付入库费
-                    if warehouse.other_fees and isinstance(warehouse.other_fees, dict):
-                        all_fee_types.update([str(k) for k in warehouse.other_fees.keys()])
-                all_fee_types.add("总费用")
-            else:
-                # 固定列
-                all_fee_types.update(["总费用", "基本费用", "超重费", "车架费"])
-                if preport and getattr(preport, "other_fees", None) and isinstance(preport.other_fees, dict):
-                    other_fee_block = preport.other_fees.get("other_fee")
-                    if other_fee_block and isinstance(other_fee_block, dict):
-                        all_fee_types.update([str(k) for k in other_fee_block.keys()])
-                if warehouse and getattr(warehouse, "other_fees", None) and isinstance(warehouse.other_fees, dict):
-                    all_fee_types.update([str(k) for k in warehouse.other_fees.keys()])
-                all_fee_types.add(pallet_name)
-                all_fee_types.add(arrive_name)
+        all_fee_types = set()   
 
-        sorted_fee_types = sorted(all_fee_types)
-        
         rows = []
         for order, invoice, warehouse, preport in orders:
-            row_data = {fee: "" for fee in sorted_fee_types}
-            row_data["柜号"] = order.container_number.container_number
+            row_data = {
+                "柜号": order.container_number.container_number,
+                "总费用": 0,
+                "基本费用": 0,
+                "超重费": 0,
+                "车架费": 0,
+                "应付拆柜费": 0,
+                "应付入库费": 0,
+                "其他费用": "",
+            }
+
+            other_fee_dict = {}
 
             if select_carrier in ["BBR", "KNO"]:
                 if warehouse:
-                    row_data[pallet_name] = warehouse.palletization_fee or 0
-                    row_data[arrive_name] = warehouse.arrive_fee or 0
+                    row_data["总费用"] = getattr(warehouse, "amount", 0) or 0
+                    row_data["应付拆柜费"] = warehouse.palletization_fee or 0
+                    row_data["应付入库费"] = warehouse.arrive_fee or 0
                     if warehouse.other_fees and isinstance(warehouse.other_fees, dict):
                         for k, v in warehouse.other_fees.items():
-                            row_data[str(k)] = v
-                    row_data["总费用"] = getattr(warehouse, "amount", 0) or 0
+                            other_fee_dict[str(k)] = v
             else:
                 total_amount = 0
                 if preport:
@@ -3148,28 +3137,36 @@ class Accounting(View):
                         other_fee_block = preport.other_fees.get("other_fee")
                         if other_fee_block and isinstance(other_fee_block, dict):
                             for k, v in other_fee_block.items():
-                                row_data[str(k)] = v
+                                other_fee_dict[str(k)] = v
+
                 if warehouse:
                     total_amount += float(getattr(warehouse, "amount", 0) or 0)
-                    row_data[pallet_name] = warehouse.palletization_fee or 0
-                    row_data[arrive_name] = warehouse.arrive_fee or 0
+                    row_data["应付拆柜费"] = warehouse.palletization_fee or 0
+                    row_data["应付入库费"] = warehouse.arrive_fee or 0
                     if warehouse.other_fees and isinstance(warehouse.other_fees, dict):
                         for k, v in warehouse.other_fees.items():
-                            row_data[str(k)] = v
+                            other_fee_dict[str(k)] = v
+
                 row_data["总费用"] = total_amount
+
+            # 合并 other_fee 为 "键:值; 键:值"
+            if other_fee_dict:
+                row_data["其他费用"] = "; ".join([f"{k}:{v}" for k, v in other_fee_dict.items()])
 
             rows.append(row_data)
 
-        valid_headers = ["柜号"]
-        for col in sorted_fee_types:
-            col_values = [row[col] for row in rows if row.get(col, "") not in ("", None)]
-            if any(v not in (0, "0") for v in col_values):
-                valid_headers.append(col)
-        ws.append(valid_headers)
+        always_headers = ["柜号", "总费用"]
+        optional_headers = ["基本费用", "超重费", "车架费", "应付拆柜费", "应付入库费"]
+        final_headers = always_headers[:]
 
-        for row in rows:
-            ws.append([row.get(col, "") for col in valid_headers])
+        for col in optional_headers:
+            col_values = [row[col] for row in rows if row.get(col) not in ("", None, 0, "0")]
+            if col_values:  # 有值才显示
+                final_headers.append(col)
 
+        final_headers.append("其他费用")
+
+        ws.append(final_headers)
         
         response = HttpResponse(
             content_type="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
@@ -3180,6 +3177,11 @@ class Accounting(View):
         wb.save(response)
         return response
 
+    def safe_excel_value(value):
+        if isinstance(value, (dict, list)):
+            return str(value) if value else ""
+        return value if value is not None else ""
+    
     def handle_invoice_confirm_combina_save(
         self, request: HttpRequest
     ) -> tuple[Any, Any]:
