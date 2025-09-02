@@ -829,7 +829,7 @@ class FleetManagement(View):
             pod_uploaded_at__isnull=False,
             shipped_at__isnull=False,
             arrived_at__isnull=False,
-            shipment_schduled_at__gte="2024-12-01",
+            shipment_schduled_at__gte="2025-05-01",
             fleet_number__fleet_cost__isnull=True,
         )
         if pickup_number:
