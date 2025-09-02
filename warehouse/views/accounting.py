@@ -3830,7 +3830,7 @@ class Accounting(View):
         end_date = current_date.strftime("%Y-%m-%d") if not end_date else end_date
 
         criteria = models.Q(cancel_notification=False) & models.Q(
-            vessel_id__vessel_eta__gte=start_date, vessel_id__vessel_eta__lte=end_date
+            retrieval_id__actual_retrieval_timestamp__gte=start_date, retrieval_id__actual_retrieval_timestamp__lte=end_date
         )&models.Q(retrieval_id__empty_returned=True)
         if warehouse:
             if warehouse == "直送":
@@ -3852,6 +3852,7 @@ class Accounting(View):
                 "container_number",
                 "invoice_id__statement_id",
                 "vessel_id",
+                "retrieval_id",
             )
             .filter(
                 criteria
