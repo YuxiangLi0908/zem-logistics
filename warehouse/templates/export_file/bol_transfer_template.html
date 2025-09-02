@@ -173,6 +173,9 @@
                     <th style="border: 1px solid #141414; padding-top: 1px; font-family: STSong-Light;">仓点</th>
                     <th style="border: 1px solid #141414; padding-top: 1px;">CBM</th>
                     <th style="border: 1px solid #141414; padding-top: 1px; font-family: STSong-Light;">板数</th>
+                    {% if show_slot %}
+                    <th style="border: 1px solid #141414; padding-top: 1px; font-family: STSong-Light;">库位</th>
+                    {% endif %}
                 </tr>
             </thead>
             <tbody>
@@ -192,6 +195,13 @@
                         <td style="border: 1px solid #141414;">
                             {{ plt.total_pallets }}
                         </td>
+                        {% if show_slot %}
+                            {% if plt.show_slot %}
+                                <td rowspan="{{ plt.slot_rowspan }}" style="border: 1px solid #141414; vertical-align: middle;">
+                                    {{ plt.slot|default:"" }}
+                                </td>
+                            {% endif %}
+                        {% endif %}
                     </tr>
                 {% endfor %}
             </tbody>

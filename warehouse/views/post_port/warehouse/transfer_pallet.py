@@ -306,13 +306,14 @@ class TransferPallet(View):
             Pallet.objects.filter(id__in=plt_ids)
             .values(
                 'container_number__container_number',
-                'destination'
+                'destination',
+                'slot'
             )
             .annotate(
                 total_cbm=Sum('cbm'),
                 total_pallets=Count('id')
             )
-            .order_by('container_number__container_number', 'destination')
+            .order_by('container_number__container_number', 'destination','slot')
         )
         for _, group in groupby(pallets, key=lambda x: x["container_number__container_number"]):
             group_list = list(group)
@@ -320,6 +321,25 @@ class TransferPallet(View):
             for idx, g in enumerate(group_list):
                 g["rowspan"] = rowspan if idx == 0 else 0   # 只有第一行才显示
                 g["show_container"] = idx == 0
+        if transfer.shipping_warehouse == "LA-91761":
+            temp_pallets = []
+            for container_key, container_group in groupby(pallets, key=lambda x: x["container_number__container_number"]):
+                container_list = list(container_group)
+                
+                for slot_key, slot_group in groupby(container_list, key=lambda x: x["slot"]):
+                    slot_list = list(slot_group)
+                    slot_rowspan = len(slot_list)
+                    
+                    for idx, g in enumerate(slot_list):
+                        g["slot_rowspan"] = slot_rowspan if idx == 0 else 0
+                        g["show_slot"] = idx == 0
+                        temp_pallets.append(g)
+            
+            pallets = temp_pallets
+        else:
+            for g in pallets:
+                g["slot_rowspan"] = 0
+                g["show_slot"] = False
         warehouse = transfer.receiving_warehouse
         pickup_number = fleet.pickup_number
         recv_warehouse = await sync_to_async(ZemWarehouse.objects.get)(name=transfer.receiving_warehouse)
@@ -333,7 +353,8 @@ class TransferPallet(View):
             "fleet_number": transfer.fleet_number,
             "pallets": pallets,
             "note": transfer.note,
-            "transfer":transfer
+            "transfer":transfer,
+            "show_slot": transfer.shipping_warehouse == "LA-91761"
         }
         template = get_template(self.template_transfer_bol)
         html = template.render(context)
