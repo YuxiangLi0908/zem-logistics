@@ -3226,17 +3226,21 @@ class Accounting(View):
             .values("destination")
             .annotate(total_cbm=Sum("cbm"), total_weight=Sum("weight_lbs"))
         )
+        print('plts_by_destination',plts_by_destination)
         invoice_item_data = []
 
         combina_data_des_key = request.POST.getlist("combina_data_des_key")
         combina_data_des_cbm = request.POST.getlist("combina_data_des_cbm")
         combina_data_des_price = request.POST.getlist("combina_data_des_price")
         combina_data_des_location = request.POST.getlist("combina_data_des_location")
+        print('非组合柜的仓点',combina_data_des_location)
         combina_data_des_rate = request.POST.getlist("combina_data_des_rate")
         base_location = []
         for i in range(len(combina_data_des_key)):
             location = combina_data_des_location[i].split(",")
             for num in range(len(location)):
+                cbm_d = 0.000
+                weight_d = 0.000
                 base_location.append(location[num])
                 if num == 0:
                     qty = float(combina_data_des_rate[i])
@@ -3245,9 +3249,10 @@ class Accounting(View):
                 else:
                     qty = rate = amount = 0.00
                 for item in plts_by_destination:
+                    
                     cleaned_item_dest = item["destination"].strip()
                     cleaned_location = location[num].strip()
-                    if cleaned_item_dest == cleaned_location:
+                    if cleaned_location in cleaned_item_dest:
                         cbm_d = item["total_cbm"]
                         weight_d = item["total_weight"]
                         break
@@ -3438,9 +3443,9 @@ class Accounting(View):
         order = Order.objects.get(container_number__container_number=container_number)
 
         context = self._parse_invoice_excel_data(order, invoice, "receivable")
-        workbook, invoice_data = self._generate_invoice_excel(context)
-        invoice.invoice_date = invoice_data["invoice_date"]
-        invoice.invoice_link = invoice_data["invoice_link"]
+        #workbook, invoice_data = self._generate_invoice_excel(context)
+        #invoice.invoice_date = invoice_data["invoice_date"]
+        #invoice.invoice_link = invoice_data["invoice_link"]
         invoice.receivable_total_amount = total_fee
         invoice.remain_offset = total_fee
         invoice.save()
