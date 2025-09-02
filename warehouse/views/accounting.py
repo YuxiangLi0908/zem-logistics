@@ -3052,7 +3052,8 @@ class Accounting(View):
         order_list = Order.objects.filter(
             retrieval_id__actual_retrieval_timestamp__year=year,
             retrieval_id__actual_retrieval_timestamp__month=month,
-        ).exclude(payable_status__stage="unstarted",payable_status__isnull=False,invoice_id__isnull=False)
+            invoice_id__isnull=False
+        ).exclude(payable_status__stage="unstarted",payable_status__isnull=False)
         orders = []
 
         if select_carrier in ["BBR", "KNO"]:
