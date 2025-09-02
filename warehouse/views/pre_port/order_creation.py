@@ -1100,6 +1100,10 @@ class OrderCreation(View):
         price_display = defaultdict(set)
 
         for plts in plts_by_destination:
+            if 'UPS' in plts["destination"]:
+                #如果包含UPS，不需要显示细节，就显示UPS就可以了，张楠提
+                non_combina_dests.add('UPS')
+                continue
             dest = plts["destination"]
             dest = dest.replace("沃尔玛", "").split("-")[-1].strip()
             matched = False
