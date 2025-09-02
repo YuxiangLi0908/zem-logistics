@@ -64,8 +64,8 @@ class PO(View):
             return render(request, self.template_po_list, context)
         else:
             current_date = datetime.now().date()
-            start_date = current_date + timedelta(days=-30)
-            end_date = current_date + timedelta(days=30)
+            start_date = current_date + timedelta(days=-15)
+            end_date = current_date + timedelta(days=15)
             context = {
                 "warehouse_form": ZemWarehouseForm(),
                 "start_date": start_date.strftime("%Y-%m-%d"),
@@ -583,6 +583,7 @@ class PO(View):
         start_date = request.POST.get("start_date")
         end_date = request.POST.get("end_date")
         container_number = request.POST.get("container_number")
+        destination = request.POST.get("destination")
         container_list = container_number.split()
         if warehouse:
             criteria = models.Q(
@@ -605,6 +606,10 @@ class PO(View):
         if end_date:
             criteria &= models.Q(container_number__order__eta__lte=end_date) | models.Q(
                 container_number__order__vessel_id__vessel_eta__lte=end_date
+            )
+        if destination:
+            criteria &= models.Q(
+                destination=destination
             )
         packing_list = (
             PackingList.objects.select_related(
@@ -705,6 +710,7 @@ class PO(View):
             "start_date": start_date,
             "end_date": end_date,
             "container_number": container_number,
+            "destination":destination
         }
         return context
 
