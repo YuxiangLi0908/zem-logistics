@@ -194,7 +194,8 @@ class TransferPallet(View):
         not_arrived_raw = await sync_to_async(list)(
             TransferLocation.objects.filter(
                 receiving_warehouse=warehouse,
-                fleet_number__arrived_at__isnull=True
+                fleet_number__arrived_at__isnull=True,
+                fleet_number__pickup_number__isnull=False,
             ).select_related("fleet_number")
         )
         not_arrived = []
@@ -388,6 +389,15 @@ class TransferPallet(View):
         pallets = await sync_to_async(list)(
             Pallet.objects.filter(id__in=plt_ids)
             .select_related('container_number') 
+        )
+        #如果原来是LA的，要清除这些板子的slot
+        if transfer.shipping_warehouse == "LA-91761":
+            for plt in pallets:
+                plt.slot = None
+        await sync_to_async(bulk_update_with_history)(
+            pallets,
+            Pallet,
+            fields=["slot"],
         )
         grouped_by_po = defaultdict(list)
         for pallet in pallets:
