@@ -287,7 +287,8 @@
                                     <th class="th">长</th>
                                     <th class="th">宽</th>
                                     <th class="th">高</th>
-                                    <th class="th">仓库代码</th>
+                                    <th class="th">仓库代码2</th>
+                                    <th class="th">派送类别</th>
                                     <th class="th">仓库/私人 地址</th>
                                     <th class="th">FBA号</th>
                                     <td class="th">Amazon Reference ID</td>
@@ -310,6 +311,7 @@
                                     <th class="th"></th>
                                     <th class="th"></th>
                                     <th class="th"><input type="text" id="detinationSearchInput" placeholder="搜索目的地..." oninput="filterTable(this, 6, true)"></th>
+                                    <th class="th"></th>
                                     <th class="th"></th>
                                     <th class="th"><input type="text" id="fbaSearchInput" placeholder="搜索fba号..." oninput="filterTable(this, 4, true)"></th>
                                     <th class="th"><input type="text" id="refSearchInput" placeholder="搜索ref..." oninput="filterTable(this, 5, true)"></th>
@@ -334,6 +336,13 @@
                                     <td class="td"><input type="number" step="0.01" name="width" required></td>
                                     <td class="td"><input type="number" step="0.01" name="height" required></td>
                                     <td class="td"><input type="text" name="destination" required></td>
+                                    <td class="td">
+                                        <select name="delivery_type"  class="delivery-method">
+                                        {% for k, v in delivery_types %}
+                                        <option value="{{ v }}">{{ k }}</option>
+                                        {% endfor %}
+                                        </select>
+                                    </td>
                                     <td class="td"><input type="text" name="address"></td>
                                     <td class="td"><input type="text" name="fba_id"></td>
                                     <td class="td"><input type="text" name="ref_id"></td>
@@ -363,6 +372,13 @@
                                     <td class="td"><input type="number" step="0.01" name="width" {% if pl.width %}value="{{ pl.width }}"{% endif %} required></td>
                                     <td class="td"><input type="number" step="0.01" name="height" {% if pl.height %}value="{{ pl.height }}"{% endif %} required></td>
                                     <td class="td"><input type="text" name="destination" {% if pl.destination %}value="{{ pl.destination }}"{% endif %} required></td>
+                                    <td class="td">
+                                        <select name="delivery_type" class="delivery-method">
+                                            {% for k, v in delivery_types %}
+                                            <option value="{{ v }}" {% if pl.delivery_type == v %}selected{% endif %}>{{ k }}</option>
+                                            {% endfor %}
+                                        </select>
+                                    </td>
                                     <td class="td"><input type="text" name="address" {% if pl.address %}value="{{ pl.address }}"{% endif %}></td>
                                     <td class="td"><input type="text" name="fba_id" {% if pl.fba_id %}value="{{ pl.fba_id }}"{% endif %}></td>
                                     <td class="td"><input type="text" name="ref_id" {% if pl.ref_id %}value="{{ pl.ref_id }}"{% endif %}></td>
@@ -405,7 +421,8 @@
                                     <td class="td"></td>
                                 </tr>
                                 <tr id="table_summary" style="position: sticky; bottom: 0; background-color: #f2f2f2;">
-                                    <td class="td" id="table_summary_cnt"><b>总计</b></td>
+                                    <td class="td" id="table_summary_cnt"><b>总计2</b></td>
+                                    <td class="td"></td>
                                     <td class="td"></td>
                                     <td class="td" id="table_summary_pcs">0</td>
                                     <td class="td" id="table_summary_weight_kg">0</td>
@@ -893,6 +910,7 @@
         for (i = 0; i < rows.length; i++) {
             var pcs = parseInt(rows[i].getElementsByTagName("td")[12].textContent.trim())|| parseInt(rows[i].getElementsByTagName("td")[12].querySelector("input").value) || 0;
             var weightKg = parseFloat(rows[i].getElementsByTagName("td")[13].textContent.trim())|| parseFloat(rows[i].getElementsByTagName("td")[13].querySelector("input").value) || 0;
+            console.log('weightKg',weightKg);
             var weight = parseFloat(rows[i].getElementsByTagName("td")[14].textContent.trim())|| parseFloat(rows[i].getElementsByTagName("td")[14].querySelector("input").value) || 0;
             var cbm = parseFloat(rows[i].getElementsByTagName("td")[15].textContent.trim())|| parseFloat(rows[i].getElementsByTagName("td")[15].querySelector("input").value) || 0;
             totalPcs += pcs;

@@ -61,9 +61,9 @@ class OrderCreation(View):
     template_order_details_pl = "order_management/order_details_pl_tab.html"
     order_type = {"": "", "转运": "转运", "直送": "直送", "转运组合": "转运组合"}
     area = {"NJ": "NJ", "SAV": "SAV", "LA": "LA", "MO": "MO", "TX": "TX"}
-    container_type = {
-        "45HQ/GP": "45HQ/GP",
+    container_type = {    
         "40HQ/GP": "40HQ/GP",
+        "45HQ/GP": "45HQ/GP",
         "20GP": "20GP",
         "53HQ": "53HQ",
     }
@@ -931,6 +931,7 @@ class OrderCreation(View):
             for pl in packing_list:
                 idx = pl_id_idx_mapping[pl.id]
                 pl.delivery_method = request.POST.getlist("delivery_method")[idx]
+                pl.delivery_type = request.POST.getlist("delivery_type")[idx]
                 pl.shipping_mark = request.POST.getlist("shipping_mark")[idx].strip()
                 pl.fba_id = request.POST.getlist("fba_id")[idx].strip()
                 pl.ref_id = request.POST.getlist("ref_id")[idx].strip()
@@ -951,6 +952,7 @@ class OrderCreation(View):
                 PackingList,
                 fields=[
                     "delivery_method",
+                    "delivery_type",
                     "shipping_mark",
                     "fba_id",
                     "ref_id",
@@ -983,6 +985,8 @@ class OrderCreation(View):
             po_ids = []
             po_id_hash = {}
             seq_num = 1
+            print(len(request.POST.getlist("delivery_method")))
+            print(len(request.POST.getlist("shipping_mark")))
             for dm, sm, fba, dest in zip(
                     request.POST.getlist("delivery_method"),
                     request.POST.getlist("shipping_mark"),
@@ -1039,6 +1043,7 @@ class OrderCreation(View):
                 po_ids,
                 request.POST.getlist("delivery_window_start"),
                 request.POST.getlist("delivery_window_end"),
+                request.POST.getlist("delivery_type"),
                 strict=True,
             )
 
@@ -1062,7 +1067,8 @@ class OrderCreation(View):
                     express_number=d[14],
                     PO_ID=d[15],
                     delivery_window_start = d[16] if d[16].strip() else None,
-                    delivery_window_end = d[17] if d[17].strip() else None
+                    delivery_window_end = d[17] if d[17].strip() else None,
+                    delivery_type=d[18],
                 )
                 for d in pl_data
             ]
@@ -1151,6 +1157,7 @@ class OrderCreation(View):
             except PoCheckEtaSeven.DoesNotExist:
                 raise ValueError("不存在")
         # 更新完pl之后，更新container的delivery_type
+        #await self._confirm_delivery_type(container_number)
         types = set(pl.delivery_type for pl in packing_list if pl.delivery_type)
         new_type = types.pop() if len(types) == 1 else "mixed"
         container = await sync_to_async(Container.objects.get, thread_sensitive=True)(
@@ -1168,6 +1175,32 @@ class OrderCreation(View):
             return await self.handle_order_management_container_get(request)
         else:
             return await self.handle_order_basic_info_get()
+
+    async def _confirm_delivery_type(self,container_number:str) -> None:
+        packing_list = await sync_to_async(list)(
+            PackingList.objects.filter(container_number__container_number=container_number)
+        )
+        public_ids = []
+        other_ids = []
+
+        for item in packing_list:
+            destination = str(item.destination)
+            is_public = (
+                re.fullmatch(r"^[A-Za-z]{4}\s*$", destination)
+                or re.fullmatch(r"^[A-Za-z]{3}\s*\d$", destination)
+                or re.fullmatch(r"^[A-Za-z]{3}\s*\d\s*[A-Za-z]$", destination)
+                or any(kw.lower() in destination.lower() for kw in {"walmart", "沃尔玛"})
+            )
+            
+            if is_public:
+                public_ids.append(item.id)
+            else:
+                other_ids.append(item.id)
+        if public_ids:
+            await sync_to_async(PackingList.objects.filter(id__in=public_ids).update)(delivery_type="public")
+
+        if other_ids:
+            await sync_to_async(PackingList.objects.filter(id__in=other_ids).update)(delivery_type="other")
 
     def find_matching_regions(
         self, plts_by_destination: dict, combina_fee: dict
@@ -1336,6 +1369,7 @@ class OrderCreation(View):
             model_fields = [field.name for field in PackingList._meta.fields]
             col = [c for c in df.columns if c in model_fields]
             pl_data = df[col].to_dict("records")
+            print('pl_data',pl_data)
             for data in pl_data:
                 if pd.isna(data["delivery_window_start"]):
                     data["delivery_window_start"]= None

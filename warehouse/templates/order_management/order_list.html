@@ -17,7 +17,7 @@
         </div>
     </form>
     <form method="post" enctype="multipart/form-data" style="display: inline-block; margin-left: 10px;">
-        <div id="do-export" style="width: 100%;" class="text-right">          
+        <div id="forecast-export" style="width: 100%;" class="text-right">          
             {% csrf_token %}
             <input type="hidden" name="step" value="export_forecast">
             <button type="submit" onclick="exportForecast(this)" class="btn btn-primary" style="width: 100px; height: 35px;">导出预报</button>           
@@ -28,6 +28,13 @@
             {% csrf_token %}
             <input type="hidden" name="step" value="export_do">
             <button type="submit" onclick="exportDo(this)" class="btn btn-success" style="width: 100px; height: 35px;">DO <i class="bi bi-cloud-arrow-down-fill"></i></button>           
+        </div>
+    </form>
+    <form method="post" enctype="multipart/form-data" style="display: inline-block; margin-left: 250px;">
+        <div id="details-export" style="width: 100%;" class="text-right">          
+            {% csrf_token %}
+            <input type="hidden" name="step" value="export_details_by_destination">
+            <button type="submit" onclick="exportDetails(this)" class="btn btn-success" style="width: 100px; height: 35px;">各区详情 <i class="bi bi-cloud-arrow-down-fill"></i></button>           
         </div>
     </form>
     {% if user.is_authenticated and user.is_staff %}
@@ -331,6 +338,21 @@
     };
     //导出DO时，增加隐藏的input
     function exportDo(Element){       
+        if (selectedOrders.length === 0){
+            alert('未选中数据！');
+            event.preventDefault();
+            return;
+        }else{
+            let form = Element.parentNode;
+            let hiddenInput = document.createElement('input');
+            hiddenInput.type = 'hidden';
+            hiddenInput.name ='selectedOrders';
+            hiddenInput.value = JSON.stringify(selectedOrders);
+            form.appendChild(hiddenInput);
+        }   
+    };
+    
+    function exportDetails(Element){       
         if (selectedOrders.length === 0){
             alert('未选中数据！');
             event.preventDefault();

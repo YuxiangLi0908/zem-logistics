@@ -214,7 +214,8 @@
                                     <th class="th">长</th>
                                     <th class="th">宽</th>
                                     <th class="th">高</th>
-                                    <th class="th">仓库代码</th>
+                                    <th class="th">仓库代码4</th>
+                                    <th class="th">派送类别</th>
                                     <th class="th">仓库/私人 地址</th>
                                     <th class="th">FBA号</th>
                                     <td class="th">Amazon Reference ID</td>
@@ -236,6 +237,13 @@
                                     <td class="td"><input type="number" step="0.01" name="width" required></td>
                                     <td class="td"><input type="number" step="0.01" name="height" required></td>
                                     <td class="td"><input type="text" name="destination" required></td>
+                                    <td class="td">
+                                        <select name="delivery_type"  class="delivery-method">
+                                        {% for k, v in delivery_types %}
+                                        <option value="{{ v }}">{{ k }}</option>
+                                        {% endfor %}
+                                        </select>
+                                    </td>
                                     <td class="td"><input type="text" name="address"></td>
                                     <td class="td"><input type="text" name="fba_id"></td>
                                     <td class="td"><input type="text" name="ref_id"></td>
@@ -262,6 +270,13 @@
                                     <td class="td"><input type="number" step="0.01" name="width" {% if pl.width %}value="{{ pl.width }}"{% endif %} required></td>
                                     <td class="td"><input type="number" step="0.01" name="height" {% if pl.height %}value="{{ pl.height }}"{% endif %} required></td>
                                     <td class="td"><input type="text" name="destination" {% if pl.destination %}value="{{ pl.destination }}"{% endif %} required></td>
+                                    <td class="td">
+                                        <select name="delivery_type" class="delivery-method">
+                                            {% for k, v in delivery_types %}
+                                            <option value="{{ v }}" {% if pl.delivery_type == v %}selected{% endif %}>{{ k }}</option>
+                                            {% endfor %}
+                                        </select>
+                                    </td>
                                     <td class="td"><input type="text" name="address" {% if pl.address %}value="{{ pl.address }}"{% endif %}></td>
                                     <td class="td"><input type="text" name="fba_id" {% if pl.fba_id %}value="{{ pl.fba_id }}"{% endif %}></td>
                                     <td class="td"><input type="text" name="ref_id" {% if pl.ref_id %}value="{{ pl.ref_id }}"{% endif %}></td>
