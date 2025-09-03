@@ -2,47 +2,54 @@
 
 {% block content %}
 <div><b>订单列表</b></div>
-<div style="width: 100%; display: flex; justify-content: space-between;">
-    <form method="post" action="" style="width: 80%;">
+<div style="width: 100%; display: flex; justify-content: space-between; align-items: center; gap: 15px; flex-wrap: wrap; padding: 10px 0;">
+    <!-- 查询表单 -->
+    <form method="post" action="" style="flex: 2; min-width: 500px;">
         {% csrf_token %}
-        <div>
-            <b style="margin-right: 5px;">ETA:</b>
-            <input type="date" name="start_date_eta" value="{{ start_date_eta }}">
-            <input type="date" name="end_date_eta" value="{{ end_date_eta }}" style="margin-right: 5px;">
-            <b style="margin-right: 5px;">ETD:</b>
-            <input type="date" name="start_date_etd" value="{{ start_date_etd }}">
-            <input type="date" name="end_date_etd" value="{{ end_date_etd }}" style="margin-right: 5px;">
+        <div style="display: flex; align-items: center; gap: 10px; flex-wrap: wrap;">
+            <b style="min-width: 40px;">ETA:</b>
+            <input type="date" name="start_date_eta" value="{{ start_date_eta }}" style="padding: 6px; border: 1px solid #ddd; border-radius: 4px;">
+            <input type="date" name="end_date_eta" value="{{ end_date_eta }}" style="padding: 6px; border: 1px solid #ddd; border-radius: 4px;">
+            <b style="min-width: 40px;">ETD:</b>
+            <input type="date" name="start_date_etd" value="{{ start_date_etd }}" style="padding: 6px; border: 1px solid #ddd; border-radius: 4px;">
+            <input type="date" name="end_date_etd" value="{{ end_date_etd }}" style="padding: 6px; border: 1px solid #ddd; border-radius: 4px;">
             <input type="hidden" name="step" value="order_management_search">
-            <button id="submit-btn" type="submit" class="btn btn-primary" style="width: 100px; height: 35px; margin-left: 20px;">查询</button>
+            <button id="submit-btn" type="submit" class="btn btn-primary" style="width: 100px; height: 35px; margin-left: 10px; border: none; border-radius: 4px; cursor: pointer;">查询</button>
         </div>
     </form>
-    <form method="post" enctype="multipart/form-data" style="display: inline-block; margin-left: 10px;">
-        <div id="do-export" style="width: 100%;" class="text-right">          
+
+    <!-- 导出按钮组 -->
+    <div style="display: flex; align-items: center; gap: 10px; flex: 1; justify-content: flex-end; flex-wrap: wrap;">
+        <form method="post" enctype="multipart/form-data" style="margin: 0;">
             {% csrf_token %}
             <input type="hidden" name="step" value="export_forecast">
-            <button type="submit" onclick="exportForecast(this)" class="btn btn-primary" style="width: 100px; height: 35px;">导出预报</button>           
-        </div>
-    </form>
-    <form method="post" enctype="multipart/form-data" style="display: inline-block; margin-left: 250px;">
-        <div id="do-export" style="width: 100%;" class="text-right">          
+            <button type="submit" onclick="exportForecast(this)" class="btn btn-primary" style="width: 100px; height: 35px; border: none; border-radius: 4px; cursor: pointer; background-color: #007bff;">导出预报</button>
+        </form>
+
+        <form method="post" enctype="multipart/form-data" style="margin: 0;">
             {% csrf_token %}
             <input type="hidden" name="step" value="export_do">
-            <button type="submit" onclick="exportDo(this)" class="btn btn-success" style="width: 100px; height: 35px;">DO <i class="bi bi-cloud-arrow-down-fill"></i></button>           
-        </div>
-    </form>
-    {% if user.is_authenticated and user.is_staff %}
-    <form method="post" action="" style="width: 20%;">
-        {% csrf_token %}
-        <div class="text-right">
+            <button type="submit" onclick="exportDo(this)" class="btn btn-success" style="width: 100px; height: 35px; border: none; border-radius: 4px; cursor: pointer; background-color: #28a745;">DO <i class="bi bi-cloud-arrow-down-fill"></i></button>
+        </form>
+
+        <form method="post" enctype="multipart/form-data" style="margin: 0;">
+            {% csrf_token %}
+            <input type="hidden" name="step" value="export_details_by_destination">
+            <button type="submit" onclick="exportDetails(this)" class="btn btn-success" style="width: 120px; height: 35px; border: none; border-radius: 4px; cursor: pointer; background-color: #17a2b8;">各区详情 <i class="bi bi-cloud-arrow-down-fill"></i></button>
+        </form>
+
+        {% if user.is_authenticated and user.is_staff %}
+        <form method="post" action="" style="margin: 0;">
+            {% csrf_token %}
             <input type="hidden" name="step" value="delete_order">
             <input type="hidden" name="start_date_eta" value="{{ start_date_eta }}">
             <input type="hidden" name="end_date_eta" value="{{ end_date_eta }}">
             <input type="hidden" name="start_date_etd" value="{{ start_date_etd }}">
             <input type="hidden" name="end_date_etd" value="{{ end_date_etd }}">
-            <button type="submit" onclick="confirmSubmit(this)" class="btn btn-danger" style="width: 100px; height: 35px;">删除订单</button>
-        </div>
-    </form>
-    {% endif %}
+            <button type="submit" onclick="confirmSubmit(this)" class="btn btn-danger" style="width: 100px; height: 35px; border: none; border-radius: 4px; cursor: pointer; background-color: #dc3545;">删除订单</button>
+        </form>
+        {% endif %}
+    </div>
 </div>
 <hr class="Dashed" style="margin-top: 10px; margin-bottom: 10px;">
 
@@ -331,6 +338,20 @@
     };
     //导出DO时，增加隐藏的input
     function exportDo(Element){       
+        if (selectedOrders.length === 0){
+            alert('未选中数据！');
+            event.preventDefault();
+            return;
+        }else{
+            let form = Element.parentNode;
+            let hiddenInput = document.createElement('input');
+            hiddenInput.type = 'hidden';
+            hiddenInput.name ='selectedOrders';
+            hiddenInput.value = JSON.stringify(selectedOrders);
+            form.appendChild(hiddenInput);
+        }   
+    };
+    function exportDetails(Element){       
         if (selectedOrders.length === 0){
             alert('未选中数据！');
             event.preventDefault();
