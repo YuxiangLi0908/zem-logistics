@@ -3044,13 +3044,12 @@ class Accounting(View):
             for key, value in warehouse.other_fees.items():
                 if key == 'other_fee' and isinstance(value, dict):
                     other_fees_dict.update(value)
-
+                    if other_fees_dict:
+                        for k, v in other_fees_dict.items():
+                            row_data[k] = v
+                            valid_headers.append(k)
                 elif isinstance(value, (int, float)):
                     other_fees_dict[key] = value
-                if other_fees_dict:
-                    for k, v in other_fees_dict.items():
-                        row_data[k] = v
-                        valid_headers.append(k)
 
     def handle_carrier_invoice_export(self, request: HttpRequest) -> HttpResponse:
         select_month = request.POST.get("select_month")
@@ -3154,20 +3153,27 @@ class Accounting(View):
                         for key, value in preport.other_fees.items():
                             if key == 'other_fee' and isinstance(value, dict):
                                 other_fees_dict.update(value)
+                                if other_fees_dict:
+                                    for k, v in other_fees_dict.items():
+                                        row_data[k] = v
+                                        valid_headers.append(k)
                             elif isinstance(value, (int, float)):
                                 other_fees_dict[key] = value
+
 
                 if warehouse:
                     total_amount += float(getattr(warehouse, "amount", 0) or 0)
                     row_data[pallet_name] = warehouse.palletization_fee or 0
                     row_data[arrive_name] = warehouse.arrive_fee or 0
                     # 计算warehouse的其他费用
+                    other_fees_dict = {}
                     self.sum_exe_number(warehouse, other_fees_dict, row_data, valid_headers)
                 row_data["总费用"] = total_amount
             for fee_type in fixed_fee_types:
                 if fee_type not in row_data:
                     row_data[fee_type] = 0
             rows.append(row_data)
+        valid_headers = list(set(valid_headers))
         for fee_type in fixed_fee_types:
             if fee_type not in ["柜号", "总费用"]:
                 # 检查该列是否有非零值
