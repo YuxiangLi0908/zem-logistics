@@ -32,9 +32,11 @@
                                 <br>ZEM LOGISTICS INC<br>
                                 {{ ship_warehouse }}<br>
                                 {% if "SAV" in s_warehouse %}
-                                LEON &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;9342267717
+                                1001 Trade Center Pkwy, Rincon, GA 31326, USA
                                 {% elif "LA-91761" == s_warehouse %}
-                                Gina &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;6264354246
+                                5450 E Francis St Ontario, CA 91761 United States
+                                {% elif "NJ-07001" == s_warehouse %}
+                                27 Engelhard Ave. Avenel NJ 07001
                                 {% else %}
                                 <br>
                                 {% endif %}
@@ -71,10 +73,12 @@
                                 <div style="margin-left: 5px;">
                                     <br>ZEM LOGISTICS INC
                                     <br>{{ r_warehouse }}<br>
-                                    {% if "SAV" in s_warehouse %}
-                                    LEON &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;9342267717
-                                    {% elif "LA-91761" == s_warehouse %}
-                                    Gina &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;6264354246
+                                    {% if "SAV" in r_warehouse %}
+                                    1001 Trade Center Pkwy, Rincon, GA 31326, USA
+                                    {% elif "LA-91761" == r_warehouse %}
+                                    5450 E Francis St Ontario, CA 91761 United States
+                                    {% elif "NJ-07001" == r_warehouse %}
+                                    27 Engelhard Ave. Avenel NJ 07001
                                     {% else %}
                                     <br>
                                     {% endif %}

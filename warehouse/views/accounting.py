@@ -1276,6 +1276,7 @@ class Accounting(View):
                 vessel_id__vessel_etd__gte=start_date,
                 vessel_id__vessel_etd__lte=end_date,
             )
+            & models.Q(offload_id__offload_at__isnull=False)
         )
         if warehouse:
             criteria &= models.Q(retrieval_id__retrieval_destination_precise=warehouse)
@@ -1287,6 +1288,7 @@ class Accounting(View):
             "customer_name",
             "container_number",
             "invoice_id__statement_id",
+            "offload_id"
         ).filter(
             criteria,
             models.Q(**{"receivable_status__isnull": True})
@@ -2941,8 +2943,9 @@ class Accounting(View):
                 cutoff_date = date(2025, 4, 1)
                 cutoff_datetime = datetime.combine(cutoff_date, time.min).replace(tzinfo=pytz.UTC)  
                 is_new_rule = vessel_etd >= cutoff_datetime
-
-                fee_details = self._get_fee_details(warehouse, vessel_etd)
+                customer = order.customer_name
+                customer_name = customer.zem_name
+                fee_details = self._get_fee_details(warehouse, vessel_etd, customer_name)
                 self._calculate_and_set_delivery_cost(
                     invoice_content, container_type, fee_details, warehouse, is_new_rule
                 )
@@ -3177,7 +3180,6 @@ class Accounting(View):
                 has_value = any(row.get(fee_type, 0) not in (0, "0") for row in rows)
                 if has_value:
                     valid_headers.append(fee_type)
-                    print(f"添加列: {fee_type}")
         
         # 写入表头
         ws.append(valid_headers)
@@ -3214,17 +3216,21 @@ class Accounting(View):
             .values("destination")
             .annotate(total_cbm=Sum("cbm"), total_weight=Sum("weight_lbs"))
         )
+        print('plts_by_destination',plts_by_destination)
         invoice_item_data = []
 
         combina_data_des_key = request.POST.getlist("combina_data_des_key")
         combina_data_des_cbm = request.POST.getlist("combina_data_des_cbm")
         combina_data_des_price = request.POST.getlist("combina_data_des_price")
         combina_data_des_location = request.POST.getlist("combina_data_des_location")
+        print('非组合柜的仓点',combina_data_des_location)
         combina_data_des_rate = request.POST.getlist("combina_data_des_rate")
         base_location = []
         for i in range(len(combina_data_des_key)):
             location = combina_data_des_location[i].split(",")
             for num in range(len(location)):
+                cbm_d = 0.000
+                weight_d = 0.000
                 base_location.append(location[num])
                 if num == 0:
                     qty = float(combina_data_des_rate[i])
@@ -3233,9 +3239,10 @@ class Accounting(View):
                 else:
                     qty = rate = amount = 0.00
                 for item in plts_by_destination:
+                    
                     cleaned_item_dest = item["destination"].strip()
                     cleaned_location = location[num].strip()
-                    if cleaned_item_dest == cleaned_location:
+                    if cleaned_location in cleaned_item_dest:
                         cbm_d = item["total_cbm"]
                         weight_d = item["total_weight"]
                         break
@@ -3426,9 +3433,9 @@ class Accounting(View):
         order = Order.objects.get(container_number__container_number=container_number)
 
         context = self._parse_invoice_excel_data(order, invoice, "receivable")
-        workbook, invoice_data = self._generate_invoice_excel(context)
-        invoice.invoice_date = invoice_data["invoice_date"]
-        invoice.invoice_link = invoice_data["invoice_link"]
+        #workbook, invoice_data = self._generate_invoice_excel(context)
+        #invoice.invoice_date = invoice_data["invoice_date"]
+        #invoice.invoice_link = invoice_data["invoice_link"]
         invoice.receivable_total_amount = total_fee
         invoice.remain_offset = total_fee
         invoice.save()
@@ -3545,8 +3552,9 @@ class Accounting(View):
         warehouse = order.retrieval_id.retrieval_destination_area
         vessel_etd = order.vessel_id.vessel_etd
         is_transfer = order.order_type == "转运"
-
-        fee_details = self._get_fee_details(warehouse, vessel_etd)
+        customer = order.customer_name
+        customer_name = customer.zem_name
+        fee_details = self._get_fee_details(warehouse, vessel_etd, customer_name)
         self._auto_classify_pallet(
             container_number, fee_details, warehouse, 
             True, iscombina, is_transfer
@@ -3677,12 +3685,26 @@ class Accounting(View):
         )
         warehouse = order.retrieval_id.retrieval_destination_area
         vessel_etd = order.vessel_id.vessel_etd
+
+        customer = order.customer_name
         quotation = (
-            QuotationMaster.objects.filter(effective_date__lte=vessel_etd)
+            QuotationMaster.objects.filter(
+                effective_date__lte=vessel_etd,
+                is_user_exclusive=True,
+                exclusive_user=customer.zem_name
+            )
             .order_by("-effective_date")
             .first()
         )
-
+        if not quotation:
+            quotation = (
+                QuotationMaster.objects.filter(
+                    effective_date__lte=vessel_etd,
+                    is_user_exclusive=False  # 非用户专属的通用报价单
+                )
+                .order_by("-effective_date")
+                .first()
+            )
         if not quotation:
             raise ValueError("找不到报价表")
         WAREHOUSE_FEE = FeeDetail.objects.get(
@@ -4149,7 +4171,9 @@ class Accounting(View):
         is_transfer = False
         if order.order_type == "转运":
             is_transfer = True
-        fee_details = self._get_fee_details(warehouse, vessel_etd)
+        customer = order.customer_name
+        customer_name = customer.zem_name
+        fee_details = self._get_fee_details(warehouse, vessel_etd,customer_name)
         #这里新加入一个功能，是自动将派送类别归类，要先看下
         invoice_status = InvoiceStatus.objects.get(
             container_number=order.container_number, invoice_type="receivable"
@@ -4487,7 +4511,8 @@ class Accounting(View):
         order = Order.objects.select_related(
             "retrieval_id", "container_number", "vessel_id"
         ).get(container_number__container_number=container_number)
-        
+        customer = order.customer_name
+        customer_name = customer.zem_name
         # 从报价表找+客服录的数据
         warehouse = order.retrieval_id.retrieval_destination_area
         vessel_etd = order.vessel_id.vessel_etd
@@ -4506,10 +4531,23 @@ class Accounting(View):
         plts["total_weight"] = round(plts["total_weight"], 2)
         # 获取匹配的报价表
         matching_quotation = (
-            QuotationMaster.objects.filter(effective_date__lte=vessel_etd)
+            QuotationMaster.objects.filter(
+                effective_date__lte=vessel_etd,
+                is_user_exclusive=True,
+                exclusive_user=customer_name
+            )
             .order_by("-effective_date")
             .first()
         )
+        if not matching_quotation:
+            matching_quotation = (
+                QuotationMaster.objects.filter(
+                    effective_date__lte=vessel_etd,
+                    is_user_exclusive=False  # 非用户专属的通用报价单
+                )
+                .order_by("-effective_date")
+                .first()
+            )
         # 获取组合柜规则
         stipulate = FeeDetail.objects.get(
             quotation_id=matching_quotation.id, fee_type="COMBINA_STIPULATE"
@@ -4589,13 +4627,26 @@ class Accounting(View):
         else:
             raise ValueError("pallets must be QuerySet or list")
 
-    def _get_fee_details(self, warehouse: str, vessel_etd) -> dict:
+    def _get_fee_details(self, warehouse: str, vessel_etd, customer_name:str) -> dict:
         try:
             quotation = (
-                QuotationMaster.objects.filter(effective_date__lte=vessel_etd)
+                QuotationMaster.objects.filter(
+                    effective_date__lte=vessel_etd,
+                    is_user_exclusive=True,
+                    exclusive_user=customer_name
+                )
                 .order_by("-effective_date")
                 .first()
             )
+            if not quotation:
+                quotation = (
+                    QuotationMaster.objects.filter(
+                        effective_date__lte=vessel_etd,
+                        is_user_exclusive=False  # 非用户专属的通用报价单
+                    )
+                    .order_by("-effective_date")
+                    .first()
+                )
             if not quotation:
                 raise ValueError("找不到报价表")
             id = quotation.id
@@ -4959,11 +5010,26 @@ class Accounting(View):
         plts["total_cbm"] = round(plts["total_cbm"], 2)
         plts["total_weight"] = round(plts["total_weight"], 2)
         # 3. 获取匹配的报价表
+        customer = order.customer_name
+        customer_name = customer.zem_name
         matching_quotation = (
-            QuotationMaster.objects.filter(effective_date__lte=vessel_etd)
+            QuotationMaster.objects.filter(
+                effective_date__lte=vessel_etd,
+                is_user_exclusive=True,
+                exclusive_user=customer_name
+            )
             .order_by("-effective_date")
             .first()
         )
+        if not matching_quotation:
+            matching_quotation = (
+                QuotationMaster.objects.filter(
+                    effective_date__lte=vessel_etd,
+                    is_user_exclusive=False  # 非用户专属的通用报价单
+                )
+                .order_by("-effective_date")
+                .first()
+            )
         if not matching_quotation:
             context["reason"] = "找不到匹配报价表"
             return self.template_invoice_combina_edit, context
@@ -4974,7 +5040,9 @@ class Accounting(View):
         combina_fee = FeeDetail.objects.get(
             quotation_id=matching_quotation.id, fee_type=f"{warehouse}_COMBINA"
         ).details
-        fee_details = self._get_fee_details(warehouse, vessel_etd)
+        customer = order.customer_name
+        customer_name = customer.zem_name
+        fee_details = self._get_fee_details(warehouse, vessel_etd,customer_name)
         stipulate = FeeDetail.objects.get(
             quotation_id=matching_quotation.id, fee_type="COMBINA_STIPULATE"
         ).details
@@ -5590,11 +5658,26 @@ class Accounting(View):
         ).get(container_number__container_number=container_number)
         warehouse = order.retrieval_id.retrieval_destination_area
         vessel_etd = order.vessel_id.vessel_etd
+        customer = order.customer_name
+        customer_name = customer.zem_name
         quotation = (
-            QuotationMaster.objects.filter(effective_date__lte=vessel_etd)
+            QuotationMaster.objects.filter(
+                effective_date__lte=vessel_etd,
+                is_user_exclusive=True,
+                exclusive_user=customer_name
+            )
             .order_by("-effective_date")
             .first()
         )
+        if not quotation:
+            quotation = (
+                QuotationMaster.objects.filter(
+                    effective_date__lte=vessel_etd,
+                    is_user_exclusive=False  # 非用户专属的通用报价单
+                )
+                .order_by("-effective_date")
+                .first()
+            )
         if not quotation:
             raise ValueError("找不到报价表")
         PICKUP_FEE = FeeDetail.objects.get(quotation_id=quotation.id, fee_type="direct")
@@ -6140,12 +6223,28 @@ class Accounting(View):
             order_type = order.container_number.account_order_type
         else:
             order_type = order.order_type
+            iscombina = False
         vessel_etd = order.vessel_id.vessel_etd
+        customer = order.customer_name
+        customer_name = customer.zem_name
         quotation = (
-            QuotationMaster.objects.filter(effective_date__lte=vessel_etd)
+            QuotationMaster.objects.filter(
+                effective_date__lte=vessel_etd,
+                is_user_exclusive=True,
+                exclusive_user=customer_name
+            )
             .order_by("-effective_date")
             .first()
         )
+        if not quotation:
+            quotation = (
+                QuotationMaster.objects.filter(
+                    effective_date__lte=vessel_etd,
+                    is_user_exclusive=False  # 非用户专属的通用报价单
+                )
+                .order_by("-effective_date")
+                .first()
+            )
         if not quotation:
             raise ValueError("找不到报价表")
         PICKUP_FEE = FeeDetail.objects.get(
@@ -6269,6 +6368,11 @@ class Accounting(View):
             groups.append("staff")
         step = request.POST.get("step")
         redirect_step = step == "redirect"
+        if not iscombina:
+            container = Container.objects.get(container_number=container_number)
+            non_combina_reason = container.non_combina_reason
+        else:
+            non_combina_reason = None
         context = {
             "warehouse": warehouse,
             "order_type": order_type,
@@ -6290,6 +6394,7 @@ class Accounting(View):
             "invoice_type": "receivable",
             "qty_data": qty_data,
             "rate_data": rate_data,
+            "non_combina_reason": non_combina_reason
         }
         return self.template_invoice_preport_edit, context
 
