@@ -3123,13 +3123,15 @@ class Accounting(View):
         else:
             fixed_fee_types = ["基本费用", "超重费", "车架费", pallet_name, arrive_name, "总费用"]
 
-        valid_headers = ["柜号", "提柜时间", "总费用"]
+        valid_headers = ["柜号", "提柜时间", "仓库", "柜型", "总费用"]
 
         rows = []
         for order, invoice, warehouse, preport in orders:
             row_data = {}
             row_data["柜号"] = order.container_number.container_number
             row_data["提柜时间"] = order.retrieval_id.actual_retrieval_timestamp.strftime("%Y-%m-%d")
+            row_data["仓库"] = order.warehouse.name
+            row_data["柜型"] = order.container_number.container_type
             other_fees_dict = {}
 
             if select_carrier in ["BBR", "KNO"]:
