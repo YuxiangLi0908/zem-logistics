@@ -143,6 +143,8 @@ class OrderCreation(View):
             return await sync_to_async(render)(request, template, context)
         elif step == "export_forecast":
             return await self.handle_export_forecast(request)
+        elif step == "export_details_by_destination":
+            return await self.handle_export_details_by_destination(request)
         elif step == "update_delivery_type_all":
             template, context = await self.handle_update_delivery_type(request)
             return await sync_to_async(render)(request, template, context)
@@ -186,6 +188,85 @@ class OrderCreation(View):
                 raw_data = raw_data.encode("utf-8")
                 encoding = chardet.detect(raw_data)["encoding"]
                 order["retrieval_id__retrieval_carrier"] = raw_data.decode(encoding)
+
+        df = pd.DataFrame(orders)
+        df = df.rename(
+            {
+                "container_number__container_number": "container",
+                "customer_name__zem_name": "customer",
+                "vessel_id__master_bill_of_lading": "MBL",
+                "vessel_id__destination_port": "destination_port",
+                "vessel_id__vessel_eta": "ETA",
+                "vessel_id__vessel_etd": "ETD",
+                "retrieval_id__retrieval_carrier": "carrier",
+                "container_number__container_type": "container_type",
+                "order_type": "order_type",
+            },
+            axis=1,
+        )
+
+        response = HttpResponse(content_type="text/csv")
+        response["Content-Disposition"] = f"attachment; filename=forecast.csv"
+        df.to_csv(path_or_buf=response, index=False, encoding="utf-8-sig")
+        return response
+    
+    async def handle_export_details_by_destination(self, request: HttpRequest) -> tuple[Any, Any]:
+        selected_orders = json.loads(request.POST.get("selectedOrders", "[]"))
+        selected_orders = list(set(selected_orders))
+        orders = await sync_to_async(list)(
+            Order.objects.select_related(
+                "vessel_id",
+                "container_number",
+                "customer_name",
+                "retrieval_id",
+                "warehouse",
+            )
+            .values(
+                "container_number__container_number",
+                "customer_name__zem_name",
+                "vessel_id__vessel_eta",
+                "vessel_id__vessel_etd",
+                "warehouse__name",
+            )
+            .filter(models.Q(container_number__container_number__in=selected_orders))
+        )
+        for order in orders:
+            container_number = order.get("retrieval_id__retrieval_carrier")
+            order = await sync_to_async(Order.objects.get)(
+                models.Q(container_number__container_number=container_number)
+            )
+            warehouse = await sync_to_async(
+                lambda: order.retrieval_id.retrieval_destination_area
+            )()
+
+            # 找报价表
+            matching_quotation = await sync_to_async(
+                QuotationMaster.objects.filter(effective_date__lte=order.vessel_etd)
+                .order_by("-effective_date")
+                .first
+            )()
+            if not matching_quotation:
+                return ValueError("找不到报价表")
+            # 找组合柜报价
+            combina_fee_detail = await FeeDetail.objects.aget(
+                quotation_id=matching_quotation.id, fee_type=f"{warehouse}_COMBINA"
+            )
+            combina_fee = combina_fee_detail.details
+            plts_by_destination = await sync_to_async(
+                lambda: list(
+                    PackingList.objects.filter(
+                        container_number__container_number=order.container_number
+                    ).values("destination")
+                )
+            )()
+            matched_regions = self.find_matching_regions(
+                plts_by_destination, combina_fee
+            )
+            matched_regions["combina_dests"] = matched_regions["combina_dests"]
+            matched_regions["non_combina_dests"] = list(
+                matched_regions["non_combina_dests"]
+            )
+            
 
         df = pd.DataFrame(orders)
         df = df.rename(
@@ -736,7 +817,11 @@ class OrderCreation(View):
 
         # 处理PackingList
         batch_size = 10000
-        queryset = PackingList.objects.filter(delivery_type__isnull=True).order_by("id")
+        queryset = PackingList.objects.filter(
+            models.Q(delivery_type__isnull=True) |
+            models.Q(delivery_type=None) | 
+            models.Q(delivery_type="None")
+        ).order_by("id")
         total = await sync_to_async(queryset.count)()
 
         for start in range(0, total, batch_size):
@@ -772,7 +857,11 @@ class OrderCreation(View):
                 )(delivery_type="other")
 
         plt_size = 10000
-        queryset = Pallet.objects.filter(delivery_type__isnull=True).order_by("id")
+        queryset = Pallet.objects.filter(
+            models.Q(delivery_type__isnull=True) |
+            models.Q(delivery_type=None) | 
+            models.Q(delivery_type="None")
+        ).order_by("id")
         total = await sync_to_async(queryset.count)()
 
         for start in range(0, total, plt_size):
@@ -1094,7 +1183,7 @@ class OrderCreation(View):
             return await self.handle_order_basic_info_get()
 
     def find_matching_regions(
-        self, plts_by_destination: dict, combina_fee: dict, container_type
+        self, plts_by_destination: dict, combina_fee: dict
     ) -> dict:
         non_combina_dests = set()
         price_display = defaultdict(set)
@@ -1161,12 +1250,6 @@ class OrderCreation(View):
             lambda: order.retrieval_id.retrieval_destination_area
         )()
 
-        container = await sync_to_async(Container.objects.get)(
-            container_number=container_number
-        )
-        container_type = container.container_type
-        container_type = 0 if container_type == "40HQ/GP" else 1
-
         # 找报价表
         matching_quotation = await sync_to_async(
             QuotationMaster.objects.filter(effective_date__lte=vessel_etd)
@@ -1189,7 +1272,7 @@ class OrderCreation(View):
             )
         )()
         matched_regions = self.find_matching_regions(
-            plts_by_destination, combina_fee, container_type
+            plts_by_destination, combina_fee
         )
         matched_regions["combina_dests"] = matched_regions["combina_dests"]
         matched_regions["non_combina_dests"] = list(
