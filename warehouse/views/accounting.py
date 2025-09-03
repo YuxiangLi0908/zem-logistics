@@ -3123,12 +3123,13 @@ class Accounting(View):
         else:
             fixed_fee_types = ["基本费用", "超重费", "车架费", pallet_name, arrive_name, "总费用"]
 
-        valid_headers = ["柜号", "总费用"]
+        valid_headers = ["柜号", "提柜时间", "总费用"]
 
         rows = []
         for order, invoice, warehouse, preport in orders:
             row_data = {}
             row_data["柜号"] = order.container_number.container_number
+            row_data["提柜时间"] = order.retrieval_id.actual_retrieval_timestamp.strftime("%Y-%m-%d")
             other_fees_dict = {}
 
             if select_carrier in ["BBR", "KNO"]:
@@ -3173,7 +3174,7 @@ class Accounting(View):
                 if fee_type not in row_data:
                     row_data[fee_type] = 0
             rows.append(row_data)
-        valid_headers = list(set(valid_headers))
+        valid_headers = list(dict.fromkeys(valid_headers))
         for fee_type in fixed_fee_types:
             if fee_type not in ["柜号", "总费用"]:
                 # 检查该列是否有非零值
