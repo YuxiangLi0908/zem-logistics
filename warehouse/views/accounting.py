@@ -3039,6 +3039,19 @@ class Accounting(View):
             request.POST.get("end_date_confirm"),
         )
 
+    def sum_exe_number(self, warehouse, other_fees_dict, row_data, valid_headers):
+        if warehouse.other_fees and isinstance(warehouse.other_fees, dict):
+            for key, value in warehouse.other_fees.items():
+                if key == 'other_fee' and isinstance(value, dict):
+                    other_fees_dict.update(value)
+
+                elif isinstance(value, (int, float)):
+                    other_fees_dict[key] = value
+                if other_fees_dict:
+                    for k, v in other_fees_dict.items():
+                        row_data[k] = v
+                        valid_headers.append(k)
+
     def handle_carrier_invoice_export(self, request: HttpRequest) -> HttpResponse:
         select_month = request.POST.get("select_month")
         select_carrier = request.POST.get("select_carrier")
@@ -3052,7 +3065,7 @@ class Accounting(View):
         order_list = Order.objects.filter(
             retrieval_id__actual_retrieval_timestamp__year=year,
             retrieval_id__actual_retrieval_timestamp__month=month,
-            invoice_id__isnull=False
+            invoice_id__isnull = False
         ).exclude(payable_status__stage="unstarted",payable_status__isnull=False)
         orders = []
 
@@ -3110,9 +3123,8 @@ class Accounting(View):
             fixed_fee_types = [pallet_name, arrive_name, "总费用"]
         else:
             fixed_fee_types = ["基本费用", "超重费", "车架费", pallet_name, arrive_name, "总费用"]
-        
-        # 添加"其他费用"列
-        fixed_fee_types.append("其他费用")      
+
+        valid_headers = ["柜号", "总费用"]
 
         rows = []
         for order, invoice, warehouse, preport in orders:
@@ -3126,14 +3138,7 @@ class Accounting(View):
                     row_data[arrive_name] = warehouse.arrive_fee or 0
                     
                     # 计算其他费用
-                    if warehouse.other_fees and isinstance(warehouse.other_fees, dict):
-                        for key, value in warehouse.other_fees.items():
-                            if key == 'other_fee' and isinstance(value, dict):
-                                other_fees_dict.update(value)
-
-                            elif isinstance(value, (int, float)):
-                                other_fees_dict[key] = value
-                    
+                    self.sum_exe_number(warehouse, other_fees_dict, row_data, valid_headers)
                     row_data["总费用"] = getattr(warehouse, "amount", 0) or 0
             else:
                 total_amount = 0
@@ -3143,7 +3148,7 @@ class Accounting(View):
                     row_data["基本费用"] = preport.pickup or 0
                     row_data["超重费"] = preport.over_weight or 0
                     row_data["车架费"] = preport.chassis or 0
-                    
+
                     # 计算preport的其他费用
                     if preport.other_fees and isinstance(preport.other_fees, dict):
                         for key, value in preport.other_fees.items():
@@ -3151,45 +3156,24 @@ class Accounting(View):
                                 other_fees_dict.update(value)
                             elif isinstance(value, (int, float)):
                                 other_fees_dict[key] = value
-                
+
                 if warehouse:
                     total_amount += float(getattr(warehouse, "amount", 0) or 0)
                     row_data[pallet_name] = warehouse.palletization_fee or 0
                     row_data[arrive_name] = warehouse.arrive_fee or 0
-                    
                     # 计算warehouse的其他费用
-                    if warehouse.other_fees and isinstance(warehouse.other_fees, dict):
-                        for key, value in warehouse.other_fees.items():
-                            if key == 'other_fee' and isinstance(value, dict):
-                                other_fees_dict.update(value)
-                            elif isinstance(value, (int, float)):
-                                other_fees_dict[key] = value
-                
+                    self.sum_exe_number(warehouse, other_fees_dict, row_data, valid_headers)
                 row_data["总费用"] = total_amount
-            
-            if other_fees_dict:
-                row_data["其他费用"] = str(other_fees_dict)
-            else:
-                row_data["其他费用"] = ""
-            
             for fee_type in fixed_fee_types:
                 if fee_type not in row_data:
                     row_data[fee_type] = 0
-            
             rows.append(row_data)
-        
-        
-        valid_headers = ["柜号", "总费用"]
-        
         for fee_type in fixed_fee_types:
-            if fee_type not in ["柜号", "总费用", "其他费用"]:
+            if fee_type not in ["柜号", "总费用"]:
                 # 检查该列是否有非零值
                 has_value = any(row.get(fee_type, 0) not in (0, "0") for row in rows)
                 if has_value:
                     valid_headers.append(fee_type)
-        
-        # 添加其他费用列（总是显示）
-        valid_headers.append("其他费用")
         
         # 写入表头
         ws.append(valid_headers)
