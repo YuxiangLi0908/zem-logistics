@@ -7,7 +7,7 @@ import re
 import string
 import uuid
 from datetime import datetime,date
-from typing import Any
+from typing import Any, Optional, Tuple, Dict, List
 
 import barcode
 import pandas as pd
@@ -403,35 +403,51 @@ class Palletization(View):
             context = {"warehouse_form": ZemWarehouseForm()}
         return self.template_main, context
 
-    async def handle_all_get_palletized(self, warehouse: str = None) -> tuple[str, dict[str, Any]]:
-        if warehouse:
-            warehouse = None if warehouse == "Empty" else warehouse
-            order_palletized= (
-                await self._get_order_palletized(warehouse)
-                )
-            order_packing_list = []
-            context = {}
-            for o in order_palletized:
-                order_selected = await sync_to_async(
-                    Order.objects.select_related(
-                        "container_number", "warehouse", "offload_id"
-                    ).get
-                )(pk=o.id)
-                container = order_selected.container_number
-                packing_list = await self._get_packing_list_palletized(
-                    container_number=container.container_number
-                )
-                for pl in packing_list:
-                    if not pl["PO_ID"]:
-                        pl["PO_ID"] = ""
+    async def handle_all_get_palletized(
+            self, warehouse: Optional[str] = None
+    ) -> Tuple[str, dict[str, Any]]:
+        """
+        库位管理-获取已拆柜未出库的两种情况
+        （1.未约）
+        （2.已约未出库）
+        """
+        context: Dict[str, Any] = {
+            "warehouse_form": ZemWarehouseForm()
+        }
 
-                    order_packing_list.append(pl)
-                context["order_packing_list"] = order_packing_list
-                context["warehouse_form"] = ZemWarehouseForm(initial={"name": warehouse})
-                context["warehouse"] = warehouse
+        if not warehouse or warehouse.strip() == "Empty":
             return self.template_pallet_warehouse_zone, context
-        else:
-            context = {"warehouse_form": ZemWarehouseForm()}
+
+        order_palletized: List[Order] = await self._get_order_palletized(warehouse.strip())
+
+        if not order_palletized:
+            context.update({
+                "warehouse_form": ZemWarehouseForm(initial={"name": warehouse.strip()}),
+                "warehouse": warehouse.strip(),
+                "order_packing_list": []
+            })
+            return self.template_pallet_warehouse_zone, context
+
+        container_numbers: List[str] = list({
+            o.container_number.container_number
+            for o in order_palletized
+            if o.container_number
+        })
+
+        all_packing_list: List[Dict[str, Any]] = await self._get_packing_list_palletized(
+            container_number=container_numbers
+        )
+
+        order_packing_list: List[Dict[str, Any]] = []
+        for pl in all_packing_list:
+            pl["PO_ID"] = pl["PO_ID"] or ""
+            order_packing_list.append(pl)
+        context.update({
+            "order_packing_list": order_packing_list,
+            "warehouse_form": ZemWarehouseForm(initial={"name": warehouse.strip()}),
+            "warehouse": warehouse.strip()
+        })
+
         return self.template_pallet_warehouse_zone, context
 
 
@@ -1731,24 +1747,38 @@ class Palletization(View):
     async def _get_packing_list_palletized(
             self, container_number: str
     ) -> PackingList:
-
-        return await sync_to_async(list)(
-            Pallet.objects.select_related("container_number")
-            .filter(container_number__container_number=container_number)
-            .values(
-                "PO_ID",
-                "container_number__container_number",
-                "delivery_method",
-                "destination",
-                "slot",
-            )
-            # 对每个分组进行聚合计算
-            .annotate(
-                n_pallet=Count("pallet_id", distinct=True),
-                slot_count=Count("pallet_id", distinct=True, filter=Q(slot__isnull=False))
-            )
-            .order_by("PO_ID")
+        base_filter = Q(container_number__container_number__in=container_number)
+        batch_filter = (
+            # 条件1：未约
+                Q(shipment_batch_number__isnull=True)
+                # 条件2：已约但未出库
+                | Q(shipment_batch_number__isnull=False, shipment_batch_number__is_shipped=False)
         )
+        final_filter = base_filter & batch_filter
+
+        queryset = Pallet.objects.select_related(
+            "container_number",
+            "shipment_batch_number"
+        ).filter(
+            final_filter
+        ).values(
+            "PO_ID",
+            "container_number__container_number",
+            "delivery_method",
+            "destination",
+            "slot"
+        ).annotate(
+            n_pallet=Count("pallet_id", distinct=True),
+            slot_count=Count(
+                "pallet_id",
+                distinct=True,
+                filter=Q(slot__isnull=False)
+            )
+        ).order_by(
+            "PO_ID"
+        )
+
+        return await sync_to_async(list)(queryset)
 
 
     async def _get_order_not_palletized(self, warehouse: str) -> Order:
