@@ -401,7 +401,6 @@ class Inventory(View):
         # create new pallets
         new_pallets = []
         old_po_id = old_pallet[0].PO_ID
-
         old_packinglist = await sync_to_async(list)(
             PackingList.objects.filter(PO_ID=old_po_id)
         )
@@ -463,11 +462,11 @@ class Inventory(View):
                 pl_to_update = []
                 for pl in old_packinglist:
                     match = True
-                    if fba and pl.fba_id not in fba:
+                    if fba and fba not in pl.fba_id:
                         match = False
-                    if ref and pl.ref_id not in ref:
+                    if ref and ref not in pl.ref_id:
                         match = False
-                    if sm and pl.shipping_mark not in sm:
+                    if sm and sm not in pl.shipping_mark:
                         match = False
                     if match:
                         pl.destination = dest
