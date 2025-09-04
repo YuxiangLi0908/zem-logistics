@@ -3083,6 +3083,10 @@ class Accounting(View):
             retrieval_id__actual_retrieval_timestamp__month=month,
             invoice_id__isnull = False
         ).exclude(payable_status__stage="unstarted",payable_status__isnull=False)
+        order_list = order_list.order_by(
+            "warehouse",
+            "retrieval_id__actual_retrieval_timestamp"
+        )
         orders = []
 
         if select_carrier in ["BBR", "KNO"]:
