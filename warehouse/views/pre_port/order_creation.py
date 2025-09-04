@@ -311,7 +311,7 @@ class OrderCreation(View):
             axis=1,
         )
         response = HttpResponse(content_type="text/csv")
-        response["Content-Disposition"] = f"attachment; filename=forecast.csv"
+        response["Content-Disposition"] = f"attachment; filename=destination_details.csv"
         df.to_csv(path_or_buf=response, index=False, encoding="utf-8-sig")
         return response
 
