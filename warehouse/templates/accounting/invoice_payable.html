@@ -335,10 +335,10 @@
                                 <td class="td">{{ c.retrieval_id.retrieval_destination_precise }}</td>
                                 <td class="td" style="vertical-align: middle;">                                
                                     <a href="/accounting/?step=container_payable_confirm&container_number={{ c.container_number }}&start_date={{ start_date }}&end_date={{ end_date }}&warehouse_filter={{ warehouse_filter }}">{{ c.container_number }}</a>
-                                </td>                     
-                                <td class="td" style="vertical-align: middle; white-space: pre-line;">{{ c.display_stage }}</td>
+                                </td>                                              
                                 <td class="td">{{ c.retrieval_id.actual_retrieval_timestamp|date:"Y/m/d" }}</td>
                                 <td class="td">{{ c.vessel_id.destination_port }}</td>
+                                <td class="td" style="vertical-align: middle; white-space: pre-line;">{{ c.display_stage }}</td>
                             </tr>
                         {% endfor %}
                     </tbody>

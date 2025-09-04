@@ -1308,24 +1308,24 @@ class OrderCreation(View):
         )()
 
         # 找报价表
-        customer = order.customer_name
-        matching_quotation = (
+        customer = await sync_to_async(lambda: order.customer_name)()
+        matching_quotation = await (
             QuotationMaster.objects.filter(
                 effective_date__lte=vessel_etd,
                 is_user_exclusive=True,
-                exclusive_user=customer.zem_name
+                exclusive_user=customer,
             )
             .order_by("-effective_date")
-            .first()
+            .afirst()
         )
         if not matching_quotation:
-            matching_quotation = (
+            matching_quotation = await (
                 QuotationMaster.objects.filter(
                     effective_date__lte=vessel_etd,
-                    is_user_exclusive=False  # 非用户专属的通用报价单
+                    is_user_exclusive=False,  # 非用户专属的通用报价单
                 )
                 .order_by("-effective_date")
-                .first()
+                .afirst()
             )
         if not matching_quotation:
             raise ValueError("找不到报价表")
