@@ -78,7 +78,7 @@
 
 <div style="display: flex; max-height: 360px;">
     {% if order_pending %}
-    <div style="overflow-y: auto; max-height: 100%; width: 70%; border: 2px solid rgb(180, 180, 180); border-radius: 12px; padding: 1%; margin: 1%;">     
+    <div style="overflow-y: auto; max-height: 100%; width: 80%; border: 2px solid rgb(180, 180, 180); border-radius: 12px; padding: 1%; margin: 1%;">     
         <div>
             <b>待审核账单</b>
             <span style="font-size: 12px; color: #666;">{{ order_pending|length }}条记录</span>
@@ -98,6 +98,8 @@
                             <th class="th">提柜费</th>
                             <th class="th">拆柜费</th>
                             <th class="th">超重费</th>
+                            <th class="th">滞港费</th>
+                            <th class="th">滞箱费</th>
                             <th class="th">车架费</th>
                             <th class="th">其他费用</th>
                             <th class="th">总费用</th>
@@ -108,6 +110,8 @@
                             <th class="th"></th>
                             <th class="th"></th>  
                             <th class="th"><input type="text" style="width:70px;" id="containerSearchInput" placeholder="搜索柜号..." oninput="filterTable(this, 2)" size="16" style="font-size: 14px;"></th>                      
+                            <th class="th"></th>
+                            <th class="th"></th>
                             <th class="th"></th>
                             <th class="th"></th>
                             <th class="th"></th>
@@ -136,6 +140,8 @@
                                 <td>{{ c.basic_fee|floatformat:2 }}</td>
                                 <td>{{ c.palletization_fee|floatformat:2 }}</td>
                                 <td>{{ c.overweight_fee|floatformat:2 }}</td>
+                                <td>{{ c.demurrage_fee|floatformat:2 }}</td>
+                                 <td>{{ c.per_diem_fee|floatformat:2 }}</td>
                                 <td>{{ c.chassis_fee|floatformat:2 }}</td>
                                 <td>
                                     {% if c.other_fee %}
@@ -156,7 +162,7 @@
                                             {% csrf_token %}
                                             <input type="hidden" name="container_number" value="{{ c.container_number }}">
                                             <input type="hidden" name="step" value="payable_save">
-                                            <input type="hidden" name="save_type" value="check_confirm">
+                                            <input type="hidden" name="save_type" value="check_confirm_without_data">
                                             <input type="hidden" name="start_date" value="{{ start_date }}">
                                             <input type="hidden" name="end_date" value="{{ end_date }}">
                                             <input type="hidden" name="warehouse_filter" value="{{ warehouse_filter }}">
@@ -233,7 +239,7 @@
                                 <td class="td">{{ c.customer_name.zem_name }}</td>
                                 <td class="td">{{ c.retrieval_id.retrieval_destination_precise }}</td>
                                 <td class="td">
-                                    <a href="/accounting/?step=container_payable&container_number={{ c.container_number }}&start_date={{ start_date }}&end_date={{ end_date }}&warehouse={{ warehouse_filter }}">{{ c.container_number }}</a>
+                                    <a href="/accounting/?step=container_payable_confirm&container_number={{ c.container_number }}&start_date={{ start_date }}&end_date={{ end_date }}&warehouse={{ warehouse_filter }}">{{ c.container_number }}</a>
                                 </td>
                                 <td class="td">{{ c.retrieval_id.actual_retrieval_timestamp|date:"Y/m/d" }}</td>
                                 <td class="td">{{ c.vessel_id.destination_port }}</td>
@@ -330,7 +336,7 @@
                                 <td class="td" style="vertical-align: middle;">{{ c.customer_name.zem_name }}</td>
                                 <td class="td">{{ c.retrieval_id.retrieval_destination_precise }}</td>
                                 <td class="td" style="vertical-align: middle;">                                
-                                    <a href="/accounting/?step=container_payable&container_number={{ c.container_number }}&start_date={{ start_date }}&end_date={{ end_date }}&warehouse_filter={{ warehouse_filter }}">{{ c.container_number }}</a>
+                                    <a href="/accounting/?step=container_payable_confirm&container_number={{ c.container_number }}&start_date={{ start_date }}&end_date={{ end_date }}&warehouse_filter={{ warehouse_filter }}">{{ c.container_number }}</a>
                                 </td>                     
                                 <td class="td" style="vertical-align: middle; white-space: pre-line;">{{ c.display_stage }}</td>
                                 <td class="td">{{ c.retrieval_id.actual_retrieval_timestamp|date:"Y/m/d" }}</td>
