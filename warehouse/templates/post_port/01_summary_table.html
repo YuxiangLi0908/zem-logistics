@@ -175,7 +175,7 @@
             <thead>
                 <tr>
                     <th style="text-align: center;"></th>
-                    <th>所属仓库</th>
+                    <th>仓库</th>
                     <th>客户</th>
                     <th>货柜号</th>
                     <th>仓点</th>
@@ -233,7 +233,7 @@
                         <input type="hidden" name="pl_ids" value='{{ c.ids }}'>
                         <input type="hidden" name="plt_ids" value='{{ c.plt_ids }}'>
                     </td>
-                    <td>{{ c.warehouse }}</td>
+                    <td>{{ c.container_number__order__warehouse__name }}</td>
                     <td style="max-width: 120px; word-break: break-all;">{{ c.container_number__order__customer_name__zem_name }}</td>
                     <td>{{ c.container_number__container_number }}</td>
                     <td name="po-destination">

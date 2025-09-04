@@ -175,8 +175,9 @@ class PostportDash(View):
                 "start_date": start_date,
                 "end_date": end_date,
             }
-        print('过滤条件',pl_criteria)
         packing_list = await self._get_packing_list(pl_criteria, plt_criteria)
+        for pl in packing_list:
+            print(pl)
         context["packing_list"] = packing_list
         cbm_act, cbm_est, pallet_act, pallet_est = 0, 0, 0, 0
         for pl in packing_list:
@@ -350,6 +351,7 @@ class PostportDash(View):
             .values(
                 "container_number__container_number",
                 "container_number__order__customer_name__zem_name",
+                "container_number__order__warehouse__name",
                 "destination",
                 "address",
                 "delivery_method",
@@ -456,6 +458,7 @@ class PostportDash(View):
                 .values(
                     "container_number__container_number",
                     "container_number__order__customer_name__zem_name",
+                    "container_number__order__warehouse__name",
                     "destination",
                     "address",
                     "custom_delivery_method",
