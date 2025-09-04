@@ -61,7 +61,7 @@
         border-collapse: collapse;
         font-size: 11px;
         table-layout: fixed;
-        min-width: 1800px; /* 最小宽度确保所有列都能显示 */
+        min-width: 1800px;
     }
     
     #packing-list-table th, 
@@ -72,7 +72,19 @@
         vertical-align: top;
         overflow: hidden;
         text-overflow: ellipsis;
-        white-space: nowrap;
+        position: relative;
+        word-break: break-all;
+    }
+    
+    #packing-list-table td:hover {
+        overflow: visible;
+        white-space: normal;
+        z-index: 100;
+        background-color: #fff;
+        box-shadow: 0 0 10px rgba(0,0,0,0.1);
+        min-width: auto;
+        max-width: none;
+        width: auto;
     }
     
     #packing-list-table th {
@@ -92,42 +104,122 @@
         z-index: 15;
     }
     
-    /* 调整特定列的宽度 */
-    #packing-list-table th:nth-child(10), /* CBM列 */
-    #packing-list-table td:nth-child(10) {
-        width: 60px !important;
-        min-width: 60px !important;
-        max-width: 60px !important;
-    }
-    
-    #packing-list-table th:nth-child(11), /* 卡板数列 */
-    #packing-list-table td:nth-child(11) {
-        width: 70px !important;
-        min-width: 70px !important;
-        max-width: 70px !important;
-    }
-    
-    #packing-list-table th:nth-child(12), /* 箱数列 */
-    #packing-list-table td:nth-child(12) {
-        width: 60px !important;
-        min-width: 60px !important;
-        max-width: 60px !important;
-    }
-    
-    /* 其他列的默认宽度 */
-    #packing-list-table th:not(:nth-child(10)):not(:nth-child(11)):not(:nth-child(12)),
-    #packing-list-table td:not(:nth-child(10)):not(:nth-child(11)):not(:nth-child(12)) {
-        width: auto;
-        min-width: 80px;
-    }
-    
-    /* 复选框列特别处理 */
-    #packing-list-table th:first-child,
-    #packing-list-table td:first-child {
+    #packing-list-table th:nth-child(1),
+    #packing-list-table td:nth-child(1) {
         width: 40px !important;
         min-width: 40px !important;
         max-width: 40px !important;
         text-align: center;
+    }
+    
+    #packing-list-table th:nth-child(2),
+    #packing-list-table td:nth-child(2) {
+        width: 80px !important;
+        min-width: 80px !important;
+    }
+    
+    #packing-list-table th:nth-child(3),
+    #packing-list-table td:nth-child(3) {
+        width: 100px !important;
+        min-width: 100px !important;
+    }
+    
+    #packing-list-table th:nth-child(4),
+    #packing-list-table td:nth-child(4) {
+        width: 90px !important;
+        min-width: 90px !important;
+    }
+    
+    #packing-list-table th:nth-child(5),
+    #packing-list-table td:nth-child(5) {
+        width: 120px !important;
+        min-width: 120px !important;
+    }
+    
+    #packing-list-table th:nth-child(6),
+    #packing-list-table td:nth-child(6) {
+        width: 100px !important;
+        min-width: 100px !important;
+    }
+    
+    #packing-list-table th:nth-child(7),
+    #packing-list-table td:nth-child(7) {
+        width: 100px !important;
+        min-width: 100px !important;
+    }
+    
+    #packing-list-table th:nth-child(8),
+    #packing-list-table td:nth-child(8) {
+        width: 100px !important;
+        min-width: 100px !important;
+    }
+    
+    #packing-list-table th:nth-child(9),
+    #packing-list-table td:nth-child(9) {
+        width: 100px !important;
+        min-width: 100px !important;
+    }
+    
+    #packing-list-table th:nth-child(10),
+    #packing-list-table td:nth-child(10) {
+        width: 60px !important;
+        min-width: 60px !important;
+    }
+    
+    #packing-list-table th:nth-child(11),
+    #packing-list-table td:nth-child(11) {
+        width: 70px !important;
+        min-width: 70px !important;
+    }
+    
+    #packing-list-table th:nth-child(12),
+    #packing-list-table td:nth-child(12) {
+        width: 60px !important;
+        min-width: 60px !important;
+    }
+    
+    #packing-list-table th:nth-child(13),
+    #packing-list-table td:nth-child(13) {
+        width: 80px !important;
+        min-width: 80px !important;
+    }
+    
+    #packing-list-table th:nth-child(14),
+    #packing-list-table td:nth-child(14),
+    #packing-list-table th:nth-child(15),
+    #packing-list-table td:nth-child(15),
+    #packing-list-table th:nth-child(16),
+    #packing-list-table td:nth-child(16) {
+        width: 70px !important;
+        min-width: 70px !important;
+    }
+    
+    #packing-list-table th:nth-child(17),
+    #packing-list-table td:nth-child(17) {
+        width: 90px !important;
+        min-width: 90px !important;
+    }
+    
+    #packing-list-table th:nth-child(18),
+    #packing-list-table td:nth-child(18) {
+        width: 100px !important;
+        min-width: 100px !important;
+    }
+    
+    #packing-list-table th:nth-child(19),
+    #packing-list-table td:nth-child(19),
+    #packing-list-table th:nth-child(20),
+    #packing-list-table td:nth-child(20),
+    #packing-list-table th:nth-child(21),
+    #packing-list-table td:nth-child(21) {
+        width: 130px !important;
+        min-width: 130px !important;
+    }
+    
+    #packing-list-table th:nth-child(22),
+    #packing-list-table td:nth-child(22) {
+        width: 90px !important;
+        min-width: 90px !important;
     }
     
     .status-span-red, .status-span-yellow, 
@@ -160,6 +252,18 @@
         background-color: #e9ecef;
         font-weight: bold;
     }
+    
+    .table-container::after {
+        content: "→";
+        position: absolute;
+        right: 10px;
+        top: 50%;
+        transform: translateY(-50%);
+        font-size: 20px;
+        color: #999;
+        opacity: 0.7;
+        pointer-events: none;
+    }
 </style>
 
 <form method="post" style="width: 100%;">
@@ -171,7 +275,7 @@
         </div>
     
     <div class="table-container">   
-        <table id="packing-list-table" class="table">
+        <table id="packing-list-table" class="table" style="width:100%; border-collapse: collapse;">
             <thead>
                 <tr>
                     <th style="text-align: center;"></th>
@@ -233,10 +337,10 @@
                         <input type="hidden" name="pl_ids" value='{{ c.ids }}'>
                         <input type="hidden" name="plt_ids" value='{{ c.plt_ids }}'>
                     </td>
-                    <td>{{ c.container_number__order__warehouse__name }}</td>
-                    <td style="max-width: 120px; word-break: break-all;">{{ c.container_number__order__customer_name__zem_name }}</td>
-                    <td>{{ c.container_number__container_number }}</td>
-                    <td name="po-destination">
+                    <td title="{{ c.container_number__order__warehouse__name }}">{{ c.container_number__order__warehouse__name }}</td>
+                    <td title="{{ c.container_number__order__customer_name__zem_name }}">{{ c.container_number__order__customer_name__zem_name }}</td>
+                    <td title="{{ c.container_number__container_number }}">{{ c.container_number__container_number }}</td>
+                    <td name="po-destination" title="{{ c.destination }}">
                         {{ c.destination }}
                         {% if c.abnormal_palletization %}
                             <span class="status-span-red">未解决拆柜异常</span>
@@ -245,7 +349,7 @@
                             <span class="status-span-yellow">PO失效</span>
                         {% endif %}
                     </td>
-                    <td>
+                    <td title="{% with first_value=c.custom_delivery_method|default:""|split_and_get_first %}{% if first_value == '客户自提' %}{{ first_value }} - {{ c.shipping_marks }}{% else %}{{ first_value }}{% endif %}{% endwith %}">
                         {% with first_value=c.custom_delivery_method|default:""|split_and_get_first %}
                             {% if first_value == '客户自提' %}
                             {{ first_value }} - {{ c.shipping_marks }}
@@ -254,9 +358,9 @@
                             {% endif %}
                         {% endwith %}
                     </td>
-                    <td>{{ c.shipping_marks }}</td>
-                    <td>{{ c.fba_ids }}</td>
-                    <td>{{ c.ref_ids }}</td>
+                    <td title="{{ c.shipping_marks }}">{{ c.shipping_marks }}</td>
+                    <td title="{{ c.fba_ids }}">{{ c.fba_ids }}</td>
+                    <td title="{{ c.ref_ids }}">{{ c.ref_ids }}</td>
                     <td>{{ c.total_cbm|floatformat:2 }}</td>
                     <td>
                         {% if c.label == "ACT" %}
@@ -285,8 +389,8 @@
                         {% endif %}
                     </td>
                     <td>{{ c.container_number__order__offload_id__offload_at|date:"M-j" }}</td>
-                    <td>{{ c.shipment_batch_number__shipment_batch_number|default_if_none:"" }}</td>
-                    <td>{{ c.shipment_batch_number__appointment_id|default_if_none:"" }}</td>
+                    <td title="{{ c.shipment_batch_number__shipment_batch_number|default_if_none:'' }}">{{ c.shipment_batch_number__shipment_batch_number|default_if_none:"" }}</td>
+                    <td title="{{ c.shipment_batch_number__appointment_id|default_if_none:'' }}">{{ c.shipment_batch_number__appointment_id|default_if_none:"" }}</td>
                     <td>
                         {{ c.shipment_batch_number__shipment_appointment|date:"Y-m-d" }} {{ c.shipment_batch_number__shipment_appointment|time:"H:i" }}
                     </td>

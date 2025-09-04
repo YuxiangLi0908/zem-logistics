@@ -116,29 +116,23 @@ class PostportDash(View):
             container_number__order__created_at__gte="2024-09-01",
         )
         if shipment_batch_number or container_number or destination or shipping_marks or fba_ids or ref_ids:
-            print('存在多个条件')
             if shipment_batch_number:
-                print('有约')
                 criteria &= models.Q(
                     shipment_batch_number__shipment_batch_number=shipment_batch_number
                 )
             elif container_number:
-                print('有柜号')
                 criteria &= models.Q(
                     container_number__container_number=container_number
                 )
             elif destination:
-                print('有目的地')
                 pl_criteria = models.Q(destination=destination)
                 plt_criteria = models.Q(
                     container_number__order__offload_id__offload_at__isnull=True,  # 如果是查预报的仓点，就不看板子，所以这里加了一个不成立的条件
                     container_number__container_number="0",
                 )
             elif shipping_marks:
-                print('有唛头')
                 pl_criteria = models.Q(shipping_mark=shipping_marks)
                 plt_criteria = models.Q(shipping_mark__in=shipping_marks)
-                print('条件是',pl_criteria)
             elif fba_ids:
                 pl_criteria = models.Q(fba_id=fba_ids)
                 plt_criteria = models.Q(fba_id__in=fba_ids)
@@ -156,7 +150,6 @@ class PostportDash(View):
                 "area_options": self.area_options,
             }
         else:
-            print('啥也没有')
             pl_criteria = criteria & models.Q(
                 container_number__order__vessel_id__vessel_eta__gte=start_date,
                 container_number__order__vessel_id__vessel_eta__lte=end_date,
@@ -176,8 +169,6 @@ class PostportDash(View):
                 "end_date": end_date,
             }
         packing_list = await self._get_packing_list(pl_criteria, plt_criteria)
-        for pl in packing_list:
-            print(pl)
         context["packing_list"] = packing_list
         cbm_act, cbm_est, pallet_act, pallet_est = 0, 0, 0, 0
         for pl in packing_list:
