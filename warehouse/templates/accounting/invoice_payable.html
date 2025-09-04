@@ -42,7 +42,6 @@
         <button id="submit-btn" type="submit" class="btn btn-primary" style="width: 100px; height: 35px;">查询</button>
     </form>
 
-    {% if is_payable_check %}
     <div style="display: flex; align-items: center; gap: 15px; flex-shrink: 0;">
         <!-- 供应商筛选 -->
         <form method="post" action="" style="display: flex; align-items: center; gap: 10px;">
@@ -72,7 +71,6 @@
             <input type="hidden" name="step" value="invoice_payable_carrier_export">
         </form>
     </div>
-    {% endif %}
 </div>
 <hr class="Dashed" style="margin-top: 10px; margin-bottom: 10px;">
 

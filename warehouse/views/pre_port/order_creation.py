@@ -9,6 +9,7 @@ from datetime import datetime, timedelta, timezone
 from decimal import Decimal, InvalidOperation
 from pathlib import Path
 from typing import Any
+from django.db.models import Sum
 
 import chardet
 import numpy as np
@@ -217,36 +218,48 @@ class OrderCreation(View):
             Order.objects.select_related(
                 "vessel_id",
                 "container_number",
-                "customer_name",
                 "retrieval_id",
                 "warehouse",
+                "customer_name",
             )
             .values(
                 "container_number__container_number",
-                "customer_name__zem_name",
-                "vessel_id__vessel_eta",
                 "vessel_id__vessel_etd",
-                "warehouse__name",
+                "retrieval_id__retrieval_destination_area",
+                "customer_name__zem_name",
             )
             .filter(models.Q(container_number__container_number__in=selected_orders))
         )
+        results = []
         for order in orders:
-            container_number = order.get("retrieval_id__retrieval_carrier")
-            order = await sync_to_async(Order.objects.get)(
-                models.Q(container_number__container_number=container_number)
-            )
-            warehouse = await sync_to_async(
-                lambda: order.retrieval_id.retrieval_destination_area
-            )()
-
+            container_number = order.get("container_number__container_number")
+            vessel_etd = order.get("vessel_id__vessel_etd")
+            warehouse = order.get("retrieval_id__retrieval_destination_area")
+                       
             # 找报价表
-            matching_quotation = await sync_to_async(
-                QuotationMaster.objects.filter(effective_date__lte=order.vessel_etd)
+            customer_name = order.get("customer_name__zem_name")
+            matching_quotation = await (
+                QuotationMaster.objects.filter(
+                    effective_date__lte=vessel_etd,
+                    is_user_exclusive=True,
+                    exclusive_user=customer_name,
+                )
                 .order_by("-effective_date")
-                .first
-            )()
+                .afirst()
+            )
+
             if not matching_quotation:
-                return ValueError("找不到报价表")
+                matching_quotation = await (
+                    QuotationMaster.objects.filter(
+                        effective_date__lte=vessel_etd,
+                        is_user_exclusive=False,  # 非用户专属的通用报价单
+                    )
+                    .order_by("-effective_date")
+                    .afirst()
+                )
+            if not matching_quotation:
+                raise ValueError("找不到报价表")
+
             # 找组合柜报价
             combina_fee_detail = await FeeDetail.objects.aget(
                 quotation_id=matching_quotation.id, fee_type=f"{warehouse}_COMBINA"
@@ -255,37 +268,50 @@ class OrderCreation(View):
             plts_by_destination = await sync_to_async(
                 lambda: list(
                     PackingList.objects.filter(
-                        container_number__container_number=order.container_number
+                        container_number__container_number=container_number
                     ).values("destination")
                 )
             )()
             matched_regions = self.find_matching_regions(
                 plts_by_destination, combina_fee
             )
-            matched_regions["combina_dests"] = matched_regions["combina_dests"]
-            matched_regions["non_combina_dests"] = list(
-                matched_regions["non_combina_dests"]
-            )
+
+            combina_keys = "+".join(matched_regions["combina_dests"].keys())
+            non_combina_vals = ",".join(matched_regions["non_combina_dests"])
+            ups_total_pcs = await sync_to_async(
+                lambda: PackingList.objects.filter(
+                    container_number__container_number=container_number,
+                    destination__icontains="UPS"
+                )
+                .aggregate(total=Sum("pcs"))["total"]
+            )()
+            fxdex_total_pcs = await sync_to_async(
+                lambda: PackingList.objects.filter(
+                    container_number__container_number=container_number,
+                    destination__icontains="FEDEX"
+                )
+                .aggregate(total=Sum("pcs"))["total"]
+            )()
+            results.append({
+                "container_number": container_number,
+                "combina_dests": combina_keys,
+                "non_combina_dests": non_combina_vals,
+                "UPS":ups_total_pcs,
+                "FEDEX":fxdex_total_pcs,
+            })
             
 
-        df = pd.DataFrame(orders)
+        df = pd.DataFrame(results, columns=["container_number", "combina_dests", "non_combina_dests","UPS","FEDEX"])
         df = df.rename(
             {
-                "container_number__container_number": "container",
-                "customer_name__zem_name": "customer",
-                "vessel_id__master_bill_of_lading": "MBL",
-                "vessel_id__destination_port": "destination_port",
-                "vessel_id__vessel_eta": "ETA",
-                "vessel_id__vessel_etd": "ETD",
-                "retrieval_id__retrieval_carrier": "carrier",
-                "container_number__container_type": "container_type",
-                "order_type": "order_type",
+                "container_number": "柜号",
+                "combina_dests": "组合柜的区",
+                "non_combina_dests": "非组合柜仓点",
             },
             axis=1,
         )
-
         response = HttpResponse(content_type="text/csv")
-        response["Content-Disposition"] = f"attachment; filename=forecast.csv"
+        response["Content-Disposition"] = f"attachment; filename=destination_details.csv"
         df.to_csv(path_or_buf=response, index=False, encoding="utf-8-sig")
         return response
 
@@ -1282,11 +1308,28 @@ class OrderCreation(View):
         )()
 
         # 找报价表
-        matching_quotation = await sync_to_async(
-            QuotationMaster.objects.filter(effective_date__lte=vessel_etd)
+        customer = order.customer_name
+        matching_quotation = (
+            QuotationMaster.objects.filter(
+                effective_date__lte=vessel_etd,
+                is_user_exclusive=True,
+                exclusive_user=customer.zem_name
+            )
             .order_by("-effective_date")
-            .first
-        )()
+            .first()
+        )
+        if not matching_quotation:
+            matching_quotation = (
+                QuotationMaster.objects.filter(
+                    effective_date__lte=vessel_etd,
+                    is_user_exclusive=False  # 非用户专属的通用报价单
+                )
+                .order_by("-effective_date")
+                .first()
+            )
+        if not matching_quotation:
+            raise ValueError("找不到报价表")
+        
         if not matching_quotation:
             return ValueError("找不到报价表")
         # 找组合柜报价
