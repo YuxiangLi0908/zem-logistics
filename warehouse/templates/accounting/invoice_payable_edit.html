@@ -439,7 +439,7 @@
                             </td>                       
                             <td colspan="2">
                                 {% if not is_confirm %}
-                                    <input type="text" name="demurrage_fee" value="{{ demurrage_fee|default:'' }}" oninput="calculateTotal()">
+                                    <input type="text" name="demurrage_fee" value="{{ demurrage_fee|default_if_none:'' }}" oninput="calculateTotal()">
                                 {% else %}
                                     <span class="readonly-amount">{{ demurrage_fee }}</span>
                                 {% endif %}
@@ -458,7 +458,7 @@
                             </td>                       
                             <td colspan="2">
                                 {% if not is_confirm %}
-                                    <input type="text" name="per_diem_fee" value="{{ per_diem_fee|default:'' }}" oninput="calculateTotal()">
+                                    <input type="text" name="per_diem_fee" value="{{ per_diem_fee|default_if_none:'' }}" oninput="calculateTotal()">
                                 {% else %}
                                     <span class="readonly-amount">{{ per_diem_fee }}</span>
                                 {% endif %}
