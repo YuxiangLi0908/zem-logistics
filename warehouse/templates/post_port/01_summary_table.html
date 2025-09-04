@@ -10,105 +10,242 @@
 
 <form id="warehouse-form" method="post" action="">
     {% csrf_token %}
-    <div>
-        <b style="margin-right: 5px;">所属仓: </b>
-        <select name="area">
+    <div style="display: flex; flex-wrap: wrap; align-items: center; gap: 8px; margin-bottom: 10px;">
+        <label><b>所属仓:</b></label>
+        <select name="area" style="width: 120px;">
             {% for k, v in area_options.items %}
             <option value="{{ v }}" {% if k == selected_area %}selected{% endif %}>{{ k }}</option>
             {% endfor %}
         </select>
-        <b style="margin-right: 5px;">ETA: </b>
-        <input type="date" name="start_date" value="{{ start_date }}">
-        <input type="date" name="end_date" value="{{ end_date }}">
-        <b style="margin-right: 5px;">柜号: </b>
-        <input type="text" name="container_number" value="{{ container_number }}">
-        <b style="margin-right: 5px;">批次号: </b>
-        <input type="text" name="shipment_batch_number" value="{{ shipment_batch_number }}">
-        <b style="margin-right: 5px;">预报的仓点: </b>
-        <input type="text" name="destination" value="{{ destination }}">
+
+        <label><b>ETA:</b></label>
+        <input type="date" name="start_date" value="{{ start_date }}" style="width: 140px;">
+        <input type="date" name="end_date" value="{{ end_date }}" style="width: 140px;">
+
+        <label><b>柜号:</b></label>
+        <input type="text" name="container_number" value="{{ container_number }}" style="width: 120px;">
+
+        <label><b>批次号:</b></label>
+        <input type="text" name="shipment_batch_number" value="{{ shipment_batch_number }}" style="width: 120px;">
+
+        <label><b>预报的仓点:</b></label>
+        <input type="text" name="destination" value="{{ destination }}" style="width: 120px;">
+
+        <label><b>唛头:</b></label>
+        <input type="text" name="shipping_marks" value="{{ shipping_marks }}" style="width: 120px;">
+
+        <label><b>FBA:</b></label>
+        <input type="text" name="fba_ids" value="{{ fba_ids }}" style="width: 120px;">
+
+        <label><b>REF:</b></label>
+        <input type="text" name="ref_ids" value="{{ ref_ids }}" style="width: 120px;">
+
         <input type="hidden" name="step" value="summary_warehouse">
-        <button type="submit">确认</button>
+        <button type="submit" style="padding: 5px 12px;">确认</button>
     </div>
 </form>
 
+<style>
+    .table-container {
+        width: 100%;
+        overflow-x: auto;
+        position: relative;
+        border: 1px solid #ddd;
+        border-radius: 5px;
+        margin-top: 10px;
+        max-height: 70vh;
+    }
+    
+    #packing-list-table {
+        width: 100%;
+        border-collapse: collapse;
+        font-size: 11px;
+        table-layout: fixed;
+        min-width: 1800px; /* 最小宽度确保所有列都能显示 */
+    }
+    
+    #packing-list-table th, 
+    #packing-list-table td {
+        padding: 4px 6px;
+        border: 1px solid #ddd;
+        text-align: left;
+        vertical-align: top;
+        overflow: hidden;
+        text-overflow: ellipsis;
+        white-space: nowrap;
+    }
+    
+    #packing-list-table th {
+        background-color: #f8f9fa;
+        font-weight: bold;
+        position: sticky;
+        z-index: 10;
+    }
+    
+    #packing-list-table thead tr:first-child th {
+        top: 0;
+        z-index: 20;
+    }
+    
+    #packing-list-table thead tr:nth-child(2) th {
+        top: 30px;
+        z-index: 15;
+    }
+    
+    /* 调整特定列的宽度 */
+    #packing-list-table th:nth-child(10), /* CBM列 */
+    #packing-list-table td:nth-child(10) {
+        width: 60px !important;
+        min-width: 60px !important;
+        max-width: 60px !important;
+    }
+    
+    #packing-list-table th:nth-child(11), /* 卡板数列 */
+    #packing-list-table td:nth-child(11) {
+        width: 70px !important;
+        min-width: 70px !important;
+        max-width: 70px !important;
+    }
+    
+    #packing-list-table th:nth-child(12), /* 箱数列 */
+    #packing-list-table td:nth-child(12) {
+        width: 60px !important;
+        min-width: 60px !important;
+        max-width: 60px !important;
+    }
+    
+    /* 其他列的默认宽度 */
+    #packing-list-table th:not(:nth-child(10)):not(:nth-child(11)):not(:nth-child(12)),
+    #packing-list-table td:not(:nth-child(10)):not(:nth-child(11)):not(:nth-child(12)) {
+        width: auto;
+        min-width: 80px;
+    }
+    
+    /* 复选框列特别处理 */
+    #packing-list-table th:first-child,
+    #packing-list-table td:first-child {
+        width: 40px !important;
+        min-width: 40px !important;
+        max-width: 40px !important;
+        text-align: center;
+    }
+    
+    .status-span-red, .status-span-yellow, 
+    .status-span-green-100, .status-span-blue-100 {
+        display: inline-block;
+        padding: 1px 4px;
+        border-radius: 3px;
+        font-size: 10px;
+        margin-right: 2px;
+    }
+    
+    .status-span-red { background-color: #ffcccc; color: #d00; }
+    .status-span-yellow { background-color: #fff3cd; color: #856404; }
+    .status-span-green-100 { background-color: #d4edda; color: #155724; }
+    .status-span-blue-100 { background-color: #cce5ff; color: #004085; }
+    
+    input[type="text"], input[type="number"] {
+        width: 100%;
+        box-sizing: border-box;
+        font-size: 11px;
+        padding: 2px 4px;
+    }
+    
+    .summary-row {
+        background-color: #f0f8ff;
+        font-weight: bold;
+    }
+    
+    .summary-row input[disabled] {
+        background-color: #e9ecef;
+        font-weight: bold;
+    }
+</style>
 
 <form method="post" style="width: 100%;">
     {% if packing_list %}
     {% csrf_token %}
-        <div style="right: auto;">
+        <div style="margin-bottom: 10px; text-align: right;">
             <input type="hidden" name="step" value="export_report">
             <button type="submit" onclick="confirmSubmit()" class="btn btn-primary" style="width: 100px; height: 35px;">导出报表</button>
         </div>
-    <div>   
-        <table id="packing-list-table" class="table" style="font-size: 11px; max-height: 90%; overflow-y: scroll;">
+    
+    <div class="table-container">   
+        <table id="packing-list-table" class="table">
             <thead>
-                <tr style="position: sticky; top: 30px;">
-                    <th class="th" style="min-width: 40px; text-align: center;"></th>
-                    <th class="th">所属仓库</th>
-                    <th class="th">客户</th>
-                    <th class="th">货柜号</th>
-                    <th class="th">仓点</th>
-                    <th class="th">派送方式</th>
-                    <th class="th">CBM</th>
-                    <th class="th">卡板数</th>
-                    <th class="th">箱数</th>
-                    <th class="th">总重lbs</th>
-                    <th class="th">ETA</th>
-                    <th class="th">提柜时间</th>
-                    <th class="th">入仓时间</th>
-                    <th class="th">预约批次</th>
-                    <th class="th">预约号</th>
-                    <th class="th">预约时间</th>
-                    <th class="th">发货时间</th>
-                    <th class="th">送达时间</th>
-                    <th class="th">是否有POD</th>
+                <tr>
+                    <th style="text-align: center;"></th>
+                    <th>所属仓库</th>
+                    <th>客户</th>
+                    <th>货柜号</th>
+                    <th>仓点</th>
+                    <th>派送方式</th>
+                    <th>唛头</th>
+                    <th>FBA</th>
+                    <th>REF</th>
+                    <th>CBM</th>
+                    <th>卡板数</th>
+                    <th>箱数</th>
+                    <th>总重lbs</th>
+                    <th>ETA</th>
+                    <th>提柜时间</th>
+                    <th>入仓时间</th>
+                    <th>预约批次</th>
+                    <th>预约号</th>
+                    <th>预约时间</th>
+                    <th>发货时间</th>
+                    <th>送达时间</th>
+                    <th>是否有POD</th>
                 </tr>
-                <tr style="position: sticky; top: 52px;" id="packing-list-table-filter">                  
-                    <th class="th" style="min-width: 40px; text-align: center;">
+                <tr id="packing-list-table-filter">                  
+                    <th style="text-align: center;">
                         <input type="checkbox" id="selectAllCheckbox" onchange="toggleAllCheckboxes()">
                     </th>
-                    <th class="th"><input type="text" id="destinationSearchInput" placeholder="搜索目的仓库..." oninput="filterTable(this, 1, true)" size="13" style="font-size: 11px;"></th>
-                    <th class="th"><input type="text" id="containerSearchInput" placeholder="搜索客户..." oninput="filterTable(this, 2, true)" size="13" style="font-size: 11px;"></th>
-                    <th class="th"><input type="text" id="containerSearchInput" placeholder="搜索柜号..." oninput="filterTable(this, 3, true)" size="13" style="font-size: 11px;"></th>
-                    <th class="th"><input type="text" id="containerSearchInput" placeholder="搜索仓点..." oninput="filterTable(this, 4, true)" size="13" style="font-size: 11px;"></th>
-                    <th class="th"><input type="text" id="deliverySearchInput" placeholder="搜索派送..." oninput="filterTable(this, 5, true)" size="13" style="font-size: 11px;"></th>
-                    <th class="th"></th>
-                    <th class="th"></th>
-                    <th class="th"></th>
-                    <th class="th"></th>
-                    <th class="th"></th>
-                    <th class="th"></th>
-                    <th class="th"></th>
-                    <th class="th"><input type="text" id="shipmentSearchInput" placeholder="搜索派送..." oninput="filterTable(this, 13, true)" size="13" style="font-size: 11px;"></th>
-                    <th class="th"><input type="text" id="isaSearchInput" placeholder="搜索派送..." oninput="filterTable(this, 14, true)" size="13" style="font-size: 11px;"></th>
-                    <th class="th"></th>
-                    <th class="th"></th>
-                    <th class="th"></th>
-                    <th class="th"></th>
+                    <th><input type="text" placeholder="搜索仓库..." oninput="filterTable(this, 1)" size="8"></th>
+                    <th><input type="text" placeholder="搜索客户..." oninput="filterTable(this, 2)" size="8"></th>
+                    <th><input type="text" placeholder="搜索柜号..." oninput="filterTable(this, 3)" size="8"></th>
+                    <th><input type="text" placeholder="搜索仓点..." oninput="filterTable(this, 4)" size="8"></th>
+                    <th><input type="text" placeholder="搜索派送..." oninput="filterTable(this, 5)" size="8"></th>
+                    <th><input type="text" placeholder="搜索唛头..." oninput="filterTable(this, 6)" size="8"></th>
+                    <th><input type="text" placeholder="搜索FBA..." oninput="filterTable(this, 7)" size="8"></th>
+                    <th><input type="text" placeholder="搜索REF..." oninput="filterTable(this, 8)" size="8"></th>
+                    <th></th>
+                    <th></th>
+                    <th></th>
+                    <th></th>
+                    <th></th>
+                    <th></th>
+                    <th></th>
+                    <th><input type="text" placeholder="搜索批次..." oninput="filterTable(this, 17)" size="8"></th>
+                    <th><input type="text" placeholder="搜索预约号..." oninput="filterTable(this, 18)" size="8"></th>
+                    <th></th>
+                    <th></th>
+                    <th></th>
+                    <th></th>
                 </tr>
             </thead>
             <tbody>
                 {% for c in packing_list %}
-                <tr id="amount-total-row">
-                    <td class="td" style="min-width: 40px; text-align: center;">
+                <tr>
+                    <td style="text-align: center;">
                         <input type='checkbox' name='is_selected' onclick="toggleRowBackground(this)">
-                        <input type="hidden" name="is_selected", value='off'>
-                        <input type="hidden" name="pl_ids", value='{{ c.ids }}'>
-                        <input type="hidden" name="plt_ids", value='{{ c.plt_ids }}'>
+                        <input type="hidden" name="is_selected" value='off'>
+                        <input type="hidden" name="pl_ids" value='{{ c.ids }}'>
+                        <input type="hidden" name="plt_ids" value='{{ c.plt_ids }}'>
                     </td>
-                    <td class="td">{{ c.warehouse }}</td>
-                    <td class="td" style="max-width: 120px; word-break: break-all;">{{ c.container_number__order__customer_name__zem_name }}</td>
-                    <td class="td">{{ c.container_number__container_number }}</td>
-                    <td class="td" name="po-destination">
+                    <td>{{ c.warehouse }}</td>
+                    <td style="max-width: 120px; word-break: break-all;">{{ c.container_number__order__customer_name__zem_name }}</td>
+                    <td>{{ c.container_number__container_number }}</td>
+                    <td name="po-destination">
                         {{ c.destination }}
                         {% if c.abnormal_palletization %}
-                            <span class="status-span-red" style="padding-top: 0; padding-bottom: 0;">未解决拆柜异常</span>
+                            <span class="status-span-red">未解决拆柜异常</span>
                         {% endif %}
                         {% if c.po_expired %}
-                            <span class="status-span-yellow" style="padding-top: 0; padding-bottom: 0;">PO失效</span>
+                            <span class="status-span-yellow">PO失效</span>
                         {% endif %}
                     </td>
-                    <td class="td">
+                    <td>
                         {% with first_value=c.custom_delivery_method|default:""|split_and_get_first %}
                             {% if first_value == '客户自提' %}
                             {{ first_value }} - {{ c.shipping_marks }}
@@ -117,8 +254,11 @@
                             {% endif %}
                         {% endwith %}
                     </td>
-                    <td class="td">{{ c.total_cbm|floatformat:2 }}</td>
-                    <td class="td">
+                    <td>{{ c.shipping_marks }}</td>
+                    <td>{{ c.fba_ids }}</td>
+                    <td>{{ c.ref_ids }}</td>
+                    <td>{{ c.total_cbm|floatformat:2 }}</td>
+                    <td>
                         {% if c.label == "ACT" %}
                             <span class="status-span-green-100">ACT</span>
                             {{ c.total_n_pallet_act }}
@@ -133,10 +273,10 @@
                             {% endif %}
                         {% endif %}
                     </td>
-                    <td class="td">{{ c.total_pcs }}</td>
-                    <td class="td">{{ c.total_weight_lbs|floatformat:2 }}</td>
-                    <td class="td">{{ c.container_number__order__vessel_id__vessel_eta|date:"M-j" }}</td>
-                    <td class="td">
+                    <td>{{ c.total_pcs }}</td>
+                    <td>{{ c.total_weight_lbs|floatformat:2 }}</td>
+                    <td>{{ c.container_number__order__vessel_id__vessel_eta|date:"M-j" }}</td>
+                    <td>
                         {% if c.container_number__order__retrieval_id__actual_retrieval_timestamp %}
                         {{ c.container_number__order__retrieval_id__actual_retrieval_timestamp|date:"M-j" }}
                         {% elif c.container_number__order__retrieval_id__target_retrieval_timestamp %}
@@ -144,19 +284,19 @@
                         {{ c.container_number__order__retrieval_id__target_retrieval_timestamp|date:"M-j" }}
                         {% endif %}
                     </td>
-                    <td class="td">{{ c.container_number__order__offload_id__offload_at|date:"M-j" }}</td>
-                    <td class="td">{{ c.shipment_batch_number__shipment_batch_number|default_if_none:"" }}</td>
-                    <td class="td">{{ c.shipment_batch_number__appointment_id|default_if_none:"" }}</td>
-                    <td class="td">
+                    <td>{{ c.container_number__order__offload_id__offload_at|date:"M-j" }}</td>
+                    <td>{{ c.shipment_batch_number__shipment_batch_number|default_if_none:"" }}</td>
+                    <td>{{ c.shipment_batch_number__appointment_id|default_if_none:"" }}</td>
+                    <td>
                         {{ c.shipment_batch_number__shipment_appointment|date:"Y-m-d" }} {{ c.shipment_batch_number__shipment_appointment|time:"H:i" }}
                     </td>
-                    <td class="td">
+                    <td>
                         {{ c.shipment_batch_number__shipped_at|date:"Y-m-d" }} {{ c.shipment_batch_number__shipped_at|time:"H:i" }}
                     </td>
-                    <td class="td">
+                    <td>
                         {{ c.shipment_batch_number__arrived_at|date:"Y-m-d" }} {{ c.shipment_batch_number__arrived_at|time:"H:i" }}
                     </td>
-                    <td class="td">
+                    <td>
                         {% if c.shipment_batch_number__pod_link %}
                         YES 
                         {% else %}
@@ -165,24 +305,25 @@
                     </td>
                 </tr>               
                 {% endfor %}
-                <tr>
-                    <td colspan="6"></td>
+                <tr class="summary-row">
+                    <td colspan="9" style="text-align: right;">总计:</td>
                     <td><input type="number" id="cbm-total" disabled></td>
                     <td><input type="number" id="pallet-total" disabled></td>
                     <td><input type="number" id="pcs-total" disabled></td>
                     <td><input type="number" id="weight-total" disabled></td>
-                    <td colspan="9"></td>       
+                    <td colspan="8"></td>       
                 </tr>
             </tbody>
         </table>
-    {% endif %}
     </div>
+    {% endif %}
 </form>
 
 <script>
     window.onload = function () {
         updateTotals();   
     };
+    
     function updateTotals(){
         let cbmTotal = 0;
         let palletTotal = 0;
@@ -196,10 +337,12 @@
             if (row.style.display!== 'none') {
                 const cells = row.getElementsByTagName('td');
 
-                const cbmValue = parseFloat(cells[6].innerText);
-                const palletValue = parseFloat(cells[7].innerText.split(" ")[1]); 
-                const pcsValue = parseFloat(cells[8].innerText);
-                const weightValue = parseFloat(cells[9].innerText);
+                const cbmValue = parseFloat(cells[9].innerText);
+                const palletText = cells[10].innerText;
+                const palletValue = parseFloat(palletText.replace("ACT", "").replace("EST", "").trim());
+                const pcsValue = parseFloat(cells[11].innerText);
+                const weightValue = parseFloat(cells[12].innerText);
+                
                 if (!isNaN(cbmValue)) {
                     cbmTotal += cbmValue;
                 }
@@ -214,16 +357,13 @@
                 }
             }
         }
-        const cbmTotalInput = document.getElementById('cbm-total');       
-        cbmTotalInput.value = cbmTotal.toFixed(2);
-        const palletTotalInput = document.getElementById('pallet-total');       
-        palletTotalInput.value = palletTotal.toFixed(2);
-
-        const pcsTotalInput = document.getElementById('pcs-total');
-        pcsTotalInput.value = pcsTotal.toFixed(2);
-        const weightTotalInput = document.getElementById('weight-total');
-        weightTotalInput.value = weightTotal.toFixed(2);
+        
+        document.getElementById('cbm-total').value = cbmTotal.toFixed(2);
+        document.getElementById('pallet-total').value = palletTotal.toFixed(2);
+        document.getElementById('pcs-total').value = pcsTotal.toFixed(2);
+        document.getElementById('weight-total').value = weightTotal.toFixed(2);
     };
+    
     function confirmSubmit() {
         const checkBoxes = document.getElementsByName('is_selected');
         for (let i = 0; i < checkBoxes.length; i+=2) {
@@ -232,6 +372,7 @@
             }
         }
     };
+    
     function toggleAllCheckboxes() {
         var selectAllCheckbox = document.getElementById('selectAllCheckbox');
         var checkboxes = document.querySelectorAll('tbody input[type="checkbox"][name="is_selected"]');
@@ -241,9 +382,9 @@
             if (tr.style.display !== 'none') {
                 checkbox.checked = selectAllCheckbox.checked;
                 if (checkbox.checked) {
-                    tr.style.backgroundColor = '#ADD8E6'; // Change to your desired color
+                    tr.style.backgroundColor = '#ADD8E6';
                 } else {
-                    tr.style.backgroundColor = ''; // Reset to default color
+                    tr.style.backgroundColor = '';
                 }
             }
         });
@@ -258,15 +399,16 @@
         }
     };
 
-    function filterTable(filterInput, colIdx, trim) {
+    function filterTable(filterInput, colIdx) {
         var table = filterInput.closest('table');
         var tbody = table.getElementsByTagName("tbody")[0];
         var tr = tbody.getElementsByTagName("tr");
 
-        var filters = document.querySelectorAll('thead input[type="text"], thead select');
+        var filters = document.querySelectorAll('thead input[type="text"]');
         var filterValues = Array.from(filters).map(function(filter) {
             return filter.value.toUpperCase().trim();
         });  
+        
         const filterRow = document.getElementById("packing-list-table-filter");
         const filterIndices = [];
         for (let i = 0; i < filterRow.children.length; i++) {
@@ -275,26 +417,31 @@
                 filterIndices.push(i);
             }
         };
+        
         for (var i = 0; i < tr.length-1; i++) {
             var row = tr[i];
             var showRow = true;
+            
             for (var j = 0; j < filterIndices.length; j++) {
                 var filterValue = filterValues[j];
+                if (!filterValue) continue;
+                
                 var cell = row.getElementsByTagName("td")[filterIndices[j]];
                 if (cell) {
                     var cellText = cell.textContent || cell.innerText;
-                    var cellValue = trim ? cellText.toUpperCase().trim() : cellText.toUpperCase();
-                    if (filterValue !== "" && cellValue.indexOf(filterValue) === -1) {
+                    var cellValue = cellText.toUpperCase();
+                    
+                    if (cellValue.indexOf(filterValue) === -1) {
                         showRow = false;
                         break;
                     }
                 }
             }
+            
             row.style.display = showRow ? "" : "none";
         };
+        
         updateTotals();
     };
 </script>
 {% endblock %}
-
-            

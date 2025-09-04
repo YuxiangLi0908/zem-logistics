@@ -82,6 +82,21 @@ class PostportDash(View):
             if request.POST.get("destination")
             else None
         )
+        shipping_marks = (
+            request.POST.get("shipping_marks").strip()
+            if request.POST.get("shipping_marks")
+            else None
+        )
+        fba_ids = (
+            request.POST.get("fba_ids").strip()
+            if request.POST.get("fba_ids")
+            else None
+        )
+        ref_ids = (
+            request.POST.get("ref_ids").strip()
+            if request.POST.get("ref_ids")
+            else None
+        )
         start_date = (
             (datetime.now().date() + timedelta(days=-4)).strftime("%Y-%m-%d")
             if not start_date
@@ -100,22 +115,37 @@ class PostportDash(View):
             container_number__order__packing_list_updloaded=True,
             container_number__order__created_at__gte="2024-09-01",
         )
-        if shipment_batch_number or container_number or destination:
+        if shipment_batch_number or container_number or destination or shipping_marks or fba_ids or ref_ids:
+            print('存在多个条件')
             if shipment_batch_number:
+                print('有约')
                 criteria &= models.Q(
                     shipment_batch_number__shipment_batch_number=shipment_batch_number
                 )
             elif container_number:
+                print('有柜号')
                 criteria &= models.Q(
                     container_number__container_number=container_number
                 )
             elif destination:
+                print('有目的地')
                 pl_criteria = models.Q(destination=destination)
                 plt_criteria = models.Q(
                     container_number__order__offload_id__offload_at__isnull=True,  # 如果是查预报的仓点，就不看板子，所以这里加了一个不成立的条件
                     container_number__container_number="0",
                 )
-            if not destination:
+            elif shipping_marks:
+                print('有唛头')
+                pl_criteria = models.Q(shipping_mark=shipping_marks)
+                plt_criteria = models.Q(shipping_mark__in=shipping_marks)
+                print('条件是',pl_criteria)
+            elif fba_ids:
+                pl_criteria = models.Q(fba_id=fba_ids)
+                plt_criteria = models.Q(fba_id__in=fba_ids)
+            elif ref_ids:
+                pl_criteria = models.Q(ref_id=ref_ids)
+                plt_criteria = models.Q(ref_id__in=ref_ids)
+            if not destination and not shipping_marks and not fba_ids and not ref_ids:
                 pl_criteria = criteria & models.Q(
                     container_number__order__offload_id__offload_at__isnull=True,
                 )
@@ -126,6 +156,7 @@ class PostportDash(View):
                 "area_options": self.area_options,
             }
         else:
+            print('啥也没有')
             pl_criteria = criteria & models.Q(
                 container_number__order__vessel_id__vessel_eta__gte=start_date,
                 container_number__order__vessel_id__vessel_eta__lte=end_date,
@@ -144,6 +175,7 @@ class PostportDash(View):
                 "start_date": start_date,
                 "end_date": end_date,
             }
+        print('过滤条件',pl_criteria)
         packing_list = await self._get_packing_list(pl_criteria, plt_criteria)
         context["packing_list"] = packing_list
         cbm_act, cbm_est, pallet_act, pallet_est = 0, 0, 0, 0
@@ -165,6 +197,12 @@ class PostportDash(View):
             context["shipment_batch_number"] = shipment_batch_number
         if destination:
             context["destination"] = destination
+        if shipping_marks:
+            context["shipping_marks"] = shipping_marks
+        if fba_ids:
+            context["fba_ids"] = fba_ids
+        if ref_ids:
+            context["ref_ids"] = ref_ids
         return self.template_main_dash, context
 
     async def handle_export_report_post(self, request: HttpRequest) -> HttpResponse:

@@ -3200,7 +3200,7 @@ class Accounting(View):
                 has_value = any(row.get(fee_type, 0) not in (0, "0") for row in rows)
                 if has_value:
                     valid_headers.append(fee_type)
-        
+        valid_headers = list(dict.fromkeys(valid_headers))
         # 写入表头
         ws.append(valid_headers)
 
