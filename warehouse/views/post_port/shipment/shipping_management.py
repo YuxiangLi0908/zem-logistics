@@ -408,7 +408,7 @@ class ShippingManagement(View):
                     in_use=True,
                     is_canceled=False,
                     shipment_appointment__gt=start_date,
-                    shipment_appointment__lt=start_date
+                    shipment_appointment__lt=end_date
                 )
             )
             .distinct()
