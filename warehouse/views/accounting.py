@@ -6141,7 +6141,7 @@ class Accounting(View):
                         fees["arrive_fee"] = pickup_details.get("arrive_warehouse")
                     
         except (KeyError, TypeError) as e:
-            raise ValueError("报价表查找失败")
+            raise ValueError("报价表查找失败",e)
         
         context["pallet_details"] = pallet_details
 
