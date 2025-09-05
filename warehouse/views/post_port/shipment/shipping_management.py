@@ -377,8 +377,21 @@ class ShippingManagement(View):
             area = None
         if request.POST.get("area"):
             area = request.POST.get("area")
+        # ETA过滤
+        start_date = request.POST.get("start_date")
+        end_date = request.POST.get("end_date")
+        start_date = (
+            (datetime.now().date() + timedelta(days=-15)).strftime("%Y-%m-%d")
+            if not start_date
+            else start_date
+        )
+        end_date = (
+            (datetime.now().date() + timedelta(days=15)).strftime("%Y-%m-%d")
+            if not end_date
+            else end_date
+        )
 
-        year_2025 = datetime(2025, 1, 1)
+        #year_2025 = datetime(2025, 1, 1)
         shipment = await sync_to_async(list)(
             Shipment.objects.prefetch_related(
                 "packinglist",
@@ -394,24 +407,12 @@ class ShippingManagement(View):
                     is_shipped=True,
                     in_use=True,
                     is_canceled=False,
-                    shipment_appointment__gt=year_2025
+                    shipment_appointment__gt=start_date,
+                    shipment_appointment__lt=start_date
                 )
             )
             .distinct()
             .order_by("-abnormal_palletization", "shipment_appointment")
-        )
-        # ETA过滤
-        start_date = request.POST.get("start_date")
-        end_date = request.POST.get("end_date")
-        start_date = (
-            (datetime.now().date() + timedelta(days=-15)).strftime("%Y-%m-%d")
-            if not start_date
-            else start_date
-        )
-        end_date = (
-            (datetime.now().date() + timedelta(days=15)).strftime("%Y-%m-%d")
-            if not end_date
-            else end_date
         )
 
         criteria_p = models.Q(
