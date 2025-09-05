@@ -66,7 +66,6 @@ class PostportDash(View):
         
     async def handle_bol_post(self, request: HttpRequest) -> HttpResponse:
         fm = FleetManagement()
-        print(request.POST)
         mutable_post = request.POST.copy()
         mutable_post["customerInfo"] = None
         mutable_post["pickupList"] = None
