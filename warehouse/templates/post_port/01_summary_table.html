@@ -389,7 +389,11 @@
                         {% endif %}
                     </td>
                     <td>{{ c.container_number__order__offload_id__offload_at|date:"M-j" }}</td>
-                    <td title="{{ c.shipment_batch_number__shipment_batch_number|default_if_none:'' }}">{{ c.shipment_batch_number__shipment_batch_number|default_if_none:"" }}</td>
+                    <td title="{{ c.shipment_batch_number__shipment_batch_number|default_if_none:'' }}">
+                        <a href="javascript:void(0)" onclick="exportShipmentBol('{{ c.shipment_batch_number__shipment_batch_number }}')">
+                            {{ c.shipment_batch_number__shipment_batch_number|default_if_none:"" }}
+                        </a>
+                    </td>
                     <td title="{{ c.shipment_batch_number__appointment_id|default_if_none:'' }}">{{ c.shipment_batch_number__appointment_id|default_if_none:"" }}</td>
                     <td>
                         {{ c.shipment_batch_number__shipment_appointment|date:"Y-m-d" }} {{ c.shipment_batch_number__shipment_appointment|time:"H:i" }}
@@ -547,5 +551,18 @@
         
         updateTotals();
     };
+    function exportShipmentBol(batchId) {
+        const form = document.querySelector("form"); 
+        form.querySelector("input[name='step']").value = "export_bol";
+        
+        let hidden = document.createElement("input");
+        hidden.type = "hidden";
+        hidden.name = "shipment_batch_numbers";
+        hidden.value = batchId;
+        console.log('batchId',batchId);
+        form.appendChild(hidden);
+
+        form.submit();
+    }
 </script>
 {% endblock %}

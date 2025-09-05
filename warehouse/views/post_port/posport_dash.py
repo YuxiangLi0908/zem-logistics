@@ -25,11 +25,18 @@ from django.views import View
 
 from warehouse.models.packing_list import PackingList
 from warehouse.models.pallet import Pallet
+from warehouse.models.shipment import Shipment
+from warehouse.views.post_port.shipment.fleet_management import FleetManagement
 
 
 class PostportDash(View):
     template_main_dash = "post_port//01_summary_table.html"
     area_options = {"NJ": "NJ", "SAV": "SAV", "LA": "LA", "MO": "MO", "TX": "TX"}
+    warehouse_mapping = {
+        'NJ': 'NJ-07001',
+        'SAV': 'SAV-31326',
+        'LA': 'LA-91761'
+    }
 
     async def get(self, request: HttpRequest) -> HttpResponse:
         if not await self._user_authenticate(request):
@@ -51,9 +58,38 @@ class PostportDash(View):
             return render(request, template, context)
         elif step == "export_report":
             return await self.handle_export_report_post(request)
+        elif step == "export_bol":
+            return await self.handle_bol_post(request)
         else:
             context = {"area_options": self.area_options}
             return render(request, self.template_main_dash, context)
+        
+    async def handle_bol_post(self, request: HttpRequest) -> HttpResponse:
+        fm = FleetManagement()
+        print(request.POST)
+        mutable_post = request.POST.copy()
+        mutable_post["customerInfo"] = None
+        mutable_post["pickupList"] = None
+        area = mutable_post["area"]
+        
+        
+        for key, code in self.warehouse_mapping.items():
+            if key in area:
+                mutable_post["warehouse"] = code
+        
+        shipment_batch_number = request.POST.get("shipment_batch_numbers")
+        mutable_post["shipment_batch_number"] = shipment_batch_number
+        shipment = await sync_to_async(
+            lambda: Shipment.objects.select_related("fleet_number").get(
+                shipment_batch_number=shipment_batch_number
+            )
+        )()
+        if shipment.fleet_number:
+            mutable_post["fleet_number"] = shipment.fleet_number
+        else:
+            raise ValueError('该预约批次尚未排约')
+        request.POST = mutable_post
+        return await fm.handle_export_bol_post(request)
 
     async def handle_summary_table_get(
         self, request: HttpRequest
