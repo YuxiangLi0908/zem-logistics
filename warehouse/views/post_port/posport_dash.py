@@ -132,13 +132,13 @@ class PostportDash(View):
                 )
             elif shipping_marks:
                 pl_criteria = models.Q(shipping_mark=shipping_marks)
-                plt_criteria = models.Q(shipping_mark__in=shipping_marks)
+                plt_criteria = models.Q(shipping_mark__contains=shipping_marks)
             elif fba_ids:
                 pl_criteria = models.Q(fba_id=fba_ids)
-                plt_criteria = models.Q(fba_id__in=fba_ids)
+                plt_criteria = models.Q(fba_id__contains=fba_ids)
             elif ref_ids:
                 pl_criteria = models.Q(ref_id=ref_ids)
-                plt_criteria = models.Q(ref_id__in=ref_ids)
+                plt_criteria = models.Q(ref_id__contains=ref_ids)
             if not destination and not shipping_marks and not fba_ids and not ref_ids:
                 pl_criteria = criteria & models.Q(
                     container_number__order__offload_id__offload_at__isnull=True,
