@@ -22,11 +22,13 @@
                     <th class="th">供应商</th>
                     <th class="th">提柜备注</th>
                     <th class="th">到仓时间</th>
+                    <th class="th">优先级</th>
                 </tr>
                 <tr style="position: sticky; top: 20px;">
                     <th class="th">
                         <input type="text" id="ctnSearch" placeholder="搜索柜号..." oninput="filterTable(this, 0, true)" size="13" style="font-size: 11px;">
                     </th>
+                    <th class="th"></th>
                     <th class="th"></th>
                     <th class="th"></th>
                     <th class="th"></th>
@@ -55,6 +57,9 @@
                             <button id="schedule-pickup-btn" type="submit" class="btn btn-primary" style="height: 30px; margin-left: 20px; font-size: 13px;">
                                 确认
                             </button>
+                        </td>
+                        <td class="td">
+                            {{ o.unpacking_priority }}
                         </td>
                     </tr>
                 </form>
@@ -118,11 +123,13 @@
                         <th class="th">拆柜时间</th>
                         <th class="th">供应商</th>
                         <th class="th">还柜时间</th>
+                        <th class="th">优先级</th>
                     </tr>
                     <tr style="position: sticky; top: 28px;">
                         <th class="th">
                             <input type="text" id="ctnSearch" placeholder="搜索柜号..." oninput="filterTable(this, 0, true)" size="13" style="font-size: 11px;">
                         </th>
+                        <th class="th"></th>
                         <th class="th"></th>
                         <th class="th"></th>
                         <th class="th"></th>
@@ -147,6 +154,9 @@
                                 <button id="empty-return-btn" type="submit" class="btn btn-primary" style="height: 30px; margin-left: 20px; font-size: 13px;">
                                     确认
                                 </button>
+                            </td>
+                            <td class="td">
+                                {{ o.unpacking_priority }}
                             </td>
                         </tr>
                     </form>
