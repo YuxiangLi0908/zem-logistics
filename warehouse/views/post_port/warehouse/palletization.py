@@ -739,14 +739,17 @@ class Palletization(View):
                         if dw_st == "None" or dw_st.strip() == "":
                             dw_st = None
                         else:
-                            dw_st = dw_st.replace('.', '', 1)
+                            dw_st = dw_st.replace("Sept.", "Sep").replace("Sept", "Sep")
+                            dw_st = re.sub(r'(\w{3})\.', r'\1', dw_st)
                             dw_st = datetime.strptime(dw_st, "%b %d, %Y").date()
                         
                     if isinstance(dw_end, str):
                         if dw_end == "None" or dw_end.strip() == "":
                             dw_end = None
                         else:
-                            dw_end = datetime.strptime(dw_end, "%b. %d, %Y").date()
+                            dw_end = dw_end.replace("Sept.", "Sep").replace("Sept", "Sep")
+                            dw_end = re.sub(r'(\w{3})\.', r'\1', dw_end)
+                            dw_end = datetime.strptime(dw_end, "%b %d, %Y").date()
                     pallet_data += await self._split_pallet(
                         order_selected,
                         n,
