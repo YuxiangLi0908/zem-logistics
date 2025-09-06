@@ -739,6 +739,14 @@ class Palletization(View):
                         if dw_st == "None" or dw_st.strip() == "":
                             dw_st = None
                         else:
+                            month_mapping = {
+                                'Jan.': 'Jan', 'Feb.': 'Feb', 'Mar.': 'Mar', 'Apr.': 'Apr',
+                                'May.': 'May', 'Jun.': 'Jun', 'Jul.': 'Jul', 'Aug.': 'Aug',
+                                'Sept.': 'Sep', 'Oct.': 'Oct', 'Nov.': 'Nov', 'Dec.': 'Dec'
+                            }
+
+                            for long_month, short_month in month_mapping.items():
+                                dw_st = dw_st.replace(long_month, short_month)
                             dw_st = datetime.strptime(dw_st, "%b. %d, %Y").date()
                         
                     if isinstance(dw_end, str):
