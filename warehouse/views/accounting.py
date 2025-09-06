@@ -3490,6 +3490,7 @@ class Accounting(View):
             )
 
     def handle_invoice_dismiss_save(self, request: HttpRequest) -> tuple[Any, Any]:
+        print('驳回状态',request.POST)
         container_number = request.POST.get("container_number")
         status = request.POST.get("status")
         start_date_confirm = request.POST.get("start_date_confirm")
@@ -3521,7 +3522,8 @@ class Accounting(View):
         elif status == "delivery":
             # 检查时驳回公仓还是私仓
             reject_type = request.POST.get("reject_type")
-            if reject_type == "public":
+            delivery_type = request.POST.get("delivery_type")
+            if reject_type == "public" or delivery_type == "public":
                 invoice_status.stage_public = "delivery_rejected"
             else:
                 invoice_status.stage_other = "delivery_rejected"
