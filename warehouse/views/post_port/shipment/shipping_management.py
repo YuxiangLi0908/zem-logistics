@@ -1258,7 +1258,9 @@ class ShippingManagement(View):
                 Order.objects.filter(container_number__packinglist__id__in=selected)
             )
             for order in orders_to_update:
-                order.unpacking_priority = 'P3'
+                if order.unpacking_priority == 'P4':
+                    #只往更高级改
+                    order.unpacking_priority = 'P3'
             await sync_to_async(bulk_update_with_history)(
                 orders_to_update,
                 Order,
@@ -1690,7 +1692,8 @@ class ShippingManagement(View):
                     Order.objects.filter(container_number__packinglist__id__in=pl_ids)
                 )
                 for order in orders_to_update:
-                    order.unpacking_priority = 'P3'
+                    if order.unpacking_priority == 'P4':
+                        order.unpacking_priority = 'P3'
                 await sync_to_async(bulk_update_with_history)(
                     orders_to_update,
                     Order,

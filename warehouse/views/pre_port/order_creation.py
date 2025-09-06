@@ -818,23 +818,32 @@ class OrderCreation(View):
     async def handle_update_container_delivery_type(
         self, request: HttpRequest
     ) -> tuple[Any, Any]:
-        containers = await sync_to_async(list)(Container.objects.all())
+        #把所有有快递的，都直接优先级定位P1
+        pls = await sync_to_async(list)(
+            PackingList.objects.filter(
+                container_number__order__created_at__gte="2025-05-01",
+                delivery_method__in=['UPS', 'FEDEX'] 
+            ).distinct('container_number_id')
+        )
+        
+        order_ids = await sync_to_async(
+            lambda: [pl.container_number.id for pl in pls if pl.container_number]  
+        )()
 
-        for container in containers:
-            pallets = await sync_to_async(list)(
-                Pallet.objects.filter(container_number=container)
-            )
-            if not pallets:
-                pallets = await sync_to_async(list)(
-                    PackingList.objects.filter(container_number=container)
-                )
-            types = set(plt.delivery_type for plt in pallets if plt.delivery_type)
+        if order_ids:
+            await sync_to_async(
+                lambda: Order.objects.filter(id__in=order_ids).update(unpacking_priority='P1')
+            )()
 
-            if not types:
-                continue
-            new_type = types.pop() if len(types) == 1 else "mixed"
-            container.delivery_type = new_type
-            await sync_to_async(container.save, thread_sensitive=True)()
+        #把所有保时效的，如果优先级不是P1的，直接改为P2
+        updated_count = await sync_to_async(
+            lambda: Order.objects.filter(
+                container_number__is_expiry_guaranteed=True
+            ).exclude(
+                unpacking_priority='P1'
+            ).update(unpacking_priority='P2')
+        )()
+        
         return await self.handle_order_management_container_get(request)
 
     async def handle_update_delivery_type(
