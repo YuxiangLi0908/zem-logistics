@@ -4256,16 +4256,19 @@ class Accounting(View):
             container_number=order.container_number, invoice_type="receivable"
         )
         if invoice_status.stage not in ["confirmed","tobeconfirmed"]:
-            has_unclassified_public_pallets = Pallet.objects.filter(
-                container_number__container_number=container_number,
-                delivery_type='public',
-                invoice_delivery__isnull=True
-            ).exclude(
-                delivery_method='暂扣留仓(HOLD)'
-            ).exists()
-            #如果有未绑定派送类型的时候，才去归类
-            if has_unclassified_public_pallets:
-                self._auto_classify_pallet(container_number,fee_details,warehouse,False,False, is_transfer)
+            groups = [group.name for group in request.user.groups.all()]
+            if "warehouse_other" not in groups:
+                #私仓组，不用关公仓归类的情况
+                has_unclassified_public_pallets = Pallet.objects.filter(
+                    container_number__container_number=container_number,
+                    delivery_type='public',
+                    invoice_delivery__isnull=True
+                ).exclude(
+                    delivery_method='暂扣留仓(HOLD)'
+                ).exists()
+                #如果有未绑定派送类型的时候，才去归类
+                if has_unclassified_public_pallets:
+                    self._auto_classify_pallet(container_number,fee_details,warehouse,False,False, is_transfer)
         # 把pallet汇总
         base_query = Pallet.objects.prefetch_related(
             "container_number",
