@@ -3563,10 +3563,10 @@ class Accounting(View):
             invoice_delivery__isnull=False
         )
         has_combine = public_pallets.filter(invoice_delivery__type="combine").exists()
-        has_other = public_pallets.exclude(invoice_delivery__type="combine").exists()
+        #has_other = public_pallets.exclude(invoice_delivery__type="combine").exists()
         
         # 决定切换方向：如果有组合柜且没有其他类型，切换到非组合柜；否则切换到组合柜
-        iscombina = not (has_combine and not has_other)
+        iscombina = not has_combine
         
         order = Order.objects.select_related(
             "retrieval_id", "container_number", "vessel_id"
