@@ -4538,9 +4538,10 @@ class Accounting(View):
             else:
                 #去亚马逊/沃尔玛表找
                 rules = fee_details.get(f"{warehouse}_PUBLIC").details
-                details = rules.get("LA_AMAZON", rules) if "LA" in warehouse else rules
+                #details = rules.get(f"{warehouse}_AMAZON", rules) if "LA" not in warehouse else rules
+                details = {'LA_AMAZON': rules} if 'LA' in warehouse and 'LA_AMAZON' not in rules else rules
                 for category, zones in details.items():
-                    for zone, locations in zones.items():
+                    for zone, locations in zones.items():                      
                         if destination in locations:
                             if "AMAZON" in category:
                                 delivery_type = "amazon"
