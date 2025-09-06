@@ -1,0 +1,389 @@
+{% extends 'base.html' %}
+{% load static %}
+
+{% block content %}
+<style>
+    .peer-system {
+        max-width: 1200px;
+        margin: 30px auto;
+        background: white;
+        border-radius: 10px;
+        box-shadow: 0 0 20px rgba(0, 0, 0, 0.1);
+        overflow: hidden;
+    }
+    
+    .peer-header {
+        background: linear-gradient(135deg, #2c3e50, #4a6491);
+        color: white;
+        padding: 20px 30px;
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+    }
+    
+    .peer-logo {
+        display: flex;
+        align-items: center;
+        font-size: 1.5rem;
+        font-weight: bold;
+    }
+    
+    .peer-logo i {
+        margin-right: 10px;
+        font-size: 1.8rem;
+    }
+    
+    .peer-template-actions {
+        display: flex;
+        gap: 15px;
+    }
+    
+    .peer-btn {
+        padding: 10px 20px;
+        border: none;
+        border-radius: 5px;
+        cursor: pointer;
+        font-weight: 600;
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        transition: all 0.3s ease;
+    }
+    
+    .peer-btn-download {
+        background: #3498db;
+        color: white;
+    }
+    
+    .peer-btn-download:hover {
+        background: #2980b9;
+    }
+    
+    .peer-btn-upload {
+        background: #2ecc71;
+        color: white;
+    }
+    
+    .peer-btn-upload:hover {
+        background: #27ae60;
+    }
+    
+    .peer-main-content {
+        padding: 30px;
+    }
+    
+    .peer-section {
+        margin-bottom: 30px;
+        padding: 20px;
+        border-radius: 8px;
+        background: #f9fafb;
+        box-shadow: 0 2px 10px rgba(0, 0, 0, 0.05);
+    }
+    
+    .peer-section-title {
+        display: flex;
+        align-items: center;
+        margin-bottom: 20px;
+        padding-bottom: 10px;
+        border-bottom: 2px solid #eaecef;
+        color: #2c3e50;
+        font-weight: 600;
+        font-size: 1.2rem;
+    }
+    
+    .peer-section-title i {
+        margin-right: 10px;
+        color: #3498db;
+    }
+    
+    .peer-form-row {
+        display: flex;
+        gap: 20px;
+        flex-wrap: wrap;
+    }
+    
+    .peer-form-group {
+        flex: 1;
+        min-width: 250px;
+    }
+    
+    .peer-label {
+        display: block;
+        margin-bottom: 8px;
+        font-weight: 500;
+        color: #2c3e50;
+    }
+    
+    .peer-form-control {
+        width: 100%;
+        padding: 12px 15px;
+        border: 1px solid #dce1e6;
+        border-radius: 5px;
+        font-size: 1rem;
+        transition: border-color 0.3s;
+    }
+    
+    .peer-form-control:focus {
+        outline: none;
+        border-color: #3498db;
+        box-shadow: 0 0 0 3px rgba(52, 152, 219, 0.2);
+    }
+    
+    .peer-tabs {
+        display: flex;
+        margin-bottom: 20px;
+        border-bottom: 1px solid #eaecef;
+    }
+    
+    .peer-tab {
+        padding: 10px 20px;
+        cursor: pointer;
+        border-bottom: 3px solid transparent;
+        transition: all 0.3s;
+    }
+    
+    .peer-tab.active {
+        color: #3498db;
+        border-bottom: 3px solid #3498db;
+        font-weight: 600;
+    }
+    
+    .peer-tab-content {
+        display: none;
+    }
+    
+    .peer-tab-content.active {
+        display: block;
+    }
+    
+    .peer-upload-area {
+        border: 2px dashed #dce1e6;
+        border-radius: 8px;
+        padding: 40px 20px;
+        text-align: center;
+        background: #fdfdfd;
+        transition: all 0.3s;
+    }
+    
+    .peer-upload-area:hover {
+        border-color: #3498db;
+        background: #f5f9ff;
+    }
+    
+    .peer-upload-icon {
+        font-size: 3rem;
+        color: #3498db;
+        margin-bottom: 15px;
+    }
+    
+    .peer-upload-text {
+        margin-bottom: 20px;
+    }
+    
+    .peer-upload-text .peer-small {
+        font-size: 0.9rem;
+        color: #7f8c8d;
+    }
+    
+    .peer-table-container {
+        overflow-x: auto;
+        margin-top: 20px;
+    }
+    
+    .peer-table {
+        width: 100%;
+        border-collapse: collapse;
+    }
+    
+    .peer-table th, .peer-table td {
+        padding: 15px;
+        text-align: left;
+        border-bottom: 1px solid #eaecef;
+    }
+    
+    .peer-table th {
+        background: #f5f7fa;
+        font-weight: 600;
+        color: #2c3e50;
+    }
+    
+    .peer-table tr:hover {
+        background: #f9fafb;
+    }
+    
+    .peer-action-buttons {
+        display: flex;
+        justify-content: flex-end;
+        gap: 15px;
+        margin-top: 30px;
+        padding-top: 20px;
+        border-top: 1px solid #eaecef;
+    }
+    
+    .peer-btn-cancel {
+        background: #e74c3c;
+        color: white;
+    }
+    
+    .peer-btn-cancel:hover {
+        background: #c0392b;
+    }
+    
+    .peer-btn-submit {
+        background: #3498db;
+        color: white;
+    }
+    
+    .peer-btn-submit:hover {
+        background: #2980b9;
+    }
+    
+    @media (max-width: 768px) {
+        .peer-form-row {
+            flex-direction: column;
+        }
+        
+        .peer-form-group {
+            min-width: 100%;
+        }
+        
+        .peer-header {
+            flex-direction: column;
+            gap: 15px;
+            text-align: center;
+        }
+        
+        .peer-template-actions {
+            width: 100%;
+            justify-content: center;
+        }
+    }
+</style>
+
+<div class="peer-system">
+    <div class="peer-header">
+        <div class="peer-logo">
+            <i class="fas fa-boxes"></i>
+            <span>货物建单系统</span>
+        </div>
+        <div class="peer-template-actions">
+            <form method="post" action="">
+                {% csrf_token %}
+                <div>
+                    <input type="hidden" name="step" value="peer_download_template">
+                    <button class="peer-btn peer-btn-download">
+                        <i class="fas fa-download"></i>下载模板
+                    </button>
+                </div>
+            </form>
+            <form method="post" id='upload-form' enctype="multipart/form-data" style="font-size: 11px;">
+                {% csrf_token %}
+                导入模版: 
+                <input type="file" name="file" style="padding: 6px; border: 1px solid #ddd;">
+                <div>
+                    <input type="hidden" name="step" value="peer_upload_template">
+                    <button class="peer-btn peer-btn-upload">
+                        <i class="fas fa-upload"></i>上传模板
+                    </button>
+                </div>
+            </form>
+            
+        </div>
+    </div>
+    <div class="peer-main-content">
+        <div class="peer-section">
+            <div class="peer-section-title">
+                <i class="fas fa-info-circle"></i>
+                <span>基本信息</span>
+            </div>
+            
+            <div class="peer-form-row">
+                <div class="peer-form-group">
+                    <label for="containerNo" class="peer-label">柜号</label>
+                    <input type="text" name="container_number" class="peer-form-control" placeholder="请输入柜号" value="{{ container_number }}">
+                </div>
+                
+                <div class="peer-form-group">
+                    <label for="customer" class="peer-label">客户名</label>
+                    <select id="customer" class="peer-form-control">
+                        <option value="">请选择客户</option>
+                        <option value="customer1">客户一</option>
+                        <option value="customer2">客户二</option>
+                        <option value="customer3">客户三</option>
+                    </select>
+                </div>
+                
+                <div class="peer-form-group">
+                    <label for="warehouse" class="peer-label">仓库</label>
+                    <input type="text" id="warehouse" class="peer-form-control" placeholder="请输入仓库名称">
+                </div>
+            </div>
+        </div>
+        
+        <div class="peer-section">
+            <div class="peer-section-title">
+                <i class="fas fa-list-alt"></i>
+                <span>货物信息列表</span>
+            </div>
+            
+            <div class="peer-table-container">
+                <table class="peer-table">
+                    <thead>
+                        <tr>
+                            <th>仓库</th>
+                            <th>箱数</th>
+                            <th>重量 (kg)</th>                          
+                            <th>板数</th>
+                            <th>最早派送时间</th>
+                            <th>最晚派送时间</th>
+                            <th>操作</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% if not orders %}
+                        <tr>
+                            <td colspan="7" style="text-align: center; padding: 30px; color: #7f8c8d;">
+                                <i class="fas fa-inbox" style="font-size: 40px; margin-bottom: 15px; display: block;"></i>
+                                暂无数据，请添加货物信息或上传文件
+                            </td>
+                        </tr>
+                        {% else %}
+                            {% for o in orders %}
+                            <tr>
+                                <td>{{ o.destination }}</td>
+                                <td>{{ o.total_pcs }}</td>
+                                <td>{{ o.total_weight }}</td>                               
+                                <td>{{ o.total_pallet }}</td>
+                                <td>{{ o.delivery_window_start }}</td>
+                                <td>{{ o.delivery_window_end }}</td>
+                                <td>
+                                    <button class="peer-btn peer-btn-download" style="padding: 5px 10px;">
+                                        <i class="fas fa-edit"></i>
+                                    </button>
+                                    <button class="peer-btn peer-btn-cancel" style="padding: 5px 10px;">
+                                        <i class="fas fa-trash"></i>
+                                    </button>
+                                </td>
+                            </tr>
+                            {% endfor %}
+                        {% endif %}
+                    </tbody>
+                </table>
+            </div>
+        </div>
+        
+        <div class="peer-action-buttons">
+            <button class="peer-btn peer-btn-cancel">
+                <i class="fas fa-times"></i>取消
+            </button>
+            <button class="peer-btn peer-btn-submit">
+                <i class="fas fa-check"></i>提交建单
+            </button>
+        </div>
+    </div>
+</div>
+
+<script>
+
+</script>
+{% endblock %}

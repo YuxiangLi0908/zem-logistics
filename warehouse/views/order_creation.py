@@ -57,6 +57,7 @@ class OrderCreationLegacy(View):
     def get(self, request: HttpRequest) -> HttpResponse:
         order_type = request.GET.get("type")
         step = request.GET.get("step", None)
+        print('用的views里面的文件')
         if step == "download_template":
             return self.handle_download_pl_template_post(request)
         else:

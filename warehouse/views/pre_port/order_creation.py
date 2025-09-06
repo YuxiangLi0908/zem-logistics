@@ -8,7 +8,7 @@ from collections import defaultdict
 from datetime import datetime, timedelta, timezone
 from decimal import Decimal, InvalidOperation
 from pathlib import Path
-from typing import Any
+from typing import Any, Dict
 from django.db.models import Sum
 
 import chardet
@@ -54,6 +54,9 @@ class OrderCreation(View):
     template_order_create_base = (
         "pre_port/create_order/02_base_order_creation_status.html"
     )
+    template_peer_pallet_create_base = (
+        "pre_port/create_order/base_peer_pallet_creation.html"
+    )
     template_order_create_supplement = "pre_port/create_order/03_order_creation.html"
     template_order_create_supplement_pl_tab = (
         "pre_port/create_order/03_order_creation_packing_list_tab.html"
@@ -74,6 +77,7 @@ class OrderCreation(View):
         if not await self._user_authenticate(request):
             return redirect("login")
         step = request.GET.get("step", None)
+        print('是用的这个文件')
         if step == "all":
             template, context = await self.handle_order_basic_info_get()
             return await sync_to_async(render)(request, template, context)
@@ -88,11 +92,16 @@ class OrderCreation(View):
                 request
             )
             return await sync_to_async(render)(request, template, context)
+        elif step == "peer_po_creation":
+            context = {}
+            template, context = await self.handle_peer_po_creation(request,context)
+            return await sync_to_async(render)(request, template, context)
 
     async def post(self, request: HttpRequest) -> HttpResponse:
         if not await self._user_authenticate(request):
             return redirect("login")
         step = request.POST.get("step", None)
+        print('用的post')
         if step == "create_order_basic":
             template, context = await self.handle_create_order_basic_post(request)
             return await sync_to_async(render)(request, template, context)
@@ -116,6 +125,9 @@ class OrderCreation(View):
             return await sync_to_async(render)(request, template, context)
         elif step == "upload_template":
             template, context = await self.handle_upload_template_post(request)
+            return await sync_to_async(render)(request, template, context)
+        elif step == "peer_upload_template":
+            template, context = await self.handle_peer_upload_template_post(request)
             return await sync_to_async(render)(request, template, context)
         elif step == "download_template":
             return await self.handle_download_template_post()
@@ -154,6 +166,26 @@ class OrderCreation(View):
                 request
             )
             return await sync_to_async(render)(request, template, context)
+        elif step =="peer_download_template":
+            return await self.handle_download_peer_template_post(request)
+    
+    async def handle_download_peer_template_post(self, request: HttpRequest) -> HttpResponse:
+        file_path = (
+            Path(__file__)
+            .parent.parent.parent.resolve()
+            .joinpath("templates/export_file/peer_pallet_template.xlsx")
+        )
+        if not os.path.exists(file_path):
+            raise Http404("File does not exist, i DONT KNOW")
+        with open(file_path, "rb") as file:
+            response = HttpResponse(
+                file.read(),
+                content_type="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+            )
+            response["Content-Disposition"] = (
+                f'attachment; filename="zem_peer_pallet_template.xlsx"'
+            )
+            return response
 
     async def handle_export_forecast(self, request: HttpRequest) -> tuple[Any, Any]:
         selected_orders = json.loads(request.POST.get("selectedOrders", "[]"))
@@ -314,6 +346,17 @@ class OrderCreation(View):
         response["Content-Disposition"] = f"attachment; filename=destination_details.csv"
         df.to_csv(path_or_buf=response, index=False, encoding="utf-8-sig")
         return response
+    
+    async def handle_peer_po_creation(self,request: HttpRequest,context: Dict[str, Any]) -> tuple[Any, Any]:
+        customers = await sync_to_async(list)(Customer.objects.all())
+        customers = {c.zem_name: c.id for c in customers}
+        context.update({
+            "customers": customers,
+            "order_type": self.order_type,
+            "area": self.area,
+        })
+
+        return self.template_peer_pallet_create_base, context
 
     async def handle_order_basic_info_get(self) -> tuple[Any, Any]:
         customers = await sync_to_async(list)(Customer.objects.all())
@@ -1385,6 +1428,86 @@ class OrderCreation(View):
         mutable_get["step"] = "cancel_notification"
         request.GET = mutable_get
         return await self.handle_order_management_container_get(request)
+    
+    async def handle_peer_upload_template_post(
+        self, request: HttpRequest
+    ) -> tuple[Any, Any]:
+        #同行的货，上传文件，包括收货地址、柜号、州代码、板数、FBA、REF、PO、重量、CBM、件数、客户名
+        form = UploadFileForm(request.POST, request.FILES)
+        if form.is_valid():
+            file = request.FILES["file"]
+            df = pd.read_excel(file)
+            df = df.rename(columns=PACKING_LIST_TEMP_COL_MAPPING)
+            # 删除空行
+            df = df.dropna(how='all') 
+            #除柜号外，缺值报错并提醒，不核实FBA是因为沃尔玛的可以没有FBA
+            columns_to_check = ['收货地址', '板数', 'PO号码', '重量(kg)', 'CBM', '件数', '客户名']
+            #缺了这些列也报错
+            missing_columns = [col for col in columns_to_check if col not in df.columns]
+            if missing_columns:
+                raise ValueError(f"数据表中缺少以下必需列：{missing_columns}。请检查数据文件格式。")
+            null_mask = df[columns_to_check].isnull().any(axis=1)
+            if null_mask.any():
+                # 找出有空值的行
+                error_rows = df[null_mask]
+                error_count = len(error_rows)
+                
+                # 构建详细的错误信息
+                error_details = []
+                for index, row in error_rows.iterrows():
+                    empty_cells = []
+                    for col in columns_to_check:
+                        if pd.isnull(row[col]):
+                            empty_cells.append(f"第{index + 1}行『{col}』")
+                    
+                    if empty_cells:
+                        error_details.append("、".join(empty_cells))
+                
+                error_message = (
+                    f"发现 {error_count} 行数据存在空值：\n"
+                    f"{chr(10).join(error_details)}\n"
+                    f"请补充完整数据后再继续处理。"
+                )
+                raise ValueError(error_message)
+            df = df.replace(np.nan, '')
+            for idx, row in df.iterrows():  # 转换单位
+                df.loc[idx, "重量(kg)"] = round(
+                    df.loc[idx, "重量(kg)"] * 2.20462, 2
+                )
+            #字符串类型的去掉前后空格
+            for col in df.columns:
+                try:
+                    df[col] = df[col].str.strip()
+                except AttributeError:
+                    continue
+            df = df.rename(columns={
+                '柜号': 'container_number',
+                '客户名': 'customer_name', 
+                '件数': 'total_pcs',
+                '重量': 'total_weight',
+                '收货地址': 'destination',
+                '板数': 'total_pallet',
+                '最早派送时间': 'delivery_window_start',
+                '最晚派送时间': 'delivery_window_end',
+            })
+            container_numbers = df['container_number'].dropna().unique()
+            if len(container_numbers) > 1:
+                raise ValueError(f"container_number列有多个不同的值：{container_numbers}。请确保所有行的柜号相同。")
+
+            # 检查customer_name是否有多个不同的值
+            customer_names = df['customer_name'].dropna().unique()
+            if len(customer_names) > 1:
+                raise ValueError(f"customer_name列有多个不同的值：{customer_names}。请确保所有行的客户名相同。")
+            orders = df.to_dict('records')
+            context = {
+                'orders': orders,
+                'container_number': container_numbers,
+                'customer_names': customer_names,
+            }
+            return await self.handle_peer_po_creation(request,context)
+        else:
+            raise ValueError(f"invalid file format!")
+        
 
     async def handle_upload_template_post(
         self, request: HttpRequest
@@ -1467,6 +1590,7 @@ class OrderCreation(View):
             .parent.parent.parent.resolve()
             .joinpath("templates/export_file/packing_list_template.xlsx")
         )
+        print('views下的pl的模板路径',file_path)
         if not os.path.exists(file_path):
             raise Http404("File does not exist")
         with open(file_path, "rb") as file:

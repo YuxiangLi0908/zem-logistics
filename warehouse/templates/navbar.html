@@ -53,6 +53,7 @@
                                 <a>预约管理</a>
                                 <div class="nested-dropdown-content">
                                     <a href="{% url 'schedule_shipment' %}?step=appointment_management" target="_blank">备约</a>
+                                    <a href="{% url 'create_order' %}?step=peer_po_creation">外配货物登记</a>
                                     <a href="{% url 'schedule_shipment' %}" target="_blank">预约出库</a>
                                     <a href="{% url 'schedule_shipment' %}?step=batch_shipment" target="_blank">批量预约出库</a>
                                     <a href="{% url 'schedule_shipment' %}?step=shipment_exceptions" target="_blank">异常预约</a>
@@ -215,6 +216,7 @@
                                 <a>预约管理</a>
                                 <div class="nested-dropdown-content">
                                     <a href="{% url 'schedule_shipment' %}?step=appointment_management">备约</a>
+                                    
                                     <a href="{% url 'schedule_shipment' %}">预约出库</a>
                                     <a href="#">预约异常</a>
                                 </div>
