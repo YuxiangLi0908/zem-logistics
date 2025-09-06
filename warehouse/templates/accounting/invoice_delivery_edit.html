@@ -44,29 +44,32 @@
     {% endif %}
 <div>
 
-<div style="display: flex; justify-content: flex-start; align-items: center; max-width: 1500px; margin: auto; margin-bottom: 50px;">
-    <button class="btn btn-info" onclick="add_delivery(this)" style="margin-right: 15px;">
-         更改仓点类型
+<div style="float: left; margin-right: 15px;">
+    <button class="btn btn-info" onclick="add_delivery(this)">
+        更改仓点类型
     </button>
-    <form method="post" action="">
-        {% csrf_token %}
-        <input type="hidden" name="step" value="swicth_delivery_invoice">
-        <input type="hidden" name="type" value="amount">
-        <input type="hidden" name="amount" value="">
-        <input type="hidden" name="start_date" value="{{ start_date }}">
-        <input type="hidden" name="warehouse" value="{{ warehouse }}">
-        <input type="hidden" name="end_date" value="{{ end_date }}">
-        <input type="hidden" name="invoice_type" value="{{ invoice_type }}">
-        <input type="hidden" name="delivery_type" value="public">
-        <input type="hidden" name="start_date_confirm" value="{{ start_date_confirm }}">
-        <input type="hidden" name="end_date_confirm" value="{{ end_date_confirm }}">
-        <input type="hidden" name="redirect_step" value="{{ redirect_step }}">
-        <input type="hidden" name="container_number" value="{{ container_number }}">
-        <button class="btn btn-warning">
-            组合柜和非组合柜派送类型切换
-        </button>
-    </form>
 </div>
+
+<form method="post" action="" style="float: left; margin: 0;">
+    {% csrf_token %}
+    <input type="hidden" name="step" value="swicth_delivery_invoice">
+    <input type="hidden" name="type" value="amount">
+    <input type="hidden" name="amount" value="">
+    <input type="hidden" name="start_date" value="{{ start_date }}">
+    <input type="hidden" name="warehouse" value="{{ warehouse }}">
+    <input type="hidden" name="end_date" value="{{ end_date }}">
+    <input type="hidden" name="invoice_type" value="{{ invoice_type }}">
+    <input type="hidden" name="delivery_type" value="public">
+    <input type="hidden" name="start_date_confirm" value="{{ start_date_confirm }}">
+    <input type="hidden" name="end_date_confirm" value="{{ end_date_confirm }}">
+    <input type="hidden" name="redirect_step" value="{{ redirect_step }}">
+    <input type="hidden" name="container_number" value="{{ container_number }}">
+    <button class="btn btn-warning" type="submit">
+        组合柜和非组合柜派送类型切换
+    </button>
+</form>
+
+<div style="clear: both;"></div>
 <div>   <!--亚马逊-->
     <form method="post" action="">
         {% csrf_token %}
