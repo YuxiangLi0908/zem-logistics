@@ -36,8 +36,62 @@
     .peer-template-actions {
         display: flex;
         gap: 15px;
+        align-items: center;
+        flex-wrap: wrap;
+        justify-content: center;
+    }
+
+    .peer-template-actions form {
+        display: flex;
+        align-items: center;
+        gap: 10px;
+        background: rgba(255, 255, 255, 0.15);
+        padding: 8px 15px;
+        border-radius: 6px;
+        transition: all 0.3s ease;
+    }
+
+    .peer-template-actions form:hover {
+        background: rgba(255, 255, 255, 0.25);
+    }
+
+    .peer-template-actions .peer-btn {
+        padding: 8px 16px;
+        font-size: 0.9rem;
+        margin: 0;
+        white-space: nowrap;
+    }
+
+    .peer-template-actions input[type="file"] {
+        padding: 6px;
+        border: 1px solid rgba(255, 255, 255, 0.3);
+        border-radius: 4px;
+        background: rgba(255, 255, 255, 0.1);
+        color: white;
+        cursor: pointer;
+        transition: all 0.3s ease;
+        width: 180px;
     }
     
+    .peer-template-actions input[type="file"]:hover {
+        background: rgba(255, 255, 255, 0.2);
+    }
+    
+    .peer-template-actions input[type="file"]::file-selector-button {
+        padding: 4px 8px;
+        border: none;
+        border-radius: 4px;
+        background-color: #2ecc71;
+        color: white;
+        cursor: pointer;
+        margin-right: 8px;
+        transition: background 0.3s ease;
+    }
+    
+    .peer-template-actions input[type="file"]::file-selector-button:hover {
+        background-color: #27ae60;
+    }
+
     .peer-btn {
         padding: 10px 20px;
         border: none;
@@ -238,7 +292,7 @@
         background: #2980b9;
     }
     
-    @media (max-width: 768px) {
+    @media (max-width: 900px) {
         .peer-form-row {
             flex-direction: column;
         }
@@ -254,8 +308,28 @@
         }
         
         .peer-template-actions {
+            flex-direction: column;
             width: 100%;
-            justify-content: center;
+        }
+        
+        .peer-template-actions form {
+            width: 100%;
+            justify-content: space-between;
+        }
+        
+        .peer-template-actions input[type="file"] {
+            flex-grow: 1;
+        }
+    }
+
+    @media (max-width: 480px) {
+        .peer-template-actions form {
+            flex-direction: column;
+            align-items: stretch;
+        }
+        
+        .peer-template-actions input[type="file"] {
+            width: 100%;
         }
     }
 </style>
@@ -264,7 +338,7 @@
     <div class="peer-header">
         <div class="peer-logo">
             <i class="fas fa-boxes"></i>
-            <span>货物建单系统</span>
+            <span>同行货物录入</span>
         </div>
         <div class="peer-template-actions">
             <form method="post" action="">
@@ -287,7 +361,6 @@
                     </button>
                 </div>
             </form>
-            
         </div>
     </div>
     <div class="peer-main-content">
@@ -300,22 +373,27 @@
             <div class="peer-form-row">
                 <div class="peer-form-group">
                     <label for="containerNo" class="peer-label">柜号</label>
-                    <input type="text" name="container_number" class="peer-form-control" placeholder="请输入柜号" value="{{ container_number }}">
+                    <input type="text" name="container_number" id="container_number" class="peer-form-control" placeholder="请输入柜号" value="{{ container_number }}">
                 </div>
                 
                 <div class="peer-form-group">
                     <label for="customer" class="peer-label">客户名</label>
-                    <select id="customer" class="peer-form-control">
-                        <option value="">请选择客户</option>
-                        <option value="customer1">客户一</option>
-                        <option value="customer2">客户二</option>
-                        <option value="customer3">客户三</option>
-                    </select>
+                    {% if customer_name %}
+                        <input type="text" name="customer_name" class="peer-form-control"
+                            placeholder="请输入客户名" value="{{ customer_name }}">
+                    {% else %}
+                        <select name="customer_name" id="customer_select" class="peer-form-control">
+                            <option value="">请选择客户</option>
+                            {% for key, value in peer_customer.items %}
+                                <option value="{{ key }}" data-fullname="{{ value }}">{{ value }}</option>
+                            {% endfor %}
+                        </select>
+                    {% endif %}
                 </div>
                 
                 <div class="peer-form-group">
                     <label for="warehouse" class="peer-label">仓库</label>
-                    <input type="text" id="warehouse" class="peer-form-control" placeholder="请输入仓库名称">
+                    <input type="text" id="warehouse" class="peer-form-control" placeholder="请输入仓库名称" value="{{ warehouse }}">
                 </div>
             </div>
         </div>
@@ -331,8 +409,11 @@
                     <thead>
                         <tr>
                             <th>仓库</th>
+                            <th>FBA号码</th>
+                            <th>REF号码</th>
                             <th>箱数</th>
                             <th>重量 (kg)</th>                          
+                            <th>CBM</th>
                             <th>板数</th>
                             <th>最早派送时间</th>
                             <th>最晚派送时间</th>
@@ -351,8 +432,11 @@
                             {% for o in orders %}
                             <tr>
                                 <td>{{ o.destination }}</td>
+                                <td>{{ o.fba_id }}</td>
+                                <td>{{ o.ref_id }}</td>
                                 <td>{{ o.total_pcs }}</td>
-                                <td>{{ o.total_weight }}</td>                               
+                                <td>{{ o.total_weight }}</td>     
+                                <td>{{ o.total_cbm }}</td>                          
                                 <td>{{ o.total_pallet }}</td>
                                 <td>{{ o.delivery_window_start }}</td>
                                 <td>{{ o.delivery_window_end }}</td>
@@ -384,6 +468,34 @@
 </div>
 
 <script>
-
+document.addEventListener('DOMContentLoaded', function() {
+    const customerSelect = document.getElementById('customer_select');
+    const containerInput = document.getElementById('container_number');
+    
+    if (customerSelect) {
+        customerSelect.addEventListener('change', function() {
+            const selectedOption = this.options[this.selectedIndex];
+            if (selectedOption.value) {
+                const fullName = selectedOption.getAttribute('data-fullname');
+                const currentContainerNumber = containerInput.value;           
+                // 获取客户名前4个字母并大写
+                let prefix = fullName.substring(0, 4).toUpperCase().replace(/\s/g, '');
+                // 如果柜号已经是客户前缀+数字的形式，只替换前缀部分
+                if (currentContainerNumber.length >= 11 && /^[A-Z]{4}\d{7}$/.test(currentContainerNumber)) {
+                    // 只替换前缀，保留后面的7位数字
+                    containerInput.value = prefix + currentContainerNumber.substring(4);
+                } else if (currentContainerNumber.length === 7 && /^\d{7}$/.test(currentContainerNumber)) {
+                    // 如果是纯7位数字，直接添加前缀
+                    containerInput.value = prefix + currentContainerNumber;
+                } else {
+                    // 其他情况，生成新的柜号（保留原柜号中的数字部分）
+                    const digits = currentContainerNumber.replace(/\D/g, ''); 
+                    const finalDigits = digits.length >= 7 ? digits.substring(0, 7) : digits.padEnd(7, '0');
+                    containerInput.value = prefix + finalDigits;
+                }
+            }
+        });
+    }
+});
 </script>
 {% endblock %}

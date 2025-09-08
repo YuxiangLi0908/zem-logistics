@@ -72,6 +72,14 @@ class OrderCreation(View):
         "20GP": "20GP",
         "53HQ": "53HQ",
     }
+    peer_customer = {
+        'Vinmax': 'Vinmax',
+        'OGR': 'OGR',
+        'ARM': 'ARM',
+        'X-HUB': 'X-HUB',
+        'OL': 'OL',
+        'Icejue': 'Icejue'
+    }
 
     async def get(self, request: HttpRequest) -> HttpResponse:
         if not await self._user_authenticate(request):
@@ -1441,7 +1449,7 @@ class OrderCreation(View):
             # 删除空行
             df = df.dropna(how='all') 
             #除柜号外，缺值报错并提醒，不核实FBA是因为沃尔玛的可以没有FBA
-            columns_to_check = ['收货地址', '板数', 'PO号码', '重量(kg)', 'CBM', '件数', '客户名']
+            columns_to_check = ['收货地址', '板数', 'PO号码', '重量(kg)', 'CBM', '件数']
             #缺了这些列也报错
             missing_columns = [col for col in columns_to_check if col not in df.columns]
             if missing_columns:
@@ -1481,28 +1489,73 @@ class OrderCreation(View):
                 except AttributeError:
                     continue
             df = df.rename(columns={
+                '接货仓库': 'warehouses',
                 '柜号': 'container_number',
                 '客户名': 'customer_name', 
                 '件数': 'total_pcs',
-                '重量': 'total_weight',
+                '重量(kg)': 'total_weight',
+                'CBM': 'total_cbm',
+                'FBA号码': 'fba_id',
+                'PO号码': 'ref_id',
                 '收货地址': 'destination',
                 '板数': 'total_pallet',
                 '最早派送时间': 'delivery_window_start',
                 '最晚派送时间': 'delivery_window_end',
             })
-            container_numbers = df['container_number'].dropna().unique()
-            if len(container_numbers) > 1:
-                raise ValueError(f"container_number列有多个不同的值：{container_numbers}。请确保所有行的柜号相同。")
 
-            # 检查customer_name是否有多个不同的值
+            warehouses = df['warehouses'].replace('', pd.NA).dropna().unique()
+            print('warehouses-1',warehouses)
+            warehouses = warehouses.tolist()
+            if len(warehouses) > 1:
+                #值多不行，现在模板一次就建一个客户一个仓库的
+                raise ValueError(f"'接货仓库'列有多个不同的值：{warehouses}。请确保所有行的柜号相同。")
+            elif len(warehouses) == 1:
+                warehouse = warehouses[0].split('-')[0]
+            else:
+                #说明没有提供值，那就默认为NJ
+                warehouse = 'NJ'
+
             customer_names = df['customer_name'].dropna().unique()
             if len(customer_names) > 1:
-                raise ValueError(f"customer_name列有多个不同的值：{customer_names}。请确保所有行的客户名相同。")
+                raise ValueError(f"'客户名'列有多个不同的值：{customer_names}。请确保所有行的客户名相同。")
+            elif len(customer_names) == 1:
+                customer_name = customer_names[0]
+            else:
+                #客户名不提供就在前端自己选，给定选项
+                customer_name = None
+            
+            container_numbers = df['container_number'].replace('', pd.NA).dropna().unique()
+            container_numbers = container_numbers.tolist()
+            if len(container_numbers) > 1:
+                raise ValueError(f"'柜号'列有多个不同的值：{container_numbers}。请确保所有行的柜号相同。")
+            elif len(container_numbers) == 1:
+                container_number = container_numbers[0]
+            else:
+                #如果没提供柜号，就自动给一个，是客户名+7个数字，如果没给客户名，就在前端选完客户名之后再加这7个数字
+                max_attempts=10
+                attempt = 0
+                while attempt < max_attempts:
+                    random_num = ''.join(random.choices('0123456789', k=7))
+                    if customer_name:
+                        name_str = str(customer_name).strip()
+                        prefix = (name_str[:4].upper().replace(' ', '')).ljust(4, 'X')              
+                        container_number = prefix + random_num
+                    else:
+                        container_number = random_num
+                    if not await Container.objects.filter(container_number=container_number).aexists():
+                        break 
+                    attempt += 1
+                else:
+                    raise ValueError('尝试十次，柜号始终重复')
+
             orders = df.to_dict('records')
+            print('orders',orders)
             context = {
                 'orders': orders,
-                'container_number': container_numbers,
-                'customer_names': customer_names,
+                'container_number': container_number,
+                'customer_name': customer_name,
+                'warehouse': warehouse,
+                'peer_customer': self.peer_customer,
             }
             return await self.handle_peer_po_creation(request,context)
         else:
