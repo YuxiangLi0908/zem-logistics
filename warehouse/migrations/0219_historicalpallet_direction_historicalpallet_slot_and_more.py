@@ -6,28 +6,28 @@ from django.db import migrations, models
 class Migration(migrations.Migration):
 
     dependencies = [
-        ('warehouse', '0218_abnormaloffloadstatus_delivery_window_end_and_more'),
+        ("warehouse", "0218_abnormaloffloadstatus_delivery_window_end_and_more"),
     ]
 
     operations = [
         migrations.AddField(
-            model_name='historicalpallet',
-            name='direction',
+            model_name="historicalpallet",
+            name="direction",
             field=models.CharField(blank=True, max_length=20, null=True),
         ),
         migrations.AddField(
-            model_name='historicalpallet',
-            name='slot',
+            model_name="historicalpallet",
+            name="slot",
             field=models.CharField(blank=True, max_length=20, null=True),
         ),
         migrations.AddField(
-            model_name='pallet',
-            name='direction',
+            model_name="pallet",
+            name="direction",
             field=models.CharField(blank=True, max_length=20, null=True),
         ),
         migrations.AddField(
-            model_name='pallet',
-            name='slot',
+            model_name="pallet",
+            name="slot",
             field=models.CharField(blank=True, max_length=20, null=True),
         ),
     ]

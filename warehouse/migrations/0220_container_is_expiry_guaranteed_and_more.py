@@ -6,38 +6,58 @@ from django.db import migrations, models
 class Migration(migrations.Migration):
 
     dependencies = [
-        ('warehouse', '0219_historicalpallet_direction_historicalpallet_slot_and_more'),
+        ("warehouse", "0219_historicalpallet_direction_historicalpallet_slot_and_more"),
     ]
 
     operations = [
         migrations.AddField(
-            model_name='container',
-            name='is_expiry_guaranteed',
+            model_name="container",
+            name="is_expiry_guaranteed",
             field=models.BooleanField(blank=True, default=False, null=True),
         ),
         migrations.AddField(
-            model_name='historicalcontainer',
-            name='is_expiry_guaranteed',
+            model_name="historicalcontainer",
+            name="is_expiry_guaranteed",
             field=models.BooleanField(blank=True, default=False, null=True),
         ),
         migrations.AddField(
-            model_name='historicalorder',
-            name='unpacking_priority',
-            field=models.CharField(choices=[('P1', 'P1（最高）'), ('P2', 'P2（高）'), ('P3', 'P3（中）'), ('P4', 'P4（低）')], default='P3', max_length=10, verbose_name='拆柜优先等级'),
+            model_name="historicalorder",
+            name="unpacking_priority",
+            field=models.CharField(
+                choices=[
+                    ("P1", "P1（最高）"),
+                    ("P2", "P2（高）"),
+                    ("P3", "P3（中）"),
+                    ("P4", "P4（低）"),
+                ],
+                default="P3",
+                max_length=10,
+                verbose_name="拆柜优先等级",
+            ),
         ),
         migrations.AddField(
-            model_name='order',
-            name='unpacking_priority',
-            field=models.CharField(choices=[('P1', 'P1（最高）'), ('P2', 'P2（高）'), ('P3', 'P3（中）'), ('P4', 'P4（低）')], default='P3', max_length=10, verbose_name='拆柜优先等级'),
+            model_name="order",
+            name="unpacking_priority",
+            field=models.CharField(
+                choices=[
+                    ("P1", "P1（最高）"),
+                    ("P2", "P2（高）"),
+                    ("P3", "P3（中）"),
+                    ("P4", "P4（低）"),
+                ],
+                default="P3",
+                max_length=10,
+                verbose_name="拆柜优先等级",
+            ),
         ),
         migrations.AlterField(
-            model_name='historicalorder',
-            name='invoice_status',
-            field=models.CharField(default='unrecorded', max_length=255, null=True),
+            model_name="historicalorder",
+            name="invoice_status",
+            field=models.CharField(default="unrecorded", max_length=255, null=True),
         ),
         migrations.AlterField(
-            model_name='order',
-            name='invoice_status',
-            field=models.CharField(default='unrecorded', max_length=255, null=True),
+            model_name="order",
+            name="invoice_status",
+            field=models.CharField(default="unrecorded", max_length=255, null=True),
         ),
     ]

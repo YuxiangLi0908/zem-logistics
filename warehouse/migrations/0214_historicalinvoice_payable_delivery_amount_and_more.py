@@ -6,38 +6,38 @@ from django.db import migrations, models
 class Migration(migrations.Migration):
 
     dependencies = [
-        ('warehouse', '0213_historicalinvoicewarehouse_arrive_fee_and_more'),
+        ("warehouse", "0213_historicalinvoicewarehouse_arrive_fee_and_more"),
     ]
 
     operations = [
         migrations.AddField(
-            model_name='historicalinvoice',
-            name='payable_delivery_amount',
+            model_name="historicalinvoice",
+            name="payable_delivery_amount",
             field=models.FloatField(blank=True, null=True),
         ),
         migrations.AddField(
-            model_name='historicalinvoice',
-            name='payable_preport_amount',
+            model_name="historicalinvoice",
+            name="payable_preport_amount",
             field=models.FloatField(blank=True, null=True),
         ),
         migrations.AddField(
-            model_name='historicalinvoice',
-            name='payable_warehouse_amount',
+            model_name="historicalinvoice",
+            name="payable_warehouse_amount",
             field=models.FloatField(blank=True, null=True),
         ),
         migrations.AddField(
-            model_name='invoice',
-            name='payable_delivery_amount',
+            model_name="invoice",
+            name="payable_delivery_amount",
             field=models.FloatField(blank=True, null=True),
         ),
         migrations.AddField(
-            model_name='invoice',
-            name='payable_preport_amount',
+            model_name="invoice",
+            name="payable_preport_amount",
             field=models.FloatField(blank=True, null=True),
         ),
         migrations.AddField(
-            model_name='invoice',
-            name='payable_warehouse_amount',
+            model_name="invoice",
+            name="payable_warehouse_amount",
             field=models.FloatField(blank=True, null=True),
         ),
     ]
