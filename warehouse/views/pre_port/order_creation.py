@@ -5,11 +5,12 @@ import re
 import string
 import uuid
 from collections import defaultdict
-from datetime import datetime, timedelta, timezone
+from datetime import datetime, timedelta, timezone,date
 from decimal import Decimal, InvalidOperation
 from pathlib import Path
 from typing import Any, Dict
 from django.db.models import Sum
+from itertools import zip_longest
 
 import chardet
 import numpy as np
@@ -85,7 +86,6 @@ class OrderCreation(View):
         if not await self._user_authenticate(request):
             return redirect("login")
         step = request.GET.get("step", None)
-        print('是用的这个文件')
         if step == "all":
             template, context = await self.handle_order_basic_info_get()
             return await sync_to_async(render)(request, template, context)
@@ -109,7 +109,6 @@ class OrderCreation(View):
         if not await self._user_authenticate(request):
             return redirect("login")
         step = request.POST.get("step", None)
-        print('用的post')
         if step == "create_order_basic":
             template, context = await self.handle_create_order_basic_post(request)
             return await sync_to_async(render)(request, template, context)
@@ -176,6 +175,9 @@ class OrderCreation(View):
             return await sync_to_async(render)(request, template, context)
         elif step =="peer_download_template":
             return await self.handle_download_peer_template_post(request)
+        elif step == "peer_po_save":
+            template, context = await self.handle_peer_po_save(request)
+            return await sync_to_async(render)(request, template, context)
     
     async def handle_download_peer_template_post(self, request: HttpRequest) -> HttpResponse:
         file_path = (
@@ -888,6 +890,273 @@ class OrderCreation(View):
             await sync_to_async(container.save, thread_sensitive=True)()
         return await self.handle_order_management_container_get(request)
 
+    async def handle_peer_po_save(
+        self, request: HttpRequest
+    ) -> tuple[Any, Any]:
+        container_number = request.POST.get("container_number")
+        customer_name = request.POST.get("customer_name")
+        warehouse = request.POST.get("warehouse")
+        warehouse_code = 'NJ-07001' if warehouse == 'NJ' else 'SAV-31326' if warehouse == 'SAV' else 'LA-91761' if warehouse == 'LA' else warehouse
+        #更新基本信息
+        customer = await sync_to_async(Customer.objects.get)(
+            models.Q(zem_name=customer_name) | models.Q(accounting_name=customer_name)
+        )
+        created_at = datetime.now()
+        order_type = '转运'
+        #检查柜号是否重复，如果重复就重新起柜号名，这里重新起步报错是因为，这本来就是系统给随机起的
+        is_modify_con = False
+        try:
+            existing_order = await sync_to_async(Order.objects.get)(
+                container_number__container_number=container_number
+            )
+            if existing_order:
+                container_number = await self._naming_container(customer_name)
+                is_modify_con = True
+        except ObjectDoesNotExist:
+            pass
+
+        weights = sum(float(weight) for weight in request.POST.getlist("total_weight"))
+        weights *= 2.20462
+        pallets = sum(int(plt) for plt in request.POST.getlist("total_pallet"))
+        order_id = str(
+            uuid.uuid3(
+                uuid.NAMESPACE_DNS,
+                str(uuid.uuid4())
+                + customer.zem_name
+                + created_at.strftime("%Y-%m-%d %H:%M:%S"),
+            )
+        )
+        retrieval_id = str(uuid.uuid3(uuid.NAMESPACE_DNS, order_id + container_number))
+        offload_id = str(uuid.uuid3(uuid.NAMESPACE_DNS, order_id + order_type))
+
+        container_data = {
+            "container_number": container_number,
+            "container_type": '40HQ/GP',
+            "weight_lbs": weights,
+            "is_special_container": 'False',
+            "is_expiry_guaranteed": 'False',
+            "note": '',
+        }
+        container = Container(**container_data)
+        retrieval_data = {
+            "retrieval_id": retrieval_id,
+            "retrieval_destination_area": (request.POST.get("warehouse")),
+            'retrieval_destination_precise': warehouse_code,
+            'retrieval_carrier': '自取',
+            'target_retrieval_timestamp': created_at,
+            'target_retrieval_timestamp_lower': created_at,
+            'scheduled_at': created_at,
+            'actual_retrieval_timestamp': created_at,
+            'arrive_at': created_at,
+            'arrive_at_destination': 'True',
+            'empty_returned': 'True',
+            'empty_returned_at': created_at,
+        }
+        retrieval = Retrieval(**retrieval_data)
+        offload_data = {
+            "offload_id": offload_id,
+            "offload_at": created_at,
+            "offload_required": True ,
+            'total_pallet': pallets,
+        }
+        offload = Offload(**offload_data)
+        warehouse = await sync_to_async(ZemWarehouse.objects.get)(name=warehouse_code)
+        order_data = {
+            "order_id": order_id,
+            "customer_name": customer,
+            "created_at": created_at,
+            "order_type": order_type,
+            "container_number": container,
+            "retrieval_id": retrieval,
+            "offload_id": offload,
+            'warehouse': warehouse,
+            'add_to_t49': 'True',
+            "packing_list_updloaded": True,
+            "unpacking_priority": 'P4',
+        }
+        order = Order(**order_data)
+        await sync_to_async(container.save)()
+        await sync_to_async(retrieval.save)()
+        await sync_to_async(offload.save)()
+        await sync_to_async(order.save)()
+        #然后要构建Packinglist和Pallet表
+        order = await sync_to_async(
+            Order.objects.select_related(
+                "container_number", "offload_id", "vessel_id"
+            ).get
+        )(container_number__container_number=container_number)
+        await self._create_packinglist(request,container_number,warehouse_code,order)
+        context = {
+            'is_modify_con':False,
+            'is_save_con': True,
+            'container_number': container_number,
+        }
+        return await self.handle_peer_po_creation(request,context)
+
+    async def _create_packinglist(self, request:HttpRequest, container_number:str,warehouse_code:str,order:Order) -> None:
+        destination_list = request.POST.getlist("destination")
+        for idx, destination in enumerate(destination_list):
+            if "WALMART" in destination.upper():
+                parts = destination.split("-")
+                destination_list[idx] = "Walmart-" + parts[1]
+            else:
+                destination_list[idx] = destination.upper().strip()
+        # Generate PO_ID
+        po_ids = []
+        po_id_hash = {}
+        seq_num = 1
+        for dm, sm, fba, dest in zip_longest(
+                request.POST.getlist("delivery_method"),
+                request.POST.getlist("shipping_mark"),
+                request.POST.getlist("fba_id"),
+                destination_list,
+                fillvalue='',
+        ):
+            po_id: str = ""
+            po_id_seg: str = ""
+            po_id_hkey: str = ""
+            if dm in ["暂扣留仓(HOLD)", "暂扣留仓"]:
+                po_id_hkey = f"{dm}-{dest}-{fba}"
+                po_id_seg = (
+                    f"H{fba[-4:]}{sm[-4:]}"
+                    if fba
+                    else f"H{sm[-4:] if sm else ''.join(random.choices(string.ascii_letters.upper() + string.digits, k=4))}"
+                )
+            elif dm == "客户自提" or dest == "客户自提":
+                po_id_hkey = f"{dm}-{dest}-{fba}"
+                po_id_seg = (
+                    f"S{sm[-4:]}"
+                    if sm
+                    else f"S{''.join(random.choices(string.ascii_letters.upper() + string.digits, k=4))}"
+                )
+            else:
+                po_id_hkey = f"{dm}-{dest}"
+                po_id_seg = f"{DELIVERY_METHOD_CODE.get(dm, 'UN')}{dest.replace(' ', '').split('-')[-1]}"
+            if po_id_hkey in po_id_hash:
+                po_id = po_id_hash.get(po_id_hkey)
+            else:
+                random.seed(container_number[-4:])
+                po_id = f"{''.join(random.choices(string.ascii_uppercase + string.digits, k=6))}{po_id_seg}{seq_num}"
+                po_id = re.sub(r"[\u4e00-\u9fff]", "", po_id)
+                po_id_hash[po_id_hkey] = po_id
+                seq_num += 1
+            po_ids.append(po_id)
+        del po_id_hash, po_id, po_id_seg, po_id_hkey
+        
+        fields = [
+            request.POST.getlist("delivery_method"),
+            request.POST.getlist("shipping_mark") or [''],
+            request.POST.getlist("fba_id"),
+            request.POST.getlist("ref_id"),
+            destination_list,
+            request.POST.getlist("total_pcs"),
+            request.POST.getlist("total_weight"),
+            [str(float(weight) * 2.20462) if weight and weight.strip() else '' for weight in request.POST.getlist("total_weight")],
+            request.POST.getlist("total_cbm"),
+            request.POST.getlist("total_pallet"),
+            po_ids,
+            request.POST.getlist("delivery_window_start") or [''],
+            request.POST.getlist("delivery_window_end") or [''],
+            ["公仓"] * max(len(request.POST.getlist("delivery_method") or []), 1)
+        ]
+        #填充空列和最长的长度相同
+        max_length = max(len(field) for field in fields)
+        padded_fields = []
+        for field in fields:
+            if len(field) < max_length:
+                padded_fields.append(field + [''] * (max_length - len(field)))
+            else:
+                padded_fields.append(field)
+        pl_data = zip(*padded_fields, strict=True)
+        pl_data = list(zip(*padded_fields, strict=True))
+        pl_to_create = [
+            PackingList(
+                container_number=order.container_number,
+                delivery_method=d[0],
+                shipping_mark=d[1].strip(),
+                fba_id=d[2].strip(),
+                ref_id=d[3].strip(),
+                destination=d[4],
+                pcs=int(float(d[5])),
+                total_weight_kg=d[6],
+                total_weight_lbs=d[7],
+                cbm=d[8],
+                PO_ID=d[10],
+                delivery_window_start = d[11] if d[11].strip() else None,
+                delivery_window_end = d[12] if d[12].strip() else None,
+                delivery_type=d[13],
+            )
+            for d in pl_data
+        ]
+        await sync_to_async(bulk_create_with_history)(pl_to_create, PackingList)
+
+        #建完packinglist之后，再建pallet记录
+        pallet_data = []
+        for p in pl_data:
+            pallet_data += await self._peer_split_pallet(order,int(p[5]),int(p[9]),float(p[8]),float(p[7]),p[4],p[0],p[13],p[1],p[2],p[3],p[10],warehouse_code,p[11],p[12])
+
+        pallet_instances = [Pallet(**d) for d in pallet_data]
+        await sync_to_async(bulk_create_with_history)(pallet_instances, Pallet)
+
+    async def _peer_split_pallet(
+        self,
+        order: Order,
+        p_a: int, #箱数
+        n: int,  #板数
+        c: float,
+        w: float,
+        destination: str,
+        delivery_method: str,
+        delivery_type: str,
+        shipping_mark: str,
+        fba_id: str,
+        ref_id: str,
+        po_id: str, 
+        warehouse_code: str,
+        dw_st:date | None = None,
+        dw_end:date | None = None,      
+        seed: int = 0,
+    ) -> list[dict[str, Any]]:
+        pallet_ids = [
+            str(
+                uuid.uuid3(
+                    uuid.NAMESPACE_DNS, str(uuid.uuid4())  + str(i) + str(seed)
+                )
+            )
+            for i in range(n)
+        ]
+
+        pallet_data_list = []
+        pallet_pcs = [p_a // n for _ in range(n)]
+        for i in range(p_a % n):
+            pallet_pcs[i] += 1
+        for i in range(n):
+            cbm_loaded = c * pallet_pcs[i] / p_a
+            weight_loaded = w * pallet_pcs[i] / p_a
+            pallet_data_list.append(
+                {
+                    "container_number": order.container_number,
+                    "destination": destination,
+                    "delivery_method": delivery_method,
+                    "delivery_type": delivery_type,
+                    "pallet_id": pallet_ids[i],
+                    "pcs": pallet_pcs[i],
+                    "cbm": cbm_loaded,
+                    "weight_lbs": weight_loaded,
+                    "shipping_mark": shipping_mark if shipping_mark else "",
+                    "fba_id": fba_id if fba_id else "",
+                    "ref_id": ref_id if ref_id else "",
+                    "abnormal_palletization": 'False',
+                    "location": warehouse_code,
+                    "PO_ID": po_id,
+                    **({"delivery_window_start": dw_st} if dw_st else {}),
+                    **({"delivery_window_end": dw_end} if dw_end else {})
+                }
+            )
+
+        return pallet_data_list
+
+            
     async def handle_update_delivery_type(
         self, request: HttpRequest
     ) -> tuple[Any, Any]:
@@ -1478,10 +1747,7 @@ class OrderCreation(View):
                 )
                 raise ValueError(error_message)
             df = df.replace(np.nan, '')
-            for idx, row in df.iterrows():  # 转换单位
-                df.loc[idx, "重量(kg)"] = round(
-                    df.loc[idx, "重量(kg)"] * 2.20462, 2
-                )
+            
             #字符串类型的去掉前后空格
             for col in df.columns:
                 try:
@@ -1504,7 +1770,7 @@ class OrderCreation(View):
             })
 
             warehouses = df['warehouses'].replace('', pd.NA).dropna().unique()
-            print('warehouses-1',warehouses)
+            
             warehouses = warehouses.tolist()
             if len(warehouses) > 1:
                 #值多不行，现在模板一次就建一个客户一个仓库的
@@ -1530,26 +1796,13 @@ class OrderCreation(View):
                 raise ValueError(f"'柜号'列有多个不同的值：{container_numbers}。请确保所有行的柜号相同。")
             elif len(container_numbers) == 1:
                 container_number = container_numbers[0]
+                if await Container.objects.filter(container_number=container_number).aexists():
+                    raise ValueError('柜号重复，请核实')
+                
             else:
                 #如果没提供柜号，就自动给一个，是客户名+7个数字，如果没给客户名，就在前端选完客户名之后再加这7个数字
-                max_attempts=10
-                attempt = 0
-                while attempt < max_attempts:
-                    random_num = ''.join(random.choices('0123456789', k=7))
-                    if customer_name:
-                        name_str = str(customer_name).strip()
-                        prefix = (name_str[:4].upper().replace(' ', '')).ljust(4, 'X')              
-                        container_number = prefix + random_num
-                    else:
-                        container_number = random_num
-                    if not await Container.objects.filter(container_number=container_number).aexists():
-                        break 
-                    attempt += 1
-                else:
-                    raise ValueError('尝试十次，柜号始终重复')
-
+                container_number = await self._naming_container(customer_name)
             orders = df.to_dict('records')
-            print('orders',orders)
             context = {
                 'orders': orders,
                 'container_number': container_number,
@@ -1561,6 +1814,22 @@ class OrderCreation(View):
         else:
             raise ValueError(f"invalid file format!")
         
+    async def _naming_container(self,customer_name:str) -> str:
+        max_attempts=10
+        attempt = 0
+        while attempt < max_attempts:
+            random_num = ''.join(random.choices('0123456789', k=7))
+            if customer_name:
+                name_str = str(customer_name).strip()
+                prefix = (name_str[:4].upper().replace(' ', '').replace('-', '')).ljust(4, 'X')              
+                container_number = prefix + random_num
+            else:
+                container_number = random_num
+            if not await Container.objects.filter(container_number=container_number).aexists():
+                return  container_number
+            attempt += 1
+        else:
+            raise ValueError('尝试十次，柜号始终重复')
 
     async def handle_upload_template_post(
         self, request: HttpRequest
@@ -1643,7 +1912,6 @@ class OrderCreation(View):
             .parent.parent.parent.resolve()
             .joinpath("templates/export_file/packing_list_template.xlsx")
         )
-        print('views下的pl的模板路径',file_path)
         if not os.path.exists(file_path):
             raise Http404("File does not exist")
         with open(file_path, "rb") as file:

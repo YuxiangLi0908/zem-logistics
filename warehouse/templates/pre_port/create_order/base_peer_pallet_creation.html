@@ -4,7 +4,7 @@
 {% block content %}
 <style>
     .peer-system {
-        max-width: 1200px;
+        max-width: 1400px;
         margin: 30px auto;
         background: white;
         border-radius: 10px;
@@ -33,6 +33,28 @@
         font-size: 1.8rem;
     }
     
+    .peer-modal {
+        display: none;
+        position: fixed;
+        z-index: 1000;
+        left: 0;
+        top: 0;
+        width: 100%;
+        height: 100%;
+        background-color: rgba(0, 0, 0, 0.5);
+    }
+    
+    .peer-modal-content {
+        background-color: white;
+        margin: 15% auto;
+        padding: 30px;
+        border-radius: 10px;
+        width: 400px;
+        max-width: 90%;
+        text-align: center;
+        box-shadow: 0 5px 25px rgba(0, 0, 0, 0.2);
+        animation: modalSlideIn 0.3s ease;
+    }
     .peer-template-actions {
         display: flex;
         gap: 15px;
@@ -332,9 +354,75 @@
             width: 100%;
         }
     }
+
+    @keyframes modalSlideIn {
+        from {
+            transform: translateY(-50px);
+            opacity: 0;
+        }
+        to {
+            transform: translateY(0);
+            opacity: 1;
+        }
+    }
+    
+    .peer-modal-icon {
+        font-size: 3rem;
+        margin-bottom: 20px;
+    }
+    
+    .peer-modal-success .peer-modal-icon {
+        color: #2ecc71;
+    }
+    
+    .peer-modal-warning .peer-modal-icon {
+        color: #f39c12;
+    }
+    
+    .peer-modal-message {
+        font-size: 1.1rem;
+        margin-bottom: 25px;
+        color: #2c3e50;
+        line-height: 1.5;
+    }
+    
+    .peer-modal-close {
+        background: #3498db;
+        color: white;
+        border: none;
+        padding: 10px 25px;
+        border-radius: 5px;
+        cursor: pointer;
+        font-weight: 600;
+        transition: background 0.3s ease;
+    }
+    
+    .peer-modal-close:hover {
+        background: #2980b9;
+    }
+    
+    .peer-modal-container-number {
+        font-weight: bold;
+        color: #e74c3c;
+        background: #f9f9f9;
+        padding: 8px 12px;
+        border-radius: 4px;
+        margin: 10px 0;
+        display: inline-block;
+    }
 </style>
 
 <div class="peer-system">
+    <!--弹窗，用于提醒保存成功-->
+    <div id="peerModal" class="peer-modal">
+        <div class="peer-modal-content" id="modalContent">
+            <div class="peer-modal-icon" id="modalIcon">
+                <i class="fas fa-check-circle"></i>
+            </div>
+            <div class="peer-modal-message" id="modalMessage"></div>
+            <button class="peer-modal-close" onclick="closeModal()">确定</button>
+        </div>
+    </div>
     <div class="peer-header">
         <div class="peer-logo">
             <i class="fas fa-boxes"></i>
@@ -363,139 +451,209 @@
             </form>
         </div>
     </div>
-    <div class="peer-main-content">
-        <div class="peer-section">
-            <div class="peer-section-title">
-                <i class="fas fa-info-circle"></i>
-                <span>基本信息</span>
-            </div>
-            
-            <div class="peer-form-row">
-                <div class="peer-form-group">
-                    <label for="containerNo" class="peer-label">柜号</label>
-                    <input type="text" name="container_number" id="container_number" class="peer-form-control" placeholder="请输入柜号" value="{{ container_number }}">
+    <form method="post" action="">
+        {% csrf_token %}
+        <input type="hidden" name="step" value="peer_po_save">
+        <div class="peer-main-content">
+            <div class="peer-section">
+                <div class="peer-section-title">
+                    <i class="fas fa-info-circle"></i>
+                    <span>基本信息</span>
                 </div>
                 
-                <div class="peer-form-group">
-                    <label for="customer" class="peer-label">客户名</label>
-                    {% if customer_name %}
-                        <input type="text" name="customer_name" class="peer-form-control"
-                            placeholder="请输入客户名" value="{{ customer_name }}">
-                    {% else %}
-                        <select name="customer_name" id="customer_select" class="peer-form-control">
-                            <option value="">请选择客户</option>
-                            {% for key, value in peer_customer.items %}
-                                <option value="{{ key }}" data-fullname="{{ value }}">{{ value }}</option>
-                            {% endfor %}
-                        </select>
-                    {% endif %}
-                </div>
-                
-                <div class="peer-form-group">
-                    <label for="warehouse" class="peer-label">仓库</label>
-                    <input type="text" id="warehouse" class="peer-form-control" placeholder="请输入仓库名称" value="{{ warehouse }}">
-                </div>
-            </div>
-        </div>
-        
-        <div class="peer-section">
-            <div class="peer-section-title">
-                <i class="fas fa-list-alt"></i>
-                <span>货物信息列表</span>
-            </div>
-            
-            <div class="peer-table-container">
-                <table class="peer-table">
-                    <thead>
-                        <tr>
-                            <th>仓库</th>
-                            <th>FBA号码</th>
-                            <th>REF号码</th>
-                            <th>箱数</th>
-                            <th>重量 (kg)</th>                          
-                            <th>CBM</th>
-                            <th>板数</th>
-                            <th>最早派送时间</th>
-                            <th>最晚派送时间</th>
-                            <th>操作</th>
-                        </tr>
-                    </thead>
-                    <tbody>
-                        {% if not orders %}
-                        <tr>
-                            <td colspan="7" style="text-align: center; padding: 30px; color: #7f8c8d;">
-                                <i class="fas fa-inbox" style="font-size: 40px; margin-bottom: 15px; display: block;"></i>
-                                暂无数据，请添加货物信息或上传文件
-                            </td>
-                        </tr>
+                <div class="peer-form-row">
+                    <div class="peer-form-group">
+                        <label for="containerNo" class="peer-label">柜号</label>
+                        <input type="text" name="container_number" id="container_number" class="peer-form-control" placeholder="请输入柜号" value="{{ container_number }}">
+                    </div>
+                    
+                    <div class="peer-form-group">
+                        <label for="customer" class="peer-label">客户名</label>
+                        {% if customer_name %}
+                            <input type="text" name="customer_name" class="peer-form-control"
+                                placeholder="请输入客户名" value="{{ customer_name }}">
                         {% else %}
-                            {% for o in orders %}
+                            <select name="customer_name" id="customer_select" class="peer-form-control">
+                                <option value="">请选择客户</option>
+                                {% for key, value in peer_customer.items %}
+                                    <option value="{{ key }}" data-fullname="{{ value }}">{{ value }}</option>
+                                {% endfor %}
+                            </select>
+                        {% endif %}
+                    </div>
+                    
+                    <div class="peer-form-group">
+                        <label for="warehouse" class="peer-label">仓库</label>
+                        <input type="text" name="warehouse" class="peer-form-control" placeholder="请输入仓库名称" value="{{ warehouse }}">
+                    </div>
+                </div>
+            </div>
+            
+            <div class="peer-section">
+                <div class="peer-section-title">
+                    <i class="fas fa-list-alt"></i>
+                    <span>货物信息列表</span>
+                </div>
+                
+                <div class="peer-table-container">
+                    <table class="peer-table">
+                        <thead>
                             <tr>
-                                <td>{{ o.destination }}</td>
-                                <td>{{ o.fba_id }}</td>
-                                <td>{{ o.ref_id }}</td>
-                                <td>{{ o.total_pcs }}</td>
-                                <td>{{ o.total_weight }}</td>     
-                                <td>{{ o.total_cbm }}</td>                          
-                                <td>{{ o.total_pallet }}</td>
-                                <td>{{ o.delivery_window_start }}</td>
-                                <td>{{ o.delivery_window_end }}</td>
-                                <td>
-                                    <button class="peer-btn peer-btn-download" style="padding: 5px 10px;">
-                                        <i class="fas fa-edit"></i>
-                                    </button>
-                                    <button class="peer-btn peer-btn-cancel" style="padding: 5px 10px;">
-                                        <i class="fas fa-trash"></i>
-                                    </button>
+                                <th>仓库</th>
+                                <th>派送方式</th>
+                                <th>FBA号码</th>
+                                <th>REF号码</th>
+                                <th>箱数</th>
+                                <th>重量 (kg)</th>                          
+                                <th>CBM</th>
+                                <th>板数</th>
+                                <th>最早派送时间</th>
+                                <th>最晚派送时间</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {% if not orders %}
+                            <tr>
+                                <td colspan="10" style="text-align: center; padding: 30px; color: #7f8c8d;">
+                                    <i class="fas fa-inbox" style="font-size: 40px; margin-bottom: 15px; display: block;"></i>
+                                    暂无数据，请添加货物信息或上传文件
                                 </td>
                             </tr>
-                            {% endfor %}
-                        {% endif %}
-                    </tbody>
-                </table>
+                            {% else %}
+                                {% for o in orders %}
+                                <tr>
+                                    <td><input type="text" name="destination" style="width: 100%; padding: 5px;" value="{{ o.destination }}"></td>
+                                    <td><input type="text" name="delivery_method" style="width: 100%; padding: 5px;" value="卡车派送"></td>
+                                    <td><input type="text" name="fba_id" style="padding: 5px; width:120px;" value="{{ o.fba_id }}"></td>
+                                    <td><input type="text" name="ref_id"style="padding: 5px; width:120px;" value="{{ o.ref_id }}"></td>
+                                    <td><input type="text" name="total_pcs" style="width: 100%; padding: 5px;" value="{{ o.total_pcs }}"></td>
+                                    <td><input type="text" name="total_weight" style="width: 100%; padding: 5px;" value="{{ o.total_weight }}"></td>     
+                                    <td><input type="text" name="total_cbm" style="width: 100%; padding: 5px;" value="{{ o.total_cbm }}"></td>                          
+                                    <td><input type="text" name="total_pallet" style="width: 100%; padding: 5px;" value="{{ o.total_pallet }}"></td>
+                                    <td><input type="date" name="delivery_window_start" style="width: 100%; padding: 5px;" value="{{ o.delivery_window_start }}"></td>
+                                    <td><input type="date" name="delivery_window_end" style="width: 100%; padding: 5px;" value="{{ o.delivery_window_end }}"></td>
+                                </tr>
+                                {% endfor %}
+                            {% endif %}
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+            
+            <div class="peer-action-buttons">
+                <button class="peer-btn peer-btn-cancel" onclick="clearForm()">
+                    <i class="fas fa-times"></i>取消
+                </button>
+                <button class="peer-btn peer-btn-submit" onclick="validateForm()">
+                    <i class="fas fa-check"></i>提交建单
+                </button>
             </div>
         </div>
-        
-        <div class="peer-action-buttons">
-            <button class="peer-btn peer-btn-cancel">
-                <i class="fas fa-times"></i>取消
-            </button>
-            <button class="peer-btn peer-btn-submit">
-                <i class="fas fa-check"></i>提交建单
-            </button>
-        </div>
-    </div>
+    </form>
 </div>
 
 <script>
-document.addEventListener('DOMContentLoaded', function() {
-    const customerSelect = document.getElementById('customer_select');
-    const containerInput = document.getElementById('container_number');
-    
-    if (customerSelect) {
-        customerSelect.addEventListener('change', function() {
-            const selectedOption = this.options[this.selectedIndex];
-            if (selectedOption.value) {
-                const fullName = selectedOption.getAttribute('data-fullname');
-                const currentContainerNumber = containerInput.value;           
-                // 获取客户名前4个字母并大写
-                let prefix = fullName.substring(0, 4).toUpperCase().replace(/\s/g, '');
-                // 如果柜号已经是客户前缀+数字的形式，只替换前缀部分
-                if (currentContainerNumber.length >= 11 && /^[A-Z]{4}\d{7}$/.test(currentContainerNumber)) {
-                    // 只替换前缀，保留后面的7位数字
-                    containerInput.value = prefix + currentContainerNumber.substring(4);
-                } else if (currentContainerNumber.length === 7 && /^\d{7}$/.test(currentContainerNumber)) {
-                    // 如果是纯7位数字，直接添加前缀
-                    containerInput.value = prefix + currentContainerNumber;
-                } else {
-                    // 其他情况，生成新的柜号（保留原柜号中的数字部分）
-                    const digits = currentContainerNumber.replace(/\D/g, ''); 
-                    const finalDigits = digits.length >= 7 ? digits.substring(0, 7) : digits.padEnd(7, '0');
-                    containerInput.value = prefix + finalDigits;
+    document.addEventListener('DOMContentLoaded', function() {
+        const customerSelect = document.getElementById('customer_select');
+        const containerInput = document.getElementById('container_number');
+        
+        if (customerSelect) {
+            customerSelect.addEventListener('change', function() {
+                const selectedOption = this.options[this.selectedIndex];
+                if (selectedOption.value) {
+                    const fullName = selectedOption.getAttribute('data-fullname');
+                    const currentContainerNumber = containerInput.value;           
+                    // 获取客户名前4个字母并大写
+                    let prefix = fullName.substring(0, 4).toUpperCase().replace(/\s/g, '');
+                    // 如果柜号已经是客户前缀+数字的形式，只替换前缀部分
+                    if (currentContainerNumber.length >= 11 && /^[A-Z]{4}\d{7}$/.test(currentContainerNumber)) {
+                        // 只替换前缀，保留后面的7位数字
+                        containerInput.value = prefix + currentContainerNumber.substring(4);
+                    } else if (currentContainerNumber.length === 7 && /^\d{7}$/.test(currentContainerNumber)) {
+                        // 如果是纯7位数字，直接添加前缀
+                        containerInput.value = prefix + currentContainerNumber;
+                    } else {
+                        // 其他情况，生成新的柜号（保留原柜号中的数字部分）
+                        const digits = currentContainerNumber.replace(/\D/g, ''); 
+                        const finalDigits = digits.length >= 7 ? digits.substring(0, 7) : digits.padEnd(7, '0');
+                        containerInput.value = prefix + finalDigits;
+                    }
                 }
+            });
+        }
+        {% if is_modify_con %}
+            showModal('warning', '由于柜号重复，已修改为<span class="peer-modal-container-number">{{ container_number }}</span>');
+        {% elif is_save_con %}
+            showModal('success', '保存成功，柜号为<span class="peer-modal-container-number">{{ container_number }}</span>');
+        {% endif %}
+
+    });
+
+    function showModal(type, message) {
+        const modal = document.getElementById('peerModal');
+        const modalContent = document.getElementById('modalContent');
+        const modalIcon = document.getElementById('modalIcon');
+        const modalMessage = document.getElementById('modalMessage');
+
+        modalMessage.innerHTML = message;
+        
+        modalContent.classList.remove('peer-modal-success', 'peer-modal-warning');
+        if (type === 'success') {
+            modalContent.classList.add('peer-modal-success');
+            modalIcon.innerHTML = '<i class="fas fa-check-circle"></i>';
+        } else if (type === 'warning') {
+            modalContent.classList.add('peer-modal-warning');
+            modalIcon.innerHTML = '<i class="fas fa-exclamation-triangle"></i>';
+        }
+        
+        modal.style.display = 'block';
+    }
+
+    function closeModal() {
+        document.getElementById('peerModal').style.display = 'none';
+    }
+
+    window.onclick = function(event) {
+        const modal = document.getElementById('peerModal');
+        if (event.target === modal) {
+            closeModal();
+        }
+    }
+    function clearForm() {
+        document.querySelectorAll('input, select').forEach(el => {
+            if (el.type === 'file') {
+                el.value = ''; 
+            } else if (el.tagName.toLowerCase() === 'select') {
+                el.selectedIndex = 0;
+            } else if (el.type !== 'hidden') {
+                el.value = '';
             }
+            el.style.border = ""; 
         });
     }
-});
+
+    function validateForm() {
+        let isValid = true;
+        let firstInvalid = null;
+
+        document.querySelectorAll('input, select').forEach(el => {
+            if (el.type === 'hidden' || el.type === 'date' || el.name === 'csrfmiddlewaretoken'  || el.type === 'file') return;
+
+            if (!el.value.trim()) {
+                isValid = false;
+                if (!firstInvalid) firstInvalid = el;
+                el.style.border = "2px solid red";
+            } else {
+                el.style.border = "";
+            }
+        });
+
+        if (!isValid) {
+            alert("请填写或选择所有必填项！");
+            firstInvalid.focus();
+        } else {
+            
+        }
+    }
 </script>
 {% endblock %}
