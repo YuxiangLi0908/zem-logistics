@@ -6,18 +6,38 @@ from django.db import migrations, models
 class Migration(migrations.Migration):
 
     dependencies = [
-        ('warehouse', '0220_container_is_expiry_guaranteed_and_more'),
+        ("warehouse", "0220_container_is_expiry_guaranteed_and_more"),
     ]
 
     operations = [
         migrations.AlterField(
-            model_name='historicalorder',
-            name='unpacking_priority',
-            field=models.CharField(choices=[('P1', 'P1（最高）'), ('P2', 'P2（高）'), ('P3', 'P3（中）'), ('P4', 'P4（低）')], default='P4', max_length=10, verbose_name='拆柜优先等级'),
+            model_name="historicalorder",
+            name="unpacking_priority",
+            field=models.CharField(
+                choices=[
+                    ("P1", "P1（最高）"),
+                    ("P2", "P2（高）"),
+                    ("P3", "P3（中）"),
+                    ("P4", "P4（低）"),
+                ],
+                default="P4",
+                max_length=10,
+                verbose_name="拆柜优先等级",
+            ),
         ),
         migrations.AlterField(
-            model_name='order',
-            name='unpacking_priority',
-            field=models.CharField(choices=[('P1', 'P1（最高）'), ('P2', 'P2（高）'), ('P3', 'P3（中）'), ('P4', 'P4（低）')], default='P4', max_length=10, verbose_name='拆柜优先等级'),
+            model_name="order",
+            name="unpacking_priority",
+            field=models.CharField(
+                choices=[
+                    ("P1", "P1（最高）"),
+                    ("P2", "P2（高）"),
+                    ("P3", "P3（中）"),
+                    ("P4", "P4（低）"),
+                ],
+                default="P4",
+                max_length=10,
+                verbose_name="拆柜优先等级",
+            ),
         ),
     ]

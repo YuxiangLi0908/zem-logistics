@@ -23,6 +23,7 @@ from warehouse.models.offload_status import AbnormalOffloadStatus
 from warehouse.models.order import Order
 from warehouse.models.packing_list import PackingList
 from warehouse.models.pallet import Pallet
+from warehouse.models.pallet_destroyed import PalletDestroyed
 from warehouse.models.po_check_eta import PoCheckEtaSeven
 from warehouse.models.quotation_master import QuotationMaster
 from warehouse.models.quote import Quote
@@ -34,7 +35,6 @@ from warehouse.models.transaction import Transaction
 from warehouse.models.transfer_location import TransferLocation
 from warehouse.models.vessel import Vessel
 from warehouse.models.warehouse import ZemWarehouse
-from warehouse.models.pallet_destroyed import PalletDestroyed
 
 # Register your models here.
 admin.site.register(Clearance, SimpleHistoryAdmin)

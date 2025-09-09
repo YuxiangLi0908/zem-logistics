@@ -12,12 +12,12 @@ from django.db.models import (
     F,
     FloatField,
     IntegerField,
+    OuterRef,
     Q,
+    Subquery,
     Sum,
     Value,
     When,
-    OuterRef,
-    Subquery
 )
 from django.db.models.functions import Cast, Coalesce
 from django.http import HttpRequest, HttpResponse, HttpResponseForbidden
@@ -96,16 +96,17 @@ class TimeoutWarning(View):
             .order_by("appointment_datetime")
         )
         target_date = datetime(2025, 6, 1)
-        #逾期未确认
+        # 逾期未确认
         un_confirmed_fleets = await sync_to_async(list)(
             Fleet.objects.filter(
                 departured_at__isnull=False,
                 origin=warehouse,
                 arrived_at__isnull=True,
-            ).filter(
-                models.Q(shipment__shipment_appointment__lte=now-timedelta(days=3))&
-                models.Q(shipment__shipment_appointment__gte=target_date)&
-                models.Q(shipment__arrived_at__isnull=True)
+            )
+            .filter(
+                models.Q(shipment__shipment_appointment__lte=now - timedelta(days=3))
+                & models.Q(shipment__shipment_appointment__gte=target_date)
+                & models.Q(shipment__arrived_at__isnull=True)
             )
             .annotate(
                 shipment_batch_numbers=StringAgg(
@@ -115,52 +116,59 @@ class TimeoutWarning(View):
             )
             .order_by("appointment_datetime")
         )
-        #逾期未上传POD
+        # 逾期未上传POD
         un_podlinks = await sync_to_async(list)(
             Fleet.objects.filter(
                 departured_at__isnull=False,
                 origin=warehouse,
                 arrived_at__isnull=False,
-            ).filter(
-                models.Q(shipment__pod_link__isnull=True) &
-                models.Q(shipment__shipment_appointment__isnull=False) &
-                models.Q(shipment__shipment_appointment__gte=target_date)
-            ).annotate(
+            )
+            .filter(
+                models.Q(shipment__pod_link__isnull=True)
+                & models.Q(shipment__shipment_appointment__isnull=False)
+                & models.Q(shipment__shipment_appointment__gte=target_date)
+            )
+            .annotate(
                 shipment_batch_numbers=Coalesce(
                     Subquery(
                         Shipment.objects.filter(
-                            fleet_number_id=OuterRef('pk'),  # 关联当前 Fleet
+                            fleet_number_id=OuterRef("pk"),  # 关联当前 Fleet
                             pod_link__isnull=True,
-                            shipment_appointment__isnull=False
-                        ).annotate(
-                            batch_numbers=StringAgg('shipment_batch_number', delimiter=',')
-                        ).values('batch_numbers')[:1],
-                        output_field=CharField()
+                            shipment_appointment__isnull=False,
+                        )
+                        .annotate(
+                            batch_numbers=StringAgg(
+                                "shipment_batch_number", delimiter=","
+                            )
+                        )
+                        .values("batch_numbers")[:1],
+                        output_field=CharField(),
                     ),
-                    Value(''),  # 如果没有满足条件的 Shipment，返回空字符串
+                    Value(""),  # 如果没有满足条件的 Shipment，返回空字符串
                 ),
                 appointment_ids=Coalesce(
                     Subquery(
                         Shipment.objects.filter(
-                            fleet_number_id=OuterRef('pk'),
+                            fleet_number_id=OuterRef("pk"),
                             pod_link__isnull=True,
-                            shipment_appointment__isnull=False
-                        ).annotate(
-                            ids=StringAgg('appointment_id', delimiter=',')
-                        ).values('ids')[:1],
-                        output_field=CharField()
+                            shipment_appointment__isnull=False,
+                        )
+                        .annotate(ids=StringAgg("appointment_id", delimiter=","))
+                        .values("ids")[:1],
+                        output_field=CharField(),
                     ),
-                    Value(''),
-                )
-            ).order_by("appointment_datetime")
+                    Value(""),
+                ),
+            )
+            .order_by("appointment_datetime")
         )
         context = {
             "warehouse": warehouse,
             "warehouse_options": self.warehouse_options,
-            "pallets": pallets, #未预约
-            "shipments": shipments, #未排车
-            "fleets": fleets, #未出库
-            "un_confirmed_fleets":un_confirmed_fleets,
+            "pallets": pallets,  # 未预约
+            "shipments": shipments,  # 未排车
+            "fleets": fleets,  # 未出库
+            "un_confirmed_fleets": un_confirmed_fleets,
             "un_podlinks": un_podlinks,
         }
         return self.template_shipment, context

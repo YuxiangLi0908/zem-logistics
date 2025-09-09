@@ -141,7 +141,7 @@ async def export_palletization_list(request: HttpRequest) -> HttpResponse:
                 "shipment_batch_number__shipment_batch_number",
                 "PO_ID",
                 "delivery_window_start",
-                "delivery_window_end", 
+                "delivery_window_end",
             )
             .annotate(
                 fba_ids=StringAgg("str_fba_id", delimiter=",", distinct=True),
@@ -265,8 +265,8 @@ async def export_palletization_list(request: HttpRequest) -> HttpResponse:
                         "pcs": 0,
                         "cbm": 0,
                         "n_pallet": 0,
-                        "delivery_window_start":pl["delivery_window_start"],
-                        "delivery_window_end":pl["delivery_window_end"],
+                        "delivery_window_start": pl["delivery_window_start"],
+                        "delivery_window_end": pl["delivery_window_end"],
                     }
                 )
     else:
@@ -299,7 +299,7 @@ async def export_palletization_list(request: HttpRequest) -> HttpResponse:
             "PO_ID",
             "note",
             "delivery_window_start",
-            "delivery_window_end"
+            "delivery_window_end",
         ]
     ]
     response = HttpResponse(

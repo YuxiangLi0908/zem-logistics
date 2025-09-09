@@ -485,7 +485,7 @@ CARRIER_FLEET = {
     "LiFeng": "LiFeng",
 }
 file_path = Path(__file__).parent.resolve().joinpath("fba_fulfillment_center.yaml")
-with open(file_path, "r", encoding='utf-8') as f:
+with open(file_path, "r", encoding="utf-8") as f:
     amazon_fba_locations = yaml.safe_load(f)
 
 SP_USER = os.environ.get("MS_SP_USER")
