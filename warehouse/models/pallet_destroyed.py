@@ -13,7 +13,7 @@ class PalletDestroyed(models.Model):
         PackingList, null=True, blank=True, on_delete=models.CASCADE
     )  # do not use, will be deleted in future
     container_number = models.ForeignKey(Container, null=True, on_delete=models.CASCADE)
-    
+
     destination = models.CharField(max_length=255, null=True, blank=True)
     address = models.CharField(max_length=2000, null=True, blank=True)
     zipcode = models.CharField(max_length=20, null=True, blank=True)
@@ -33,12 +33,12 @@ class PalletDestroyed(models.Model):
     weight_lbs = models.FloatField(null=True, blank=True)
     abnormal_palletization = models.BooleanField(default=False, null=True, blank=True)
     po_expired = models.BooleanField(default=False, null=True, blank=True)
-    
+
     note = models.CharField(max_length=2000, null=True, blank=True)
     priority = models.CharField(max_length=20, null=True, blank=True)
     location = models.CharField(max_length=100, null=True, blank=True)
     contact_name = models.CharField(max_length=255, null=True, blank=True)
-    
+
     history = HistoricalRecords()
 
     class Meta:

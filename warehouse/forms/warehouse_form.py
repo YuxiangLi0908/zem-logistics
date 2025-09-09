@@ -9,4 +9,7 @@ class ZemWarehouseForm(forms.ModelForm):
         model = ZemWarehouse
         fields = "__all__"
         widgets = {
-            "name": forms.Select(choices=WAREHOUSE_OPTIONS,attrs={"class": "form-select"})        }
+            "name": forms.Select(
+                choices=WAREHOUSE_OPTIONS, attrs={"class": "form-select"}
+            )
+        }

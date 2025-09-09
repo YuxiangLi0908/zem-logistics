@@ -6,48 +6,48 @@ from django.db import migrations, models
 class Migration(migrations.Migration):
 
     dependencies = [
-        ('warehouse', '0216_remove_historicalinvoicestatus_statuses_and_more'),
+        ("warehouse", "0216_remove_historicalinvoicestatus_statuses_and_more"),
     ]
 
     operations = [
         migrations.AddField(
-            model_name='historicalpackinglist',
-            name='delivery_window_end',
+            model_name="historicalpackinglist",
+            name="delivery_window_end",
             field=models.DateField(blank=True, null=True),
         ),
         migrations.AddField(
-            model_name='historicalpackinglist',
-            name='delivery_window_start',
+            model_name="historicalpackinglist",
+            name="delivery_window_start",
             field=models.DateField(blank=True, null=True),
         ),
         migrations.AddField(
-            model_name='historicalpallet',
-            name='delivery_window_end',
+            model_name="historicalpallet",
+            name="delivery_window_end",
             field=models.DateField(blank=True, null=True),
         ),
         migrations.AddField(
-            model_name='historicalpallet',
-            name='delivery_window_start',
+            model_name="historicalpallet",
+            name="delivery_window_start",
             field=models.DateField(blank=True, null=True),
         ),
         migrations.AddField(
-            model_name='packinglist',
-            name='delivery_window_end',
+            model_name="packinglist",
+            name="delivery_window_end",
             field=models.DateField(blank=True, null=True),
         ),
         migrations.AddField(
-            model_name='packinglist',
-            name='delivery_window_start',
+            model_name="packinglist",
+            name="delivery_window_start",
             field=models.DateField(blank=True, null=True),
         ),
         migrations.AddField(
-            model_name='pallet',
-            name='delivery_window_end',
+            model_name="pallet",
+            name="delivery_window_end",
             field=models.DateField(blank=True, null=True),
         ),
         migrations.AddField(
-            model_name='pallet',
-            name='delivery_window_start',
+            model_name="pallet",
+            name="delivery_window_start",
             field=models.DateField(blank=True, null=True),
         ),
     ]

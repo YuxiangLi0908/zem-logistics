@@ -466,7 +466,7 @@ class OrderCreation(View):
         is_special_container = (
             True if request.POST.get("is_special_container", None) else False
         )
-        is_expiry_guaranteed  = (
+        is_expiry_guaranteed = (
             True if request.POST.get("is_expiry_guaranteed", None) else False
         )
         order_id = str(
@@ -510,7 +510,7 @@ class OrderCreation(View):
             "retrieval_id": retrieval,
             "offload_id": offload,
             "packing_list_updloaded": False,
-            "unpacking_priority": 'P2' if is_expiry_guaranteed else 'P4',
+            "unpacking_priority": "P2" if is_expiry_guaranteed else "P4",
         }
         order = Order(**order_data)
         await sync_to_async(container.save)()
@@ -595,7 +595,7 @@ class OrderCreation(View):
                     retrieval.retrieval_destination_area = (
                         request.POST.get("destination").upper().strip()
                     )
-        order.unpacking_priority = 'P2' if is_expiry_guaranteed else 'P4'
+        order.unpacking_priority = "P2" if is_expiry_guaranteed else "P4"
 
         await sync_to_async(offload.save)()
         await sync_to_async(retrieval.save)()
@@ -858,10 +858,16 @@ class OrderCreation(View):
                 pl.height = Decimal(height) if height else None
 
                 pl.express_number = request.POST.getlist("express_number")[idx]
-                start_date_str = request.POST.getlist("delivery_window_start")[idx].strip()
-                pl.delivery_window_start = parse_date(start_date_str) if start_date_str else None
+                start_date_str = request.POST.getlist("delivery_window_start")[
+                    idx
+                ].strip()
+                pl.delivery_window_start = (
+                    parse_date(start_date_str) if start_date_str else None
+                )
                 end_date_str = request.POST.getlist("delivery_window_end")[idx].strip()
-                pl.delivery_window_end = parse_date(end_date_str) if end_date_str else None
+                pl.delivery_window_end = (
+                    parse_date(end_date_str) if end_date_str else None
+                )
                 updated_pl.append(pl)
             await sync_to_async(bulk_update_with_history)(
                 updated_pl,
@@ -879,11 +885,11 @@ class OrderCreation(View):
                     "height",
                     "express_number",
                     "delivery_window_start",
-                    "delivery_window_end"
+                    "delivery_window_end",
                 ],
             )
         else:
-            #没打板的，才考虑，判断是否有快递，然后修改为P1等级
+            # 没打板的，才考虑，判断是否有快递，然后修改为P1等级
             await sync_to_async(
                 PackingList.objects.filter(
                     container_number__container_number=container_number
@@ -901,11 +907,11 @@ class OrderCreation(View):
             po_id_hash = {}
             seq_num = 1
             for dm, sm, fba, dest in zip(
-                    request.POST.getlist("delivery_method"),
-                    request.POST.getlist("shipping_mark"),
-                    request.POST.getlist("fba_id"),
-                    destination_list,
-                    strict=True,
+                request.POST.getlist("delivery_method"),
+                request.POST.getlist("shipping_mark"),
+                request.POST.getlist("fba_id"),
+                destination_list,
+                strict=True,
             ):
                 po_id: str = ""
                 po_id_seg: str = ""
@@ -966,6 +972,7 @@ class OrderCreation(View):
                     return Decimal(str(value).strip())
                 except InvalidOperation:
                     raise ValueError(f"无效的数值格式: {value}")
+
             pl_to_create = [
                 PackingList(
                     container_number=container,
@@ -985,19 +992,21 @@ class OrderCreation(View):
                     height=parse_decimal(d[13]),
                     express_number=d[14],
                     PO_ID=d[15],
-                    delivery_window_start = d[16] if d[16].strip() else None,
-                    delivery_window_end = d[17] if d[17].strip() else None
+                    delivery_window_start=d[16] if d[16].strip() else None,
+                    delivery_window_end=d[17] if d[17].strip() else None,
                 )
                 for d in pl_data
             ]
-            
+
             await sync_to_async(bulk_create_with_history)(pl_to_create, PackingList)
             # await sync_to_async(PackingList.objects.bulk_create)(pl_to_create)
             order.packing_list_updloaded = True
             delivery_methods = request.POST.getlist("delivery_method")
-            is_priority = any('UPS' in method or 'FEDEX' in method for method in delivery_methods)
+            is_priority = any(
+                "UPS" in method or "FEDEX" in method for method in delivery_methods
+            )
             if is_priority:
-                order.unpacking_priority = 'P1'
+                order.unpacking_priority = "P1"
             await sync_to_async(order.save)()
         # 查找新建的pl，和现在的pocheck比较，如果内容没有变化，pocheck该记录不变，如果有变化就对应修改
 
@@ -1052,7 +1061,11 @@ class OrderCreation(View):
                     # 如果po_check表没有这条po，新建这一条
                     po_check_dict = {
                         "container_number": container,
-                        "vessel_eta": order.vessel_id.vessel_eta.date() if order.vessel_id.vessel_eta else None,
+                        "vessel_eta": (
+                            order.vessel_id.vessel_eta.date()
+                            if order.vessel_id.vessel_eta
+                            else None
+                        ),
                         "packing_list": pl,
                         "time_status": True,
                         "destination": pl.destination,
@@ -1264,7 +1277,7 @@ class OrderCreation(View):
             pl_data = df[col].to_dict("records")
             for data in pl_data:
                 if pd.isna(data["delivery_window_start"]):
-                    data["delivery_window_start"]= None
+                    data["delivery_window_start"] = None
                 if pd.isna(data["delivery_window_end"]):
                     data["delivery_window_end"] = None
             packing_list = [PackingList(**data) for data in pl_data]

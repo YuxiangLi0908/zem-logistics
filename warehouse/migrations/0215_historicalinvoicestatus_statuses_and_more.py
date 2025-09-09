@@ -6,28 +6,60 @@ from django.db import migrations, models
 class Migration(migrations.Migration):
 
     dependencies = [
-        ('warehouse', '0214_historicalinvoice_payable_delivery_amount_and_more'),
+        ("warehouse", "0214_historicalinvoice_payable_delivery_amount_and_more"),
     ]
 
     operations = [
         migrations.AddField(
-            model_name='historicalinvoicestatus',
-            name='statuses',
-            field=models.JSONField(default={'delivery': 'pending', 'pickup_palletization': 'pending', 'warehouse': 'pending'}),
+            model_name="historicalinvoicestatus",
+            name="statuses",
+            field=models.JSONField(
+                default={
+                    "delivery": "pending",
+                    "pickup_palletization": "pending",
+                    "warehouse": "pending",
+                }
+            ),
         ),
         migrations.AddField(
-            model_name='invoicestatus',
-            name='statuses',
-            field=models.JSONField(default={'delivery': 'pending', 'pickup_palletization': 'pending', 'warehouse': 'pending'}),
+            model_name="invoicestatus",
+            name="statuses",
+            field=models.JSONField(
+                default={
+                    "delivery": "pending",
+                    "pickup_palletization": "pending",
+                    "warehouse": "pending",
+                }
+            ),
         ),
         migrations.AlterField(
-            model_name='historicalinvoicestatus',
-            name='stage_public',
-            field=models.CharField(choices=[('pending', '待处理'), ('warehouse_completed', '仓库已完成'), ('delivery_completed', '派送已完成'), ('warehouse_rejected', '仓库已驳回'), ('delivery_rejected', '派送已驳回')], default='pending', max_length=20),
+            model_name="historicalinvoicestatus",
+            name="stage_public",
+            field=models.CharField(
+                choices=[
+                    ("pending", "待处理"),
+                    ("warehouse_completed", "仓库已完成"),
+                    ("delivery_completed", "派送已完成"),
+                    ("warehouse_rejected", "仓库已驳回"),
+                    ("delivery_rejected", "派送已驳回"),
+                ],
+                default="pending",
+                max_length=20,
+            ),
         ),
         migrations.AlterField(
-            model_name='invoicestatus',
-            name='stage_public',
-            field=models.CharField(choices=[('pending', '待处理'), ('warehouse_completed', '仓库已完成'), ('delivery_completed', '派送已完成'), ('warehouse_rejected', '仓库已驳回'), ('delivery_rejected', '派送已驳回')], default='pending', max_length=20),
+            model_name="invoicestatus",
+            name="stage_public",
+            field=models.CharField(
+                choices=[
+                    ("pending", "待处理"),
+                    ("warehouse_completed", "仓库已完成"),
+                    ("delivery_completed", "派送已完成"),
+                    ("warehouse_rejected", "仓库已驳回"),
+                    ("delivery_rejected", "派送已驳回"),
+                ],
+                default="pending",
+                max_length=20,
+            ),
         ),
     ]

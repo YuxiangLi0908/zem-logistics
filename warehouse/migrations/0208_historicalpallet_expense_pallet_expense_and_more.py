@@ -6,28 +6,28 @@ from django.db import migrations, models
 class Migration(migrations.Migration):
 
     dependencies = [
-        ('warehouse', '0207_remove_fleetshipmentpallet_created_at_and_more'),
+        ("warehouse", "0207_remove_fleetshipmentpallet_created_at_and_more"),
     ]
 
     operations = [
         migrations.AddField(
-            model_name='historicalpallet',
-            name='expense',
+            model_name="historicalpallet",
+            name="expense",
             field=models.FloatField(blank=True, null=True),
         ),
         migrations.AddField(
-            model_name='pallet',
-            name='expense',
+            model_name="pallet",
+            name="expense",
             field=models.FloatField(blank=True, null=True),
         ),
         migrations.AlterField(
-            model_name='fleet',
-            name='fleet_cost',
+            model_name="fleet",
+            name="fleet_cost",
             field=models.FloatField(blank=True, null=True),
         ),
         migrations.AlterField(
-            model_name='historicalfleet',
-            name='fleet_cost',
+            model_name="historicalfleet",
+            name="fleet_cost",
             field=models.FloatField(blank=True, null=True),
         ),
     ]

@@ -228,7 +228,9 @@ class PostportDash(View):
                         "箱数": pl.get("total_pcs"),
                         "总重lbs": pl.get("total_weight_lbs"),
                         "ETA": (
-                            pl.get("container_number__order__vessel_id__vessel_eta").replace(tzinfo=None)
+                            pl.get(
+                                "container_number__order__vessel_id__vessel_eta"
+                            ).replace(tzinfo=None)
                             if pl.get("container_number__order__vessel_id__vessel_eta")
                             else None
                         ),

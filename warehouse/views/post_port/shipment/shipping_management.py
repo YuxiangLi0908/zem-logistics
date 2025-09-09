@@ -38,6 +38,7 @@ from simple_history.utils import bulk_create_with_history, bulk_update_with_hist
 
 from warehouse.forms.upload_file import UploadFileForm
 from warehouse.models.fleet import Fleet
+from warehouse.models.fleet_shipment_pallet import FleetShipmentPallet
 from warehouse.models.order import Order
 from warehouse.models.packing_list import PackingList
 from warehouse.models.pallet import Pallet
@@ -45,7 +46,6 @@ from warehouse.models.retrieval import Retrieval
 from warehouse.models.shipment import Shipment
 from warehouse.models.transfer_location import TransferLocation
 from warehouse.models.warehouse import ZemWarehouse
-from warehouse.models.fleet_shipment_pallet import FleetShipmentPallet
 from warehouse.utils.constants import (
     LOAD_TYPE_OPTIONS,
     SP_PASS,
@@ -394,7 +394,7 @@ class ShippingManagement(View):
                     is_shipped=True,
                     in_use=True,
                     is_canceled=False,
-                    shipment_appointment__gt=year_2025
+                    shipment_appointment__gt=year_2025,
                 )
             )
             .distinct()
@@ -1035,7 +1035,7 @@ class ShippingManagement(View):
                     in_use=True,
                     is_canceled=False,
                     shipment_appointment__isnull=False,
-                    shipment_appointment__gt=year_2025
+                    shipment_appointment__gt=year_2025,
                 )
             )
             .distinct()
@@ -1069,7 +1069,7 @@ class ShippingManagement(View):
             ),
             container_number__order__packing_list_updloaded=True,
             shipment_batch_number__isnull=True,
-            #container_number__order__created_at__gte="2024-09-01",
+            # container_number__order__created_at__gte="2024-09-01",
         )
         pl_criteria = criteria_p & models.Q(
             container_number__order__vessel_id__vessel_eta__gte=start_date,
@@ -1252,18 +1252,18 @@ class ShippingManagement(View):
                     "express_number": note,
                 }
             )
-            #更新完约的信息后，加一个功能，把预约出库时选中的pl对应的order表等级改为P3
+            # 更新完约的信息后，加一个功能，把预约出库时选中的pl对应的order表等级改为P3
             orders_to_update = await sync_to_async(list)(
                 Order.objects.filter(container_number__packinglist__id__in=selected)
             )
             for order in orders_to_update:
-                order.unpacking_priority = 'P3'
+                order.unpacking_priority = "P3"
             await sync_to_async(bulk_update_with_history)(
                 orders_to_update,
                 Order,
                 fields=["unpacking_priority"],
             )
-    
+
             return self.template_td_schedule, context
         else:
             return await self.handle_warehouse_post(request)
@@ -1452,15 +1452,17 @@ class ShippingManagement(View):
                         appointment_datetime = current_time
                     if not appointment_datetime:
                         appointment_datetime = None
-                    #自动生成pickupNumber
-                    wh = request.POST.get("origin", "").split('-')[1]
+                    # 自动生成pickupNumber
+                    wh = request.POST.get("origin", "").split("-")[1]
                     ca = request.POST.get("carrier").strip()
                     if isinstance(appointment_datetime, str):
-                        dt = datetime.fromisoformat(appointment_datetime.replace("Z", "+00:00"))
+                        dt = datetime.fromisoformat(
+                            appointment_datetime.replace("Z", "+00:00")
+                        )
                     else:
                         dt = appointment_datetime
                     month_day = dt.strftime("%m%d")
-                    pickupNumber = 'ZEM'+ '-' + wh + '-' + '' + month_day + ca
+                    pickupNumber = "ZEM" + "-" + wh + "-" + "" + month_day + ca
                     fleet = Fleet(
                         **{
                             "carrier": request.POST.get("carrier").strip(),
@@ -1480,7 +1482,9 @@ class ShippingManagement(View):
                     )
                     # NJ仓的客户自提和UPS，都不需要确认出库和确认到达，客户自提需要POD上传
                     if (
-                        shipment_type == "客户自提" or shipment_type == "外配" or shipment_type == "快递"
+                        shipment_type == "客户自提"
+                        or shipment_type == "外配"
+                        or shipment_type == "快递"
                     ) and "NJ" in str(request.POST.get("origin", "")):
                         fleet.departured_at = shipmentappointment
                         fleet.arrived_at = shipmentappointment
@@ -1684,12 +1688,12 @@ class ShippingManagement(View):
                     await sync_to_async(
                         PackingList.objects.filter(PO_ID__in=pl_master_po_ids).update
                     )(master_shipment_batch_number=shipment)
-                #把添加的pl对应的order表等级改为P3
+                # 把添加的pl对应的order表等级改为P3
                 orders_to_update = await sync_to_async(list)(
                     Order.objects.filter(container_number__packinglist__id__in=pl_ids)
                 )
                 for order in orders_to_update:
-                    order.unpacking_priority = 'P3'
+                    order.unpacking_priority = "P3"
                 await sync_to_async(bulk_update_with_history)(
                     orders_to_update,
                     Order,
@@ -1774,7 +1778,7 @@ class ShippingManagement(View):
             )
         elif alter_type == "remove":  # 删除PO
             selections = request.POST.getlist("is_shipment_removed")
-            #记录要删除PO的PO_ID,因为pl和plt的相同，所以不用区分
+            # 记录要删除PO的PO_ID,因为pl和plt的相同，所以不用区分
             fleet_po_ids = set()
             # 未打板的
             try:
@@ -1850,7 +1854,7 @@ class ShippingManagement(View):
                 fields=["shipment_batch_number", "master_shipment_batch_number"],
             )
 
-            #把fleet_shipment_pallet表里，以上PO_ID相同并且shipment相同的记录都删除
+            # 把fleet_shipment_pallet表里，以上PO_ID相同并且shipment相同的记录都删除
             if fleet_po_ids:
                 deleted_count, _ = await sync_to_async(
                     FleetShipmentPallet.objects.filter(
@@ -2081,12 +2085,14 @@ class ShippingManagement(View):
                     await sync_to_async(fleet.save)()
                 else:
                     current_time = datetime.now()
-                    #给非FTL排车时，加上pickupNumber
-                    wh = request.POST.get("origin", "").split('-')[1]
+                    # 给非FTL排车时，加上pickupNumber
+                    wh = request.POST.get("origin", "").split("-")[1]
                     ca = request.POST.get("carrier").strip()
-                    dt = datetime.fromisoformat(shipment_appointment.replace('Z', '+00:00'))
+                    dt = datetime.fromisoformat(
+                        shipment_appointment.replace("Z", "+00:00")
+                    )
                     month_day = dt.strftime("%m%d")
-                    pickupNumber = 'ZEM'+ '-' + wh + '-' + '' + month_day + ca
+                    pickupNumber = "ZEM" + "-" + wh + "-" + "" + month_day + ca
                     fleet = Fleet(
                         **{
                             "carrier": request.POST.get("carrier").strip(),
@@ -2160,12 +2166,12 @@ class ShippingManagement(View):
                     request.POST.get("arm_pro") if request.POST.get("arm_pro") else ""
                 )
                 current_time = datetime.now()
-                #给非FTL的车，加上pickupNumber
-                wh = request.POST.get("origin", "").split('-')[1]
+                # 给非FTL的车，加上pickupNumber
+                wh = request.POST.get("origin", "").split("-")[1]
                 ca = request.POST.get("carrier").strip()
-                dt = datetime.fromisoformat(shipment_appointment.replace('Z', '+00:00'))
+                dt = datetime.fromisoformat(shipment_appointment.replace("Z", "+00:00"))
                 month_day = dt.strftime("%m%d")
-                pickupNumber = 'ZEM'+ '-' + wh + '-' + '' + month_day + ca
+                pickupNumber = "ZEM" + "-" + wh + "-" + "" + month_day + ca
                 fleet = Fleet(
                     **{
                         "carrier": request.POST.get("carrier").strip(),
@@ -2184,7 +2190,9 @@ class ShippingManagement(View):
                     }
                 )
                 if (
-                    shipment_type == "客户自提" or shipment_type == "外配" or shipment_type == "快递"
+                    shipment_type == "客户自提"
+                    or shipment_type == "外配"
+                    or shipment_type == "快递"
                 ) and "NJ" in str(request.POST.get("origin")):
                     shipment.is_shipped = True
                     shipment.shipped_at = shipment_appointment
@@ -2198,9 +2206,7 @@ class ShippingManagement(View):
                     )
                     fleet.departured_at = shipment_appointment
                     fleet.arrived_at = shipment_appointment
-                if (
-                    shipment_type == "快递"
-                ):  # UPS的比客户自提的，系统上还少一步POD上传
+                if shipment_type == "快递":  # UPS的比客户自提的，系统上还少一步POD上传
                     shipment.express_number = (
                         request.POST.get("express_number")
                         if request.POST.get("express_number")
@@ -2208,9 +2214,7 @@ class ShippingManagement(View):
                     )
                     shipment.pod_link = "Without"
                     shipment.pod_uploaded_at = timezone.now()
-                if (
-                    shipment_type == "外配"
-                ):  # UPS的比客户自提的，系统上还少一步POD上传
+                if shipment_type == "外配":  # UPS的比客户自提的，系统上还少一步POD上传
                     shipment.express_number = (
                         request.POST.get("express_number")
                         if request.POST.get("express_number")

@@ -6,13 +6,12 @@ import random
 import re
 import string
 import uuid
-from datetime import datetime,date
+from datetime import date, datetime
 from typing import Any
 
 import barcode
 import pandas as pd
 import pytz
-from zxingcpp import read_barcodes, TextMode
 from asgiref.sync import sync_to_async
 from barcode.writer import ImageWriter
 from django.contrib import messages
@@ -34,7 +33,7 @@ from django.db.models import (
     When,
 )
 from django.db.models.functions import Cast, Concat
-from django.http import HttpRequest, HttpResponse, JsonResponse, HttpResponseRedirect
+from django.http import HttpRequest, HttpResponse, HttpResponseRedirect, JsonResponse
 from django.shortcuts import redirect, render
 from django.template.loader import get_template
 from django.utils import timezone
@@ -42,6 +41,7 @@ from django.views import View
 from PIL import Image
 from simple_history.utils import bulk_create_with_history, bulk_update_with_history
 from xhtml2pdf import pisa
+from zxingcpp import TextMode, read_barcodes
 
 from warehouse.forms.packling_list_form import PackingListForm
 from warehouse.forms.warehouse_form import ZemWarehouseForm
@@ -74,7 +74,9 @@ class Palletization(View):
         "post_port/palletization/palletization_abnormal_records_display.html"
     )
     template_pallet_daily_operation = "post_port/palletization/daily_operation.html"
-    template_pallet_warehouse_zone = "post_port/palletization/palletization_warehouse_zone.html"
+    template_pallet_warehouse_zone = (
+        "post_port/palletization/palletization_warehouse_zone.html"
+    )
     warehouse_options = {
         "": "",
         "NJ-07001": "NJ-07001",
@@ -110,7 +112,9 @@ class Palletization(View):
             template, context = await self.handle_all_get()
             return render(request, template, context)
 
-    async def post(self, request: HttpRequest, **kwargs) -> HttpResponse | JsonResponse | HttpResponseRedirect:
+    async def post(
+        self, request: HttpRequest, **kwargs
+    ) -> HttpResponse | JsonResponse | HttpResponseRedirect:
         if not await self._user_authenticate(request):
             return redirect("login")
         step = request.POST.get("step")
@@ -403,12 +407,12 @@ class Palletization(View):
             context = {"warehouse_form": ZemWarehouseForm()}
         return self.template_main, context
 
-    async def handle_all_get_palletized(self, warehouse: str = None) -> tuple[str, dict[str, Any]]:
+    async def handle_all_get_palletized(
+        self, warehouse: str = None
+    ) -> tuple[str, dict[str, Any]]:
         if warehouse:
             warehouse = None if warehouse == "Empty" else warehouse
-            order_palletized= (
-                await self._get_order_palletized(warehouse)
-                )
+            order_palletized = await self._get_order_palletized(warehouse)
             order_packing_list = []
             context = {}
             for o in order_palletized:
@@ -427,13 +431,14 @@ class Palletization(View):
 
                     order_packing_list.append(pl)
                 context["order_packing_list"] = order_packing_list
-                context["warehouse_form"] = ZemWarehouseForm(initial={"name": warehouse})
+                context["warehouse_form"] = ZemWarehouseForm(
+                    initial={"name": warehouse}
+                )
                 context["warehouse"] = warehouse
             return self.template_pallet_warehouse_zone, context
         else:
             context = {"warehouse_form": ZemWarehouseForm()}
         return self.template_pallet_warehouse_zone, context
-
 
     async def handle_container_palletization_get(
         self, request: HttpRequest, pk: int
@@ -482,58 +487,64 @@ class Palletization(View):
         template, context = await self.handle_all_get(warehouse)
         return template, context
 
-    async def handle_upload_warehouse_post(self, request: HttpRequest) -> tuple[str, dict[str, Any]]:
+    async def handle_upload_warehouse_post(
+        self, request: HttpRequest
+    ) -> tuple[str, dict[str, Any]]:
         warehouse = request.POST.get("name")
         template, context = await self.handle_all_get_palletized(warehouse)
         return template, context
 
-    async def handle_update_warehouse_post(self, request: HttpRequest) -> tuple[str, dict[str, Any]]:
+    async def handle_update_warehouse_post(
+        self, request: HttpRequest
+    ) -> tuple[str, dict[str, Any]]:
         row_count = 0
         po_updates = []
         original_po_order = []
         while True:
-            po_id = request.POST.get(f'po_id_{row_count + 1}')
+            po_id = request.POST.get(f"po_id_{row_count + 1}")
             if not po_id:
                 break
             original_po_order.append(po_id)
             row_count += 1
 
         for i in range(1, row_count + 1):
-            po_id = request.POST.get(f'po_id_{i}')
-            slot = request.POST.get(f'slot_{i}')
-            slot_counts = request.POST.get(f'slot_count_{i}') or 0
-            n_pallets = request.POST.get(f'n_pallet_{i}') or 0
+            po_id = request.POST.get(f"po_id_{i}")
+            slot = request.POST.get(f"slot_{i}")
+            slot_counts = request.POST.get(f"slot_count_{i}") or 0
+            n_pallets = request.POST.get(f"n_pallet_{i}") or 0
 
             try:
                 slot_counts = int(slot_counts)
                 n_pallets = int(n_pallets)
 
-                if not slot or slot.strip() == '':
+                if not slot or slot.strip() == "":
                     slot_counts = 0
                     slot = None
 
                 if po_id:
-                    po_updates.append({
-                        'po_id': po_id,
-                        'slot': slot,
-                        'slot_counts': slot_counts,
-                        'n_pallet': n_pallets
-                    })
+                    po_updates.append(
+                        {
+                            "po_id": po_id,
+                            "slot": slot,
+                            "slot_counts": slot_counts,
+                            "n_pallet": n_pallets,
+                        }
+                    )
             except (ValueError, TypeError):
                 continue
 
         po_updates = list({frozenset(d.items()): d for d in po_updates}.values())
         for update in po_updates:
-            po_id = update['po_id']
-            slot = update['slot']
-            slot_count = update['slot_counts']
+            po_id = update["po_id"]
+            slot = update["slot"]
+            slot_count = update["slot_counts"]
 
             if slot and slot_count > 0:
                 # 获取随机选中的板子ID
                 pallet_ids = await sync_to_async(list)(
                     Pallet.objects.filter(PO_ID=po_id, slot__isnull=True)
-                    .values_list('id', flat=True)
-                    .order_by('?')[:slot_count]
+                    .values_list("id", flat=True)
+                    .order_by("?")[:slot_count]
                 )
 
                 def update_pallets():
@@ -542,6 +553,7 @@ class Palletization(View):
                         Pallet.objects.filter(
                             id__in=pallet_ids,
                         ).update(slot=slot)
+
                 await sync_to_async(update_pallets)()
 
         warehouse = request.POST.get("warehouse")
@@ -590,7 +602,7 @@ class Palletization(View):
         for i in range(len(plt_ids)):
             plt_id = int(plt_ids[i])
             pallet = await sync_to_async(Pallet.objects.get)(id=plt_id)
-            
+
             pallet.length = length[i]
             pallet.width = width[i]
             pallet.height = height[i]
@@ -664,8 +676,12 @@ class Palletization(View):
             shipping_marks = request.POST.getlist("shipping_marks")
             fba_ids = request.POST.getlist("fba_ids")
             ref_ids = request.POST.getlist("ref_ids")
-            #因为库位只有LA仓库有，所以前端没传过来值，就构建一个空的
-            slots = request.POST.getlist("slots") if "slots" in request.POST else [None] * len(n_pallet)
+            # 因为库位只有LA仓库有，所以前端没传过来值，就构建一个空的
+            slots = (
+                request.POST.getlist("slots")
+                if "slots" in request.POST
+                else [None] * len(n_pallet)
+            )
             dw_sts = request.POST.getlist("delivery_window_starts")
             dw_ends = request.POST.getlist("delivery_window_ends")
             notes = [d for d in request.POST.getlist("notes")]
@@ -724,7 +740,7 @@ class Palletization(View):
                             dw_st = None
                         else:
                             dw_st = datetime.strptime(dw_st, "%b. %d, %Y").date()
-                        
+
                     if isinstance(dw_end, str):
                         if dw_end == "None" or dw_end.strip() == "":
                             dw_end = None
@@ -801,10 +817,10 @@ class Palletization(View):
                     else:
                         po_id_seg = f"{DELIVERY_METHOD_CODE.get(dm, 'UN')}{''.join(random.choices(string.ascii_letters.upper() + string.digits, k=4))}"
                     random.seed(container.container_number[-4:])
-                    random_code = ''.join(random.choices(string.ascii_uppercase + string.digits, k=6))
-                    new_po_ids.append(
-                        f"A{random_code}{po_id_seg}{seq_num}"
+                    random_code = "".join(
+                        random.choices(string.ascii_uppercase + string.digits, k=6)
                     )
+                    new_po_ids.append(f"A{random_code}{po_id_seg}{seq_num}")
                     seq_num += 1
 
                 for (
@@ -844,7 +860,7 @@ class Palletization(View):
                             dw_st = None
                         else:
                             dw_st = datetime.strptime(dw_st, "%Y-%m-%d").date()
-                    
+
                     if isinstance(dw_end, str):
                         if dw_end == "None" or dw_end.strip() == "":
                             dw_end = None
@@ -874,9 +890,9 @@ class Palletization(View):
                         dw_st,
                         dw_end,
                         slot,
-                        seed=1,                        
+                        seed=1,
                     )
-                    
+
                     # 记录异常拆柜
                     abnormal_offloads.append(
                         {
@@ -888,8 +904,8 @@ class Palletization(View):
                             "delivery_method": d_m,
                             "pcs_reported": 0,
                             "pcs_actual": p_a,
-                            "delivery_window_start":dw_st,
-                            "delivery_window_end":dw_end,
+                            "delivery_window_start": dw_st,
+                            "delivery_window_end": dw_end,
                         }
                     )
             offload.total_pallet = total_pallet
@@ -1102,7 +1118,7 @@ class Palletization(View):
                     barcode_base64 = base64.b64encode(buffer.read()).decode(
                         "utf-8"
                     )  # 编码
-                    
+
                     if is_hold == "是":
                         fba_ids = row[3].strip()
                     else:
@@ -1118,17 +1134,21 @@ class Palletization(View):
                         "shipping_marks": new_marks,
                     }
                     if len(row) > 10:
-                        new_data.update({
-                            "has_delivery_window": True,
-                            "dw_st": row[8].split('-', 1)[1] if row[8] else None,
-                            "dw_end": row[9].split('-', 1)[1] if row[8] else None,
-                        })
+                        new_data.update(
+                            {
+                                "has_delivery_window": True,
+                                "dw_st": row[8].split("-", 1)[1] if row[8] else None,
+                                "dw_end": row[9].split("-", 1)[1] if row[8] else None,
+                            }
+                        )
                     else:
-                        new_data.update({
-                            "has_delivery_window": False,
-                            "dw_st": None,
-                            "dw_end": None,
-                        })
+                        new_data.update(
+                            {
+                                "has_delivery_window": False,
+                                "dw_st": None,
+                                "dw_end": None,
+                            }
+                        )
                     for i in range(4):
                         data.append(new_data)
         else:
@@ -1196,8 +1216,16 @@ class Palletization(View):
                     fba_ids = pl.get("fba_ids")
                 else:
                     fba_ids = None
-                dw_st = pl.get("delivery_window_start").strftime("%m/%d") if pl.get("delivery_window_start") else None
-                dw_end = pl.get("delivery_window_end").strftime("%m/%d") if pl.get("delivery_window_end") else None
+                dw_st = (
+                    pl.get("delivery_window_start").strftime("%m/%d")
+                    if pl.get("delivery_window_start")
+                    else None
+                )
+                dw_end = (
+                    pl.get("delivery_window_end").strftime("%m/%d")
+                    if pl.get("delivery_window_end")
+                    else None
+                )
                 for num in range(cbm):
                     i = num // n_label + 1
                     barcode_type = "code128"
@@ -1226,8 +1254,8 @@ class Palletization(View):
                         "shipping_marks": new_marks,
                         "pcs": pl.get("pcs"),
                         "has_delivery_window": bool(dw_st and dw_end),
-                        "dw_st":dw_st,
-                        "dw_end":dw_end,
+                        "dw_st": dw_st,
+                        "dw_end": dw_end,
                     }
                     data.append(new_data)
         context = {"data": data}
@@ -1245,21 +1273,22 @@ class Palletization(View):
             )
         return response
 
-    async def warehouse_zone_get(self, request: HttpRequest) -> tuple[str, dict[str, str]]:
-        context = {
-            "title": "上传条形码更新库位",
-            "warehouse_form": ZemWarehouseForm()
-        }
+    async def warehouse_zone_get(
+        self, request: HttpRequest
+    ) -> tuple[str, dict[str, str]]:
+        context = {"title": "上传条形码更新库位", "warehouse_form": ZemWarehouseForm()}
         return self.template_pallet_warehouse_zone, context
 
-    async def upload_barcode_post(self, request: HttpRequest) -> tuple[str, dict[str, Any]]:
+    async def upload_barcode_post(
+        self, request: HttpRequest
+    ) -> tuple[str, dict[str, Any]]:
         barcode_file = request.FILES.get("barcode_file")
         if not barcode_file:
             raise ValueError("请选择要上传的条形码图片！")
         try:
             with Image.open(barcode_file) as img:
-                if img.mode in ('RGBA', 'P', 'L'):
-                    img = img.convert('RGB')
+                if img.mode in ("RGBA", "P", "L"):
+                    img = img.convert("RGB")
                 try:
                     text_mode = TextMode.HRI
                 except AttributeError:
@@ -1273,7 +1302,9 @@ class Palletization(View):
                     raise ValueError("未识别到条形码内容，请确保图片清晰、无遮挡")
                 barcode_value = results[0].text.strip()
                 if "|" not in barcode_value:
-                    raise ValueError(f"条形码格式错误，缺少分隔符'|'（当前值：{barcode_value}）")
+                    raise ValueError(
+                        f"条形码格式错误，缺少分隔符'|'（当前值：{barcode_value}）"
+                    )
 
         except Exception as e:
             raise ValueError(f"条形码解析失败：{str(e)}")
@@ -1291,11 +1322,13 @@ class Palletization(View):
             with transaction.atomic():
                 base_query = Pallet.objects.filter(
                     container_number__container_number=container_number,
-                    destination=destination, shipment_batch_number__is_shipped = None
+                    destination=destination,
+                    shipment_batch_number__is_shipped=None,
                 )
                 shipped_query = Pallet.objects.filter(
                     container_number__container_number=container_number,
-                    destination=destination, shipment_batch_number__is_shipped = False
+                    destination=destination,
+                    shipment_batch_number__is_shipped=False,
                 )
                 base_query.update(slot=slot)
                 shipped_query.update(slot=slot)
@@ -1308,28 +1341,30 @@ class Palletization(View):
 
         messages.success(
             request,
-            f"条形码上传并解析成功！\n条形码值：{barcode_value}\n 库位已更新为：{slot}"
+            f"条形码上传并解析成功！\n条形码值：{barcode_value}\n 库位已更新为：{slot}",
         )
         context = {
             "warehouse_form": ZemWarehouseForm(),
-            "success_message": messages.get_messages(request)
+            "success_message": messages.get_messages(request),
         }
         return self.template_pallet_warehouse_zone, context
 
-    async def upload_excel_post(self, request: HttpRequest) -> tuple[str, dict[str, Any]]:
-        excel_file = request.FILES.get('excel_file')
+    async def upload_excel_post(
+        self, request: HttpRequest
+    ) -> tuple[str, dict[str, Any]]:
+        excel_file = request.FILES.get("excel_file")
         if not excel_file:
             raise ValueError("请选择要上传的Excel文件！")
-        if not excel_file.name.endswith(('.xlsx', '.xls')):
+        if not excel_file.name.endswith((".xlsx", ".xls")):
             raise ValueError("请上传.xlsx或.xls格式的Excel文件")
 
         try:
             df = pd.read_excel(excel_file)
-            required_columns = ['柜号', '仓点', '库位']
+            required_columns = ["柜号", "仓点", "库位"]
             missing_columns = [col for col in required_columns if col not in df.columns]
             if missing_columns:
                 raise ValueError(f"Excel文件缺少必要的列：{', '.join(missing_columns)}")
-            df = df.dropna(subset=['柜号', '仓点'])
+            df = df.dropna(subset=["柜号", "仓点"])
             if df.empty:
                 raise ValueError("Excel文件中没有有效的数据行")
 
@@ -1346,14 +1381,14 @@ class Palletization(View):
             return self.template_pallet_warehouse_zone, {
                 "success": True,
                 "result": update_result,
-                "warehouse_form": ZemWarehouseForm()
+                "warehouse_form": ZemWarehouseForm(),
             }
 
         except Exception as e:
             messages.error(request, f"处理Excel失败：{str(e)}")
             return self.template_pallet_warehouse_zone, {
                 "success": False,
-                "error": str(e)
+                "error": str(e),
             }
 
     @sync_to_async
@@ -1366,19 +1401,21 @@ class Palletization(View):
 
             for index, row in df.iterrows():
                 try:
-                    container_number = str(row['柜号']).strip()
-                    destination = str(row['仓点']).strip()
-                    slot = str(row['库位']).strip()
+                    container_number = str(row["柜号"]).strip()
+                    destination = str(row["仓点"]).strip()
+                    slot = str(row["库位"]).strip()
                     if not all([container_number, destination, slot]):
                         update_log.append(f"行{index + 1}：数据不完整，跳过处理")
                         continue
                     base_query = Pallet.objects.filter(
                         container_number__container_number=container_number,
-                        destination=destination, shipment_batch_number__is_shipped=None
+                        destination=destination,
+                        shipment_batch_number__is_shipped=None,
                     )
                     shipped_query = Pallet.objects.filter(
                         container_number__container_number=container_number,
-                        destination=destination, shipment_batch_number__is_shipped=False
+                        destination=destination,
+                        shipment_batch_number__is_shipped=False,
                     )
                     base_query.update(slot=slot)
                     shipped_query.update(slot=slot)
@@ -1431,9 +1468,9 @@ class Palletization(View):
         pk: int,
         address: str | None = None,
         zipcode: str | None = None,
-        contact_name: str | None = None,        
-        dw_st:date | None = None,
-        dw_end:date | None = None,
+        contact_name: str | None = None,
+        dw_st: date | None = None,
+        dw_end: date | None = None,
         slot: str | None = None,
         seed: int = 0,
     ) -> list[dict[str, Any]]:
@@ -1496,8 +1533,8 @@ class Palletization(View):
                     "abnormal_palletization": p_a != p_r,
                     "location": order.warehouse.name,
                     "PO_ID": po_id,
-                    "delivery_window_start":dw_st,
-                    "delivery_window_end":dw_end,
+                    "delivery_window_start": dw_st,
+                    "delivery_window_end": dw_end,
                     "slot": slot,
                 }
             )
@@ -1655,7 +1692,7 @@ class Palletization(View):
                     "PO_ID",
                     "delivery_type",
                     "delivery_window_start",
-                    "delivery_window_end", 
+                    "delivery_window_end",
                 )
                 .annotate(
                     fba_ids=StringAgg("str_fba_id", delimiter=",", distinct=True),
@@ -1698,7 +1735,7 @@ class Palletization(View):
                     "PO_ID",
                     "delivery_type",
                     "delivery_window_start",
-                    "delivery_window_end", 
+                    "delivery_window_end",
                     "slot",
                 )
                 .annotate(
@@ -1728,9 +1765,7 @@ class Palletization(View):
         else:
             raise ValueError(f"invalid status: {status}")
 
-    async def _get_packing_list_palletized(
-            self, container_number: str
-    ) -> PackingList:
+    async def _get_packing_list_palletized(self, container_number: str) -> PackingList:
 
         return await sync_to_async(list)(
             Pallet.objects.select_related("container_number")
@@ -1745,11 +1780,12 @@ class Palletization(View):
             # 对每个分组进行聚合计算
             .annotate(
                 n_pallet=Count("pallet_id", distinct=True),
-                slot_count=Count("pallet_id", distinct=True, filter=Q(slot__isnull=False))
+                slot_count=Count(
+                    "pallet_id", distinct=True, filter=Q(slot__isnull=False)
+                ),
             )
             .order_by("PO_ID")
         )
-
 
     async def _get_order_not_palletized(self, warehouse: str) -> Order:
         # 查未打板的，在pallet表

@@ -109,11 +109,13 @@ class InvoiceStatus(models.Model):
             ("delivery_rejected", "派送已驳回"),
         ],
     )
-    payable_status = models.JSONField(default={
-        "pickup": "pending",  # 提拆状态
-        "warehouse": "pending",             # 仓库状态
-        "delivery": "pending"               # 派送状态
-    })
+    payable_status = models.JSONField(
+        default={
+            "pickup": "pending",  # 提拆状态
+            "warehouse": "pending",  # 仓库状态
+            "delivery": "pending",  # 派送状态
+        }
+    )
     is_rejected = models.BooleanField(default=False)
     reject_reason = models.TextField(blank=True)
     history = HistoricalRecords()
