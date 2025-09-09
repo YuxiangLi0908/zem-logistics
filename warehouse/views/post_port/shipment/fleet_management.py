@@ -1258,7 +1258,6 @@ class FleetManagement(View):
                 
                 if pl.ref_id:
                     pl.ref_id = pl.ref_id.replace("/", "\n")
-        print('warehouse',warehouse)
         warehouse_obj = (
             await sync_to_async(ZemWarehouse.objects.get)(name=warehouse)
             if warehouse
