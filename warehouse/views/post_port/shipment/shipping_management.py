@@ -37,6 +37,7 @@ from office365.sharepoint.client_context import ClientContext
 from simple_history.utils import bulk_create_with_history, bulk_update_with_history
 
 from warehouse.forms.upload_file import UploadFileForm
+from warehouse.models.container import Container
 from warehouse.models.fleet import Fleet
 from warehouse.models.order import Order
 from warehouse.models.packing_list import PackingList
@@ -1503,7 +1504,6 @@ class ShippingManagement(View):
             if not existed_appointment:
                 shipment = Shipment(**shipment_data)
             await sync_to_async(shipment.save)()
-
             # 上面更新完约的信息，下面要更新packinglist绑定的约,这是未打板的，所有不用管板子
             container_number = set()
             pl_ids = request.POST.get("pl_ids").strip("][").split(", ")
@@ -1610,6 +1610,11 @@ class ShippingManagement(View):
                 Retrieval,
                 fields=["retrieval_destination_precise", "assigned_by_appt"],
             )
+            # 如果是客户自提且NJ，那么FleetShipmentPallet表也应该增加记录
+            if shipment_type == "客户自提" and "NJ" in str(request.POST.get("origin", "")):
+                shipment_ava = await sync_to_async(self.sync_query_and_create)(shipment, fleet)
+            # 历史FleetShipmentPallet 客户自提和NJ的费用改为0,后续不调用
+            await self.history_fleet_shipment_pallet()
             mutable_post = request.POST.copy()
             mutable_post["area"] = area
             request.POST = mutable_post
@@ -1640,6 +1645,64 @@ class ShippingManagement(View):
             mutable_post["area"] = warehouse
             request.POST = mutable_post
         return await self.handle_warehouse_post(request)
+
+    def sync_query_and_create(self, shipment, fleet):
+        list_data = list(
+            Pallet.objects.filter(
+                shipment_batch_number__shipment_batch_number=shipment.shipment_batch_number
+            ).values(
+                'PO_ID', 'container_number'
+            ).annotate(
+                pallet_count=models.Count('id')
+            )
+        )
+        if not list_data:
+            list_data = list(
+                PackingList.objects.filter(
+                    shipment_batch_number__shipment_batch_number=shipment.shipment_batch_number
+                ).values(
+                    'PO_ID', 'container_number'
+                ).annotate(
+                    pallet_count=models.Count('id')
+                )
+            )
+
+        container_identifiers = [item['container_number'] for item in list_data]
+        containers = Container.objects.filter(id__in=container_identifiers)
+        container_map = {str(container.id): container for container in containers}
+        records = []
+        for item in list_data:
+            container = container_map.get(str(item['container_number']))
+            records.append(
+                FleetShipmentPallet(
+                    fleet_number=fleet,
+                    pickup_number=fleet.pickup_number,
+                    shipment_batch_number=shipment,
+                    PO_ID=item['PO_ID'],
+                    total_pallet=item['pallet_count'],
+                    container_number=container,
+                    expense=0
+                )
+            )
+        if records:
+            FleetShipmentPallet.objects.bulk_create(records)
+
+        return list_data
+
+    #历史FleetShipmentPallet 客户自提和NJ的费用改为0,后续不调用
+    def history_fleet_shipment_pallet(self):
+        def sync_update():
+            queryset = FleetShipmentPallet.objects.filter(
+                shipment_batch_number__shipment_type="客户自提",
+                shipment_batch_number__origin__contains="NJ"
+            ).select_related(
+                "shipment_batch_number", "container_number"
+            )
+            updated_count = queryset.update(expense=0)
+            return updated_count
+        return sync_to_async(sync_update)()
+
+
 
     async def get_master_shipment(self, pallet_obj):
         return await sync_to_async(lambda: pallet_obj.master_shipment_batch_number)()
