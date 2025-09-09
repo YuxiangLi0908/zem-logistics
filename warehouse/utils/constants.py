@@ -493,6 +493,12 @@ SP_PASS = os.environ.get("MS_SP_PASS")
 SP_URL = os.environ.get("MS_SP_URL")
 SP_SITE = os.environ.get("MS_SP_SITE")
 SP_DOC_LIB = os.environ.get("MS_SP_DOC_LIB")
+SP_TENANT = os.environ.get('MS_SP_TENANT')
+SP_THUMBPRINT = os.environ.get('MS_SP_THUMBPRINT')
+SP_CLIENT_ID = os.environ.get('MS_SP_CLIENT_ID')
+SP_PRIVATE_KEY = os.environ.get('MS_SP_PRIVATE_KEY').replace("\\n", "\n")
+SP_SCOPE = os.environ.get('MS_SP_SCOPE')
+
 SYSTEM_FOLDER = "system_archive"
 # 未设置APP_ENV返回staging预发布环境，值为production返回prd生产环境，
 APP_ENV = "prd" if os.environ.get("APP_ENV", "staging") == "production" else "stg"
