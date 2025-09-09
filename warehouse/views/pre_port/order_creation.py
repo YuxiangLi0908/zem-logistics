@@ -149,8 +149,8 @@ class OrderCreation(View):
         elif step == "update_delivery_type_all":
             template, context = await self.handle_update_delivery_type(request)
             return await sync_to_async(render)(request, template, context)
-        elif step == "update_container_delivery_type":
-            template, context = await self.handle_update_container_delivery_type(
+        elif step == "update_container_unpacking_priority":
+            template, context = await self.handle_update_container_unpacking_priority(
                 request
             )
             return await sync_to_async(render)(request, template, context)
@@ -617,7 +617,7 @@ class OrderCreation(View):
             "retrieval_id": retrieval,
             "offload_id": offload,
             "packing_list_updloaded": False,
-            "unpacking_priority": 'P2' if is_expiry_guaranteed else 'P4',
+            "unpacking_priority": 'P2' if is_expiry_guaranteed else 'P4',  #初始创建基础信息时，只有P2/P4两个选择
         }
         order = Order(**order_data)
         await sync_to_async(container.save)()
@@ -815,7 +815,7 @@ class OrderCreation(View):
         request.GET = mutable_get
         return await self.handle_order_management_container_get(request)
 
-    async def handle_update_container_delivery_type(
+    async def handle_update_container_unpacking_priority(
         self, request: HttpRequest
     ) -> tuple[Any, Any]:
         #把所有有快递的，都直接优先级定位P1
