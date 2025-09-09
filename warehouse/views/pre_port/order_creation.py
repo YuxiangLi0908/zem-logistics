@@ -1455,18 +1455,20 @@ class OrderCreation(View):
             return self.template_order_create_supplement_pl_tab, context
 
     def is_public_destination(self, destination):
-        if not isinstance(destination, str):
+        if not isinstance(destination, str):  #没有地址是私仓
+            return False
+        if "自提" in destination:
             return False
         pattern1 = r"^[A-Za-z]{3}\s*\d$"
-        if re.match(pattern1, destination):
+        if re.match(pattern1, destination): #3个字母+空格+1个数字是公仓
             return True
-        pattern2 = r"^[A-Za-z]{3}\s*\d\s*[A-Za-z]$"
+        pattern2 = r"^[A-Za-z]{3}\s*\d\s*[A-Za-z]$" #3个字母+空格+1个数字+字母是公仓
         if re.match(pattern2, destination):
             return True
-        pattern3 = r"^[A-Za-z]{4}\s*$"
+        pattern3 = r"^[A-Za-z]{4}\s*$"   #包含4个字母是公仓
         if re.fullmatch(pattern3, destination):
             return True
-        keywords = {"walmart", "沃尔玛"}
+        keywords = {"walmart", "沃尔玛","UPS", "FEDEX"}
         destination_lower = destination.lower()
         return any(keyword.lower() in destination_lower for keyword in keywords)
 

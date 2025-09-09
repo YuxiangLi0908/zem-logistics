@@ -420,10 +420,13 @@ class Inventory(View):
         ):
             # 判断是公仓/私仓
             if (
-                re.fullmatch(r"^[A-Za-z]{4}\s*$", str(dest))
-                or re.fullmatch(r"^[A-Za-z]{3}\s*\d$", str(dest))
-                or re.fullmatch(r"^[A-Za-z]{3}\s*\d\s*[A-Za-z]$", str(dest))
-                or any(kw.lower() in str(dest).lower() for kw in {"walmart", "沃尔玛"})
+                 "自提" not in str(dest) and (
+                     re.fullmatch(r"^[A-Za-z]{4}\s*$", str(dest))
+                    or re.fullmatch(r"^[A-Za-z]{3}\s*\d$", str(dest))
+                    or re.fullmatch(r"^[A-Za-z]{3}\s*\d\s*[A-Za-z]$", str(dest))
+                    or any(kw.lower() in str(dest).lower() for kw in {"walmart", "沃尔玛","UPS","FEDEX"})
+                 )
+                
             ):
                 delivery_type = "public"
             else:
@@ -495,7 +498,7 @@ class Inventory(View):
         # delete old pallets
         await sync_to_async(Pallet.objects.filter(id__in=plt_ids).delete)()
         return await self.handle_warehouse_post(request)
-
+    
     async def handle_update_po_page_post(
         self, request: HttpRequest
     ) -> tuple[str, dict[str, Any]]:
