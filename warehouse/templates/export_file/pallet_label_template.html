@@ -175,24 +175,24 @@
                     <td id="shippingMarkCell">               
                         {% if "," not in d.shipping_marks %}
                             {% if d.hold %}
-                            <p style="font-size: 40px; text-align: center;">{{ d.shipping_marks|slice_string:'front' }}<p>
+                            <p style="font-size: 40px; text-align: center; font-weight: bold;">{{ d.shipping_marks|slice_string:'front' }}<p>
                             {% else %}
-                            <p style="font-size: 50px; text-align: center;">{{ d.shipping_marks|slice_string:'front' }}<p>
+                            <p style="font-size: 50px; text-align: center; font-weight: bold;">{{ d.shipping_marks|slice_string:'front' }}<p>
                             {% endif %}
                         {% elif "2" in d.shipping_marks|slice_string:'back' %}
                             {% if d.hold %}
-                            <p style="font-size: 30px; text-align: center;">{{ d.shipping_marks|slice_string:'front' }}<p>
+                            <p style="font-size: 30px; text-align: center; font-weight: bold;">{{ d.shipping_marks|slice_string:'front' }}<p>
                             {% else %}
-                            <p style="font-size: 45px; text-align: center;">{{ d.shipping_marks|slice_string:'front' }}<p>
+                            <p style="font-size: 45px; text-align: center; font-weight: bold;">{{ d.shipping_marks|slice_string:'front' }}<p>
                             {% endif %}
                         {% elif "3" in d.shipping_marks|slice_string:'back' %}
                             {% if d.hold %}
-                            <p style="font-size: 30px; text-align: center;">{{ d.shipping_marks|slice_string:'front' }}<p>
+                            <p style="font-size: 30px; text-align: center; font-weight: bold;">{{ d.shipping_marks|slice_string:'front' }}<p>
                             {% else %}
-                            <p style="font-size: 20px; text-align: center;">{{ d.shipping_marks|slice_string:'front' }}<p>
+                            <p style="font-size: 20px; text-align: center; font-weight: bold;">{{ d.shipping_marks|slice_string:'front' }}<p>
                             {% endif %}    
                         {% else %}
-                            <p style="font-size: 20px; text-align: center;">{{ d.shipping_marks|slice_string:'front' }}<p>
+                            <p style="font-size: 20px; text-align: center; font-weight: bold;">{{ d.shipping_marks|slice_string:'front' }}<p>
                         {% endif %}
                     </td>
                 </tr>
