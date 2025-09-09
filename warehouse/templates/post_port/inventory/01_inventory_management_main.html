@@ -177,6 +177,7 @@
                 {% endfor %}
             </tbody>
         </table>
+{#    分练#}
         <div class="repalletize-popup-window" style="display: none; z-index:999; position: fixed; top: 50%; left: 50%; transform: translate(-50%, -50%); background-color: white; border: 1px solid gray; padding: 20px; max-height: 50%; overflow-y: scroll; max-width: 90%; overflow-x: scroll;">
             <form method="post" action="" style="width: 100%; overflow-x: scroll; max-width: 100%; max-height: 100%;" onsubmit="showLoadingBar()">
                 {% csrf_token %}
@@ -583,29 +584,85 @@
                     newREFArray.push(REFValues[j]);
                 };
             };
-            newPCSSum += parseInt(newPCS[i].value);
+            var PCSValues = newPCS[i].value.trim().split(",");
+            for (j = 0; j < PCSValues.length; j++) {
+                if (newPCS!=PCSValues[j]) {
+                    newPCSSum += parseInt(PCSValues[j]);
+                };
+            }
         };
         newShippingMarkArray.sort();
         newFBAArray.sort();
         newREFArray.sort();
         if (JSON.stringify(originalShippingMark) != JSON.stringify(newShippingMarkArray)) {
+            // 计算缺失项和多余项
+            const missing = originalShippingMark.filter(item => !newShippingMarkArray.includes(item));
+            const extra = newShippingMarkArray.filter(item => !originalShippingMark.includes(item));
+
+            // 构建具体提示信息
+            let message = "唛头不一致：\n";
+            if (missing.length > 0) {
+                message += `- 缺少原始项：${missing.join('、')}\n`;
+            }
+            if (extra.length > 0) {
+                message += `- 多出额外项：${extra.join('、')}\n`;
+            }
+
             event.preventDefault();
-            alert("请检查唛头是否一致!");
+            alert(message);
             return false;
-        };
+        }
+        ;
         if (JSON.stringify(originalFBA) != JSON.stringify(newFBAArray)) {
             event.preventDefault();
-            alert("请检查FBA是否一致!");
+            const missing = originalFBA.filter(item => !newFBAArray.includes(item));
+            const extra = newFBAArray.filter(item => !originalFBA.includes(item));
+
+            // 构建具体提示信息
+            let message = "FBA不一致：\n";
+            if (missing.length > 0) {
+                message += `- 缺少原始项：${missing.join('、')}\n`;
+            }
+            if (extra.length > 0) {
+                message += `- 多出额外项：${extra.join('、')}\n`;
+            }
+
+            event.preventDefault();
+            alert(message);
             return false;
         };
         if (JSON.stringify(originalREF) != JSON.stringify(newREFArray)) {
             event.preventDefault();
-            alert("请检查REF是否一致!");
+            const missing = originalREF.filter(item => !newREFArray.includes(item));
+            const extra = newREFArray.filter(item => !originalREF.includes(item));
+
+            // 构建具体提示信息
+            let message = "REF不一致：\n";
+            if (missing.length > 0) {
+                message += `- 缺少原始项：${missing.join('、')}\n`;
+            }
+            if (extra.length > 0) {
+                message += `- 多出额外项：${extra.join('、')}\n`;
+            }
+
+            event.preventDefault();
+            alert(message);
             return false;
         };
         if (originalPCS != newPCSSum) {
             event.preventDefault();
-            alert("请检查箱数是否一致!");
+            // 构建具体提示信息
+            let message = "箱数不一致：\n";
+            const pcs_num = parseInt(originalPCS) - parseInt(newPCSSum)
+            if (pcs_num> 0) {
+                message += `- 缺少箱数为：${pcs_num}\n`;
+            }
+            if (pcs_num< 0) {
+                message += `- 多出箱数项：${-pcs_num}\n`;
+            }
+
+            event.preventDefault();
+            alert(message);
             return false;
         };
         return true;

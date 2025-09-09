@@ -19,6 +19,7 @@ import pytz
 from asgiref.sync import sync_to_async
 from django.core.exceptions import ObjectDoesNotExist
 from django.db import models
+from django.db.models import Sum
 from django.http import Http404, HttpRequest, HttpResponse
 from django.shortcuts import redirect, render
 from django.utils.dateparse import parse_date
@@ -69,7 +70,7 @@ class OrderCreation(View):
     area = {"NJ": "NJ", "SAV": "SAV", "LA": "LA", "MO": "MO", "TX": "TX"}
     container_type = {
         "40HQ/GP": "40HQ/GP",
-        "45HQ/GP": "45HQ/GP",      
+        "45HQ/GP": "45HQ/GP",
         "20GP": "20GP",
         "53HQ": "53HQ",
     }
@@ -168,8 +169,8 @@ class OrderCreation(View):
         elif step == "update_delivery_type_all":
             template, context = await self.handle_update_delivery_type(request)
             return await sync_to_async(render)(request, template, context)
-        elif step == "update_container_delivery_type":
-            template, context = await self.handle_update_container_delivery_type(
+        elif step == "update_container_unpacking_priority":
+            template, context = await self.handle_update_container_unpacking_priority(
                 request
             )
             return await sync_to_async(render)(request, template, context)
@@ -252,8 +253,10 @@ class OrderCreation(View):
         response["Content-Disposition"] = f"attachment; filename=forecast.csv"
         df.to_csv(path_or_buf=response, index=False, encoding="utf-8-sig")
         return response
-    
-    async def handle_export_details_by_destination(self, request: HttpRequest) -> tuple[Any, Any]:
+
+    async def handle_export_details_by_destination(
+        self, request: HttpRequest
+    ) -> tuple[Any, Any]:
         selected_orders = json.loads(request.POST.get("selectedOrders", "[]"))
         selected_orders = list(set(selected_orders))
         orders = await sync_to_async(list)(
@@ -277,7 +280,7 @@ class OrderCreation(View):
             container_number = order.get("container_number__container_number")
             vessel_etd = order.get("vessel_id__vessel_etd")
             warehouse = order.get("retrieval_id__retrieval_destination_area")
-                       
+
             # 找报价表
             customer_name = order.get("customer_name__zem_name")
             matching_quotation = await (
@@ -323,27 +326,35 @@ class OrderCreation(View):
             ups_total_pcs = await sync_to_async(
                 lambda: PackingList.objects.filter(
                     container_number__container_number=container_number,
-                    destination__icontains="UPS"
-                )
-                .aggregate(total=Sum("pcs"))["total"]
+                    destination__icontains="UPS",
+                ).aggregate(total=Sum("pcs"))["total"]
             )()
             fxdex_total_pcs = await sync_to_async(
                 lambda: PackingList.objects.filter(
                     container_number__container_number=container_number,
-                    destination__icontains="FEDEX"
-                )
-                .aggregate(total=Sum("pcs"))["total"]
+                    destination__icontains="FEDEX",
+                ).aggregate(total=Sum("pcs"))["total"]
             )()
-            results.append({
-                "container_number": container_number,
-                "combina_dests": combina_keys,
-                "non_combina_dests": non_combina_vals,
-                "UPS":ups_total_pcs,
-                "FEDEX":fxdex_total_pcs,
-            })
-            
+            results.append(
+                {
+                    "container_number": container_number,
+                    "combina_dests": combina_keys,
+                    "non_combina_dests": non_combina_vals,
+                    "UPS": ups_total_pcs,
+                    "FEDEX": fxdex_total_pcs,
+                }
+            )
 
-        df = pd.DataFrame(results, columns=["container_number", "combina_dests", "non_combina_dests","UPS","FEDEX"])
+        df = pd.DataFrame(
+            results,
+            columns=[
+                "container_number",
+                "combina_dests",
+                "non_combina_dests",
+                "UPS",
+                "FEDEX",
+            ],
+        )
         df = df.rename(
             {
                 "container_number": "柜号",
@@ -353,7 +364,9 @@ class OrderCreation(View):
             axis=1,
         )
         response = HttpResponse(content_type="text/csv")
-        response["Content-Disposition"] = f"attachment; filename=destination_details.csv"
+        response["Content-Disposition"] = (
+            f"attachment; filename=destination_details.csv"
+        )
         df.to_csv(path_or_buf=response, index=False, encoding="utf-8-sig")
         return response
     
@@ -626,7 +639,7 @@ class OrderCreation(View):
         is_special_container = (
             True if request.POST.get("is_special_container", None) else False
         )
-        is_expiry_guaranteed  = (
+        is_expiry_guaranteed = (
             True if request.POST.get("is_expiry_guaranteed", None) else False
         )
         order_id = str(
@@ -670,7 +683,9 @@ class OrderCreation(View):
             "retrieval_id": retrieval,
             "offload_id": offload,
             "packing_list_updloaded": False,
-            "unpacking_priority": 'P2' if is_expiry_guaranteed else 'P4',
+            "unpacking_priority": (
+                "P2" if is_expiry_guaranteed else "P4"
+            ),  # 初始创建基础信息时，只有P2/P4两个选择
         }
         order = Order(**order_data)
         await sync_to_async(container.save)()
@@ -755,7 +770,7 @@ class OrderCreation(View):
                     retrieval.retrieval_destination_area = (
                         request.POST.get("destination").upper().strip()
                     )
-        order.unpacking_priority = 'P2' if is_expiry_guaranteed else 'P4'
+        order.unpacking_priority = "P2" if is_expiry_guaranteed else "P4"
 
         await sync_to_async(offload.save)()
         await sync_to_async(retrieval.save)()
@@ -868,26 +883,35 @@ class OrderCreation(View):
         request.GET = mutable_get
         return await self.handle_order_management_container_get(request)
 
-    async def handle_update_container_delivery_type(
+    async def handle_update_container_unpacking_priority(
         self, request: HttpRequest
     ) -> tuple[Any, Any]:
-        containers = await sync_to_async(list)(Container.objects.all())
+        # 把所有有快递的，都直接优先级定位P1
+        pls = await sync_to_async(list)(
+            PackingList.objects.filter(
+                container_number__order__created_at__gte="2025-05-01",
+                delivery_method__in=["UPS", "FEDEX"],
+            ).distinct("container_number_id")
+        )
 
-        for container in containers:
-            pallets = await sync_to_async(list)(
-                Pallet.objects.filter(container_number=container)
-            )
-            if not pallets:
-                pallets = await sync_to_async(list)(
-                    PackingList.objects.filter(container_number=container)
+        order_ids = await sync_to_async(
+            lambda: [pl.container_number.id for pl in pls if pl.container_number]
+        )()
+
+        if order_ids:
+            await sync_to_async(
+                lambda: Order.objects.filter(id__in=order_ids).update(
+                    unpacking_priority="P1"
                 )
-            types = set(plt.delivery_type for plt in pallets if plt.delivery_type)
+            )()
 
-            if not types:
-                continue
-            new_type = types.pop() if len(types) == 1 else "mixed"
-            container.delivery_type = new_type
-            await sync_to_async(container.save, thread_sensitive=True)()
+        # 把所有保时效的，如果优先级不是P1的，直接改为P2
+        updated_count = await sync_to_async(
+            lambda: Order.objects.filter(container_number__is_expiry_guaranteed=True)
+            .exclude(unpacking_priority="P1")
+            .update(unpacking_priority="P2")
+        )()
+
         return await self.handle_order_management_container_get(request)
 
     async def handle_peer_po_save(
@@ -1164,9 +1188,9 @@ class OrderCreation(View):
         # 处理PackingList
         batch_size = 10000
         queryset = PackingList.objects.filter(
-            models.Q(delivery_type__isnull=True) |
-            models.Q(delivery_type=None) | 
-            models.Q(delivery_type="None")
+            models.Q(delivery_type__isnull=True)
+            | models.Q(delivery_type=None)
+            | models.Q(delivery_type="None")
         ).order_by("id")
         total = await sync_to_async(queryset.count)()
 
@@ -1204,9 +1228,9 @@ class OrderCreation(View):
 
         plt_size = 10000
         queryset = Pallet.objects.filter(
-            models.Q(delivery_type__isnull=True) |
-            models.Q(delivery_type=None) | 
-            models.Q(delivery_type="None")
+            models.Q(delivery_type__isnull=True)
+            | models.Q(delivery_type=None)
+            | models.Q(delivery_type="None")
         ).order_by("id")
         total = await sync_to_async(queryset.count)()
 
@@ -1294,10 +1318,16 @@ class OrderCreation(View):
                 pl.height = Decimal(height) if height else None
 
                 pl.express_number = request.POST.getlist("express_number")[idx]
-                start_date_str = request.POST.getlist("delivery_window_start")[idx].strip()
-                pl.delivery_window_start = parse_date(start_date_str) if start_date_str else None
+                start_date_str = request.POST.getlist("delivery_window_start")[
+                    idx
+                ].strip()
+                pl.delivery_window_start = (
+                    parse_date(start_date_str) if start_date_str else None
+                )
                 end_date_str = request.POST.getlist("delivery_window_end")[idx].strip()
-                pl.delivery_window_end = parse_date(end_date_str) if end_date_str else None
+                pl.delivery_window_end = (
+                    parse_date(end_date_str) if end_date_str else None
+                )
                 updated_pl.append(pl)
             await sync_to_async(bulk_update_with_history)(
                 updated_pl,
@@ -1316,11 +1346,11 @@ class OrderCreation(View):
                     "height",
                     "express_number",
                     "delivery_window_start",
-                    "delivery_window_end"
+                    "delivery_window_end",
                 ],
             )
         else:
-            #没打板的，才考虑，判断是否有快递，然后修改为P1等级
+            # 没打板的，才考虑，判断是否有快递，然后修改为P1等级
             await sync_to_async(
                 PackingList.objects.filter(
                     container_number__container_number=container_number
@@ -1338,11 +1368,11 @@ class OrderCreation(View):
             po_id_hash = {}
             seq_num = 1
             for dm, sm, fba, dest in zip(
-                    request.POST.getlist("delivery_method"),
-                    request.POST.getlist("shipping_mark"),
-                    request.POST.getlist("fba_id"),
-                    destination_list,
-                    strict=True,
+                request.POST.getlist("delivery_method"),
+                request.POST.getlist("shipping_mark"),
+                request.POST.getlist("fba_id"),
+                destination_list,
+                strict=True,
             ):
                 po_id: str = ""
                 po_id_seg: str = ""
@@ -1404,6 +1434,7 @@ class OrderCreation(View):
                     return Decimal(str(value).strip())
                 except InvalidOperation:
                     raise ValueError(f"无效的数值格式: {value}")
+
             pl_to_create = [
                 PackingList(
                     container_number=container,
@@ -1423,20 +1454,22 @@ class OrderCreation(View):
                     height=parse_decimal(d[13]),
                     express_number=d[14],
                     PO_ID=d[15],
-                    delivery_window_start = d[16] if d[16].strip() else None,
-                    delivery_window_end = d[17] if d[17].strip() else None,
+                    delivery_window_start=d[16] if d[16].strip() else None,
+                    delivery_window_end=d[17] if d[17].strip() else None,
                     delivery_type=d[18],
                 )
                 for d in pl_data
             ]
-            
+
             await sync_to_async(bulk_create_with_history)(pl_to_create, PackingList)
             # await sync_to_async(PackingList.objects.bulk_create)(pl_to_create)
             order.packing_list_updloaded = True
             delivery_methods = request.POST.getlist("delivery_method")
-            is_priority = any('UPS' in method or 'FEDEX' in method for method in delivery_methods)
+            is_priority = any(
+                "UPS" in method or "FEDEX" in method for method in delivery_methods
+            )
             if is_priority:
-                order.unpacking_priority = 'P1'
+                order.unpacking_priority = "P1"
             await sync_to_async(order.save)()
         # 查找新建的pl，和现在的pocheck比较，如果内容没有变化，pocheck该记录不变，如果有变化就对应修改
 
@@ -1491,7 +1524,11 @@ class OrderCreation(View):
                     # 如果po_check表没有这条po，新建这一条
                     po_check_dict = {
                         "container_number": container,
-                        "vessel_eta": order.vessel_id.vessel_eta.date() if order.vessel_id.vessel_eta else None,
+                        "vessel_eta": (
+                            order.vessel_id.vessel_eta.date()
+                            if order.vessel_id.vessel_eta
+                            else None
+                        ),
                         "packing_list": pl,
                         "time_status": True,
                         "destination": pl.destination,
@@ -1514,7 +1551,7 @@ class OrderCreation(View):
             except PoCheckEtaSeven.DoesNotExist:
                 raise ValueError("不存在")
         # 更新完pl之后，更新container的delivery_type
-        #await self._confirm_delivery_type(container_number)
+        # await self._confirm_delivery_type(container_number)
         types = set(pl.delivery_type for pl in packing_list if pl.delivery_type)
         new_type = types.pop() if len(types) == 1 else "mixed"
         container = await sync_to_async(Container.objects.get, thread_sensitive=True)(
@@ -1533,9 +1570,11 @@ class OrderCreation(View):
         else:
             return await self.handle_order_basic_info_get()
 
-    async def _confirm_delivery_type(self,container_number:str) -> None:
+    async def _confirm_delivery_type(self, container_number: str) -> None:
         packing_list = await sync_to_async(list)(
-            PackingList.objects.filter(container_number__container_number=container_number)
+            PackingList.objects.filter(
+                container_number__container_number=container_number
+            )
         )
         public_ids = []
         other_ids = []
@@ -1546,7 +1585,9 @@ class OrderCreation(View):
                 re.fullmatch(r"^[A-Za-z]{4}\s*$", destination)
                 or re.fullmatch(r"^[A-Za-z]{3}\s*\d$", destination)
                 or re.fullmatch(r"^[A-Za-z]{3}\s*\d\s*[A-Za-z]$", destination)
-                or any(kw.lower() in destination.lower() for kw in {"walmart", "沃尔玛"})
+                or any(
+                    kw.lower() in destination.lower() for kw in {"walmart", "沃尔玛"}
+                )
             )
 
             if is_public:
@@ -1554,11 +1595,15 @@ class OrderCreation(View):
             else:
                 other_ids.append(item.id)
         if public_ids:
-            await sync_to_async(PackingList.objects.filter(id__in=public_ids).update)(delivery_type="public")
+            await sync_to_async(PackingList.objects.filter(id__in=public_ids).update)(
+                delivery_type="public"
+            )
 
         if other_ids:
-            await sync_to_async(PackingList.objects.filter(id__in=other_ids).update)(delivery_type="other")
-            
+            await sync_to_async(PackingList.objects.filter(id__in=other_ids).update)(
+                delivery_type="other"
+            )
+
     def find_matching_regions(
         self, plts_by_destination: dict, combina_fee: dict
     ) -> dict:
@@ -1566,9 +1611,9 @@ class OrderCreation(View):
         price_display = defaultdict(set)
 
         for plts in plts_by_destination:
-            if 'UPS' in plts["destination"]:
-                #如果包含UPS，不需要显示细节，就显示UPS就可以了，张楠提
-                non_combina_dests.add('UPS')
+            if "UPS" in plts["destination"]:
+                # 如果包含UPS，不需要显示细节，就显示UPS就可以了，张楠提
+                non_combina_dests.add("UPS")
                 continue
             dest = plts["destination"]
             dest = dest.replace("沃尔玛", "").split("-")[-1].strip()
@@ -1649,7 +1694,7 @@ class OrderCreation(View):
             )
         if not matching_quotation:
             raise ValueError("找不到报价表")
-        
+
         if not matching_quotation:
             return ValueError("找不到报价表")
         # 找组合柜报价
@@ -1665,9 +1710,7 @@ class OrderCreation(View):
                 ).values("destination")
             )
         )()
-        matched_regions = self.find_matching_regions(
-            plts_by_destination, combina_fee
-        )
+        matched_regions = self.find_matching_regions(plts_by_destination, combina_fee)
         matched_regions["combina_dests"] = matched_regions["combina_dests"]
         matched_regions["non_combina_dests"] = list(
             matched_regions["non_combina_dests"]
@@ -1870,7 +1913,7 @@ class OrderCreation(View):
             pl_data = df[col].to_dict("records")
             for data in pl_data:
                 if pd.isna(data["delivery_window_start"]):
-                    data["delivery_window_start"]= None
+                    data["delivery_window_start"] = None
                 if pd.isna(data["delivery_window_end"]):
                     data["delivery_window_end"] = None
             packing_list = [PackingList(**data) for data in pl_data]
@@ -1891,18 +1934,20 @@ class OrderCreation(View):
             return self.template_order_create_supplement_pl_tab, context
 
     def is_public_destination(self, destination):
-        if not isinstance(destination, str):
+        if not isinstance(destination, str):  # 没有地址是私仓
+            return False
+        if "自提" in destination:
             return False
         pattern1 = r"^[A-Za-z]{3}\s*\d$"
-        if re.match(pattern1, destination):
+        if re.match(pattern1, destination):  # 3个字母+空格+1个数字是公仓
             return True
-        pattern2 = r"^[A-Za-z]{3}\s*\d\s*[A-Za-z]$"
+        pattern2 = r"^[A-Za-z]{3}\s*\d\s*[A-Za-z]$"  # 3个字母+空格+1个数字+字母是公仓
         if re.match(pattern2, destination):
             return True
-        pattern3 = r"^[A-Za-z]{4}\s*$"
+        pattern3 = r"^[A-Za-z]{4}\s*$"  # 包含4个字母是公仓
         if re.fullmatch(pattern3, destination):
             return True
-        keywords = {"walmart", "沃尔玛"}
+        keywords = {"walmart", "沃尔玛", "UPS", "FEDEX"}
         destination_lower = destination.lower()
         return any(keyword.lower() in destination_lower for keyword in keywords)
 

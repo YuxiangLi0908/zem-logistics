@@ -2,21 +2,26 @@ import json
 import os
 import re
 import uuid
-from datetime import datetime, date
+from datetime import date, datetime
 from io import BytesIO
 from pathlib import Path
 from typing import Any, Tuple
-from django.db import transaction
 
 import openpyxl
 import pandas as pd
 from asgiref.sync import sync_to_async
 from django.contrib.auth.models import User
 from django.contrib.postgres.aggregates import StringAgg
-from django.db import models
+from django.db import models, transaction
 from django.db.models import CharField, Count, F, FloatField, IntegerField, Sum
 from django.db.models.functions import Cast
-from django.http import Http404, HttpRequest, HttpResponse, HttpResponseForbidden, JsonResponse
+from django.http import (
+    Http404,
+    HttpRequest,
+    HttpResponse,
+    HttpResponseForbidden,
+    JsonResponse,
+)
 from django.shortcuts import redirect, render
 from django.views import View
 from django.views.decorators.csrf import csrf_protect
@@ -186,7 +191,9 @@ class Inventory(View):
         wb.save(response)
         return response
 
-    async def handle_warehouse_pallet_post(self,request: HttpRequest) -> tuple[str, dict[str, Any]]:
+    async def handle_warehouse_pallet_post(
+        self, request: HttpRequest
+    ) -> tuple[str, dict[str, Any]]:
         warehouse = request.POST.get("warehouse")
         pallet = await self._get_inventory_pallet_merge(warehouse)
         pallet_json = {
@@ -196,12 +203,14 @@ class Inventory(View):
                     if isinstance(v, float) or isinstance(v, int)
                     else (
                         # 新增：如果是日期类型，先转为字符串
-                        re.sub(r'[\x00-\x1F\x7F\t"\']', " ", v.strftime('%Y-%m-%d'))
+                        re.sub(r'[\x00-\x1F\x7F\t"\']', " ", v.strftime("%Y-%m-%d"))
                         if isinstance(v, date)
                         # 原逻辑：处理字符串类型
-                        else re.sub(r'[\x00-\x1F\x7F\t"\']', " ", v)
-                        if v != "None" and v
-                        else ""
+                        else (
+                            re.sub(r'[\x00-\x1F\x7F\t"\']', " ", v)
+                            if v != "None" and v
+                            else ""
+                        )
                     )
                 )
                 for k, v in p.items()
@@ -221,44 +230,52 @@ class Inventory(View):
         }
         return self.template_inventory_list_and_merge, context
 
-    async def handle_merge_operation(self, request: HttpRequest) -> Tuple[str, dict[str, Any]]:
+    async def handle_merge_operation(
+        self, request: HttpRequest
+    ) -> Tuple[str, dict[str, Any]]:
         """处理合板核心逻辑"""
         try:
-            new_po_id = request.POST.get('new_po_id', '').strip()
-            pallet_ids_str = request.POST.get('pallet_ids', '')
-            pallet_ids = [pid.strip() for pid in pallet_ids_str.split(',') if pid.strip()]
-            warehouse = request.POST.get('warehouse', '')
+            new_po_id = request.POST.get("new_po_id", "").strip()
+            pallet_ids_str = request.POST.get("pallet_ids", "")
+            pallet_ids = [
+                pid.strip() for pid in pallet_ids_str.split(",") if pid.strip()
+            ]
+            warehouse = request.POST.get("warehouse", "")
 
             if not new_po_id:
                 context = {
-                    'warehouse': warehouse,
-                    'pallet': await self._get_inventory_pallet_merge(warehouse),
-                    'merge_status': 'error',
-                    'merge_message': '目标PO_ID不能为空'
+                    "warehouse": warehouse,
+                    "pallet": await self._get_inventory_pallet_merge(warehouse),
+                    "merge_status": "error",
+                    "merge_message": "目标PO_ID不能为空",
                 }
                 return self.template_inventory_list_and_merge, context
 
             if len(pallet_ids) < 2:
                 context = {
-                    'warehouse': warehouse,
-                    'pallet': await self._get_inventory_pallet_merge(warehouse),
-                    'merge_status': 'error',
-                    'merge_message': '请至少选择2个有效pallet_id'
+                    "warehouse": warehouse,
+                    "pallet": await self._get_inventory_pallet_merge(warehouse),
+                    "merge_status": "error",
+                    "merge_message": "请至少选择2个有效pallet_id",
                 }
                 return self.template_inventory_list_and_merge, context
 
             def update_pallets():
-                return Pallet.objects.filter(pallet_id__in=pallet_ids).update(PO_ID=new_po_id)
+                return Pallet.objects.filter(pallet_id__in=pallet_ids).update(
+                    PO_ID=new_po_id
+                )
+
             updated_count = await sync_to_async(update_pallets)()
 
             def get_container_ids():
                 return list(
-                    Pallet.objects.filter(
-                        pallet_id__in=pallet_ids
-                    ).values_list('container_number_id', flat=True)
+                    Pallet.objects.filter(pallet_id__in=pallet_ids).values_list(
+                        "container_number_id", flat=True
+                    )
                 )
 
             container_ids = await sync_to_async(get_container_ids)()
+
             def update_packinglists():
                 return PackingList.objects.filter(
                     container_number_id__in=container_ids
@@ -266,24 +283,27 @@ class Inventory(View):
 
             updated_count_p = await sync_to_async(update_packinglists)()
             context = {
-                'warehouse_options': self.warehouse_options,
-                'warehouse': warehouse,
-                'pallet': await self._get_inventory_pallet_merge(warehouse),
-                'merge_status': 'success',
-                'merge_message': f'合板成功！共更新 {updated_count} 个卡板, PackingList更新{updated_count_p}条数据'
+                "warehouse_options": self.warehouse_options,
+                "warehouse": warehouse,
+                "pallet": await self._get_inventory_pallet_merge(warehouse),
+                "merge_status": "success",
+                "merge_message": f"合板成功！共更新 {updated_count} 个卡板, PackingList更新{updated_count_p}条数据",
             }
             return self.template_inventory_list_and_merge, context
 
         except Exception as e:
-            warehouse = request.POST.get('warehouse', '')
+            warehouse = request.POST.get("warehouse", "")
             context = {
-                'warehouse': warehouse,
-                'pallet': await self._get_inventory_pallet_merge(warehouse) if warehouse else [],
-                'merge_status': 'error',
-                'merge_message': f'操作失败：{str(e)}'
+                "warehouse": warehouse,
+                "pallet": (
+                    await self._get_inventory_pallet_merge(warehouse)
+                    if warehouse
+                    else []
+                ),
+                "merge_status": "error",
+                "merge_message": f"操作失败：{str(e)}",
             }
             return self.template_inventory_list_and_merge, context
-
 
     async def handle_warehouse_post(
         self, request: HttpRequest
@@ -401,7 +421,6 @@ class Inventory(View):
         # create new pallets
         new_pallets = []
         old_po_id = old_pallet[0].PO_ID
-
         old_packinglist = await sync_to_async(list)(
             PackingList.objects.filter(PO_ID=old_po_id)
         )
@@ -420,17 +439,20 @@ class Inventory(View):
             notes,
         ):
             # 判断是公仓/私仓
-            if (
+            if "自提" not in str(dest) and (
                 re.fullmatch(r"^[A-Za-z]{4}\s*$", str(dest))
                 or re.fullmatch(r"^[A-Za-z]{3}\s*\d$", str(dest))
                 or re.fullmatch(r"^[A-Za-z]{3}\s*\d\s*[A-Za-z]$", str(dest))
-                or any(kw.lower() in str(dest).lower() for kw in {"walmart", "沃尔玛"})
+                or any(
+                    kw.lower() in str(dest).lower()
+                    for kw in {"walmart", "沃尔玛", "UPS", "FEDEX"}
+                )
             ):
                 delivery_type = "public"
             else:
                 delivery_type = "other"
-            base_pcs = p//n
-            remainder = p%n
+            base_pcs = p // n
+            remainder = p % n
             # TODOs: find a better way to allocate cbm and weight
             new_pallets += [
                 {
@@ -445,8 +467,10 @@ class Inventory(View):
                     "zipcode": zipcode,
                     "delivery_method": dm,
                     "pcs": base_pcs + (1 if i < remainder else 0),
-                    "cbm": total_cbm * (base_pcs + (1 if i < remainder else 0)) /p,
-                    "weight_lbs": total_weight * (base_pcs + (1 if i < remainder else 0)) /p,
+                    "cbm": total_cbm * (base_pcs + (1 if i < remainder else 0)) / p,
+                    "weight_lbs": total_weight
+                    * (base_pcs + (1 if i < remainder else 0))
+                    / p,
                     "note": note,
                     "shipping_mark": sm if sm else "",
                     "fba_id": fba if fba else "",
@@ -463,11 +487,11 @@ class Inventory(View):
                 pl_to_update = []
                 for pl in old_packinglist:
                     match = True
-                    if fba and pl.fba_id not in fba:
+                    if fba and fba not in pl.fba_id:
                         match = False
-                    if ref and pl.ref_id not in ref:
+                    if ref and ref not in pl.ref_id:
                         match = False
-                    if sm and pl.shipping_mark not in sm:
+                    if sm and sm not in pl.shipping_mark:
                         match = False
                     if match:
                         pl.destination = dest
@@ -547,7 +571,7 @@ class Inventory(View):
         return self.template_inventory_po_update, context
 
     async def get_related_async(related_field):
-        return await sync_to_async(lambda: related_field)()  
+        return await sync_to_async(lambda: related_field)()
 
     async def handle_update_po_post(
         self, request: HttpRequest
@@ -557,18 +581,22 @@ class Inventory(View):
         pl_ids = request.POST.getlist("pl_ids")
         pl_ids = [int(i) for i in pl_ids]
         container_number = request.POST.get("container_number")
-        #判断是不是要销毁
+        # 判断是不是要销毁
         is_destroyed = request.POST.get("is_destroyed") == "True"
         if is_destroyed:
             pallets_to_destroy = await sync_to_async(list)(
-                Pallet.objects.filter(id__in=plt_ids).select_related('container_number', 'packing_list')
+                Pallet.objects.filter(id__in=plt_ids).select_related(
+                    "container_number", "packing_list"
+                )
             )
-            
+
             destroyed_pallets = []
-            for pallet in pallets_to_destroy:          
+            for pallet in pallets_to_destroy:
                 destroyed_pallet = PalletDestroyed(
                     packing_list=pallet.packing_list,
-                    container_number=pallet.container_number if pallet.container_number else None,
+                    container_number=(
+                        pallet.container_number if pallet.container_number else None
+                    ),
                     destination=pallet.destination,
                     address=pallet.address,
                     zipcode=pallet.zipcode,
@@ -593,12 +621,13 @@ class Inventory(View):
                     contact_name=pallet.contact_name,
                 )
                 destroyed_pallets.append(destroyed_pallet)
+
             @sync_to_async
             def async_transaction():
                 with transaction.atomic():
                     Pallet.objects.filter(id__in=plt_ids).delete()
                     PalletDestroyed.objects.bulk_create(destroyed_pallets)
-            
+
             await async_transaction()
             return await self.handle_warehouse_post(request)
         destination_new = request.POST.get("destination").strip()

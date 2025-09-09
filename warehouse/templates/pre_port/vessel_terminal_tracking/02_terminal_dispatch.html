@@ -5,7 +5,7 @@
     {{ current_date }}
 </div>
 <div style="display: flex;">
-    <div style="height: 800px; width: 35%; margin-top: .5%; margin-right: .5%; margin-bottom: 1%;">
+    <div style="height: 800px; width: 64%; margin-top: .5%; margin-right: .5%; margin-bottom: 1%;">
         <div style="height: 50%; width: 100%; border: 2px solid rgb(180, 180, 180); border-radius: 12px; padding: 1%;">
             <div>
                 <b style="background-color: rgb(208, 208, 208); border-radius: 20px; font-size: 11px; display:inline-flex; color: rgb(100, 100, 100); padding: 5px;">
@@ -13,7 +13,7 @@
                 </b>
             </div>
             <div style="overflow-y: scroll; max-height: 90%;">
-                <table class="table" id="eta-order-table" style="font-size: 11px; max-height: 90%;">
+                <table class="table" id="eta-order-table" style="font-size: 11px; max-height: 90%; width: 100%">
                     <thead>
                         <tr style="position: sticky; top: 0;">
                             <th class="th">仓库/地址</th>
@@ -22,6 +22,7 @@
                             <th class="th">船名船次</th>
                             <th class="th">ETA</th>
                             <th class="th">ETD</th>
+                            <th class="th">优先级</th>
                         </tr>
                         <tr style="position: sticky; top: 28px;">
                             <th class="th">
@@ -30,6 +31,7 @@
                             <th class="th">
                                 <input type="text" id="ctnSearch" placeholder="搜索柜号..." oninput="filterTable(this, 1, true)" size="13" style="font-size: 11px;">
                             </th>
+                            <th class="th"></th>
                             <th class="th"></th>
                             <th class="th"></th>
                             <th class="th"></th>
@@ -59,6 +61,9 @@
                             <td class="td">
                                 {{ o.vessel_id.vessel_etd|date:"M-j" }}
                             </td>
+                            <td class="td">
+                                {{ o.unpacking_priority}}
+                            </td>
                         </tr>
                         {% endfor %}
                     </tbody>
@@ -72,7 +77,7 @@
                 </b>
             </div>
             <div style="overflow-y: scroll; max-height: 90%;">
-                <table class="table" id="order-pickup-schedule-table" style="font-size: 11px; max-height: 90%;">
+                <table class="table" id="order-pickup-schedule-table" style="font-size: 11px; max-height: 90%; width: 500px">
                     <thead>
                         <tr style="position: sticky; top: 0;">
                             <th class="th">仓库/地址</th>
@@ -82,6 +87,7 @@
                             <th class="th">ETA</th>
                             <th class="th">ETD</th>
                             <th class="th">预约时间</th>
+                            <th class="th">优先级</th>
                         </tr>
                         <tr style="position: sticky; top: 28px;">
                             <th class="th">
@@ -90,6 +96,7 @@
                             <th class="th">
                                 <input type="text" id="ctnSearch" placeholder="搜索柜号..." oninput="filterTable(this, 1, true)" size="13" style="font-size: 11px;">
                             </th>
+                            <th class="th"></th>
                             <th class="th"></th>
                             <th class="th"></th>
                             <th class="th"></th>
@@ -122,7 +129,7 @@
                             </td>
                             <td class="td">
                                 {% if not o.retrieval_id.target_retrieval_timestamp and not o.retrieval_id.target_retrieval_timestamp_lower %}
-                                    <span class="status-span-red">没有预约提柜时间！<span>
+                                    <span class="status-span-red">没有预约提柜时间！</span>
                                 {% else %}
                                     {% if o.retrieval_id.pickup_schedule_status == "past_due" %}
                                         {% if o.retrieval_id.target_retrieval_timestamp and o.retrieval_id.target_retrieval_timestamp_lower %}
@@ -152,6 +159,10 @@
                                 {% endif %}
                                 
 
+                            </td>
+
+                            <td class="td">
+                                {{ o.unpacking_priority}}
                             </td>
                         </tr>
                         {% endfor %}

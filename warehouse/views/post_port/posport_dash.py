@@ -32,11 +32,7 @@ from warehouse.views.post_port.shipment.fleet_management import FleetManagement
 class PostportDash(View):
     template_main_dash = "post_port//01_summary_table.html"
     area_options = {"NJ": "NJ", "SAV": "SAV", "LA": "LA", "MO": "MO", "TX": "TX"}
-    warehouse_mapping = {
-        'NJ': 'NJ-07001',
-        'SAV': 'SAV-31326',
-        'LA': 'LA-91761'
-    }
+    warehouse_mapping = {"NJ": "NJ-07001", "SAV": "SAV-31326", "LA": "LA-91761"}
 
     async def get(self, request: HttpRequest) -> HttpResponse:
         if not await self._user_authenticate(request):
@@ -63,19 +59,18 @@ class PostportDash(View):
         else:
             context = {"area_options": self.area_options}
             return render(request, self.template_main_dash, context)
-        
+
     async def handle_bol_post(self, request: HttpRequest) -> HttpResponse:
         fm = FleetManagement()
         mutable_post = request.POST.copy()
         mutable_post["customerInfo"] = None
         mutable_post["pickupList"] = None
         area = mutable_post["area"]
-        
-        
+
         for key, code in self.warehouse_mapping.items():
             if key in area:
                 mutable_post["warehouse"] = code
-        
+
         shipment_batch_number = request.POST.get("shipment_batch_numbers")
         mutable_post["shipment_batch_number"] = shipment_batch_number
         shipment = await sync_to_async(
@@ -86,7 +81,7 @@ class PostportDash(View):
         if shipment.fleet_number:
             mutable_post["fleet_number"] = shipment.fleet_number
         else:
-            raise ValueError('该预约批次尚未排约')
+            raise ValueError("该预约批次尚未排约")
         request.POST = mutable_post
         return await fm.handle_export_bol_post(request)
 
@@ -123,14 +118,10 @@ class PostportDash(View):
             else None
         )
         fba_ids = (
-            request.POST.get("fba_ids").strip()
-            if request.POST.get("fba_ids")
-            else None
+            request.POST.get("fba_ids").strip() if request.POST.get("fba_ids") else None
         )
         ref_ids = (
-            request.POST.get("ref_ids").strip()
-            if request.POST.get("ref_ids")
-            else None
+            request.POST.get("ref_ids").strip() if request.POST.get("ref_ids") else None
         )
         start_date = (
             (datetime.now().date() + timedelta(days=-4)).strftime("%Y-%m-%d")
@@ -150,7 +141,14 @@ class PostportDash(View):
             container_number__order__packing_list_updloaded=True,
             container_number__order__created_at__gte="2024-09-01",
         )
-        if shipment_batch_number or container_number or destination or shipping_marks or fba_ids or ref_ids:
+        if (
+            shipment_batch_number
+            or container_number
+            or destination
+            or shipping_marks
+            or fba_ids
+            or ref_ids
+        ):
             if shipment_batch_number:
                 criteria &= models.Q(
                     shipment_batch_number__shipment_batch_number=shipment_batch_number
@@ -166,14 +164,14 @@ class PostportDash(View):
                     container_number__container_number="0",
                 )
             elif shipping_marks:
-                pl_criteria = models.Q(shipping_mark=shipping_marks)
-                plt_criteria = models.Q(shipping_mark__in=shipping_marks)
+                pl_criteria = models.Q(shipping_mark__contains=shipping_marks)
+                plt_criteria = models.Q(shipping_mark__contains=shipping_marks)
             elif fba_ids:
-                pl_criteria = models.Q(fba_id=fba_ids)
-                plt_criteria = models.Q(fba_id__in=fba_ids)
+                pl_criteria = models.Q(fba_id__contains=fba_ids)
+                plt_criteria = models.Q(fba_id__contains=fba_ids)
             elif ref_ids:
-                pl_criteria = models.Q(ref_id=ref_ids)
-                plt_criteria = models.Q(ref_id__in=ref_ids)
+                pl_criteria = models.Q(ref_id__contains=ref_ids)
+                plt_criteria = models.Q(ref_id__contains=ref_ids)
             if not destination and not shipping_marks and not fba_ids and not ref_ids:
                 pl_criteria = criteria & models.Q(
                     container_number__order__offload_id__offload_at__isnull=True,
@@ -293,7 +291,9 @@ class PostportDash(View):
                         "箱数": pl.get("total_pcs"),
                         "总重lbs": pl.get("total_weight_lbs"),
                         "ETA": (
-                            pl.get("container_number__order__vessel_id__vessel_eta").replace(tzinfo=None)
+                            pl.get(
+                                "container_number__order__vessel_id__vessel_eta"
+                            ).replace(tzinfo=None)
                             if pl.get("container_number__order__vessel_id__vessel_eta")
                             else None
                         ),
