@@ -58,10 +58,13 @@ from warehouse.models.fleet_shipment_pallet import FleetShipmentPallet
 from warehouse.utils.constants import (
     APP_ENV,
     DELIVERY_METHOD_OPTIONS,
+    SP_CLIENT_ID,
     SP_DOC_LIB,
-    SP_PASS,
     SP_URL,
-    SP_USER,
+    SP_PRIVATE_KEY,
+    SP_SCOPE,
+    SP_TENANT,
+    SP_THUMBPRINT,
     SYSTEM_FOLDER,
 )
 from warehouse.views.export_file import link_callback
@@ -2432,7 +2435,14 @@ class FleetManagement(View):
                     )
 
     async def _get_sharepoint_auth(self) -> ClientContext:
-        return ClientContext(SP_URL).with_credentials(UserCredential(SP_USER, SP_PASS))
+        ctx = ClientContext(SP_URL).with_client_certificate(
+            SP_TENANT,
+            SP_CLIENT_ID,
+            SP_THUMBPRINT,
+            private_key=SP_PRIVATE_KEY,
+            scopes=[SP_SCOPE],
+        )
+        return ctx
 
     async def _user_authenticate(self, request: HttpRequest):
         if await sync_to_async(lambda: request.user.is_authenticated)():
