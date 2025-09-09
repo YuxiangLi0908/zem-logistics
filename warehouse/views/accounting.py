@@ -86,9 +86,13 @@ from warehouse.utils.constants import (
     CARRIER_FLEET,
     CONTAINER_PICKUP_CARRIER,
     SP_DOC_LIB,
-    SP_PASS,
+    SP_CLIENT_ID,
+    SP_DOC_LIB,
+    SP_PRIVATE_KEY,
+    SP_SCOPE,
+    SP_TENANT,
+    SP_THUMBPRINT,
     SP_URL,
-    SP_USER,
     SYSTEM_FOLDER,
 )
 from warehouse.views.export_file import export_invoice
@@ -7655,7 +7659,14 @@ class Accounting(View):
         return context
 
     def _get_sharepoint_auth(self) -> ClientContext:
-        return ClientContext(SP_URL).with_credentials(UserCredential(SP_USER, SP_PASS))
+        ctx = ClientContext(SP_URL).with_client_certificate(
+            SP_TENANT,
+            SP_CLIENT_ID,
+            SP_THUMBPRINT,
+            private_key=SP_PRIVATE_KEY,
+            scopes=[SP_SCOPE],
+        )
+        return ctx
 
     def _upload_excel_to_sharepoint(
         self, file: BytesIO, schema: str, file_name: str

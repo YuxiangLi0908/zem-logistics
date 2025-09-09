@@ -48,9 +48,12 @@ from warehouse.models.transfer_location import TransferLocation
 from warehouse.models.warehouse import ZemWarehouse
 from warehouse.utils.constants import (
     LOAD_TYPE_OPTIONS,
-    SP_PASS,
+    SP_CLIENT_ID,
+    SP_PRIVATE_KEY,
+    SP_SCOPE,
+    SP_TENANT,
+    SP_THUMBPRINT,
     SP_URL,
-    SP_USER,
     amazon_fba_locations,
 )
 
@@ -3080,7 +3083,14 @@ class ShippingManagement(View):
         return pal_list, plt_list
 
     async def _get_sharepoint_auth(self) -> ClientContext:
-        return ClientContext(SP_URL).with_credentials(UserCredential(SP_USER, SP_PASS))
+        ctx = ClientContext(SP_URL).with_client_certificate(
+            SP_TENANT,
+            SP_CLIENT_ID,
+            SP_THUMBPRINT,
+            private_key=SP_PRIVATE_KEY,
+            scopes=[SP_SCOPE],
+        )
+        return ctx
 
     async def _shipment_exist(self, batch_number: str) -> bool:
         if await sync_to_async(list)(
