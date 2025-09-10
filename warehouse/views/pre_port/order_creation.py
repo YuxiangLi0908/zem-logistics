@@ -1845,9 +1845,7 @@ class OrderCreation(View):
                 '最早派送时间': 'delivery_window_start',
                 '最晚派送时间': 'delivery_window_end',
             })
-
             warehouses = df['warehouses'].replace('', pd.NA).dropna().unique()
-            
             warehouses = warehouses.tolist()
             if len(warehouses) > 1:
                 #值多不行，现在模板一次就建一个客户一个仓库的
@@ -1880,6 +1878,10 @@ class OrderCreation(View):
                 #如果没提供柜号，就自动给一个，是客户名+7个数字，如果没给客户名，就在前端选完客户名之后再加这7个数字
                 container_number = await self._naming_container(customer_name)
             orders = df.to_dict('records')
+            for order in orders:
+                for col in ['delivery_window_start', 'delivery_window_end']:
+                    if col in order and pd.isna(order[col]):
+                        order[col] = None
             context = {
                 'orders': orders,
                 'container_number': container_number,
