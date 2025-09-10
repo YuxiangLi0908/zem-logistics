@@ -6333,6 +6333,7 @@ class Accounting(View):
                 "basic_fee": basic_fee,
                 "chassis_comment": chassis_comment,
                 "is_save_invoice": is_save_invoice,
+                "is_editable":is_editable,
             }
         )
 
