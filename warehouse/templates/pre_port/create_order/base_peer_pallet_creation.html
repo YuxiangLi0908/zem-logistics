@@ -530,8 +530,8 @@
                                     <td><input type="text" name="total_weight" style="width: 100%; padding: 5px;" value="{{ o.total_weight }}"></td>     
                                     <td><input type="text" name="total_cbm" style="width: 100%; padding: 5px;" value="{{ o.total_cbm }}"></td>                          
                                     <td><input type="text" name="total_pallet" style="width: 100%; padding: 5px;" value="{{ o.total_pallet }}"></td>
-                                    <td><input type="date" name="delivery_window_start" style="width: 100%; padding: 5px;" value="{{ o.delivery_window_start }}"></td>
-                                    <td><input type="date" name="delivery_window_end" style="width: 100%; padding: 5px;" value="{{ o.delivery_window_end }}"></td>
+                                    <td><input type="date" name="delivery_window_start" style="width: 100%; padding: 5px;" {% if o.delivery_window_start %} value="{{ o.delivery_window_start |date:'Y-m-d' }}"{% endif %}></td>
+                                    <td><input type="date" name="delivery_window_end" style="width: 100%; padding: 5px;" {% if o.delivery_window_end %}value="{{ o.delivery_window_end |date:'Y-m-d' }}"{% endif %}></td>
                                 </tr>
                                 {% endfor %}
                             {% endif %}
