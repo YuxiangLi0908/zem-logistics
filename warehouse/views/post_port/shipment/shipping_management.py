@@ -1611,9 +1611,9 @@ class ShippingManagement(View):
                 fields=["retrieval_destination_precise", "assigned_by_appt"],
             )
             # 如果是客户自提且NJ，那么FleetShipmentPallet表也应该增加记录
-            if shipment_type == "客户自提" and "NJ" in str(request.POST.get("origin", "")):
+            if shipment_type == "客户自提":
                 shipment_ava = await sync_to_async(self.sync_query_and_create)(shipment, fleet)
-            # 历史FleetShipmentPallet 客户自提和NJ的费用改为0,后续不调用
+            # 历史FleetShipmentPallet 客户自提费用改为0,后续不调用
             await self.history_fleet_shipment_pallet()
             mutable_post = request.POST.copy()
             mutable_post["area"] = area
@@ -1689,12 +1689,11 @@ class ShippingManagement(View):
 
         return list_data
 
-    #历史FleetShipmentPallet 客户自提和NJ的费用改为0,后续不调用
+    #历史FleetShipmentPallet 客户自提的费用改为0,后续不调用
     def history_fleet_shipment_pallet(self):
         def sync_update():
             queryset = FleetShipmentPallet.objects.filter(
-                shipment_batch_number__shipment_type="客户自提",
-                shipment_batch_number__origin__contains="NJ"
+                shipment_batch_number__shipment_type="客户自提"
             ).select_related(
                 "shipment_batch_number", "container_number"
             )
