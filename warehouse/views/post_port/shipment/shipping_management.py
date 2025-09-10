@@ -42,6 +42,7 @@ from warehouse.models.fleet_shipment_pallet import FleetShipmentPallet
 from warehouse.models.order import Order
 from warehouse.models.packing_list import PackingList
 from warehouse.models.pallet import Pallet
+from warehouse.models.container import Container
 from warehouse.models.retrieval import Retrieval
 from warehouse.models.shipment import Shipment
 from warehouse.models.transfer_location import TransferLocation
@@ -1257,22 +1258,71 @@ class ShippingManagement(View):
                 }
             )
             # 更新完约的信息后，加一个功能，把预约出库时选中的pl对应的order表等级改为P3
-            orders_to_update = await sync_to_async(list)(
-                Order.objects.filter(container_number__packinglist__id__in=selected)
-            )
-            for order in orders_to_update:
-                if order.unpacking_priority == "P4":
-                    # 只往更高级改
-                    order.unpacking_priority = "P3"
-            await sync_to_async(bulk_update_with_history)(
-                orders_to_update,
-                Order,
-                fields=["unpacking_priority"],
-            )
+            container_numbers = await sync_to_async(
+                lambda: list(
+                    Order.objects.filter(
+                        models.Q(container_number__packinglist__id__in=selected) |
+                        models.Q(container_number__pallet__id__in=selected_plt)
+                    )
+                    .values_list("container_number__container_number", flat=True)
+                    .distinct()
+                )
+            )()
+            for cn in container_numbers:
+                await self._update_container_unpacking_priority(cn)
 
             return self.template_td_schedule, context
         else:
             return await self.handle_warehouse_post(request)
+
+    async def _update_container_unpacking_priority(
+        self, container_number:str
+    ) -> None:
+        # 把所有有快递的，都直接优先级定位P1
+        has_ups_fedex = await sync_to_async(
+            lambda: (
+                PackingList.objects.filter(
+                    container_number__container_number=container_number,
+                    delivery_method__in=["UPS", "FEDEX"]
+                ).exists()
+                or
+                Pallet.objects.filter(
+                    container_number__container_number=container_number,
+                    delivery_method__in=["UPS", "FEDEX"]
+                ).exists()
+            )
+        )()
+        if has_ups_fedex:
+            priority = "P1"
+        else:
+            is_expiry_guaranteed = await sync_to_async(
+                lambda: Container.objects.filter(
+                    container_number=container_number,
+                    is_expiry_guaranteed=True
+                ).exists()
+            )()
+            if is_expiry_guaranteed:
+                priority = "P2"
+            else:
+                has_shipment = await sync_to_async(
+                    lambda: (
+                        PackingList.objects.filter(
+                            container_number__container_number=container_number,
+                            shipment_batch_number__isnull=False
+                        ).exists()
+                        or
+                        Pallet.objects.filter(
+                            container_number__container_number=container_number,
+                            shipment_batch_number__isnull=False
+                        ).exists()
+                    )
+                )()
+                priority = "P3" if has_shipment else "P4"
+        await sync_to_async(
+            lambda: Order.objects.filter(
+                container_number__container_number=container_number
+            ).update(unpacking_priority=priority)
+        )()
 
     async def handle_appointment_post(
         self, request: HttpRequest
@@ -1695,17 +1745,15 @@ class ShippingManagement(View):
                         PackingList.objects.filter(PO_ID__in=pl_master_po_ids).update
                     )(master_shipment_batch_number=shipment)
                 # 把添加的pl对应的order表等级改为P3
-                orders_to_update = await sync_to_async(list)(
-                    Order.objects.filter(container_number__packinglist__id__in=pl_ids)
-                )
-                for order in orders_to_update:
-                    if order.unpacking_priority == "P4":
-                        order.unpacking_priority = "P3"
-                await sync_to_async(bulk_update_with_history)(
-                    orders_to_update,
-                    Order,
-                    fields=["unpacking_priority"],
-                )
+                container_numbers = await sync_to_async(
+                    lambda: list(
+                        Order.objects.filter(container_number__packinglist__id__in=pl_ids)
+                        .values_list("container_number__container_number", flat=True)
+                        .distinct()
+                    )
+                )()
+                for cn in container_numbers:
+                    await self._update_container_unpacking_priority(cn)
             except:
                 pass
 
