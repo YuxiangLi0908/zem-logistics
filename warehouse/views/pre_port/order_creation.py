@@ -685,7 +685,7 @@ class OrderCreation(View):
             "packing_list_updloaded": False,
             "unpacking_priority": (
                 "P2" if is_expiry_guaranteed else "P4"
-            ),  # 初始创建基础信息时，只有P2/P4两个选择
+            ),  # 初始创建基础信息时，只有P2/P4两个选择，没有P1和P3的问题
         }
         order = Order(**order_data)
         await sync_to_async(container.save)()
@@ -770,12 +770,14 @@ class OrderCreation(View):
                     retrieval.retrieval_destination_area = (
                         request.POST.get("destination").upper().strip()
                     )
-        order.unpacking_priority = "P2" if is_expiry_guaranteed else "P4"
 
         await sync_to_async(offload.save)()
         await sync_to_async(retrieval.save)()
         await sync_to_async(container.save)()
         await sync_to_async(order.save)()
+        if is_expiry_guaranteed:
+            #如果是保时效的，就重新判断一下优先级
+            await self._update_container_unpacking_priority(input_container_number)
         mutable_get = request.GET.copy()
         mutable_get["container_number"] = container.container_number
         mutable_get["step"] = "container_info_supplement"
@@ -883,36 +885,72 @@ class OrderCreation(View):
         request.GET = mutable_get
         return await self.handle_order_management_container_get(request)
 
+    #更新5月1之后所有柜子的优先级
     async def handle_update_container_unpacking_priority(
         self, request: HttpRequest
     ) -> tuple[Any, Any]:
-        # 把所有有快递的，都直接优先级定位P1
-        pls = await sync_to_async(list)(
-            PackingList.objects.filter(
-                container_number__order__created_at__gte="2025-05-01",
-                delivery_method__in=["UPS", "FEDEX"],
-            ).distinct("container_number_id")
-        )
-
-        order_ids = await sync_to_async(
-            lambda: [pl.container_number.id for pl in pls if pl.container_number]
+        container_numbers = await sync_to_async(
+            lambda: list(
+                Order.objects.filter(
+                    created_at__date__gt=date(2025, 5, 1)
+                ).values_list("container_number__container_number", flat=True).distinct()
+            )
         )()
 
-        if order_ids:
-            await sync_to_async(
-                lambda: Order.objects.filter(id__in=order_ids).update(
-                    unpacking_priority="P1"
-                )
-            )()
-
-        # 把所有保时效的，如果优先级不是P1的，直接改为P2
-        updated_count = await sync_to_async(
-            lambda: Order.objects.filter(container_number__is_expiry_guaranteed=True)
-            .exclude(unpacking_priority="P1")
-            .update(unpacking_priority="P2")
-        )()
+        for container_number in container_numbers:
+            await self._update_container_unpacking_priority(container_number)
 
         return await self.handle_order_management_container_get(request)
+    
+    #给定一个柜号，判定这个柜子的优先级
+    async def _update_container_unpacking_priority(
+        self, container_number:str
+    ) -> None:
+        # 把所有有快递的，都直接优先级定位P1
+        has_ups_fedex = await sync_to_async(
+            lambda: (
+                PackingList.objects.filter(
+                    container_number__container_number=container_number,
+                    delivery_method__in=["UPS", "FEDEX"]
+                ).exists()
+                or
+                Pallet.objects.filter(
+                    container_number__container_number=container_number,
+                    delivery_method__in=["UPS", "FEDEX"]
+                ).exists()
+            )
+        )()
+        if has_ups_fedex:
+            priority = "P1"
+        else:
+            is_expiry_guaranteed = await sync_to_async(
+                lambda: Container.objects.filter(
+                    container_number=container_number,
+                    is_expiry_guaranteed=True
+                ).exists()
+            )()
+            if is_expiry_guaranteed:
+                priority = "P2"
+            else:
+                has_shipment = await sync_to_async(
+                    lambda: (
+                        PackingList.objects.filter(
+                            container_number__container_number=container_number,
+                            shipment_batch_number__isnull=False
+                        ).exists()
+                        or
+                        Pallet.objects.filter(
+                            container_number__container_number=container_number,
+                            shipment_batch_number__isnull=False
+                        ).exists()
+                    )
+                )()
+                priority = "P3" if has_shipment else "P4"
+        await sync_to_async(
+            lambda: Order.objects.filter(
+                container_number__container_number=container_number
+            ).update(unpacking_priority=priority)
+        )()
 
     async def handle_peer_po_save(
         self, request: HttpRequest
@@ -996,7 +1034,7 @@ class OrderCreation(View):
             'warehouse': warehouse,
             'add_to_t49': 'True',
             "packing_list_updloaded": True,
-            "unpacking_priority": 'P4',
+            "unpacking_priority": 'P4',  #因为这是同行的货，都是卡派，默认就是P4，等到录完数据有约时，会自动判断改成P3
         }
         order = Order(**order_data)
         await sync_to_async(container.save)()
@@ -1464,13 +1502,9 @@ class OrderCreation(View):
             await sync_to_async(bulk_create_with_history)(pl_to_create, PackingList)
             # await sync_to_async(PackingList.objects.bulk_create)(pl_to_create)
             order.packing_list_updloaded = True
-            delivery_methods = request.POST.getlist("delivery_method")
-            is_priority = any(
-                "UPS" in method or "FEDEX" in method for method in delivery_methods
-            )
-            if is_priority:
-                order.unpacking_priority = "P1"
             await sync_to_async(order.save)()
+            #每次更新pl清单，就判断柜子优先级
+            await self._update_container_unpacking_priority(container_number)
         # 查找新建的pl，和现在的pocheck比较，如果内容没有变化，pocheck该记录不变，如果有变化就对应修改
 
         # 因为上面已经将新的packing_list存到表里，所以直接去pl表查
