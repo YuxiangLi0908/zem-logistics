@@ -13,10 +13,12 @@ from itertools import chain
 from typing import Any
 from itertools import groupby
 from operator import attrgetter
+
+from asgiref.sync import sync_to_async, async_to_sync
 from django.db import transaction
 from django.db.models.fields.json import KeyTextTransform
 from django.core.paginator import Paginator
-
+import time
 
 import openpyxl
 import openpyxl.workbook
@@ -56,6 +58,7 @@ from office365.sharepoint.client_context import ClientContext
 from office365.sharepoint.sharing.links.kind import SharingLinkKind
 from openpyxl.styles import Alignment, Border, Font, PatternFill, Side, numbers
 from simple_history.utils import bulk_create_with_history, bulk_update_with_history
+from sqlalchemy.util import await_only
 
 from warehouse.forms.order_form import OrderForm
 from warehouse.models.container import Container
@@ -3873,6 +3876,112 @@ class Accounting(View):
         }
         return self.template_invoice_warehouse_edit, context
 
+    def get_orders(self, criteria):
+        """审核应付看到的"""
+        payable_preport_subq = InvoicePreport.objects.filter(
+            invoice_number=OuterRef("invoice_id"),
+            invoice_type="payable"
+        ).only("pickup", "over_weight", "chassis", "demurrage", "per_diem", "other_fees")
+
+        warehouse_subq = InvoiceWarehouse.objects.filter(
+            invoice_number=OuterRef("invoice_id"),
+            invoice_type="payable"
+        ).annotate(
+            total_fee=Coalesce(F('palletization_fee'), 0.0) + Coalesce(F('arrive_fee'), 0.0)
+        ).only("total_fee", "other_fees")
+
+        order_pending = (
+            Order.objects.select_related(
+                "customer_name",
+                "container_number",
+                "invoice_id",
+                "retrieval_id",
+                "vessel_id",
+                "payable_status"
+            )
+            .filter(
+                criteria,
+                payable_status__stage="preport",
+                payable_status__invoice_type="payable"
+            )
+            .annotate(
+                reject_priority=Case(
+                    When(payable_status__is_rejected=True, then=Value(1)),
+                    default=Value(2),
+                    output_field=IntegerField(),
+                ),
+                basic_fee=Coalesce(
+                    Cast(Subquery(payable_preport_subq.values("pickup")[:1]), FloatField()),
+                    0.0
+                ),
+                overweight_fee=Coalesce(
+                    Cast(Subquery(payable_preport_subq.values("over_weight")[:1]), FloatField()),
+                    0.0
+                ),
+                chassis_fee=Coalesce(
+                    Cast(Subquery(payable_preport_subq.values("chassis")[:1]), FloatField()),
+                    0.0
+                ),
+                demurrage_fee=Coalesce(
+                    Cast(Subquery(payable_preport_subq.values("demurrage")[:1]), FloatField()),
+                    0.0
+                ),
+                per_diem_fee=Coalesce(
+                    Cast(Subquery(payable_preport_subq.values("per_diem")[:1]), FloatField()),
+                    0.0
+                ),
+                palletization_fee=Coalesce(
+                    Cast(Subquery(warehouse_subq.values("total_fee")[:1]), FloatField()),
+                    0.0
+                ),
+                total_amount=Coalesce(
+                    Cast(F("invoice_id__payable_total_amount"), FloatField()),
+                    0.0
+                ),
+                preport_other_fees=Subquery(payable_preport_subq.values("other_fees")[:1]),
+                warehouse_other_fees=Subquery(warehouse_subq.values("other_fees")[:1])
+            )
+            .order_by("reject_priority")
+        )
+
+        orders = list(order_pending.iterator(chunk_size=200))
+
+        def parse_fee_data(data):
+            """提取other_fee的工具函数，减少重复代码"""
+            if not data:
+                return {}
+            try:
+                parsed = json.loads(data) if isinstance(data, str) else data
+                return parsed.get("other_fee", {}) if isinstance(parsed, dict) else {}
+            except (json.JSONDecodeError, TypeError):
+                return {}
+
+        for order in orders:
+            preport_fees = order.preport_other_fees
+            warehouse_fees = order.warehouse_other_fees
+            order.other_fee = {
+                **parse_fee_data(preport_fees), **parse_fee_data(warehouse_fees)
+            }
+
+        # 已审核账单查询
+        pre_order_pending = Order.objects.select_related(
+            "customer_name",
+            "container_number",
+            "invoice_id",
+            "invoice_id__statement_id",
+            "payable_status",
+            "vessel_id",
+        ).filter(
+            criteria,
+            payable_status__stage__in=["tobeconfirmed", "confirmed"],
+            payable_status__isnull=False,
+        ).only(
+            "id", "customer_name", "container_number", "invoice_id",
+            "payable_status", "vessel_id"
+        )
+
+        return orders, pre_order_pending
+
     def handle_invoice_payable_get(
         self,
         request: HttpRequest,
@@ -3941,130 +4050,7 @@ class Accounting(View):
         is_payable_check = self._validate_user_invoice_payable_check(request.user)
         if is_payable_check:  # 审核应付看到的
             #将应付的费用直接加到审核的列表上
-            payable_preport = InvoicePreport.objects.filter(
-                invoice_number=OuterRef("invoice_id"),
-                invoice_type="payable"
-            )
-            
-            order_pending = (
-                Order.objects.select_related(
-                    "customer_name",
-                    "container_number",
-                    "invoice_id",
-                    "invoice_id__statement_id",
-                    "retrieval_id",
-                    "vessel_id",
-                )
-                .filter(
-                    criteria,
-                    models.Q(**{"payable_status__stage": "preport"}),
-                )
-                .annotate(
-                    reject_priority=Case(
-                        When(payable_status__is_rejected=True, then=Value(1)),
-                        default=Value(2),
-                        output_field=IntegerField(),
-                    ),
-                    basic_fee=Coalesce(
-                        Cast(Subquery(payable_preport.values("pickup")[:1]), FloatField()),
-                        Value(0.0),
-                        output_field=FloatField(),
-                    ),
-                    overweight_fee=Coalesce(
-                        Cast(Subquery(payable_preport.values("over_weight")[:1]), FloatField()),
-                        Value(0.0),
-                        output_field=FloatField(),
-                    ),
-                    chassis_fee=Coalesce(
-                        Cast(Subquery(payable_preport.values("chassis")[:1]), FloatField()),
-                        Value(0.0),
-                        output_field=FloatField(),
-                    ),
-                    demurrage_fee=Coalesce(
-                        Cast(Subquery(payable_preport.values("demurrage")[:1]), FloatField()),
-                        Value(0.0),
-                        output_field=FloatField(),
-                    ),
-                    per_diem_fee=Coalesce(
-                        Cast(Subquery(payable_preport.values("per_diem")[:1]), FloatField()),
-                        Value(0.0),
-                        output_field=FloatField(),
-                    ),
-                    palletization_fee=Coalesce(
-                        Cast(Subquery(
-                            InvoiceWarehouse.objects.filter(
-                                invoice_number=OuterRef("invoice_id"),
-                                invoice_type="payable"
-                            ).annotate(
-                                total_fee=Coalesce(F('palletization_fee'), Value(0.0)) + 
-                                        Coalesce(F('arrive_fee'), Value(0.0))
-                            ).values('total_fee')[:1]
-                        ), FloatField()),
-                        Value(0.0),
-                        output_field=FloatField()
-                    ),
-                    total_amount=Coalesce(
-                        Cast(F("invoice_id__payable_total_amount"), FloatField()),
-                        Value(0.0),
-                        output_field=FloatField(),
-                    ),
-                    preport_other_fees=Subquery(
-                        InvoicePreport.objects.filter(
-                            invoice_number=OuterRef("invoice_id"),
-                            invoice_type="payable"
-                        ).values("other_fees")[:1]
-                    ),
-                    warehouse_other_fees=Subquery(
-                        InvoiceWarehouse.objects.filter(
-                            invoice_number=OuterRef("invoice_id"),
-                            invoice_type="payable"
-                        ).values("other_fees")
-                    ),
-                )
-                .distinct()
-                .order_by("reject_priority")
-            )
-            orders = list(order_pending)
-
-            for o in orders:
-                preport_data = getattr(o, "preport_other_fees", None)
-                warehouse_data = getattr(o, "warehouse_other_fees", None)
-
-                try:
-                    preport_data = json.loads(preport_data) if isinstance(preport_data, str) else (preport_data or {})
-                except Exception:
-                    preport_data = {}
-                try:
-                    warehouse_data = json.loads(warehouse_data) if isinstance(warehouse_data, str) else (warehouse_data or {})
-                except Exception:
-                    warehouse_data = {}
-
-                # 只取里面的 "other_fee" 子字段
-                preport_other = preport_data.get("other_fee", {}) if isinstance(preport_data, dict) else {}
-                warehouse_other = warehouse_data.get("other_fee", {}) if isinstance(warehouse_data, dict) else {}
-
-                merged = {}
-                merged.update(preport_other)
-                merged.update(warehouse_other)
-
-                # 给对象动态加属性，前端直接用 c.other_fee
-                o.other_fee = merged
-            #已审核账单
-            pre_order_pending = Order.objects.select_related(
-                "customer_name",
-                "container_number",
-                "invoice_id",
-                "invoice_id__statement_id",
-                "payable_status",
-                "vessel_id",
-            ).filter(
-                models.Q(
-                    models.Q(payable_status__stage="tobeconfirmed")
-                    | models.Q(payable_status__stage="confirmed")
-                ),
-                criteria,
-                payable_status__isnull=False,
-            )
+            orders, pre_order_pending =self.get_orders(criteria)
 
         if not is_payable_check or request.user.is_staff:
             # 查找客服已录入账单
