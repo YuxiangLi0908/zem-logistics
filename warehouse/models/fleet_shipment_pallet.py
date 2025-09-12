@@ -5,6 +5,7 @@ from warehouse.models.fleet import Fleet
 from warehouse.models.pallet import Pallet
 from warehouse.models.shipment import Shipment
 from warehouse.models.transfer_location import TransferLocation
+
 from .container import Container
 
 

@@ -278,13 +278,13 @@ class PO(View):
     ) -> dict[str, dict]:
         today = datetime.now()
         if "eta" in flag:
-            print('eta')
+            print("eta")
             query = (
                 models.Q(last_eta_checktime__isnull=True)
                 & models.Q(vessel_eta__lte=today + timedelta(days=7))
                 & models.Q(vessel_eta__gte=today)
                 & models.Q(ref_id__isnull=False)
-                & ~models.Q(ref_id="") 
+                & ~models.Q(ref_id="")
             )
             area = request.POST.get("area")
             query &= models.Q(
@@ -321,7 +321,7 @@ class PO(View):
                 models.Q(last_retrieval_checktime__isnull=True)
                 & models.Q(vessel_eta__lte=today + timedelta(days=7))
                 & models.Q(ref_id__isnull=False)
-                & ~models.Q(ref_id="") 
+                & ~models.Q(ref_id="")
                 & models.Q(
                     container_number__order__retrieval_id__target_retrieval_timestamp__gte=today
                 )
@@ -365,7 +365,7 @@ class PO(View):
                     container_number__order__retrieval_id__retrieval_destination_area=area
                 )
             query &= models.Q(ref_id__isnull=False)
-            query &= ~models.Q(ref_id="") 
+            query &= ~models.Q(ref_id="")
             po_checks = await sync_to_async(PoCheckEtaSeven.objects.filter)(query)
             po_checks_list = await sync_to_async(list)(po_checks)
             po_checks_list.sort(key=lambda po: po.is_notified)
@@ -511,7 +511,11 @@ class PO(View):
                                 po_check_dict = {
                                     "container_number": container_number,
                                     "customer_name": order.customer_name,
-                                    "vessel_eta": order.vessel_id.vessel_eta.date() if order.vessel_id.vessel_eta else None,
+                                    "vessel_eta": (
+                                        order.vessel_id.vessel_eta.date()
+                                        if order.vessel_id.vessel_eta
+                                        else None
+                                    ),
                                     "packing_list": pl,
                                     "time_status": False,
                                     "destination": pl.destination,
@@ -536,7 +540,11 @@ class PO(View):
                                     po_check_dict = {
                                         "container_number": container_number,
                                         "customer_name": order.customer_name,
-                                        "vessel_eta": order.vessel_id.vessel_eta.date() if order.vessel_id.vessel_eta else None,
+                                        "vessel_eta": (
+                                            order.vessel_id.vessel_eta.date()
+                                            if order.vessel_id.vessel_eta
+                                            else None
+                                        ),
                                         "packing_list": pl,
                                         "time_status": False,
                                         "destination": pl.destination,
@@ -555,7 +563,11 @@ class PO(View):
                             po_check_dict = {
                                 "container_number": container_number,
                                 "customer_name": order.customer_name,
-                                "vessel_eta": order.vessel_id.vessel_eta.date() if order.vessel_id.vessel_eta else None,
+                                "vessel_eta": (
+                                    order.vessel_id.vessel_eta.date()
+                                    if order.vessel_id.vessel_eta
+                                    else None
+                                ),
                                 "packing_list": pl,
                                 "time_status": True,
                                 "destination": pl.destination,
@@ -608,9 +620,7 @@ class PO(View):
                 container_number__order__vessel_id__vessel_eta__lte=end_date
             )
         if destination:
-            criteria &= models.Q(
-                destination=destination
-            )
+            criteria &= models.Q(destination=destination)
         packing_list = (
             PackingList.objects.select_related(
                 "container_number",
@@ -710,7 +720,7 @@ class PO(View):
             "start_date": start_date,
             "end_date": end_date,
             "container_number": container_number,
-            "destination":destination
+            "destination": destination,
         }
         return context
 

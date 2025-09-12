@@ -6,26 +6,38 @@ from django.db import migrations, models
 class Migration(migrations.Migration):
 
     dependencies = [
-        ('warehouse', '0215_historicalinvoicestatus_statuses_and_more'),
+        ("warehouse", "0215_historicalinvoicestatus_statuses_and_more"),
     ]
 
     operations = [
         migrations.RemoveField(
-            model_name='historicalinvoicestatus',
-            name='statuses',
+            model_name="historicalinvoicestatus",
+            name="statuses",
         ),
         migrations.RemoveField(
-            model_name='invoicestatus',
-            name='statuses',
+            model_name="invoicestatus",
+            name="statuses",
         ),
         migrations.AddField(
-            model_name='historicalinvoicestatus',
-            name='payable_status',
-            field=models.JSONField(default={'delivery': 'pending', 'pickup': 'pending', 'warehouse': 'pending'}),
+            model_name="historicalinvoicestatus",
+            name="payable_status",
+            field=models.JSONField(
+                default={
+                    "delivery": "pending",
+                    "pickup": "pending",
+                    "warehouse": "pending",
+                }
+            ),
         ),
         migrations.AddField(
-            model_name='invoicestatus',
-            name='payable_status',
-            field=models.JSONField(default={'delivery': 'pending', 'pickup': 'pending', 'warehouse': 'pending'}),
+            model_name="invoicestatus",
+            name="payable_status",
+            field=models.JSONField(
+                default={
+                    "delivery": "pending",
+                    "pickup": "pending",
+                    "warehouse": "pending",
+                }
+            ),
         ),
     ]

@@ -138,7 +138,7 @@
             <h5 class="mb-0 d-flex align-items-center">
                 <i class="bi bi-cash-stack me-1"></i>
                 应付费用账单: $        
-                {% if not is_save_invoice or reject_reason %}     
+                {% if not is_confirm %}     
                     <span id="totalAmountDisplay" name="totalAmountDisplay" class="mx-1">0.0</span>
                 {% else %}
                     <span> {{ payable_total_amount }} </span>
@@ -149,7 +149,18 @@
                 {% if is_save_invoice %} （已存数据）{% else %}（报价表计算）{% endif %}
             </span>            
             
-            {% if not is_save_invoice or reject_reason %} 
+            {% if is_confirm %}
+                <!-- 已审核/已录入页面：只显示返回按钮 -->
+                <button type="submit" class="btn btn-success btn-sm" onclick="modifyStatus('return')">
+                    <i class="bi bi-arrow-left-circle me-1"></i>返回
+                </button>
+            {% elif not is_save_invoice %}
+                <div class="d-flex align-items-center">
+                    <button type="submit" class="btn btn-success btn-sm me-2" onclick="modifyStatus('complete')">
+                        <i class="bi bi-check-circle me-1"></i>确认账单1
+                    </button>
+                </div>
+            {% elif is_save_invoice and is_rejected%}
                 <!--客服看到的-->
                 <button type="submit" class="btn btn-success btn-sm" onclick="modifyStatus('complete')">
                     <i class="bi bi-check-circle me-1"></i>确认账单
@@ -165,50 +176,25 @@
                     </div>
                 {% endif %}
             {% else %}
-                {% if not account_confirm %}
-                    {% if not payable_check %}
-                        <button type="submit" class="btn btn-success btn-sm me-3" onclick="modifyStatus('return')">
-                            <i class="bi bi-check-circle me-1"></i>返回
-                        </button>
-                    {% else %}
-                        <div class="d-flex align-items-stretch" style="gap: 1rem;">
-                            <div class="d-flex align-items-center position-relative">
-                                <button type="submit" class="btn btn-danger btn-sm px-3" onclick="modifyStatus('reject_check')">
-                                    <i class="bi bi-x-circle me-1"></i>初级审核驳回
-                                </button>
-                                
-                                <div class="mx-3" style="width: 200px;">
-                                    <input type="text" class="form-control form-control-sm" 
-                                        placeholder="请输入驳回原因" name="reject_reason">
-                                </div>
-                                
-                                <div class="vr mx-2" style="height: 30px;"></div>
-                                
-                                <button type="submit" class="btn btn-success btn-sm px-3" onclick="modifyStatus('check_confirm')">
-                                    <i class="bi bi-check-circle me-1"></i>初级审核通过
-                                </button>
+                {% if user_is_leader %}
+                    <div class="d-flex align-items-stretch" style="gap: 1rem;">
+                        <div class="d-flex align-items-center position-relative">
+                            <button type="submit" class="btn btn-danger btn-sm px-3" onclick="modifyStatus('reject_check')">
+                                <i class="bi bi-x-circle me-1"></i>初级审核驳回
+                            </button>
+                            
+                            <div class="mx-3" style="width: 200px;">
+                                <input type="text" class="form-control form-control-sm" 
+                                    placeholder="请输入驳回原因" name="reject_reason">
                             </div>
+                            
+                            <div class="vr mx-2" style="height: 30px;"></div>
+                            
+                            <button type="submit" class="btn btn-success btn-sm px-3" onclick="modifyStatus('check_confirm')">
+                                <i class="bi bi-check-circle me-1"></i>初级审核通过
+                            </button>
                         </div>
-                    {% endif %}
-                {% else %}
-                <div class="d-flex align-items-stretch" style="gap: 1rem;">
-                    <div class="d-flex align-items-center position-relative">
-                        <button type="submit" class="btn btn-danger btn-sm px-3" onclick="modifyStatus('reject')">
-                            <i class="bi bi-x-circle me-1"></i>财务驳回
-                        </button>
-                        
-                        <div class="mx-3" style="width: 200px;">
-                            <input type="text" class="form-control form-control-sm" 
-                                placeholder="请输入驳回原因" name="reject_reason">
-                        </div>
-                        
-                        <div class="vr mx-2" style="height: 30px;"></div>
-                        
-                        <button type="submit" class="btn btn-success btn-sm px-3" onclick="modifyStatus('account_confirm')">
-                            <i class="bi bi-check-circle me-1"></i>财务审核通过
-                        </button>
                     </div>
-                </div>
                 {% endif %}
             {% endif %}
         </div>   
@@ -260,7 +246,7 @@
                                 <small class="fee-detail">基础费用</small>
                             </td>
                             <td class="text-end fee-amount">
-                                {% if is_save_invoice and not reject_reason %}
+                                {% if not is_editable %}
                                     <span class="readonly-amount">{{ basic_fee|floatformat:2 }}</span>
                                 {% else %}
                                     <input type="text" name="basic_fee" value="{{ basic_fee }}" oninput="calculateTotal()">
@@ -280,7 +266,7 @@
                                 <small class="fee-detail">{{ chassis_comment }}</small>
                             </td>
                             <td class="text-end fee-amount">
-                                {% if is_save_invoice and not reject_reason %}
+                                {% if not is_editable %}
                                     <span class="readonly-amount">{{ chassis_fee|floatformat:2 }}</span>
                                 {% else %}
                                     <input type="text" name="chassis_fee" value="{{ chassis_fee }}" oninput="calculateTotal()">

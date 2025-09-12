@@ -54,7 +54,7 @@ class Order(models.Model):
     cancel_notification = models.BooleanField(default=False)
     cancel_time = models.DateField(null=True, blank=True)
     # 标记当前账单状态
-    invoice_status = models.CharField(max_length=255, null=True, default='unrecorded')
+    invoice_status = models.CharField(max_length=255, null=True, default="unrecorded")
     # 标记当前状态是否被上一步驳回
     invoice_reject = models.BooleanField(default=False)
     invoice_reject_reason = models.CharField(max_length=255, null=True, blank=True)
@@ -77,9 +77,14 @@ class Order(models.Model):
     )
     unpacking_priority = models.CharField(
         max_length=10,
-        choices=[('P1', 'P1（最高）'), ('P2', 'P2（高）'), ('P3', 'P3（中）'), ('P4', 'P4（低）')],
-        default='P4',
-        verbose_name='拆柜优先等级'
+        choices=[
+            ("P1", "P1（最高）"),
+            ("P2", "P2（高）"),
+            ("P3", "P3（中）"),
+            ("P4", "P4（低）"),
+        ],
+        default="P4",
+        verbose_name="拆柜优先等级",
     )
     history = HistoricalRecords()
 

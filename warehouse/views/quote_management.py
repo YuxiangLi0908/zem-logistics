@@ -88,7 +88,9 @@ class QuoteManagement(View):
 
     def handle_quote_master_get(self, request: HttpRequest) -> dict[str, Any]:
         # 查询历史版本
-        quotes = QuotationMaster.objects.filter(quote_type="receivable").order_by('-effective_date')
+        quotes = QuotationMaster.objects.filter(quote_type="receivable").order_by(
+            "-effective_date"
+        )
         context = {"order_form": OrderForm(), "quotes": quotes}
         return self.template_quote_master, context
 
@@ -392,7 +394,11 @@ class QuoteManagement(View):
         current_prices = None
         for index, row in df.iloc[1:].iterrows():
             if pd.notna(row.iloc[1]):
-                if pd.notna(row.iloc[2]) and pd.notna(row.iloc[3]) and pd.notna(row.iloc[4]):  # 如果值不为空，说明是一个新的价格组
+                if (
+                    pd.notna(row.iloc[2])
+                    and pd.notna(row.iloc[3])
+                    and pd.notna(row.iloc[4])
+                ):  # 如果值不为空，说明是一个新的价格组
                     if (
                         len(group) > 0
                     ):  # 首先要判断下，如果这是一个新价格组，且已经记录了上一个价格组，先存储上一组价格组
@@ -414,10 +420,10 @@ class QuoteManagement(View):
                         region if pd.isna(row.iloc[0]) else row.iloc[0]
                     )  # A区B区这种是外键
                     current_prices = [row.iloc[2], row.iloc[3], row.iloc[4]]
-                    group_partial = row.iloc[1].replace('\n', '/').split('/')
+                    group_partial = row.iloc[1].replace("\n", "/").split("/")
                     group.extend(group_partial)
                 else:  # 如果这一行的价格已记录，直接加仓库代码就可以
-                    group_partial = row.iloc[1].replace('\n', '/').split('/')
+                    group_partial = row.iloc[1].replace("\n", "/").split("/")
                     group.extend(group_partial)
 
         if region and current_prices and group:
@@ -614,8 +620,8 @@ class QuoteManagement(View):
             "warehouse": None,  # 目的港
             "warehouse_precise": None,  # 仓点
             "carrier": None,  # 供应商
-            "price": None, #报价
-            "chassis": None, #等候费
+            "price": None,  # 报价
+            "chassis": None,  # 等候费
         }
         for col_idx, cell in enumerate(df.iloc[header_row_idx]):
             if col_idx > max_col:
@@ -660,11 +666,9 @@ class QuoteManagement(View):
                     if part.isdigit():  # 如果是纯数字
                         nums.append(part)
                     else:  # 如果不是纯数字（如 ONT8），提取末尾的数字
-                        nums.append(
-                            "".join([char for char in part if char.isdigit()])
-                        )
+                        nums.append("".join([char for char in part if char.isdigit()]))
                 # 组合前缀和数字
-                warehouse_list.extend([f"{prefix}{num}" for num in nums])      
+                warehouse_list.extend([f"{prefix}{num}" for num in nums])
                 for wh in warehouse_list:
                     result[warehouse][wh][carrier] = {
                         "price": float(price),
@@ -823,7 +827,12 @@ class QuoteManagement(View):
         fee_detail.save()
 
     def process_combine_stipulate(self, df, file, quote):
-        result = {"global_rules": {}, "warehouse_pricing": {}, "special_warehouse": {}, "tiered_pricing": {}}
+        result = {
+            "global_rules": {},
+            "warehouse_pricing": {},
+            "special_warehouse": {},
+            "tiered_pricing": {},
+        }
         current_section = None
         for index, row in df.iterrows():
             if pd.notna(row.iloc[0]) and "▶" in str(row.iloc[0]):
@@ -883,7 +892,7 @@ class QuoteManagement(View):
                     "destination": [destination],  # 始终存储为列表
                     "multiplier": multiplier,
                 }
-            elif current_section == "tiered_pricing":  #LA附加的超出仓点数量加收费用
+            elif current_section == "tiered_pricing":  # LA附加的超出仓点数量加收费用
                 warehouse = str(row.iloc[0])
                 min_points = str(row.iloc[1])
                 max_points = str(row.iloc[2])
@@ -893,7 +902,7 @@ class QuoteManagement(View):
                     "min_points": min_points,
                     "max_points": max_points,
                     "fee": fee,
-                    "note": note
+                    "note": note,
                 }
                 if warehouse not in result["tiered_pricing"]:
                     result["tiered_pricing"][warehouse] = []
@@ -1066,7 +1075,7 @@ class QuoteManagement(View):
                 else:
                     result.append(loc)
         return result
-        
+
     def handle_upload_payable_quote_post(self, request: HttpRequest) -> dict[str, Any]:
         order_form = OrderForm(request.POST)
         effective_date = request.POST.get("effective_date")
@@ -1144,7 +1153,7 @@ class QuoteManagement(View):
             file = request.FILES["file"]
             excel_file = pd.ExcelFile(file)
 
-            #因为7/15之后的组合柜报价格式变了，所以需要判断一下
+            # 因为7/15之后的组合柜报价格式变了，所以需要判断一下
             la_combina_handler = self.process_la_combina_sheet
             effective_date_obj = datetime.strptime(effective_date, "%Y-%m-%d").date()
             cutoff_date = datetime.strptime("2025-07-15", "%Y-%m-%d").date()

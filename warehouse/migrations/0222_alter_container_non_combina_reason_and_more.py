@@ -6,18 +6,18 @@ from django.db import migrations, models
 class Migration(migrations.Migration):
 
     dependencies = [
-        ('warehouse', '0221_alter_historicalorder_unpacking_priority_and_more'),
+        ("warehouse", "0221_alter_historicalorder_unpacking_priority_and_more"),
     ]
 
     operations = [
         migrations.AlterField(
-            model_name='container',
-            name='non_combina_reason',
+            model_name="container",
+            name="non_combina_reason",
             field=models.CharField(blank=True, max_length=255, null=True),
         ),
         migrations.AlterField(
-            model_name='historicalcontainer',
-            name='non_combina_reason',
+            model_name="historicalcontainer",
+            name="non_combina_reason",
             field=models.CharField(blank=True, max_length=255, null=True),
         ),
     ]

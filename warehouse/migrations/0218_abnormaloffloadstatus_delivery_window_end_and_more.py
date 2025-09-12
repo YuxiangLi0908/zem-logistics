@@ -6,28 +6,28 @@ from django.db import migrations, models
 class Migration(migrations.Migration):
 
     dependencies = [
-        ('warehouse', '0217_historicalpackinglist_delivery_window_end_and_more'),
+        ("warehouse", "0217_historicalpackinglist_delivery_window_end_and_more"),
     ]
 
     operations = [
         migrations.AddField(
-            model_name='abnormaloffloadstatus',
-            name='delivery_window_end',
+            model_name="abnormaloffloadstatus",
+            name="delivery_window_end",
             field=models.DateField(blank=True, null=True),
         ),
         migrations.AddField(
-            model_name='abnormaloffloadstatus',
-            name='delivery_window_start',
+            model_name="abnormaloffloadstatus",
+            name="delivery_window_start",
             field=models.DateField(blank=True, null=True),
         ),
         migrations.AddField(
-            model_name='historicalabnormaloffloadstatus',
-            name='delivery_window_end',
+            model_name="historicalabnormaloffloadstatus",
+            name="delivery_window_end",
             field=models.DateField(blank=True, null=True),
         ),
         migrations.AddField(
-            model_name='historicalabnormaloffloadstatus',
-            name='delivery_window_start',
+            model_name="historicalabnormaloffloadstatus",
+            name="delivery_window_start",
             field=models.DateField(blank=True, null=True),
         ),
     ]
