@@ -2343,3 +2343,8 @@ IUTI:
   location: 1901 California St
   state: CA
   zipcode: '92374'
+ABQ2:
+  city: Los Lunas
+  location: 6251 Pioneer Trl NW
+  state: NM
+  zipcode: '87031'
