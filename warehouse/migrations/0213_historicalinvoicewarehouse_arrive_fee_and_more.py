@@ -6,38 +6,38 @@ from django.db import migrations, models
 class Migration(migrations.Migration):
 
     dependencies = [
-        ('warehouse', '0212_container_non_combina_reason_and_more'),
+        ("warehouse", "0212_container_non_combina_reason_and_more"),
     ]
 
     operations = [
         migrations.AddField(
-            model_name='historicalinvoicewarehouse',
-            name='arrive_fee',
-            field=models.FloatField(blank=True, null=True, verbose_name='应付入库费'),
+            model_name="historicalinvoicewarehouse",
+            name="arrive_fee",
+            field=models.FloatField(blank=True, null=True, verbose_name="应付入库费"),
         ),
         migrations.AddField(
-            model_name='historicalinvoicewarehouse',
-            name='carrier',
+            model_name="historicalinvoicewarehouse",
+            name="carrier",
             field=models.CharField(blank=True, max_length=255, null=True),
         ),
         migrations.AddField(
-            model_name='historicalinvoicewarehouse',
-            name='palletization_fee',
-            field=models.FloatField(blank=True, null=True, verbose_name='应付拆柜费'),
+            model_name="historicalinvoicewarehouse",
+            name="palletization_fee",
+            field=models.FloatField(blank=True, null=True, verbose_name="应付拆柜费"),
         ),
         migrations.AddField(
-            model_name='invoicewarehouse',
-            name='arrive_fee',
-            field=models.FloatField(blank=True, null=True, verbose_name='应付入库费'),
+            model_name="invoicewarehouse",
+            name="arrive_fee",
+            field=models.FloatField(blank=True, null=True, verbose_name="应付入库费"),
         ),
         migrations.AddField(
-            model_name='invoicewarehouse',
-            name='carrier',
+            model_name="invoicewarehouse",
+            name="carrier",
             field=models.CharField(blank=True, max_length=255, null=True),
         ),
         migrations.AddField(
-            model_name='invoicewarehouse',
-            name='palletization_fee',
-            field=models.FloatField(blank=True, null=True, verbose_name='应付拆柜费'),
+            model_name="invoicewarehouse",
+            name="palletization_fee",
+            field=models.FloatField(blank=True, null=True, verbose_name="应付拆柜费"),
         ),
     ]

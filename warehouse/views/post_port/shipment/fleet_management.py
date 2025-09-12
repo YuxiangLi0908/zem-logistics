@@ -2,17 +2,17 @@ import ast
 import base64
 import io
 import json
-import chardet
 import os
 import re
 import uuid
-import openpyxl
 from datetime import datetime, timedelta
 from typing import Any
 
 import barcode
+import chardet
 import matplotlib
 import matplotlib.pyplot as plt
+import openpyxl
 import pandas as pd
 import pytz
 from asgiref.sync import sync_to_async
@@ -48,20 +48,23 @@ from xhtml2pdf import pisa
 from warehouse.forms.upload_file import UploadFileForm
 from warehouse.forms.warehouse_form import ZemWarehouseForm
 from warehouse.models.fleet import Fleet
+from warehouse.models.fleet_shipment_pallet import FleetShipmentPallet
 from warehouse.models.order import Order
 from warehouse.models.packing_list import PackingList
 from warehouse.models.pallet import Pallet
 from warehouse.models.retrieval import Retrieval
 from warehouse.models.shipment import Shipment
 from warehouse.models.warehouse import ZemWarehouse
-from warehouse.models.fleet_shipment_pallet import FleetShipmentPallet
 from warehouse.utils.constants import (
     APP_ENV,
     DELIVERY_METHOD_OPTIONS,
+    SP_CLIENT_ID,
     SP_DOC_LIB,
-    SP_PASS,
+    SP_PRIVATE_KEY,
+    SP_SCOPE,
+    SP_TENANT,
+    SP_THUMBPRINT,
     SP_URL,
-    SP_USER,
     SYSTEM_FOLDER,
 )
 from warehouse.views.export_file import link_callback
@@ -102,7 +105,12 @@ class FleetManagement(View):
         "MO-62025": "MO-62025",
         "TX-77503": "TX-77503",
     }
-    shipment_type_options = {"": "", "FTL/LTL": "FTL/LTL", "外配": "外配", "快递": "快递"}
+    shipment_type_options = {
+        "": "",
+        "FTL/LTL": "FTL/LTL",
+        "外配": "外配",
+        "快递": "快递",
+    }
     abnormal_fleet_options = {
         "": "",
         "司机未按时提货": "司机未按时提货",
@@ -142,7 +150,7 @@ class FleetManagement(View):
         elif step == "pod_upload":
             template, context = await self.handle_pod_upload_get(request)
             return render(request, template, context)
-        elif step =="fleet_cost_record":
+        elif step == "fleet_cost_record":
             template, context = await self.handle_fleet_cost_record_get(request)
             return render(request, template, context)
         else:
@@ -212,7 +220,7 @@ class FleetManagement(View):
             return await self._export_ltl_label(request)
         elif step == "download_LTL_BOL":
             return await self._export_ltl_bol(request)
-        elif step =="fleet_cost_record":
+        elif step == "fleet_cost_record":
             template, context = await self.handle_fleet_cost_record_get(request)
             return render(request, template, context)
         elif step == "fleet_cost_confirm":
@@ -221,7 +229,7 @@ class FleetManagement(View):
         elif step == "upload_fleet_cost":
             template, context = await self.handle_upload_fleet_cost_get(request)
             return render(request, template, context)
-        elif step =="download_fleet_cost_template":
+        elif step == "download_fleet_cost_template":
             return await self.handle_fleet_cost_export(request)
         else:
             return await self.get(request)
@@ -357,7 +365,7 @@ class FleetManagement(View):
                 "shipment_batch_number__fleet_number__carrier",
                 "shipment_batch_number__fleet_number__appointment_datetime",
                 "address",
-                "slot"
+                "slot",
             )
             .annotate(
                 total_pcs=Sum("pcs", distinct=True),
@@ -626,20 +634,22 @@ class FleetManagement(View):
             "area": area,
         }
         return self.template_delivery_and_pod, context
-    
+
     async def handle_fleet_cost_export(self, request: HttpRequest) -> HttpResponse:
         wb = openpyxl.Workbook()
         ws = wb.active
         ws.title = "Fleet Cost Template"
         headers = ["PickUp Number", "出库批次", "预约批次", "费用"]
         ws.append(headers)
-        
+
         response = HttpResponse(
             content_type="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
         )
-        response["Content-Disposition"] = "attachment; filename=fleet_cost_template.xlsx"
+        response["Content-Disposition"] = (
+            "attachment; filename=fleet_cost_template.xlsx"
+        )
         wb.save(response)
-        
+
         return response
 
     def read_csv_smart(self, file) -> pd.DataFrame:
@@ -664,7 +674,7 @@ class FleetManagement(View):
                 except UnicodeDecodeError:
                     continue
             raise RuntimeError("无法识别文件编码，请检查文件格式！")
-          
+
     async def handle_upload_fleet_cost_get(
         self, request: HttpRequest
     ) -> tuple[Any, Any]:
@@ -674,62 +684,100 @@ class FleetManagement(View):
             df = pd.read_excel(file)
             if "PickUp Number" in df.columns and "费用" in df.columns:
                 valid_rows = [
-                    (str(row["PickUp Number"]).strip() if pd.notna(row["PickUp Number"]) else "",
-                    str(row["出库批次"]).strip() if pd.notna(row["出库批次"]) else "",
-                    str(row["预约批次"]).strip() if pd.notna(row["预约批次"]) else "",
-                    float(row["费用"]) if pd.notna(row["费用"]) else 0.0  # 假设费用可以为0
-                )
-                for _, row in df.iterrows()
-                # 满足：费用存在 或 (PickUp Number/出库批次/预约批次 至少一个存在)
-                if pd.notna(row["费用"]) or any([
-                    pd.notna(row.get("PickUp Number")),
-                    pd.notna(row.get("出库批次")),
-                    pd.notna(row.get("预约批次"))
-                ])
+                    (
+                        (
+                            str(row["PickUp Number"]).strip()
+                            if pd.notna(row["PickUp Number"])
+                            else ""
+                        ),
+                        (
+                            str(row["出库批次"]).strip()
+                            if pd.notna(row["出库批次"])
+                            else ""
+                        ),
+                        (
+                            str(row["预约批次"]).strip()
+                            if pd.notna(row["预约批次"])
+                            else ""
+                        ),
+                        (
+                            float(row["费用"]) if pd.notna(row["费用"]) else 0.0
+                        ),  # 假设费用可以为0
+                    )
+                    for _, row in df.iterrows()
+                    # 满足：费用存在 或 (PickUp Number/出库批次/预约批次 至少一个存在)
+                    if pd.notna(row["费用"])
+                    or any(
+                        [
+                            pd.notna(row.get("PickUp Number")),
+                            pd.notna(row.get("出库批次")),
+                            pd.notna(row.get("预约批次")),
+                        ]
+                    )
                 ]
             else:
-                raise ValueError(f"Missing required columns. Found: {df.columns.tolist()}")
-            
-            for pickup_number, fleet_number, shipment_batch_number, fleet_cost in valid_rows:            
+                raise ValueError(
+                    f"Missing required columns. Found: {df.columns.tolist()}"
+                )
+
+            for (
+                pickup_number,
+                fleet_number,
+                shipment_batch_number,
+                fleet_cost,
+            ) in valid_rows:
                 if fleet_cost <= 0:
-                    raise ValueError('价格怎么是负的')
-                #更新车次表的价格
-                if pickup_number:             
-                    fleet_query = await sync_to_async(list)(Fleet.objects.filter(pickup_number=pickup_number).only('id', 'fleet_number', 'pickup_number'))
+                    raise ValueError("价格怎么是负的")
+                # 更新车次表的价格
+                if pickup_number:
+                    fleet_query = await sync_to_async(list)(
+                        Fleet.objects.filter(pickup_number=pickup_number).only(
+                            "id", "fleet_number", "pickup_number"
+                        )
+                    )
                     if len(fleet_query) > 1:
-                        raise ValueError('该PickUp Number被多个车次录入',fleet_query)
-                    fleet = await sync_to_async(Fleet.objects.get)(pickup_number=pickup_number)
+                        raise ValueError("该PickUp Number被多个车次录入", fleet_query)
+                    fleet = await sync_to_async(Fleet.objects.get)(
+                        pickup_number=pickup_number
+                    )
                 elif shipment_batch_number:
                     fleet = await sync_to_async(
-                        lambda: Shipment.objects.get(shipment_batch_number=shipment_batch_number).fleet_number
+                        lambda: Shipment.objects.get(
+                            shipment_batch_number=shipment_batch_number
+                        ).fleet_number
                     )()
                 elif fleet_number:
-                    fleet = await sync_to_async(Fleet.objects.get)(fleet_number=fleet_number)
+                    fleet = await sync_to_async(Fleet.objects.get)(
+                        fleet_number=fleet_number
+                    )
                 else:
-                    raise ValueError('缺少车次等信息')
-                
+                    raise ValueError("缺少车次等信息")
+
                 fleet.fleet_cost = fleet_cost
-                
+
                 await sync_to_async(fleet.save)()
 
-                #更新fleetshipmentpallet表
+                # 更新fleetshipmentpallet表
                 if pickup_number:
-                    criteria = models.Q(pickup_number=pickup_number)                  
+                    criteria = models.Q(pickup_number=pickup_number)
                 elif shipment_batch_number:
-                    criteria = models.Q(shipment_batch_number__shipment_batch_number=shipment_batch_number)
+                    criteria = models.Q(
+                        shipment_batch_number__shipment_batch_number=shipment_batch_number
+                    )
                 elif fleet_number:
-                    criteria = models.Q(fleet_number__fleet_number=fleet_number) 
+                    criteria = models.Q(fleet_number__fleet_number=fleet_number)
                 else:
-                    raise ValueError('缺少车次等信息')
+                    raise ValueError("缺少车次等信息")
                 fleet_shipments = await sync_to_async(
                     lambda: list(
-                        FleetShipmentPallet.objects.filter(criteria)
-                        .only("id", "total_pallet", "expense")
+                        FleetShipmentPallet.objects.filter(criteria).only(
+                            "id", "total_pallet", "expense"
+                        )
                     )
                 )()
-                
+
                 if not fleet_shipments:
-                    #如果找不到，说明这个车次，在系统上没有经过确认出库那一步，这里再补上
+                    # 如果找不到，说明这个车次，在系统上没有经过确认出库那一步，这里再补上
                     if shipment_batch_number:
                         criteria_plt = models.Q(
                             shipment_batch_number__shipment_batch_number=shipment_batch_number
@@ -744,37 +792,41 @@ class FleetManagement(View):
                         )
                     grouped_pallets = await sync_to_async(list)(
                         Pallet.objects.filter(criteria_plt)
-                        .values('shipment_batch_number', 'PO_ID', 'container_number')
-                        .annotate(actual_pallets=Count('pallet_id'))  # 计算每组的板子数量
-                        .order_by('shipment_batch_number', 'PO_ID')
+                        .values("shipment_batch_number", "PO_ID", "container_number")
+                        .annotate(
+                            actual_pallets=Count("pallet_id")
+                        )  # 计算每组的板子数量
+                        .order_by("shipment_batch_number", "PO_ID")
                     )
                     new_fleet_shipment_pallets = []
-                    for group in grouped_pallets:                      
+                    for group in grouped_pallets:
                         new_record = FleetShipmentPallet(
                             fleet_number=fleet,
                             pickup_number=fleet.pickup_number,
-                            shipment_batch_number_id=group['shipment_batch_number'], 
-                            PO_ID=group['PO_ID'],
-                            total_pallet=group['actual_pallets'],  
-                            container_number_id=group['container_number']  
+                            shipment_batch_number_id=group["shipment_batch_number"],
+                            PO_ID=group["PO_ID"],
+                            total_pallet=group["actual_pallets"],
+                            container_number_id=group["container_number"],
                         )
                         new_fleet_shipment_pallets.append(new_record)
 
                     await sync_to_async(FleetShipmentPallet.objects.bulk_create)(
-                        new_fleet_shipment_pallets,
-                        batch_size=500  
+                        new_fleet_shipment_pallets, batch_size=500
                     )
                     fleet_shipments = await sync_to_async(
                         lambda: list(
-                            FleetShipmentPallet.objects.filter(criteria)
-                            .only("id", "total_pallet", "expense")
+                            FleetShipmentPallet.objects.filter(criteria).only(
+                                "id", "total_pallet", "expense"
+                            )
                         )
                     )()
-                total_pallets = sum(fs.total_pallet for fs in fleet_shipments if fs.total_pallet)
+                total_pallets = sum(
+                    fs.total_pallet for fs in fleet_shipments if fs.total_pallet
+                )
                 if total_pallets <= 0:
                     continue
                 cost_per_pallet = fleet_cost / total_pallets
-                
+
                 updates = []
                 for shipment in fleet_shipments:
                     if shipment.total_pallet:
@@ -782,40 +834,41 @@ class FleetManagement(View):
                         updates.append(shipment)
                 if updates:
                     await sync_to_async(FleetShipmentPallet.objects.bulk_update)(
-                        updates, 
-                        ['expense']
+                        updates, ["expense"]
                     )
         return await self.handle_fleet_cost_record_get(request)
-    
+
     async def handle_fleet_cost_confirm_get(
         self, request: HttpRequest
     ) -> tuple[Any, Any]:
-        fleet_number = request.POST.get("fleet_number", "")       
+        fleet_number = request.POST.get("fleet_number", "")
         fleet_cost = float(request.POST.get("fleet_cost", ""))
         fleet = await sync_to_async(Fleet.objects.get)(fleet_number=fleet_number)
         fleet.fleet_cost = fleet_cost
         await sync_to_async(fleet.save)()
 
         fleet_shipments = await sync_to_async(list)(
-            FleetShipmentPallet.objects.filter(fleet_number__fleet_number=fleet_number)
-            .only("PO_ID", "total_pallet")
+            FleetShipmentPallet.objects.filter(
+                fleet_number__fleet_number=fleet_number
+            ).only("PO_ID", "total_pallet")
         )
-        total_pallets_in_fleet = sum([fs.total_pallet for fs in fleet_shipments if fs.total_pallet])
+        total_pallets_in_fleet = sum(
+            [fs.total_pallet for fs in fleet_shipments if fs.total_pallet]
+        )
         if total_pallets_in_fleet == 0:
-            raise ValueError('未查找该车次下的相关板子记录')
+            raise ValueError("未查找该车次下的相关板子记录")
         cost_per_pallet = fleet_cost / total_pallets_in_fleet
-        
+
         for shipment in fleet_shipments:
-            if shipment.total_pallet:  
+            if shipment.total_pallet:
                 shipment.expense = cost_per_pallet * shipment.total_pallet
 
         await sync_to_async(FleetShipmentPallet.objects.bulk_update)(
-            fleet_shipments, 
-            ['expense']
+            fleet_shipments, ["expense"]
         )
-        
-        request.POST = request.POST.copy()  
-        request.POST["fleet_number"] = "" 
+
+        request.POST = request.POST.copy()
+        request.POST["fleet_number"] = ""
         return await self.handle_fleet_cost_record_get(request)
 
     async def handle_fleet_cost_record_get(
@@ -840,7 +893,7 @@ class FleetManagement(View):
             criteria &= models.Q(shipment_batch_number=batch_number)
         if area and area is not None and area != "None":
             criteria &= models.Q(origin=area)
-        
+
         shipment = await sync_to_async(list)(
             Shipment.objects.select_related("fleet_number")
             .filter(criteria)
@@ -856,7 +909,6 @@ class FleetManagement(View):
             "area": area,
         }
         return self.template_fleet_cost_record, context
-
 
     async def handle_pod_upload_get(
         self, request: HttpRequest
@@ -1252,10 +1304,10 @@ class FleetManagement(View):
             for pl in packing_list:
                 if pl.shipping_mark:
                     pl.shipping_mark = pl.shipping_mark.replace("/", "\n")
-                
+
                 if pl.fba_id:
                     pl.fba_id = pl.fba_id.replace("/", "\n")
-                
+
                 if pl.ref_id:
                     pl.ref_id = pl.ref_id.replace("/", "\n")
         warehouse_obj = (
@@ -1281,21 +1333,27 @@ class FleetManagement(View):
         pallet = await self.pickupList_get(pickupList, fleet_number, warehouse)
         if not shipment.fleet_number:
             raise ValueError("该约未排车")
-        #判断一下是不是NJ私仓的，因为NJ私仓的要多加一列板数
+        # 判断一下是不是NJ私仓的，因为NJ私仓的要多加一列板数
         is_NJ_private = False
         pallet_count = 0
-        
+
         if "NJ" in shipment.origin and shipment.shipment_type == "LTL":
             is_NJ_private = True
-            #查找板数，因为私仓都是一票一个约，所以就查这个约里有几个板子，就是板数
-            pallet_count = await sync_to_async(Pallet.objects.filter(
-                shipment_batch_number__shipment_batch_number=batch_number
-            ).count)()
+            # 查找板数，因为私仓都是一票一个约，所以就查这个约里有几个板子，就是板数
+            pallet_count = await sync_to_async(
+                Pallet.objects.filter(
+                    shipment_batch_number__shipment_batch_number=batch_number
+                ).count
+            )()
         context = {
             "warehouse_obj": warehouse_obj.address,
             "warehouse": warehouse,
             "batch_number": batch_number,
-            "pickup_number": shipment.fleet_number.pickup_number if shipment.fleet_number and shipment.fleet_number.pickup_number else None,
+            "pickup_number": (
+                shipment.fleet_number.pickup_number
+                if shipment.fleet_number and shipment.fleet_number.pickup_number
+                else None
+            ),
             "fleet_number": shipment.fleet_number.fleet_number,
             "shipment": shipment,
             "packing_list": packing_list,
@@ -1307,9 +1365,9 @@ class FleetManagement(View):
             "note_chinese_char": note_chinese_char,
             "is_private_warehouse": is_private_warehouse,
         }
-        if warehouse =="LA-91761":
+        if warehouse == "LA-91761":
             template = get_template(self.template_la_bol_pickup)
-        else:   #因为目前没有库位信息，所以BOL先不加这个信息
+        else:  # 因为目前没有库位信息，所以BOL先不加这个信息
             template = get_template(self.template_bol_pickup)
         html = template.render(context)
         response = HttpResponse(content_type="application/pdf")
@@ -1324,7 +1382,9 @@ class FleetManagement(View):
             )
         return response
 
-    async def pickupList_get(self, pickupList: Any, fleet_number: str, warehouse:str) -> tuple[Any]:
+    async def pickupList_get(
+        self, pickupList: Any, fleet_number: str, warehouse: str
+    ) -> tuple[Any]:
         pallet: list[Pallet] | None = None
         if pickupList:  # 有值就转成列表
             pickupList = json.loads(pickupList)
@@ -1372,7 +1432,7 @@ class FleetManagement(View):
             )
             for s in pallet:
                 s["total_n_pallet"] = f"预 {round(s['total_cbm'] / 2)}"
-                s["slot"] = "" 
+                s["slot"] = ""
             plt = await sync_to_async(list)(
                 Pallet.objects.select_related(
                     "container_number", "shipment_batch_number"
@@ -1427,13 +1487,15 @@ class FleetManagement(View):
                 pallet = df.to_dict("records")
         for plt in pallet:
             order = await sync_to_async(Order.objects.get)(
-                container_number__container_number=plt["container_number__container_number"]
+                container_number__container_number=plt[
+                    "container_number__container_number"
+                ]
             )
             warehouse_plt = await sync_to_async(getattr)(order, "warehouse")
             warehouse_plt = str(warehouse_plt)
             if warehouse_plt and warehouse_plt != warehouse:
                 warehouse_prefix = warehouse_plt.split("-")[0]
-                plt['destination'] = f"{plt['destination']} ({warehouse_prefix})"
+                plt["destination"] = f"{plt['destination']} ({warehouse_prefix})"
         processed_pallet = []
         prev_destination = None
         for item in pallet:
@@ -1448,9 +1510,9 @@ class FleetManagement(View):
                     "total_n_pallet": "  ",
                     "shipment_batch_number__shipment_batch_number": "  ",
                     "shipment_batch_number__shipment_appointment": "  ",
-                    "slot": "  ", 
+                    "slot": "  ",
                     "一提两卸": "  ",
-                    "is_spacer": True, #表示是否是空行
+                    "is_spacer": True,  # 表示是否是空行
                     "force_text": True,
                 }
                 processed_pallet.append(empty_row)
@@ -1487,12 +1549,12 @@ class FleetManagement(View):
             if p_schedule > p_shipped:
                 unshipped_pallet_ids += plt_id[: p_schedule - p_shipped]
 
-        #把出库的板子的slot改为空
-        all_flat_ids = [pid for group in plt_ids for pid in group] 
+        # 把出库的板子的slot改为空
+        all_flat_ids = [pid for group in plt_ids for pid in group]
         await sync_to_async(
             lambda: Pallet.objects.filter(pallet_id__in=all_flat_ids)
-                                .exclude(pallet_id__in=unshipped_pallet_ids)
-                                .update(slot=None)
+            .exclude(pallet_id__in=unshipped_pallet_ids)
+            .update(slot=None)
         )()
 
         unshipped_pallet = await sync_to_async(list)(
@@ -1594,14 +1656,16 @@ class FleetManagement(View):
             fields=["shipment_batch_number"],
         )
         await sync_to_async(fleet.save)()
-        #await sync_to_async(lambda: None)()
-        #构建fleet_shipment_pallet表
-        #获取每行记录的第一个板子的id，为了读PO_ID
-        sample_pallet_ids = [group.split(",")[-1] for group in request.POST.getlist("plt_ids")]
+        # await sync_to_async(lambda: None)()
+        # 构建fleet_shipment_pallet表
+        # 获取每行记录的第一个板子的id，为了读PO_ID
+        sample_pallet_ids = [
+            group.split(",")[-1] for group in request.POST.getlist("plt_ids")
+        ]
         pallets = await sync_to_async(list)(
             Pallet.objects.filter(pallet_id__in=sample_pallet_ids)
-            .select_related('shipment_batch_number','container_number')
-            .only('pallet_id', 'PO_ID', 'shipment_batch_number', 'container_number')
+            .select_related("shipment_batch_number", "container_number")
+            .only("pallet_id", "PO_ID", "shipment_batch_number", "container_number")
         )
         pallet_mapping = {
             p.pallet_id: (p.PO_ID, p.shipment_batch_number, p.container_number)
@@ -1609,15 +1673,17 @@ class FleetManagement(View):
             if p.PO_ID
         }
         new_fleet_shipment_pallets = []
-        for (first_pallet_id, actual_pallets) in zip(sample_pallet_ids, actual_shipped_pallet):
+        for first_pallet_id, actual_pallets in zip(
+            sample_pallet_ids, actual_shipped_pallet
+        ):
             if first_pallet_id not in pallet_mapping:
                 continue
-                
-            po_id, shipment,container_number = pallet_mapping[first_pallet_id]
+
+            po_id, shipment, container_number = pallet_mapping[first_pallet_id]
             new_record = FleetShipmentPallet(
                 fleet_number=fleet,
                 pickup_number=fleet.pickup_number,
-                shipment_batch_number=shipment, 
+                shipment_batch_number=shipment,
                 PO_ID=po_id,
                 total_pallet=actual_pallets,
                 container_number=container_number,
@@ -1626,10 +1692,9 @@ class FleetManagement(View):
 
         if new_fleet_shipment_pallets:
             await sync_to_async(FleetShipmentPallet.objects.bulk_create)(
-                new_fleet_shipment_pallets,
-                batch_size=500  
+                new_fleet_shipment_pallets, batch_size=500
             )
-            
+
         return await self.handle_outbound_warehouse_search_post(request)
 
     async def handle_confirm_delivery_post(
@@ -1826,7 +1891,7 @@ class FleetManagement(View):
                     "total_pallet",
                     "total_pcs",
                     "shipment_batch_number__fleet_number__carrier",
-                    "shipment_batch_number__note"
+                    "shipment_batch_number__note",
                 ]
             ]
             has_slot_column = any(len(row) > 10 for row in customerInfo)
@@ -1856,7 +1921,11 @@ class FleetManagement(View):
                         int(row[5].strip()),
                         row[6].strip(),
                         row[9].strip(),
-                        row[10].strip() if len(row) > 10 and row[10] is not None else ""
+                        (
+                            row[10].strip()
+                            if len(row) > 10 and row[10] is not None
+                            else ""
+                        ),
                     ]
                 )
             keys = arm_pickup[0]
@@ -1969,7 +2038,7 @@ class FleetManagement(View):
                 content_type="text/plain",
             )
         return response
-    
+
     def safe_value(value, default=""):
         return value.strip() if value is not None else default
 
@@ -2025,7 +2094,7 @@ class FleetManagement(View):
                     "shipment_batch_number__fleet_number__fleet_type",
                     "shipment_batch_number__fleet_number__carrier",
                     "shipment_batch_number__fleet_number__appointment_datetime",
-                    "shipment_batch_number__note"
+                    "shipment_batch_number__note",
                 )
                 .annotate(
                     total_pcs=Count("pcs", distinct=True),
@@ -2070,7 +2139,7 @@ class FleetManagement(View):
                     ]
                 ] + new_list
             else:
-                raise ValueError('柜子未拆柜，请核实')
+                raise ValueError("柜子未拆柜，请核实")
             s_time = arm_pickup[1][-1]
             dt = datetime.strptime(s_time, "%Y-%m-%d")
             new_string = dt.strftime("%m-%d")
@@ -2080,7 +2149,7 @@ class FleetManagement(View):
         files = request.FILES.getlist("files")
         if files:
             for file in files:
-                fig, ax = plt.subplots(figsize=(10.4, 8.5)) 
+                fig, ax = plt.subplots(figsize=(10.4, 8.5))
                 ax.axis("tight")
                 ax.axis("off")
                 fig.subplots_adjust(top=1.5)
@@ -2107,17 +2176,21 @@ class FleetManagement(View):
                     else:
                         cell.set_width(0.12)
 
-                table_bbox = the_table.get_window_extent(renderer=ax.figure.canvas.get_renderer())
-                table_bbox = table_bbox.transformed(ax.transAxes.inverted())  # 转换为相对坐标
+                table_bbox = the_table.get_window_extent(
+                    renderer=ax.figure.canvas.get_renderer()
+                )
+                table_bbox = table_bbox.transformed(
+                    ax.transAxes.inverted()
+                )  # 转换为相对坐标
                 table_bottom = table_bbox.y0
                 ax.text(
                     0.05,
                     table_bottom - 0.01,
                     f"Notes: {notes}",
-                    fontdict={'family': 'STSong-Light', 'size': 12},
-                    va='top',
-                    ha='left',
-                    transform=ax.transAxes
+                    fontdict={"family": "STSong-Light", "size": 12},
+                    va="top",
+                    ha="left",
+                    transform=ax.transAxes,
                 )
 
                 # 保存表格和 Notes 内容到 buffer
@@ -2128,8 +2201,8 @@ class FleetManagement(View):
                 # 合并PDF
                 merger = PdfMerger()
                 temp_pdf_io = io.BytesIO(file.read())
-                merger.append(PdfReader(temp_pdf_io))  
-                merger.append(PdfReader(buf_table))   
+                merger.append(PdfReader(temp_pdf_io))
+                merger.append(PdfReader(buf_table))
 
                 # 写入输出文件
                 output_buf = io.BytesIO()
@@ -2432,7 +2505,14 @@ class FleetManagement(View):
                     )
 
     async def _get_sharepoint_auth(self) -> ClientContext:
-        return ClientContext(SP_URL).with_credentials(UserCredential(SP_USER, SP_PASS))
+        ctx = ClientContext(SP_URL).with_client_certificate(
+            SP_TENANT,
+            SP_CLIENT_ID,
+            SP_THUMBPRINT,
+            private_key=SP_PRIVATE_KEY,
+            scopes=[SP_SCOPE],
+        )
+        return ctx
 
     async def _user_authenticate(self, request: HttpRequest):
         if await sync_to_async(lambda: request.user.is_authenticated)():

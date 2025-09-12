@@ -15,9 +15,8 @@ from warehouse.models.order import Order
 from warehouse.models.packing_list import PackingList
 from warehouse.models.po_check_eta import PoCheckEtaSeven
 from warehouse.models.retrieval import Retrieval
-from warehouse.models.vessel import Vessel
-
 from warehouse.models.terminal49_data_sync import T49Containers
+from warehouse.models.vessel import Vessel
 
 
 class PrePortTracking(View):
@@ -95,16 +94,22 @@ class PrePortTracking(View):
                 "pod_last_free_day_on",
                 "pod_pickup_appointment_at",
                 "pod_full_out_at",
-            ).filter(
+            )
+            .filter(
                 pod_full_out_at__isnull=True,
                 empty_terminated_at__isnull=True,
                 line_tracking_stopped_at__isnull=True,
-            ).order_by(
-                "pod_eta_at"
             )
+            .order_by("pod_eta_at")
         )
-        tracked_container_numbers = [o["container_number"] for o in orders_under_tracking]
-        orders_need_track = [o for o in orders_need_track if o["container_number__container_number"] not in tracked_container_numbers]
+        tracked_container_numbers = [
+            o["container_number"] for o in orders_under_tracking
+        ]
+        orders_need_track = [
+            o
+            for o in orders_need_track
+            if o["container_number__container_number"] not in tracked_container_numbers
+        ]
         context = {
             "orders_need_track": orders_need_track,
             "orders_under_tracking": orders_under_tracking,

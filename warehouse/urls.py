@@ -18,8 +18,8 @@ from warehouse.views.post_port.shipment.fleet_management import FleetManagement
 from warehouse.views.post_port.shipment.shipping_management import ShippingManagement
 from warehouse.views.post_port.timeout_warning import TimeoutWarning
 from warehouse.views.post_port.warehouse.inventory import Inventory
-from warehouse.views.post_port.warehouse.transfer_pallet import TransferPallet
 from warehouse.views.post_port.warehouse.palletization import Palletization
+from warehouse.views.post_port.warehouse.transfer_pallet import TransferPallet
 from warehouse.views.pre_port.order_creation import OrderCreation
 from warehouse.views.pre_port.pickup_containers_status import ContainerPickupStatus
 from warehouse.views.pre_port.pre_port_dash import PrePortDash

@@ -191,15 +191,15 @@ class TerminalDispatch(View):
                 retrieval.target_retrieval_timestamp_lower = None
         await sync_to_async(retrieval.save)()
         # 有提柜计划后，就将记录归为“提柜前一天
-        orders = await sync_to_async(list)(
+        po_checks = await sync_to_async(list)(
             PoCheckEtaSeven.objects.filter(
                 container_number__container_number=container_number
             )
         )
         try:
-            for o in orders:
-                o.time_status = False
-                await sync_to_async(o.save)()
+            for p in po_checks:
+                p.time_status = False
+                await sync_to_async(p.save)()
         except PoCheckEtaSeven.DoesNotExist:
             pass
 

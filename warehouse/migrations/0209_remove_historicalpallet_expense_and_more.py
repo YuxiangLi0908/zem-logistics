@@ -6,26 +6,26 @@ from django.db import migrations, models
 class Migration(migrations.Migration):
 
     dependencies = [
-        ('warehouse', '0208_historicalpallet_expense_pallet_expense_and_more'),
+        ("warehouse", "0208_historicalpallet_expense_pallet_expense_and_more"),
     ]
 
     operations = [
         migrations.RemoveField(
-            model_name='historicalpallet',
-            name='expense',
+            model_name="historicalpallet",
+            name="expense",
         ),
         migrations.RemoveField(
-            model_name='pallet',
-            name='expense',
+            model_name="pallet",
+            name="expense",
         ),
         migrations.AddField(
-            model_name='fleetshipmentpallet',
-            name='expense',
+            model_name="fleetshipmentpallet",
+            name="expense",
             field=models.FloatField(blank=True, null=True),
         ),
         migrations.AddField(
-            model_name='historicalfleetshipmentpallet',
-            name='expense',
+            model_name="historicalfleetshipmentpallet",
+            name="expense",
             field=models.FloatField(blank=True, null=True),
         ),
     ]

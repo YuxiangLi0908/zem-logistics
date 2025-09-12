@@ -30,4 +30,4 @@ class QuotationMaster(models.Model):
     )
 
     def __str__(self) -> str:
-        return str(self.effective_date) + "-" + self.version
+        return str(self.effective_date) + "-" + str(self.exclusive_user) + "-" + self.version

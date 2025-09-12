@@ -5,14 +5,13 @@ from collections import defaultdict
 from datetime import datetime
 from typing import Any
 
-
 import numpy as np
 from asgiref.sync import sync_to_async
 from dateutil.relativedelta import relativedelta
 from django.apps import apps
 from django.contrib.auth.models import User
-from django.db.models import Case, Count, FloatField, Q, Sum, Model
 from django.core.exceptions import ObjectDoesNotExist
+from django.db.models import Case, Count, FloatField, Model, Q, Sum
 from django.db.models.functions import Cast, TruncMonth
 from django.http import Http404, HttpRequest, HttpResponse, HttpResponseForbidden
 from django.shortcuts import render
@@ -20,11 +19,11 @@ from django.views import View
 
 from warehouse.models.container import Container
 from warehouse.models.customer import Customer
+from warehouse.models.fleet_shipment_pallet import FleetShipmentPallet
 from warehouse.models.invoice import Invoice, InvoiceItem
+from warehouse.models.invoice_details import InvoiceDelivery
 from warehouse.models.order import Order
 from warehouse.models.pallet import Pallet
-from warehouse.models.fleet_shipment_pallet import FleetShipmentPallet
-from warehouse.models.invoice_details import InvoiceDelivery
 from warehouse.models.retrieval import HistoricalRetrieval, Retrieval
 from warehouse.utils.constants import MODEL_CHOICES
 
@@ -142,7 +141,7 @@ class OrderQuantity(View):
         # 准备显示数据
         records_data = []
         user_ids = {r.history_user_id for r in history_records if r.history_user_id}
-        
+
         users = await sync_to_async(
             lambda: User.objects.filter(id__in=user_ids).in_bulk()
         )()
@@ -168,11 +167,15 @@ class OrderQuantity(View):
                         getattr(r, f.name, None)  # 安全获取属性，不存在时返回None
                         if not f.is_relation  # 如果不是关系字段
                         else (
-                            getattr(r, f.name + "_id", None)  # 先尝试获取外键ID
-                            if getattr(r, f.name + "_id", None) is not None  # 如果有外键ID
-                            else None  # 没有外键ID则返回None
-                        ) if f.many_to_one or f.one_to_one  # 只处理多对一和一对一关系
-                        else [obj.pk for obj in getattr(r, f.name).all()]  # 处理多对多关系
+                            (
+                                getattr(r, f.name + "_id", None)  # 先尝试获取外键ID
+                                if getattr(r, f.name + "_id", None)
+                                is not None  # 如果有外键ID
+                                else None  # 没有外键ID则返回None
+                            )
+                            if f.many_to_one or f.one_to_one  # 只处理多对一和一对一关系
+                            else [obj.pk for obj in getattr(r, f.name).all()]
+                        )  # 处理多对多关系
                     )
                     for f in r.__class__._meta.get_fields()
                     if f.name
@@ -321,7 +324,7 @@ class OrderQuantity(View):
             try:
                 # 先尝试直接获取外键ID而不触发查询
                 field_id = getattr(obj, f"{attr_name}_id", None)
-                
+
                 # 如果外键ID存在，再尝试获取对象
                 if field_id is not None:
                     try:
@@ -330,22 +333,24 @@ class OrderQuantity(View):
                             return str(value)
                     except ObjectDoesNotExist:
                         return f"关联对象(ID:{field_id})不存在"
-                
+
                 # 处理普通字段或空值
                 value = getattr(obj, attr_name, None)
                 if value is None:
                     return "空"
-                    
+
                 # 处理ManyToMany等关系
                 if hasattr(value, "all"):
                     return ", ".join(str(item) for item in value.all()[:5])
-                    
+
                 return str(value)
-                
+
             except Exception as e:
                 return f"错误: {str(e)}"
-        
-        return await sync_to_async(_sync_get_attr, thread_sensitive=True)(obj, attr_name)
+
+        return await sync_to_async(_sync_get_attr, thread_sensitive=True)(
+            obj, attr_name
+        )
 
     # 智能判断值是否真正发生变化
     def is_value_changed(self, old_val, new_val):
@@ -430,12 +435,16 @@ class OrderQuantity(View):
         criteria &= Q(receivable_status__stage="confirmed")
         orders = await sync_to_async(list)(
             Order.objects.select_related(
-                "customer_name", "warehouse", "retrieval_id", "payable_status","container_number"
+                "customer_name",
+                "warehouse",
+                "retrieval_id",
+                "payable_status",
+                "container_number",
             )
             .filter(criteria)
             .annotate(count=Count("id"))
         )
-       
+
         results = []
         total_income = 0
         total_expense = 0
@@ -456,11 +465,23 @@ class OrderQuantity(View):
                     invoice_number__invoice_number=invoice.invoice_number
                 ).exists
             )()
-            
+
             if not has_items:  # 没有说明是以三个表为准
-                receivable_preport = float(invoice.receivable_preport_amount) if invoice.receivable_preport_amount is not None else 0.0 # 港前提拆
-                receivable_warehouse = float(invoice.receivable_warehouse_amount) if invoice.receivable_warehouse_amount is not None else 0.0  # 库内
-                receivable_delivery = float(invoice.receivable_delivery_amount) if invoice.receivable_delivery_amount is not None else 0.0  # 派送
+                receivable_preport = (
+                    float(invoice.receivable_preport_amount)
+                    if invoice.receivable_preport_amount is not None
+                    else 0.0
+                )  # 港前提拆
+                receivable_warehouse = (
+                    float(invoice.receivable_warehouse_amount)
+                    if invoice.receivable_warehouse_amount is not None
+                    else 0.0
+                )  # 库内
+                receivable_delivery = (
+                    float(invoice.receivable_delivery_amount)
+                    if invoice.receivable_delivery_amount is not None
+                    else 0.0
+                )  # 派送
                 other_fees = 0
             else:
                 items = await sync_to_async(list)(
@@ -473,38 +494,55 @@ class OrderQuantity(View):
                 receivable_warehouse = categorized["warehouse_fee"]  # 库内
                 receivable_delivery = categorized["delivery_fee"]  # 派送
                 other_fees = categorized["other_fees"]
-                
-            payable_preport = float(invoice.payable_preport_amount) if invoice.payable_preport_amount is not None else 0.0 #港前应付
-            payable_warehouse = float(invoice.payable_warehouse_amount) if invoice.payable_warehouse_amount is not None else 0.0 #库内应付
-            payable_delivery = float(invoice.payable_delivery_amount) if invoice.payable_delivery_amount is not None else 0.0
+
+            payable_preport = (
+                float(invoice.payable_preport_amount)
+                if invoice.payable_preport_amount is not None
+                else 0.0
+            )  # 港前应付
+            payable_warehouse = (
+                float(invoice.payable_warehouse_amount)
+                if invoice.payable_warehouse_amount is not None
+                else 0.0
+            )  # 库内应付
+            payable_delivery = (
+                float(invoice.payable_delivery_amount)
+                if invoice.payable_delivery_amount is not None
+                else 0.0
+            )
 
             total_preport_receivable += receivable_preport
             total_preport_payable += payable_preport
-            #总收入
+            # 总收入
             total_income_per_container = (
-                receivable_preport + receivable_warehouse + receivable_delivery + other_fees
+                receivable_preport
+                + receivable_warehouse
+                + receivable_delivery
+                + other_fees
             )
-            #提拆的成本
+            # 提拆的成本
             total_expense_per_container = payable_preport
-           
-            #柜子的利润
+
+            # 柜子的利润
             profit_per_container = (
-                total_income_per_container - total_expense_per_container - payable_delivery
+                total_income_per_container
+                - total_expense_per_container
+                - payable_delivery
             )
-            #利润率
+            # 利润率
             profit_margin = (
                 (profit_per_container / total_income_per_container * 100)
                 if total_income_per_container
                 else 0
             )
-            #总收入
+            # 总收入
             total_income += total_income_per_container
-            #总支出
+            # 总支出
             total_expense += total_expense_per_container
             total_expense += payable_delivery
-            #总利润
+            # 总利润
             total_profit += profit_per_container
-            #所有柜子的利润
+            # 所有柜子的利润
             profit_values.append(profit_per_container)
 
             results.append(
@@ -514,11 +552,9 @@ class OrderQuantity(View):
                     "receivable_preport": receivable_preport,
                     "receivable_warehouse": receivable_warehouse,
                     "receivable_delivery": receivable_delivery,
-
                     "payable_preport": payable_preport,
                     "payable_warehouse": payable_warehouse,
                     "payable_delivery": payable_delivery,
-                                      
                     "total_income": total_income_per_container,
                     "total_expense": total_expense_per_container,
                     "profit": profit_per_container,
@@ -916,7 +952,7 @@ class OrderQuantity(View):
         return await sync_to_async(
             lambda: user.groups.filter(name="history_search").exists()
         )()
-    
+
     async def _validate_user_profit(self, user: User) -> bool:
         is_staff = await sync_to_async(lambda: user.is_staff)()
         if is_staff:

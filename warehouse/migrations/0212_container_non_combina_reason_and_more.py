@@ -6,18 +6,21 @@ from django.db import migrations, models
 class Migration(migrations.Migration):
 
     dependencies = [
-        ('warehouse', '0211_t49containers_alter_historicalretrieval_temp_t49_lfd_and_more'),
+        (
+            "warehouse",
+            "0211_t49containers_alter_historicalretrieval_temp_t49_lfd_and_more",
+        ),
     ]
 
     operations = [
         migrations.AddField(
-            model_name='container',
-            name='non_combina_reason',
+            model_name="container",
+            name="non_combina_reason",
             field=models.CharField(max_length=255, null=True),
         ),
         migrations.AddField(
-            model_name='historicalcontainer',
-            name='non_combina_reason',
+            model_name="historicalcontainer",
+            name="non_combina_reason",
             field=models.CharField(max_length=255, null=True),
         ),
     ]
