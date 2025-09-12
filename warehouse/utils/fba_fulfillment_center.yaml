@@ -2348,3 +2348,8 @@ ABQ2:
   location: 6251 Pioneer Trl NW
   state: NM
   zipcode: '87031'
+PSC2:
+  city: Pasco
+  location: 1351 S Rd 40 E
+  state: WA
+  zipcode: '99301'
