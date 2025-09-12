@@ -892,7 +892,7 @@ class OrderCreation(View):
         container_numbers = await sync_to_async(
             lambda: list(
                 Order.objects.filter(
-                    created_at__date__gt=date(2025, 5, 1)
+                    created_at__date__gt=date(2025, 7, 1)
                 ).values_list("container_number__container_number", flat=True).distinct()
             )
         )()
@@ -920,32 +920,31 @@ class OrderCreation(View):
                 ).exists()
             )
         )()
-        if has_ups_fedex:
+        is_expiry_guaranteed = await sync_to_async(
+            lambda: Container.objects.filter(
+                container_number=container_number,
+                is_expiry_guaranteed=True
+            ).exists()
+        )()
+        if has_ups_fedex and is_expiry_guaranteed:
             priority = "P1"
+        elif has_ups_fedex or is_expiry_guaranteed:
+            priority = "P2"      
         else:
-            is_expiry_guaranteed = await sync_to_async(
-                lambda: Container.objects.filter(
-                    container_number=container_number,
-                    is_expiry_guaranteed=True
-                ).exists()
+            has_shipment = await sync_to_async(
+                lambda: (
+                    PackingList.objects.filter(
+                        container_number__container_number=container_number,
+                        shipment_batch_number__isnull=False
+                    ).exists()
+                    or
+                    Pallet.objects.filter(
+                        container_number__container_number=container_number,
+                        shipment_batch_number__isnull=False
+                    ).exists()
+                )
             )()
-            if is_expiry_guaranteed:
-                priority = "P2"
-            else:
-                has_shipment = await sync_to_async(
-                    lambda: (
-                        PackingList.objects.filter(
-                            container_number__container_number=container_number,
-                            shipment_batch_number__isnull=False
-                        ).exists()
-                        or
-                        Pallet.objects.filter(
-                            container_number__container_number=container_number,
-                            shipment_batch_number__isnull=False
-                        ).exists()
-                    )
-                )()
-                priority = "P3" if has_shipment else "P4"
+            priority = "P3" if has_shipment else "P4"
         await sync_to_async(
             lambda: Order.objects.filter(
                 container_number__container_number=container_number
