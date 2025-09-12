@@ -1649,7 +1649,7 @@ class OrderCreation(View):
                 non_combina_dests.add("UPS")
                 continue
             dest = plts["destination"]
-            dest = dest.replace("沃尔玛", "").split("-")[-1].strip()
+            dest = re.sub(r".*[-_]|[\u4e00-\u9fff]", "", dest).strip()
             matched = False
             # 遍历所有区域和location
             for region, fee_data_list in combina_fee.items():
@@ -1744,6 +1744,7 @@ class OrderCreation(View):
             )
         )()
         matched_regions = self.find_matching_regions(plts_by_destination, combina_fee)
+        print('柜子查询详情',matched_regions)
         matched_regions["combina_dests"] = matched_regions["combina_dests"]
         matched_regions["non_combina_dests"] = list(
             matched_regions["non_combina_dests"]

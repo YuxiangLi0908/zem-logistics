@@ -5616,7 +5616,7 @@ class Accounting(View):
                         addition_fee = {
                             "min_points": int(min_points),
                             "max_points": int(max_points),
-                            "add_fee": rule.get("addition_fee"),
+                            "add_fee": rule.get("fee"),
                         }
         else:
             addition_fee = None
