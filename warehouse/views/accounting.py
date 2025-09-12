@@ -6,7 +6,7 @@ import os
 import re
 import zipfile
 from collections import defaultdict
-from datetime import date, datetime, time, timedelta
+from datetime import date, datetime, timedelta, time as datetime_time
 from io import BytesIO
 from itertools import chain, groupby
 from operator import attrgetter
@@ -15,7 +15,7 @@ from asgiref.sync import sync_to_async, async_to_sync
 from django.db import transaction
 from django.db.models.fields.json import KeyTextTransform
 from django.core.paginator import Paginator
-import time
+
 from typing import Any
 
 import openpyxl
@@ -3117,7 +3117,7 @@ class Accounting(View):
                 warehouse = order.retrieval_id.retrieval_destination_area
                 vessel_etd = order.vessel_id.vessel_etd
                 cutoff_date = date(2025, 4, 1)
-                cutoff_datetime = datetime.combine(cutoff_date, time.min).replace(
+                cutoff_datetime = datetime.combine(cutoff_date, datetime_time.min).replace(
                     tzinfo=pytz.UTC
                 )
                 is_new_rule = vessel_etd >= cutoff_datetime
@@ -4540,7 +4540,7 @@ class Accounting(View):
                 break
         # 需要重新规范板数，就是total_n_pallet
         cutoff_date = date(2025, 4, 1)
-        cutoff_datetime = datetime.combine(cutoff_date, time.min).replace(
+        cutoff_datetime = datetime.combine(cutoff_date,datetime_time.min).replace(
             tzinfo=pytz.UTC
         )
         is_new_rule = vessel_etd >= cutoff_datetime
