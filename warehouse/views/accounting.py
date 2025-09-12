@@ -4873,13 +4873,17 @@ class Accounting(View):
         if isinstance(combina_fee, str):
             combina_fee = json.loads(combina_fee)
         # 看是否超出组合柜限定仓点,NJ/SAV是14个
-        if (
-            plts["unique_destinations"]
-            > stipulate["global_rules"]["bulk_threshold"]["default"]
-        ):
+        default_combina = stipulate["global_rules"]["max_mixed"]["default"]
+        exceptions = stipulate["global_rules"]["max_mixed"].get("exceptions", {})
+        combina_threshold = exceptions.get(warehouse, default_combina) if exceptions else default_combina
+
+        default_threshold = stipulate["global_rules"]["bulk_threshold"]["default"]
+        exceptions = stipulate["global_rules"]["bulk_threshold"].get("exceptions", {})
+        uncombina_threshold = exceptions.get(warehouse, default_threshold) if exceptions else default_threshold
+        if plts["unique_destinations"] > uncombina_threshold:
             container.account_order_type = "转运"
             container.non_combina_reason = (
-                f"总仓点超过{stipulate['global_rules']['bulk_threshold']['default']}个"
+                f"总仓点超过{uncombina_threshold}个"
             )
             container.save()
             return False  # 不是组合柜
@@ -4919,8 +4923,8 @@ class Accounting(View):
             raise ValueError("计算组合柜和非组合柜区域有误")
 
         if non_combina_region_count > (
-            stipulate["global_rules"]["bulk_threshold"]["default"]
-            - stipulate["global_rules"]["max_mixed"]["default"]
+            uncombina_threshold
+            - combina_threshold
         ):
             # 当非组合柜的区域数量超出时，不能按转运组合
             container.account_order_type = "转运"
@@ -5374,14 +5378,18 @@ class Accounting(View):
             context["reason"] = "未录入拆柜数据"
             return self.template_invoice_combina_edit, context
 
+        default_threshold = stipulate["global_rules"]["bulk_threshold"]["default"]
+        exceptions = stipulate["global_rules"]["bulk_threshold"].get("exceptions", {})
+        uncombina_threshold = exceptions.get(warehouse, default_threshold) if exceptions else default_threshold
+
         if (
             plts["unique_destinations"]
-            > stipulate["global_rules"]["bulk_threshold"]["default"]
+            > uncombina_threshold
         ):
             container.account_order_type = "转运"
             container.save()
             context["reason"] = (
-                f"超过{stipulate['global_rules']['bulk_threshold']['default']}个仓点"
+                f"超过{uncombina_threshold}个仓点"
             )
             return self.template_invoice_combina_edit, context
 
@@ -5431,24 +5439,23 @@ class Accounting(View):
             4,
         )
 
-        if combina_region_count > stipulate["global_rules"]["max_mixed"][
-            "default"
-        ] or non_combina_region_count > (
-            stipulate["global_rules"]["bulk_threshold"]["default"]
-            - stipulate["global_rules"]["max_mixed"]["default"]
-        ):
+        default_combina = stipulate["global_rules"]["max_mixed"]["default"]
+        exceptions = stipulate["global_rules"]["max_mixed"].get("exceptions", {})
+        combina_threshold = exceptions.get(warehouse, default_combina) if exceptions else default_combina
+
+        if combina_region_count > combina_threshold or non_combina_region_count > ( uncombina_threshold - combina_threshold ):
             container.account_order_type = "转运"
             container.save()
-            if combina_region_count > stipulate["global_rules"]["max_mixed"]["default"]:
+            if combina_region_count > combina_threshold:
                 # reason = '不满足组合柜区域要求'
-                reason = f"规定{stipulate['global_rules']['max_mixed']['default']}组合柜区,但实际有{combina_region_count}个:matched_regions['combina_dests']，所以按照转运方式统计价格"
+                reason = f"规定{combina_threshold}组合柜区,但实际有{combina_region_count}个:matched_regions['combina_dests']，所以按照转运方式统计价格"
             elif non_combina_region_count > (
-                stipulate["global_rules"]["bulk_threshold"]["default"]
-                - stipulate["global_rules"]["max_mixed"]["default"]
+                uncombina_threshold
+                - combina_threshold
             ):
                 stipulate_non_combina = (
-                    stipulate["global_rules"]["bulk_threshold"]["default"]
-                    - stipulate["global_rules"]["max_mixed"]["default"]
+                    uncombina_threshold
+                    - combina_threshold
                 )
                 reason = f"规定{stipulate_non_combina}个非组合柜区，但是有{non_combina_region_count}个：{list(matched_regions['non_combina_dests'].keys())}，所以按照转运方式统计价格"
                 # reason = '不满足组合柜区域要求'
