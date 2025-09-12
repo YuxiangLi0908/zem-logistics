@@ -20,6 +20,7 @@ from warehouse.views.post_port.timeout_warning import TimeoutWarning
 from warehouse.views.post_port.warehouse.inventory import Inventory
 from warehouse.views.post_port.warehouse.palletization import Palletization
 from warehouse.views.post_port.warehouse.transfer_pallet import TransferPallet
+from warehouse.views.post_port.warehouse.warehouse_operations import WarehouseOperations
 from warehouse.views.pre_port.order_creation import OrderCreation
 from warehouse.views.pre_port.pickup_containers_status import ContainerPickupStatus
 from warehouse.views.pre_port.pre_port_dash import PrePortDash
@@ -61,6 +62,7 @@ urlpatterns = [
     ),
     path("container_pickup/", ScheduleRetrieval.as_view(), name="schedule_pickup"),
     path("palletize/", Palletization.as_view(), name="palletization"),
+    path("warehouse_operations/", WarehouseOperations.as_view(), name="warehouse_operations"),
     path("palletize/<str:pk>/", Palletization.as_view(), name="palletize_container"),
     path("inventory/", Inventory.as_view(), name="inventory"),
     path("schedule_shipment/", ShippingManagement.as_view(), name="schedule_shipment"),
