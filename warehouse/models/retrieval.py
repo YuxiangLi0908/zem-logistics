@@ -10,6 +10,17 @@ class Retrieval(models.Model):
     master_bill_of_lading = models.CharField(max_length=255, null=True, blank=True)
     retrive_by_zem = models.BooleanField(default=True, blank=True)
     retrieval_carrier = models.CharField(max_length=100, null=True, blank=True)
+    arrival_location = models.CharField(max_length=100, null=True, blank=True, verbose_name="到仓位置")
+    unpacking_status = models.CharField(
+        max_length=10,
+        choices=[
+            ("0", "未拆柜"),
+            ("1", "已拆柜"),
+            ("2", "拆柜中"),
+        ],
+        default="0",
+        verbose_name="拆柜状态",
+    )
     origin_port = models.CharField(max_length=255, null=True, blank=True)
     destination_port = models.CharField(max_length=255, null=True, blank=True)
     shipping_line = models.CharField(max_length=255, null=True, blank=True)
