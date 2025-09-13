@@ -14,7 +14,8 @@ class Offload(models.Model):
     devanning_fee_paid_at = models.DateField(null=True, blank=True)
     is_devanning_fee_paid = models.CharField(max_length=100, null=True, blank=True)
     history = HistoricalRecords()
-
+    warehouse_unpacked_time = models.DateTimeField(null=True, blank=True, verbose_name="仓库确认拆柜完成时间")
+    warehouse_unpacking_time = models.DateTimeField(null=True, blank=True, verbose_name="首次下载拆柜单变拆柜中时间")
     def __str__(self) -> str:
         return self.offload_id
 
