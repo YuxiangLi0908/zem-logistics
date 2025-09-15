@@ -1,4 +1,273 @@
 {% extends 'base.html' %}
 {% block content %}
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.10.0/font/bootstrap-icons.css" rel="stylesheet">
 
+    <style type="text/tailwindcss">
+        @layer utilities {
+            .table-shadow {
+                box-shadow: 0 2px 12px 0 rgba(0, 0, 0, 0.08);
+            }
+
+            .cell-transition {
+                transition: all 0.2s ease;
+            }
+
+            .tag-shadow {
+                box-shadow: 0 1px 3px rgba(0, 0, 0, 0.08);
+            }
+
+            .header-gradient {
+                background: linear-gradient(135deg, #0F4C81 0%, #1A6BB3 100%);
+            }
+
+            .compact-tag {
+                @apply inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-medium tag-shadow;
+            }
+
+            .compact-btn {
+                @apply inline-flex items-center px-2 py-1 text-[12px] rounded-lg font-medium transition-colors;
+            }
+
+            .fixed-width-cell {
+                @apply min-w-[180px];
+            }
+        }
+    </style>
+
+    <div class="bg-gray-50 font-inter text-textDark p-4 md:p-6" style="margin-top: 79px; position: relative;">
+        <div class="overflow-x-auto rounded-lg table-shadow bg-white" style="position: relative">
+            <table class="w-full border-collapse">
+                <thead>
+                <tr class="header-gradient text-white">
+                    <th class="px-4 py-2.5 text-left text-sm font-bold tracking-wide">柜号</th>
+                    <th class="px-4 py-2.5 text-left text-sm font-bold tracking-wide">优先级</th>
+                    <th class="px-4 py-2.5 text-left text-sm font-bold tracking-wide">到仓位置</th>
+                    <th class="px-4 py-2.5 text-left text-sm font-bold tracking-wide">拆柜状态</th>
+                    <th class="px-4 py-2.5 text-left text-sm font-bold tracking-wide">导出</th>
+                    <th class="px-4 py-2.5 text-left text-sm font-bold tracking-wide">操作</th>
+                    <th class="px-4 py-2.5 text-left text-sm font-bold tracking-wide">回传拆柜数据</th>
+                </tr>
+                </thead>
+                <tbody class="divide-y divide-gray-200">
+                {% for ret in retrieval %}
+                    {% for order in ret.filtered_orders %}
+                        {% with record_id="ret_"|add:ret.id|stringformat:"i" %}
+                            <tr class="cell-transition hover:bg-accent" data-record-id="{{ record_id }}">
+                                <!-- 1. 柜号 -->
+                                <td class="px-4 py-2 text-xs text-gray-700">
+                                    {{ order.container_number|default:"-" }}
+                                </td>
+
+                                <!-- 2. 优先级 -->
+                                <td class="px-4 py-2">
+                                    {% with priority=order.unpacking_priority|default:0 %}
+                                        {% if priority == "P1" %}
+                                            <span class="compact-tag bg-red-50 text-red-700">
+                                            <i class="bi bi-exclamation-circle mr-0.5 text-[10px]"></i>P1
+                                        </span>
+                                        {% elif priority == "P2" %}
+                                            <span class="compact-tag bg-yellow-50 text-yellow-700">
+                                            <i class="bi bi-info-circle mr-0.5 text-[10px]"></i>P2
+                                        </span>
+                                        {% elif priority == "P3" %}
+                                            <span class="compact-tag bg-green-50 text-green-700">
+                                            <i class="bi bi-check-circle mr-0.5 text-[10px]"></i>P3
+                                        </span>
+                                        {% else %}
+                                            <span class="compact-tag bg-gray-50 text-gray-600">
+                                            <i class="bi bi-dash-circle mr-0.5 text-[10px]"></i>P4
+                                        </span>
+                                        {% endif %}
+                                    {% endwith %}
+                                </td>
+
+                                <!-- 3. 到仓位置（输入框，通过ID关联） -->
+                                <td class="px-4 py-2 fixed-width-cell">
+                                    <input type="text"
+                                           id="arrival_location_{{ record_id }}"
+                                           value="{{ ret.arrival_location|default:''|upper }}"
+                                           oninput="this.value = this.value.toUpperCase()"
+                                           placeholder="请输入到仓位置"
+                                           class="bg-white border border-gray-200 rounded-lg px-1.5 py-0.75 text-[12px] w-full focus:outline-none focus:ring-2 focus:ring-primary/50 tag-shadow transition-all">
+                                </td>
+
+                                <!-- 4. 拆柜状态（Checkbox，互斥逻辑） -->
+                                <td class="px-4 py-2">
+                                    <div class="flex items-center space-x-3" id="status_group_{{ record_id }}">
+                                        <!-- 已拆柜（value=1） -->
+                                        <div class="flex items-center">
+                                            <input type="checkbox"
+                                                   id="unpack_1_{{ record_id }}"
+                                                   name="unpacking_status_{{ record_id }}"
+                                                   value="1"
+                                                   {% if ret.unpacking_status|stringformat:"s" == "1" %}checked{% endif %}
+                                                   class="h-3.5 w-3.5 text-primary border-gray-300 rounded focus:ring-primary/50">
+                                            <label for="unpack_1_{{ record_id }}" class="ml-1 inline-flex items-center px-1.5 py-0.5 rounded-lg text-xs font-medium bg-green-50 text-success tag-shadow cursor-pointer">
+                                                <i class="bi bi-check-circle-fill mr-0.5 text-[10px]"></i>已拆
+                                            </label>
+                                        </div>
+                                        <!-- 未拆柜（value=0） -->
+                                        <div class="flex items-center">
+                                            <input type="checkbox"
+                                                   id="unpack_0_{{ record_id }}"
+                                                   name="unpacking_status_{{ record_id }}"
+                                                   value="0"
+                                                   {% if ret.unpacking_status|stringformat:"s" == "0" or not ret.unpacking_status %}checked{% endif %}
+                                                   class="h-3.5 w-3.5 text-primary border-gray-300 rounded focus:ring-primary/50">
+                                            <label for="unpack_0_{{ record_id }}" class="ml-1 inline-flex items-center px-1.5 py-0.5 rounded-lg text-xs font-medium bg-gray-50 text-neutral tag-shadow cursor-pointer">
+                                                <i class="bi bi-hourglass-start mr-0.5 text-[10px]"></i>未拆
+                                            </label>
+                                        </div>
+                                        <!-- 拆柜中（value=2，禁用） -->
+                                        <div class="flex items-center">
+                                            <input type="checkbox"
+                                                   id="unpack_2_{{ record_id }}"
+                                                   name="unpacking_status_{{ record_id }}"
+                                                   value="2"
+                                                   disabled
+                                                   {% if ret.unpacking_status|stringformat:"s" == "2" %}checked{% endif %}
+                                                   class="h-3.5 w-3.5 text-primary border-gray-300 rounded focus:ring-primary/50">
+                                            <label for="unpack_2_{{ record_id }}" class="ml-1 inline-flex items-center px-1.5 py-0.5 rounded-lg text-xs font-medium bg-blue-50 text-blue-600 tag-shadow cursor-pointer">
+                                                <i class="bi bi-hourglass-half mr-0.5 text-[10px]"></i>拆中
+                                            </label>
+                                        </div>
+                                    </div>
+                                </td>
+
+                                <!-- 5. 导出功能 -->
+                                <td class="px-4 py-2 text-xs">
+                                    <div class="flex space-x-1">
+                                        <form method="post" action="" style="display: inline-block;">
+                                            {% csrf_token %}
+                                            <input type="hidden" name="step" value="export_palletization_list">
+                                            <input type="hidden" name="status" value="palletized">
+                                            <input type="hidden" name="container_number" value="{{ order.container_number|default:'' }}">
+                                            <button type="submit" class="compact-btn bg-success text-white hover:bg-success/90" {% if not order.container_number %}disabled title="柜号为空"{% endif %}>
+                                                <i class="bi bi-cloud-arrow-down-fill mr-0.5 text-[11px]"></i>拆柜单
+                                            </button>
+                                        </form>
+                                        <form method="post" action="" style="display: inline-block;">
+                                            {% csrf_token %}
+                                            <input type="hidden" name="step" value="export_pallet_label">
+                                            <input type="hidden" name="status" value="palletized">
+                                            <input type="hidden" name="customer_name" value="{{ order.customer_name.zem_code|default:'' }}">
+                                            <input type="hidden" name="container_number" value="{{ order.container_number|default:'' }}">
+                                            <button type="submit" class="compact-btn bg-primary text-white hover:bg-primary/90" {% if not order.container_number or not order.customer_name.zem_code %}disabled title="信息不全"{% endif %}>
+                                                <i class="bi bi-cloud-arrow-down-fill mr-0.5 text-[11px]"></i>托盘标
+                                            </button>
+                                        </form>
+                                    </div>
+                                </td>
+
+                                <!-- 6. 操作：更新表单（隐藏域需填充数据） -->
+                                <td class="px-4 py-2">
+                                    <form method="post" action="" class="update-single-form" data-record-id="{{ record_id }}">
+                                        {% csrf_token %}
+                                        <input type="hidden" name="step" value="update_warehouse">
+                                        <input type="hidden" name="retrieval_id" value="{{ ret.retrieval_id }}">
+                                        <!-- 隐藏域：用于接收JS填充的到仓位置 -->
+                                        <input type="hidden" name="arrival_location" id="arrival_location_hidden_{{ record_id }}">
+                                        <!-- 隐藏域：用于接收JS填充的拆柜状态 -->
+                                        <input type="hidden" name="unpacking_status" id="unpacking_status_hidden_{{ record_id }}">
+                                        <button type="submit" class="btn btn-outline-primary px-3 py-1 text-[12px] bg-white hover:bg-gray-50">
+                                            更新
+                                        </button>
+                                    </form>
+                                </td>
+
+                                <!-- 7. 回传拆柜数据（可选：若需上传，需纳入表单） -->
+                                <td class="px-4 py-2">
+                                    <input type="file"
+                                           id="unpacking_data_{{ record_id }}"
+                                           name="unpacking_data"
+                                           class="text-[12px] w-full">
+                                </td>
+                            </tr>
+                        {% endwith %}
+                    {% endfor %}
+                {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </div>
+
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script>
+        tailwind.config = {
+            theme: {
+                extend: {
+                    colors: {
+                        primary: '#165DFF',
+                        secondary: '#F5F7FA',
+                        accent: '#E8F3FF',
+                        success: '#00B42A',
+                        neutral: '#6B7280',
+                        textDark: '#1D2129',
+                        textLight: '#86909C',
+                    },
+                    fontFamily: {
+                        inter: ['Inter', 'system-ui', 'sans-serif'],
+                    },
+                }
+            }
+        }
+
+        // 关键1：Checkbox互斥逻辑（确保一行只选一个状态）
+        document.querySelectorAll('[id^="status_group_"]').forEach(group => {
+            const checkboxes = group.querySelectorAll('input[type="checkbox"]:not(:disabled)');
+            checkboxes.forEach(checkbox => {
+                checkbox.addEventListener('change', function() {
+                    if (this.checked) {
+                        // 选中当前Checkbox时，取消同组其他Checkbox的选中状态
+                        checkboxes.forEach(other => {
+                            if (other !== this) other.checked = false;
+                        });
+                    } else {
+                        // 取消选中时，默认选中“未拆柜”（避免无状态）
+                        const defaultStatus = group.querySelector('input[value="0"]');
+                        if (defaultStatus && !Array.from(checkboxes).some(c => c.checked)) {
+                            defaultStatus.checked = true;
+                        }
+                    }
+                });
+            });
+        });
+
+        // 关键2：表单提交前，填充隐藏域数据（修改后）
+document.querySelectorAll('.update-single-form').forEach(form => {
+    form.addEventListener('submit', function(e) {
+        const recordId = this.getAttribute('data-record-id');
+        // 新增：获取当前表单所在的“行”（tr元素），后续选择器仅在该行内生效
+        const currentRow = this.closest('tr[data-record-id="' + recordId + '"]');
+
+        // 1. 填充“到仓位置”（修改：限定在当前行内找输入框）
+        const arrivalInput = currentRow.querySelector(`#arrival_location_${recordId}`);
+        const arrivalValue = arrivalInput.value.trim();
+        const arrivalHidden = this.querySelector(`#arrival_location_hidden_${recordId}`); // 隐藏域在表单内，用this找
+        arrivalHidden.value = arrivalValue;
+
+        // 2. 填充“拆柜状态”（修改：限定在当前行内找Checkbox）
+        const checkedStatus = currentRow.querySelector(`input[name="unpacking_status_${recordId}"]:checked`);
+        const statusValue = checkedStatus ? checkedStatus.value : '0';
+        const statusHidden = this.querySelector(`#unpacking_status_hidden_${recordId}`); // 隐藏域在表单内，用this找
+        statusHidden.value = statusValue;
+
+        // 3. 数据验证（不变）
+        if (!arrivalValue) {
+            alert('请填写「到仓位置」再更新');
+            e.preventDefault();
+            arrivalInput.focus();
+            return;
+        }
+
+        // 调试用：打印当前行的提交数据
+        console.log('当前行提交数据：', {
+            recordId: recordId,
+            retrieval_id: this.querySelector('input[name="retrieval_id"]').value,
+            arrival_location: arrivalValue,
+            unpacking_status: statusValue
+        });
+    });
+});
+    </script>
 {% endblock %}
