@@ -441,7 +441,7 @@
                                     <h6 class="text-muted mb-1">超仓点费</h6>
                                     <input 
                                         type="number" 
-                                        class="form-control text-primary" 
+                                        class="form-control price-input" 
                                         name="addition_fee" 
                                         id="addition_fee"
                                         step="0.01" 
@@ -1197,8 +1197,9 @@
         const base_fee = document.getElementById('base_fee');
         const overpallet_fee = document.getElementById('overpallet_fee');
         const overweight_fee = document.getElementById('overweight_fee');
+        const addition_fee = document.getElementById('addition_fee');
     
-        [base_fee, overweight_fee, overpallet_fee, overregion_pickup_fee, overregion_delivery_fee].forEach(input => {
+        [base_fee, overweight_fee, overpallet_fee, overregion_pickup_fee, overregion_delivery_fee,addition_fee].forEach(input => {
             if (input) {
                 input.addEventListener('input', updateTotalAmount);
             }
@@ -1217,6 +1218,8 @@
         amount += getSafeNumberValue('overweight_fee');
         amount += getSafeNumberValue('overregion_pickup_fee');
         amount += getSafeNumberValue('overregion_delivery_fee');
+        // 超仓点的固定费用
+        amount += getSafeNumberValue('addition_fee');
         amount += calculateExtraFeesTotal();
         
         const totalDisplay = document.getElementById('totalAmountDisplay');

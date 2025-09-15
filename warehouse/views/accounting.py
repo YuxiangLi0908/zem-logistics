@@ -6,16 +6,17 @@ import os
 import re
 import zipfile
 from collections import defaultdict
-from datetime import date, datetime, time, timedelta
+from datetime import date, datetime, timedelta, time as datetime_time
 from io import BytesIO
 from itertools import chain, groupby
 from operator import attrgetter
 
 from asgiref.sync import sync_to_async, async_to_sync
+
 from django.db import transaction
 from django.db.models.fields.json import KeyTextTransform
 from django.core.paginator import Paginator
-import time
+
 from typing import Any
 
 import openpyxl
@@ -3117,7 +3118,7 @@ class Accounting(View):
                 warehouse = order.retrieval_id.retrieval_destination_area
                 vessel_etd = order.vessel_id.vessel_etd
                 cutoff_date = date(2025, 4, 1)
-                cutoff_datetime = datetime.combine(cutoff_date, time.min).replace(
+                cutoff_datetime = datetime.combine(cutoff_date, datetime_time.min).replace(
                     tzinfo=pytz.UTC
                 )
                 is_new_rule = vessel_etd >= cutoff_datetime
@@ -3670,7 +3671,6 @@ class Accounting(View):
             )
 
     def handle_invoice_dismiss_save(self, request: HttpRequest) -> tuple[Any, Any]:
-        print("驳回状态", request.POST)
         container_number = request.POST.get("container_number")
         status = request.POST.get("status")
         start_date_confirm = request.POST.get("start_date_confirm")
@@ -4540,7 +4540,7 @@ class Accounting(View):
                 break
         # 需要重新规范板数，就是total_n_pallet
         cutoff_date = date(2025, 4, 1)
-        cutoff_datetime = datetime.combine(cutoff_date, time.min).replace(
+        cutoff_datetime = datetime.combine(cutoff_date,datetime_time.min).replace(
             tzinfo=pytz.UTC
         )
         is_new_rule = vessel_etd >= cutoff_datetime
@@ -4827,13 +4827,17 @@ class Accounting(View):
         if isinstance(combina_fee, str):
             combina_fee = json.loads(combina_fee)
         # 看是否超出组合柜限定仓点,NJ/SAV是14个
-        if (
-            plts["unique_destinations"]
-            > stipulate["global_rules"]["bulk_threshold"]["default"]
-        ):
+        default_combina = stipulate["global_rules"]["max_mixed"]["default"]
+        exceptions = stipulate["global_rules"]["max_mixed"].get("exceptions", {})
+        combina_threshold = exceptions.get(warehouse, default_combina) if exceptions else default_combina
+
+        default_threshold = stipulate["global_rules"]["bulk_threshold"]["default"]
+        exceptions = stipulate["global_rules"]["bulk_threshold"].get("exceptions", {})
+        uncombina_threshold = exceptions.get(warehouse, default_threshold) if exceptions else default_threshold
+        if plts["unique_destinations"] > uncombina_threshold:
             container.account_order_type = "转运"
             container.non_combina_reason = (
-                f"总仓点超过{stipulate['global_rules']['bulk_threshold']['default']}个"
+                f"总仓点超过{uncombina_threshold}个"
             )
             container.save()
             return False  # 不是组合柜
@@ -4853,7 +4857,7 @@ class Accounting(View):
         # 区分组合柜区域和非组合柜区域
         container_type_temp = 0 if container_type == "40HQ/GP" else 1
         matched_regions = self.find_matching_regions(
-            plts_by_destination, combina_fee, container_type_temp, total_cbm_sum
+            plts_by_destination, combina_fee, container_type_temp, total_cbm_sum, combina_threshold
         )
         # 判断是否混区，False表示满足混区条件
         is_mix = self.is_mixed_region(
@@ -4871,14 +4875,13 @@ class Accounting(View):
 
         if combina_region_count + non_combina_region_count != len(destinations):
             raise ValueError("计算组合柜和非组合柜区域有误")
-
         if non_combina_region_count > (
-            stipulate["global_rules"]["bulk_threshold"]["default"]
-            - stipulate["global_rules"]["max_mixed"]["default"]
+            uncombina_threshold
+            - combina_threshold
         ):
             # 当非组合柜的区域数量超出时，不能按转运组合
             container.account_order_type = "转运"
-            container.non_combina_reason = "非组合柜区的数量不符合标准"
+            container.non_combina_reason = "非组合柜区的数量不符合标准2"
             container.save()
             return False
         return True
@@ -5098,6 +5101,7 @@ class Accounting(View):
         combina_fee: dict,
         container_type,
         total_cbm_sum: FloatField,
+        combina_threshold: int,
     ) -> dict:
         matching_regions = defaultdict(float)  # 各区的cbm总和
         des_match_quote = {}  # 各仓点的匹配详情
@@ -5111,7 +5115,7 @@ class Accounting(View):
         for plts in plts_by_destination:
             destination = plts["destination"]
             # 如果是沃尔玛的，只保留后面的名字，因为报价表里就是这么保留的
-            dest = re.sub(r".*[-_]|[\u4e00-\u9fff]", "", destination).strip()
+            dest = destination.replace("沃尔玛", "").split("-")[-1].strip()
             cbm = plts["total_cbm"]
             dest_matches = []
             matched = False
@@ -5135,7 +5139,9 @@ class Accounting(View):
                         ]
                         price_display[region]["location"].add(dest)
                         matched = True
-
+            if not matched:
+                # 非组合柜仓点
+                non_combina_dests[dest] = {"cbm": cbm}
             # 记录匹配结果
             if dest_matches:
                 des_match_quote[dest] = dest_matches
@@ -5144,18 +5150,15 @@ class Accounting(View):
                     {"dest": dest, "cbm": cbm, "matches": dest_matches}
                 )
                 destination_matches.add(dest)
-            elif not matched:
-                # 非组合柜仓点
-                non_combina_dests[dest] = {"cbm": cbm}
 
-        if len(destination_matches) > 12:
+        if len(destination_matches) > combina_threshold:
             # 按cbm降序排序，将cbm大的归到非组合
             sorted_dests = sorted(dest_cbm_list, key=lambda x: x["cbm"], reverse=True)
             # 重新将排序后的前12个加入里面
             destination_matches = set()
             matching_regions = defaultdict(float)
             price_display = defaultdict(lambda: {"price": 0.0, "location": set()})
-            for item in sorted_dests[:12]:
+            for item in sorted_dests[:combina_threshold]:
                 dest = item["dest"]
                 destination_matches.add(dest)
 
@@ -5167,7 +5170,7 @@ class Accounting(View):
                     price_display[region]["location"].add(dest)
 
             # 其余仓点转为非组合柜
-            for item in sorted_dests[12:]:
+            for item in sorted_dests[combina_threshold:]:
                 non_combina_dests[item["dest"]] = {"cbm": item["cbm"]}
                 # 将cbm大的从组合柜集合中删除
                 des_match_quote.pop(item["dest"], None)
@@ -5328,14 +5331,22 @@ class Accounting(View):
             context["reason"] = "未录入拆柜数据"
             return self.template_invoice_combina_edit, context
 
+        default_combina = stipulate["global_rules"]["max_mixed"]["default"]
+        exceptions = stipulate["global_rules"]["max_mixed"].get("exceptions", {})
+        combina_threshold = exceptions.get(warehouse, default_combina) if exceptions else default_combina
+
+        default_threshold = stipulate["global_rules"]["bulk_threshold"]["default"]
+        exceptions = stipulate["global_rules"]["bulk_threshold"].get("exceptions", {})
+        uncombina_threshold = exceptions.get(warehouse, default_threshold) if exceptions else default_threshold
+
         if (
             plts["unique_destinations"]
-            > stipulate["global_rules"]["bulk_threshold"]["default"]
+            > uncombina_threshold
         ):
             container.account_order_type = "转运"
             container.save()
             context["reason"] = (
-                f"超过{stipulate['global_rules']['bulk_threshold']['default']}个仓点"
+                f"超过{uncombina_threshold}个仓点"
             )
             return self.template_invoice_combina_edit, context
 
@@ -5355,7 +5366,7 @@ class Accounting(View):
         # 区分组合柜区域和非组合柜区域
         container_type_temp = 0 if container_type == "40HQ/GP" else 1
         matched_regions = self.find_matching_regions(
-            plts_by_destination, combina_fee, container_type_temp, total_cbm_sum
+            plts_by_destination, combina_fee, container_type_temp, total_cbm_sum, combina_threshold
         )
         # 判断是否混区，除了LA的CDEF不能混，别的都能混
         is_mix = self.is_mixed_region(
@@ -5385,24 +5396,19 @@ class Accounting(View):
             4,
         )
 
-        if combina_region_count > stipulate["global_rules"]["max_mixed"][
-            "default"
-        ] or non_combina_region_count > (
-            stipulate["global_rules"]["bulk_threshold"]["default"]
-            - stipulate["global_rules"]["max_mixed"]["default"]
-        ):
+        if combina_region_count > combina_threshold or non_combina_region_count > ( uncombina_threshold - combina_threshold ):
             container.account_order_type = "转运"
             container.save()
-            if combina_region_count > stipulate["global_rules"]["max_mixed"]["default"]:
+            if combina_region_count > combina_threshold:
                 # reason = '不满足组合柜区域要求'
-                reason = f"规定{stipulate['global_rules']['max_mixed']['default']}组合柜区,但实际有{combina_region_count}个:matched_regions['combina_dests']，所以按照转运方式统计价格"
+                reason = f"规定{combina_threshold}组合柜区,但实际有{combina_region_count}个:matched_regions['combina_dests']，所以按照转运方式统计价格"
             elif non_combina_region_count > (
-                stipulate["global_rules"]["bulk_threshold"]["default"]
-                - stipulate["global_rules"]["max_mixed"]["default"]
+                uncombina_threshold
+                - combina_threshold
             ):
                 stipulate_non_combina = (
-                    stipulate["global_rules"]["bulk_threshold"]["default"]
-                    - stipulate["global_rules"]["max_mixed"]["default"]
+                    uncombina_threshold
+                    - combina_threshold
                 )
                 reason = f"规定{stipulate_non_combina}个非组合柜区，但是有{non_combina_region_count}个：{list(matched_regions['non_combina_dests'].keys())}，所以按照转运方式统计价格"
                 # reason = '不满足组合柜区域要求'
@@ -5610,7 +5616,7 @@ class Accounting(View):
                         addition_fee = {
                             "min_points": int(min_points),
                             "max_points": int(max_points),
-                            "add_fee": rule.get("addition_fee"),
+                            "add_fee": rule.get("fee"),
                         }
         else:
             addition_fee = None

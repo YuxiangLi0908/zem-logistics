@@ -521,7 +521,7 @@ class OrderCreation(View):
                         status = "待确认到仓"
                     else:
                         if not order.offload_id.offload_at:
-                            status = "确认拆柜"
+                            status = "待确认拆柜"
                         elif order.offload_id.offload_at:
                             status = "已拆柜"
                         else:
@@ -892,7 +892,7 @@ class OrderCreation(View):
         container_numbers = await sync_to_async(
             lambda: list(
                 Order.objects.filter(
-                    created_at__date__gt=date(2025, 5, 1)
+                    created_at__date__gt=date(2025, 7, 1)
                 ).values_list("container_number__container_number", flat=True).distinct()
             )
         )()
@@ -920,32 +920,31 @@ class OrderCreation(View):
                 ).exists()
             )
         )()
-        if has_ups_fedex:
+        is_expiry_guaranteed = await sync_to_async(
+            lambda: Container.objects.filter(
+                container_number=container_number,
+                is_expiry_guaranteed=True
+            ).exists()
+        )()
+        if has_ups_fedex and is_expiry_guaranteed:
             priority = "P1"
+        elif has_ups_fedex or is_expiry_guaranteed:
+            priority = "P2"      
         else:
-            is_expiry_guaranteed = await sync_to_async(
-                lambda: Container.objects.filter(
-                    container_number=container_number,
-                    is_expiry_guaranteed=True
-                ).exists()
+            has_shipment = await sync_to_async(
+                lambda: (
+                    PackingList.objects.filter(
+                        container_number__container_number=container_number,
+                        shipment_batch_number__isnull=False
+                    ).exists()
+                    or
+                    Pallet.objects.filter(
+                        container_number__container_number=container_number,
+                        shipment_batch_number__isnull=False
+                    ).exists()
+                )
             )()
-            if is_expiry_guaranteed:
-                priority = "P2"
-            else:
-                has_shipment = await sync_to_async(
-                    lambda: (
-                        PackingList.objects.filter(
-                            container_number__container_number=container_number,
-                            shipment_batch_number__isnull=False
-                        ).exists()
-                        or
-                        Pallet.objects.filter(
-                            container_number__container_number=container_number,
-                            shipment_batch_number__isnull=False
-                        ).exists()
-                    )
-                )()
-                priority = "P3" if has_shipment else "P4"
+            priority = "P3" if has_shipment else "P4"
         await sync_to_async(
             lambda: Order.objects.filter(
                 container_number__container_number=container_number
@@ -1514,6 +1513,7 @@ class OrderCreation(View):
         po_checks = await sync_to_async(list)(
             PoCheckEtaSeven.objects.filter(container_number__container_number=container)
         )
+        #如果这个柜子的pl都删了，那么pocheck也要都删掉 
         if len(po_checks) == 0:
             # po_check没有这个柜子，直接新建
             for pl in packing_list:
@@ -1575,10 +1575,11 @@ class OrderCreation(View):
                     await sync_to_async(new_obj.save)()
 
             try:
+                criteria = models.Q(container_number__container_number=container)
+                if packing_list:
+                    criteria &= models.Q(packing_list=None)
                 # 对于po_check没有指向pl的，就删除
-                queryset = await sync_to_async(PoCheckEtaSeven.objects.filter)(
-                    container_number__container_number=container, packing_list=None
-                )
+                queryset = await sync_to_async(PoCheckEtaSeven.objects.filter)(criteria)
                 for obj in await sync_to_async(list)(queryset):
                     # 对每个对象执行删除操作
                     await sync_to_async(obj.delete)()
@@ -1650,7 +1651,7 @@ class OrderCreation(View):
                 non_combina_dests.add("UPS")
                 continue
             dest = plts["destination"]
-            dest = dest.replace("沃尔玛", "").split("-")[-1].strip()
+            dest = re.sub(r".*[-_]|[\u4e00-\u9fff]", "", dest).strip()
             matched = False
             # 遍历所有区域和location
             for region, fee_data_list in combina_fee.items():
@@ -1745,6 +1746,7 @@ class OrderCreation(View):
             )
         )()
         matched_regions = self.find_matching_regions(plts_by_destination, combina_fee)
+        print('柜子查询详情',matched_regions)
         matched_regions["combina_dests"] = matched_regions["combina_dests"]
         matched_regions["non_combina_dests"] = list(
             matched_regions["non_combina_dests"]
