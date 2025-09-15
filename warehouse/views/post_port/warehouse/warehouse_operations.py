@@ -19,7 +19,15 @@ from warehouse.views.post_port.warehouse.palletization import Palletization
 
 class WarehouseOperations(View):
     template_warehousing_operation = "post_port/warehouse_operations/01_warehousing_operation.html"
-
+    warehouse_options = {
+        "": "",
+        "NJ-07001": "NJ-07001",
+        "NJ-08817": "NJ-08817",
+        "SAV-31326": "SAV-31326",
+        "LA-91761": "LA-91761",
+        "MO-62025": "MO-62025",
+        "TX-77503": "TX-77503",
+    }
     async def get(self, request: HttpRequest, **kwargs) -> HttpResponse:
         if not await self._user_authenticate(request):
             return redirect("login")
@@ -33,15 +41,49 @@ class WarehouseOperations(View):
             return redirect("login")
         step = request.POST.get("step", None)
         if step == "export_palletization_list":
-            return await export_palletization_list(request)
+            # 先执行导出操作
+            await export_palletization_list(request)
+
+            retrieval_id = request.POST.get('retrieval_id', '').strip()
+            warehouse_unpacking_time = request.POST.get("first_time_download")
+            if warehouse_unpacking_time and retrieval_id:  # 同时验证retrieval_id
+                def sync_update_single_offload_select():
+                    related_orders = Order.objects.filter(
+                        retrieval_id__retrieval_id=retrieval_id,
+                        offload_id__isnull=False,
+                        offload_id__warehouse_unpacked_time__isnull=True
+                    ).select_related('offload_id')
+
+                    if related_orders.exists():
+                        updated_count = 0
+                        for order in related_orders:
+                            order.offload_id.warehouse_unpacking_time = warehouse_unpacking_time
+                            order.offload_id.save()
+                            updated_count += 1
+                        return updated_count
+                    return 0
+
+                async_update_offload = sync_to_async(sync_update_single_offload_select, thread_sensitive=True)
+                affected_rows = await async_update_offload()
+
+                def sync_update_single_select():
+                    retrieval = Retrieval.objects.get(retrieval_id=retrieval_id)
+                    retrieval.unpacking_status = "2"
+                    retrieval.save()
+
+                if affected_rows > 0:
+                    async_update_re = sync_to_async(sync_update_single_select, thread_sensitive=True)
+                    await async_update_re()
+            template, context = await self.warehousing_operation_get(request)
+            return await sync_to_async(render)(request, template, context)
         elif step == "export_pallet_label":
             palletization_view = Palletization()
             return await palletization_view._export_pallet_label(request)
         elif step == "update_warehouse":
             template, context = await self.warehousing_operation_update(request)
             return await sync_to_async(render)(request, template, context)
-        elif step == "first_time_download":
-            template, context = await self.warehousing_operation_first_time_download(request)
+        elif step == "warehouse_daily_get":
+            template, context = await self.warehousing_operation_post(request)
             return await sync_to_async(render)(request, template, context)
 
     async def _user_authenticate(self, request: HttpRequest):
@@ -50,15 +92,23 @@ class WarehouseOperations(View):
         return False
 
     async def warehousing_operation_get(self, request: HttpRequest):
+        context = {
+            "warehouse_options": self.warehouse_options,
+        }
+        return self.template_warehousing_operation, context
+
+    async def warehousing_operation_post(self, request: HttpRequest):
         """
         入库操作-页面展示
         """
         current_time = datetime.now()
         future_four_days = current_time + timedelta(days=4)
+        warehouse = request.POST.get("warehouse_filter", None)
         ORDER_FILTER_CRITERIA = Q(
             offload_id__offload_required=True,
             offload_id__offload_at__isnull=False,
-            cancel_notification=False
+            cancel_notification=False,
+            warehouse__name = warehouse
         ) & Q(
             Q(retrieval_id__temp_t49_available_for_pickup=True) |
             Q(vessel_id__vessel_eta__lte=future_four_days)
@@ -105,7 +155,8 @@ class WarehouseOperations(View):
         )()
 
         context = {
-            "retrieval": retrieval
+            "retrieval": retrieval,
+            "warehouse_options": self.warehouse_options,
         }
         return self.template_warehousing_operation, context
 

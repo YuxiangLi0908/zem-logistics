@@ -35,6 +35,24 @@
     </style>
 
     <div class="bg-gray-50 font-inter text-textDark p-4 md:p-6" style="margin-top: 79px; position: relative;">
+        <form action="" method="post">
+            {% csrf_token %}
+            <b style="margin-right: 5px;">选择仓点区域:</b>
+            <input type="hidden" name="step" value="warehouse_daily_get">
+
+            <!-- 下拉选择框 -->
+            <select name="warehouse_filter" class="bg-white border border-gray-200 rounded px-2 py-1 text-sm">
+                {% for value, display_text in warehouse_options.items %}
+                    <!-- 根据当前选中值设置selected属性 -->
+                    <option value="{{ value }}" {% if warehouse_filter == value %}selected{% endif %}>
+                        {{ display_text }}
+                    </option>
+                {% endfor %}
+            </select>
+
+            <button type="submit" class="ml-2 px-3 py-1 bg-primary text-white rounded text-sm">确认</button>
+        </form>
+
         <div class="overflow-x-auto rounded-lg table-shadow bg-white" style="position: relative">
             <table class="w-full border-collapse">
                 <thead>
@@ -43,6 +61,8 @@
                     <th class="px-4 py-2.5 text-left text-sm font-bold tracking-wide">优先级</th>
                     <th class="px-4 py-2.5 text-left text-sm font-bold tracking-wide">到仓位置</th>
                     <th class="px-4 py-2.5 text-left text-sm font-bold tracking-wide">拆柜状态</th>
+                    <th class="px-4 py-2.5 text-left text-sm font-bold tracking-wide">拆柜开始时间</th>
+                    <th class="px-4 py-2.5 text-left text-sm font-bold tracking-wide">拆柜完成时间</th>
                     <th class="px-4 py-2.5 text-left text-sm font-bold tracking-wide">导出</th>
                     <th class="px-4 py-2.5 text-left text-sm font-bold tracking-wide">操作</th>
                     <th class="px-4 py-2.5 text-left text-sm font-bold tracking-wide">回传拆柜数据</th>
@@ -81,15 +101,22 @@
                                     {% endwith %}
                                 </td>
 
-                                <!-- 3. 到仓位置（输入框，通过ID关联） -->
+                                <!-- 3. 到仓位置（根据拆柜状态显示/隐藏） -->
                                 <td class="px-4 py-2 fixed-width-cell">
-                                    <input type="text"
-                                           id="arrival_location_{{ record_id }}"
-                                           value="{{ ret.arrival_location|default:''|upper }}"
-                                           oninput="this.value = this.value.toUpperCase()"
-                                           placeholder="请输入到仓位置"
-                                           class="bg-white border border-gray-200 rounded-lg px-1.5 py-0.75 text-[12px] w-full focus:outline-none focus:ring-2 focus:ring-primary/50 tag-shadow transition-all">
+                                    {% if ret.unpacking_status != "1" %}
+                                        <!-- 非已拆柜状态，显示输入框 -->
+                                        <input type="text"
+                                               id="arrival_location_{{ record_id }}"
+                                               value="{{ ret.arrival_location|default:''|upper }}"
+                                               oninput="this.value = this.value.toUpperCase()"
+                                               placeholder="请输入到仓位置"
+                                               class="bg-white border border-gray-200 rounded-lg px-1.5 py-0.75 text-[12px] w-full focus:outline-none focus:ring-2 focus:ring-primary/50 tag-shadow transition-all">
+                                    {% else %}
+                                        <!-- 已拆柜状态，隐藏输入框 -->
+                                        <span class="text-xs text-gray-500"></span>
+                                    {% endif %}
                                 </td>
+
 
                                 <!-- 4. 拆柜状态（Checkbox，互斥逻辑） -->
                                 <td class="px-4 py-2">
@@ -113,7 +140,7 @@
                                                    name="unpacking_status_{{ record_id }}"
                                                    value="0"
                                                    {% if ret.unpacking_status|stringformat:"s" == "0" or not ret.unpacking_status %}checked{% endif %}
-                                                   class="h-3.5 w-3.5 text-primary border-gray-300 rounded focus:ring-primary/50">
+                                                   class="h-3.5 w-3.5 text-primary border-gray-300 rounded focus:ring-primary/50" disabled>
                                             <label for="unpack_0_{{ record_id }}" class="ml-1 inline-flex items-center px-1.5 py-0.5 rounded-lg text-xs font-medium bg-gray-50 text-neutral tag-shadow cursor-pointer">
                                                 <i class="bi bi-hourglass-start mr-0.5 text-[10px]"></i>未拆
                                             </label>
@@ -134,15 +161,80 @@
                                     </div>
                                 </td>
 
+                                <!-- 拆柜开始时间 -->
+                                <td class="px-4 py-2">
+                                    {% with unpacking_time=order.offload_id.warehouse_unpacking_time %}
+                                        {% if unpacking_time and order.retrieval_id.unpacking_status == "2" %}
+                                            <!-- 将时间和状态通过data属性传递给JavaScript -->
+                                            <span class="unpacking-time"
+                                                  data-unpacking-time="{{ unpacking_time|date:"Y-m-d H:i:s" }}"
+                                                  data-status="{{ order.retrieval_id.unpacking_status }}">
+                                                {{ unpacking_time|date:"Y-m-d H:i:s" }}
+                                            </span>
+                                        {% else %}
+                                            {{ unpacking_time|date:"Y-m-d H:i:s"|default:"-" }}
+                                        {% endif %}
+                                    {% endwith %}
+
+                                    <script>
+                                        if (window.unpackingTimeScriptLoaded !== true) {
+                                            window.unpackingTimeScriptLoaded = true;
+
+                                            document.addEventListener('DOMContentLoaded', function () {
+                                                document.querySelectorAll('.unpacking-time').forEach(function (element) {
+                                                    const unpackingTimeStr = element.getAttribute('data-unpacking-time');
+                                                    const status = element.getAttribute('data-status');
+
+                                                    if (!unpackingTimeStr || status !== "2") {
+                                                        return;
+                                                    }
+
+                                                    const unpackingTime = new Date(unpackingTimeStr);
+                                                    const currentTime = new Date();
+
+                                                    if (isNaN(unpackingTime.getTime())) {
+                                                        console.error('无效的拆柜时间:', unpackingTimeStr);
+                                                        return;
+                                                    }
+
+                                                    const timeDiffMs = currentTime - unpackingTime;
+                                                    const daysDiff = timeDiffMs / 86400000;
+
+                                                    if (daysDiff > 2) {
+                                                        element.classList.add('text-red-600', 'font-medium');
+                                                        element.insertAdjacentHTML('beforeend',
+                                                            '<span class="ml-1 text-xs bg-red-100 px-1 rounded">(已超2天)</span>');
+                                                    }
+                                                });
+                                            });
+                                        }
+                                    </script>
+                                </td>
+
+
+
+                                <!-- 拆柜完成时间-->
+                                <td class="px-4 py-2">
+                                    {{ order.offload_id.warehouse_unpacked_time|date:"Y-m-d H:i:s" }}
+                                </td>
+
                                 <!-- 5. 导出功能 -->
                                 <td class="px-4 py-2 text-xs">
                                     <div class="flex space-x-1">
-                                        <form method="post" action="" style="display: inline-block;">
+                                        <form method="post" action="" style="display: inline-block;"
+                                              class="download-form">
                                             {% csrf_token %}
                                             <input type="hidden" name="step" value="export_palletization_list">
                                             <input type="hidden" name="status" value="palletized">
-                                            <input type="hidden" name="container_number" value="{{ order.container_number|default:'' }}">
-                                            <button type="submit" class="compact-btn bg-success text-white hover:bg-success/90" {% if not order.container_number %}disabled title="柜号为空"{% endif %}>
+                                            <input type="hidden" name="retrieval_id" value="{{ ret.retrieval_id }}">
+                                            <input type="hidden" name="arrival_location" value="{{ ret.arrival_location|default:''|upper }}">
+                                            <input type="hidden" name="unpacking_status" value="{{ ret.unpacking_status }}">
+                                            <input type="hidden" name="first_time_download" class="first-time-input" value="">
+                                            <input type="hidden" name="container_number"
+                                                   value="{{ order.container_number|default:'' }}">
+                                            <button type="submit" class="compact-btn bg-success text-white hover:bg-success/90"
+                                                    {% if not order.container_number %}disabled
+                                                    title="柜号为空"{% endif %}>
                                                 <i class="bi bi-cloud-arrow-down-fill mr-0.5 text-[11px]"></i>拆柜单
                                             </button>
                                         </form>
@@ -266,6 +358,53 @@ document.querySelectorAll('.update-single-form').forEach(form => {
             retrieval_id: this.querySelector('input[name="retrieval_id"]').value,
             arrival_location: arrivalValue,
             unpacking_status: statusValue
+        });
+    });
+});
+document.addEventListener('DOMContentLoaded', function() {
+    // 获取所有拆柜单表单
+    const downloadForms = document.querySelectorAll('.download-form');
+
+    // 遍历每个表单并绑定点击事件
+    downloadForms.forEach(form => {
+        // 获取表单内的按钮和时间输入框
+        const submitButton = form.querySelector('button[type="submit"]');
+        const timeInput = form.querySelector('.first-time-input');
+
+        if (!submitButton || !timeInput) {
+            console.error('表单元素不完整');
+            return;
+        }
+
+        // 绑定按钮点击事件
+        submitButton.addEventListener('click', function() {
+            // 获取当前时间并格式化
+            const now = new Date();
+            const year = now.getFullYear();
+            const month = String(now.getMonth() + 1).padStart(2, '0');
+            const day = String(now.getDate()).padStart(2, '0');
+            const hours = String(now.getHours()).padStart(2, '0');
+            const minutes = String(now.getMinutes()).padStart(2, '0');
+            const seconds = String(now.getSeconds()).padStart(2, '0');
+
+            const formattedTime = `${year}-${month}-${day} ${hours}:${minutes}:${seconds}`;
+
+            // 设置时间到隐藏域
+            timeInput.value = formattedTime;
+
+            // 调试信息
+            console.log('点击时间已设置:', formattedTime);
+        });
+
+        // 额外绑定表单提交事件作为双重保障
+        form.addEventListener('submit', function() {
+            // 如果点击事件未触发（罕见情况），在这里再设置一次
+            if (!timeInput.value) {
+                const now = new Date();
+                const formattedTime = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(now.getDate()).padStart(2, '0')} ${String(now.getHours()).padStart(2, '0')}:${String(now.getMinutes()).padStart(2, '0')}:${String(now.getSeconds()).padStart(2, '0')}`;
+                timeInput.value = formattedTime;
+                console.log('通过提交事件补充设置时间:', formattedTime);
+            }
         });
     });
 });
