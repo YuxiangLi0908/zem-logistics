@@ -521,7 +521,7 @@ class OrderCreation(View):
                         status = "待确认到仓"
                     else:
                         if not order.offload_id.offload_at:
-                            status = "确认拆柜"
+                            status = "待确认拆柜"
                         elif order.offload_id.offload_at:
                             status = "已拆柜"
                         else:
