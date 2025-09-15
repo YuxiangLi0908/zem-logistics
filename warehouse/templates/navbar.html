@@ -35,7 +35,7 @@
                                 <div class="nested-dropdown-content">
                                     <a href="{% url 'warehouse_operations' %}?step=warehousing_operation">入库</a>
                                     <a href="#" target="_blank">特殊操作</a>
-                                    <a href="#" target="_blank">出库</a>
+                                    <a href="{% url 'warehouse_operations' %}?step=upcoming_fleet">出库</a>
                                 </div>
                             </div>
                             <a href="{% url 'palletization' %}?step=warehouse_zone">库位管理</a>
