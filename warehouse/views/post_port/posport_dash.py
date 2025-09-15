@@ -164,14 +164,32 @@ class PostportDash(View):
                     container_number__container_number="0",
                 )
             elif shipping_marks:
-                pl_criteria = models.Q(shipping_mark__contains=shipping_marks)
-                plt_criteria = models.Q(shipping_mark__contains=shipping_marks)
+                pl_criteria = models.Q(
+                    shipping_mark__contains=shipping_marks,
+                    container_number__order__offload_id__offload_at__isnull=True,
+                )
+                plt_criteria = models.Q(
+                    shipping_mark__contains=shipping_marks,
+                    container_number__order__offload_id__offload_at__isnull=False,
+                )
             elif fba_ids:
-                pl_criteria = models.Q(fba_id__contains=fba_ids)
-                plt_criteria = models.Q(fba_id__contains=fba_ids)
+                pl_criteria = models.Q(
+                    fba_id__contains=fba_ids,
+                    container_number__order__offload_id__offload_at__isnull=True,
+                )
+                plt_criteria = models.Q(
+                    fba_id__contains=fba_ids,
+                    container_number__order__offload_id__offload_at__isnull=False,
+                )
             elif ref_ids:
-                pl_criteria = models.Q(ref_id__contains=ref_ids)
-                plt_criteria = models.Q(ref_id__contains=ref_ids)
+                pl_criteria = models.Q(
+                    ref_id__contains=ref_ids,
+                    container_number__order__offload_id__offload_at__isnull=True,
+                )
+                plt_criteria = models.Q(
+                    ref_id__contains=ref_ids,
+                    container_number__order__offload_id__offload_at__isnull=False,
+                )
             if not destination and not shipping_marks and not fba_ids and not ref_ids:
                 pl_criteria = criteria & models.Q(
                     container_number__order__offload_id__offload_at__isnull=True,
