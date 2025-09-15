@@ -60,7 +60,7 @@ from office365.sharepoint.client_context import ClientContext
 from office365.sharepoint.sharing.links.kind import SharingLinkKind
 from openpyxl.styles import Alignment, Border, Font, PatternFill, Side, numbers
 from simple_history.utils import bulk_create_with_history, bulk_update_with_history
-from sqlalchemy.util import await_only
+#from sqlalchemy.util import await_only
 
 from warehouse.forms.order_form import OrderForm
 from warehouse.models.container import Container

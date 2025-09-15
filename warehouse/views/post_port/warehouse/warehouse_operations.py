@@ -1,31 +1,53 @@
 from datetime import datetime, timedelta
 from django.utils import timezone
-from typing import Any, Coroutine
+from typing import Any, Coroutine, Tuple
+import os
 
 from asgiref.sync import sync_to_async
 from django.db import models
 from django.db.models import Prefetch, Q
+from django.core.exceptions import ValidationError
 from django.http import HttpRequest, HttpResponse, HttpResponsePermanentRedirect, HttpResponseRedirect, JsonResponse
 from django.shortcuts import redirect, render
 from django.views import View
-from sqlalchemy.sql.functions import current_time
+from django.db.models import Sum, Count, F, FloatField, Case, When, Value
+from django.db.models.functions import Coalesce
+#from sqlalchemy.sql.functions import current_time
 
 from warehouse.models.offload import Offload
 from warehouse.models.order import Order
 from warehouse.models.retrieval import Retrieval
+from warehouse.models.fleet import Fleet
+from warehouse.models.shipment import Shipment
+from warehouse.models.packing_list import PackingList
+from warehouse.models.pallet import Pallet
 from warehouse.views.export_file import export_palletization_list
 from warehouse.views.post_port.warehouse.palletization import Palletization
+from warehouse.views.post_port.shipment.fleet_management import FleetManagement
 
 
 class WarehouseOperations(View):
     template_warehousing_operation = "post_port/warehouse_operations/01_warehousing_operation.html"
+    template_upcoming_fleet = "post_port/warehouse_operations/03_upcoming_fleet.html"
 
+    warehouse_options = {
+        "": "",
+        "NJ-07001": "NJ-07001",
+        "NJ-08817": "NJ-08817",
+        "SAV-31326": "SAV-31326",
+        "LA-91761": "LA-91761",
+        "MO-62025": "MO-62025",
+        "TX-77503": "TX-77503",
+    }
     async def get(self, request: HttpRequest, **kwargs) -> HttpResponse:
         if not await self._user_authenticate(request):
             return redirect("login")
         step = request.GET.get("step", None)
         if step == "warehousing_operation":
             template, context = await self.warehousing_operation_get(request)
+            return await sync_to_async(render)(request, template, context)
+        elif step == "upcoming_fleet":
+            template, context = await self.handle_upcoming_fleet_get(request)
             return await sync_to_async(render)(request, template, context)
 
     async def post(self, request: HttpRequest, **kwargs) -> HttpResponse | JsonResponse | HttpResponseRedirect:
@@ -43,6 +65,21 @@ class WarehouseOperations(View):
         elif step == "first_time_download":
             template, context = await self.warehousing_operation_first_time_download(request)
             return await sync_to_async(render)(request, template, context)
+        elif step == "upcoming_fleet_warehouse":
+            template, context = await self.handle_upcoming_fleet_post(request)
+            return await sync_to_async(render)(request, template, context)
+        elif step == "checkin_fleet":
+            template, context = await self.handle_checkin_fleet_post(request)
+            return render(request, template, context)
+        elif step == "loading_fleet":
+            template, context = await self.handle_loading_fleet_post(request)
+            return render(request, template, context)
+        elif step == "complete_loading":
+            template, context = await self.handle_complete_loading_post(request)
+            return render(request, template, context)
+        elif step =="export_bol":
+            return await self.handle_bol_post(request)
+
 
     async def _user_authenticate(self, request: HttpRequest):
         if await sync_to_async(lambda: request.user.is_authenticated)():
@@ -162,3 +199,179 @@ class WarehouseOperations(View):
         warehouse_unpacking_time = request.GET.get("first_time_download")
         template, context = await self.warehousing_operation_first_time_download(request)
         return template, context
+
+    async def handle_upcoming_fleet_get(
+        self, request: HttpRequest
+    ) -> tuple[str, dict[str, Any]]:
+        context = {"warehouse_options": self.warehouse_options}
+        return self.template_upcoming_fleet, context
+
+    async def handle_bol_post(self, request: HttpRequest) -> HttpResponse:
+        #准备参数
+        mutable_post = request.POST.copy()
+        fleet_number = request.POST.get("fleet_number")
+        fleet = await sync_to_async(Fleet.objects.get)(fleet_number=fleet_number)
+        shipment = await sync_to_async(list)(Shipment.objects.filter(fleet_number=fleet))
+        if len(shipment) > 1:
+            raise ValueError('这个约有多个批次，不知道怎么下载BOL')
+        else:
+            mutable_post["shipment_batch_number"] = shipment[0].shipment_batch_number   
+
+        mutable_post["customerInfo"] = None
+        mutable_post["pickupList"] = None
+  
+        request.POST = mutable_post
+        fm = FleetManagement()    
+        return await fm.handle_export_bol_post(request)
+
+    async def handle_complete_loading_post(
+        self, request: HttpRequest
+    ) -> tuple[str, dict[str, Any]]:
+        fleet_number = request.POST.get("fleet_number")
+        #上传出库凭证
+        try:
+            receipt_image = request.FILES.get("receipt_image")
+            if receipt_image:
+                valid_extensions = [".jpg", ".png", ".jpeg"]
+                ext = os.path.splitext(receipt_image.name)[1].lower()
+                if ext not in valid_extensions:
+                    raise ValidationError("仅支持JPG/PNG格式图片")
+                if receipt_image.size > 5 * 1024 * 1024:  # 5MB
+                    raise ValidationError("图片大小不能超过5MB")
+        except ValidationError as e:
+            raise ValidationError("图片格式错误")
+        if receipt_image:
+            conn = self._get_sharepoint_auth()
+            link = self._upload_image_to_sharepoint(conn, receipt_image)
+        else:
+            link = ""
+        #更新车次状态
+        updated = await sync_to_async(
+            Fleet.objects.filter(fleet_number=fleet_number).update
+        )(warehouse_process_status="shipped", shipped_cert_link=link)
+        
+        return await self.handle_upcoming_fleet_post(request)
+
+
+    async def handle_loading_fleet_post(
+        self, request: HttpRequest
+    ) -> tuple[str, dict[str, Any]]:
+        fleet_number = request.POST.get("fleet_number")
+
+        updated = await sync_to_async(
+            Fleet.objects.filter(fleet_number=fleet_number).update
+        )(warehouse_process_status="loading")
+
+        if updated == 0:
+            return ValueError('未查到该车次')
+        return await self.handle_upcoming_fleet_post(request)
+
+
+    async def handle_checkin_fleet_post(
+        self, request: HttpRequest
+    ) -> tuple[str, dict[str, Any]]:
+        fleet_number = request.POST.get("fleet_number")
+        driver_name = request.POST.get("driver_name")
+        driver_phone = request.POST.get("driver_phone")
+        license_plate = request.POST.get("license_plate")
+
+        updated = await sync_to_async(
+            Fleet.objects.filter(fleet_number=fleet_number).update
+        )(
+            warehouse_process_status="check_in",
+            driver_name=driver_name,
+            driver_phone=driver_phone,
+            license_plate=license_plate
+        )
+
+        if updated == 0:
+            return ValueError('未查到该车次')
+        return await self.handle_upcoming_fleet_post(request)
+
+
+    async def handle_upcoming_fleet_post(
+        self, request: HttpRequest
+    ) -> tuple[str, dict[str, Any]]:
+        warehouse = request.POST.get("warehouse")
+    
+        # 获取未来三天的时间范围
+        today = timezone.now().date()
+        three_days_later = today + timedelta(days=3)
+        
+        # 异步查询未来三天内的车队数据（使用Prefetch优化查询）
+        fleets = await sync_to_async(list)(
+            Fleet.objects.filter(
+                appointment_datetime__date__range=[today, three_days_later],
+                origin = warehouse,
+            ).prefetch_related(
+                Prefetch(
+                    'shipment',
+                    queryset=Shipment.objects.prefetch_related(
+                        'pallet',
+                        'packinglist'
+                    )
+                )
+            )
+        )
+        
+        fleet_data = []
+        for fleet in fleets:
+            pallet_stats = await sync_to_async(fleet.shipment.aggregate)(
+                total_pallets=Count('pallet', distinct=True),
+                total_pallet_cbm=Sum('pallet__cbm')
+            )
+            
+            packinglist_stats = await sync_to_async(fleet.shipment.aggregate)(
+                total_packinglist_cbm=Sum('packinglist__cbm')
+            )
+            
+            pallet_pallets = pallet_stats['total_pallets'] or 0
+            pallet_cbm = pallet_stats['total_pallet_cbm'] or 0.0
+            packinglist_cbm = packinglist_stats['total_packinglist_cbm'] or 0.0
+            
+            packinglist_pallets = round(packinglist_cbm / 1.8) if packinglist_cbm else 0
+            
+            is_estimated = pallet_pallets == 0 and packinglist_pallets > 0
+            
+            total_pallets = pallet_pallets + packinglist_pallets
+            total_cbm = pallet_cbm + packinglist_cbm
+            
+            days_diff = (fleet.appointment_datetime.date() - today).days
+            
+            fleet_data.append({
+                'fleet_number': fleet.fleet_number,
+                'warehouse_process_status': fleet.warehouse_process_status,
+                'pickup_number': fleet.pickup_number,
+                'appointment_datetime': fleet.appointment_datetime,
+                'driver_name': fleet.driver_name,
+                'driver_phone': fleet.driver_phone,
+                'license_plate': fleet.license_plate,
+                'pallets': total_pallets,
+                'cbm': round(total_cbm, 2),
+                'is_estimated': is_estimated,
+                'days_diff': days_diff
+            })
+        # 按日期分组统计
+        today_count = len([f for f in fleet_data if f['days_diff'] == 0])
+        tomorrow_count = len([f for f in fleet_data if f['days_diff'] == 1])
+        day_after_count = len([f for f in fleet_data if f['days_diff'] == 2])
+        
+        # 汇总统计
+        total_pallets = sum(f['pallets'] for f in fleet_data)
+        total_cbm = sum(f['cbm'] for f in fleet_data)
+        
+        context = {
+            'warehouse_options': self.warehouse_options,
+            'fleets': fleet_data,
+            'warehouse': warehouse,
+            'summary': {
+                'total_fleets': len(fleet_data),
+                'total_pallets': total_pallets,
+                'total_cbm': total_cbm,
+                'completed_count': 0,
+                'today_count': today_count,
+                'tomorrow_count': tomorrow_count,
+                'day_after_count': day_after_count,
+            }
+        }
+        return self.template_upcoming_fleet, context
