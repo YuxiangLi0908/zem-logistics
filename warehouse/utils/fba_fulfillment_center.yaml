@@ -2353,3 +2353,8 @@ PSC2:
   location: 1351 S Rd 40 E
   state: WA
   zipcode: '99301'
+RFD2:
+  city: Huntley
+  location: 11500 Freeman Rd
+  state: IL
+  zipcode: '60142'
