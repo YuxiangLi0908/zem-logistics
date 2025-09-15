@@ -1513,6 +1513,7 @@ class OrderCreation(View):
         po_checks = await sync_to_async(list)(
             PoCheckEtaSeven.objects.filter(container_number__container_number=container)
         )
+        #如果这个柜子的pl都删了，那么pocheck也要都删掉 
         if len(po_checks) == 0:
             # po_check没有这个柜子，直接新建
             for pl in packing_list:
@@ -1574,10 +1575,11 @@ class OrderCreation(View):
                     await sync_to_async(new_obj.save)()
 
             try:
+                criteria = models.Q(container_number__container_number=container)
+                if packing_list:
+                    criteria &= models.Q(packing_list=None)
                 # 对于po_check没有指向pl的，就删除
-                queryset = await sync_to_async(PoCheckEtaSeven.objects.filter)(
-                    container_number__container_number=container, packing_list=None
-                )
+                queryset = await sync_to_async(PoCheckEtaSeven.objects.filter)(criteria)
                 for obj in await sync_to_async(list)(queryset):
                     # 对每个对象执行删除操作
                     await sync_to_async(obj.delete)()
