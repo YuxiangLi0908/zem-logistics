@@ -496,8 +496,8 @@ SP_DOC_LIB = os.environ.get("MS_SP_DOC_LIB")
 SP_TENANT = os.environ.get("MS_SP_TENANT")
 SP_THUMBPRINT = os.environ.get("MS_SP_THUMBPRINT")
 SP_CLIENT_ID = os.environ.get("MS_SP_CLIENT_ID")
-SP_PRIVATE_KEY = os.environ.get("MS_SP_PRIVATE_KEY").replace("\\n", "\n")
-#SP_PRIVATE_KEY = os.environ.get("MS_SP_PRIVATE_KEY")
+private_key = os.environ.get("MS_SP_PRIVATE_KEY")
+SP_PRIVATE_KEY = private_key.replace("\\n", "\n") if private_key else None
 SP_SCOPE = os.environ.get("MS_SP_SCOPE")
 SYSTEM_FOLDER = "system_archive"
 # 未设置APP_ENV返回staging预发布环境，值为production返回prd生产环境，

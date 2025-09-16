@@ -1,0 +1,1103 @@
+{% extends 'base.html' %}
+{% load static %}
+
+{% block content %}
+
+<style>
+    :root {
+        --primary-color: #3498db;
+        --secondary-color: #2c3e50;
+        --success-color: #2ecc71;
+        --warning-color: #f39c12;
+        --danger-color: #e74c3c;
+        --light-color: #f8f9fa;
+        --dark-color: #343a40;
+        --day1-color: #e3f2fd;
+        --day2-color: #e8f5e9;
+        --day3-color: #fff3e0;
+    }
+
+    * {
+        margin: 0;
+        padding: 0;
+        box-sizing: border-box;
+        font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+    }
+
+    body {
+        background-color: #f5f7fa;
+        color: #333;
+        line-height: 1.6;
+    }
+
+    .warehouse-system {
+        max-width: 1600px;
+        margin: 20px auto;
+        background: white;
+        border-radius: 10px;
+        box-shadow: 0 0 20px rgba(0, 0, 0, 0.1);
+        overflow: hidden;
+    }
+
+    .warehouse-header {
+        background: linear-gradient(135deg, var(--secondary-color), #4a6491);
+        color: white;
+        padding: 20px 30px;
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        flex-wrap: wrap;
+    }
+
+    .warehouse-logo {
+        display: flex;
+        align-items: center;
+        font-size: 1.5rem;
+        font-weight: bold;
+    }
+
+    .warehouse-logo i {
+        margin-right: 10px;
+        font-size: 1.8rem;
+    }
+
+    .warehouse-selector {
+        display: flex;
+        align-items: center;
+        gap: 15px;
+        background: rgba(255, 255, 255, 0.15);
+        padding: 10px 20px;
+        border-radius: 8px;
+    }
+
+    .warehouse-selector label {
+        font-weight: 600;
+    }
+
+    .warehouse-selector select {
+        padding: 8px 15px;
+        border: none;
+        border-radius: 5px;
+        background: white;
+        font-size: 1rem;
+        min-width: 200px;
+    }
+
+    .warehouse-selector button {
+        padding: 8px 16px;
+        background: var(--success-color);
+        color: white;
+        border: none;
+        border-radius: 5px;
+        cursor: pointer;
+        font-weight: 600;
+        transition: background 0.3s ease;
+    }
+
+    .warehouse-selector button:hover {
+        background: #27ae60;
+    }
+
+    .warehouse-main {
+        padding: 30px;
+    }
+
+    .time-navigation {
+        display: flex;
+        margin-bottom: 25px;
+        border-bottom: 1px solid #eaecef;
+    }
+
+    .time-tab {
+        padding: 12px 25px;
+        cursor: pointer;
+        border-bottom: 3px solid transparent;
+        transition: all 0.3s;
+        font-weight: 500;
+        position: relative;
+    }
+
+    .time-tab.active {
+        color: var(--primary-color);
+        border-bottom: 3px solid var(--primary-color);
+        font-weight: 600;
+    }
+
+    .time-tab .badge {
+        position: absolute;
+        top: 5px;
+        right: 5px;
+        background: var(--primary-color);
+        color: white;
+        border-radius: 50%;
+        width: 22px;
+        height: 22px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        font-size: 0.7rem;
+    }
+
+    .summary-cards {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+        gap: 20px;
+        margin-bottom: 30px;
+    }
+
+    .summary-card {
+        background: white;
+        border-radius: 8px;
+        padding: 20px;
+        box-shadow: 0 3px 10px rgba(0, 0, 0, 0.08);
+        display: flex;
+        flex-direction: column;
+    }
+
+    .summary-card .card-title {
+        font-size: 0.9rem;
+        color: #7f8c8d;
+        margin-bottom: 10px;
+    }
+
+    .summary-card .card-value {
+        font-size: 1.8rem;
+        font-weight: 700;
+        color: var(--secondary-color);
+    }
+
+    .summary-card .card-trend {
+        margin-top: 10px;
+        font-size: 0.85rem;
+        display: flex;
+        align-items: center;
+        gap: 5px;
+    }
+
+    .summary-card .trend-up {
+        color: var(--success-color);
+    }
+
+    .summary-card .trend-down {
+        color: var(--danger-color);
+    }
+
+    .progress-container {
+        width: 100%;
+        height: 8px;
+        background-color: #e9ecef;
+        border-radius: 4px;
+        margin-top: 5px;
+        overflow: hidden;
+    }
+    
+    .progress-bar {
+        height: 100%;
+        background-color: var(--success-color);
+        border-radius: 4px;
+        transition: width 0.3s ease;
+    }
+    
+    .completion-text {
+        font-size: 0.8rem;
+        color: #6c757d;
+        margin-top: 3px;
+        text-align: center;
+    }
+    
+    .status-abnormal {
+        background-color: #f8d7da;
+        color: #721c24;
+        border: 1px solid #f5c6cb;
+    }
+    
+    .status-abnormal .status-icon {
+        color: #dc3545;
+    }
+
+    .table-container {
+        overflow-x: auto;
+        border-radius: 8px;
+        box-shadow: 0 3px 10px rgba(0, 0, 0, 0.08);
+    }
+
+    .shipment-table {
+        width: 100%;
+        border-collapse: collapse;
+    }
+
+    .shipment-table th {
+        background: var(--secondary-color);
+        color: white;
+        padding: 15px;
+        text-align: left;
+        font-weight: 600;
+    }
+
+    .shipment-table td {
+        padding: 15px;
+        border-bottom: 1px solid #eaecef;
+    }
+
+    .shipment-table tr:nth-child(even) {
+        background-color: #f9fafb;
+    }
+
+    .shipment-table tr.day-1 {
+        background-color: var(--day1-color);
+    }
+
+    .shipment-table tr.day-2 {
+        background-color: var(--day2-color);
+    }
+
+    .shipment-table tr.day-3 {
+        background-color: var(--day3-color);
+    }
+
+    .shipment-table tr:hover {
+        background-color: #edf2f7;
+    }
+
+    .bol-download-btn {
+        padding: 6px 12px;
+        background: var(--primary-color);
+        color: white;
+        border: none;
+        border-radius: 4px;
+        cursor: pointer;
+        display: flex;
+        align-items: center;
+        gap: 5px;
+        font-size: 0.85rem;
+        transition: background 0.3s ease;
+    }
+
+    .bol-download-btn:hover {
+        background: #2980b9;
+    }
+
+    .location-input {
+        padding: 6px 10px;
+        border: 1px solid #dce1e6;
+        border-radius: 4px;
+        width: 100%;
+        font-size: 0.9rem;
+    }
+
+    .save-btn {
+        padding: 6px 12px;
+        background: var(--success-color);
+        color: white;
+        border: none;
+        border-radius: 4px;
+        cursor: pointer;
+        margin-top: 5px;
+        transition: background 0.3s ease;
+    }
+
+    .save-btn:hover {
+        background: #27ae60;
+    }
+
+    .day-indicator {
+        display: inline-block;
+        padding: 3px 8px;
+        border-radius: 4px;
+        font-size: 0.75rem;
+        font-weight: 600;
+        margin-left: 10px;
+    }
+
+    .day-1-indicator {
+        background: var(--day1-color);
+        color: #0d47a1;
+    }
+
+    .day-2-indicator {
+        background: var(--day2-color);
+        color: #1b5e20;
+    }
+
+    .day-3-indicator {
+        background: var(--day3-color);
+        color: #e65100;
+    }
+    
+    .status-pending {
+        background-color: #ffebee;
+        color: #c62828;
+    }
+    
+    .status-checked_in {
+        background-color: #fff3e0;
+        color: #ef6c00;
+    }
+    
+    .status-loading {
+        background-color: #e3f2fd;
+        color: #1565c0;
+    }
+    
+    .status-completed {
+        background-color: #e8f5e9;
+        color: #2e7d32;
+    }
+    
+    .action-form {
+        display: inline-block;
+        margin-right: 5px;
+    }
+    
+    .action-btn {
+        padding: 6px 12px;
+        border: none;
+        border-radius: 4px;
+        cursor: pointer;
+        font-size: 0.85rem;
+        transition: all 0.3s ease;
+    }
+    
+    .btn-primary {
+        background: var(--primary-color);
+        color: white;
+    }
+    
+    .btn-success {
+        background: var(--success-color);
+        color: white;
+    }
+    
+    .btn-warning {
+        background: var(--warning-color);
+        color: white;
+    }
+    
+    .btn-danger {
+        background: var(--danger-color);
+        color: white;
+    }
+    
+    .driver-info {
+        display: flex;
+        flex-direction: column;
+        gap: 5px;
+    }
+    
+    .info-input {
+        padding: 6px 10px;
+        border: 1px solid #dce1e6;
+        border-radius: 4px;
+        font-size: 0.9rem;
+        width: 100%;
+    }
+    
+    .upload-btn {
+        display: inline-block;
+        padding: 6px 12px;
+        background: var(--primary-color);
+        color: white;
+        border: none;
+        border-radius: 4px;
+        cursor: pointer;
+        text-align: center;
+    }
+    
+    .upload-btn input[type="file"] {
+        display: none;
+    }
+    
+    .day-display {
+        display: inline-block;
+        padding: 3px 8px;
+        border-radius: 4px;
+        font-size: 0.75rem;
+        font-weight: 600;
+        margin-left: 10px;
+    }
+    
+    .day-today {
+        background-color: var(--day1-color);
+        color: #0d47a1;
+    }
+    
+    .day-tomorrow {
+        background-color: var(--day2-color);
+        color: #1b5e20;
+    }
+    
+    .day-dayafter {
+        background-color: var(--day3-color);
+        color: #e65100;
+    }
+
+    .status-icon {
+        margin-right: 5px;
+        font-size: 1.1rem;
+    }
+    
+    .status-waiting .status-icon { color: #f39c12; }
+    .status-check_in .status-icon { color: #3498db; }
+    .status-loading .status-icon { color: #9b59b6; }
+    .status-shipped .status-icon { color: #27ae60; }
+    
+    .status-badge {
+        display: inline-flex;
+        align-items: center;
+        padding: 6px 12px;
+        border-radius: 15px;
+        font-size: 0.8rem;
+        font-weight: 600;
+    }
+    
+    .status-waiting {
+        background-color: #fff3e0;
+        color: #f39c12;
+        border: 1px solid #f39c12;
+    }
+    
+    .status-check_in {
+        background-color: #e3f2fd;
+        color: #3498db;
+        border: 1px solid #3498db;
+    }
+    
+    .status-loading {
+        background-color: #f3e5f5;
+        color: #9b59b6;
+        border: 1px solid #9b59b6;
+    }
+    
+    .status-shipped {
+        background-color: #e8f5e9;
+        color: #27ae60;
+        border: 1px solid #27ae60;
+    }
+
+    .modal {
+        display: none;
+        position: fixed;
+        z-index: 1000;
+        left: 0;
+        top: 0;
+        width: 100%;
+        height: 100%;
+        background-color: rgba(0,0,0,0.5);
+    }
+    
+    .modal-content {
+        background-color: white;
+        margin: 15% auto;
+        padding: 20px;
+        border-radius: 8px;
+        width: 400px;
+        box-shadow: 0 4px 20px rgba(0,0,0,0.2);
+    }
+    
+    .close {
+        color: #aaa;
+        float: right;
+        font-size: 28px;
+        font-weight: bold;
+        cursor: pointer;
+    }
+    
+    .close:hover {
+        color: black;
+    }
+
+    @media (max-width: 992px) {
+        .warehouse-header {
+            flex-direction: column;
+            gap: 20px;
+        }
+
+        .warehouse-selector {
+            width: 100%;
+            justify-content: center;
+        }
+
+        .summary-cards {
+            grid-template-columns: 1fr 1fr;
+        }
+    }
+
+    @media (max-width: 768px) {
+        .summary-cards {
+            grid-template-columns: 1fr;
+        }
+
+        .time-navigation {
+            flex-wrap: wrap;
+        }
+
+        .time-tab {
+            flex: 1;
+            text-align: center;
+            min-width: 33.33%;
+        }
+    }
+
+    @media (max-width: 576px) {
+        .warehouse-main {
+            padding: 15px;
+        }
+
+        .warehouse-selector {
+            flex-direction: column;
+        }
+
+        .time-tab {
+            min-width: 50%;
+        }
+    }
+</style>
+
+<div class="warehouse-system">
+    <div class="warehouse-header">
+        <div class="warehouse-logo">
+            <i class="fas fa-warehouse"></i>
+            <span>仓库待出库货物 - {{ warehouse }}</span>
+        </div>
+        <div class="warehouse-selector">
+            <form method="post" action="" onsubmit="showLoadingBar()" class="warehouse-selector">
+                {% csrf_token %}
+                <label for="warehouse">选择仓库:</label>
+                <select name="warehouse" style="padding: 5px; border-radius: 4px; border: 1px solid #ced4da;">
+                    {% for k, v in warehouse_options.items %}
+                    <option value="{{ v }}" {% if k == warehouse %}selected{% endif %}>{{ k }}</option>
+                    {% endfor %}
+                </select>
+                <input type="hidden" name="step" value="upcoming_fleet_warehouse">
+                <button id="confirmWarehouse">
+                    <i class="fas fa-check"></i> 确认
+                </button>
+            </form>
+        </div>
+    </div>
+
+    <div class="warehouse-main">
+        <div class="time-navigation">
+            <div class="time-tab active" data-day="0">今天 <span class="badge">{{ summary.today_count }}</span></div>
+            <div class="time-tab" data-day="1">明天 <span class="badge">{{ summary.tomorrow_count }}</span></div>
+            <div class="time-tab" data-day="2">后天 <span class="badge">{{ summary.day_after_count }}</span></div>
+        </div>
+
+        <div class="summary-cards">
+            <div class="summary-card">
+                <div class="card-title">总出库批次</div>
+                <div class="card-value" id="total-fleets">{{ summary.day_stats.0.total_fleets }}</div>
+            </div>
+            <div class="summary-card">
+                <div class="card-title">总板数</div>
+                <div class="card-value" id="total-pallets">{{ summary.day_stats.0.total_pallets }}</div>
+            </div>
+            <div class="summary-card">
+                <div class="card-title">总体积 (CBM)</div>
+                <div class="card-value" id="total-cbm">{{ summary.day_stats.0.total_cbm }}</div>
+            </div>
+            <div class="summary-card">
+                <div class="card-title">已完成出库</div>
+                <div class="card-value" id="completed-count">
+                    {{ summary.day_stats.0.completed_count }}/{{ summary.day_stats.0.normal_count }}
+                </div>
+                <div class="progress-container">
+                    <div class="progress-bar" style="width: {{ summary.day_stats.0.completion_rate }}%;"></div>
+                </div>
+                <div class="completion-text">{{ summary.day_stats.0.completion_rate }}% 完成率</div>
+            </div>
+        </div>
+
+
+        <div class="table-container">
+            <table class="shipment-table">
+                <thead>
+                    <tr>
+                        <th>状态</th>
+                        <th>出库批次</th>
+                        <th>Pickup Number</th>
+                        <th>预计提货时间</th>
+                        <th>板数</th>
+                        <th>CBM</th>
+                        <th>司机信息</th>
+                        <th>操作</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for fleet in fleets %}                    
+                    {% if fleet.warehouse_process_status != 'shipped' %}
+                    <tr class="day-{{ fleet.days_diff }}" data-days-diff="{{ fleet.days_diff }}" data-status="{{ fleet.warehouse_process_status }}" data-pallets="{{ fleet.pallets }}" data-cbm="{{ fleet.cbm }}">
+                        <td>
+                            <span class="status-badge status-{{ fleet.warehouse_process_status }}">
+                                <i class="fas 
+                                    {% if fleet.warehouse_process_status == 'waiting' %}fa-clock
+                                    {% elif fleet.warehouse_process_status == 'check_in' %}fa-check-circle
+                                    {% elif fleet.warehouse_process_status == 'loading' %}fa-truck-loading
+                                    {% elif fleet.warehouse_process_status == 'shipped' %}fa-check-double
+                                    {% elif fleet.warehouse_process_status == 'abnormal' %}fa-exclamation-triangle
+                                    {% else %}fa-circle{% endif %} status-icon">
+                                </i>
+                                {% if fleet.warehouse_process_status == 'waiting' %}等待中
+                                {% elif fleet.warehouse_process_status == 'check_in' %}已签到
+                                {% elif fleet.warehouse_process_status == 'loading' %}装柜中
+                                {% elif fleet.warehouse_process_status == 'shipped' %}已出库
+                                {% elif fleet.warehouse_process_status == 'abnormal' %}已异常 
+                                {% else %}未知状态{% endif %}
+                            </span>
+                        </td>
+                        <td>
+                            {{ fleet.fleet_number }}
+                            <span class="day-display day-{% if fleet.days_diff == 0 %}today{% elif fleet.days_diff == 1 %}tomorrow{% else %}dayafter{% endif %}">
+                                {% if fleet.days_diff == 0 %}今天
+                                {% elif fleet.days_diff == 1 %}明天
+                                {% else %}后天
+                                {% endif %}
+                            </span>
+                            {% if fleet.is_estimated %}
+                            <span style="color: orange; font-size: 0.8rem;" title="板数为预估数据">(预估)</span>
+                            {% endif %}
+                        </td>
+                        <td>{{ fleet.pickup_number }}</td>
+                        <td>{{ fleet.appointment_datetime|date:"Y-m-d H:i" }}</td>
+                        <td>{{ fleet.pallets }}</td>
+                        <td>{{ fleet.cbm }}</td>
+                        
+                        <td>
+                            
+                            {% if fleet.warehouse_process_status == 'waiting' %}
+                            <form method="post" class="action-form driver-form" id="driver-form-{{ fleet.fleet_number }}">
+                                {% csrf_token %}
+                                <input type="hidden" name="step" value="checkin_fleet">
+                                <input type="hidden" name="warehouse" value="{{ warehouse }}">
+                                <input type="hidden" name="fleet_number" value="{{ fleet.fleet_number }}">
+                                
+                                <div class="driver-info">
+                                    <input type="text" name="driver_name" class="info-input" placeholder="司机姓名" 
+                                           value="{{ fleet.driver_name|default:'' }}" required>
+                                    <input type="tel" name="driver_phone" class="info-input" placeholder="司机电话" 
+                                           value="{{ fleet.driver_phone|default:'' }}" required>
+                                    <input type="text" name="trailer_number" class="info-input" placeholder="Trailer Number" 
+                                           value="{{ fleet.trailer_number|default:'' }}" required>
+                                    <button type="button" class="action-btn btn-primary save-driver-btn" 
+                                            data-fleet="{{ fleet.fleet_number }}">
+                                        <i class="fas fa-user-check"></i> 司机签到
+                                    </button>
+                                </div>
+                            </form>
+                            {% else %}
+                                <div><strong>司机:</strong> {{ fleet.driver_name|default_if_none:"" }}</div>
+                                <div><strong>电话:</strong> {{ fleet.driver_phone|default_if_none:"" }}</div>
+                                <div><strong>Trailer Number:</strong> {{ fleet.trailer_number|default_if_none:"" }}</div>
+                            {% endif %}
+                        </td>
+                        
+                        <td>
+                            <form method="post" class="action-form">
+                                {% csrf_token %}
+                                <input type="hidden" name="step" value="export_bol">
+                                <input type="hidden" name="warehouse" value="{{ warehouse }}">
+                                <input type="hidden" name="fleet_number" value="{{ fleet.fleet_number }}">
+                                <button type="submit" class="action-btn btn-primary">
+                                    <i class="fas fa-download"></i> BOL
+                                </button>
+                            </form>
+                            
+                            {% if fleet.warehouse_process_status == 'waiting' %}
+                            <form method="post" class="action-form">
+                                {% csrf_token %}
+                                <input type="hidden" name="step" value="loading_fleet">
+                                <input type="hidden" name="warehouse" value="{{ warehouse }}">
+                                <input type="hidden" name="fleet_number" value="{{ fleet.fleet_number }}">
+                                <button type="submit" class="action-btn btn-success">
+                                    <i class="fas fa-play-circle"></i> 开始装柜
+                                </button>
+                            </form>
+                            {% elif fleet.warehouse_process_status == 'check_in' %}
+                            <form method="post" class="action-form">
+                                {% csrf_token %}
+                                <input type="hidden" name="step" value="loading_fleet">
+                                <input type="hidden" name="warehouse" value="{{ warehouse }}">
+                                <input type="hidden" name="fleet_number" value="{{ fleet.fleet_number }}">
+                                <button type="submit" class="action-btn btn-success">
+                                    <i class="fas fa-play-circle"></i> 开始装柜
+                                </button>
+                            </form>
+                            {% elif fleet.warehouse_process_status == 'loading' %}
+                            <button type="button" class="action-btn btn-warning complete-loading-btn" 
+                                    data-fleet="{{ fleet.fleet_number }}">
+                                <i class="fas fa-check-circle"></i> 完成出库
+                            </button>
+                            {% elif fleet.warehouse_process_status == 'shipped' %}
+                            <span class="action-btn btn-success" style="cursor: default;">
+                                <i class="fas fa-check-double"></i> 已完成
+                            </span>
+                            {% elif fleet.warehouse_process_status == 'abnormal' %}
+                            <span class="action-btn btn-danger" style="cursor: default;">
+                                <i class="fas fa-exclamation-triangle"></i> 已异常（{{ fleet.abnormal_reason }}）
+                            </span>
+                            {% endif %}
+                            {% if fleet.warehouse_process_status != 'shipped' and fleet.warehouse_process_status != 'abnormal' %}
+                                <button type="button" class="action-btn btn-danger report-issue-btn" 
+                                        data-fleet="{{ fleet.fleet_number }}">
+                                    <i class="fas fa-exclamation-triangle"></i> 异常报告
+                                </button>
+                            {% endif %}
+                        </td>
+                    </tr>
+                    {% endif %}
+                    {% endfor %}
+
+                    {% for fleet in fleets %}
+                    {% if fleet.warehouse_process_status == 'shipped' %}
+                    <tr class="day-{{ fleet.days_diff }} status-shipped-row" data-days-diff="{{ fleet.days_diff }}" data-status="shipped">
+                        <td>
+                            <span class="status-badge status-shipped">
+                                <i class="fas fa-check-double status-icon"></i>
+                                已出库
+                            </span>
+                        </td>
+                        <td>
+                            {{ fleet.fleet_number }}
+                            <span class="day-display day-{% if fleet.days_diff == 0 %}today{% elif fleet.days_diff == 1 %}tomorrow{% else %}dayafter{% endif %}">
+                                {% if fleet.days_diff == 0 %}今天
+                                {% elif fleet.days_diff == 1 %}明天
+                                {% else %}后天
+                                {% endif %}
+                            </span>
+                        </td>
+                        <td>{{ fleet.pickup_number }}</td>
+                        <td>{{ fleet.appointment_datetime|date:"Y-m-d H:i" }}</td>
+                        <td>{{ fleet.pallets }}</td>
+                        <td>{{ fleet.cbm }}</td>
+                        <td>
+                            <div><strong>司机:</strong> {{ fleet.driver_name|default_if_none:"" }}</div>
+                            <div><strong>电话:</strong> {{ fleet.driver_phone|default_if_none:"" }}</div>
+                            <div><strong>Trailer Number:</strong> {{ fleet.trailer_number|default_if_none:"" }}</div>
+                        </td>
+                        <td>
+                            <form method="post" class="action-form">
+                                {% csrf_token %}
+                                <input type="hidden" name="step" value="export_bol">
+                                <input type="hidden" name="warehouse" value="{{ warehouse }}">
+                                <input type="hidden" name="fleet_number" value="{{ fleet.fleet_number }}">
+                                <button type="submit" class="action-btn btn-primary">
+                                    <i class="fas fa-download"></i> BOL
+                                </button>
+                            </form>
+                            <span class="action-btn btn-success" style="cursor: default;">
+                                <i class="fas fa-check-double"></i> 已完成
+                            </span>
+                        </td>
+                    </tr>
+                    {% endif %}
+                    {% endfor %}
+                    
+                    {% if not fleets %}
+                    <tr>
+                        <td colspan="8" style="text-align: center; padding: 20px;">
+                            暂无未来三天的出库计划
+                        </td>
+                    </tr>
+                    {% endif %}
+                </tbody>
+            </table>
+        </div>
+    </div>
+</div>
+
+<div id="completeLoadingModal" style="display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background-color: rgba(0,0,0,0.5); z-index: 999; overflow-y: auto;">
+    <div style="position: relative; top: 50%; left: 50%; transform: translate(-50%, -50%); width: 90%; max-width: 500px; background: white; border-radius: 8px; box-shadow: 0 4px 20px rgba(0,0,0,0.15); padding: 25px;">
+        <span class="close" style="position: absolute; top: 15px; right: 15px; font-size: 24px; cursor: pointer; color: #666;" onclick="adjustBalance()">&times;</span>   
+        <h3 style="margin-top: 0; margin-bottom: 20px; color: #333; font-size: 18px; font-weight: 600;">完成出库</h3>
+        
+        <form method="post" action="" style="margin-bottom: 15px;" enctype="multipart/form-data">
+            {% csrf_token %}
+            <input type="hidden" name="step" value="complete_loading">
+            <input type="hidden" name="warehouse" value="{{ warehouse }}">
+            <input type="hidden" name="fleet_number" id="modalFleetNumber" value="">
+            
+            <div class="form-group" style="margin-bottom: 15px;">
+                <label style="display: block; margin-bottom: 6px; font-size: 14px; color: #555;">凭证图片：</label>
+                <div style="border: 1px dashed #ddd; border-radius: 4px; padding: 15px; text-align: center; background: #f9f9f9;">
+                    <input type="file" name="receipt_image" id="receiptImage" accept="image/*" style="display: none;" onchange="handleImageUpload(this)">
+                    <div id="uploadPrompt" style="cursor: pointer;">
+                        <label for="receiptImage" style="display: block;">
+                            <div style="font-size: 48px; color: #1890ff;">+</div>
+                            <div style="font-size: 12px; color: #888; margin-top: 8px;">点击上传图片</div>
+                        </label>
+                    </div>
+                    <div id="imagePreview" style="margin-top: 10px; display: none;">
+                        <div id="fileNameDisplay" style="font-size: 12px; color: #333; margin-bottom: 5px;"></div>
+                        <img id="previewImg" src="#" alt="预览图片" style="max-width: 100%; max-height: 150px; border-radius: 4px;">
+                        <div style="margin-top: 5px;" id="imageActions">
+                            <button type="button" onclick="removeImage()" style="padding: 3px 8px; background: #ff4d4f; color: white; border: none; border-radius: 2px; font-size: 12px; cursor: pointer;">删除图片</button>
+                        </div>
+                    </div>
+                </div>   
+            </div>
+            
+            <div style="display: flex; justify-content: flex-end; gap: 10px;">
+                <button type="button" class="btn-cancel close-modal" style="padding: 8px 16px; background: #f0f0f0; border: none; border-radius: 4px; cursor: pointer; font-size: 14px;" onclick="adjustBalance()">取消</button>
+                <button type="submit" style="padding: 8px 16px; background: #1890ff; color: white; border: none; border-radius: 4px; cursor: pointer; font-size: 14px;">确认提交</button>
+            </div>
+        </form>
+    </div>
+</div>
+
+<div id="issueReportModal" style="display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background-color: rgba(0,0,0,0.5); z-index: 999; overflow-y: auto;">
+    <div style="position: relative; top: 50%; left: 50%; transform: translate(-50%, -50%); width: 90%; max-width: 500px; background: white; border-radius: 8px; box-shadow: 0 4px 20px rgba(0,0,0,0.15); padding: 25px;">
+        <span class="close" style="position: absolute; top: 15px; right: 15px; font-size: 24px; cursor: pointer; color: #666;" onclick="closeIssueModal()">&times;</span>   
+        <h3 style="margin-top: 0; margin-bottom: 20px; color: #333; font-size: 18px; font-weight: 600;">异常报告</h3>
+        
+        <form method="post" action="" style="margin-bottom: 15px;" id="issueReportForm">
+            {% csrf_token %}
+            <input type="hidden" name="step" value="report_issue">
+            <input type="hidden" name="warehouse" value="{{ warehouse }}">
+            <input type="hidden" name="fleet_number" id="issueFleetNumber" value="">
+            
+            <div class="form-group" style="margin-bottom: 15px;">
+                <label style="display: block; margin-bottom: 6px; font-size: 14px; color: #555; font-weight: 600;">异常类型：</label>
+                <select name="issue_type" class="info-input" required>
+                    <option value="">请选择异常类型</option>
+                    <option value="延迟到达">延迟到达</option>
+                    <option value="货物损坏">货物损坏</option>
+                    <option value="单据问题">单据问题</option>
+                    <option value="车辆故障">车辆故障</option>
+                    <option value="司机问题">司机问题</option>
+                    <option value="其他问题">其他问题</option>
+                </select>
+            </div>
+            
+            <div class="form-group" style="margin-bottom: 15px;">
+                <label style="display: block; margin-bottom: 6px; font-size: 14px; color: #555; font-weight: 600;">异常描述：</label>
+                <textarea name="issue_description" class="info-input" placeholder="请详细描述异常情况..." rows="4" required style="width: 100%; padding: 10px; border: 1px solid #dce1e6; border-radius: 4px; font-size: 0.9rem; resize: vertical;"></textarea>
+            </div>
+            
+            <div style="display: flex; justify-content: flex-end; gap: 10px;">
+                <button type="button" class="btn-cancel" style="padding: 8px 16px; background: #f0f0f0; border: none; border-radius: 4px; cursor: pointer; font-size: 14px;" onclick="closeIssueModal()">取消</button>
+                <button type="submit" style="padding: 8px 16px; background: #e74c3c; color: white; border: none; border-radius: 4px; cursor: pointer; font-size: 14px;">提交报告</button>
+            </div>
+        </form>
+    </div>
+</div>
+<script>
+    function adjustBalance(button) {  
+        const popup = document.getElementById('completeLoadingModal');
+        popup.style.display = popup.style.display === 'none' ? 'block' : 'none';
+        closeIssueModal();
+    }
+
+    function saveSelectedDay(day) {
+        localStorage.setItem('selectedDay', day);
+    }
+
+    function getSelectedDay() {
+        return localStorage.getItem('selectedDay') || '0'; 
+    }
+    window.addEventListener('click', function(e) {
+        const issueModal = document.getElementById('issueReportModal');
+        if (e.target === issueModal) {
+            closeIssueModal();
+        }
+        
+        const loadingModal = document.getElementById('completeLoadingModal');
+        if (e.target === loadingModal) {
+            adjustBalance();
+        }
+    });
+
+    document.addEventListener('DOMContentLoaded', function() {
+        const selectedDay = getSelectedDay();
+        const tabToSelect = document.querySelector(`.time-tab[data-day="${selectedDay}"]`);
+        
+        if (tabToSelect) {
+            document.querySelectorAll('.time-tab').forEach(t => t.classList.remove('active'));
+            tabToSelect.classList.add('active');
+            filterTableByDay(selectedDay);
+            updateSummaryStats(selectedDay);
+        } else {
+            // 默认选择今天
+            filterTableByDay('0');
+        }
+        
+        // 恢复所有按钮状态
+        restoreAllButtons();
+    });
+    
+    function restoreAllButtons() {
+        const buttons = document.querySelectorAll('button[type="submit"]');
+        buttons.forEach(btn => {
+            if (btn.innerHTML.includes('fa-spinner')) {
+                // 根据按钮类名恢复原始状态
+                if (btn.classList.contains('btn-primary')) {
+                    btn.innerHTML = '<i class="fas fa-download"></i> BOL';
+                } else if (btn.classList.contains('btn-success')) {
+                    btn.innerHTML = '<i class="fas fa-play-circle"></i> 开始装柜';
+                } else if (btn.classList.contains('btn-warning')) {
+                    btn.innerHTML = '<i class="fas fa-check-circle"></i> 完成出库';
+                }
+                btn.disabled = false;
+            }
+        });
+    }
+    document.querySelectorAll('.time-tab').forEach(tab => {
+        tab.addEventListener('click', function() {
+            document.querySelectorAll('.time-tab').forEach(t => t.classList.remove('active'));
+            this.classList.add('active');
+            
+            const dayFilter = this.getAttribute('data-day');
+            saveSelectedDay(dayFilter);
+            filterTableByDay(dayFilter);
+            updateSummaryStats(dayFilter);
+        });
+    });
+
+    document.addEventListener('click', function(e) {
+        if (e.target.closest('.report-issue-btn')) {
+            const btn = e.target.closest('.report-issue-btn');
+            const fleetNumber = btn.getAttribute('data-fleet');
+            
+            document.getElementById('issueFleetNumber').value = fleetNumber;
+            document.getElementById('issueReportModal').style.display = 'block';
+        }
+    });
+
+    function closeIssueModal() {
+        document.getElementById('issueReportModal').style.display = 'none';
+        document.getElementById('issueReportForm').reset();
+    }
+
+    document.getElementById('issueReportForm').addEventListener('submit', function(e) {
+        const submitBtn = this.querySelector('button[type="submit"]');
+        if (submitBtn) {
+            submitBtn.disabled = true;
+            submitBtn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> 提交中...';
+        }
+    });
+
+    function updateSummaryStats(dayFilter) {
+        const dayStats = {
+            0: {{ summary.day_stats.0|safe }},
+            1: {{ summary.day_stats.1|safe }},
+            2: {{ summary.day_stats.2|safe }}
+        };
+        
+        document.getElementById('total-fleets').textContent = dayStats[dayFilter].total_fleets;
+        document.getElementById('total-pallets').textContent = dayStats[dayFilter].total_pallets;
+        document.getElementById('total-cbm').textContent = dayStats[dayFilter].total_cbm;
+        
+        const completedElement = document.getElementById('completed-count');
+        completedElement.textContent = `${dayStats[dayFilter].completed_count}/${dayStats[dayFilter].normal_count}`;
+        
+        const progressBar = completedElement.nextElementSibling.querySelector('.progress-bar');
+        progressBar.style.width = `${dayStats[dayFilter].completion_rate}%`;
+        
+        const completionText = progressBar.parentElement.nextElementSibling;
+        completionText.textContent = `${dayStats[dayFilter].completion_rate}% 完成率`;
+    }
+
+    function filterTableByDay(dayFilter) {
+        const rows = document.querySelectorAll('.shipment-table tbody tr:not(.status-shipped-row)');
+        const shippedRows = document.querySelectorAll('.status-shipped-row');
+        
+        rows.forEach(row => row.style.display = 'none');
+        shippedRows.forEach(row => row.style.display = 'none');
+        
+        rows.forEach(row => {
+            const daysDiff = row.getAttribute('data-days-diff');
+            if (daysDiff === dayFilter) {
+                row.style.display = '';
+            }
+        });
+        shippedRows.forEach(row => {
+            row.style.display = '';
+        });
+    }
+    const modal = document.getElementById('completeLoadingModal');
+    const closeBtn = document.querySelector('.close');
+    const completeForm = document.getElementById('completeLoadingForm');
+
+    document.addEventListener('click', function(e) {
+        if (e.target.closest('.complete-loading-btn')) {
+            const btn = e.target.closest('.complete-loading-btn');
+            const fleetNumber = btn.getAttribute('data-fleet');
+            
+            const fleetInput = document.getElementById('modalFleetNumber');
+            if(fleetInput){
+                fleetInput.value = fleetNumber;
+            }
+
+            modal.style.display = 'block';
+        }
+    });
+
+    document.querySelectorAll('.save-driver-btn').forEach(btn => {
+        btn.addEventListener('click', function() {
+            const fleetNumber = this.getAttribute('data-fleet');
+            const form = document.getElementById('driver-form-' + fleetNumber);
+            
+            const inputs = form.querySelectorAll('input[required]');
+            let isValid = true;
+            inputs.forEach(input => {
+                if (!input.value.trim()) {
+                    isValid = false;
+                    input.style.borderColor = 'red';
+                } else {
+                    input.style.borderColor = '';
+                }
+            });
+            
+            if (isValid) {
+                form.submit();
+            } else {
+                alert('请填写完整的司机信息');
+            }
+        });
+    });
+
+    function handleImageUpload(input) {
+        const file = input.files[0];
+        if (!file) return;
+        document.getElementById('uploadPrompt').style.display = 'none';
+        document.getElementById('imagePreview').style.display = 'block';
+
+        document.getElementById('fileNameDisplay').textContent = `已选择: ${file.name}`;
+        
+        if (file.type.startsWith('image/')) {
+            const reader = new FileReader();
+            reader.onload = function(e) {
+                const previewImg = document.getElementById('previewImg');
+                previewImg.src = e.target.result;
+                previewImg.style.display = 'block';
+                document.getElementById('imageActions').style.display = 'block';
+            }
+            reader.readAsDataURL(file);
+        }
+    }
+
+    document.querySelectorAll('form').forEach(form => {
+        form.addEventListener('submit', function(e) {
+            const activeTab = document.querySelector('.time-tab.active');
+            if (activeTab) {
+                const dayFilter = activeTab.getAttribute('data-day');
+                saveSelectedDay(dayFilter);
+            }
+
+            const submitBtn = this.querySelector('button[type="submit"], input[type="submit"]');
+            if (submitBtn) {
+                submitBtn.disabled = true;
+                if (submitBtn.querySelector('i')) {
+                    submitBtn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> 处理中...';
+                }
+            }
+        });
+    });
+
+    function removeImage() {
+        document.getElementById('receiptImage').value = '';
+        document.getElementById('fileNameDisplay').textContent = '';
+        document.getElementById('previewImg').style.display = 'none';
+        document.getElementById('imageActions').style.display = 'none';
+    }
+</script>
+{% endblock %}

@@ -1,25 +1,58 @@
 from datetime import datetime, timedelta
 from django.utils import timezone
-from typing import Any, Coroutine
+from typing import Any, Coroutine, Tuple
+import os
+from io import BytesIO
+import zipfile
+from office365.sharepoint.client_context import ClientContext
 
 from asgiref.sync import sync_to_async
 from django.db import models
 from django.db.models import Prefetch, Q
+from django.core.exceptions import ValidationError
 from django.http import HttpRequest, HttpResponse, HttpResponsePermanentRedirect, HttpResponseRedirect, JsonResponse
 from django.shortcuts import redirect, render
 from django.views import View
-from sqlalchemy.sql.functions import current_time
+from django.db.models import Sum, Count, F, FloatField, Case, When, Value
+from django.db.models.functions import Coalesce
+from office365.sharepoint.sharing.links.kind import SharingLinkKind
+#from sqlalchemy.sql.functions import current_time
 
 from warehouse.models.offload import Offload
 from warehouse.models.order import Order
 from warehouse.models.retrieval import Retrieval
+from warehouse.models.fleet import Fleet
+from warehouse.models.shipment import Shipment
+from warehouse.models.packing_list import PackingList
+from warehouse.models.pallet import Pallet
 from warehouse.views.export_file import export_palletization_list
 from warehouse.views.post_port.warehouse.palletization import Palletization
-
+from warehouse.views.post_port.shipment.fleet_management import FleetManagement
+from warehouse.utils.constants import (
+    SP_CLIENT_ID,
+    SP_PRIVATE_KEY,
+    SP_SCOPE,
+    SP_TENANT,
+    SP_THUMBPRINT,
+    SP_URL,
+    SP_DOC_LIB,
+    SYSTEM_FOLDER,
+    APP_ENV
+)
 
 class WarehouseOperations(View):
     template_warehousing_operation = "post_port/warehouse_operations/01_warehousing_operation.html"
+    template_upcoming_fleet = "post_port/warehouse_operations/03_upcoming_fleet.html"
 
+    warehouse_options = {
+        "": "",
+        "NJ-07001": "NJ-07001",
+        "NJ-08817": "NJ-08817",
+        "SAV-31326": "SAV-31326",
+        "LA-91761": "LA-91761",
+        "MO-62025": "MO-62025",
+        "TX-77503": "TX-77503",
+    }
     async def get(self, request: HttpRequest, **kwargs) -> HttpResponse:
         if not await self._user_authenticate(request):
             return redirect("login")
@@ -27,11 +60,15 @@ class WarehouseOperations(View):
         if step == "warehousing_operation":
             template, context = await self.warehousing_operation_get(request)
             return await sync_to_async(render)(request, template, context)
+        elif step == "upcoming_fleet":
+            template, context = await self.handle_upcoming_fleet_get(request)
+            return await sync_to_async(render)(request, template, context)
 
     async def post(self, request: HttpRequest, **kwargs) -> HttpResponse | JsonResponse | HttpResponseRedirect:
         if not await self._user_authenticate(request):
             return redirect("login")
         step = request.POST.get("step", None)
+        print('step',step)
         if step == "export_palletization_list":
             return await export_palletization_list(request)
         elif step == "export_pallet_label":
@@ -43,6 +80,24 @@ class WarehouseOperations(View):
         elif step == "first_time_download":
             template, context = await self.warehousing_operation_first_time_download(request)
             return await sync_to_async(render)(request, template, context)
+        elif step == "upcoming_fleet_warehouse":
+            template, context = await self.handle_upcoming_fleet_post(request)
+            return await sync_to_async(render)(request, template, context)
+        elif step == "checkin_fleet":
+            template, context = await self.handle_checkin_fleet_post(request)
+            return render(request, template, context)
+        elif step == "loading_fleet":
+            template, context = await self.handle_loading_fleet_post(request)
+            return render(request, template, context)
+        elif step == "complete_loading":
+            template, context = await self.handle_complete_loading_post(request)
+            return render(request, template, context)
+        elif step == "report_issue":
+            template, context = await self.handle_report_issue_post(request)
+            return render(request, template, context)
+        elif step =="export_bol":
+            return await self.handle_bol_post(request)
+
 
     async def _user_authenticate(self, request: HttpRequest):
         if await sync_to_async(lambda: request.user.is_authenticated)():
@@ -162,3 +217,281 @@ class WarehouseOperations(View):
         warehouse_unpacking_time = request.GET.get("first_time_download")
         template, context = await self.warehousing_operation_first_time_download(request)
         return template, context
+
+    async def handle_upcoming_fleet_get(
+        self, request: HttpRequest
+    ) -> tuple[str, dict[str, Any]]:
+        print('走到这了')
+        context = {"warehouse_options": self.warehouse_options}
+        return self.template_upcoming_fleet, context
+
+    async def handle_bol_post(self, request: HttpRequest) -> HttpResponse:
+        #准备参数
+        mutable_post = request.POST.copy()
+        fleet_number = request.POST.get("fleet_number")
+        mutable_post["customerInfo"] = None
+        mutable_post["pickupList"] = None
+  
+        request.POST = mutable_post
+        fm = FleetManagement()
+        
+        fleet = await sync_to_async(Fleet.objects.get)(fleet_number=fleet_number)
+        shipment = await sync_to_async(list)(Shipment.objects.filter(fleet_number=fleet))
+        if len(shipment) > 1:
+            zip_buffer = BytesIO()
+            with zipfile.ZipFile(zip_buffer, "w", zipfile.ZIP_DEFLATED) as zip_file:
+                for s in shipment:
+                    s_number = s.shipment_batch_number 
+                    mutable_post["shipment_batch_number"] = s_number
+                    pdf_response = await fm.handle_export_bol_post(request)
+                    zip_file.writestr(f"BOL_{s_number}.pdf", pdf_response.content)
+            response = HttpResponse(zip_buffer.getvalue(), content_type="application/zip")
+            response["Content-Disposition"] = 'attachment; filename="orders.zip"'
+            zip_buffer.close()
+            return response
+        else:
+            mutable_post["shipment_batch_number"] = shipment[0].shipment_batch_number   
+            
+        return await fm.handle_export_bol_post(request)
+
+    async def handle_report_issue_post(
+        self, request: HttpRequest
+    ) -> tuple[str, dict[str, Any]]:
+        fleet_number = request.POST.get("fleet_number")
+        issue_type = request.POST.get("issue_type")
+        issue_description = request.POST.get("issue_description")
+        issue = issue_type + issue_description
+        updated = await sync_to_async(
+            Fleet.objects.filter(fleet_number=fleet_number).update
+        )(warehouse_process_status='abnormal', abnormal_reason=issue)
+        return await self.handle_upcoming_fleet_post(request)
+
+    async def handle_complete_loading_post(
+        self, request: HttpRequest
+    ) -> tuple[str, dict[str, Any]]:
+        fleet_number = request.POST.get("fleet_number")
+        #上传出库凭证
+        try:
+            receipt_image = request.FILES.get("receipt_image")
+            if receipt_image:
+                valid_extensions = [".jpg", ".png", ".jpeg"]
+                ext = os.path.splitext(receipt_image.name)[1].lower()
+                if ext not in valid_extensions:
+                    raise ValidationError("仅支持JPG/PNG格式图片")
+                if receipt_image.size > 5 * 1024 * 1024:  # 5MB
+                    raise ValidationError("图片大小不能超过5MB")
+        except ValidationError as e:
+            raise ValidationError("图片格式错误")
+        link = ""
+        if receipt_image:
+            conn = self._get_sharepoint_auth()
+            link = self._upload_image_to_sharepoint(conn, receipt_image)
+            
+        #更新车次状态
+        updated = await sync_to_async(
+            Fleet.objects.filter(fleet_number=fleet_number).update
+        )(warehouse_process_status="shipped", shipped_cert_link=link)
+        
+        return await self.handle_upcoming_fleet_post(request)
+
+    async def _get_sharepoint_auth(self) -> ClientContext:
+        ctx = ClientContext(SP_URL).with_client_certificate(
+            SP_TENANT,
+            SP_CLIENT_ID,
+            SP_THUMBPRINT,
+            private_key=SP_PRIVATE_KEY,
+            scopes=[SP_SCOPE],
+        )
+        return ctx
+    
+    def _upload_image_to_sharepoint(self, conn, image) -> None:
+
+        image_name = image.name  # 提取文件名
+        file_path = os.path.join(
+            SP_DOC_LIB, f"{SYSTEM_FOLDER}/warehouse_operation/{APP_ENV}"
+        )  # 文档库名称，系统文件夹名称，当前环境
+        # 上传到SharePoint
+        sp_folder = conn.web.get_folder_by_server_relative_url(file_path)
+        resp = sp_folder.upload_file(f"{image_name}", image).execute_query()
+        # 生成并获取链接
+        link = (
+            resp.share_link(SharingLinkKind.OrganizationView)
+            .execute_query()
+            .value.to_json()["sharingLinkInfo"]["Url"]
+        )
+        return link
+    
+    async def handle_loading_fleet_post(
+        self, request: HttpRequest
+    ) -> tuple[str, dict[str, Any]]:
+        fleet_number = request.POST.get("fleet_number")
+
+        updated = await sync_to_async(
+            Fleet.objects.filter(fleet_number=fleet_number).update
+        )(warehouse_process_status="loading")
+
+        if updated == 0:
+            return ValueError('未查到该车次')
+        return await self.handle_upcoming_fleet_post(request)
+
+
+    async def handle_checkin_fleet_post(
+        self, request: HttpRequest
+    ) -> tuple[str, dict[str, Any]]:
+        fleet_number = request.POST.get("fleet_number")
+        driver_name = request.POST.get("driver_name")
+        driver_phone = request.POST.get("driver_phone")
+        trailer_number = request.POST.get("trailer_number")
+
+        updated = await sync_to_async(
+            Fleet.objects.filter(fleet_number=fleet_number).update
+        )(
+            warehouse_process_status="check_in",
+            driver_name=driver_name,
+            driver_phone=driver_phone,
+            trailer_number=trailer_number
+        )
+
+        if updated == 0:
+            return ValueError('未查到该车次')
+        return await self.handle_upcoming_fleet_post(request)
+
+
+    async def handle_upcoming_fleet_post(
+        self, request: HttpRequest
+    ) -> tuple[str, dict[str, Any]]:
+        warehouse = request.POST.get("warehouse")
+
+        # 获取未来三天的时间范围
+        today = timezone.now().date()
+        three_days_later = today + timedelta(days=3)
+        
+        fleets = await sync_to_async(list)(
+            Fleet.objects.filter(
+                appointment_datetime__date__range=[today, three_days_later],
+                origin = warehouse,
+            ).prefetch_related(
+                Prefetch(
+                    'shipment',
+                    queryset=Shipment.objects.prefetch_related(
+                        'pallet',
+                        'packinglist'
+                    )
+                )
+            )
+        )
+        
+        fleet_data = []
+        day_stats = {
+            0: {'fleets': [], 'total_pallets': 0, 'total_cbm': 0, 'completed_count': 0, 'abnormal_count': 0},
+            1: {'fleets': [], 'total_pallets': 0, 'total_cbm': 0, 'completed_count': 0, 'abnormal_count': 0},
+            2: {'fleets': [], 'total_pallets': 0, 'total_cbm': 0, 'completed_count': 0, 'abnormal_count': 0}
+        }
+        
+        for fleet in fleets:
+            pallet_stats = await sync_to_async(fleet.shipment.aggregate)(
+                total_pallets=Count('pallet', distinct=True),
+                total_pallet_cbm=Sum('pallet__cbm')
+            )
+            
+            packinglist_stats = await sync_to_async(fleet.shipment.aggregate)(
+                total_packinglist_cbm=Sum('packinglist__cbm')
+            )
+            
+            pallet_pallets = pallet_stats['total_pallets'] or 0
+            pallet_cbm = pallet_stats['total_pallet_cbm'] or 0.0
+            packinglist_cbm = packinglist_stats['total_packinglist_cbm'] or 0.0
+            
+            packinglist_pallets = round(packinglist_cbm / 1.8) if packinglist_cbm else 0
+            
+            is_estimated = pallet_pallets == 0 and packinglist_pallets > 0
+            
+            total_pallets = pallet_pallets + packinglist_pallets
+            total_cbm = pallet_cbm + packinglist_cbm
+            
+            days_diff = (fleet.appointment_datetime.date() - today).days
+            
+            fleet_item = {
+                'fleet_number': fleet.fleet_number,
+                'warehouse_process_status': fleet.warehouse_process_status,
+                'pickup_number': fleet.pickup_number,
+                'appointment_datetime': fleet.appointment_datetime,
+                'driver_name': fleet.driver_name,
+                'driver_phone': fleet.driver_phone,
+                'trailer_number': fleet.trailer_number,
+                'pallets': total_pallets,
+                'cbm': round(total_cbm, 2),
+                'is_estimated': is_estimated,
+                'days_diff': days_diff,
+                'abnormal_reason': fleet.abnormal_reason,
+            }
+            
+            fleet_data.append(fleet_item)
+            if 0 <= days_diff <= 2:
+                day_stats[days_diff]['fleets'].append(fleet_item)
+                day_stats[days_diff]['total_pallets'] += total_pallets
+                day_stats[days_diff]['total_cbm'] += total_cbm
+                if fleet.warehouse_process_status == 'shipped':
+                    day_stats[days_diff]['completed_count'] += 1
+                elif fleet.warehouse_process_status == 'abnormal':
+                    day_stats[days_diff]['abnormal_count'] += 1
+        
+        for day in [0, 1, 2]:
+            total_fleets = len(day_stats[day]['fleets'])
+            completed_count = day_stats[day]['completed_count']
+            abnormal_count = day_stats[day]['abnormal_count']
+            normal_count = total_fleets - abnormal_count 
+            
+            if normal_count > 0:
+                completion_rate = round((completed_count / normal_count) * 100)
+            else:
+                completion_rate = 0
+                
+            day_stats[day]['completion_rate'] = completion_rate
+            day_stats[day]['normal_count'] = normal_count
+
+        context = {
+            'warehouse_options': self.warehouse_options,
+            'fleets': fleet_data,
+            'warehouse': warehouse,
+            'summary': {
+                'total_fleets': len(fleet_data),
+                'total_pallets': sum(f['pallets'] for f in fleet_data),
+                'total_cbm': sum(f['cbm'] for f in fleet_data),
+                'completed_count': len([f for f in fleet_data if f['warehouse_process_status'] == 'shipped']),
+                'abnormal_count': len([f for f in fleet_data if f['warehouse_process_status'] == 'abnormal']),
+                'today_count': len(day_stats[0]['fleets']),
+                'tomorrow_count': len(day_stats[1]['fleets']),
+                'day_after_count': len(day_stats[2]['fleets']),
+                'day_stats': {
+                    0: {
+                        'total_fleets': len(day_stats[0]['fleets']),
+                        'total_pallets': day_stats[0]['total_pallets'],
+                        'total_cbm': round(day_stats[0]['total_cbm'], 2),
+                        'completed_count': day_stats[0]['completed_count'],
+                        'abnormal_count': day_stats[0]['abnormal_count'],
+                        'normal_count': day_stats[0]['normal_count'],
+                        'completion_rate': day_stats[0]['completion_rate']
+                    },
+                    1: {
+                        'total_fleets': len(day_stats[1]['fleets']),
+                        'total_pallets': day_stats[1]['total_pallets'],
+                        'total_cbm': round(day_stats[1]['total_cbm'], 2),
+                        'completed_count': day_stats[1]['completed_count'],
+                        'abnormal_count': day_stats[1]['abnormal_count'],
+                        'normal_count': day_stats[1]['normal_count'],
+                        'completion_rate': day_stats[1]['completion_rate']
+                    },
+                    2: {
+                        'total_fleets': len(day_stats[2]['fleets']),
+                        'total_pallets': day_stats[2]['total_pallets'],
+                        'total_cbm': round(day_stats[2]['total_cbm'], 2),
+                        'completed_count': day_stats[2]['completed_count'],
+                        'abnormal_count': day_stats[2]['abnormal_count'],
+                        'normal_count': day_stats[2]['normal_count'],
+                        'completion_rate': day_stats[2]['completion_rate']
+                    }
+                }
+            }
+        }
+        return self.template_upcoming_fleet, context
