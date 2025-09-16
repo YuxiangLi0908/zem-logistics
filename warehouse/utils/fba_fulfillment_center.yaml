@@ -2358,3 +2358,8 @@ RFD2:
   location: 11500 Freeman Rd
   state: IL
   zipcode: '60142'
+IUSF:
+  city: Dallas
+  location: 3351 Balmorhea Dr
+  state: TX
+  zipcode: '75241'
