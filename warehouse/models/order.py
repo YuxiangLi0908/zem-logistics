@@ -5,6 +5,7 @@ from simple_history.models import HistoricalRecords
 from warehouse.models.clearance import Clearance
 from warehouse.models.container import Container
 from warehouse.models.customer import Customer
+from warehouse.models.export_unpacking_cabinets import ExportUnpackingCabinets
 from warehouse.models.invoice import Invoice, InvoiceStatus
 from warehouse.models.offload import Offload
 from warehouse.models.retrieval import Retrieval
@@ -31,6 +32,9 @@ class Order(models.Model):
     order_type = models.CharField(max_length=255, null=True)
     vessel_id = models.ForeignKey(
         Vessel, null=True, blank=True, on_delete=models.SET_NULL
+    )
+    export_unpacking_id = models.ForeignKey(
+        ExportUnpackingCabinets, null=True, blank=True, on_delete=models.SET_NULL
     )
     clearance_id = models.ForeignKey(
         Clearance, null=True, blank=True, on_delete=models.SET_NULL
