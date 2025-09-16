@@ -10,6 +10,8 @@ from django.shortcuts import redirect, render
 from django.views import View
 from sqlalchemy.sql.functions import current_time
 
+from warehouse.models.container import Container
+from warehouse.models.export_unpacking_cabinets import ExportUnpackingCabinets
 from warehouse.models.offload import Offload
 from warehouse.models.order import Order
 from warehouse.models.retrieval import Retrieval
@@ -41,47 +43,16 @@ class WarehouseOperations(View):
             return redirect("login")
         step = request.POST.get("step", None)
         if step == "export_palletization_list":
-            if step == "export_palletization_list":
-                # 获取请求标识，判断是导出还是页面渲染
-                action_type = request.POST.get('action_type', 'export')
-
-                # 1. 第一次请求：执行导出操作
-                if action_type == 'export':
-                    response_down = await export_palletization_list(request)
-                    response_down['X-Action'] = 'export'
-                    return response_down
-
-                # 2. 第二次请求：执行更新并返回页面
-                elif action_type == 'render':
-                    retrieval_id = request.POST.get('retrieval_id', '').strip()
-                    warehouse_unpacking_time = request.POST.get("first_time_download")
-                    if warehouse_unpacking_time and retrieval_id:
-                        def sync_update_records():
-                            related_orders = Order.objects.filter(
-                                retrieval_id__retrieval_id=retrieval_id,
-                                offload_id__isnull=False,
-                                offload_id__warehouse_unpacked_time__isnull=True
-                            ).select_related('offload_id')
-                            updated_count = 0
-                            if related_orders.exists():
-                                for order in related_orders:
-                                    if order.offload_id.warehouse_unpacking_time is None:
-                                        order.offload_id.warehouse_unpacking_time = warehouse_unpacking_time
-                                        order.offload_id.save()
-                                        updated_count += 1
-                            if updated_count > 0:
-                                try:
-                                    retrieval = Retrieval.objects.get(retrieval_id=retrieval_id)
-                                    retrieval.unpacking_status = "2"
-                                    retrieval.save()
-                                except Retrieval.DoesNotExist:
-                                    pass
-                            return updated_count
-                        async_update = sync_to_async(sync_update_records, thread_sensitive=True)
-                        await async_update()
-                    template, context = await self.warehousing_operation_post(request)
-                    return await sync_to_async(render)(request, template, context)
-
+            action_type = request.POST.get('action_type', 'export')
+            # 1. 第一次请求：执行导出操作
+            if action_type == 'export':
+                response_down = await export_palletization_list(request)
+                response_down['X-Action'] = 'export'
+                return response_down
+            # 2. 第二次请求：执行更新并返回页面
+            elif action_type == 'render':
+                template, context = await self.warehousing_operation_down_render(request)
+                return await sync_to_async(render)(request, template, context)
         elif step == "export_pallet_label":
             palletization_view = Palletization()
             return await palletization_view._export_pallet_label(request)
@@ -96,6 +67,53 @@ class WarehouseOperations(View):
         if await sync_to_async(lambda: request.user.is_authenticated)():
             return True
         return False
+
+    async def warehousing_operation_down_render(self, request: HttpRequest):
+        """
+        下载拆柜单后返回前端页面
+        """
+        retrieval_id = request.POST.get('retrieval_id', '').strip()
+        warehouse_unpacking_time = request.POST.get("first_time_download")
+        container_number = request.POST.get("container_number")
+        if warehouse_unpacking_time and retrieval_id:
+            def sync_update_records():
+                container = Container.objects.get(container_number=container_number)
+                related_orders = Order.objects.filter(
+                    retrieval_id__retrieval_id=retrieval_id,
+                    offload_id__isnull=False,
+                    offload_id__warehouse_unpacked_time__isnull=True
+                ).select_related('offload_id', 'export_unpacking_id')
+                if related_orders.exists():
+                    for order in related_orders:
+                        if order.offload_id.warehouse_unpacking_time is None:
+                            order.offload_id.warehouse_unpacking_time = warehouse_unpacking_time
+                            order.offload_id.save()
+                            if not order.export_unpacking_id:
+                                # 表为空或该订单无关联记录，创建新记录
+                                new_record = ExportUnpackingCabinets.objects.create(
+                                    container_number=container,
+                                    download_date=warehouse_unpacking_time,
+                                    download_num=1  # 首次下载，次数为1
+                                )
+                                order.export_unpacking_id = new_record
+                                order.save()
+
+                        if order.export_unpacking_id.download_num is None:
+                            order.export_unpacking_id.download_num = 1
+                        else:
+                            order.export_unpacking_id.download_num += 1
+                        order.export_unpacking_id.save()
+                    try:
+                        retrieval = Retrieval.objects.get(retrieval_id=retrieval_id)
+                        retrieval.unpacking_status = "2"
+                        retrieval.save()
+                    except Retrieval.DoesNotExist:
+                        pass
+
+            async_update = sync_to_async(sync_update_records, thread_sensitive=True)
+            await async_update()
+        template, context = await self.warehousing_operation_post(request)
+        return template, context
 
     async def warehousing_operation_get(self, request: HttpRequest):
         context = {

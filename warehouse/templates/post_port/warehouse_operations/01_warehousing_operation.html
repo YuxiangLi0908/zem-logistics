@@ -219,7 +219,7 @@
                                 <td class="px-4 py-2 text-xs">
                                     <div class="flex space-x-1">
                                         <form method="post" action="" style="display: inline-block;"
-                                              class="download-form" onsubmit="return handleDownloadSubmit(this)">
+                                              class="download-form" onsubmit="return handleDownloadAndUpdate(this)">
                                             {% csrf_token %}
                                             <input type="hidden" name="step" value="export_palletization_list">
                                             <input type="hidden" name="status" value="palletized">
@@ -414,32 +414,66 @@ document.addEventListener('DOMContentLoaded', function() {
         });
     });
 });
-// 处理下载表单提交
-function handleDownloadSubmit(form) {
-    // 设置当前时间戳
-    form.querySelector('.first-time-input').value = new Date().toISOString();
+        // 处理下载并更新页面数据
+        function handleDownloadAndUpdate(form) {
+            const timeInput = form.querySelector('.first-time-input');
+            const containerNumber = form.querySelector('input[name="container_number"]').value || '未知柜号';
+            if (timeInput) {
+                timeInput.value = new Date().toISOString();
+            }
 
-    // 1. 先提交下载请求
-    // 克隆表单用于下载
-    const downloadForm = form.cloneNode(true);
-    downloadForm.style.display = 'none';
-    document.body.appendChild(downloadForm);
-    downloadForm.submit();
-    document.body.removeChild(downloadForm);
+            // 1. 先发送下载请求
+            fetch(form.action, {
+                method: form.method,
+                body: new FormData(form),
+                headers: {
+                    'X-Requested-With': 'XMLHttpRequest'
+                }
+            })
+                .then(response => {
+                    const contentType = response.headers.get('content-type');
+                    if (contentType && contentType.includes('application/vnd.openxmlformats-officedocument.spreadsheetml.sheet')) {
+                        return response.blob();
+                    }
+                    throw new Error('未收到文件响应');
+                })
+                .then(blob => {
+                    // 处理文件下载
+                    const url = window.URL.createObjectURL(blob);
+                    const a = document.createElement('a');
+                    a.href = url;
+                    a.download = `${containerNumber}.xlsx`;
+                    document.body.appendChild(a);
+                    a.click();
+                    window.URL.revokeObjectURL(url);
+                    document.body.removeChild(a);
 
-    // 2. 延迟提交页面刷新请求
-    setTimeout(() => {
-        // 克隆表单用于刷新页面
-        const refreshForm = form.cloneNode(true);
-        // 修改action_type为render，表示这是刷新请求
-        refreshForm.querySelector('input[name="action_type"]').value = 'render';
-        refreshForm.style.display = 'none';
-        document.body.appendChild(refreshForm);
-        refreshForm.submit();
-    }, 800); // 800ms延迟确保下载开始
+                    // 2. 下载完成后，发送数据更新请求
+                    const formData = new FormData(form);
+                    formData.set('action_type', 'render'); // 切换为渲染请求
 
-    // 阻止原表单默认提交
-    return false;
-}
+                    return fetch(form.action, {
+                        method: form.method,
+                        body: formData,
+                        headers: {
+                            'X-Requested-With': 'XMLHttpRequest'
+                        }
+                    });
+                })
+                .then(renderResponse => {
+                    if (!renderResponse.ok) {
+                        throw new Error('更新页面数据失败');
+                    }
+                    window.location.reload();
+                })
+                .then(html => {
+                })
+                .catch(error => {
+                    console.error('操作失败:', error);
+                    alert('下载或更新数据失败，请重试');
+                });
+
+            return false;
+        }
     </script>
 {% endblock %}
