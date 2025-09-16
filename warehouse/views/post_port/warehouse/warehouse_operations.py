@@ -1,10 +1,11 @@
 from datetime import datetime, timedelta
 from django.utils import timezone
 from typing import Any, Coroutine, Tuple
-import os
+import os, re
 from io import BytesIO
 import zipfile
 from office365.sharepoint.client_context import ClientContext
+from django.contrib.postgres.aggregates import StringAgg
 
 from asgiref.sync import sync_to_async
 from django.db import models
@@ -13,7 +14,8 @@ from django.core.exceptions import ValidationError
 from django.http import HttpRequest, HttpResponse, HttpResponsePermanentRedirect, HttpResponseRedirect, JsonResponse
 from django.shortcuts import redirect, render
 from django.views import View
-from django.db.models import Sum, Count, F, FloatField, Case, When, Value
+from django.db.models import Sum, Count, F, FloatField, IntegerField, CharField, Value
+from django.db.models.functions import Cast
 from django.db.models.functions import Coalesce
 from office365.sharepoint.sharing.links.kind import SharingLinkKind
 #from sqlalchemy.sql.functions import current_time
@@ -43,6 +45,7 @@ from warehouse.utils.constants import (
 class WarehouseOperations(View):
     template_warehousing_operation = "post_port/warehouse_operations/01_warehousing_operation.html"
     template_upcoming_fleet = "post_port/warehouse_operations/03_upcoming_fleet.html"
+    template_counting_pallet = "post_port/warehouse_operations/02_counting_pallet.html"
 
     warehouse_options = {
         "": "",
@@ -63,12 +66,14 @@ class WarehouseOperations(View):
         elif step == "upcoming_fleet":
             template, context = await self.handle_upcoming_fleet_get(request)
             return await sync_to_async(render)(request, template, context)
+        elif step == "counting_pallet":
+            template, context = await self.handle_counting_pallet_get(request)
+            return await sync_to_async(render)(request, template, context)
 
     async def post(self, request: HttpRequest, **kwargs) -> HttpResponse | JsonResponse | HttpResponseRedirect:
         if not await self._user_authenticate(request):
             return redirect("login")
         step = request.POST.get("step", None)
-        print('step',step)
         if step == "export_palletization_list":
             return await export_palletization_list(request)
         elif step == "export_pallet_label":
@@ -97,6 +102,9 @@ class WarehouseOperations(View):
             return render(request, template, context)
         elif step =="export_bol":
             return await self.handle_bol_post(request)
+        elif step == "counting_pallet_warehouse":
+            template, context = await self.handle_counting_pallet_post(request)
+            return await sync_to_async(render)(request, template, context)
 
 
     async def _user_authenticate(self, request: HttpRequest):
@@ -218,10 +226,15 @@ class WarehouseOperations(View):
         template, context = await self.warehousing_operation_first_time_download(request)
         return template, context
 
+    async def handle_counting_pallet_get(
+        self, request: HttpRequest
+    ) -> tuple[str, dict[str, Any]]:
+        context = {"warehouse_options": self.warehouse_options}
+        return self.template_counting_pallet, context
+    
     async def handle_upcoming_fleet_get(
         self, request: HttpRequest
     ) -> tuple[str, dict[str, Any]]:
-        print('走到这了')
         context = {"warehouse_options": self.warehouse_options}
         return self.template_upcoming_fleet, context
 
@@ -356,12 +369,146 @@ class WarehouseOperations(View):
             return ValueError('未查到该车次')
         return await self.handle_upcoming_fleet_post(request)
 
+    async def handle_counting_pallet_post(
+        self, request: HttpRequest
+    ) -> tuple[str, dict[str, Any]]:
+        warehouse = request.POST.get("warehouse")
+        #查找所有板子      
+        total_inventory = await self._get_inventory_pallet(warehouse)
 
+        private_inventory = []
+        public_inventory = []
+        hold_inventory = []
+        express_inventory = []
+        
+        for plt in total_inventory:
+            if plt['delivery_method'] == "卡车派送":
+                public_inventory.append(plt)
+            elif '暂扣' in plt['delivery_method']:
+                hold_inventory.append(plt)
+            elif 'UPS' in plt['delivery_method'] or 'FEDEX' in plt['delivery_method']:
+                express_inventory.append(plt)
+
+            if plt['delivery_type'] == "other":
+                private_inventory.append(plt)
+        context = {
+            'warehouse_options': self.warehouse_options,
+            'warehouse': warehouse,
+            'total_inventory': total_inventory,
+            'private_inventory': private_inventory,
+            'hold_inventory': hold_inventory,
+            'public_inventory': public_inventory,
+            'express_inventory': express_inventory,
+            'summary': {
+                'total_count': len(total_inventory),
+                'private_count': len(private_inventory),
+                'hold_count': len(hold_inventory),
+                'public_count': len(public_inventory),
+                'express_count': len(express_inventory),
+            },
+            'summary_detail': {
+                    'total_count': {
+                        'total_weight': sum(item['weight'] for item in total_inventory),
+                        'total_cbm': sum(item['cbm'] for item in total_inventory) ,
+                        'total_pallet': sum(item['n_pallet'] for item in total_inventory) ,
+                        'has_shipment': sum(1 for item in total_inventory   
+                                            if item.get('shipment') not in [None, '', 'None', 'null'])
+                        },
+                    'private_count': {
+                        'total_weight': sum(item['weight'] for item in private_inventory),
+                        'total_cbm': sum(item['cbm'] for item in private_inventory) ,
+                        'total_pallet': sum(item['n_pallet'] for item in private_inventory) ,
+                        'has_shipment': sum(1 for item in private_inventory   
+                                            if item.get('shipment') not in [None, '', 'None', 'null']),
+                    },
+                    'hold_count': {
+                        'total_weight': sum(item['weight'] for item in hold_inventory),
+                        'total_cbm': sum(item['cbm'] for item in hold_inventory) ,
+                        'total_pallet': sum(item['n_pallet'] for item in hold_inventory) ,
+                        'has_shipment': sum(1 for item in hold_inventory   
+                                            if item.get('shipment') not in [None, '', 'None', 'null']),
+                    },
+                    'public_count': {
+                        'total_weight': sum(item['weight'] for item in public_inventory),
+                        'total_cbm': sum(item['cbm'] for item in public_inventory) ,
+                        'total_pallet': sum(item['n_pallet'] for item in public_inventory) ,
+                        'has_shipment': sum(1 for item in public_inventory   
+                                            if item.get('shipment') not in [None, '', 'None', 'null']),
+                    },
+                    'express_count': {
+                        'total_weight': sum(item['weight'] for item in express_inventory),
+                        'total_cbm': sum(item['cbm'] for item in express_inventory) ,
+                        'total_pallet': sum(item['n_pallet'] for item in express_inventory) ,
+                        'has_shipment': sum(1 for item in express_inventory   
+                                            if item.get('shipment') not in [None, '', 'None', 'null']),
+                    },
+
+            }
+        }
+        return self.template_counting_pallet, context
+
+    async def _get_inventory_pallet(
+        self, warehouse: str, criteria: models.Q | None = None
+    ) -> list[Pallet]:
+        if criteria:
+            criteria &= models.Q(location=warehouse)
+            criteria &= models.Q(
+                models.Q(shipment_batch_number__isnull=True)
+                | models.Q(shipment_batch_number__is_shipped=False)
+            )
+        else:
+            criteria = models.Q(
+                models.Q(location=warehouse)
+                & models.Q(
+                    models.Q(shipment_batch_number__isnull=True)
+                    | models.Q(shipment_batch_number__is_shipped=False)
+                )
+            )
+        return await sync_to_async(list)(
+            Pallet.objects.prefetch_related(
+                "container_number",
+                "shipment_batch_number",
+                "container_number__order__customer_name",
+            )
+            .filter(criteria)
+            .annotate(str_id=Cast("id", CharField()))
+            .values(
+                "destination",
+                "delivery_method",
+                "delivery_type",
+                "shipping_mark",
+                "fba_id",
+                "ref_id",
+                "note",
+                "PO_ID",
+                "address",
+                "zipcode",
+                "location",
+                customer_name=F("container_number__order__customer_name__zem_name"),
+                container=F("container_number__container_number"),
+                shipment=F("shipment_batch_number__shipment_batch_number"),
+                appointment_id=F("shipment_batch_number__appointment_id"),
+                appointment_time=F("shipment_batch_number__shipment_appointment"),
+            )
+            .annotate(
+                shipping_marks=StringAgg("shipping_mark", delimiter=",", distinct=True, ordering="shipping_mark"),
+                fba_ids=StringAgg("fba_id", delimiter=",", distinct=True, ordering="fba_id"),
+                ref_ids=StringAgg("ref_id", delimiter=",", distinct=True, ordering="ref_id"),
+                plt_ids=StringAgg(
+                    "str_id", delimiter=",", distinct=True, ordering="str_id"
+                ),
+                pcs=Sum("pcs", output_field=IntegerField()),
+                cbm=Sum("cbm", output_field=FloatField()),
+                weight=Sum("weight_lbs", output_field=FloatField()),
+                n_pallet=Count("pallet_id", distinct=True),
+            )
+            .order_by("-n_pallet")
+        )
+    
     async def handle_upcoming_fleet_post(
         self, request: HttpRequest
     ) -> tuple[str, dict[str, Any]]:
         warehouse = request.POST.get("warehouse")
-
         # 获取未来三天的时间范围
         today = timezone.now().date()
         three_days_later = today + timedelta(days=3)
