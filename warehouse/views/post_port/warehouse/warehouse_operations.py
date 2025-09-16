@@ -41,41 +41,47 @@ class WarehouseOperations(View):
             return redirect("login")
         step = request.POST.get("step", None)
         if step == "export_palletization_list":
-            # 先执行导出操作
-            await export_palletization_list(request)
+            if step == "export_palletization_list":
+                # 获取请求标识，判断是导出还是页面渲染
+                action_type = request.POST.get('action_type', 'export')
 
-            retrieval_id = request.POST.get('retrieval_id', '').strip()
-            warehouse_unpacking_time = request.POST.get("first_time_download")
-            if warehouse_unpacking_time and retrieval_id:  # 同时验证retrieval_id
-                def sync_update_single_offload_select():
-                    related_orders = Order.objects.filter(
-                        retrieval_id__retrieval_id=retrieval_id,
-                        offload_id__isnull=False,
-                        offload_id__warehouse_unpacked_time__isnull=True
-                    ).select_related('offload_id')
+                # 1. 第一次请求：执行导出操作
+                if action_type == 'export':
+                    response_down = await export_palletization_list(request)
+                    response_down['X-Action'] = 'export'
+                    return response_down
 
-                    if related_orders.exists():
-                        updated_count = 0
-                        for order in related_orders:
-                            order.offload_id.warehouse_unpacking_time = warehouse_unpacking_time
-                            order.offload_id.save()
-                            updated_count += 1
-                        return updated_count
-                    return 0
+                # 2. 第二次请求：执行更新并返回页面
+                elif action_type == 'render':
+                    retrieval_id = request.POST.get('retrieval_id', '').strip()
+                    warehouse_unpacking_time = request.POST.get("first_time_download")
+                    if warehouse_unpacking_time and retrieval_id:
+                        def sync_update_records():
+                            related_orders = Order.objects.filter(
+                                retrieval_id__retrieval_id=retrieval_id,
+                                offload_id__isnull=False,
+                                offload_id__warehouse_unpacked_time__isnull=True
+                            ).select_related('offload_id')
+                            updated_count = 0
+                            if related_orders.exists():
+                                for order in related_orders:
+                                    if order.offload_id.warehouse_unpacking_time is None:
+                                        order.offload_id.warehouse_unpacking_time = warehouse_unpacking_time
+                                        order.offload_id.save()
+                                        updated_count += 1
+                            if updated_count > 0:
+                                try:
+                                    retrieval = Retrieval.objects.get(retrieval_id=retrieval_id)
+                                    retrieval.unpacking_status = "2"
+                                    retrieval.save()
+                                except Retrieval.DoesNotExist:
+                                    pass
+                            return updated_count
+                        async_update = sync_to_async(sync_update_records, thread_sensitive=True)
+                        await async_update()
+                    template, context = await self.warehousing_operation_post(request)
+                    return await sync_to_async(render)(request, template, context)
 
-                async_update_offload = sync_to_async(sync_update_single_offload_select, thread_sensitive=True)
-                affected_rows = await async_update_offload()
-
-                def sync_update_single_select():
-                    retrieval = Retrieval.objects.get(retrieval_id=retrieval_id)
-                    retrieval.unpacking_status = "2"
-                    retrieval.save()
-
-                if affected_rows > 0:
-                    async_update_re = sync_to_async(sync_update_single_select, thread_sensitive=True)
-                    await async_update_re()
-            template, context = await self.warehousing_operation_get(request)
-            return await sync_to_async(render)(request, template, context)
         elif step == "export_pallet_label":
             palletization_view = Palletization()
             return await palletization_view._export_pallet_label(request)
@@ -207,7 +213,7 @@ class WarehouseOperations(View):
         except Exception as e:
             self.logger.error(f"更新记录{retrieval_id}时发生错误：{str(e)}", exc_info=True)
 
-        template, context = await self.warehousing_operation_get(request)
+        template, context = await self.warehousing_operation_post(request)
         return template, context
 
     async def warehousing_operation_first_time_download(self, request: HttpRequest):

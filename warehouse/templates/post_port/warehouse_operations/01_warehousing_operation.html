@@ -219,17 +219,25 @@
                                 <td class="px-4 py-2 text-xs">
                                     <div class="flex space-x-1">
                                         <form method="post" action="" style="display: inline-block;"
-                                              class="download-form">
+                                              class="download-form" onsubmit="return handleDownloadSubmit(this)">
                                             {% csrf_token %}
                                             <input type="hidden" name="step" value="export_palletization_list">
                                             <input type="hidden" name="status" value="palletized">
+                                            <input type="hidden" name="warehouse_filter" value="{{ warehouse }}">
                                             <input type="hidden" name="retrieval_id" value="{{ ret.retrieval_id }}">
-                                            <input type="hidden" name="arrival_location" value="{{ ret.arrival_location|default:''|upper }}">
-                                            <input type="hidden" name="unpacking_status" value="{{ ret.unpacking_status }}">
-                                            <input type="hidden" name="first_time_download" class="first-time-input" value="">
+                                            <input type="hidden" name="arrival_location"
+                                                   value="{{ ret.arrival_location|default:''|upper }}">
+                                            <input type="hidden" name="unpacking_status"
+                                                   value="{{ ret.unpacking_status }}">
+                                            <input type="hidden" name="first_time_download" class="first-time-input"
+                                                   value="">
                                             <input type="hidden" name="container_number"
                                                    value="{{ order.container_number|default:'' }}">
-                                            <button type="submit" class="compact-btn bg-success text-white hover:bg-success/90"
+                                            <!-- 添加action_type字段用于区分请求类型 -->
+                                            <input type="hidden" name="action_type" value="export">
+
+                                            <button type="submit"
+                                                    class="compact-btn bg-success text-white hover:bg-success/90"
                                                     {% if not order.container_number %}disabled
                                                     title="柜号为空"{% endif %}>
                                                 <i class="bi bi-cloud-arrow-down-fill mr-0.5 text-[11px]"></i>拆柜单
@@ -253,6 +261,7 @@
                                     <form method="post" action="" class="update-single-form" data-record-id="{{ record_id }}">
                                         {% csrf_token %}
                                         <input type="hidden" name="step" value="update_warehouse">
+                                        <input type="hidden" name="warehouse_filter" value="{{ warehouse }}">
                                         <input type="hidden" name="retrieval_id" value="{{ ret.retrieval_id }}">
                                         <!-- 隐藏域：用于接收JS填充的到仓位置 -->
                                         <input type="hidden" name="arrival_location" id="arrival_location_hidden_{{ record_id }}">
@@ -405,5 +414,32 @@ document.addEventListener('DOMContentLoaded', function() {
         });
     });
 });
+// 处理下载表单提交
+function handleDownloadSubmit(form) {
+    // 设置当前时间戳
+    form.querySelector('.first-time-input').value = new Date().toISOString();
+
+    // 1. 先提交下载请求
+    // 克隆表单用于下载
+    const downloadForm = form.cloneNode(true);
+    downloadForm.style.display = 'none';
+    document.body.appendChild(downloadForm);
+    downloadForm.submit();
+    document.body.removeChild(downloadForm);
+
+    // 2. 延迟提交页面刷新请求
+    setTimeout(() => {
+        // 克隆表单用于刷新页面
+        const refreshForm = form.cloneNode(true);
+        // 修改action_type为render，表示这是刷新请求
+        refreshForm.querySelector('input[name="action_type"]').value = 'render';
+        refreshForm.style.display = 'none';
+        document.body.appendChild(refreshForm);
+        refreshForm.submit();
+    }, 800); // 800ms延迟确保下载开始
+
+    // 阻止原表单默认提交
+    return false;
+}
     </script>
 {% endblock %}
