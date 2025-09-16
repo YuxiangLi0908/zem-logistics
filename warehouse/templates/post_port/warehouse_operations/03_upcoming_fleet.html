@@ -182,6 +182,39 @@
         color: var(--danger-color);
     }
 
+    .progress-container {
+        width: 100%;
+        height: 8px;
+        background-color: #e9ecef;
+        border-radius: 4px;
+        margin-top: 5px;
+        overflow: hidden;
+    }
+    
+    .progress-bar {
+        height: 100%;
+        background-color: var(--success-color);
+        border-radius: 4px;
+        transition: width 0.3s ease;
+    }
+    
+    .completion-text {
+        font-size: 0.8rem;
+        color: #6c757d;
+        margin-top: 3px;
+        text-align: center;
+    }
+    
+    .status-abnormal {
+        background-color: #f8d7da;
+        color: #721c24;
+        border: 1px solid #f5c6cb;
+    }
+    
+    .status-abnormal .status-icon {
+        color: #dc3545;
+    }
+
     .table-container {
         overflow-x: auto;
         border-radius: 8px;
@@ -553,21 +586,28 @@
         <div class="summary-cards">
             <div class="summary-card">
                 <div class="card-title">总出库批次</div>
-                <div class="card-value">{{ summary.total_fleets }}</div>
+                <div class="card-value" id="total-fleets">{{ summary.day_stats.0.total_fleets }}</div>
             </div>
             <div class="summary-card">
                 <div class="card-title">总板数</div>
-                <div class="card-value">{{ summary.total_pallets }}</div>
+                <div class="card-value" id="total-pallets">{{ summary.day_stats.0.total_pallets }}</div>
             </div>
             <div class="summary-card">
                 <div class="card-title">总体积 (CBM)</div>
-                <div class="card-value">{{ summary.total_cbm }}</div>
+                <div class="card-value" id="total-cbm">{{ summary.day_stats.0.total_cbm }}</div>
             </div>
             <div class="summary-card">
                 <div class="card-title">已完成出库</div>
-                <div class="card-value">{{ summary.completed_count }}</div>
+                <div class="card-value" id="completed-count">
+                    {{ summary.day_stats.0.completed_count }}/{{ summary.day_stats.0.normal_count }}
+                </div>
+                <div class="progress-container">
+                    <div class="progress-bar" style="width: {{ summary.day_stats.0.completion_rate }}%;"></div>
+                </div>
+                <div class="completion-text">{{ summary.day_stats.0.completion_rate }}% 完成率</div>
             </div>
         </div>
+
 
         <div class="table-container">
             <table class="shipment-table">
@@ -586,7 +626,7 @@
                 <tbody>
                     {% for fleet in fleets %}                    
                     {% if fleet.warehouse_process_status != 'shipped' %}
-                    <tr class="day-{{ fleet.days_diff }}" data-days-diff="{{ fleet.days_diff }}" data-status="{{ fleet.warehouse_process_status }}">
+                    <tr class="day-{{ fleet.days_diff }}" data-days-diff="{{ fleet.days_diff }}" data-status="{{ fleet.warehouse_process_status }}" data-pallets="{{ fleet.pallets }}" data-cbm="{{ fleet.cbm }}">
                         <td>
                             <span class="status-badge status-{{ fleet.warehouse_process_status }}">
                                 <i class="fas 
@@ -594,9 +634,15 @@
                                     {% elif fleet.warehouse_process_status == 'check_in' %}fa-check-circle
                                     {% elif fleet.warehouse_process_status == 'loading' %}fa-truck-loading
                                     {% elif fleet.warehouse_process_status == 'shipped' %}fa-check-double
+                                    {% elif fleet.warehouse_process_status == 'abnormal' %}fa-exclamation-triangle
                                     {% else %}fa-circle{% endif %} status-icon">
                                 </i>
-                                {{ fleet.get_warehouse_process_status_display }}
+                                {% if fleet.warehouse_process_status == 'waiting' %}等待中
+                                {% elif fleet.warehouse_process_status == 'check_in' %}已签到
+                                {% elif fleet.warehouse_process_status == 'loading' %}装柜中
+                                {% elif fleet.warehouse_process_status == 'shipped' %}已出库
+                                {% elif fleet.warehouse_process_status == 'abnormal' %}已异常 
+                                {% else %}未知状态{% endif %}
                             </span>
                         </td>
                         <td>
@@ -630,8 +676,8 @@
                                            value="{{ fleet.driver_name|default:'' }}" required>
                                     <input type="tel" name="driver_phone" class="info-input" placeholder="司机电话" 
                                            value="{{ fleet.driver_phone|default:'' }}" required>
-                                    <input type="text" name="license_plate" class="info-input" placeholder="车牌号码" 
-                                           value="{{ fleet.license_plate|default:'' }}" required>
+                                    <input type="text" name="trailer_number" class="info-input" placeholder="Trailer Number" 
+                                           value="{{ fleet.trailer_number|default:'' }}" required>
                                     <button type="button" class="action-btn btn-primary save-driver-btn" 
                                             data-fleet="{{ fleet.fleet_number }}">
                                         <i class="fas fa-user-check"></i> 司机签到
@@ -639,9 +685,9 @@
                                 </div>
                             </form>
                             {% else %}
-                                <div><strong>司机:</strong> {{ fleet.driver_name }}</div>
-                                <div><strong>电话:</strong> {{ fleet.driver_phone }}</div>
-                                <div><strong>车牌:</strong> {{ fleet.license_plate }}</div>
+                                <div><strong>司机:</strong> {{ fleet.driver_name|default_if_none:"" }}</div>
+                                <div><strong>电话:</strong> {{ fleet.driver_phone|default_if_none:"" }}</div>
+                                <div><strong>Trailer Number:</strong> {{ fleet.trailer_number|default_if_none:"" }}</div>
                             {% endif %}
                         </td>
                         
@@ -685,6 +731,16 @@
                             <span class="action-btn btn-success" style="cursor: default;">
                                 <i class="fas fa-check-double"></i> 已完成
                             </span>
+                            {% elif fleet.warehouse_process_status == 'abnormal' %}
+                            <span class="action-btn btn-danger" style="cursor: default;">
+                                <i class="fas fa-exclamation-triangle"></i> 已异常（{{ fleet.abnormal_reason }}）
+                            </span>
+                            {% endif %}
+                            {% if fleet.warehouse_process_status != 'shipped' and fleet.warehouse_process_status != 'abnormal' %}
+                                <button type="button" class="action-btn btn-danger report-issue-btn" 
+                                        data-fleet="{{ fleet.fleet_number }}">
+                                    <i class="fas fa-exclamation-triangle"></i> 异常报告
+                                </button>
                             {% endif %}
                         </td>
                     </tr>
@@ -714,14 +770,14 @@
                         <td>{{ fleet.pallets }}</td>
                         <td>{{ fleet.cbm }}</td>
                         <td>
-                            <div><strong>司机:</strong> {{ fleet.driver_name }}</div>
-                            <div><strong>电话:</strong> {{ fleet.driver_phone }}</div>
-                            <div><strong>车牌:</strong> {{ fleet.license_plate }}</div>
+                            <div><strong>司机:</strong> {{ fleet.driver_name|default_if_none:"" }}</div>
+                            <div><strong>电话:</strong> {{ fleet.driver_phone|default_if_none:"" }}</div>
+                            <div><strong>Trailer Number:</strong> {{ fleet.trailer_number|default_if_none:"" }}</div>
                         </td>
                         <td>
                             <form method="post" class="action-form">
                                 {% csrf_token %}
-                                <input type="hidden" name="step" value="download_bol">
+                                <input type="hidden" name="step" value="export_bol">
                                 <input type="hidden" name="warehouse" value="{{ warehouse }}">
                                 <input type="hidden" name="fleet_number" value="{{ fleet.fleet_number }}">
                                 <button type="submit" class="action-btn btn-primary">
@@ -758,7 +814,7 @@
             {% csrf_token %}
             <input type="hidden" name="step" value="complete_loading">
             <input type="hidden" name="warehouse" value="{{ warehouse }}">
-            <input type="hidden" name="fleet_number" value="{{ fleet.fleet_number }}">
+            <input type="hidden" name="fleet_number" id="modalFleetNumber" value="">
             
             <div class="form-group" style="margin-bottom: 15px;">
                 <label style="display: block; margin-bottom: 6px; font-size: 14px; color: #555;">凭证图片：</label>
@@ -788,25 +844,157 @@
     </div>
 </div>
 
+<div id="issueReportModal" style="display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background-color: rgba(0,0,0,0.5); z-index: 999; overflow-y: auto;">
+    <div style="position: relative; top: 50%; left: 50%; transform: translate(-50%, -50%); width: 90%; max-width: 500px; background: white; border-radius: 8px; box-shadow: 0 4px 20px rgba(0,0,0,0.15); padding: 25px;">
+        <span class="close" style="position: absolute; top: 15px; right: 15px; font-size: 24px; cursor: pointer; color: #666;" onclick="closeIssueModal()">&times;</span>   
+        <h3 style="margin-top: 0; margin-bottom: 20px; color: #333; font-size: 18px; font-weight: 600;">异常报告</h3>
+        
+        <form method="post" action="" style="margin-bottom: 15px;" id="issueReportForm">
+            {% csrf_token %}
+            <input type="hidden" name="step" value="report_issue">
+            <input type="hidden" name="warehouse" value="{{ warehouse }}">
+            <input type="hidden" name="fleet_number" id="issueFleetNumber" value="">
+            
+            <div class="form-group" style="margin-bottom: 15px;">
+                <label style="display: block; margin-bottom: 6px; font-size: 14px; color: #555; font-weight: 600;">异常类型：</label>
+                <select name="issue_type" class="info-input" required>
+                    <option value="">请选择异常类型</option>
+                    <option value="延迟到达">延迟到达</option>
+                    <option value="货物损坏">货物损坏</option>
+                    <option value="单据问题">单据问题</option>
+                    <option value="车辆故障">车辆故障</option>
+                    <option value="司机问题">司机问题</option>
+                    <option value="其他问题">其他问题</option>
+                </select>
+            </div>
+            
+            <div class="form-group" style="margin-bottom: 15px;">
+                <label style="display: block; margin-bottom: 6px; font-size: 14px; color: #555; font-weight: 600;">异常描述：</label>
+                <textarea name="issue_description" class="info-input" placeholder="请详细描述异常情况..." rows="4" required style="width: 100%; padding: 10px; border: 1px solid #dce1e6; border-radius: 4px; font-size: 0.9rem; resize: vertical;"></textarea>
+            </div>
+            
+            <div style="display: flex; justify-content: flex-end; gap: 10px;">
+                <button type="button" class="btn-cancel" style="padding: 8px 16px; background: #f0f0f0; border: none; border-radius: 4px; cursor: pointer; font-size: 14px;" onclick="closeIssueModal()">取消</button>
+                <button type="submit" style="padding: 8px 16px; background: #e74c3c; color: white; border: none; border-radius: 4px; cursor: pointer; font-size: 14px;">提交报告</button>
+            </div>
+        </form>
+    </div>
+</div>
 <script>
     function adjustBalance(button) {  
         const popup = document.getElementById('completeLoadingModal');
         popup.style.display = popup.style.display === 'none' ? 'block' : 'none';
+        closeIssueModal();
     }
 
-    document.addEventListener('DOMContentLoaded', function() {
-        filterTableByDay('0');
+    function saveSelectedDay(day) {
+        localStorage.setItem('selectedDay', day);
+    }
+
+    function getSelectedDay() {
+        return localStorage.getItem('selectedDay') || '0'; 
+    }
+    window.addEventListener('click', function(e) {
+        const issueModal = document.getElementById('issueReportModal');
+        if (e.target === issueModal) {
+            closeIssueModal();
+        }
+        
+        const loadingModal = document.getElementById('completeLoadingModal');
+        if (e.target === loadingModal) {
+            adjustBalance();
+        }
     });
+
+    document.addEventListener('DOMContentLoaded', function() {
+        const selectedDay = getSelectedDay();
+        const tabToSelect = document.querySelector(`.time-tab[data-day="${selectedDay}"]`);
+        
+        if (tabToSelect) {
+            document.querySelectorAll('.time-tab').forEach(t => t.classList.remove('active'));
+            tabToSelect.classList.add('active');
+            filterTableByDay(selectedDay);
+            updateSummaryStats(selectedDay);
+        } else {
+            // 默认选择今天
+            filterTableByDay('0');
+        }
+        
+        // 恢复所有按钮状态
+        restoreAllButtons();
+    });
+    
+    function restoreAllButtons() {
+        const buttons = document.querySelectorAll('button[type="submit"]');
+        buttons.forEach(btn => {
+            if (btn.innerHTML.includes('fa-spinner')) {
+                // 根据按钮类名恢复原始状态
+                if (btn.classList.contains('btn-primary')) {
+                    btn.innerHTML = '<i class="fas fa-download"></i> BOL';
+                } else if (btn.classList.contains('btn-success')) {
+                    btn.innerHTML = '<i class="fas fa-play-circle"></i> 开始装柜';
+                } else if (btn.classList.contains('btn-warning')) {
+                    btn.innerHTML = '<i class="fas fa-check-circle"></i> 完成出库';
+                }
+                btn.disabled = false;
+            }
+        });
+    }
     document.querySelectorAll('.time-tab').forEach(tab => {
         tab.addEventListener('click', function() {
             document.querySelectorAll('.time-tab').forEach(t => t.classList.remove('active'));
             this.classList.add('active');
             
             const dayFilter = this.getAttribute('data-day');
+            saveSelectedDay(dayFilter);
             filterTableByDay(dayFilter);
+            updateSummaryStats(dayFilter);
         });
     });
 
+    document.addEventListener('click', function(e) {
+        if (e.target.closest('.report-issue-btn')) {
+            const btn = e.target.closest('.report-issue-btn');
+            const fleetNumber = btn.getAttribute('data-fleet');
+            
+            document.getElementById('issueFleetNumber').value = fleetNumber;
+            document.getElementById('issueReportModal').style.display = 'block';
+        }
+    });
+
+    function closeIssueModal() {
+        document.getElementById('issueReportModal').style.display = 'none';
+        document.getElementById('issueReportForm').reset();
+    }
+
+    document.getElementById('issueReportForm').addEventListener('submit', function(e) {
+        const submitBtn = this.querySelector('button[type="submit"]');
+        if (submitBtn) {
+            submitBtn.disabled = true;
+            submitBtn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> 提交中...';
+        }
+    });
+
+    function updateSummaryStats(dayFilter) {
+        const dayStats = {
+            0: {{ summary.day_stats.0|safe }},
+            1: {{ summary.day_stats.1|safe }},
+            2: {{ summary.day_stats.2|safe }}
+        };
+        
+        document.getElementById('total-fleets').textContent = dayStats[dayFilter].total_fleets;
+        document.getElementById('total-pallets').textContent = dayStats[dayFilter].total_pallets;
+        document.getElementById('total-cbm').textContent = dayStats[dayFilter].total_cbm;
+        
+        const completedElement = document.getElementById('completed-count');
+        completedElement.textContent = `${dayStats[dayFilter].completed_count}/${dayStats[dayFilter].normal_count}`;
+        
+        const progressBar = completedElement.nextElementSibling.querySelector('.progress-bar');
+        progressBar.style.width = `${dayStats[dayFilter].completion_rate}%`;
+        
+        const completionText = progressBar.parentElement.nextElementSibling;
+        completionText.textContent = `${dayStats[dayFilter].completion_rate}% 完成率`;
+    }
 
     function filterTableByDay(dayFilter) {
         const rows = document.querySelectorAll('.shipment-table tbody tr:not(.status-shipped-row)');
@@ -886,9 +1074,15 @@
             reader.readAsDataURL(file);
         }
     }
-    // 防止表单重叠提交
+
     document.querySelectorAll('form').forEach(form => {
         form.addEventListener('submit', function(e) {
+            const activeTab = document.querySelector('.time-tab.active');
+            if (activeTab) {
+                const dayFilter = activeTab.getAttribute('data-day');
+                saveSelectedDay(dayFilter);
+            }
+
             const submitBtn = this.querySelector('button[type="submit"], input[type="submit"]');
             if (submitBtn) {
                 submitBtn.disabled = true;

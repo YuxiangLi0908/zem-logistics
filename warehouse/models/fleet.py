@@ -10,6 +10,7 @@ class Fleet(models.Model):
         ('check_in', 'Check In'),       # 仓库司机签到
         ('loading', '正在装柜'),        # 仓库工作人员正在装柜
         ('shipped', '已出库'),          # 仓库处理完成（已出库）
+        ('abnormal','已异常'),
     )
     fleet_number = models.CharField(max_length=255, null=True)
     fleet_zem_serial = models.CharField(max_length=255, null=True, blank=True)
@@ -21,6 +22,7 @@ class Fleet(models.Model):
     license_plate = models.CharField(max_length=100, null=True, blank=True)
     driver_phone = models.CharField(max_length=100, null=True, blank=True)
     driver_name = models.CharField(max_length=100, null=True, blank=True)
+    trailer_number = models.CharField(max_length=100, null=True, blank=True)
     warehouse_process_status = models.CharField(
         max_length=20,
         choices=STATUS_CHOICES,
@@ -54,6 +56,7 @@ class Fleet(models.Model):
     cancelation_reason = models.CharField(max_length=2000, null=True, blank=True)
     status = models.CharField(max_length=20, null=True, blank=True)
     status_description = models.CharField(max_length=1000, null=True, blank=True)
+    abnormal_reason = models.CharField(max_length=1000, null=True, blank=True)
     history = HistoricalRecords()
 
     class Meta:
