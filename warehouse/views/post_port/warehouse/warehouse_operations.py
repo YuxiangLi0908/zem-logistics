@@ -127,7 +127,6 @@ class WarehouseOperations(View):
                 related_orders = Order.objects.filter(
                     retrieval_id__retrieval_id=retrieval_id,
                     offload_id__isnull=False,
-                    offload_id__warehouse_unpacked_time__isnull=True
                 ).select_related('offload_id', 'export_unpacking_id')
                 if related_orders.exists():
                     for order in related_orders:
@@ -144,11 +143,9 @@ class WarehouseOperations(View):
                                 order.export_unpacking_id = new_record
                                 order.save()
 
-                        if order.export_unpacking_id.download_num is None:
-                            order.export_unpacking_id.download_num = 1
                         else:
                             order.export_unpacking_id.download_num += 1
-                        order.export_unpacking_id.save()
+                            order.export_unpacking_id.save()
                     try:
                         retrieval = Retrieval.objects.get(retrieval_id=retrieval_id)
                         retrieval.unpacking_status = "2"
