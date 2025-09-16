@@ -157,6 +157,7 @@ class WarehouseOperations(View):
         context = {
             "retrieval": retrieval,
             "warehouse_options": self.warehouse_options,
+            "warehouse": warehouse,
         }
         return self.template_warehousing_operation, context
 

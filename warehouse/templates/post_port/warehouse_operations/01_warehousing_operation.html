@@ -39,12 +39,9 @@
             {% csrf_token %}
             <b style="margin-right: 5px;">选择仓点区域:</b>
             <input type="hidden" name="step" value="warehouse_daily_get">
-
-            <!-- 下拉选择框 -->
             <select name="warehouse_filter" class="bg-white border border-gray-200 rounded px-2 py-1 text-sm">
                 {% for value, display_text in warehouse_options.items %}
-                    <!-- 根据当前选中值设置selected属性 -->
-                    <option value="{{ value }}" {% if warehouse_filter == value %}selected{% endif %}>
+                    <option value="{{ value }}" {% if warehouse == value %}selected{% endif %}>
                         {{ display_text }}
                     </option>
                 {% endfor %}
