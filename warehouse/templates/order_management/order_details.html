@@ -593,7 +593,7 @@
                     <div class="region-grid">
                         {% for zone, destinations in combina_region.items %}  
                             <div class="zone-row">
-                                <div class="zone-name">{{ zone }}</div>
+                                <div class="zone-name" style="width:150px;">{{ zone }}</div>
                                 <div class="zone-destinations">
                                     {% for dest in destinations %}
                                     <span class="destination-tag">{{ dest }}</span>
@@ -654,7 +654,7 @@
     }
     .modal-content {
         background: white;
-        margin: 15% auto;
+        margin: 8% auto;
         padding: 20px;
         width: 70%;
         max-width: 600px;
@@ -668,7 +668,7 @@
         border-radius: 8px;  
         padding: 16px;      
         min-height: 120px;
-        max-height: 300px;   
+        max-height: 420px;   
         overflow-y: auto;
     }
 
@@ -679,6 +679,7 @@
 
     .zone-row {
         display: grid;
+        align-items:flex-start;
         grid-template-columns: 120px 1fr;
         gap: 12px;
         padding: 12px 0;

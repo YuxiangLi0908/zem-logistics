@@ -1318,7 +1318,10 @@ class FleetManagement(View):
         shipment = await sync_to_async(
             Shipment.objects.select_related("fleet_number").get
         )(shipment_batch_number=batch_number)
-        address_chinese_char = False if shipment.address.isascii() else True
+        try:
+            address_chinese_char = False if shipment.address.isascii() else True           
+        except:
+            address_chinese_char = True
         destination_chinese_char = False if shipment.destination.isascii() else True
         try:
             note_chinese_char = False if shipment.note.isascii() else True
