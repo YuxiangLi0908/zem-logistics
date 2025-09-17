@@ -6,7 +6,7 @@ from simple_history.models import HistoricalRecords
 from warehouse.models.container import Container
 from warehouse.models.offload import Offload
 
-
+#异常打板
 class AbnormalOffloadStatus(models.Model):
     offload = models.ForeignKey(
         Offload, null=True, on_delete=models.CASCADE, related_name="offload_status"

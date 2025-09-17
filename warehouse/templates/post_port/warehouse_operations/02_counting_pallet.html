@@ -1,0 +1,1079 @@
+{% extends 'base.html' %}
+{% load static %}
+
+{% block content %}
+
+<style>
+    /* 原有的CSS样式保持不变 */
+    :root {
+        --primary-color: #3498db;
+        --secondary-color: #2c3e50;
+        --success-color: #2ecc71;
+        --warning-color: #f39c12;
+        --danger-color: #e74c3c;
+        --light-color: #f8f9fa;
+        --dark-color: #343a40;
+        --status1-color: #e3f2fd;
+        --status2-color: #e8f5e9;
+        --status3-color: #fff3e0;
+    }
+
+    * {
+        margin: 0;
+        padding: 0;
+        box-sizing: border-box;
+        font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+    }
+
+    body {
+        background-color: #f5f7fa;
+        color: #333;
+        line-height: 1.6;
+    }
+
+    .warehouse-system {
+        max-width: 1800px;
+        margin: 20px auto;
+        background: white;
+        border-radius: 10px;
+        box-shadow: 0 0 20px rgba(0, 0, 0, 0.1);
+        overflow: hidden;
+    }
+
+    .warehouse-header {
+        background: linear-gradient(135deg, var(--secondary-color), #4a6491);
+        color: white;
+        padding: 20px 30px;
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        flex-wrap: wrap;
+    }
+
+    .warehouse-logo {
+        display: flex;
+        align-items: center;
+        font-size: 1.5rem;
+        font-weight: bold;
+    }
+
+    .warehouse-logo i {
+        margin-right: 10px;
+        font-size: 1.8rem;
+    }
+
+    .warehouse-selector {
+        display: flex;
+        align-items: center;
+        gap: 15px;
+        background: rgba(255, 255, 255, 0.15);
+        padding: 10px 20px;
+        border-radius: 8px;
+    }
+
+    .warehouse-selector label {
+        font-weight: 600;
+    }
+
+    .warehouse-selector select {
+        padding: 8px 15px;
+        border: none;
+        border-radius: 5px;
+        background: white;
+        font-size: 1rem;
+        min-width: 200px;
+    }
+
+    .warehouse-selector button {
+        padding: 8px 16px;
+        background: var(--success-color);
+        color: white;
+        border: none;
+        border-radius: 5px;
+        cursor: pointer;
+        font-weight: 600;
+        transition: background 0.3s ease;
+    }
+
+    .warehouse-selector button:hover {
+        background: #27ae60;
+    }
+
+    .warehouse-main {
+        padding: 30px;
+    }
+
+    .filter-navigation {
+        display: flex;
+        margin-bottom: 25px;
+        border-bottom: 1px solid #eaecef;
+        flex-wrap: wrap;
+    }
+
+    .filter-tab {
+        padding: 12px 25px;
+        cursor: pointer;
+        border-bottom: 3px solid transparent;
+        transition: all 0.3s;
+        font-weight: 500;
+        position: relative;
+    }
+
+    .filter-tab.active {
+        color: var(--primary-color);
+        border-bottom: 3px solid var(--primary-color);
+        font-weight: 600;
+    }
+
+    .filter-tab .badge {
+        position: absolute;
+        top: 5px;
+        right: 5px;
+        background: var(--primary-color);
+        color: white;
+        border-radius: 50%;
+        width: 22px;
+        height: 22px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        font-size: 0.7rem;
+    }
+
+    .search-box {
+        display: flex;
+        margin-bottom: 20px;
+        gap: 10px;
+        align-items: center;
+        flex-wrap: wrap;
+    }
+
+    .search-input {
+        padding: 10px 15px;
+        border: 1px solid #dce1e6;
+        border-radius: 5px;
+        font-size: 0.9rem;
+        min-width: 250px;
+    }
+
+    .search-btn {
+        padding: 10px 20px;
+        background: var(--primary-color);
+        color: white;
+        border: none;
+        border-radius: 5px;
+        cursor: pointer;
+        font-weight: 600;
+    }
+
+    .summary-cards {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+        gap: 20px;
+        margin-bottom: 30px;
+    }
+
+    .summary-card {
+        background: white;
+        border-radius: 8px;
+        padding: 20px;
+        box-shadow: 0 3px 10px rgba(0, 0, 0, 0.08);
+        display: flex;
+        flex-direction: column;
+    }
+
+    .summary-card .card-title {
+        font-size: 0.9rem;
+        color: #7f8c8d;
+        margin-bottom: 10px;
+    }
+
+    .card-value-wrapper {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+    }
+    .summary-card .card-value {
+        font-size: 1.8rem;
+        font-weight: 700;
+        color: var(--secondary-color);
+    }
+
+    .summary-card .card-trend {
+        margin-top: 10px;
+        font-size: 0.85rem;
+        display: flex;
+        align-items: center;
+        gap: 5px;
+    }
+
+    .summary-card .trend-up {
+        color: var(--success-color);
+    }
+
+    .summary-card .trend-down {
+        color: var(--danger-color);
+    }
+
+    .progress-container {
+        width: 100%;
+        height: 8px;
+        background-color: #e9ecef;
+        border-radius: 4px;
+        margin-top: 5px;
+        overflow: hidden;
+    }
+    
+    .progress-bar {
+        height: 100%;
+        background-color: var(--success-color);
+        border-radius: 4px;
+        transition: width 0.3s ease;
+    }
+    
+    .completion-text {
+        font-size: 0.8rem;
+        color: #6c757d;
+        margin-top: 3px;
+        text-align: center;
+    }
+
+    .table-container {
+        overflow-x: auto;
+        border-radius: 8px;
+        box-shadow: 0 3px 10px rgba(0, 0, 0, 0.08);
+        margin-bottom: 30px;
+    }
+
+    .inventory-table {
+        width: 100%;
+        border-collapse: collapse;
+    }
+
+    .inventory-table th {
+        background: var(--secondary-color);
+        color: white;
+        padding: 15px;
+        text-align: left;
+        font-weight: 600;
+        position: sticky;
+        top: 0;
+    }
+
+    .inventory-table td {
+        padding: 15px;
+        border-bottom: 1px solid #eaecef;
+        white-space: normal;
+        word-break: break-word;
+        overflow-wrap: break-word;
+    }
+
+    .table-cell-truncate {
+        max-width: 220px; 
+        white-space: nowrap;
+        overflow: hidden;
+        text-overflow: ellipsis;
+        cursor: pointer;
+    }
+    .inventory-table tr:nth-child(even) {
+        background-color: #f9fafb;
+    }
+
+    .inventory-table tr.status-1 {
+        background-color: var(--status1-color);
+    }
+
+    .inventory-table tr.status-2 {
+        background-color: var(--status2-color);
+    }
+
+    .inventory-table tr.status-3 {
+        background-color: var(--status3-color);
+    }
+
+    .inventory-table tr:hover {
+        background-color: #edf2f7;
+    }
+
+    .action-btn {
+        padding: 6px 12px;
+        border: none;
+        border-radius: 4px;
+        cursor: pointer;
+        font-size: 0.85rem;
+        transition: all 0.3s ease;
+        margin-right: 5px;
+    }
+    
+    .btn-primary {
+        background: var(--primary-color);
+        color: white;
+    }
+    
+    .btn-success {
+        background: var(--success-color);
+        color: white;
+    }
+    
+    .btn-warning {
+        background: var(--warning-color);
+        color: white;
+    }
+    
+    .btn-danger {
+        background: var(--danger-color);
+        color: white;
+    }
+
+    .stock-count-form {
+        display: flex;
+        align-items: center;
+        gap: 10px;
+    }
+
+    .count-input {
+        padding: 6px 10px;
+        border: 1px solid #dce1e6;
+        border-radius: 4px;
+        width: 80px;
+        text-align: center;
+    }
+
+    .inventory-actions {
+        display: flex;
+        justify-content: space-between;
+        margin-bottom: 20px;
+        flex-wrap: wrap;
+        gap: 15px;
+    }
+
+    .export-btn {
+        padding: 10px 20px;
+        background: var(--primary-color);
+        color: white;
+        border: none;
+        border-radius: 5px;
+        cursor: pointer;
+        font-weight: 600;
+        display: flex;
+        align-items: center;
+        gap: 8px;
+    }
+
+    .inventory-count-btn {
+        padding: 10px 20px;
+        background: var(--warning-color);
+        color: white;
+        border: none;
+        border-radius: 5px;
+        cursor: pointer;
+        font-weight: 600;
+        display: flex;
+        align-items: center;
+        gap: 8px;
+    }
+
+    .modal {
+        display: none;
+        position: fixed;
+        z-index: 1000;
+        left: 0;
+        top: 0;
+        width: 100%;
+        height: 100%;
+        background-color: rgba(0,0,0,0.5);
+    }
+    
+    .modal-content {
+        background-color: white;
+        margin: 10% auto;
+        padding: 25px;
+        border-radius: 8px;
+        width: 90%;
+        max-width: 600px;
+        box-shadow: 0 4px 20px rgba(0,0,0,0.2);
+        position: relative;
+    }
+    
+    .close {
+        color: #aaa;
+        float: right;
+        font-size: 28px;
+        font-weight: bold;
+        cursor: pointer;
+        position: absolute;
+        right: 20px;
+        top: 15px;
+    }
+    
+    .close:hover {
+        color: black;
+    }
+
+    .modal-title {
+        margin-bottom: 20px;
+        color: var(--secondary-color);
+        font-size: 1.5rem;
+    }
+
+    .custom-tooltip {
+        position: absolute;
+        background: rgba(0, 0, 0, 0.85);
+        color: white;
+        padding: 10px 15px;
+        border-radius: 6px;
+        font-size: 16px;  /* 调整字体大小 */
+        max-width: 400px; /* 控制宽度 */
+        word-wrap: break-word;
+        z-index: 9999;
+        display: none;
+    }
+    .form-group {
+        margin-bottom: 20px;
+    }
+
+    .form-group label {
+        display: block;
+        margin-bottom: 8px;
+        font-weight: 600;
+        color: #555;
+    }
+
+    .form-control {
+        width: 100%;
+        padding: 10px 15px;
+        border: 1px solid #dce1e6;
+        border-radius: 5px;
+        font-size: 1rem;
+    }
+
+    .form-actions {
+        display: flex;
+        justify-content: flex-end;
+        gap: 10px;
+        margin-top: 20px;
+    }
+
+    @media (max-width: 992px) {
+        .warehouse-header {
+            flex-direction: column;
+            gap: 20px;
+        }
+
+        .warehouse-selector {
+            width: 100%;
+            justify-content: center;
+        }
+
+        .summary-cards {
+            grid-template-columns: 1fr 1fr;
+        }
+
+        .inventory-actions {
+            flex-direction: column;
+        }
+    }
+
+    @media (max-width: 768px) {
+        .summary-cards {
+            grid-template-columns: 1fr;
+        }
+
+        .filter-navigation {
+            flex-wrap: wrap;
+        }
+
+        .filter-tab {
+            flex: 1;
+            text-align: center;
+            min-width: 33.33%;
+        }
+
+        .search-box {
+            flex-direction: column;
+            align-items: stretch;
+        }
+
+        .search-input {
+            min-width: auto;
+        }
+    }
+
+    @media (max-width: 576px) {
+        .warehouse-main {
+            padding: 15px;
+        }
+
+        .warehouse-selector {
+            flex-direction: column;
+        }
+
+        .filter-tab {
+            min-width: 50%;
+        }
+
+        .modal-content {
+            width: 95%;
+            padding: 20px 15px;
+        }
+    }
+</style>
+
+<div class="warehouse-system">
+    <div class="warehouse-header">
+        <div class="warehouse-logo">
+            <i class="fas fa-boxes"></i>
+            <span>仓库库存管理 - {{ warehouse }}</span>
+        </div>
+        <div class="warehouse-selector">
+            <form method="post" action="">
+                {% csrf_token %}
+                <label for="warehouse">选择仓库:</label>
+                <select name="warehouse" style="padding: 5px; border-radius: 4px; border: 1px solid #ced4da;">
+                    {% for k, v in warehouse_options.items %}
+                    <option value="{{ v }}" {% if k == warehouse %}selected{% endif %}>{{ k }}</option>
+                    {% endfor %}
+                </select>
+                <input type="hidden" name="step" value="counting_pallet_warehouse">
+                <button type="submit">
+                    <i class="fas fa-check"></i> 确认
+                </button>
+            </form>
+        </div>
+    </div>
+
+    <div class="warehouse-main">
+        <div class="filter-navigation">
+            <div class="filter-tab active" data-filter="all">全部库存 <span class="badge">{{ summary.total_count }}</span></div>
+            <div class="filter-tab" data-filter="private">私仓 <span class="badge">{{ summary.private_count }}</span></div>
+            <div class="filter-tab" data-filter="hold">暂扣留仓 <span class="badge">{{ summary.hold_count }}</span></div>
+            <div class="filter-tab" data-filter="public">卡车派送 <span class="badge">{{ summary.public_count }}</span></div>
+            <div class="filter-tab" data-filter="express">快递 <span class="badge">{{ summary.express_count }}</span></div>
+        </div>
+
+        <div class="search-box">
+            <input type="text" class="search-input" placeholder="搜索柜号、客户或目的地、唛头等..." id="inventorySearch">
+            <button class="search-btn" id="searchBtn">
+                <i class="fas fa-search"></i> 搜索
+            </button>
+            <div style="display: flex; gap: 10px; margin-left: auto;">
+                <select class="search-input" id="sortSelect" style="min-width: 150px;">
+                    <option value="customer">按客户排序</option>
+                    <option value="container">按柜号排序</option>
+                    <option value="pallets">按板数排序</option>
+                    <option value="destination">按目的地排序</option>
+                </select>
+            </div>
+        </div>
+
+        <div class="summary-cards">
+            <div class="summary-card">
+                <div class="card-title">总重量</div>
+                <div class="card-value-wrapper">
+                    <div class="card-value" id="totalWeight">{{ summary_detail.total_count.total_weight }}</div>
+                    <div class="card-trend">
+                        <i class="fas fa-box"></i> <span id="totalWeightUnit">lbs</span>
+                    </div>
+                </div>
+            </div>
+            <div class="summary-card">
+                <div class="card-title">总CBM</div>
+                <div class="card-value-wrapper">
+                    <div class="card-value" id="totalCbm">{{ summary_detail.total_count.total_cbm }}</div>
+                    <div class="card-trend">
+                        <i class="fas fa-cube"></i> <span id="totalCbmUnit">m³</span>
+                    </div>
+                </div>
+            </div>
+            <div class="summary-card">
+                <div class="card-title">总板数</div>
+                <div class="card-value-wrapper">
+                    <div class="card-value" id="totalPallet">{{ summary_detail.total_count.total_pallet }}</div>
+                    <div class="card-trend">
+                        <i class="fas fa-cube"></i> <span id="totalPalletUnit">个</span>
+                    </div>
+                </div>
+            </div>
+            <div class="summary-card">
+                <div class="card-title">有约数</div>
+                <div class="card-value-wrapper">
+                    <div class="card-value" id="hasShipment">{{ summary_detail.total_count.has_shipment }}</div>
+                    <div class="card-trend">
+                        <i class="fas fa-truck"></i> <span>个</span>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div class="inventory-actions">
+            <button class="inventory-count-btn" id="startInventoryBtn">
+                <i class="fas fa-clipboard-check"></i> 开始库存盘点
+            </button>
+            <div>
+                <button class="export-btn">
+                    <i class="fas fa-file-export"></i> 导出Excel
+                </button>
+            </div>
+        </div>
+
+        <div class="table-container">
+            <table class="inventory-table">
+                <thead>
+                    <tr>
+                        <th class="th">客户</th>
+                        <th class="th">柜号</th>
+                        <th class="th">目的地</th>
+                        <th class="th">派送方式</th>
+                        <th class="th">唛头</th>
+                        <th class="th">FBA</th>
+                        <th class="th">REF</th>
+                        <th class="th">weight</th>
+                        <th class="th">pcs</th>
+                        <th class="th">cbm</th>
+                        <th class="th">板数</th>
+                        <th class="th">入库时间</th>
+                        <th class="th">预约时间</th>
+                        <th class="th">操作</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for p in total_inventory %}
+                    <tr class="status-inventory"
+                        data-customer="{{ p.customer_name }}" 
+                        data-container="{{ p.container }}" 
+                        data-destination="{{ p.destination }}" 
+                        data-delivery-type="{{ p.delivery_type }}" 
+                        data-delivery-method="{{ p.delivery_method }}">
+                        <td class="td">{{ p.customer_name }}</td>
+                        <td class="td">{{ p.container }}</td>
+                        <td class="td">{{ p.destination }}</td>
+                        <td class="td">{{ p.delivery_method }}</td>
+                        <td class="td table-cell-truncate" data-fulltext="{{ p.shipping_marks }}">
+                            {{ p.shipping_marks|slice:":10" }}{% if p.shipping_marks|length > 10 %}...{% endif %}
+                        </td>
+                        <td class="td table-cell-truncate" data-fulltext="{{ p.fba_ids }}">
+                            {{ p.fba_ids|slice:":10" }}{% if p.fba_ids|length > 10 %}...{% endif %}
+                        </td>
+                        <td class="td table-cell-truncate" data-fulltext="{{ p.ref_ids }}">
+                            {{ p.ref_ids|slice:":10" }}{% if p.ref_ids|length > 10 %}...{% endif %}
+                        </td>
+                        <td class="td">{{ p.weight|floatformat:2 }}</td>
+                        <td class="td">{{ p.pcs|floatformat:0 }}</td>
+                        <td class="td">{{ p.cbm|floatformat:2 }}</td>
+                        <td class="td current-pallet-count">
+                            {{ p.n_pallet|floatformat:0 }}
+                        </td>
+                        <td class="td">{{ p.container_number__order__offload_id__offload_at|default_if_none:''|date:"m-d" }}</td>
+                        <td class="td">{{ p.appointment_time|default_if_none:''|date:"m-d" }}</td>
+                        <td>
+                            <button class="action-btn btn-primary adjust-stock-btn" 
+                                    data-id="{{ p.plt_ids }}" 
+                                    data-current="{{ p.n_pallet|floatformat:0 }}">
+                                <i class="fas fa-edit"></i> 调整库存
+                            </button>
+                        </td>
+                    </tr>
+                    {% empty %}
+                    <tr>
+                        <td colspan="13" style="text-align: center; padding: 30px;">
+                            <i class="fas fa-inbox" style="font-size: 3rem; color: #ccc; margin-bottom: 15px;"></i>
+                            <p>暂无库存数据</p>
+                        </td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </div>
+</div>
+
+<!-- 调整库存模态框 -->
+<div id="adjustStockModal" class="modal">
+    <div class="modal-content">
+        <span class="close" onclick="closeModal('adjustStockModal')">&times;</span>
+        <h3 class="modal-title">调整库存数量</h3>
+        <form method="post" action="">
+            {% csrf_token %}
+            <input type="hidden" name="step" value="adjust_inventory">
+            <input type="hidden" name="plt_ids" id="pltIds">
+            <input type="hidden" name="warehouse" value="{{ warehouse }}">
+            
+            <div class="form-group">
+                <label for="actualPallets">当前库存板数</label>
+                <input type="text" class="form-control" id="actualPallets" name="actual_pallets" readonly>
+            </div>
+            
+            <div class="form-group">
+                <label for="adjustmentType">调整类型</label>
+                <select class="form-control" name="adjustment_type" id="adjustmentType" required onchange="toggleShippingMarksInput()">
+                    <option value="add" selected>增加库存</option>
+                    <option value="subtract">减少库存</option>
+                </select>
+            </div>
+            
+            <div class="form-group">
+                <label for="adjustmentValue">调整数量</label>
+                <input type="number" class="form-control" name="adjustment_value" id="adjustmentValue" min="1" required onchange="updateShippingMarksFields()">
+            </div>
+            
+            <div id="shippingMarksContainer" style="display: none;">
+                <div class="form-group">
+                    <label>唛头信息（每板一个唛头）</label>
+                    <div id="shippingMarksFields">
+                        <!-- 动态生成的唛头输入框将 -->
+                    </div>
+                </div>
+            </div>
+            
+            <div class="form-group">
+                <label for="adjustmentReason">调整原因</label>
+                <textarea class="form-control" name="adjustment_reason" id="adjustmentReason" rows="3" placeholder="请输入库存调整原因..." required></textarea>
+            </div>
+            
+            <div class="form-actions">
+                <button type="button" class="action-btn btn-danger" onclick="closeModal('adjustStockModal')">取消</button>
+                <button type="submit" class="action-btn btn-success">确认调整</button>
+            </div>
+        </form>
+    </div>
+</div>
+
+<!-- 库存盘点模态框 -->
+<div id="inventoryCountModal" class="modal">
+    <div class="modal-content">
+        <span class="close" onclick="closeModal('inventoryCountModal')">&times;</span>
+        <h3 class="modal-title">开始库存盘点</h3>
+        <form method="post" action="" enctype="multipart/form-data">
+            {% csrf_token %}
+            <input type="hidden" name="step" value="start_inventory">
+            
+            <div class="form-group">
+                <label for="countDate">盘点日期</label>
+                <input type="date" class="form-control" name="count_date" id="countDate" required value="{{ today|date:'Y-m-d' }}">
+            </div>
+            
+            <div class="form-group">
+                <label for="countTeam">盘点团队</label>
+                <input type="text" class="form-control" name="count_team" id="countTeam" placeholder="输入盘点人员姓名" required>
+            </div>
+            
+            <div class="form-group">
+                <label for="countNotes">盘点说明</label>
+                <textarea class="form-control" name="count_notes" id="countNotes" rows="3" placeholder="输入本次盘点的特殊说明..."></textarea>
+            </div>
+            
+            <div class="form-group">
+                <label>盘点范围</label>
+                <div style="display: flex; gap: 15px; margin-top: 10px;">
+                    <label style="display: flex; align-items: center;">
+                        <input type="radio" name="count_scope" value="all" checked> 全部库存
+                    </label>
+                    <label style="display: flex; align-items: center;">
+                        <input type="radio" name="count_scope" value="private"> 私仓
+                    </label>
+                    <label style="display: flex; align-items: center;">
+                        <input type="radio" name="count_scope" value="hold"> 暂扣留仓
+                    </label>
+                </div>
+            </div>
+            
+            <div class="form-actions">
+                <button type="button" class="action-btn btn-danger" onclick="closeModal('inventoryCountModal')">取消</button>
+                <button type="submit" class="action-btn btn-success">开始盘点</button>
+            </div>
+        </form>
+    </div>
+</div>
+
+<script>
+    function toggleShippingMarksInput() {
+        const adjustmentType = document.getElementById('adjustmentType').value;
+        const shippingMarksContainer = document.getElementById('shippingMarksContainer');
+        
+        if (adjustmentType === 'add') {
+            shippingMarksContainer.style.display = 'block';
+            updateShippingMarksFields(); 
+        } else {
+            shippingMarksContainer.style.display = 'none';
+        }
+    }
+    
+    function updateShippingMarksFields() {
+        const adjustmentType = document.getElementById('adjustmentType').value;
+        const adjustmentValue = document.getElementById('adjustmentValue').value;
+        const shippingMarksFields = document.getElementById('shippingMarksFields');
+        
+        // 只有在增加库存时才显示唛头输入框
+        if (adjustmentType !== 'add' || !adjustmentValue || adjustmentValue < 1) {
+            shippingMarksFields.innerHTML = '';
+            return;
+        }
+        
+        let html = '';
+        const count = parseInt(adjustmentValue);
+        
+        for (let i = 1; i <= count; i++) {
+            html += `
+                <div class="form-group" style="margin-bottom: 10px;">
+                    <label for="shippingMark${i}">唛头 #${i}</label>
+                    <input type="text" class="form-control" name="shipping_marks" 
+                           id="shippingMark${i}" placeholder="请输入第${i}板的唛头" required>
+                </div>
+            `;
+        }
+        
+        shippingMarksFields.innerHTML = html;
+    }
+
+    // 创建工具提示
+    const tooltip = document.createElement('div');
+    tooltip.className = 'custom-tooltip';
+    document.body.appendChild(tooltip);
+
+    // 设置工具提示
+    document.querySelectorAll('.table-cell-truncate').forEach(cell => {
+        cell.addEventListener('mouseenter', (e) => {
+            tooltip.innerText = cell.getAttribute('data-fulltext');
+            tooltip.style.display = 'block';
+            tooltip.style.left = e.pageX + 10 + 'px';
+            tooltip.style.top = e.pageY + 10 + 'px';
+        });
+        cell.addEventListener('mousemove', (e) => {
+            tooltip.style.left = e.pageX + 10 + 'px';
+            tooltip.style.top = e.pageY + 10 + 'px';
+        });
+        cell.addEventListener('mouseleave', () => {
+            tooltip.style.display = 'none';
+        });
+    });
+
+    // 保存和恢复选中的筛选选项卡
+    function saveSelectedFilter(filter) {
+        localStorage.setItem('selectedFilter', filter);
+    }
+
+    function getSelectedFilter() {
+        return localStorage.getItem('selectedFilter') || 'all';
+    }
+
+    // 模态框控制函数
+    function showModal(modalId) {
+        document.getElementById(modalId).style.display = 'block';
+    }
+
+    function closeModal(modalId) {
+        document.getElementById(modalId).style.display = 'none';
+    }
+
+    // 初始化页面
+    document.addEventListener('DOMContentLoaded', function() {
+        const selectedFilter = getSelectedFilter();
+        const tabToSelect = document.querySelector(`.filter-tab[data-filter="${selectedFilter}"]`);
+        
+        if (tabToSelect) {
+            document.querySelectorAll('.filter-tab').forEach(t => t.classList.remove('active'));
+            tabToSelect.classList.add('active');
+            filterTableByType(selectedFilter);
+        }
+        
+        // 设置今日日期为默认盘点日期
+        document.getElementById('countDate').value = new Date().toISOString().split('T')[0];
+        
+        // 初始化搜索功能
+        document.getElementById('searchBtn').addEventListener('click', function() {
+            const searchTerm = document.getElementById('inventorySearch').value.toLowerCase();
+            filterTableBySearch(searchTerm);
+        });
+        
+        // 初始化排序功能
+        document.getElementById('sortSelect').addEventListener('change', function() {
+            sortTable(this.value);
+        });
+        
+        // 初始化库存调整按钮
+        document.querySelectorAll('.adjust-stock-btn').forEach(btn => {
+            btn.addEventListener('click', function() {
+                const pltIds = this.getAttribute('data-id');
+                const actualPallets = this.getAttribute('data-current');
+                
+                document.getElementById('pltIds').value = pltIds;
+                document.getElementById('actualPallets').value = actualPallets;
+                document.getElementById('adjustmentType').value = 'add';
+                document.getElementById('adjustmentValue').value = '';
+                document.getElementById('adjustmentReason').value = '';
+                document.getElementById('shippingMarksFields').innerHTML = '';
+                
+                // 默认显示唛头区域（因为默认是增加库存）
+                document.getElementById('shippingMarksContainer').style.display = 'block';
+                
+                showModal('adjustStockModal');
+            });
+        });
+        
+        document.getElementById('startInventoryBtn').addEventListener('click', function() {
+            showModal('inventoryCountModal');
+        });
+
+        updateSummaryCards(selectedFilter);
+    });
+
+    function updateSummaryCards(filterType) {
+        // 根据筛选类型获取对应数据
+        const data = {
+            'all': {
+                weight: {{ summary_detail.total_count.total_weight }},
+                cbm: {{ summary_detail.total_count.total_cbm }},
+                pallet: {{ summary_detail.total_count.total_pallet }},
+                shipment: {{ summary_detail.total_count.has_shipment }}
+            },
+            'private': {
+                weight: {{ summary_detail.private_count.total_weight }},
+                cbm: {{ summary_detail.private_count.total_cbm }},
+                pallet: {{ summary_detail.private_count.total_pallet }},
+                shipment: {{ summary_detail.private_count.has_shipment }}
+            },
+            'hold': {
+                weight: {{ summary_detail.hold_count.total_weight }},
+                cbm: {{ summary_detail.hold_count.total_cbm }},
+                pallet: {{ summary_detail.hold_count.total_pallet }},
+                shipment: {{ summary_detail.hold_count.has_shipment }}
+            },
+            'public': {
+                weight: {{ summary_detail.public_count.total_weight }},
+                cbm: {{ summary_detail.public_count.total_cbm }},
+                pallet: {{ summary_detail.public_count.total_pallet }},
+                shipment: {{ summary_detail.public_count.has_shipment }}
+            },
+            'express': {
+                weight: {{ summary_detail.express_count.total_weight }},
+                cbm: {{ summary_detail.express_count.total_cbm }},
+                pallet: {{ summary_detail.express_count.total_pallet }},
+                shipment: {{ summary_detail.express_count.has_shipment }}
+            }
+        };
+    
+        document.getElementById('totalWeight').textContent = data[filterType].weight.toFixed(2);
+        document.getElementById('totalCbm').textContent = data[filterType].cbm.toFixed(2);
+        document.getElementById('totalPallet').textContent = data[filterType].pallet;
+        document.getElementById('hasShipment').textContent = data[filterType].shipment;
+        
+        document.getElementById('totalWeightUnit').textContent = 'lbs';
+        document.getElementById('totalCbmUnit').textContent = 'm³';
+    }
+
+    // 筛选选项卡点击事件
+    document.querySelectorAll('.filter-tab').forEach(tab => {
+        tab.addEventListener('click', function() {
+            document.querySelectorAll('.filter-tab').forEach(t => t.classList.remove('active'));
+            this.classList.add('active');
+            
+            const filterType = this.getAttribute('data-filter');
+            saveSelectedFilter(filterType);
+            filterTableByType(filterType);
+            
+            updateSummaryCards(filterType);
+        });
+    });
+
+    // 按类型筛选表格
+    function filterTableByType(filterType) {
+        const rows = document.querySelectorAll('.inventory-table tbody tr');
+        
+        rows.forEach(row => {
+            const deliveryType = row.getAttribute('data-delivery-type');
+            const deliveryMethod = row.getAttribute('data-delivery-method');
+            
+            if (filterType === 'all') {
+                row.style.display = '';
+            } else if (filterType === 'private') {
+                row.style.display = (deliveryType === 'other') ? '' : 'none';
+            } else if (filterType === 'hold') {
+                row.style.display = (deliveryMethod && deliveryMethod.includes('暂扣留仓')) ? '' : 'none';
+            } else if (filterType === 'public') {
+                row.style.display = (deliveryMethod && deliveryMethod.includes('卡车派送')) ? '' : 'none';
+            } else if (filterType === 'express') {
+                row.style.display = (deliveryMethod && (deliveryMethod.includes('UPS') || deliveryMethod.includes('FEDEX'))) ? '' : 'none';
+            }
+        });
+    }
+
+    // 按搜索词筛选表格
+    function filterTableBySearch(searchTerm) {
+        const rows = document.querySelectorAll('.inventory-table tbody tr');
+        rows.forEach(row => {
+            const customer = row.getAttribute('data-customer').toLowerCase();
+            const container = row.getAttribute('data-container').toLowerCase();
+            const destination = row.getAttribute('data-destination').toLowerCase();
+
+            const marks = row.querySelector('td:nth-child(5)').getAttribute('data-fulltext').toLowerCase();
+            const fba = row.querySelector('td:nth-child(6)').getAttribute('data-fulltext').toLowerCase();
+            const ref = row.querySelector('td:nth-child(7)').getAttribute('data-fulltext').toLowerCase();
+            
+            if (
+                customer.includes(searchTerm) || 
+                container.includes(searchTerm) || 
+                destination.includes(searchTerm) ||
+                marks.includes(searchTerm) ||
+                fba.includes(searchTerm) ||
+                ref.includes(searchTerm)
+            ) {
+                row.style.display = '';
+            } else {
+                row.style.display = 'none';
+            }
+        });
+    }
+
+    function sortTable(criteria) {
+        const tbody = document.querySelector('.inventory-table tbody');
+        const rows = Array.from(tbody.querySelectorAll('tr'));
+        const direction = localStorage.getItem(`sortDirection_${criteria}`) === 'desc' ? -1 : 1;
+        
+        localStorage.setItem(`sortDirection_${criteria}`, direction === 1 ? 'desc' : 'asc');
+    
+        rows.sort((a, b) => {
+            let aValue, bValue;
+            
+            switch(criteria) {
+                case 'customer':
+                    aValue = a.getAttribute('data-customer').toLowerCase();
+                    bValue = b.getAttribute('data-customer').toLowerCase();
+                    break;
+                case 'container':
+                    aValue = a.getAttribute('data-container').toLowerCase();
+                    bValue = b.getAttribute('data-container').toLowerCase();
+                    break;
+                case 'pallets':
+                    aValue = parseInt(a.querySelector('.current-pallet-count').textContent);
+                    bValue = parseInt(b.querySelector('.current-pallet-count').textContent);
+                    break;
+                case 'destination':
+                    aValue = a.getAttribute('data-destination').toLowerCase();
+                    bValue = b.getAttribute('data-destination').toLowerCase();
+                    break;
+                default:
+                    return 0;
+            }
+    
+            if (!isNaN(aValue) && !isNaN(bValue)) {
+                return (aValue - bValue) * direction;
+            }
+            return aValue.localeCompare(bValue) * direction;
+        });
+    
+        tbody.innerHTML = '';
+        rows.forEach(row => tbody.appendChild(row));
+        
+        document.querySelectorAll('#sortSelect option').forEach(opt => {
+            opt.selected = opt.value === criteria;
+        });
+    }
+
+    // 关闭模态框的点击外部区域功能
+    window.addEventListener('click', function(event) {
+        if (event.target.classList.contains('modal')) {
+            event.target.style.display = 'none';
+        }
+    });
+</script>
+{% endblock %}
