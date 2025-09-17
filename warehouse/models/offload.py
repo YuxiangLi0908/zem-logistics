@@ -16,6 +16,18 @@ class Offload(models.Model):
     history = HistoricalRecords()
     warehouse_unpacked_time = models.DateTimeField(null=True, blank=True, verbose_name="仓库确认拆柜完成时间")
     warehouse_unpacking_time = models.DateTimeField(null=True, blank=True, verbose_name="首次下载拆柜单变拆柜中时间")
+    arrival_location = models.CharField(max_length=100, null=True, blank=True, verbose_name="到仓位置")
+    unpacking_status = models.CharField(
+        max_length=10,
+        choices=[
+            ("0", "未拆柜"),
+            ("1", "已拆柜"),
+            ("2", "拆柜中"),
+        ],
+        default="0",
+        verbose_name="拆柜状态",
+    )
+    
     def __str__(self) -> str:
         return self.offload_id
 
