@@ -8,7 +8,7 @@ from office365.sharepoint.client_context import ClientContext
 
 from asgiref.sync import sync_to_async
 from django.db import models
-from django.db.models import Prefetch, Q
+from django.db.models import Prefetch, Q, IntegerField
 from django.core.exceptions import ValidationError
 from django.http import HttpRequest, HttpResponse, HttpResponsePermanentRedirect, HttpResponseRedirect, JsonResponse
 from django.shortcuts import redirect, render
@@ -100,7 +100,12 @@ class WarehouseOperations(View):
             template, context = await self.handle_loading_fleet_post(request)
             return render(request, template, context)
         elif step == "complete_loading":
-            template, context = await self.handle_complete_loading_post(request)
+            file_path_name = "outbound_file"
+            template, context = await self.handle_complete_loading_post(request, file_path_name)
+            return render(request, template, context)
+        elif step == "warehousing_complete_loading":
+            file_path_name = "palletization_list"
+            template, context = await self.handle_complete_loading_post(request, file_path_name)
             return render(request, template, context)
         elif step == "report_issue":
             template, context = await self.handle_report_issue_post(request)
@@ -118,16 +123,14 @@ class WarehouseOperations(View):
         """
         下载拆柜单后返回前端页面
         """
-        retrieval_id = request.POST.get('retrieval_id', '').strip()
+        offload_id = request.POST.get('offload_id', '').strip()
         warehouse_unpacking_time = request.POST.get("first_time_download")
         container_number = request.POST.get("container_number")
-        if warehouse_unpacking_time and retrieval_id:
-            def sync_update_records():
+        if warehouse_unpacking_time and offload_id:
+            def sync_update_records(offload_id):
                 container = Container.objects.get(container_number=container_number)
                 related_orders = Order.objects.filter(
-                    retrieval_id__retrieval_id=retrieval_id,
-                    offload_id__isnull=False,
-                ).select_related('offload_id', 'export_unpacking_id')
+                    offload_id__offload_id=offload_id).select_related('offload_id', 'export_unpacking_id')
                 if related_orders.exists():
                     for order in related_orders:
                         if order.offload_id.warehouse_unpacking_time is None:
@@ -147,14 +150,14 @@ class WarehouseOperations(View):
                             order.export_unpacking_id.download_num += 1
                             order.export_unpacking_id.save()
                     try:
-                        retrieval = Retrieval.objects.get(retrieval_id=retrieval_id)
-                        retrieval.unpacking_status = "2"
-                        retrieval.save()
+                        offload_id = Offload.objects.get(offload_id=offload_id)
+                        offload_id.unpacking_status = "2"
+                        offload_id.save()
                     except Retrieval.DoesNotExist:
                         pass
 
             async_update = sync_to_async(sync_update_records, thread_sensitive=True)
-            await async_update()
+            await async_update(offload_id)
         template, context = await self.warehousing_operation_post(request)
         return template, context
 
@@ -175,13 +178,13 @@ class WarehouseOperations(View):
             offload_id__offload_required=True,
             offload_id__offload_at__isnull=True,
             cancel_notification=False,
-            warehouse__name = warehouse
+            warehouse__name=warehouse
         ) & Q(
             Q(retrieval_id__temp_t49_available_for_pickup=True) |
             Q(vessel_id__vessel_eta__lte=future_four_days)
         )
 
-        def sync_get_retrieval():
+        def sync_get_retrieval_and_count():
             order_queryset = (
                 Order.objects.select_related(
                     "customer_name",
@@ -197,46 +200,78 @@ class WarehouseOperations(View):
                     "offload_id", "customer_name__zem_code",
                     "retrieval_id", "warehouse", "vessel_id"
                 )
-            )
-
-            return (
-                Retrieval.objects.prefetch_related(
-                    Prefetch(
-                        "order_set",
-                        queryset=order_queryset,
-                        to_attr="filtered_orders"  # 自定义属性名，避免与默认order_set冲突
+                .annotate(
+                    priority_order=Case(
+                        When(unpacking_priority="P1", then=Value(1)),
+                        When(unpacking_priority="P2", then=Value(2)),
+                        When(unpacking_priority="P3", then=Value(3)),
+                        When(unpacking_priority="P4", then=Value(4)),
+                        default=Value(5),
+                        output_field=IntegerField()
                     )
                 )
-                .filter(
-                    actual_retrieval_timestamp__isnull=False,
-                )
-                .only(
-                    "actual_retrieval_timestamp",
-                    "arrival_location", "unpacking_status"
-                )
-                .order_by("actual_retrieval_timestamp")
+                .order_by("priority_order")
             )
 
-        retrieval = await sync_to_async(
-            sync_get_retrieval
+            retrieval = (
+                Offload.objects.prefetch_related(
+                    Prefetch(
+                        "order",
+                        queryset=order_queryset,
+                        to_attr="filtered_orders"
+                    )
+                )
+                .only(
+                    "arrival_location", "unpacking_status"
+                )
+                .annotate(
+                    status_order=Case(
+                        When(unpacking_status=2, then=Value(1)),
+                        When(unpacking_status=0, then=Value(2)),
+                        When(unpacking_status=1, then=Value(3)),
+                        default=Value(4),
+                        output_field=IntegerField()
+                    )
+                )
+                # 按拆柜状态排序，相同状态下按订单优先级排序
+                .order_by(
+                    "status_order",
+                    Case(
+                        When(order__unpacking_priority="P1", then=Value(1)),
+                        When(order__unpacking_priority="P2", then=Value(2)),
+                        When(order__unpacking_priority="P3", then=Value(3)),
+                        When(order__unpacking_priority="P4", then=Value(4)),
+                        default=Value(5),
+                        output_field=IntegerField()
+                    )
+                )
+            )
+            total_count = 0
+            for ret in retrieval:
+                total_count += len(ret.filtered_orders)
+            return retrieval, total_count
+
+        retrieval, total_count = await sync_to_async(
+            sync_get_retrieval_and_count
         )()
 
         context = {
-            "retrieval": retrieval,
-            "warehouse_options": self.warehouse_options,
-            "warehouse": warehouse,
+            'retrieval': retrieval,
+            'warehouse_options': self.warehouse_options,
+            'warehouse': request.POST.get('warehouse_filter'),
+            'total_count': total_count  # 使用同步函数中计算的总数
         }
         return self.template_warehousing_operation, context
 
     async def warehousing_operation_update(self, request: HttpRequest):
         try:
-            retrieval_id = request.POST.get('retrieval_id', '').strip()
+            offload_id = request.POST.get('offload_id', '').strip()
             arrival_location = request.POST.get('arrival_location', '').strip()
             unpacking_status = request.POST.get('unpacking_status', '').strip()
 
             # 1. 定义更新Retrieval表的同步函数
             def sync_update_single():
-                return Retrieval.objects.filter(retrieval_id=retrieval_id).update(
+                return Offload.objects.filter(offload_id=offload_id).update(
                     arrival_location=arrival_location,
                     unpacking_status=unpacking_status
                 )
@@ -244,8 +279,7 @@ class WarehouseOperations(View):
             # 2. 定义更新Offload表的同步函数
             def sync_update_single_offload():
                 related_orders = Order.objects.filter(
-                    retrieval_id__retrieval_id=retrieval_id,
-                    offload_id__isnull=False,
+                    offload_id__offload_id=offload_id,
                     offload_id__warehouse_unpacked_time__isnull=True
                 ).select_related('offload_id')
 
@@ -272,7 +306,7 @@ class WarehouseOperations(View):
                 offload_affected = await async_update_offload()  # 正确调用方式
 
         except Exception as e:
-            self.logger.error(f"更新记录{retrieval_id}时发生错误：{str(e)}", exc_info=True)
+            self.logger.error(f"更新记录{offload_id}时发生错误：{str(e)}", exc_info=True)
 
         template, context = await self.warehousing_operation_post(request)
         return template, context
@@ -331,8 +365,11 @@ class WarehouseOperations(View):
         return await self.handle_upcoming_fleet_post(request)
 
     async def handle_complete_loading_post(
-        self, request: HttpRequest
+        self, request: HttpRequest, file_path_name
     ) -> tuple[str, dict[str, Any]]:
+        """
+        回传拆柜数据
+        """
         fleet_number = request.POST.get("fleet_number")
         #上传出库凭证
         try:
@@ -349,7 +386,7 @@ class WarehouseOperations(View):
         link = ""
         if receipt_image:
             conn = self._get_sharepoint_auth()
-            link = self._upload_image_to_sharepoint(conn, receipt_image)
+            link = self._upload_image_to_sharepoint(conn, receipt_image, file_path_name)
 
         #更新车次状态
         updated = await sync_to_async(
@@ -368,11 +405,11 @@ class WarehouseOperations(View):
         )
         return ctx
 
-    def _upload_image_to_sharepoint(self, conn, image) -> None:
+    def _upload_image_to_sharepoint(self, conn, image, file_path_name) -> None:
 
         image_name = image.name  # 提取文件名
         file_path = os.path.join(
-            SP_DOC_LIB, f"{SYSTEM_FOLDER}/warehouse_operation/{APP_ENV}"
+            SP_DOC_LIB, f"{SYSTEM_FOLDER}/warehouse_operation/{file_path_name}/{APP_ENV}"
         )  # 文档库名称，系统文件夹名称，当前环境
         # 上传到SharePoint
         sp_folder = conn.web.get_folder_by_server_relative_url(file_path)

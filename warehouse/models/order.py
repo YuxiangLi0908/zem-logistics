@@ -43,7 +43,7 @@ class Order(models.Model):
         Retrieval, null=True, blank=True, on_delete=models.SET_NULL
     )
     offload_id = models.ForeignKey(
-        Offload, null=True, blank=True, on_delete=models.SET_NULL
+        Offload, null=True, blank=True, on_delete=models.SET_NULL, related_name="order"
     )
     shipment_id = models.ForeignKey(
         Shipment, null=True, blank=True, on_delete=models.SET_NULL, related_name="order"

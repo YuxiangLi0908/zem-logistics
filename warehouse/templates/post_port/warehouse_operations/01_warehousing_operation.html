@@ -31,6 +31,10 @@
             .fixed-width-cell {
                 @apply min-w-[180px];
             }
+
+            .search-input {
+                @apply w-full px-2 py-1 border border-gray-300 rounded text-xs focus:outline-none focus:ring-1 focus:ring-primary focus:border-primary;
+            }
         }
     </style>
 
@@ -48,6 +52,14 @@
             </select>
 
             <button type="submit" class="ml-2 px-3 py-1 bg-primary text-white rounded text-sm">确认</button>
+
+            <!-- 记录数统计 -->
+            <span class="ml-4 text-sm text-gray-600">
+
+                        共 <span class="text-primary font-semibold" id="total-records">{{ total_count|default:0}}</span> 条记录
+                        <span class="ml-2 text-gray-500" id="filtered-records">(显示全部)</span>
+
+            </span>
         </form>
 
         <!-- 添加加载指示器 -->
@@ -74,12 +86,39 @@
                     <th class="px-4 py-2.5 text-left text-sm font-bold tracking-wide">操作</th>
                     <th class="px-4 py-2.5 text-left text-sm font-bold tracking-wide">回传拆柜数据</th>
                 </tr>
+                <!-- 搜索行 -->
+                <tr class="bg-gray-50 border-b border-gray-200">
+                    <th class="px-4 py-2">
+                        <input type="text"
+                               id="container-search"
+                               placeholder="搜索柜号..."
+                               class="search-input"
+                               autocomplete="off">
+                    </th>
+                    <th class="px-4 py-2"></th>
+                    <th class="px-4 py-2">
+                        <input type="text"
+                               id="location-search"
+                               placeholder="搜索到仓位置..."
+                               class="search-input"
+                               autocomplete="off">
+                    </th>
+                    <th class="px-4 py-2"></th>
+                    <th class="px-4 py-2"></th>
+                    <th class="px-4 py-2"></th>
+                    <th class="px-4 py-2"></th>
+                    <th class="px-4 py-2"></th>
+                    <th class="px-4 py-2"></th>
+                </tr>
                 </thead>
                 <tbody class="divide-y divide-gray-200" id="table-body">
                 {% for ret in retrieval %}
                     {% for order in ret.filtered_orders %}
                         {% with record_id="ret_"|add:ret.id|stringformat:"i" %}
-                            <tr class="cell-transition hover:bg-accent" data-record-id="{{ record_id }}">
+                            <tr class="cell-transition hover:bg-accent"
+                                data-record-id="{{ record_id }}"
+                                data-container="{{ order.container_number|default:''|upper }}"
+                                data-location="{{ ret.arrival_location|default:''|upper }}">
                                 <!-- 1. 柜号 -->
                                 <td class="px-4 py-2 text-xs text-gray-700">
                                     {{ order.container_number|default:"-" }}
@@ -114,11 +153,13 @@
                                         <input type="text"
                                                id="arrival_location_{{ record_id }}"
                                                value="{{ ret.arrival_location|default:''|upper }}"
-                                               oninput="this.value = this.value.toUpperCase()"
+                                               oninput="this.value = this.value.toUpperCase();
+                                                        // 更新数据属性用于搜索
+                                                        this.closest('tr').setAttribute('data-location', this.value.toUpperCase())"
                                                placeholder="请输入到仓位置"
                                                class="bg-white border border-gray-200 rounded-lg px-1.5 py-0.75 text-[12px] w-full focus:outline-none focus:ring-2 focus:ring-primary/50 tag-shadow transition-all">
                                     {% else %}
-                                        <span class="text-xs text-gray-500"></span>
+                                        <span class="text-xs text-gray-500">{{ ret.arrival_location|default:"-"|upper }}</span>
                                     {% endif %}
                                 </td>
 
@@ -169,10 +210,10 @@
                                 <!-- 拆柜开始时间 -->
                                 <td class="px-4 py-2">
                                     {% with unpacking_time=order.offload_id.warehouse_unpacking_time %}
-                                        {% if unpacking_time and order.retrieval_id.unpacking_status == "2" %}
+                                        {% if unpacking_time and order.offload_id.unpacking_status == "2" %}
                                             <span class="unpacking-time"
                                                   data-unpacking-time="{{ unpacking_time|date:"Y-m-d H:i:s" }}"
-                                                  data-status="{{ order.retrieval_id.unpacking_status }}">
+                                                  data-status="{{ order.offload_id.unpacking_status }}">
                                                 {{ unpacking_time|date:"Y-m-d H:i:s" }}
                                             </span>
                                         {% else %}
@@ -183,7 +224,7 @@
 
                                 <!-- 拆柜完成时间-->
                                 <td class="px-4 py-2">
-                                    {{ order.offload_id.warehouse_unpacked_time|date:"Y-m-d H:i:s" }}
+                                    {{ order.offload_id.warehouse_unpacked_time|date:"Y-m-d H:i:s"|default:"-" }}
                                 </td>
 
                                 <!-- 5. 导出功能 -->
@@ -195,7 +236,7 @@
                                             <input type="hidden" name="step" value="export_palletization_list">
                                             <input type="hidden" name="status" value="palletized">
                                             <input type="hidden" name="warehouse_filter" value="{{ warehouse }}">
-                                            <input type="hidden" name="retrieval_id" value="{{ ret.retrieval_id }}">
+                                            <input type="hidden" name="offload_id" value="{{ ret.offload_id }}">
                                             <input type="hidden" name="arrival_location"
                                                    value="{{ ret.arrival_location|default:''|upper }}">
                                             <input type="hidden" name="unpacking_status"
@@ -232,7 +273,7 @@
                                         {% csrf_token %}
                                         <input type="hidden" name="step" value="update_warehouse">
                                         <input type="hidden" name="warehouse_filter" value="{{ warehouse }}">
-                                        <input type="hidden" name="retrieval_id" value="{{ ret.retrieval_id }}">
+                                        <input type="hidden" name="offload_id" value="{{ ret.offload_id }}">
                                         <input type="hidden" name="arrival_location" id="arrival_location_hidden_{{ record_id }}">
                                         <input type="hidden" name="unpacking_status" id="unpacking_status_hidden_{{ record_id }}">
                                         <button type="submit" class="btn btn-outline-primary px-3 py-1 text-[12px] bg-white hover:bg-gray-50">
@@ -243,15 +284,25 @@
 
                                 <!-- 7. 回传拆柜数据 -->
                                 <td class="px-4 py-2">
-                                    <input type="file"
-                                           id="unpacking_data_{{ record_id }}"
-                                           name="unpacking_data"
-                                           class="text-[12px] w-full">
+                                    <form method="post" action="">
+                                        {% csrf_token %}
+                                        <input type="hidden" name="step" value="warehousing_complete_loading">
+                                        <input type="file"
+                                               id="unpacking_data_{{ record_id }}"
+                                               name="unpacking_data"
+                                               class="text-[12px] w-full">
+                                    </form>
                                 </td>
                             </tr>
                         {% endwith %}
                     {% endfor %}
                 {% endfor %}
+                <!-- 无搜索结果提示行 -->
+                <tr id="no-results" class="hidden">
+                    <td colspan="9" class="px-4 py-8 text-center text-gray-500 text-sm">
+                        <i class="bi bi-search mr-1"></i>没有找到匹配的记录
+                    </td>
+                </tr>
                 </tbody>
             </table>
         </div>
@@ -285,6 +336,9 @@
             const loader = document.getElementById('table-loader');
             loader.classList.remove('hidden');
 
+            // 初始化搜索功能
+            initSearchFunctionality();
+
             // 使用requestIdleCallback延迟非关键初始化，提高感知性能
             requestIdleCallback(() => {
                 // 处理拆柜时间显示逻辑
@@ -303,6 +357,62 @@
                 loader.classList.add('hidden');
             }, { timeout: 1000 });
         });
+
+        // 初始化搜索功能
+        function initSearchFunctionality() {
+            const containerInput = document.getElementById('container-search');
+            const locationInput = document.getElementById('location-search');
+            const rows = document.querySelectorAll('#table-body tr[data-record-id]');
+            const noResultsRow = document.getElementById('no-results');
+            const filteredCountEl = document.getElementById('filtered-records');
+            const totalRecords = rows.length;
+
+            // 搜索处理函数
+            function handleSearch() {
+                const containerQuery = containerInput.value.trim().toUpperCase();
+                const locationQuery = locationInput.value.trim().toUpperCase();
+                let visibleCount = 0;
+
+                rows.forEach(row => {
+                    const container = row.getAttribute('data-container');
+                    const location = row.getAttribute('data-location');
+
+                    // 检查是否匹配搜索条件
+                    const matchesContainer = container.includes(containerQuery);
+                    const matchesLocation = location.includes(locationQuery);
+
+                    // 显示或隐藏行
+                    if (matchesContainer && matchesLocation) {
+                        row.style.display = '';
+                        visibleCount++;
+                    } else {
+                        row.style.display = 'none';
+                    }
+                });
+
+                // 显示或隐藏无结果提示
+                noResultsRow.style.display = visibleCount === 0 ? '' : 'none';
+
+                // 更新筛选计数显示
+                if (containerQuery || locationQuery) {
+                    filteredCountEl.textContent(`(筛选后: ${visibleCount}条)`);
+                } else {
+                    filteredCountEl.textContent('(显示全部)');
+                }
+            }
+
+            // 为搜索框添加事件监听
+            containerInput.addEventListener('input', handleSearch);
+            locationInput.addEventListener('input', handleSearch);
+
+            // 支持回车键清空搜索
+            containerInput.addEventListener('keyup', function(e) {
+                if (e.key === 'Enter') this.blur();
+            });
+            locationInput.addEventListener('keyup', function(e) {
+                if (e.key === 'Enter') this.blur();
+            });
+        }
 
         // 1. 处理拆柜开始时间显示和超时警告
         function handleUnpackingTimeDisplay() {
