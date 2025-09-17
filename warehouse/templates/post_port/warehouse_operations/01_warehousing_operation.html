@@ -17,7 +17,7 @@
             }
 
             .header-gradient {
-                background: linear-gradient(135deg, #0F4C81 0%, #1A6BB3 100%);
+                background: #007bff!important;
             }
 
             .compact-tag {
@@ -35,6 +35,31 @@
     </style>
 
     <div class="bg-gray-50 font-inter text-textDark p-4 md:p-6" style="margin-top: 79px; position: relative;">
+        <form action="" method="post">
+            {% csrf_token %}
+            <b style="margin-right: 5px;">选择仓点区域:</b>
+            <input type="hidden" name="step" value="warehouse_daily_get">
+            <select name="warehouse_filter" class="bg-white border border-gray-200 rounded px-2 py-1 text-sm">
+                {% for value, display_text in warehouse_options.items %}
+                    <option value="{{ value }}" {% if warehouse == value %}selected{% endif %}>
+                        {{ display_text }}
+                    </option>
+                {% endfor %}
+            </select>
+
+            <button type="submit" class="ml-2 px-3 py-1 bg-primary text-white rounded text-sm">确认</button>
+        </form>
+
+        <!-- 添加加载指示器 -->
+        <div id="table-loader" class="hidden absolute inset-0 bg-white bg-opacity-70 flex items-center justify-center">
+            <div class="flex flex-col items-center">
+                <div class="spinner-border text-primary" role="status">
+                    <span class="visually-hidden">Loading...</span>
+                </div>
+                <span class="mt-2 text-sm text-gray-600">加载中...</span>
+            </div>
+        </div>
+
         <div class="overflow-x-auto rounded-lg table-shadow bg-white" style="position: relative">
             <table class="w-full border-collapse">
                 <thead>
@@ -43,12 +68,14 @@
                     <th class="px-4 py-2.5 text-left text-sm font-bold tracking-wide">优先级</th>
                     <th class="px-4 py-2.5 text-left text-sm font-bold tracking-wide">到仓位置</th>
                     <th class="px-4 py-2.5 text-left text-sm font-bold tracking-wide">拆柜状态</th>
+                    <th class="px-4 py-2.5 text-left text-sm font-bold tracking-wide">拆柜开始时间</th>
+                    <th class="px-4 py-2.5 text-left text-sm font-bold tracking-wide">拆柜完成时间</th>
                     <th class="px-4 py-2.5 text-left text-sm font-bold tracking-wide">导出</th>
                     <th class="px-4 py-2.5 text-left text-sm font-bold tracking-wide">操作</th>
                     <th class="px-4 py-2.5 text-left text-sm font-bold tracking-wide">回传拆柜数据</th>
                 </tr>
                 </thead>
-                <tbody class="divide-y divide-gray-200">
+                <tbody class="divide-y divide-gray-200" id="table-body">
                 {% for ret in retrieval %}
                     {% for order in ret.filtered_orders %}
                         {% with record_id="ret_"|add:ret.id|stringformat:"i" %}
@@ -81,20 +108,25 @@
                                     {% endwith %}
                                 </td>
 
-                                <!-- 3. 到仓位置（输入框，通过ID关联） -->
+                                <!-- 3. 到仓位置 -->
                                 <td class="px-4 py-2 fixed-width-cell">
-                                    <input type="text"
-                                           id="arrival_location_{{ record_id }}"
-                                           value="{{ ret.arrival_location|default:''|upper }}"
-                                           oninput="this.value = this.value.toUpperCase()"
-                                           placeholder="请输入到仓位置"
-                                           class="bg-white border border-gray-200 rounded-lg px-1.5 py-0.75 text-[12px] w-full focus:outline-none focus:ring-2 focus:ring-primary/50 tag-shadow transition-all">
+                                    {% if ret.unpacking_status != "1" %}
+                                        <input type="text"
+                                               id="arrival_location_{{ record_id }}"
+                                               value="{{ ret.arrival_location|default:''|upper }}"
+                                               oninput="this.value = this.value.toUpperCase()"
+                                               placeholder="请输入到仓位置"
+                                               class="bg-white border border-gray-200 rounded-lg px-1.5 py-0.75 text-[12px] w-full focus:outline-none focus:ring-2 focus:ring-primary/50 tag-shadow transition-all">
+                                    {% else %}
+                                        <span class="text-xs text-gray-500"></span>
+                                    {% endif %}
                                 </td>
 
-                                <!-- 4. 拆柜状态（Checkbox，互斥逻辑） -->
+
+                                <!-- 4. 拆柜状态 -->
                                 <td class="px-4 py-2">
                                     <div class="flex items-center space-x-3" id="status_group_{{ record_id }}">
-                                        <!-- 已拆柜（value=1） -->
+                                        <!-- 已拆柜 -->
                                         <div class="flex items-center">
                                             <input type="checkbox"
                                                    id="unpack_1_{{ record_id }}"
@@ -106,19 +138,19 @@
                                                 <i class="bi bi-check-circle-fill mr-0.5 text-[10px]"></i>已拆
                                             </label>
                                         </div>
-                                        <!-- 未拆柜（value=0） -->
+                                        <!-- 未拆柜 -->
                                         <div class="flex items-center">
                                             <input type="checkbox"
                                                    id="unpack_0_{{ record_id }}"
                                                    name="unpacking_status_{{ record_id }}"
                                                    value="0"
                                                    {% if ret.unpacking_status|stringformat:"s" == "0" or not ret.unpacking_status %}checked{% endif %}
-                                                   class="h-3.5 w-3.5 text-primary border-gray-300 rounded focus:ring-primary/50">
+                                                   class="h-3.5 w-3.5 text-primary border-gray-300 rounded focus:ring-primary/50" disabled>
                                             <label for="unpack_0_{{ record_id }}" class="ml-1 inline-flex items-center px-1.5 py-0.5 rounded-lg text-xs font-medium bg-gray-50 text-neutral tag-shadow cursor-pointer">
                                                 <i class="bi bi-hourglass-start mr-0.5 text-[10px]"></i>未拆
                                             </label>
                                         </div>
-                                        <!-- 拆柜中（value=2，禁用） -->
+                                        <!-- 拆柜中 -->
                                         <div class="flex items-center">
                                             <input type="checkbox"
                                                    id="unpack_2_{{ record_id }}"
@@ -134,15 +166,50 @@
                                     </div>
                                 </td>
 
+                                <!-- 拆柜开始时间 -->
+                                <td class="px-4 py-2">
+                                    {% with unpacking_time=order.offload_id.warehouse_unpacking_time %}
+                                        {% if unpacking_time and order.retrieval_id.unpacking_status == "2" %}
+                                            <span class="unpacking-time"
+                                                  data-unpacking-time="{{ unpacking_time|date:"Y-m-d H:i:s" }}"
+                                                  data-status="{{ order.retrieval_id.unpacking_status }}">
+                                                {{ unpacking_time|date:"Y-m-d H:i:s" }}
+                                            </span>
+                                        {% else %}
+                                            {{ unpacking_time|date:"Y-m-d H:i:s"|default:"-" }}
+                                        {% endif %}
+                                    {% endwith %}
+                                </td>
+
+                                <!-- 拆柜完成时间-->
+                                <td class="px-4 py-2">
+                                    {{ order.offload_id.warehouse_unpacked_time|date:"Y-m-d H:i:s" }}
+                                </td>
+
                                 <!-- 5. 导出功能 -->
                                 <td class="px-4 py-2 text-xs">
                                     <div class="flex space-x-1">
-                                        <form method="post" action="" style="display: inline-block;">
+                                        <form method="post" action="" style="display: inline-block;"
+                                              class="download-form" onsubmit="return handleDownloadAndUpdate(this)">
                                             {% csrf_token %}
                                             <input type="hidden" name="step" value="export_palletization_list">
                                             <input type="hidden" name="status" value="palletized">
-                                            <input type="hidden" name="container_number" value="{{ order.container_number|default:'' }}">
-                                            <button type="submit" class="compact-btn bg-success text-white hover:bg-success/90" {% if not order.container_number %}disabled title="柜号为空"{% endif %}>
+                                            <input type="hidden" name="warehouse_filter" value="{{ warehouse }}">
+                                            <input type="hidden" name="retrieval_id" value="{{ ret.retrieval_id }}">
+                                            <input type="hidden" name="arrival_location"
+                                                   value="{{ ret.arrival_location|default:''|upper }}">
+                                            <input type="hidden" name="unpacking_status"
+                                                   value="{{ ret.unpacking_status }}">
+                                            <input type="hidden" name="first_time_download" class="first-time-input"
+                                                   value="">
+                                            <input type="hidden" name="container_number"
+                                                   value="{{ order.container_number|default:'' }}">
+                                            <input type="hidden" name="action_type" value="export">
+
+                                            <button type="submit"
+                                                    class="compact-btn bg-success text-white hover:bg-success/90"
+                                                    {% if not order.container_number %}disabled
+                                                    title="柜号为空"{% endif %}>
                                                 <i class="bi bi-cloud-arrow-down-fill mr-0.5 text-[11px]"></i>拆柜单
                                             </button>
                                         </form>
@@ -159,15 +226,14 @@
                                     </div>
                                 </td>
 
-                                <!-- 6. 操作：更新表单（隐藏域需填充数据） -->
+                                <!-- 6. 操作 -->
                                 <td class="px-4 py-2">
                                     <form method="post" action="" class="update-single-form" data-record-id="{{ record_id }}">
                                         {% csrf_token %}
                                         <input type="hidden" name="step" value="update_warehouse">
+                                        <input type="hidden" name="warehouse_filter" value="{{ warehouse }}">
                                         <input type="hidden" name="retrieval_id" value="{{ ret.retrieval_id }}">
-                                        <!-- 隐藏域：用于接收JS填充的到仓位置 -->
                                         <input type="hidden" name="arrival_location" id="arrival_location_hidden_{{ record_id }}">
-                                        <!-- 隐藏域：用于接收JS填充的拆柜状态 -->
                                         <input type="hidden" name="unpacking_status" id="unpacking_status_hidden_{{ record_id }}">
                                         <button type="submit" class="btn btn-outline-primary px-3 py-1 text-[12px] bg-white hover:bg-gray-50">
                                             更新
@@ -175,7 +241,7 @@
                                     </form>
                                 </td>
 
-                                <!-- 7. 回传拆柜数据（可选：若需上传，需纳入表单） -->
+                                <!-- 7. 回传拆柜数据 -->
                                 <td class="px-4 py-2">
                                     <input type="file"
                                            id="unpacking_data_{{ record_id }}"
@@ -193,6 +259,7 @@
 
     <script src="https://cdn.tailwindcss.com"></script>
     <script>
+        // 只执行一次的配置
         tailwind.config = {
             theme: {
                 extend: {
@@ -212,62 +279,238 @@
             }
         }
 
-        // 关键1：Checkbox互斥逻辑（确保一行只选一个状态）
-        document.querySelectorAll('[id^="status_group_"]').forEach(group => {
-            const checkboxes = group.querySelectorAll('input[type="checkbox"]:not(:disabled)');
-            checkboxes.forEach(checkbox => {
-                checkbox.addEventListener('change', function() {
-                    if (this.checked) {
-                        // 选中当前Checkbox时，取消同组其他Checkbox的选中状态
-                        checkboxes.forEach(other => {
-                            if (other !== this) other.checked = false;
-                        });
-                    } else {
-                        // 取消选中时，默认选中“未拆柜”（避免无状态）
+        // 页面加载完成后执行初始化
+        document.addEventListener('DOMContentLoaded', function() {
+            // 显示加载指示器
+            const loader = document.getElementById('table-loader');
+            loader.classList.remove('hidden');
+
+            // 使用requestIdleCallback延迟非关键初始化，提高感知性能
+            requestIdleCallback(() => {
+                // 处理拆柜时间显示逻辑
+                handleUnpackingTimeDisplay();
+
+                // 初始化Checkbox互斥逻辑（事件委托方式）
+                initCheckboxLogic();
+
+                // 初始化更新表单提交逻辑（事件委托方式）
+                initFormSubmission();
+
+                // 初始化下载表单
+                initDownloadForms();
+
+                // 隐藏加载指示器
+                loader.classList.add('hidden');
+            }, { timeout: 1000 });
+        });
+
+        // 1. 处理拆柜开始时间显示和超时警告
+        function handleUnpackingTimeDisplay() {
+            // 使用DocumentFragment减少DOM重绘
+            const fragment = document.createDocumentFragment();
+
+            document.querySelectorAll('.unpacking-time').forEach(element => {
+                const unpackingTimeStr = element.getAttribute('data-unpacking-time');
+                const status = element.getAttribute('data-status');
+
+                if (!unpackingTimeStr || status !== "2") {
+                    return;
+                }
+
+                const unpackingTime = new Date(unpackingTimeStr);
+                const currentTime = new Date();
+
+                if (isNaN(unpackingTime.getTime())) {
+                    console.error('无效的拆柜时间:', unpackingTimeStr);
+                    return;
+                }
+
+                const timeDiffMs = currentTime - unpackingTime;
+                const daysDiff = timeDiffMs / 86400000;
+
+                if (daysDiff > 2) {
+                    element.classList.add('text-red-600', 'font-medium');
+                    // 创建警告元素并添加到片段
+                    const warningSpan = document.createElement('span');
+                    warningSpan.className = 'ml-1 text-xs bg-red-100 px-1 rounded';
+                    warningSpan.textContent = '(已超2天)';
+                    fragment.appendChild(warningSpan);
+                    element.appendChild(warningSpan);
+                }
+            });
+        }
+
+        // 2. Checkbox互斥逻辑（事件委托 - 只绑定一个事件监听器）
+        function initCheckboxLogic() {
+            document.addEventListener('change', function(e) {
+                if (e.target.type === 'checkbox' && e.target.name.startsWith('unpacking_status_')) {
+                    const group = e.target.closest('[id^="status_group_"]');
+                    if (!group) return;
+
+                    const checkboxes = group.querySelectorAll('input[type="checkbox"]:not(:disabled)');
+                    checkboxes.forEach(checkbox => {
+                        if (checkbox !== e.target) {
+                            checkbox.checked = false;
+                        }
+                    });
+
+                    // 处理取消选中情况
+                    if (!e.target.checked) {
                         const defaultStatus = group.querySelector('input[value="0"]');
                         if (defaultStatus && !Array.from(checkboxes).some(c => c.checked)) {
                             defaultStatus.checked = true;
                         }
                     }
-                });
+                }
             });
-        });
-
-        // 关键2：表单提交前，填充隐藏域数据（修改后）
-document.querySelectorAll('.update-single-form').forEach(form => {
-    form.addEventListener('submit', function(e) {
-        const recordId = this.getAttribute('data-record-id');
-        // 新增：获取当前表单所在的“行”（tr元素），后续选择器仅在该行内生效
-        const currentRow = this.closest('tr[data-record-id="' + recordId + '"]');
-
-        // 1. 填充“到仓位置”（修改：限定在当前行内找输入框）
-        const arrivalInput = currentRow.querySelector(`#arrival_location_${recordId}`);
-        const arrivalValue = arrivalInput.value.trim();
-        const arrivalHidden = this.querySelector(`#arrival_location_hidden_${recordId}`); // 隐藏域在表单内，用this找
-        arrivalHidden.value = arrivalValue;
-
-        // 2. 填充“拆柜状态”（修改：限定在当前行内找Checkbox）
-        const checkedStatus = currentRow.querySelector(`input[name="unpacking_status_${recordId}"]:checked`);
-        const statusValue = checkedStatus ? checkedStatus.value : '0';
-        const statusHidden = this.querySelector(`#unpacking_status_hidden_${recordId}`); // 隐藏域在表单内，用this找
-        statusHidden.value = statusValue;
-
-        // 3. 数据验证（不变）
-        if (!arrivalValue) {
-            alert('请填写「到仓位置」再更新');
-            e.preventDefault();
-            arrivalInput.focus();
-            return;
         }
 
-        // 调试用：打印当前行的提交数据
-        console.log('当前行提交数据：', {
-            recordId: recordId,
-            retrieval_id: this.querySelector('input[name="retrieval_id"]').value,
-            arrival_location: arrivalValue,
-            unpacking_status: statusValue
-        });
-    });
-});
+        // 3. 表单提交处理（事件委托 - 只绑定一个事件监听器）
+        function initFormSubmission() {
+            document.addEventListener('submit', function(e) {
+                if (e.target.classList.contains('update-single-form')) {
+                    e.preventDefault();
+                    const form = e.target;
+                    const recordId = form.getAttribute('data-record-id');
+                    const currentRow = form.closest('tr[data-record-id="' + recordId + '"]');
+
+                    // 填充“到仓位置”
+                    const arrivalInput = currentRow.querySelector(`#arrival_location_${recordId}`);
+                    const arrivalValue = arrivalInput.value.trim();
+                    const arrivalHidden = form.querySelector(`#arrival_location_hidden_${recordId}`);
+                    arrivalHidden.value = arrivalValue;
+
+                    // 填充“拆柜状态”
+                    const checkedStatus = currentRow.querySelector(`input[name="unpacking_status_${recordId}"]:checked`);
+                    const statusValue = checkedStatus ? checkedStatus.value : '0';
+                    const statusHidden = form.querySelector(`#unpacking_status_hidden_${recordId}`);
+                    statusHidden.value = statusValue;
+
+                    // 数据验证
+                    if (!arrivalValue) {
+                        alert('请填写「到仓位置」再更新');
+                        arrivalInput.focus();
+                        return;
+                    }
+
+                    // 提交表单
+                    form.submit();
+                }
+            });
+        }
+
+        // 4. 初始化下载表单
+        function initDownloadForms() {
+            // 使用事件委托代替循环绑定
+            document.addEventListener('click', function(e) {
+                const submitButton = e.target.closest('.download-form button[type="submit"]');
+                if (!submitButton) return;
+
+                const form = submitButton.closest('.download-form');
+                const timeInput = form.querySelector('.first-time-input');
+                if (!timeInput) return;
+
+                // 获取当前时间并格式化
+                const now = new Date();
+                const formattedTime = `${now.getFullYear()}-${
+                    String(now.getMonth() + 1).padStart(2, '0')}-${
+                    String(now.getDate()).padStart(2, '0')} ${
+                    String(now.getHours()).padStart(2, '0')}:${
+                    String(now.getMinutes()).padStart(2, '0')}:${
+                    String(now.getSeconds()).padStart(2, '0')}`;
+
+                timeInput.value = formattedTime;
+                console.log('点击时间已设置:', formattedTime);
+            });
+
+            // 表单提交事件委托
+            document.addEventListener('submit', function(e) {
+                if (!e.target.classList.contains('download-form')) return;
+
+                const timeInput = e.target.querySelector('.first-time-input');
+                if (!timeInput || timeInput.value) return;
+
+                // 补充设置时间
+                const now = new Date();
+                timeInput.value = `${now.getFullYear()}-${
+                    String(now.getMonth() + 1).padStart(2, '0')}-${
+                    String(now.getDate()).padStart(2, '0')} ${
+                    String(now.getHours()).padStart(2, '0')}:${
+                    String(now.getMinutes()).padStart(2, '0')}:${
+                    String(now.getSeconds()).padStart(2, '0')}`;
+                console.log('通过提交事件补充设置时间:', timeInput.value);
+            });
+        }
+
+        // 5. 处理下载并更新页面数据
+        function handleDownloadAndUpdate(form) {
+            const timeInput = form.querySelector('.first-time-input');
+            const containerNumber = form.querySelector('input[name="container_number"]').value || '未知柜号';
+            if (timeInput) {
+                timeInput.value = new Date().toISOString();
+            }
+
+            // 使用requestIdleCallback延迟非关键操作
+            requestIdleCallback(() => {
+                performDownload(form, containerNumber);
+            }, { timeout: 1000 });
+
+            return false;
+        }
+
+        // 分离下载逻辑，便于优化
+        function performDownload(form, containerNumber) {
+            fetch(form.action, {
+                method: form.method,
+                body: new FormData(form),
+                headers: {
+                    'X-Requested-With': 'XMLHttpRequest'
+                }
+            })
+            .then(response => {
+                const contentType = response.headers.get('content-type');
+                if (contentType && contentType.includes('application/vnd.openxmlformats-officedocument.spreadsheetml.sheet')) {
+                    return response.blob();
+                }
+                throw new Error('未收到文件响应');
+            })
+            .then(blob => {
+                const url = window.URL.createObjectURL(blob);
+                const a = document.createElement('a');
+                a.href = url;
+                a.download = `${containerNumber}.xlsx`;
+                document.body.appendChild(a);
+                a.click();
+
+                // 延迟清理以确保下载完成
+                setTimeout(() => {
+                    window.URL.revokeObjectURL(url);
+                    document.body.removeChild(a);
+                }, 100);
+
+                // 发送更新请求
+                const formData = new FormData(form);
+                formData.set('action_type', 'render');
+
+                return fetch(form.action, {
+                    method: form.method,
+                    body: formData,
+                    headers: {
+                        'X-Requested-With': 'XMLHttpRequest'
+                    }
+                });
+            })
+            .then(renderResponse => {
+                if (renderResponse.ok) {
+                    window.location.reload();
+                } else {
+                    throw new Error('更新页面数据失败');
+                }
+            })
+            .catch(error => {
+                console.error('操作失败:', error);
+                alert('下载或更新数据失败，请重试');
+            });
+        }
     </script>
 {% endblock %}
