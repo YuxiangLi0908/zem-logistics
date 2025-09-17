@@ -27,6 +27,7 @@ class Offload(models.Model):
         default="0",
         verbose_name="拆柜状态",
     )
+    image_link = models.CharField(max_length=2000, null=True, blank=True)
     
     def __str__(self) -> str:
         return self.offload_id
