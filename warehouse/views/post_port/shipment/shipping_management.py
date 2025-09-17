@@ -1541,8 +1541,10 @@ class ShippingManagement(View):
                     if (
                         shipment_type == "客户自提"
                         or shipment_type == "外配"
-                        or shipment_type == "快递"
                     ) and "NJ" in str(request.POST.get("origin", "")):
+                        fleet.departured_at = shipmentappointment
+                        fleet.arrived_at = shipmentappointment
+                    if shipment_type == "快递":
                         fleet.departured_at = shipmentappointment
                         fleet.arrived_at = shipmentappointment
                     await sync_to_async(fleet.save)()
@@ -2309,7 +2311,6 @@ class ShippingManagement(View):
                 if (
                     shipment_type == "客户自提"
                     or shipment_type == "外配"
-                    or shipment_type == "快递"
                 ) and "NJ" in str(request.POST.get("origin")):
                     shipment.is_shipped = True
                     shipment.shipped_at = shipment_appointment
@@ -2329,8 +2330,21 @@ class ShippingManagement(View):
                         if request.POST.get("express_number")
                         else ""
                     )
+                    shipment.is_shipped = True
+                    shipment.shipped_at = shipment_appointment
+                    shipment.shipped_at_utc = self._parse_ts(
+                        shipment_appointment, tzinfo
+                    )
+                    shipment.is_arrived = True
+                    shipment.arrived_at = shipment_appointment
+                    shipment.arrived_at_utc = self._parse_ts(
+                        shipment_appointment, tzinfo
+                    )
+                    fleet.departured_at = shipment_appointment
+                    fleet.arrived_at = shipment_appointment
                     shipment.pod_link = "Without"
                     shipment.pod_uploaded_at = timezone.now()
+
                 if shipment_type == "外配":  # UPS的比客户自提的，系统上还少一步POD上传
                     shipment.express_number = (
                         request.POST.get("express_number")
