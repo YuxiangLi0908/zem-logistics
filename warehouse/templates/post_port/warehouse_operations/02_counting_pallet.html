@@ -632,6 +632,9 @@
                         <th class="th">cbm</th>
                         <th class="th">板数</th>
                         <th class="th">入库时间</th>
+                        {% if warehouse == "LA-91761" %}
+                        <th class="th">库位</th>
+                        {% endif %}
                         <th class="th">预约时间</th>
                         <th class="th">操作</th>
                     </tr>
@@ -664,7 +667,14 @@
                             {{ p.n_pallet|floatformat:0 }}
                         </td>
                         <td class="td">{{ p.container_number__order__offload_id__offload_at|default_if_none:''|date:"m-d" }}</td>
-                        <td class="td">{{ p.appointment_time|default_if_none:''|date:"m-d" }}</td>
+                        {% if warehouse == "LA-91761" %}
+                        <td class="td">{{ p.slot }}</td>
+                        {% endif %}
+                        <td title="{{ p.shipment|default_if_none:'' }}">
+                            <a href="javascript:void(0)" onclick="exportShipmentBol('{{ p.shipment }}')">
+                                {{ p.appointment_time|default_if_none:''|date:"m-d" }}
+                            </a>
+                        </td>
                         <td>
                             <button class="action-btn btn-primary adjust-stock-btn" 
                                     data-id="{{ p.plt_ids }}" 
@@ -786,6 +796,19 @@
 </div>
 
 <script>
+    function exportShipmentBol(batchId) {
+        const form = document.querySelector("form"); 
+        form.querySelector("input[name='step']").value = "export_bol";
+        
+        let hidden = document.createElement("input");
+        hidden.type = "hidden";
+        hidden.name = "shipment_batch_numbers";
+        hidden.value = batchId;
+        console.log('batchId',batchId);
+        form.appendChild(hidden);
+
+        form.submit();
+    }
     function toggleShippingMarksInput() {
         const adjustmentType = document.getElementById('adjustmentType').value;
         const shippingMarksContainer = document.getElementById('shippingMarksContainer');
