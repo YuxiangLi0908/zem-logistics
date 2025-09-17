@@ -1884,7 +1884,7 @@ class OrderCreation(View):
         ):
             # 当非组合柜的区域数量超出时，不能按转运组合
             container.account_order_type = "转运"
-            container.non_combina_reason = "非组合柜区的数量不符合标准2"
+            container.non_combina_reason = "非组合柜区的数量不符合标准"
             await sync_to_async(container.save)()
             is_combina = False
         return {
