@@ -9,7 +9,7 @@ from datetime import datetime, timedelta, timezone,date
 from decimal import Decimal, InvalidOperation
 from pathlib import Path
 from typing import Any, Dict
-from django.db.models import Sum
+from django.db.models import Sum, Count, FloatField
 from itertools import zip_longest
 
 import chardet
@@ -179,6 +179,8 @@ class OrderCreation(View):
         elif step == "peer_po_save":
             template, context = await self.handle_peer_po_save(request)
             return await sync_to_async(render)(request, template, context)
+        elif step == "modify_is_combina":
+            raise ValueError('暂未开放修改计费权限')
     
     async def handle_download_peer_template_post(self, request: HttpRequest) -> HttpResponse:
         file_path = (
@@ -587,10 +589,15 @@ class OrderCreation(View):
         ]
         non_combina_region = getattr(request, "non_combina_region", 0)
         combina_region = getattr(request, "combina_region", 0)
+        
         abnormal_container = getattr(request, "abnormal_container", 0)
         if combina_region or non_combina_region:
+            container = await sync_to_async(Container.objects.get)(container_number=container_number)
+            is_combina = getattr(request, "is_combina", 0)
+            context["is_combina"] = is_combina
+            context["non_combina_reason"] = container.non_combina_reason
             context["check_destination"] = True
-            context["non_combina_region"] = non_combina_region
+            context["non_combina_region"] = non_combina_region 
             context["combina_region"] = combina_region
         else:
             context["check_destination"] = False
@@ -1639,6 +1646,63 @@ class OrderCreation(View):
                 delivery_type="other"
             )
 
+    def _find_compre_matching_regions(
+        self,
+        plts_by_destination: dict,
+        combina_fee: dict,
+        container_type,
+        total_cbm_sum: float,
+        combina_threshold: int,
+    ) -> dict:
+        matching_regions = defaultdict(float)  # 各区的cbm总和
+        destination_matches = set()           # 组合柜的仓点
+        non_combina_dests = set()             # 非组合柜的仓点
+        dest_cbm_list = []                    # 临时存储初筛组合柜内的cbm和匹配信息
+        sum_des = set()
+        price_display = defaultdict(set)
+        for plts in plts_by_destination:
+            sum_des.add(plts["destination"])
+            if "UPS" in plts["destination"]:
+                non_combina_dests.add("UPS")
+                continue
+
+            destination = plts["destination"]
+            dest = destination.replace("沃尔玛", "").split("-")[-1].strip()
+            cbm = plts["total_cbm"]
+            matched = False
+
+            # 遍历所有区域和location
+            for region, fee_data_list in combina_fee.items():
+                for fee_data in fee_data_list:
+                    if dest in fee_data["location"]:
+                        price_display[region].add(dest)
+                        matching_regions[region] += cbm
+                        matched = True
+                        # 记录下来，方便后续排序
+                        dest_cbm_list.append({"dest": dest, "cbm": cbm})
+                        destination_matches.add(dest)
+
+            if not matched:
+                non_combina_dests.add(dest)
+        # 阈值处理：如果组合柜仓点超过限制，就只保留前 N 个 cbm 最大的
+        if len(destination_matches) > combina_threshold:
+            sorted_dests = sorted(dest_cbm_list, key=lambda x: x["cbm"], reverse=True)
+            destination_matches = {item["dest"] for item in sorted_dests[:combina_threshold]}
+            for item in sorted_dests[combina_threshold:]:
+                non_combina_dests.add(item["dest"])
+        combina_dests = {}
+        for region, dests_in_region in price_display.items():
+            # 取交集：只保留既在该区域又在 destination_matches 中的仓点
+            matched_dests = dests_in_region.intersection(destination_matches)
+            if matched_dests:  # 只添加非空的区域
+                combina_dests[region] = list(matched_dests)
+        # 返回精简后的结构
+        return {
+            "matching_regions": matching_regions,     # 各区的CBM总和
+            "combina_dests": combina_dests,     # 组合柜仓点 set
+            "non_combina_dests": non_combina_dests,   # 非组合柜仓点 set
+        }
+
     def find_matching_regions(
         self, plts_by_destination: dict, combina_fee: dict
     ) -> dict:
@@ -1664,7 +1728,7 @@ class OrderCreation(View):
             if not matched:
                 non_combina_dests.add(dest)  # 未匹配的仓点
         combina_dests = {k: list(v) for k, v in price_display.items()}
-        return {
+        return  {
             "combina_dests": combina_dests,
             "non_combina_dests": non_combina_dests,
         }
@@ -1698,65 +1762,153 @@ class OrderCreation(View):
 
     async def handle_check_destination(self, request: HttpRequest) -> tuple[Any, Any]:
         container_number = request.POST.get("container_number")
-        order = await sync_to_async(Order.objects.get)(
-            models.Q(container_number__container_number=container_number)
-        )
         # 准备参数
-        vessel_etd = await sync_to_async(lambda: order.vessel_id.vessel_etd)()
-        warehouse = await sync_to_async(
-            lambda: order.retrieval_id.retrieval_destination_area
-        )()
-
-        # 找报价表
-        customer = await sync_to_async(lambda: order.customer_name)()
-        matching_quotation = await (
-            QuotationMaster.objects.filter(
-                effective_date__lte=vessel_etd,
-                is_user_exclusive=True,
-                exclusive_user=customer,
-            )
-            .order_by("-effective_date")
-            .afirst()
-        )
-        if not matching_quotation:
-            matching_quotation = await (
-                QuotationMaster.objects.filter(
-                    effective_date__lte=vessel_etd,
-                    is_user_exclusive=False,  # 非用户专属的通用报价单
-                )
-                .order_by("-effective_date")
-                .afirst()
-            )
-        if not matching_quotation:
-            raise ValueError("找不到报价表")
-
-        if not matching_quotation:
-            return ValueError("找不到报价表")
         # 找组合柜报价
-        combina_fee_detail = await FeeDetail.objects.aget(
-            quotation_id=matching_quotation.id, fee_type=f"{warehouse}_COMBINA"
-        )
-        combina_fee = combina_fee_detail.details
-
-        plts_by_destination = await sync_to_async(
-            lambda: list(
-                PackingList.objects.filter(
-                    container_number__container_number=container_number
-                ).values("destination")
-            )
-        )()
-        matched_regions = self.find_matching_regions(plts_by_destination, combina_fee)
-        matched_regions["combina_dests"] = matched_regions["combina_dests"]
-        matched_regions["non_combina_dests"] = list(
-            matched_regions["non_combina_dests"]
-        )
+        matched_regions = await self._is_combina(container_number)
         # 非组合柜区域
         request.non_combina_region = matched_regions["non_combina_dests"]
         # 组合柜区域
         request.combina_region = matched_regions["combina_dests"]
-
+        request.is_combina = matched_regions["is_combina"]
         return await self.handle_order_management_container_get(request)
 
+    async def _is_combina(self, container_number: str) -> bool:
+        container = await sync_to_async(Container.objects.get)(container_number=container_number)
+        order = await sync_to_async(
+            lambda: Order.objects.select_related("retrieval_id", "vessel_id","customer_name")
+                .get(container_number__container_number=container_number)
+        )()
+        customer = order.customer_name
+        customer_name = customer.zem_name
+        # 从报价表找+客服录的数据
+        warehouse = order.retrieval_id.retrieval_destination_area
+        vessel_etd = order.vessel_id.vessel_etd
+
+        container_type = container.container_type
+        is_combina = True
+        #  基础数据统计
+        plts = await sync_to_async(
+            lambda: Pallet.objects.filter(
+                container_number__container_number=container_number
+            ).aggregate(
+                unique_destinations=Count("destination", distinct=True),
+                total_weight=Sum("weight_lbs"),
+                total_cbm=Sum("cbm"),
+                total_pallets=Count("id"),
+            )
+        )()
+        plts["total_cbm"] = round(plts["total_cbm"], 2)
+        plts["total_weight"] = round(plts["total_weight"], 2)
+        # 获取匹配的报价表
+        matching_quotation = await sync_to_async(
+            lambda: QuotationMaster.objects.filter(
+                effective_date__lte=vessel_etd,
+                is_user_exclusive=True,
+                exclusive_user=customer_name,
+            ).order_by("-effective_date").first()
+        )()
+        if not matching_quotation:
+            matching_quotation = await sync_to_async(
+                lambda: QuotationMaster.objects.filter(
+                    effective_date__lte=vessel_etd,
+                    is_user_exclusive=False,
+                ).order_by("-effective_date").first()
+            )()
+        
+        # 获取费用详情
+        stipulate = await sync_to_async(
+            lambda: FeeDetail.objects.get(
+                quotation_id=matching_quotation.id, fee_type="COMBINA_STIPULATE"
+            ).details
+        )()
+        
+        combina_fee = await sync_to_async(
+            lambda: FeeDetail.objects.get(
+                quotation_id=matching_quotation.id, fee_type=f"{warehouse}_COMBINA"
+            ).details
+        )()
+        if isinstance(combina_fee, str):
+            combina_fee = json.loads(combina_fee)
+        # 看是否超出组合柜限定仓点,NJ/SAV是14个
+        default_combina = stipulate["global_rules"]["max_mixed"]["default"]
+        exceptions = stipulate["global_rules"]["max_mixed"].get("exceptions", {})
+        combina_threshold = exceptions.get(warehouse, default_combina) if exceptions else default_combina
+
+        default_threshold = stipulate["global_rules"]["bulk_threshold"]["default"]
+        exceptions = stipulate["global_rules"]["bulk_threshold"].get("exceptions", {})
+        uncombina_threshold = exceptions.get(warehouse, default_threshold) if exceptions else default_threshold
+        if plts["unique_destinations"] > uncombina_threshold:
+            container.account_order_type = "转运"
+            container.non_combina_reason = (
+                f"总仓点超过{uncombina_threshold}个"
+            )
+            await sync_to_async(container.save)()
+            is_combina = False # 不是组合柜
+
+        # 按区域统计
+        destinations = await sync_to_async(
+            lambda: list(Pallet.objects.filter(
+                container_number__container_number=container_number
+            ).values_list("destination", flat=True).distinct())
+        )()
+        plts_by_destination = await sync_to_async(
+            lambda: list(Pallet.objects.filter(
+                container_number__container_number=container_number
+            ).values("destination").annotate(total_cbm=Sum("cbm")))
+        )()
+        total_cbm_sum = sum(item["total_cbm"] for item in plts_by_destination)
+        # 区分组合柜区域和非组合柜区域
+        container_type_temp = 0 if container_type == "40HQ/GP" else 1
+        matched_regions = self._find_compre_matching_regions(
+            plts_by_destination, combina_fee, container_type_temp, total_cbm_sum, combina_threshold
+        )
+        
+        # 判断是否混区，False表示满足混区条件
+        is_mix = await self.is_mixed_region(
+            matched_regions["matching_regions"], warehouse, vessel_etd
+        )
+        if is_mix:
+            container.account_order_type = "转运"
+            container.non_combina_reason = "混区不符合标准"
+            await sync_to_async(container.save)()
+            is_combina = False
+        # 非组合柜区域
+        non_combina_region_count = matched_regions["non_combina_dests"]
+        # 组合柜区域
+        combina_region_count = matched_regions["combina_dests"]
+
+        
+        if len(non_combina_region_count) > (
+            uncombina_threshold
+            - combina_threshold
+        ):
+            # 当非组合柜的区域数量超出时，不能按转运组合
+            container.account_order_type = "转运"
+            container.non_combina_reason = "非组合柜区的数量不符合标准2"
+            await sync_to_async(container.save)()
+            is_combina = False
+        return {
+            "combina_dests": combina_region_count,
+            "non_combina_dests": non_combina_region_count,
+            "is_combina": is_combina,
+        }
+    
+    async def is_mixed_region(self, matched_regions, warehouse, vessel_etd) -> bool:
+        regions = list(matched_regions.keys())
+        # LA仓库的特殊规则：CDEF区不能混
+        if warehouse == "LA":
+            if vessel_etd.month > 7 or (
+                vessel_etd.month == 7 and vessel_etd.day >= 15
+            ):  # 715之后没有混区限制
+                return False
+            if len(regions) <= 1:  # 只有一个区，就没有混区的情况
+                return False
+            if set(regions) == {"A区", "B区"}:  # 如果只有A区和B区，也满足混区规则
+                return False
+            return True
+        # 其他仓库无限制
+        return False
+    
     async def handle_cancel_notification(self, request: HttpRequest) -> tuple[Any, Any]:
         container_number = request.POST.get("container_number")
         # 查询order表的contain_number
