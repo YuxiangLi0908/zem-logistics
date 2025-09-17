@@ -251,7 +251,10 @@ class WarehouseOperations(View):
         request.POST = mutable_post
         fm = FleetManagement()
         
-        fleet = await sync_to_async(Fleet.objects.get)(fleet_number=fleet_number)
+        try:
+            fleet = await sync_to_async(Fleet.objects.get)(fleet_number=fleet_number)
+        except Exception as e:
+            raise ValueError('该约尚未排车')
         shipment = await sync_to_async(list)(Shipment.objects.filter(fleet_number=fleet))
         if len(shipment) > 1:
             zip_buffer = BytesIO()
@@ -502,11 +505,11 @@ class WarehouseOperations(View):
                 "address",
                 "zipcode",
                 "location",
+                "slot",
                 "container_number__order__offload_id__offload_at",
                 customer_name=F("container_number__order__customer_name__zem_name"),
                 container=F("container_number__container_number"),
                 shipment=F("shipment_batch_number__shipment_batch_number"),
-                appointment_id=F("shipment_batch_number__appointment_id"),
                 appointment_time=F("shipment_batch_number__shipment_appointment"),
                 
             )
