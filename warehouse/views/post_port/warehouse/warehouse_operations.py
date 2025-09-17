@@ -105,6 +105,9 @@ class WarehouseOperations(View):
         elif step == "counting_pallet_warehouse":
             template, context = await self.handle_counting_pallet_post(request)
             return await sync_to_async(render)(request, template, context)
+        elif step == "adjust_inventory":
+            template, context = await self.handle_adjust_inventory_post(request)
+            return await sync_to_async(render)(request, template, context)
 
 
     async def _user_authenticate(self, request: HttpRequest):
@@ -369,6 +372,21 @@ class WarehouseOperations(View):
             return ValueError('未查到该车次')
         return await self.handle_upcoming_fleet_post(request)
 
+    async def handle_adjust_inventory_post(
+        self, request: HttpRequest
+    ) -> tuple[str, dict[str, Any]]:
+        print('收到的信息',request.POST)
+        plt_ids = request.POST.get('plt_ids')
+        plt_list = plt_ids.split(',') 
+        plt_int_list = [int(id) for id in plt_list]
+        actual_pallets = request.POST.get('actual_pallets')
+        pallets = await sync_to_async(list)(Pallet.objects.filter(id__in=plt_int_list))
+        if len(pallets) > int(actual_pallets):
+            print('是减少库存')
+        else:
+            print('增加库存')
+        return await self.handle_counting_pallet_post(request)
+
     async def handle_counting_pallet_post(
         self, request: HttpRequest
     ) -> tuple[str, dict[str, Any]]:
@@ -484,11 +502,13 @@ class WarehouseOperations(View):
                 "address",
                 "zipcode",
                 "location",
+                "container_number__order__offload_id__offload_at",
                 customer_name=F("container_number__order__customer_name__zem_name"),
                 container=F("container_number__container_number"),
                 shipment=F("shipment_batch_number__shipment_batch_number"),
                 appointment_id=F("shipment_batch_number__appointment_id"),
                 appointment_time=F("shipment_batch_number__shipment_appointment"),
+                
             )
             .annotate(
                 shipping_marks=StringAgg("shipping_mark", delimiter=",", distinct=True, ordering="shipping_mark"),
@@ -502,7 +522,7 @@ class WarehouseOperations(View):
                 weight=Sum("weight_lbs", output_field=FloatField()),
                 n_pallet=Count("pallet_id", distinct=True),
             )
-            .order_by("-n_pallet")
+            .order_by("-container_number__order__offload_id__offload_at")
         )
     
     async def handle_upcoming_fleet_post(

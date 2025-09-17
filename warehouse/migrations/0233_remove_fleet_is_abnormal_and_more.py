@@ -6,7 +6,7 @@ from django.db import migrations, models
 class Migration(migrations.Migration):
 
     dependencies = [
-        ('warehouse', '0230_fleet_abnormal_reason_fleet_is_abnormal_and_more'),
+        ('warehouse', '0232_remove_fleet_is_abnormal_and_more.'),
     ]
 
     operations = [

@@ -4,6 +4,7 @@
 {% block content %}
 
 <style>
+    /* 原有的CSS样式保持不变 */
     :root {
         --primary-color: #3498db;
         --secondary-color: #2c3e50;
@@ -626,10 +627,11 @@
                         <th class="th">唛头</th>
                         <th class="th">FBA</th>
                         <th class="th">REF</th>
-                        <th class="th">weight(lbs)</th>
+                        <th class="th">weight</th>
                         <th class="th">pcs</th>
                         <th class="th">cbm</th>
                         <th class="th">板数</th>
+                        <th class="th">入库时间</th>
                         <th class="th">预约时间</th>
                         <th class="th">操作</th>
                     </tr>
@@ -658,19 +660,22 @@
                         <td class="td">{{ p.weight|floatformat:2 }}</td>
                         <td class="td">{{ p.pcs|floatformat:0 }}</td>
                         <td class="td">{{ p.cbm|floatformat:2 }}</td>
-                        <td class="td">
+                        <td class="td current-pallet-count">
                             {{ p.n_pallet|floatformat:0 }}
                         </td>
+                        <td class="td">{{ p.container_number__order__offload_id__offload_at|default_if_none:''|date:"m-d" }}</td>
                         <td class="td">{{ p.appointment_time|default_if_none:''|date:"m-d" }}</td>
                         <td>
-                            <button class="action-btn btn-primary adjust-stock-btn" data-id="{{ p.id }}" data-current="{{ item.pallet_count }}">
+                            <button class="action-btn btn-primary adjust-stock-btn" 
+                                    data-id="{{ p.plt_ids }}" 
+                                    data-current="{{ p.n_pallet|floatformat:0 }}">
                                 <i class="fas fa-edit"></i> 调整库存
                             </button>
                         </td>
                     </tr>
                     {% empty %}
                     <tr>
-                        <td colspan="9" style="text-align: center; padding: 30px;">
+                        <td colspan="13" style="text-align: center; padding: 30px;">
                             <i class="fas fa-inbox" style="font-size: 3rem; color: #ccc; margin-bottom: 15px;"></i>
                             <p>暂无库存数据</p>
                         </td>
@@ -682,31 +687,42 @@
     </div>
 </div>
 
+<!-- 调整库存模态框 -->
 <div id="adjustStockModal" class="modal">
     <div class="modal-content">
         <span class="close" onclick="closeModal('adjustStockModal')">&times;</span>
         <h3 class="modal-title">调整库存数量</h3>
         <form method="post" action="">
             {% csrf_token %}
-            <input type="hidden" name="step" value="adjust_stock">
-            <input type="hidden" name="item_id" id="adjustItemId">
+            <input type="hidden" name="step" value="adjust_inventory">
+            <input type="hidden" name="plt_ids" id="pltIds">
+            <input type="hidden" name="warehouse" value="{{ warehouse }}">
             
             <div class="form-group">
-                <label for="currentStock">当前库存板数</label>
-                <input type="text" class="form-control" id="currentStock" readonly>
+                <label for="actualPallets">当前库存板数</label>
+                <input type="text" class="form-control" id="actualPallets" name="actual_pallets" readonly>
             </div>
             
             <div class="form-group">
                 <label for="adjustmentType">调整类型</label>
-                <select class="form-control" name="adjustment_type" id="adjustmentType" required>
-                    <option value="add">增加库存</option>
+                <select class="form-control" name="adjustment_type" id="adjustmentType" required onchange="toggleShippingMarksInput()">
+                    <option value="add" selected>增加库存</option>
                     <option value="subtract">减少库存</option>
                 </select>
             </div>
             
             <div class="form-group">
                 <label for="adjustmentValue">调整数量</label>
-                <input type="number" class="form-control" name="adjustment_value" id="adjustmentValue" min="1" required>
+                <input type="number" class="form-control" name="adjustment_value" id="adjustmentValue" min="1" required onchange="updateShippingMarksFields()">
+            </div>
+            
+            <div id="shippingMarksContainer" style="display: none;">
+                <div class="form-group">
+                    <label>唛头信息（每板一个唛头）</label>
+                    <div id="shippingMarksFields">
+                        <!-- 动态生成的唛头输入框将 -->
+                    </div>
+                </div>
             </div>
             
             <div class="form-group">
@@ -770,10 +786,51 @@
 </div>
 
 <script>
+    function toggleShippingMarksInput() {
+        const adjustmentType = document.getElementById('adjustmentType').value;
+        const shippingMarksContainer = document.getElementById('shippingMarksContainer');
+        
+        if (adjustmentType === 'add') {
+            shippingMarksContainer.style.display = 'block';
+            updateShippingMarksFields(); 
+        } else {
+            shippingMarksContainer.style.display = 'none';
+        }
+    }
+    
+    function updateShippingMarksFields() {
+        const adjustmentType = document.getElementById('adjustmentType').value;
+        const adjustmentValue = document.getElementById('adjustmentValue').value;
+        const shippingMarksFields = document.getElementById('shippingMarksFields');
+        
+        // 只有在增加库存时才显示唛头输入框
+        if (adjustmentType !== 'add' || !adjustmentValue || adjustmentValue < 1) {
+            shippingMarksFields.innerHTML = '';
+            return;
+        }
+        
+        let html = '';
+        const count = parseInt(adjustmentValue);
+        
+        for (let i = 1; i <= count; i++) {
+            html += `
+                <div class="form-group" style="margin-bottom: 10px;">
+                    <label for="shippingMark${i}">唛头 #${i}</label>
+                    <input type="text" class="form-control" name="shipping_marks" 
+                           id="shippingMark${i}" placeholder="请输入第${i}板的唛头" required>
+                </div>
+            `;
+        }
+        
+        shippingMarksFields.innerHTML = html;
+    }
+
+    // 创建工具提示
     const tooltip = document.createElement('div');
     tooltip.className = 'custom-tooltip';
     document.body.appendChild(tooltip);
 
+    // 设置工具提示
     document.querySelectorAll('.table-cell-truncate').forEach(cell => {
         cell.addEventListener('mouseenter', (e) => {
             tooltip.innerText = cell.getAttribute('data-fulltext');
@@ -836,11 +893,18 @@
         // 初始化库存调整按钮
         document.querySelectorAll('.adjust-stock-btn').forEach(btn => {
             btn.addEventListener('click', function() {
-                const itemId = this.getAttribute('data-id');
-                const currentStock = this.getAttribute('data-current');
+                const pltIds = this.getAttribute('data-id');
+                const actualPallets = this.getAttribute('data-current');
                 
-                document.getElementById('adjustItemId').value = itemId;
-                document.getElementById('currentStock').value = currentStock;
+                document.getElementById('pltIds').value = pltIds;
+                document.getElementById('actualPallets').value = actualPallets;
+                document.getElementById('adjustmentType').value = 'add';
+                document.getElementById('adjustmentValue').value = '';
+                document.getElementById('adjustmentReason').value = '';
+                document.getElementById('shippingMarksFields').innerHTML = '';
+                
+                // 默认显示唛头区域（因为默认是增加库存）
+                document.getElementById('shippingMarksContainer').style.display = 'block';
                 
                 showModal('adjustStockModal');
             });
@@ -941,9 +1005,9 @@
             const container = row.getAttribute('data-container').toLowerCase();
             const destination = row.getAttribute('data-destination').toLowerCase();
 
-            const marks = row.querySelector('td:nth-child(5)').getAttribute('title').toLowerCase();
-            const fba = row.querySelector('td:nth-child(6)').getAttribute('title').toLowerCase();
-            const ref = row.querySelector('td:nth-child(7)').getAttribute('title').toLowerCase();
+            const marks = row.querySelector('td:nth-child(5)').getAttribute('data-fulltext').toLowerCase();
+            const fba = row.querySelector('td:nth-child(6)').getAttribute('data-fulltext').toLowerCase();
+            const ref = row.querySelector('td:nth-child(7)').getAttribute('data-fulltext').toLowerCase();
             
             if (
                 customer.includes(searchTerm) || 
@@ -980,8 +1044,8 @@
                     bValue = b.getAttribute('data-container').toLowerCase();
                     break;
                 case 'pallets':
-                    aValue = parseInt(a.querySelector('.td:nth-child(8)').textContent);
-                    bValue = parseInt(b.querySelector('.td:nth-child(8)').textContent);
+                    aValue = parseInt(a.querySelector('.current-pallet-count').textContent);
+                    bValue = parseInt(b.querySelector('.current-pallet-count').textContent);
                     break;
                 case 'destination':
                     aValue = a.getAttribute('data-destination').toLowerCase();
