@@ -173,7 +173,7 @@ class WarehouseOperations(View):
         warehouse = request.POST.get("warehouse_filter", None)
         ORDER_FILTER_CRITERIA = Q(
             offload_id__offload_required=True,
-            offload_id__offload_at__isnull=False,
+            offload_id__offload_at__isnull=True,
             cancel_notification=False,
             warehouse__name = warehouse
         ) & Q(
