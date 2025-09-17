@@ -9,7 +9,8 @@ from datetime import datetime, timedelta, timezone,date
 from decimal import Decimal, InvalidOperation
 from pathlib import Path
 from typing import Any, Dict
-from django.db.models import Sum, Count, FloatField
+from django.db.models import Sum, Count, FloatField, IntegerField
+from django.db.models.functions import Coalesce, Cast, Round 
 from itertools import zip_longest
 
 import chardet
@@ -1786,6 +1787,7 @@ class OrderCreation(View):
 
         container_type = container.container_type
         is_combina = True
+        has_pallet = True
         #  基础数据统计
         plts = await sync_to_async(
             lambda: Pallet.objects.filter(
@@ -1797,6 +1799,24 @@ class OrderCreation(View):
                 total_pallets=Count("id"),
             )
         )()
+        if plts['total_pallets'] == 0:
+            has_pallet = False
+            plts = await sync_to_async(
+                lambda: PackingList.objects.filter(
+                    container_number__container_number=container_number
+                ).aggregate(
+                    unique_destinations=Count("destination", distinct=True),
+                    total_weight=Sum("total_weight_lbs"),
+                    total_cbm=Sum("cbm"),
+                    total_pallets=Coalesce(
+                        Round(
+                            Cast(Sum("cbm"), output_field=FloatField()) / 1.8,
+                            output_field=IntegerField()
+                        ),
+                        0  # 默认值，当Sum("cbm")为None时设为0
+                    )
+                )
+            )()
         plts["total_cbm"] = round(plts["total_cbm"], 2)
         plts["total_weight"] = round(plts["total_weight"], 2)
         # 获取匹配的报价表
@@ -1846,16 +1866,18 @@ class OrderCreation(View):
             is_combina = False # 不是组合柜
 
         # 按区域统计
-        destinations = await sync_to_async(
-            lambda: list(Pallet.objects.filter(
-                container_number__container_number=container_number
-            ).values_list("destination", flat=True).distinct())
-        )()
-        plts_by_destination = await sync_to_async(
-            lambda: list(Pallet.objects.filter(
-                container_number__container_number=container_number
-            ).values("destination").annotate(total_cbm=Sum("cbm")))
-        )()
+        if has_pallet:
+            plts_by_destination = await sync_to_async(
+                lambda: list(Pallet.objects.filter(
+                    container_number__container_number=container_number
+                ).values("destination").annotate(total_cbm=Sum("cbm")))
+            )()
+        else:
+            plts_by_destination = await sync_to_async(
+                lambda: list(PackingList.objects.filter(
+                    container_number__container_number=container_number
+                ).values("destination").annotate(total_cbm=Sum("cbm")))
+            )()
         total_cbm_sum = sum(item["total_cbm"] for item in plts_by_destination)
         # 区分组合柜区域和非组合柜区域
         container_type_temp = 0 if container_type == "40HQ/GP" else 1
