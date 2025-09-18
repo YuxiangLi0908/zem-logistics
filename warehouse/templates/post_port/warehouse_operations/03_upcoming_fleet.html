@@ -473,7 +473,22 @@
         color: #27ae60;
         border: 1px solid #27ae60;
     }
-
+    .search-input {
+        padding: 10px 15px;
+        border: 1px solid #dce1e6;
+        border-radius: 5px;
+        font-size: 0.9rem;
+        min-width: 250px;
+    }
+    .search-btn {
+        padding: 10px 20px;
+        background: var(--primary-color);
+        color: white;
+        border: none;
+        border-radius: 5px;
+        cursor: pointer;
+        font-weight: 600;
+    }
     .modal {
         display: none;
         position: fixed;
@@ -583,6 +598,13 @@
             <div class="time-tab" data-day="2">后天 <span class="badge">{{ summary.day_after_count }}</span></div>
         </div>
 
+        <div class="search-box">
+            <input type="text" class="search-input" placeholder="搜索出库批次、pickupNumber..." id="fleetSearch">
+            <button class="search-btn" id="searchBtn">
+                <i class="fas fa-search"></i> 搜索
+            </button>
+        </div>
+
         <div class="summary-cards">
             <div class="summary-card">
                 <div class="card-title">总出库批次</div>
@@ -616,17 +638,18 @@
                         <th>状态</th>
                         <th>出库批次</th>
                         <th>Pickup Number</th>
+                        <th>Pre-load</th>
                         <th>预计提货时间</th>
                         <th>板数</th>
                         <th>CBM</th>
+                        <th>Carrier</th>
                         <th>司机信息</th>
                         <th>操作</th>
                     </tr>
                 </thead>
                 <tbody>
                     {% for fleet in fleets %}                    
-                    {% if fleet.warehouse_process_status != 'shipped' %}
-                    <tr class="day-{{ fleet.days_diff }}" data-days-diff="{{ fleet.days_diff }}" data-status="{{ fleet.warehouse_process_status }}" data-pallets="{{ fleet.pallets }}" data-cbm="{{ fleet.cbm }}">
+                    <tr class="day-{{ fleet.days_diff }}" data-days-diff="{{ fleet.days_diff }}" data-status="{{ fleet.warehouse_process_status }}" data-fleet-number="{{ fleet.fleet_number }}" data-pickup-number="{{ fleet.pickup_number }}">
                         <td>
                             <span class="status-badge status-{{ fleet.warehouse_process_status }}">
                                 <i class="fas 
@@ -655,6 +678,20 @@
                             </span>
                         </td>
                         <td>{{ fleet.pickup_number }}</td>
+                        <td style="padding: 4px;">
+                            <form method="post" class="action-form">
+                                {% csrf_token %}
+                                <input type="hidden" name="step" value="record_load">
+                                <input type="hidden" name="warehouse" value="{{ warehouse }}">
+                                <input type="hidden" name="fleet_number" value="{{ fleet.fleet_number }}">
+                                
+                                <div style="display: flex; flex-direction: column; gap: 2px;">
+                                    <input type="text" name="pre_load" value="{{ fleet.pre_load|default_if_none:'' }}" 
+                                        class="form-control form-control-sm" style="width: 80px;">
+                                    <button type="submit" class="btn btn-primary btn-sm" style="width: 80px;">更新</button>
+                                </div>
+                            </form>
+                        </td>
                         <td>{{ fleet.appointment_datetime|date:"Y-m-d H:i" }}</td>
                         <td>{{ fleet.pallets }}
                             {% if fleet.is_estimated %}
@@ -662,7 +699,7 @@
                             {% endif %}
                         </td>
                         <td>{{ fleet.cbm }}</td>
-                        
+                        <td>{{ fleet.carrier }}</td>
                         <td>
                             
                             {% if fleet.warehouse_process_status == 'waiting' %}
@@ -745,52 +782,6 @@
                             {% endif %}
                         </td>
                     </tr>
-                    {% endif %}
-                    {% endfor %}
-
-                    {% for fleet in fleets %}
-                    {% if fleet.warehouse_process_status == 'shipped' %}
-                    <tr class="day-{{ fleet.days_diff }} status-shipped-row" data-days-diff="{{ fleet.days_diff }}" data-status="shipped">
-                        <td>
-                            <span class="status-badge status-shipped">
-                                <i class="fas fa-check-double status-icon"></i>
-                                已出库
-                            </span>
-                        </td>
-                        <td>
-                            {{ fleet.fleet_number }}
-                            <span class="day-display day-{% if fleet.days_diff == 0 %}today{% elif fleet.days_diff == 1 %}tomorrow{% else %}dayafter{% endif %}">
-                                {% if fleet.days_diff == 0 %}今天
-                                {% elif fleet.days_diff == 1 %}明天
-                                {% else %}后天
-                                {% endif %}
-                            </span>
-                        </td>
-                        <td>{{ fleet.pickup_number }}</td>
-                        <td>{{ fleet.appointment_datetime|date:"Y-m-d H:i" }}</td>
-                        <td>{{ fleet.pallets }}</td>
-                        <td>{{ fleet.cbm }}</td>
-                        <td>
-                            <div><strong>司机:</strong> {{ fleet.driver_name|default_if_none:"" }}</div>
-                            <div><strong>电话:</strong> {{ fleet.driver_phone|default_if_none:"" }}</div>
-                            <div><strong>Trailer Number:</strong> {{ fleet.trailer_number|default_if_none:"" }}</div>
-                        </td>
-                        <td>
-                            <form method="post" class="action-form">
-                                {% csrf_token %}
-                                <input type="hidden" name="step" value="export_bol">
-                                <input type="hidden" name="warehouse" value="{{ warehouse }}">
-                                <input type="hidden" name="fleet_number" value="{{ fleet.fleet_number }}">
-                                <button type="submit" class="action-btn btn-primary">
-                                    <i class="fas fa-download"></i> BOL
-                                </button>
-                            </form>
-                            <span class="action-btn btn-success" style="cursor: default;">
-                                <i class="fas fa-check-double"></i> 已完成
-                            </span>
-                        </td>
-                    </tr>
-                    {% endif %}
                     {% endfor %}
                     
                     {% if not fleets %}
@@ -892,6 +883,45 @@
         localStorage.setItem('selectedDay', day);
     }
 
+    document.getElementById('searchBtn').addEventListener('click', applyFilters);
+
+    function filterTableBySearch(searchTerm) {
+        applyFilters();
+    }
+
+    document.getElementById('fleetSearch').addEventListener('keypress', function(e) {
+        if (e.key === 'Enter') {
+            applyFilters();
+        }
+    });
+
+    document.getElementById('fleetSearch').addEventListener('input', function(e) {
+        applyFilters();
+    });
+
+    function applyFilters() {
+        const activeTab = document.querySelector('.time-tab.active');
+        const selectedDay = activeTab ? activeTab.getAttribute('data-day') : '0';
+        const searchTerm = document.getElementById('fleetSearch').value.trim().toLowerCase();
+        
+        // 处理普通行
+        const rows = document.querySelectorAll('.shipment-table tbody tr');
+        
+        // 筛选普通行
+        rows.forEach(row => {
+            const fleet_number = row.getAttribute('data-fleet-number').toLowerCase();
+            const pickup = row.getAttribute('data-pickup-number').toLowerCase();
+            const daysDiff = row.getAttribute('data-days-diff');
+            
+            const matchesDay = selectedDay === 'all' || daysDiff === selectedDay;
+            const matchesSearch = searchTerm === '' || 
+                                fleet_number.includes(searchTerm) || 
+                                pickup.includes(searchTerm);
+            
+            row.style.display = (matchesDay && matchesSearch) ? '' : 'none';
+        });
+    }
+
     function getSelectedDay() {
         return localStorage.getItem('selectedDay') || '0'; 
     }
@@ -914,11 +944,11 @@
         if (tabToSelect) {
             document.querySelectorAll('.time-tab').forEach(t => t.classList.remove('active'));
             tabToSelect.classList.add('active');
-            filterTableByDay(selectedDay);
+            applyFilters();
             updateSummaryStats(selectedDay);
         } else {
             // 默认选择今天
-            filterTableByDay('0');
+            applyFilters();
         }
         
         // 恢复所有按钮状态
@@ -948,7 +978,8 @@
             
             const dayFilter = this.getAttribute('data-day');
             saveSelectedDay(dayFilter);
-            filterTableByDay(dayFilter);
+            
+            applyFilters();
             updateSummaryStats(dayFilter);
         });
     });
@@ -997,23 +1028,6 @@
         completionText.textContent = `${dayStats[dayFilter].completion_rate}% 完成率`;
     }
 
-    function filterTableByDay(dayFilter) {
-        const rows = document.querySelectorAll('.shipment-table tbody tr:not(.status-shipped-row)');
-        const shippedRows = document.querySelectorAll('.status-shipped-row');
-        
-        rows.forEach(row => row.style.display = 'none');
-        shippedRows.forEach(row => row.style.display = 'none');
-        
-        rows.forEach(row => {
-            const daysDiff = row.getAttribute('data-days-diff');
-            if (daysDiff === dayFilter) {
-                row.style.display = '';
-            }
-        });
-        shippedRows.forEach(row => {
-            row.style.display = '';
-        });
-    }
     const modal = document.getElementById('completeLoadingModal');
     const closeBtn = document.querySelector('.close');
     const completeForm = document.getElementById('completeLoadingForm');
