@@ -10,14 +10,7 @@ class Migration(migrations.Migration):
     ]
 
     operations = [
-        migrations.RemoveField(
-            model_name="fleet",
-            name="pre_load",
-        ),
-        migrations.RemoveField(
-            model_name="historicalfleet",
-            name="pre_load",
-        ),
+        
         migrations.AddField(
             model_name="historicaloffload",
             name="uploaded_at",
