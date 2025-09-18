@@ -9,7 +9,7 @@ from django.contrib.postgres.aggregates import StringAgg
 
 from asgiref.sync import sync_to_async
 from django.db import models
-from django.db.models import Prefetch, Q, IntegerField
+from django.db.models import Prefetch, Q, IntegerField, DateTimeField, Min
 from django.core.exceptions import ValidationError
 from django.http import HttpRequest, HttpResponse, HttpResponsePermanentRedirect, HttpResponseRedirect, JsonResponse
 from django.shortcuts import redirect, render
@@ -111,8 +111,8 @@ class WarehouseOperations(View):
             return render(request, template, context)
         elif step == "warehousing_complete_loading":
             file_path_name = "palletization_list"
-            template, context = await self.handle_complete_loading_post(request, file_path_name)
-            return render(request, template, context)
+            template, context = await self.handle_complete_loading_post_palletization_list(request, file_path_name)
+            return await sync_to_async(render)(request, template, context)
         elif step == "report_issue":
             template, context = await self.handle_report_issue_post(request)
             return render(request, template, context)
@@ -181,9 +181,9 @@ class WarehouseOperations(View):
 
     async def warehousing_operation_post(self, request: HttpRequest):
         """
-        入库操作-页面展示
+        入库操作-页面展示（增加超时判断与置顶排序）
         """
-        current_time = datetime.now()
+        current_time = timezone.now()  # 改用带时区的当前时间，避免时区偏差
         future_four_days = current_time + timedelta(days=4)
         warehouse = request.POST.get("warehouse_filter", None)
         ORDER_FILTER_CRITERIA = Q(
@@ -197,6 +197,7 @@ class WarehouseOperations(View):
         )
 
         def sync_get_retrieval_and_count():
+            # 1. 订单查询：增加“超时阈值”和“是否超时未拆”的注解
             order_queryset = (
                 Order.objects.select_related(
                     "customer_name",
@@ -213,6 +214,7 @@ class WarehouseOperations(View):
                     "retrieval_id", "warehouse", "vessel_id"
                 )
                 .annotate(
+                    # 注解1：优先级排序（原有逻辑保留）
                     priority_order=Case(
                         When(unpacking_priority="P1", then=Value(1)),
                         When(unpacking_priority="P2", then=Value(2)),
@@ -220,11 +222,41 @@ class WarehouseOperations(View):
                         When(unpacking_priority="P4", then=Value(4)),
                         default=Value(5),
                         output_field=IntegerField()
+                    ),
+                    # 注解2：计算超时阈值（实际提柜时间 + 对应时效）
+                    timeout_threshold=Case(
+                        # P1/P2/P3：实际提柜时间 +24小时
+                        When(
+                            unpacking_priority__in=["P1", "P2", "P3"],
+                            then=F("retrieval_id__actual_retrieval_timestamp") + timedelta(hours=24)
+                        ),
+                        # P4：实际提柜时间 +48小时
+                        When(
+                            unpacking_priority="P4",
+                            then=F("retrieval_id__actual_retrieval_timestamp") + timedelta(hours=48)
+                        ),
+                        # 无实际提柜时间时，阈值设为无穷大（不触发超时）
+                        default=Value(timezone.make_aware(datetime.max)),
+                        output_field=DateTimeField()
+                    ),
+                    # 注解3：标记“是否超时未拆”（1=超时未拆，0=正常）
+                    is_overtime_unpacked=Case(
+                        When(
+                            # 条件：当前时间>超时阈值 + 拆柜状态≠已拆（unpacking_status≠1）
+                            Q(timeout_threshold__lt=current_time) &
+                            ~Q(offload_id__unpacking_status="1"),
+                            then=Value(1)
+                        ),
+                        default=Value(0),
+                        output_field=IntegerField()
                     )
                 )
-                .order_by("priority_order")
+                # 订单排序：先按“是否超时未拆”（1在前），再按优先级
+                .order_by("-is_overtime_unpacked", "priority_order")
             )
 
+            # 2. Offload查询：关联订单并调整排序（优先显示超时的记录）
+            # 修改retrieval查询部分的代码
             retrieval = (
                 Offload.objects.prefetch_related(
                     Prefetch(
@@ -234,7 +266,7 @@ class WarehouseOperations(View):
                     )
                 )
                 .only(
-                    "arrival_location", "unpacking_status"
+                    "arrival_location", "unpacking_status", "id"
                 )
                 .annotate(
                     status_order=Case(
@@ -243,35 +275,50 @@ class WarehouseOperations(View):
                         When(unpacking_status=1, then=Value(3)),
                         default=Value(4),
                         output_field=IntegerField()
+                    ),
+                    has_overtime_order=Case(
+                        When(
+                            id__in=order_queryset.filter(is_overtime_unpacked=1).values_list("offload_id", flat=True),
+                            then=Value(1)
+                        ),
+                        default=Value(0),
+                        output_field=IntegerField()
+                    ),
+                    # 关键修复：直接在主查询中定义订单优先级（不依赖子查询的注解）
+                    min_priority_order=Min(
+                        Case(
+                            When(order__unpacking_priority="P1", then=Value(1)),
+                            When(order__unpacking_priority="P2", then=Value(2)),
+                            When(order__unpacking_priority="P3", then=Value(3)),
+                            When(order__unpacking_priority="P4", then=Value(4)),
+                            default=Value(5),
+                            output_field=IntegerField()
+                        )
                     )
                 )
-                # 按拆柜状态排序，相同状态下按订单优先级排序
+                # 按新定义的字段排序
                 .order_by(
+                    "-has_overtime_order",
                     "status_order",
-                    Case(
-                        When(order__unpacking_priority="P1", then=Value(1)),
-                        When(order__unpacking_priority="P2", then=Value(2)),
-                        When(order__unpacking_priority="P3", then=Value(3)),
-                        When(order__unpacking_priority="P4", then=Value(4)),
-                        default=Value(5),
-                        output_field=IntegerField()
-                    )
+                    "min_priority_order"
                 )
             )
+
+            # 统计总记录数（原有逻辑保留）
             total_count = 0
             for ret in retrieval:
                 total_count += len(ret.filtered_orders)
             return retrieval, total_count
 
-        retrieval, total_count = await sync_to_async(
-            sync_get_retrieval_and_count
-        )()
+        # 异步调用同步函数（原有逻辑保留）
+        retrieval, total_count = await sync_to_async(sync_get_retrieval_and_count)()
 
         context = {
             'retrieval': retrieval,
             'warehouse_options': self.warehouse_options,
             'warehouse': request.POST.get('warehouse_filter'),
-            'total_count': total_count  # 使用同步函数中计算的总数
+            'total_count': total_count,
+            'current_time': current_time  # 传递当前时间到前端（可选，用于前端二次验证）
         }
         return self.template_warehousing_operation, context
 
@@ -388,6 +435,7 @@ class WarehouseOperations(View):
         回传拆柜数据
         """
         fleet_number = request.POST.get("fleet_number")
+        offload_id = request.POST.get("offload_id")
         #上传出库凭证
         try:
             receipt_image = request.FILES.get("receipt_image")
@@ -411,6 +459,39 @@ class WarehouseOperations(View):
         )(warehouse_process_status="shipped", shipped_cert_link=link)
 
         return await self.handle_upcoming_fleet_post(request)
+
+    async def handle_complete_loading_post_palletization_list(
+        self, request: HttpRequest, file_path_name
+    ) -> tuple[str, dict[str, Any]]:
+        """
+        入库回传拆柜数据
+        """
+        offload_id = request.POST.get("offload_id")
+        #上传出库凭证
+        try:
+            receipt_image = request.FILES.get("receipt_image")
+            if receipt_image:
+                valid_extensions = [".jpg", ".png", ".jpeg"]
+                ext = os.path.splitext(receipt_image.name)[1].lower()
+                if ext not in valid_extensions:
+                    raise ValidationError("仅支持JPG/PNG格式图片")
+                if receipt_image.size > 5 * 1024 * 1024:  # 5MB
+                    raise ValidationError("图片大小不能超过5MB")
+        except ValidationError as e:
+            raise ValidationError("图片格式错误")
+        link = ""
+        if receipt_image:
+            conn = self._get_sharepoint_auth()
+            link = await self._upload_image_to_sharepoint(conn, receipt_image, file_path_name)
+
+        #更新回传拆柜数据上传时间
+        current_upload_time = timezone.now()
+        upload_time = await sync_to_async(
+            Offload.objects.filter(offload_id=offload_id).update
+        )(uploaded_at=current_upload_time)
+
+        template, context = await self.warehousing_operation_post(request)
+        return template, context
 
     async def _get_sharepoint_auth(self) -> ClientContext:
         ctx = ClientContext(SP_URL).with_client_certificate(
