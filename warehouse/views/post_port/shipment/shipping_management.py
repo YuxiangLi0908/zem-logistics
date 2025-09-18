@@ -1673,7 +1673,7 @@ class ShippingManagement(View):
             if shipment_type == "客户自提":
                 shipment_ava = await sync_to_async(self.sync_query_and_create)(shipment, fleet)
             # 历史FleetShipmentPallet 客户自提费用改为0,后续不调用
-            await self.history_fleet_shipment_pallet()
+            # await self.history_fleet_shipment_pallet()
             mutable_post = request.POST.copy()
             mutable_post["area"] = area
             request.POST = mutable_post
