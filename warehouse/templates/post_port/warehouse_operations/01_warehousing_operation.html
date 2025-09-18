@@ -35,6 +35,20 @@
             .search-input {
                 @apply w-full px-2 py-1 border border-gray-300 rounded text-xs focus:outline-none focus:ring-1 focus:ring-primary focus:border-primary;
             }
+                    /* 超时记录样式：红色背景+文字，hover时加深 */
+            .bg-red-50 {
+                background-color: #fff2f0;
+            }
+            .text-red-700 {
+                color: #c02626;
+            }
+            .hover\:bg-accent:hover {
+                background-color: #e8f3ff;
+            }
+            /* 超时记录hover时样式调整（避免与红色冲突） */
+            .bg-red-50:hover {
+                background-color: #ffebe6;
+            }
         }
     </style>
 
@@ -76,15 +90,17 @@
             <table class="w-full border-collapse">
                 <thead>
                 <tr class="header-gradient text-white">
-                    <th class="px-4 py-2.5 text-left text-sm font-bold tracking-wide">柜号</th>
-                    <th class="px-4 py-2.5 text-left text-sm font-bold tracking-wide">优先级</th>
-                    <th class="px-4 py-2.5 text-left text-sm font-bold tracking-wide">到仓位置</th>
-                    <th class="px-4 py-2.5 text-left text-sm font-bold tracking-wide">拆柜状态</th>
-                    <th class="px-4 py-2.5 text-left text-sm font-bold tracking-wide">拆柜开始时间</th>
-                    <th class="px-4 py-2.5 text-left text-sm font-bold tracking-wide">拆柜完成时间</th>
-                    <th class="px-4 py-2.5 text-left text-sm font-bold tracking-wide">导出</th>
-                    <th class="px-4 py-2.5 text-left text-sm font-bold tracking-wide">操作</th>
-                    <th class="px-4 py-2.5 text-left text-sm font-bold tracking-wide">回传拆柜数据</th>
+                    <th class="px-4 py-2.5 text-left text-sm font-bold tracking-wide" style="font-size: 12px">柜号</th>
+                    <th class="px-4 py-2.5 text-left text-sm font-bold tracking-wide" style="font-size: 12px">优先级</th>
+                    <th class="px-4 py-2.5 text-left text-sm font-bold tracking-wide" style="font-size: 12px">到仓位置</th>
+                    <th class="px-4 py-2.5 text-left text-sm font-bold tracking-wide" style="font-size: 12px">拆柜状态</th>
+                    <th class="px-4 py-2.5 text-left text-sm font-bold tracking-wide" style="font-size: 12px">实际提柜实际</th>
+                    <th class="px-4 py-2.5 text-left text-sm font-bold tracking-wide" style="font-size: 12px">拆柜开始时间</th>
+                    <th class="px-4 py-2.5 text-left text-sm font-bold tracking-wide" style="font-size: 12px">拆柜完成时间</th>
+                    <th class="px-4 py-2.5 text-left text-sm font-bold tracking-wide" style="font-size: 12px">导出</th>
+                    <th class="px-4 py-2.5 text-left text-sm font-bold tracking-wide" style="font-size: 12px">操作</th>
+                    <th class="px-4 py-2.5 text-left text-sm font-bold tracking-wide" style="font-size: 12px">回传拆柜数据</th>
+                    <th class="px-4 py-2.5 text-left text-sm font-bold tracking-wide" style="font-size: 12px">回传时间</th>
                 </tr>
                 <!-- 搜索行 -->
                 <tr class="bg-gray-50 border-b border-gray-200">
@@ -109,16 +125,20 @@
                     <th class="px-4 py-2"></th>
                     <th class="px-4 py-2"></th>
                     <th class="px-4 py-2"></th>
+                    <th class="px-4 py-2"></th>
+                    <th class="px-4 py-2"></th>
                 </tr>
                 </thead>
-                <tbody class="divide-y divide-gray-200" id="table-body">
+                <tbody class="divide-y divide-gray-200" id="table-body" style="font-size: 12px;">
                 {% for ret in retrieval %}
                     {% for order in ret.filtered_orders %}
                         {% with record_id="ret_"|add:ret.id|stringformat:"i" %}
-                            <tr class="cell-transition hover:bg-accent"
+                            <tr class="cell-transition hover:bg-accent
+                      {% if order.is_overtime_unpacked %}bg-red-50 text-red-700 font-medium{% endif %}"
                                 data-record-id="{{ record_id }}"
                                 data-container="{{ order.container_number|default:''|upper }}"
-                                data-location="{{ ret.arrival_location|default:''|upper }}">
+                                data-location="{{ ret.arrival_location|default:''|upper }}"
+                                data-is-overtime="{{ order.is_overtime_unpacked }}">
                                 <!-- 1. 柜号 -->
                                 <td class="px-4 py-2 text-xs text-gray-700">
                                     {{ order.container_number|default:"-" }}
@@ -149,7 +169,7 @@
 
                                 <!-- 3. 到仓位置 -->
                                 <td class="px-4 py-2 fixed-width-cell">
-                                    {% if ret.unpacking_status != "1" %}
+                                    {% if order.offload_id.unpacking_status != "1" %}
                                         <input type="text"
                                                id="arrival_location_{{ record_id }}"
                                                value="{{ ret.arrival_location|default:''|upper }}"
@@ -159,7 +179,7 @@
                                                placeholder="请输入到仓位置"
                                                class="bg-white border border-gray-200 rounded-lg px-1.5 py-0.75 text-[12px] w-full focus:outline-none focus:ring-2 focus:ring-primary/50 tag-shadow transition-all">
                                     {% else %}
-                                        <span class="text-xs text-gray-500">{{ ret.arrival_location|default:"-"|upper }}</span>
+                                        <span class="text-xs text-gray-500"></span>
                                     {% endif %}
                                 </td>
 
@@ -205,6 +225,15 @@
                                             </label>
                                         </div>
                                     </div>
+                                </td>
+
+                                <!-- 实际提柜实际-->
+                                <td class="px-4 py-2">
+                                    {% if order.retrieval_id.actual_retrieval_timestamp %}
+                                        {{ order.retrieval_id.actual_retrieval_timestamp |date:"Y-m-d H:i:s" }}
+                                    {% else %}
+                                        {{ order.retrieval_id.actual_retrieval_timestamp|date:"Y-m-d H:i:s"|default:"-" }}
+                                    {% endif %}
                                 </td>
 
                                 <!-- 拆柜开始时间 -->
@@ -287,11 +316,26 @@
                                     <form method="post" action="">
                                         {% csrf_token %}
                                         <input type="hidden" name="step" value="warehousing_complete_loading">
+                                        <input type="hidden" name="offload_id" value="{{ ret.offload_id }}">
+                                        <input type="hidden" name="warehouse_filter" value="{{ warehouse }}">
                                         <input type="file"
                                                id="unpacking_data_{{ record_id }}"
                                                name="unpacking_data"
                                                class="text-[12px] w-full">
+                                            <button type="submit" class="btn btn-outline-primary px-3 py-1 text-[12px] bg-white hover:bg-gray-50">
+                                                确认提交
+                                            </button>
                                     </form>
+                                </td>
+
+                                <!-- 回传拆柜数据的时间 -->
+                                <td class="px-4 py-2">
+                                    {% if order.offload_id.uploaded_at  %}
+                                        {{ order.offload_id.uploaded_at|date:"Y-m-d H:i:s" }}
+                                    {% else %}
+                                        {{ order.offload_id.uploaded_at|date:"Y-m-d H:i:s"|default:"-" }}
+                                    {% endif %}
+
                                 </td>
                             </tr>
                         {% endwith %}
@@ -362,58 +406,64 @@
         function initSearchFunctionality() {
             const containerInput = document.getElementById('container-search');
             const locationInput = document.getElementById('location-search');
-            const rows = document.querySelectorAll('#table-body tr[data-record-id]');
+            const rows = Array.from(document.querySelectorAll('#table-body tr[data-record-id]')); // 转为数组，便于排序
             const noResultsRow = document.getElementById('no-results');
             const filteredCountEl = document.getElementById('filtered-records');
-            const totalRecords = rows.length;
+            const totalRecords = parseInt(document.getElementById('total-records').textContent) || 0;
 
             // 搜索处理函数
             function handleSearch() {
                 const containerQuery = containerInput.value.trim().toUpperCase();
                 const locationQuery = locationInput.value.trim().toUpperCase();
-                let visibleCount = 0;
+                let visibleRows = [];
 
+                // 1. 筛选匹配的行
                 rows.forEach(row => {
-                    const container = row.getAttribute('data-container');
-                    const location = row.getAttribute('data-location');
+                    const container = row.getAttribute('data-container') || '';
+                    const location = row.getAttribute('data-location') || '';
+                    const isOvertime = row.getAttribute('data-is-overtime') === '1'; // 获取超时状态
 
-                    // 检查是否匹配搜索条件
                     const matchesContainer = container.includes(containerQuery);
                     const matchesLocation = location.includes(locationQuery);
 
-                    // 显示或隐藏行
                     if (matchesContainer && matchesLocation) {
+                        visibleRows.push({row, isOvertime}); // 存储行和超时状态
                         row.style.display = '';
-                        visibleCount++;
                     } else {
                         row.style.display = 'none';
                     }
                 });
 
-                // 显示或隐藏无结果提示
-                noResultsRow.style.display = visibleCount === 0 ? '' : 'none';
+                // 2. 对匹配的行排序：先按“是否超时”（true在前），再按原顺序
+                visibleRows.sort((a, b) => {
+                    if (a.isOvertime && !b.isOvertime) return -1; // 超时的在前
+                    if (!a.isOvertime && b.isOvertime) return 1;
+                    return 0; // 非超时行保持原顺序
+                });
 
-                // 更新筛选计数显示
+                // 3. 重新排列DOM，确保超时行置顶
+                const tableBody = document.getElementById('table-body');
+                visibleRows.forEach(item => {
+                    tableBody.appendChild(item.row); // 追加到末尾=移动到当前排序位置
+                });
+
+                // 4. 显示无结果提示
+                noResultsRow.style.display = visibleRows.length === 0 ? '' : 'none';
+
+                // 5. 更新筛选计数
                 if (containerQuery || locationQuery) {
-                    filteredCountEl.textContent(`(筛选后: ${visibleCount}条)`);
+                    filteredCountEl.textContent(`(筛选后: ${visibleRows.length}/${totalRecords}条)`);
                 } else {
                     filteredCountEl.textContent('(显示全部)');
                 }
             }
 
-            // 为搜索框添加事件监听
+            // 原有事件监听保留...
             containerInput.addEventListener('input', handleSearch);
             locationInput.addEventListener('input', handleSearch);
-
-            // 支持回车键清空搜索
-            containerInput.addEventListener('keyup', function(e) {
-                if (e.key === 'Enter') this.blur();
-            });
-            locationInput.addEventListener('keyup', function(e) {
-                if (e.key === 'Enter') this.blur();
-            });
+            containerInput.addEventListener('keyup', e => e.key === 'Enter' && e.target.blur());
+            locationInput.addEventListener('keyup', e => e.key === 'Enter' && e.target.blur());
         }
-
         // 1. 处理拆柜开始时间显示和超时警告
         function handleUnpackingTimeDisplay() {
             // 使用DocumentFragment减少DOM重绘
@@ -496,12 +546,6 @@
                     const statusHidden = form.querySelector(`#unpacking_status_hidden_${recordId}`);
                     statusHidden.value = statusValue;
 
-                    // 数据验证
-                    if (!arrivalValue) {
-                        alert('请填写「到仓位置」再更新');
-                        arrivalInput.focus();
-                        return;
-                    }
 
                     // 提交表单
                     form.submit();
