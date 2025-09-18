@@ -653,13 +653,14 @@
                                 {% else %}后天
                                 {% endif %}
                             </span>
+                        </td>
+                        <td>{{ fleet.pickup_number }}</td>
+                        <td>{{ fleet.appointment_datetime|date:"Y-m-d H:i" }}</td>
+                        <td>{{ fleet.pallets }}
                             {% if fleet.is_estimated %}
                             <span style="color: orange; font-size: 0.8rem;" title="板数为预估数据">(预估)</span>
                             {% endif %}
                         </td>
-                        <td>{{ fleet.pickup_number }}</td>
-                        <td>{{ fleet.appointment_datetime|date:"Y-m-d H:i" }}</td>
-                        <td>{{ fleet.pallets }}</td>
                         <td>{{ fleet.cbm }}</td>
                         
                         <td>
