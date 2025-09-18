@@ -1727,8 +1727,8 @@ class Palletization(View):
                     "master_shipment_batch_number__shipment_batch_number",
                     "PO_ID",
                     "delivery_type",
-                    "delivery_window_start",
-                    "delivery_window_end",
+                    # "delivery_window_start",
+                    # "delivery_window_end",
                 )
                 .annotate(
                     fba_ids=StringAgg("str_fba_id", delimiter=",", distinct=True),
@@ -1770,8 +1770,8 @@ class Palletization(View):
                     "note",
                     "PO_ID",
                     "delivery_type",
-                    "delivery_window_start",
-                    "delivery_window_end",
+                    # "delivery_window_start",
+                    # "delivery_window_end",
                     "slot",
                 )
                 .annotate(
