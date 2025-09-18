@@ -403,7 +403,7 @@ class WarehouseOperations(View):
         link = ""
         if receipt_image:
             conn = self._get_sharepoint_auth()
-            link = self._upload_image_to_sharepoint(conn, receipt_image, file_path_name)
+            link = await self._upload_image_to_sharepoint(conn, receipt_image, file_path_name)
 
         #更新车次状态
         updated = await sync_to_async(
@@ -422,14 +422,15 @@ class WarehouseOperations(View):
         )
         return ctx
 
-    def _upload_image_to_sharepoint(self, conn, image, file_path_name) -> None:
+    async def _upload_image_to_sharepoint(self, conn, image, file_path_name) -> None:
 
         image_name = image.name  # 提取文件名
         file_path = os.path.join(
             SP_DOC_LIB, f"{SYSTEM_FOLDER}/warehouse_operation/{file_path_name}/{APP_ENV}"
         )  # 文档库名称，系统文件夹名称，当前环境
         # 上传到SharePoint
-        sp_folder = conn.web.get_folder_by_server_relative_url(file_path)
+        client = await conn
+        sp_folder = client.web.get_folder_by_server_relative_url(file_path)
         resp = sp_folder.upload_file(f"{image_name}", image).execute_query()
         # 生成并获取链接
         link = (
