@@ -124,6 +124,9 @@ class WarehouseOperations(View):
         elif step == "adjust_inventory":
             template, context = await self.handle_adjust_inventory_post(request)
             return await sync_to_async(render)(request, template, context)
+        elif step == "record_load":
+            template, context = await self.handle_record_load_post(request)
+            return await sync_to_async(render)(request, template, context)
 
 
     async def _user_authenticate(self, request: HttpRequest):
@@ -422,10 +425,25 @@ class WarehouseOperations(View):
         fleet_number = request.POST.get("fleet_number")
         issue_type = request.POST.get("issue_type")
         issue_description = request.POST.get("issue_description")
-        issue = issue_type + issue_description
-        updated = await sync_to_async(
-            Fleet.objects.filter(fleet_number=fleet_number).update
-        )(warehouse_process_status='abnormal', abnormal_reason=issue)
+        issue = issue_type + ":" + issue_description
+
+        fleet = await sync_to_async(Fleet.objects.get)(fleet_number=fleet_number)
+        fleet.warehouse_process_status='abnormal'
+        fleet.abnormal_reason = issue
+        fleet.is_canceled = True
+        fleet.status = "Exception"
+        fleet.status_description = issue
+        await sync_to_async(fleet.save)()
+
+        #更新完车次之后，要把这个约变为异常，展示给异常预约里面
+        updated_count = await sync_to_async(
+            lambda: Shipment.objects.filter(fleet_number=fleet).update(
+                status="Exception",
+                status_description=issue,
+                fleet_number=None
+            ),
+            thread_sensitive=True
+        )()
         return await self.handle_upcoming_fleet_post(request)
 
     async def handle_complete_loading_post(
@@ -521,6 +539,19 @@ class WarehouseOperations(View):
         )
         return link
 
+    async def handle_record_load_post(
+        self, request: HttpRequest
+    ) -> tuple[str, dict[str, Any]]:
+        fleet_number = request.POST.get("fleet_number")
+        pre_load= request.POST.get("pre_load")
+        updated = await sync_to_async(
+            Fleet.objects.filter(fleet_number=fleet_number).update
+        )(pre_load=pre_load)
+
+        if updated == 0:
+            return ValueError('未查到该车次')
+        return await self.handle_upcoming_fleet_post(request)
+    
     async def handle_loading_fleet_post(
         self, request: HttpRequest
     ) -> tuple[str, dict[str, Any]]:
@@ -761,7 +792,6 @@ class WarehouseOperations(View):
             total_cbm = pallet_cbm + packinglist_cbm
 
             days_diff = (fleet.appointment_datetime.date() - today).days
-
             fleet_item = {
                 'fleet_number': fleet.fleet_number,
                 'warehouse_process_status': fleet.warehouse_process_status,
@@ -770,13 +800,14 @@ class WarehouseOperations(View):
                 'driver_name': fleet.driver_name,
                 'driver_phone': fleet.driver_phone,
                 'trailer_number': fleet.trailer_number,
+                'pre_load': fleet.pre_load,
+                'carrier': fleet.carrier,
                 'pallets': total_pallets,
                 'cbm': round(total_cbm, 2),
                 'is_estimated': is_estimated,
                 'days_diff': days_diff,
                 'abnormal_reason': fleet.abnormal_reason,
             }
-
             fleet_data.append(fleet_item)
             if 0 <= days_diff <= 2:
                 day_stats[days_diff]['fleets'].append(fleet_item)
@@ -786,7 +817,6 @@ class WarehouseOperations(View):
                     day_stats[days_diff]['completed_count'] += 1
                 elif fleet.warehouse_process_status == 'abnormal':
                     day_stats[days_diff]['abnormal_count'] += 1
-
         for day in [0, 1, 2]:
             total_fleets = len(day_stats[day]['fleets'])
             completed_count = day_stats[day]['completed_count']
@@ -845,4 +875,5 @@ class WarehouseOperations(View):
                 }
             }
         }
+        
         return self.template_upcoming_fleet, context
