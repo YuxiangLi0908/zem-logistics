@@ -140,8 +140,8 @@ async def export_palletization_list(request: HttpRequest) -> HttpResponse:
                 "note",
                 "shipment_batch_number__shipment_batch_number",
                 "PO_ID",
-                "delivery_window_start",
-                "delivery_window_end",
+                # "delivery_window_start",
+                # "delivery_window_end",
             )
             .annotate(
                 fba_ids=StringAgg("str_fba_id", delimiter=",", distinct=True),
@@ -173,8 +173,8 @@ async def export_palletization_list(request: HttpRequest) -> HttpResponse:
                 "shipping_mark",
                 "note",
                 "PO_ID",
-                "delivery_window_start",
-                "delivery_window_end",
+                # "delivery_window_start",
+                # "delivery_window_end",
             )
             .annotate(
                 pcs=Sum("pcs", output_field=IntegerField()),
@@ -223,8 +223,8 @@ async def export_palletization_list(request: HttpRequest) -> HttpResponse:
                 "note",
                 "shipment_batch_number__shipment_batch_number",
                 "PO_ID",
-                "delivery_window_start",
-                "delivery_window_end",
+                # "delivery_window_start",
+                # "delivery_window_end",
             )
             .annotate(
                 fba_ids=StringAgg("str_fba_id", delimiter=",", distinct=True),
@@ -265,8 +265,8 @@ async def export_palletization_list(request: HttpRequest) -> HttpResponse:
                         "pcs": 0,
                         "cbm": 0,
                         "n_pallet": 0,
-                        "delivery_window_start": pl["delivery_window_start"],
-                        "delivery_window_end": pl["delivery_window_end"],
+                        # "delivery_window_start": pl["delivery_window_start"],
+                        # "delivery_window_end": pl["delivery_window_end"],
                     }
                 )
     else:
@@ -298,8 +298,8 @@ async def export_palletization_list(request: HttpRequest) -> HttpResponse:
             "n_pallet",
             "PO_ID",
             "note",
-            "delivery_window_start",
-            "delivery_window_end",
+            # "delivery_window_start",
+            # "delivery_window_end",
         ]
     ]
     response = HttpResponse(
