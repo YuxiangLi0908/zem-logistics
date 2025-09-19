@@ -134,14 +134,13 @@
 
         for (let i = 0; i < tr.length; i++) {
             const tds = tr[i].getElementsByTagName("td");
-            const filenameTd = tds[0]; // 文件名列
-            const customerTd = tds[4]; // 客户列
+            const filenameTd = tds[0]; 
+            const customerTd = tds[4]; 
 
             if (filenameTd && customerTd) {
                 const filenameTxt = filenameTd.textContent.toUpperCase();
                 const customerTxt = customerTd.textContent.toUpperCase();
 
-                // 多关键字匹配文件名
                 let filenameMatch = filenameParts.length === 0 ? true :
                     filenameParts.some(part => filenameTxt.includes(part));
 
