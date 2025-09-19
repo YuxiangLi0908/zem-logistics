@@ -5566,7 +5566,11 @@ class Accounting(View):
                 pick_subkey = match.group()
                 # 这个提拆费是从组合柜规则的warehouse_pricing的nonmix_40ft 45ft取
                 c_type = f"nonmix_{pick_subkey}ft"
-                pickup_fee = stipulate["warehouse_pricing"][warehouse][c_type]
+                try:
+                    pickup_fee = stipulate["warehouse_pricing"][warehouse][c_type]
+                except KeyError as e:
+                    error_msg = f"缺少{pick_subkey}柜型的报价配置"
+                    raise ValueError(error_msg)
 
             extra_fees["overregion_pickup"] = non_combina_cbm_ratio * pickup_fee
             # 派送费

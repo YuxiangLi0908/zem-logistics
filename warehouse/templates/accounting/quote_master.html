@@ -46,6 +46,13 @@
                 <th style="padding: 15px; border-bottom: 2px solid #dee2e6; text-align: center;width:100px;">是否通用</th>
                 <th style="padding: 15px; border-bottom: 2px solid #dee2e6; text-align: center;width:100px;">专属客户</th>         
             </tr>
+            <tr style="position: sticky; top: 52px;" id="fleet-table-filter">
+                <th class="th"><input type="text" style="width:110px;" id="filenameSearchInput" placeholder="搜索文件名..." oninput="filterTable()"></th>
+                <th class="th"></th>
+                <th class="th"></th>
+                <th class="th"></th>
+                <th class="th"><input type="text" style="width:110px;" id="customerSearchInput" placeholder="搜索客户..." oninput="filterTable()"></th>
+            </tr>
         </thead>
         <tbody>
             {% for q in quotes %}
@@ -112,6 +119,38 @@
             userSelection.querySelector('select').removeAttribute('required');
         }
     });
+    function filterTable() {
+        const filenameInput = document.getElementById("filenameSearchInput");
+        const customerInput = document.getElementById("customerSearchInput");
+
+        const filenameFilter = filenameInput.value.trim().toUpperCase();
+        const customerFilter = customerInput.value.trim().toUpperCase();
+
+        const table = document.getElementById("quote-table");
+        const tbody = table.getElementsByTagName("tbody")[0];
+        const tr = tbody.getElementsByTagName("tr");
+
+        const filenameParts = filenameFilter.split(/\W+/).filter(p => p); // 非空分组
+
+        for (let i = 0; i < tr.length; i++) {
+            const tds = tr[i].getElementsByTagName("td");
+            const filenameTd = tds[0]; // 文件名列
+            const customerTd = tds[4]; // 客户列
+
+            if (filenameTd && customerTd) {
+                const filenameTxt = filenameTd.textContent.toUpperCase();
+                const customerTxt = customerTd.textContent.toUpperCase();
+
+                // 多关键字匹配文件名
+                let filenameMatch = filenameParts.length === 0 ? true :
+                    filenameParts.some(part => filenameTxt.includes(part));
+
+                const customerMatch = customerTxt.includes(customerFilter);
+
+                tr[i].style.display = (filenameMatch && customerMatch) ? "" : "none";
+            }
+        }
+    };
 </script>
 
 {% endblock %}
