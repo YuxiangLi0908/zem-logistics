@@ -193,7 +193,8 @@ class WarehouseOperations(View):
             offload_id__offload_required=True,
             offload_id__offload_at__isnull=True,
             cancel_notification=False,
-            warehouse__name=warehouse
+            warehouse__name=warehouse,
+            created_at__gte=timezone.make_aware(timezone.datetime(2025, 1, 1))
         ) & Q(
             Q(retrieval_id__temp_t49_available_for_pickup=True) |
             Q(vessel_id__vessel_eta__lte=future_four_days)
