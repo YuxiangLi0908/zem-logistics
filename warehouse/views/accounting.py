@@ -2341,6 +2341,7 @@ class Accounting(View):
             "warehouse_options": self.warehouse_options,
             "warehouse_filter": warehouse,
             "warehouse": warehouse,
+            "modify_shipped_shipment": request.user.groups.filter(name="shipment_leader").exists(),
         }
         return self.template_invoice_delivery, context
 
