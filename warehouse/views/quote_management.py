@@ -132,6 +132,12 @@ class QuoteManagement(View):
                 container_dict[b_value] = c_value
             result[warehouse] = container_dict
         chassis = df.iloc[max_row - 1, 1]
+        if pd.isna(chassis) or chassis == '' or chassis is None:
+            max_row = max_row + 1
+            if max_row < len(df):  
+                chassis = df.iloc[max_row - 1, 1]
+            else:
+                raise ValueError('缺少拆柜费')
         variable = re.findall(r"[\u4e00-\u9fff]+", chassis)[0]
         result[variable] = (
             "$" + str(df.iloc[max_row - 1, 2]) + "/" + df.iloc[max_row - 1, 3]
@@ -867,6 +873,7 @@ class QuoteManagement(View):
                     "pickup_min": row.iloc[5],
                     "pickup_max": row.iloc[6],
                     "palletizing": row.iloc[7] if pd.notna(row.iloc[7]) else None,
+                    "nonmix_53ft": row.iloc[8] if pd.notna(row.iloc[8]) else None,
                 }
             elif current_section == "special_warehouse":
                 warehouse = str(row.iloc[0])
