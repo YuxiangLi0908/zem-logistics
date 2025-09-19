@@ -3,6 +3,19 @@
     <link href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.10.0/font/bootstrap-icons.css" rel="stylesheet">
 
     <style type="text/tailwindcss">
+        :root {
+            --primary-color: #3498db;
+            --secondary-color: #2c3e50;
+            --success-color: #2ecc71;
+            --warning-color: #f39c12;
+            --danger-color: #e74c3c;
+            --light-color: #f8f9fa;
+            --dark-color: #343a40;
+            --status1-color: #e3f2fd;
+            --status2-color: #e8f5e9;
+            --status3-color: #fff3e0;
+        }
+        
         @layer utilities {
             .table-shadow {
                 box-shadow: 0 2px 12px 0 rgba(0, 0, 0, 0.08);
@@ -17,25 +30,48 @@
             }
 
             .header-gradient {
-                background: #007bff!important;
+                background: linear-gradient(135deg, var(--secondary-color), #4a6491);
             }
 
             .compact-tag {
-                @apply inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-medium tag-shadow;
+                display: inline-flex;
+                align-items: center;
+                padding: 0.125rem 0.5rem; /* py-0.5 px-2 */
+                border-radius: 9999px; /* rounded-full */
+                font-size: 10px;
+                font-weight: 500; /* medium */
+                box-shadow: 0 1px 2px rgba(0,0,0,0.1); /* tag-shadow */
             }
 
             .compact-btn {
-                @apply inline-flex items-center px-2 py-1 text-[12px] rounded-lg font-medium transition-colors;
+                display: inline-flex;
+                align-items: center;
+                padding: 0.25rem 0.5rem; /* py-1 px-2 */
+                font-size: 12px;
+                border-radius: 0.5rem; /* rounded-lg */
+                font-weight: 500;
+                transition: color 0.2s, background-color 0.2s;
             }
 
             .fixed-width-cell {
-                @apply min-w-[180px];
+                min-width: 180px;
             }
-
+            
             .search-input {
-                @apply w-full px-2 py-1 border border-gray-300 rounded text-xs focus:outline-none focus:ring-1 focus:ring-primary focus:border-primary;
+                width: 100%;
+                padding: 0.25rem 0.5rem; /* py-1 px-2 */
+                border: 1px solid #d1d5db; /* gray-300 */
+                border-radius: 0.25rem; /* rounded */
+                font-size: 0.75rem; /* text-xs */
+                outline: none;
             }
-                    /* 超时记录样式：红色背景+文字，hover时加深 */
+            .search-input:focus {
+                outline: none;
+                border-color: #165DFF; /* 你的 primary 色 */
+                box-shadow: 0 0 0 1px #165DFF; /* focus:ring */
+            }
+            
+            /* 超时记录样式：红色背景+文字，hover时加深 */
             .bg-red-50 {
                 background-color: #fff2f0;
             }
@@ -49,32 +85,199 @@
             .bg-red-50:hover {
                 background-color: #ffebe6;
             }
+            
+            .warehouse-header {
+                background: linear-gradient(135deg, var(--secondary-color), #4a6491);
+                color: white;
+                padding: 16px 24px;
+                border-radius: 8px;
+                margin-bottom: 20px;
+                display: flex;
+                justify-content: space-between;
+                align-items: center;
+                flex-wrap: wrap;
+            }
+            
+            .warehouse-title {
+                display: flex;
+                align-items: center;
+                font-size: 1.25rem;
+                font-weight: bold;
+            }
+            
+            .warehouse-title i {
+                margin-right: 10px;
+                font-size: 1.5rem;
+            }
+            
+            .filter-container {
+                display: flex;
+                align-items: center;
+                gap: 12px;
+                background: rgba(255, 255, 255, 0.15);
+                padding: 10px 16px;
+                border-radius: 6px;
+            }
+            
+            .filter-container label {
+                font-weight: 600;
+                font-size: 0.9rem;
+                white-space: nowrap;
+            }
+            
+            .filter-container select {
+                padding: 6px 12px;
+                border: none;
+                border-radius: 4px;
+                background: white;
+                font-size: 0.9rem;
+                min-width: 160px;
+                color: #000;
+            }
+            
+            .filter-container button {
+                padding: 6px 14px;
+                background: var(--success-color);
+                color: white;
+                border: none;
+                border-radius: 4px;
+                cursor: pointer;
+                font-weight: 600;
+                transition: background 0.3s ease;
+                display: flex;
+                align-items: center;
+            }
+            
+            .filter-container button:hover {
+                background: #218838;
+            }
+            
+            .filter-container button i {
+                margin-right: 5px;
+            }
+            .record-stats {
+                display: flex;               /* 水平排列 */
+                align-items: center;         /* 垂直居中 */
+                justify-content: flex-end;   /* 内容靠右 */
+                gap: 8px;                    /* 子元素之间间距，可根据需要调整 */
+                white-space: nowrap;         /* 禁止换行，保持同一行 */
+                background: white;
+                padding: 12px 16px;
+                border-radius: 8px;
+                box-shadow: 0 1px 3px rgba(0, 0, 0, 0.08);
+                border: 1px solid #e5e7eb;
+                margin-bottom: 20px;
+                transition: all 0.3s ease;
+            }
+            
+            .record-stats:hover {
+                box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+                transform: translateY(-1px);
+            }
+            
+            .stats-icon {
+                display: flex;
+                align-items: center;
+                justify-content: center;
+                width: 40px;
+                height: 40px;
+                background: linear-gradient(135deg, var(--primary-color), #2980b9);
+                color: white;
+                border-radius: 8px;
+                margin-right: 12px;
+                font-size: 18px;
+            }
+            
+            .stats-content {
+                display: flex;
+                flex-direction: column;
+            }
+            
+            .stats-main {
+                display: flex;
+                align-items: baseline;
+                margin-bottom: 4px;
+                margin-left: 8px;
+            }
+            
+            .stats-label {
+                font-size: 14px;
+                color: #6b7280;
+                margin-right: 8px;
+            }
+            
+            .stats-count {
+                font-size: 20px;
+                font-weight: 700;
+                color: var(--primary-color);
+                margin-right: 8px;
+            }
+            
+            .stats-unit {
+                font-size: 14px;
+                color: #6b7280;
+            }
+            
+            .stats-filtered {
+                font-size: 13px;
+                color: #9ca3af;
+                display: flex;
+                align-items: center;
+            }
+            
+            .stats-filtered.active {
+                color: var(--success-color);
+                font-weight: 500;
+            }
+            
+            .stats-filtered::before {
+                content: "•";
+                margin-right: 6px;
+                font-size: 16px;
+            }
         }
     </style>
 
-    <div class="bg-gray-50 font-inter text-textDark p-4 md:p-6" style="margin-top: 79px; position: relative;">
-        <form action="" method="post">
-            {% csrf_token %}
-            <b style="margin-right: 5px;">选择仓点区域:</b>
-            <input type="hidden" name="step" value="warehouse_daily_get">
-            <select name="warehouse_filter" class="bg-white border border-gray-200 rounded px-2 py-1 text-sm">
-                {% for value, display_text in warehouse_options.items %}
-                    <option value="{{ value }}" {% if warehouse == value %}selected{% endif %}>
-                        {{ display_text }}
-                    </option>
-                {% endfor %}
-            </select>
+    <div class="bg-gray-50 font-inter text-textDark p-4 md:p-6" style="margin-top: 85px; position: relative;">
+        <!-- 更新后的顶部导航栏 -->
+        <div class="warehouse-header">
+            <div class="warehouse-title">
+                <i class="fas fa-warehouse"></i>
+                <span>仓库入库管理</span>
+            </div>
+            
+            <form action="" method="post" class="filter-container">
+                {% csrf_token %}
+                <label for="warehouse_filter">选择仓点区域:</label>
+                <input type="hidden" name="step" value="warehouse_daily_get">
+                <select name="warehouse_filter" id="warehouse_filter">
+                    {% for value, display_text in warehouse_options.items %}
+                        <option value="{{ value }}" {% if warehouse == value %}selected{% endif %}>
+                            {{ display_text }}
+                        </option>
+                    {% endfor %}
+                </select>
 
-            <button type="submit" class="ml-2 px-3 py-1 bg-primary text-white rounded text-sm">确认</button>
+                <button type="submit">
+                    <i class="fas fa-check"></i>确认
+                </button>
+            </form>
+            
+        </div>
 
-            <!-- 记录数统计 -->
-            <span class="ml-4 text-sm text-gray-600">
-
-                        共 <span class="text-primary font-semibold" id="total-records">{{ total_count|default:0}}</span> 条记录
-                        <span class="ml-2 text-gray-500" id="filtered-records">(显示全部)</span>
-
-            </span>
-        </form>
+        <div class="record-stats">
+            <div class="stats-icon">
+                <i class="bi bi-clipboard-data"></i>
+            </div>
+            <div class="stats-content">
+                <div class="stats-main">
+                    <span class="stats-label">共</span>
+                    <span class="stats-count" id="total-records">{{ total_count|default:0 }}</span>
+                    <span class="stats-unit">条记录</span>
+                </div>
+                <div class="stats-filtered" id="filtered-records">显示全部</div>
+            </div>
+        </div>
 
         <!-- 添加加载指示器 -->
         <div id="table-loader" class="hidden absolute inset-0 bg-white bg-opacity-70 flex items-center justify-center">
@@ -177,7 +380,7 @@
                                                         // 更新数据属性用于搜索
                                                         this.closest('tr').setAttribute('data-location', this.value.toUpperCase())"
                                                placeholder="请输入到仓位置"
-                                               class="bg-white border border-gray-200 rounded-lg px-1.5 py-0.75 text-[12px] w-full focus:outline-none focus:ring-2 focus:ring-primary/50 tag-shadow transition-all">
+                                               >
                                     {% else %}
                                         <span class="text-xs text-gray-500"></span>
                                     {% endif %}
@@ -434,7 +637,7 @@
                     }
                 });
 
-                // 2. 对匹配的行排序：先按“是否超时”（true在前），再按原顺序
+                // 2. 对匹配的行排序：先按"是否超时"（true在前），再按原顺序
                 visibleRows.sort((a, b) => {
                     if (a.isOvertime && !b.isOvertime) return -1; // 超时的在前
                     if (!a.isOvertime && b.isOvertime) return 1;
@@ -452,9 +655,9 @@
 
                 // 5. 更新筛选计数
                 if (containerQuery || locationQuery) {
-                    filteredCountEl.textContent(`(筛选后: ${visibleRows.length}/${totalRecords}条)`);
+                    filteredCountEl.textContent = `(筛选后: ${visibleRows.length}/${totalRecords}条)`;
                 } else {
-                    filteredCountEl.textContent('(显示全部)');
+                    filteredCountEl.textContent = '(显示全部)';
                 }
             }
 
@@ -534,18 +737,17 @@
                     const recordId = form.getAttribute('data-record-id');
                     const currentRow = form.closest('tr[data-record-id="' + recordId + '"]');
 
-                    // 填充“到仓位置”
+                    // 填充"到仓位置"
                     const arrivalInput = currentRow.querySelector(`#arrival_location_${recordId}`);
                     const arrivalValue = arrivalInput.value.trim();
                     const arrivalHidden = form.querySelector(`#arrival_location_hidden_${recordId}`);
                     arrivalHidden.value = arrivalValue;
 
-                    // 填充“拆柜状态”
+                    // 填充"拆柜状态"
                     const checkedStatus = currentRow.querySelector(`input[name="unpacking_status_${recordId}"]:checked`);
                     const statusValue = checkedStatus ? checkedStatus.value : '0';
                     const statusHidden = form.querySelector(`#unpacking_status_hidden_${recordId}`);
                     statusHidden.value = statusValue;
-
 
                     // 提交表单
                     form.submit();
