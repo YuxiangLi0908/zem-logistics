@@ -591,7 +591,6 @@ class WarehouseOperations(View):
     async def handle_adjust_inventory_post(
         self, request: HttpRequest
     ) -> tuple[str, dict[str, Any]]:
-        print('收到的信息',request.POST)
         plt_ids = request.POST.get('plt_ids')
         plt_list = plt_ids.split(',') 
         plt_int_list = [int(id) for id in plt_list]
@@ -748,12 +747,17 @@ class WarehouseOperations(View):
         # 获取未来三天的时间范围
         today = timezone.now().date()
         three_days_later = today + timedelta(days=3)
+        one_week_ago = today - timedelta(days=7) 
 
+        criteria1 = models.Q(appointment_datetime__date__range=[today, three_days_later])
+        criteria2 = models.Q(
+            ~models.Q(warehouse_process_status__in=['shipped', 'abnormal']),
+            appointment_datetime__date__range=[one_week_ago, today],
+        )
+        warehouse_condition = models.Q(origin=warehouse)
+        query_conditions = (criteria1 | criteria2) & warehouse_condition
         fleets = await sync_to_async(list)(
-            Fleet.objects.filter(
-                appointment_datetime__date__range=[today, three_days_later],
-                origin = warehouse,
-            ).prefetch_related(
+            Fleet.objects.filter(query_conditions).prefetch_related(
                 Prefetch(
                     'shipment',
                     queryset=Shipment.objects.prefetch_related(
@@ -793,10 +797,12 @@ class WarehouseOperations(View):
             total_cbm = pallet_cbm + packinglist_cbm
 
             days_diff = (fleet.appointment_datetime.date() - today).days
+            display_day = days_diff
             fleet_item = {
                 'fleet_number': fleet.fleet_number,
                 'warehouse_process_status': fleet.warehouse_process_status,
                 'pickup_number': fleet.pickup_number,
+                'fleet_type': fleet.fleet_type,
                 'appointment_datetime': fleet.appointment_datetime,
                 'driver_name': fleet.driver_name,
                 'driver_phone': fleet.driver_phone,
@@ -807,17 +813,21 @@ class WarehouseOperations(View):
                 'cbm': round(total_cbm, 2),
                 'is_estimated': is_estimated,
                 'days_diff': days_diff,
+                'display_day': 0 if days_diff < 0 else days_diff, 
                 'abnormal_reason': fleet.abnormal_reason,
             }
             fleet_data.append(fleet_item)
-            if 0 <= days_diff <= 2:
-                day_stats[days_diff]['fleets'].append(fleet_item)
-                day_stats[days_diff]['total_pallets'] += total_pallets
-                day_stats[days_diff]['total_cbm'] += total_cbm
+            print(fleet.fleet_number,days_diff)
+            if days_diff < 0 or 0 <= days_diff <= 2:
+                day_to_count = 0 if days_diff < 0 else days_diff  #过去一周的就放到今天显示
+
+                day_stats[day_to_count]['fleets'].append(fleet_item)
+                day_stats[day_to_count]['total_pallets'] += total_pallets
+                day_stats[day_to_count]['total_cbm'] += total_cbm
                 if fleet.warehouse_process_status == 'shipped':
-                    day_stats[days_diff]['completed_count'] += 1
+                    day_stats[day_to_count]['completed_count'] += 1
                 elif fleet.warehouse_process_status == 'abnormal':
-                    day_stats[days_diff]['abnormal_count'] += 1
+                    day_stats[day_to_count]['abnormal_count'] += 1
         for day in [0, 1, 2]:
             total_fleets = len(day_stats[day]['fleets'])
             completed_count = day_stats[day]['completed_count']
@@ -832,10 +842,13 @@ class WarehouseOperations(View):
             day_stats[day]['completion_rate'] = completion_rate
             day_stats[day]['normal_count'] = normal_count
 
+        past_count = len([f for f in fleet_data if f['days_diff'] < 0])
+        fleet_data.sort(key=lambda x: x['days_diff'])
         context = {
             'warehouse_options': self.warehouse_options,
             'fleets': fleet_data,
             'warehouse': warehouse,
+            'past_count': past_count,
             'summary': {
                 'total_fleets': len(fleet_data),
                 'total_pallets': sum(f['pallets'] for f in fleet_data),
