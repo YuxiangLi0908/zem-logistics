@@ -130,8 +130,8 @@
         background: var(--primary-color);
         color: white;
         border-radius: 50%;
-        width: 22px;
-        height: 22px;
+        width: 24px;
+        height: 24px;
         display: flex;
         align-items: center;
         justify-content: center;
@@ -213,6 +213,12 @@
     
     .status-abnormal .status-icon {
         color: #dc3545;
+    }
+
+    .day-past {
+        background-color: #f5f5f5;
+        color: #757575;
+        border: 1px solid #e0e0e0;
     }
 
     .table-container {
@@ -597,16 +603,31 @@
 
     <div class="warehouse-main">
         <div class="time-navigation">
-            <div class="time-tab active" data-day="0">今天 <span class="badge">{{ summary.today_count }}</span></div>
+            <div class="time-tab active" data-day="0">
+                今天 <span class="badge">{{ summary.today_count }}{% if past_count > 0 %}+{{ past_count }}{% endif %}</span>
+            </div>
             <div class="time-tab" data-day="1">明天 <span class="badge">{{ summary.tomorrow_count }}</span></div>
             <div class="time-tab" data-day="2">后天 <span class="badge">{{ summary.day_after_count }}</span></div>
         </div>
 
-        <div class="search-box">
-            <input type="text" class="search-input" placeholder="搜索出库批次、pickupNumber..." id="fleetSearch">
-            <button class="search-btn" id="searchBtn">
-                <i class="fas fa-search"></i> 搜索
-            </button>
+        <div class="search-box" style="display: flex; gap: 15px; margin-bottom: 20px; align-items: center;">
+            <div style="display: flex; gap: 10px; flex: 1;">
+                <input type="text" class="search-input" placeholder="搜索出库批次、pickupNumber..." id="fleetSearch">
+                <button class="search-btn" id="searchBtn">
+                    <i class="fas fa-search"></i> 搜索
+                </button>
+            </div>
+            <div style="display: flex; align-items: center; gap: 10px;">
+                <label for="fleetTypeFilter" style="font-weight: 600; color: #2c3e50; white-space: nowrap;">出库类型:</label>
+                <select id="fleetTypeFilter" class="search-input" style="min-width: 150px;">
+                    <option value="all">全部类型</option>
+                    <option value="FTL">FTL</option>
+                    <option value="LTL">LTL</option>
+                    <option value="客户自提">客户自提</option>
+                    <option value="快递">快递</option>
+                    <option value="快递">外配</option>
+                </select>
+            </div>
         </div>
 
         <div class="summary-cards">
@@ -642,6 +663,7 @@
                         <th>状态</th>
                         <th>出库批次</th>
                         <th>Pickup Number</th>
+                        <th>出库类型</th>
                         <th>Pre-load</th>
                         <th>预计提货时间</th>
                         <th>板数</th>
@@ -674,14 +696,19 @@
                         </td>
                         <td>
                             {{ fleet.fleet_number }}
-                            <span class="day-display day-{% if fleet.days_diff == 0 %}today{% elif fleet.days_diff == 1 %}tomorrow{% else %}dayafter{% endif %}">
+                            <span class="day-display 
+                                {% if fleet.days_diff == 0 %}day-today
+                                {% elif fleet.days_diff == 1 %}day-tomorrow
+                                {% elif fleet.days_diff == 2 %}day-dayafter
+                                {% else %}day-past{% endif %}">
                                 {% if fleet.days_diff == 0 %}今天
                                 {% elif fleet.days_diff == 1 %}明天
-                                {% else %}后天
-                                {% endif %}
+                                {% elif fleet.days_diff == 2 %}后天
+                                {% else %}{{ fleet.days_diff|add:"0"|cut:"-" }}天前{% endif %}
                             </span>
                         </td>
                         <td>{{ fleet.pickup_number }}</td>
+                        <td>{{ fleet.fleet_type }}</td>
                         <td style="padding: 4px;">
                             <form method="post" class="action-form">
                                 {% csrf_token %}
@@ -888,6 +915,7 @@
     }
 
     document.getElementById('searchBtn').addEventListener('click', applyFilters);
+    document.getElementById('fleetTypeFilter').addEventListener('change', applyFilters);
 
     function filterTableBySearch(searchTerm) {
         applyFilters();
@@ -907,6 +935,7 @@
         const activeTab = document.querySelector('.time-tab.active');
         const selectedDay = activeTab ? activeTab.getAttribute('data-day') : '0';
         const searchTerm = document.getElementById('fleetSearch').value.trim().toLowerCase();
+        const typeFilter = document.getElementById('fleetTypeFilter').value;
         
         // 处理普通行
         const rows = document.querySelectorAll('.shipment-table tbody tr');
@@ -916,13 +945,25 @@
             const fleet_number = row.getAttribute('data-fleet-number').toLowerCase();
             const pickup = row.getAttribute('data-pickup-number').toLowerCase();
             const daysDiff = row.getAttribute('data-days-diff');
+            const fleetType = row.querySelector('td:nth-child(4)').textContent.trim(); 
             
-            const matchesDay = selectedDay === 'all' || daysDiff === selectedDay;
+            let matchesDay = false;
+            if (selectedDay === '0') {
+                matchesDay = daysDiff <= 0;
+            } else if (selectedDay === '1') {
+                matchesDay = daysDiff === 1;
+            } else if (selectedDay === '2') {
+                matchesDay = daysDiff === 2;
+            } else {
+                matchesDay = true; // 显示所有
+            }
+            const displayDay = parseInt(daysDiff) < 0 ? '0' : daysDiff;
             const matchesSearch = searchTerm === '' || 
                                 fleet_number.includes(searchTerm) || 
                                 pickup.includes(searchTerm);
+            const matchesType = typeFilter === 'all' || fleetType === typeFilter;
             
-            row.style.display = (matchesDay && matchesSearch) ? '' : 'none';
+            row.style.display = (matchesDay && matchesSearch && matchesType) ? '' : 'none';
         });
     }
 
