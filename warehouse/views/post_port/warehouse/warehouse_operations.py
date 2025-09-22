@@ -816,7 +816,6 @@ class WarehouseOperations(View):
                 'abnormal_reason': fleet.abnormal_reason,
             }
             fleet_data.append(fleet_item)
-            print(fleet.fleet_number,days_diff)
             if days_diff < 0 or 0 <= days_diff <= 2:
                 day_to_count = 0 if days_diff < 0 else days_diff  #过去一周的就放到今天显示
 
