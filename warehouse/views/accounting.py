@@ -4228,7 +4228,7 @@ class Accounting(View):
         is_payable_check = self._validate_user_invoice_payable_check(request.user)
         if is_payable_check:  # 审核应付看到的
             #将应付的费用直接加到审核的列表上
-            orders, pre_order_pending =self.get_orders(criteria)
+            order_pending, pre_order_pending =self.get_orders(criteria)
 
         if not is_payable_check or request.user.is_staff:
             # 查找客服已录入账单
