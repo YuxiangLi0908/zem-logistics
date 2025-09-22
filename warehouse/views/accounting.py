@@ -7559,8 +7559,8 @@ class Accounting(View):
                             qty.append(invoice_preport.qty[field.name])
                             rate.append(invoice_preport.rate[field.name])
                             amount.append(value)
-                            note.append("")
-                        if field.verbose_name == "港口拥堵费":
+                            #note.append("")
+                        #if field.verbose_name == "港口拥堵费":
                             note.append(invoice_preport.surcharge_notes.get(field.name))
                 for k, v in invoice_preport.other_fees.items():
                     if v not in [None, 0, {}]:
@@ -7589,7 +7589,8 @@ class Accounting(View):
                                 qty.append(warehouse.qty[field.name])
                                 rate.append(warehouse.rate[field.name])
                                 amount.append(value)
-                                note.append("")
+                                #note.append("")
+                                note.append(warehouse.surcharge_notes.get(field.name))
                 for warehouse in invoice_warehouse:
                     for k, v in warehouse.other_fees.items():
                         if v not in [None, 0]:
@@ -7600,7 +7601,8 @@ class Accounting(View):
                             qty.append(1)
                             rate.append(v)
                             amount.append(v)
-                            note.append("")
+                            #note.append("")
+                            note.append(warehouse.surcharge_notes.get(field.name))
                 for delivery in invoice_delivery:
                     if delivery.total_cost is None:
                         raise ValueError("派送费为空")
@@ -7610,7 +7612,8 @@ class Accounting(View):
                     weight.append(delivery.total_weight_lbs)
                     qty.append(delivery.total_pallet)
                     amount.append(delivery.total_cost)
-                    note.append("")
+                    note.append(delivery.note)
+                    
                     try:
                         rate.append(int(delivery.total_cost / delivery.total_pallet))
                     except:
