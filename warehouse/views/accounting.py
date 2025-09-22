@@ -6309,6 +6309,7 @@ class Accounting(View):
     ):
         # 处理转运&组合账单
         vessel_etd = order.vessel_id.vessel_etd
+        act_pick_time = order.retrieval_id.actual_retrieval_timestamp
         warehouse = context["warehouse"]
         warehouse_precise = context["warehouse_precise"]
         preport_carrier = context["preport_carrier"]
@@ -6420,7 +6421,11 @@ class Accounting(View):
                     fees["overweight_fee"] = pickup_details.get("overweight")
 
                 # 计算车架费
-                fees = self._calculate_chassis_fee(fees, pickup_details, order)
+                cutoff_date = datetime(2025, 9, 1)
+                if act_pick_time and act_pick_time < cutoff_date:
+                    fees = self._calculate_chassis_fee(fees, pickup_details, order)
+                else:                   
+                    fees = self._calculate_chassis_fee_91(fees, pickup_details, order)
 
                 # 没有拆柜费时，获取入库费
                 if "palletization" not in pickup_details or pickup_details.get(
@@ -6450,6 +6455,22 @@ class Accounting(View):
         context["actual_weight"] = order.container_number.weight_lbs
 
         return self.template_invoice_payable_edit, context
+
+    def _calculate_chassis_fee_91(self, fees, pickup_details, order):
+        #就用还空和实际提柜时间比较，5天内免费
+        if pickup_details.get("chassis") not in (None, "/") and pickup_details.get(
+            "chassis_free_day"
+        ) not in (None, "/"):
+            empty_returned_at = order.retrieval_id.empty_returned_at
+            act_pick_time = order.retrieval_id.actual_retrieval_timestamp
+
+            returned_date = empty_returned_at.date()
+            arrive_date = act_pick_time.date()
+            delta = returned_date - arrive_date + 1
+            if delta > 5:
+                fees["chassis_fee"] = (delta - 5) * pickup_details.get("chassis")
+            return fees
+
 
     def _calculate_chassis_fee(self, fees, pickup_details, order):
         # 计算车架费
