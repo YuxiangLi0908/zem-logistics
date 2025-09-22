@@ -38,8 +38,14 @@ class ContainerPickupStatus(View):
         if step == "arrive_at_destination":
             template, context = await self.handle_arrive_at_destination_post(request)
             return await sync_to_async(render)(request, template, context)
+        elif step == "batch_arrive_at_destination":
+            template, context = await self.handle_batch_arrive_at_destination_post(request)
+            return await sync_to_async(render)(request, template, context)
         elif step == "empty_return":
             template, context = await self.handle_empty_return_post(request)
+            return await sync_to_async(render)(request, template, context)
+        elif step == "batch_empty_return":
+            template, context = await self.handle_batch_empty_return_post(request)
             return await sync_to_async(render)(request, template, context)
 
     async def handle_all_get(self) -> tuple[Any, Any]:
@@ -147,6 +153,32 @@ class ContainerPickupStatus(View):
             await sync_to_async(offload.save)()
         return await self.handle_all_get()
 
+    async def handle_batch_arrive_at_destination_post(
+            self, request: HttpRequest
+    ) -> tuple[Any, Any]:
+        """
+        批量修改到仓时间
+        """
+        container_numbers = request.POST.get("batch_container_numbers", "").split(',')
+        arrive_at = request.POST.get("batch_arrive_at")
+        for container_number in container_numbers:
+            order = await sync_to_async(
+                Order.objects.select_related("retrieval_id", "offload_id").get
+            )(container_number__container_number=container_number.strip())
+            retrieval = order.retrieval_id
+            tzinfo = self._parse_tzinfo(retrieval.retrieval_destination_precise)
+            parsed_arrive_at = self._parse_ts(arrive_at, tzinfo)
+            retrieval.arrive_at = parsed_arrive_at
+            retrieval.arrive_at_destination = True
+            await sync_to_async(retrieval.save)()
+            if order.order_type == "直送":
+                offload = order.offload_id
+                offload.offload_at = parsed_arrive_at
+                await sync_to_async(offload.save)()
+        return await self.handle_all_get()
+
+
+
     async def handle_empty_return_post(self, request: HttpRequest) -> tuple[Any, Any]:
         container_number = request.POST.get("container_number")
         empty_returned_at = request.POST.get("empty_returned_at")
@@ -158,6 +190,23 @@ class ContainerPickupStatus(View):
         retrieval.empty_returned = True
         retrieval.empty_returned_at = empty_returned_at
         await sync_to_async(retrieval.save)()
+        return await self.handle_all_get()
+
+    async def handle_batch_empty_return_post(self, request: HttpRequest) -> tuple[Any, Any]:
+        """
+        批量修改还空时间
+        """
+        container_numbers = request.POST.get("batch_container_numbers", "").split(',')
+        empty_returned_at = request.POST.get("batch_empty_returned_at")
+        for container_number in container_numbers:
+            retrieval = await sync_to_async(Retrieval.objects.get)(
+                order__container_number__container_number=container_number.strip()
+            )
+            tzinfo = self._parse_tzinfo(retrieval.retrieval_destination_precise)
+            parsed_empty_returned_at = self._parse_ts(empty_returned_at, tzinfo)
+            retrieval.empty_returned = True
+            retrieval.empty_returned_at = parsed_empty_returned_at
+            await sync_to_async(retrieval.save)()
         return await self.handle_all_get()
 
     async def _user_authenticate(self, request: HttpRequest):
