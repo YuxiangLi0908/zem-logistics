@@ -604,13 +604,7 @@
     <div class="warehouse-main">
         <div class="time-navigation">
             <div class="time-tab active" data-day="0">
-                今天 <span class="badge">
-                        {% if past_count > 0 %}
-                            {{ summary.today_count|add:past_count }}
-                        {% else %}
-                            {{ summary.today_count }}
-                        {% endif %}
-                    </span>
+                今天 <span class="badge">{{ summary.today_count }}{% endif %}</span>
             </div>
             <div class="time-tab" data-day="1">明天 <span class="badge">{{ summary.tomorrow_count }}</span></div>
             <div class="time-tab" data-day="2">后天 <span class="badge">{{ summary.day_after_count }}</span></div>
@@ -950,7 +944,7 @@
         rows.forEach(row => {
             const fleet_number = row.getAttribute('data-fleet-number').toLowerCase();
             const pickup = row.getAttribute('data-pickup-number').toLowerCase();
-            const daysDiff = row.getAttribute('data-days-diff');
+            const daysDiff = parseInt(row.getAttribute('data-days-diff'));
             const fleetType = row.querySelector('td:nth-child(4)').textContent.trim(); 
             
             let matchesDay = false;
@@ -968,7 +962,6 @@
                                 fleet_number.includes(searchTerm) || 
                                 pickup.includes(searchTerm);
             const matchesType = typeFilter === 'all' || fleetType === typeFilter;
-            
             row.style.display = (matchesDay && matchesSearch && matchesType) ? '' : 'none';
         });
     }

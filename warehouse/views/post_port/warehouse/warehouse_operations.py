@@ -840,13 +840,11 @@ class WarehouseOperations(View):
             day_stats[day]['completion_rate'] = completion_rate
             day_stats[day]['normal_count'] = normal_count
 
-        past_count = len([f for f in fleet_data if f['days_diff'] < 0])
         fleet_data.sort(key=lambda x: x['days_diff'])
         context = {
             'warehouse_options': self.warehouse_options,
             'fleets': fleet_data,
             'warehouse': warehouse,
-            'past_count': past_count,
             'summary': {
                 'total_fleets': len(fleet_data),
                 'total_pallets': sum(f['pallets'] for f in fleet_data),
