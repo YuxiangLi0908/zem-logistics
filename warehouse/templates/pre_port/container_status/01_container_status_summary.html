@@ -214,10 +214,11 @@
 </form>
 <script>
     function filterTable(filterInput, col_idx, trim) {
-        const searchKeyword = filterInput.value.toUpperCase().trim();
+        const searchKeywords = filterInput.value.trim().split(/\s+/).filter(keyword => keyword);
         const table = filterInput.closest('table');
         if (!table) return;
         const rows = table.querySelectorAll('tbody tr');
+
         rows.forEach(row => {
             const targetCell = row.cells[col_idx];
             if (!targetCell) {
@@ -227,10 +228,13 @@
             let cellText = targetCell.textContent || targetCell.innerText;
             if (trim) cellText = cellText.toUpperCase().trim();
 
-            if (searchKeyword === '') {
+            if (searchKeywords.length === 0) {
                 row.style.display = '';
             } else {
-                row.style.display = cellText.includes(searchKeyword) ? '' : 'none';
+                const isMatch = searchKeywords.some(keyword => {
+                    return cellText === keyword.toUpperCase().trim();
+                });
+                row.style.display = isMatch ? '' : 'none';
             }
         });
     };
