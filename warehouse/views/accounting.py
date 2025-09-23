@@ -6424,10 +6424,8 @@ class Accounting(View):
                 try:
                     pickup_details = DETAILS[warehouse][precise_warehouse][preport_carrier]
                 except KeyError:
-                    pickup_details = None
                     fees["basic_fee"] = 0
                 pallet_details = None  # 因为只有NJ的有两个拆柜供应商可以切换
-
             if pickup_details and is_first_find:  # 从未存储过时，才从报价表计算费用
                 # 计算基础费用
                 if "40" in context["container_type"]:
@@ -6459,7 +6457,7 @@ class Accounting(View):
 
         except (KeyError, TypeError) as e:
             raise ValueError("报价表查找失败", e)
-
+        
         context["pallet_details"] = pallet_details
 
         # 获取其他费用
@@ -6492,7 +6490,7 @@ class Accounting(View):
             delta = returned_date - arrive_date + 1
             if delta > 5:
                 fees["chassis_fee"] = (delta - 5) * pickup_details.get("chassis")
-            return fees
+        return fees
 
 
     def _calculate_chassis_fee(self, fees, pickup_details, order):
