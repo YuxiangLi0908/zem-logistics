@@ -462,7 +462,7 @@
                                 <!-- 5. 导出功能 -->
                                 <td class="px-4 py-2 text-xs">
                                     <div class="flex space-x-1">
-                                        <form method="post" action="" style="display: inline-block;"
+                                        <form method="post" action="" style="display: inline-block; width: 68px;"
                                               class="download-form" onsubmit="return handleDownloadAndUpdate(this)">
                                             {% csrf_token %}
                                             <input type="hidden" name="step" value="export_palletization_list">
@@ -486,7 +486,31 @@
                                                 <i class="bi bi-cloud-arrow-down-fill mr-0.5 text-[11px]"></i>拆柜单
                                             </button>
                                         </form>
-                                        <form method="post" action="" style="display: inline-block;">
+                                        <form method="post" action="" style="display: inline-block; width: 87px;"
+                                              class="download-form" onsubmit="return handleDownloadAndUpdate(this)">
+                                            {% csrf_token %}
+                                            <input type="hidden" name="step" value="export_palletization_list">
+                                            <input type="hidden" name="status" value="palletized">
+                                            <input type="hidden" name="warehouse_filter" value="{{ warehouse }}">
+                                            <input type="hidden" name="offload_id" value="{{ ret.offload_id }}">
+                                            <input type="hidden" name="arrival_location"
+                                                   value="{{ ret.arrival_location|default:''|upper }}">
+                                            <input type="hidden" name="unpacking_status"
+                                                   value="{{ ret.unpacking_status }}">
+                                            <input type="hidden" name="first_time_download" class="first-time-input"
+                                                   value="">
+                                            <input type="hidden" name="container_number"
+                                                   value="{{ order.container_number|default:'' }}">
+                                            <input type="hidden" name="action_type" value="new_export">
+
+                                            <button type="submit"
+                                                    class="compact-btn bg-success text-white hover:bg-success/90"
+                                                    {% if not order.container_number %}disabled
+                                                    title="柜号为空"{% endif %}>
+                                                <i class="bi bi-cloud-arrow-down-fill mr-0.5 text-[11px]"></i>(新)拆柜单
+                                            </button>
+                                        </form>
+                                        <form method="post" action="" style="display: inline-block; width: 68px;">
                                             {% csrf_token %}
                                             <input type="hidden" name="step" value="export_pallet_label">
                                             <input type="hidden" name="status" value="palletized">

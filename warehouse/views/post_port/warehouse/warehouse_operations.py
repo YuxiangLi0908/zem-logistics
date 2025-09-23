@@ -29,7 +29,7 @@ from warehouse.models.fleet import Fleet
 from warehouse.models.shipment import Shipment
 from warehouse.models.packing_list import PackingList
 from warehouse.models.pallet import Pallet
-from warehouse.views.export_file import export_palletization_list
+from warehouse.views.export_file import export_palletization_list, new_export_palletization_list
 from warehouse.views.post_port.warehouse.palletization import Palletization
 from warehouse.views.post_port.shipment.fleet_management import FleetManagement
 from warehouse.utils.constants import (
@@ -82,6 +82,10 @@ class WarehouseOperations(View):
             if action_type == 'export':
                 response_down = await export_palletization_list(request)
                 response_down['X-Action'] = 'export'
+                return response_down
+            elif action_type == 'new_export':
+                response_down = await new_export_palletization_list(request)
+                response_down['X-Action'] = 'new_export'
                 return response_down
             # 2. 第二次请求：执行更新并返回页面
             elif action_type == 'render':
@@ -150,6 +154,7 @@ class WarehouseOperations(View):
                     for order in related_orders:
                         if order.offload_id.warehouse_unpacking_time is None:
                             order.offload_id.warehouse_unpacking_time = warehouse_unpacking_time
+                            order.offload_id.unpacking_status = "2"
                             order.offload_id.save()
                             if not order.export_unpacking_id:
                                 # 表为空或该订单无关联记录，创建新记录
@@ -164,12 +169,6 @@ class WarehouseOperations(View):
                         else:
                             order.export_unpacking_id.download_num += 1
                             order.export_unpacking_id.save()
-                    try:
-                        offload_id = Offload.objects.get(offload_id=offload_id)
-                        offload_id.unpacking_status = "2"
-                        offload_id.save()
-                    except Retrieval.DoesNotExist:
-                        pass
 
             async_update = sync_to_async(sync_update_records, thread_sensitive=True)
             await async_update(offload_id)
