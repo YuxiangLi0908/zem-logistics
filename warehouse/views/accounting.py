@@ -6487,7 +6487,8 @@ class Accounting(View):
 
             returned_date = empty_returned_at.date()
             arrive_date = act_pick_time.date()
-            delta = returned_date - arrive_date + 1
+            delta_days = (returned_date - arrive_date).days
+            delta = delta_days + 1
             if delta > 5:
                 fees["chassis_fee"] = (delta - 5) * pickup_details.get("chassis")
         return fees
