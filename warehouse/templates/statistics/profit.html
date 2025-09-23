@@ -141,11 +141,11 @@
                     <tr>
                         <td class="container-number">{{ container.container_number }}</td>
                         <td>{{ container.customer_name }}</td>
-                        <td class="text-right">${{ container.preport_receivable|floatformat:2 }}</td>
+                        <td class="text-right">${{ container.receivable_preport|floatformat:2 }}</td>
                         <td class="text-right expense">${{ container.payable_preport|floatformat:2 }}</td>
-                        <td class="text-right">${{ container.warehouse_fee|floatformat:2 }}</td>
+                        <td class="text-right">${{ container.receivable_warehouse|floatformat:2 }}</td>
                         <td class="text-right expense">${{ container.payable_warehouse|floatformat:2 }}</td>
-                        <td class="text-right">${{ container.delivery_fee|floatformat:2 }}</td>
+                        <td class="text-right">${{ container.receivable_delivery|floatformat:2 }}</td>
                         <td class="text-right">${{ container.payable_delivery|floatformat:2 }}</td>
                         <td class="text-right summary-col highlight-income">${{ container.total_income|floatformat:2 }}</td>
                         <td class="text-right summary-col highlight-expense">${{ container.total_expense|floatformat:2 }}</td>
