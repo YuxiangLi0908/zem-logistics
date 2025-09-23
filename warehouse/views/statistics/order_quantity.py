@@ -2,7 +2,7 @@ import json
 import random
 import re
 from collections import defaultdict
-from datetime import datetime
+from datetime import datetime, timedelta
 from typing import Any
 
 import numpy as np
@@ -231,8 +231,8 @@ class OrderQuantity(View):
         start_date = request.POST.get("start_date")
         end_date = request.POST.get("end_date")
         today = datetime.today()
-        six_months_ago_first_day = (today + relativedelta(months=-6)).replace(day=1)
-        last_month_last_day = today + relativedelta(months=-1, day=31)
+        six_months_ago_first_day = today - timedelta(days=7)
+        last_month_last_day = today + timedelta(days=7)
 
         start_date = (
             six_months_ago_first_day.strftime("%Y-%m-%d")
