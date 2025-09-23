@@ -69,7 +69,11 @@
             <h3 class="section-title">账单录入详情</h3>
             <div class="table-controls">
                 <input type="text" id="searchInput" placeholder="搜索柜号/客户..." style="padding: 5px; margin-right: 10px;">
-                <button onclick="exportToExcel()" class="btn btn-success">导出Excel</button>
+                <form method="post" action="" onsubmit="showLoadingBar()">
+                    {% csrf_token %}
+                    <input type="hidden" name="step" value="caculate_all_expense">
+                    <button onclick="submit" class="btn btn-success">录入派送成本</button>
+                </form>
             </div>
         </div>
         
@@ -82,7 +86,8 @@
                         <th>仓库</th>
                         <th>ETA</th>
                         <th>总板数</th>
-                        <th>成本</th>
+                        <th>fleet计算成本</th>
+                        <th>记录的计算成本</th>
                         <th>未录入成本仓点（公仓）</th>
                         <th>未录入成本仓点（私仓）</th>
                     </tr>
@@ -98,6 +103,13 @@
                         <td class="text-right">
                             {% if result.total_expense > 0 %}
                                 <strong>${{ result.total_expense|floatformat:2 }}</strong>
+                            {% else %}
+                                <span class="no-expense">-</span>
+                            {% endif %}
+                        </td>
+                        <td class="text-right">
+                            {% if result.record_expense > 0 %}
+                                <strong>${{ result.record_expense|floatformat:2 }}</strong>
                             {% else %}
                                 <span class="no-expense">-</span>
                             {% endif %}

@@ -24,6 +24,7 @@ class FleetShipmentPallet(models.Model):
     PO_ID = models.CharField(max_length=20, null=True, blank=True)
     total_pallet = models.FloatField(null=True, default=0)
     expense = models.FloatField(null=True, blank=True)
+    is_recorded = models.BooleanField(default=False, verbose_name="是否已记录")
     history = HistoricalRecords()
 
     def __str__(self) -> str:
