@@ -88,6 +88,7 @@
                         <th>总板数</th>
                         <th>fleet计算成本</th>
                         <th>记录的计算成本</th>
+                        <th>已录入的仓点</th>
                         <th>未录入成本仓点（公仓）</th>
                         <th>未录入成本仓点（私仓）</th>
                     </tr>
@@ -112,6 +113,13 @@
                                 <strong>${{ result.record_expense|floatformat:2 }}</strong>
                             {% else %}
                                 <span class="no-expense">-</span>
+                            {% endif %}
+                        </td>
+                        <td class="text-left">
+                            {% if result.has_exp_des %}
+                                {{ result.has_exp_des }}
+                            {% else %}
+                                <span class="not-applicable">-</span>
                             {% endif %}
                         </td>
                         <td class="text-left">
