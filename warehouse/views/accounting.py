@@ -6385,80 +6385,80 @@ class Accounting(View):
         precise_warehouse = warehouse_precise.replace("-", " ")
         pallet_details = None
         # 从报价表获取费用标准
-        #try:
-        if warehouse == "NJ":
-            if "08817" in warehouse_precise:
+        try:
+            if warehouse == "NJ":
+                if "08817" in warehouse_precise:
+                    try:
+                        pickup_details = DETAILS[warehouse]["NJ 08817"][preport_carrier]
+                        search_carrier = DETAILS[warehouse]["NJ 08817"]
+                        # 获取拆柜供应商选项
+                        pallet_details = {
+                            carrier: value
+                            for carrier, details in search_carrier.items()
+                            for key in ["palletization", "arrive_warehouse"]
+                            if (value := details.get(key)) is not None and value != "/"
+                        }
+                    except KeyError:
+                        pickup_details = None
+                        search_carrier = None
+                        pallet_details = None
+                        fees["basic_fee"] = 0
+                    
+                else:
+                    try:
+                        pickup_details = DETAILS[warehouse]["NJ 07001"][preport_carrier]
+                        search_carrier = DETAILS[warehouse]["NJ 07001"]
+                        # 获取拆柜供应商选项
+                        pallet_details = {
+                            carrier: value
+                            for carrier, details in search_carrier.items()
+                            for key in ["palletization", "arrive_warehouse"]
+                            if (value := details.get(key)) is not None and value != "/"
+                        }
+                    except KeyError:
+                        pickup_details = None
+                        search_carrier = None
+                        pallet_details = None
+                        fees["basic_fee"] = 0         
+            else:
                 try:
-                    pickup_details = DETAILS[warehouse]["NJ 08817"][preport_carrier]
-                    search_carrier = DETAILS[warehouse]["NJ 08817"]
-                    # 获取拆柜供应商选项
-                    pallet_details = {
-                        carrier: value
-                        for carrier, details in search_carrier.items()
-                        for key in ["palletization", "arrive_warehouse"]
-                        if (value := details.get(key)) is not None and value != "/"
-                    }
+                    pickup_details = DETAILS[warehouse][precise_warehouse][preport_carrier]
                 except KeyError:
                     pickup_details = None
-                    search_carrier = None
-                    pallet_details = None
                     fees["basic_fee"] = 0
-                
-            else:
-                try:
-                    pickup_details = DETAILS[warehouse]["NJ 07001"][preport_carrier]
-                    search_carrier = DETAILS[warehouse]["NJ 07001"]
-                    # 获取拆柜供应商选项
-                    pallet_details = {
-                        carrier: value
-                        for carrier, details in search_carrier.items()
-                        for key in ["palletization", "arrive_warehouse"]
-                        if (value := details.get(key)) is not None and value != "/"
-                    }
-                except KeyError:
-                    pickup_details = None
-                    search_carrier = None
-                    pallet_details = None
-                    fees["basic_fee"] = 0         
-        else:
-            try:
-                pickup_details = DETAILS[warehouse][precise_warehouse][preport_carrier]
-            except KeyError:
-                pickup_details = None
-                fees["basic_fee"] = 0
-            pallet_details = None  # 因为只有NJ的有两个拆柜供应商可以切换
+                pallet_details = None  # 因为只有NJ的有两个拆柜供应商可以切换
 
-        if pickup_details and is_first_find:  # 从未存储过时，才从报价表计算费用
-            # 计算基础费用
-            if "40" in context["container_type"]:
-                fees["basic_fee"] = pickup_details["basic_40"]
-            else:
-                fees["basic_fee"] = pickup_details["basic_45"]
+            if pickup_details and is_first_find:  # 从未存储过时，才从报价表计算费用
+                # 计算基础费用
+                if "40" in context["container_type"]:
+                    fees["basic_fee"] = pickup_details["basic_40"]
+                else:
+                    fees["basic_fee"] = pickup_details["basic_45"]
 
-            # 计算超重费
-            actual_weight = order.container_number.weight_lbs
-            if (
-                pickup_details.get("overweight") not in (None, "/")
-                and float(actual_weight) > 42000
-            ):
-                fees["overweight_fee"] = pickup_details.get("overweight")
+                # 计算超重费
+                actual_weight = order.container_number.weight_lbs
+                if (
+                    pickup_details.get("overweight") not in (None, "/")
+                    and float(actual_weight) > 42000
+                ):
+                    fees["overweight_fee"] = pickup_details.get("overweight")
 
-            # 计算车架费
-            cutoff_date = timezone.datetime(2025, 9, 1, tzinfo=timezone.utc)
-            if act_pick_time and act_pick_time < cutoff_date:
-                fees = self._calculate_chassis_fee(fees, pickup_details, order)
-            else:                   
-                fees = self._calculate_chassis_fee_91(fees, pickup_details, order)
+                # 计算车架费
+                cutoff_date = timezone.datetime(2025, 9, 1, tzinfo=timezone.utc)
+                if act_pick_time and act_pick_time < cutoff_date:
+                    fees = self._calculate_chassis_fee(fees, pickup_details, order)
+                else:                   
+                    fees = self._calculate_chassis_fee_91(fees, pickup_details, order)
 
-            # 没有拆柜费时，获取入库费
-            if "palletization" not in pickup_details or pickup_details.get(
-                "palletization"
-            ) in (None, "/"):
-                if pickup_details.get("arrive_warehouse") not in (None, "/"):
-                    fees["arrive_fee"] = pickup_details.get("arrive_warehouse")
+                # 没有拆柜费时，获取入库费
+                if "palletization" not in pickup_details or pickup_details.get(
+                    "palletization"
+                ) in (None, "/"):
+                    if pickup_details.get("arrive_warehouse") not in (None, "/"):
+                        fees["arrive_fee"] = pickup_details.get("arrive_warehouse")
 
-        # except (KeyError, TypeError) as e:
-        #     raise ValueError("报价表查找失败", e)
+        except (KeyError, TypeError) as e:
+            raise ValueError("报价表查找失败", e)
 
         context["pallet_details"] = pallet_details
 
