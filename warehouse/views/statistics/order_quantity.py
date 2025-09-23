@@ -322,6 +322,7 @@ class OrderQuantity(View):
             total_expense = 0
             missing_public = []
             missing_private = []
+            has_exp_des = []
 
             for po_id, po_data in po_groups.items():
                 destination = po_data["destination"] or "未知目的地"
@@ -337,6 +338,7 @@ class OrderQuantity(View):
 
                 if po_expense > 0:
                     total_expense += po_expense
+                    has_exp_des.append(destination)
                 else:
                     # 没有费用 → 分类记录
                     if delivery_type == "public":
@@ -352,6 +354,7 @@ class OrderQuantity(View):
                 "total_pallets": len(container_pallets),
                 "total_expense": total_expense,
                 "record_expense": record_expense,
+                "has_exp_des": ", ".join(set(has_exp_des)),
                 "missing_public": ", ".join(set(missing_public)),
                 "missing_private": ", ".join(set(missing_private)),
             }
