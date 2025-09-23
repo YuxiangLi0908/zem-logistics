@@ -90,3 +90,9 @@ def add_month(date):
         return date.replace(month=date.month + 1)
     except ValueError:  # 处理12月+1的情况
         return date.replace(year=date.year + 1, month=1)
+
+@register.filter
+def dict_get(d, key):
+    if d is None:
+        return None
+    return d.get(key)

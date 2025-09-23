@@ -95,6 +95,9 @@ class OrderQuantity(View):
         elif step == "delivery_st_selection":
             template, context = await self.handle_delivery_st_selection(request)
             return await sync_to_async(render)(request, template, context)
+        elif step == "caculate_all_expense":
+            template, context = await self.handle_caculate_all_expense(request)
+            return await sync_to_async(render)(request, template, context)
 
     async def _get_orders(self, request) -> list:
         start_date = request.POST.get("start_date")
@@ -155,6 +158,75 @@ class OrderQuantity(View):
         )
         return orders
     
+    async def handle_caculate_all_expense(self, request) -> tuple[str, dict[str, Any]]:
+        fleet_pallets = await sync_to_async(list)(
+            FleetShipmentPallet.objects.select_related('container_number')
+            .filter(expense__isnull=False,is_recorded=False)
+            .exclude(PO_ID__isnull=True)
+            .exclude(PO_ID='')
+        )
+        expense_groups = {}
+        fleet_record_mapping = {}
+        for fp in fleet_pallets:
+            if not fp.container_number or not fp.container_number.container_number:
+                continue
+                
+            key = (fp.PO_ID, fp.container_number.container_number)
+            if key not in expense_groups:
+                expense_groups[key] = {
+                    'po_id': fp.PO_ID,
+                    'container_number': fp.container_number.container_number,
+                    'total_expense': 0,
+                    'fleet_record_ids': []
+                }
+                fleet_record_mapping[key] = []
+            
+            expense_groups[key]['total_expense'] += fp.expense or 0
+            expense_groups[key]['fleet_record_ids'].append(fp.id)
+            fleet_record_mapping[key].append(fp.id)
+
+        for key, group_data in expense_groups.items():
+            po_id, container_number = key
+            total_expense = group_data['total_expense']
+            fleet_record_ids = group_data['fleet_record_ids']
+
+            # 查找对应的Pallet记录
+            pallets = await sync_to_async(list)(
+                Pallet.objects.select_related('container_number')
+                .filter(
+                    PO_ID=po_id,
+                    container_number__container_number=container_number
+                ).distinct('PO_ID','container_number__container_number')
+            )        
+
+            if not pallets:
+                continue
+            
+            # 通过Pallet找到对应的Order和Invoice
+            for pallet in pallets:
+                if not pallet.container_number:
+                    continue
+                
+                # 查找Order
+                order = await sync_to_async(Order.objects.select_related('invoice_id').get)(container_number=pallet.container_number)
+                
+                invoice = order.invoice_id
+                old_amount = invoice.payable_delivery_amount or 0
+                new_amount = old_amount + total_expense
+                # 异步更新Invoice
+                await sync_to_async(Invoice.objects.filter(
+                    id=invoice.id
+                ).update)(
+                    payable_delivery_amount=new_amount
+                )     
+                if fleet_record_ids:
+                    await sync_to_async(FleetShipmentPallet.objects.filter(
+                        id__in=fleet_record_ids
+                    ).update)(
+                        is_recorded=True  # 标记为已记录
+                    )    
+        return await self.handle_delivery_st_selection(request)          
+
     async def handle_delivery_st_selection(self, request) -> tuple[str, dict[str, Any]]:
         start_date = request.POST.get("start_date")
         end_date = request.POST.get("end_date")
@@ -209,8 +281,10 @@ class OrderQuantity(View):
                 "payable_status",
                 "container_number",
                 "vessel_id",
+                "invoice_id",
             )
             .filter(criteria)
+            .exclude(invoice_id__isnull=True)
             .annotate(count=Count("id"))
         )
         container_numbers = [order.container_number.container_number for order in orders]
@@ -231,6 +305,7 @@ class OrderQuantity(View):
         for order in orders:
             container_number = order.container_number.container_number
             container_pallets = [p for p in pallets if p.container_number.container_number == container_number]
+            record_expense = order.invoice_id.payable_delivery_amount
 
             # 按 PO 分组
             po_groups = {}
@@ -276,6 +351,7 @@ class OrderQuantity(View):
                 "eta": order.vessel_id.vessel_eta if order.vessel_id else None,
                 "total_pallets": len(container_pallets),
                 "total_expense": total_expense,
+                "record_expense": record_expense,
                 "missing_public": ", ".join(set(missing_public)),
                 "missing_private": ", ".join(set(missing_private)),
             }
