@@ -11,18 +11,18 @@ class Migration(migrations.Migration):
 
     operations = [
         
-        migrations.AddField(
-            model_name="historicaloffload",
-            name="uploaded_at",
-            field=models.DateTimeField(
-                blank=True, null=True, verbose_name="回传拆柜数据上传时间"
-            ),
-        ),
-        migrations.AddField(
-            model_name="offload",
-            name="uploaded_at",
-            field=models.DateTimeField(
-                blank=True, null=True, verbose_name="回传拆柜数据上传时间"
-            ),
-        ),
+        # migrations.AddField(
+        #     model_name="historicaloffload",
+        #     name="uploaded_at",
+        #     field=models.DateTimeField(
+        #         blank=True, null=True, verbose_name="回传拆柜数据上传时间"
+        #     ),
+        # ),
+        # migrations.AddField(
+        #     model_name="offload",
+        #     name="uploaded_at",
+        #     field=models.DateTimeField(
+        #         blank=True, null=True, verbose_name="回传拆柜数据上传时间"
+        #     ),
+        # ),
     ]
