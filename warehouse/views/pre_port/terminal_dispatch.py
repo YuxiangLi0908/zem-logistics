@@ -1,7 +1,7 @@
 from datetime import datetime, timedelta, timezone
 from typing import Any
 
-import pytz
+import pytz,json 
 from asgiref.sync import sync_to_async
 from django.db import models
 from django.http import HttpRequest, HttpResponse
@@ -27,14 +27,23 @@ class TerminalDispatch(View):
     template_schedule_container_pickup = (
         "pre_port/vessel_terminal_tracking/03_schedule_container_pickup.html"
     )
+    template_batch_schedule_container = (
+        "pre_port/vessel_terminal_tracking/03_batch_schedule_container_pickup.html"
+    )
+
     template_update_container_pickup_schedule = (
         "pre_port/vessel_terminal_tracking/04_update_container_pickup_schedule.html"
     )
+    template_batch_update_container_pickup_schedule = (
+        "pre_port/vessel_terminal_tracking/04_batch_update_container_pickup_schedule.html"
+    )
+    
 
     async def get(self, request: HttpRequest) -> HttpResponse:
         if not await self._user_authenticate(request):
             return redirect("login")
         step = request.GET.get("step", None)
+        print('step-GET',step)
         if step == "all":
             template, context = await self.handle_all_get()
             return await sync_to_async(render)(request, template, context)
@@ -54,6 +63,7 @@ class TerminalDispatch(View):
         if not await self._user_authenticate(request):
             return redirect("login")
         step = request.POST.get("step", None)
+        print('step-POST',step)
         if step == "pickup_schedule_confirmation":
             template, context = await self.handle_pickup_schedule_confirmation_post(
                 request
@@ -66,6 +76,18 @@ class TerminalDispatch(View):
             return await sync_to_async(render)(request, template, context)
         elif step == "confirm_pickup":
             template, context = await self.handle_confirm_pickup_post(request)
+            return await sync_to_async(render)(request, template, context)
+        elif step == "batch_schedule_container":
+            template, context = await self.handle_batch_schedule_container_get(request)
+            return await sync_to_async(render)(request, template, context)
+        elif step == "batch_pickup_schedule_confirmation":
+            template, context = await self.handle_batch_pickup_schedule_confirmation(request)
+            return await sync_to_async(render)(request, template, context)
+        elif step == "batch_confirm_pickup":
+            template, context = await self.handle_batch_confirm_pickup_get(request)
+            return await sync_to_async(render)(request, template, context)
+        elif step == "batch_confirm_pickup_submit":
+            template, context = await self.handle_batch_confirm_pickup_submit_post(request)
             return await sync_to_async(render)(request, template, context)
 
     async def handle_all_get(self) -> tuple[Any, Any]:
@@ -120,6 +142,59 @@ class TerminalDispatch(View):
         }
         return self.template_terminal_dispatch, context
 
+    async def handle_batch_confirm_pickup_get(
+        self, request: HttpRequest
+    ) -> tuple[Any, Any]:
+        container_numbers_json = request.POST.get("selected_containers")
+        container_numbers = json.loads(container_numbers_json)
+        
+        # 获取所有选中的订单
+        selected_orders = []
+        for cn in container_numbers:
+            try:
+                order = await sync_to_async(
+                    Order.objects.select_related(
+                        "container_number", "customer_name", "vessel_id", "retrieval_id"
+                    ).get
+                )(container_number__container_number=cn)
+                selected_orders.append(order)
+            except Order.DoesNotExist:
+                continue
+        
+        _, context = await self.handle_all_get()
+        context["selected_orders"] = selected_orders
+        context["warehouse_options"] = [
+            (k, v) for k, v in WAREHOUSE_OPTIONS if k not in ["N/A(直送)", "Empty"]
+        ]
+        context["carrier_options"] = CONTAINER_PICKUP_CARRIER
+    
+        return self.template_batch_update_container_pickup_schedule, context
+    
+    async def handle_batch_schedule_container_get(
+        self, request: HttpRequest
+    ) -> tuple[Any, Any]:
+        container_numbers_json = request.POST.get("selected_containers")
+        container_numbers = json.loads(container_numbers_json)
+        
+        # 获取所有选中的订单
+        selected_orders = []
+        for cn in container_numbers:
+            order = await sync_to_async(
+                Order.objects.select_related(
+                    "container_number", "customer_name", "vessel_id", "retrieval_id"
+                ).get
+            )(container_number__container_number=cn)
+            selected_orders.append(order)
+        
+        _, context = await self.handle_all_get()
+        context["selected_orders"] = selected_orders
+        context["warehouse_options"] = [
+            (k, v) for k, v in WAREHOUSE_OPTIONS if k not in ["N/A(直送)", "Empty"]
+        ]
+        context["carrier_options"] = CONTAINER_PICKUP_CARRIER
+        
+        return self.template_batch_schedule_container, context
+    
     async def handle_schedule_container_pickup_get(
         self, request: HttpRequest
     ) -> tuple[Any, Any]:
@@ -148,6 +223,54 @@ class TerminalDispatch(View):
     ) -> tuple[Any, Any]:
         _, context = await self.handle_schedule_container_pickup_get(request)
         return self.template_update_container_pickup_schedule, context
+
+    async def handle_batch_pickup_schedule_confirmation(
+        self, request: HttpRequest
+    ) -> tuple[Any, Any]:
+        container_numbers = request.POST.getlist("container_numbers")
+        retrieval_destination = request.POST.get("retrieval_destination")
+        retrieval_carrier = request.POST.get("retrieval_carrier")
+        tzinfo = self._parse_tzinfo(retrieval_destination)
+        note = request.POST.get("note", "").strip()
+
+        for cn in container_numbers:
+            order = await sync_to_async(Order.objects.select_related('retrieval_id').get)(
+                container_number__container_number=cn
+            )
+            if order.order_type == "转运" or order.order_type == "转运组合":
+                warehouse = await sync_to_async(ZemWarehouse.objects.get)(name=retrieval_destination)
+                order.warehouse = warehouse
+                await sync_to_async(order.save)()
+            # 更新retrieval记录
+            order.retrieval_id.retrieval_destination_precise = retrieval_destination
+            order.retrieval_id.retrieval_carrier = retrieval_carrier
+            if request.POST.get("target_retrieval_timestamp"):
+                ts = request.POST.get("target_retrieval_timestamp")
+                order.retrieval_id.target_retrieval_timestamp = self._parse_ts(ts, tzinfo)
+            else:
+                order.retrieval_id.target_retrieval_timestamp = None
+            if request.POST.get("target_retrieval_timestamp_lower"):
+                ts = request.POST.get("target_retrieval_timestamp_lower")
+                order.retrieval_id.target_retrieval_timestamp_lower = self._parse_ts(ts, tzinfo)
+            else:
+                order.retrieval_id.target_retrieval_timestamp_lower = None
+            order.retrieval_id.note = note
+            order.retrieval_id.scheduled_at = datetime.now()
+            
+            await sync_to_async(order.retrieval_id.save)()
+            # 有提柜计划后，就将记录归为“提柜前一天
+            po_checks = await sync_to_async(list)(
+                PoCheckEtaSeven.objects.filter(
+                    container_number__container_number=cn
+                )
+            )
+            try:
+                for p in po_checks:
+                    p.time_status = False
+                    await sync_to_async(p.save)()
+            except PoCheckEtaSeven.DoesNotExist:
+                pass       
+        return await self.handle_all_get()
 
     async def handle_pickup_schedule_confirmation_post(
         self, request: HttpRequest
@@ -203,6 +326,53 @@ class TerminalDispatch(View):
         except PoCheckEtaSeven.DoesNotExist:
             pass
 
+        return await self.handle_all_get()
+
+    async def handle_batch_confirm_pickup_submit_post(
+        self, request: HttpRequest
+    ) -> tuple[Any, Any]:
+        """处理批量确认提柜的请求"""
+        container_numbers = request.POST.getlist("container_numbers")
+        actual_retrieval_timestamp = request.POST.get("actual_retrieval_timestamp")
+        
+        for cn in container_numbers:
+            # 获取retrieval记录
+            retrieval = await sync_to_async(Retrieval.objects.get)(
+                order__container_number__container_number=cn
+            )
+            
+            # 解析时区信息
+            tzinfo = self._parse_tzinfo(retrieval.retrieval_destination_precise)
+            actual_retrieval_ts = self._parse_ts(actual_retrieval_timestamp, tzinfo)
+            
+            # 更新retrieval记录
+            retrieval.actual_retrieval_timestamp = actual_retrieval_ts
+            
+            # 填了实际提柜但是没有写预计提柜的，就默认预计提柜时间为实际提柜时间
+            if not retrieval.target_retrieval_timestamp:
+                retrieval.target_retrieval_timestamp = actual_retrieval_ts
+            if not retrieval.target_retrieval_timestamp_lower:
+                retrieval.target_retrieval_timestamp_lower = actual_retrieval_ts
+            
+            # 处理当天提柜的逻辑
+            today = datetime.now()
+            actual_ts = datetime.fromisoformat(actual_retrieval_ts)
+            
+            # 如果是当天提柜
+            if actual_ts <= today + timedelta(days=1):
+                try:
+                    orders = await sync_to_async(list)(
+                        PoCheckEtaSeven.objects.filter(
+                            container_number__container_number=cn
+                        )
+                    )
+                    for o in orders:
+                        o.time_status = False
+                        await sync_to_async(o.save)()
+                except PoCheckEtaSeven.DoesNotExist:
+                    pass
+            
+            await sync_to_async(retrieval.save)()
         return await self.handle_all_get()
 
     async def handle_confirm_pickup_post(self, request: HttpRequest) -> tuple[Any, Any]:

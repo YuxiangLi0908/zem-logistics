@@ -7,15 +7,26 @@
 <div style="display: flex;">
     <div style="height: 800px; width: 51%; margin-top: .5%; margin-right: .5%; margin-bottom: 1%;">
         <div style="height: 50%; width: 100%; border: 2px solid rgb(180, 180, 180); border-radius: 12px; padding: 1%;">
-            <div>
+            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px;">
                 <b style="background-color: rgb(208, 208, 208); border-radius: 20px; font-size: 11px; display:inline-flex; color: rgb(100, 100, 100); padding: 5px;">
                     待预约货柜 - {{ orders_not_scheduled|length }}
                 </b>
+                <form method="post" action="" id="batchScheduleForm" style="display: none;">
+                    {% csrf_token %}
+                    <input type="hidden" name="step" value="batch_schedule_container">
+                    <input type="hidden" name="selected_containers" id="selectedScheduleContainers">
+                    <button type="submit" class="btn btn-primary btn-sm" style="font-size: 11px; padding: 3px 8px;">
+                        批量预约选中柜子
+                    </button>
+                </form>
             </div>
             <div style="overflow-y: scroll; max-height: 90%;">
                 <table class="table" id="eta-order-table" style="font-size: 11px; max-height: 90%; width: 900px">
                     <thead>
                         <tr style="position: sticky; top: 0;">
+                            <th class="th" style="width: 30px; text-align: center; vertical-align: middle;">
+                                <input type="checkbox" id="selectAllSchedule" onchange="toggleSelectAll('schedule')">
+                            </th>
                             <th class="th">仓库/地址</th>
                             <th class="th">柜号</th>
                             <th class="th">订单类型</th>
@@ -27,6 +38,7 @@
                             <th class="th">Available</th>
                         </tr>
                         <tr style="position: sticky; top: 28px;">
+                            <th class="th"></th>
                             <th class="th">
                                 <input type="text" id="ctnSearch" placeholder="搜索地址..." oninput="filterTable(this, 0, true)" size="8" style="font-size: 11px;">
                             </th>
@@ -45,6 +57,10 @@
                     <tbody>
                         {% for o in orders_not_scheduled %}
                         <tr>
+                            <td class="td" style="text-align: center;">
+                                <input type="checkbox" class="schedule-checkbox" value="{{ o.container_number.container_number }}" 
+                                       onchange="updateBatchButton('schedule')">
+                            </td>
                             <td class="td">{{ o.retrieval_id.retrieval_destination_area }}</td>
                             <td class="td">
                                 <a href="/terminal_dispatch/?step=schedule_container_pickup&container_number={{ o.container_number.container_number }}">
@@ -83,15 +99,26 @@
             </div>
         </div>
         <div style="height: 50%; width: 100%; border: 2px solid rgb(180, 180, 180); border-radius: 12px; padding: 1%; margin-top: .5%;">
-            <div>
+            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px;">
                 <b style="background-color: rgb(208, 208, 208); border-radius: 20px; font-size: 11px; display:inline-flex; color: rgb(100, 100, 100); padding: 5px;">
                     待确认提柜 - {{ orders_not_pickup|length }}
                 </b>
+                <form method="post" action="" id="batchConfirmForm" style="display: none;">
+                    {% csrf_token %}
+                    <input type="hidden" name="step" value="batch_confirm_pickup">
+                    <input type="hidden" name="selected_containers" id="selectedConfirmContainers">
+                    <button type="submit" class="btn btn-primary btn-sm" style="font-size: 11px; padding: 3px 8px;">
+                        批量确认选中柜子
+                    </button>
+                </form>
             </div>
             <div style="overflow-y: scroll; max-height: 90%;">
                 <table class="table" id="order-pickup-schedule-table" style="font-size: 11px; max-height: 90%; width: 900px">
                     <thead>
                         <tr style="position: sticky; top: 0;">
+                            <th class="th" style="width: 30px; text-align: center; vertical-align: middle;">
+                                <input type="checkbox" id="selectAllConfirm" onchange="toggleSelectAll('confirm')">
+                            </th>
                             <th class="th">仓库/地址</th>
                             <th class="th">柜号</th>
                             <th class="th">目的地</th>
@@ -102,6 +129,7 @@
                             <th class="th">优先级</th>
                         </tr>
                         <tr style="position: sticky; top: 28px;">
+                            <th class="th"></th>
                             <th class="th">
                                 <input type="text" id="ctnSearch" placeholder="搜索地址..." oninput="filterTable(this, 0, true)" size="8" style="font-size: 11px;">
                             </th>
@@ -119,6 +147,10 @@
                     <tbody>
                         {% for o in orders_not_pickup %}
                         <tr>
+                            <td class="td" style="text-align: center;">
+                                <input type="checkbox" class="confirm-checkbox" value="{{ o.container_number.container_number }}" 
+                                       onchange="updateBatchButton('confirm')">
+                            </td>
                             <td class="td">{{ o.retrieval_id.retrieval_destination_area }}</td>
                             <td class="td">
                                 <a href="/terminal_dispatch/?step=update_pickup_schedule&container_number={{ o.container_number.container_number }}">
@@ -246,8 +278,9 @@
         tbody = table.getElementsByTagName("tbody")[0];
         tr = tbody.getElementsByTagName("tr");
 
+        const actualColIdx = col_idx + 1;
         for (i = 0; i < tr.length; i++) {
-            containerTd = tr[i].getElementsByTagName("td")[col_idx];
+            containerTd = tr[i].getElementsByTagName("td")[actualColIdx];
             if (containerTd) {
                 containerTxtValue = containerTd.textContent || containerTd.innerText;
                 containerTxtValue = trim ? containerTxtValue.toUpperCase().trim() : containerTxtValue.toUpperCase()
@@ -258,5 +291,32 @@
             }
         }
     };
+
+    function toggleSelectAll(type) {
+        const checkboxes = document.querySelectorAll(`.${type}-checkbox`);
+        const selectAll = document.getElementById(`selectAll${type.charAt(0).toUpperCase() + type.slice(1)}`);
+        
+        checkboxes.forEach(checkbox => {
+            const row = checkbox.closest('tr');
+            if (row && row.style.display !== 'none') {
+                checkbox.checked = selectAll.checked;
+            }
+        });
+        updateBatchButton(type);
+    }
+
+    function updateBatchButton(type) {
+        const checkboxes = document.querySelectorAll(`.${type}-checkbox:checked`);
+        const form = document.getElementById(`batch${type.charAt(0).toUpperCase() + type.slice(1)}Form`);
+        const hiddenInput = document.getElementById(`selected${type.charAt(0).toUpperCase() + type.slice(1)}Containers`);
+        
+        if (checkboxes.length > 0) {
+            const containerNumbers = Array.from(checkboxes).map(cb => cb.value);
+            hiddenInput.value = JSON.stringify(containerNumbers);
+            form.style.display = 'block';
+        } else {
+            form.style.display = 'none';
+        }
+    }
 </script>
 {% endblock %}
