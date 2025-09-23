@@ -1,0 +1,387 @@
+{% extends 'base.html' %}
+
+{% block content %}
+{% load static custom_filters %}
+<div class="billing-container">
+    <h2 class="page-title">账单录入情况统计</h2>
+
+    <form method="post" action="" onsubmit="showLoadingBar()">
+        {% csrf_token %}
+        <div class="filter-section">
+            <div style="display: flex; align-items: center; gap: 10px; flex-wrap: wrap;">
+                <div>
+                    <b style="margin-right: 5px;">时间类型:</b>
+                    <select name="date_type" style="margin-right: 10px;">
+                        <option value="eta" {% if date_type == "eta" or not date_type %}selected{% endif %}>ETA</option>
+                        <option value="etd" {% if date_type == "etd" %}selected{% endif %}>ETD</option>
+                    </select>
+                </div>
+                <div>
+                    <b style="margin-right: 5px;">开始年月:</b>
+                    <input type="date" name="start_date" value="{{ start_date }}">
+                </div>
+                <div>
+                    <b style="margin-right: 5px;">结束年月:</b>
+                    <input type="date" name="end_date" value="{{ end_date }}" style="margin-right: 5px;">
+                </div>
+                
+                <b style="margin-right: 5px;">仓库:</b>
+                <div>
+                    <div id="warehouseList" style="display: inline-block; border: 1px solid #ccc; padding: 5px; max-height: 150px; overflow-y: auto; width: 200px;">
+                        {% for k, v in area_options.items %}
+                        <label style="display: block; margin: 3px 0;">
+                            <input type="checkbox" name="warehouse" value="{{ v }}"
+                            {% if v in warehouse_list %}checked{% endif %} style="margin-right: 5px;">
+                            {{ k }}
+                        </label>
+                        {% endfor %}
+                    </div>
+                </div>
+                
+                <b style="font-size: 13px;">客户</b>
+                <div>              
+                    <div id="customerList" style="display: inline-block; border: 1px solid #ccc; border-radius: 5px; background-color: #f9f9f9; padding: 5px; max-height: 150px; overflow-y: auto; width: 200px;">
+                        {% for k, v in customers.items %}
+                            {% if not forloop.first %} 
+                                <label style="display: block; margin: 3px 0;">
+                                    <input type="checkbox" name="customer" value="{{ v }}" 
+                                    {% if k in customer_list %}checked{% endif %} style="margin-right: 5px;">
+                                    {{ k }}
+                                </label>
+                            {% endif %}
+                        {% endfor %}
+                    </div>
+                </div>
+                
+                <div>
+                    <input type="hidden" name="step" value="delivery_st_selection">
+                    <button type="submit" class="btn btn-primary">查询</button>
+                </div>
+                <small style="color: #666; margin-left: 0px;">（仓库和客户不选择即为全选，时间默认过去6个月）</small>
+            </div>
+        </div>
+    </form>
+
+    {% if results %}
+
+    <div class="table-section">
+        <div class="table-header">
+            <h3 class="section-title">账单录入详情</h3>
+            <div class="table-controls">
+                <input type="text" id="searchInput" placeholder="搜索柜号/客户..." style="padding: 5px; margin-right: 10px;">
+                <button onclick="exportToExcel()" class="btn btn-success">导出Excel</button>
+            </div>
+        </div>
+        
+        <div class="table-responsive" style="max-height: 600px; overflow: auto;">
+            <table class="billing-table" id="billingTable">
+                <thead>
+                    <tr>
+                        <th>柜号</th>
+                        <th>客户</th>
+                        <th>仓库</th>
+                        <th>ETA</th>
+                        <th>总板数</th>
+                        <th>成本</th>
+                        <th>未录入成本仓点（公仓）</th>
+                        <th>未录入成本仓点（私仓）</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for result in results %}
+                    <tr>
+                        <td>{{ result.container_number }}</td>
+                        <td>{{ result.customer_name }}</td>
+                        <td>{{ result.warehouse }}</td>
+                        <td>{{ result.eta|date:"Y-m-d" }}</td>
+                        <td class="text-center">{{ result.total_pallets }}</td>
+                        <td class="text-right">
+                            {% if result.total_expense > 0 %}
+                                <strong>${{ result.total_expense|floatformat:2 }}</strong>
+                            {% else %}
+                                <span class="no-expense">-</span>
+                            {% endif %}
+                        </td>
+                        <td class="text-left">
+                            {% if result.missing_public %}
+                                {{ result.missing_public }}
+                            {% else %}
+                                <span class="not-applicable">-</span>
+                            {% endif %}
+                        </td>
+                        <td class="text-left">
+                            {% if result.missing_private %}
+                                {{ result.missing_private }}
+                            {% else %}
+                                <span class="not-applicable">-</span>
+                            {% endif %}
+                        </td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </div>
+    {% else %}
+    <div class="no-data">
+        <p>暂无数据，请调整筛选条件后重试。</p>
+    </div>
+    {% endif %}
+</div>
+
+<style>
+.billing-container {
+    font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+    max-width: 100%;
+    margin: 0 auto;
+    padding: 20px;
+}
+
+.page-title {
+    color: #000000;
+    font-size: 22px;
+    font-weight: 700;
+    margin: 20px 0 15px 0;
+    text-align: left;
+}
+
+.filter-section {
+    background-color: #f8f9fa;
+    padding: 15px;
+    border-radius: 8px;
+    margin-bottom: 20px;
+    border: 1px solid #e9ecef;
+}
+
+.summary-section {
+    background: #ffffff;
+    padding: 20px;
+    border-radius: 8px;
+    box-shadow: 0 2px 10px rgba(0, 0, 0, 0.05);
+    margin-bottom: 20px;
+}
+
+.section-title {
+    color: #2c3e50;
+    margin-bottom: 15px;
+    font-size: 18px;
+    border-bottom: 1px solid #eee;
+    padding-bottom: 10px;
+}
+
+.summary-cards {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+    gap: 15px;
+}
+
+.summary-card {
+    background: white;
+    padding: 15px;
+    border-radius: 8px;
+    box-shadow: 0 2px 5px rgba(0,0,0,0.1);
+    border-left: 4px solid #3498db;
+    text-align: center;
+}
+
+.card-label {
+    font-size: 14px;
+    font-weight: 600;
+    color: #555;
+    margin-bottom: 5px;
+}
+
+.card-value {
+    font-size: 24px;
+    font-weight: 700;
+    color: #2c3e50;
+}
+
+.table-section {
+    background: #ffffff;
+    padding: 20px;
+    border-radius: 8px;
+    box-shadow: 0 2px 10px rgba(0, 0, 0, 0.05);
+}
+
+.table-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 15px;
+}
+
+.table-controls {
+    display: flex;
+    gap: 10px;
+    align-items: center;
+}
+
+.billing-table {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: 12px;
+}
+
+.billing-table th {
+    background-color: #f8f9fa;
+    color: #495057;
+    font-weight: 600;
+    padding: 10px 8px;
+    border: 1px solid #dee2e6;
+    text-align: center;
+    position: sticky;
+    top: 0;
+    z-index: 10;
+}
+
+.billing-table td {
+    padding: 8px;
+    border: 1px solid #dee2e6;
+    text-align: left;
+}
+
+.billing-table tr:nth-child(even) {
+    background-color: #f9f9f9;
+}
+
+.billing-table tr:hover {
+    background-color: #f1f1f1;
+}
+
+.text-center {
+    text-align: center;
+}
+
+.text-right {
+    text-align: right;
+}
+
+.expense-cell {
+    min-width: 100px;
+}
+
+.has-expense {
+    color: #28a745;
+    font-weight: 600;
+    background-color: #d4edda;
+    padding: 2px 6px;
+    border-radius: 3px;
+    display: inline-block;
+}
+
+.no-expense {
+    color: #6c757d;
+    font-style: italic;
+}
+
+.not-applicable {
+    color: #ccc;
+}
+
+.total-expense {
+    font-weight: 600;
+    background-color: #e9ecef;
+}
+
+.btn {
+    padding: 8px 16px;
+    border: none;
+    border-radius: 4px;
+    cursor: pointer;
+    text-decoration: none;
+    display: inline-block;
+}
+
+.btn-primary {
+    background-color: #007bff;
+    color: white;
+}
+
+.btn-success {
+    background-color: #28a745;
+    color: white;
+}
+
+.btn:hover {
+    opacity: 0.8;
+}
+
+.no-data {
+    text-align: center;
+    padding: 40px;
+    color: #6c757d;
+    font-size: 16px;
+}
+
+/* 固定首列 */
+.billing-table th:first-child,
+.billing-table td:first-child {
+    position: sticky;
+    left: 0;
+    background-color: #f8f9fa;
+    z-index: 5;
+}
+
+.billing-table tr:hover td:first-child {
+    background-color: #f1f1f1;
+}
+</style>
+
+<script>
+function showLoadingBar() {
+    // 显示加载动画
+    console.log('Loading...');
+}
+
+function exportToExcel() {
+    alert('导出功能待实现');
+}
+
+// 搜索功能
+document.getElementById('searchInput').addEventListener('input', function() {
+    const searchTerm = this.value.toLowerCase();
+    const rows = document.querySelectorAll('#billingTable tbody tr');
+    
+    rows.forEach(row => {
+        const text = row.textContent.toLowerCase();
+        if (text.includes(searchTerm)) {
+            row.style.display = '';
+        } else {
+            row.style.display = 'none';
+        }
+    });
+});
+
+// 表格排序功能
+function sortTable(columnIndex) {
+    const table = document.getElementById('billingTable');
+    const tbody = table.querySelector('tbody');
+    const rows = Array.from(tbody.querySelectorAll('tr'));
+    
+    rows.sort((a, b) => {
+        const aValue = a.cells[columnIndex].textContent;
+        const bValue = b.cells[columnIndex].textContent;
+        
+        // 尝试数值比较
+        const aNum = parseFloat(aValue.replace(/[^0-9.-]+/g, ""));
+        const bNum = parseFloat(bValue.replace(/[^0-9.-]+/g, ""));
+        
+        if (!isNaN(aNum) && !isNaN(bNum)) {
+            return aNum - bNum;
+        } else {
+            return aValue.localeCompare(bValue);
+        }
+    });
+    
+    // 重新插入行
+    while (tbody.firstChild) {
+        tbody.removeChild(tbody.firstChild);
+    }
+    
+    rows.forEach(row => {
+        tbody.appendChild(row);
+    });
+}
+</script>
+{% endblock %}

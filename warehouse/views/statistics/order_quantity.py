@@ -11,7 +11,7 @@ from dateutil.relativedelta import relativedelta
 from django.apps import apps
 from django.contrib.auth.models import User
 from django.core.exceptions import ObjectDoesNotExist
-from django.db.models import Case, Count, FloatField, Model, Q, Sum
+from django.db.models import Case, Count, FloatField, Model, Q, Sum, F
 from django.db.models.functions import Cast, TruncMonth
 from django.http import Http404, HttpRequest, HttpResponse, HttpResponseForbidden
 from django.shortcuts import render
@@ -32,6 +32,7 @@ class OrderQuantity(View):
     template_shipment = "statistics/order_quantity.html"
     template_historical = "statistics/historical.html"
     template_profit = "statistics/profit.html"
+    template_delivery_cost_status = "statistics/delivery_cost_status.html"
     area_options = {"NJ": "NJ", "SAV": "SAV", "LA": "LA"}
 
     async def get(self, request: HttpRequest, **kwargs) -> HttpResponse:
@@ -56,6 +57,17 @@ class OrderQuantity(View):
             customers = {"----": None, **customers}
             context = {"area_options": self.area_options, "customers": customers}
             return await sync_to_async(render)(request, self.template_profit, context)
+        elif step == "profit_analysis_personalized":
+            if not await self._validate_user_profit(request.user):
+                return HttpResponseForbidden(
+                    "You are not authenticated to access this page!"
+                )
+            customers = await sync_to_async(list)(Customer.objects.all())
+            customers = {c.zem_name: c.id for c in customers}
+            customers["----"] = None
+            customers = {"----": None, **customers}
+            context = {"area_options": self.area_options, "customers": customers}
+            return await sync_to_async(render)(request, self.template_delivery_cost_status, context)
         else:
             if not await self._validate_user_group(request.user):
                 return HttpResponseForbidden(
@@ -80,6 +92,208 @@ class OrderQuantity(View):
         elif step == "profit_selection":
             template, context = await self.handle_order_profit_get(request)
             return await sync_to_async(render)(request, template, context)
+        elif step == "delivery_st_selection":
+            template, context = await self.handle_delivery_st_selection(request)
+            return await sync_to_async(render)(request, template, context)
+
+    async def _get_orders(self, request) -> list:
+        start_date = request.POST.get("start_date")
+        end_date = request.POST.get("end_date")
+        today = datetime.today()
+        six_months_ago_first_day = (today + relativedelta(months=-6)).replace(day=1)
+        last_month_last_day = today + relativedelta(months=-1, day=31)
+
+        start_date = (
+            six_months_ago_first_day.strftime("%Y-%m-%d")
+            if not start_date
+            else start_date
+        )
+        end_date = (
+            last_month_last_day.strftime("%Y-%m-%d") if not end_date else end_date
+        )
+
+        customers = await sync_to_async(
+            lambda: {"----": None, **{c.zem_name: c.id for c in Customer.objects.all()}}
+        )()
+        customer_idlist = request.POST.getlist("customer")
+        warehouse_list = request.POST.getlist("warehouse")
+
+        date_type = request.POST.get("date_type")
+
+        if date_type == "eta":
+            criteria = Q(
+                Q(vessel_id__vessel_eta__gte=start_date),
+                Q(vessel_id__vessel_eta__lte=end_date),
+                ~Q(order_type="直送"),
+            )
+        else:
+            criteria = Q(
+                Q(vessel_id__vessel_etd__gte=start_date),
+                Q(vessel_id__vessel_etd__lte=end_date),
+                ~Q(order_type="直送"),
+            )
+        if warehouse_list:
+            criteria &= Q(retrieval_id__retrieval_destination_area__in=warehouse_list)
+        if customer_idlist:
+            customer_list = await sync_to_async(list)(
+                Customer.objects.filter(id__in=customer_idlist).values("zem_name")
+            )
+            customer_idlist = [item["zem_name"] for item in customer_list]
+            criteria &= Q(customer_name__zem_name__in=customer_idlist)
+        # 展示财务确认的账单
+        criteria &= Q(receivable_status__stage="confirmed")
+        orders = await sync_to_async(list)(
+            Order.objects.select_related(
+                "customer_name",
+                "warehouse",
+                "retrieval_id",
+                "payable_status",
+                "container_number",
+            )
+            .filter(criteria)
+            .annotate(count=Count("id"))
+        )
+        return orders
+    
+    async def handle_delivery_st_selection(self, request) -> tuple[str, dict[str, Any]]:
+        start_date = request.POST.get("start_date")
+        end_date = request.POST.get("end_date")
+        today = datetime.today()
+        six_months_ago_first_day = (today + relativedelta(months=-6)).replace(day=1)
+        last_month_last_day = today + relativedelta(months=-1, day=31)
+
+        start_date = (
+            six_months_ago_first_day.strftime("%Y-%m-%d")
+            if not start_date
+            else start_date
+        )
+        end_date = (
+            last_month_last_day.strftime("%Y-%m-%d") if not end_date else end_date
+        )
+
+        customers = await sync_to_async(
+            lambda: {"----": None, **{c.zem_name: c.id for c in Customer.objects.all()}}
+        )()
+        customer_idlist = request.POST.getlist("customer")
+        warehouse_list = request.POST.getlist("warehouse")
+
+        date_type = request.POST.get("date_type")
+
+        if date_type == "eta":
+            criteria = Q(
+                Q(vessel_id__vessel_eta__gte=start_date),
+                Q(vessel_id__vessel_eta__lte=end_date),
+                ~Q(order_type="直送"),
+            )
+        else:
+            criteria = Q(
+                Q(vessel_id__vessel_etd__gte=start_date),
+                Q(vessel_id__vessel_etd__lte=end_date),
+                ~Q(order_type="直送"),
+            )
+        if warehouse_list:
+            criteria &= Q(retrieval_id__retrieval_destination_area__in=warehouse_list)
+        if customer_idlist:
+            customer_list = await sync_to_async(list)(
+                Customer.objects.filter(id__in=customer_idlist).values("zem_name")
+            )
+            customer_idlist = [item["zem_name"] for item in customer_list]
+            criteria &= Q(customer_name__zem_name__in=customer_idlist)
+        # 展示财务确认的账单
+        #criteria &= Q(receivable_status__stage="confirmed")
+        orders = await sync_to_async(list)(
+            Order.objects.select_related(
+                "customer_name",
+                "warehouse",
+                "retrieval_id",
+                "payable_status",
+                "container_number",
+                "vessel_id",
+            )
+            .filter(criteria)
+            .annotate(count=Count("id"))
+        )
+        container_numbers = [order.container_number.container_number for order in orders]
+        pallets = await sync_to_async(list)(
+            Pallet.objects.select_related('container_number')
+            .filter(container_number__container_number__in=container_numbers)
+            .exclude(PO_ID__isnull=True)
+            .exclude(PO_ID='')
+        )
+        fleet_pallets = await sync_to_async(list)(
+            FleetShipmentPallet.objects.select_related('container_number')
+            .filter(container_number__container_number__in=container_numbers)
+            .exclude(PO_ID__isnull=True)
+            .exclude(PO_ID='')
+        )
+        results = []
+        all_destinations = set()
+        for order in orders:
+            container_number = order.container_number.container_number
+            container_pallets = [p for p in pallets if p.container_number.container_number == container_number]
+
+            # 按 PO 分组
+            po_groups = {}
+            for pallet in container_pallets:
+                if pallet.PO_ID:
+                    if pallet.PO_ID not in po_groups:
+                        po_groups[pallet.PO_ID] = {
+                            "destination": pallet.destination,
+                            "delivery_type": pallet.delivery_type,
+                            "pallets": [],
+                        }
+                    po_groups[pallet.PO_ID]["pallets"].append(pallet)
+
+            total_expense = 0
+            missing_public = []
+            missing_private = []
+
+            for po_id, po_data in po_groups.items():
+                destination = po_data["destination"] or "未知目的地"
+                delivery_type = po_data["delivery_type"] or "未知类型"
+
+                # 查找费用
+                expense_records = [
+                    fp for fp in fleet_pallets
+                    if fp.container_number.container_number == container_number
+                    and fp.PO_ID == po_id
+                ]
+                po_expense = sum(fp.expense or 0 for fp in expense_records)
+
+                if po_expense > 0:
+                    total_expense += po_expense
+                else:
+                    # 没有费用 → 分类记录
+                    if delivery_type == "public":
+                        missing_public.append(destination)
+                    else:
+                        missing_private.append(destination)
+            
+            order_data = {
+                "container_number": container_number,
+                "customer_name": order.customer_name.zem_name,
+                "warehouse": order.warehouse,
+                "eta": order.vessel_id.vessel_eta if order.vessel_id else None,
+                "total_pallets": len(container_pallets),
+                "total_expense": total_expense,
+                "missing_public": ", ".join(set(missing_public)),
+                "missing_private": ", ".join(set(missing_private)),
+            }
+            
+            results.append(order_data)
+        context = {
+            'results': results,
+            'all_destinations': all_destinations,
+            'start_date': start_date,
+            'end_date': end_date,
+            'date_type': date_type,
+            'warehouse_list': request.POST.getlist("warehouse"),
+            'customer_list': request.POST.getlist("customer"),
+            'customers': customers,
+            'area_options': self.area_options,
+        }
+        
+        return self.template_delivery_cost_status, context
 
     async def handle_order_historical_get(
         self, request: HttpRequest
@@ -495,16 +709,19 @@ class OrderQuantity(View):
                 receivable_delivery = categorized["delivery_fee"]  # 派送
                 other_fees = categorized["other_fees"]
 
+            # 港前应付
             payable_preport = (
                 float(invoice.payable_preport_amount)
                 if invoice.payable_preport_amount is not None
                 else 0.0
-            )  # 港前应付
+            )  
+            # 库内应付
             payable_warehouse = (
                 float(invoice.payable_warehouse_amount)
                 if invoice.payable_warehouse_amount is not None
                 else 0.0
-            )  # 库内应付
+            )  
+            #派送应付
             payable_delivery = (
                 float(invoice.payable_delivery_amount)
                 if invoice.payable_delivery_amount is not None
