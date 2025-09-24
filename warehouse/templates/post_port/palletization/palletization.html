@@ -137,6 +137,17 @@
                                         <i class="bi bi-cloud-arrow-down-fill"></i>
                                     </button>
                                 </form>
+                                <form method="post" action="" style="display: inline-block;">
+                                    {% csrf_token %}
+                                    <input type="hidden" name="step" value="new_export_palletization_list">
+                                    <input type="hidden" name="status" value="non_palletized">
+                                    <input type="hidden" name="first_time_download" value="{% now 'Y-m-d H:i:s' %}">
+                                    <input type="hidden" name="container_number" value="{{ c.container_number }}">
+                                    <button type="submit" class="btn btn-success" style="font-size: 13px;">
+                                        <small>(新)拆柜单</small>
+                                        <i class="bi bi-cloud-arrow-down-fill"></i>
+                                    </button>
+                                </form>
                                 <form method="post" action="" style="display: inline-block;" id="semi_auto_label">
                                     {% csrf_token %}
                                     <input type="hidden" name="step" value="export_pallet_label">

@@ -59,7 +59,7 @@ from warehouse.utils.constants import (
     DELIVERY_METHOD_OPTIONS,
     WAREHOUSE_OPTIONS,
 )
-from warehouse.views.export_file import export_palletization_list
+from warehouse.views.export_file import export_palletization_list, export_palletization_list_v2
 
 
 class Palletization(View):
@@ -145,6 +145,8 @@ class Palletization(View):
             return render(request, template, context)
         elif step == "export_palletization_list":
             return await export_palletization_list(request)
+        elif step == "new_export_palletization_list":
+            return await export_palletization_list_v2(request)
         elif step == "export_pallet_label":
             return await self._export_pallet_label(request)
         elif step == "cancel":
