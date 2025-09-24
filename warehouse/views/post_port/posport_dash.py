@@ -112,6 +112,11 @@ class PostportDash(View):
             if request.POST.get("destination")
             else None
         )
+        act_destination = (
+            request.POST.get("act_destination").strip()
+            if request.POST.get("act_destination")
+            else None
+        )
         shipping_marks = (
             request.POST.get("shipping_marks").strip()
             if request.POST.get("shipping_marks")
@@ -145,6 +150,7 @@ class PostportDash(View):
             shipment_batch_number
             or container_number
             or destination
+            or act_destination
             or shipping_marks
             or fba_ids
             or ref_ids
@@ -162,6 +168,15 @@ class PostportDash(View):
                 plt_criteria = models.Q(
                     container_number__order__offload_id__offload_at__isnull=True,  # 如果是查预报的仓点，就不看板子，所以这里加了一个不成立的条件
                     container_number__container_number="0",
+                )
+            elif act_destination:
+                pl_criteria = models.Q(
+                    destination=act_destination,
+                    container_number__order__offload_id__offload_at__isnull=True,
+                )
+                plt_criteria = models.Q(
+                    destination=act_destination,
+                    container_number__order__offload_id__offload_at__isnull=False,
                 )
             elif shipping_marks:
                 pl_criteria = models.Q(
