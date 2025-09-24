@@ -205,7 +205,7 @@ class PostportDash(View):
                     ref_id__contains=ref_ids,
                     container_number__order__offload_id__offload_at__isnull=False,
                 )
-            if not destination and not shipping_marks and not fba_ids and not ref_ids:
+            if not destination and not shipping_marks and not fba_ids and not ref_ids and not act_destination:
                 pl_criteria = criteria & models.Q(
                     container_number__order__offload_id__offload_at__isnull=True,
                 )
@@ -261,6 +261,8 @@ class PostportDash(View):
             context["fba_ids"] = fba_ids
         if ref_ids:
             context["ref_ids"] = ref_ids
+        if act_destination:
+            context["act_destination"] = act_destination
         return self.template_main_dash, context
 
     async def handle_export_report_post(self, request: HttpRequest) -> HttpResponse:
