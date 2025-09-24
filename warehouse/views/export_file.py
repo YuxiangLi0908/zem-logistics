@@ -18,7 +18,6 @@ from django.contrib.auth.decorators import login_required
 from django.contrib.postgres.aggregates import StringAgg
 from django.contrib.staticfiles import finders
 from django.core.exceptions import MultipleObjectsReturned, ObjectDoesNotExist
-from django.db import models
 from django.db.models import (
     Case,
     CharField,
@@ -98,7 +97,7 @@ def export_bol(context: dict[str, Any]) -> HttpResponse:
     return response
 
 
-async def new_export_palletization_list(request: HttpRequest) -> HttpResponse:
+async def export_palletization_list_v2(request: HttpRequest) -> HttpResponse:
     """
     (新)拆柜单导出
     """
@@ -106,7 +105,8 @@ async def new_export_palletization_list(request: HttpRequest) -> HttpResponse:
     container_number = request.POST.get("container_number")
     warehouse_unpacking_time = request.POST.get("first_time_download")
     try:
-        warehouse_unpacking_time = datetime.datetime.strptime(warehouse_unpacking_time, "%Y-%m-%d %H:%M:%S").strftime("%d/%m /%Y")
+        warehouse_unpacking_time = datetime.datetime.strptime(warehouse_unpacking_time, "%Y-%m-%d %H:%M:%S").strftime(
+            "%d/%m /%Y")
     except (ValueError, TypeError):
         warehouse_unpacking_time = "未获取到时间"
 
@@ -218,25 +218,30 @@ async def new_export_palletization_list(request: HttpRequest) -> HttpResponse:
         top=Side(style='thin'),
         bottom=Side(style='thin')
     )
-    header1_font = Font(size=20, bold=True)
+    header1_font = Font(size=15, bold=True)
     header2_font = Font(size=11, bold=True)
-    data_font = Font(size=15, bold=True)
-    center_alignment = Alignment(horizontal='center', vertical='center')
-    left_alignment = Alignment(horizontal='left', vertical='center')
+    data_font = Font(size=12, bold=True)
+    center_alignment = Alignment(horizontal='center', vertical='center', wrap_text=True)
+    left_alignment = Alignment(horizontal='left', vertical='center', wrap_text=True)
     UNIFIED_ROW_HEIGHT = 30
 
-
     ws.merge_cells('A1:C1')
+    for col_idx in range(1, 4):
+        cell = ws.cell(row=1, column=col_idx)
+        cell.border = thin_border
+
     ws['A1'] = container_number or "未指定柜号"
     ws['A1'].font = header1_font
-    ws['A1'].border = thin_border
     ws['A1'].alignment = left_alignment
     ws.row_dimensions[1].height = UNIFIED_ROW_HEIGHT
 
     ws.merge_cells('D1:E1')
+    for col_idx in range(4, 6):
+        cell = ws.cell(row=1, column=col_idx)
+        cell.border = thin_border
+
     ws['D1'] = warehouse_unpacking_time
     ws['D1'].font = header1_font
-    ws['D1'].border = thin_border
     ws['D1'].alignment = center_alignment
 
     ws['F1'] = 'dock'
@@ -278,9 +283,9 @@ async def new_export_palletization_list(request: HttpRequest) -> HttpResponse:
                 max_length = len(cell_value)
 
         if col_idx == 6:
-            adjusted_width = max(30, min(max_length + 30, 300))
+            adjusted_width = max(10, min(max_length + 5, 30))
         else:
-            adjusted_width = max(18, min(max_length + 8, 40))
+            adjusted_width = max(8, min(max_length + 2, 20))
 
         ws.column_dimensions[column_letter].width = adjusted_width
 
@@ -295,7 +300,6 @@ async def new_export_palletization_list(request: HttpRequest) -> HttpResponse:
     response["Content-Disposition"] = f"attachment; filename={filename}"
 
     return response
-
 
 
 async def export_palletization_list(request: HttpRequest) -> HttpResponse:
