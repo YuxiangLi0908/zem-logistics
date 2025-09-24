@@ -189,7 +189,14 @@ class OrderQuantity(View):
             po_id, container_number = key
             total_expense = group_data['total_expense']
             fleet_record_ids = group_data['fleet_record_ids']
-
+            
+            if total_expense == 0 and fleet_record_ids:
+                #客户自提这种，成本为0的，不用后续处理
+                await sync_to_async(FleetShipmentPallet.objects.filter(
+                    id__in=fleet_record_ids
+                ).update)(
+                    is_recorded=True  # 标记为已记录
+                )  
             # 查找对应的Pallet记录
             pallets = await sync_to_async(list)(
                 Pallet.objects.select_related('container_number')
@@ -211,6 +218,8 @@ class OrderQuantity(View):
                 order = await sync_to_async(Order.objects.select_related('invoice_id').get)(container_number=pallet.container_number)
                 
                 invoice = order.invoice_id
+                if not invoice:
+                    continue
                 old_amount = invoice.payable_delivery_amount or 0
                 new_amount = old_amount + total_expense
                 # 异步更新Invoice
