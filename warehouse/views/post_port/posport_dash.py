@@ -107,6 +107,11 @@ class PostportDash(View):
             if request.POST.get("shipment_batch_number")
             else None
         )
+        appointment_id = (
+            request.POST.get("appointment_id").strip()
+            if request.POST.get("appointment_id")
+            else None
+        )
         destination = (
             request.POST.get("destination").strip()
             if request.POST.get("destination")
@@ -148,6 +153,7 @@ class PostportDash(View):
         )
         if (
             shipment_batch_number
+            or appointment_id
             or container_number
             or destination
             or act_destination
@@ -158,6 +164,10 @@ class PostportDash(View):
             if shipment_batch_number:
                 criteria &= models.Q(
                     shipment_batch_number__shipment_batch_number=shipment_batch_number
+                )
+            elif appointment_id:
+                criteria &= models.Q(
+                    shipment_batch_number__appointment_id=appointment_id
                 )
             elif container_number:
                 criteria &= models.Q(
