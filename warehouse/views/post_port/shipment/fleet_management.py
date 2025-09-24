@@ -685,45 +685,31 @@ class FleetManagement(View):
             file = request.FILES["file"]
             df = pd.read_excel(file)
             if "费用" in df.columns:
-                valid_rows = [
-                    (
-                        (
-                            str(row["PickUp Number"]).strip()
-                            if pd.notna(row["PickUp Number"])
-                            else ""
-                        ),
-                        (
-                            str(row["出库批次"]).strip()
-                            if pd.notna(row["出库批次"])
-                            else ""
-                        ),
-                        (
-                            str(row["预约批次"]).strip()
-                            if pd.notna(row["预约批次"])
-                            else ""
-                        ),
-                        (
-                            str(int(float(row["ISA"]))).strip()
-                            if pd.notna(row["ISA"])
-                            else ""
-                        ),
-                        (
-                            float(row["费用"]) if pd.notna(row["费用"]) else 0.0
-                        ),  # 假设费用可以为0
-                        index + 2
-                    )
-                    for index, row in df.iterrows()
-                    # 满足：费用存在 或 (PickUp Number/出库批次/预约批次 至少一个存在)
-                    if pd.notna(row["费用"])
-                    or any(
-                        [
-                            pd.notna(row.get("PickUp Number")),
-                            pd.notna(row.get("出库批次")),
-                            pd.notna(row.get("预约批次")),
-                            pd.notna(row.get("ISA")),
-                        ]
-                    )
-                ]
+                valid_rows = []
+                for index, row in df.iterrows():
+                    #满足：费用存在 或 (PickUp Number/出库批次/预约批次 至少一个存在)
+                    if pd.notna(row["费用"]) or any([
+                        pd.notna(row.get("PickUp Number")),
+                        pd.notna(row.get("出库批次")),
+                        pd.notna(row.get("预约批次")),
+                        pd.notna(row.get("ISA")),
+                    ]):
+                        isa_value = ""
+                        if pd.notna(row["ISA"]):
+                            try:
+                                isa_value = str(int(float(row["ISA"]))).strip()
+                            except (ValueError, TypeError) as e:
+                                error_messages.append(f"第{index+2}行: ISA值 '{row["ISA"]}' 转换失败 - {str(e)}")
+                                continue 
+                        row_data = (
+                            str(row["PickUp Number"]).strip() if pd.notna(row["PickUp Number"]) else "",
+                            str(row["出库批次"]).strip() if pd.notna(row["出库批次"]) else "",
+                            str(row["预约批次"]).strip() if pd.notna(row["预约批次"]) else "",
+                            isa_value,
+                            float(row["费用"]) if pd.notna(row["费用"]) else 0.0,
+                            index + 2
+                        )
+                        valid_rows.append(row_data)
             else:
                 error_messages.append(f"文件缺少必要列。找到的列: {df.columns.tolist()}")
                 return await self.handle_fleet_cost_record_get(request, error_messages, 0)
