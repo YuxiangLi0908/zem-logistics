@@ -699,7 +699,6 @@ class FleetManagement(View):
                             try:
                                 isa_value = str(int(float(row["ISA"]))).strip()
                             except (ValueError, TypeError) as e:
-                                error_messages.append(f"文件缺少必要列。找到的列: {df.columns.tolist()}")
                                 error_messages.append(f"第{index+2}行: ISA值 '{isa_value}' 转换失败 - {str(e)}")
                                 continue 
                         row_data = (
