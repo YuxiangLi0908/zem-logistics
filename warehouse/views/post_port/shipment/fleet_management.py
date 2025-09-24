@@ -747,6 +747,9 @@ class FleetManagement(View):
                     try:
                         shipment = await sync_to_async(Shipment.objects.get)(shipment_batch_number=shipment_batch_number)
                         fleet = await sync_to_async(getattr)(shipment, 'fleet_number')
+                        if not fleet:
+                            error_messages.append(f"第{row_number}行: 未找到ISA '{ISA}' 对应的车次")
+                            continue
                         search_criteria = f"预约批次: {shipment_batch_number}"
                     except Shipment.DoesNotExist:
                         error_messages.append(f"第{row_number}行: 未找到预约批次 '{shipment_batch_number}' 对应的车次")
@@ -764,6 +767,9 @@ class FleetManagement(View):
                     try:
                         shipment = await sync_to_async(Shipment.objects.get)(appointment_id=ISA)
                         fleet = await sync_to_async(getattr)(shipment, 'fleet_number')
+                        if not fleet:
+                            error_messages.append(f"第{row_number}行: 未找到ISA '{ISA}' 对应的车次")
+                            continue
                         search_criteria = f"ISA: {ISA}"
                     except Shipment.DoesNotExist:
                         error_messages.append(f"第{row_number}行: 未找到ISA '{ISA}' 对应的车次")
