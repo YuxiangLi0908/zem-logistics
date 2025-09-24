@@ -3,7 +3,7 @@
 {% block content %}
 {% load static custom_filters %}
 <div class="billing-container">
-    <h2 class="page-title">账单录入情况统计</h2>
+    <h2 class="page-title">派送账单录入情况统计</h2>
 
     <form method="post" action="" onsubmit="showLoadingBar()">
         {% csrf_token %}
@@ -52,7 +52,8 @@
                         {% endfor %}
                     </div>
                 </div>
-                
+                <b style="font-size: 13px;">柜号</b>
+                <input type="text" name="container_number" value="{{ container_number }}">
                 <div>
                     <input type="hidden" name="step" value="delivery_st_selection">
                     <button type="submit" class="btn btn-primary">查询</button>

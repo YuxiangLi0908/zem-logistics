@@ -237,6 +237,7 @@ class OrderQuantity(View):
         return await self.handle_delivery_st_selection(request)          
 
     async def handle_delivery_st_selection(self, request) -> tuple[str, dict[str, Any]]:
+        container_number = request.POST.get("container_number")
         start_date = request.POST.get("start_date")
         end_date = request.POST.get("end_date")
         today = datetime.today()
@@ -259,29 +260,31 @@ class OrderQuantity(View):
         warehouse_list = request.POST.getlist("warehouse")
 
         date_type = request.POST.get("date_type")
-
-        if date_type == "eta":
-            criteria = Q(
-                Q(vessel_id__vessel_eta__gte=start_date),
-                Q(vessel_id__vessel_eta__lte=end_date),
-                ~Q(order_type="直送"),
-            )
+        if container_number:
+            criteria = Q(container_number__container_number=container_number)
         else:
-            criteria = Q(
-                Q(vessel_id__vessel_etd__gte=start_date),
-                Q(vessel_id__vessel_etd__lte=end_date),
-                ~Q(order_type="直送"),
-            )
-        if warehouse_list:
-            criteria &= Q(retrieval_id__retrieval_destination_area__in=warehouse_list)
-        if customer_idlist:
-            customer_list = await sync_to_async(list)(
-                Customer.objects.filter(id__in=customer_idlist).values("zem_name")
-            )
-            customer_idlist = [item["zem_name"] for item in customer_list]
-            criteria &= Q(customer_name__zem_name__in=customer_idlist)
-        # 展示财务确认的账单
-        #criteria &= Q(receivable_status__stage="confirmed")
+            if date_type == "eta":
+                criteria = Q(
+                    Q(vessel_id__vessel_eta__gte=start_date),
+                    Q(vessel_id__vessel_eta__lte=end_date),
+                    ~Q(order_type="直送"),
+                )
+            else:
+                criteria = Q(
+                    Q(vessel_id__vessel_etd__gte=start_date),
+                    Q(vessel_id__vessel_etd__lte=end_date),
+                    ~Q(order_type="直送"),
+                )
+            if warehouse_list:
+                criteria &= Q(retrieval_id__retrieval_destination_area__in=warehouse_list)
+            if customer_idlist:
+                customer_list = await sync_to_async(list)(
+                    Customer.objects.filter(id__in=customer_idlist).values("zem_name")
+                )
+                customer_idlist = [item["zem_name"] for item in customer_list]
+                criteria &= Q(customer_name__zem_name__in=customer_idlist)
+            # 展示财务确认的账单
+            #criteria &= Q(receivable_status__stage="confirmed")
         orders = await sync_to_async(list)(
             Order.objects.select_related(
                 "customer_name",
