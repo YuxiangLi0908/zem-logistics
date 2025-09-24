@@ -639,7 +639,7 @@ class FleetManagement(View):
         wb = openpyxl.Workbook()
         ws = wb.active
         ws.title = "Fleet Cost Template"
-        headers = ["PickUp Number", "出库批次", "预约批次", "费用"]
+        headers = ["PickUp Number", "出库批次", "预约批次", "ISA", "费用"]
         ws.append(headers)
 
         response = HttpResponse(
@@ -701,6 +701,11 @@ class FleetManagement(View):
                             else ""
                         ),
                         (
+                            str(row["ISA"]).strip()
+                            if pd.notna(row["ISA"])
+                            else ""
+                        ),
+                        (
                             float(row["费用"]) if pd.notna(row["费用"]) else 0.0
                         ),  # 假设费用可以为0
                     )
@@ -712,6 +717,7 @@ class FleetManagement(View):
                             pd.notna(row.get("PickUp Number")),
                             pd.notna(row.get("出库批次")),
                             pd.notna(row.get("预约批次")),
+                            pd.notna(row.get("ISA")),
                         ]
                     )
                 ]
@@ -724,6 +730,7 @@ class FleetManagement(View):
                 pickup_number,
                 fleet_number,
                 shipment_batch_number,
+                ISA,
                 fleet_cost,
             ) in valid_rows:
                 if fleet_cost <= 0:
@@ -750,6 +757,12 @@ class FleetManagement(View):
                     fleet = await sync_to_async(Fleet.objects.get)(
                         fleet_number=fleet_number
                     )
+                elif ISA:
+                    fleet = await sync_to_async(
+                        lambda: Shipment.objects.get(
+                            appointment_id=ISA
+                        ).fleet_number
+                    )()
                 else:
                     raise ValueError("缺少车次等信息")
 
@@ -807,6 +820,7 @@ class FleetManagement(View):
                             PO_ID=group["PO_ID"],
                             total_pallet=group["actual_pallets"],
                             container_number_id=group["container_number"],
+                            is_recorded=False,
                         )
                         new_fleet_shipment_pallets.append(new_record)
 
