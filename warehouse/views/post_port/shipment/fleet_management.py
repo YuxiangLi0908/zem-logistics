@@ -820,6 +820,9 @@ class FleetManagement(View):
                             )
                         )
                     )()
+                elif fleet_shipments.is_recorded == True:
+                    #这个费用已经被记录到总成本里面了，就不能修改
+                    raise ValueError('已经登记过了，不能修改')
                 total_pallets = sum(
                     fs.total_pallet for fs in fleet_shipments if fs.total_pallet
                 )
