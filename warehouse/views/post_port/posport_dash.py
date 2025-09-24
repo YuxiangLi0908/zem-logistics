@@ -244,6 +244,7 @@ class PostportDash(View):
                 "start_date": start_date,
                 "end_date": end_date,
             }
+
         packing_list = await self._get_packing_list(pl_criteria, plt_criteria)
         context["packing_list"] = packing_list
         cbm_act, cbm_est, pallet_act, pallet_est = 0, 0, 0, 0
