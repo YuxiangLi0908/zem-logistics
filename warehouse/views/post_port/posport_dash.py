@@ -273,6 +273,8 @@ class PostportDash(View):
             context["ref_ids"] = ref_ids
         if act_destination:
             context["act_destination"] = act_destination
+        if appointment_id:
+            context["appointment_id"] = appointment_id
         return self.template_main_dash, context
 
     async def handle_export_report_post(self, request: HttpRequest) -> HttpResponse:
