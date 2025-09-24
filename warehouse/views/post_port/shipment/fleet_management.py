@@ -679,10 +679,12 @@ class FleetManagement(View):
         self, request: HttpRequest
     ) -> tuple[Any, Any]:
         form = UploadFileForm(request.POST, request.FILES)
+        error_messages = [] #错误信息
+        success_count = 0
         if form.is_valid():
             file = request.FILES["file"]
             df = pd.read_excel(file)
-            if "PickUp Number" in df.columns and "费用" in df.columns:
+            if "费用" in df.columns:
                 valid_rows = [
                     (
                         (
@@ -701,15 +703,16 @@ class FleetManagement(View):
                             else ""
                         ),
                         (
-                            str(row["ISA"]).strip()
+                            str(int(float(row["ISA"]))).strip()
                             if pd.notna(row["ISA"])
                             else ""
                         ),
                         (
                             float(row["费用"]) if pd.notna(row["费用"]) else 0.0
                         ),  # 假设费用可以为0
+                        index + 2
                     )
-                    for _, row in df.iterrows()
+                    for index, row in df.iterrows()
                     # 满足：费用存在 或 (PickUp Number/出库批次/预约批次 至少一个存在)
                     if pd.notna(row["费用"])
                     or any(
@@ -722,9 +725,8 @@ class FleetManagement(View):
                     )
                 ]
             else:
-                raise ValueError(
-                    f"Missing required columns. Found: {df.columns.tolist()}"
-                )
+                error_messages.append(f"文件缺少必要列。找到的列: {df.columns.tolist()}")
+                return await self.handle_fleet_cost_record_get(request, error_messages, 0)
 
             for (
                 pickup_number,
@@ -732,101 +734,92 @@ class FleetManagement(View):
                 shipment_batch_number,
                 ISA,
                 fleet_cost,
+                row_number
             ) in valid_rows:
-                if fleet_cost <= 0:
-                    raise ValueError("价格怎么是负的")
-                # 更新车次表的价格
-                if pickup_number:
-                    fleet_query = await sync_to_async(list)(
-                        Fleet.objects.filter(pickup_number=pickup_number).only(
-                            "id", "fleet_number", "pickup_number"
+                try:
+                    if fleet_cost <= 0:
+                        error_messages.append(f"第{row_number}行: 费用不能为负或零")
+                        continue
+                    fleet = None
+                    search_criteria = ""
+                    # 更新车次表的价格
+                    if pickup_number:
+                        fleet_query = await sync_to_async(list)(
+                            Fleet.objects.filter(pickup_number=pickup_number).only(
+                                "id", "fleet_number", "pickup_number"
+                            )
                         )
-                    )
-                    if len(fleet_query) > 1:
-                        raise ValueError("该PickUp Number被多个车次录入", fleet_query)
-                    fleet = await sync_to_async(Fleet.objects.get)(
-                        pickup_number=pickup_number
-                    )
-                elif shipment_batch_number:
-                    fleet = await sync_to_async(
-                        lambda: Shipment.objects.get(
-                            shipment_batch_number=shipment_batch_number
-                        ).fleet_number
-                    )()
-                elif fleet_number:
-                    fleet = await sync_to_async(Fleet.objects.get)(
-                        fleet_number=fleet_number
-                    )
-                elif ISA:
-                    fleet = await sync_to_async(
-                        lambda: Shipment.objects.get(
-                            appointment_id=ISA
-                        ).fleet_number
-                    )()
-                else:
-                    raise ValueError("缺少车次等信息")
-
-                fleet.fleet_cost = fleet_cost
-
-                await sync_to_async(fleet.save)()
-
-                # 更新fleetshipmentpallet表
-                if pickup_number:
-                    criteria = models.Q(pickup_number=pickup_number)
-                elif shipment_batch_number:
-                    criteria = models.Q(
-                        shipment_batch_number__shipment_batch_number=shipment_batch_number
-                    )
-                elif fleet_number:
-                    criteria = models.Q(fleet_number__fleet_number=fleet_number)
-                else:
-                    raise ValueError("缺少车次等信息")
-                fleet_shipments = await sync_to_async(
-                    lambda: list(
-                        FleetShipmentPallet.objects.filter(criteria).only(
-                            "id", "total_pallet", "expense"
+                        if len(fleet_query) > 1:
+                            error_messages.append(f"第{row_number}行: PickUp Number '{pickup_number}' 对应多个车次")
+                            continue
+                        if not fleet_query:
+                            error_messages.append(f"第{row_number}行: 未找到 PickUp Number '{pickup_number}' 对应的车次")
+                            continue
+                        fleet = fleet_query[0]
+                        search_criteria = f"PickUp Number: {pickup_number}"
+                    elif shipment_batch_number:
+                        try:
+                            shipment = await sync_to_async(Shipment.objects.get)(
+                                shipment_batch_number=shipment_batch_number
+                            )
+                            fleet = shipment.fleet_number
+                            search_criteria = f"预约批次: {shipment_batch_number}"
+                        except Shipment.DoesNotExist:
+                            error_messages.append(f"第{row_number}行: 未找到预约批次 '{shipment_batch_number}' 对应的车次")
+                            continue
+                    elif fleet_number:
+                        try:
+                            fleet = await sync_to_async(Fleet.objects.get)(
+                                fleet_number=fleet_number
+                            )
+                            search_criteria = f"出库批次: {fleet_number}"
+                        except Fleet.DoesNotExist:
+                            error_messages.append(f"第{row_number}行: 未找出库批次 '{fleet_number}' 对应的车次")
+                            continue
+                    elif ISA:                     
+                        try:
+                            shipment = await sync_to_async(Shipment.objects.get)(
+                                appointment_id=ISA
+                            )
+                            fleet = shipment.fleet_number
+                            search_criteria = f"ISA: {ISA}"
+                        except Shipment.DoesNotExist:
+                            error_messages.append(f"第{row_number}行: 未找到ISA '{ISA}' 对应的车次")
+                            continue
+                    else:
+                        error_messages.append(f"第{row_number}行: 缺少车次识别信息")
+                        continue
+                    
+                    if hasattr(fleet, 'fleet_cost') and fleet.fleet_cost is not None:
+                        # 检查是否有相关的FleetShipmentPallet记录且已记录
+                        existing_records = await sync_to_async(list)(
+                            FleetShipmentPallet.objects.filter(
+                                models.Q(fleet_number=fleet) | 
+                                models.Q(pickup_number=fleet.pickup_number)
+                            )
                         )
-                    )
-                )()
+                        if existing_records and any(record.is_recorded for record in existing_records):
+                            error_messages.append(f"第{row_number}行 ({search_criteria}): 费用已经登记过，不能修改")
+                            continue
 
-                if not fleet_shipments:
-                    # 如果找不到，说明这个车次，在系统上没有经过确认出库那一步，这里再补上
-                    if shipment_batch_number:
-                        criteria_plt = models.Q(
+                    fleet.fleet_cost = fleet_cost
+                    await sync_to_async(fleet.save)()
+
+                    # 更新fleetshipmentpallet表
+                    if pickup_number:
+                        criteria = models.Q(pickup_number=pickup_number)
+                    elif shipment_batch_number:
+                        criteria = models.Q(
                             shipment_batch_number__shipment_batch_number=shipment_batch_number
                         )
                     elif fleet_number:
-                        criteria_plt = models.Q(
-                            shipment_batch_number__fleet_number=fleet_number
+                        criteria = models.Q(fleet_number__fleet_number=fleet_number)
+                    elif ISA:
+                        criteria = models.Q(
+                            shipment_batch_number__appointment_id=ISA
                         )
-                    elif pickup_number:
-                        criteria_plt = models.Q(
-                            shipment_batch_number__fleet_number__pickup_number=pickup_number
-                        )
-                    grouped_pallets = await sync_to_async(list)(
-                        Pallet.objects.filter(criteria_plt)
-                        .values("shipment_batch_number", "PO_ID", "container_number")
-                        .annotate(
-                            actual_pallets=Count("pallet_id")
-                        )  # 计算每组的板子数量
-                        .order_by("shipment_batch_number", "PO_ID")
-                    )
-                    new_fleet_shipment_pallets = []
-                    for group in grouped_pallets:
-                        new_record = FleetShipmentPallet(
-                            fleet_number=fleet,
-                            pickup_number=fleet.pickup_number,
-                            shipment_batch_number_id=group["shipment_batch_number"],
-                            PO_ID=group["PO_ID"],
-                            total_pallet=group["actual_pallets"],
-                            container_number_id=group["container_number"],
-                            is_recorded=False,
-                        )
-                        new_fleet_shipment_pallets.append(new_record)
-
-                    await sync_to_async(FleetShipmentPallet.objects.bulk_create)(
-                        new_fleet_shipment_pallets, batch_size=500
-                    )
+                    else:
+                        criteria = models.Q(fleet_number=fleet)
                     fleet_shipments = await sync_to_async(
                         lambda: list(
                             FleetShipmentPallet.objects.filter(criteria).only(
@@ -834,26 +827,88 @@ class FleetManagement(View):
                             )
                         )
                     )()
-                elif fleet_shipments.is_recorded == True:
-                    #这个费用已经被记录到总成本里面了，就不能修改
-                    raise ValueError('已经登记过了，不能修改')
-                total_pallets = sum(
-                    fs.total_pallet for fs in fleet_shipments if fs.total_pallet
-                )
-                if total_pallets <= 0:
-                    continue
-                cost_per_pallet = fleet_cost / total_pallets
 
-                updates = []
-                for shipment in fleet_shipments:
-                    if shipment.total_pallet:
-                        shipment.expense = cost_per_pallet * shipment.total_pallet
-                        updates.append(shipment)
-                if updates:
-                    await sync_to_async(FleetShipmentPallet.objects.bulk_update)(
-                        updates, ["expense"]
+                    if not fleet_shipments:
+                        # 如果找不到，说明这个车次，在系统上没有经过确认出库那一步，这里再补上
+                        if shipment_batch_number:
+                            criteria_plt = models.Q(
+                                shipment_batch_number__shipment_batch_number=shipment_batch_number
+                            )
+                        elif ISA:
+                            criteria_plt = models.Q(
+                                shipment_batch_number__appointment_id=ISA
+                            )
+                        elif fleet_number:
+                            criteria_plt = models.Q(
+                                shipment_batch_number__fleet_number=fleet_number
+                            )
+                        elif pickup_number:
+                            criteria_plt = models.Q(
+                                shipment_batch_number__fleet_number__pickup_number=pickup_number
+                            )
+                        #先找到这个车/约里面的板子，按PO_ID分组，因为一组PO_ID存成一条记录
+                        grouped_pallets = await sync_to_async(list)(
+                            Pallet.objects.filter(criteria_plt)
+                            .values("shipment_batch_number", "PO_ID", "container_number")
+                            .annotate(
+                                actual_pallets=Count("pallet_id")
+                            )  # 计算每组的板子数量
+                            .order_by("shipment_batch_number", "PO_ID")
+                        )
+                        new_fleet_shipment_pallets = []
+                        if not grouped_pallets:
+                            error_messages.append(f"第{row_number}行 ({search_criteria}): 这个批次里面板数是空的")
+                            continue
+                        for group in grouped_pallets:
+                            new_record = FleetShipmentPallet(
+                                fleet_number=fleet,
+                                pickup_number=fleet.pickup_number,
+                                shipment_batch_number_id=group["shipment_batch_number"],
+                                PO_ID=group["PO_ID"],
+                                total_pallet=group["actual_pallets"],
+                                container_number_id=group["container_number"],
+                                is_recorded=False, #这里只是登记，没有记录到总费用，所以默认是False
+                            )
+                            new_fleet_shipment_pallets.append(new_record)
+
+                        await sync_to_async(FleetShipmentPallet.objects.bulk_create)(
+                            new_fleet_shipment_pallets, batch_size=500
+                        )
+                        fleet_shipments = await sync_to_async(
+                            lambda: list(
+                                FleetShipmentPallet.objects.filter(criteria).only(
+                                    "id", "total_pallet", "expense"
+                                )
+                            )
+                        )()
+                    elif fleet_shipments.is_recorded == True:
+                        #这个费用已经被记录到总成本里面了，就不能修改
+                        raise ValueError('已经登记过了，不能修改')
+                    #计算下这条记录涉及的总板数，如果这条记录是一个约的，就是这个约多少板子，如果这条记录是一个车的，就是这个车有多少板子
+                    total_pallets = sum(
+                        fs.total_pallet for fs in fleet_shipments if fs.total_pallet
                     )
-        return await self.handle_fleet_cost_record_get(request)
+                    if total_pallets <= 0:
+                        error_messages.append(f"第{row_number}行 ({search_criteria}): 这个批次里面板数是空的")
+                        continue
+                    #这条记录的总费用/总板数=每个板子的单价
+                    cost_per_pallet = fleet_cost / total_pallets
+
+                    updates = []
+                    for shipment in fleet_shipments:
+                        if shipment.total_pallet:
+                            shipment.expense = cost_per_pallet * shipment.total_pallet
+                            updates.append(shipment)
+                    #前面是建记录，这里是计算这条记录的expense，因为一个车有多条fleetshipmentpallet，要根据板数和板子单价计算这套记录的expense
+                    if updates:
+                        await sync_to_async(FleetShipmentPallet.objects.bulk_update)(
+                            updates, ["expense"]
+                        )
+                    success_count += 1
+                except Exception as e:
+                    error_messages.append(f"第{row_number}行: 处理错误 - {str(e)}")
+                    continue
+        return await self.handle_fleet_cost_record_get(request,error_messages, success_count)
 
     async def handle_fleet_cost_confirm_get(
         self, request: HttpRequest
@@ -889,7 +944,7 @@ class FleetManagement(View):
         return await self.handle_fleet_cost_record_get(request)
 
     async def handle_fleet_cost_record_get(
-        self, request: HttpRequest
+        self, request: HttpRequest, error_messages=None, success_count=0
     ) -> tuple[str, dict[str, Any]]:
         pickup_number = request.POST.get("pickup_number", "")
         fleet_number = request.POST.get("fleet_number", "")
@@ -924,6 +979,8 @@ class FleetManagement(View):
             "upload_file_form": UploadFileForm(required=True),
             "warehouse_options": self.warehouse_options,
             "area": area,
+            "error_messages": error_messages or [],
+            "success_count": success_count,
         }
         return self.template_fleet_cost_record, context
 
