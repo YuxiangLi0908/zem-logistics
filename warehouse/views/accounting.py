@@ -5411,7 +5411,7 @@ class Accounting(View):
                     uncombina_threshold
                     - combina_threshold
                 )
-                reason = f"规定{stipulate_non_combina}个非组合柜区，但是有{non_combina_region_count}个：{list(matched_regions['non_combina_dests'].keys())}，所以按照转运方式统计价格"
+                reason = f"规定{stipulate_non_combina}个非组合柜区，总共{uncombina_threshold}个区，组合柜{combina_threshold}个区，但是有{non_combina_region_count}个：{list(matched_regions['non_combina_dests'].keys())}，所以按照转运方式统计价格"
                 # reason = '不满足组合柜区域要求'
             actual_fees = self._combina_get_extra_fees(invoice)
             context["reason"] = reason
