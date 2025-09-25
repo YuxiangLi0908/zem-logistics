@@ -13,6 +13,7 @@ from warehouse.views.order_creation import OrderCreationLegacy
 from warehouse.views.palletization import Palletization as LegacyPalletization
 from warehouse.views.po import PO
 from warehouse.views.pod import POD
+from warehouse.views.home import Home
 from warehouse.views.post_port.posport_dash import PostportDash
 from warehouse.views.post_port.shipment.fleet_management import FleetManagement
 from warehouse.views.post_port.shipment.shipping_management import ShippingManagement
@@ -38,7 +39,7 @@ from warehouse.views.test.async_view import AsyncView
 from warehouse.views.user_login import *
 
 urlpatterns = [
-    path("", home, name="home"),
+    path("", Home.as_view(), name="home"),
     path("login/", user_login, name="login"),
     path("logout/", user_logout, name="logout"),
     path("health/", get_heartbeat, name="health_check"),
