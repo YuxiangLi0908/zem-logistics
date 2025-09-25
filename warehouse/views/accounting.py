@@ -6636,7 +6636,10 @@ class Accounting(View):
         match = re.match(r"\d+", container_type)
         if match:
             pick_subkey = match.group()
-            pickup_fee = PICKUP_FEE.details[warehouse][pick_subkey]
+            try:
+                pickup_fee = PICKUP_FEE.details[warehouse][pick_subkey]
+            except KeyError as e:
+                pickup_fee = 0
 
         FS_constrain = {  # 把details里面的键值对改成值是纯数字的，用于在费用表单提交前，验证数据合规性
             key: float(re.search(r"\d+(\.\d+)?", value).group())
