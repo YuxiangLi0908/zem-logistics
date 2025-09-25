@@ -3,7 +3,6 @@ import json
 import os
 import zipfile
 from datetime import datetime
-import datetime
 from io import BytesIO
 import openpyxl
 from openpyxl.styles import Font, Border, Side, Alignment
@@ -105,7 +104,7 @@ async def export_palletization_list_v2(request: HttpRequest) -> HttpResponse:
     container_number = request.POST.get("container_number")
     warehouse_unpacking_time = request.POST.get("first_time_download")
     try:
-        warehouse_unpacking_time = datetime.datetime.strptime(warehouse_unpacking_time, "%Y-%m-%d %H:%M:%S").strftime(
+        warehouse_unpacking_time = datetime.strptime(warehouse_unpacking_time, "%Y-%m-%d %H:%M:%S").strftime(
             "%d/%m /%Y")
     except (ValueError, TypeError):
         warehouse_unpacking_time = "未获取到时间"
@@ -306,8 +305,6 @@ async def export_palletization_list(request: HttpRequest) -> HttpResponse:
     status = request.POST.get("status")
     container_number = request.POST.get("container_number")
     if status == "non_palletized":
-        cn = pytz.timezone("Asia/Shanghai")
-        current_time_cn = datetime.now(cn).strftime("%Y-%m-%d %H:%M:%S")
         packing_list = await sync_to_async(list)(
             PackingList.objects.select_related("container_number", "pallet")
             .filter(container_number__container_number=container_number)
