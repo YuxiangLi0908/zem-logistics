@@ -298,17 +298,6 @@ class Home(View):
             )
             .filter(plt_criteria)
             .annotate(
-                schedule_status=Case(
-                    When(
-                        Q(
-                            container_number__order__offload_id__offload_at__lte=datetime.now().date()
-                            + timedelta(days=-7)
-                        ),
-                        then=Value("past_due"),
-                    ),
-                    default=Value("on_time"),
-                    output_field=CharField(),
-                ),
                 str_id=Cast("id", CharField()),
             )
             .values(
@@ -322,7 +311,6 @@ class Home(View):
                 "container_number__order__retrieval_id__target_retrieval_timestamp",
                 "container_number__order__retrieval_id__actual_retrieval_timestamp",
                 "container_number__order__vessel_id__vessel_eta",
-                "schedule_status",
                 "abnormal_palletization",
                 "po_expired",
                 "shipment_batch_number__shipment_batch_number",
@@ -381,18 +369,7 @@ class Home(View):
                         ),
                         default=F("delivery_method"),
                         output_field=CharField(),
-                    ),
-                    schedule_status=Case(
-                        When(
-                            Q(
-                                container_number__order__offload_id__offload_at__lte=datetime.now().date()
-                                + timedelta(days=-7)
-                            ),
-                            then=Value("past_due"),
-                        ),
-                        default=Value("on_time"),
-                        output_field=CharField(),
-                    ),
+                    ),                 
                     str_id=Cast("id", CharField()),
                     str_fba_id=Cast("fba_id", CharField()),
                     str_ref_id=Cast("ref_id", CharField()),
@@ -409,7 +386,6 @@ class Home(View):
                     "container_number__order__retrieval_id__target_retrieval_timestamp",
                     "container_number__order__retrieval_id__actual_retrieval_timestamp",
                     "container_number__order__vessel_id__vessel_eta",
-                    "schedule_status",
                     "pcs",
                     "shipment_batch_number__shipment_batch_number",
                     "shipment_batch_number__appointment_id",
@@ -440,36 +416,12 @@ class Home(View):
                     ids=StringAgg(
                         "str_id", delimiter=",", distinct=True, ordering="str_id"
                     ),
-                    total_pcs=Sum(
-                        Case(
-                            When(pallet__isnull=True, then=F("pcs")),
-                            default=F("pallet__pcs"),
-                            output_field=IntegerField(),
-                        )
-                    ),
-                    total_cbm=Sum(
-                        Case(
-                            When(pallet__isnull=True, then=F("cbm")),
-                            default=F("pallet__cbm"),
-                            output_field=FloatField(),
-                        )
-                    ),
-                    total_weight_lbs=Sum(
-                        Case(
-                            When(pallet__isnull=True, then=F("total_weight_lbs")),
-                            default=F("pallet__weight_lbs"),
-                            output_field=FloatField(),
-                        )
-                    ),
+                    total_pcs=Sum("pcs", output_field=FloatField()),
+                    total_cbm=Sum("cbm", output_field=FloatField()),
+                    total_weight_lbs=Sum("total_weight_lbs", output_field=FloatField()),
                     total_n_pallet_act=Count("pallet__pallet_id", distinct=True),
                     total_n_pallet_est=Sum("cbm", output_field=FloatField()) / 2,
-                    label=Max(
-                        Case(
-                            When(pallet__isnull=True, then=Value("EST")),
-                            default=Value("ACT"),
-                            output_field=CharField(),
-                        )
-                    ),
+                    label=Value("EST"),
                 )
                 .distinct()
             )
