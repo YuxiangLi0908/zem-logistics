@@ -5,9 +5,9 @@
 <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
 <style>
     :root {
-        --primary: #4361ee;
-        --primary-light: #e6f0ff;
         --secondary: #6c757d;
+        --secondary-colors: #356697ff;
+        --secondary-color: #3e8bd9ff;
         --success: #28a745;
         --warning: #ffc107;
         --danger: #dc3545;
@@ -49,7 +49,7 @@
     }
     
     .header {
-        background: linear-gradient(135deg, var(--primary) 0%, #4a6491 100%);    
+        background: linear-gradient(135deg, var(--secondary-colors), #4a6491); 
         color: white;
         padding: 25px 30px;
         border-radius: var(--border-radius);
@@ -141,12 +141,12 @@
     }
     
     .btn-primary {
-        background: var(--primary);
+        background: var(--secondary-color);
         color: white;
     }
     
     .btn-primary:hover {
-        background: #3251d4;
+        background: --secondary-color;
         transform: translateY(-2px);
         box-shadow: 0 4px 12px rgba(67, 97, 238, 0.3);
     }
@@ -240,7 +240,7 @@
     }
     
     .section-badge {
-        background: var(--primary);
+        background: var(--secondary-color);
         color: white;
         padding: 6px 12px;
         border-radius: 20px;
@@ -267,7 +267,7 @@
         left: 0;
         width: 4px;
         height: 100%;
-        background: var(--primary);
+        background: var(--secondary-color);
     }
     
     .container-timeline:hover {
@@ -287,7 +287,7 @@
     .container-number {
         font-size: 22px;
         font-weight: 700;
-        color: var(--primary);
+        color: var(--secondary-color);
     }
     
     .container-details {
@@ -311,7 +311,7 @@
     
     .status-DELIVERED {
         background: #e2f0ff;
-        color: var(--primary);
+        color: var(--secondary-color);
     }
     
     /* 时间线进度条 */
@@ -333,7 +333,7 @@
     
     .timeline-progress-bar {
         height: 100%;
-        background: var(--primary);
+        background: var(--secondary-color);
         border-radius: 3px;
         transition: width 1s ease;
     }
@@ -370,8 +370,8 @@
     }
     
     .timeline-step.completed .step-marker {
-        border-color: var(--primary);
-        background: var(--primary);
+        border-color: var(--secondary-color);
+        background: var(--secondary-color);
         color: white;
     }
     
@@ -395,7 +395,6 @@
         margin-left: 4px;
     }
     
-    /* 港后轨迹 - 修改后的样式 */
     .warehouse-timelines {
         display: grid;
         grid-template-columns: repeat(auto-fill, minmax(450px, 1fr));
@@ -463,7 +462,7 @@
     
     .status-scheduled {
         background: #e2f0ff;
-        color: var(--primary);
+        color: var(--secondary-color);
     }
     
     .status-in_transit {
@@ -526,10 +525,9 @@
     
     .mixed {
         background: #e2f0ff;
-        color: var(--primary);
+        color: var(--secondary-color);
     }
     
-    /* 新的港后轨迹时间线样式 */
     .post-port-timeline {
         position: relative;
         margin-top: 15px;
@@ -567,7 +565,7 @@
     }
     
     .post-port-step.active::before {
-        background: var(--primary);
+        background: var(--secondary-color);
     }
     
     .post-port-step.pending::before {
@@ -589,7 +587,7 @@
     }
     
     .post-port-step.active .post-port-step-icon {
-        background: var(--primary);
+        background: var(--secondary-color);
         color: white;
     }
     
@@ -606,10 +604,9 @@
     }
     
     .post-port-step.active .post-port-step-count {
-        color: var(--primary);
+        color: var(--secondary-color);
     }
     
-    /* 无数据状态 */
     .no-data {
         text-align: center;
         padding: 60px 20px;
@@ -627,7 +624,160 @@
         font-weight: 600;
     }
     
-    /* 响应式设计 */
+    .status-summary-container {
+        display: flex;
+        justify-content: flex-start;
+        gap: 10px;
+        margin-bottom: 25px;
+        flex-wrap: wrap;
+    }
+    
+    .status-summary-item {
+        display: flex;
+        align-items: center;
+        padding: 8px 20px;
+        border-radius: 50px; /* 椭圆形 */
+        min-width: 120px;
+        transition: var(--transition);
+        font-weight: 600;
+    }
+    
+    .status-summary-item:hover {
+        transform: translateY(-2px);
+        box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+    }
+    
+    .status-summary-count {
+        font-size: 16px;
+        margin-right: 5px;
+    }
+    
+    /* 不同状态的背景色和文字颜色 */
+    .status-summary-pending {
+        background: var(--gray-300);
+        color: var(--gray-700);
+    }
+    
+    .status-summary-scheduled {
+        background: #e2f0ff;
+        color: var(--secondary-color);
+    }
+    
+    .status-summary-in_transit {
+        background: #fff3cd;
+        color: #856404;
+    }
+    
+    .status-summary-delivered {
+        background: #e7f5ee;
+        color: #28a745;
+    }
+    
+    .status-summary-completed {
+        background: #d4edda;
+        color: #155724;
+    }
+
+    .warehouse-destination {
+        font-size: 20px;
+        font-weight: 700;
+        color: var(--secondary-color);
+        margin-bottom: 15px;
+        padding-bottom: 10px;
+        border-bottom: 2px solid var(--gray-200);
+        display: flex;
+        align-items: center;
+        gap: 10px;
+    }
+    
+    .warehouse-destination i {
+        font-size: 22px;
+    }
+    
+    /* 港后轨迹时间线样式调整 */
+    .post-port-timeline {
+        position: relative;
+        margin-top: 15px;
+    }
+    
+    .post-port-steps {
+        display: flex;
+        justify-content: space-between;
+        position: relative;
+    }
+    
+    .post-port-step {
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        text-align: center;
+        position: relative;
+        flex: 1;
+        z-index: 2;
+    }
+    
+    .post-port-step::before {
+        content: '';
+        position: absolute;
+        top: 20px;
+        left: -50%;
+        width: 100%;
+        height: 2px;
+        background: var(--gray-300);
+        z-index: -1;
+        transition: var(--transition);
+    }
+    
+    .post-port-step:first-child::before {
+        display: none;
+    }
+    
+    .post-port-step.active::before {
+        background: var(--secondary-color);
+    }
+    
+    .post-port-step.inactive::before {
+        background: var(--gray-300);
+        border-top: 2px dashed var(--gray-400);
+    }
+    
+    .post-port-step-icon {
+        width: 40px;
+        height: 40px;
+        border-radius: 50%;
+        background: var(--gray-200);
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        font-size: 18px;
+        margin-bottom: 8px;
+        transition: var(--transition);
+    }
+    
+    .post-port-step.active .post-port-step-icon {
+        background: var(--secondary-color);
+        color: white;
+    }
+    
+    .post-port-step.current .post-port-step-icon {
+        background: var(--warning);
+        color: white;
+        transform: scale(1.1);
+        box-shadow: 0 0 0 3px rgba(255, 193, 7, 0.3);
+    }
+    
+    .post-port-step-label {
+        font-weight: 600;
+        font-size: 13px;
+        margin-bottom: 5px;
+    }
+    
+    .post-port-step-count {
+        font-size: 14px;
+        color: var(--gray-600);
+        font-weight: 500;
+    }
+
     @media (max-width: 1024px) {
         .warehouse-timelines {
             grid-template-columns: 1fr;
@@ -681,6 +831,19 @@
         
         .post-port-step::before {
             display: none;
+        }
+        .status-summary-container {
+            gap: 8px;
+        }
+        
+        .status-summary-item {
+            min-width: 110px;
+            padding: 6px 16px;
+            font-size: 14px;
+        }
+        
+        .status-summary-count {
+            font-size: 14px;
         }
     }
     
@@ -888,9 +1051,35 @@
             <div class="section-badge">{{ post_port_data|length }} 个仓点</div>
         </div>
         
+        <div class="status-summary-container">
+            <div class="status-summary-item status-summary-pending">
+                <div class="status-summary-count">待预约 {{ status_summary.pending }}</div>
+            </div>
+            
+            <div class="status-summary-item status-summary-scheduled">
+                <div class="status-summary-count">已预约 {{ status_summary.scheduled }}</div>
+            </div>
+            
+            <div class="status-summary-item status-summary-in_transit">
+                <div class="status-summary-count">运输中 {{ status_summary.in_transit }}</div>
+            </div>
+            
+            <div class="status-summary-item status-summary-delivered">
+                <div class="status-summary-count">已送达 {{ status_summary.delivered }}</div>
+            </div>
+            
+            <div class="status-summary-item status-summary-completed">
+                <div class="status-summary-count">已完成 {{ status_summary.completed }}</div>
+            </div>
+        </div>
+    
         <div class="warehouse-timelines">
             {% for warehouse in post_port_data %}
             <div class="warehouse-card">
+                <div class="warehouse-destination">
+                    <i class="fas fa-warehouse"></i>
+                    <span>{{ warehouse.destination }}</span>
+                </div>
                 <div class="warehouse-details">
                     <div class="detail-item">
                         <label>唛头:</label>
@@ -923,47 +1112,46 @@
                     </div>
                 </div>
                 
-                <!-- 新的港后轨迹时间线 -->
                 <div class="post-port-timeline">
                     <div class="post-port-steps">
-                        <div class="post-port-step" data-status="pending">
+                        <div class="post-port-step {% if warehouse.status == 'pending' %}current{% elif warehouse.status in 'scheduled,in_transit,delivered,completed' %}active{% endif %}" data-status="pending">
                             <div class="post-port-step-icon">
                                 <i class="fas fa-clipboard-list"></i>
                             </div>
                             <div class="post-port-step-label">待预约</div>
-                            <div class="post-port-step-count">{{ warehouse.status_summary.pending }}</div>
+                            <div class="post-port-step-count">{% if warehouse.status == 'pending' %}当前状态{% endif %}</div>
                         </div>
                         
-                        <div class="post-port-step" data-status="scheduled">
+                        <div class="post-port-step {% if warehouse.status == 'scheduled' %}current{% elif warehouse.status in 'in_transit,delivered,completed' %}active{% else %}inactive{% endif %}" data-status="scheduled">
                             <div class="post-port-step-icon">
                                 <i class="fas fa-calendar-alt"></i>
                             </div>
                             <div class="post-port-step-label">已预约</div>
-                            <div class="post-port-step-count">{{ warehouse.status_summary.scheduled }}</div>
+                            <div class="post-port-step-count">{% if warehouse.status == 'scheduled' %}{{ warehouse.shipment_batch_number__shipment_appointment }}{% endif %}</div>
                         </div>
                         
-                        <div class="post-port-step" data-status="in_transit">
+                        <div class="post-port-step {% if warehouse.status == 'in_transit' %}current{% elif warehouse.status in 'delivered,completed' %}active{% else %}inactive{% endif %}" data-status="in_transit">
                             <div class="post-port-step-icon">
                                 <i class="fas fa-truck"></i>
                             </div>
                             <div class="post-port-step-label">运输中</div>
-                            <div class="post-port-step-count">{{ warehouse.status_summary.in_transit }}</div>
+                            <div class="post-port-step-count">{% if warehouse.status == 'in_transit' %}{{ warehouse.shipment_batch_number__shipped_at }}{% endif %}</div>
                         </div>
                         
-                        <div class="post-port-step" data-status="delivered">
+                        <div class="post-port-step {% if warehouse.status == 'delivered' %}current{% elif warehouse.status == 'completed' %}active{% else %}inactive{% endif %}" data-status="delivered">
                             <div class="post-port-step-icon">
                                 <i class="fas fa-map-marker-alt"></i>
                             </div>
                             <div class="post-port-step-label">已送达</div>
-                            <div class="post-port-step-count">{{ warehouse.status_summary.delivered }}</div>
+                            <div class="post-port-step-count">{% if warehouse.status == 'delivered' %}{{ warehouse.shipment_batch_number__arrived_at }}{% endif %}</div>
                         </div>
                         
-                        <div class="post-port-step" data-status="completed">
+                        <div class="post-port-step {% if warehouse.status == 'completed' %}current{% else %}inactive{% endif %}" data-status="completed">
                             <div class="post-port-step-icon">
                                 <i class="fas fa-check-circle"></i>
                             </div>
                             <div class="post-port-step-label">已完成</div>
-                            <div class="post-port-step-count">{{ warehouse.status_summary.completed }}</div>
+                            <div class="post-port-step-count">{% if warehouse.status == 'completed' %}{{ warehouse.shipment_batch_number__pod_link }}{% endif %}</div>
                         </div>
                     </div>
                 </div>
@@ -1026,13 +1214,9 @@
             let foundPending = false;
             
             stepElements.forEach((step, index) => {
-                // 跳过第一个步骤
-                if (index === 0) return;
                 
                 // 获取当前步骤的数量
                 const count = parseInt(step.querySelector('.post-port-step-count').textContent);
-                
-                // 如果已经找到pending状态，后续所有步骤都设为pending
                 if (foundPending) {
                     step.classList.add('pending');
                     return;
