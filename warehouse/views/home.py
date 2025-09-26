@@ -227,8 +227,6 @@ class Home(View):
             return 'pending'
     
     async def _get_post_port_data(self, pl_criteria, plt_criteria) -> list[dict]:
-        pl_criteria = models.Q()
-        plt_criteria = models.Q()
         #根据界面输入的条件，判断查pl和plt的查询条件
         pl_criteria &= models.Q(container_number__order__offload_id__offload_at__isnull=True)
         plt_criteria &= models.Q(container_number__order__offload_id__offload_at__isnull=False)
