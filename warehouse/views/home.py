@@ -419,7 +419,6 @@ class Home(View):
                     ),
                     total_pcs=Sum("pcs", output_field=FloatField()),
                     total_cbm=Sum("cbm", output_field=FloatField()),
-                    total_weight_lbs=Sum("total_weight_lbs", output_field=FloatField()),
                     total_n_pallet_est=Sum("cbm", output_field=FloatField()) / 2,
                     label=Value("EST"),
                 )
