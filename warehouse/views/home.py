@@ -85,18 +85,65 @@ class Home(View):
             'fba_ids': request.POST.get("fba_ids", "").strip() or None,
             'ref_ids': request.POST.get("ref_ids", "").strip() or None,
         }
-        #如果是查预约，就不展示前端信息
-        has_preport = bool(query_params['container_number'] or query_params['destination'] or 
-                      query_params['shipping_marks'] or query_params['fba_ids'] or query_params['ref_ids'])
-        
         context = {'query_params': query_params}
-        if has_preport:
-            #查前端信息
-            context['pre_port_data'] = await self._get_pre_port_data(query_params)
-        #查后端信息
-        temp = await self._get_post_port_data(query_params) 
-        context['post_port_data'] = temp['warehouses']
-        context['status_summary'] = temp['status_summary']
+        pl_criteria = models.Q()
+        plt_criteria = models.Q()
+        if bool(query_params['shipping_marks'] or query_params['fba_ids'] or query_params['ref_ids'] or query_params['destination']):
+            #这个就只展示柜子的基本信息，以表格的形式
+            if query_params['shipping_marks']:
+                pl_criteria &= models.Q(
+                    shipping_mark__contains=query_params['shipping_marks']
+                )
+                plt_criteria &= models.Q(
+                    shipping_mark__contains=query_params['shipping_marks']
+                )
+            elif query_params['fba_ids']:
+                pl_criteria &= models.Q(
+                    fba_id__contains=query_params['fba_ids']
+                )
+                plt_criteria &= models.Q(
+                    fba_id__contains=query_params['fba_ids']
+                )
+            elif query_params['ref_ids']:
+                pl_criteria &= models.Q(
+                    ref_id__contains=query_params['ref_ids']
+                )
+                plt_criteria &= models.Q(
+                    ref_id__contains=query_params['ref_ids']
+                )
+            elif query_params['destination']:
+                pl_criteria &= models.Q(
+                    destination=query_params['destination']
+                )
+                plt_criteria = models.Q(
+                    destination=query_params['destination']
+                )
+            elif query_params['container_number']:
+                pl_criteria &= models.Q(
+                    container_number__container_number=query_params['container_number']
+                )
+                plt_criteria = models.Q(
+                    container_number__container_number=query_params['container_number']
+                )
+            temp = await self._get_post_port_data(pl_criteria,plt_criteria) 
+            context['post_port_table'] = temp['warehouses']
+        else:
+            #如果是只查柜号，才展示港前信息
+            if bool(query_params['container_number']):
+                context['pre_port_data'] = await self._get_pre_port_data(query_params)
+                pl_criteria &= models.Q(container_number__container_number=query_params['container_number'])
+                plt_criteria &= models.Q(container_number__container_number=query_params['container_number'])
+            elif bool(query_params['shipment_batch_number'] or query_params['appointment_id'] ):
+                if query_params['shipment_batch_number']:
+                    pl_criteria &= models.Q(shipment_batch_number__shipment_batch_number=query_params['shipment_batch_number'])
+                    plt_criteria &= models.Q(shipment_batch_number__shipment_batch_number=query_params['shipment_batch_number'])
+                elif query_params['appointment_id']:
+                    pl_criteria &= models.Q(shipment_batch_number__appointment_id=query_params['appointment_id'])
+                    plt_criteria &= models.Q(shipment_batch_number__appointment_id=query_params['appointment_id'])
+            #查后端信息
+            temp = await self._get_post_port_data(pl_criteria,plt_criteria) 
+            context['post_port_data'] = temp['warehouses']
+            context['status_summary'] = temp['status_summary']
         return self.template_main, context
     
     async def _get_pre_port_data(self, query_params: dict) -> list[dict]:
@@ -179,33 +226,10 @@ class Home(View):
         else:
             return 'pending'
     
-    async def _get_post_port_data(self, query_params: dict) -> list[dict]:
+    async def _get_post_port_data(self, pl_criteria, plt_criteria) -> list[dict]:
         pl_criteria = models.Q()
         plt_criteria = models.Q()
         #根据界面输入的条件，判断查pl和plt的查询条件
-        if query_params['shipment_batch_number']:
-            pl_criteria &= models.Q(shipment_batch_number__shipment_batch_number=query_params['shipment_batch_number'])
-            plt_criteria &= models.Q(shipment_batch_number__shipment_batch_number=query_params['shipment_batch_number'])
-        elif query_params['appointment_id']:
-            pl_criteria &= models.Q(shipment_batch_number__appointment_id=query_params['appointment_id'])
-            plt_criteria &= models.Q(shipment_batch_number__appointment_id=query_params['appointment_id'])
-        elif query_params['container_number']:
-            pl_criteria &= models.Q(container_number__container_number=query_params['container_number'])
-            plt_criteria &= models.Q(container_number__container_number=query_params['container_number'])
-        elif query_params['destination']:
-            pl_criteria &= models.Q(destination=query_params['destination'])
-            plt_criteria &= models.Q(destination=query_params['destination'])
-        elif query_params['shipping_marks']:
-            pl_criteria &= models.Q(shipping_mark__icontains=query_params['shipping_marks'])
-            plt_criteria &= models.Q(shipping_mark__icontains=query_params['shipping_marks'])
-        elif query_params['fba_ids']:
-            pl_criteria &= models.Q(fba_id__icontains=query_params['fba_ids'])
-            plt_criteria &= models.Q(fba_id__icontains=query_params['fba_ids'])
-        elif query_params['ref_ids']:
-            pl_criteria &= models.Q(ref_id__icontains=query_params['ref_ids'])
-            plt_criteria &= models.Q(ref_id__icontains=query_params['ref_ids'])
-        
-        # 添加拆柜状态条件
         pl_criteria &= models.Q(container_number__order__offload_id__offload_at__isnull=True)
         plt_criteria &= models.Q(container_number__order__offload_id__offload_at__isnull=False)
         

@@ -843,9 +843,6 @@
         font-family: 'Courier New', monospace; 
     }
 
-
-
-
     .detail-value {
         color: var(--gray-800);
         font-weight: 500;
@@ -897,6 +894,153 @@
     
     .toggle-more:hover {
         background: #2d7bc1;
+    }
+
+    .post-port-table-container {
+        background: white;
+        border-radius: var(--border-radius);
+        padding: 25px;
+        margin-bottom: 30px;
+        box-shadow: var(--box-shadow);
+        overflow: hidden;
+    }
+    
+    .post-port-table {
+        width: 100%;
+        border-collapse: collapse;
+        font-size: 14px;
+        table-layout: fixed;
+    }
+    
+    .post-port-table th {
+        background: var(--gray-100);
+        border: 1px solid #ddd;
+        padding: 12px 15px;
+        text-align: center;
+        white-space: nowrap; 
+        font-weight: 600;
+        overflow: hidden;
+        text-overflow: ellipsis;
+        color: var(--gray-700);
+        border-bottom: 2px solid var(--gray-300);
+    }
+    
+    .post-port-table td {
+        padding: 12px 15px;
+        border-bottom: 1px solid var(--gray-200);
+        vertical-align: middle;
+    }
+    
+    .post-port-table .col-marks,
+    .post-port-table .col-fba,
+    .post-port-table .col-ref {
+        max-width: 150px; /* 限制宽度 */
+        white-space: normal; /* 允许换行 */
+        word-break: break-all; /* 长单词也能断开 */
+        text-align: left; /* 更易读 */
+    }
+
+    .post-port-table tbody tr {
+        transition: var(--transition);
+    }
+    
+    .post-port-table tbody tr:hover {
+        background: var(--gray-50);
+    }
+    
+    .post-port-table tbody tr:last-child td {
+        border-bottom: none;
+    }
+    
+    
+    .status-icon {
+        display: inline-flex;
+        align-items: center;
+        gap: 8px;
+        font-weight: 500;
+    }
+    
+    .status-icon i {
+        width: 20px;
+        text-align: center;
+        font-size: 14px;
+    }
+    
+    /* 不同状态的图标和颜色 */
+    .status-pending-icon {
+        color: var(--gray-600);
+    }
+    
+    .status-scheduled-icon {
+        color: var(--secondary-color);
+    }
+    
+    .status-in_transit-icon {
+        color: var(--warning);
+    }
+    
+    .status-delivered-icon {
+        color: var(--success);
+    }
+    
+    .status-completed-icon {
+        color: #155724;
+    }
+    
+    /* 是否打板样式 */
+    .pallet-status {
+        display: inline-block;
+        padding: 4px 8px;
+        border-radius: 12px;
+        font-size: 12px;
+        font-weight: 600;
+    }
+    
+    .pallet-yes {
+        background: #e7f5ee;
+        color: #28a745;
+    }
+    
+    .pallet-no {
+        background: #f8f9fa;
+        color: var(--gray-600);
+    }
+
+    .destination-with-pallet {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+    }
+    
+    .destination-with-pallet {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+    }
+    
+    .pallet-indicator {
+        font-size: 12px;
+        padding: 2px 6px;
+        border-radius: 8px;
+        font-weight: 600;
+    }
+    
+    .pallet-indicator-yes {
+        background: #e7f5ee;
+        color: #28a745;
+    }
+    
+    .pallet-indicator-no {
+        background: #f8f9fa;
+        color: var(--gray-600);
+    }
+
+    .search-input {
+        padding: 10px 15px;
+        border: 1px solid #dce1e6;
+        border-radius: 5px;
+        font-size: 0.9rem;
+        min-width: 250px;
     }
 
     @media (max-width: 1024px) {
@@ -980,6 +1124,30 @@
             padding: 6px 10px;
             font-size: 14px;
         }
+
+        .post-port-table-container {
+            padding: 15px;
+            overflow-x: auto;
+        }
+        
+        .post-port-table {
+            font-size: 13px;
+            min-width: 600px;
+        }
+        
+        .post-port-table th,
+        .post-port-table td {
+            padding: 10px 12px;
+        }
+        
+        .status-icon {
+            gap: 6px;
+        }
+        
+        .status-icon i {
+            width: 16px;
+            font-size: 12px;
+        }
     }
     
     @media (max-width: 480px) {
@@ -1012,7 +1180,6 @@
         }
     }
     
-    /* 动画效果 */
     @keyframes fadeIn {
         from { opacity: 0; transform: translateY(20px); }
         to { opacity: 1; transform: translateY(0); }
@@ -1320,19 +1487,113 @@
     </div>
     {% endif %}
     
-    <!-- 无数据提示 -->
-    {% if not pre_port_data and not post_port_data %}
+    {% if post_port_table %}
+    <div class="post-port-table-container">
+        <div class="section-header">
+            <div class="section-title">涉及柜子相关信息
+                <span style="font-size: 12px; color: #666;">{{ post_port_table|length }}条记录</span>
+            </div>
+            <input type="text" class="search-input" id="postPortSearch" placeholder="请输入关键字搜索...">
+        </div>
+        
+        <table class="post-port-table" id="postPortTable">
+            <thead>
+                <tr>
+                    <th>仓库</th>
+                    <th>柜号</th>
+                    <th>仓点</th>
+                    <th>唛头</th>
+                    <th>FBA</th>
+                    <th>REF</th>
+                    <th>派送方式</th>                 
+                    <th>港后状态</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for p in post_port_table %}
+                <tr>
+                    <td>{{ p.container_number__order__warehouse__name|default:"-" }}</td>
+                    <td>{{ p.container_number__container_number|default:"-" }}</td>
+                    <td>
+                        <div class="destination-with-pallet">
+                            <span>{{ p.destination|default:"-" }}</span>
+                            {% if p.pallet_type == 'ACT' %}
+                            <span class="pallet-indicator pallet-indicator-yes" title="已打板">✓</span>
+                            {% else %}
+                            <span class="pallet-indicator pallet-indicator-no" title="未打板">✗</span>
+                            {% endif %}
+                        </div>
+                    </td>
+                    <td>{{ p.delivery_method|default:"-" }}</td>
+                    <td class="col-marks" title="{{ p.delivery_method }}">{{ p.delivery_method|default:"-" }}</td>
+                    <td class="col-fba" title="{{ p.shipping_marks }}">{{ p.shipping_marks|default:"-" }}</td>
+                    <td class="col-ref" title="{{ p.fba_ids }}">{{ p.fba_ids|default:"-" }}</td>
+                    
+                    <td>
+                        <div class="status-icon 
+                            {% if p.status == 'pending' %}status-pending-icon
+                            {% elif p.status == 'scheduled' %}status-scheduled-icon
+                            {% elif p.status == 'in_transit' %}status-in_transit-icon
+                            {% elif p.status == 'delivered' %}status-delivered-icon
+                            {% elif p.status == 'completed' %}status-completed-icon{% endif %}">
+                            {% if p.status == 'pending' %}
+                            <i class="fas fa-clipboard-list"></i>
+                            {% elif p.status == 'scheduled' %}
+                            <i class="fas fa-calendar-alt"></i>
+                            {% elif p.status == 'in_transit' %}
+                            <i class="fas fa-truck"></i>
+                            {% elif p.status == 'delivered' %}
+                            <i class="fas fa-map-marker-alt"></i>
+                            {% elif p.status == 'completed' %}
+                            <i class="fas fa-check-circle"></i>
+                            {% endif %}
+                            {{ p.status_display }}
+                        </div>
+                    </td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+    {% endif %}
+    {% if not pre_port_data and not post_port_data and not post_port_table %}
     <div class="no-data">
         <div class="no-data-icon">
             <i class="fas fa-search"></i>
         </div>
-        <h3>暂无轨迹数据</h3>
+        <h3>暂无相关数据</h3>
         <p>请修改查询条件后重试</p>
     </div>
     {% endif %}
 </div>
 
 <script>
+    document.addEventListener("DOMContentLoaded", function () {
+        let input = document.getElementById("postPortSearch");
+        input.addEventListener("input", filterPostPortTable);
+    });
+
+    function filterPostPortTable() {
+        let input = document.getElementById("postPortSearch");
+        let filter = input.value.toLowerCase();
+        let table = document.getElementById("postPortTable");
+        let tr = table.getElementsByTagName("tr");
+
+        for (let i = 1; i < tr.length; i++) { 
+            let tds = tr[i].getElementsByTagName("td");
+            let showRow = false;
+
+            for (let j = 0; j < tds.length; j++) {
+                let cell = tds[j];
+                if (cell && cell.textContent.toLowerCase().indexOf(filter) > -1) {
+                    showRow = true;
+                    break;
+                }
+            }
+
+            tr[i].style.display = showRow ? "" : "none";
+        }
+    }
     function switchContainer(containerNumber) {
             // 隐藏所有柜子时间线
         document.querySelectorAll('.container-timeline').forEach(timeline => {
