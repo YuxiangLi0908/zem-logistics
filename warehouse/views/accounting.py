@@ -4254,7 +4254,7 @@ class Accounting(View):
 
         # 导出excel的筛选框
         current_year = datetime.now().year
-        current_month = datetime.now().month
+        current_month = datetime.now().month + 1
         months = []
         for i in range(12):
             month = (current_month - i - 1) % 12 + 1
