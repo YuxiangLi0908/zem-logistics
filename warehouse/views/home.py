@@ -349,7 +349,6 @@ class Home(View):
                     "shipment_batch_number",
                     "container_number__order__offload_id",
                     "container_number__order__customer_name",
-                    "pallet",
                     "container_number__order__retrieval_id",
                     "container_number__order__vessel_id",
                 )
@@ -387,6 +386,8 @@ class Home(View):
                     "container_number__order__retrieval_id__actual_retrieval_timestamp",
                     "container_number__order__vessel_id__vessel_eta",
                     "pcs",
+                    "cbm",
+                    "total_weight_lbs",
                     "shipment_batch_number__shipment_batch_number",
                     "shipment_batch_number__appointment_id",
                     "shipment_batch_number__shipment_appointment",
@@ -419,7 +420,6 @@ class Home(View):
                     total_pcs=Sum("pcs", output_field=FloatField()),
                     total_cbm=Sum("cbm", output_field=FloatField()),
                     total_weight_lbs=Sum("total_weight_lbs", output_field=FloatField()),
-                    total_n_pallet_act=Count("pallet__pallet_id", distinct=True),
                     total_n_pallet_est=Sum("cbm", output_field=FloatField()) / 2,
                     label=Value("EST"),
                 )
