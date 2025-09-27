@@ -884,7 +884,8 @@ class OrderCreation(View):
         retrieval.empty_returned_at = (
             self._parse_ts(empty_returned_at, tzinfo) if empty_returned_at else None
         )
-
+        if not empty_returned_at:
+            retrieval.empty_returned = False
         retrieval.note = request.POST.get("retrieval_note").strip()
         await sync_to_async(retrieval.save)()
         mutable_get = request.GET.copy()
