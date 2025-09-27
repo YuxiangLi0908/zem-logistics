@@ -4905,6 +4905,8 @@ class Accounting(View):
             raise ValueError("pallets must be QuerySet or list")
 
     def _get_fee_details(self, warehouse: str, vessel_etd, customer_name: str) -> dict:
+        if not vessel_etd:
+            raise ValueError('柜子缺少ETD')
         try:
             quotation = (
                 QuotationMaster.objects.filter(
