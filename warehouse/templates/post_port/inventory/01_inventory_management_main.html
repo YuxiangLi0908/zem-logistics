@@ -652,23 +652,25 @@
                 return false;
             }
         };
-        
-        if (originalPCS != newPCSSum) {
-            event.preventDefault();
-            // 构建具体提示信息
-            let message = "箱数不一致：\n";
-            const pcs_num = parseInt(originalPCS) - parseInt(newPCSSum)
-            if (pcs_num> 0) {
-                message += `- 缺少箱数为：${pcs_num}\n`;
-            }
-            if (pcs_num< 0) {
-                message += `- 多出箱数项：${-pcs_num}\n`;
-            }
+        if (JSON.stringify(originalFBA).includes('FBA')){
+            if (originalPCS != newPCSSum) {
+                event.preventDefault();
+                // 构建具体提示信息
+                let message = "箱数不一致：\n";
+                const pcs_num = parseInt(originalPCS) - parseInt(newPCSSum)
+                if (pcs_num> 0) {
+                    message += `- 缺少箱数为：${pcs_num}\n`;
+                }
+                if (pcs_num< 0) {
+                    message += `- 多出箱数项：${-pcs_num}\n`;
+                }
 
-            event.preventDefault();
-            alert(message);
-            return false;
+                event.preventDefault();
+                alert(message);
+                return false;
+            }
         };
+        
         return true;
     };
     function filterTable(filterInput, col_idx, trim) {
