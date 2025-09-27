@@ -594,7 +594,8 @@
         newShippingMarkArray.sort();
         newFBAArray.sort();
         newREFArray.sort();
-        if (JSON.stringify(originalFBA)){
+        console.log('原始FBA是',originalFBA);
+        if (JSON.stringify(originalFBA) !== JSON.stringify([''])){
             if (JSON.stringify(originalShippingMark) != JSON.stringify(newShippingMarkArray)) {
                 // 计算缺失项和多余项
                 const missing = originalShippingMark.filter(item => !newShippingMarkArray.includes(item));
