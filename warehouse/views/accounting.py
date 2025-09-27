@@ -6309,6 +6309,8 @@ class Accounting(View):
     ):
         # 处理转运&组合账单
         vessel_etd = order.vessel_id.vessel_etd
+        if not vessel_etd:
+            raise ValueError('缺失ETD时间！')
         act_pick_time = order.retrieval_id.actual_retrieval_timestamp
         warehouse = context["warehouse"]
         warehouse_precise = context["warehouse_precise"]
