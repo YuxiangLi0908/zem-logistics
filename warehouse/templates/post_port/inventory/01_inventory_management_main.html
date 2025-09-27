@@ -594,25 +594,26 @@
         newShippingMarkArray.sort();
         newFBAArray.sort();
         newREFArray.sort();
-        if (JSON.stringify(originalShippingMark) != JSON.stringify(newShippingMarkArray)) {
-            // 计算缺失项和多余项
-            const missing = originalShippingMark.filter(item => !newShippingMarkArray.includes(item));
-            const extra = newShippingMarkArray.filter(item => !originalShippingMark.includes(item));
+        if (JSON.stringify(originalFBA)){
+            if (JSON.stringify(originalShippingMark) != JSON.stringify(newShippingMarkArray)) {
+                // 计算缺失项和多余项
+                const missing = originalShippingMark.filter(item => !newShippingMarkArray.includes(item));
+                const extra = newShippingMarkArray.filter(item => !originalShippingMark.includes(item));
 
-            // 构建具体提示信息
-            let message = "唛头不一致：\n";
-            if (missing.length > 0) {
-                message += `- 缺少原始项：${missing.join('、')}\n`;
-            }
-            if (extra.length > 0) {
-                message += `- 多出额外项：${extra.join('、')}\n`;
-            }
+                // 构建具体提示信息
+                let message = "唛头不一致：\n";
+                if (missing.length > 0) {
+                    message += `- 缺少原始项：${missing.join('、')}\n`;
+                }
+                if (extra.length > 0) {
+                    message += `- 多出额外项：${extra.join('、')}\n`;
+                }
 
-            event.preventDefault();
-            alert(message);
-            return false;
-        }
-        ;
+                event.preventDefault();
+                alert(message);
+                return false;
+            }
+        };
         if (JSON.stringify(originalFBA) != JSON.stringify(newFBAArray)) {
             event.preventDefault();
             const missing = originalFBA.filter(item => !newFBAArray.includes(item));
