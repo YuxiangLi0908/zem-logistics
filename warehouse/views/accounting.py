@@ -6427,6 +6427,7 @@ class Accounting(View):
                     pickup_details = DETAILS[warehouse][precise_warehouse][preport_carrier]
                 except KeyError:
                     fees["basic_fee"] = 0
+                    pickup_details = None
                 pallet_details = None  # 因为只有NJ的有两个拆柜供应商可以切换
             if pickup_details and is_first_find:  # 从未存储过时，才从报价表计算费用
                 # 计算基础费用
