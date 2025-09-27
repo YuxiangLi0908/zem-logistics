@@ -612,7 +612,7 @@
             alert(message);
             return false;
         };
-        if ('FBA' in JSON.stringify(originalFBA)){
+        if (JSON.stringify(originalFBA).includes('FBA')){
             if (JSON.stringify(originalFBA) != JSON.stringify(newFBAArray)) {
                 event.preventDefault();
                 const missing = originalFBA.filter(item => !newFBAArray.includes(item));
@@ -632,7 +632,7 @@
                 return false;
             }
         };
-        if ('FBA' in JSON.stringify(originalFBA)){
+        if (JSON.stringify(originalFBA).includes('FBA')){
             if (JSON.stringify(originalREF) != JSON.stringify(newREFArray)) {
                 event.preventDefault();
                 const missing = originalREF.filter(item => !newREFArray.includes(item));
