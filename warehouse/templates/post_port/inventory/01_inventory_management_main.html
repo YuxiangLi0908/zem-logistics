@@ -594,16 +594,32 @@
         newShippingMarkArray.sort();
         newFBAArray.sort();
         newREFArray.sort();
-        console.log('原始FBA是',originalFBA);
-        //if (JSON.stringify(originalFBA) !== JSON.stringify([''])){
-        if (false){
-            if (JSON.stringify(originalShippingMark) != JSON.stringify(newShippingMarkArray)) {
-                // 计算缺失项和多余项
-                const missing = originalShippingMark.filter(item => !newShippingMarkArray.includes(item));
-                const extra = newShippingMarkArray.filter(item => !originalShippingMark.includes(item));
+        if (JSON.stringify(originalShippingMark) != JSON.stringify(newShippingMarkArray)) {
+            // 计算缺失项和多余项
+            const missing = originalShippingMark.filter(item => !newShippingMarkArray.includes(item));
+            const extra = newShippingMarkArray.filter(item => !originalShippingMark.includes(item));
+
+            // 构建具体提示信息
+            let message = "唛头不一致：\n";
+            if (missing.length > 0) {
+                message += `- 缺少原始项：${missing.join('、')}\n`;
+            }
+            if (extra.length > 0) {
+                message += `- 多出额外项：${extra.join('、')}\n`;
+            }
+
+            event.preventDefault();
+            alert(message);
+            return false;
+        };
+        if ('FBA' in JSON.stringify(originalFBA)){
+            if (JSON.stringify(originalFBA) != JSON.stringify(newFBAArray)) {
+                event.preventDefault();
+                const missing = originalFBA.filter(item => !newFBAArray.includes(item));
+                const extra = newFBAArray.filter(item => !originalFBA.includes(item));
 
                 // 构建具体提示信息
-                let message = "唛头不一致：\n";
+                let message = "FBA不一致：\n";
                 if (missing.length > 0) {
                     message += `- 缺少原始项：${missing.join('、')}\n`;
                 }
@@ -616,42 +632,27 @@
                 return false;
             }
         };
-        if (JSON.stringify(originalFBA) != JSON.stringify(newFBAArray)) {
-            event.preventDefault();
-            const missing = originalFBA.filter(item => !newFBAArray.includes(item));
-            const extra = newFBAArray.filter(item => !originalFBA.includes(item));
+        if ('FBA' in JSON.stringify(originalFBA)){
+            if (JSON.stringify(originalREF) != JSON.stringify(newREFArray)) {
+                event.preventDefault();
+                const missing = originalREF.filter(item => !newREFArray.includes(item));
+                const extra = newREFArray.filter(item => !originalREF.includes(item));
 
-            // 构建具体提示信息
-            let message = "FBA不一致：\n";
-            if (missing.length > 0) {
-                message += `- 缺少原始项：${missing.join('、')}\n`;
-            }
-            if (extra.length > 0) {
-                message += `- 多出额外项：${extra.join('、')}\n`;
-            }
+                // 构建具体提示信息
+                let message = "REF不一致：\n";
+                if (missing.length > 0) {
+                    message += `- 缺少原始项：${missing.join('、')}\n`;
+                }
+                if (extra.length > 0) {
+                    message += `- 多出额外项：${extra.join('、')}\n`;
+                }
 
-            event.preventDefault();
-            alert(message);
-            return false;
+                event.preventDefault();
+                alert(message);
+                return false;
+            }
         };
-        if (JSON.stringify(originalREF) != JSON.stringify(newREFArray)) {
-            event.preventDefault();
-            const missing = originalREF.filter(item => !newREFArray.includes(item));
-            const extra = newREFArray.filter(item => !originalREF.includes(item));
-
-            // 构建具体提示信息
-            let message = "REF不一致：\n";
-            if (missing.length > 0) {
-                message += `- 缺少原始项：${missing.join('、')}\n`;
-            }
-            if (extra.length > 0) {
-                message += `- 多出额外项：${extra.join('、')}\n`;
-            }
-
-            event.preventDefault();
-            alert(message);
-            return false;
-        };
+        
         if (originalPCS != newPCSSum) {
             event.preventDefault();
             // 构建具体提示信息
