@@ -152,7 +152,7 @@ class ContainerTracking(View):
                                 # 如果不是数字，继续寻找
                                 continue
                     if fee_value is None:
-                        group_errors.append("未找到小于100000的费用（ISA列）")
+                        group_errors.append("未找到费用）")
 
                     big_group_data = {'fee': fee_value, 'po': {}, 'errors': ''}
                     # 处理每个小组
