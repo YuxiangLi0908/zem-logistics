@@ -3637,9 +3637,9 @@ class Accounting(View):
         order = Order.objects.get(container_number__container_number=container_number)
 
         context = self._parse_invoice_excel_data(order, invoice, "receivable")
-        # workbook, invoice_data = self._generate_invoice_excel(context)
-        # invoice.invoice_date = invoice_data["invoice_date"]
-        # invoice.invoice_link = invoice_data["invoice_link"]
+        workbook, invoice_data = self._generate_invoice_excel(context)
+        invoice.invoice_date = invoice_data["invoice_date"]
+        invoice.invoice_link = invoice_data["invoice_link"]
         invoice.receivable_total_amount = total_fee
         invoice.remain_offset = total_fee
         invoice.save()
