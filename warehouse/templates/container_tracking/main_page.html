@@ -347,9 +347,21 @@
         <input type="file" name="file" accept=".xlsx,.xls,.csv">
         <input type="hidden" name="step" value="upload_container_has_appointment">
         <button type="submit" class="btn btn-success">
-            批量识别柜子是否有约
+            批量规范化预约表
         </button>
     </form>
+</div>
+<div class="page-header">
+    <form method="post" action="">   
+        {% csrf_token %}
+        <input type="hidden" name="step" value="Standardize_ISA">
+        <button type="submit" class="btn btn-success">
+            规范所有ISA
+        </button>
+    </form>
+    {% if message %}
+        {{ message }}
+    {% endif %}
 </div>
 
 <div class="summary-cards">
