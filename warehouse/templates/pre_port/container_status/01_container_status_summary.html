@@ -39,7 +39,6 @@
             <tr style="position: sticky; top: 20px;">
                 <th class="th"></th>
                 <th class="th">
-                    <!-- 修复1：唯一ID + 正确列索引（柜号在第2列，索引为1） -->
                     <input type="text" id="ctnSearch1" placeholder="搜索柜号..." oninput="filterTable(this, 1, true)" size="13" style="font-size: 11px;">
                 </th>
                 <th class="th"></th>
@@ -109,7 +108,6 @@
                     </tr>
                     <tr style="position: sticky; top: 28px;">
                         <th class="th">
-                            <!-- 修复2：唯一ID（无选择列，柜号在第1列，索引为0） -->
                             <input type="text" id="ctnSearch2" placeholder="搜索柜号..." oninput="filterTable(this, 0, true)" size="13" style="font-size: 11px;">
                         </th>
                         <th class="th"></th>
@@ -163,7 +161,6 @@
                     <tr style="position: sticky; top: 28px;">
                         <th class="th"></th>
                         <th class="th">
-                            <!-- 修复3：唯一ID + 正确列索引（柜号在第2列，索引为1） -->
                             <input type="text" id="ctnSearch3" placeholder="搜索柜号..." oninput="filterTable(this, 1, true)" size="13" style="font-size: 11px;">
                         </th>
                         <th class="th"></th>
@@ -213,6 +210,18 @@
     <input type="hidden" name="batch_container_numbers" id="batchEmptyReturnContainerNumbersInput">
 </form>
 <script>
+    // 页面加载时初始化所有行的可见状态为true
+    document.addEventListener('DOMContentLoaded', function() {
+        // 初始化“确认到仓”表格
+        document.querySelectorAll('#pickup-schedule-table tbody tr').forEach(row => {
+            row.dataset.visible = 'true';
+        });
+        // 初始化“确认还空”表格
+        document.querySelectorAll('#palletized-order-table tbody tr').forEach(row => {
+            row.dataset.visible = 'true';
+        });
+    });
+
     function filterTable(filterInput, col_idx, trim) {
         const searchKeywords = filterInput.value.trim().split(/\s+/).filter(keyword => keyword);
         const table = filterInput.closest('table');
@@ -223,106 +232,105 @@
             const targetCell = row.cells[col_idx];
             if (!targetCell) {
                 row.style.display = 'none';
+                row.dataset.visible = 'false';
                 return;
             }
             let cellText = targetCell.textContent || targetCell.innerText;
             if (trim) cellText = cellText.toUpperCase().trim();
 
-            if (searchKeywords.length === 0) {
-                row.style.display = '';
-            } else {
-                const isMatch = searchKeywords.some(keyword => {
-                    return cellText === keyword.toUpperCase().trim();
-                });
-                row.style.display = isMatch ? '' : 'none';
-            }
+            // 判断行是否可见
+            const isVisible = searchKeywords.length === 0
+                ? true  // 无搜索时全部可见
+                : searchKeywords.some(keyword => cellText === keyword.toUpperCase().trim());
+
+            row.style.display = isVisible ? '' : 'none';
+            row.dataset.visible = isVisible ? 'true' : 'false';
         });
     };
 
-    // 1. 全选/取消全选功能
+    // 1. 「确认到仓」全选功能（仅选中可见行）
     document.getElementById('selectAll').addEventListener('change', function (e) {
-        // 获取所有单行选择框
-        const checkboxes = document.querySelectorAll('input[name="containerNumbers"]');
-        checkboxes.forEach(checkbox => {
+        // 只选中可见行的复选框
+        const visibleCheckboxes = document.querySelectorAll(
+            '#pickup-schedule-table tbody tr[data-visible="true"] input[name="containerNumbers"]'
+        );
+        visibleCheckboxes.forEach(checkbox => {
             checkbox.checked = e.target.checked;
         });
     });
 
-    // 2. 批量提交功能
+    // 2. 「确认到仓」批量提交
     document.getElementById('batchSubmitBtn').addEventListener('click', function () {
-        // ① 获取选中的柜号
-        const checkedBoxes = document.querySelectorAll('input[name="containerNumbers"]:checked');
+        const checkedBoxes = document.querySelectorAll(
+            '#pickup-schedule-table tbody tr[data-visible="true"] input[name="containerNumbers"]:checked'
+        );
         if (checkedBoxes.length === 0) {
             alert('请先选择需要批量更新的柜号！');
             return;
         }
-        // 提取柜号为数组（如：["CTN001", "CTN002"]）
         const containerNumbers = Array.from(checkedBoxes).map(box => box.value);
-
-        // ② 获取统一的到仓时间
         const batchArriveAt = document.getElementById('batchArriveAt').value;
         if (!batchArriveAt) {
             alert('请选择批量更新的到仓时间！');
             return;
         }
-
-        // ③ 填充批量表单并提交
         const batchForm = document.getElementById('batchForm');
         document.getElementById('batchArriveAtInput').value = batchArriveAt;
-        document.getElementById('batchContainerNumbersInput').value = containerNumbers.join(','); // 用逗号分隔柜号
+        document.getElementById('batchContainerNumbersInput').value = containerNumbers.join(',');
         batchForm.submit();
     });
 
-    // 3. （可选）优化：点击行时自动选中/取消选择框
+    // 3. 「确认到仓」行点击选中优化
     document.querySelectorAll('#pickup-schedule-table tbody tr').forEach(tr => {
         tr.addEventListener('click', function (e) {
-            // 点击选择框本身时不重复触发
             if (e.target.tagName !== 'INPUT' || e.target.name !== 'containerNumbers') {
                 const checkbox = this.querySelector('input[name="containerNumbers"]');
-                if (checkbox) checkbox.checked = !checkbox.checked;
+                if (checkbox && this.dataset.visible === 'true') {
+                    checkbox.checked = !checkbox.checked;
+                }
             }
         });
     });
-    // 全选/取消全选功能
+
+    // 4. 「确认还空」全选功能（仅选中可见行）
     document.getElementById('selectAllEmptyReturn').addEventListener('change', function (e) {
-        const checkboxes = document.querySelectorAll('input[name="emptyReturnContainerNumbers"]');
-        checkboxes.forEach(checkbox => {
+        const visibleCheckboxes = document.querySelectorAll(
+            '#palletized-order-table tbody tr[data-visible="true"] input[name="emptyReturnContainerNumbers"]'
+        );
+        visibleCheckboxes.forEach(checkbox => {
             checkbox.checked = e.target.checked;
         });
     });
 
-    // 批量提交还空时间
+    // 5. 「确认还空」批量提交
     document.getElementById('batchEmptyReturnBtn').addEventListener('click', function () {
-        // 获取选中的柜号
-        const checkedBoxes = document.querySelectorAll('input[name="emptyReturnContainerNumbers"]:checked');
+        const checkedBoxes = document.querySelectorAll(
+            '#palletized-order-table tbody tr[data-visible="true"] input[name="emptyReturnContainerNumbers"]:checked'
+        );
         if (checkedBoxes.length === 0) {
             alert('请先选择需要批量更新的柜号！');
             return;
         }
-
-        // 提取柜号列表
         const containerNumbers = Array.from(checkedBoxes).map(box => box.value);
-
-        // 获取统一的还柜时间
         const batchEmptyReturnedAt = document.getElementById('batchEmptyReturnedAt').value;
         if (!batchEmptyReturnedAt) {
             alert('请选择批量更新的还柜时间！');
             return;
         }
-
-        // 填充批量表单并提交
         const batchForm = document.getElementById('batchEmptyReturnForm');
         document.getElementById('batchEmptyReturnedAtInput').value = batchEmptyReturnedAt;
         document.getElementById('batchEmptyReturnContainerNumbersInput').value = containerNumbers.join(',');
         batchForm.submit();
     });
 
-    // 点击行选中/取消选择框（可选优化）
+    // 6. 「确认还空」行点击选中优化
     document.querySelectorAll('#palletized-order-table tbody tr').forEach(tr => {
         tr.addEventListener('click', function (e) {
             if (e.target.tagName !== 'INPUT' || e.target.name !== 'emptyReturnContainerNumbers') {
                 const checkbox = this.querySelector('input[name="emptyReturnContainerNumbers"]');
-                if (checkbox) checkbox.checked = !checkbox.checked;
+                if (checkbox && this.dataset.visible === 'true') {
+                    checkbox.checked = !checkbox.checked;
+                }
             }
         });
     });
