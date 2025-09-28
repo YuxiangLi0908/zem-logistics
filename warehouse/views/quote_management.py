@@ -1180,6 +1180,14 @@ class QuoteManagement(View):
                 "组合柜规则": self.process_combine_stipulate,
                 # "LA本地派送": self.process_la_local_sheet,
             }
+            #查看是否有表缺失
+            excel_sheets = set(excel_file.sheet_names)
+            required_sheets = set(SHEET_HANDLERS.keys())
+            missing_sheets = required_sheets - excel_sheets
+
+            if missing_sheets:
+                missing_sheet_list = ", ".join(sorted(missing_sheets))
+                raise ValueError(f"警告：Excel文件缺少以下工作表: {missing_sheet_list}")
             for sheet_name in excel_file.sheet_names:
                 df = excel_file.parse(sheet_name)
                 if sheet_name in SHEET_HANDLERS:
