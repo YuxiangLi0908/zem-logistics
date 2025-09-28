@@ -1,4 +1,5 @@
 from typing import Any
+from django.db.models.functions import Trim
 
 from django.contrib.auth.decorators import login_required
 from django.http import HttpRequest, HttpResponse
@@ -33,12 +34,27 @@ class ContainerTracking(View):
         elif step == "upload_container_has_appointment":
             template, context = await self.handle_upload_container_has_appointment_get(request)
             return await sync_to_async(render)(request, template, context)
+        elif step == "Standardize_ISA":
+            template, context = await self.handle_Standardize_ISA(request)
+            return await sync_to_async(render)(request, template, context)
         else:
             return await sync_to_async(T49Webhook().post)(request)
         
     async def _send_tracking_request(self):
         pass
     
+    async def handle_Standardize_ISA(
+        self, request: HttpRequest
+    ) -> tuple[Any, Any]:
+        await sync_to_async(
+            lambda: Shipment.objects.update(appointment_id=Trim("appointment_id"))
+        )()
+
+        context = {
+            "message": "所有 Shipment 的 appointment_id 已经去掉前后空格"
+        }
+        return self.template_main, context
+
     async def handle_upload_container_has_appointment_get(
         self, request: HttpRequest
     ) -> tuple[Any, Any]:
