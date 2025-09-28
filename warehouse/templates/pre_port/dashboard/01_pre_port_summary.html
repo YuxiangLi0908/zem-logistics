@@ -53,10 +53,13 @@
                 </tr>
                 <tr style="position: sticky; top: 20px;">
                     <th class="th">
-                        <input type="text" id="ctnSearch" placeholder="搜索柜号..." oninput="filterTable(this, 0, true)" size="13" style="font-size: 11px;">
+                        <input type="text" id="ctnSearch" placeholder="搜索柜号..." 
+                            oninput="filterTable(this)" 
+                            size="13" style="font-size: 11px;" 
+                            data-col="0">  
                     </th>
                     <th class="th">
-                        <select name="customer" onchange="filterTable(this, 1, true)">
+                        <select name="customer" onchange="filterTable(this)" data-col="1">
                             <option value="" selected></option>
                             {% for k, v in customers.items %}
                                 <option value="{{ v }}">{{ k }}</option>
@@ -67,7 +70,12 @@
                     <th class="th"></th>
                     <th class="th"></th>
                     <th class="th"></th>
-                    <th class="th"></th>
+                    <th class="th">
+                        <input type="text" id="warehouseSearch" placeholder="搜索仓库..." 
+                            oninput="filterTable(this)" 
+                            size="13" style="font-size: 11px;" 
+                            data-col="6">  
+                    </th>
                     <th class="th"></th>
                     <th class="th"></th>
                     <th class="th"></th>
@@ -177,52 +185,45 @@
         });
     };
 
-    function filterTable(filterInput, col_idx, trim) {
+    function filterTable(filterInput) {
         var table = filterInput.closest('table');
         var tbody = table.getElementsByTagName("tbody")[0];
         var tr = tbody.getElementsByTagName("tr");
 
         var filters = document.querySelectorAll('thead input[type="text"], thead select');
         var filterValues = Array.from(filters).map(function(filter) {
-            // 如果是柜号搜索框（第0列），则按空格分割为数组，其他列保持原样
-            return filter === filterInput && col_idx === 0 
-                ? filter.value.toUpperCase().split(/\s+/).filter(Boolean)
-                : [filter.value.toUpperCase().trim()];
+            var colIdx = parseInt(filter.dataset.col, 10);  
+            if (colIdx === 0) {
+                return filter.value.toUpperCase().split(/\s+/).filter(Boolean);
+            } else {
+                return [filter.value.toUpperCase().trim()];
+            }
         });
 
         for (var i = 0; i < tr.length; i++) {
             var row = tr[i];
             var showRow = true;
-            
-            for (var j = 0; j < filters.length; j++) {
-                var colIdx = j;
-                var filterValueList = filterValues[j];
+
+            filters.forEach(function(filter, idx) {
+                var colIdx = parseInt(filter.dataset.col, 10);
+                var filterValueList = filterValues[idx];
                 var cell = row.getElementsByTagName("td")[colIdx];
                 
                 if (cell && filterValueList.length > 0 && filterValueList[0] !== "") {
                     var cellText = cell.textContent || cell.innerText;
-                    var cellValue = trim ? cellText.toUpperCase().trim() : cellText.toUpperCase();
+                    var cellValue = cellText.toUpperCase().trim();
                     
-                    // 如果是柜号列（第0列），检查是否匹配任一柜号
                     if (colIdx === 0) {
                         var matchFound = filterValueList.some(function(filterValue) {
-                            return cellValue.includes(filterValue) || 
-                                filterValue.includes(cellValue);
+                            return cellValue.includes(filterValue) || filterValue.includes(cellValue);
                         });
-                        if (!matchFound) {
-                            showRow = false;
-                            break;
-                        }
-                    } 
-                    // 其他列保持原来的精确匹配逻辑
-                    else {
-                        if (cellValue.indexOf(filterValueList[0]) === -1) {
-                            showRow = false;
-                            break;
-                        }
+                        if (!matchFound) showRow = false;
+                    } else {
+                        if (cellValue.indexOf(filterValueList[0]) === -1) showRow = false;
                     }
                 }
-            }
+            });
+
             row.style.display = showRow ? "" : "none";
         }
     };
