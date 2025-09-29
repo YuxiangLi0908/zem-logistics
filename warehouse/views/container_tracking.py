@@ -400,6 +400,7 @@ class ContainerTracking(View):
                         for index, row in small_group:
                             container_no = str(row['柜号']).strip()
                             warehouse = str(row['仓库']).strip()
+                            warehouse = re.sub(r"（.*?）|\(.*?\)", "", warehouse).strip()
                             
                             if container_no and warehouse:
                                 detail[container_no] = warehouse
