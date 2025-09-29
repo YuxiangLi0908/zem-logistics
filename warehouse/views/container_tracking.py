@@ -32,8 +32,10 @@ class ContainerTracking(View):
         if step == "tracking_request":
             pass
         elif step == "upload_container_has_appointment":
-            template, context = await self.handle_upload_container_has_appointment_get(request)
-            return await sync_to_async(render)(request, template, context)
+            warehouse = request.POST.get('warehouse')
+            if warehouse == "SAV":
+                template, context = await self.handle_upload_container_has_appointment_get(request)
+                return await sync_to_async(render)(request, template, context)
         elif step == "Standardize_ISA":
             template, context = await self.handle_Standardize_ISA(request)
             return await sync_to_async(render)(request, template, context)
@@ -152,7 +154,7 @@ class ContainerTracking(View):
                                 # 如果不是数字，继续寻找
                                 continue
                     if fee_value is None:
-                        group_errors.append("未找到费用）")
+                        group_errors.append("未找到费用")
 
                     big_group_data = {'fee': fee_value, 'po': {}, 'errors': ''}
                     # 处理每个小组
@@ -199,10 +201,11 @@ class ContainerTracking(View):
                             cbm_value = str(row['CBM'])
                             
                             # 检查是否包含中文
-                            def contains_chinese(text):
-                                return any('\u4e00' <= char <= '\u9fff' for char in text)
+                            def contains_chinese_except_specific(text):
+                                chinese_chars = re.findall(r'[\u4e00-\u9fff]', text)
+                                return any(char not in ['满', '库', '存'] for char in chinese_chars)
                             
-                            if contains_chinese(loading_sequence) or contains_chinese(cbm_value):
+                            if contains_chinese_except_specific(loading_sequence) or contains_chinese_except_specific(cbm_value):
                                 special_records.append({
                                     'index': index,
                                     '柜号': container_no,
@@ -254,7 +257,8 @@ class ContainerTracking(View):
                 'normal_rows': normal_rows,
                 'total_batches': total_batches,
                 'total_vehicles': total_vehicles,
-            }
+            },
+            'warehouse': request.POST.get('warehouse')
         }
         return self.template_main, context
     
