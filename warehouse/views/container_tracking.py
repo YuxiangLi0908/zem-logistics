@@ -12,18 +12,22 @@ from warehouse.forms.upload_file import UploadFileForm
 from asgiref.sync import sync_to_async
 
 from warehouse.models.order import Order
+from warehouse.models.container import Container
 from warehouse.models.shipment import Shipment
+from warehouse.models.fleet import Fleet
+from warehouse.models.pallet import Pallet
 
 from warehouse.views.terminal49_webhook import T49Webhook
 
 class ContainerTracking(View):
     t49_tracking_url = "https://api.terminal49.com/v2/tracking_requests"
     template_main = "container_tracking/main_page.html"
+    template_po_sp_match = "container_tracking/po_sp_match.html"
 
     async def get(self, request: HttpRequest) -> HttpResponse:
         step = request.GET.get("step", None)
-        if step == "":
-            pass
+        if step == "actual_match":
+            return await sync_to_async(render)(request, self.template_po_sp_match)
         else:
             return await sync_to_async(render)(request, self.template_main)
 
@@ -34,7 +38,12 @@ class ContainerTracking(View):
         elif step == "upload_container_has_appointment":
             warehouse = request.POST.get('warehouse')
             if warehouse == "SAV":
-                template, context = await self.handle_upload_container_has_appointment_get(request)
+                template, context = await self.handle_upload_container_has_appointment_sav(request)
+                return await sync_to_async(render)(request, template, context)
+        elif step == "po_sp_match_search":
+            warehouse = request.POST.get('warehouse')
+            if warehouse == "SAV":
+                template, context = await self.handle_po_sp_match_search_sav(request)
                 return await sync_to_async(render)(request, template, context)
         elif step == "Standardize_ISA":
             template, context = await self.handle_Standardize_ISA(request)
@@ -57,9 +66,153 @@ class ContainerTracking(View):
         }
         return self.template_main, context
 
-    async def handle_upload_container_has_appointment_get(
+    async def handle_po_sp_match_search_sav(
         self, request: HttpRequest
     ) -> tuple[Any, Any]:
+        result = await self._sav_excel_normalization(request)
+        abnormalities = await self.check_appointment_abnormalities(result['result'])
+        shipment_table_rows = await self._process_format(abnormalities)
+        context = {
+            'result': result['result'],
+            'shipment_table_rows': shipment_table_rows,
+            'abnormalities': abnormalities,
+        }
+        return self.template_po_sp_match, context
+
+    async def check_appointment_abnormalities(self, result_dict):
+        abnormalities = []
+        for pickup_number, pickup_data in result_dict.items():
+            # 初始化该车次的异常列表
+            group_abnormalities = []
+            # 异常1: 检查车次是否存在
+            try:
+                fleet = await Fleet.objects.aget(pickup_number=pickup_number)
+            except Fleet.DoesNotExist:
+                abnormality_msg = f'车次 {pickup_number} 在系统中不存在'
+                group_abnormalities.append(abnormality_msg)
+                #加到总的报错信息里
+                abnormalities.append({
+                    'type': '车次不存在',
+                    'pickup_number': pickup_number,
+                    'message': abnormality_msg
+                })
+                # 将异常添加到该车次的errors中
+                if pickup_data.get('errors'):
+                    pickup_data['errors'] += f'；{abnormality_msg}'
+                else:
+                    pickup_data['errors'] = abnormality_msg
+                continue
+            # 处理每个预约批次
+            for batch_number, batch_data in pickup_data['po'].items():
+                appointment_number = batch_data['预约号']
+                detail = batch_data['detail']
+                
+                # 异常2: 检查预约批次是否存在
+                shipment_by_batch = None
+                shipment_by_appointment = None
+                try:
+                    shipment_by_batch = await Shipment.objects.aget(shipment_batch_number=batch_number)
+                except Shipment.DoesNotExist:
+                    # 如果通过batch_number找不到，尝试通过appointment_number查找
+                    try:
+                        shipment_by_appointment = await Shipment.objects.aget(appointment_id=str(appointment_number))
+                        
+                        # 找到了shipment，但batch_number不匹配
+                        abnormality_msg = f'预约批次号不匹配: 预约号 {appointment_number} 对应的批次号应为 {shipment_by_appointment.shipment_batch_number}，而不是 {batch_number}'
+                        group_abnormalities.append(abnormality_msg)
+                        abnormalities.append({
+                            'type': '批次号不匹配',
+                            'pickup_number': pickup_number,
+                            'batch_number': batch_number,
+                            'expected_batch': shipment_by_appointment.shipment_batch_number,
+                            'appointment_number': appointment_number,
+                            'message': abnormality_msg
+                        })
+                        shipment = shipment_by_appointment  # 使用找到的shipment继续后续检查
+                        
+                    except Shipment.DoesNotExist:
+                        # 通过batch_number和appointment_number都找不到
+                        abnormality_msg = f'预约批次 {batch_number} (预约号: {appointment_number}) 在系统中不存在'
+                        group_abnormalities.append(abnormality_msg)
+                        abnormalities.append({
+                            'type': '预约批次不存在',
+                            'pickup_number': pickup_number,
+                            'batch_number': batch_number,
+                            'appointment_number': appointment_number,
+                            'message': abnormality_msg
+                        })
+                        continue
+                else:
+                    shipment = shipment_by_batch
+                
+                # 异常3: 检查预约号是否匹配
+                if shipment_by_batch and str(shipment.appointment_id) != str(appointment_number):
+                    abnormality_msg = f'批次 {batch_number} 预约号不匹配: 期望 {appointment_number}, 实际 {shipment.appointment_id}'
+                    group_abnormalities.append(abnormality_msg)
+                    abnormalities.append({
+                        'type': '预约号不匹配',
+                        'pickup_number': pickup_number,
+                        'batch_number': batch_number,
+                        'expected_appointment': appointment_number,
+                        'actual_appointment': shipment.appointment_id,
+                        'message': abnormality_msg
+                    })
+                
+                # 异常4: 检查shipment是否关联到正确的车次
+                if shipment.fleet_number_id != fleet.id:
+                    abnormality_msg = f'批次 {batch_number} 未关联到车次 {pickup_number}，实际关联到车次 {shipment.fleet_number.fleet_number if shipment.fleet_number else "无"}'
+                    group_abnormalities.append(abnormality_msg)
+                    abnormalities.append({
+                        'type': '车次关联错误',
+                        'pickup_number': pickup_number,
+                        'batch_number': batch_number,
+                        'actual_fleet': shipment.fleet_number.fleet_number if shipment.fleet_number else "无",
+                        'message': abnormality_msg
+                    })
+                # 检查每个柜号-仓点组合
+                for container_no, expected_warehouse in detail.items():
+                    try:
+                        # 直接在 Pallet 表中查询柜号和仓点的记录
+                        pallet = await Pallet.objects.select_related('container_number', 'shipment_batch_number').aget(
+                            container_number__container_number=container_no,
+                            destination=expected_warehouse
+                        )
+                        
+                        # 如异常6：检查是否关联到正确的预约批次
+                        if pallet.shipment_batch_number.shipment_batch_number != batch_number:
+                            abnormality_msg = f'柜号 {container_no} 仓点 {expected_warehouse} 未关联到预约批次 {batch_number}，实际关联到 {pallet.shipment_batch_number.shipment_batch_number}'
+                            group_abnormalities.append(abnormality_msg)
+                            abnormalities.append({
+                                'type': '柜号批次不匹配',
+                                'pickup_number': pickup_number,
+                                'batch_number': batch_number,
+                                'container_number': container_no,
+                                'expected_warehouse': expected_warehouse,
+                                'actual_batch': pallet.shipment_batch_number.shipment_batch_number,
+                                'message': abnormality_msg
+                            })
+                            
+                    except Pallet.DoesNotExist:
+                        # 异常5：柜号下找不到这个仓点记录
+                        abnormality_msg = f'柜号 {container_no} 下找不到仓点 {expected_warehouse} 的记录'
+                        group_abnormalities.append(abnormality_msg)
+                        abnormalities.append({
+                            'type': '柜号仓点不存在',
+                            'pickup_number': pickup_number,
+                            'batch_number': batch_number,
+                            'container_number': container_no,
+                            'expected_warehouse': expected_warehouse,
+                            'message': abnormality_msg
+                        })
+            if group_abnormalities:
+                new_errors = '；'.join(group_abnormalities)
+                if pickup_data.get('errors'):
+                    pickup_data['errors'] += f'；{new_errors}'
+                else:
+                    pickup_data['errors'] = new_errors
+        return result_dict
+
+    async def _sav_excel_normalization(self,request: HttpRequest) -> dict:
         form = UploadFileForm(request.POST, request.FILES)
         error_messages = [] #错误信息
         success_count = 0
@@ -180,7 +333,7 @@ class ContainerTracking(View):
                                     # 尝试转换为数字
                                     isa_value = float(isa_value)
                                     if isa_value > 100000:
-                                        appointment_number = isa_value
+                                        appointment_number = int(isa_value)
                                         break  # 找到第一个小于10000的费用值就停止
                                 except ValueError:
                                     # 如果不是数字，继续寻找
@@ -236,10 +389,20 @@ class ContainerTracking(View):
                         # 如果没有 po，但存在错误信息，也把错误放入全局错误（便于调试）
                         if big_group_data['errors']:
                             error_messages.append(f"车次 {vehicle_number}：{big_group_data['errors']}")
-
-                
+        context = {
+            'result': result,
+            'special_records': special_records,
+            'error_messages': error_messages,
+        }
+        return context
+    
+    async def handle_upload_container_has_appointment_sav(
+        self, request: HttpRequest
+    ) -> tuple[Any, Any]:
+        result = await self._sav_excel_normalization(request)
+                       
         #把result按照合并格式去处理
-        shipment_table_rows = await self._process_format(result)
+        shipment_table_rows = await self._process_format(result['result'])
         #统计下整体情况
         total_rows = len(shipment_table_rows)
         error_rows = sum(1 for row in shipment_table_rows if row.get("errors"))
@@ -249,8 +412,8 @@ class ContainerTracking(View):
         context = {
             'shipment_table_rows':shipment_table_rows,
             'shipment_details_raw': result, 
-            'special_records': special_records,
-            'global_errors': error_messages,
+            'special_records': result['special_records'],
+            'global_errors': result['error_messages'],
             'summary': {
                 'total_rows': total_rows,
                 'error_rows': error_rows,
