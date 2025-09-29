@@ -70,12 +70,12 @@ class ContainerTracking(View):
         self, request: HttpRequest
     ) -> tuple[Any, Any]:
         result = await self._sav_excel_normalization(request)
-        abnormalities = await self.check_appointment_abnormalities(result['result'])
-        shipment_table_rows = await self._process_format(abnormalities)
+        match_result = await self.check_appointment_abnormalities(result['result'])
+        shipment_table_rows = await self._process_format(match_result['result'])
         context = {
-            'result': result['result'],
+            'result': match_result['result'],
             'shipment_table_rows': shipment_table_rows,
-            'abnormalities': abnormalities,
+            'global_errors': match_result['global_errors'],
         }
         return self.template_po_sp_match, context
 
@@ -210,7 +210,11 @@ class ContainerTracking(View):
                     pickup_data['errors'] += f'；{new_errors}'
                 else:
                     pickup_data['errors'] = new_errors
-        return result_dict
+        context = {
+            'global_errors': abnormalities,
+            'result': result_dict
+        }
+        return context
 
     async def _sav_excel_normalization(self,request: HttpRequest) -> dict:
         form = UploadFileForm(request.POST, request.FILES)
