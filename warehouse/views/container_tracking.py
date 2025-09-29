@@ -1,6 +1,6 @@
 from typing import Any
 from django.db.models.functions import Trim
-
+from collections import Counter
 from django.contrib.auth.decorators import login_required
 from django.http import HttpRequest, HttpResponse
 from django.shortcuts import render
@@ -83,6 +83,7 @@ class ContainerTracking(View):
                 'total_rows': total_rows,
                 'error_rows': error_rows,
                 'normal_rows': total_rows - error_rows,
+                'error_type_summary': match_result['error_type_summary'], 
             },
         }
         return self.template_po_sp_match, context
@@ -261,9 +262,11 @@ class ContainerTracking(View):
                     pickup_data['errors'] += f'；{new_errors}'
                 else:
                     pickup_data['errors'] = new_errors
+        error_type_counter = Counter([ab['type'] for ab in abnormalities])
         context = {
             'global_errors': abnormalities,
-            'result': result_dict
+            'result': result_dict,
+            'error_type_summary': dict(error_type_counter),
         }
         return context
 
@@ -498,7 +501,6 @@ class ContainerTracking(View):
             errors = big_group_data.get('errors', '')
             if errors:
                 error_list = [error.strip() for error in errors.split('；') if error.strip()]
-                print(type(error_list),error_list)
             else:
                 error_list = []
             for batch_number, batch_info in po.items():
