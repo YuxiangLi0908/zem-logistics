@@ -214,7 +214,10 @@ class ContainerTracking(View):
                         matched_pallets = []
                         unmatched_pallets = []
                         for pallet in pallets:
-                            if pallet.shipment_batch_number.shipment_batch_number == batch_number:
+                            if not pallet.shipment_batch_number:
+                                # 如果外键为空，归为异常
+                                unmatched_pallets.append(pallet)
+                            elif pallet.shipment_batch_number.shipment_batch_number == batch_number:
                                 matched_pallets.append(pallet)
                             else:
                                 unmatched_pallets.append(pallet)
@@ -222,8 +225,16 @@ class ContainerTracking(View):
                             # 异常6：没有关联到正确的预约批次
                             total_count = len(pallets)
                             unmatched_count = len(unmatched_pallets)
-                            actual_batches = list(set(p.shipment_batch_number.shipment_batch_number for p in pallets))
-                            abnormality_msg = f'柜号 {container_no} 仓点 {expected_warehouse} 未关联到预约批次 {batch_number}，共{total_count}条记录，{unmatched_count}条批次不匹配，实际关联到批次: {", ".join(actual_batches)}'
+
+                            actual_batches = []
+                            for p in pallets:
+                                if not p.shipment_batch_number:
+                                    actual_batches.append("无关联批次")
+                                else:
+                                    actual_batches.append(p.shipment_batch_number.shipment_batch_number)
+                            
+                            actual_batches_unique = list(set(actual_batches))
+                            abnormality_msg = f'柜号 {container_no} 仓点 {expected_warehouse} 未关联到预约批次 {batch_number}，共{total_count}条记录，{unmatched_count}条批次不匹配，实际关联情况: {", ".join(actual_batches_unique)}'
                             group_abnormalities.append(abnormality_msg)
                             abnormalities.append({
                                 'type': '柜号批次不匹配',
