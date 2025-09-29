@@ -193,7 +193,13 @@
                         <div class="dropdown-content">
                             <a href="{% url 'dbconn' %}">SQL Query</a>
                             <a href="{% url 'stuff_user' %}?step=clean_data">清理数据</a>
-                            <a href="{% url 'container_tracking' %}">系统各种特殊操作</a>
+                            <div class="nested-dropdown">
+                                <a>系统各种特殊操作</a>
+                                <div class="nested-dropdown-content">
+                                    <a href="{% url 'container_tracking' %}">上传预约表并展示</a>
+                                    <a href="{% url 'container_tracking' %}?step=actual_match" target="_blank">预约表与系统匹配情况</a>
+                                </div>
+                            </div>
                             <div class="nested-dropdown" >
                                 <a>Test Async</a>
                                 <div class="nested-dropdown-content">
