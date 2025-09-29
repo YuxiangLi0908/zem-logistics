@@ -340,7 +340,7 @@
 </style>
 
 <div class="page-header">
-    <h1 class="page-title">系统预约和登记表预约匹配</h1>
+    <h1 class="page-title">预约表落实到系统</h1>
     <form method="post" enctype="multipart/form-data" class="upload-form">   
         {% csrf_token %}
         <input type="file" name="file" accept=".xlsx,.xls,.csv">
@@ -350,9 +350,9 @@
             <option value="SAV">SAV</option>
             <option value="LA">LA</option>
         </select>
-        <input type="hidden" name="step" value="po_sp_match_search">
+        <input type="hidden" name="step" value="sp_operation">
         <button type="submit" class="btn btn-success">
-            批量规范化预约表
+            落实预约表
         </button>
     </form>
 </div>
