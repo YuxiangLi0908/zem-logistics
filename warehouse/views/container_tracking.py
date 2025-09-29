@@ -106,9 +106,6 @@ class ContainerTracking(View):
                         
                         if ('一提两卸' in str(row['备注'])):
                             is_multiple = True
-                            print('是一提两卸',index,str(row['柜号']))
-                        # else:
-                        #     print('不是',index,str(row['备注']))
                         # 检查备注是否包含"一提两卸"，或者是否是最后一行
                         if ('一提两卸' in str(row['备注']) or i == len(big_group) - 1):
                             if temp_small_group:
