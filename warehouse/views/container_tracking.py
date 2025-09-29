@@ -73,6 +73,7 @@ class ContainerTracking(View):
             "message": "所有 Shipment 的 appointment_id 已经去掉前后空格"
         }
         return self.template_main, context
+    
     async def handle_sp_operation_sav(
         self, request: HttpRequest
     ) -> tuple[Any, Any]:
@@ -80,6 +81,10 @@ class ContainerTracking(View):
         match_result = await self.detail_appointment_abnormalities(result['result'])
         context = {
             'result': match_result['result'],
+            'processed_abnormalities': match_result['processed_abnormalities'],
+            'processed_abnormalities': match_result['processed_abnormalities'],
+            'processed_count': match_result['processed_count'],
+            'remaining_count': match_result['remaining_count'],
         }
         return self.template_po_sp_match,context
 
@@ -143,7 +148,7 @@ class ContainerTracking(View):
                 # 收集所有批次的fleet_number_id
                 for batch_num in pickup_data['po'].keys():
                     try:
-                        shipment = await Shipment.objects.aget(shipment_batch_number=batch_num)
+                        shipment = await Shipment.objects.select_related('fleet_number').aget(shipment_batch_number=batch_num)
                         batch_fleet_ids[batch_num] = shipment.fleet_number_id
                     except Shipment.DoesNotExist:
                         # 如果批次不存在，跳过这个批次的检查
@@ -179,11 +184,11 @@ class ContainerTracking(View):
                 shipment_by_batch = None
                 shipment_by_appointment = None
                 try:
-                    shipment_by_batch = await Shipment.objects.aget(shipment_batch_number=batch_number)
+                    shipment_by_batch = await Shipment.objects.select_related('fleet_number').aget(shipment_batch_number=batch_number)
                 except Shipment.DoesNotExist:
                     # 如果通过batch_number找不到，尝试通过appointment_number查找
                     try:
-                        shipment_by_appointment = await Shipment.objects.aget(appointment_id=str(appointment_number))
+                        shipment_by_appointment = await Shipment.objects.select_related('fleet_number').aget(appointment_id=str(appointment_number))
                         
                         # 找到了shipment，但batch_number不匹配
                         abnormality_msg = f'约不匹配: ISA {appointment_number} 对应的约应为 {shipment_by_appointment.shipment_batch_number}，而不是 {batch_number}'
@@ -365,11 +370,18 @@ class ContainerTracking(View):
                     pickup_data['errors'] += f'；{new_errors}'
                 else:
                     pickup_data['errors'] = new_errors
+
         error_type_counter = Counter([ab['type'] for ab in abnormalities])
+        processed_count = len(processed_abnormalities)
+        remaining_count = len(remaining_abnormalities)
         context = {
             'global_errors': abnormalities,
             'result': result_dict,
             'error_type_summary': dict(error_type_counter),
+            'processed_count': processed_count,
+            'remaining_count': remaining_count,
+            'processed_abnormalities': processed_abnormalities,
+            'remaining_abnormalities': remaining_abnormalities,
         }
         return context
 
@@ -412,7 +424,7 @@ class ContainerTracking(View):
                 # 收集所有批次的fleet_number_id
                 for batch_num in pickup_data['po'].keys():
                     try:
-                        shipment = await Shipment.objects.aget(shipment_batch_number=batch_num)
+                        shipment = await Shipment.objects.select_related('fleet_number').aget(shipment_batch_number=batch_num)
                         batch_fleet_ids[batch_num] = shipment.fleet_number_id
                     except Shipment.DoesNotExist:
                         # 如果批次不存在，跳过这个批次的检查
@@ -452,7 +464,7 @@ class ContainerTracking(View):
                 except Shipment.DoesNotExist:
                     # 如果通过batch_number找不到，尝试通过appointment_number查找
                     try:
-                        shipment_by_appointment = await Shipment.objects.aget(appointment_id=str(appointment_number))
+                        shipment_by_batch = await Shipment.objects.select_related('fleet_number').aget(shipment_batch_number=batch_number)
                         
                         # 找到了shipment，但batch_number不匹配
                         abnormality_msg = f'约不匹配: ISA {appointment_number} 对应的约应为 {shipment_by_appointment.shipment_batch_number}，而不是 {batch_number}'
