@@ -171,29 +171,14 @@ class ContainerTracking(View):
                     })
                 # 检查每个柜号-仓点组合
                 for container_no, expected_warehouse in detail.items():
-                    try:
-                        # 直接在 Pallet 表中查询柜号和仓点的记录
-                        pallet = await Pallet.objects.select_related('container_number', 'shipment_batch_number').aget(
-                            container_number__container_number=container_no,
-                            destination=expected_warehouse
-                        )
-                        
-                        # 如异常6：检查是否关联到正确的预约批次
-                        if pallet.shipment_batch_number.shipment_batch_number != batch_number:
-                            abnormality_msg = f'柜号 {container_no} 仓点 {expected_warehouse} 未关联到预约批次 {batch_number}，实际关联到 {pallet.shipment_batch_number.shipment_batch_number}'
-                            group_abnormalities.append(abnormality_msg)
-                            abnormalities.append({
-                                'type': '柜号批次不匹配',
-                                'pickup_number': pickup_number,
-                                'batch_number': batch_number,
-                                'container_number': container_no,
-                                'expected_warehouse': expected_warehouse,
-                                'actual_batch': pallet.shipment_batch_number.shipment_batch_number,
-                                'message': abnormality_msg
-                            })
-                            
-                    except Pallet.DoesNotExist:
-                        # 异常5：柜号下找不到这个仓点记录
+                    # 直接在 Pallet 表中查询柜号和仓点的记录
+                    pallets = await Pallet.objects.select_related('container_number', 'shipment_batch_number').filter(
+                        container_number__container_number=container_no,
+                        destination=expected_warehouse
+                    ).alist()
+                    
+                    # 如异常6：检查是否关联到正确的预约批次
+                    if not pallets:
                         abnormality_msg = f'柜号 {container_no} 下找不到仓点 {expected_warehouse} 的记录'
                         group_abnormalities.append(abnormality_msg)
                         abnormalities.append({
@@ -204,6 +189,33 @@ class ContainerTracking(View):
                             'expected_warehouse': expected_warehouse,
                             'message': abnormality_msg
                         })
+                    else:
+                        # 检查所有匹配的记录
+                        matched_pallets = []
+                        unmatched_pallets = []
+                        for pallet in pallets:
+                            if pallet.shipment_batch_number.shipment_batch_number == batch_number:
+                                matched_pallets.append(pallet)
+                            else:
+                                unmatched_pallets.append(pallet)
+                        if not matched_pallets:
+                            # 异常6：没有关联到正确的预约批次
+                            total_count = len(pallets)
+                            unmatched_count = len(unmatched_pallets)
+                            actual_batches = list(set(p.shipment_batch_number.shipment_batch_number for p in pallets))
+                            abnormality_msg = f'柜号 {container_no} 仓点 {expected_warehouse} 未关联到预约批次 {batch_number}，共{total_count}条记录，{unmatched_count}条批次不匹配，实际关联到批次: {", ".join(actual_batches)}'
+                            group_abnormalities.append(abnormality_msg)
+                            abnormalities.append({
+                                'type': '柜号批次不匹配',
+                                'pickup_number': pickup_number,
+                                'batch_number': batch_number,
+                                'container_number': container_no,
+                                'expected_warehouse': expected_warehouse,
+                                'total_count': total_count,
+                                'unmatched_count': unmatched_count,
+                                'actual_batches': actual_batches,
+                                'message': abnormality_msg
+                            })
             if group_abnormalities:
                 new_errors = '；'.join(group_abnormalities)
                 if pickup_data.get('errors'):
