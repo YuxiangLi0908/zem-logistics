@@ -497,6 +497,7 @@ class ContainerTracking(View):
             errors = big_group_data.get('errors', '')
             if errors:
                 error_list = [error.strip() for error in errors.split('；') if error.strip()]
+                print(type(error_list),error_list)
             else:
                 error_list = []
             for batch_number, batch_info in po.items():
