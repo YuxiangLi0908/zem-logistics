@@ -85,9 +85,8 @@ class ContainerTracking(View):
             # 初始化该车次的异常列表
             group_abnormalities = []
             # 异常1: 检查车次是否存在
-            try:
-                fleet = await Fleet.objects.aget(pickup_number=pickup_number)
-            except Fleet.DoesNotExist:
+            fleets = [fleet async for fleet in Fleet.objects.filter(pickup_number=pickup_number)]
+            if len(fleets) == 0:
                 abnormality_msg = f'车次 {pickup_number} 在系统中不存在'
                 group_abnormalities.append(abnormality_msg)
                 #加到总的报错信息里
@@ -102,6 +101,24 @@ class ContainerTracking(View):
                 else:
                     pickup_data['errors'] = abnormality_msg
                 continue
+            elif len(fleets) > 1:
+                # 查到多条记录
+                fleet_numbers = [fleet.fleet_number for fleet in fleets]
+                abnormality_msg = f'车次 {pickup_number} 在系统中存在多条记录，fleet_number分别为: {", ".join(fleet_numbers)}'
+                group_abnormalities.append(abnormality_msg)
+                abnormalities.append({
+                    'type': '车次重复',
+                    'pickup_number': pickup_number,
+                    'fleet_numbers': fleet_numbers,
+                    'message': abnormality_msg
+                })
+                # 将异常添加到该车次的errors中
+                if pickup_data.get('errors'):
+                    pickup_data['errors'] += f'；{abnormality_msg}'
+                else:
+                    pickup_data['errors'] = abnormality_msg
+                continue
+            
             # 处理每个预约批次
             for batch_number, batch_data in pickup_data['po'].items():
                 appointment_number = batch_data['预约号']
