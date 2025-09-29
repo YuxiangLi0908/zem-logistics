@@ -112,7 +112,7 @@ class ContainerTracking(View):
             elif len(fleets) > 1:
                 # 查到多条记录
                 fleet_numbers = [fleet.fleet_number for fleet in fleets]
-                abnormality_msg = f'车次 {pickup_number} 在系统中存在多条记录，fleet_number分别为: {", ".join(fleet_numbers)}'
+                abnormality_msg = f'车 {pickup_number} 在系统中存在多条记录，fleet_number分别为: {", ".join(fleet_numbers)}'
                 group_abnormalities.append(abnormality_msg)
                 abnormalities.append({
                     'type': '车次重复',
@@ -144,7 +144,7 @@ class ContainerTracking(View):
                         shipment_by_appointment = await Shipment.objects.aget(appointment_id=str(appointment_number))
                         
                         # 找到了shipment，但batch_number不匹配
-                        abnormality_msg = f'预约批次号不匹配: 预约号 {appointment_number} 对应的批次号应为 {shipment_by_appointment.shipment_batch_number}，而不是 {batch_number}'
+                        abnormality_msg = f'约不匹配: ISA {appointment_number} 对应的约应为 {shipment_by_appointment.shipment_batch_number}，而不是 {batch_number}'
                         group_abnormalities.append(abnormality_msg)
                         abnormalities.append({
                             'type': '批次号不匹配',
@@ -158,7 +158,7 @@ class ContainerTracking(View):
                         
                     except Shipment.DoesNotExist:
                         # 通过batch_number和appointment_number都找不到
-                        abnormality_msg = f'预约批次 {batch_number} (预约号: {appointment_number}) 在系统中不存在'
+                        abnormality_msg = f'约 {batch_number} (ISA: {appointment_number}) 在系统中不存在'
                         group_abnormalities.append(abnormality_msg)
                         abnormalities.append({
                             'type': '预约批次不存在',
@@ -173,7 +173,7 @@ class ContainerTracking(View):
                 
                 # 异常3: 检查预约号是否匹配
                 if shipment_by_batch and str(shipment.appointment_id) != str(appointment_number):
-                    abnormality_msg = f'批次 {batch_number} 预约号不匹配: 期望 {appointment_number}, 实际 {shipment.appointment_id}'
+                    abnormality_msg = f'批次 {batch_number} 的ISA不匹配: 期望 {appointment_number}, 实际 {shipment.appointment_id}'
                     group_abnormalities.append(abnormality_msg)
                     abnormalities.append({
                         'type': '预约号不匹配',
@@ -186,7 +186,7 @@ class ContainerTracking(View):
                 
                 # 异常4: 检查shipment是否关联到正确的车次
                 if shipment.fleet_number_id != fleet.id:
-                    abnormality_msg = f'批次 {batch_number} 未关联到车次 {pickup_number}，实际关联到车次 {shipment.fleet_number.fleet_number if shipment.fleet_number else "无"}'
+                    abnormality_msg = f'批次 {batch_number} 未关联到车 {pickup_number}，实际关联车是 {shipment.fleet_number.fleet_number if shipment.fleet_number else "无"}'
                     group_abnormalities.append(abnormality_msg)
                     abnormalities.append({
                         'type': '车次关联错误',
@@ -242,7 +242,7 @@ class ContainerTracking(View):
                                     actual_batches.append(p.shipment_batch_number.shipment_batch_number)
                             
                             actual_batches_unique = list(set(actual_batches))
-                            abnormality_msg = f'柜号 {container_no} 仓点 {expected_warehouse} 未关联到预约批次 {batch_number}，共{total_count}条记录，{unmatched_count}条批次不匹配，实际关联情况: {", ".join(actual_batches_unique)}'
+                            abnormality_msg = f'{container_no} - {expected_warehouse} 未关联到约 {batch_number}，共{total_count}个板，{unmatched_count}个板的批次不匹配，实际关联情况: {", ".join(actual_batches_unique)}'
                             group_abnormalities.append(abnormality_msg)
                             abnormalities.append({
                                 'type': '柜号批次不匹配',
