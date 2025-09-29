@@ -315,7 +315,7 @@ class ContainerTracking(View):
                             repair_count = 0
                             target_shipment = None
                             try:
-                                target_shipment = await Shipment.objects.aget(shipment_batch_number=batch_number)
+                                target_shipment = await Shipment.objects.select_related('fleet_number').aget(shipment_batch_number=batch_number)
                             except Shipment.DoesNotExist:
                                 pass
                             
@@ -460,7 +460,7 @@ class ContainerTracking(View):
                 shipment_by_batch = None
                 shipment_by_appointment = None
                 try:
-                    shipment_by_batch = await Shipment.objects.aget(shipment_batch_number=batch_number)
+                    shipment_by_batch = await Shipment.objects.select_related('fleet_number').aget(shipment_batch_number=batch_number)
                 except Shipment.DoesNotExist:
                     # 如果通过batch_number找不到，尝试通过appointment_number查找
                     try:
