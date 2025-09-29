@@ -1,0 +1,539 @@
+{% extends 'base.html' %}
+
+{% block content %}
+<style>
+    :root {
+        --secondary-color: #667eea;
+        --primary-color: #764ba2;
+        --success-color: #27ae60;
+        --danger-color: #e74c3c;
+        --warning-color: #e67e22;
+        --info-color: #3498db;
+    }
+    
+    /* 统一字体设置 */
+    .table-wrap,
+    .fleet-table,
+    .fleet-table th,
+    .fleet-table td,
+    .summary-cards,
+    .summary-card,
+    .page-header,
+    .upload-form,
+    .special-records,
+    .global-errors {
+        font-family: "Times New Roman", Times, serif;
+    }
+    
+    .fleet-table td.container-col {
+        font-weight: 600;
+    }
+    .fleet-table td.warehouse-col {
+        color: #27ae60;
+    }
+    /* 选项卡样式 */
+    .tab-container {
+        margin: 1.5rem 0;
+    }
+    .tab-buttons {
+        display: flex;
+        gap: 4px;
+        margin-bottom: 16px;
+        border-bottom: 2px solid #e9ecef;
+    }
+    .tab-button {
+        padding: 10px 20px;
+        background: #f8f9fa;
+        border: 1px solid #e9ecef;
+        border-bottom: none;
+        border-radius: 8px 8px 0 0;
+        cursor: pointer;
+        font-size: 13px;
+        font-weight: 500;
+        color: #666;
+        transition: all 0.3s ease;
+    }
+    .tab-button:hover {
+        background: #e9ecef;
+        color: #333;
+    }
+    .tab-button.active {
+        background: white;
+        color: #4a6491;
+        border-color: #4a6491;
+        border-bottom: 2px solid white;
+        margin-bottom: -2px;
+        font-weight: 600;
+    }
+    .tab-badge {
+        display: inline-block;
+        padding: 2px 6px;
+        background: #e74c3c;
+        color: white;
+        border-radius: 10px;
+        font-size: 10px;
+        margin-left: 6px;
+        min-width: 18px;
+        text-align: center;
+    }
+    .tab-content {
+        display: none;
+    }
+    .tab-content.active {
+        display: block;
+    }
+    
+    .table-wrap {
+        overflow-x: auto;
+        margin-top: 1rem;
+        border-radius: 8px;
+        box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+        background: linear-gradient(135deg, var(--secondary-color), #4a6491);
+    }
+    .fleet-table {
+        width: 100%;
+        border-collapse: collapse;
+        font-size: 13px;
+        min-width: 800px;
+        background: white;
+        border-radius: 8px;
+        overflow: hidden;
+    }
+    .fleet-table th {
+        background: #4a6491;
+        color: white;
+        font-weight: 600;
+        border: none;
+        padding: 12px 10px;
+        text-align: center;
+        position: sticky;
+        top: 0;
+        z-index: 10;
+    }
+    .fleet-table td {
+        border-bottom: 1px solid #f0f0f0;
+        padding: 10px;
+        vertical-align: middle;
+        word-break: break-word;
+        background: white;
+        text-align: center;
+    }
+    .fleet-table tr:hover td {
+        background: #f8f9ff;
+        transition: background 0.2s ease;
+    }
+    .fleet-table tr:nth-child(even) td {
+        background: #fafafa;
+    }
+    .fleet-table tr:nth-child(even):hover td {
+        background: #f0f2ff;
+    }
+    
+    /* 特定列的特殊样式 - 移除 monospace 字体 */
+    .fleet-table td:nth-child(1) {  /* 车次号 */
+        font-weight: 600;
+        color: #2c3e50;
+    }
+    .fleet-table td:nth-child(2) {  /* 车次费用 */
+        color: #27ae60;
+        font-weight: 500;
+    }
+    .fleet-table td:nth-child(3) {  /* 批次号 */
+        color: #3498db;
+    }
+    .fleet-table td:nth-child(4) {  /* 预约号 */
+        color: #9b59b6;
+    }
+    .fleet-table td:nth-child(5) {  /* 柜号 */
+        font-weight: 500;
+    }
+    
+    .error-badge {
+        display: inline-block;
+        padding: 6px 10px;
+        background: #ffe6e6;
+        color: #d63031;
+        border-radius: 6px;
+        font-size: 11px;
+        font-weight: 500;
+        border: 1px solid #ffcccc;
+        line-height: 1.2;
+        text-align: center;
+        font-family: "Times New Roman", Times, serif;
+    }
+    .small-muted {
+        font-size: 11px;
+        color: #999;
+        font-style: italic;
+        text-align: center;
+        font-family: "Times New Roman", Times, serif;
+    }
+    
+    .special-records {
+        margin-top: 1rem;
+        background: linear-gradient(135deg, #fff8e6 0%, #fff0cc 100%);
+        padding: 16px;
+        border-radius: 8px;
+        border: 1px solid #ffd966;
+        box-shadow: 0 2px 4px rgba(0,0,0,0.05);
+    }
+    .special-records strong {
+        color: #e67e22;
+        margin-bottom: 8px;
+        display: block;
+        font-size: 16px;
+    }
+    .special-records ul {
+        margin: 0;
+        padding-left: 20px;
+    }
+    .special-records li {
+        margin-bottom: 6px;
+        color: #7d6608;
+        font-size: 12px;
+        line-height: 1.4;
+    }
+    
+    .summary-cards {
+        display: flex;
+        gap: 16px;
+        margin: 1.5rem 0;
+        flex-wrap: wrap;
+    }
+    .summary-card {
+        flex: 1;
+        min-width: 140px;
+        background: white;
+        border: 1px solid #e1e8ed;
+        border-radius: 12px;
+        padding: 16px;
+        text-align: center;
+        box-shadow: 0 4px 6px rgba(0,0,0,0.05);
+        transition: transform 0.2s ease, box-shadow 0.2s ease;
+    }
+    .summary-card:hover {
+        transform: translateY(-2px);
+        box-shadow: 0 6px 12px rgba(0,0,0,0.1);
+    }
+    .summary-title {
+        font-size: 12px;
+        color: #666;
+        margin-bottom: 6px;
+        font-weight: 500;
+        text-transform: uppercase;
+        letter-spacing: 0.5px;
+    }
+    .summary-value {
+        font-size: 24px;
+        font-weight: 700;
+    }
+    .text-success {
+        color: var(--success-color);
+    }
+    .text-danger {
+        color: var(--danger-color);
+    }
+    
+    .page-header {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        margin-bottom: 1rem;
+        padding-bottom: 12px;
+        border-bottom: 2px solid #f0f0f0;
+    }
+    .page-title {
+        font-size: 24px;
+        font-weight: 700;
+        color: #2c3e50;
+        margin: 0;
+    }
+    
+    .upload-form {
+        display: flex;
+        align-items: center;
+        gap: 12px;
+        padding: 12px;
+        background: #f8f9fa;
+        border-radius: 8px;
+        border: 1px solid #e9ecef;
+    }
+    .upload-form input[type="file"] {
+        padding: 6px;
+        border: 1px solid #ddd;
+        border-radius: 4px;
+        background: white;
+        font-size: 12px;
+        font-family: "Times New Roman", Times, serif;
+    }
+    .upload-form .btn-success {
+        background: linear-gradient(135deg, var(--success-color), #2ecc71);
+        border: none;
+        border-radius: 6px;
+        padding: 8px 16px;
+        font-size: 12px;
+        font-weight: 600;
+        color: white;
+        cursor: pointer;
+        transition: all 0.2s ease;
+        font-family: "Times New Roman", Times, serif;
+    }
+    .upload-form .btn-success:hover {
+        transform: translateY(-1px);
+        box-shadow: 0 4px 8px rgba(39, 174, 96, 0.3);
+    }
+    
+    .global-errors {
+        margin-top: 1rem;
+        padding: 16px;
+        background: #ffe6e6;
+        border: 1px solid #ffcccc;
+        border-radius: 8px;
+        color: #d63031;
+    }
+    .global-errors strong {
+        display: block;
+        margin-bottom: 8px;
+        font-size: 16px;
+    }
+    .global-errors ul {
+        margin: 0;
+        padding-left: 20px;
+    }
+    .global-errors li {
+        margin-bottom: 4px;
+        font-size: 12px;
+    }
+    
+    .empty-state {
+        text-align: center;
+        padding: 40px 20px;
+        color: #666;
+        font-style: italic;
+    }
+    
+    /* 响应式设计 */
+    @media (max-width: 768px) {
+        .summary-cards {
+            gap: 12px;
+        }
+        .summary-card {
+            min-width: calc(50% - 12px);
+        }
+        .page-header {
+            flex-direction: column;
+            gap: 12px;
+            align-items: flex-start;
+        }
+        .upload-form {
+            width: 100%;
+            justify-content: space-between;
+        }
+        .tab-buttons {
+            flex-wrap: wrap;
+        }
+        .tab-button {
+            flex: 1;
+            min-width: 120px;
+            text-align: center;
+        }
+    }
+</style>
+
+<div class="page-header">
+    <h1 class="page-title">系统预约和登记表预约匹配</h1>
+    <form method="post" enctype="multipart/form-data" class="upload-form">   
+        {% csrf_token %}
+        <input type="file" name="file" accept=".xlsx,.xls,.csv">
+        <select name="warehouse" required>
+            <option value="">---</option>
+            <option value="NJ">NJ</option>
+            <option value="SAV">SAV</option>
+            <option value="LA">LA</option>
+        </select>
+        <input type="hidden" name="step" value="po_sp_match_search">
+        <button type="submit" class="btn btn-success">
+            批量规范化预约表
+        </button>
+    </form>
+</div>
+
+
+<div class="summary-cards">
+    <div class="summary-card">
+        <div class="summary-title">总行数</div>
+        <div class="summary-value">{{ summary.total_rows }}</div>
+    </div>
+    <div class="summary-card">
+        <div class="summary-title">正常行</div>
+        <div class="summary-value text-success">{{ summary.normal_rows }}</div>
+    </div>
+    <div class="summary-card">
+        <div class="summary-title">异常行</div>
+        <div class="summary-value text-danger">{{ summary.error_rows }}</div>
+    </div>
+    <div class="summary-card">
+        <div class="summary-title">批次号数量</div>
+        <div class="summary-value">{{ summary.total_batches }}</div>
+    </div>
+    <div class="summary-card">
+        <div class="summary-title">车次数量</div>
+        <div class="summary-value">{{ summary.total_vehicles }}</div>
+    </div>
+</div>
+
+<!-- 选项卡容器 -->
+<div class="tab-container">
+    <div class="tab-buttons">
+        <button class="tab-button active" data-tab="shipment-table">
+            预约表格
+            {% if shipment_table_rows %}
+            <span class="tab-badge">{{ shipment_table_rows|length }}</span>
+            {% endif %}
+        </button>
+        <button class="tab-button" data-tab="special-records">
+            特殊记录
+            {% if special_records %}
+            <span class="tab-badge">{{ special_records|length }}</span>
+            {% endif %}
+        </button>
+        <button class="tab-button" data-tab="global-errors">
+            全局错误
+            {% if global_errors %}
+            <span class="tab-badge">{{ global_errors|length }}</span>
+            {% endif %}
+        </button>
+    </div>
+
+    <!-- 预约表格内容 -->
+    <div id="shipment-table" class="tab-content active">
+        {% if shipment_table_rows %}
+        <div class="table-wrap">
+            <table class="fleet-table">
+                <thead>
+                <tr>
+                    <th>车次号</th>
+                    <th>车次费用</th>
+                    <th>批次号</th>
+                    <th>预约号</th>
+                    <th>柜号</th>
+                    <th>仓库</th>
+                    <th>该车次错误信息</th>
+                </tr>
+                </thead>
+                <tbody>
+                {% for row in shipment_table_rows %}
+                <tr>
+                    {% if row.show_vehicle %}
+                    <td rowspan="{{ row.vehicle_rowspan|default:1 }}">{{ row.vehicle_number }}</td>
+                    <td rowspan="{{ row.vehicle_rowspan|default:1 }}">{{ row.fee }}</td>
+                    {% endif %}
+
+                    {% if row.show_batch %}
+                    <td rowspan="{{ row.batch_rowspan|default:1 }}">{{ row.batch_number }}</td>
+                    <td rowspan="{{ row.batch_rowspan|default:1 }}">{{ row.appointment_number }}</td>
+                    {% endif %}
+
+                    <td class="container-col">{{ row.container_no }}</td>
+                    <td class="warehouse-col">{{ row.warehouse }}</td>
+
+                    {% if row.show_vehicle %}
+                    <td rowspan="{{ row.vehicle_rowspan|default:1 }}">
+                        {% if row.errors %}
+                        <div class="error-badge">{{ row.errors }}</div>
+                        {% else %}
+                        <span class="small-muted">—</span>
+                        {% endif %}
+                    </td>
+                    {% endif %}
+                </tr>
+                {% endfor %}
+                </tbody>
+            </table>
+        </div>
+        {% else %}
+        <div class="empty-state">
+            暂无预约表格数据
+        </div>
+        {% endif %}
+    </div>
+
+    <!-- 特殊记录内容 -->
+    <div id="special-records" class="tab-content">
+        {% if special_records %}
+        <div class="table-wrap">
+            <table class="fleet-table">
+                <thead>
+                    <tr>
+                        <th>行号</th>
+                        <th>柜号</th>
+                        <th>仓库</th>
+                        <th>装柜顺序</th>
+                        <th>CBM</th>
+                        <th>备注</th>
+                        <th>PC号</th>
+                    </tr>
+                </thead>
+                <tbody>
+                {% for s in special_records %}
+                    <tr>
+                        <td>{{ s.index }}</td>
+                        <td><strong>{{ s.柜号 }}</strong></td>
+                        <td class="text-success">{{ s.仓库 }}</td>
+                        <td>{{ s.装柜顺序 }}</td>
+                        <td>{{ s.CBM }}</td>
+                        <td>{{ s.备注 }}</td>
+                        <td>{{ s.PC号 }}</td>
+                    </tr>
+                {% endfor %}
+                </tbody>
+            </table>
+        </div>
+        {% else %}
+        <div class="empty-state">
+            暂无特殊记录
+        </div>
+        {% endif %}
+    </div>
+
+    <!-- 全局错误内容 -->
+    <div id="global-errors" class="tab-content">
+        {% if global_errors %}
+        <div class="global-errors">
+            <strong>全局错误：</strong>
+            <ul>
+            {% for e in global_errors %}
+                <li>{{ e }}</li>
+            {% endfor %}
+            </ul>
+        </div>
+        {% else %}
+        <div class="empty-state">
+            暂无全局错误
+        </div>
+        {% endif %}
+    </div>
+</div>
+
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    const tabButtons = document.querySelectorAll('.tab-button');
+    const tabContents = document.querySelectorAll('.tab-content');
+    
+    tabButtons.forEach(button => {
+        button.addEventListener('click', function() {
+            const tabId = this.getAttribute('data-tab');
+            
+            // 移除所有active类
+            tabButtons.forEach(btn => btn.classList.remove('active'));
+            tabContents.forEach(content => content.classList.remove('active'));
+            
+            // 添加active类到当前选项卡
+            this.classList.add('active');
+            document.getElementById(tabId).classList.add('active');
+        });
+    });
+});
+</script>
+
+{% endblock %}
