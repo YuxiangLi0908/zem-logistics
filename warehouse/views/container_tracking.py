@@ -78,6 +78,10 @@ class ContainerTracking(View):
     ) -> tuple[Any, Any]:
         result = await self._sav_excel_normalization(request)
         match_result = await self.detail_appointment_abnormalities(result['result'])
+        context = {
+            'result': match_result['result'],
+        }
+        return self.template_po_sp_match,context
 
 
     async def handle_po_sp_match_search_sav(
@@ -104,44 +108,68 @@ class ContainerTracking(View):
     
     async def detail_appointment_abnormalities(self, result_dict):
         abnormalities = []
+        processed_abnormalities = []  # 记录已处理的异常
+        remaining_abnormalities = []  # 记录未处理的异常
         for pickup_number, pickup_data in result_dict.items():
             # 初始化该车次的异常列表
             group_abnormalities = []
+            group_processed = []  # 该车次处理的异常
+            group_remaining = []  # 该车次未处理的异常
             # 异常1: 检查车次是否存在
             fleets = [fleet async for fleet in Fleet.objects.filter(pickup_number=pickup_number)]
             if len(fleets) == 0:
-                abnormality_msg = f'车次 {pickup_number} 在系统中不存在'
-                group_abnormalities.append(abnormality_msg)
-                #加到总的报错信息里
-                abnormalities.append({
-                    'type': '车次不存在',
-                    'pickup_number': pickup_number,
-                    'message': abnormality_msg
-                })
-                # 将异常添加到该车次的errors中
-                if pickup_data.get('errors'):
-                    pickup_data['errors'] += f'；{abnormality_msg}'
-                else:
-                    pickup_data['errors'] = abnormality_msg
+                pass
             elif len(fleets) > 1:
                 # 查到多条记录
                 fleet_numbers = [fleet.fleet_number for fleet in fleets]
                 abnormality_msg = f'车 {pickup_number} 在系统中存在多条记录，fleet_number分别为: {", ".join(fleet_numbers)}'
                 group_abnormalities.append(abnormality_msg)
+                group_remaining.append(abnormality_msg)
                 abnormalities.append({
                     'type': '车次重复',
                     'pickup_number': pickup_number,
                     'fleet_numbers': fleet_numbers,
                     'message': abnormality_msg
                 })
-                # 将异常添加到该车次的errors中
-                if pickup_data.get('errors'):
-                    pickup_data['errors'] += f'；{abnormality_msg}'
-                else:
-                    pickup_data['errors'] = abnormality_msg
-                continue
             else:
                 fleet = fleets[0]
+            
+            # 处理每个预约批次前，先检查一提两卸的车次匹配情况（只有多个批次时才检查）
+            batch_fleet_ids = {}
+            batch_fleet_mismatch = False
+
+            # 只有当有多个批次时才检查车次匹配
+            if len(pickup_data['po']) > 1:
+                # 收集所有批次的fleet_number_id
+                for batch_num in pickup_data['po'].keys():
+                    try:
+                        shipment = await Shipment.objects.aget(shipment_batch_number=batch_num)
+                        batch_fleet_ids[batch_num] = shipment.fleet_number_id
+                    except Shipment.DoesNotExist:
+                        # 如果批次不存在，跳过这个批次的检查
+                        continue
+
+                # 检查所有存在的批次是否关联到同一个车次
+                if batch_fleet_ids and len(set(batch_fleet_ids.values())) > 1:
+                    # 一提两卸的车次不匹配
+                    batch_fleet_mismatch = True
+                    fleet_info = []
+                    for batch_num, fleet_id in batch_fleet_ids.items():
+                        try:
+                            fleet_obj = await Fleet.objects.aget(id=fleet_id)
+                            fleet_info.append(f"{batch_num} -> {fleet_obj.fleet_number}")
+                        except Fleet.DoesNotExist:
+                            fleet_info.append(f"{batch_num} -> 车次不存在(ID: {fleet_id})")
+                    
+                    abnormality_msg = f'一提两卸车次不匹配: 批次关联到不同的车次 - {"; ".join(fleet_info)}'
+                    group_abnormalities.append(abnormality_msg)
+                    group_remaining.append(abnormality_msg)
+                    abnormalities.append({
+                        'type': '一提两卸车次不匹配',
+                        'pickup_number': pickup_number,
+                        'batch_fleet_mapping': fleet_info,
+                        'message': abnormality_msg
+                    })
             # 处理每个预约批次
             for batch_number, batch_data in pickup_data['po'].items():
                 appointment_number = batch_data['预约号']
@@ -160,6 +188,7 @@ class ContainerTracking(View):
                         # 找到了shipment，但batch_number不匹配
                         abnormality_msg = f'约不匹配: ISA {appointment_number} 对应的约应为 {shipment_by_appointment.shipment_batch_number}，而不是 {batch_number}'
                         group_abnormalities.append(abnormality_msg)
+                        group_remaining.append(abnormality_msg)
                         abnormalities.append({
                             'type': '批次号不匹配',
                             'pickup_number': pickup_number,
@@ -174,6 +203,7 @@ class ContainerTracking(View):
                         # 通过batch_number和appointment_number都找不到
                         abnormality_msg = f'约 {batch_number} (ISA: {appointment_number}) 在系统中不存在'
                         group_abnormalities.append(abnormality_msg)
+                        group_remaining.append(abnormality_msg)
                         abnormalities.append({
                             'type': '预约批次不存在',
                             'pickup_number': pickup_number,
@@ -187,21 +217,25 @@ class ContainerTracking(View):
                 
                 # 异常3: 检查预约号是否匹配
                 if shipment_by_batch and str(shipment.appointment_id) != str(appointment_number):
-                    abnormality_msg = f'批次 {batch_number} 的ISA不匹配: 期望 {appointment_number}, 实际 {shipment.appointment_id}'
-                    group_abnormalities.append(abnormality_msg)
+                    shipment.appointment_id = str(appointment_number)
+                    await shipment.asave()
+                    repair_msg = f'批次 {batch_number} 的ISA已纠正: 从 {shipment.appointment_id} 改为 {appointment_number}'
+                    group_abnormalities.append(repair_msg)
+                    group_processed.append(repair_msg)
                     abnormalities.append({
-                        'type': '预约号不匹配',
+                        'type': 'ISA纠正',
                         'pickup_number': pickup_number,
                         'batch_number': batch_number,
-                        'expected_appointment': appointment_number,
-                        'actual_appointment': shipment.appointment_id,
-                        'message': abnormality_msg
+                        'old_appointment': shipment.appointment_id,
+                        'new_appointment': appointment_number,
+                        'message': repair_msg
                     })
                 
                 # 异常4: 检查shipment是否关联到正确的车次
                 if fleet and shipment.fleet_number_id != fleet.id:
                     abnormality_msg = f'批次 {batch_number} 未关联到车 {pickup_number}，实际关联车是 {shipment.fleet_number.fleet_number if shipment.fleet_number else "无"}'
                     group_abnormalities.append(abnormality_msg)
+                    group_remaining.append(abnormality_msg)
                     abnormalities.append({
                         'type': '车次关联错误',
                         'pickup_number': pickup_number,
@@ -209,9 +243,34 @@ class ContainerTracking(View):
                         'actual_fleet': shipment.fleet_number.fleet_number if shipment.fleet_number else "无",
                         'message': abnormality_msg
                     })
+                elif not fleet and shipment.fleet_number:
+                    # 自动修复：将pickup_number赋值给shipment关联的fleet记录
+                    shipment.fleet_number.pickup_number = pickup_number
+                    await shipment.fleet_number.asave()
+                    
+                    repair_msg = f'车次关联已修复: 将车次 {shipment.fleet_number.fleet_number} 的pickup_number设置为 {pickup_number}'
+                    group_abnormalities.append(repair_msg)
+                    group_processed.append(repair_msg)
+                    abnormalities.append({
+                        'type': '车次关联修复',
+                        'pickup_number': pickup_number,
+                        'batch_number': batch_number,
+                        'fleet_number': shipment.fleet_number.fleet_number,
+                        'message': repair_msg
+                    })
+                    # 更新fleet变量
+                    fleet = shipment.fleet_number
                 
                 # 检查每个柜号-仓点组合
-                for container_no, expected_warehouse in detail.items():
+                for original_container_no, expected_warehouse in detail.items():
+                    is_special_plt = False
+                    if '加甩' in original_container_no:
+                        # 如果有"加甩"字样，按照"-"分组，取前面的部分
+                        container_no = original_container_no.split('-')[0]
+                        is_special_plt = True
+                    else:
+                        container_no = original_container_no
+    
                     # 直接在 Pallet 表中查询柜号和仓点的记录
                     pallets = await sync_to_async(list)(
                         Pallet.objects.select_related('container_number', 'shipment_batch_number').filter(
@@ -220,10 +279,11 @@ class ContainerTracking(View):
                         )
                     )
                     
-                    # 如异常6：检查是否关联到正确的预约批次
+                    # 如异常5：检查是否关联到正确的预约批次
                     if not pallets:
                         abnormality_msg = f'柜号 {container_no} 下找不到仓点 {expected_warehouse} 的记录'
                         group_abnormalities.append(abnormality_msg)
+                        group_remaining.append(abnormality_msg)
                         abnormalities.append({
                             'type': '柜号仓点不存在',
                             'pickup_number': pickup_number,
@@ -241,35 +301,64 @@ class ContainerTracking(View):
                                 # 如果外键为空，归为异常
                                 unmatched_pallets.append(pallet)
                             elif pallet.shipment_batch_number.shipment_batch_number == batch_number:
-                                matched_pallets.append(pallet)
+                                if not is_special_plt:
+                                    matched_pallets.append(pallet)
                             else:
                                 unmatched_pallets.append(pallet)
-                        if not matched_pallets:
+                        if not matched_pallets and unmatched_pallets:
                             # 异常6：没有关联到正确的预约批次
-                            total_count = len(pallets)
-                            unmatched_count = len(unmatched_pallets)
-
-                            actual_batches = []
-                            for p in pallets:
-                                if not p.shipment_batch_number:
-                                    actual_batches.append("无关联批次")
-                                else:
-                                    actual_batches.append(p.shipment_batch_number.shipment_batch_number)
+                            repair_count = 0
+                            target_shipment = None
+                            try:
+                                target_shipment = await Shipment.objects.aget(shipment_batch_number=batch_number)
+                            except Shipment.DoesNotExist:
+                                pass
                             
-                            actual_batches_unique = list(set(actual_batches))
-                            abnormality_msg = f'{container_no} - {expected_warehouse} 未关联到约 {batch_number}，共{total_count}个板，{unmatched_count}个板的批次不匹配，实际关联情况: {", ".join(actual_batches_unique)}'
-                            group_abnormalities.append(abnormality_msg)
-                            abnormalities.append({
-                                'type': '柜号批次不匹配',
-                                'pickup_number': pickup_number,
-                                'batch_number': batch_number,
-                                'container_number': container_no,
-                                'expected_warehouse': expected_warehouse,
-                                'total_count': total_count,
-                                'unmatched_count': unmatched_count,
-                                'actual_batches': actual_batches,
-                                'message': abnormality_msg
-                            })
+                            if target_shipment:
+                                for pallet in unmatched_pallets:
+                                    pallet.shipment_batch_number = target_shipment
+                                    await pallet.asave()
+                                    repair_count += 1
+                                
+                                if repair_count > 0:
+                                    repair_msg = f'{container_no} - {expected_warehouse} 已纠正 {repair_count} 个板的批次指向为 {batch_number}'
+                                    group_abnormalities.append(repair_msg)
+                                    group_processed.append(repair_msg)
+                                    abnormalities.append({
+                                        'type': '板子批次指向纠正',
+                                        'pickup_number': pickup_number,
+                                        'batch_number': batch_number,
+                                        'container_number': container_no,
+                                        'expected_warehouse': expected_warehouse,
+                                        'repair_count': repair_count,
+                                        'message': repair_msg
+                                    })
+                            else:
+                                # 如果目标批次不存在，记录异常
+                                total_count = len(pallets)
+                                unmatched_count = len(unmatched_pallets)
+                                actual_batches = []
+                                for p in pallets:
+                                    if not p.shipment_batch_number:
+                                        actual_batches.append("无关联批次")
+                                    else:
+                                        actual_batches.append(p.shipment_batch_number.shipment_batch_number)
+                                
+                                actual_batches_unique = list(set(actual_batches))
+                                abnormality_msg = f'{container_no} - {expected_warehouse} 未关联到约 {batch_number}，共{total_count}个板，{unmatched_count}个板的批次不匹配，实际关联情况: {", ".join(actual_batches_unique)}'
+                                group_abnormalities.append(abnormality_msg)
+                                group_remaining.append(abnormality_msg)
+                                abnormalities.append({
+                                    'type': '柜号批次不匹配',
+                                    'pickup_number': pickup_number,
+                                    'batch_number': batch_number,
+                                    'container_number': container_no,
+                                    'expected_warehouse': expected_warehouse,
+                                    'total_count': total_count,
+                                    'unmatched_count': unmatched_count,
+                                    'actual_batches': actual_batches,
+                                    'message': abnormality_msg
+                                })
             if group_abnormalities:
                 new_errors = '；'.join(group_abnormalities)
                 if pickup_data.get('errors'):
@@ -300,11 +389,6 @@ class ContainerTracking(View):
                     'pickup_number': pickup_number,
                     'message': abnormality_msg
                 })
-                # 将异常添加到该车次的errors中
-                if pickup_data.get('errors'):
-                    pickup_data['errors'] += f'；{abnormality_msg}'
-                else:
-                    pickup_data['errors'] = abnormality_msg
             elif len(fleets) > 1:
                 # 查到多条记录
                 fleet_numbers = [fleet.fleet_number for fleet in fleets]
@@ -316,12 +400,6 @@ class ContainerTracking(View):
                     'fleet_numbers': fleet_numbers,
                     'message': abnormality_msg
                 })
-                # 将异常添加到该车次的errors中
-                if pickup_data.get('errors'):
-                    pickup_data['errors'] += f'；{abnormality_msg}'
-                else:
-                    pickup_data['errors'] = abnormality_msg
-                continue
             else:
                 fleet = fleets[0]
             
@@ -420,7 +498,6 @@ class ContainerTracking(View):
                 # 异常4: 检查shipment是否关联到正确的车次
                 if fleet and shipment.fleet_number_id != fleet.id:
                     abnormality_msg = f'批次 {batch_number} 未关联到车 {pickup_number}，实际关联车是 {shipment.fleet_number.fleet_number if shipment.fleet_number else "无"}'
-                    group_abnormalities.append(abnormality_msg)
                     abnormalities.append({
                         'type': '车次关联错误',
                         'pickup_number': pickup_number,
@@ -430,7 +507,13 @@ class ContainerTracking(View):
                     })
                 
                 # 检查每个柜号-仓点组合
-                for container_no, expected_warehouse in detail.items():
+                for original_container_no, expected_warehouse in detail.items():
+                    if '加甩' in original_container_no:
+                        # 如果有"加甩"字样，按照"-"分组，取前面的部分
+                        container_no = original_container_no.split('-')[0]
+                    else:
+                        container_no = original_container_no
+    
                     # 直接在 Pallet 表中查询柜号和仓点的记录
                     pallets = await sync_to_async(list)(
                         Pallet.objects.select_related('container_number', 'shipment_batch_number').filter(
@@ -630,7 +713,7 @@ class ContainerTracking(View):
                                     # 如果不是数字，继续寻找
                                     continue
                         if not appointment_number:
-                            group_errors.append(f"小组 {sg_index+1}：未找到预约号(ISA列中>100000的值)")
+                            group_errors.append(f"小组 {sg_index+1}：未找到预约号")
 
                         # 提取柜号和仓库详情，同时检查特殊记录
                         for index, row in small_group:
@@ -638,17 +721,28 @@ class ContainerTracking(View):
                             warehouse = str(row['仓库']).strip()
                             warehouse = re.sub(r"（.*?）|\(.*?\)", "", warehouse).strip()
                             
-                            if container_no and warehouse:
-                                detail[container_no] = warehouse
-                            
-                            # 检查是否为特殊记录（装柜顺序或CBM包含中文）
                             loading_sequence = str(row['装柜顺序'])
                             cbm_value = str(row['CBM'])
+                            remark = str(row['备注'])
+                            # 判断是否包含甩板和加塞
+                            has_special_keyword = False
+
+                            # 检查三个列是否包含"甩板"或"加塞"
+                            for text in [loading_sequence, cbm_value, remark]:
+                                if '甩板' in text or '加塞' in text or '混送' in text:
+                                    has_special_keyword = True
+
+                            if container_no and warehouse:
+                                if has_special_keyword:
+                                    modified_container_no = container_no + '-加甩'
+                                    detail[modified_container_no] = warehouse
+                                else:
+                                    detail[container_no] = warehouse
                             
                             # 检查是否包含中文
                             def contains_chinese_except_specific(text):
                                 chinese_chars = re.findall(r'[\u4e00-\u9fff]', text)
-                                return any(char not in ['满', '库', '存'] for char in chinese_chars)
+                                return any(char not in ['甩', '板', '加', '塞', '满', '库', '存','混','送'] for char in chinese_chars)
                             
                             if contains_chinese_except_specific(loading_sequence) or contains_chinese_except_specific(cbm_value):
                                 special_records.append({

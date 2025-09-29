@@ -371,11 +371,18 @@
         <div class="summary-title">异常行</div>
         <div class="summary-value text-danger">{{ summary.error_rows }}</div>
     </div>
-
     <div class="summary-card">
-    <div class="summary-title">错误类型统计</div>
+        <div class="summary-title">已处理异常</div>
+        <div class="summary-value text-success">{{ summary.processed_count }}</div>
+    </div>
+    <div class="summary-card">
+        <div class="summary-title">剩余异常</div>
+        <div class="summary-value text-warning">{{ summary.remaining_count }}</div>
+    </div>
+    <div class="summary-card">
+        <div class="summary-title">错误类型统计</div>
         <div class="summary-value">
-            <ul>
+            <ul style="font-size: 12px; text-align: left; padding-left: 15px;">
                 {% for etype, count in summary.error_type_summary.items %}
                     <li>{{ etype }}: {{ count }}</li>
                 {% endfor %}
