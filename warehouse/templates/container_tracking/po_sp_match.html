@@ -312,7 +312,6 @@
         font-style: italic;
     }
     
-    /* 响应式设计 */
     @media (max-width: 768px) {
         .summary-cards {
             gap: 12px;
@@ -372,13 +371,16 @@
         <div class="summary-title">异常行</div>
         <div class="summary-value text-danger">{{ summary.error_rows }}</div>
     </div>
+
     <div class="summary-card">
-        <div class="summary-title">批次号数量</div>
-        <div class="summary-value">{{ summary.total_batches }}</div>
-    </div>
-    <div class="summary-card">
-        <div class="summary-title">车次数量</div>
-        <div class="summary-value">{{ summary.total_vehicles }}</div>
+    <div class="summary-title">错误类型统计</div>
+        <div class="summary-value">
+            <ul>
+                {% for etype, count in summary.error_type_summary.items %}
+                    <li>{{ etype }}: {{ count }}</li>
+                {% endfor %}
+            </ul>
+        </div>
     </div>
 </div>
 
