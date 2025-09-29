@@ -118,7 +118,8 @@ class ContainerTracking(View):
                 else:
                     pickup_data['errors'] = abnormality_msg
                 continue
-            
+            else:
+                fleet = fleets[0]
             # 处理每个预约批次
             for batch_number, batch_data in pickup_data['po'].items():
                 appointment_number = batch_data['预约号']
