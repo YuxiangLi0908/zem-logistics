@@ -451,7 +451,13 @@
                     {% if row.show_vehicle %}
                     <td rowspan="{{ row.vehicle_rowspan|default:1 }}">
                         {% if row.errors %}
-                        <div class="error-badge">{{ row.errors }}</div>
+                        <div class="error-badge" style="text-align: left; max-width: 400px;">
+                            {% for error in row.errors %}
+                                {% if error.strip %}
+                                <div style="margin-bottom: 4px; font-size: 10px; line-height: 1.3;">{{ error.strip }}</div>
+                                {% endif %}
+                            {% endfor %}
+                        </div>
                         {% else %}
                         <span class="small-muted">—</span>
                         {% endif %}

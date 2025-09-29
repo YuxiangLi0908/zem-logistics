@@ -72,10 +72,18 @@ class ContainerTracking(View):
         result = await self._sav_excel_normalization(request)
         match_result = await self.check_appointment_abnormalities(result['result'])
         shipment_table_rows = await self._process_format(match_result['result'])
+
+        total_rows = len(shipment_table_rows)
+        error_rows = sum(1 for row in shipment_table_rows if row.get("errors"))
         context = {
             'result': match_result['result'],
             'shipment_table_rows': shipment_table_rows,
             'global_errors': match_result['global_errors'],
+            'summary': {
+                'total_rows': total_rows,
+                'error_rows': error_rows,
+                'normal_rows': total_rows - error_rows,
+            },
         }
         return self.template_po_sp_match, context
 
@@ -486,6 +494,12 @@ class ContainerTracking(View):
                 vehicle_total_rows = 1
 
             vehicle_row_rendered = False
+            errors = big_group_data.get('errors', '')
+            if errors:
+                error_list = [error.strip() for error in errors.split('；') if error.strip()]
+                print(type(error_list),error_list)
+            else:
+                error_list = []
             for batch_number, batch_info in po.items():
                 details = batch_info.get('detail', {}) or {}
                 batch_row_count = len(details)
@@ -512,7 +526,8 @@ class ContainerTracking(View):
                             'batch_rowspan': batch_row_count,
                             'container_no': clean_text(container_no),
                             'warehouse': clean_text(warehouse),
-                            'errors': big_group_data.get('errors', '') or ''
+                            'errors': error_list,
+                            'has_errors': bool(error_list) 
                         }
                         if not vehicle_row_rendered:
                             row['show_vehicle'] = True
@@ -534,7 +549,8 @@ class ContainerTracking(View):
                         'batch_rowspan': batch_row_count,
                         'container_no': '',
                         'warehouse': '',
-                        'errors': big_group_data.get('errors', '') or ''
+                        'errors': error_list,
+                        'has_errors': bool(error_list)
                     }
                     if not vehicle_row_rendered:
                         row['show_vehicle'] = True
