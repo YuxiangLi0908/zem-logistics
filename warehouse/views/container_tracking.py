@@ -82,7 +82,7 @@ class ContainerTracking(View):
                 for index, row in df.iterrows():
                     # 检查是否为空行（所有主要列都为空）
                     if (row['柜号'] == '' and row['仓库'] == '' and row['预约时间'] == '' and 
-                        row['ISA'] == '' and row['PC号'] == ''):
+                        row['ISA'] == '' and row['PC号'] == '' and row['备注'] == ''):
                         if temp_group:  # 如果临时组不为空，则完成一个大组
                             big_groups.append(temp_group)
                             temp_group = []
@@ -93,7 +93,7 @@ class ContainerTracking(View):
                     big_groups.append(temp_group)
                 
                 # 第二步：处理每个大组，进一步按"一提两卸"分割小组
-                for big_group in big_groups:
+                for big_group in big_groups:                   
                     if not big_group:
                         continue
                     
