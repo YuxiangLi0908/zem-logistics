@@ -345,6 +345,12 @@
     <form method="post" enctype="multipart/form-data" class="upload-form">   
         {% csrf_token %}
         <input type="file" name="file" accept=".xlsx,.xls,.csv">
+        <select name="warehouse" required>
+            <option value="">---</option>
+            <option value="NJ">NJ</option>
+            <option value="SAV">SAV</option>
+            <option value="LA">LA</option>
+        </select>
         <input type="hidden" name="step" value="upload_container_has_appointment">
         <button type="submit" class="btn btn-success">
             批量规范化预约表
