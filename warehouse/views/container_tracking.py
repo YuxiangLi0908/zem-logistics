@@ -172,10 +172,12 @@ class ContainerTracking(View):
                 # 检查每个柜号-仓点组合
                 for container_no, expected_warehouse in detail.items():
                     # 直接在 Pallet 表中查询柜号和仓点的记录
-                    pallets = await Pallet.objects.select_related('container_number', 'shipment_batch_number').filter(
-                        container_number__container_number=container_no,
-                        destination=expected_warehouse
-                    ).alist()
+                    pallets = await sync_to_async(list)(
+                        Pallet.objects.select_related('container_number', 'shipment_batch_number').filter(
+                            container_number__container_number=container_no,
+                            destination=expected_warehouse
+                        )
+                    )
                     
                     # 如异常6：检查是否关联到正确的预约批次
                     if not pallets:
