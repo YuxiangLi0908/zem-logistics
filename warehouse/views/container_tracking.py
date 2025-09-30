@@ -306,15 +306,16 @@ class ContainerTracking(View):
                                 unmatched_pallets.append(pallet)
                         
                         repair_count = 0
-                        for plt in unmatched_pallets:
-                            #如果有主约，就把实际约=主约
-                            if plt.master_shipment_batch_number:
-                                plt.shipment_batch_number = plt.master_shipment_batch_number
-                            else:
-                                #如果没有主约，让主约，实际约=这个约
-                                plt.shipment_batch_number = shipment
-                                plt.master_shipment_batch_number = shipment
-                            await pallet.asave()
+                        if unmatched_pallets:
+                            for plt in unmatched_pallets:
+                                #如果有主约，就把实际约=主约
+                                if plt.master_shipment_batch_number:
+                                    plt.shipment_batch_number = plt.master_shipment_batch_number
+                                else:
+                                    #如果没有主约，让主约，实际约=这个约
+                                    plt.shipment_batch_number = shipment
+                                    plt.master_shipment_batch_number = shipment
+                                await pallet.asave()
 
                             
                         if repair_count > 0:
