@@ -1042,11 +1042,6 @@ class ContainerTracking(View):
             'error_messages': error_messages,
         }
         return context
-    
-    async def handle_upload_container_has_appointment_nj(
-        self, request: HttpRequest
-    ) -> tuple[Any, Any]:
-        result = await self._sav_excel_normalization(request)
 
     async def handle_upload_container_has_appointment_get(
         self, request: HttpRequest
