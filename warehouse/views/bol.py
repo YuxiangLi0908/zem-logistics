@@ -102,7 +102,6 @@ class BOL(View):
             )
             packing_list = await self._get_packing_list(pl_criteria, plt_criteria)
             cbm_act, cbm_est, pallet_act, pallet_est = 0, 0, 0, 0
-            await sync_to_async(print)("长度为", len(packing_list))
             for pl in packing_list:
                 if pl.get("label") == "ACT":
                     cbm_act += pl.get("total_cbm")
@@ -211,7 +210,6 @@ class BOL(View):
         data += pal_list
 
         if pl_criteria:
-            await sync_to_async(print)("有这个条件")
             pl_list = await sync_to_async(list)(
                 PackingList.objects.prefetch_related(
                     "container_number",
