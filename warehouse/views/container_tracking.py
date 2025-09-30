@@ -219,6 +219,7 @@ class ContainerTracking(View):
                             'appointment_number': appointment_number,
                             'message': abnormality_msg
                         })
+                        #新创建一个shipment，把组内的po都加上
                         continue
                 else:
                     shipment = shipment_by_batch
@@ -466,7 +467,7 @@ class ContainerTracking(View):
                 except Shipment.DoesNotExist:
                     # 如果通过batch_number找不到，尝试通过appointment_number查找
                     try:
-                        shipment_by_batch = await Shipment.objects.select_related('fleet_number').aget(shipment_batch_number=batch_number)
+                        shipment_by_appointment = await Shipment.objects.select_related('fleet_number').aget(appointment_id=str(appointment_number))
                         
                         # 找到了shipment，但batch_number不匹配
                         abnormality_msg = f'约不匹配: ISA {appointment_number} 对应的约应为 {shipment_by_appointment.shipment_batch_number}，而不是 {batch_number}'
@@ -748,9 +749,9 @@ class ContainerTracking(View):
                         # 提取柜号和仓库详情，同时检查特殊记录
                         for index, row in small_group:
                             container_no = str(row['柜号']).strip()
+                            container_no = re.sub(r"（.*?）|\(.*?\)|\(.*?\）|\（.*?\)", "", container_no).strip()
                             warehouse = str(row['仓库']).strip()
                             warehouse = re.sub(r"（.*?）|\(.*?\)|\(.*?\）|\（.*?\)", "", warehouse).strip()
-                            print(warehouse)
                             loading_sequence = str(row['装柜顺序'])
                             cbm_value = str(row['CBM'])
                             remark = str(row['备注'])
