@@ -269,6 +269,9 @@ class ContainerTracking(View):
                     #把费用更新到车次上
                     fleet.fleet_cost = pickup_data['fee']
                     await fleet.asave()
+                    repair_msg = f'将车次 {shipment.fleet_number.fleet_number} 的费用设置为 {pickup_data['fee']}'
+                    group_abnormalities.append(repair_msg)
+                    group_processed.append(repair_msg)
                 # 检查每个柜号-仓点组合
                 for container_no, expected_warehouse in detail.items():
                     # is_special_plt = False
