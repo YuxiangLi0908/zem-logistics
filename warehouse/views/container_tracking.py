@@ -746,8 +746,8 @@ class ContainerTracking(View):
                         for index, row in small_group:
                             container_no = str(row['柜号']).strip()
                             warehouse = str(row['仓库']).strip()
-                            warehouse = re.sub(r"（.*?）|\(.*?\)", "", warehouse).strip()
-                            
+                            warehouse = re.sub(r"（.*?）|\(.*?\)|\(.*?\）|\（.*?\)", "", warehouse).strip()
+                            print(warehouse)
                             loading_sequence = str(row['装柜顺序'])
                             cbm_value = str(row['CBM'])
                             remark = str(row['备注'])
