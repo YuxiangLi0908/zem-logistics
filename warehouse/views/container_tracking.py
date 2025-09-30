@@ -374,9 +374,15 @@ class ContainerTracking(View):
         error_type_counter = Counter([ab['type'] for ab in abnormalities])
         processed_count = len(processed_abnormalities)
         remaining_count = len(remaining_abnormalities)
+        # 过滤result_dict，只保留有问题的记录
+        filtered_result_dict = {}
+        for pickup_number, pickup_data in result_dict.items():
+            # 检查该车次是否有错误信息
+            if pickup_data.get('errors'):
+                filtered_result_dict[pickup_number] = pickup_data
         context = {
             'global_errors': abnormalities,
-            'result': result_dict,
+            'result': filtered_result_dict,
             'error_type_summary': dict(error_type_counter),
             'processed_count': processed_count,
             'remaining_count': remaining_count,
@@ -590,10 +596,16 @@ class ContainerTracking(View):
                     pickup_data['errors'] += f'；{new_errors}'
                 else:
                     pickup_data['errors'] = new_errors
+        # 过滤result_dict，只保留有问题的记录
+        filtered_result_dict = {}
+        for pickup_number, pickup_data in result_dict.items():
+            # 检查该车次是否有错误信息
+            if pickup_data.get('errors'):
+                filtered_result_dict[pickup_number] = pickup_data
         error_type_counter = Counter([ab['type'] for ab in abnormalities])
         context = {
             'global_errors': abnormalities,
-            'result': result_dict,
+            'result': filtered_result_dict,
             'error_type_summary': dict(error_type_counter),
         }
         return context
