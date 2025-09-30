@@ -671,6 +671,13 @@ class ContainerTracking(View):
                 temp_group = []
                 for index, row in df.iterrows():
                     # 检查是否为空行（所有主要列都为空）
+                    if (row['柜号'] != '' and 
+                        row['仓点'] == '' and 
+                        row['预约时间'] == '' and 
+                        row['ISA'] == '' and 
+                        row['PC号'] == '' and 
+                        row['备注'] == ''):
+                        continue  # 跳过这一行
                     if (row['柜号'] == '' and row['仓点'] == '' and row['预约时间'] == '' and 
                         row['ISA'] == '' and row['PC号'] == '' and row['备注'] == ''):
                         if temp_group:  # 如果临时组不为空，则完成一个大组
@@ -764,18 +771,22 @@ class ContainerTracking(View):
                         # 提取预约号（从ISA列，ZEM开头的值）
                         for index, row in small_group:
                             isa_value = str(row['ISA']).strip()
-                            if isa_value and not any(char.isalpha() for char in isa_value):
+                            print('isa_value',isa_value,str(row['柜号']))
+                            if isa_value:
                                 try:
                                     # 尝试转换为数字
                                     isa_value = float(isa_value)
                                     if isa_value > 100000:
+                                        print('大于1万')
                                         appointment_number = int(isa_value)
                                         break  # 找到第一个小于10000的费用值就停止
+                                    else:
+                                        print('小于')
                                 except ValueError:
                                     # 如果不是数字，继续寻找
                                     continue
                         if not appointment_number:
-                            group_errors.append(f"小组 {sg_index+1}：未找到预约号")
+                            group_errors.append(f"小组 {isa_value}：未找到预约号")
 
                         # 提取柜号和仓点详情，同时检查特殊记录
                         for index, row in small_group:
