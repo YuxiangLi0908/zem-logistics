@@ -50,16 +50,16 @@ class ContainerTracking(View):
                 raise ValueError('仓库选择异常')
         elif step == "po_sp_match_search":
             warehouse = request.POST.get('warehouse')
-            if warehouse == "SAV":
-                template, context = await self.handle_po_sp_match_search_sav(request)
+            if warehouse == "SAV" or warehouse == "NJ":
+                template, context = await self.handle_po_sp_match_search_get(request)
                 return await sync_to_async(render)(request, template, context)
             if warehouse == "LA":
                 template, context = await self.handle_po_sp_match_search_la(request)
                 return await sync_to_async(render)(request, template, context)
         elif step == "sp_operation":
             warehouse = request.POST.get('warehouse')
-            if warehouse == "SAV":
-                template, context = await self.handle_sp_operation_sav(request)
+            if warehouse == "SAV" or warehouse == "NJ":
+                template, context = await self.handle_sp_operation_get(request)
                 return await sync_to_async(render)(request, template, context)
             if warehouse == "LA":
                 template, context = await self.handle_sp_operation_la(request)
@@ -85,10 +85,14 @@ class ContainerTracking(View):
         }
         return self.template_main, context
     
-    async def handle_sp_operation_sav(
+    async def handle_sp_operation_get(
         self, request: HttpRequest
     ) -> tuple[Any, Any]:
-        result = await self._sav_excel_normalization(request)
+        warehouse = request.POST.get('warehouse')
+        if warehouse == "SAV":
+            result = await self._sav_excel_normalization(request)        
+        elif warehouse == "NJ":
+            result = await self._nj_excel_normalization(request)   
         match_result = await self.detail_appointment_abnormalities(result['result'])
         context = {
             'result': match_result['result'],
@@ -113,10 +117,14 @@ class ContainerTracking(View):
         }
         return self.template_po_sp_match,context
 
-    async def handle_po_sp_match_search_sav(
+    async def handle_po_sp_match_search_get(
         self, request: HttpRequest
     ) -> tuple[Any, Any]:
-        result = await self._sav_excel_normalization(request)
+        warehouse = request.POST.get('warehouse')
+        if warehouse == "SAV":
+            result = await self._sav_excel_normalization(request)        
+        elif warehouse == "NJ":
+            result = await self._nj_excel_normalization(request)   
         match_result = await self.check_appointment_abnormalities(result['result'])
         shipment_table_rows = await self._process_format(match_result['result'])
 
