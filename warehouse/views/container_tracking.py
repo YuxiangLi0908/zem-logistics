@@ -540,7 +540,7 @@ class ContainerTracking(View):
                             #     matched_pallets.append(pallet)
                             # else:
                             #     unmatched_pallets.append(pallet)
-                        if not matched_pallets:
+                        if unmatched_count:
                             # 异常6：没有关联到正确的预约批次
                             total_count = len(pallets)
                             unmatched_count = len(unmatched_pallets)
