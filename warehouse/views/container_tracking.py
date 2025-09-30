@@ -93,7 +93,6 @@ class ContainerTracking(View):
         self, request: HttpRequest
     ) -> tuple[Any, Any]:
         result = await self._sav_excel_normalization(request)
-        print(result['result'])
         match_result = await self.check_appointment_abnormalities(result['result'])
         shipment_table_rows = await self._process_format(match_result['result'])
 
@@ -465,7 +464,7 @@ class ContainerTracking(View):
                 except Shipment.DoesNotExist:
                     # 如果通过batch_number找不到，尝试通过appointment_number查找
                     try:
-                        shipment_by_batch = await Shipment.objects.select_related('fleet_number').aget(shipment_batch_number=batch_number)
+                        shipment_by_appointment = await Shipment.objects.select_related('fleet_number').aget(appointment_id=str(appointment_number))
                         
                         # 找到了shipment，但batch_number不匹配
                         abnormality_msg = f'约不匹配: ISA {appointment_number} 对应的约应为 {shipment_by_appointment.shipment_batch_number}，而不是 {batch_number}'
