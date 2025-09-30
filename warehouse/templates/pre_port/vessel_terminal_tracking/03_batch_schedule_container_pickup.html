@@ -111,9 +111,9 @@
                             </select>
                         </td>
                         <td class="td">
-                            <input type="datetime-local" name="target_retrieval_timestamp_lower" style="font-size: 13px;" required>
+                            <input type="datetime-local" name="target_retrieval_timestamp_lower" style="font-size: 13px;">
                             至
-                            <input type="datetime-local" name="target_retrieval_timestamp" style="font-size: 13px;" required>
+                            <input type="datetime-local" name="target_retrieval_timestamp" style="font-size: 13px;">
                         </td>
                         <td class="td">
                             <input type="text" name="note" style="font-size: 13px;" placeholder="提柜备注">
@@ -150,10 +150,6 @@
         }
         if (!carrier) {
             alert('请选择供应商！');
-            return false;
-        }
-        if (!timeLower || !timeUpper) {
-            alert('请填写完整的预约时间！');
             return false;
         }
         return true;
