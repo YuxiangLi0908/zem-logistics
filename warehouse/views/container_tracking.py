@@ -402,14 +402,7 @@ class ContainerTracking(View):
             # 异常1: 检查车次是否存在
             fleets = [fleet async for fleet in Fleet.objects.filter(pickup_number=pickup_number)]
             if len(fleets) == 0:
-                abnormality_msg = f'车次 {pickup_number} 在系统中不存在'
-                group_abnormalities.append(abnormality_msg)
-                #加到总的报错信息里
-                abnormalities.append({
-                    'type': '车次不存在',
-                    'pickup_number': pickup_number,
-                    'message': abnormality_msg
-                })
+                pass
             elif len(fleets) > 1:
                 # 查到多条记录
                 fleet_numbers = [fleet.fleet_number for fleet in fleets]
@@ -526,6 +519,16 @@ class ContainerTracking(View):
                         'actual_fleet': shipment.fleet_number.fleet_number if shipment.fleet_number else "无",
                         'message': abnormality_msg
                     })
+                elif not fleet and shipment.fleet_number:
+                    abnormality_msg = f'车次 {pickup_number} 在系统中不存在'
+                    group_abnormalities.append(abnormality_msg)
+                    #加到总的报错信息里
+                    abnormalities.append({
+                        'type': 'pick找不到车次，这个约也没关联车',
+                        'pickup_number': pickup_number,
+                        'message': abnormality_msg
+                    })
+
                 
                 # 检查每个柜号-仓点组合
                 for original_container_no, expected_warehouse in detail.items():
