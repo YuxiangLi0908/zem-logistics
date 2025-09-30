@@ -1,4 +1,4 @@
-from typing import Any
+from typing import Any, Coroutine
 from django.db.models.functions import Trim
 from collections import Counter
 from django.contrib.auth.decorators import login_required
@@ -43,10 +43,16 @@ class ContainerTracking(View):
             if warehouse == "SAV":
                 template, context = await self.handle_upload_container_has_appointment_sav(request)
                 return await sync_to_async(render)(request, template, context)
+            if warehouse == "LA":
+                template, context = await self.handle_upload_container_has_appointment_la(request)
+                return await sync_to_async(render)(request, template, context)
         elif step == "po_sp_match_search":
             warehouse = request.POST.get('warehouse')
             if warehouse == "SAV":
                 template, context = await self.handle_po_sp_match_search_sav(request)
+                return await sync_to_async(render)(request, template, context)
+            if warehouse == "LA":
+                template, context = await self.handle_po_sp_match_search_la(request)
                 return await sync_to_async(render)(request, template, context)
         elif step == "sp_operation":
             warehouse = request.POST.get('warehouse')
@@ -54,7 +60,7 @@ class ContainerTracking(View):
                 template, context = await self.handle_sp_operation_sav(request)
                 return await sync_to_async(render)(request, template, context)
             if warehouse == "LA":
-                template, context = await self.handle_upload_container_has_appointment_get_NJ(request)
+                template, context = await self.handle_sp_operation_la(request)
                 return await sync_to_async(render)(request, template, context)
         elif step == "Standardize_ISA":
             template, context = await self.handle_Standardize_ISA(request)
@@ -91,6 +97,19 @@ class ContainerTracking(View):
         }
         return self.template_po_sp_match,context
 
+    async def handle_sp_operation_la(
+        self, request: HttpRequest
+    ) -> tuple[Any, Any]:
+        result = await self._la_excel_normalization(request)
+        match_result = await self.detail_appointment_abnormalities(result['result'])
+        context = {
+            'result': match_result['result'],
+            'processed_abnormalities': match_result['processed_abnormalities'],
+            'processed_abnormalities': match_result['processed_abnormalities'],
+            'processed_count': match_result['processed_count'],
+            'remaining_count': match_result['remaining_count'],
+        }
+        return self.template_po_sp_match,context
 
     async def handle_po_sp_match_search_sav(
         self, request: HttpRequest
@@ -110,6 +129,28 @@ class ContainerTracking(View):
                 'error_rows': error_rows,
                 'normal_rows': total_rows - error_rows,
                 'error_type_summary': match_result['error_type_summary'], 
+            },
+        }
+        return self.template_po_sp_match, context
+
+    async def handle_po_sp_match_search_la(
+        self, request: HttpRequest
+    ) -> tuple[Any, Any]:
+        result = await self._la_excel_normalization(request)
+        match_result = await self.check_appointment_abnormalities(result['result'])
+        shipment_table_rows = await self._process_format(match_result['result'])
+
+        total_rows = len(shipment_table_rows)
+        error_rows = sum(1 for row in shipment_table_rows if row.get("errors"))
+        context = {
+            'result': match_result['result'],
+            'shipment_table_rows': shipment_table_rows,
+            'global_errors': match_result['global_errors'],
+            'summary': {
+                'total_rows': total_rows,
+                'error_rows': error_rows,
+                'normal_rows': total_rows - error_rows,
+                'error_type_summary': match_result['error_type_summary'],
             },
         }
         return self.template_po_sp_match, context
@@ -842,6 +883,35 @@ class ContainerTracking(View):
         }
         return self.template_main, context
 
+    async def handle_upload_container_has_appointment_la(
+            self, request: HttpRequest
+    ) -> tuple[Any, Any]:
+        result = await self._la_excel_normalization(request)
+
+        # 把result按照合并格式去处理
+        shipment_table_rows = await self._process_format(result['result'])
+        # 统计下整体情况
+        total_rows = len(shipment_table_rows)
+        error_rows = sum(1 for row in shipment_table_rows if row.get("errors"))
+        normal_rows = total_rows - error_rows
+        total_batches = len({row["batch_number"] for row in shipment_table_rows if row.get("batch_number")})
+        total_vehicles = len({row["vehicle_number"] for row in shipment_table_rows if row.get("vehicle_number")})
+        context = {
+            'shipment_table_rows': shipment_table_rows,
+            'shipment_details_raw': result,
+            'special_records': result['special_records'],
+            'global_errors': result['error_messages'],
+            'summary': {
+                'total_rows': total_rows,
+                'error_rows': error_rows,
+                'normal_rows': normal_rows,
+                'total_batches': total_batches,
+                'total_vehicles': total_vehicles,
+            },
+            'warehouse': request.POST.get('warehouse')
+        }
+        return self.template_main, context
+
     def clean_value(self, val):
         """统一清理Excel值，处理空值、数值、字符串，避免strip()报错"""
         if pd.isna(val):
@@ -855,9 +925,9 @@ class ContainerTracking(View):
         cleaned_text = self.clean_value(text)
         return bool(re.search(r'[\u4e00-\u9fff]', cleaned_text))
 
-    async def handle_upload_container_has_appointment_get_NJ(
+    async def _la_excel_normalization(
             self, request: HttpRequest
-    ) -> tuple[Any, Any]:
+    ) -> dict[str, dict[Any, Any] | list[Any]]:
         form = UploadFileForm(request.POST, request.FILES)
         error_messages = []  # 错误信息
         success_count = 0
@@ -996,24 +1066,35 @@ class ContainerTracking(View):
                                     # 如果不是数字，继续寻找
                                     continue
                         if not appointment_number:
-                            group_errors.append(f"小组 {sg_index + 1}：未找到预约号(ISA列中>100000的值)")
+                            group_errors.append(f"小组 {sg_index+1}：未找到预约号")
 
                         # 提取柜号和仓库详情，同时检查特殊记录
                         for index, row in small_group:
                             container_no = str(row['柜号']).strip()
                             warehouse = str(row['仓库']).strip()
-
-                            if container_no and warehouse:
-                                detail[container_no] = warehouse
-
                             # 检查是否为特殊记录（装车顺序或CBM包含中文）
                             loading_sequence = str(row['装车顺序'])
                             cbm_value = str(row['CBM'])
+                            remark = str(row['装车备注'])
+                            # 判断是否包含甩板和加塞
+                            has_special_keyword = False
+
+                            # 检查三个列是否包含"甩板"或"加塞"
+                            for text in [loading_sequence, cbm_value, remark]:
+                                if '甩板' in text or '加塞' in text or '混送' in text:
+                                    has_special_keyword = True
+
+                            if container_no and warehouse:
+                                if has_special_keyword:
+                                    modified_container_no = container_no + '-加甩'
+                                    detail[modified_container_no] = warehouse
+                                else:
+                                    detail[container_no] = warehouse
 
                             # 检查是否包含中文
                             def contains_chinese_except_specific(text):
                                 chinese_chars = re.findall(r'[\u4e00-\u9fff]', text)
-                                return any(char not in ['满', '库', '存'] for char in chinese_chars)
+                                return any(char not in ['甩', '板', '加', '塞', '满', '库', '存','混','送'] for char in chinese_chars)
 
                             if contains_chinese_except_specific(loading_sequence) or contains_chinese_except_specific(
                                     cbm_value):
@@ -1048,29 +1129,12 @@ class ContainerTracking(View):
                         if big_group_data['errors']:
                             error_messages.append(f"车次 {vehicle_number}：{big_group_data['errors']}")
 
-        # 把result按照合并格式去处理
-        shipment_table_rows = await self._process_format(result)
-        # 统计下整体情况
-        total_rows = len(shipment_table_rows)
-        error_rows = sum(1 for row in shipment_table_rows if row.get("errors"))
-        normal_rows = total_rows - error_rows
-        total_batches = len({row["batch_number"] for row in shipment_table_rows if row.get("batch_number")})
-        total_vehicles = len({row["vehicle_number"] for row in shipment_table_rows if row.get("vehicle_number")})
         context = {
-            'shipment_table_rows': shipment_table_rows,
-            'shipment_details_raw': result,
+            'result': result,
             'special_records': special_records,
-            'global_errors': error_messages,
-            'summary': {
-                'total_rows': total_rows,
-                'error_rows': error_rows,
-                'normal_rows': normal_rows,
-                'total_batches': total_batches,
-                'total_vehicles': total_vehicles,
-            },
-            'warehouse': request.POST.get('warehouse')
+            'error_messages': error_messages,
         }
-        return self.template_main, context
+        return context
     
     async def _process_format(self,result:dict) -> dict:
         sorted_vehicles = sorted(result.items(), 
