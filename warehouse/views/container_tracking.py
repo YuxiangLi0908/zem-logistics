@@ -694,7 +694,7 @@ class ContainerTracking(View):
                         # 提取批次号（从PC号列，非"BOL已做"的值）
                         for index, row in small_group:
                             pc_value = str(row['PC号']).strip()
-                            if pc_value and pc_value != 'BOL已做' and all('\u4e00' <= char <= '\u9fff' for char in pc_value) is False:
+                            if pc_value and pc_value != 'BOL已做' and any('\u4e00' <= char <= '\u9fff' for char in pc_value) is False:
                                 batch_number = pc_value
                                 break
                         if not batch_number:
@@ -765,8 +765,6 @@ class ContainerTracking(View):
                                 })
                         
                         if batch_number:
-                            if not detail:
-                                group_errors.append(f"批次 {batch_number}：没有有效的柜号/仓库明细")
                             big_group_data['po'][batch_number] = {
                                 '预约号': appointment_number,
                                 'detail': detail
