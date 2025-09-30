@@ -93,6 +93,7 @@ class ContainerTracking(View):
         self, request: HttpRequest
     ) -> tuple[Any, Any]:
         result = await self._sav_excel_normalization(request)
+        print(result['result'])
         match_result = await self.check_appointment_abnormalities(result['result'])
         shipment_table_rows = await self._process_format(match_result['result'])
 
@@ -216,6 +217,7 @@ class ContainerTracking(View):
                             'appointment_number': appointment_number,
                             'message': abnormality_msg
                         })
+                        #新创建一个shipment，把组内的po都加上
                         continue
                 else:
                     shipment = shipment_by_batch
@@ -745,9 +747,9 @@ class ContainerTracking(View):
                         # 提取柜号和仓库详情，同时检查特殊记录
                         for index, row in small_group:
                             container_no = str(row['柜号']).strip()
+                            container_no = re.sub(r"（.*?）|\(.*?\)|\(.*?\）|\（.*?\)", "", container_no).strip()
                             warehouse = str(row['仓库']).strip()
                             warehouse = re.sub(r"（.*?）|\(.*?\)|\(.*?\）|\（.*?\)", "", warehouse).strip()
-                            print(warehouse)
                             loading_sequence = str(row['装柜顺序'])
                             cbm_value = str(row['CBM'])
                             remark = str(row['备注'])
