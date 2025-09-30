@@ -42,6 +42,7 @@ class ContainerTracking(View):
             warehouse = request.POST.get('warehouse')
             if warehouse == "SAV" or warehouse == "NJ":
                 template, context = await self.handle_upload_container_has_appointment_get(request)
+                return await sync_to_async(render)(request, template, context)
             elif warehouse == "LA":
                 template, context = await self.handle_upload_container_has_appointment_la(request)
                 return await sync_to_async(render)(request, template, context)
