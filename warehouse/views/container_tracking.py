@@ -718,9 +718,17 @@ class ContainerTracking(View):
                         # 提取柜号和仓库详情，同时检查特殊记录
                         for index, row in small_group:
                             container_no = str(row['柜号']).strip()
+                            if all('\u4e00' <= char <= '\u9fff' for char in container_no):
+                                continue  # 如果全是中文就跳过当前循环
+                            if 'NO' in container_no:
+                                continue
                             container_no = re.sub(r"（.*?）|\(.*?\)|\(.*?\）|\（.*?\)", "", container_no).strip()
+
                             warehouse = str(row['仓库']).strip()
+                            if '改' or '换标' in warehouse:
+                                continue
                             warehouse = re.sub(r"（.*?）|\(.*?\)|\(.*?\）|\（.*?\)", "", warehouse).strip()
+                            warehouse = re.sub(r'[\u4e00-\u9fff]', '', warehouse).strip()#把里面的中文去掉
                             loading_sequence = str(row['装柜顺序'])
                             cbm_value = str(row['CBM'])
                             remark = str(row['备注'])
