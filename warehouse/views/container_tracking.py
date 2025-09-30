@@ -43,6 +43,9 @@ class ContainerTracking(View):
             if warehouse == "SAV":
                 template, context = await self.handle_upload_container_has_appointment_sav(request)
                 return await sync_to_async(render)(request, template, context)
+            elif warehouse == "NJ":
+                template, context = await self.handle_upload_container_has_appointment_nj(request)
+                return await sync_to_async(render)(request, template, context)
         elif step == "po_sp_match_search":
             warehouse = request.POST.get('warehouse')
             if warehouse == "SAV":
@@ -269,7 +272,7 @@ class ContainerTracking(View):
                     #把费用更新到车次上
                     fleet.fleet_cost = pickup_data['fee']
                     await fleet.asave()
-                    repair_msg = f'将车次 {shipment.fleet_number.fleet_number} 的费用设置为 {pickup_data['fee']}'
+                    repair_msg = f'将车次 {shipment.fleet_number.fleet_number} 的费用设置为 {pickup_data["fee"]}'
                     group_abnormalities.append(repair_msg)
                     group_processed.append(repair_msg)
                 # 检查每个柜号-仓点组合
@@ -795,11 +798,15 @@ class ContainerTracking(View):
         }
         return context
     
-    async def handle_upload_container_has_appointment_sav(
+    async def handle_upload_container_has_appointment_nj(
         self, request: HttpRequest
     ) -> tuple[Any, Any]:
         result = await self._sav_excel_normalization(request)
-                       
+
+    async def handle_upload_container_has_appointment_sav(
+        self, request: HttpRequest
+    ) -> tuple[Any, Any]:
+        result = await self._sav_excel_normalization(request)                    
         #把result按照合并格式去处理
         shipment_table_rows = await self._process_format(result['result'])
         #统计下整体情况
