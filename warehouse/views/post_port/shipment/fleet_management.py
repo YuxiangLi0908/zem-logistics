@@ -774,6 +774,9 @@ class FleetManagement(View):
                     except Shipment.DoesNotExist:
                         error_messages.append(f"第{row_number}行: 未找到ISA '{ISA}' 对应的车次")
                         continue
+                    except Shipment.MultipleObjectsReturned:
+                        error_messages.append(f"第{row_number}行: ISA '{ISA}' 对应多条记录")
+                        continue
                 else:
                     error_messages.append(f"第{row_number}行: 缺少车次识别信息")
                     continue
