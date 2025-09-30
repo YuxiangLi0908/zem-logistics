@@ -265,7 +265,10 @@ class ContainerTracking(View):
                     await shipment.fleet_number.asave()
                     # 更新fleet变量
                     fleet = shipment.fleet_number
-                
+                if fleet:
+                    #把费用更新到车次上
+                    fleet.fleet_cost = pickup_data['fee']
+                    await fleet.asave()
                 # 检查每个柜号-仓点组合
                 for container_no, expected_warehouse in detail.items():
                     # is_special_plt = False
