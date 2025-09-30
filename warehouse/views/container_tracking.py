@@ -649,7 +649,7 @@ class ContainerTracking(View):
         if form.is_valid():
             file = request.FILES["file"]
             df = pd.read_excel(file)
-            required_columns = ['柜号', '仓点', '卡板', 'CBM', '备注', '装柜顺序', '正表同仓点', '预约时间', 'ISA', 'PC号', 'Note']
+            required_columns = ['柜号', '仓点', '板数', 'CBM', '备注', '装柜顺序', '预约时间', 'ISA', 'PC号']
             missing_columns = [col for col in required_columns if col not in df.columns]
             if missing_columns:
                 error_messages.append(f"缺少必要的列: {', '.join(missing_columns)}")
