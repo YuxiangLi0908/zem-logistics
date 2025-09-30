@@ -771,17 +771,16 @@ class ContainerTracking(View):
                         # 提取预约号（从ISA列，ZEM开头的值）
                         for index, row in small_group:
                             isa_value = str(row['ISA']).strip()
-                            print('isa_value',isa_value,str(row['柜号']))
+                            
                             if isa_value:
                                 try:
                                     # 尝试转换为数字
                                     isa_value = float(isa_value)
                                     if isa_value > 100000:
-                                        print('大于1万')
+                                        
                                         appointment_number = int(isa_value)
                                         break  # 找到第一个小于10000的费用值就停止
-                                    else:
-                                        print('小于')
+
                                 except ValueError:
                                     # 如果不是数字，继续寻找
                                     continue
