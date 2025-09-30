@@ -4,8 +4,11 @@ import os
 import zipfile
 from datetime import datetime
 from io import BytesIO
+import openpyxl
+from openpyxl.styles import Font, Border, Side, Alignment
+from openpyxl.utils import get_column_letter
+from openpyxl.utils.dataframe import dataframe_to_rows
 from typing import Any
-
 import pandas as pd
 import pytz
 from asgiref.sync import sync_to_async
@@ -14,7 +17,6 @@ from django.contrib.auth.decorators import login_required
 from django.contrib.postgres.aggregates import StringAgg
 from django.contrib.staticfiles import finders
 from django.core.exceptions import MultipleObjectsReturned, ObjectDoesNotExist
-from django.db import models
 from django.db.models import (
     Case,
     CharField,
@@ -94,12 +96,215 @@ def export_bol(context: dict[str, Any]) -> HttpResponse:
     return response
 
 
+async def export_palletization_list_v2(request: HttpRequest) -> HttpResponse:
+    """
+    (新)拆柜单导出
+    """
+    status = request.POST.get("status")
+    container_number = request.POST.get("container_number")
+    warehouse_unpacking_time = request.POST.get("first_time_download")
+    try:
+        warehouse_unpacking_time = datetime.strptime(warehouse_unpacking_time, "%Y-%m-%d %H:%M:%S").strftime(
+            "%d/%m /%Y")
+    except (ValueError, TypeError):
+        warehouse_unpacking_time = "未获取到时间"
+
+    if status == "non_palletized":
+        packing_list = await sync_to_async(list)(
+            PackingList.objects.select_related("container_number", "pallet")
+            .filter(container_number__container_number=container_number)
+            .annotate(
+                custom_delivery_method=Case(
+                    When(
+                        Q(delivery_method="暂扣留仓(HOLD)")
+                        | Q(delivery_method="暂扣留仓"),
+                        then=Concat(
+                            "delivery_method", Value("-"), "fba_id", Value("-"), "id"
+                        ),
+                    ),
+                    When(
+                        Q(delivery_method="客户自提") | Q(destination="客户自提"),
+                        then=Concat(
+                            "delivery_method",
+                            Value("-"),
+                            "destination",
+                            Value("-"),
+                            "shipping_mark",
+                        ),
+                    ),
+                    default=F("delivery_method"),
+                    output_field=CharField(),
+                ),
+                str_id=Cast("id", CharField()),
+                str_fba_id=Cast("fba_id", CharField()),
+                str_ref_id=Cast("ref_id", CharField()),
+                str_shipping_mark=Cast("shipping_mark", CharField()),
+            )
+            .values(
+                "container_number__container_number",
+                "destination",
+                "address",
+                "zipcode",
+                "contact_name",
+                "custom_delivery_method",
+                "note",
+                "shipment_batch_number__shipment_batch_number",
+                "PO_ID",
+            )
+            .annotate(
+                fba_ids=StringAgg("str_fba_id", delimiter=",", distinct=True),
+                ref_ids=StringAgg("str_ref_id", delimiter=",", distinct=True),
+                shipping_marks=StringAgg(
+                    "str_shipping_mark", delimiter=",", distinct=True
+                ),
+                ids=StringAgg("str_id", delimiter=",", distinct=True),
+                pcs=Sum("pcs", output_field=IntegerField()),
+                cbm=Sum("cbm", output_field=FloatField()),
+                n_pallet=Count("pallet__pallet_id", distinct=True),
+                weight_lbs=Sum("total_weight_lbs", output_field=FloatField()),
+                plt_ids=StringAgg(
+                    "str_id", delimiter=",", distinct=True, ordering="str_id"
+                ),
+            )
+            .order_by("-cbm")
+        )
+    else:
+        packing_list = []
+
+    data = [i for i in packing_list]
+    df = pd.DataFrame.from_records(data)
+    if not df.empty:
+        df = df.rename(
+            {
+                "container_number__container_number": "container_number",
+                "custom_delivery_method": "delivery_method",
+                "shipping_marks": "shipping_mark",
+                "n_pallet": "pl"
+            },
+            axis=1,
+        )
+
+        df["delivery_method"] = df["delivery_method"].apply(
+            lambda x: x.split("-")[0] if x and isinstance(x, str) else x
+        )
+
+        df = df[
+            [
+                "destination",
+                "delivery_method",
+                "shipping_mark",
+                "pcs",
+                "pl",
+                "note",
+            ]
+        ]
+
+        mask = df["delivery_method"] == "卡车派送"
+        df.loc[mask, "shipping_mark"] = ""
+        df.loc[mask, "pcs"] = ""
+        df["pl"] = ""
+    else:
+        df = pd.DataFrame(columns=["destination", "delivery_method", "shipping_mark", "pcs", "pl", "note"])
+
+    buffer = BytesIO()
+    wb = openpyxl.Workbook()
+    ws = wb.active
+    ws.title = "拆柜单"
+
+    thin_border = Border(
+        left=Side(style='thin'),
+        right=Side(style='thin'),
+        top=Side(style='thin'),
+        bottom=Side(style='thin')
+    )
+    header1_font = Font(size=15, bold=True)
+    header2_font = Font(size=11, bold=True)
+    data_font = Font(size=12, bold=True)
+    center_alignment = Alignment(horizontal='center', vertical='center', wrap_text=True)
+    left_alignment = Alignment(horizontal='left', vertical='center', wrap_text=True)
+    UNIFIED_ROW_HEIGHT = 30
+
+    ws.merge_cells('A1:C1')
+    for col_idx in range(1, 4):
+        cell = ws.cell(row=1, column=col_idx)
+        cell.border = thin_border
+
+    ws['A1'] = container_number or "未指定柜号"
+    ws['A1'].font = header1_font
+    ws['A1'].alignment = left_alignment
+    ws.row_dimensions[1].height = UNIFIED_ROW_HEIGHT
+
+    ws.merge_cells('D1:E1')
+    for col_idx in range(4, 6):
+        cell = ws.cell(row=1, column=col_idx)
+        cell.border = thin_border
+
+    ws['D1'] = warehouse_unpacking_time
+    ws['D1'].font = header1_font
+    ws['D1'].alignment = center_alignment
+
+    ws['F1'] = 'dock'
+    ws['F1'].font = header1_font
+    ws['F1'].border = thin_border
+    ws['F1'].alignment = center_alignment
+
+    column_names = ["destination", "delivery_method", "shipping_mark", "pcs", "pl", "note"]
+    for col_idx, name in enumerate(column_names, 1):
+        cell = ws.cell(row=2, column=col_idx)
+        cell.value = name
+        cell.font = header2_font
+        cell.border = thin_border
+        cell.alignment = center_alignment
+    ws.row_dimensions[2].height = UNIFIED_ROW_HEIGHT
+
+    for row_idx, row in enumerate(dataframe_to_rows(df, index=False, header=False), 3):
+        ws.row_dimensions[row_idx].height = UNIFIED_ROW_HEIGHT
+        for col_idx, value in enumerate(row, 1):
+            cell = ws.cell(row=row_idx, column=col_idx)
+            cell.value = value if pd.notna(value) else ""
+            cell.font = data_font
+            cell.border = thin_border
+            if col_idx == 6:
+                cell.alignment = left_alignment
+            else:
+                cell.alignment = center_alignment
+
+    total_columns = len(column_names)
+    for col_idx in range(1, total_columns + 1):
+        max_length = 0
+        column_letter = get_column_letter(col_idx)
+        for row_idx in range(1, ws.max_row + 1):
+            cell = ws[f"{column_letter}{row_idx}"]
+            if isinstance(cell, openpyxl.cell.cell.MergedCell):
+                continue
+            cell_value = str(cell.value) if cell.value is not None else ""
+            if len(cell_value) > max_length:
+                max_length = len(cell_value)
+
+        if col_idx == 6:
+            adjusted_width = max(10, min(max_length + 5, 30))
+        else:
+            adjusted_width = max(8, min(max_length + 2, 20))
+
+        ws.column_dimensions[column_letter].width = adjusted_width
+
+    wb.save(buffer)
+    buffer.seek(0)
+
+    response = HttpResponse(
+        buffer.getvalue(),
+        content_type="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
+    )
+    filename = f"{container_number if container_number else '拆柜单'}.xlsx"
+    response["Content-Disposition"] = f"attachment; filename={filename}"
+
+    return response
+
+
 async def export_palletization_list(request: HttpRequest) -> HttpResponse:
     status = request.POST.get("status")
     container_number = request.POST.get("container_number")
     if status == "non_palletized":
-        cn = pytz.timezone("Asia/Shanghai")
-        current_time_cn = datetime.now(cn).strftime("%Y-%m-%d %H:%M:%S")
         packing_list = await sync_to_async(list)(
             PackingList.objects.select_related("container_number", "pallet")
             .filter(container_number__container_number=container_number)

@@ -12,62 +12,83 @@
         </div>
     </div>
     <div style="overflow-x: scroll; overflow-y: scroll; max-height: 90%;">
-        <table class="table" id="pickup-schedule-table" style="font-size: 11px; overflow-y: scroll; max-height: 90%;">
-            <thead>
-                <tr style="position: sticky; top: 0;">
-                    <th class="th">柜号</th>
-                    <th class="th">订单类型</th>
-                    <th class="th">目的地</th>
-                    <th class="th">提柜时间</th>
-                    <th class="th">供应商</th>
-                    <th class="th">提柜备注</th>
-                    <th class="th">到仓时间</th>
-                    <th class="th">优先级</th>
-                </tr>
-                <tr style="position: sticky; top: 20px;">
-                    <th class="th">
-                        <input type="text" id="ctnSearch" placeholder="搜索柜号..." oninput="filterTable(this, 0, true)" size="13" style="font-size: 11px;">
-                    </th>
-                    <th class="th"></th>
-                    <th class="th"></th>
-                    <th class="th"></th>
-                    <th class="th"></th>
-                    <th class="th"></th>
-                    <th class="th"></th>
-                    <th class="th"></th>
-                </tr>
-            </thead>
-            <tbody>
-                {% for o in orders_pickup_scheduled%}
-                <form method="post" action="" style="width: 100%;">
-                    {% csrf_token %}
-                    <tr {% if o.retrieval_id.arrive_at_warehouse_status == "past_due" %}class="tr-status-red"{% endif %}>
-                        <td class="td">
-                            {{ o.container_number.container_number }}
-                        </td>
-                        <td class="td">{{ o.order_type }}</td>
-                        <td class="td">{{ o.retrieval_id.retrieval_destination_precise }}</td>
-                        <td class="td">{{ o.retrieval_id.actual_retrieval_timestamp|date:'M-j' }}</td>
-                        <td class="td">{{ o.retrieval_id.retrieval_carrier }}</td>
-                        <td class="td">{{ o.retrieval_id.note }}</td>
-                        <td class="td">
-                            <input type="datetime-local" name="arrive_at" style="font-size: 13px;" required>
-                            <input type="hidden" name="step" value="arrive_at_destination">
-                            <input type="hidden" name="container_number" value="{{ o.container_number.container_number }}">
-                            <button id="schedule-pickup-btn" type="submit" class="btn btn-primary" style="height: 30px; margin-left: 20px; font-size: 13px;">
-                                确认
-                            </button>
-                        </td>
-                        <td class="td">
-                            {{ o.unpacking_priority }}
-                        </td>
-                    </tr>
-                </form>
-                {% endfor %}
-            </tbody>
-        </table>
+    <!-- 批量操作区域：全选 + 统一时间 + 批量按钮 -->
+    <div style="margin-bottom: 10px; padding: 5px; background: #f5f5f5;">
+        <label style="font-size: 11px; margin-right: 15px;">
+            <input type="checkbox" id="selectAll" style="vertical-align: middle;"> 全选
+        </label>
+        <input type="datetime-local" id="batchArriveAt" style="font-size: 13px; margin-right: 15px;" required>
+        <button id="batchSubmitBtn" class="btn btn-success" style="height: 30px; font-size: 13px;">
+            批量确认到仓时间
+        </button>
     </div>
-</div>  
+
+    <table class="table" id="pickup-schedule-table" style="font-size: 11px; overflow-y: scroll; max-height: 90%;">
+        <thead>
+            <tr style="position: sticky; top: 0;">
+                <th class="th" style="width: 60px;">选择</th>
+                <th class="th">柜号</th>
+                <th class="th">订单类型</th>
+                <th class="th">目的地</th>
+                <th class="th">提柜时间</th>
+                <th class="th">供应商</th>
+                <th class="th">提柜备注</th>
+                <th class="th">到仓时间</th>
+                <th class="th">优先级</th>
+            </tr>
+            <tr style="position: sticky; top: 20px;">
+                <th class="th"></th>
+                <th class="th">
+                    <input type="text" id="ctnSearch1" placeholder="搜索柜号..." oninput="filterTable(this, 1, true)" size="13" style="font-size: 11px;">
+                </th>
+                <th class="th"></th>
+                <th class="th"></th>
+                <th class="th"></th>
+                <th class="th"></th>
+                <th class="th"></th>
+                <th class="th"></th>
+                <th class="th"></th>
+            </tr>
+        </thead>
+        <tbody>
+            {% for o in orders_pickup_scheduled%}
+            <form method="post" action="" style="width: 100%;" class="single-form">
+                {% csrf_token %}
+                <tr {% if o.retrieval_id.arrive_at_warehouse_status == "past_due" %}class="tr-status-red"{% endif %}>
+                    <td class="td">
+                        <input type="checkbox" name="containerNumbers" value="{{ o.container_number.container_number }}" style="vertical-align: middle;">
+                    </td>
+                    <td class="td">{{ o.container_number.container_number }}</td>
+                    <td class="td">{{ o.order_type }}</td>
+                    <td class="td">{{ o.retrieval_id.retrieval_destination_precise }}</td>
+                    <td class="td">{{ o.retrieval_id.actual_retrieval_timestamp|date:'M-j' }}</td>
+                    <td class="td">{{ o.retrieval_id.retrieval_carrier }}</td>
+                    <td class="td">{{ o.retrieval_id.note }}</td>
+                    <td class="td">
+                        <input type="datetime-local" name="arrive_at" style="font-size: 13px;" required>
+                        <input type="hidden" name="step" value="arrive_at_destination">
+                        <input type="hidden" name="container_number" value="{{ o.container_number.container_number }}">
+                        <button type="submit" class="btn btn-primary" style="height: 30px; margin-left: 20px; font-size: 13px;">
+                            确认
+                        </button>
+                    </td>
+                    <td class="td">{{ o.unpacking_priority }}</td>
+                </tr>
+            </form>
+            {% endfor %}
+        </tbody>
+    </table>
+</div>
+
+
+<form id="batchForm" method="post" action="" style="display: none;">
+    {% csrf_token %}
+    <input type="hidden" name="step" value="batch_arrive_at_destination">
+    <input type="hidden" name="batch_arrive_at" id="batchArriveAtInput">
+    <input type="hidden" name="batch_container_numbers" id="batchContainerNumbersInput">
+</form>
+</div>
+
 <div style="display: flex;">
     <div style="height: 350px; max-height: 350px; width: 30%; border: 2px solid rgb(180, 180, 180); border-radius: 12px; padding: 1%; margin-top: .5%; margin-right: .5%">
         <div style="display: flex;">
@@ -87,7 +108,7 @@
                     </tr>
                     <tr style="position: sticky; top: 28px;">
                         <th class="th">
-                            <input type="text" id="ctnSearch" placeholder="搜索柜号..." oninput="filterTable(this, 0, true)" size="13" style="font-size: 11px;">
+                            <input type="text" id="ctnSearch2" placeholder="搜索柜号..." oninput="filterTable(this, 0, true)" size="13" style="font-size: 11px;">
                         </th>
                         <th class="th"></th>
                         <th class="th"></th>
@@ -105,6 +126,8 @@
             </table>
         </div>
     </div>
+
+
     <div style="height: 350px; max-height: 350px; width: 70%; border: 2px solid rgb(180, 180, 180); border-radius: 12px; padding: 1%; margin-top: .5%; margin-right: .5%">
         <div style="display: flex;">
             <div style="width: 60%;">
@@ -112,11 +135,21 @@
                     确认还空 - {{ orders_palletized|length }}
                 </b>
             </div>
+            <div style="width: 40%; text-align: right;">
+                <label style="font-size: 11px; margin-right: 10px;">
+                    <input type="checkbox" id="selectAllEmptyReturn" style="vertical-align: middle;"> 全选
+                </label>
+                <input type="datetime-local" id="batchEmptyReturnedAt" style="font-size: 11px; margin-right: 10px;" required>
+                <button id="batchEmptyReturnBtn" class="btn btn-success" style="height: 25px; font-size: 11px; padding: 0 10px;">
+                    批量确认
+                </button>
+            </div>
         </div>
         <div style="overflow-x: scroll; overflow-y: scroll; max-height: 90%;">
             <table class="table" id="palletized-order-table" style="font-size: 11px; max-height: 90%;">
                 <thead>
                     <tr style="position: sticky; top: 0;">
+                        <th class="th" style="width: 50px;">选择</th>
                         <th class="th">柜号</th>
                         <th class="th">目的地</th>
                         <th class="th">到仓时间</th>
@@ -126,8 +159,9 @@
                         <th class="th">优先级</th>
                     </tr>
                     <tr style="position: sticky; top: 28px;">
+                        <th class="th"></th>
                         <th class="th">
-                            <input type="text" id="ctnSearch" placeholder="搜索柜号..." oninput="filterTable(this, 0, true)" size="13" style="font-size: 11px;">
+                            <input type="text" id="ctnSearch3" placeholder="搜索柜号..." oninput="filterTable(this, 1, true)" size="13" style="font-size: 11px;">
                         </th>
                         <th class="th"></th>
                         <th class="th"></th>
@@ -139,9 +173,12 @@
                 </thead>
                 <tbody>
                     {% for o in orders_palletized%}
-                    <form method="post" action="" style="width: 100%;">
+                    <form method="post" action="" style="width: 100%;" class="single-form">
                         {% csrf_token %}
                         <tr {% if o.offload_id.offload_status == "past_due" %}class="tr-status-red"{% endif %}>
+                            <td class="td">
+                                <input type="checkbox" name="emptyReturnContainerNumbers" value="{{ o.container_number.container_number }}" style="vertical-align: middle;">
+                            </td>
                             <td class="td">{{ o.container_number.container_number }}</td>
                             <td class="td">{{ o.retrieval_id.retrieval_destination_precise }}</td>
                             <td class="td">{{ o.retrieval_id.arrive_at|date:'M-j' }}</td>
@@ -155,37 +192,147 @@
                                     确认
                                 </button>
                             </td>
-                            <td class="td">
-                                {{ o.unpacking_priority }}
-                            </td>
+                            <td class="td">{{ o.unpacking_priority }}</td>
                         </tr>
                     </form>
                     {% endfor %}
                 </tbody>
             </table>
         </div>
-    </div>  
+    </div>
 </div>
 
-<script>
-    function filterTable(filterInput, col_idx, trim) {
-        var containerInput, containerFilter, table, tbody, tr, containerTd, i, containerTxtValue;
-        containerFilter = filterInput.value.toUpperCase();
-        var table = filterInput.closest('table');
-        tbody = table.getElementsByTagName("tbody")[0];
-        tr = tbody.getElementsByTagName("tr");
 
-        for (i = 0; i < tr.length; i++) {
-            containerTd = tr[i].getElementsByTagName("td")[col_idx];
-            if (containerTd) {
-                containerTxtValue = containerTd.textContent || containerTd.innerText;
-                containerTxtValue = trim ? containerTxtValue.toUpperCase().trim() : containerTxtValue.toUpperCase()
-                var containerDisplayStyle_1 = containerTxtValue.indexOf(containerFilter) > -1 ? "" : "none";
-                var containerDisplayStyle_2 = containerFilter.indexOf(containerTxtValue) > -1 ? "" : "none";
-                // Set display style based on both container and customer filters
-                tr[i].style.display = containerDisplayStyle_1 === "" || containerDisplayStyle_2 === "" ? "" : "none";
+<form id="batchEmptyReturnForm" method="post" action="" style="display: none;">
+    {% csrf_token %}
+    <input type="hidden" name="step" value="batch_empty_return">
+    <input type="hidden" name="batch_empty_returned_at" id="batchEmptyReturnedAtInput">
+    <input type="hidden" name="batch_container_numbers" id="batchEmptyReturnContainerNumbersInput">
+</form>
+<script>
+    // 页面加载时初始化所有行的可见状态为true
+    document.addEventListener('DOMContentLoaded', function() {
+        // 初始化“确认到仓”表格
+        document.querySelectorAll('#pickup-schedule-table tbody tr').forEach(row => {
+            row.dataset.visible = 'true';
+        });
+        // 初始化“确认还空”表格
+        document.querySelectorAll('#palletized-order-table tbody tr').forEach(row => {
+            row.dataset.visible = 'true';
+        });
+    });
+
+    function filterTable(filterInput, col_idx, trim) {
+        const searchKeywords = filterInput.value.trim().split(/\s+/).filter(keyword => keyword);
+        const table = filterInput.closest('table');
+        if (!table) return;
+        const rows = table.querySelectorAll('tbody tr');
+
+        rows.forEach(row => {
+            const targetCell = row.cells[col_idx];
+            if (!targetCell) {
+                row.style.display = 'none';
+                row.dataset.visible = 'false';
+                return;
             }
-        }
+            let cellText = targetCell.textContent || targetCell.innerText;
+            if (trim) cellText = cellText.toUpperCase().trim();
+
+            // 判断行是否可见
+            const isVisible = searchKeywords.length === 0
+                ? true  // 无搜索时全部可见
+                : searchKeywords.some(keyword => cellText === keyword.toUpperCase().trim());
+
+            row.style.display = isVisible ? '' : 'none';
+            row.dataset.visible = isVisible ? 'true' : 'false';
+        });
     };
+
+    // 1. 「确认到仓」全选功能（仅选中可见行）
+    document.getElementById('selectAll').addEventListener('change', function (e) {
+        // 只选中可见行的复选框
+        const visibleCheckboxes = document.querySelectorAll(
+            '#pickup-schedule-table tbody tr[data-visible="true"] input[name="containerNumbers"]'
+        );
+        visibleCheckboxes.forEach(checkbox => {
+            checkbox.checked = e.target.checked;
+        });
+    });
+
+    // 2. 「确认到仓」批量提交
+    document.getElementById('batchSubmitBtn').addEventListener('click', function () {
+        const checkedBoxes = document.querySelectorAll(
+            '#pickup-schedule-table tbody tr[data-visible="true"] input[name="containerNumbers"]:checked'
+        );
+        if (checkedBoxes.length === 0) {
+            alert('请先选择需要批量更新的柜号！');
+            return;
+        }
+        const containerNumbers = Array.from(checkedBoxes).map(box => box.value);
+        const batchArriveAt = document.getElementById('batchArriveAt').value;
+        if (!batchArriveAt) {
+            alert('请选择批量更新的到仓时间！');
+            return;
+        }
+        const batchForm = document.getElementById('batchForm');
+        document.getElementById('batchArriveAtInput').value = batchArriveAt;
+        document.getElementById('batchContainerNumbersInput').value = containerNumbers.join(',');
+        batchForm.submit();
+    });
+
+    // 3. 「确认到仓」行点击选中优化
+    document.querySelectorAll('#pickup-schedule-table tbody tr').forEach(tr => {
+        tr.addEventListener('click', function (e) {
+            if (e.target.tagName !== 'INPUT' || e.target.name !== 'containerNumbers') {
+                const checkbox = this.querySelector('input[name="containerNumbers"]');
+                if (checkbox && this.dataset.visible === 'true') {
+                    checkbox.checked = !checkbox.checked;
+                }
+            }
+        });
+    });
+
+    // 4. 「确认还空」全选功能（仅选中可见行）
+    document.getElementById('selectAllEmptyReturn').addEventListener('change', function (e) {
+        const visibleCheckboxes = document.querySelectorAll(
+            '#palletized-order-table tbody tr[data-visible="true"] input[name="emptyReturnContainerNumbers"]'
+        );
+        visibleCheckboxes.forEach(checkbox => {
+            checkbox.checked = e.target.checked;
+        });
+    });
+
+    // 5. 「确认还空」批量提交
+    document.getElementById('batchEmptyReturnBtn').addEventListener('click', function () {
+        const checkedBoxes = document.querySelectorAll(
+            '#palletized-order-table tbody tr[data-visible="true"] input[name="emptyReturnContainerNumbers"]:checked'
+        );
+        if (checkedBoxes.length === 0) {
+            alert('请先选择需要批量更新的柜号！');
+            return;
+        }
+        const containerNumbers = Array.from(checkedBoxes).map(box => box.value);
+        const batchEmptyReturnedAt = document.getElementById('batchEmptyReturnedAt').value;
+        if (!batchEmptyReturnedAt) {
+            alert('请选择批量更新的还柜时间！');
+            return;
+        }
+        const batchForm = document.getElementById('batchEmptyReturnForm');
+        document.getElementById('batchEmptyReturnedAtInput').value = batchEmptyReturnedAt;
+        document.getElementById('batchEmptyReturnContainerNumbersInput').value = containerNumbers.join(',');
+        batchForm.submit();
+    });
+
+    // 6. 「确认还空」行点击选中优化
+    document.querySelectorAll('#palletized-order-table tbody tr').forEach(tr => {
+        tr.addEventListener('click', function (e) {
+            if (e.target.tagName !== 'INPUT' || e.target.name !== 'emptyReturnContainerNumbers') {
+                const checkbox = this.querySelector('input[name="emptyReturnContainerNumbers"]');
+                if (checkbox && this.dataset.visible === 'true') {
+                    checkbox.checked = !checkbox.checked;
+                }
+            }
+        });
+    });
 </script>
 {% endblock %}
