@@ -562,7 +562,7 @@ class ContainerTracking(View):
                                 'container_number': container_no,
                                 'expected_warehouse': expected_warehouse,
                                 'total_count': total_count,
-                                'unmatched_count': unmatched_count,
+                                'unmatched_count': unmatched_count, 
                                 'actual_batches': actual_batches,
                                 'message': abnormality_msg
                             })
