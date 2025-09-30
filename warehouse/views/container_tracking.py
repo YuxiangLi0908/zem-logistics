@@ -123,7 +123,7 @@ class ContainerTracking(View):
             # 异常1: 检查车次是否存在
             fleets = [fleet async for fleet in Fleet.objects.filter(pickup_number=pickup_number)]
             if len(fleets) == 0:
-                pass
+                fleet = None
             elif len(fleets) > 1:
                 # 查到多条记录
                 fleet_numbers = [fleet.fleet_number for fleet in fleets]
@@ -400,7 +400,7 @@ class ContainerTracking(View):
             # 异常1: 检查车次是否存在
             fleets = [fleet async for fleet in Fleet.objects.filter(pickup_number=pickup_number)]
             if len(fleets) == 0:
-                pass
+                fleet = None
             elif len(fleets) > 1:
                 # 查到多条记录
                 fleet_numbers = [fleet.fleet_number for fleet in fleets]
@@ -490,6 +490,7 @@ class ContainerTracking(View):
                             'appointment_number': appointment_number,
                             'message': abnormality_msg
                         })
+                        #预约组还未在系统操作，系统不处理
                         continue
                 else:
                     shipment = shipment_by_batch
@@ -506,6 +507,7 @@ class ContainerTracking(View):
                         'actual_appointment': shipment.appointment_id,
                         'message': abnormality_msg
                     })
+                    #把系统的ISA改成和预约表的ISA一致
                 
                 # 异常4: 检查shipment是否关联到正确的车次
                 if fleet and shipment.fleet_number_id != fleet.id:
@@ -517,7 +519,11 @@ class ContainerTracking(View):
                         'actual_fleet': shipment.fleet_number.fleet_number if shipment.fleet_number else "无",
                         'message': abnormality_msg
                     })
+                    
                 elif not fleet and shipment.fleet_number:
+                    #把pickupnumber赋值给shipment绑定的车
+                    pass
+                elif not fleet and not shipment.fleet_number:
                     abnormality_msg = f'车次 {pickup_number} 在系统中不存在'
                     group_abnormalities.append(abnormality_msg)
                     #加到总的报错信息里
@@ -526,6 +532,7 @@ class ContainerTracking(View):
                         'pickup_number': pickup_number,
                         'message': abnormality_msg
                     })
+                    #
 
                 
                 # 检查每个柜号-仓点组合
@@ -564,10 +571,10 @@ class ContainerTracking(View):
                             if not pallet.shipment_batch_number:
                                 # 如果外键为空，归为异常
                                 unmatched_pallets.append(pallet)
-                            elif pallet.shipment_batch_number.shipment_batch_number == batch_number:
-                                matched_pallets.append(pallet)
-                            else:
-                                unmatched_pallets.append(pallet)
+                            # elif pallet.shipment_batch_number.shipment_batch_number == batch_number:
+                            #     matched_pallets.append(pallet)
+                            # else:
+                            #     unmatched_pallets.append(pallet)
                         if not matched_pallets:
                             # 异常6：没有关联到正确的预约批次
                             total_count = len(pallets)
