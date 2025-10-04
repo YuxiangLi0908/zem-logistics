@@ -189,7 +189,7 @@ async def export_palletization_list_v2(request: HttpRequest) -> HttpResponse:
             lambda x: x.split("-")[0] if x and isinstance(x, str) else x
         )
 
-        mask = (df["delivery_method"] == "卡车派送") & (df["delivery_type"] == "公仓")
+        mask = (df["delivery_method"] == "卡车派送") & (df["delivery_type"] == "public")
         df.loc[mask, "shipping_mark"] = ""
         df.loc[mask, "pcs"] = ""
         df["pl"] = ""
