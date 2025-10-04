@@ -150,6 +150,7 @@ async def export_palletization_list_v2(request: HttpRequest) -> HttpResponse:
                 "note",
                 "shipment_batch_number__shipment_batch_number",
                 "PO_ID",
+                "delivery_type",
             )
             .annotate(
                 fba_ids=StringAgg("str_fba_id", delimiter=",", distinct=True),
