@@ -1223,10 +1223,12 @@ class Palletization(View):
                     "客户自提" in pl.get("destination")
                     or "自提" in pl.get("destination")
                     or "客户自提" in delivery_method
+                    or "other" in pl.get("delivery_type")
                 ):
-                    if "客户自提" in pl.get("destination") or "自提" in pl.get(
-                        "destination"
-                    ):
+                    if (
+                        "客户自提" in pl.get("destination")
+                        or "自提" in pl.get("destination")
+                    ): 
                         destination = "S/P"
                     else:
                         destination = pl.get("destination")
