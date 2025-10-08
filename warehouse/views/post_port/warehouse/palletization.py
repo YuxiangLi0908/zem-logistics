@@ -1224,6 +1224,7 @@ class Palletization(View):
                     or "自提" in pl.get("destination")
                     or "客户自提" in delivery_method
                     or "other" in pl.get("delivery_type")
+                    or "暂扣留仓" in delivery_method.split("-")[0]
                 ):
                     if (
                         "客户自提" in pl.get("destination")
@@ -1252,10 +1253,10 @@ class Palletization(View):
                     destination = destination.replace("沃尔玛", "WMT-")
                     destination = destination.replace("WALMART", "WMT-")
                     new_marks = None
-                if "暂扣留仓" in delivery_method.split("-")[0]:
-                    fba_ids = pl.get("fba_ids")
-                else:
-                    fba_ids = None
+                # if "暂扣留仓" in delivery_method.split("-")[0]:
+                #     fba_ids = pl.get("fba_ids")
+                # else:
+                #     fba_ids = None
                 dw_st = (
                     pl.get("delivery_window_start").strftime("%m/%d")
                     if pl.get("delivery_window_start")
@@ -1289,7 +1290,7 @@ class Palletization(View):
                         "date": retrieval_date,
                         "customer": customer_name,
                         "hold": ("暂扣留仓" in delivery_method.split("-")[0]),
-                        "fba_ids": fba_ids,
+                        # "fba_ids": fba_ids,
                         "barcode": barcode_base64,
                         "shipping_marks": new_marks,
                         "pcs": pl.get("pcs"),
