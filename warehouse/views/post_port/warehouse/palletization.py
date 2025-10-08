@@ -1290,7 +1290,7 @@ class Palletization(View):
                         "date": retrieval_date,
                         "customer": customer_name,
                         "hold": ("暂扣留仓" in delivery_method.split("-")[0]),
-                        "fba_ids": fba_ids,
+                        # "fba_ids": fba_ids,
                         "barcode": barcode_base64,
                         "shipping_marks": new_marks,
                         "pcs": pl.get("pcs"),
