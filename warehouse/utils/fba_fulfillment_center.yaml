@@ -2363,3 +2363,13 @@ IUSF:
   location: 3351 Balmorhea Dr
   state: TX
   zipcode: '75241'
+IUSW:
+  city: Hesperia
+  location: 8130 Caliente Rd
+  state: CA
+  zipcode: '92344'
+IAH3:
+  city: Houston
+  location: 15525 Milner Rd
+  state: TX
+  zipcode: '77032'
