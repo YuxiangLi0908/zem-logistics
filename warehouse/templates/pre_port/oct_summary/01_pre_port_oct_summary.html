@@ -110,15 +110,19 @@
                 <tbody id="tableBody">
                 {% for data in datas %}
                     <tr class="table-row" data-container="{{ data.container|default:''|lower }}">
-                        <td>{{ data.created_at|date:"Y-m-d H:i"|default:"-" }}</td>
-                        <td>{{ data.customer_name|default:"-" }}</td>
-                        <td>{{ data.retrieval_destination_area|default:"-" }}</td>
+                        <td>{{ data.created_at|date:"Y-m-d H:i"}}</td>
+                        <td>{{ data.customer_name}}</td>
+                        <td>{{ data.retrieval_destination_area}}</td>
                         <td>{{ data.retrieval_note|default:"无" }}</td>
-                        <td>{{ data.container|default:"-" }}</td>
-                        <td>{{ data.mbl|default:"-" }}</td>
-                        <td>{{ data.shipping_line|default:"-" }}</td>
-                        <td>{{ data.vessel|default:"-" }}</td>
-                        <td>{{ data.container_type|default:"-" }}</td>
+                        <td>
+                            <a href="/terminal_dispatch/?step=update_pickup_schedule&container_number={{ data.container }}" style="color: #0066cc;" target="_blank">
+                                {{ data.container}}
+                            </a>
+                        </td>
+                        <td>{{ data.mbl}}</td>
+                        <td>{{ data.shipping_line}}</td>
+                        <td>{{ data.vessel}}</td>
+                        <td>{{ data.container_type}}</td>
                         <td>
                             {% if data.vessel_date %}
                                 {{ data.vessel_date.days }}天
@@ -126,8 +130,8 @@
                                 -
                             {% endif %}
                         </td>
-                        <td>{{ data.vessel_etd|date:"Y-m-d H:i"|default:"-" }}</td>
-                        <td>{{ data.vessel_eta|date:"Y-m-d H:i"|default:"-" }}</td>
+                        <td>{{ data.vessel_etd|date:"Y-m-d H:i"}}</td>
+                        <td>{{ data.vessel_eta|date:"Y-m-d H:i"}}</td>
                         <td>
                             {% if data.temp_t49_available_for_pickup == True %}
                                 √
@@ -135,7 +139,7 @@
                                 {{ data.temp_t49_available_for_pickup|default:"×" }}
                             {% endif %}
                         </td>
-                        <td>{{ data.retrieval_carrier|default:"-" }}</td>
+                        <td>{{ data.retrieval_carrier}}</td>
                         <td>
                             {% if data.retrieval_carrier %}
                                 √
