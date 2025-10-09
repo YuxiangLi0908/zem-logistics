@@ -1,0 +1,1079 @@
+{% extends 'base.html' %}
+{% load static %}
+
+{% block content %}
+
+<style>
+    :root {
+        --primary-color: #3498db;
+        --secondary-color: #2c3e50;
+        --success-color: #2ecc71;
+        --warning-color: #f39c12;
+        --danger-color: #e74c3c;
+        --light-color: #f8f9fa;
+        --dark-color: #343a40;
+        --day1-color: #e3f2fd;
+        --day2-color: #e8f5e9;
+        --day3-color: #fff3e0;
+    }
+
+    * {
+        margin: 0;
+        padding: 0;
+        box-sizing: border-box;
+        font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+    }
+
+    body {
+        background-color: #f5f7fa;
+        color: #333;
+        line-height: 1.6;
+    }
+
+    .appointment-system {
+        max-width: 1800px;
+        margin: 20px auto;
+        background: white;
+        border-radius: 10px;
+        box-shadow: 0 0 20px rgba(0, 0, 0, 0.1);
+        overflow: hidden;
+    }
+
+    .appointment-header {
+        background: linear-gradient(135deg, var(--secondary-color), #4a6491);
+        color: white;
+        padding: 20px 30px;
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        flex-wrap: wrap;
+    }
+
+    .appointment-logo {
+        display: flex;
+        align-items: center;
+        font-size: 1.5rem;
+        font-weight: bold;
+    }
+
+    .appointment-logo i {
+        margin-right: 10px;
+        font-size: 1.8rem;
+    }
+
+    .warehouse-selector {
+        display: flex;
+        align-items: center;
+        gap: 15px;
+        background: rgba(255, 255, 255, 0.15);
+        padding: 10px 20px;
+        border-radius: 8px;
+    }
+
+    .warehouse-selector label {
+        font-weight: 600;
+    }
+
+    .warehouse-selector select {
+        padding: 8px 15px;
+        border: none;
+        border-radius: 5px;
+        background: white;
+        font-size: 1rem;
+        min-width: 200px;
+    }
+
+    .warehouse-selector button {
+        padding: 8px 16px;
+        background: var(--success-color);
+        color: white;
+        border: none;
+        border-radius: 5px;
+        cursor: pointer;
+        font-weight: 600;
+        transition: background 0.3s ease;
+    }
+
+    .warehouse-selector button:hover {
+        background: #27ae60;
+    }
+
+    .appointment-main {
+        padding: 20px;
+    }
+
+    .summary-cards {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+        gap: 15px;
+        margin-bottom: 25px;
+    }
+
+    .summary-card {
+        background: white;
+        border-radius: 8px;
+        padding: 15px;
+        box-shadow: 0 3px 10px rgba(0, 0, 0, 0.08);
+        display: flex;
+        flex-direction: column;
+        border-left: 4px solid var(--primary-color);
+    }
+
+    .summary-card.expired {
+        border-left-color: var(--danger-color);
+    }
+
+    .summary-card.urgent {
+        border-left-color: var(--warning-color);
+    }
+
+    .summary-card.available {
+        border-left-color: var(--success-color);
+    }
+
+    .summary-card .card-title {
+        font-size: 0.8rem;
+        color: #7f8c8d;
+        margin-bottom: 8px;
+    }
+
+    .summary-card .card-value {
+        font-size: 1.5rem;
+        font-weight: 700;
+        color: var(--secondary-color);
+    }
+
+    .tab-navigation {
+        display: flex;
+        margin-bottom: 20px;
+        border-bottom: 1px solid #eaecef;
+    }
+
+    .tab {
+        padding: 12px 25px;
+        cursor: pointer;
+        border-bottom: 3px solid transparent;
+        transition: all 0.3s;
+        font-weight: 500;
+        position: relative;
+    }
+
+    .tab.active {
+        color: var(--primary-color);
+        border-bottom: 3px solid var(--primary-color);
+        font-weight: 600;
+    }
+
+    .tab .badge {
+        position: absolute;
+        top: 5px;
+        right: 5px;
+        background: var(--primary-color);
+        color: white;
+        border-radius: 50%;
+        width: 20px;
+        height: 20px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        font-size: 0.7rem;
+    }
+
+    .content-section {
+        display: none;
+    }
+
+    .content-section.active {
+        display: block;
+    }
+
+    .search-box {
+        display: flex;
+        gap: 15px;
+        margin-bottom: 20px;
+        align-items: center;
+        justify-content: space-between;
+        flex-wrap: wrap;
+    }
+
+    .search-input {
+        padding: 10px 15px;
+        border: 1px solid #dce1e6;
+        border-radius: 5px;
+        font-size: 0.9rem;
+        min-width: 250px;
+    }
+
+    .search-btn {
+        padding: 10px 20px;
+        background: var(--primary-color);
+        color: white;
+        border: none;
+        border-radius: 5px;
+        cursor: pointer;
+        font-weight: 600;
+    }
+
+    .sort-options {
+        display: flex;
+        gap: 8px;
+        align-items: center;
+        margin-bottom: 0;
+    }
+
+    .sort-btn {
+        padding: 8px 16px;
+        background: #f8f9fa;
+        border: 1px solid #dee2e6;
+        border-radius: 5px;
+        cursor: pointer;
+        font-size: 0.85rem;
+        transition: all 0.3s;
+    }
+
+    .filter-stats {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        font-size: 0.85rem;
+        color: #666;
+    }
+    
+    .sort-btn.active {
+        background: var(--primary-color);
+        color: white;
+        border-color: var(--primary-color);
+    }
+
+    .table-container {
+        overflow-x: auto;
+        overflow-y: auto;
+        max-height: 600px;
+        border-radius: 8px;
+        box-shadow: 0 3px 10px rgba(0, 0, 0, 0.08);
+        margin-bottom: 20px;
+    }
+
+    .data-table {
+        width: 100%;
+        border-collapse: collapse;
+    }
+
+    .data-table th {
+        position: sticky;
+        top: 0;
+        background: var(--secondary-color);
+        color: white;
+        padding: 12px;
+        text-align: left;
+        font-weight: 600;
+        font-size: 0.9rem;
+        cursor: pointer;
+    }
+
+    .data-table th:hover {
+        background: #34495e;
+    }
+
+    .data-table td {
+        padding: 12px;
+        border-bottom: 1px solid #eaecef;
+        font-size: 0.85rem;
+    }
+
+    .data-table tr:nth-child(even) {
+        background-color: #f9fafb;
+    }
+
+    .data-table tr:hover {
+        background-color: #edf2f7;
+    }
+
+    .checkbox-cell {
+        width: 40px;
+        text-align: center;
+    }
+
+    .status-badge {
+        display: inline-flex;
+        align-items: center;
+        padding: 4px 8px;
+        border-radius: 12px;
+        font-size: 0.75rem;
+        font-weight: 600;
+    }
+
+    .status-expired {
+        background-color: #f8d7da;
+        color: #721c24;
+        border: 1px solid #f5c6cb;
+    }
+
+    .status-urgent {
+        background-color: #fff3cd;
+        color: #856404;
+        border: 1px solid #ffeaa7;
+    }
+
+    .status-available {
+        background-color: #d1ecf1;
+        color: #0c5460;
+        border: 1px solid #bee5eb;
+    }
+
+    .status-used {
+        background-color: #d4edda;
+        color: #155724;
+        border: 1px solid #c3e6cb;
+    }
+
+    .pallet-badge {
+        display: inline-block;
+        padding: 2px 6px;
+        border-radius: 8px;
+        font-size: 0.7rem;
+        font-weight: 600;
+        margin-left: 5px;
+    }
+
+    .pallet-actual {
+        background-color: #e8f5e9;
+        color: #2e7d32;
+    }
+
+    .pallet-estimated {
+        background-color: #fff3e0;
+        color: #ef6c00;
+    }
+
+    .action-btn {
+        padding: 6px 12px;
+        border: none;
+        border-radius: 4px;
+        cursor: pointer;
+        font-size: 0.8rem;
+        transition: all 0.3s ease;
+        margin: 2px;
+    }
+
+    .btn-primary {
+        background: var(--primary-color);
+        color: white;
+    }
+
+    .btn-success {
+        background: var(--success-color);
+        color: white;
+    }
+
+    .btn-warning {
+        background: var(--warning-color);
+        color: white;
+    }
+
+    .btn-danger {
+        background: var(--danger-color);
+        color: white;
+    }
+
+    .batch-actions {
+        display: flex;
+        gap: 10px;
+        margin-bottom: 15px;
+        padding: 15px;
+        background: #f8f9fa;
+        border-radius: 8px;
+        align-items: center;
+    }
+
+    .selected-count {
+        font-weight: 600;
+        color: var(--secondary-color);
+    }
+
+    .match-suggestions {
+        background: #e3f2fd;
+        border-radius: 8px;
+        padding: 15px;
+        margin-bottom: 20px;
+    }
+
+    .suggestion-header {
+        font-weight: 600;
+        margin-bottom: 10px;
+        color: var(--secondary-color);
+    }
+
+    .suggestion-item {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        padding: 10px;
+        background: white;
+        border-radius: 6px;
+        margin-bottom: 8px;
+        border-left: 4px solid var(--primary-color);
+    }
+
+    @media (max-width: 768px) {
+        .appointment-header {
+            flex-direction: column;
+            gap: 20px;
+        }
+
+        .warehouse-selector {
+            width: 100%;
+            justify-content: center;
+        }
+
+        .summary-cards {
+            grid-template-columns: 1fr 1fr;
+        }
+        
+        .tab-navigation {
+            flex-wrap: wrap;
+        }
+        
+        .tab {
+            flex: 1;
+            text-align: center;
+            min-width: 50%;
+        }
+
+        .batch-actions {
+            flex-direction: column;
+            align-items: flex-start;
+        }
+    }
+
+    @media (max-width: 576px) {
+        .appointment-main {
+            padding: 10px;
+        }
+        
+        .summary-cards {
+            grid-template-columns: 1fr;
+        }
+        
+        .search-box {
+            flex-direction: column;
+            align-items: stretch;
+        }
+        
+        .search-input {
+            width: 100%;
+        }
+
+        .sort-options {
+            justify-content: flex-start;
+            margin-top: 10px;
+        }
+    }
+</style>
+
+<div class="appointment-system">
+    <div class="appointment-header">
+        <div class="appointment-logo">
+            <i class="fas fa-calendar-check"></i>
+            <span>亚马逊备约管理系统 - {{ warehouse }}</span>
+        </div>
+        <div class="warehouse-selector">
+            <form method="post" action="" onsubmit="showLoadingBar()" class="warehouse-selector">
+                {% csrf_token %}
+                <label for="warehouse">选择仓库:</label>
+                <select name="warehouse" style="padding: 5px; border-radius: 4px; border: 1px solid #ced4da;">
+                    {% for k, v in warehouse_options.items %}
+                    <option value="{{ v }}" {% if k == warehouse %}selected{% endif %}>{{ k }}</option>
+                    {% endfor %}
+                </select>
+                <input type="hidden" name="step" value="appointment_management_warehouse">
+                <button id="confirmWarehouse">
+                    <i class="fas fa-check"></i> 确认
+                </button>
+            </form>
+        </div>
+    </div>
+
+    <div class="appointment-main">
+        <div class="summary-cards">
+            <div class="summary-card expired">
+                <div class="card-title">已过期预约</div>
+                <div class="card-value">{{ summary.expired_count }}</div>
+                <div class="card-trend">需重新安排</div>
+            </div>
+            <div class="summary-card urgent">
+                <div class="card-title">即将过期</div>
+                <div class="card-value">{{ summary.urgent_count }}</div>
+                <div class="card-trend">7天内到期</div>
+            </div>
+            <div class="summary-card available">
+                <div class="card-title">可用预约</div>
+                <div class="card-value">{{ summary.available_count }}</div>
+                <div class="card-trend">可立即使用</div>
+            </div>
+            <div class="summary-card">
+                <div class="card-title">待匹配货物</div>
+                <div class="card-value">{{ summary.pending_cargo_count }}</div>
+                <div class="card-trend">{{ summary.total_pallets }} 板</div>
+            </div>
+        </div>
+
+        <div class="tab-navigation">
+            <div class="tab active" data-tab="cargo">
+                货物管理 <span class="badge">{{ cargo_count }}</span>
+            </div>
+            <div class="tab" data-tab="appointments">
+                预约管理 <span class="badge">{{ appointment_count }}</span>
+            </div>
+            <div class="tab" data-tab="matching">
+                智能匹配 <span class="badge">{{ matching_count }}</span>
+            </div>
+        </div>
+
+        <!-- 货物管理标签页 -->
+        <div class="content-section active" id="cargo-section">
+            <div class="search-box">
+                <div style="display: flex; gap: 10px; flex: 1; align-items: center;">
+                    <input type="text" class="search-input" placeholder="搜索目的地、PO号、REF ID..." id="cargoSearch">
+                    <button class="search-btn" id="searchCargoBtn">
+                        <i class="fas fa-search"></i> 搜索
+                    </button>
+                    <div style="display: flex; align-items: center; gap: 8px; margin-left: 10px;">
+                        <small style="color: #666; white-space: nowrap;">筛选结果:</small>
+                        <span id="filterResultStats" style="font-size: 0.85rem; color: var(--primary-color); font-weight: 600;">
+                            总板数: <span id="totalPalletsCount">0</span> | 总CBM: <span id="totalCbmCount">0</span>
+                        </span>
+                    </div>
+                </div>
+                
+                <div class="sort-options" style="margin-bottom: 0;">
+                    <button class="sort-btn active" data-sort="destination">目的地</button>
+                    <button class="sort-btn" data-sort="pallets">板数</button>
+                    <button class="sort-btn" data-sort="eta">ETA</button>
+                    <button class="sort-btn" data-sort="container">柜号</button>
+                    <small style="color: #666; margin-left: 8px; white-space: nowrap;">（排序方式）</small>
+                </div>
+            </div>
+
+            <div class="batch-actions">
+                <span class="selected-count">已选择 <span id="selectedCount">0</span> 个货物</span>
+                <button class="action-btn btn-primary" id="exportSelected">
+                    <i class="fas fa-file-export"></i> 导出选中货物
+                </button>
+                <button class="action-btn btn-success" id="findAppointments">
+                    <i class="fas fa-search"></i> 查找匹配预约
+                </button>
+                <button class="action-btn btn-warning" id="clearSelection">
+                    <i class="fas fa-times"></i> 清除选择
+                </button>
+            </div>
+
+            <div class="table-container">
+                <table class="data-table" id="cargoTable">
+                    <thead>
+                        <tr>
+                            <th class="checkbox-cell">
+                                <input type="checkbox" id="selectAll">
+                            </th>
+                            <th data-sort="ref_ids">REF ID</th>
+                            <th data-sort="fba_ids">FBA ID</th>
+                            <th data-sort="destination">目的地</th>
+                            <th data-sort="delivery_method">派送方式</th>
+                            <th data-sort="containers">柜号</th>
+                            <th data-sort="delivery_window">派送窗口</th>
+                            <th data-sort="eta">ETA</th>
+                            <th data-sort="retrieval_status">提柜状态</th>
+                            <th data-sort="offload_status">入仓状态</th>
+                            <th data-sort="pallets">板数</th>
+                            <th data-sort="cbm">CBM</th>
+                            <th data-sort="note">备注</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for cargo in cargos %}
+                        <tr data-cargo-id="{{ cargo.ids }}" 
+                            data-destination="{{ cargo.destination }}" 
+                            data-pallets="{% if cargo.label == 'ACT' %}{{ cargo.total_n_pallet_act|default:0 }}{% else %}{{ cargo.total_n_pallet_est|default:0 }}{% endif %}" 
+                            data-ref-ids="{{ cargo.ref_ids }}"
+                            data-fba-ids="{{ cargo.fba_ids }}"
+                            data-delivery-method="{{ cargo.custom_delivery_method }}"
+                            data-container-number="{{ cargo.delivery_window_start }} ~ {{ cargo.delivery_window_end }}"
+                            data-eta="{% if cargo.container_number__order__vessel_id__vessel_eta %}{{ cargo.container_number__order__vessel_id__vessel_eta|date:'Y-m-d' }}{% endif %}">
+                            <td class="checkbox-cell">
+                                <input type="checkbox" class="cargo-checkbox" 
+           value="{{ cargo.ids }}|{{ cargo.data_source|default:'PACKINGLIST' }}">
+                            </td>
+                            <td>
+                                {% if cargo.ref_ids %}
+                                    {{ cargo.ref_ids|truncatechars:20 }}
+                                {% else %}
+                                    -
+                                {% endif %}
+                            </td>
+                            <td>
+                                {% if cargo.fba_ids %}
+                                    {{ cargo.fba_ids|truncatechars:20 }}
+                                {% else %}
+                                    -
+                                {% endif %}
+                            </td>
+                            <td>{{ cargo.destination|default:"-" }}</td>
+                            <td>{{ cargo.custom_delivery_method|default:"-" }}</td>
+                            <td>{{ cargo.container_numbers }}</td>                         
+                            <td>{{ cargo.container_number__container_number }}</td>
+                            <td>
+                                {% if cargo.container_number__order__vessel_id__vessel_eta %}
+                                    {{ cargo.container_number__order__vessel_id__vessel_eta|date:'Y-m-d' }}
+                                {% else %}
+                                    待确认
+                                {% endif %}
+                            </td>
+                            <td>
+                                {% if cargo.container_number__order__retrieval_id__actual_retrieval_timestamp %}
+                                <span class="status-badge status-used">已提柜</span>
+                                {% elif cargo.container_number__order__retrieval_id__target_retrieval_timestamp %}
+                                <span class="status-badge status-urgent">
+                                    预计 {{ cargo.container_number__order__retrieval_id__target_retrieval_timestamp|date:'m-d' }}
+                                </span>
+                                {% else %}
+                                <span class="status-badge status-expired">未安排</span>
+                                {% endif %}
+                            </td>
+                            <td>
+                                {% if cargo.container_number__order__offload_id__offload_at %}
+                                <span class="status-badge status-used">已入仓</span>
+                                {% else %}
+                                <span class="status-badge status-expired">未入仓</span>
+                                {% endif %}
+                            </td>
+                            <td>
+                                {% if cargo.label == 'ACT' %}
+                                    <span class="pallet-badge pallet-actual">
+                                        <span style="font-size: 16px; font-weight: bold;">{{ cargo.total_n_pallet_act|default:0 }}</span> ACT
+                                    </span>
+                                {% else %}
+                                    <span class="pallet-badge pallet-estimated">
+                                        <span style="font-size: 16px; font-weight: bold;">{{ cargo.total_n_pallet_est|default:0 }}</span> EST
+                                    </span>
+                                {% endif %}
+                            </td>
+                            <td>
+                                <span class="status-badge status-expired">{{ cargo.total_cbm }}</span>
+                            </td>
+                            <td>
+                                {{ cargo.note }}
+                            </td>
+                        </tr>
+                        {% empty %}
+                        <tr>
+                            <td colspan="11" style="text-align: center; padding: 20px;">
+                                暂无待匹配货物
+                            </td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+        </div>
+
+        <!-- 预约管理标签页 -->
+        <div class="content-section" id="appointments-section">
+            <div class="table-container">
+                <table class="data-table">
+                    <thead>
+                        <tr>
+                            <th class="th">预约账号</th>
+                            <th class="th">预约号</th>
+                            <th class="th">目的地</th>
+                            <th class="th">Scheduled Time</th>
+                            <th class="th">装车类型</th>
+                            <th class="th">发货仓库</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for s in shipments %}
+                        <tr>
+                            <td class="td">
+                                <select name="shipment_account" id="shipment-account-select" style="font-size: 13px;">
+                                    {% for k, v in account_options.items %}
+                                    <option value="{{ v }}" {% if k == s.shipment_account %}selected{% endif %}>{{ k }}</option>
+                                    {% endfor %}
+                                </select>
+                            </td>
+                            <td class="td">{{ s.appointment_id }}</td>
+                            <td class="td">{{ s.destination }}</td>
+                            <td class="td">
+                                {% if s.appointment_status == 'past_due' %}
+                                <span class="status-span-red">已过期</span>
+                                <span class="status-span-red-100" id="appointment_{{ forloop.counter }}" data-original-value="{{ s.shipment_appointment|date:'Y-m-d' }} {{ s.shipment_appointment|time:'H:i' }}">
+                                    {{ s.shipment_appointment|date:'Y-m-d' }} {{ s.shipment_appointment|time:'H:i' }}
+                                </span>
+                                {% elif s.appointment_status == 'need_attention' %}
+                                <span class="status-span-yellow">即将过期</span>
+                                <span class="status-span-yellow-100" id="appointment_{{ forloop.counter }}" data-original-value="{{ s.shipment_appointment|date:'Y-m-d' }} {{ s.shipment_appointment|time:'H:i' }}">
+                                    {{ s.shipment_appointment|date:'Y-m-d' }} {{ s.shipment_appointment|time:'H:i' }}
+                                </span>
+                                {% else %}
+                                <span id="appointment_{{ forloop.counter }}" data-original-value="{{ s.shipment_appointment|date:'Y-m-d' }} {{ s.shipment_appointment|time:'H:i' }}">
+                                    {{ s.shipment_appointment|date:'Y-m-d' }} {{ s.shipment_appointment|time:'H:i' }}
+                                </span>
+                                {% endif %}
+                                <select style="font-size:.75rem; padding:.25rem.5rem; line-height:1.5; border-radius:.2rem;" onchange="handleSelectChange(this, '{{ s.appointment_id }}', '{{ forloop.counter }}')">
+                                    <option value="">操作</option>
+                                    <option value="delete">删除</option>
+                                    <option value="edit">编辑</option>
+                                </select>
+
+                                <input type="text" type="datetime-local" id="editAppointmentInput_{{ forloop.counter }}" style="display: none;" >
+                                <button class="btn btn-success btn-sm" id="confirm_{{ forloop.counter }}" onclick="confirmAppointment(this, '{{ s.appointment_id }}', '{{ forloop.counter }}')" style="display: none;">确认</button>
+                            </td>
+                            <td class="td">
+                                {{ s.load_type }}
+                            </td>
+                            <td class="td">{% if s.origin %}{{ s.origin }}{% endif %}</td>
+                        </tr>
+                        {% empty %}
+                        <tr>
+                            <td colspan="6" style="text-align: center; padding: 20px;">
+                                暂无预约数据
+                            </td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+        </div>
+
+        <!-- 智能匹配标签页 -->
+        <div class="content-section" id="matching-section">
+            <div class="match-suggestions">
+                <div class="suggestion-header">
+                    <i class="fas fa-lightbulb"></i> 智能匹配建议
+                </div>
+                {% for suggestion in matching_suggestions %}
+                <div class="suggestion-item">
+                    <div>
+                        <strong>目的地: {{ suggestion.destination }}</strong>
+                        <br>
+                        <small>推荐预约: {{ suggestion.recommended_appointment.appointment_id }}</small>
+                        <br>
+                        <small>匹配货物: {{ suggestion.matching_cargos|length }} 个, 总计 {{ suggestion.total_pallets }} 板</small>
+                    </div>
+                    <div>
+                        <button class="action-btn btn-success apply-suggestion" data-suggestion-id="{{ suggestion.id }}">
+                            <i class="fas fa-check"></i> 应用匹配
+                        </button>
+                    </div>
+                </div>
+                {% endfor %}
+            </div>
+
+            <div class="table-container">
+                <table class="data-table">
+                    <thead>
+                        <tr>
+                            <th>匹配组合</th>
+                            <th>目的地</th>
+                            <th>货物数量</th>
+                            <th>总板数</th>
+                            <th>推荐预约</th>
+                            <th>匹配度</th>
+                            <th>操作</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for match in auto_matches %}
+                        <tr>
+                            <td>组合 {{ forloop.counter }}</td>
+                            <td>{{ match.destination }}</td>
+                            <td>{{ match.cargo_count }} 个货物</td>
+                            <td>{{ match.total_pallets }} 板</td>
+                            <td>{{ match.recommended_appointment.appointment_id }}</td>
+                            <td>
+                                <div class="progress-container" style="width: 100px; display: inline-block;">
+                                    <div class="progress-bar" style="width: {{ match.match_percentage }}%;"></div>
+                                </div>
+                                {{ match.match_percentage }}%
+                            </td>
+                            <td>
+                                <button class="action-btn btn-primary view-match" data-match-id="{{ match.id }}">
+                                    <i class="fas fa-eye"></i> 查看
+                                </button>
+                                <button class="action-btn btn-success apply-match" data-match-id="{{ match.id }}">
+                                    <i class="fas fa-check"></i> 应用
+                                </button>
+                            </td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+    document.addEventListener('DOMContentLoaded', function() {
+        setTimeout(updateFilterStats, 100);
+        // 标签页切换
+        document.querySelectorAll('.tab').forEach(tab => {
+            tab.addEventListener('click', function() {
+                const tabName = this.getAttribute('data-tab');
+                
+                // 更新活跃标签
+                document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
+                this.classList.add('active');
+                
+                // 显示对应内容
+                document.querySelectorAll('.content-section').forEach(section => {
+                    section.classList.remove('active');
+                });
+                document.getElementById(tabName + '-section').classList.add('active');
+            });
+        });
+
+        // 全选/取消全选
+        document.getElementById('selectAll').addEventListener('change', function() {
+            const checkboxes = document.querySelectorAll('.cargo-checkbox');
+            checkboxes.forEach(checkbox => {
+                checkbox.checked = this.checked;
+            });
+            updateSelectedCount();
+        });
+
+        // 单个选择框变化
+        document.querySelectorAll('.cargo-checkbox').forEach(checkbox => {
+            checkbox.addEventListener('change', updateSelectedCount);
+        });
+
+        // 更新选中数量
+        function updateSelectedCount() {
+            const selectedCount = document.querySelectorAll('.cargo-checkbox:checked').length;
+            document.getElementById('selectedCount').textContent = selectedCount;
+        }
+
+        // 搜索功能
+        document.getElementById('searchCargoBtn').addEventListener('click', applySearch);
+        document.getElementById('cargoSearch').addEventListener('keypress', function(e) {
+            if (e.key === 'Enter') {
+                applySearch();
+            }
+        });
+
+        function applySearch() {
+            const searchTerm = document.getElementById('cargoSearch').value.trim().toLowerCase();
+            const rows = document.querySelectorAll('#cargoTable tbody tr');
+            
+            rows.forEach(row => {
+                const destination = row.getAttribute('data-destination').toLowerCase();
+                const refIds = row.getAttribute('data-ref-ids').toLowerCase();
+                const fbaIds = row.getAttribute('data-fba-ids').toLowerCase();
+                const containerNumber = row.getAttribute('data-container-number').toLowerCase();
+                
+                const matchesSearch = searchTerm === '' || 
+                                    destination.includes(searchTerm) || 
+                                    refIds.includes(searchTerm) ||
+                                    fbaIds.includes(searchTerm) ||
+                                    containerNumber.includes(searchTerm);
+                
+                row.style.display = matchesSearch ? '' : 'none';
+            });
+            
+            // 更新统计信息
+            updateFilterStats();
+        }
+
+        // 排序功能
+        let currentSort = 'destination';
+        let sortDirection = 'asc';
+
+        document.querySelectorAll('.sort-btn').forEach(btn => {
+            btn.addEventListener('click', function() {
+                const sortField = this.getAttribute('data-sort');
+                
+                // 更新活跃排序按钮
+                document.querySelectorAll('.sort-btn').forEach(b => b.classList.remove('active'));
+                this.classList.add('active');
+                
+                // 切换排序方向
+                if (currentSort === sortField) {
+                    sortDirection = sortDirection === 'asc' ? 'desc' : 'asc';
+                } else {
+                    currentSort = sortField;
+                    sortDirection = 'asc';
+                }
+                
+                sortTable(sortField, sortDirection);
+            });
+        });
+
+        function sortTable(sortField, direction) {
+            const tbody = document.querySelector('#cargoTable tbody');
+            const rows = Array.from(tbody.querySelectorAll('tr'));
+            
+            rows.sort((a, b) => {
+                let aValue, bValue;
+                
+                switch(sortField) {
+                    case 'destination':
+                        aValue = a.getAttribute('data-destination') || '';
+                        bValue = b.getAttribute('data-destination') || '';
+                        break;
+                    case 'pallets':
+                        aValue = parseFloat(a.getAttribute('data-pallets')) || 0;
+                        bValue = parseFloat(b.getAttribute('data-pallets')) || 0;
+                        break;
+                    case 'eta':
+                        aValue = a.getAttribute('data-eta') || '';
+                        bValue = b.getAttribute('data-eta') || '';
+                        break;
+                    case 'container':
+                        aValue = a.getAttribute('data-container-number') || '';
+                        bValue = b.getAttribute('data-container-number') || '';
+                        break;
+                    case 'ref_ids':
+                        aValue = a.getAttribute('data-ref-ids') || '';
+                        bValue = b.getAttribute('data-ref-ids') || '';
+                        break;
+                    case 'fba_ids':
+                        aValue = a.getAttribute('data-fba-ids') || '';
+                        bValue = b.getAttribute('data-fba-ids') || '';
+                        break;
+                    case 'delivery_method':
+                        aValue = a.getAttribute('data-delivery-method') || '';
+                        bValue = b.getAttribute('data-delivery-method') || '';
+                        break;
+                    default:
+                        return 0;
+                }
+                
+                if (direction === 'asc') {
+                    return aValue > bValue ? 1 : -1;
+                } else {
+                    return aValue < bValue ? 1 : -1;
+                }
+            });
+            
+            // 清空并重新添加排序后的行
+            rows.forEach(row => tbody.appendChild(row));
+            
+            // 更新统计信息
+            updateFilterStats();
+        }
+
+
+
+        // 导出选中货物
+        document.getElementById('exportSelected').addEventListener('click', function() {
+            const selectedIds = Array.from(document.querySelectorAll('.cargo-checkbox:checked'))
+                .map(checkbox => checkbox.value);
+            
+            if (selectedIds.length === 0) {
+                alert('请先选择要导出的货物');
+                return;
+            }
+
+            // 创建表单提交
+            const form = document.createElement('form');
+            form.method = 'POST';
+            form.action = '';
+            
+            const csrfToken = document.querySelector('[name=csrfmiddlewaretoken]').value;
+            const csrfInput = document.createElement('input');
+            csrfInput.type = 'hidden';
+            csrfInput.name = 'csrfmiddlewaretoken';
+            csrfInput.value = csrfToken;
+            form.appendChild(csrfInput);
+            
+            const stepInput = document.createElement('input');
+            stepInput.type = 'hidden';
+            stepInput.name = 'step';
+            stepInput.value = 'export_pos';
+            form.appendChild(stepInput);
+            
+            selectedIds.forEach(id => {
+                const input = document.createElement('input');
+                input.type = 'hidden';
+                input.name = 'cargo_ids';
+                input.value = id;
+                form.appendChild(input);
+            });
+            
+            document.body.appendChild(form);
+            form.submit();
+        });
+
+        // 查找匹配预约
+        document.getElementById('findAppointments').addEventListener('click', function() {
+            const selectedIds = Array.from(document.querySelectorAll('.cargo-checkbox:checked'))
+                .map(checkbox => checkbox.value);
+            
+            if (selectedIds.length === 0) {
+                alert('请先选择货物');
+                return;
+            }
+
+            // 切换到匹配标签页
+            document.querySelector('.tab[data-tab="matching"]').click();
+        });
+
+        // 清除选择
+        document.getElementById('clearSelection').addEventListener('click', function() {
+            document.querySelectorAll('.cargo-checkbox').forEach(checkbox => {
+                checkbox.checked = false;
+            });
+            document.getElementById('selectAll').checked = false;
+            updateSelectedCount();
+            // 清除搜索框并更新统计
+            document.getElementById('cargoSearch').value = '';
+            applySearch();
+        });
+
+        // 应用匹配建议
+        document.querySelectorAll('.apply-suggestion').forEach(btn => {
+            btn.addEventListener('click', function() {
+                const suggestionId = this.getAttribute('data-suggestion-id');
+                if (confirm('确定要应用这个匹配方案吗？')) {
+                    // 这里可以添加应用匹配的逻辑
+                    console.log('应用匹配建议:', suggestionId);
+                }
+            });
+        });
+    });
+
+    function showLoadingBar() {
+        const buttons = document.querySelectorAll('button');
+        buttons.forEach(btn => {
+            if (btn.innerHTML.includes('fa-check')) {
+                btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> 处理中...';
+                btn.disabled = true;
+            }
+        });
+    }
+
+    function updateFilterStats() {
+        const visibleRows = Array.from(document.querySelectorAll('#cargoTable tbody tr'))
+            .filter(row => row.style.display !== 'none');
+        
+        let totalPallets = 0;
+        let totalCbm = 0;
+        
+        visibleRows.forEach(row => {
+            const pallets = parseFloat(row.getAttribute('data-pallets')) || 0;
+            const cbmCell = row.querySelector('td:nth-child(11)'); // CBM列是第11列
+            let cbm = 0;
+            
+            if (cbmCell) {
+                const cbmText = cbmCell.textContent.trim();
+                cbm = parseFloat(cbmText) || 0;
+            }
+            
+            totalPallets += pallets;
+            totalCbm += cbm;
+        });
+        
+        document.getElementById('totalPalletsCount').textContent = Math.round(totalPallets);
+        document.getElementById('totalCbmCount').textContent = totalCbm.toFixed(2);
+    }
+</script>
+{% endblock %}

@@ -14,6 +14,7 @@ from warehouse.views.palletization import Palletization as LegacyPalletization
 from warehouse.views.po import PO
 from warehouse.views.pod import POD
 from warehouse.views.home import Home
+from warehouse.views.post_port.post_nsop import PostNsop
 from warehouse.views.post_port.posport_dash import PostportDash
 from warehouse.views.post_port.shipment.fleet_management import FleetManagement
 from warehouse.views.post_port.shipment.shipping_management import ShippingManagement
@@ -88,6 +89,7 @@ urlpatterns = [
     ),
     path("bol/", BOL.as_view(), name="bol"),
     path("po/", PO.as_view(), name="po"),
+    path("post_nsop/", PostNsop.as_view(), name="post_nsop"),
     path("quote/", QuoteManagement.as_view(), name="quote_management"),
     path("stuff_user/", StuffPower.as_view(), name="stuff_user"),
     path("accounting/", Accounting.as_view(), name="accounting"),
