@@ -96,3 +96,22 @@ def dict_get(d, key):
     if d is None:
         return None
     return d.get(key)
+
+@register.filter
+def sum_subgroup_attr(suggestions, attr):
+    """计算子组某个属性的总和"""
+    total = 0
+    for suggestion in suggestions:
+        if hasattr(suggestion, 'subgroup') and hasattr(suggestion.subgroup, attr):
+            total += getattr(suggestion.subgroup, attr, 0)
+        elif isinstance(suggestion, dict) and 'subgroup' in suggestion:
+            total += suggestion['subgroup'].get(attr, 0)
+    return total
+
+@register.filter
+def get_item(obj, key):
+    """从字典或对象中获取属性"""
+    if isinstance(obj, dict):
+        return obj.get(key)
+    else:
+        return getattr(obj, key, None)
