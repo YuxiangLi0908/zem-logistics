@@ -4885,6 +4885,9 @@ class Accounting(View):
             container.non_combina_reason = "非组合柜区的数量不符合标准"
             container.save()
             return False
+        container.non_combina_reason = None
+        container.account_order_type = "转运组合"
+        container.save()
         return True
 
     def _filter_pallets(self, pallets: Any, delivery_type: str) -> Any:
@@ -6603,14 +6606,18 @@ class Accounting(View):
         warehouse = order.retrieval_id.retrieval_destination_area
         container_type = order.container_number.container_type
 
-        if warehouse != "LA" and order.order_type == "转运组合":
-            # 转运组合的，判断下是否符合组合柜规则,因为LA的建单会人工确认是不是组合柜，所以LA的不用管
-            iscombina = self._is_combina(container_number)
-            # order_type用于在提拆录入费用界面显示，防止不符合组合柜规定但建单是组合柜的，被提拆同事当组合柜录
-            order_type = order.container_number.account_order_type
-        else:
-            order_type = order.order_type
-            iscombina = False
+        # if warehouse != "LA" and order.order_type == "转运组合":
+        #     # 转运组合的，判断下是否符合组合柜规则,因为LA的建单会人工确认是不是组合柜，所以LA的不用管
+        #     iscombina = self._is_combina(container_number)
+        #     # order_type用于在提拆录入费用界面显示，防止不符合组合柜规定但建单是组合柜的，被提拆同事当组合柜录
+        #     order_type = order.container_number.account_order_type
+        # else:
+        #     order_type = order.order_type
+        #     iscombina = False
+        #统一查一遍是否符合组合柜规则，
+        iscombina = self._is_combina(container_number)
+        order_type = order.container_number.account_order_type
+        
         vessel_etd = order.vessel_id.vessel_etd
         customer = order.customer_name
         customer_name = customer.zem_name
@@ -6762,7 +6769,7 @@ class Accounting(View):
             container = Container.objects.get(container_number=container_number)
             non_combina_reason = container.non_combina_reason
         else:
-            non_combina_reason = None
+            container.non_combina_reason = None
         context = {
             "warehouse": warehouse,
             "order_type": order_type,
