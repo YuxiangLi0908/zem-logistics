@@ -1,0 +1,219 @@
+{% extends 'base.html' %}
+{% block content %}
+    <style>
+        .container_main {
+            margin-top: 55px;
+            padding: 0 20px;
+        }
+
+        .layui-form-item .layui-form-label {
+            padding-right: 10px;
+        }
+
+        .form-container {
+            margin-bottom: 20px;
+        }
+
+        .layui-form-label {
+            position: relative;
+            float: left;
+            display: block;
+            padding: 9px 15px;
+            width: 60px;
+            font-weight: 400;
+            line-height: 20px;
+            text-align: left;
+        }
+
+        .table-search-bar {
+            background-color: #f5f7fa;
+            padding: 12px 15px;
+            border: 1px solid #e6e6e6;
+            border-bottom: none;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+
+        .table-search-bar .layui-input {
+            width: 220px;
+            border-radius: 4px;
+        }
+
+        .clear-btn {
+            display: none;
+        }
+
+        .no-match-tip {
+            display: none;
+            text-align: center;
+            padding: 40px 0;
+            color: #6c757d;
+            font-size: 14px;
+        }
+    </style>
+
+    <div class="container_main">
+        <form method="post" action="" class="layui-form form-container">
+            {% csrf_token %}
+            <div class="layui-form-item">
+                <label class="layui-form-label">仓库:</label>
+                <div class="layui-input-inline" style="width: 200px;">
+                    <select name="warehouse" class="layui-select" lay-verify="">
+                        {% if not warehouse_options %}
+                            <option value="">暂无仓库数据</option>
+                        {% else %}
+                            {% for k, v in warehouse_options.items %}
+                                <option value="{{ v }}" {% if v == warehouse %}selected{% endif %}>{{ k }}</option>
+                            {% endfor %}
+                        {% endif %}
+                    </select>
+                </div>
+                <input type="hidden" name="step" value="warehouse">
+                <button type="submit" class="layui-btn" lay-submit>确认加载仓库数据</button>
+            </div>
+        </form>
+
+        <div class="table-wrapper">
+            <div class="table-search-bar layui-form">
+                <label class="layui-form-label" style="width: auto; padding: 9px 0;">柜号搜索:</label>
+                <input type="text" id="containerSearchInput"
+                       placeholder="输入柜号（支持模糊匹配）"
+                       class="layui-input"
+                       value="">
+                <button type="button" id="clearSearchBtn" class="layui-btn layui-btn-primary clear-btn">清空</button>
+            </div>
+
+            <table class="layui-table" id="dataTable">
+                <thead>
+                <tr>
+                    <th>下单日期</th>
+                    <th>客户</th>
+                    <th>所属仓/直送地址</th>
+                    <th>调度备注</th>
+                    <th>柜号</th>
+                    <th>MBL</th>
+                    <th>船司</th>
+                    <th>船名航次</th>
+                    <th>柜型</th>
+                    <th>船期</th>
+                    <th>ETD</th>
+                    <th>ETA</th>
+                    <th>放行状态</th>
+                    <th>供应商</th>
+                    <th>调度委托</th>
+                    <th>私仓数量</th>
+                </tr>
+                </thead>
+                <tbody id="tableBody">
+                {% for data in datas %}
+                    <tr class="table-row" data-container="{{ data.container|default:''|lower }}">
+                        <td>{{ data.created_at|date:"Y-m-d H:i"|default:"-" }}</td>
+                        <td>{{ data.customer_name|default:"-" }}</td>
+                        <td>{{ data.retrieval_destination_area|default:"-" }}</td>
+                        <td>{{ data.retrieval_note|default:"无" }}</td>
+                        <td>{{ data.container|default:"-" }}</td>
+                        <td>{{ data.mbl|default:"-" }}</td>
+                        <td>{{ data.shipping_line|default:"-" }}</td>
+                        <td>{{ data.vessel|default:"-" }}</td>
+                        <td>{{ data.container_type|default:"-" }}</td>
+                        <td>
+                            {% if data.vessel_date %}
+                                {{ data.vessel_date.days }}天
+                            {% else %}
+                                -
+                            {% endif %}
+                        </td>
+                        <td>{{ data.vessel_etd|date:"Y-m-d H:i"|default:"-" }}</td>
+                        <td>{{ data.vessel_eta|date:"Y-m-d H:i"|default:"-" }}</td>
+                        <td>
+                            {% if data.temp_t49_available_for_pickup == True %}
+                                √
+                            {% else %}
+                                {{ data.temp_t49_available_for_pickup|default:"×" }}
+                            {% endif %}
+                        </td>
+                        <td>{{ data.retrieval_carrier|default:"-" }}</td>
+                        <td>
+                            {% if data.retrieval_carrier %}
+                                √
+                            {% else %}
+                                ×
+                            {% endif %}
+                        </td>
+                        <td>
+                            {% with ke=data.ke_destination_num|default:0 si=data.si_destination_num|default:0 %}
+                                {% if ke > 0 or si > 0 %}
+                                    客{{ ke }} / 私{{ si }}
+                                {% else %}
+                                    无
+                                {% endif %}
+                            {% endwith %}
+                        </td>
+                    </tr>
+                {% empty %}
+                    <tr>
+                        <td colspan="16" style="text-align: center; padding: 40px 0; color: #6c757d;">
+                            请选择仓库并点击"确认加载仓库数据"
+                        </td>
+                    </tr>
+                {% endfor %}
+                </tbody>
+            </table>
+
+            <div id="noMatchTip" class="no-match-tip">
+                未找到匹配" <span id="searchKeyword"></span> "的柜号数据
+            </div>
+        </div>
+    </div>
+
+    <script>
+        layui.use('form', function () {
+            var form = layui.form;
+            form.render();
+
+            const searchInput = document.getElementById('containerSearchInput');
+            const clearBtn = document.getElementById('clearSearchBtn');
+            const tableBody = document.getElementById('tableBody');
+            const tableRows = tableBody.querySelectorAll('.table-row');
+            const noMatchTip = document.getElementById('noMatchTip');
+            const searchKeyword = document.getElementById('searchKeyword');
+
+            function filterTableByContainer(keyword) {
+                keyword = keyword.trim().toLowerCase();
+                let matchCount = 0;
+
+                tableRows.forEach(row => {
+                    const container = row.getAttribute('data-container');
+
+                    if (keyword === '' || container.includes(keyword)) {
+                        row.style.display = '';
+                        matchCount++;
+                    } else {
+                        row.style.display = 'none';
+                    }
+                });
+
+                if (keyword !== '' && matchCount === 0) {
+                    searchKeyword.textContent = keyword;
+                    noMatchTip.style.display = 'block';
+                } else {
+                    noMatchTip.style.display = 'none';
+                }
+
+                clearBtn.style.display = keyword !== '' ? 'inline-block' : 'none';
+            }
+
+            searchInput.addEventListener('input', function () {
+                filterTableByContainer(this.value);
+            });
+
+            clearBtn.addEventListener('click', function () {
+                searchInput.value = '';
+                filterTableByContainer('');
+            });
+
+            filterTableByContainer(searchInput.value);
+        });
+    </script>
+{% endblock %}
