@@ -6617,7 +6617,7 @@ class Accounting(View):
         #统一查一遍是否符合组合柜规则，
         iscombina = self._is_combina(container_number)
         order_type = order.container_number.account_order_type
-        
+
         vessel_etd = order.vessel_id.vessel_etd
         customer = order.customer_name
         customer_name = customer.zem_name
@@ -6769,7 +6769,7 @@ class Accounting(View):
             container = Container.objects.get(container_number=container_number)
             non_combina_reason = container.non_combina_reason
         else:
-            container.non_combina_reason = None
+            non_combina_reason = None
         context = {
             "warehouse": warehouse,
             "order_type": order_type,
