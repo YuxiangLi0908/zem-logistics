@@ -415,6 +415,36 @@
         border-left: 4px solid var(--primary-color);
     }
 
+    /* 限制派送方式列宽度 */
+    .delivery-method-col {
+        max-width: 120px;
+        min-width: 100px;
+        white-space: nowrap;
+        overflow: hidden;
+        text-overflow: ellipsis;
+    }
+
+    /* 限制柜号列宽度 */
+    .container-col {
+        max-width: 150px;
+        min-width: 120px;
+        white-space: nowrap;
+        overflow: hidden;
+        text-overflow: ellipsis;
+    }
+
+    /* 鼠标悬停时显示完整内容 */
+    .ref-ids-col:hover,
+    .fba-ids-col:hover {
+        overflow: visible;
+        white-space: normal;
+        word-break: break-all;
+        position: relative;
+        z-index: 2;
+        background: white;
+        box-shadow: 0 0 8px rgba(0,0,0,0.15);
+    }
+
     @media (max-width: 768px) {
         .appointment-header {
             flex-direction: column;
@@ -578,8 +608,8 @@
                             <th data-sort="ref_ids">REF ID</th>
                             <th data-sort="fba_ids">FBA ID</th>
                             <th data-sort="destination">目的地</th>
-                            <th data-sort="delivery_method">派送方式</th>
-                            <th data-sort="containers">柜号</th>
+                            <th class="delivery-method-col" data-sort="delivery_method">派送方式</th>
+                            <th class="container-col" data-sort="containers">柜号</th>
                             <th data-sort="delivery_window">派送窗口</th>
                             <th data-sort="eta">ETA</th>
                             <th data-sort="retrieval_status">提柜状态</th>
@@ -603,14 +633,14 @@
                                 <input type="checkbox" class="cargo-checkbox" 
            value="{{ cargo.ids }}|{{ cargo.data_source|default:'PACKINGLIST' }}">
                             </td>
-                            <td>
+                            <td class="ref-ids-col">
                                 {% if cargo.ref_ids %}
                                     {{ cargo.ref_ids|truncatechars:20 }}
                                 {% else %}
                                     -
                                 {% endif %}
                             </td>
-                            <td>
+                            <td class="fba-ids-col">
                                 {% if cargo.fba_ids %}
                                     {{ cargo.fba_ids|truncatechars:20 }}
                                 {% else %}
@@ -618,8 +648,8 @@
                                 {% endif %}
                             </td>
                             <td>{{ cargo.destination|default:"-" }}</td>
-                            <td>{{ cargo.custom_delivery_method|default:"-" }}</td>
-                            <td>{{ cargo.container_numbers }}</td>                         
+                            <td class="delivery-method-col">{{ cargo.custom_delivery_method|default:"-" }}</td>
+                            <td class="container-col">{{ cargo.container_numbers }}</td>                         
                             <td>{{ cargo.container_number__container_number }}</td>
                             <td>
                                 {% if cargo.container_number__order__vessel_id__vessel_eta %}
@@ -661,7 +691,7 @@
                                 <span class="status-badge status-expired">{{ cargo.total_cbm }}</span>
                             </td>
                             <td>
-                                {{ cargo.note }}
+                                {{ cargo.note|default_if_none:"" }}
                             </td>
                         </tr>
                         {% empty %}
