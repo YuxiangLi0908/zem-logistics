@@ -55,15 +55,15 @@ class OctSummaryView(View):
             "container_number__order__customer_name",
             "container_number__order__retrieval_id",
             "container_number__order__vessel_id",
-            "container_number__order__shipment_id__packinglist",
+            "shipment_batch_number__packinglist",
         )
         .filter(location=warehouse)
         .annotate(
             ke_destination_num=Sum(
                 Case(
                     When(
-                        container_number__order__shipment_id__packinglist__delivery_type="其他",
-                        container_number__order__shipment_id__packinglist__destination="客户自提",
+                        shipment_batch_number__packinglist__delivery_type="other",
+                        shipment_batch_number__packinglist__destination="客户自提",
                         then=1
                     ),
                     default=0,
@@ -73,7 +73,7 @@ class OctSummaryView(View):
             total_other_delivery=Sum(
                 Case(
                     When(
-                        container_number__order__shipment_id__packinglist__delivery_type="其他",
+                        shipment_batch_number__packinglist__delivery_type="other",
                         then=1
                     ),
                     default=0,
@@ -99,7 +99,7 @@ class OctSummaryView(View):
             retrieval_carrier=F("container_number__order__retrieval_id__retrieval_carrier"),
             ke_destination_num=F("ke_destination_num"),
             si_destination_num=F("total_other_delivery") - F("ke_destination_num")
-        ))
+        ).order_by('-created_at'))
 
     warehouse_options = {
         "": "",

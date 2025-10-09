@@ -149,8 +149,10 @@
                         </td>
                         <td>
                             {% with ke=data.ke_destination_num|default:0 si=data.si_destination_num|default:0 %}
-                                {% if ke > 0 or si > 0 %}
-                                    客{{ ke }} / 私{{ si }}
+                                {% if ke > 0 %}
+                                    客{{ ke }}
+                                {% elif si > 0 %}
+                                    私{{ si }}
                                 {% else %}
                                     无
                                 {% endif %}
