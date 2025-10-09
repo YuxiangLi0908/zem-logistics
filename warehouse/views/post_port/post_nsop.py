@@ -276,11 +276,14 @@ class PostNsop(View):
         self, request: HttpRequest
     ) -> tuple[str, dict[str, Any]]:
         warehouse = request.POST.get("warehouse")
+        nowtime = timezone.now()
+        two_weeks_later = nowtime + timezone.timedelta(weeks=2)
         #所有没约的货
         unshipment_pos = await self._get_packing_list(
             models.Q(
                 shipment_batch_number__shipment_batch_number__isnull=True,
                 container_number__order__offload_id__offload_at__isnull=True,
+                container_number__order__vessel_id__vessel_eta__lte=two_weeks_later, 
                 container_number__order__retrieval_id__retrieval_destination_precise=warehouse,
                 delivery_type='public',
             ),
