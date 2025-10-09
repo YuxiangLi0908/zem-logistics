@@ -118,6 +118,21 @@
                 </li>
                 <li class="nav-item">
                     <div class="dropdown">
+                        <a class="nav-link">工作一览</a>
+                        <div class="dropdown-content">
+                            <div class="nested-dropdown">
+                                <a>操作组</a>
+                                <div class="nested-dropdown-content">
+                                    <a href="{% url 'post_nsop' %}?step=appointment_management" target="_blank">备约</a>
+                                    <a href="{% url 'post_nsop' %}?step=schedule_shipment" target="_blank">排约</a>
+                                    <a href="{% url 'post_nsop' %}?step=fleet_management" target="_blank">排车</a>
+                                </div>
+                            </div>                           
+                        </div>
+                    </div>
+                </li>
+                <li class="nav-item">
+                    <div class="dropdown">
                         <a class="nav-link">报表汇总</a>
                         <div class="dropdown-content">
                             <a href="{% url 'order_statistics' %}" target="_blank">订单量统计</a>
