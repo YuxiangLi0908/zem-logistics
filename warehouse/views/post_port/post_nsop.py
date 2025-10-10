@@ -300,6 +300,8 @@ class PostNsop(View):
         shipments = await self.get_shipments_by_warehouse(warehouse)
         
         summary = await self.calculate_summary(unshipment_pos, shipments)
+
+        #智能匹配内容
         st_type = request.POST.get('st_type')
         if st_type == "pallet":
             max_cbm = 72
@@ -308,6 +310,12 @@ class PostNsop(View):
             max_cbm = 80
             max_pallet = 38
         matching_suggestions = await self.get_matching_suggestions(unshipment_pos, shipments,max_cbm,max_pallet)
+        primary_group_keys = set()
+        for suggestion in matching_suggestions:
+            group_key = f"{suggestion['primary_group']['destination']}_{suggestion['primary_group']['delivery_method']}"
+            primary_group_keys.add(group_key)
+
+
         auto_matches = await self.get_auto_matches(unshipment_pos, shipments)
         
         context = {
@@ -318,7 +326,7 @@ class PostNsop(View):
             'summary': summary,
             'cargo_count': len(unshipment_pos),
             'appointment_count': len(shipments),
-            'matching_count': len(matching_suggestions),
+            'matching_count': len(primary_group_keys),
             'matching_suggestions': matching_suggestions,
             'auto_matches': auto_matches,
             'st_type': st_type,
@@ -386,12 +394,10 @@ class PostNsop(View):
                     # 有实际提柜时间 - 使用前缀 [实际]
                     When(container_number__order__retrieval_id__actual_retrieval_timestamp__isnull=False,
                         then=Concat(
-                            Value("[实际]"),
+                            Value("[已提柜]"),
                             "container_number__container_number",
-                            Value(" ETA:"),
-                            "formatted_vessel_eta",
-                            Value(" 提柜:"),
-                            "formatted_actual_retrieval",
+                            # Value(" ETA:"),
+                            # "formatted_vessel_eta",
                             output_field=CharField()
                         )),
                     # 有预计提柜时间范围 - 使用前缀 [预计]
@@ -399,8 +405,8 @@ class PostNsop(View):
                         then=Concat(
                             Value("[预计]"),
                             "container_number__container_number",
-                            Value(" ETA:"),
-                            "formatted_vessel_eta",
+                            # Value(" ETA:"),
+                            # "formatted_vessel_eta",
                             Value(" 提柜:"),
                             "formatted_target_low",
                             Value("~"),
@@ -409,7 +415,7 @@ class PostNsop(View):
                         )),
                     # 没有提柜计划 - 使用前缀 [未安排]
                     default=Concat(
-                        Value("[未安排]"),
+                        Value("[未安排提柜]"),
                         "container_number__container_number",
                         Value(" ETA:"),
                         "formatted_vessel_eta",
@@ -520,12 +526,12 @@ class PostNsop(View):
                         # 有实际提柜时间 - 使用前缀 [实际]
                         When(container_number__order__retrieval_id__actual_retrieval_timestamp__isnull=False,
                             then=Concat(
-                                Value("[实际]"),
+                                Value("[已提柜]"),
                                 "container_number__container_number",
-                                Value(" ETA:"),
-                                "formatted_vessel_eta",
-                                Value(" 提柜:"),
-                                "formatted_actual_retrieval",
+                                # Value(" ETA:"),
+                                # "formatted_vessel_eta",
+                                # Value(" 提柜:"),
+                                # "formatted_actual_retrieval",
                                 output_field=CharField()
                             )),
                         # 有预计提柜时间范围 - 使用前缀 [预计]
@@ -533,8 +539,8 @@ class PostNsop(View):
                             then=Concat(
                                 Value("[预计]"),
                                 "container_number__container_number",
-                                Value(" ETA:"),
-                                "formatted_vessel_eta",
+                                # Value(" ETA:"),
+                                # "formatted_vessel_eta",
                                 Value(" 提柜:"),
                                 "formatted_target_low",
                                 Value("~"),
@@ -543,7 +549,7 @@ class PostNsop(View):
                             )),
                         # 没有提柜计划 - 使用前缀 [未安排]
                         default=Concat(
-                            Value("[未安排]"),
+                            Value("[未安排提柜]"),
                             "container_number__container_number",
                             Value(" ETA:"),
                             "formatted_vessel_eta",
@@ -690,7 +696,6 @@ class PostNsop(View):
         """异步生成智能匹配建议 - 适配新的数据结构"""
         
         suggestions = []
-    
         # 第一级分组：按目的地和派送方式
         primary_groups = {}
         for cargo in unshipment_pos:
@@ -724,7 +729,6 @@ class PostNsop(View):
             
             # 按ETA排序，优先安排早的货物
             sorted_cargos = sorted(cargos, key=lambda x: x.get('container_number__order__vessel_id__vessel_eta') or '')
-            print('sorted_cargos',sorted_cargos)
             for cargo in sorted_cargos:
                 cargo_pallets = 0
                 if cargo.get('label') == 'ACT':
@@ -736,7 +740,6 @@ class PostNsop(View):
                 
                 # 收集柜号
                 container_number = cargo.get('container_numbers')
-                #print('container_number',container_number)
                 if container_number:
                     current_subgroup['container_numbers'].add(container_number)
                 
@@ -767,52 +770,32 @@ class PostNsop(View):
             total_group_cbm = sum(subgroup['total_cbm'] for subgroup in subgroups)
             
             # 计算匹配度百分比
-            pallets_percentage = min(100, (total_group_pallets / max_cbm) * 100) if max_cbm > 0 else 0
-            cbm_percentage = min(100, (total_group_cbm / max_pallet) * 100) if max_pallet > 0 else 0
+            pallets_percentage = min(100, (total_group_pallets / max_pallet) * 100) if max_pallet > 0 else 0
+            cbm_percentage = min(100, (total_group_cbm / max_cbm) * 100) if max_cbm > 0 else 0
             
-            # 为每个子组查找匹配的预约
+            # 为每个子组创建建议（不匹配预约）
             for subgroup_index, subgroup in enumerate(subgroups):
-                available_shipments = []
-                for shipment in shipments:
-                    if (shipment.shipped_at is None and 
-                        shipment.destination == primary_group['destination'] and
-                        await self.is_shipment_available(shipment)):
-                        
-                        used_pallets = await self.get_used_pallets(shipment)
-                        remaining_capacity = 35 - used_pallets
-                        
-                        if remaining_capacity >= subgroup['total_pallets']:
-                            available_shipments.append({
-                                'shipment': shipment,
-                                'remaining_capacity': remaining_capacity
-                            })
-                
-                if available_shipments:
-                    best_shipment = min(available_shipments, 
-                                    key=lambda x: abs(x['remaining_capacity'] - subgroup['total_pallets']))
-                    
-                    suggestion = {
-                        'id': f"{group_key}_{subgroup_index}",
-                        'primary_group': {
-                            'destination': primary_group['destination'],
-                            'delivery_method': primary_group['delivery_method'],
-                            'total_pallets': total_group_pallets,
-                            'total_cbm': total_group_cbm,
-                            'pallets_percentage': pallets_percentage,  # 板数百分比
-                            'cbm_percentage': cbm_percentage,          # CBM百分比
-                        },
-                        'subgroup': {
-                            'cargos': subgroup['cargos'],
-                            'total_pallets': subgroup['total_pallets'],
-                            'total_cbm': subgroup['total_cbm'],
-                            'container_numbers': ', '.join(sorted(subgroup['container_numbers'])),
-                            'cargo_count': len(subgroup['cargos'])
-                        },
-                        'subgroup_index': subgroup_index + 1,
-                        'recommended_appointment': best_shipment['shipment'],
-                        'remaining_capacity': best_shipment['remaining_capacity'],
-                    }
-                    suggestions.append(suggestion)
+                suggestion = {
+                    'id': f"{group_key}_{subgroup_index}",
+                    'primary_group': {
+                        'destination': primary_group['destination'],
+                        'delivery_method': primary_group['delivery_method'],
+                        'total_pallets': total_group_pallets,
+                        'total_cbm': total_group_cbm,
+                        'pallets_percentage': pallets_percentage,  # 板数百分比
+                        'cbm_percentage': cbm_percentage,          # CBM百分比
+                    },
+                    'subgroup': {
+                        'cargos': subgroup['cargos'],
+                        'total_pallets': subgroup['total_pallets'],
+                        'total_cbm': subgroup['total_cbm'],
+                        'container_numbers': ', '.join(sorted(subgroup['container_numbers'])),
+                        'cargo_count': len(subgroup['cargos'])
+                    },
+                    'subgroup_index': subgroup_index + 1,
+                    # 移除推荐预约相关字段
+                }
+                suggestions.append(suggestion)
         return suggestions
     
     async def is_shipment_available(self, shipment):
