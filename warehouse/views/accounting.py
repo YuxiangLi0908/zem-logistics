@@ -872,13 +872,20 @@ class Accounting(View):
 
         # 再通过 Prefetch 预加载 container 的关联 order
         packinglists = (
-            PackingList.objects.filter(delivery_type="other")
+            PackingList.objects.filter(
+                delivery_type="other",
+                container_number__order__vessel_id__vessel_eta__range=(start_date, end_date)
+            )
             .exclude(fba_id__icontains="FBA")
             .exclude(destination__icontains="UPS") 
             .exclude(destination__icontains="FEDEX")
-            .select_related("container_number")  # 单个 container 外键可 select_related
+            .select_related("container_number")
             .prefetch_related(
-                Prefetch("container_number__order", queryset=valid_orders, to_attr="matched_orders")
+                Prefetch(
+                    "container_number__order",
+                    queryset=Order.objects.filter(vessel_id__vessel_eta__range=(start_date, end_date)),
+                    to_attr="matched_orders"
+                )
             )
             .order_by("PO_ID")
         )
