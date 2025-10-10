@@ -1,0 +1,1151 @@
+{% extends 'base.html' %}
+{% load static %}
+{% load custom_filters %}
+
+{% block content %}
+
+<style>
+    :root {
+        --primary-color: #3498db;
+        --secondary-color: #2c3e50;
+        --success-color: #2ecc71;
+        --warning-color: #f39c12;
+        --danger-color: #e74c3c;
+        --light-color: #f8f9fa;
+        --dark-color: #343a40;
+    }
+
+    * {
+        margin: 0;
+        padding: 0;
+        box-sizing: border-box;
+        font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+    }
+
+    body {
+        background-color: #f5f7fa;
+        color: #333;
+        line-height: 1.6;
+    }
+
+    .shipment-system {
+        max-width: 1800px;
+        margin: 20px auto;
+        background: white;
+        border-radius: 10px;
+        box-shadow: 0 0 20px rgba(0, 0, 0, 0.1);
+        overflow: hidden;
+    }
+
+    .system-header {
+        background: linear-gradient(135deg, var(--secondary-color), #4a6491);
+        color: white;
+        padding: 20px 30px;
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        flex-wrap: wrap;
+    }
+
+    .system-logo {
+        display: flex;
+        align-items: center;
+        font-size: 1.5rem;
+        font-weight: bold;
+    }
+
+    .system-logo i {
+        margin-right: 10px;
+        font-size: 1.8rem;
+    }
+
+    .warehouse-selector {
+        display: flex;
+        align-items: center;
+        gap: 15px;
+        background: rgba(255, 255, 255, 0.15);
+        padding: 10px 20px;
+        border-radius: 8px;
+    }
+
+    .warehouse-selector label {
+        font-weight: 600;
+    }
+
+    .warehouse-selector select {
+        padding: 8px 15px;
+        border: none;
+        border-radius: 5px;
+        background: white;
+        font-size: 1rem;
+        min-width: 200px;
+    }
+
+    .warehouse-selector button {
+        padding: 8px 16px;
+        background: var(--success-color);
+        color: white;
+        border: none;
+        border-radius: 5px;
+        cursor: pointer;
+        font-weight: 600;
+        transition: background 0.3s ease;
+    }
+
+    .warehouse-selector button:hover {
+        background: #27ae60;
+    }
+
+    .system-main {
+        padding: 20px;
+    }
+
+    .summary-cards {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+        gap: 15px;
+        margin-bottom: 25px;
+    }
+
+    .summary-card {
+        background: white;
+        border-radius: 8px;
+        padding: 15px;
+        box-shadow: 0 3px 10px rgba(0, 0, 0, 0.08);
+        display: flex;
+        flex-direction: column;
+        border-left: 4px solid var(--primary-color);
+    }
+
+    .summary-card.unscheduled {
+        border-left-color: var(--warning-color);
+    }
+
+    .summary-card.scheduled {
+        border-left-color: var(--primary-color);
+    }
+
+    .summary-card.ready {
+        border-left-color: var(--success-color);
+    }
+
+    .summary-card.pallets {
+        border-left-color: var(--danger-color);
+    }
+
+    .summary-card .card-title {
+        font-size: 0.8rem;
+        color: #7f8c8d;
+        margin-bottom: 8px;
+    }
+
+    .summary-card .card-value {
+        font-size: 1.5rem;
+        font-weight: 700;
+        color: var(--secondary-color);
+    }
+
+    .tab-navigation {
+        display: flex;
+        margin-bottom: 20px;
+        border-bottom: 1px solid #eaecef;
+    }
+
+    .tab {
+        padding: 12px 25px;
+        cursor: pointer;
+        border-bottom: 3px solid transparent;
+        transition: all 0.3s;
+        font-weight: 500;
+        position: relative;
+    }
+
+    .tab.active {
+        color: var(--primary-color);
+        border-bottom: 3px solid var(--primary-color);
+        font-weight: 600;
+    }
+
+    .tab .badge {
+        position: absolute;
+        top: 5px;
+        right: 5px;
+        background: var(--primary-color);
+        color: white;
+        border-radius: 50%;
+        width: 20px;
+        height: 20px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        font-size: 0.7rem;
+    }
+
+    .content-section {
+        display: none;
+    }
+
+    .content-section.active {
+        display: block;
+    }
+
+    .search-box {
+        display: flex;
+        gap: 15px;
+        margin-bottom: 20px;
+        align-items: center;
+        justify-content: space-between;
+        flex-wrap: wrap;
+    }
+
+    .search-input {
+        padding: 10px 15px;
+        border: 1px solid #dce1e6;
+        border-radius: 5px;
+        font-size: 0.9rem;
+        min-width: 250px;
+    }
+
+    .search-btn {
+        padding: 10px 20px;
+        background: var(--primary-color);
+        color: white;
+        border: none;
+        border-radius: 5px;
+        cursor: pointer;
+        font-weight: 600;
+    }
+
+    .sort-options {
+        display: flex;
+        gap: 8px;
+        align-items: center;
+        margin-bottom: 0;
+    }
+
+    .sort-btn {
+        padding: 8px 16px;
+        background: #f8f9fa;
+        border: 1px solid #dee2e6;
+        border-radius: 5px;
+        cursor: pointer;
+        font-size: 0.85rem;
+        transition: all 0.3s;
+    }
+    
+    .sort-btn.active {
+        background: var(--primary-color);
+        color: white;
+        border-color: var(--primary-color);
+    }
+
+    .table-container {
+        overflow-x: auto;
+        overflow-y: auto;
+        max-height: 600px;
+        border-radius: 8px;
+        box-shadow: 0 3px 10px rgba(0, 0, 0, 0.08);
+        margin-bottom: 20px;
+    }
+
+    .data-table {
+        width: 100%;
+        border-collapse: collapse;
+    }
+
+    .data-table th {
+        position: sticky;
+        top: 0;
+        background: var(--secondary-color);
+        color: white;
+        padding: 12px;
+        text-align: left;
+        font-weight: 600;
+        font-size: 0.9rem;
+        cursor: pointer;
+    }
+
+    .data-table th:hover {
+        background: #34495e;
+    }
+
+    .data-table td {
+        padding: 12px;
+        border-bottom: 1px solid #eaecef;
+        font-size: 0.85rem;
+    }
+
+    .data-table tr:nth-child(even) {
+        background-color: #f9fafb;
+    }
+
+    .data-table tr:hover {
+        background-color: #edf2f7;
+    }
+
+    .checkbox-cell {
+        width: 40px;
+        text-align: center;
+    }
+
+    .status-badge {
+        display: inline-flex;
+        align-items: center;
+        padding: 4px 8px;
+        border-radius: 12px;
+        font-size: 0.75rem;
+        font-weight: 600;
+    }
+
+    .status-unscheduled {
+        background-color: #fff3cd;
+        color: #856404;
+        border: 1px solid #ffeaa7;
+    }
+
+    .status-scheduled {
+        background-color: #d1ecf1;
+        color: #0c5460;
+        border: 1px solid #bee5eb;
+    }
+
+    .status-ready {
+        background-color: #d4edda;
+        color: #155724;
+        border: 1px solid #c3e6cb;
+    }
+    .status-unscheduled, .status-scheduled, .status-ready {
+        display: none;
+    }
+    .pallet-badge {
+        display: inline-block;
+        padding: 2px 6px;
+        border-radius: 8px;
+        font-size: 0.7rem;
+        font-weight: 600;
+        margin-left: 5px;
+    }
+
+    .pallet-actual {
+        background-color: #e8f5e9;
+        color: #2e7d32;
+    }
+
+    .pallet-estimated {
+        background-color: #fff3e0;
+        color: #ef6c00;
+    }
+
+    .action-btn {
+        padding: 6px 12px;
+        border: none;
+        border-radius: 4px;
+        cursor: pointer;
+        font-size: 0.8rem;
+        transition: all 0.3s ease;
+        margin: 2px;
+    }
+
+    .btn-primary {
+        background: var(--primary-color);
+        color: white;
+    }
+
+    .btn-success {
+        background: var(--success-color);
+        color: white;
+    }
+
+    .btn-warning {
+        background: var(--warning-color);
+        color: white;
+    }
+
+    .btn-danger {
+        background: var(--danger-color);
+        color: white;
+    }
+
+    .batch-actions {
+        display: flex;
+        gap: 10px;
+        margin-bottom: 15px;
+        padding: 15px;
+        background: #f8f9fa;
+        border-radius: 8px;
+        align-items: center;
+    }
+
+    .selected-count {
+        font-weight: 600;
+        color: var(--secondary-color);
+    }
+
+    /* 限制列宽度 */
+    .delivery-method-col {
+        max-width: 120px;
+        min-width: 100px;
+        white-space: nowrap;
+        overflow: hidden;
+        text-overflow: ellipsis;
+    }
+
+    .container-col {
+        max-width: 200px;
+        min-width: 120px;
+        white-space: nowrap;
+        overflow: hidden;
+        text-overflow: ellipsis;
+    }
+
+    /* 鼠标悬停时显示完整内容 */
+    .container-col:hover,
+    .ref-ids-col:hover,
+    .fba-ids-col:hover {
+        overflow: visible;
+        white-space: normal;
+        word-break: break-all;
+        position: relative;
+        z-index: 2;
+        background: white;
+        box-shadow: 0 0 8px rgba(0,0,0,0.15);
+    }
+
+    .container-col {
+        max-width: 220px;
+        min-width: 180px;
+        white-space: pre-line;
+        word-break: break-all;
+        font-size: 0.8rem;
+        line-height: 1.6;
+    }
+
+    .data-table td[rowspan] {
+        background-color: #f8f9fa;
+        border-right: 2px solid #dee2e6;
+    }
+
+    /* 进度条样式 */
+    .progress-container {
+        background: #e9ecef;
+        border-radius: 4px;
+        height: 8px;
+        overflow: hidden;
+        width: 80px;
+    }
+
+    .progress-bar {
+        height: 100%;
+        background: #28a745;
+        border-radius: 4px;
+        transition: width 0.3s ease;
+    }
+
+    @media (max-width: 768px) {
+        .system-header {
+            flex-direction: column;
+            gap: 20px;
+        }
+
+        .warehouse-selector {
+            width: 100%;
+            justify-content: center;
+        }
+
+        .summary-cards {
+            grid-template-columns: 1fr 1fr;
+        }
+        
+        .tab-navigation {
+            flex-wrap: wrap;
+        }
+        
+        .tab {
+            flex: 1;
+            text-align: center;
+            min-width: 50%;
+        }
+
+        .batch-actions {
+            flex-direction: column;
+            align-items: flex-start;
+        }
+    }
+
+    @media (max-width: 576px) {
+        .system-main {
+            padding: 10px;
+        }
+        
+        .summary-cards {
+            grid-template-columns: 1fr;
+        }
+        
+        .search-box {
+            flex-direction: column;
+            align-items: stretch;
+        }
+        
+        .search-input {
+            width: 100%;
+        }
+
+        .sort-options {
+            justify-content: flex-start;
+            margin-top: 10px;
+        }
+    }
+</style>
+
+<div class="shipment-system">
+    <div class="system-header">
+        <div class="system-logo">
+            <i class="fas fa-truck-loading"></i>
+            <span>库存排约管理 - {{ warehouse }}</span>
+        </div>
+        <div class="warehouse-selector">
+            <form method="post" action="" onsubmit="showLoadingBar()" class="warehouse-selector">
+                {% csrf_token %}
+                <label for="warehouse">仓库:</label>
+                <select name="warehouse" style="padding: 5px; border-radius: 4px; border: 1px solid #ced4da;">
+                    {% for k, v in warehouse_options.items %}
+                    <option value="{{ v }}" {% if k == warehouse %}selected{% endif %}>{{ k }}</option>
+                    {% endfor %}
+                </select>
+                
+                <label for="st-type-select">装载类型:</label>
+                <select name="st_type" id="st-type-select" style="padding: 5px; border-radius: 4px; border: 1px solid #ced4da;">
+                    <option value="pallet" {% if st_type == 'pallet' %}selected{% endif %}>卡板</option>
+                    <option value="floor" {% if st_type == 'floor' %}selected{% endif %}>地板</option>
+                </select>
+                
+                <input type="hidden" name="step" value="td_shipment_warehouse">
+                <button id="confirmWarehouse">
+                    <i class="fas fa-check"></i> 确认
+                </button>
+            </form>
+        </div>
+    </div>
+
+    <div class="system-main">
+        <!-- 统计卡片 -->
+        <div class="summary-cards">
+            <div class="summary-card unscheduled">
+                <div class="card-title">未排约货物</div>
+                <div class="card-value">{{ summary.unscheduled_count }}</div>
+                <div class="card-trend">待安排预约</div>
+            </div>
+            <div class="summary-card scheduled">
+                <div class="card-title">已排约货物</div>
+                <div class="card-value">{{ summary.scheduled_count }}</div>
+                <div class="card-trend">等待出库</div>
+            </div>
+            <div class="summary-card ready">
+                <div class="card-title">待出库货物</div>
+                <div class="card-value">{{ summary.ready_count }}</div>
+                <div class="card-trend">已安排车队</div>
+            </div>
+            <div class="summary-card pallets">
+                <div class="card-title">总板数</div>
+                <div class="card-value">{{ summary.total_pallets }}</div>
+                <div class="card-trend">当前仓库</div>
+            </div>
+        </div>
+
+        <!-- 标签导航 -->
+        <div class="tab-navigation">
+            <div class="tab active" data-tab="unscheduled">
+                未排约 <span class="badge">{{ summary.unscheduled_count }}</span>
+            </div>
+            <div class="tab" data-tab="scheduled">
+                已排约 <span class="badge">{{ summary.scheduled_count }}</span>
+            </div>
+            <div class="tab" data-tab="ready">
+                待出库 <span class="badge">{{ summary.ready_count }}</span>
+            </div>
+        </div>
+
+        <!-- 未排约标签页 -->
+        <div class="content-section active" id="unscheduled-section">
+            <div class="search-box">
+                <div style="display: flex; gap: 10px; flex: 1; align-items: center;">
+                    <input type="text" class="search-input" placeholder="搜索目的地、REF ID、FBA ID..." id="unscheduledSearch">
+                    <button class="search-btn" id="searchUnscheduledBtn">
+                        <i class="fas fa-search"></i> 搜索
+                    </button>
+                    <div style="display: flex; align-items: center; gap: 8px; margin-left: 10px;">
+                        <small style="color: #666; white-space: nowrap;">容量限制:</small>
+                        <span style="font-size: 0.85rem; color: var(--primary-color); font-weight: 600;">
+                            {{ max_pallet }}板 / {{ max_cbm }}CBM
+                        </span>
+                    </div>
+                </div>
+                
+                <div class="sort-options" style="margin-bottom: 0;">
+                    <button class="sort-btn active" data-sort="destination">目的地</button>
+                    <button class="sort-btn" data-sort="pallets">板数</button>
+                    <button class="sort-btn" data-sort="delivery_window">派送窗口</button>
+                </div>
+            </div>
+
+            <!-- 智能匹配建议表格 -->
+            {% if matching_suggestions %}
+            <div style="margin-top: 20px;">
+                <h4 style="margin-bottom: 15px; color: var(--secondary-color);">
+                    <i class="fas fa-robot"></i> 智能匹配建议 ({{ matching_suggestions|length }}个分组)
+                </h4>
+                
+                <div class="table-container">
+                    <table class="data-table">
+                        <thead>
+                            <tr>
+                                <th>仓点</th>
+                                <th>建议预约号</th>
+                                <th>REF ID</th>
+                                <th>FBA ID</th>
+                                <th>柜号</th>
+                                <th>派送时间窗口</th>
+                                <th>板数</th>
+                                <th>CBM</th>
+                                <th>匹配度</th>
+                                <th>操作</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            <!-- 先显示有匹配预约的分组 -->
+                            {% for suggestion in matching_suggestions %}
+                                {% if suggestion.matched_shipment %}
+                                {% for cargo in suggestion.cargos %}
+                                <tr data-suggestion-id="{{ suggestion.suggestion_id }}"
+                                    data-cargo-id="{{ cargo.ids|default:'' }}"
+                                    data-plt-id="{{ cargo.plt_ids|default:'' }}">
+                                    <!-- 仓点列 -->
+                                    {% if forloop.first %}
+                                    <td rowspan="{{ suggestion.cargos|length }}" style="vertical-align: middle; background-color: #f8f9fa;">
+                                        <div style="font-size: 16px; font-weight: bold; margin-bottom: 5px;">
+                                            {{ suggestion.primary_group.destination }}
+                                        </div>
+                                        <div style="font-size: 12px; color: #666;">
+                                            {{ suggestion.primary_group.delivery_method }}
+                                        </div>
+                                    </td>
+                                    {% endif %}
+                                    
+                                    <!-- 建议预约号 -->
+                                    {% if forloop.first %}
+                                    <td rowspan="{{ suggestion.cargos|length }}" style="vertical-align: middle; background-color: #f8f9fa;">
+                                        <div style="font-weight: bold; color: #28a745; margin-bottom: 5px;">
+                                            {{ suggestion.matched_shipment.appointment_id|default:"未分配预约号" }}
+                                        </div>
+                                        {% if suggestion.matched_shipment.shipment_appointment %}
+                                        <div style="font-size: 12px; color: #666;">
+                                            {{ suggestion.matched_shipment.shipment_appointment|date:"Y-m-d H:i" }}
+                                        </div>
+                                        {% endif %}
+                                    </td>
+                                    {% endif %}
+                                    
+                                    <!-- 货物详细信息 -->
+                                    <td class="ref-ids-col">{{ cargo.ref_ids|default:"-"|truncatechars:20 }}</td>
+                                    <td class="fba-ids-col">{{ cargo.fba_ids|default:"-"|truncatechars:20 }}</td>
+                                    <td style="max-width: 150px; white-space: pre-line; font-size: 0.8rem;">
+                                        {{ cargo.cns|linebreaks_cn }}
+                                    </td>
+                                    <td>
+                                        {% if cargo.delivery_window_start or cargo.delivery_window_end %}
+                                            {{ cargo.delivery_window_start|date:"M. j" }} ~ {{ cargo.delivery_window_end|date:"M. j" }}
+                                        {% else %}
+                                            -
+                                        {% endif %}
+                                    </td>
+                                    <td>
+                                        {% if cargo.label == 'ACT' %}
+                                            {{ cargo.total_n_pallet_act|default:0|floatformat:2 }}
+                                        {% else %}
+                                            {{ cargo.total_n_pallet_est|default:0|floatformat:2 }}
+                                        {% endif %}
+                                    </td>
+                                    <td>{{ cargo.total_cbm|default:0|floatformat:3 }}</td>
+                                    
+                                    <!-- 匹配度 -->
+                                    {% if forloop.first %}
+                                    <td rowspan="{{ suggestion.cargos|length }}" style="vertical-align: middle;">
+                                        <div style="display: flex; flex-direction: column; gap: 6px; min-width: 100px;">
+                                            <!-- 板数进度条 -->
+                                            <div style="display: flex; align-items: center; gap: 6px;">
+                                                <div class="progress-container" style="flex: 0.6; background: #e9ecef; border-radius: 4px; height: 8px;">
+                                                    <div class="progress-bar-pallets" style="width: {{ suggestion.primary_group.pallets_percentage }}%; height: 100%; background: #28a745; border-radius: 4px;"></div>
+                                                </div>
+                                                <span style="font-size: 0.9rem; font-weight: bold; white-space: nowrap; min-width: 50px;">
+                                                    {{ suggestion.primary_group.total_pallets|floatformat:0 }}/{{ max_pallet }}
+                                                </span>
+                                            </div>
+                                            <!-- CBM进度条 -->
+                                            <div style="display: flex; align-items: center; gap: 6px;">
+                                                <div class="progress-container" style="flex: 0.6; background: #e9ecef; border-radius: 4px; height: 8px;">
+                                                    <div class="progress-bar-cbm" style="width: {{ suggestion.primary_group.cbm_percentage }}%; height: 100%; background: #007bff; border-radius: 4px;"></div>
+                                                </div>
+                                                <span style="font-size: 0.9rem; font-weight: bold; white-space: nowrap; min-width: 50px;">
+                                                    {{ suggestion.primary_group.total_cbm|floatformat:1 }}/{{ max_cbm }}
+                                                </span>
+                                            </div>
+                                        </div>
+                                    </td>
+                                    {% endif %}
+                                    
+                                    <!-- 操作按钮 -->
+                                    {% if forloop.first %}
+                                    <td rowspan="{{ suggestion.cargos|length }}" style="vertical-align: middle;">
+                                        <button class="action-btn btn-success apply-group-match" 
+                                                data-suggestion-id="{{ suggestion.suggestion_id }}"
+                                                data-destination="{{ suggestion.primary_group.destination }}"
+                                                data-delivery-method="{{ suggestion.primary_group.delivery_method }}">
+                                            <i class="fas fa-check"></i> 匹配此预约
+                                        </button>
+                                    </td>
+                                    {% endif %}
+                                </tr>
+                                {% endfor %}
+                                {% endif %}
+                            {% endfor %}
+                            
+                            <!-- 再显示没有匹配预约的分组 -->
+                            {% for suggestion in matching_suggestions %}
+                                {% if not suggestion.matched_shipment %}
+                                {% for cargo in suggestion.cargos %}
+                                <tr data-suggestion-id="{{ suggestion.suggestion_id }}"
+                                    data-cargo-id="{{ cargo.ids|default:'' }}"
+                                    data-plt-id="{{ cargo.plt_ids|default:'' }}">
+                                    <!-- 仓点列 -->
+                                    {% if forloop.first %}
+                                    <td rowspan="{{ suggestion.cargos|length }}" style="vertical-align: middle; background-color: #f8f9fa;">
+                                        <div style="font-size: 16px; font-weight: bold; margin-bottom: 5px;">
+                                            {{ suggestion.primary_group.destination }}
+                                        </div>
+                                        <div style="font-size: 12px; color: #666;">
+                                            {{ suggestion.primary_group.delivery_method }}
+                                        </div>
+                                    </td>
+                                    {% endif %}
+                                    
+                                    <!-- 建议预约号 -->
+                                    {% if forloop.first %}
+                                    <td rowspan="{{ suggestion.cargos|length }}" style="vertical-align: middle; background-color: #f8f9fa;">
+                                        <div style="font-weight: bold; color: #6c757d;">
+                                            未匹配到预约
+                                        </div>
+                                    </td>
+                                    {% endif %}
+                                    
+                                    <!-- 货物详细信息 -->
+                                    <td class="ref-ids-col">{{ cargo.ref_ids|default:"-"|truncatechars:20 }}</td>
+                                    <td class="fba-ids-col">{{ cargo.fba_ids|default:"-"|truncatechars:20 }}</td>
+                                    <td style="max-width: 150px; white-space: pre-line; font-size: 0.8rem;">
+                                        {{ cargo.cns|linebreaks_cn }}
+                                    </td>
+                                    <td>
+                                        {% if cargo.delivery_window_start or cargo.delivery_window_end %}
+                                            {{ cargo.delivery_window_start|date:"M. j" }} ~ {{ cargo.delivery_window_end|date:"M. j" }}
+                                        {% else %}
+                                            -
+                                        {% endif %}
+                                    </td>
+                                    <td>
+                                        {% if cargo.label == 'ACT' %}
+                                            {{ cargo.total_n_pallet_act|default:0|floatformat:2 }}
+                                        {% else %}
+                                            {{ cargo.total_n_pallet_est|default:0|floatformat:2 }}
+                                        {% endif %}
+                                    </td>
+                                    <td>{{ cargo.total_cbm|default:0|floatformat:3 }}</td>
+                                    
+                                    <!-- 匹配度 -->
+                                    {% if forloop.first %}
+                                    <td rowspan="{{ suggestion.cargos|length }}" style="vertical-align: middle;">
+                                        <div style="display: flex; flex-direction: column; gap: 6px; min-width: 100px;">
+                                            <!-- 板数进度条 -->
+                                            <div style="display: flex; align-items: center; gap: 6px;">
+                                                <div class="progress-container" style="flex: 0.6; background: #e9ecef; border-radius: 4px; height: 8px;">
+                                                    <div class="progress-bar-pallets" style="width: {{ suggestion.primary_group.pallets_percentage }}%; height: 100%; background: #28a745; border-radius: 4px;"></div>
+                                                </div>
+                                                <span style="font-size: 0.9rem; font-weight: bold; white-space: nowrap; min-width: 50px;">
+                                                    {{ suggestion.primary_group.total_pallets|floatformat:0 }}/{{ max_pallet }}
+                                                </span>
+                                            </div>
+                                            <!-- CBM进度条 -->
+                                            <div style="display: flex; align-items: center; gap: 6px;">
+                                                <div class="progress-container" style="flex: 0.6; background: #e9ecef; border-radius: 4px; height: 8px;">
+                                                    <div class="progress-bar-cbm" style="width: {{ suggestion.primary_group.cbm_percentage }}%; height: 100%; background: #007bff; border-radius: 4px;"></div>
+                                                </div>
+                                                <span style="font-size: 0.9rem; font-weight: bold; white-space: nowrap; min-width: 50px;">
+                                                    {{ suggestion.primary_group.total_cbm|floatformat:1 }}/{{ max_cbm }}
+                                                </span>
+                                            </div>
+                                        </div>
+                                    </td>
+                                    {% endif %}
+                                    
+                                    <!-- 操作按钮 -->
+                                    {% if forloop.first %}
+                                    <td rowspan="{{ suggestion.cargos|length }}" style="vertical-align: middle;">
+                                        <button class="action-btn btn-primary find-shipment" 
+                                                data-suggestion-id="{{ suggestion.suggestion_id }}"
+                                                data-destination="{{ suggestion.primary_group.destination }}"
+                                                data-delivery-method="{{ suggestion.primary_group.delivery_method }}">
+                                            <i class="fas fa-search"></i> 绑定
+                                        </button>
+                                        <button class="action-btn btn-success export-group-po" 
+                                                data-suggestion-id="{{ suggestion.suggestion_id }}"
+                                                style="margin-top: 5px;">
+                                            <i class="fas fa-file-export"></i> 导出PO
+                                        </button>
+                                    </td>
+                                    {% endif %}
+                                </tr>
+                                {% endfor %}
+                                {% endif %}
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+            {% else %}
+            <div style="text-align: center; padding: 40px; color: #6c757d;">
+                <i class="fas fa-robot" style="font-size: 3rem; margin-bottom: 15px;"></i>
+                <p>暂无智能匹配建议</p>
+            </div>
+            {% endif %}
+        </div>
+        
+        <!-- 已排约标签页 -->
+        <div class="content-section" id="scheduled-section">
+            <div class="search-box">
+                <div style="display: flex; gap: 10px; flex: 1; align-items: center;">
+                    <input type="text" class="search-input" placeholder="搜索预约号、目的地..." id="scheduledSearch">
+                    <button class="search-btn" id="searchScheduledBtn">
+                        <i class="fas fa-search"></i> 搜索
+                    </button>
+                </div>
+            </div>
+
+            <div class="table-container">
+                <table class="data-table">
+                    <thead>
+                        <tr>
+                            <th>预约号</th>
+                            <th>目的地</th>
+                            <th>预约时间</th>
+                            <th>装车类型</th>
+                            <th>REF ID</th>
+                            <th>FBA ID</th>
+                            <th>板数</th>
+                            <th>CBM</th>
+                            <th>操作</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for shipment_group in scheduled_data %}
+                        {% for cargo in shipment_group.cargos %}
+                        <tr>
+                            {% if forloop.first %}
+                            <td rowspan="{{ shipment_group.cargos|length }}" style="vertical-align: middle; background-color: #f8f9fa;">
+                                <strong>{{ shipment_group.appointment_id }}</strong>
+                            </td>
+                            <td rowspan="{{ shipment_group.cargos|length }}" style="vertical-align: middle; background-color: #f8f9fa;">
+                                {{ shipment_group.destination }}
+                            </td>
+                            <td rowspan="{{ shipment_group.cargos|length }}" style="vertical-align: middle; background-color: #f8f9fa;">
+                                {{ shipment_group.shipment_appointment|date:"Y-m-d H:i" }}
+                            </td>
+                            <td rowspan="{{ shipment_group.cargos|length }}" style="vertical-align: middle; background-color: #f8f9fa;">
+                                {{ shipment_group.load_type }}
+                            </td>
+                            {% endif %}
+                            <td class="ref-ids-col">{{ cargo.ref_ids|default:"-"|truncatechars:20 }}</td>
+                            <td class="fba-ids-col">{{ cargo.fba_ids|default:"-"|truncatechars:20 }}</td>
+                            <td>
+                                {% if cargo.label == 'ACT' %}
+                                    {{ cargo.total_n_pallet_act|default:0 }} ACT
+                                {% else %}
+                                    {{ cargo.total_n_pallet_est|default:0 }} EST
+                                {% endif %}
+                            </td>
+                            <td>{{ cargo.total_cbm|default:0 }}</td>
+                            {% if forloop.first %}
+                            <td rowspan="{{ shipment_group.cargos|length }}" style="vertical-align: middle;">
+                                <button class="action-btn btn-danger" onclick="unassignShipment('{{ shipment_group.appointment_id }}')">
+                                    <i class="fas fa-unlink"></i> 取消排约
+                                </button>
+                            </td>
+                            {% endif %}
+                        </tr>
+                        {% endfor %}
+                        {% empty %}
+                        <tr>
+                            <td colspan="9" style="text-align: center; padding: 20px;">
+                                暂无已排约货物
+                            </td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+        </div>
+
+        <!-- 待出库标签页 -->
+        <div class="content-section" id="ready-section">
+            <div class="search-box">
+                <div style="display: flex; gap: 10px; flex: 1; align-items: center;">
+                    <input type="text" class="search-input" placeholder="搜索车队号、预约号..." id="readySearch">
+                    <button class="search-btn" id="searchReadyBtn">
+                        <i class="fas fa-search"></i> 搜索
+                    </button>
+                </div>
+            </div>
+
+            <div class="table-container">
+                <table class="data-table">
+                    <thead>
+                        <tr>
+                            <th>车队号</th>
+                            <th>预约号</th>
+                            <th>目的地</th>
+                            <th>REF ID</th>
+                            <th>FBA ID</th>
+                            <th>板数</th>
+                            <th>CBM</th>
+                            <th>操作</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for fleet_group in ready_to_ship_data %}
+                        {% for shipment_id, shipment in fleet_group.shipments.items %}
+                        {% for cargo in shipment.cargos %}
+                        <tr>
+                            {% if forloop.first and forloop.parentloop.first %}
+                            <td rowspan="{% widthratio fleet_group.shipments|length 1 fleet_group.shipments|length %}" style="vertical-align: middle; background-color: #f8f9fa;">
+                                <strong>{{ fleet_group.fleet_number }}</strong>
+                            </td>
+                            {% endif %}
+                            {% if forloop.first %}
+                            <td rowspan="{{ shipment.cargos|length }}" style="vertical-align: middle; background-color: #f8f9fa;">
+                                {{ shipment.appointment_id }}
+                            </td>
+                            <td rowspan="{{ shipment.cargos|length }}" style="vertical-align: middle; background-color: #f8f9fa;">
+                                {{ shipment.destination }}
+                            </td>
+                            {% endif %}
+                            <td class="ref-ids-col">{{ cargo.ref_ids|default:"-"|truncatechars:20 }}</td>
+                            <td class="fba-ids-col">{{ cargo.fba_ids|default:"-"|truncatechars:20 }}</td>
+                            <td>
+                                {% if cargo.label == 'ACT' %}
+                                    {{ cargo.total_n_pallet_act|default:0 }} ACT
+                                {% else %}
+                                    {{ cargo.total_n_pallet_est|default:0 }} EST
+                                {% endif %}
+                            </td>
+                            <td>{{ cargo.total_cbm|default:0 }}</td>
+                            {% if forloop.first and forloop.parentloop.first %}
+                            <td rowspan="{% widthratio fleet_group.shipments|length 1 fleet_group.shipments|length %}" style="vertical-align: middle;">
+                                <button class="action-btn btn-primary" onclick="viewFleetDetails('{{ fleet_group.fleet_number }}')">
+                                    <i class="fas fa-eye"></i> 详情
+                                </button>
+                            </td>
+                            {% endif %}
+                        </tr>
+                        {% endfor %}
+                        {% endfor %}
+                        {% empty %}
+                        <tr>
+                            <td colspan="8" style="text-align: center; padding: 20px;">
+                                暂无待出库货物
+                            </td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+        </div>
+
+    </div>
+</div>
+
+<!-- 隐藏表单需要修改以支持大组匹配 -->
+<form method="post" action="" id="actionForm" style="display: none;">
+    {% csrf_token %}
+    <input type="hidden" name="step" id="formStep">
+    <input type="hidden" name="appointment_id" id="formAppointmentId">
+    <input type="hidden" name="cargo_ids" id="formCargoIds">
+    <input type="hidden" name="plt_ids" id="formPltIds">
+    <input type="hidden" name="suggestion_id" id="formSuggestionId">
+    <input type="hidden" name="warehouse" value="{{ warehouse }}">
+    <input type="hidden" name="st_type" value="{{ st_type }}">
+</form>
+
+<script>
+    document.querySelectorAll('.export-group-po').forEach(btn => {
+        btn.addEventListener('click', function() {
+            const suggestionId = this.getAttribute('data-suggestion-id');
+            
+            // 找到对应的行
+            const suggestionRow = document.querySelector(`tr[data-suggestion-id="${suggestionId}"]`);
+            if (!suggestionRow) {
+                alert('未找到对应的PO数据');
+                return;
+            }
+            
+            // 收集该分组内所有货物的ids和plt_ids
+            const cargoIds = [];
+            const pltIds = [];
+            
+            // 找到该分组的所有行
+            const groupRows = document.querySelectorAll(`tr[data-suggestion-id="${suggestionId}"]`);
+            
+            groupRows.forEach(row => {
+                const cargoId = row.getAttribute('data-cargo-id') || '';
+                const pltId = row.getAttribute('data-plt-id') || '';
+                
+                if (cargoId) cargoIds.push(cargoId);
+                if (pltId) pltIds.push(pltId);
+            });
+            
+            if (cargoIds.length === 0 && pltIds.length === 0) {
+                alert('该分组没有可导出的PO数据');
+                return;
+            }
+            
+            // 设置表单数据并提交
+            document.getElementById('formStep').value = 'export_pos';
+            document.getElementById('formCargoIds').value = cargoIds.join(',');
+            document.getElementById('formPltIds').value = pltIds.join(',');
+            document.getElementById('formSuggestionId').value = suggestionId;
+            document.getElementById('actionForm').submit();
+        });
+    });
+
+    // 标签页切换
+    document.querySelectorAll('.tab').forEach(tab => {
+        tab.addEventListener('click', function() {
+            const tabName = this.getAttribute('data-tab');
+            
+            document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
+            this.classList.add('active');
+            
+            document.querySelectorAll('.content-section').forEach(section => {
+                section.classList.remove('active');
+            });
+            document.getElementById(tabName + '-section').classList.add('active');
+        });
+    });
+
+    // 未排约选择功能
+    document.getElementById('selectAllUnscheduled').addEventListener('change', function() {
+        const checkboxes = document.querySelectorAll('.unscheduled-checkbox');
+        checkboxes.forEach(checkbox => {
+            checkbox.checked = this.checked;
+        });
+        updateUnscheduledSelectedCount();
+    });
+
+    document.querySelectorAll('.unscheduled-checkbox').forEach(checkbox => {
+        checkbox.addEventListener('change', updateUnscheduledSelectedCount);
+    });
+
+    function updateUnscheduledSelectedCount() {
+        const selectedCount = document.querySelectorAll('.unscheduled-checkbox:checked').length;
+        document.getElementById('selectedUnscheduledCount').textContent = selectedCount;
+    }
+
+    function matchSingleCargo(cargoIds) {
+        document.getElementById('formStep').value = 'match_single_cargo';
+        document.getElementById('formCargoIds').value = cargoIds;
+        document.getElementById('actionForm').submit();
+    }
+
+    function matchSelectedCargos() {
+        const selectedCheckboxes = document.querySelectorAll('.unscheduled-checkbox:checked');
+        if (selectedCheckboxes.length === 0) {
+            alert('请先选择要匹配的货物');
+            return;
+        }
+
+        const cargoIds = Array.from(selectedCheckboxes).map(checkbox => checkbox.value).join(',');
+        document.getElementById('formStep').value = 'match_selected_cargos';
+        document.getElementById('formCargoIds').value = cargoIds;
+        document.getElementById('actionForm').submit();
+    }
+
+    function applyGroupMatch(suggestionId) {
+        if (confirm('确定要将这些货物匹配到此预约吗？')) {
+            document.getElementById('formStep').value = 'apply_group_match';
+            document.getElementById('formSuggestionId').value = suggestionId;
+            document.getElementById('actionForm').submit();
+        }
+    }
+
+    function selectGroupAppointment(select, groupKey) {
+        const appointmentId = select.value;
+        if (appointmentId) {
+            document.getElementById('formStep').value = 'assign_group_appointment';
+            document.getElementById('formAppointmentId').value = appointmentId;
+            document.getElementById('formGroupKey').value = groupKey;
+            document.getElementById('actionForm').submit();
+        }
+    }
+
+    function unassignShipment(appointmentId) {
+        if (confirm('确定要取消这个预约的所有排约吗？')) {
+            document.getElementById('formStep').value = 'unassign_shipment';
+            document.getElementById('formAppointmentId').value = appointmentId;
+            document.getElementById('actionForm').submit();
+        }
+    }
+
+    function viewFleetDetails(fleetNumber) {
+        alert(`查看车队 ${fleetNumber} 的详细信息`);
+    }
+
+    // 清除选择
+    function clearUnscheduledSelection() {
+        document.querySelectorAll('.unscheduled-checkbox').forEach(checkbox => {
+            checkbox.checked = false;
+        });
+        document.getElementById('selectAllUnscheduled').checked = false;
+        updateUnscheduledSelectedCount();
+    }
+
+    function showLoadingBar() {
+        const buttons = document.querySelectorAll('button');
+        buttons.forEach(btn => {
+            if (btn.innerHTML.includes('fa-check')) {
+                btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> 处理中...';
+                btn.disabled = true;
+            }
+        });
+    }
+
+
+    // 搜索功能
+    document.getElementById('searchUnscheduledBtn').addEventListener('click', function() {
+        applySearch('unscheduled');
+    });
+
+    document.getElementById('searchScheduledBtn').addEventListener('click', function() {
+        applySearch('scheduled');
+    });
+
+    document.getElementById('searchReadyBtn').addEventListener('click', function() {
+        applySearch('ready');
+    });
+
+    function applySearch(section) {
+        const searchTerm = document.getElementById(section + 'Search').value.trim().toLowerCase();
+        const rows = document.querySelectorAll('#' + section + 'Table tbody tr');
+        
+        rows.forEach(row => {
+            const text = row.textContent.toLowerCase();
+            row.style.display = text.includes(searchTerm) ? '' : 'none';
+        });
+    }
+</script>
+{% endblock %}

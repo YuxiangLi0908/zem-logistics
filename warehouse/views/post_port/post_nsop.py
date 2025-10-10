@@ -40,6 +40,8 @@ from warehouse.views.post_port.shipment.fleet_management import FleetManagement
 
 class PostNsop(View):
     template_main_dash = "post_port/new_sop/01_appointment_management.html"
+    template_td_shipment = "post_port/new_sop/02_td_shipment.html"
+    template_fleet_schedule = "post_port/new_sop/03_fleet_schedule.html.html"
     area_options = {"NJ": "NJ", "SAV": "SAV", "LA": "LA", "MO": "MO", "TX": "TX"}
     warehouse_options = {"":"", "NJ-07001": "NJ-07001", "SAV-31326": "SAV-31326", "LA-91761": "LA-91761"}
 
@@ -51,10 +53,10 @@ class PostNsop(View):
             template, context = await self.handle_appointment_management_get(request)
             return await sync_to_async(render)(request, template, context)
         elif step == "schedule_shipment":
-            template, context = await self.handle_appointment_management_get(request)
+            template, context = await self.handle_td_shipment_get(request)
             return render(request, template, context)
         elif step == "fleet_management":
-            template, context = await self.handle_appointment_management_get(request)
+            template, context = await self.handle_fleet_management_get(request)
             return render(request, template, context)
         else:
             raise ValueError('输入错误')
@@ -65,6 +67,9 @@ class PostNsop(View):
         step = request.POST.get("step")
         if step == "appointment_management_warehouse":
             template, context = await self.handle_appointment_management_post(request)
+            return render(request, template, context)
+        elif step == "td_shipment_warehouse":
+            template, context = await self.handle_td_shipment_post(request)
             return render(request, template, context)
         elif step == "export_pos":
             return await self.handle_export_pos(request)
@@ -95,7 +100,8 @@ class PostNsop(View):
     async def handle_export_pos(self, request: HttpRequest) -> HttpResponse:
         packinglist_ids = request.POST.getlist("cargo_ids")
         pallet_ids = request.POST.getlist("plt_ids")
-
+        print('packinglist_ids',packinglist_ids)
+        print('pallet_ids',pallet_ids)
         if packinglist_ids and packinglist_ids[0]:
             packinglist_ids = packinglist_ids[0].split(',')
         else:
@@ -247,6 +253,8 @@ class PostNsop(View):
         if "total_n_pallet_act" not in df.columns:
             df["total_n_pallet_act"] = 0
         def get_est_pallet(n):
+            if pd.isna(n) or n is None:
+                return 0
             if n < 1:
                 return 1
             elif n % 1 >= 0.45:
@@ -292,7 +300,462 @@ class PostNsop(View):
     ) -> tuple[str, dict[str, Any]]:
         context = {"warehouse_options": self.warehouse_options}
         return self.template_main_dash, context
+
+    async def handle_td_shipment_get(
+        self, request: HttpRequest
+    ) -> tuple[str, dict[str, Any]]:
+        context = {"warehouse_options": self.warehouse_options}
+        return self.template_td_shipment, context
     
+    async def handle_fleet_management_get(
+        self, request: HttpRequest
+    ) -> tuple[str, dict[str, Any]]:
+        context = {"warehouse_options": self.warehouse_options}
+        return self.template_fleet_schedule, context
+    
+    async def handle_td_shipment_post(
+        self, request: HttpRequest
+    ) -> tuple[str, dict[str, Any]]:
+        warehouse = request.POST.get("warehouse")
+        st_type = request.POST.get("st_type", "pallet")
+        
+        # 获取三类数据：未排约、已排约、待出库
+        matching_suggestions = await self.sp_unscheduled_data(warehouse, st_type)
+        scheduled_data = await self.sp_scheduled_data(warehouse)
+        ready_to_ship_data = await self._sp_ready_to_ship_data(warehouse)
+        
+        # 获取可用预约
+        available_shipments = await self.sp_available_shipments(warehouse, st_type)
+        
+        # 计算统计数据
+        summary = await self._sp_calculate_summary(matching_suggestions, scheduled_data, ready_to_ship_data)
+        
+        # 生成匹配建议
+        max_cbm, max_pallet = await self.get_capacity_limits(st_type)
+        context = {
+            'warehouse': warehouse,
+            'st_type': st_type,
+            'matching_suggestions': matching_suggestions,
+            'scheduled_data': scheduled_data,
+            'ready_to_ship_data': ready_to_ship_data,
+            'available_shipments': available_shipments,
+            'summary': summary,
+            'max_cbm': max_cbm,
+            'max_pallet': max_pallet,
+            'warehouse_options': self.warehouse_options,
+        } 
+        return self.template_td_shipment, context
+    
+    async def sp_unscheduled_data(self, warehouse: str, st_type: str) -> list:
+        """获取未排约数据"""
+        unshipment_pos = await self._get_packing_list(
+            models.Q(
+                container_number__order__offload_id__offload_at__isnull=False,
+            )& models.Q(pk=0),
+            models.Q(
+                shipment_batch_number__shipment_batch_number__isnull=True,
+                container_number__order__offload_id__offload_at__isnull=False,
+                location=warehouse,
+                delivery_type='public',
+            )& ~models.Q(delivery_method__contains='暂扣'),
+        )
+        
+        # 获取可用的shipment记录（shipment_batch_number为空的）
+        shipments = await self.get_available_shipments(warehouse)
+        
+        # 生成智能匹配建议
+        matching_suggestions = await self.generate_matching_suggestions(unshipment_pos, shipments)
+        
+        # 只返回匹配建议，不返回原始未排约数据
+        return matching_suggestions
+
+    async def get_available_shipments(self, warehouse: str):
+        """获取可用的shipment记录"""
+        # 这里需要根据您的实际模型调整查询条件
+        shipments = await sync_to_async(list)(
+            Shipment.objects.filter(
+                models.Q(shipment_batch_number__isnull=True) &
+                models.Q(in_use=True) &
+                models.Q(is_canceled=False) &
+                models.Q(destination=warehouse)
+            )
+        )
+        return shipments
+
+    async def generate_matching_suggestions(self, unshipment_pos, shipments, max_cbm=33, max_pallet=26):
+        """生成智能匹配建议 - 基于功能A的逻辑但适配shipment匹配"""
+        
+        suggestions = []
+
+        # 第一级分组：按目的地和派送方式预分组
+        pre_groups = {}
+        for cargo in unshipment_pos:
+            if not await self.has_appointment(cargo):
+                dest = cargo.get('destination')
+                delivery_method = cargo.get('custom_delivery_method')
+                if not dest or not delivery_method:
+                    continue
+                    
+                group_key = f"{dest}_{delivery_method}"
+                if group_key not in pre_groups:
+                    pre_groups[group_key] = {
+                        'destination': dest,
+                        'delivery_method': delivery_method,
+                        'cargos': []
+                    }
+                pre_groups[group_key]['cargos'].append(cargo)
+        
+        # 对每个预分组按容量限制创建大组
+        for group_key, pre_group in pre_groups.items():
+            cargos = pre_group['cargos']
+            
+            # 按ETA排序，优先安排早的货物
+            sorted_cargos = sorted(cargos, key=lambda x: x.get('container_number__order__vessel_id__vessel_eta') or '')
+            
+            # 按容量限制创建大组
+            primary_groups = []
+            current_primary_group = {
+                'destination': pre_group['destination'],
+                'delivery_method': pre_group['delivery_method'],
+                'cargos': [],
+                'total_pallets': 0,
+                'total_cbm': 0,
+            }
+            
+            for cargo in sorted_cargos:
+                cargo_pallets = 0
+                if cargo.get('label') == 'ACT':
+                    cargo_pallets = cargo.get('total_n_pallet_act', 0) or 0
+                else:
+                    cargo_pallets = cargo.get('total_n_pallet_est', 0) or 0
+                
+                cargo_cbm = cargo.get('total_cbm', 0) or 0
+                
+                # 检查当前大组是否还能容纳这个货物
+                if (current_primary_group['total_pallets'] + cargo_pallets <= max_pallet and 
+                    current_primary_group['total_cbm'] + cargo_cbm <= max_cbm):
+                    # 可以加入当前大组
+                    current_primary_group['cargos'].append(cargo)
+                    current_primary_group['total_pallets'] += cargo_pallets
+                    current_primary_group['total_cbm'] += cargo_cbm
+                else:
+                    # 当前大组已满，保存并创建新的大组
+                    if current_primary_group['cargos']:
+                        primary_groups.append(current_primary_group)
+                    
+                    # 创建新的大组
+                    current_primary_group = {
+                        'destination': pre_group['destination'],
+                        'delivery_method': pre_group['delivery_method'],
+                        'cargos': [cargo],
+                        'total_pallets': cargo_pallets,
+                        'total_cbm': cargo_cbm,
+                    }
+            
+            # 添加最后一个大组
+            if current_primary_group['cargos']:
+                primary_groups.append(current_primary_group)
+            
+            # 为每个大组寻找匹配的shipment
+            for primary_group_index, primary_group in enumerate(primary_groups):
+                # 计算大组的匹配度百分比
+                pallets_percentage = min(100, (primary_group['total_pallets'] / max_pallet) * 100) if max_pallet > 0 else 0
+                cbm_percentage = min(100, (primary_group['total_cbm'] / max_cbm) * 100) if max_cbm > 0 else 0
+                
+                # 寻找匹配的shipment
+                matched_shipment = await self.find_matching_shipment(primary_group, shipments)
+                
+                # 无论是否匹配到shipment，都创建建议分组
+                suggestion = {
+                    'suggestion_id': f"{group_key}_{primary_group_index}",
+                    'primary_group': {
+                        'destination': primary_group['destination'],
+                        'delivery_method': primary_group['delivery_method'],
+                        'total_pallets': primary_group['total_pallets'],
+                        'total_cbm': primary_group['total_cbm'],
+                        'pallets_percentage': pallets_percentage,
+                        'cbm_percentage': cbm_percentage,
+                        'matched_shipment': matched_shipment,  # 可能为None
+                        'suggestion_id': f"{group_key}_{primary_group_index}"
+                    },
+                    'cargos': [{
+                        'ids': cargo.get('ids', ''),
+                        'plt_ids': cargo.get('plt_ids', ''),
+                        'ref_ids': cargo.get('ref_ids', ''),
+                        'fba_ids': cargo.get('fba_ids', ''),
+                        'container_numbers': cargo.get('container_numbers', ''),
+                        'cns': cargo.get('cns', ''),
+                        'delivery_window_start': cargo.get('delivery_window_start'),
+                        'delivery_window_end': cargo.get('delivery_window_end'),
+                        'total_n_pallet_act': cargo.get('total_n_pallet_act', 0),
+                        'total_n_pallet_est': cargo.get('total_n_pallet_est', 0),
+                        'total_cbm': cargo.get('total_cbm', 0),
+                        'label': cargo.get('label', ''),
+                    } for cargo in primary_group['cargos']]
+                }
+                suggestions.append(suggestion)
+        
+        return suggestions
+
+    async def find_matching_shipment(self, primary_group, shipments):
+        """为货物大组寻找匹配的shipment"""
+        destination = primary_group['destination']
+        matched_shipments = []
+        
+        for shipment in shipments:
+            # 检查目的地是否匹配
+            if shipment.get('destination') != destination:
+                continue
+                
+            # 检查时间窗口条件
+            if await self.check_time_window_match(primary_group, shipment):
+                matched_shipments.append(shipment)
+        
+        # 如果有多个匹配的shipment，可以选择最优的一个
+        # 这里简单返回第一个匹配的，您可以根据需要调整策略
+        return matched_shipments[0] if matched_shipments else None
+
+    async def check_time_window_match(self, primary_group, shipment):
+        """检查时间窗口是否匹配"""
+        shipment_appointment = shipment.get('shipment_appointment')
+        if not shipment_appointment:
+            return False
+        
+        # 检查小组中的每个货物
+        for cargo in primary_group['cargos']:
+            window_start = cargo.get('delivery_window_start')
+            window_end = cargo.get('delivery_window_end')
+            
+            # 如果货物有时间窗口，检查shipment时间是否在窗口内
+            if window_start and window_end:
+                if not (window_start <= shipment_appointment <= window_end):
+                    return False
+            # 如果货物没有时间窗口，跳过时间检查（只要求目的地匹配）
+        
+        return True
+
+    async def sp_scheduled_data(self, warehouse: str) -> list:
+        """获取已排约数据 - 按shipment_batch_number分组"""
+        # 获取有shipment_batch_number但fleet_number为空的货物
+        raw_data = await self._get_packing_list(
+            models.Q(
+                container_number__order__warehouse__name=warehouse,
+                shipment_batch_number__isnull=False,
+                container_number__order__offload_id__offload_at__isnull=True,
+                shipment_batch_number__shipment_batch_number__isnull=False,
+                shipment_batch_number__fleet_number__isnull=True,
+                delivery_type='public',
+            ),
+            models.Q(
+                shipment_batch_number__shipment_batch_number__isnull=False,
+                container_number__order__offload_id__offload_at__isnull=False,
+                shipment_batch_number__fleet_number__isnull=True,
+                location=warehouse,
+                delivery_type='public',
+            ),
+        )
+        
+        # 按shipment_batch_number分组
+        grouped_data = {}
+        for item in raw_data:
+            
+            batch_number = item.get('shipment_batch_number__shipment_batch_number')
+            if batch_number not in grouped_data:
+                # 获取预约信息
+                try:
+                    shipment = await sync_to_async(Shipment.objects.get)(
+                        shipment_batch_number=batch_number
+                    )
+                except MultipleObjectsReturned:
+                    raise ValueError(f"shipment_batch_number={batch_number} 查询到多条记录，请检查数据")
+                grouped_data[batch_number] = {
+                    'appointment_id': shipment.appointment_id,
+                    'destination': shipment.destination,
+                    'shipment_appointment': shipment.shipment_appointment,
+                    'load_type': shipment.load_type,
+                    'cargos': []
+                }
+            grouped_data[batch_number]['cargos'].append(item)
+        
+        return list(grouped_data.values())
+
+    async def _sp_ready_to_ship_data(self, warehouse: str) -> list:
+        """获取待出库数据 - 按fleet_number分组"""
+        # 获取有fleet_number的货物
+        raw_data = await self._get_packing_list(
+            models.Q(
+                container_number__order__warehouse__name=warehouse,
+                shipment_batch_number__isnull=False,
+                container_number__order__offload_id__offload_at__isnull=True,
+                shipment_batch_number__shipment_batch_number__isnull=False,
+                shipment_batch_number__fleet_number__isnull=False,
+                shipment_batch_number__is_shipped=False,
+                delivery_type='public',
+            ),
+            models.Q(
+                shipment_batch_number__shipment_batch_number__isnull=False,
+                container_number__order__offload_id__offload_at__isnull=False,
+                shipment_batch_number__fleet_number__isnull=False,
+                shipment_batch_number__is_shipped=False,
+                location=warehouse,
+                delivery_type='public',
+            ),
+        )
+        
+        # 按fleet_number分组
+        grouped_data = {}
+        for item in raw_data:
+            fleet_number = item.get('shipment_batch_number__fleet_number')
+            if fleet_number not in grouped_data:
+                grouped_data[fleet_number] = {
+                    'fleet_number': fleet_number,
+                    'shipments': {}
+                }
+            
+            # 按shipment分组
+            batch_number = item.get('shipment_batch_number__shipment_batch_number')
+            if batch_number not in grouped_data[fleet_number]['shipments']:
+                try:
+                    shipment = await sync_to_async(Shipment.objects.get)(
+                        shipment_batch_number=batch_number
+                    )
+                except MultipleObjectsReturned:
+                    raise ValueError(f"shipment_batch_number={batch_number} 查询到多条记录，请检查数据")
+                grouped_data[fleet_number]['shipments'][batch_number] = {
+                    'appointment_id': shipment.appointment_id,
+                    'destination': shipment.destination,
+                    'cargos': []
+                }
+            grouped_data[fleet_number]['shipments'][batch_number]['cargos'].append(item)
+        
+        return list(grouped_data.values())
+
+    async def sp_available_shipments(self, warehouse: str, st_type: str) -> list:
+        """获取可用预约"""
+        now = timezone.now()
+        shipments = await sync_to_async(list)(
+            Shipment.objects.filter(
+                Q(origin__isnull=True) | Q(origin="") | Q(origin=warehouse),
+                appointment_id__isnull=False,
+                in_use=False,
+                is_canceled=False,
+                load_type=st_type.upper()
+            ).order_by("shipment_appointment")
+        )
+        
+        # 添加状态信息
+        for shipment in shipments:
+            is_expired = shipment.shipment_appointment_utc and shipment.shipment_appointment_utc < now
+            is_urgent = (
+                shipment.shipment_appointment_utc and 
+                (shipment.shipment_appointment_utc - now).days < 7 and
+                shipment.shipment_appointment_utc >= now and
+                not is_expired
+            )
+            
+            if is_expired:
+                shipment.status = 'expired'
+            elif is_urgent:
+                shipment.status = 'urgent'
+            else:
+                shipment.status = 'available'
+        
+        return shipments
+
+    def _create_primary_groups(self, cargos: list, max_cbm: float, max_pallet: int) -> list:
+        """按容量限制创建大组"""
+        primary_groups = []
+        current_group = {
+            'cargos': [],
+            'total_pallets': 0,
+            'total_cbm': 0,
+            'destination': '',
+            'delivery_method': ''
+        }
+        
+        # 直接遍历，不排序
+        for cargo in cargos:
+            cargo_pallets = cargo.get('total_n_pallet_act', 0) or cargo.get('total_n_pallet_est', 0) or 0
+            cargo_cbm = cargo.get('total_cbm', 0) or 0
+            
+            if not current_group['destination']:
+                current_group['destination'] = cargo.get('destination')
+                current_group['delivery_method'] = cargo.get('custom_delivery_method')
+            
+            # 检查容量
+            if (current_group['total_pallets'] + cargo_pallets <= max_pallet and 
+                current_group['total_cbm'] + cargo_cbm <= max_cbm):
+                current_group['cargos'].append(cargo)
+                current_group['total_pallets'] += cargo_pallets
+                current_group['total_cbm'] += cargo_cbm
+            else:
+                if current_group['cargos']:
+                    primary_groups.append(current_group.copy())
+                current_group = {
+                    'cargos': [cargo],
+                    'total_pallets': cargo_pallets,
+                    'total_cbm': cargo_cbm,
+                    'destination': cargo.get('destination'),
+                    'delivery_method': cargo.get('custom_delivery_method')
+                }
+        
+        if current_group['cargos']:
+            primary_groups.append(current_group)
+        
+        return primary_groups
+
+    async def _check_time_window_match(self, window_start, window_end, shipment) -> bool:
+        """检查时间窗口匹配"""
+        # 简化实现，实际应根据业务逻辑完善
+        if not window_start and not window_end:
+            return True
+        
+        shipment_time = shipment.shipment_appointment
+        
+        # 如果只有开始时间，检查预约时间是否在开始时间之后
+        if window_start and not window_end:
+            return shipment_time >= window_start
+        
+        # 如果只有结束时间，检查预约时间是否在结束时间之前
+        if not window_start and window_end:
+            return shipment_time <= window_end
+        
+        # 如果既有开始时间又有结束时间，检查预约时间是否在时间窗口内
+        if window_start and window_end:
+            return window_start <= shipment_time <= window_end
+        
+        return False
+
+    async def _sp_calculate_summary(self, unscheduled: list, scheduled: list, ready: list) -> dict:
+        """计算统计数据"""
+        # 计算各类数量
+        unscheduled_count = len(unscheduled)
+        scheduled_count = sum(len(group['cargos']) for group in scheduled)
+        ready_count = sum(
+            sum(len(shipment['cargos']) for shipment in fleet_group['shipments'].values())
+            for fleet_group in ready
+        )
+        
+        # 计算总板数
+        total_pallets = 0
+        for cargo in unscheduled:
+            total_pallets += cargo.get('total_n_pallet_act', 0) or cargo.get('total_n_pallet_est', 0) or 0
+        
+        return {
+            'unscheduled_count': unscheduled_count,
+            'scheduled_count': scheduled_count,
+            'ready_count': ready_count,
+            'total_pallets': int(total_pallets),
+        }
+
+    async def get_capacity_limits(self, st_type: str) -> tuple:
+        """获取容量限制"""
+        if st_type == "pallet":
+            return 72, 35
+        elif st_type == "floor":
+            return 80, 38
+        return 72, 35
+
     async def handle_appointment_management_post(
         self, request: HttpRequest
     ) -> tuple[str, dict[str, Any]]:
@@ -307,6 +770,7 @@ class PostNsop(View):
                 container_number__order__vessel_id__vessel_eta__lte=two_weeks_later, 
                 container_number__order__retrieval_id__retrieval_destination_precise=warehouse,
                 delivery_type='public',
+                container_number__order__warehouse__name=warehouse,
             )& ~ models.Q(delivery_method__icontains='暂扣'),
             models.Q(
                 shipment_batch_number__shipment_batch_number__isnull=True,
@@ -353,7 +817,6 @@ class PostNsop(View):
             'max_cbm': max_cbm,
             'max_pallet': max_pallet,
         }
-        
         return self.template_main_dash, context
     
     async def _get_packing_list(
@@ -404,6 +867,7 @@ class PostNsop(View):
                 "delivery_window_end",
                 "note",
                 "po_expired",
+                "shipment_batch_number__shipment_batch_number",
                 "data_source",  # 包含数据源标识
                 warehouse=F(
                     "container_number__order__retrieval_id__retrieval_destination_precise"
@@ -419,6 +883,9 @@ class PostNsop(View):
                 ),
                 container_numbers=StringAgg(  # 聚合完整的组合字段
                     "container_with_eta_retrieval", delimiter="\n", distinct=True, ordering="container_with_eta_retrieval"
+                ),
+                cns=StringAgg(
+                    "str_container_number", delimiter="\n", distinct=True, ordering="str_container_number"
                 ),
                 total_pcs=Sum("pcs", output_field=IntegerField()),
                 total_cbm = Round(Sum("cbm", output_field=FloatField()), 3),
@@ -541,6 +1008,7 @@ class PostNsop(View):
                     "delivery_window_end",
                     "note",
                     "data_source",  # 包含数据源标识
+                    "shipment_batch_number__shipment_batch_number",
                     warehouse=F(
                         "container_number__order__retrieval_id__retrieval_destination_precise"
                     ),
@@ -570,6 +1038,9 @@ class PostNsop(View):
                     container_numbers=StringAgg(  # 聚合完整的组合字段
                         "container_with_eta_retrieval", delimiter="\n", distinct=True, ordering="container_with_eta_retrieval"
                     ),
+                    cns=StringAgg(
+                        "str_container_number", delimiter="\n", distinct=True, ordering="str_container_number"
+                    ),
                     total_pcs=Sum("pcs", output_field=FloatField()),
                     total_cbm = Round(Sum("cbm", output_field=FloatField()), 3),
                     total_n_pallet_est= Round(Sum("cbm", output_field=FloatField()) / 2, 2),
@@ -578,7 +1049,7 @@ class PostNsop(View):
                 .distinct()
             )
             data += pl_list
-        
+            print('pl_list',len(pl_list),pl_criteria)
         return data
 
     async def get_shipments_by_warehouse(self, warehouse):
@@ -811,6 +1282,7 @@ class PostNsop(View):
                                 'ids': cargo.get('ids', ''),  # 确保包含ids
                                 'plt_ids': cargo.get('plt_ids', ''),  # 确保包含plt_ids
                                 'container_numbers': cargo.get('container_numbers', ''),
+                                'cns': cargo.get('cns', ''),
                                 'total_n_pallet_act': cargo.get('total_n_pallet_act', 0),
                                 'total_n_pallet_est': cargo.get('total_n_pallet_est', 0),
                                 'total_cbm': cargo.get('total_cbm', 0),
@@ -819,6 +1291,7 @@ class PostNsop(View):
                             'total_pallets': cargo_pallets,
                             'total_cbm': cargo_cbm,
                             'container_numbers': cargo.get('container_numbers', ''),
+                            'cns': cargo.get('cns', ''),
                             'cargo_count': 1
                         },
                         'subgroup_index': subgroup_index + 1,
