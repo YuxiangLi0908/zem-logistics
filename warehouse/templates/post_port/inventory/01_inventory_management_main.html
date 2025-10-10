@@ -103,6 +103,26 @@
         </table>
     </div>
     <div id="warehouse-special-process-sec" style="display: none;">
+        <div style="display: flex; justify-content: flex-end; margin-bottom: 10px; padding: 10px; background-color: #f8f9fa; border-radius: 4px;">
+            <div style="display: flex; gap: 20px; font-size: 12px; font-weight: bold;">
+                <div>
+                    <span style="color: #666;">总重量: </span>
+                    <span id="total-weight">0.00</span><span> lbs</span>
+                </div>
+                <div>
+                    <span style="color: #666;">总箱数: </span>
+                    <span id="total-pcs">0</span>
+                </div>
+                <div>
+                    <span style="color: #666;">总体积: </span>
+                    <span id="total-cbm">0.00</span><span> CBM</span>
+                </div>
+                <div>
+                    <span style="color: #666;">总卡板数: </span>
+                    <span id="total-pallets">0</span>
+                </div>
+            </div>
+        </div>
         <table class="table" id="inventory-summary-table" style="font-size: 11px; max-height: 95%; overflow-y: scroll;">
             <thead>
                 <tr style="position: sticky; top: 0px;">
@@ -685,8 +705,13 @@
         var filterValues = Array.from(filters).map(function(filter) {
             return filter.value.toUpperCase().trim();
         });
-        console.log(indices);
-        console.log(filterValues);
+        
+        // 初始化汇总变量
+        var totalWeight = 0;
+        var totalPcs = 0;
+        var totalCbm = 0;
+        var totalPallets = 0;
+        
         for (var i = 0; i < tr.length; i++) {
             var row = tr[i];
             var showRow = true;
@@ -704,7 +729,35 @@
                 }
             }
             row.style.display = showRow ? "" : "none";
-        };
+            
+            // 如果行显示，则累加数值
+            if (showRow) {
+                // 获取各列数据（根据你的表格结构调整索引）
+                var weightCell = row.getElementsByTagName("td")[9]; // weight列索引
+                var pcsCell = row.getElementsByTagName("td")[10];   // pcs列索引
+                var cbmCell = row.getElementsByTagName("td")[11];   // cbm列索引
+                var palletsCell = row.getElementsByTagName("td")[12]; // 卡板数列索引
+                
+                if (weightCell && weightCell.textContent) {
+                    totalWeight += parseFloat(weightCell.textContent) || 0;
+                }
+                if (pcsCell && pcsCell.textContent) {
+                    totalPcs += parseInt(pcsCell.textContent) || 0;
+                }
+                if (cbmCell && cbmCell.textContent) {
+                    totalCbm += parseFloat(cbmCell.textContent) || 0;
+                }
+                if (palletsCell && palletsCell.textContent) {
+                    totalPallets += parseInt(palletsCell.textContent) || 0;
+                }
+            }
+        }
+        
+        // 更新汇总显示
+        document.getElementById('total-weight').textContent = totalWeight.toFixed(2);
+        document.getElementById('total-pcs').textContent = totalPcs;
+        document.getElementById('total-cbm').textContent = totalCbm.toFixed(2);
+        document.getElementById('total-pallets').textContent = totalPallets;
     };
     function filterTrans(filterInput, col_idx, trim) {
         var tr = document.querySelectorAll("#warehouse-trans tr");      
