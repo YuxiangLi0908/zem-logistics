@@ -658,14 +658,14 @@
                     <button class="sort-btn active" data-sort="destination">目的地</button>
                     <button class="sort-btn" data-sort="pallets">板数</button>
                     <button class="sort-btn" data-sort="eta">ETA</button>
-                    <button class="sort-btn" data-sort="container">柜号</button>
                     <small style="color: #666; margin-left: 8px; white-space: nowrap;">（排序方式）</small>
                 </div>
             </div>
 
             <div class="batch-actions">
                 <span class="selected-count">已选择 <span id="selectedCount">0</span> 组PO</span>
-                <button class="action-btn btn-primary" id="exportSelected">
+                
+                <button class="action-btn btn-primary" onclick="exportSelectedCargos()">
                     <i class="fas fa-file-export"></i> 导出选PO
                 </button>
                 <button class="action-btn btn-success" id="findAppointments">
@@ -675,13 +675,32 @@
                     <i class="fas fa-times"></i> 清除选择
                 </button>
             </div>
+            <!-- 导PO的表单 -->
+            <form method="post" action="" id="exportForm" style="display: none;">
+                {% csrf_token %}
+                <input type="hidden" name="step" value="export_pos">
+                <input type="hidden" name="cargo_ids" id="cargoIdsInput">
+                <input type="hidden" name="plt_ids" id="pltIdsInput">
+            </form>
+            <!-- 修改约的表单 -->
+            <form method="post" action="" id="hiddenForm" style="display: none;">
+                {% csrf_token %}
+                <input type="hidden" id="appointmentId" name="appointmentId">
+                <input type="hidden" id="operation" name="operation">
+                <input type="hidden" id="appointmentTime" name="appointmentTime">
+                <input type="hidden" id="warehouse" name="warehouse">
+                <input type="hidden" id="st_type" name="st_type" value ="{{ st_type }}">
+                <input type="hidden" name="step" value="appointment_time_modify">
+                <button type="submit">提交</button>
+            </form>
 
             <div class="table-container">
                 <table class="data-table" id="cargoTable">
                     <thead>
                         <tr>
                             <th class="checkbox-cell">
-                                <input type="checkbox" id="selectAll">
+                                <input type="checkbox" class="cargo-checkbox"
+       value="{% if cargo.plt_ids %}plt_{{ cargo.plt_ids }}{% else %}{{ cargo.ids }}{% endif %}">
                             </th>
                             <th data-sort="ref_ids">REF ID</th>
                             <th data-sort="fba_ids">FBA ID</th>
@@ -705,7 +724,7 @@
                             >
                             <td class="checkbox-cell">
                                 <input type="checkbox" class="cargo-checkbox" 
-           value="{{ cargo.ids }}|{{ cargo.data_source|default:'PACKINGLIST' }}">
+                                    value="{% if cargo.plt_ids %}plt_{{ cargo.plt_ids }}{% else %}{{ cargo.ids }}{% endif %}">
                             </td>
                             <td class="ref-ids-col">
                                 {% if cargo.ref_ids %}
@@ -835,11 +854,8 @@
                     <thead>
                         <tr>
                             <th>仓点</th>
-                            <th>小组数量</th>  
                             <th>板数</th>
                             <th>CBM</th>
-                            <th>总板数</th>
-                            <th>总CBM</th>
                             <th>柜号</th>
                             <th>匹配度</th>
                             <th>操作</th>
@@ -849,8 +865,10 @@
                         {% regroup matching_suggestions by primary_group as grouped_suggestions %}
                         {% for primary_group in grouped_suggestions %}
                             {% for suggestion in primary_group.list %}
-                            <tr>
-                                <!-- 仓点列 - 只在每个大组的第一行显示 -->
+                            <tr data-primary-group="{{ forloop.parentloop.counter0 }}"
+                                data-cargo-id="{{ suggestion.subgroup.cargos.0.ids|default:'' }}"
+                                data-plt-id="{{ suggestion.subgroup.cargos.0.plt_ids|default:'' }}">
+                                <!-- 仓点列 -->
                                 {% if forloop.first %}
                                 <td rowspan="{{ primary_group.list|length }}" style="vertical-align: middle; background-color: #f8f9fa;">
                                     <div style="font-size: 16px; font-weight: bold; margin-bottom: 5px;">
@@ -862,57 +880,50 @@
                                 </td>
                                 {% endif %}
                                 
-                                <!-- 子组信息 - 每行都显示 -->
-                                <td>{{ suggestion.subgroup.cargo_count }}</td>
+                                <!-- 子组信息 -->
                                 <td>{{ suggestion.subgroup.total_pallets|floatformat:2 }}</td>
                                 <td>{{ suggestion.subgroup.total_cbm|floatformat:3 }}</td>
                                 
-                                <!-- 总板数和总CBM - 只在每个大组的第一行显示 -->
-                                {% if forloop.first %}
-                                <td rowspan="{{ primary_group.list|length }}" style="vertical-align: middle; font-weight: bold;">
-                                    {{ primary_group.grouper.total_pallets|floatformat:2 }}
-                                </td>
-                                <td rowspan="{{ primary_group.list|length }}" style="vertical-align: middle; font-weight: bold;">
-                                    {{ primary_group.grouper.total_cbm|floatformat:3 }}
-                                </td>
-                                {% endif %}
-                                
-                                <!-- 柜号 - 每行都显示 -->
+                                <!-- 柜号 -->
                                 <td style="max-width: 150px; white-space: pre-line; font-size: 0.8rem;">
                                     {{ suggestion.subgroup.container_numbers|linebreaks_container }}
                                 </td>
                                 
+                                <!-- 匹配度 -->
                                 {% if forloop.first %}
                                 <td rowspan="{{ primary_group.list|length }}" style="vertical-align: middle;">
-                                    <div style="display: flex; flex-direction: column; gap: 4px; min-width: 120px;">
+                                    <div style="display: flex; flex-direction: column; gap: 6px; min-width: 100px;">
                                         <!-- 板数进度条 -->
                                         <div style="display: flex; align-items: center; gap: 6px;">
-                                            <div class="progress-container" style="flex: 1; background: #e9ecef; border-radius: 4px; height: 6px;">
+                                            <div class="progress-container" style="flex: 0.6; background: #e9ecef; border-radius: 4px; height: 8px;">
                                                 <div class="progress-bar-pallets" style="width: {{ primary_group.grouper.pallets_percentage }}%; height: 100%; background: #28a745; border-radius: 4px;"></div>
                                             </div>
-                                            <span style="font-size: 0.7rem; white-space: nowrap; min-width: 40px;">
+                                            <span style="font-size: 0.9rem; font-weight: bold; white-space: nowrap; min-width: 50px;">
                                                 {{ primary_group.grouper.total_pallets|floatformat:0 }}/{{ max_pallet }}
                                             </span>
                                         </div>
                                         <!-- CBM进度条 -->
                                         <div style="display: flex; align-items: center; gap: 6px;">
-                                            <div class="progress-container" style="flex: 1; background: #e9ecef; border-radius: 4px; height: 6px;">
+                                            <div class="progress-container" style="flex: 0.6; background: #e9ecef; border-radius: 4px; height: 8px;">
                                                 <div class="progress-bar-cbm" style="width: {{ primary_group.grouper.cbm_percentage }}%; height: 100%; background: #007bff; border-radius: 4px;"></div>
                                             </div>
-                                            <span style="font-size: 0.7rem; white-space: nowrap; min-width: 40px;">
+                                            <span style="font-size: 0.9rem; font-weight: bold; white-space: nowrap; min-width: 50px;">
                                                 {{ primary_group.grouper.total_cbm|floatformat:1 }}/{{ max_cbm }}
                                             </span>
                                         </div>
                                     </div>
                                 </td>
-                                {% endif %}
                                 
-                                <!-- 操作按钮 - 每行都显示 -->
-                                <td>
-                                    <button class="action-btn btn-success apply-match" data-match-id="{{ suggestion.id }}">
-                                        <i class="fas fa-check"></i> 应用
+                                <!-- 操作按钮 - 只在第一行显示 -->
+                                <td rowspan="{{ primary_group.list|length }}" style="vertical-align: middle;">
+                                    <button class="action-btn btn-success export-primary-group" 
+                                            data-primary-group-index="{{ forloop.parentloop.counter0 }}"
+                                            data-destination="{{ primary_group.grouper.destination }}"
+                                            data-delivery-method="{{ primary_group.grouper.delivery_method }}">
+                                        <i class="fas fa-file-export"></i> 导出PO
                                     </button>
                                 </td>
+                                {% endif %}
                             </tr>
                             {% endfor %}
                         {% endfor %}
@@ -924,6 +935,98 @@
 </div>
 
 <script>
+    function handleSelectChange(select, appointmentId, counter) {
+        var value = select.value;
+        console.log('handleSelectChange');
+        if (value === 'edit') {
+            editAppointment(select, appointmentId, counter);
+        } else if (value === 'delete') {
+            deleteAppointment(select, appointmentId, counter);
+        }
+    };
+
+    function editAppointment(select, appointmentId, counter) {
+        var span = document.getElementById('appointment_' + counter);
+        var input = document.getElementById('editAppointmentInput_' + counter);
+        var confirmButton = document.getElementById('confirm_' + counter); 
+        
+        select.style.display = 'none';
+        span.style.display = 'none';
+        input.style.display = 'inline-block'; 
+        input.style.width = '150px';
+        confirmButton.style.display = 'inline-block'; 
+        input.focus(); 
+        input.type = 'datetime-local';
+        input.value = span.dataset.originalValue; 
+        document.getElementById('hiddenForm').appointmentId.value = appointmentId;
+    };
+
+    function confirmAppointment(button, appointmentId, counter) {
+        var input = document.getElementById('editAppointmentInput_' + counter);
+        var newTime = input.value; 
+        
+        // 再次确认是否提交修改
+        if (!confirm('确定要将预约时间修改为: ' + newTime + ' 吗？')) {
+            return;
+        }
+        
+        document.getElementById('hiddenForm').operation.value ="edit";
+        document.getElementById('hiddenForm').appointmentTime.value = newTime;
+        document.getElementById('hiddenForm').appointmentId.value = appointmentId;
+        
+        // 获取当前选中的仓库
+        var warehouseSelect = document.querySelector('select[name="warehouse"]');
+        document.getElementById('hiddenForm').warehouse.value = warehouseSelect.value;
+        
+        document.getElementById('hiddenForm').submit();
+    };
+
+    function deleteAppointment(button, appointmentId, counter) {
+        // 显示确认对话框
+        if (!confirm('确定要删除这个预约吗？此操作不可撤销！')) {
+            // 如果用户取消，重置选择框
+            var select = button.parentNode.querySelector('select');
+            if (select) {
+                select.value = '';
+            }
+            return;
+        }
+        
+        document.getElementById('hiddenForm').operation.value ="delete";
+        document.getElementById('hiddenForm').appointmentId.value = appointmentId;
+        
+        // 获取当前选中的仓库
+        var warehouseSelect = document.querySelector('select[name="warehouse"]');
+        document.getElementById('hiddenForm').warehouse.value = warehouseSelect.value;
+        
+        document.getElementById('hiddenForm').submit();
+    };
+
+    function exportSelectedCargos() {
+        const selectedCheckboxes = document.querySelectorAll('.cargo-checkbox:checked');
+        if (selectedCheckboxes.length === 0) {
+            alert('请先选择要导出的PO');
+            return;
+        }
+
+        const cargoIds = [];
+        const pltIds = [];
+
+        selectedCheckboxes.forEach(checkbox => {
+            const value = checkbox.value.trim();
+            // 如果 value 中包含 plt_ 说明是板数据，否则是普通 cargo
+            if (value.startsWith('plt_')) {
+                pltIds.push(value.replace(/^plt_/, ''));
+            } else {
+                cargoIds.push(value);
+            }
+        });
+
+        // 设置隐藏表单字段并提交
+        document.getElementById('cargoIdsInput').value = cargoIds.join(',');
+        document.getElementById('pltIdsInput').value = pltIds.join(',');
+        document.getElementById('exportForm').submit();
+    };
     document.addEventListener('DOMContentLoaded', function() {
         setTimeout(updateFilterStats, 100);
         document.querySelectorAll('.container-col').forEach(cell => {
@@ -943,6 +1046,38 @@
                     });
             
             cell.innerHTML = content;
+        });
+        document.querySelectorAll('.export-primary-group').forEach(btn => {
+            btn.addEventListener('click', function() {
+                const primaryGroupIndex = this.getAttribute('data-primary-group-index');
+                const destination = this.getAttribute('data-destination');
+                const deliveryMethod = this.getAttribute('data-delivery-method');
+                
+                // 收集这个大组内所有小组的ids和plt_ids
+                const cargoIds = [];
+                const pltIds = [];
+                
+                // 找到这个大组的所有行
+                const groupRows = document.querySelectorAll(`tr[data-primary-group="${primaryGroupIndex}"]`);
+                
+                groupRows.forEach(row => {
+                    const cargoId = row.getAttribute('data-cargo-id') || '';
+                    const pltId = row.getAttribute('data-plt-id') || '';
+                    
+                    if (cargoId) cargoIds.push(cargoId);
+                    if (pltId) pltIds.push(pltId);
+                });
+                
+                if (cargoIds.length === 0 && pltIds.length === 0) {
+                    alert('该大组没有可导出的PO数据');
+                    return;
+                }
+                
+                // 设置表单数据并提交
+                document.getElementById('cargoIdsInput').value = cargoIds.join(',');
+                document.getElementById('pltIdsInput').value = pltIds.join(',');
+                document.getElementById('exportForm').submit();
+            });
         });
         // 标签页切换
         document.querySelectorAll('.tab').forEach(tab => {

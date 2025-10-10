@@ -28,6 +28,7 @@ from django.shortcuts import redirect, render
 from django.views import View
 from django.utils import timezone
 from datetime import timedelta
+from dateutil.parser import parse
 
 from warehouse.models.packing_list import PackingList
 from warehouse.models.pallet import Pallet
@@ -67,30 +68,45 @@ class PostNsop(View):
             return render(request, template, context)
         elif step == "export_pos":
             return await self.handle_export_pos(request)
-        elif step == "export_bol":
-            return await self.handle_bol_post(request)
+        elif step == "appointment_time_modify":
+            template, context = await self.handle_appointment_time(request)
+            return render(request, template, context)
         else:
             raise ValueError('输入错误')
-        
+
+    async def handle_appointment_time(
+        self, request: HttpRequest
+    ) -> tuple[str, dict[str, Any]]:
+        appointmentId = request.POST.get("appointmentId")
+        shipment = await sync_to_async(Shipment.objects.get)(
+            appointment_id=appointmentId
+        )
+        operation = request.POST.get("operation")
+        if operation == "edit":
+            appointmentTime = request.POST.get("appointmentTime")
+            naive_datetime = parse(appointmentTime).replace(tzinfo=None)
+            shipment.shipment_appointment = naive_datetime
+            await sync_to_async(shipment.save)()
+        elif operation == "delete":
+            shipment.is_canceled = True
+            await sync_to_async(shipment.delete)()
+        return await self.handle_appointment_management_post(request)
+       
     async def handle_export_pos(self, request: HttpRequest) -> HttpResponse:
-        cargo_ids = request.POST.getlist("cargo_ids")
-        print('cargo_ids',cargo_ids)
-        packinglist_ids = []
-        pallet_ids = []
+        packinglist_ids = request.POST.getlist("cargo_ids")
+        pallet_ids = request.POST.getlist("plt_ids")
+
+        if packinglist_ids and packinglist_ids[0]:
+            packinglist_ids = packinglist_ids[0].split(',')
+        else:
+            packinglist_ids = []
+
+        if pallet_ids and pallet_ids[0]:
+            pallet_ids = pallet_ids[0].split(',')
+        else:
+            pallet_ids = []
         all_data = []
-        for cargo_id in cargo_ids:
-            if '|' in cargo_id:
-                ids_str, data_source = cargo_id.split('|', 1)
-                ids_list = [int(id_str) for id_str in ids_str.split(',') if id_str.strip()]
-                
-                if data_source == 'PALLET':
-                    pallet_ids.extend(ids_list)
-                else:  # PACKINGLIST 或默认
-                    packinglist_ids.extend(ids_list)
-            else:
-                # 兼容旧格式，默认当作 PackingList
-                ids_list = [int(id_str) for id_str in cargo_id.split(',') if id_str.strip()]
-                packinglist_ids.extend(ids_list)
+
         if packinglist_ids:
             packing_list_data = await sync_to_async(list)(
                 PackingList.objects.select_related("container_number", "pallet")
@@ -165,13 +181,10 @@ class PostNsop(View):
                 .order_by("destination", "container_number__container_number")
             )
             all_data += pallet_data
-        print('all_data',all_data)
         for p in all_data:
             try:
-                pl = PoCheckEtaSeven.objects.get(
-                    container_number__container_number=p[
-                        "container_number__container_number"
-                    ],
+                pl = await sync_to_async(PoCheckEtaSeven.objects.get)(
+                    container_number__container_number=p["container_number__container_number"],
                     shipping_mark=p["shipping_mark"],
                     fba_id=p["fba_id"],
                     ref_id=p["ref_id"],
@@ -229,6 +242,10 @@ class PostNsop(View):
             raise ValueError(f"unknown export_format option: {export_format}")
         df = pd.DataFrame.from_records(data)
 
+        if "total_n_pallet_est" not in df.columns:
+            df["total_n_pallet_est"] = 0
+        if "total_n_pallet_act" not in df.columns:
+            df["total_n_pallet_act"] = 0
         def get_est_pallet(n):
             if n < 1:
                 return 1
@@ -237,11 +254,14 @@ class PostNsop(View):
             else:
                 return int(n // 1)
 
-        #df["total_n_pallet_est"] = df["total_n_pallet_est"].apply(get_est_pallet)
+        if "total_n_pallet_est" in df.columns:
+            df["total_n_pallet_est"] = df["total_n_pallet_est"].apply(get_est_pallet)
         df["est"] = df["label"] == "EST"
         df["act"] = df["label"] == "ACT"
+
         df["Pallet Count"] = (
-            df["total_n_pallet_act"] * df["act"] + df["total_n_pallet_est"] * df["est"]
+            df.get("total_n_pallet_act", 0) * df["act"]
+            + df.get("total_n_pallet_est", 0) * df["est"]
         )
         df = df[keep].rename(
             {
@@ -359,68 +379,19 @@ class PostNsop(View):
                 str_container_number=Cast("container_number__container_number", CharField()), 
                 
                 # 格式化vessel_eta为月日
-                formatted_vessel_eta=Func(
-                    F('container_number__order__vessel_id__vessel_eta'),
-                    Value('MM-DD'),
-                    function='to_char',
-                    output_field=CharField()
-                ),
-                
-                # 格式化实际提柜时间为月日
-                formatted_actual_retrieval=Func(
-                    F('container_number__order__retrieval_id__actual_retrieval_timestamp'),
-                    Value('MM-DD'),
-                    function='to_char',
-                    output_field=CharField()
-                ),
-                
-                # 格式化预计提柜时间为月日
-                formatted_target_low=Func(
-                    F('container_number__order__retrieval_id__target_retrieval_timestamp_lower'),
-                    Value('MM-DD'),
-                    function='to_char',
-                    output_field=CharField()
-                ),
-                
-                formatted_target=Func(
-                    F('container_number__order__retrieval_id__target_retrieval_timestamp'),
+                formatted_offload_at=Func(
+                    F('container_number__order__offload_id__offload_at'),
                     Value('MM-DD'),
                     function='to_char',
                     output_field=CharField()
                 ),
                 
                 # 创建完整的组合字段，通过前缀区分状态
-                container_with_eta_retrieval=Case(
-                    # 有实际提柜时间 - 使用前缀 [实际]
-                    When(container_number__order__retrieval_id__actual_retrieval_timestamp__isnull=False,
-                        then=Concat(
-                            Value("[已提柜]"),
-                            "container_number__container_number",
-                            # Value(" ETA:"),
-                            # "formatted_vessel_eta",
-                            output_field=CharField()
-                        )),
-                    # 有预计提柜时间范围 - 使用前缀 [预计]
-                    When(container_number__order__retrieval_id__target_retrieval_timestamp_lower__isnull=False,
-                        then=Concat(
-                            Value("[预计]"),
-                            "container_number__container_number",
-                            # Value(" ETA:"),
-                            # "formatted_vessel_eta",
-                            Value(" 提柜:"),
-                            "formatted_target_low",
-                            Value("~"),
-                            Coalesce("formatted_target", "formatted_target_low"),
-                            output_field=CharField()
-                        )),
-                    # 没有提柜计划 - 使用前缀 [未安排]
-                    default=Concat(
-                        Value("[未安排提柜]"),
-                        "container_number__container_number",
-                        Value(" ETA:"),
-                        "formatted_vessel_eta",
-                        output_field=CharField()
-                    ),
+                container_with_eta_retrieval=Concat(
+                    Value("[已入仓]"),
+                    "container_number__container_number",
+                    Value(" 入仓:"),
+                    "formatted_offload_at",
                     output_field=CharField()
                 ),
                 data_source=Value("PALLET", output_field=CharField()),  # 添加数据源标识
@@ -738,8 +709,9 @@ class PostNsop(View):
         """异步生成智能匹配建议 - 适配新的数据结构"""
         
         suggestions = []
-        # 第一级分组：按目的地和派送方式
-        primary_groups = {}
+
+        # 第一级分组：按目的地和派送方式预分组
+        pre_groups = {}
         for cargo in unshipment_pos:
             if not await self.has_appointment(cargo):
                 dest = cargo.get('destination')
@@ -748,29 +720,31 @@ class PostNsop(View):
                     continue
                     
                 group_key = f"{dest}_{delivery_method}"
-                if group_key not in primary_groups:
-                    primary_groups[group_key] = {
+                if group_key not in pre_groups:
+                    pre_groups[group_key] = {
                         'destination': dest,
                         'delivery_method': delivery_method,
                         'cargos': []
                     }
-                primary_groups[group_key]['cargos'].append(cargo)
+                pre_groups[group_key]['cargos'].append(cargo)
         
-        # 第二级分组：在主要分组内按容量限制分组
-        for group_key, primary_group in primary_groups.items():
-            cargos = primary_group['cargos']
-            
-            # 按容量限制进行分组
-            subgroups = []
-            current_subgroup = {
-                'cargos': [],
-                'total_pallets': 0,
-                'total_cbm': 0,
-                'container_numbers': set()  # 用于收集柜号
-            }
+        # 对每个预分组按容量限制创建大组
+        for group_key, pre_group in pre_groups.items():
+            cargos = pre_group['cargos']
             
             # 按ETA排序，优先安排早的货物
             sorted_cargos = sorted(cargos, key=lambda x: x.get('container_number__order__vessel_id__vessel_eta') or '')
+            
+            # 按容量限制创建大组
+            primary_groups = []
+            current_primary_group = {
+                'destination': pre_group['destination'],
+                'delivery_method': pre_group['delivery_method'],
+                'cargos': [],  # 这个大组包含的所有货物（每个货物就是一个小组）
+                'total_pallets': 0,
+                'total_cbm': 0,
+            }
+            
             for cargo in sorted_cargos:
                 cargo_pallets = 0
                 if cargo.get('label') == 'ACT':
@@ -780,85 +754,76 @@ class PostNsop(View):
                 
                 cargo_cbm = cargo.get('total_cbm', 0) or 0
                 
-                # 如果单个货物就超过限制，单独成组
-                if cargo_pallets > max_pallet or cargo_cbm > max_cbm:
-                    # 当前子组如果有货物，先保存
-                    if current_subgroup['cargos']:
-                        subgroups.append(current_subgroup)
-                        current_subgroup = {
-                            'cargos': [],
-                            'total_pallets': 0,
-                            'total_cbm': 0,
-                            'container_numbers': set()
-                        }
-                    
-                    # 单独处理超限货物
-                    container_number = cargo.get('container_numbers')
-                    subgroups.append({
-                        'cargos': [cargo],
-                        'total_pallets': cargo_pallets,
-                        'total_cbm': cargo_cbm,
-                        'container_numbers': {container_number} if container_number else set()
-                    })
-                    continue
-                
-                # 收集柜号
-                container_number = cargo.get('container_numbers')
-                if container_number:
-                    current_subgroup['container_numbers'].add(container_number)
-                
-                # 检查是否可以加入当前子组
-                if (current_subgroup['total_pallets'] + cargo_pallets <= max_pallet and 
-                    current_subgroup['total_cbm'] + cargo_cbm <= max_cbm):
-                    # 可以加入当前子组
-                    current_subgroup['cargos'].append(cargo)
-                    current_subgroup['total_pallets'] += cargo_pallets
-                    current_subgroup['total_cbm'] += cargo_cbm
+                # 检查当前大组是否还能容纳这个货物
+                if (current_primary_group['total_pallets'] + cargo_pallets <= max_pallet and 
+                    current_primary_group['total_cbm'] + cargo_cbm <= max_cbm):
+                    # 可以加入当前大组
+                    current_primary_group['cargos'].append(cargo)
+                    current_primary_group['total_pallets'] += cargo_pallets
+                    current_primary_group['total_cbm'] += cargo_cbm
                 else:
-                    # 当前子组已满，创建新子组
-                    if current_subgroup['cargos']:
-                        subgroups.append(current_subgroup)
-                    current_subgroup = {
+                    # 当前大组已满，保存并创建新的大组
+                    if current_primary_group['cargos']:
+                        primary_groups.append(current_primary_group)
+                    
+                    # 创建新的大组
+                    current_primary_group = {
+                        'destination': pre_group['destination'],
+                        'delivery_method': pre_group['delivery_method'],
                         'cargos': [cargo],
                         'total_pallets': cargo_pallets,
                         'total_cbm': cargo_cbm,
-                        'container_numbers': {container_number} if container_number else set()
                     }
             
-            # 添加最后一个子组
-            if current_subgroup['cargos']:
-                subgroups.append(current_subgroup)
+            # 添加最后一个大组
+            if current_primary_group['cargos']:
+                primary_groups.append(current_primary_group)
             
-            # 计算大分组的总和
-            total_group_pallets = sum(subgroup['total_pallets'] for subgroup in subgroups)
-            total_group_cbm = sum(subgroup['total_cbm'] for subgroup in subgroups)
-            
-            # 计算大组的匹配度百分比（基于整个大组的总量）
-            pallets_percentage = min(100, (total_group_pallets / max_pallet) * 100) if max_pallet > 0 else 0
-            cbm_percentage = min(100, (total_group_cbm / max_cbm) * 100) if max_cbm > 0 else 0
-            
-            # 为每个子组创建建议
-            for subgroup_index, subgroup in enumerate(subgroups):
-                suggestion = {
-                    'id': f"{group_key}_{subgroup_index}",
-                    'primary_group': {
-                        'destination': primary_group['destination'],
-                        'delivery_method': primary_group['delivery_method'],
-                        'total_pallets': total_group_pallets,
-                        'total_cbm': total_group_cbm,
-                        'pallets_percentage': pallets_percentage,  # 大组板数百分比
-                        'cbm_percentage': cbm_percentage,          # 大组CBM百分比
-                    },
-                    'subgroup': {
-                        'cargos': subgroup['cargos'],
-                        'total_pallets': subgroup['total_pallets'],
-                        'total_cbm': subgroup['total_cbm'],
-                        'container_numbers': ', '.join(sorted(subgroup['container_numbers'])),
-                        'cargo_count': len(subgroup['cargos'])
-                    },
-                    'subgroup_index': subgroup_index + 1,
-                }
-                suggestions.append(suggestion)
+            # 为每个大组创建建议，大组中的每个货物都是一个小组（一行）
+            for primary_group_index, primary_group in enumerate(primary_groups):
+                # 计算大组的匹配度百分比
+                pallets_percentage = min(100, (primary_group['total_pallets'] / max_pallet) * 100) if max_pallet > 0 else 0
+                cbm_percentage = min(100, (primary_group['total_cbm'] / max_cbm) * 100) if max_cbm > 0 else 0
+                
+                # 大组中的每个货物都是一个小组（一行）
+                for subgroup_index, cargo in enumerate(primary_group['cargos']):
+                    # 计算这个货物的板数和CBM
+                    cargo_pallets = 0
+                    if cargo.get('label') == 'ACT':
+                        cargo_pallets = cargo.get('total_n_pallet_act', 0) or 0
+                    else:
+                        cargo_pallets = cargo.get('total_n_pallet_est', 0) or 0
+                    
+                    cargo_cbm = cargo.get('total_cbm', 0) or 0
+                    
+                    suggestion = {
+                        'id': f"{group_key}_{primary_group_index}_{subgroup_index}",
+                        'primary_group': {
+                            'destination': primary_group['destination'],
+                            'delivery_method': primary_group['delivery_method'],
+                            'total_pallets': primary_group['total_pallets'],
+                            'total_cbm': primary_group['total_cbm'],
+                            'pallets_percentage': pallets_percentage,
+                            'cbm_percentage': cbm_percentage,
+                        },
+                        'subgroup': {
+                            'cargos': [{
+                                'ids': cargo.get('ids', ''),  # 确保包含ids
+                                'plt_ids': cargo.get('plt_ids', ''),  # 确保包含plt_ids
+                                'container_numbers': cargo.get('container_numbers', ''),
+                                'total_n_pallet_act': cargo.get('total_n_pallet_act', 0),
+                                'total_n_pallet_est': cargo.get('total_n_pallet_est', 0),
+                                'total_cbm': cargo.get('total_cbm', 0),
+                                'label': cargo.get('label', ''),
+                            }],
+                            'total_pallets': cargo_pallets,
+                            'total_cbm': cargo_cbm,
+                            'container_numbers': cargo.get('container_numbers', ''),
+                            'cargo_count': 1
+                        },
+                        'subgroup_index': subgroup_index + 1,
+                    }
+                    suggestions.append(suggestion)
         return suggestions
     
     async def is_shipment_available(self, shipment):
