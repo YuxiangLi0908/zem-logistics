@@ -103,6 +103,7 @@
                     <span class="time-range-separator">ETD:</span>
                     <div class="layui-input-inline" style="width: 180px;">
                         <input type="datetime-local" name="etd_date" class="layui-input" id="etdDate"
+                               value="{{ etd_date|default:'' }}"
                                lay-verify="required" lay-reqText="请选择ETD时间">
                     </div>
 
@@ -111,6 +112,7 @@
                     <span class="time-range-separator">ETA:</span>
                     <div class="layui-input-inline" style="width: 180px;">
                         <input type="datetime-local" name="eta_date" class="layui-input" id="etaDate"
+                               value="{{ eta_date|default:'' }}"
                                lay-verify="required" lay-reqText="请选择ETA时间">
                     </div>
                 </div>
@@ -228,52 +230,80 @@
     </div>
 
     <script>
-        function formatDate(date) {
-            const year = date.getFullYear();
-            const month = String(date.getMonth() + 1).padStart(2, '0');
-            const day = String(date.getDate()).padStart(2, '0');
-            const hours = String(date.getHours()).padStart(2, '0');
-            const minutes = String(date.getMinutes()).padStart(2, '0');
-            return `${year}-${month}-${day}T${hours}:${minutes}`;
+        // 1. 格式化日期：处理后端可能返回的 "YYYY-MM-DD HH:MM" 转为 "YYYY-MM-DDTHH:MM"
+        function formatToDatetimeLocal(dateStr) {
+            if (!dateStr) return '';
+            // 替换空格为 "T"（适配 datetime-local 格式）
+            return dateStr.replace(' ', 'T').slice(0, 16); // 截取到分钟（去掉秒）
         }
 
-        function getDefaultDates() {
-            const now = new Date();
-            const eta = now;
-            const etd = new Date(now);
-            etd.setMonth(now.getMonth() - 1);
+        // 2. 计算当月默认范围（仅首次加载且后端无值时使用）
+        function getCurrentMonthRange() {
+            const today = new Date();
+            // ETD
+            const etd = new Date(today);
+            // ETA
+            const eta = new Date(today);
+            etd.setDate(today.getDate() - 30);
 
-            return {
-                etd: formatDate(etd),
-                eta: formatDate(eta)
+
+            // 格式化为 datetime-local 格式
+            const format = (date) => {
+                const y = date.getFullYear();
+                const m = String(date.getMonth() + 1).padStart(2, '0');
+                const d = String(date.getDate()).padStart(2, '0');
+                const h = String(date.getHours()).padStart(2, '0');
+                const min = String(date.getMinutes()).padStart(2, '0');
+                return `${y}-${m}-${d}T${h}:${min}`;
             };
+
+            return { etd: format(etd), eta: format(eta) };
         }
 
         document.addEventListener('DOMContentLoaded', function() {
-            const defaultDates = getDefaultDates();
             const etdInput = document.getElementById('etdDate');
             const etaInput = document.getElementById('etaDate');
+            const timeRange = getCurrentMonthRange();
 
-            if (!etdInput.value) etdInput.value = defaultDates.etd;
-            if (!etaInput.value) etaInput.value = defaultDates.eta;
+
+            const backendEtd = formatToDatetimeLocal('{{ etd_date|default:'' }}');
+            const backendEta = formatToDatetimeLocal('{{ eta_date|default:'' }}');
+
+            if (!etdInput.value && !backendEtd) {
+                etdInput.value = timeRange.etd;
+            }
+            if (!etaInput.value && !backendEta) {
+                etaInput.value = timeRange.eta;
+            }
         });
 
         layui.use(['form', 'laydate'], function() {
             const form = layui.form;
             const laydate = layui.laydate;
             const timeError = document.getElementById('timeError');
+            const etdInput = document.getElementById('etdDate');
+            const etaInput = document.getElementById('etaDate');
 
             // 初始化ETD日期选择器
             laydate.render({
                 elem: '#etdDate',
                 type: 'datetime',
-                format: 'yyyy-MM-ddTHH:mm',
+                format: 'yyyy-MM-ddTHH:mm', // 与 datetime-local 格式一致
+                // 动态获取默认值：优先输入框当前值，其次后端值，最后默认值
+                value: function() {
+                    return etdInput.value || formatToDatetimeLocal('{{ etd_date|default:'' }}') || getCurrentMonthRange().etd;
+                }(),
+                // ETD 最大不能超过 ETA（实时获取ETA值）
+                max: function() {
+                    return etaInput.value || formatToDatetimeLocal('{{ eta_date|default:'' }}') || getCurrentMonthRange().eta;
+                },
                 done: function(value) {
-                    document.getElementById('etdDate').classList.remove('layui-form-danger');
-                    document.getElementById('etaDate').classList.remove('layui-form-danger');
+                    // 选择后仅清除错误状态，不修改输入框值（避免二次覆盖）
+                    etdInput.classList.remove('layui-form-danger');
+                    etaInput.classList.remove('layui-form-danger');
                     timeError.textContent = '';
 
-                    // 限制ETA不能早于ETD
+                    // 同步更新 ETA 的最小限制
                     if (value) {
                         laydate.render({
                             elem: '#etaDate',
@@ -283,47 +313,54 @@
                 }
             });
 
-            // 初始化ETA日期选择器
+            // 5. 初始化 ETA 日期组件（同理同步值）
             laydate.render({
                 elem: '#etaDate',
                 type: 'datetime',
                 format: 'yyyy-MM-ddTHH:mm',
+                value: function() {
+                    return etaInput.value || formatToDatetimeLocal('{{ eta_date|default:'' }}') || getCurrentMonthRange().eta;
+                }(),
+                min: function() {
+                    return etdInput.value || formatToDatetimeLocal('{{ etd_date|default:'' }}') || getCurrentMonthRange().etd;
+                },
                 done: function(value) {
-                    document.getElementById('etdDate').classList.remove('layui-form-danger');
-                    document.getElementById('etaDate').classList.remove('layui-form-danger');
+                    etdInput.classList.remove('layui-form-danger');
+                    etaInput.classList.remove('layui-form-danger');
                     timeError.textContent = '';
                 }
             });
 
+            // 6. 表单提交校验：仅校验，不修改时间值
             form.on('submit(formSubmit)', function(data) {
                 const etdVal = data.field.etd_date;
                 const etaVal = data.field.eta_date;
-                const etdInput = document.getElementById('etdDate');
-                const etaInput = document.getElementById('etaDate');
+                let isValid = true;
 
+                // 校验必填
                 if (!etdVal) {
                     etdInput.classList.add('layui-form-danger');
                     timeError.textContent = '请选择ETD时间';
-                    return false;
+                    isValid = false;
                 }
-
                 if (!etaVal) {
                     etaInput.classList.add('layui-form-danger');
                     timeError.textContent = '请选择ETA时间';
-                    return false;
+                    isValid = false;
                 }
 
-                if (new Date(etdVal) > new Date(etaVal)) {
+                // 校验时间顺序
+                if (etdVal && etaVal && new Date(etdVal) > new Date(etaVal)) {
                     etdInput.classList.add('layui-form-danger');
                     etaInput.classList.add('layui-form-danger');
                     timeError.textContent = 'ETD时间不能晚于ETA时间';
-                    return false;
+                    isValid = false;
                 }
 
-                return true;
+                return isValid;
             });
 
-            // 柜号搜索功能
+            // 7. 柜号搜索逻辑保留不变
             const searchInput = document.getElementById('containerSearchInput');
             const clearBtn = document.getElementById('clearSearchBtn');
             const tableRows = document.querySelectorAll('.table-row');
@@ -333,10 +370,8 @@
             function filterTableByContainer(keyword) {
                 keyword = keyword.trim().toLowerCase();
                 let matchCount = 0;
-
                 tableRows.forEach(row => {
                     const container = row.getAttribute('data-container');
-
                     if (keyword === '' || container.includes(keyword)) {
                         row.style.display = '';
                         matchCount++;
@@ -344,22 +379,17 @@
                         row.style.display = 'none';
                     }
                 });
-
-                if (keyword !== '' && matchCount === 0) {
+                if (keyword && matchCount === 0) {
                     searchKeyword.textContent = keyword;
                     noMatchTip.style.display = 'block';
                 } else {
                     noMatchTip.style.display = 'none';
                 }
-
-                clearBtn.style.display = keyword !== '' ? 'inline-block' : 'none';
+                clearBtn.style.display = keyword ? 'inline-block' : 'none';
             }
 
-            searchInput.addEventListener('input', function() {
-                filterTableByContainer(this.value);
-            });
-
-            clearBtn.addEventListener('click', function() {
+            searchInput.addEventListener('input', () => filterTableByContainer(searchInput.value));
+            clearBtn.addEventListener('click', () => {
                 searchInput.value = '';
                 filterTableByContainer('');
             });

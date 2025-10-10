@@ -41,19 +41,18 @@ class OctSummaryView(View):
 
     async def oct_handle_warehouse_post(self, request: HttpRequest) -> tuple[str, dict[str, Any]]:
         warehouse = request.POST.get("warehouse")
-        eta = request.POST.get("eta_date")
-        etd = request.POST.get("etd_date")
-        pallets_list = await self._get_pallet(warehouse, eta, etd)
+        eta_date = request.POST.get("eta_date")
+        etd_date = request.POST.get("etd_date")
+        pallets_list = await self._get_pallet(warehouse, eta_date, etd_date)
         context = {
             "warehouse_options": self.warehouse_options,
             "warehouse": warehouse,
-            "datas": pallets_list  # 原有的数据列表
+            "datas": pallets_list,
+            "etd_date": etd_date,
+            "eta_date": eta_date,
         }
         return self.main_template, context
 
-    from django.db.models import F, Max, Sum, Case, When, IntegerField
-    from django.utils import timezone
-    from asgiref.sync import sync_to_async
 
     async def _get_pallet(self, warehouse: str, eta: str, etd: str) -> list[
         dict]:  # 1. 修正返回类型注解（values返回dict列表，非Pallet实例）
