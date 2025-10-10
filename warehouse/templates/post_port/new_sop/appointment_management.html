@@ -836,7 +836,7 @@
                             <th>总板数</th>
                             <th>总CBM</th>
                             <th>柜号</th>
-                            <th>推荐预约</th>
+                            <!-- 移除了推荐预约列 -->
                             <th>匹配度</th>
                             <th>操作</th>
                         </tr>
@@ -878,8 +878,7 @@
                                     {{ suggestion.subgroup.container_numbers|linebreaks_container }}
                                 </td>
                                 
-                                <!-- 推荐预约 - 每行都显示 -->
-                                <td>{{ suggestion.recommended_appointment.appointment_id }}</td>
+                                <!-- 移除了推荐预约列 -->
                                 
                                 <!-- 匹配度 - 每行都显示 -->
                                 <td>
@@ -917,6 +916,7 @@
                     </tbody>
                 </table>
             </div>
+        </div>
         </div>
     </div>
 </div>
