@@ -287,13 +287,13 @@ class PostNsop(View):
                 container_number__order__vessel_id__vessel_eta__lte=two_weeks_later, 
                 container_number__order__retrieval_id__retrieval_destination_precise=warehouse,
                 delivery_type='public',
-            ),
+            )& ~ models.Q(delivery_method__icontains='暂扣'),
             models.Q(
                 shipment_batch_number__shipment_batch_number__isnull=True,
                 container_number__order__offload_id__offload_at__isnull=False,
                 location=warehouse,
                 delivery_type='public',
-            ),
+            ) & ~ models.Q(delivery_method__icontains='暂扣'),
         )
         
         #未使用的约和异常的约
@@ -780,6 +780,28 @@ class PostNsop(View):
                 
                 cargo_cbm = cargo.get('total_cbm', 0) or 0
                 
+                # 如果单个货物就超过限制，单独成组
+                if cargo_pallets > max_pallet or cargo_cbm > max_cbm:
+                    # 当前子组如果有货物，先保存
+                    if current_subgroup['cargos']:
+                        subgroups.append(current_subgroup)
+                        current_subgroup = {
+                            'cargos': [],
+                            'total_pallets': 0,
+                            'total_cbm': 0,
+                            'container_numbers': set()
+                        }
+                    
+                    # 单独处理超限货物
+                    container_number = cargo.get('container_numbers')
+                    subgroups.append({
+                        'cargos': [cargo],
+                        'total_pallets': cargo_pallets,
+                        'total_cbm': cargo_cbm,
+                        'container_numbers': {container_number} if container_number else set()
+                    })
+                    continue
+                
                 # 收集柜号
                 container_number = cargo.get('container_numbers')
                 if container_number:
@@ -811,11 +833,11 @@ class PostNsop(View):
             total_group_pallets = sum(subgroup['total_pallets'] for subgroup in subgroups)
             total_group_cbm = sum(subgroup['total_cbm'] for subgroup in subgroups)
             
-            # 计算匹配度百分比
+            # 计算大组的匹配度百分比（基于整个大组的总量）
             pallets_percentage = min(100, (total_group_pallets / max_pallet) * 100) if max_pallet > 0 else 0
             cbm_percentage = min(100, (total_group_cbm / max_cbm) * 100) if max_cbm > 0 else 0
             
-            # 为每个子组创建建议（不匹配预约）
+            # 为每个子组创建建议
             for subgroup_index, subgroup in enumerate(subgroups):
                 suggestion = {
                     'id': f"{group_key}_{subgroup_index}",
@@ -824,8 +846,8 @@ class PostNsop(View):
                         'delivery_method': primary_group['delivery_method'],
                         'total_pallets': total_group_pallets,
                         'total_cbm': total_group_cbm,
-                        'pallets_percentage': pallets_percentage,  # 板数百分比
-                        'cbm_percentage': cbm_percentage,          # CBM百分比
+                        'pallets_percentage': pallets_percentage,  # 大组板数百分比
+                        'cbm_percentage': cbm_percentage,          # 大组CBM百分比
                     },
                     'subgroup': {
                         'cargos': subgroup['cargos'],
@@ -835,7 +857,6 @@ class PostNsop(View):
                         'cargo_count': len(subgroup['cargos'])
                     },
                     'subgroup_index': subgroup_index + 1,
-                    # 移除推荐预约相关字段
                 }
                 suggestions.append(suggestion)
         return suggestions
