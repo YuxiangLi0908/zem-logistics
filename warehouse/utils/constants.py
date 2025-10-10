@@ -486,6 +486,42 @@ CARRIER_FLEET = {
     "ZEM": "ZEM",
     "LiFeng": "LiFeng",
 }
+
+PORT_TO_WAREHOUSE_AREA = {
+    "LBCT Pier E": "LA",
+    "TRAPAC": "LA",
+    "GCT": "SAV",
+    "TTI": "LA",
+    "APM Terminals": "NJ",
+    "PIER A": "LA",
+    "FMS": "LA",
+    "NYCT": "NJ",
+    "NY": "NJ",
+    "Yusen": "LA",
+    "YUSEN": "LA",
+    "C60": "LA",
+    "APM TERMINALS": "NJ",
+    "GCTB": "NJ",
+    "Shippers (STL)": "LA",
+    "WBCT": "LA",
+    "PCT": "LA",
+    "ETS": "LA",
+    "MAHER": "NJ",
+    "ITS": "LA",
+    "Maher": "NJ",
+    "MATSON": "LA",
+    "FMS": "LA",
+    "LBCT": "LA",
+    "SSA": "LA",
+    "Shippers (STA)": "LA",
+    "PNCT": "NJ",
+    "APMT": "LA",
+    "APM": "NJ",
+    "TraPac LA": "LA",
+    "NTCT": "NJ",
+}
+
+
 file_path = Path(__file__).parent.resolve().joinpath("fba_fulfillment_center.yaml")
 with open(file_path, "r", encoding="utf-8") as f:
     amazon_fba_locations = yaml.safe_load(f)
