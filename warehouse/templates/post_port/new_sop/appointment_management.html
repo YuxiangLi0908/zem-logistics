@@ -688,7 +688,7 @@
                             <th data-sort="destination">目的地</th>
                             <th class="delivery-method-col" data-sort="delivery_method">派送方式</th>
                             <th class="container-col" data-sort="containers">柜号</th>
-                            <th data-sort="delivery_window">派送窗口</th>
+                            <th data-sort="delivery_window">派送时间窗口</th>
                             <th data-sort="pallets">板数</th>
                             <th data-sort="cbm">CBM</th>
                             <th data-sort="note">备注</th>
@@ -812,7 +812,7 @@
                                 <button class="btn btn-success btn-sm" id="confirm_{{ forloop.counter }}" onclick="confirmAppointment(this, '{{ s.appointment_id }}', '{{ forloop.counter }}')" style="display: none;">确认</button>
                             </td>
                             <td class="td">
-                                {{ s.load_type }}
+                                {{ s.load_type|default_if_none:"" }}
                             </td>
                             <td class="td">{% if s.origin %}{{ s.origin }}{% endif %}</td>
                         </tr>
