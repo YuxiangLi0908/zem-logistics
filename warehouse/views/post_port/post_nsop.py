@@ -39,7 +39,7 @@ from warehouse.views.post_port.shipment.fleet_management import FleetManagement
 
 
 class PostNsop(View):
-    template_main_dash = "post_port/new_sop/appointment_management.html"
+    template_main_dash = "post_port/new_sop/01_appointment_management.html"
     area_options = {"NJ": "NJ", "SAV": "SAV", "LA": "LA", "MO": "MO", "TX": "TX"}
     warehouse_options = {"":"", "NJ-07001": "NJ-07001", "SAV-31326": "SAV-31326", "LA-91761": "LA-91761"}
 
