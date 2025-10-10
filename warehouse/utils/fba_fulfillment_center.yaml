@@ -2368,3 +2368,13 @@ HEA2:
   location: 650 Boulder Dr
   state: PA
   zipcode: '18031'
+IUSW:
+  city: Hesperia
+  location: 8130 Caliente Rd
+  state: CA
+  zipcode: '92344'
+IAH3:
+  city: Houston
+  location: 15525 Milner Rd
+  state: TX
+  zipcode: '77032'

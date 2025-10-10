@@ -2111,6 +2111,7 @@ class Accounting(View):
             "东海岸": "东海岸",
             "ARM": "ARM",
             "GM": "GM",
+            "BEST": "BEST",
         }
         warehouse_carriers = {
             "BBR": "BBR",
@@ -4274,6 +4275,7 @@ class Accounting(View):
             "BBR": "BBR",
             "KNO": "KNO",
             "GM": "GM",
+            "BEST": "BEST",
         }
         context = {
             "order": order,

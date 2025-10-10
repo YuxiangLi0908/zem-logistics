@@ -1,0 +1,340 @@
+{% extends 'base.html' %}
+{% block content %}
+    <link href="//unpkg.com/layui@2.12.0/dist/css/layui.css" rel="stylesheet">
+    <script src="https://cdn.jsdelivr.net/npm/layui-src/dist/layui.js"></script>
+    <style>
+        .container_main {
+            margin-top: 55px;
+            padding: 0 20px;
+        }
+
+        .layui-form-item .layui-form-label {
+            padding-right: 10px;
+        }
+
+        .form-container {
+            margin-bottom: 20px;
+            padding: 15px;
+            background-color: #f8f9fa;
+            border-radius: 4px;
+        }
+
+        .layui-form-label {
+            position: relative;
+            float: left;
+            display: block;
+            padding: 9px 15px;
+            width: 60px;
+            font-weight: 400;
+            line-height: 20px;
+            text-align: left;
+        }
+
+        /* 时间范围选择组样式 */
+        .time-range-group {
+            display: inline-flex;
+            align-items: center;
+            gap: 15px;
+            margin-left: 20px;
+        }
+
+        .time-range-separator {
+            color: #666;
+            font-weight: 500;
+            padding: 0 5px;
+        }
+
+        .table-search-bar {
+            background-color: #f5f7fa;
+            padding: 12px 15px;
+            border: 1px solid #e6e6e6;
+            border-bottom: none;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+
+        .table-search-bar .layui-input {
+            width: 220px;
+            border-radius: 4px;
+        }
+
+        .clear-btn {
+            display: none;
+        }
+
+        .no-match-tip {
+            display: none;
+            text-align: center;
+            padding: 40px 0;
+            color: #6c757d;
+            font-size: 14px;
+        }
+
+        /* 表单校验样式 */
+        .error提示 {
+            color: #ff4d4f;
+            font-size: 12px;
+            margin-top: 5px;
+            margin-left: 85px;
+            height: 16px;
+        }
+    </style>
+
+    <div class="container_main">
+        <form method="post" action="" class="layui-form form-container" id="searchForm">
+            {% csrf_token %}
+            <div class="layui-form-item">
+                <label class="layui-form-label">仓库:</label>
+                <div class="layui-input-inline" style="width: 200px;">
+                    <select name="warehouse" class="layui-select" lay-verify="required" lay-reqText="请选择仓库">
+                        {% if not warehouse_options %}
+                            <option value="">暂无仓库数据</option>
+                        {% else %}
+                            {% for k, v in warehouse_options.items %}
+                                <option value="{{ v }}" {% if v == warehouse %}selected{% endif %}>{{ k }}</option>
+                            {% endfor %}
+                        {% endif %}
+                    </select>
+                </div>
+
+                <!-- 时间范围选择 -->
+                <div class="time-range-group">
+                    <span class="time-range-separator">ETD:</span>
+                    <div class="layui-input-inline" style="width: 180px;">
+                        <input type="datetime-local" name="etd_date" class="layui-input" id="etdDate"
+                               value="{{ etd_date }}" lay-verify="required" lay-reqText="请选择ETD时间">
+                    </div>
+
+                    <span class="time-range-separator">至</span>
+
+                    <span class="time-range-separator">ETA:</span>
+                    <div class="layui-input-inline" style="width: 180px;">
+                        <input type="datetime-local" name="eta_date" class="layui-input" id="etaDate"
+                               value="{{ eta_date }}" lay-verify="required" lay-reqText="请选择ETA时间">
+                    </div>
+                </div>
+
+                <input type="hidden" name="step" value="warehouse">
+                <button type="submit" class="layui-btn" style="margin-left: 20px;" lay-submit lay-filter="formSubmit">
+                    确认加载数据
+                </button>
+            </div>
+            <!-- 错误提示区域 -->
+            <div class="error提示" id="timeError"></div>
+        </form>
+
+        <div class="table-wrapper">
+            <div class="table-search-bar layui-form">
+                <label class="layui-form-label" style="width: auto; padding: 9px 0;">柜号搜索:</label>
+                <input type="text" id="containerSearchInput" placeholder="输入柜号（支持模糊匹配）" class="layui-input">
+                <button type="button" id="clearSearchBtn" class="layui-btn layui-btn-primary clear-btn">清空</button>
+            </div>
+
+            <table class="layui-table" id="dataTable">
+                <thead>
+                <tr>
+                    <th>下单日期</th>
+                    <th>客户</th>
+                    <th>所属仓/直送地址</th>
+                    <th>调度备注</th>
+                    <th>柜号</th>
+                    <th>MBL</th>
+                    <th>船司</th>
+                    <th>船名航次</th>
+                    <th>柜型</th>
+                    <th>船期</th>
+                    <th>ETD</th>
+                    <th>ETA</th>
+                    <th>放行状态</th>
+                    <th>供应商</th>
+                    <th>调度委托</th>
+                    <th>私仓数量</th>
+                </tr>
+                </thead>
+                <tbody id="tableBody">
+                {% for data in datas %}
+                    <tr class="table-row" data-container="{{ data.container|default:''|lower }}">
+                        <td>{{ data.created_at|date:"Y-m-d H:i"}}</td>
+                        <td>{{ data.customer_name}}</td>
+                        <td>{{ data.retrieval_destination_area}}</td>
+                        <td>{{ data.retrieval_note|default:"无" }}</td>
+                        <td>
+                            <a href="/terminal_dispatch/?step=update_pickup_schedule&container_number={{ data.container }}"
+                               style="color: #0066cc;" target="_blank">{{ data.container}}</a>
+                        </td>
+                        <td>{{ data.mbl}}</td>
+                        <td>{{ data.shipping_line}}</td>
+                        <td>{{ data.vessel}}</td>
+                        <td>{{ data.container_type}}</td>
+                        <td>
+                            {% if data.vessel_date %}
+                                {{ data.vessel_date.days }}天
+                            {% else %}
+                                -
+                            {% endif %}
+                        </td>
+                        <td>{{ data.vessel_etd|date:"Y-m-d H:i"}}</td>
+                        <td>{{ data.vessel_eta|date:"Y-m-d H:i"}}</td>
+                        <td>
+                            {% if data.temp_t49_available_for_pickup == True %}
+                                <span style="color: #28a745;">√</span>
+                            {% else %}
+                                <span style="color: #dc3545;">{{ data.temp_t49_available_for_pickup|default:"×" }}</span>
+                            {% endif %}
+                        </td>
+                        <td>{{ data.retrieval_carrier}}</td>
+                        <td>
+                            {% if data.retrieval_carrier %}
+                                <span style="color: #28a745;">√</span>
+                            {% else %}
+                                <span style="color: #dc3545;">×</span>
+                            {% endif %}
+                        </td>
+                        <td>
+                            {% with ke=data.ke_destination_num|default:0 si=data.si_destination_num|default:0 %}
+                                {% if ke > 0 %}
+                                    客{{ ke }}
+                                {% elif si > 0 %}
+                                    私{{ si }}
+                                {% else %}
+                                    无
+                                {% endif %}
+                            {% endwith %}
+                        </td>
+                    </tr>
+                {% empty %}
+                    <tr>
+                        <td colspan="16" style="text-align: center; padding: 40px 0; color: #6c757d;">
+                            {% if warehouse %}
+                                未找到符合条件的数据
+                            {% else %}
+                                请选择仓库和时间范围并点击"确认加载数据"
+                            {% endif %}
+                        </td>
+                    </tr>
+                {% endfor %}
+                </tbody>
+            </table>
+            <div id="noMatchTip" class="no-match-tip">
+                未找到匹配" <span id="searchKeyword"></span> "的柜号数据
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // 1. 时间格式化：仅在后端未回传值时，才填充默认时间（避免覆盖用户选择）
+        function formatToDatetimeLocal(dateStr) {
+            if (!dateStr) return '';
+            // 处理后端可能返回的 "YYYY-MM-DD HH:MM:SS" 格式，转为 "YYYY-MM-DDTHH:MM"
+            return dateStr.replace(' ', 'T').slice(0, 16);
+        }
+
+        // 2. 默认时间计算：仅在后端无回传值时使用
+        function getDefaultTimeRange() {
+            const today = new Date();
+            const etd = new Date(today);
+            etd.setDate(today.getDate() - 30); // ETD=当前时间-30天
+            const eta = new Date(today); // ETA=当前时间
+
+            const format = (date) => {
+                const y = date.getFullYear();
+                const m = String(date.getMonth() + 1).padStart(2, '0');
+                const d = String(date.getDate()).padStart(2, '0');
+                const h = String(date.getHours()).padStart(2, '0');
+                const min = String(date.getMinutes()).padStart(2, '0');
+                return `${y}-${m}-${d}T${h}:${min}`;
+            };
+            return { etd: format(etd), eta: format(eta) };
+        }
+
+        // 3. 页面加载：仅在后端无回传值时，才填充默认时间
+        document.addEventListener('DOMContentLoaded', function() {
+            const etdInput = document.getElementById('etdDate');
+            const etaInput = document.getElementById('etaDate');
+            const defaultTime = getDefaultTimeRange();
+
+            // 后端未回传 etd_date 时，才填充默认值
+            if (!etdInput.value) {
+                etdInput.value = defaultTime.etd;
+            }
+            // 后端未回传 eta_date 时，才填充默认值
+            if (!etaInput.value) {
+                etaInput.value = defaultTime.eta;
+            }
+
+            // 初始化搜索功能（已修复，保持不变）
+            const initSearch = () => {
+                const tableRows = document.querySelectorAll('#tableBody .table-row');
+                const searchInput = document.getElementById('containerSearchInput');
+                const clearBtn = document.getElementById('clearSearchBtn');
+                const noMatchTip = document.getElementById('noMatchTip');
+                const searchKeywordEl = document.getElementById('searchKeyword');
+
+                const filter = (keyword) => {
+                    keyword = keyword.trim().toLowerCase();
+                    let matchCount = 0;
+                    if (tableRows.length === 0) { noMatchTip.style.display = 'none'; return; }
+                    tableRows.forEach(row => {
+                        const container = row.getAttribute('data-container') || '';
+                        if (keyword === '' || container.includes(keyword)) { row.style.display = ''; matchCount++; }
+                        else { row.style.display = 'none'; }
+                    });
+                    noMatchTip.style.display = (keyword && matchCount === 0) ? 'block' : 'none';
+                    searchKeywordEl.textContent = keyword;
+                    clearBtn.style.display = keyword ? 'inline-block' : 'none';
+                };
+
+                searchInput.addEventListener('input', () => filter(searchInput.value));
+                clearBtn.addEventListener('click', () => { searchInput.value = ''; filter(''); });
+                filter(searchInput.value);
+            };
+            initSearch();
+
+
+            layui.use(['form', 'laydate'], function() {
+                const form = layui.form;
+                const laydate = layui.laydate;
+                const timeError = document.getElementById('timeError');
+
+                laydate.render({
+                    elem: '#etdDate', type: 'datetime', format: 'yyyy-MM-ddTHH:mm',
+                    value: etdInput.value || defaultTime.etd,
+                    max: etaInput.value || defaultTime.eta,
+                    done: (value) => {
+                        etdInput.classList.remove('layui-form-danger');
+                        etaInput.classList.remove('layui-form-danger');
+                        timeError.textContent = '';
+                        if (value) laydate.render({ elem: '#etaDate', min: value });
+                    }
+                });
+
+                laydate.render({
+                    elem: '#etaDate', type: 'datetime', format: 'yyyy-MM-ddTHH:mm',
+                    value: etaInput.value || defaultTime.eta,
+                    min: etdInput.value || defaultTime.etd,
+                    done: () => {
+                        etdInput.classList.remove('layui-form-danger');
+                        etaInput.classList.remove('layui-form-danger');
+                        timeError.textContent = '';
+                    }
+                });
+
+                form.on('submit(formSubmit)', function(data) {
+                    const etdVal = data.field.etd_date;
+                    const etaVal = data.field.eta_date;
+                    let isValid = true;
+                    if (!etdVal) { etdInput.classList.add('layui-form-danger'); timeError.textContent = '请选择ETD时间'; isValid = false; }
+                    if (!etaVal) { etaInput.classList.add('layui-form-danger'); timeError.textContent = '请选择ETA时间'; isValid = false; }
+                    if (etdVal && etaVal && new Date(etdVal) > new Date(etaVal)) {
+                        etdInput.classList.add('layui-form-danger');
+                        etaInput.classList.add('layui-form-danger');
+                        timeError.textContent = 'ETD时间不能晚于ETA时间';
+                        isValid = false;
+                    }
+                    return isValid;
+                });
+            });
+        });
+    </script>
+{% endblock %}
