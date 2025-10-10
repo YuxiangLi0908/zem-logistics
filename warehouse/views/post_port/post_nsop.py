@@ -300,7 +300,14 @@ class PostNsop(View):
         shipments = await self.get_shipments_by_warehouse(warehouse)
         
         summary = await self.calculate_summary(unshipment_pos, shipments)
-        matching_suggestions = await self.get_matching_suggestions(unshipment_pos, shipments)
+        st_type = request.POST.get('st_type')
+        if st_type == "pallet":
+            max_cbm = 72
+            max_pallet = 35
+        elif st_type == "floor":
+            max_cbm = 80
+            max_pallet = 38
+        matching_suggestions = await self.get_matching_suggestions(unshipment_pos, shipments,max_cbm,max_pallet)
         auto_matches = await self.get_auto_matches(unshipment_pos, shipments)
         
         context = {
@@ -314,6 +321,9 @@ class PostNsop(View):
             'matching_count': len(matching_suggestions),
             'matching_suggestions': matching_suggestions,
             'auto_matches': auto_matches,
+            'st_type': st_type,
+            'max_cbm': max_cbm,
+            'max_pallet': max_pallet,
         }
         
         return self.template_main_dash, context
@@ -676,8 +686,9 @@ class PostNsop(View):
         # 根据你的数据结构，判断是否有预约号
         return cargo.get('shipment_batch_number__shipment_batch_number') is not None
     
-    async def get_matching_suggestions(self, unshipment_pos, shipments):
+    async def get_matching_suggestions(self, unshipment_pos, shipments, max_cbm,max_pallet):
         """异步生成智能匹配建议 - 适配新的数据结构"""
+        
         suggestions = []
     
         # 第一级分组：按目的地和派送方式
@@ -713,7 +724,7 @@ class PostNsop(View):
             
             # 按ETA排序，优先安排早的货物
             sorted_cargos = sorted(cargos, key=lambda x: x.get('container_number__order__vessel_id__vessel_eta') or '')
-            
+            print('sorted_cargos',sorted_cargos)
             for cargo in sorted_cargos:
                 cargo_pallets = 0
                 if cargo.get('label') == 'ACT':
@@ -724,13 +735,14 @@ class PostNsop(View):
                 cargo_cbm = cargo.get('total_cbm', 0) or 0
                 
                 # 收集柜号
-                container_number = cargo.get('container_number__container_number')
+                container_number = cargo.get('container_numbers')
+                #print('container_number',container_number)
                 if container_number:
                     current_subgroup['container_numbers'].add(container_number)
                 
                 # 检查是否可以加入当前子组
-                if (current_subgroup['total_pallets'] + cargo_pallets <= 35 and 
-                    current_subgroup['total_cbm'] + cargo_cbm <= 72):
+                if (current_subgroup['total_pallets'] + cargo_pallets <= max_pallet and 
+                    current_subgroup['total_cbm'] + cargo_cbm <= max_cbm):
                     # 可以加入当前子组
                     current_subgroup['cargos'].append(cargo)
                     current_subgroup['total_pallets'] += cargo_pallets
@@ -755,8 +767,8 @@ class PostNsop(View):
             total_group_cbm = sum(subgroup['total_cbm'] for subgroup in subgroups)
             
             # 计算匹配度百分比
-            pallets_percentage = min(100, (total_group_pallets / 35) * 100) if 35 > 0 else 0
-            cbm_percentage = min(100, (total_group_cbm / 72) * 100) if 72 > 0 else 0
+            pallets_percentage = min(100, (total_group_pallets / max_cbm) * 100) if max_cbm > 0 else 0
+            cbm_percentage = min(100, (total_group_cbm / max_pallet) * 100) if max_pallet > 0 else 0
             
             # 为每个子组查找匹配的预约
             for subgroup_index, subgroup in enumerate(subgroups):

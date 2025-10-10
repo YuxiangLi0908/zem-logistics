@@ -2,6 +2,8 @@ import datetime
 from typing import Any
 
 from django import template
+from django.utils.safestring import mark_safe
+import re
 
 register = template.Library()
 
@@ -115,3 +117,12 @@ def get_item(obj, key):
         return obj.get(key)
     else:
         return getattr(obj, key, None)
+
+@register.filter
+def linebreaks_container(value):
+    if not value:
+        return ""
+    # 在每个逗号和方括号前添加换行
+    result = re.sub(r',\s*', ',\n', str(value))
+    result = re.sub(r'(\[)', r'\n\1', result)
+    return mark_safe(result)
