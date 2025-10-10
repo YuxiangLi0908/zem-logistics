@@ -69,6 +69,7 @@
                         <th class="th" style="min-width: 110px;">ETD</th>
                         <th class="th">订单类型</th>
                         <th class="th">柜型</th>
+                        <th class="th" style="min-width: 140px;">船名</th>
                         <th class="th" style="min-width: 140px;">船/航空公司</th>
                         <th class="th">MBL</th>
                         <th class="th" style="min-width: 140px;">始发港</th>
@@ -87,6 +88,7 @@
                         <th class="th"></th>
                         <th class="th"></th>
                         <th class="th"></th>
+                        <th class="th"><input type="text" id="vesselSearchInput" placeholder="船名" oninput="filterTable()" style="width:120px;"></th>
                         <th class="th"></th>
                         <th class="th"></th>
                         <th class="th"></th>
@@ -128,6 +130,7 @@
                         </td>               
                         <td class="td">{{ o.order_type }}</td>
                         <td class="td">{{ o.container_number.container_type }}</td>
+                        <td class="td">{{ o.vessel_id.vessel }}</td>
                         <td class="td">{{ o.vessel_id.shipping_line }}</td>
                         <td class="td">{{ o.vessel_id.master_bill_of_lading }}</td>
                         <td class="td">{{ o.vessel_id.origin_port }}</td>
@@ -229,44 +232,69 @@
     });
 
     function filterTable() {
-        var containerInput, customerInput, containerFilter, customerFilter, table, tbody, tr, containerTd, customerTd, i, containerTxtValue, customerTxtValue;
-        var forcastInput, forcastFilter, forcastTxtValue;
+        var containerInput, customerInput, forcastInput, vesselInput;
+        var containerFilter, customerFilter, forcastFilter, vesselFilter;
+        var table, tbody, tr, containerTd, customerTd, forcastTd, vesselTd, i;
+        var containerTxtValue, customerTxtValue, forcastTxtValue, vesselTxtValue;
+        
+        // 获取输入框
         containerInput = document.getElementById("containerSearchInput");
         customerInput = document.getElementById("customerSearchInput");
         forcastInput = document.getElementById("forcastSearchInput");
+        vesselInput = document.getElementById("vesselSearchInput");
+        
+        // 获取过滤值
         containerFilter = containerInput.value.trim().toUpperCase();
         customerFilter = customerInput.value.trim().toUpperCase();
         forcastFilter = forcastInput.value.trim().toUpperCase();
+        vesselFilter = vesselInput.value.trim().toUpperCase();
+        
         table = document.getElementById("order-table");
         tbody = table.getElementsByTagName("tbody")[0];
         tr = tbody.getElementsByTagName("tr");
-        var parts = containerFilter.split(/\W/);  //按照除字母数字（柜号）外的字符分组
-        for (var i = 0; i < parts.length; i++) {
-            var part = parts[i];  
-        }
+        
+        // 处理柜号的多条件搜索
+        var containerParts = containerFilter.split(/\W/);
         
         for (i = 0; i < tr.length; i++) {
-            containerTd = tr[i].getElementsByTagName("td")[2]; // Index 1 corresponds to the container_number__container_number column
-            customerTd = tr[i].getElementsByTagName("td")[1]; // Index 2 corresponds to the customer column
-            forcastTd = tr[i].getElementsByTagName("td")[3];
-            if (containerTd && customerTd && forcastTd) {
+            containerTd = tr[i].getElementsByTagName("td")[2]; // 柜号列
+            customerTd = tr[i].getElementsByTagName("td")[1]; // 客户列
+            forcastTd = tr[i].getElementsByTagName("td")[3]; // 状态列
+            vesselTd = tr[i].getElementsByTagName("td")[9]; // 船名列（索引9）
+            
+            if (containerTd && customerTd && forcastTd && vesselTd) {
                 containerTxtValue = containerTd.textContent || containerTd.innerText;
                 customerTxtValue = customerTd.textContent || customerTd.innerText;
                 forcastTxtValue = forcastTd.textContent || forcastTd.innerText;
+                vesselTxtValue = vesselTd.textContent || vesselTd.innerText;
+                
+                // 客户过滤
                 var customerDisplayStyle = customerTxtValue.toUpperCase().indexOf(customerFilter) > -1 ? "" : "none";
+                
+                // 状态过滤
                 var forcastDisplayStyle = forcastTxtValue.toUpperCase().indexOf(forcastFilter) > -1 ? "" : "none";
+                
+                // 船名过滤
+                var vesselDisplayStyle = vesselTxtValue.toUpperCase().indexOf(vesselFilter) > -1 ? "" : "none";
+                
+                // 柜号过滤（支持多条件）
                 var containerDisplayStyle = "none";
-                if (parts.length >0){              //如果一次输入多个柜号，则分开处理柜号的显示属性
-                    for(var j=0;j<parts.length;j++){
-                        if(containerTxtValue.toUpperCase().indexOf(parts[j]) > -1){
-                            var containerDisplayStyle = "";
+                if (containerParts.length > 0) {
+                    for(var j = 0; j < containerParts.length; j++) {
+                        if(containerTxtValue.toUpperCase().indexOf(containerParts[j]) > -1) {
+                            containerDisplayStyle = "";
                             break;
                         }
                     }
-                }else{
+                } else {
                     containerDisplayStyle = containerTxtValue.toUpperCase().indexOf(containerFilter) > -1 ? "" : "none";
                 }
-                tr[i].style.display = containerDisplayStyle === "" && customerDisplayStyle === "" && forcastDisplayStyle === "" ? "" : "none";
+                
+                // 综合所有过滤条件
+                tr[i].style.display = (containerDisplayStyle === "" && 
+                                    customerDisplayStyle === "" && 
+                                    forcastDisplayStyle === "" && 
+                                    vesselDisplayStyle === "") ? "" : "none";
             }
         }
     };
