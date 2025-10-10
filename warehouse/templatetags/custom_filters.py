@@ -132,3 +132,15 @@ def linebreaks_container(value):
     result = result.lstrip('\n')
     
     return mark_safe(result)
+
+@register.filter
+def linebreaks_cn(value):
+    if not value:
+        return ""
+    
+    # 直接按逗号分割，然后清理每个项目
+    items = [item.strip() for item in str(value).split(',') if item.strip()]
+    # 用换行符连接，不加逗号
+    result = '\n'.join(items)
+    
+    return mark_safe(result)
