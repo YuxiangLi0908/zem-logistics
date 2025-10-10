@@ -36,7 +36,9 @@ from warehouse.models.order import Order
 from warehouse.models.po_check_eta import PoCheckEtaSeven
 from warehouse.models.shipment import Shipment
 from warehouse.views.post_port.shipment.fleet_management import FleetManagement
-
+from warehouse.utils.constants import (
+    LOAD_TYPE_OPTIONS
+)
 
 class PostNsop(View):
     template_main_dash = "post_port/new_sop/01_appointment_management.html"
@@ -44,6 +46,14 @@ class PostNsop(View):
     template_fleet_schedule = "post_port/new_sop/03_fleet_schedule.html.html"
     area_options = {"NJ": "NJ", "SAV": "SAV", "LA": "LA", "MO": "MO", "TX": "TX"}
     warehouse_options = {"":"", "NJ-07001": "NJ-07001", "SAV-31326": "SAV-31326", "LA-91761": "LA-91761"}
+    account_options = {
+        "": "",
+        "Carrier Central1": "Carrier Central1",
+        "Carrier Central2": "Carrier Central2",
+        "ZEM-AMF": "ZEM-AMF",
+        "ARM-AMF": "ARM-AMF",
+        "walmart": "walmart",
+    }
 
     async def get(self, request: HttpRequest) -> HttpResponse:
         if not await self._user_authenticate(request):
@@ -100,8 +110,7 @@ class PostNsop(View):
     async def handle_export_pos(self, request: HttpRequest) -> HttpResponse:
         packinglist_ids = request.POST.getlist("cargo_ids")
         pallet_ids = request.POST.getlist("plt_ids")
-        print('packinglist_ids',packinglist_ids)
-        print('pallet_ids',pallet_ids)
+
         if packinglist_ids and packinglist_ids[0]:
             packinglist_ids = packinglist_ids[0].split(',')
         else:
@@ -343,6 +352,8 @@ class PostNsop(View):
             'max_cbm': max_cbm,
             'max_pallet': max_pallet,
             'warehouse_options': self.warehouse_options,
+            "account_options": self.account_options,
+            "load_type_options": LOAD_TYPE_OPTIONS,
         } 
         return self.template_td_shipment, context
     
@@ -365,6 +376,7 @@ class PostNsop(View):
         
         # 生成智能匹配建议
         matching_suggestions = await self.generate_matching_suggestions(unshipment_pos, shipments)
+        #print('找到匹配约', matching_suggestions)
         
         # 只返回匹配建议，不返回原始未排约数据
         return matching_suggestions
@@ -375,16 +387,14 @@ class PostNsop(View):
         shipments = await sync_to_async(list)(
             Shipment.objects.filter(
                 models.Q(shipment_batch_number__isnull=True) &
-                models.Q(in_use=True) &
-                models.Q(is_canceled=False) &
-                models.Q(destination=warehouse)
+                models.Q(in_use=False) &
+                models.Q(is_canceled=False) 
             )
         )
         return shipments
 
     async def generate_matching_suggestions(self, unshipment_pos, shipments, max_cbm=33, max_pallet=26):
         """生成智能匹配建议 - 基于功能A的逻辑但适配shipment匹配"""
-        
         suggestions = []
 
         # 第一级分组：按目的地和派送方式预分组
@@ -504,23 +514,38 @@ class PostNsop(View):
         
         for shipment in shipments:
             # 检查目的地是否匹配
-            if shipment.get('destination') != destination:
+            if shipment.destination != destination:
                 continue
-                
             # 检查时间窗口条件
             if await self.check_time_window_match(primary_group, shipment):
                 matched_shipments.append(shipment)
-        
-        # 如果有多个匹配的shipment，可以选择最优的一个
-        # 这里简单返回第一个匹配的，您可以根据需要调整策略
-        return matched_shipments[0] if matched_shipments else None
 
+        # 这里简单返回第一个匹配的，您可以根据需要调整策略
+        if matched_shipments:
+            matched = matched_shipments[0]
+            return {
+                'appointment_id': matched.appointment_id,
+                'shipment_appointment': matched.shipment_appointment,
+                'origin': matched.origin,
+                'load_type': matched.load_type,
+                'shipment_account': matched.shipment_account,
+                'shipment_type': matched.shipment_type,
+                'address': matched.address,
+                'carrier': matched.carrier,
+                'note': matched.note,
+                'ARM_BOL': matched.ARM_BOL,
+                'ARM_PRO': matched.ARM_PRO,
+                'express_number': matched.express_number,
+            }
+        return None
+    
     async def check_time_window_match(self, primary_group, shipment):
         """检查时间窗口是否匹配"""
-        shipment_appointment = shipment.get('shipment_appointment')
+        shipment_appointment = shipment.shipment_appointment
         if not shipment_appointment:
             return False
         
+        shipment_date = shipment_appointment.date()
         # 检查小组中的每个货物
         for cargo in primary_group['cargos']:
             window_start = cargo.get('delivery_window_start')
@@ -528,7 +553,7 @@ class PostNsop(View):
             
             # 如果货物有时间窗口，检查shipment时间是否在窗口内
             if window_start and window_end:
-                if not (window_start <= shipment_appointment <= window_end):
+                if not (window_start <= shipment_date <= window_end):
                     return False
             # 如果货物没有时间窗口，跳过时间检查（只要求目的地匹配）
         
@@ -1049,7 +1074,6 @@ class PostNsop(View):
                 .distinct()
             )
             data += pl_list
-            print('pl_list',len(pl_list),pl_criteria)
         return data
 
     async def get_shipments_by_warehouse(self, warehouse):
