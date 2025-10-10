@@ -40,7 +40,7 @@ from warehouse.views.post_port.shipment.fleet_management import FleetManagement
 class PostNsop(View):
     template_main_dash = "post_port/new_sop/appointment_management.html"
     area_options = {"NJ": "NJ", "SAV": "SAV", "LA": "LA", "MO": "MO", "TX": "TX"}
-    warehouse_options = {"NJ-07001": "NJ-07001", "SAV-31326": "SAV-31326", "LA-91761": "LA-91761"}
+    warehouse_options = {"":"", "NJ-07001": "NJ-07001", "SAV-31326": "SAV-31326", "LA-91761": "LA-91761"}
 
     async def get(self, request: HttpRequest) -> HttpResponse:
         if not await self._user_authenticate(request):
@@ -659,14 +659,14 @@ class PostNsop(View):
         for shipment in shipments:
             # 检查预约是否已过期
             is_expired = (
-                shipment.shipment_appointment and 
-                shipment.shipment_appointment < now
+                shipment.shipment_appointment_utc and 
+                shipment.shipment_appointment_utc < now
             )
             
             # 检查预约是否即将过期（7天内）
             is_urgent = (
-                shipment.shipment_appointment and 
-                shipment.shipment_appointment - now < timedelta(days=7) and
+                shipment.shipment_appointment_utc and 
+                shipment.shipment_appointment_utc - now < timedelta(days=7) and
                 not is_expired
             )
             

@@ -571,19 +571,19 @@
     <div class="appointment-header">
         <div class="appointment-logo">
             <i class="fas fa-calendar-check"></i>
-            <span>亚马逊备约管理系统 - {{ warehouse }}</span>
+            <span>亚马逊备约管理 - {{ warehouse }}</span>
         </div>
         <div class="warehouse-selector">
             <form method="post" action="" onsubmit="showLoadingBar()" class="warehouse-selector">
                 {% csrf_token %}
-                <label for="warehouse">选择仓库:</label>
+                <label for="warehouse">仓库:</label>
                 <select name="warehouse" style="padding: 5px; border-radius: 4px; border: 1px solid #ced4da;">
                     {% for k, v in warehouse_options.items %}
                     <option value="{{ v }}" {% if k == warehouse %}selected{% endif %}>{{ k }}</option>
                     {% endfor %}
                 </select>
                 
-                <label for="st-type-select">选择智能约类型</label>
+                <label for="st-type-select">约类型</label>
                 <select name="st_type" id="st-type-select" style="width: 60px !important; min-width: 60px !important; max-width: 60px !important; padding: 3px 5px !important; border-radius: 4px; border: 1px solid #ced4da; font-size: 13px; box-sizing: border-box;">
                     <option value="pallet" {% if st_type == 'pallet' %}selected{% endif %}>卡板</option>
                     <option value="floor" {% if st_type == 'floor' %}selected{% endif %}>地板</option>
@@ -841,7 +841,6 @@
                         <th>总板数</th>
                         <th>总CBM</th>
                         <th>柜号</th>
-                        <!-- 移除了推荐预约列 -->
                         <th>匹配度</th>
                         <th>操作</th>
                     </tr>
