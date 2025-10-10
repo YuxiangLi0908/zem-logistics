@@ -34,14 +34,15 @@
         .time-range-group {
             display: inline-flex;
             align-items: center;
-            gap: 15px;
+            gap: 8px;
             margin-left: 20px;
         }
 
-        .time-range-separator {
+        /* 联动分隔符（替换原文本分隔符，与Layui默认一致） */
+        .layui-form-mid {
             color: #666;
-            font-weight: 500;
-            padding: 0 5px;
+            padding: 0 4px;
+            line-height: 38px; /* 与输入框高度对齐 */
         }
 
         .table-search-bar {
@@ -79,50 +80,64 @@
             margin-left: 85px;
             height: 16px;
         }
+
+        /* 年月选择器样式（保留日历图标，与layui-input统一） */
+        .year-month-picker {
+            background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='16' height='16' viewBox='0 0 24 24' fill='none' stroke='%23333' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Crect x='3' y='4' width='18' height='18' rx='2' ry='2'%3E%3C/rect%3E%3Cline x1='16' y1='2' x2='16' y2='6'%3E%3C/line%3E%3Cline x1='8' y1='2' x2='8' y2='6'%3E%3C/line%3E%3Cline x1='3' y1='10' x2='21' y2='10'%3E%3C/line%3E%3C/ svg%3E");
+            background-repeat: no-repeat;
+            background-position: right 10px center;
+            background-size: 16px;
+            cursor: pointer; /* 提示可点击 */
+        }
     </style>
 
     <div class="container_main">
         <form method="post" action="" class="layui-form form-container" id="searchForm">
             {% csrf_token %}
-            <div class="layui-form-item">
-                <label class="layui-form-label">仓库:</label>
-                <div class="layui-input-inline" style="width: 200px;">
-                    <select name="warehouse" class="layui-select" lay-verify="required" lay-reqText="请选择仓库">
-                        {% if not warehouse_options %}
-                            <option value="">暂无仓库数据</option>
-                        {% else %}
-                            {% for k, v in warehouse_options.items %}
-                                <option value="{{ v }}" {% if v == warehouse %}selected{% endif %}>{{ k }}</option>
-                            {% endfor %}
-                        {% endif %}
-                    </select>
+            <div class="layui-form-item" style="display: flex; align-items: center; flex-wrap: wrap; gap: 15px;">
+                <!-- 仓库选择区域 -->
+                <div style="display: flex; align-items: center;">
+                    <label class="layui-form-label" style="margin: 0;">仓库:</label>
+                    <div class="layui-input-inline" style="width: 200px; margin-left: 10px;">
+                        <select name="warehouse" class="layui-select" lay-verify="required" lay-reqText="请选择仓库">
+                            {% if not warehouse_options %}
+                                <option value="">暂无仓库数据</option>
+                            {% else %}
+                                {% for k, v in warehouse_options.items %}
+                                    <option value="{{ v }}" {% if v == warehouse %}selected{% endif %}>{{ k }}</option>
+                                {% endfor %}
+                            {% endif %}
+                        </select>
+                    </div>
                 </div>
 
-                <!-- 时间范围选择 -->
+                <!-- 时间范围选择区域 -->
                 <div class="time-range-group">
-                    <span class="time-range-separator">ETD:</span>
+                    <span class="time-range-separator">ETA时间范围:</span>
                     <div class="layui-input-inline" style="width: 180px;">
-                        <input type="datetime-local" name="etd_date" class="layui-input" id="etdDate"
-                               value="{{ etd_date }}" lay-verify="required" lay-reqText="请选择ETD时间">
+                        <input type="text" name="eta_start" class="layui-input year-month-picker"
+                               id="etaStartDate" value="{{ eta_start }}"
+                               placeholder="开始年月" lay-verify="required" lay-reqText="请选择开始年月">
                     </div>
-
-                    <span class="time-range-separator">至</span>
-
-                    <span class="time-range-separator">ETA:</span>
+                    <div class="layui-form-mid">-</div>
                     <div class="layui-input-inline" style="width: 180px;">
-                        <input type="datetime-local" name="eta_date" class="layui-input" id="etaDate"
-                               value="{{ eta_date }}" lay-verify="required" lay-reqText="请选择ETA时间">
+                        <input type="text" name="eta_end" class="layui-input year-month-picker"
+                               id="etaEndDate" value="{{ eta_end }}"
+                               placeholder="结束年月" lay-verify="required" lay-reqText="请选择结束年月">
                     </div>
                 </div>
 
-                <input type="hidden" name="step" value="warehouse">
-                <button type="submit" class="layui-btn" style="margin-left: 20px;" lay-submit lay-filter="formSubmit">
+                <!-- 提交按钮 -->
+                <button type="submit" class="layui-btn" lay-submit lay-filter="formSubmit">
                     确认加载数据
                 </button>
+
+                <input type="hidden" name="step" value="warehouse">
             </div>
             <!-- 错误提示区域 -->
             <div class="error提示" id="timeError"></div>
         </form>
+
 
         <div class="table-wrapper">
             <div class="table-search-bar layui-form">
@@ -155,18 +170,26 @@
                 <tbody id="tableBody">
                 {% for data in datas %}
                     <tr class="table-row" data-container="{{ data.container|default:''|lower }}">
-                        <td>{{ data.created_at|date:"Y-m-d H:i"}}</td>
-                        <td>{{ data.customer_name}}</td>
-                        <td>{{ data.retrieval_destination_area}}</td>
+                        <td>{{ data.created_at|date:"Y-m-d H:i" }}</td>
+                        <td>{{ data.customer_name }}</td>
+                        <td>
+                            {% if data.order_type == "转运" %}
+                                {{ data.retrieval_destination_area }}
+                            {% elif data.order_type == "直送" %}
+                                {{ data.order_type }}{{ data.retrieval_destination_precise }}
+                            {% elif data.order_type == "转运组合" %}
+                                {{ data.retrieval_destination_area }}组合柜
+                            {% endif %}
+                        </td>
                         <td>{{ data.retrieval_note|default:"无" }}</td>
                         <td>
                             <a href="/terminal_dispatch/?step=update_pickup_schedule&container_number={{ data.container }}"
-                               style="color: #0066cc;" target="_blank">{{ data.container}}</a>
+                               style="color: #0066cc;" target="_blank">{{ data.container }}</a>
                         </td>
-                        <td>{{ data.mbl}}</td>
-                        <td>{{ data.shipping_line}}</td>
-                        <td>{{ data.vessel}}</td>
-                        <td>{{ data.container_type}}</td>
+                        <td>{{ data.mbl }}</td>
+                        <td>{{ data.shipping_line }}</td>
+                        <td>{{ data.vessel }}</td>
+                        <td>{{ data.container_type }}</td>
                         <td>
                             {% if data.vessel_date %}
                                 {{ data.vessel_date.days }}天
@@ -174,8 +197,8 @@
                                 -
                             {% endif %}
                         </td>
-                        <td>{{ data.vessel_etd|date:"Y-m-d H:i"}}</td>
-                        <td>{{ data.vessel_eta|date:"Y-m-d H:i"}}</td>
+                        <td>{{ data.vessel_etd|date:"Y-m-d H:i" }}</td>
+                        <td>{{ data.vessel_eta|date:"Y-m-d H:i" }}</td>
                         <td>
                             {% if data.temp_t49_available_for_pickup == True %}
                                 <span style="color: #28a745;">√</span>
@@ -183,7 +206,7 @@
                                 <span style="color: #dc3545;">{{ data.temp_t49_available_for_pickup|default:"×" }}</span>
                             {% endif %}
                         </td>
-                        <td>{{ data.retrieval_carrier}}</td>
+                        <td>{{ data.retrieval_carrier }}</td>
                         <td>
                             {% if data.retrieval_carrier %}
                                 <span style="color: #28a745;">√</span>
@@ -223,47 +246,55 @@
     </div>
 
     <script>
-        // 1. 时间格式化：仅在后端未回传值时，才填充默认时间（避免覆盖用户选择）
-        function formatToDatetimeLocal(dateStr) {
-            if (!dateStr) return '';
-            // 处理后端可能返回的 "YYYY-MM-DD HH:MM:SS" 格式，转为 "YYYY-MM-DDTHH:MM"
-            return dateStr.replace(' ', 'T').slice(0, 16);
+        // 1. 年月格式化：强制输出 "YYYY-MM"（保留可靠的容错逻辑）
+        function formatToYearMonth(dateStr) {
+            if (!dateStr || dateStr === 'undefined' || dateStr === 'null') return '';
+            const parts = dateStr.includes('-') ? dateStr.split('-').slice(0, 2) : [];
+            // 年份：必须4位数字，否则用当前年
+            const year = parts[0] && /^\d{4}$/.test(parts[0])
+                ? parts[0]
+                : new Date().getFullYear().toString();
+            // 月份：1-12补0，否则用当前月
+            const currentMonth = String(new Date().getMonth() + 1).padStart(2, '0');
+            const month = parts[1] && /^\d{1,2}$/.test(parts[1])
+                ? String(Math.min(12, Math.max(1, parseInt(parts[1])))).padStart(2, '0')
+                : currentMonth;
+            return `${year}-${month}`;
         }
 
-        // 2. 默认时间计算：仅在后端无回传值时使用
-        function getDefaultTimeRange() {
+        // 2. 默认年月范围：当前月往前推1个月（保持原有需求）
+        function getDefaultMonthRange() {
             const today = new Date();
-            const etd = new Date(today);
-            etd.setDate(today.getDate() - 30); // ETD=当前时间-30天
-            const eta = new Date(today); // ETA=当前时间
+            const currentYear = today.getFullYear();
+            const currentMonth = today.getMonth() + 1; // 0-11 → 1-12
 
-            const format = (date) => {
-                const y = date.getFullYear();
-                const m = String(date.getMonth() + 1).padStart(2, '0');
-                const d = String(date.getDate()).padStart(2, '0');
-                const h = String(date.getHours()).padStart(2, '0');
-                const min = String(date.getMinutes()).padStart(2, '0');
-                return `${y}-${m}-${d}T${h}:${min}`;
+            // 计算开始时间（前1个月，处理越界）
+            let startMonth = currentMonth - 1;
+            let startYear = currentYear;
+            if (startMonth < 1) {
+                startMonth += 12;
+                startYear -= 1;
+            }
+
+            return {
+                start: `${startYear}-${String(startMonth).padStart(2, '0')}`,
+                end: `${currentYear}-${String(currentMonth).padStart(2, '0')}`
             };
-            return { etd: format(etd), eta: format(eta) };
         }
 
-        // 3. 页面加载：仅在后端无回传值时，才填充默认时间
-        document.addEventListener('DOMContentLoaded', function() {
-            const etdInput = document.getElementById('etdDate');
-            const etaInput = document.getElementById('etaDate');
-            const defaultTime = getDefaultTimeRange();
+        // 3. 页面加载初始化（核心：初始化两个独立选择器）
+        document.addEventListener('DOMContentLoaded', function () {
+            const etaStartInput = document.getElementById('etaStartDate');
+            const etaEndInput = document.getElementById('etaEndDate');
+            const defaultRange = getDefaultMonthRange();
 
-            // 后端未回传 etd_date 时，才填充默认值
-            if (!etdInput.value) {
-                etdInput.value = defaultTime.etd;
-            }
-            // 后端未回传 eta_date 时，才填充默认值
-            if (!etaInput.value) {
-                etaInput.value = defaultTime.eta;
-            }
+            // 步骤1：计算并设置输入框默认值（确保有有效值）
+            const initStartVal = formatToYearMonth(etaStartInput.value) || defaultRange.start;
+            const initEndVal = formatToYearMonth(etaEndInput.value) || defaultRange.end;
+            etaStartInput.value = initStartVal;
+            etaEndInput.value = initEndVal;
 
-            // 初始化搜索功能（已修复，保持不变）
+            // 初始化柜号搜索（不变）
             const initSearch = () => {
                 const tableRows = document.querySelectorAll('#tableBody .table-row');
                 const searchInput = document.getElementById('containerSearchInput');
@@ -274,11 +305,18 @@
                 const filter = (keyword) => {
                     keyword = keyword.trim().toLowerCase();
                     let matchCount = 0;
-                    if (tableRows.length === 0) { noMatchTip.style.display = 'none'; return; }
+                    if (tableRows.length === 0) {
+                        noMatchTip.style.display = 'none';
+                        return;
+                    }
                     tableRows.forEach(row => {
                         const container = row.getAttribute('data-container') || '';
-                        if (keyword === '' || container.includes(keyword)) { row.style.display = ''; matchCount++; }
-                        else { row.style.display = 'none'; }
+                        if (keyword === '' || container.includes(keyword)) {
+                            row.style.display = '';
+                            matchCount++;
+                        } else {
+                            row.style.display = 'none';
+                        }
                     });
                     noMatchTip.style.display = (keyword && matchCount === 0) ? 'block' : 'none';
                     searchKeywordEl.textContent = keyword;
@@ -286,54 +324,90 @@
                 };
 
                 searchInput.addEventListener('input', () => filter(searchInput.value));
-                clearBtn.addEventListener('click', () => { searchInput.value = ''; filter(''); });
+                clearBtn.addEventListener('click', () => {
+                    searchInput.value = '';
+                    filter('');
+                });
                 filter(searchInput.value);
             };
             initSearch();
 
-
-            layui.use(['form', 'laydate'], function() {
+            // 步骤2：初始化两个独立的年月选择器（彻底解决联动问题）
+            layui.use(['form', 'laydate'], function () {
                 const form = layui.form;
                 const laydate = layui.laydate;
                 const timeError = document.getElementById('timeError');
 
+                // 初始化【开始时间】选择器
                 laydate.render({
-                    elem: '#etdDate', type: 'datetime', format: 'yyyy-MM-ddTHH:mm',
-                    value: etdInput.value || defaultTime.etd,
-                    max: etaInput.value || defaultTime.eta,
-                    done: (value) => {
-                        etdInput.classList.remove('layui-form-danger');
-                        etaInput.classList.remove('layui-form-danger');
+                    elem: '#etaStartDate',       // 绑定开始时间输入框
+                    type: 'month',               // 仅选年月
+                    format: 'yyyy-MM',           // 显示格式
+                    value: initStartVal,         // 初始值（确保正确）
+                    done: function (value) {
+                        // 选择开始时间后，更新结束时间的最小限制
+                        laydate.config({
+                            elem: '#etaEndDate',
+                            min: value  // 结束时间不能早于开始时间
+                        });
                         timeError.textContent = '';
-                        if (value) laydate.render({ elem: '#etaDate', min: value });
+                        etaStartInput.classList.remove('layui-form-danger');
                     }
                 });
 
+                // 初始化【结束时间】选择器
                 laydate.render({
-                    elem: '#etaDate', type: 'datetime', format: 'yyyy-MM-ddTHH:mm',
-                    value: etaInput.value || defaultTime.eta,
-                    min: etdInput.value || defaultTime.etd,
-                    done: () => {
-                        etdInput.classList.remove('layui-form-danger');
-                        etaInput.classList.remove('layui-form-danger');
+                    elem: '#etaEndDate',         // 绑定结束时间输入框
+                    type: 'month',               // 仅选年月
+                    format: 'yyyy-MM',           // 显示格式
+                    value: initEndVal,           // 初始值（确保正确）
+
+                    done: function (value) {
+                        // 选择结束时间后，更新开始时间的最大限制
+                        laydate.config({
+                            elem: '#etaStartDate',
+                            max: value  // 开始时间不能晚于结束时间
+                        });
                         timeError.textContent = '';
+                        etaEndInput.classList.remove('layui-form-danger');
                     }
                 });
 
-                form.on('submit(formSubmit)', function(data) {
-                    const etdVal = data.field.etd_date;
-                    const etaVal = data.field.eta_date;
+                // 表单提交校验（不变，确保时间逻辑正确）
+                form.on('submit(formSubmit)', function (data) {
+                    const etaStartVal = data.field.eta_start;
+                    const etaEndVal = data.field.eta_end;
                     let isValid = true;
-                    if (!etdVal) { etdInput.classList.add('layui-form-danger'); timeError.textContent = '请选择ETD时间'; isValid = false; }
-                    if (!etaVal) { etaInput.classList.add('layui-form-danger'); timeError.textContent = '请选择ETA时间'; isValid = false; }
-                    if (etdVal && etaVal && new Date(etdVal) > new Date(etaVal)) {
-                        etdInput.classList.add('layui-form-danger');
-                        etaInput.classList.add('layui-form-danger');
-                        timeError.textContent = 'ETD时间不能晚于ETA时间';
+
+                    // 校验必填
+                    if (!etaStartVal) {
+                        etaStartInput.classList.add('layui-form-danger');
+                        timeError.textContent = '请选择ETA开始年月';
                         isValid = false;
                     }
+                    if (!etaEndVal) {
+                        etaEndInput.classList.add('layui-form-danger');
+                        timeError.textContent = isValid ? '请选择ETA结束年月' : timeError.textContent;
+                        isValid = false;
+                    }
+
+                    // 校验时间顺序
+                    if (etaStartVal && etaEndVal && isValid) {
+                        const startDate = new Date(`${etaStartVal}-01`);
+                        const endDate = new Date(`${etaEndVal}-01`);
+                        if (startDate > endDate) {
+                            etaStartInput.classList.add('layui-form-danger');
+                            etaEndInput.classList.add('layui-form-danger');
+                            timeError.textContent = 'ETA开始时间不能晚于结束时间';
+                            isValid = false;
+                        }
+                    }
+
                     return isValid;
                 });
+
+                // 重新渲染表单（确保样式生效）
+                form.render();
             });
         });
     </script>
