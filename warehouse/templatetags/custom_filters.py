@@ -122,7 +122,13 @@ def get_item(obj, key):
 def linebreaks_container(value):
     if not value:
         return ""
-    # 在每个逗号和方括号前添加换行
-    result = re.sub(r',\s*', ',\n', str(value))
-    result = re.sub(r'(\[)', r'\n\1', result)
+    
+    # 直接按逗号分割，然后清理每个项目
+    items = [item.strip() for item in str(value).split(',') if item.strip()]
+    # 简单用换行符连接
+    result = ',\n'.join(items)
+    
+    # 移除开头可能的多余换行
+    result = result.lstrip('\n')
+    
     return mark_safe(result)
