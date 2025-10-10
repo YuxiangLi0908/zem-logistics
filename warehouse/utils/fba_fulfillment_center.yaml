@@ -2363,6 +2363,11 @@ IUSF:
   location: 3351 Balmorhea Dr
   state: TX
   zipcode: '75241'
+HEA2:
+  city: Breinigsville
+  location: 650 Boulder Dr
+  state: PA
+  zipcode: '18031'
 IUSW:
   city: Hesperia
   location: 8130 Caliente Rd

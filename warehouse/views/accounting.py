@@ -862,66 +862,70 @@ class Accounting(View):
             return "pending", "pending"  # 默认返回原状态
 
     def migrate_status(self) -> HttpRequest:
-        conflict_data = []
+        start_date = date(2025, 9, 1)
+        end_date = date(2025, 9, 30)
 
-        # 获取所有有PO_ID的pallet记录，并预取相关对象
-        pallets = (
-            Pallet.objects.filter(PO_ID__isnull=False)
-            .select_related("container_number", "invoice_delivery")
-            .order_by("PO_ID", "invoice_delivery_id")
+        # 先筛选符合 ETA 条件的 orders
+        valid_orders = Order.objects.filter(
+            vessel_id__vessel_eta__range=(start_date, end_date)
+        ).select_related("vessel_id")
+
+        # 再通过 Prefetch 预加载 container 的关联 order
+        packinglists = (
+            PackingList.objects.filter(delivery_type="other")
+            .exclude(fba_id__icontains="FBA")
+            .select_related("container_number")  # 单个 container 外键可 select_related
+            .prefetch_related(
+                Prefetch("container_number__order", queryset=valid_orders, to_attr="matched_orders")
+            )
+            .order_by("PO_ID")
         )
 
-        # 按PO_ID分组，检查每组中的invoice_delivery是否相同
-        sorted_pallets = sorted(pallets, key=attrgetter("PO_ID"))
+        if not packinglists.exists():
+            return HttpResponse("未找到符合条件的 PackingList", status=404)
 
-        for po_id, group in groupby(sorted_pallets, key=attrgetter("PO_ID")):
-            group_list = list(group)
-            # 查看每个组内，是否有不同的invoice_delivery
-            if len(group_list) > 1:
-                first_invoice = group_list[0].invoice_delivery
-                has_conflict = any(
-                    pallet.invoice_delivery != first_invoice
-                    for pallet in group_list[1:]
-                )
+        # === 组装导出数据 ===
+        data = []
+        for pl in packinglists:
+            container = pl.container_number
+            vessel = None
 
-                if has_conflict:
-                    for pallet in group_list:
-                        conflict_data.append(
-                            {
-                                "PO_ID": pallet.PO_ID,
-                                "Container Number": (
-                                    pallet.container_number.container_number
-                                    if pallet.container_number
-                                    else ""
-                                ),
-                                "Destination": pallet.destination,
-                                "Invoice Delivery": (
-                                    pallet.invoice_delivery.invoice_number
-                                    if pallet.invoice_delivery
-                                    else "None"
-                                ),
-                                "Invoice Delivery ID": pallet.invoice_delivery_id,
-                                "Pallet ID": pallet.id,
-                                "Shipping Mark": pallet.shipping_mark,
-                                "FBA ID": pallet.fba_id,
-                                "CBM": pallet.cbm,
-                                "Weight (lbs)": pallet.weight_lbs,
-                                "Location": pallet.location,
-                            }
-                        )
+            # container.matched_orders 是我们 prefetch 时命名的
+            if hasattr(container, "matched_orders") and container.matched_orders:
+                # 取第一个匹配的 order
+                order = container.matched_orders[0]
+                vessel = order.vessel_id
 
-        if conflict_data:
-            df = pd.DataFrame(conflict_data)
-            response = HttpResponse(
-                content_type="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
+            data.append(
+                {
+                    "Shipping Mark": pl.shipping_mark,
+                    "FBA ID": pl.fba_id,
+                    "Destination": pl.destination,
+                    "Contact Method": pl.contact_method,
+                    "PCS": pl.pcs,
+                    "CBM": pl.cbm,
+                    "Weight (lbs)": pl.total_weight_lbs,
+                    "Container Number": container.container_number if container else "",
+                    "Vessel ETA": vessel.vessel_eta.strftime("%Y-%m-%d") if vessel and vessel.vessel_eta else "",
+                }
             )
-            response["Content-Disposition"] = (
-                "attachment; filename=invoice_delivery_conflicts.xlsx"
-            )
-            df.to_excel(excel_writer=response, index=False)
-            return response
-        else:
-            raise ValueError("没有发现PO_ID相同但invoice_delivery不同的记录")
+
+        # === DataFrame + 汇总 ===
+        df = pd.DataFrame(data)
+        total_cbm = df["CBM"].sum()
+
+        summary_row = {col: "" for col in df.columns}
+        summary_row["CBM"] = total_cbm
+        df = pd.concat([df, pd.DataFrame([summary_row])], ignore_index=True)
+
+        # === 导出 Excel ===
+        response = HttpResponse(
+            content_type="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
+        )
+        response["Content-Disposition"] = 'attachment; filename="packinglist_vessel_eta_sep.xlsx"'
+        df.to_excel(response, index=False)
+
+        return response
 
     def replace_keywords(data):
         KEYWORD_MAPPING = {
