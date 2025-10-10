@@ -2,6 +2,8 @@ import datetime
 from typing import Any
 
 from django import template
+from django.utils.safestring import mark_safe
+import re
 
 register = template.Library()
 
@@ -96,3 +98,31 @@ def dict_get(d, key):
     if d is None:
         return None
     return d.get(key)
+
+@register.filter
+def sum_subgroup_attr(suggestions, attr):
+    """计算子组某个属性的总和"""
+    total = 0
+    for suggestion in suggestions:
+        if hasattr(suggestion, 'subgroup') and hasattr(suggestion.subgroup, attr):
+            total += getattr(suggestion.subgroup, attr, 0)
+        elif isinstance(suggestion, dict) and 'subgroup' in suggestion:
+            total += suggestion['subgroup'].get(attr, 0)
+    return total
+
+@register.filter
+def get_item(obj, key):
+    """从字典或对象中获取属性"""
+    if isinstance(obj, dict):
+        return obj.get(key)
+    else:
+        return getattr(obj, key, None)
+
+@register.filter
+def linebreaks_container(value):
+    if not value:
+        return ""
+    # 在每个逗号和方括号前添加换行
+    result = re.sub(r',\s*', ',\n', str(value))
+    result = re.sub(r'(\[)', r'\n\1', result)
+    return mark_safe(result)

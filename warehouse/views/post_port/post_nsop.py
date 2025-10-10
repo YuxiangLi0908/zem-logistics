@@ -4,13 +4,14 @@ from typing import Any
 import pandas as pd
 from asgiref.sync import sync_to_async
 from django.contrib.postgres.aggregates import StringAgg
-from django.db.models.functions import Round
+from django.db.models.functions import Round, Cast, Coalesce
 from django.db import models
 from django.db.models import (
     Case,
     CharField,
     Count,
     F,
+    Func,
     FloatField,
     IntegerField,
     Max,
@@ -294,10 +295,19 @@ class PostNsop(View):
                 delivery_type='public',
             ),
         )
+        
+        #未使用的约和异常的约
         shipments = await self.get_shipments_by_warehouse(warehouse)
         
         summary = await self.calculate_summary(unshipment_pos, shipments)
-        matching_suggestions = await self.get_matching_suggestions(unshipment_pos, shipments)
+        st_type = request.POST.get('st_type')
+        if st_type == "pallet":
+            max_cbm = 72
+            max_pallet = 35
+        elif st_type == "floor":
+            max_cbm = 80
+            max_pallet = 38
+        matching_suggestions = await self.get_matching_suggestions(unshipment_pos, shipments,max_cbm,max_pallet)
         auto_matches = await self.get_auto_matches(unshipment_pos, shipments)
         
         context = {
@@ -311,6 +321,9 @@ class PostNsop(View):
             'matching_count': len(matching_suggestions),
             'matching_suggestions': matching_suggestions,
             'auto_matches': auto_matches,
+            'st_type': st_type,
+            'max_cbm': max_cbm,
+            'max_pallet': max_pallet,
         }
         
         return self.template_main_dash, context
@@ -336,6 +349,74 @@ class PostNsop(View):
             .annotate(
                 str_id=Cast("id", CharField()),
                 str_container_number=Cast("container_number__container_number", CharField()), 
+                
+                # 格式化vessel_eta为月日
+                formatted_vessel_eta=Func(
+                    F('container_number__order__vessel_id__vessel_eta'),
+                    Value('MM-DD'),
+                    function='to_char',
+                    output_field=CharField()
+                ),
+                
+                # 格式化实际提柜时间为月日
+                formatted_actual_retrieval=Func(
+                    F('container_number__order__retrieval_id__actual_retrieval_timestamp'),
+                    Value('MM-DD'),
+                    function='to_char',
+                    output_field=CharField()
+                ),
+                
+                # 格式化预计提柜时间为月日
+                formatted_target_low=Func(
+                    F('container_number__order__retrieval_id__target_retrieval_timestamp_lower'),
+                    Value('MM-DD'),
+                    function='to_char',
+                    output_field=CharField()
+                ),
+                
+                formatted_target=Func(
+                    F('container_number__order__retrieval_id__target_retrieval_timestamp'),
+                    Value('MM-DD'),
+                    function='to_char',
+                    output_field=CharField()
+                ),
+                
+                # 创建完整的组合字段，通过前缀区分状态
+                container_with_eta_retrieval=Case(
+                    # 有实际提柜时间 - 使用前缀 [实际]
+                    When(container_number__order__retrieval_id__actual_retrieval_timestamp__isnull=False,
+                        then=Concat(
+                            Value("[实际]"),
+                            "container_number__container_number",
+                            Value(" ETA:"),
+                            "formatted_vessel_eta",
+                            Value(" 提柜:"),
+                            "formatted_actual_retrieval",
+                            output_field=CharField()
+                        )),
+                    # 有预计提柜时间范围 - 使用前缀 [预计]
+                    When(container_number__order__retrieval_id__target_retrieval_timestamp_lower__isnull=False,
+                        then=Concat(
+                            Value("[预计]"),
+                            "container_number__container_number",
+                            Value(" ETA:"),
+                            "formatted_vessel_eta",
+                            Value(" 提柜:"),
+                            "formatted_target_low",
+                            Value("~"),
+                            Coalesce("formatted_target", "formatted_target_low"),
+                            output_field=CharField()
+                        )),
+                    # 没有提柜计划 - 使用前缀 [未安排]
+                    default=Concat(
+                        Value("[未安排]"),
+                        "container_number__container_number",
+                        Value(" ETA:"),
+                        "formatted_vessel_eta",
+                        output_field=CharField()
+                    ),
+                    output_field=CharField()
+                ),
                 data_source=Value("PALLET", output_field=CharField()),  # 添加数据源标识
             )
             .values(
@@ -359,8 +440,8 @@ class PostNsop(View):
                 plt_ids=StringAgg(
                     "str_id", delimiter=",", distinct=True, ordering="str_id"
                 ),
-                container_numbers=StringAgg(  # 聚合container_number
-                    "str_container_number", delimiter=",", distinct=True, ordering="str_container_number"
+                container_numbers=StringAgg(  # 聚合完整的组合字段
+                    "container_with_eta_retrieval", delimiter="\n", distinct=True, ordering="container_with_eta_retrieval"
                 ),
                 total_pcs=Sum("pcs", output_field=IntegerField()),
                 total_cbm = Round(Sum("cbm", output_field=FloatField()), 3),
@@ -402,7 +483,74 @@ class PostNsop(View):
                         default=F("delivery_method"),
                         output_field=CharField(),
                     ),     
-                    str_container_number=Cast("container_number__container_number", CharField()),             
+                    str_container_number=Cast("container_number__container_number", CharField()),    
+                    # 格式化vessel_eta为月日
+                    formatted_vessel_eta=Func(
+                        F('container_number__order__vessel_id__vessel_eta'),
+                        Value('MM-DD'),
+                        function='to_char',
+                        output_field=CharField()
+                    ),
+                    
+                    # 格式化实际提柜时间为月日
+                    formatted_actual_retrieval=Func(
+                        F('container_number__order__retrieval_id__actual_retrieval_timestamp'),
+                        Value('MM-DD'),
+                        function='to_char',
+                        output_field=CharField()
+                    ),
+                    
+                    # 格式化预计提柜时间为月日
+                    formatted_target_low=Func(
+                        F('container_number__order__retrieval_id__target_retrieval_timestamp_lower'),
+                        Value('MM-DD'),
+                        function='to_char',
+                        output_field=CharField()
+                    ),
+                    
+                    formatted_target=Func(
+                        F('container_number__order__retrieval_id__target_retrieval_timestamp'),
+                        Value('MM-DD'),
+                        function='to_char',
+                        output_field=CharField()
+                    ),
+                    
+                    # 创建完整的组合字段，通过前缀区分状态
+                    container_with_eta_retrieval=Case(
+                        # 有实际提柜时间 - 使用前缀 [实际]
+                        When(container_number__order__retrieval_id__actual_retrieval_timestamp__isnull=False,
+                            then=Concat(
+                                Value("[实际]"),
+                                "container_number__container_number",
+                                Value(" ETA:"),
+                                "formatted_vessel_eta",
+                                Value(" 提柜:"),
+                                "formatted_actual_retrieval",
+                                output_field=CharField()
+                            )),
+                        # 有预计提柜时间范围 - 使用前缀 [预计]
+                        When(container_number__order__retrieval_id__target_retrieval_timestamp_lower__isnull=False,
+                            then=Concat(
+                                Value("[预计]"),
+                                "container_number__container_number",
+                                Value(" ETA:"),
+                                "formatted_vessel_eta",
+                                Value(" 提柜:"),
+                                "formatted_target_low",
+                                Value("~"),
+                                Coalesce("formatted_target", "formatted_target_low"),
+                                output_field=CharField()
+                            )),
+                        # 没有提柜计划 - 使用前缀 [未安排]
+                        default=Concat(
+                            Value("[未安排]"),
+                            "container_number__container_number",
+                            Value(" ETA:"),
+                            "formatted_vessel_eta",
+                            output_field=CharField()
+                        ),
+                        output_field=CharField()
+                    ),
                     str_id=Cast("id", CharField()),
                     str_fba_id=Cast("fba_id", CharField()),
                     str_ref_id=Cast("ref_id", CharField()),
@@ -442,8 +590,8 @@ class PostNsop(View):
                     ids=StringAgg(
                         "str_id", delimiter=",", distinct=True, ordering="str_id"
                     ),
-                    container_numbers=StringAgg(  # 聚合container_number
-                        "str_container_number", delimiter=",", distinct=True, ordering="str_container_number"
+                    container_numbers=StringAgg(  # 聚合完整的组合字段
+                        "container_with_eta_retrieval", delimiter="\n", distinct=True, ordering="container_with_eta_retrieval"
                     ),
                     total_pcs=Sum("pcs", output_field=FloatField()),
                     total_cbm = Round(Sum("cbm", output_field=FloatField()), 3),
@@ -538,65 +686,133 @@ class PostNsop(View):
         # 根据你的数据结构，判断是否有预约号
         return cargo.get('shipment_batch_number__shipment_batch_number') is not None
     
-    async def get_matching_suggestions(self, unshipment_pos, shipments):
+    async def get_matching_suggestions(self, unshipment_pos, shipments, max_cbm,max_pallet):
         """异步生成智能匹配建议 - 适配新的数据结构"""
-        suggestions = []
         
-        # 按目的地分组货物
-        destination_groups = {}
+        suggestions = []
+    
+        # 第一级分组：按目的地和派送方式
+        primary_groups = {}
         for cargo in unshipment_pos:
             if not await self.has_appointment(cargo):
                 dest = cargo.get('destination')
-                if not dest:
+                delivery_method = cargo.get('custom_delivery_method')
+                if not dest or not delivery_method:
                     continue
                     
-                if dest not in destination_groups:
-                    destination_groups[dest] = []
-                destination_groups[dest].append(cargo)
+                group_key = f"{dest}_{delivery_method}"
+                if group_key not in primary_groups:
+                    primary_groups[group_key] = {
+                        'destination': dest,
+                        'delivery_method': delivery_method,
+                        'cargos': []
+                    }
+                primary_groups[group_key]['cargos'].append(cargo)
         
-        # 为每个目的地组生成建议
-        for destination, cargo_list in destination_groups.items():
-            # 计算总板数
-            total_pallets = 0
-            for cargo in cargo_list:
-                if cargo.get('label') == 'ACT':  # 实际板数
-                    total_pallets += cargo.get('total_n_pallet_act', 0) or 0
-                else:  # 预估板数
-                    total_pallets += cargo.get('total_n_pallet_est', 0) or 0
+        # 第二级分组：在主要分组内按容量限制分组
+        for group_key, primary_group in primary_groups.items():
+            cargos = primary_group['cargos']
             
-            # 查找匹配的可用预约
-            available_shipments = []
-            for shipment in shipments:
-                # 检查预约是否可用（未发货、未过期等）
-                if (shipment.shipped_at is None and 
-                    shipment.destination == destination and
-                    await self.is_shipment_available(shipment)):
-                    
-                    # 计算预约剩余容量
-                    used_pallets = await self.get_used_pallets(shipment)
-                    remaining_capacity = 35 - used_pallets
-                    
-                    if remaining_capacity >= total_pallets:
-                        available_shipments.append({
-                            'shipment': shipment,
-                            'remaining_capacity': remaining_capacity
-                        })
+            # 按容量限制进行分组
+            subgroups = []
+            current_subgroup = {
+                'cargos': [],
+                'total_pallets': 0,
+                'total_cbm': 0,
+                'container_numbers': set()  # 用于收集柜号
+            }
             
-            if available_shipments:
-                # 选择剩余容量最接近的预约
-                best_shipment = min(available_shipments, 
-                                  key=lambda x: abs(x['remaining_capacity'] - total_pallets))
+            # 按ETA排序，优先安排早的货物
+            sorted_cargos = sorted(cargos, key=lambda x: x.get('container_number__order__vessel_id__vessel_eta') or '')
+            print('sorted_cargos',sorted_cargos)
+            for cargo in sorted_cargos:
+                cargo_pallets = 0
+                if cargo.get('label') == 'ACT':
+                    cargo_pallets = cargo.get('total_n_pallet_act', 0) or 0
+                else:
+                    cargo_pallets = cargo.get('total_n_pallet_est', 0) or 0
                 
-                suggestion = {
-                    'id': len(suggestions) + 1,
-                    'destination': destination,
-                    'matching_cargos': cargo_list[:10],  # 限制显示数量
-                    'total_pallets': int(total_pallets),
-                    'recommended_appointment': best_shipment['shipment'],
-                    'remaining_capacity': best_shipment['remaining_capacity'],
-                }
-                suggestions.append(suggestion)
-        
+                cargo_cbm = cargo.get('total_cbm', 0) or 0
+                
+                # 收集柜号
+                container_number = cargo.get('container_numbers')
+                #print('container_number',container_number)
+                if container_number:
+                    current_subgroup['container_numbers'].add(container_number)
+                
+                # 检查是否可以加入当前子组
+                if (current_subgroup['total_pallets'] + cargo_pallets <= max_pallet and 
+                    current_subgroup['total_cbm'] + cargo_cbm <= max_cbm):
+                    # 可以加入当前子组
+                    current_subgroup['cargos'].append(cargo)
+                    current_subgroup['total_pallets'] += cargo_pallets
+                    current_subgroup['total_cbm'] += cargo_cbm
+                else:
+                    # 当前子组已满，创建新子组
+                    if current_subgroup['cargos']:
+                        subgroups.append(current_subgroup)
+                    current_subgroup = {
+                        'cargos': [cargo],
+                        'total_pallets': cargo_pallets,
+                        'total_cbm': cargo_cbm,
+                        'container_numbers': {container_number} if container_number else set()
+                    }
+            
+            # 添加最后一个子组
+            if current_subgroup['cargos']:
+                subgroups.append(current_subgroup)
+            
+            # 计算大分组的总和
+            total_group_pallets = sum(subgroup['total_pallets'] for subgroup in subgroups)
+            total_group_cbm = sum(subgroup['total_cbm'] for subgroup in subgroups)
+            
+            # 计算匹配度百分比
+            pallets_percentage = min(100, (total_group_pallets / max_cbm) * 100) if max_cbm > 0 else 0
+            cbm_percentage = min(100, (total_group_cbm / max_pallet) * 100) if max_pallet > 0 else 0
+            
+            # 为每个子组查找匹配的预约
+            for subgroup_index, subgroup in enumerate(subgroups):
+                available_shipments = []
+                for shipment in shipments:
+                    if (shipment.shipped_at is None and 
+                        shipment.destination == primary_group['destination'] and
+                        await self.is_shipment_available(shipment)):
+                        
+                        used_pallets = await self.get_used_pallets(shipment)
+                        remaining_capacity = 35 - used_pallets
+                        
+                        if remaining_capacity >= subgroup['total_pallets']:
+                            available_shipments.append({
+                                'shipment': shipment,
+                                'remaining_capacity': remaining_capacity
+                            })
+                
+                if available_shipments:
+                    best_shipment = min(available_shipments, 
+                                    key=lambda x: abs(x['remaining_capacity'] - subgroup['total_pallets']))
+                    
+                    suggestion = {
+                        'id': f"{group_key}_{subgroup_index}",
+                        'primary_group': {
+                            'destination': primary_group['destination'],
+                            'delivery_method': primary_group['delivery_method'],
+                            'total_pallets': total_group_pallets,
+                            'total_cbm': total_group_cbm,
+                            'pallets_percentage': pallets_percentage,  # 板数百分比
+                            'cbm_percentage': cbm_percentage,          # CBM百分比
+                        },
+                        'subgroup': {
+                            'cargos': subgroup['cargos'],
+                            'total_pallets': subgroup['total_pallets'],
+                            'total_cbm': subgroup['total_cbm'],
+                            'container_numbers': ', '.join(sorted(subgroup['container_numbers'])),
+                            'cargo_count': len(subgroup['cargos'])
+                        },
+                        'subgroup_index': subgroup_index + 1,
+                        'recommended_appointment': best_shipment['shipment'],
+                        'remaining_capacity': best_shipment['remaining_capacity'],
+                    }
+                    suggestions.append(suggestion)
         return suggestions
     
     async def is_shipment_available(self, shipment):
