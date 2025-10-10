@@ -512,7 +512,7 @@
                     <option value="{{ v }}" {% if k == warehouse %}selected{% endif %}>{{ k }}</option>
                     {% endfor %}
                 </select>
-                
+                <input type="hidden" id="current-warehouse" value="{{ warehouse }}">
                 <label for="st-type-select">装载类型:</label>
                 <select name="st_type" id="st-type-select" style="padding: 5px; border-radius: 4px; border: 1px solid #ced4da;">
                     <option value="pallet" {% if st_type == 'pallet' %}selected{% endif %}>卡板</option>
@@ -614,7 +614,7 @@
                         <tbody>
                             <!-- 先显示有匹配预约的分组 -->
                             {% for suggestion in matching_suggestions %}
-                                {% if suggestion.matched_shipment %}
+                                {% if suggestion.primary_group.matched_shipment %}
                                 {% for cargo in suggestion.cargos %}
                                 <tr data-suggestion-id="{{ suggestion.suggestion_id }}"
                                     data-cargo-id="{{ cargo.ids|default:'' }}"
@@ -635,11 +635,11 @@
                                     {% if forloop.first %}
                                     <td rowspan="{{ suggestion.cargos|length }}" style="vertical-align: middle; background-color: #f8f9fa;">
                                         <div style="font-weight: bold; color: #28a745; margin-bottom: 5px;">
-                                            {{ suggestion.matched_shipment.appointment_id|default:"未分配预约号" }}
+                                            {{ suggestion.primary_group.matched_shipment.appointment_id|default:"未分配预约号" }}
                                         </div>
-                                        {% if suggestion.matched_shipment.shipment_appointment %}
+                                        {% if suggestion.primary_group.matched_shipment.shipment_appointment %}
                                         <div style="font-size: 12px; color: #666;">
-                                            {{ suggestion.matched_shipment.shipment_appointment|date:"Y-m-d H:i" }}
+                                            {{ suggestion.primary_group.matched_shipment.shipment_appointment|date:"Y-m-d H:i" }}
                                         </div>
                                         {% endif %}
                                     </td>
@@ -698,9 +698,20 @@
                                     <td rowspan="{{ suggestion.cargos|length }}" style="vertical-align: middle;">
                                         <button class="action-btn btn-success apply-group-match" 
                                                 data-suggestion-id="{{ suggestion.suggestion_id }}"
+                                                data-appointment-id="{{ suggestion.primary_group.matched_shipment.appointment_id }}"
                                                 data-destination="{{ suggestion.primary_group.destination }}"
-                                                data-delivery-method="{{ suggestion.primary_group.delivery_method }}">
-                                            <i class="fas fa-check"></i> 匹配此预约
+                                                data-scheduled-time="{{ suggestion.primary_group.matched_shipment.shipment_appointment|date:'Y-m-d H:i' }}"
+                                                data-delivery-method="{{ suggestion.primary_group.delivery_method }}"
+                                                {% if suggestion.primary_group.matched_shipment %}
+                                                    data-shipment-account="{{ suggestion.primary_group.matched_shipment.shipment_account }}"
+                                                    data-origin="{{ suggestion.primary_group.matched_shipment.origin }}"
+                                                {% endif %}>
+                                            <i class="fas fa-check"></i> 绑定
+                                        </button>
+                                        <button class="action-btn btn-success export-group-po" 
+                                                data-suggestion-id="{{ suggestion.suggestion_id }}"
+                                                style="margin-top: 5px;">
+                                            <i class="fas fa-file-export"></i> 导出PO
                                         </button>
                                     </td>
                                     {% endif %}
@@ -711,7 +722,7 @@
                             
                             <!-- 再显示没有匹配预约的分组 -->
                             {% for suggestion in matching_suggestions %}
-                                {% if not suggestion.matched_shipment %}
+                                {% if not suggestion.primary_group.matched_shipment %}
                                 {% for cargo in suggestion.cargos %}
                                 <tr data-suggestion-id="{{ suggestion.suggestion_id }}"
                                     data-cargo-id="{{ cargo.ids|default:'' }}"
@@ -788,12 +799,6 @@
                                     <!-- 操作按钮 -->
                                     {% if forloop.first %}
                                     <td rowspan="{{ suggestion.cargos|length }}" style="vertical-align: middle;">
-                                        <button class="action-btn btn-primary find-shipment" 
-                                                data-suggestion-id="{{ suggestion.suggestion_id }}"
-                                                data-destination="{{ suggestion.primary_group.destination }}"
-                                                data-delivery-method="{{ suggestion.primary_group.delivery_method }}">
-                                            <i class="fas fa-search"></i> 绑定
-                                        </button>
                                         <button class="action-btn btn-success export-group-po" 
                                                 data-suggestion-id="{{ suggestion.suggestion_id }}"
                                                 style="margin-top: 5px;">
@@ -982,7 +987,207 @@
     <input type="hidden" name="st_type" value="{{ st_type }}">
 </form>
 
+<div id="bindShipmentModal" class="modal" style="display: none; position: fixed; z-index: 1000; left: 0; top: 0; width: 100%; height: 100%; background-color: rgba(0,0,0,0.5);">
+    <div class="modal-content" style="background-color: #fefefe; margin: 5% auto; padding: 20px; border: 1px solid #888; width: 90%; max-width: 1000px; max-height: 80vh; overflow-y: auto; border-radius: 10px;">
+        <span class="close" style="color: #aaa; float: right; font-size: 28px; font-weight: bold; cursor: pointer;">&times;</span>
+        <h3>绑定预约信息</h3>
+        
+        <form id="bindShipmentForm" method="post">
+            {% csrf_token %}
+            <input type="hidden" name="step" value="bind_group_shipment">
+            <input type="hidden" name="suggestion_id" id="modalSuggestionId">
+            <input type="hidden" name="cargo_ids" id="modalCargoIds">
+            <input type="hidden" name="plt_ids" id="modalPltIds">
+            <input type="hidden" name="warehouse" value="{{ warehouse }}">
+            <input type="hidden" name="st_type" value="{{ st_type }}">
+            
+            <!-- FTL 表单 -->
+            <div id="FTL-form">
+                <table id="shipment-table-1" class="table" style="font-size: 11px; overflow-x: scroll; max-width: 100%; margin-bottom: 15px;">
+                    <thead>
+                        <tr>
+                            <th class="th">预约账号</th>
+                            <th class="th">预约号</th>
+                            <th class="th">Scheduled Time</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        <tr>
+                            <td class="td">
+                                <select name="shipment_account" id="shipment-account-select" style="font-size: 13px; width: 200px;">
+                                    {% for k, v in account_options.items %}
+                                    <option value="{{ v }}">{{ k }}</option>
+                                    {% endfor %}
+                                </select>
+                            </td>
+                            <td class="td"><input type="text" name="appointment_id" id="appointment_id" style="font-size: 13px; width: 200px;"></td>
+                            <td class="td"><input
+                                type="datetime-local"
+                                id="scheduled-time-input"
+                                name="shipment_appointment"
+                                style="font-size: 13px; width: 200px;"
+                                required
+                                ></td>
+                        </tr>
+                    </tbody>
+                </table>
+                <table id="shipment-table-2" class="table" style="font-size: 11px; overflow-x: auto; max-width: 100%; margin-bottom: 15px;">
+                    <thead>
+                        <tr>
+                            <th class="th">发货仓库</th>
+                            <th class="th">装车类型</th>
+                            <th class="th">备注</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        <tr>
+                            <td class="td">
+                                <select name="origin" id="origin-select-1" style="font-size: 13px; width: 200px;">
+                                    {% for k, v in warehouse_options.items %}
+                                    <option value="{{ v }}">{{ k }}</option>
+                                    {% endfor %}
+                                </select>
+                            </td>
+                            <td class="td">
+                                <select name="load_type" id="load-type-select" style="font-size: 13px; width: 200px;">
+                                    {% for k, v in load_type_options %}
+                                    <option value="{{ v }}">{{ k }}</option>
+                                    {% endfor %}
+                                </select>
+                            </td>
+                            <td class="td"><input type="text" name="note" style="font-size: 13px; width: 200px;"></td>
+                        </tr>
+                    </tbody>
+                </table>
+                <table id="shipment-table-3" class="table" style="font-size: 11px; overflow-x: auto; max-width: 100%;">
+                    <thead>
+                        <tr>
+                            <th class="th">目的地</th>
+                            <th class="th">地址</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        <tr>
+                            <td class="td"><input type="text" name="destination" id="ftl-destination" style="font-size: 13px; width: 200px;" required></td>
+                            <td class="td"><input type="text" name="address" style="font-size: 13px; width: 300px;" required></td>
+                        </tr>
+                    </tbody>
+                </table>
+            </div>
+            
+            <div style="margin-top: 20px; text-align: center;">
+                <button type="submit" class="action-btn btn-success" style="padding: 10px 20px;">
+                    <i class="fas fa-check"></i> 确认绑定
+                </button>
+                <button type="button" class="action-btn btn-danger" onclick="closeBindModal()" style="padding: 10px 20px;">
+                    <i class="fas fa-times"></i> 取消
+                </button>
+            </div>
+        </form>
+    </div>
+</div>
 <script>
+    document.querySelectorAll('.apply-group-match').forEach(btn => {
+        btn.addEventListener('click', function() {
+            const suggestionId = this.getAttribute('data-suggestion-id');
+            const appointmentId = this.getAttribute('data-appointment-id'); // ✅ 预约号
+            const destination = this.getAttribute('data-destination');
+            const deliveryMethod = this.getAttribute('data-delivery-method');
+            const shipmentAccount = this.getAttribute('data-shipment-account');
+            let origin = this.getAttribute('data-origin');
+            let scheduledTime = this.getAttribute('data-scheduled-time'); // 从按钮 data 获取
+
+            // 收集该分组内所有货物的ids和plt_ids
+            const cargoIds = [];
+            const pltIds = [];
+            const groupRows = document.querySelectorAll(`tr[data-suggestion-id="${suggestionId}"]`);
+            groupRows.forEach(row => {
+                const cargoId = row.getAttribute('data-cargo-id') || '';
+                const pltId = row.getAttribute('data-plt-id') || '';
+                if (cargoId) cargoIds.push(cargoId);
+                if (pltId) pltIds.push(pltId);
+            });
+
+            if (cargoIds.length === 0 && pltIds.length === 0) {
+                alert('该分组没有可绑定的PO数据');
+                return;
+            }
+
+            // 打开弹窗
+            openBindModal(suggestionId, cargoIds, pltIds, destination, deliveryMethod);
+
+            // 设置 select 默认值（预约账号）
+            if (shipmentAccount) {
+                document.getElementById('shipment-account-select').value = shipmentAccount;
+            }
+
+            // 如果 origin 没有值，取当前页面的 warehouse 值
+            if (!origin) {
+                origin = document.getElementById('current-warehouse').value;
+            }
+            document.getElementById('origin-select-1').value = origin;
+
+            // ✅ 设置预约号
+            const appointmentInput = document.querySelector('input[name="appointment_id"]');
+            if (appointmentInput && appointmentId) {
+                appointmentInput.value = appointmentId;
+            }
+
+            // ✅ 设置 Scheduled Time
+            const scheduledTimeInput = document.getElementById('scheduled-time-input');
+            if (scheduledTimeInput) {
+                if (scheduledTime) {
+                    scheduledTimeInput.value = scheduledTime.replace(' ', 'T');
+                } else {
+                    scheduledTimeInput.value = '';
+                }
+            }
+        });
+    });
+
+    function openBindModal(suggestionId, cargoIds, pltIds, destination, deliveryMethod) {
+        // 设置表单数据
+        document.getElementById('modalSuggestionId').value = suggestionId;
+        document.getElementById('modalCargoIds').value = cargoIds.join(',');
+        document.getElementById('modalPltIds').value = pltIds.join(',');
+        
+        // 设置目的地
+        document.getElementById('ftl-destination').value = destination;
+        
+        // 显示弹窗
+        document.getElementById('bindShipmentModal').style.display = 'block';
+    }
+
+    function closeBindModal() {
+        document.getElementById('bindShipmentModal').style.display = 'none';
+    }
+
+    // 关闭弹窗事件
+    document.querySelector('.close').addEventListener('click', closeBindModal);
+
+    // 点击弹窗外部关闭
+    window.addEventListener('click', function(event) {
+        const modal = document.getElementById('bindShipmentModal');
+        if (event.target === modal) {
+            closeBindModal();
+        }
+    });
+
+    // 表单提交处理
+    document.getElementById('bindShipmentForm').addEventListener('submit', function(e) {
+        e.preventDefault();
+        
+        if (confirm('确定要绑定这些货物到预约吗？')) {
+            // 显示加载状态
+            const submitBtn = this.querySelector('button[type="submit"]');
+            const originalHtml = submitBtn.innerHTML;
+            submitBtn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> 绑定中...';
+            submitBtn.disabled = true;
+            
+            // 提交表单
+            this.submit();
+        }
+    });
     document.querySelectorAll('.export-group-po').forEach(btn => {
         btn.addEventListener('click', function() {
             const suggestionId = this.getAttribute('data-suggestion-id');
