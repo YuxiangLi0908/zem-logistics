@@ -614,8 +614,13 @@
                 <div class="card-value">{{ summary.available_count }}</div>
                 <div class="card-trend">可立即使用</div>
             </div>
+            <div class="summary-card used">
+                <div class="card-title">已使用预约</div>
+                <div class="card-value">{{ summary.used_count }}</div>
+                <div class="card-trend">已绑定PO</div>
+            </div>
             <div class="summary-card">
-                <div class="card-title">待匹配货物</div>
+                <div class="card-title">待匹配PO组</div>
                 <div class="card-value">{{ summary.pending_cargo_count }}</div>
                 <div class="card-trend">{{ summary.total_pallets }} 板</div>
             </div>
@@ -623,7 +628,7 @@
 
         <div class="tab-navigation">
             <div class="tab active" data-tab="cargo">
-                货物管理 <span class="badge">{{ cargo_count }}</span>
+                PO管理 <span class="badge">{{ cargo_count }}</span>
             </div>
             <div class="tab" data-tab="appointments">
                 预约管理 <span class="badge">{{ appointment_count }}</span>
@@ -659,9 +664,9 @@
             </div>
 
             <div class="batch-actions">
-                <span class="selected-count">已选择 <span id="selectedCount">0</span> 个货物</span>
+                <span class="selected-count">已选择 <span id="selectedCount">0</span> 组PO</span>
                 <button class="action-btn btn-primary" id="exportSelected">
-                    <i class="fas fa-file-export"></i> 导出选中货物
+                    <i class="fas fa-file-export"></i> 导出选PO
                 </button>
                 <button class="action-btn btn-success" id="findAppointments">
                     <i class="fas fa-search"></i> 查找匹配预约
@@ -750,7 +755,7 @@
                         {% empty %}
                         <tr>
                             <td colspan="11" style="text-align: center; padding: 20px;">
-                                暂无待匹配货物
+                                暂无待匹配PO
                             </td>
                         </tr>
                         {% endfor %}
@@ -777,7 +782,7 @@
                         {% for s in shipments %}
                         <tr>
                             <td class="td">
-                                {{ s.shipment_account }}
+                                {{ s.shipment_account|default_if_none:"" }}
                             </td>
                             <td class="td">{{ s.appointment_id }}</td>
                             <td class="td">{{ s.destination }}</td>
@@ -825,98 +830,98 @@
 
         <!-- 智能匹配标签页 -->
         <div class="content-section" id="matching-section">
-            <div class="table-container">
-                <table class="data-table">
-                    <thead>
+        <div class="table-container">
+            <table class="data-table">
+                <thead>
+                    <tr>
+                        <th>仓点</th>
+                        <th>小组数量</th>  
+                        <th>板数</th>
+                        <th>CBM</th>
+                        <th>总板数</th>
+                        <th>总CBM</th>
+                        <th>柜号</th>
+                        <!-- 移除了推荐预约列 -->
+                        <th>匹配度</th>
+                        <th>操作</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% regroup matching_suggestions by primary_group as grouped_suggestions %}
+                    {% for primary_group in grouped_suggestions %}
+                        {% for suggestion in primary_group.list %}
                         <tr>
-                            <th>仓点</th>
-                            <th>小组数量</th>  
-                            <th>板数</th>
-                            <th>CBM</th>
-                            <th>总板数</th>
-                            <th>总CBM</th>
-                            <th>柜号</th>
+                            <!-- 仓点列 - 只在每个大组的第一行显示 -->
+                            {% if forloop.first %}
+                            <td rowspan="{{ primary_group.list|length }}" style="vertical-align: middle; background-color: #f8f9fa;">
+                                <div style="font-size: 16px; font-weight: bold; margin-bottom: 5px;">
+                                    {{ primary_group.grouper.destination }}
+                                </div>
+                                <div style="font-size: 12px; color: #666;">
+                                    {{ primary_group.grouper.delivery_method }}
+                                </div>
+                            </td>
+                            {% endif %}
+                            
+                            <!-- 子组信息 - 每行都显示 -->
+                            <td>{{ suggestion.subgroup.cargo_count }}</td>
+                            <td>{{ suggestion.subgroup.total_pallets|floatformat:2 }}</td>
+                            <td>{{ suggestion.subgroup.total_cbm|floatformat:3 }}</td>
+                            
+                            <!-- 总板数和总CBM - 只在每个大组的第一行显示 -->
+                            {% if forloop.first %}
+                            <td rowspan="{{ primary_group.list|length }}" style="vertical-align: middle; font-weight: bold;">
+                                {{ primary_group.grouper.total_pallets|floatformat:2 }}
+                            </td>
+                            <td rowspan="{{ primary_group.list|length }}" style="vertical-align: middle; font-weight: bold;">
+                                {{ primary_group.grouper.total_cbm|floatformat:3 }}
+                            </td>
+                            {% endif %}
+                            
+                            <!-- 柜号 - 每行都显示 -->
+                            <td style="max-width: 150px; white-space: pre-line; font-size: 0.8rem;">
+                                {{ suggestion.subgroup.container_numbers|linebreaks_container }}
+                            </td>
+                            
                             <!-- 移除了推荐预约列 -->
-                            <th>匹配度</th>
-                            <th>操作</th>
+                            
+                            <!-- 匹配度 - 每行都显示 -->
+                            <td>
+                                <div style="display: flex; flex-direction: column; gap: 4px; min-width: 120px;">
+                                    <!-- 板数进度条 -->
+                                    <div style="display: flex; align-items: center; gap: 6px;">
+                                        <div class="progress-container" style="flex: 1; background: #e9ecef; border-radius: 4px; height: 6px;">
+                                            <div class="progress-bar-pallets" style="width: {{ primary_group.grouper.pallets_percentage }}%; height: 100%; background: #28a745; border-radius: 4px;"></div>
+                                        </div>
+                                        <span style="font-size: 0.7rem; white-space: nowrap; min-width: 40px;">
+                                            {{ primary_group.grouper.total_pallets|floatformat:0 }}/ {{ max_pallet }}
+                                        </span>
+                                    </div>
+                                    <!-- CBM进度条 -->
+                                    <div style="display: flex; align-items: center; gap: 6px;">
+                                        <div class="progress-container" style="flex: 1; background: #e9ecef; border-radius: 4px; height: 6px;">
+                                            <div class="progress-bar-cbm" style="width: {{ primary_group.grouper.cbm_percentage }}%; height: 100%; background: #007bff; border-radius: 4px;"></div>
+                                        </div>
+                                        <span style="font-size: 0.7rem; white-space: nowrap; min-width: 40px;">
+                                            {{ primary_group.grouper.total_cbm|floatformat:1 }}/{{ max_cbm }}
+                                        </span>
+                                    </div>
+                                </div>
+                            </td>
+                            
+                            <!-- 操作按钮 - 每行都显示 -->
+                            <td>
+                                <button class="action-btn btn-success apply-match" data-match-id="{{ suggestion.id }}">
+                                    <i class="fas fa-check"></i> 应用
+                                </button>
+                            </td>
                         </tr>
-                    </thead>
-                    <tbody>
-                        {% regroup matching_suggestions by primary_group as grouped_suggestions %}
-                        {% for primary_group in grouped_suggestions %}
-                            {% for suggestion in primary_group.list %}
-                            <tr>
-                                <!-- 仓点列 - 只在每个大组的第一行显示 -->
-                                {% if forloop.first %}
-                                <td rowspan="{{ primary_group.list|length }}" style="vertical-align: middle; background-color: #f8f9fa;">
-                                    <div style="font-size: 16px; font-weight: bold; margin-bottom: 5px;">
-                                        {{ primary_group.grouper.destination }}
-                                    </div>
-                                    <div style="font-size: 12px; color: #666;">
-                                        {{ primary_group.grouper.delivery_method }}
-                                    </div>
-                                </td>
-                                {% endif %}
-                                
-                                <!-- 子组信息 - 每行都显示 -->
-                                <td>{{ suggestion.subgroup.cargo_count }}</td>
-                                <td>{{ suggestion.subgroup.total_pallets|floatformat:2 }}</td>
-                                <td>{{ suggestion.subgroup.total_cbm|floatformat:3 }}</td>
-                                
-                                <!-- 总板数和总CBM - 只在每个大组的第一行显示 -->
-                                {% if forloop.first %}
-                                <td rowspan="{{ primary_group.list|length }}" style="vertical-align: middle; font-weight: bold;">
-                                    {{ primary_group.grouper.total_pallets|floatformat:2 }}
-                                </td>
-                                <td rowspan="{{ primary_group.list|length }}" style="vertical-align: middle; font-weight: bold;">
-                                    {{ primary_group.grouper.total_cbm|floatformat:3 }}
-                                </td>
-                                {% endif %}
-                                
-                                <!-- 柜号 - 每行都显示 -->
-                                <td style="max-width: 150px; white-space: pre-line; font-size: 0.8rem;">
-                                    {{ suggestion.subgroup.container_numbers|linebreaks_container }}
-                                </td>
-                                
-                                <!-- 移除了推荐预约列 -->
-                                
-                                <!-- 匹配度 - 每行都显示 -->
-                                <td>
-                                    <div style="display: flex; flex-direction: column; gap: 4px; min-width: 120px;">
-                                        <!-- 板数进度条 -->
-                                        <div style="display: flex; align-items: center; gap: 6px;">
-                                            <div class="progress-container" style="flex: 1; background: #e9ecef; border-radius: 4px; height: 6px;">
-                                                <div class="progress-bar-pallets" style="width: {{ primary_group.grouper.pallets_percentage }}%; height: 100%; background: #28a745; border-radius: 4px;"></div>
-                                            </div>
-                                            <span style="font-size: 0.7rem; white-space: nowrap; min-width: 40px;">
-                                                {{ primary_group.grouper.total_pallets|floatformat:0 }}/ {{ max_pallet }}
-                                            </span>
-                                        </div>
-                                        <!-- CBM进度条 -->
-                                        <div style="display: flex; align-items: center; gap: 6px;">
-                                            <div class="progress-container" style="flex: 1; background: #e9ecef; border-radius: 4px; height: 6px;">
-                                                <div class="progress-bar-cbm" style="width: {{ primary_group.grouper.cbm_percentage }}%; height: 100%; background: #007bff; border-radius: 4px;"></div>
-                                            </div>
-                                            <span style="font-size: 0.7rem; white-space: nowrap; min-width: 40px;">
-                                                {{ primary_group.grouper.total_cbm|floatformat:1 }}/{{ max_cbm }}
-                                            </span>
-                                        </div>
-                                    </div>
-                                </td>
-                                
-                                <!-- 操作按钮 - 每行都显示 -->
-                                <td>
-                                    <button class="action-btn btn-success apply-match" data-match-id="{{ suggestion.id }}">
-                                        <i class="fas fa-check"></i> 应用
-                                    </button>
-                                </td>
-                            </tr>
-                            {% endfor %}
                         {% endfor %}
-                    </tbody>
-                </table>
-            </div>
+                    {% endfor %}
+                </tbody>
+            </table>
         </div>
+    </div>
         </div>
     </div>
 </div>
@@ -1096,7 +1101,7 @@
                 .map(checkbox => checkbox.value);
             
             if (selectedIds.length === 0) {
-                alert('请先选择要导出的货物');
+                alert('请先选择要导出的PO');
                 return;
             }
 
@@ -1136,7 +1141,7 @@
                 .map(checkbox => checkbox.value);
             
             if (selectedIds.length === 0) {
-                alert('请先选择货物');
+                alert('请先选择PO');
                 return;
             }
 

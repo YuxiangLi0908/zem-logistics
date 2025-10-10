@@ -279,7 +279,7 @@ class PostNsop(View):
         warehouse = request.POST.get("warehouse")
         nowtime = timezone.now()
         two_weeks_later = nowtime + timezone.timedelta(weeks=2)
-        #所有没约的货
+        #所有没约且两周内到港的货物
         unshipment_pos = await self._get_packing_list(
             models.Q(
                 shipment_batch_number__shipment_batch_number__isnull=True,
@@ -649,24 +649,41 @@ class PostNsop(View):
     async def calculate_summary(self, unshipment_pos, shipments):
         """异步计算统计数据 - 适配新的数据结构"""
         now = timezone.now()
-        
+    
         # 计算预约状态统计
         expired_count = 0
         urgent_count = 0
         available_count = 0
+        used_count = 0  # 已使用的预约数量
         
-        # for shipment in shipments:
-        #     if shipment.shipment_batch_number__shipped_at:
-        #         # 已发货
-        #         continue
-        #     elif (shipment.shipment_batch_number__shipment_appointment and 
-        #           shipment.shipment_batch_number__shipment_appointment < now):
-        #         expired_count += 1
-        #     elif (shipment.shipment_batch_number__shipment_appointment and 
-        #           shipment.shipment_batch_number__shipment_appointment - now < timedelta(days=7)):
-        #         urgent_count += 1
-        #     else:
-        #         available_count += 1
+        for shipment in shipments:
+            # 检查预约是否已过期
+            is_expired = (
+                shipment.shipment_appointment and 
+                shipment.shipment_appointment < now
+            )
+            
+            # 检查预约是否即将过期（7天内）
+            is_urgent = (
+                shipment.shipment_appointment and 
+                shipment.shipment_appointment - now < timedelta(days=7) and
+                not is_expired
+            )
+            
+            # 检查预约是否已被使用（通过 PackingList 或 Pallet 绑定）
+            has_packinglist = await self.has_related_packinglist(shipment)
+            has_pallet = await self.has_related_pallet(shipment)
+            is_used = has_packinglist or has_pallet
+            
+            if is_used:
+                used_count += 1
+            elif is_expired:
+                expired_count += 1
+            elif is_urgent:
+                urgent_count += 1
+            else:
+                # 可用预约：没过期、不紧急、未被使用
+                available_count += 1
         
         # 计算货物统计
         pending_cargos_count = len(unshipment_pos)
@@ -683,9 +700,34 @@ class PostNsop(View):
             'expired_count': expired_count,
             'urgent_count': urgent_count,
             'available_count': available_count,
+            'used_count': used_count,  # 已使用的预约数量
             'pending_cargo_count': pending_cargos_count,
             'total_pallets': int(total_pallets),
         }
+
+    async def has_related_packinglist(self, shipment):
+        """检查预约是否有相关的 PackingList 记录"""
+        
+        try:
+            # 使用 sync_to_async 包装数据库查询
+            packinglist_exists = await sync_to_async(
+                PackingList.objects.filter(shipment_batch_number=shipment).exists
+            )()
+            return packinglist_exists
+        except Exception:
+            return False
+
+    async def has_related_pallet(self, shipment):
+        """检查预约是否有相关的 Pallet 记录"""
+        
+        try:
+            # 使用 sync_to_async 包装数据库查询
+            pallet_exists = await sync_to_async(
+                Pallet.objects.filter(shipment_batch_number=shipment).exists
+            )()
+            return pallet_exists
+        except Exception:
+            return False
     
     async def has_appointment(self, cargo):
         """异步判断货物是否已有预约 - 适配新的数据结构"""
