@@ -874,6 +874,8 @@ class Accounting(View):
         packinglists = (
             PackingList.objects.filter(delivery_type="other")
             .exclude(fba_id__icontains="FBA")
+            .exclude(destination__icontains="UPS") 
+            .exclude(destination__icontains="FEDEX")
             .select_related("container_number")  # 单个 container 外键可 select_related
             .prefetch_related(
                 Prefetch("container_number__order", queryset=valid_orders, to_attr="matched_orders")
