@@ -58,7 +58,9 @@ from office365.runtime.auth.user_credential import UserCredential
 from office365.runtime.client_request_exception import ClientRequestException
 from office365.sharepoint.client_context import ClientContext
 from office365.sharepoint.sharing.links.kind import SharingLinkKind
+from openpyxl import Workbook
 from openpyxl.styles import Alignment, Border, Font, PatternFill, Side, numbers
+from openpyxl.utils.dataframe import dataframe_to_rows
 from simple_history.utils import bulk_create_with_history, bulk_update_with_history
 from sqlalchemy.util import await_only
 
@@ -367,7 +369,7 @@ class Accounting(View):
             template, context = self.migrate_payable_to_receivable()
             return render(request, template, context)
         elif step == "migrate_status":
-            return self.migrate_status()
+            return self.migrate_status(request)
         elif step == "confirm_combina_save":
             template, context = self.handle_invoice_confirm_combina_save(request)
             return render(request, template, context)
@@ -865,19 +867,19 @@ class Accounting(View):
         start_date = date(2025, 9, 1)
         end_date = date(2025, 9, 30)
 
-        # 先筛选符合 ETA 条件的 orders
-        valid_orders = Order.objects.filter(
-            vessel_id__vessel_eta__range=(start_date, end_date)
-        ).select_related("vessel_id")
 
-        # 再通过 Prefetch 预加载 container 的关联 order
+    def migrate_status(self, request: HttpRequest) -> HttpResponse:
+        start_date = request.POST.get("start_date")
+        end_date = request.POST.get("end_date")
+
         packinglists = (
             PackingList.objects.filter(
                 delivery_type="other",
+                delivery_method="客户自提",
                 container_number__order__vessel_id__vessel_eta__range=(start_date, end_date)
             )
             .exclude(fba_id__icontains="FBA")
-            .exclude(destination__icontains="UPS") 
+            .exclude(destination__icontains="UPS")
             .exclude(destination__icontains="FEDEX")
             .select_related("container_number")
             .prefetch_related(
@@ -893,48 +895,187 @@ class Accounting(View):
         if not packinglists.exists():
             return HttpResponse("未找到符合条件的 PackingList", status=404)
 
-        # === 组装导出数据 ===
         data = []
-        for pl in packinglists:
-            container = pl.container_number
-            vessel = None
-
-            # container.matched_orders 是我们 prefetch 时命名的
-            if hasattr(container, "matched_orders") and container.matched_orders:
-                # 取第一个匹配的 order
-                order = container.matched_orders[0]
-                vessel = order.vessel_id
-
+        for idx, pl in enumerate(packinglists, start=1):
             data.append(
                 {
-                    "Shipping Mark": pl.shipping_mark,
-                    "FBA ID": pl.fba_id,
-                    "Destination": pl.destination,
-                    "Contact Method": pl.contact_method,
-                    "PCS": pl.pcs,
-                    "CBM": pl.cbm,
-                    "Weight (lbs)": pl.total_weight_lbs,
-                    "Container Number": container.container_number if container else "",
-                    "Vessel ETA": vessel.vessel_eta.strftime("%Y-%m-%d") if vessel and vessel.vessel_eta else "",
+                    "Order#": idx,
+                    "Zip code (W)": "",
+                    "State (W)": "",
+                    "City (W)": "",
+                    "Address (W)": "",
+                    "Address 1": pl.destination,
+                    "Address 2": "",
+                    "City": "",
+                    "State": "",
+                    "Zip code": pl.zipcode,
+                    "L（inch）": pl.long,
+                    "W（inch）": pl.width,
+                    "H（inch）": pl.height,
+                    "Weight（LBS）": pl.total_weight_lbs,
+                    "Description": pl.note,
                 }
             )
 
-        # === DataFrame + 汇总 ===
         df = pd.DataFrame(data)
-        total_cbm = df["CBM"].sum()
-
         summary_row = {col: "" for col in df.columns}
-        summary_row["CBM"] = total_cbm
         df = pd.concat([df, pd.DataFrame([summary_row])], ignore_index=True)
 
-        # === 导出 Excel ===
+        wb = Workbook()
+        ws = wb.active
+        ws.title = "Customer Shipment Data"
+
+        thin_border = Border(
+            left=Side(style='thin', color='000000'),
+            right=Side(style='thin', color='000000'),
+            top=Side(style='thin', color='000000'),
+            bottom=Side(style='thin', color='000000')
+        )
+
+        header_alignment = Alignment(
+            horizontal='center',
+            vertical='center',
+            wrap_text=False
+        )
+
+        data_alignment = Alignment(
+            horizontal='center',
+            vertical='center'
+        )
+
+        ws.row_dimensions[1].height = 30
+        ws.row_dimensions[2].height = 30
+
+        cross_merge_groups = [
+            {
+                "primary_header": "Warehouse Address (Sender's Address)",
+                "fields": ["Zip code (W)", "State (W)", "City (W)", "Address (W)"]
+            },
+            {
+                "primary_header": "Recipient's Address",
+                "fields": ["Address 1", "Address 2", "City", "State", "Zip code"]
+            }
+        ]
+
+        all_fields = [
+            "Order#",
+            *cross_merge_groups[0]["fields"],
+            *cross_merge_groups[1]["fields"],
+            "L（inch）", "W（inch）", "H（inch）", "Weight（LBS）", "Description"
+        ]
+        df = df[all_fields]
+
+        current_col = 1
+        field_name = "Order#"
+        ws.merge_cells(start_row=1, start_column=current_col, end_row=2, end_column=current_col)
+        header_cell = ws.cell(row=1, column=current_col)
+        header_cell.value = field_name
+        header_cell.border = thin_border
+        header_cell.alignment = header_alignment
+        current_col += 1
+
+
+        warehouse_group = cross_merge_groups[0]
+        primary_header = warehouse_group["primary_header"]
+        warehouse_fields = warehouse_group["fields"]
+        ws.merge_cells(start_row=1, start_column=current_col, end_row=1,
+                       end_column=current_col + len(warehouse_fields) - 1)
+
+        # 一级表头处理
+        primary_cell = ws.cell(row=1, column=current_col)
+        primary_cell.value = primary_header
+        primary_cell.border = thin_border
+        primary_cell.alignment = header_alignment
+
+        # 二级表头处理（避免对合并单元格赋值）
+        for col_offset, field in enumerate(warehouse_fields):
+            cell = ws.cell(row=2, column=current_col + col_offset)
+            cell.value = field
+            cell.border = thin_border
+            cell.alignment = header_alignment
+        current_col += len(warehouse_fields)
+
+        # 处理跨列合并表头（Recipient's Address）
+        recipient_group = cross_merge_groups[1]
+        primary_header = recipient_group["primary_header"]
+        recipient_fields = recipient_group["fields"]
+        ws.merge_cells(start_row=1, start_column=current_col, end_row=1,
+                       end_column=current_col + len(recipient_fields) - 1)
+
+        # 一级表头处理
+        primary_cell = ws.cell(row=1, column=current_col)
+        primary_cell.value = primary_header
+        primary_cell.border = thin_border
+        primary_cell.alignment = header_alignment
+
+        # 二级表头处理
+        for col_offset, field in enumerate(recipient_fields):
+            cell = ws.cell(row=2, column=current_col + col_offset)
+            cell.value = field
+            cell.border = thin_border
+            cell.alignment = header_alignment
+        current_col += len(recipient_fields)
+
+        # 处理剩余自身合并字段
+        remaining_self_merge = ["L（inch）", "W（inch）", "H（inch）", "Weight（LBS）", "Description"]
+        for field_name in remaining_self_merge:
+            ws.merge_cells(start_row=1, start_column=current_col, end_row=2, end_column=current_col)
+            header_cell = ws.cell(row=1, column=current_col)
+            header_cell.value = field_name
+            header_cell.border = thin_border
+            header_cell.alignment = header_alignment
+            current_col += 1
+
+
+        merged_ranges = ws.merged_cells.ranges
+        merged_cells_set = set()
+        for merged_range in merged_ranges:
+            for row in range(merged_range.min_row, merged_range.max_row + 1):
+                for col in range(merged_range.min_col, merged_range.max_col + 1):
+                    if (row, col) != (merged_range.min_row, merged_range.min_col):
+                        merged_cells_set.add((row, col))
+
+
+        for row_idx, row_data in enumerate(dataframe_to_rows(df, index=False, header=False), start=3):
+            for col_idx, value in enumerate(row_data, start=1):
+                if (row_idx, col_idx) in merged_cells_set:
+                    continue
+                cell = ws.cell(row=row_idx, column=col_idx, value=value)
+                cell.border = thin_border
+                cell.alignment = data_alignment
+
+        # 优化列宽
+        column_widths = [
+            8,  # A: Order#
+            15,  # B: Zip code (Warehouse)
+            8,  # C: State (Warehouse)
+            12,  # D: City (Warehouse)
+            35,  # E: Address (Warehouse)
+            35,  # F: Address 1
+            35,  # G: Address 2
+            12,  # H: City
+            8,  # I: State
+            15,  # J: Zip code (Recipient)
+            10,  # K: L（inch）
+            10,  # L: W（inch）
+            10,  # M: H（inch）
+            12,  # N: Weight（LBS）
+            20  # O: Description
+        ]
+        for col_num, width in enumerate(column_widths, start=1):
+            ws.column_dimensions[chr(64 + col_num)].width = width
+
+
         response = HttpResponse(
             content_type="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
         )
-        response["Content-Disposition"] = 'attachment; filename="packinglist_vessel_eta_sep.xlsx"'
-        df.to_excel(response, index=False)
+        response["Content-Disposition"] = (
+            'attachment; filename="Customer Shipment Data template -- Pilot.xlsx"'
+        )
+        wb.save(response)
 
         return response
+
 
     def replace_keywords(data):
         KEYWORD_MAPPING = {
