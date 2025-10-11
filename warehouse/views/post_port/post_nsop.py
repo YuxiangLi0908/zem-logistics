@@ -1748,7 +1748,7 @@ class PostNsop(View):
                         matches.append({
                             'id': match_id,
                             'destination': destination,
-                            'cargo_count': len(current_group),
+                            'cargo_count': len(current_group), 
                             'total_pallets': int(current_pallets),
                             'recommended_appointment': best_shipment,
                             'match_percentage': match_percentage,
