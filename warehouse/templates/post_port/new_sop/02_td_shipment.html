@@ -702,9 +702,11 @@
                                                 data-destination="{{ suggestion.primary_group.destination }}"
                                                 data-scheduled-time="{{ suggestion.primary_group.matched_shipment.shipment_appointment|date:'Y-m-d H:i' }}"
                                                 data-delivery-method="{{ suggestion.primary_group.delivery_method }}"
+                                                data-note="{{ suggestion.primary_group.matched_shipment.note }}"
+                                                data-address-detail="{{ suggestion.primary_group.matched_shipment.address_detail }}"                            
                                                 {% if suggestion.primary_group.matched_shipment %}
                                                     data-shipment-account="{{ suggestion.primary_group.matched_shipment.shipment_account }}"
-                                                    data-origin="{{ suggestion.primary_group.matched_shipment.origin }}"
+                                                    data-origin="{{ warehouse }}"
                                                 {% endif %}>
                                             <i class="fas fa-check"></i> 绑定
                                         </button>
@@ -988,10 +990,11 @@
 </form>
 
 <div id="bindShipmentModal" class="modal" style="display: none; position: fixed; z-index: 1000; left: 0; top: 0; width: 100%; height: 100%; background-color: rgba(0,0,0,0.5);">
-    <div class="modal-content" style="background-color: #fefefe; margin: 5% auto; padding: 20px; border: 1px solid #888; width: 90%; max-width: 1000px; max-height: 80vh; overflow-y: auto; border-radius: 10px;">
+    <div class="modal-content"
+            style="background-color: #fefefe; margin: 5% auto; padding: 20px; border: 1px solid #888; width: 90%; max-width: 1000px; max-height: 80vh; overflow-y: auto; border-radius: 10px;">
         <span class="close" style="color: #aaa; float: right; font-size: 28px; font-weight: bold; cursor: pointer;">&times;</span>
         <h3>绑定预约信息</h3>
-        
+
         <form id="bindShipmentForm" method="post">
             {% csrf_token %}
             <input type="hidden" name="step" value="bind_group_shipment">
@@ -1000,86 +1003,100 @@
             <input type="hidden" name="plt_ids" id="modalPltIds">
             <input type="hidden" name="warehouse" value="{{ warehouse }}">
             <input type="hidden" name="st_type" value="{{ st_type }}">
-            
+
             <!-- FTL 表单 -->
             <div id="FTL-form">
-                <table id="shipment-table-1" class="table" style="font-size: 11px; overflow-x: scroll; max-width: 100%; margin-bottom: 15px;">
+                <table id="shipment-table-1" class="table"
+                        style="font-size: 11px; overflow-x: scroll; max-width: 100%; margin-bottom: 15px;">
                     <thead>
-                        <tr>
-                            <th class="th">预约账号</th>
-                            <th class="th">预约号</th>
-                            <th class="th">Scheduled Time</th>
-                        </tr>
+                    <tr>
+                        <th class="th">预约账号</th>
+                        <th class="th">预约号</th>
+                        <th class="th">Scheduled Time</th>
+                    </tr>
                     </thead>
                     <tbody>
-                        <tr>
-                            <td class="td">
-                                <select name="shipment_account" id="shipment-account-select" style="font-size: 13px; width: 200px;">
-                                    {% for k, v in account_options.items %}
+                    <tr>
+                        <td class="td">
+                            <select name="shipment_account" id="shipment-account-select"
+                                    style="font-size: 13px; width: 200px;">
+                                {% for k, v in account_options.items %}
                                     <option value="{{ v }}">{{ k }}</option>
-                                    {% endfor %}
-                                </select>
-                            </td>
-                            <td class="td"><input type="text" name="appointment_id" id="appointment_id" style="font-size: 13px; width: 200px;"></td>
-                            <td class="td"><input
+                                {% endfor %}
+                            </select>
+                        </td>
+                        <td class="td"><input type="text" name="appointment_id" id="appointment_id"
+                                                style="font-size: 13px; width: 200px;"></td>
+                        <td class="td"><input
                                 type="datetime-local"
                                 id="scheduled-time-input"
                                 name="shipment_appointment"
                                 style="font-size: 13px; width: 200px;"
                                 required
-                                ></td>
-                        </tr>
+                        ></td>
+                    </tr>
                     </tbody>
                 </table>
-                <table id="shipment-table-2" class="table" style="font-size: 11px; overflow-x: auto; max-width: 100%; margin-bottom: 15px;">
+                <table id="shipment-table-2" class="table"
+                        style="font-size: 11px; overflow-x: auto; max-width: 100%; margin-bottom: 15px;">
                     <thead>
-                        <tr>
-                            <th class="th">发货仓库</th>
-                            <th class="th">装车类型</th>
-                            <th class="th">备注</th>
-                        </tr>
+                    <tr>
+                        <th class="th">发货仓库</th>
+                        <th class="th">装车类型</th>
+                        <th class="th">备注</th>
+                    </tr>
                     </thead>
                     <tbody>
-                        <tr>
-                            <td class="td">
-                                <select name="origin" id="origin-select-1" style="font-size: 13px; width: 200px;">
-                                    {% for k, v in warehouse_options.items %}
+                    <tr>
+                        <td class="td">
+                            <select name="origin" id="origin-select-1" style="font-size: 13px; width: 200px;">
+                                {% for k, v in warehouse_options.items %}
                                     <option value="{{ v }}">{{ k }}</option>
-                                    {% endfor %}
-                                </select>
-                            </td>
-                            <td class="td">
-                                <select name="load_type" id="load-type-select" style="font-size: 13px; width: 200px;">
-                                    {% for k, v in load_type_options %}
+                                {% endfor %}
+                            </select>
+                        </td>
+                        <td class="td">
+                            <select name="load_type" id="load-type-select" style="font-size: 13px; width: 200px;">
+                                {% for k, v in load_type_options %}
                                     <option value="{{ v }}">{{ k }}</option>
-                                    {% endfor %}
-                                </select>
-                            </td>
-                            <td class="td"><input type="text" name="note" style="font-size: 13px; width: 200px;"></td>
-                        </tr>
+                                {% endfor %}
+                            </select>
+                        </td>
+                        <td class="td"><input type="text" name="note" id="note" style="font-size: 13px; width: 200px;"></td>
+                    </tr>
                     </tbody>
                 </table>
-                <table id="shipment-table-3" class="table" style="font-size: 11px; overflow-x: auto; max-width: 100%;">
+                <table id="shipment-table-3" class="table"
+                        style="font-size: 11px; overflow-x: auto; max-width: 100%;">
                     <thead>
-                        <tr>
-                            <th class="th">目的地</th>
-                            <th class="th">地址</th>
-                        </tr>
+                    <tr>
+                        <th class="th">目的地</th>
+                        <th class="th">地址</th>
+                        <th class="th">预约类型</th>
+                    </tr>
                     </thead>
                     <tbody>
-                        <tr>
-                            <td class="td"><input type="text" name="destination" id="ftl-destination" style="font-size: 13px; width: 200px;" required></td>
-                            <td class="td"><input type="text" name="address" style="font-size: 13px; width: 300px;" required></td>
-                        </tr>
+                    <tr>
+                        <td class="td"><input type="text" name="destination" id="ftl-destination" style="font-size: 13px; width: 200px;" required></td>
+                        <td class="td"><input type="text" name="address" id="address_detail" style="font-size: 13px; width: 300px;" required></td>
+                        <td class="td">
+                            <select name="shipment_type" id="shipment-type-select" style="font-size: 13px; width: 200px;">
+                                {% for k, v in shipment_type_options.items %}
+                                    <option value="{{ v }}">{{ k }}</option>
+                                {% endfor %}
+                            </select>
+                        </td>
+                    </tr>
                     </tbody>
                 </table>
             </div>
-            
+
             <div style="margin-top: 20px; text-align: center;">
                 <button type="submit" class="action-btn btn-success" style="padding: 10px 20px;">
                     <i class="fas fa-check"></i> 确认绑定
                 </button>
-                <button type="button" class="action-btn btn-danger" onclick="closeBindModal()" style="padding: 10px 20px;">
+                <button type="button" class="action-btn btn-danger" onclick="closeBindModal()"
+                        style="padding: 10px 20px;">
                     <i class="fas fa-times"></i> 取消
                 </button>
             </div>
@@ -1087,270 +1104,274 @@
     </div>
 </div>
 <script>
-    document.querySelectorAll('.apply-group-match').forEach(btn => {
-        btn.addEventListener('click', function() {
-            const suggestionId = this.getAttribute('data-suggestion-id');
-            const appointmentId = this.getAttribute('data-appointment-id'); // ✅ 预约号
-            const destination = this.getAttribute('data-destination');
-            const deliveryMethod = this.getAttribute('data-delivery-method');
-            const shipmentAccount = this.getAttribute('data-shipment-account');
-            let origin = this.getAttribute('data-origin');
-            let scheduledTime = this.getAttribute('data-scheduled-time'); // 从按钮 data 获取
+document.querySelectorAll('.apply-group-match').forEach(btn => {
+    btn.addEventListener('click', function() {
+        const suggestionId = this.getAttribute('data-suggestion-id');
+        const appointmentId = this.getAttribute('data-appointment-id');
+        const destination = this.getAttribute('data-destination');
+        const deliveryMethod = this.getAttribute('data-delivery-method');
+        const shipmentAccount = this.getAttribute('data-shipment-account');
+        let origin = this.getAttribute('data-origin');
+        const note = this.getAttribute('data-note');
+        const address_detail = this.getAttribute('data-address-detail');
+        let scheduledTime = this.getAttribute('data-scheduled-time');
 
-            // 收集该分组内所有货物的ids和plt_ids
-            const cargoIds = [];
-            const pltIds = [];
-            const groupRows = document.querySelectorAll(`tr[data-suggestion-id="${suggestionId}"]`);
-            groupRows.forEach(row => {
-                const cargoId = row.getAttribute('data-cargo-id') || '';
-                const pltId = row.getAttribute('data-plt-id') || '';
-                if (cargoId) cargoIds.push(cargoId);
-                if (pltId) pltIds.push(pltId);
-            });
-
-            if (cargoIds.length === 0 && pltIds.length === 0) {
-                alert('该分组没有可绑定的PO数据');
-                return;
-            }
-
-            // 打开弹窗
-            openBindModal(suggestionId, cargoIds, pltIds, destination, deliveryMethod);
-
-            // 设置 select 默认值（预约账号）
-            if (shipmentAccount) {
-                document.getElementById('shipment-account-select').value = shipmentAccount;
-            }
-
-            // 如果 origin 没有值，取当前页面的 warehouse 值
-            if (!origin) {
-                origin = document.getElementById('current-warehouse').value;
-            }
-            document.getElementById('origin-select-1').value = origin;
-
-            // ✅ 设置预约号
-            const appointmentInput = document.querySelector('input[name="appointment_id"]');
-            if (appointmentInput && appointmentId) {
-                appointmentInput.value = appointmentId;
-            }
-
-            // ✅ 设置 Scheduled Time
-            const scheduledTimeInput = document.getElementById('scheduled-time-input');
-            if (scheduledTimeInput) {
-                if (scheduledTime) {
-                    scheduledTimeInput.value = scheduledTime.replace(' ', 'T');
-                } else {
-                    scheduledTimeInput.value = '';
-                }
-            }
+        // 收集该分组内所有货物的ids和plt_ids
+        const cargoIds = [];
+        const pltIds = [];
+        const groupRows = document.querySelectorAll(`tr[data-suggestion-id="${suggestionId}"]`);
+        groupRows.forEach(row => {
+            const cargoId = row.getAttribute('data-cargo-id') || '';
+            const pltId = row.getAttribute('data-plt-id') || '';
+            if (cargoId) cargoIds.push(cargoId);
+            if (pltId) pltIds.push(pltId);
         });
+        
+        // 调用打开弹窗函数
+        openBindModal(suggestionId, cargoIds, pltIds, destination, deliveryMethod, appointmentId, shipmentAccount, origin, note, address_detail, scheduledTime);
     });
+});
 
-    function openBindModal(suggestionId, cargoIds, pltIds, destination, deliveryMethod) {
-        // 设置表单数据
-        document.getElementById('modalSuggestionId').value = suggestionId;
-        document.getElementById('modalCargoIds').value = cargoIds.join(',');
-        document.getElementById('modalPltIds').value = pltIds.join(',');
-        
-        // 设置目的地
-        document.getElementById('ftl-destination').value = destination;
-        
-        // 显示弹窗
-        document.getElementById('bindShipmentModal').style.display = 'block';
-    }
+function openBindModal(suggestionId, cargoIds, pltIds, destination, deliveryMethod, appointmentId, shipmentAccount, origin, note, address_detail, scheduledTime) {
+    // 设置隐藏字段
+    document.getElementById('modalSuggestionId').value = suggestionId;
+    document.getElementById('modalCargoIds').value = cargoIds.join(',');
+    document.getElementById('modalPltIds').value = pltIds.join(',');
 
-    function closeBindModal() {
-        document.getElementById('bindShipmentModal').style.display = 'none';
-    }
+    // 设置表单可见字段
+    document.getElementById('ftl-destination').value = destination || '';
+    document.getElementById('appointment_id').value = appointmentId || '';
+    document.getElementById('address_detail').value = address_detail || '';
+    document.getElementById('note').value = note || '';
 
-    // 关闭弹窗事件
-    document.querySelector('.close').addEventListener('click', closeBindModal);
-
-    // 点击弹窗外部关闭
-    window.addEventListener('click', function(event) {
-        const modal = document.getElementById('bindShipmentModal');
-        if (event.target === modal) {
-            closeBindModal();
+    // 设置预约账号下拉框
+    if (shipmentAccount) {
+        const accountSelect = document.getElementById('shipment-account-select');
+        for (let i = 0; i < accountSelect.options.length; i++) {
+            if (accountSelect.options[i].value === shipmentAccount) {
+                accountSelect.selectedIndex = i;
+                break;
+            }
         }
-    });
+    }
 
-    // 表单提交处理
-    document.getElementById('bindShipmentForm').addEventListener('submit', function(e) {
-        e.preventDefault();
-        
-        if (confirm('确定要绑定这些货物到预约吗？')) {
-            // 显示加载状态
-            const submitBtn = this.querySelector('button[type="submit"]');
-            const originalHtml = submitBtn.innerHTML;
-            submitBtn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> 绑定中...';
-            submitBtn.disabled = true;
-            
-            // 提交表单
-            this.submit();
+    // 设置发货仓库下拉框
+    if (origin) {
+        const originSelect = document.getElementById('origin-select-1');
+        for (let i = 0; i < originSelect.options.length; i++) {
+            if (originSelect.options[i].value === origin) {
+                originSelect.selectedIndex = i;
+                break;
+            }
         }
-    });
-    document.querySelectorAll('.export-group-po').forEach(btn => {
-        btn.addEventListener('click', function() {
-            const suggestionId = this.getAttribute('data-suggestion-id');
-            
-            // 找到对应的行
-            const suggestionRow = document.querySelector(`tr[data-suggestion-id="${suggestionId}"]`);
-            if (!suggestionRow) {
-                alert('未找到对应的PO数据');
-                return;
-            }
-            
-            // 收集该分组内所有货物的ids和plt_ids
-            const cargoIds = [];
-            const pltIds = [];
-            
-            // 找到该分组的所有行
-            const groupRows = document.querySelectorAll(`tr[data-suggestion-id="${suggestionId}"]`);
-            
-            groupRows.forEach(row => {
-                const cargoId = row.getAttribute('data-cargo-id') || '';
-                const pltId = row.getAttribute('data-plt-id') || '';
-                
-                if (cargoId) cargoIds.push(cargoId);
-                if (pltId) pltIds.push(pltId);
-            });
-            
-            if (cargoIds.length === 0 && pltIds.length === 0) {
-                alert('该分组没有可导出的PO数据');
-                return;
-            }
-            
-            // 设置表单数据并提交
-            document.getElementById('formStep').value = 'export_pos';
-            document.getElementById('formCargoIds').value = cargoIds.join(',');
-            document.getElementById('formPltIds').value = pltIds.join(',');
-            document.getElementById('formSuggestionId').value = suggestionId;
-            document.getElementById('actionForm').submit();
-        });
-    });
-
-    // 标签页切换
-    document.querySelectorAll('.tab').forEach(tab => {
-        tab.addEventListener('click', function() {
-            const tabName = this.getAttribute('data-tab');
-            
-            document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
-            this.classList.add('active');
-            
-            document.querySelectorAll('.content-section').forEach(section => {
-                section.classList.remove('active');
-            });
-            document.getElementById(tabName + '-section').classList.add('active');
-        });
-    });
-
-    // 未排约选择功能
-    document.getElementById('selectAllUnscheduled').addEventListener('change', function() {
-        const checkboxes = document.querySelectorAll('.unscheduled-checkbox');
-        checkboxes.forEach(checkbox => {
-            checkbox.checked = this.checked;
-        });
-        updateUnscheduledSelectedCount();
-    });
-
-    document.querySelectorAll('.unscheduled-checkbox').forEach(checkbox => {
-        checkbox.addEventListener('change', updateUnscheduledSelectedCount);
-    });
-
-    function updateUnscheduledSelectedCount() {
-        const selectedCount = document.querySelectorAll('.unscheduled-checkbox:checked').length;
-        document.getElementById('selectedUnscheduledCount').textContent = selectedCount;
     }
 
-    function matchSingleCargo(cargoIds) {
-        document.getElementById('formStep').value = 'match_single_cargo';
-        document.getElementById('formCargoIds').value = cargoIds;
-        document.getElementById('actionForm').submit();
+    // 设置装车类型下拉框
+    if (deliveryMethod) {
+        const loadTypeSelect = document.getElementById('load-type-select');
+        for (let i = 0; i < loadTypeSelect.options.length; i++) {
+            if (loadTypeSelect.options[i].value === deliveryMethod) {
+                loadTypeSelect.selectedIndex = i;
+                break;
+            }
+        }
     }
 
-    function matchSelectedCargos() {
-        const selectedCheckboxes = document.querySelectorAll('.unscheduled-checkbox:checked');
-        if (selectedCheckboxes.length === 0) {
-            alert('请先选择要匹配的货物');
+    // 设置 Scheduled Time
+    const scheduledTimeInput = document.getElementById('scheduled-time-input');
+    if (scheduledTime && scheduledTimeInput) {
+        scheduledTime = scheduledTime.replace(' ', 'T');
+        scheduledTimeInput.value = scheduledTime;
+    }
+
+    // 显示弹窗
+    document.getElementById('bindShipmentModal').style.display = 'block';
+}
+
+function closeBindModal() {
+    document.getElementById('bindShipmentModal').style.display = 'none';
+}
+
+// 关闭弹窗事件
+document.querySelector('.close').addEventListener('click', closeBindModal);
+
+// 点击弹窗外部关闭
+window.addEventListener('click', function (event) {
+    const modal = document.getElementById('bindShipmentModal');
+    if (event.target === modal) {
+        closeBindModal();
+    }
+});
+
+// 表单提交处理
+document.getElementById('bindShipmentForm').addEventListener('submit', function (e) {
+    e.preventDefault();
+
+    if (confirm('确定要绑定这些货物到预约吗？')) {
+        // 显示加载状态
+        const submitBtn = this.querySelector('button[type="submit"]');
+        const originalHtml = submitBtn.innerHTML;
+        submitBtn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> 绑定中...';
+        submitBtn.disabled = true;
+
+        // 提交表单
+        this.submit();
+    }
+});
+
+document.querySelectorAll('.export-group-po').forEach(btn => {
+    btn.addEventListener('click', function () {
+        const suggestionId = this.getAttribute('data-suggestion-id');
+
+        // 找到对应的行
+        const suggestionRow = document.querySelector(`tr[data-suggestion-id="${suggestionId}"]`);
+        if (!suggestionRow) {
+            alert('未找到对应的PO数据');
             return;
         }
 
-        const cargoIds = Array.from(selectedCheckboxes).map(checkbox => checkbox.value).join(',');
-        document.getElementById('formStep').value = 'match_selected_cargos';
-        document.getElementById('formCargoIds').value = cargoIds;
+        // 收集该分组内所有货物的ids和plt_ids
+        const cargoIds = [];
+        const pltIds = [];
+        const groupRows = document.querySelectorAll(`tr[data-suggestion-id="${suggestionId}"]`);
+        groupRows.forEach(row => {
+            const cargoId = row.getAttribute('data-cargo-id') || '';
+            const pltId = row.getAttribute('data-plt-id') || '';
+            if (cargoId) cargoIds.push(cargoId);
+            if (pltId) pltIds.push(pltId);
+        });
+
+        // 设置表单数据并提交
+        document.getElementById('formStep').value = 'export_pos';
+        document.getElementById('formCargoIds').value = cargoIds.join(',');
+        document.getElementById('formPltIds').value = pltIds.join(',');
+        document.getElementById('formSuggestionId').value = suggestionId;
+        document.getElementById('actionForm').submit();
+    });
+});
+
+// 标签页切换
+document.querySelectorAll('.tab').forEach(tab => {
+    tab.addEventListener('click', function () {
+        const tabName = this.getAttribute('data-tab');
+
+        document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
+        this.classList.add('active');
+
+        document.querySelectorAll('.content-section').forEach(section => {
+            section.classList.remove('active');
+        });
+        document.getElementById(tabName + '-section').classList.add('active');
+    });
+});
+
+// 未排约选择功能
+document.getElementById('selectAllUnscheduled').addEventListener('change', function () {
+    const checkboxes = document.querySelectorAll('.unscheduled-checkbox');
+    checkboxes.forEach(checkbox => {
+        checkbox.checked = this.checked;
+    });
+    updateUnscheduledSelectedCount();
+});
+
+document.querySelectorAll('.unscheduled-checkbox').forEach(checkbox => {
+    checkbox.addEventListener('change', updateUnscheduledSelectedCount);
+});
+
+function updateUnscheduledSelectedCount() {
+    const selectedCount = document.querySelectorAll('.unscheduled-checkbox:checked').length;
+    document.getElementById('selectedUnscheduledCount').textContent = selectedCount;
+}
+
+function matchSingleCargo(cargoIds) {
+    document.getElementById('formStep').value = 'match_single_cargo';
+    document.getElementById('formCargoIds').value = cargoIds;
+    document.getElementById('actionForm').submit();
+}
+
+function matchSelectedCargos() {
+    const selectedCheckboxes = document.querySelectorAll('.unscheduled-checkbox:checked');
+    if (selectedCheckboxes.length === 0) {
+        alert('请先选择要匹配的货物');
+        return;
+    }
+
+    const cargoIds = Array.from(selectedCheckboxes).map(checkbox => checkbox.value).join(',');
+    document.getElementById('formStep').value = 'match_selected_cargos';
+    document.getElementById('formCargoIds').value = cargoIds;
+    document.getElementById('actionForm').submit();
+}
+
+function applyGroupMatch(suggestionId) {
+    if (confirm('确定要将这些货物匹配到此预约吗？')) {
+        document.getElementById('formStep').value = 'apply_group_match';
+        document.getElementById('formSuggestionId').value = suggestionId;
         document.getElementById('actionForm').submit();
     }
+}
 
-    function applyGroupMatch(suggestionId) {
-        if (confirm('确定要将这些货物匹配到此预约吗？')) {
-            document.getElementById('formStep').value = 'apply_group_match';
-            document.getElementById('formSuggestionId').value = suggestionId;
-            document.getElementById('actionForm').submit();
-        }
+function selectGroupAppointment(select, groupKey) {
+    const appointmentId = select.value;
+    if (appointmentId) {
+        document.getElementById('formStep').value = 'assign_group_appointment';
+        document.getElementById('formAppointmentId').value = appointmentId;
+        document.getElementById('formGroupKey').value = groupKey;
+        document.getElementById('actionForm').submit();
     }
+}
 
-    function selectGroupAppointment(select, groupKey) {
-        const appointmentId = select.value;
-        if (appointmentId) {
-            document.getElementById('formStep').value = 'assign_group_appointment';
-            document.getElementById('formAppointmentId').value = appointmentId;
-            document.getElementById('formGroupKey').value = groupKey;
-            document.getElementById('actionForm').submit();
-        }
+function unassignShipment(appointmentId) {
+    if (confirm('确定要取消这个预约的所有排约吗？')) {
+        document.getElementById('formStep').value = 'unassign_shipment';
+        document.getElementById('formAppointmentId').value = appointmentId;
+        document.getElementById('actionForm').submit();
     }
+}
 
-    function unassignShipment(appointmentId) {
-        if (confirm('确定要取消这个预约的所有排约吗？')) {
-            document.getElementById('formStep').value = 'unassign_shipment';
-            document.getElementById('formAppointmentId').value = appointmentId;
-            document.getElementById('actionForm').submit();
-        }
-    }
+function viewFleetDetails(fleetNumber) {
+    alert(`查看车队 ${fleetNumber} 的详细信息`);
+}
 
-    function viewFleetDetails(fleetNumber) {
-        alert(`查看车队 ${fleetNumber} 的详细信息`);
-    }
-
-    // 清除选择
-    function clearUnscheduledSelection() {
-        document.querySelectorAll('.unscheduled-checkbox').forEach(checkbox => {
-            checkbox.checked = false;
-        });
-        document.getElementById('selectAllUnscheduled').checked = false;
-        updateUnscheduledSelectedCount();
-    }
-
-    function showLoadingBar() {
-        const buttons = document.querySelectorAll('button');
-        buttons.forEach(btn => {
-            if (btn.innerHTML.includes('fa-check')) {
-                btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> 处理中...';
-                btn.disabled = true;
-            }
-        });
-    }
-
-
-    // 搜索功能
-    document.getElementById('searchUnscheduledBtn').addEventListener('click', function() {
-        applySearch('unscheduled');
+// 清除选择
+function clearUnscheduledSelection() {
+    document.querySelectorAll('.unscheduled-checkbox').forEach(checkbox => {
+        checkbox.checked = false;
     });
+    document.getElementById('selectAllUnscheduled').checked = false;
+    updateUnscheduledSelectedCount();
+}
 
-    document.getElementById('searchScheduledBtn').addEventListener('click', function() {
-        applySearch('scheduled');
+function showLoadingBar() {
+    const buttons = document.querySelectorAll('button');
+    buttons.forEach(btn => {
+        if (btn.innerHTML.includes('fa-check')) {
+            btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> 处理中...';
+            btn.disabled = true;
+        }
     });
+}
 
-    document.getElementById('searchReadyBtn').addEventListener('click', function() {
-        applySearch('ready');
+// 搜索功能
+document.getElementById('searchUnscheduledBtn').addEventListener('click', function () {
+    applySearch('unscheduled');
+});
+
+document.getElementById('searchScheduledBtn').addEventListener('click', function () {
+    applySearch('scheduled');
+});
+
+document.getElementById('searchReadyBtn').addEventListener('click', function () {
+    applySearch('ready');
+});
+
+function applySearch(section) {
+    const searchTerm = document.getElementById(section + 'Search').value.trim().toLowerCase();
+    const rows = document.querySelectorAll('#' + section + 'Table tbody tr');
+
+    rows.forEach(row => {
+        const text = row.textContent.toLowerCase();
+        row.style.display = text.includes(searchTerm) ? '' : 'none';
     });
-
-    function applySearch(section) {
-        const searchTerm = document.getElementById(section + 'Search').value.trim().toLowerCase();
-        const rows = document.querySelectorAll('#' + section + 'Table tbody tr');
-        
-        rows.forEach(row => {
-            const text = row.textContent.toLowerCase();
-            row.style.display = text.includes(searchTerm) ? '' : 'none';
-        });
-    }
+}
 </script>
 {% endblock %}
