@@ -161,7 +161,6 @@ class FleetManagement(View):
         if not await self._user_authenticate(request):
             return redirect("login")
         step = request.POST.get("step")
-        print('step',step)
         if step == "fleet_warehouse_search":
             template, context = await self.handle_fleet_warehouse_search_post(request)
             return render(request, template, context)
@@ -1116,7 +1115,6 @@ class FleetManagement(View):
     async def handle_fleet_confirmation_post(
         self, request: HttpRequest, name: str | None = None
     ) -> tuple[str, dict[str, Any]]:
-        print(request.POST)
         current_time = datetime.now()
         fleet_data = ast.literal_eval(request.POST.get("fleet_data"))
         if name:

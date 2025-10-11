@@ -635,7 +635,6 @@ class PostNsop(View):
         
         # 生成智能匹配建议
         matching_suggestions = await self.generate_matching_suggestions(unshipment_pos, shipments)
-        #print('找到匹配约', matching_suggestions)
         
         # 只返回匹配建议，不返回原始未排约数据
         return matching_suggestions
