@@ -1565,11 +1565,13 @@ class ShippingManagement(View):
             await sync_to_async(shipment.save)()
             # 上面更新完约的信息，下面要更新packinglist绑定的约,这是未打板的，所有不用管板子
             container_number = set()
-            pl_ids = request.POST.get("pl_ids")
-            if pl_ids:
-                pl_ids = pl_ids.strip("][").split(", ")
+            if name != "post_nsop":
+                pl_ids = request.POST.get("pl_ids").strip("][").split(", ")
+            else:
+                pl_ids = request.POST.get("pl_ids")
             try:
-                pl_ids = [int(i) for i in pl_ids]
+                if name != "post_nsop":
+                    pl_ids = [int(i) for i in pl_ids]
                 packing_list = await sync_to_async(list)(
                     PackingList.objects.select_related("container_number").filter(
                         id__in=pl_ids
@@ -1602,9 +1604,14 @@ class ShippingManagement(View):
             # 再更新pl绑定的约
             plt_master_po_ids = set()  # 需要改主约的
             plt_shipment_po_ids = set()  # 需要改实际约的
-            plt_ids = request.POST.get("plt_ids").strip("][").split(", ")
+
+            if name != "post_nsop":
+                plt_ids = request.POST.get("plt_ids").strip("][").split(", ")
+            else:
+                plt_ids = request.POST.get("plt_ids")
             try:  # 如果没有板子，就会报错，不用管
-                plt_ids = [int(i) for i in plt_ids]
+                if name != "post_nsop":
+                    plt_ids = [int(i) for i in plt_ids]
                 pallet = await sync_to_async(list)(
                     Pallet.objects.select_related("container_number").filter(
                         id__in=plt_ids

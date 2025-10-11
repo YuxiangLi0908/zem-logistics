@@ -186,8 +186,8 @@ class PostNsop(View):
         shipment_batch_number = await self.generate_unique_batch_number(destination)
         ids = request.POST.get("cargo_ids")
         plt_ids = request.POST.get("plt_ids")
-        selected = [int(i) for id in ids for i in id.split(",") if i]
-        selected_plt = [int(i) for id in plt_ids for i in id.split(",") if i]
+        selected = [int(i) for i in ids.split(",") if i]
+        selected_plt = [int(i) for i in plt_ids.split(",") if i]
         
         if selected or selected_plt:
             packing_list_selected = await self._get_packing_list(
@@ -234,6 +234,7 @@ class PostNsop(View):
         request.POST['shipment_data'] = str(shipment_data)
         request.POST['batch_number'] = shipment_batch_number     
         request.POST['pl_ids'] = selected
+        request.POST['plt_ids'] = selected_plt
         request.POST['type'] = 'td'
         sm = ShippingManagement()
         info = await sm.handle_appointment_post(request,'post_nsop')        
