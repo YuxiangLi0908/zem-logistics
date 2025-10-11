@@ -578,6 +578,7 @@ class PostNsop(View):
             "warehouse": warehouse,
             "carrier_options": self.carrier_options,
             "abnormal_fleet_options": self.abnormal_fleet_options,
+            'current_time': timezone.now(),
         } 
         return self.template_fleet_schedule, context
     
