@@ -479,12 +479,7 @@ class PostNsop(View):
             is_canceled=False,
             is_shipped=True,
             origin=warehouse,
-            shipment_type__in=[
-                "FTL",
-                "LTL",
-                "外配",
-                "快递",
-            ],  # LTL和客户自提的不需要确认送达
+            shipment_type="FTL",
         ) & ~Q(status="Exception")
         shipments = await sync_to_async(list)(
             Shipment.objects.prefetch_related("fleet_number")
@@ -538,6 +533,7 @@ class PostNsop(View):
             models.Q(models.Q(pod_link__isnull=True) | models.Q(pod_link="")),
             shipped_at__isnull=False,
             arrived_at__isnull=False,
+            shipment_type='FTL',
             shipment_schduled_at__gte="2024-12-01",
             origin=warehouse,
         )
@@ -578,6 +574,7 @@ class PostNsop(View):
             "warehouse": warehouse,
             "carrier_options": self.carrier_options,
             "abnormal_fleet_options": self.abnormal_fleet_options,
+            'current_time': timezone.now(),
         } 
         return self.template_fleet_schedule, context
     
