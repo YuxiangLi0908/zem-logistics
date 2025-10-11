@@ -1014,7 +1014,7 @@ class PostNsop(View):
                     raise ValueError(f"shipment_batch_number={batch_number} 查询到多条记录，请检查数据")
                 grouped_data[fleet_number]['shipments'][batch_number] = {
                     'appointment_id': shipment.appointment_id,
-                    'destination': shipment.destination,
+                    'destination': shipment.destination, 
                     'cargos': []
                 }
             grouped_data[fleet_number]['shipments'][batch_number]['cargos'].append(item)
