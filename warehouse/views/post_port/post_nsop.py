@@ -85,7 +85,6 @@ class PostNsop(View):
         "快递": "快递",
         "客户自提": "客户自提",
     }
-
     async def get(self, request: HttpRequest) -> HttpResponse:
         if not await self._user_authenticate(request):
             return redirect("login")
@@ -162,7 +161,7 @@ class PostNsop(View):
     async def generate_unique_batch_number(self,destination):
         """生成唯一的shipment_batch_number"""
         current_time = datetime.now()
-        
+
         for i in range(10):
             batch_id = (
                 destination
@@ -173,22 +172,22 @@ class PostNsop(View):
             exists = await sync_to_async(
                 Shipment.objects.filter(shipment_batch_number=batch_number).exists
             )()
-            
+
             if not exists:
                 return batch_number
         raise ValueError('批次号始终重复')
-    
+
     async def handle_appointment_post(
         self, request: HttpRequest
     ) -> tuple[str, dict[str, Any]]:
-        
+
         destination = request.POST.get('destination')     
         shipment_batch_number = await self.generate_unique_batch_number(destination)
         ids = request.POST.get("cargo_ids")
         plt_ids = request.POST.get("plt_ids")
         selected = [int(i) for i in ids.split(",") if i]
         selected_plt = [int(i) for i in plt_ids.split(",") if i]
-        
+
         if selected or selected_plt:
             packing_list_selected = await self._get_packing_list(
                 models.Q(id__in=selected)
@@ -239,7 +238,7 @@ class PostNsop(View):
         sm = ShippingManagement()
         info = await sm.handle_appointment_post(request,'post_nsop')        
         return await self.handle_td_shipment_post(request)
-
+    
     async def handle_fleet_confirmation_post(
         self, request: HttpRequest
     ) -> tuple[str, dict[str, Any]]:
@@ -299,6 +298,7 @@ class PostNsop(View):
             context.update({"error_messages": error_message}) 
         _, context = await self.handle_fleet_schedule_post(request, context)
         context.update({"success_messages": f'排车成功!批次号是：{fleet_number}'}) 
+        
         return await self.handle_fleet_schedule_post(request, context)
 
     async def handle_appointment_time(
@@ -904,7 +904,7 @@ class PostNsop(View):
             return address
         else:
             return None
-    
+        
     async def check_time_window_match(self, primary_group, shipment):
         """检查时间窗口是否匹配"""
         shipment_appointment = shipment.shipment_appointment
@@ -971,7 +971,8 @@ class PostNsop(View):
         return list(grouped_data.values())
 
     async def _sp_ready_to_ship_data(self, warehouse: str) -> list:
-        """获取待出库数据 - 按fleet_number分组（补充cargo数量统计）"""
+        """获取待出库数据 - 按fleet_number分组"""
+        # 获取有fleet_number的货物
         raw_data = await self._get_packing_list(
             models.Q(
                 container_number__order__warehouse__name=warehouse,
@@ -991,17 +992,18 @@ class PostNsop(View):
                 delivery_type='public',
             ),
         )
-
+        
+        # 按fleet_number分组
         grouped_data = {}
         for item in raw_data:
-            fleet_number = item.get('shipment_batch_number__fleet_number__fleet_number')
+            fleet_number = item.get('shipment_batch_number__fleet_number')
             if fleet_number not in grouped_data:
                 grouped_data[fleet_number] = {
                     'fleet_number': fleet_number,
-                    'shipments': {},
-                    'total_cargo_count': 0  # 新增：统计该车队下所有cargo总数（用于车队号/操作按钮的rowspan）
+                    'shipments': {}
                 }
-
+            
+            # 按shipment分组
             batch_number = item.get('shipment_batch_number__shipment_batch_number')
             if batch_number not in grouped_data[fleet_number]['shipments']:
                 try:
@@ -1011,16 +1013,12 @@ class PostNsop(View):
                 except MultipleObjectsReturned:
                     raise ValueError(f"shipment_batch_number={batch_number} 查询到多条记录，请检查数据")
                 grouped_data[fleet_number]['shipments'][batch_number] = {
-                    'appointment_id': shipment.appointment_id, 
-                    'destination': shipment.destination, 
+                    'appointment_id': shipment.appointment_id,
+                    'destination': shipment.destination,
                     'cargos': []
                 }
-
-            # 新增：添加cargo时，更新两个统计字段
             grouped_data[fleet_number]['shipments'][batch_number]['cargos'].append(item)
-            grouped_data[fleet_number]['shipments'][batch_number]['cargo_count'] += 1
-            grouped_data[fleet_number]['total_cargo_count'] += 1
-
+        
         return list(grouped_data.values())
 
     async def sp_available_shipments(self, warehouse: str, st_type: str) -> list:
@@ -1228,7 +1226,6 @@ class PostNsop(View):
                 "container_number__order__customer_name",
                 "container_number__order__retrieval_id",
                 "container_number__order__vessel_id",
-                "shipment_batch_number__fleet_number"
             )
             .filter(plt_criteria)
             .annotate(
@@ -1262,7 +1259,6 @@ class PostNsop(View):
                 "note",
                 "po_expired",
                 "shipment_batch_number__shipment_batch_number",
-                "shipment_batch_number__fleet_number__fleet_number",
                 "data_source",  # 包含数据源标识
                 warehouse=F(
                     "container_number__order__retrieval_id__retrieval_destination_precise"
@@ -1304,7 +1300,6 @@ class PostNsop(View):
                     "container_number__order__customer_name",
                     "container_number__order__retrieval_id",
                     "container_number__order__vessel_id",
-                    "shipment_batch_number__fleet_number"
                 )
                 .filter(pl_criteria)
                 .annotate(
@@ -1405,7 +1400,6 @@ class PostNsop(View):
                     "note",
                     "data_source",  # 包含数据源标识
                     "shipment_batch_number__shipment_batch_number",
-                    "shipment_batch_number__fleet_number__fleet_number",
                     warehouse=F(
                         "container_number__order__retrieval_id__retrieval_destination_precise"
                     ),
