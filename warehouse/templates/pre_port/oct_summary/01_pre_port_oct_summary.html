@@ -176,7 +176,7 @@
                             {% if data.order_type == "转运" %}
                                 {{ data.retrieval_destination_area }}
                             {% elif data.order_type == "直送" %}
-                                {{ data.order_type }}{{ data.retrieval_destination_precise }}
+                                直送{{ data.retrieval_destination_area }}
                             {% elif data.order_type == "转运组合" %}
                                 {{ data.retrieval_destination_area }}组合柜
                             {% endif %}
