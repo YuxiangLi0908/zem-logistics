@@ -151,6 +151,7 @@ class PostNsop(View):
         self, request: HttpRequest
     ) -> tuple[str, dict[str, Any]]:
         selected_ids_str = request.POST.get("selected_ids")
+        error_message = None
         if selected_ids_str:
             try:
                 selected_ids_list = json.loads(selected_ids_str)
@@ -199,9 +200,13 @@ class PostNsop(View):
         request.POST['fleet_data'] = str(fleet_data_dict)
         request.POST['selected_ids'] = selected_ids
         fm = FleetManagement()
-        context = await fm.handle_fleet_confirmation_post(request,'post_nsop')
-        context.update({"error_messages": error_message}) 
-        context.update({"success_messages": "排车成功!"}) 
+        info = await fm.handle_fleet_confirmation_post(request,'post_nsop')
+        context = {}
+        if error_message:
+            context.update({"error_messages": error_message}) 
+        _, context = await self.handle_fleet_schedule_post(request, context)
+        context.update({"success_messages": f'排车成功!批次号是：{fleet_number}'}) 
+        
         return await self.handle_fleet_schedule_post(request, context)
 
     async def handle_appointment_time(
@@ -563,7 +568,9 @@ class PostNsop(View):
             'ready_count': len(delivery_data['shipments']),
             'pod_count': len(pod_data['fleet']),
         }
-        context = {
+        if not context:
+            context = {}
+        context.update({
             'shipment_list': sp_fl['shipment_list'],
             'fleet_list': sp_fl['fleet_list'],
             'delivery_shipments': delivery_data['shipments'],
@@ -575,7 +582,7 @@ class PostNsop(View):
             "carrier_options": self.carrier_options,
             "abnormal_fleet_options": self.abnormal_fleet_options,
             'current_time': timezone.now(),
-        } 
+        })     
         return self.template_fleet_schedule, context
     
     async def handle_td_shipment_post(
