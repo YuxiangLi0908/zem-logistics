@@ -1,0 +1,1415 @@
+{% extends 'base.html' %}
+{% load static %}
+{% load custom_filters %}
+
+{% block content %}
+
+<style>
+    :root {
+        --primary-color: #3498db;
+        --secondary-color: #2c3e50;
+        --success-color: #2ecc71;
+        --warning-color: #f39c12;
+        --danger-color: #e74c3c;
+        --light-color: #f8f9fa;
+        --dark-color: #343a40;
+    }
+
+    * {
+        margin: 0;
+        padding: 0;
+        box-sizing: border-box;
+        font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+    }
+
+    body {
+        background-color: #f5f7fa;
+        color: #333;
+        line-height: 1.6;
+    }
+
+    .shipment-system {
+        max-width: 1800px;
+        margin: 20px auto;
+        background: white;
+        border-radius: 10px;
+        box-shadow: 0 0 20px rgba(0, 0, 0, 0.1);
+        overflow: hidden;
+    }
+
+    .system-header {
+        background: linear-gradient(135deg, var(--secondary-color), #4a6491);
+        color: white;
+        padding: 20px 30px;
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        flex-wrap: wrap;
+    }
+
+    .system-logo {
+        display: flex;
+        align-items: center;
+        font-size: 1.5rem;
+        font-weight: bold;
+    }
+
+    .system-logo i {
+        margin-right: 10px;
+        font-size: 1.8rem;
+    }
+
+    .warehouse-selector {
+        display: flex;
+        align-items: center;
+        gap: 15px;
+        background: rgba(255, 255, 255, 0.15);
+        padding: 10px 20px;
+        border-radius: 8px;
+    }
+
+    .warehouse-selector label {
+        font-weight: 600;
+    }
+
+    .warehouse-selector select {
+        padding: 8px 15px;
+        border: none;
+        border-radius: 5px;
+        background: white;
+        font-size: 1rem;
+        min-width: 200px;
+    }
+
+    .warehouse-selector button {
+        padding: 8px 16px;
+        background: var(--success-color);
+        color: white;
+        border: none;
+        border-radius: 5px;
+        cursor: pointer;
+        font-weight: 600;
+        transition: background 0.3s ease;
+    }
+
+    .warehouse-selector button:hover {
+        background: #27ae60;
+    }
+
+    .system-main {
+        padding: 20px;
+    }
+
+    .summary-cards {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+        gap: 15px;
+        margin-bottom: 25px;
+    }
+
+    .summary-card {
+        background: white;
+        border-radius: 8px;
+        padding: 15px;
+        box-shadow: 0 3px 10px rgba(0, 0, 0, 0.08);
+        display: flex;
+        flex-direction: column;
+        border-left: 4px solid var(--primary-color);
+    }
+
+    .summary-card.unscheduled {
+        border-left-color: var(--warning-color);
+    }
+
+    .summary-card.scheduled {
+        border-left-color: var(--primary-color);
+    }
+
+    .summary-card.ready {
+        border-left-color: var(--success-color);
+    }
+
+    .summary-card.pallets {
+        border-left-color: var(--danger-color);
+    }
+
+    .summary-card .card-title {
+        font-size: 0.8rem;
+        color: #7f8c8d;
+        margin-bottom: 8px;
+    }
+
+    .summary-card .card-value {
+        font-size: 1.5rem;
+        font-weight: 700;
+        color: var(--secondary-color);
+    }
+
+    .tab-navigation {
+        display: flex;
+        margin-bottom: 20px;
+        border-bottom: 1px solid #eaecef;
+    }
+
+    .tab {
+        padding: 12px 25px;
+        cursor: pointer;
+        border-bottom: 3px solid transparent;
+        transition: all 0.3s;
+        font-weight: 500;
+        position: relative;
+    }
+
+    .tab.active {
+        color: var(--primary-color);
+        border-bottom: 3px solid var(--primary-color);
+        font-weight: 600;
+    }
+
+    .tab .badge {
+        position: absolute;
+        top: 5px;
+        right: 5px;
+        background: var(--primary-color);
+        color: white;
+        border-radius: 50%;
+        width: 20px;
+        height: 20px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        font-size: 0.7rem;
+    }
+
+    .content-section {
+        display: none;
+    }
+
+    .content-section.active {
+        display: block;
+    }
+
+    .search-box {
+        display: flex;
+        gap: 15px;
+        margin-bottom: 20px;
+        align-items: center;
+        justify-content: space-between;
+        flex-wrap: wrap;
+    }
+
+    .search-input {
+        padding: 10px 15px;
+        border: 1px solid #dce1e6;
+        border-radius: 5px;
+        font-size: 0.9rem;
+        min-width: 250px;
+    }
+
+    .search-btn {
+        padding: 10px 20px;
+        background: var(--primary-color);
+        color: white;
+        border: none;
+        border-radius: 5px;
+        cursor: pointer;
+        font-weight: 600;
+    }
+
+    .sort-options {
+        display: flex;
+        gap: 8px;
+        align-items: center;
+        margin-bottom: 0;
+    }
+
+    .sort-btn {
+        padding: 8px 16px;
+        background: #f8f9fa;
+        border: 1px solid #dee2e6;
+        border-radius: 5px;
+        cursor: pointer;
+        font-size: 0.85rem;
+        transition: all 0.3s;
+    }
+    
+    .sort-btn.active {
+        background: var(--primary-color);
+        color: white;
+        border-color: var(--primary-color);
+    }
+
+    .table-container {
+        overflow-x: auto;
+        overflow-y: auto;
+        max-height: 600px;
+        border-radius: 8px;
+        box-shadow: 0 3px 10px rgba(0, 0, 0, 0.08);
+        margin-bottom: 20px;
+    }
+
+    .data-table {
+        width: 100%;
+        border-collapse: collapse;
+    }
+
+    .data-table th {
+        position: sticky;
+        top: 0;
+        background: var(--secondary-color);
+        color: white;
+        padding: 12px;
+        text-align: left;
+        font-weight: 600;
+        font-size: 0.9rem;
+        cursor: pointer;
+    }
+
+    .data-table th:hover {
+        background: #34495e;
+    }
+
+    .data-table td {
+        padding: 12px;
+        border-bottom: 1px solid #eaecef;
+        font-size: 0.85rem;
+    }
+
+    .data-table tr:nth-child(even) {
+        background-color: #f9fafb;
+    }
+
+    .data-table tr:hover {
+        background-color: #edf2f7;
+    }
+
+    .checkbox-cell {
+        width: 40px;
+        text-align: center;
+    }
+
+    .status-badge {
+        display: inline-flex;
+        align-items: center;
+        padding: 4px 8px;
+        border-radius: 12px;
+        font-size: 0.75rem;
+        font-weight: 600;
+    }
+
+    .status-unscheduled {
+        background-color: #fff3cd;
+        color: #856404;
+        border: 1px solid #ffeaa7;
+    }
+
+    .status-scheduled {
+        background-color: #d1ecf1;
+        color: #0c5460;
+        border: 1px solid #bee5eb;
+    }
+
+    .status-ready {
+        background-color: #d4edda;
+        color: #155724;
+        border: 1px solid #c3e6cb;
+    }
+
+    .pallet-badge {
+        display: inline-block;
+        padding: 2px 6px;
+        border-radius: 8px;
+        font-size: 0.7rem;
+        font-weight: 600;
+        margin-left: 5px;
+    }
+
+    .pallet-actual {
+        background-color: #e8f5e9;
+        color: #2e7d32;
+    }
+
+    .pallet-estimated {
+        background-color: #fff3e0;
+        color: #ef6c00;
+    }
+
+    .action-btn {
+        padding: 6px 12px;
+        border: none;
+        border-radius: 4px;
+        cursor: pointer;
+        font-size: 0.8rem;
+        transition: all 0.3s ease;
+        margin: 2px;
+    }
+
+    .btn-primary {
+        background: var(--primary-color);
+        color: white;
+    }
+
+    .btn-success {
+        background: var(--success-color);
+        color: white;
+    }
+
+    .btn-warning {
+        background: var(--warning-color);
+        color: white;
+    }
+
+    .btn-danger {
+        background: var(--danger-color);
+        color: white;
+    }
+
+    .batch-actions {
+        display: flex;
+        gap: 10px;
+        margin-bottom: 15px;
+        padding: 15px;
+        background: #f8f9fa;
+        border-radius: 8px;
+        align-items: center;
+    }
+
+    .selected-count {
+        font-weight: 600;
+        color: var(--secondary-color);
+    }
+
+    /* 限制列宽度 */
+    .delivery-method-col {
+        max-width: 120px;
+        min-width: 100px;
+        white-space: nowrap;
+        overflow: hidden;
+        text-overflow: ellipsis;
+    }
+
+    .container-col {
+        max-width: 200px;
+        min-width: 120px;
+        white-space: nowrap;
+        overflow: hidden;
+        text-overflow: ellipsis;
+    }
+
+    /* 鼠标悬停时显示完整内容 */
+    .container-col:hover,
+    .ref-ids-col:hover,
+    .fba-ids-col:hover {
+        overflow: visible;
+        white-space: normal;
+        word-break: break-all;
+        position: relative;
+        z-index: 2;
+        background: white;
+        box-shadow: 0 0 8px rgba(0,0,0,0.15);
+    }
+
+    .container-col {
+        max-width: 220px;
+        min-width: 180px;
+        white-space: pre-line;
+        word-break: break-all;
+        font-size: 0.8rem;
+        line-height: 1.6;
+    }
+
+    .data-table td[rowspan] {
+        background-color: #f8f9fa;
+        border-right: 2px solid #dee2e6;
+    }
+
+    /* 进度条样式 */
+    .progress-container {
+        background: #e9ecef;
+        border-radius: 4px;
+        height: 8px;
+        overflow: hidden;
+        width: 80px;
+    }
+
+    .progress-bar {
+        height: 100%;
+        background: #28a745;
+        border-radius: 4px;
+        transition: width 0.3s ease;
+    }
+
+    /* 状态标签样式 */
+    .status-span-red {
+        background-color: #e74c3c;
+        color: white;
+        padding: 2px 6px;
+        border-radius: 4px;
+        font-size: 0.7rem;
+        font-weight: 600;
+    }
+
+    .status-span-yellow {
+        background-color: #f39c12;
+        color: white;
+        padding: 2px 6px;
+        border-radius: 4px;
+        font-size: 0.7rem;
+        font-weight: 600;
+    }
+
+    /* 表格内输入框样式 */
+    .table-input {
+        padding: 4px 8px;
+        border: 1px solid #dce1e6;
+        border-radius: 4px;
+        font-size: 0.8rem;
+        width: 100%;
+    }
+
+    /* 表格内按钮样式 */
+    .table-btn {
+        padding: 4px 8px;
+        border: none;
+        border-radius: 4px;
+        cursor: pointer;
+        font-size: 0.75rem;
+        transition: all 0.3s ease;
+    }
+
+    .btn-success-small {
+        background: var(--success-color);
+        color: white;
+    }
+
+    .btn-danger-small {
+        background: var(--danger-color);
+        color: white;
+    }
+
+    @media (max-width: 768px) {
+        .system-header {
+            flex-direction: column;
+            gap: 20px;
+        }
+
+        .warehouse-selector {
+            width: 100%;
+            justify-content: center;
+        }
+
+        .summary-cards {
+            grid-template-columns: 1fr 1fr;
+        }
+        
+        .tab-navigation {
+            flex-wrap: wrap;
+        }
+        
+        .tab {
+            flex: 1;
+            text-align: center;
+            min-width: 50%;
+        }
+
+        .batch-actions {
+            flex-direction: column;
+            align-items: flex-start;
+        }
+    }
+
+    @media (max-width: 576px) {
+        .system-main {
+            padding: 10px;
+        }
+        
+        .summary-cards {
+            grid-template-columns: 1fr;
+        }
+        
+        .search-box {
+            flex-direction: column;
+            align-items: stretch;
+        }
+        
+        .search-input {
+            width: 100%;
+        }
+
+        .sort-options {
+            justify-content: flex-start;
+            margin-top: 10px;
+        }
+    }
+    .modal {
+        display: none;
+        position: fixed;
+        z-index: 3000;
+        left: 0;
+        top: 0;
+        width: 100%;
+        height: 100%;
+        background: rgba(0,0,0,0.5);
+        backdrop-filter: blur(2px);
+    }
+    .modal-content {
+        background: #fff;
+        border-radius: 14px;
+        width: 60%;
+        max-height: 85%;
+        margin: 5% auto;
+        padding: 20px;
+        overflow-y: auto;
+        box-shadow: 0 10px 25px rgba(0,0,0,0.3);
+        animation: modalIn 0.3s ease-out;
+    }
+    .message-success {
+        color: var(--success-color);
+    }
+
+    .message-error {
+        color: var(--danger-color);
+    }
+
+    .message-warning {
+        color: var(--warning-color);
+    }
+
+    .message-info {
+        color: var(--primary-color);
+    }
+    @keyframes modalIn {
+        from {transform: translateY(-30px); opacity: 0;}
+        to {transform: translateY(0); opacity: 1;}
+    }
+    .close-btn {
+        float: right;
+        font-size: 24px;
+        font-weight: bold;
+        cursor: pointer;
+        color: #888;
+    }
+    .close-btn:hover {
+        color: #000;
+    }
+</style>
+
+<div class="shipment-system">
+    <div class="system-header">
+        <div class="system-logo">
+            <i class="fas fa-truck-loading"></i>
+            <span>排车管理 - {{ warehouse }}</span>
+        </div>
+        <div class="warehouse-selector">
+            <form method="post" action="" onsubmit="showLoadingBar()" class="warehouse-selector">
+                {% csrf_token %}
+                <label for="warehouse">仓库:</label>
+                <select name="warehouse" style="padding: 5px; border-radius: 4px; border: 1px solid #ced4da;">
+                    {% for k, v in warehouse_options.items %}
+                    <option value="{{ v }}" {% if k == warehouse %}selected{% endif %}>{{ k }}</option>
+                    {% endfor %}
+                </select>
+                <input type="hidden" id="current-warehouse" value="{{ warehouse }}">
+                
+                <input type="hidden" name="step" value="fleet_schedule_warehouse">
+                <button id="confirmWarehouse">
+                    <i class="fas fa-check"></i> 确认
+                </button>
+            </form>
+        </div>
+    </div>
+    <div class="system-main">
+        <!-- 统计卡片 -->
+        <div class="summary-cards">
+            <div class="summary-card unscheduled">
+                <div class="card-title">未排车批次</div>
+                <div class="card-value">{{ summary.unscheduled_count }}</div>
+                <div class="card-trend">待安排车辆</div>
+            </div>
+            <div class="summary-card scheduled">
+                <div class="card-title">已排车批次</div>
+                <div class="card-value">{{ summary.scheduled_count }}</div>
+                <div class="card-trend">等待出库</div>
+            </div>
+            <div class="summary-card ready">
+                <div class="card-title">待送达批次</div>
+                <div class="card-value">{{ summary.ready_count }}</div>
+                <div class="card-trend">等待确认</div>
+            </div>
+            <div class="summary-card pallets">
+                <div class="card-title">待传POD批次</div>
+                <div class="card-value">{{ summary.pod_count }}</div>
+                <div class="card-trend">等待上传</div>
+            </div>
+        </div>
+
+        <!-- 标签导航 -->
+        <div class="tab-navigation">
+            <div class="tab active" data-tab="unscheduled">
+                未排车批次 <span class="badge">{{ summary.unscheduled_count }}</span>
+            </div>
+            <div class="tab" data-tab="scheduled">
+                已排车批次 <span class="badge">{{ summary.scheduled_count }}</span>
+            </div>
+            <div class="tab" data-tab="ready">
+                待送达批次 <span class="badge">{{ summary.ready_count }}</span>
+            </div>
+            <div class="tab" data-tab="pod">
+                待传POD批次 <span class="badge">{{ summary.pod_count }}</span>
+            </div>
+        </div>
+
+        <!-- 未排车批次标签页 -->
+        <div class="content-section active" id="unscheduled-section">
+            <div class="search-box">
+                <div style="display: flex; gap: 10px; flex: 1; align-items: center;">
+                    <input type="text" class="search-input" placeholder="搜索预约批次、目的仓库、预约号..." id="unscheduledSearch">
+                    <button class="search-btn" id="searchUnscheduledBtn">
+                        <i class="fas fa-search"></i> 搜索
+                    </button>
+                    <button class="btn btn-primary" id="confirmScheduleBtn" style="margin-left: auto;">
+                        <i class="fas fa-truck"></i> 确认排车
+                    </button>
+                </div>
+            </div>
+
+            {% if shipment_list %}
+            <div style="margin-top: 20px;">             
+                <div class="table-container">
+                    <table class="data-table">
+                        <thead>
+                            <tr>
+                                <th style="min-width: 40px; text-align: center;"></th>
+                                <th>预约批次</th>
+                                <th>目的仓库</th>
+                                <th>预约号</th>
+                                <th>Scheduled Time</th>
+                                <th>总重lbs</th>
+                                <th>总CBM</th>
+                                <th>总卡板数</th>
+                                <th>备注</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {% for s in shipment_list %}
+                            <tr>
+                                <td style="min-width: 40px; text-align: center;">
+                                    <input type='checkbox' name='is_appointment_added' onclick="toggleRowBackground(this)" {% if s.id in shipment_ids %}checked{% endif %} {% if s.abnormal_palletization or s.po_expired %}disabled{% endif %}>
+                                    <input type="hidden" name="is_appointment_added", value='off'>
+                                    <input type="hidden" name="shipment_ids", value='{{ s.id }}'>
+                                </td>
+                                <td style="max-width: 200px; word-break: break-all;">
+                                    {% if s.batch > 0 %}
+                                    <span class="status-span-red">甩板</span>
+                                    {% endif %}
+                                    {{ s.shipment_batch_number }}
+                                </td>
+                                <td>
+                                    {{ s.destination }}
+                                    {% if s.abnormal_palletization %}
+                                    <span class="status-span-red" style="padding-top: 0; padding-bottom: 0;">未解决拆柜异常</span>
+                                    {% endif %}
+                                    {% if s.po_expired %}
+                                    <span class="status-span-yellow" style="padding-top: 0; padding-bottom: 0;">PO失效</span>
+                                    {% endif %}
+                                </td>
+                                <td>{{ s.appointment_id }}</td>
+                                <td style="max-width: 150px; word-break: break-all;">
+                                    {% if s.shipping_status == "past_due" %}
+                                    <span class="status-span-red">{{ s.shipment_appointment|date:"Y-m-d" }} {{ s.shipment_appointment|time:"H:i" }}</span>
+                                    {% elif s.shipping_status == "need_attention" %}
+                                    <span class="status-span-yellow">{{ s.shipment_appointment|date:"Y-m-d" }} {{ s.shipment_appointment|time:"H:i" }}</span>
+                                    {% else %}
+                                    {{ s.shipment_appointment|date:"Y-m-d" }} {{ s.shipment_appointment|time:"H:i" }}
+                                    {% endif %}
+                                </td>
+                                <td>{{ s.total_weight|floatformat:2 }}</td>
+                                <td>{{ s.total_cbm|floatformat:2 }}</td>
+                                <td>{{ s.total_pallet }}</td>
+                                <td style="max-width: 150px; word-break: break-all;">{% if s.note %}{{ s.note }}{% endif %}</td>
+                            </tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+            {% else %}
+            <div style="text-align: center; padding: 40px; color: #6c757d;">
+                <i class="fas fa-robot" style="font-size: 3rem; margin-bottom: 15px;"></i>
+                <p>暂无待排车批次</p>
+            </div>
+            {% endif %}
+        </div>
+        
+        <!-- 已排车批次标签页 -->
+        <div class="content-section" id="scheduled-section">
+            <div class="search-box">
+                <div style="display: flex; gap: 10px; flex: 1; align-items: center;">
+                    <input type="text" class="search-input" placeholder="搜索出库批次、预约批次、ISA、carrier..." id="scheduledSearch">
+                    <button class="search-btn" id="searchScheduledBtn">
+                        <i class="fas fa-search"></i> 搜索
+                    </button>
+                </div>
+            </div>
+
+            <div class="table-container">
+                <table class="data-table">
+                    <thead>
+                        <tr>
+                            <th>出库批次</th>
+                            <th>预约批次</th>
+                            <th>ISA</th>
+                            <th>carrier</th>
+                            <th>提货时间</th>
+                            <th>总重lbs</th>
+                            <th>总CBM</th>
+                            <th>总卡板数</th>
+                            <th>note</th>
+                            <th>撤销批次</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for f in fleet_list %}
+                        <tr 
+                            data-pickup-number="{{ f.pickup_number|default_if_none:'' }}"
+                            data-third-party-address="{{ f.third_party_address|default_if_none:'' }}"
+                            data-license-plate="{{ f.license_plate|default_if_none:'' }}"
+                            data-motor-carrier-number="{{ f.motor_carrier_number|default_if_none:'' }}"
+                            data-dot-number="{{ f.dot_number|default_if_none:'' }}"
+                            >
+                            <td style="max-width: 120px; word-break: break-all;">
+                                <span 
+                                    class="fleet-link"
+                                    data-fleet-number="{{ f.fleet_number }}"
+                                    data-pickup-number="{{ f.pickup_number|default_if_none:'' }}"
+                                    data-third-party-address="{{ f.third_party_address|default_if_none:'' }}"
+                                    data-license-plate="{{ f.license_plate|default_if_none:'' }}"
+                                    data-motor-carrier-number="{{ f.motor_carrier_number|default_if_none:'' }}"
+                                    data-dot-number="{{ f.dot_number|default_if_none:'' }}"
+                                    data-carrier="{{ f.carrier|default_if_none:'' }}"
+                                    data-appointment-datetime="{{ f.appointment_datetime|date:'Y-m-d H:i' }}"
+                                    data-note="{{ f.note|default_if_none:'' }}"
+                                    data-total-weight="{{ f.total_weight|default_if_none:'' }}"
+                                    data-total-cbm="{{ f.total_cbm|default_if_none:'' }}"
+                                    data-total-pallet="{{ f.total_pallet|default_if_none:'' }}"
+                                    data-shipment-batches="{{ f.shipment_batch_numbers|default_if_none:'' }}"
+                                    data-appointment-ids="{{ f.appointment_ids|default_if_none:'' }}"
+                                    style="color: var(--primary-color); font-weight: 600; cursor: pointer; text-decoration: underline;">
+                                    {{ f.fleet_number }}
+                                </span>
+                            </td>
+                            <td>{{ f.shipment_batch_numbers }}</td>
+                            <td>{{ f.appointment_ids }}</td>
+                            <td>{{ f.carrier }}</td>
+                            <td>
+                                {% if f.departure_status == "past_due" %}
+                                <span class="status-span-red">{{ f.appointment_datetime|date:"Y-m-d" }} {{ f.appointment_datetime|time:"H:i" }}</span>
+                                {% elif f.departure_status == "need_attention" %}
+                                <span class="status-span-yellow">{{ f.appointment_datetime|date:"Y-m-d" }} {{ f.appointment_datetime|time:"H:i" }}</span>
+                                {% else %}
+                                {{ f.appointment_datetime|date:"Y-m-d" }} {{ f.appointment_datetime|time:"H:i" }}
+                                {% endif %}
+                            </td>
+                            <td>{{ f.total_weight|floatformat:2 }}</td>
+                            <td>{{ f.total_cbm|floatformat:2 }}</td>
+                            <td>{{ f.total_pallet }}</td>
+                            <td style="max-width: 120px; word-break: break-all;">{{ f.note|default_if_none:"" }}</td>
+                            <td>
+                                {% if f.fleet_type != 'LTL' %}
+                                <form method="post" action="" onsubmit="showLoadingBar()">
+                                    {% csrf_token %}
+                                    <input type="hidden" name="step" value="cancel_fleet">
+                                    <input type="hidden" name="fleet_number" value="{{ f.fleet_number }}">
+                                    <input type="hidden" name="warehouse" value="{{ warehouse }}">
+                                    <button type="submit" class="action-btn btn-danger">
+                                        <i class="fas fa-times"></i> 撤销
+                                    </button>
+                                </form>
+                                {% endif %}
+                            </td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+        </div>
+
+        <!-- 待送达批次标签页 -->
+        <div class="content-section" id="ready-section">
+            <div class="search-box">
+                <div style="display: flex; gap: 10px; flex: 1; align-items: center;">
+                    <input type="text" class="search-input" placeholder="搜索出库批次、预约批次、预约号、carrier..." id="readySearch">
+                    <button class="search-btn" id="searchReadyBtn">
+                        <i class="fas fa-search"></i> 搜索
+                    </button>
+                </div>
+            </div>
+
+            <div class="table-container">
+                <table class="data-table">
+                    <thead>
+                        <tr>
+                            <th>出库批次</th>
+                            <th>预约批次</th>
+                            <th>预约号</th>
+                            <th>Carrier</th>
+                            <th>预约发车日期</th>
+                            <th>实际发车日期</th>
+                            <th>总重lbs</th>
+                            <th>总CBM</th>
+                            <th>总卡板数</th>
+                            <th>一提两卸</th>
+                            <th>备注</th>
+                            <th>实际送达时间</th>
+                            <th>车次异常</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for s in delivery_shipments %}
+                        <tr>
+                            <td style="max-width: 120px; word-break: break-all;">{{ s.fleet_number.fleet_number }}</td>
+                            <td style="max-width: 120px; word-break: break-all;">{{ s.shipment_batch_number }}</td>
+                            <td style="max-width: 120px; word-break: break-all;">{{ s.appointment_id }}</td>
+                            <td>{{ s.fleet_number.carrier }}</td>
+                            <td>{{ s.fleet_number.appointment_datetime|date:"M-j H:i" }}</td>
+                            <td>
+                                {% if s.fleet_number.arrival_status == "past_due" %}
+                                <span class="status-span-red">{{ s.fleet_number.departured_at|date:"M-j H:i" }}</span>
+                                {% elif s.fleet_number.arrival_status == "need_attention" %}
+                                <span class="status-span-yellow">{{ s.fleet_number.departured_at|date:"M-j H:i" }}</span>
+                                {% else %}
+                                {{ s.fleet_number.departured_at|date:"M-j H:i" }}
+                                {% endif %}
+                            </td>
+                            <td>{{ s.total_weight|floatformat:2 }}</td>
+                            <td>{{ s.total_cbm|floatformat:2 }}</td>
+                            <td>{{ s.total_pallet|floatformat:0 }}</td>
+                            <td>
+                                {% if s.fleet_number.multipule_destination %}
+                                <i class="fas fa-check-circle" style="color: var(--success-color); font-size: 1rem"></i>
+                                {% endif %}
+                            </td>
+                            <td style="max-width: 120px; word-break: break-all;">{{ s.fleet_number.note|default_if_none:"" }}</td>
+                            <td>
+                                <form method="post" enctype="multipart/form-data" action="" style="display: flex; gap: 5px; align-items: center;">
+                                    {% csrf_token %}
+                                    <input type="datetime-local" name="arrived_at" class="table-input" style="font-size: 0.8rem;" required>
+                                    <input type="hidden" name="step" value="confirm_delivery">
+                                    <input type="hidden" name="fleet_number" value="{{ s.fleet_number.fleet_number }}">
+                                    <input type="hidden" name="shipment_batch_number" value="{{ s.shipment_batch_number }}">
+                                    <input type="hidden" name="warehouse" value="{{ warehouse }}">
+                                    <button type="submit" class="table-btn btn-success-small">确认送达</button>
+                                </form>
+                            </td>
+                            <td>
+                                <button type="button" class="table-btn btn-danger-small" onclick="abnormalPopUp('{{ s.fleet_number.fleet_number }}','{{ s.shipment_batch_number }}')">异常</button>
+                            </td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+        </div>
+
+        <!-- 待传POD批次标签页 -->
+        <div class="content-section" id="pod-section">
+            <div class="search-box">
+                <div style="display: flex; gap: 10px; flex: 1; align-items: center;">
+                    <input type="text" class="search-input" placeholder="搜索出库批次、预约批次、预约号、carrier..." id="podSearch">
+                    <button class="search-btn" id="searchPodBtn">
+                        <i class="fas fa-search"></i> 搜索
+                    </button>
+                </div>
+            </div>
+
+            <div class="table-container">
+                <table class="data-table">
+                    <thead>
+                        <tr>
+                            <th>出库批次</th>
+                            <th>预约批次</th>
+                            <th>预约号</th>
+                            <th>Carrier</th>
+                            <th>预约发车日期</th>
+                            <th>实际发车日期</th>
+                            <th>总重lbs</th>
+                            <th>总CBM</th>
+                            <th>总卡板数</th>
+                            <th>备注</th>
+                            <th>POD上传</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for f in pod_shipments %}
+                        <tr>
+                            <td style="max-width: 120px; word-break: break-all;">{{ f.fleet_number.fleet_number }}</td>
+                            <td>{{ f.shipment_batch_number }}</td>
+                            <td>{{ f.appointment_id|default_if_none:"" }}</td>
+                            <td>{{ f.carrier|default_if_none:"" }}</td>
+                            <td>{{ f.fleet_number.appointment_datetime|date:"M-j" }}</td>
+                            <td>
+                                {% if f.arrival_status == "past_due" %}
+                                <span class="status-span-red">{{ f.fleet_number.departured_at|date:"M-j" }}</span>
+                                {% elif f.arrival_status == "need_attention" %}
+                                <span class="status-span-yellow">{{ f.fleet_number.departured_at|date:"M-j" }}</span>
+                                {% else %}
+                                {{ f.fleet_number.departured_at|date:"M-j" }}
+                                {% endif %}
+                            </td>
+                            <td>{{ f.shipped_weight|floatformat:2 }}</td>
+                            <td>{{ f.shipped_cbm|floatformat:2 }}</td>
+                            <td>{{ f.shipped_pallet|floatformat:0 }}</td>
+                            <td style="max-width: 120px; word-break: break-all;">{{ f.note|default_if_none:"" }}</td>
+                            <td>
+                                <form method="post" enctype="multipart/form-data" action="" style="display: flex; gap: 5px; align-items: center;">
+                                    {% csrf_token %}
+                                    <input type="file" name="file" class="table-input" style="font-size: 0.8rem;" required>
+                                    <input type="hidden" name="step" value="pod_upload">
+                                    <input type="hidden" name="shipment_batch_number" value="{{ f.shipment_batch_number }}">
+                                    <input type="hidden" name="warehouse" value="{{ warehouse }}">
+                                    <input type="hidden" name="arrived_at" value="{{ arrived_at }}">
+                                    <button type="submit" class="table-btn btn-success-small">上传</button>
+                                </form>
+                            </td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+</div>
+
+<div id="fleetModal" class="modal">
+  <div class="modal-content">
+    <span class="close-btn" onclick="closeFleetModal()">&times;</span>
+
+    <div id="fleetModalBody" style="padding-top: 10px;">
+        <div style="border-radius: 12px; padding: 20px; margin-top: 10px;">
+            <form method="post" action="" style="width: 100%;" onsubmit="showLoadingBar()">
+                {% csrf_token %}
+                <!-- 添加隐藏字段 -->
+                <input type="hidden" name="step" id="fleetModalStep" value="fleet_confirmation">
+                <input type="hidden" name="fleet_number" id="fleetModalFleetNumber">
+                <input type="hidden" name="selected_ids" id="fleetModalSelectedIds">
+                <input type="hidden" name="warehouse" value="{{ warehouse }}">
+                
+                <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px;">
+                    <h4 style="color: var(--secondary-color); margin: 0;">
+                        <i class="fas fa-truck-loading"></i> 出库批次信息
+                    </h4>
+                    <div>
+                        <button type="submit" class="action-btn btn-success" id="fleetModalConfirmBtn">
+                            <i class="fas fa-check"></i> 确认出库
+                        </button>
+                    </div>
+                </div>
+
+                <!-- 合并所有表单字段到一个表格 -->
+                <div class="table-container" style="margin-bottom: 20px;">
+                    <table class="data-table">
+                        <thead>
+                            <tr>
+                                <th colspan="3" style="text-align: center;">车辆信息</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            <tr>
+                                <td style="width: 33%;">
+                                    <label style="font-size: 0.8rem; font-weight: 600; color: var(--secondary-color); display: block; margin-bottom: 5px;">carrier</label>
+                                    <select name="carrier" id="fleetModalCarrier" style="font-size: 13px; width: 100%; padding: 5px;">
+                                        {% for k, v in carrier_options.items %}
+                                        <option value="{{ v }}">{{ k }}</option>
+                                        {% endfor %}
+                                    </select>
+                                </td>
+                                <td style="width: 33%;">
+                                    <label style="font-size: 0.8rem; font-weight: 600; color: var(--secondary-color); display: block; margin-bottom: 5px;">3rd Party Address</label>
+                                    <input type="text" name="third_party_address" id="fleetModalThirdPartyAddress" class="table-input" style="width: 100%;">
+                                </td>
+                                <td style="width: 33%;">
+                                    <label style="font-size: 0.8rem; font-weight: 600; color: var(--secondary-color); display: block; margin-bottom: 5px;">PickUp Number</label>
+                                    <input type="text" name="pickup_number" id="fleetModalPickupNumber" class="table-input" style="width: 100%;">
+                                </td>
+                            </tr>
+                            <tr>
+                                <td>
+                                    <label style="font-size: 0.8rem; font-weight: 600; color: var(--secondary-color); display: block; margin-bottom: 5px;">车牌号</label>
+                                    <input type="text" name="license_plate" id="fleetModalLicensePlate" class="table-input" style="width: 100%;">
+                                </td>
+                                <td>
+                                    <label style="font-size: 0.8rem; font-weight: 600; color: var(--secondary-color); display: block; margin-bottom: 5px;">MC Number</label>
+                                    <input type="text" name="motor_carrier_number" id="fleetModalMotorCarrierNumber" class="table-input" style="width: 100%;">
+                                </td>
+                                <td>
+                                    <label style="font-size: 0.8rem; font-weight: 600; color: var(--secondary-color); display: block; margin-bottom: 5px;">DOT Number</label>
+                                    <input type="text" name="dot_number" id="fleetModalDotNumber" class="table-input" style="width: 100%;">
+                                </td>
+                            </tr>
+                            <tr>
+                                <td>
+                                    <label style="font-size: 0.8rem; font-weight: 600; color: var(--secondary-color); display: block; margin-bottom: 5px;">提货时间</label>
+                                    <input type="datetime-local" name="appointment_datetime" id="fleetModalAppointmentDatetime" class="table-input" style="width: 100%;" required>
+                                </td>
+                                <td colspan="2">
+                                    <label style="font-size: 0.8rem; font-weight: 600; color: var(--secondary-color); display: block; margin-bottom: 5px;">备注</label>
+                                    <input type="text" name="note" id="fleetModalNote" class="table-input" style="width: 100%;">
+                                </td>
+                            </tr>
+                        </tbody>
+                    </table>
+                </div>
+            </form>
+
+            <div style="display: flex; justify-content: space-between; align-items: center; margin: 25px 0 15px 0;">
+                <h4 style="color: var(--secondary-color); margin: 0;">
+                    <i class="fas fa-list-alt"></i> 预约批次
+                </h4>
+            </div>
+
+            <div class="table-container" style="max-height: 300px;">
+                <table class="data-table">
+                    <thead>
+                        <tr>
+                            <th>预约批次</th>
+                            <th>目的地</th>
+                            <th>预约号</th>
+                            <th>Scheduled Time</th>
+                            <th>备注</th>
+                            <th>总重lbs</th>
+                            <th>总CBM</th>
+                            <th>总卡板数</th>
+                        </tr>
+                    </thead>
+                    <tbody id="fleetShipmentTableBody">
+                        <!-- 这里用JS动态插入选中的批次 -->
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+  </div>
+</div>
+
+<div id="abnormalModal" class="modal">
+    <div class="modal-content" style="max-width: 500px;">
+        <span class="close-btn" onclick="closeAbnormalModal()">&times;</span>
+        <h4 style="color: var(--secondary-color); margin-bottom: 20px;">
+        <i class="fas fa-exclamation-triangle"></i> 车次异常报告
+        </h4>
+        <form method="post" enctype="multipart/form-data" action="">
+        {% csrf_token %}
+        <input type="hidden" name="step" value="abnormal_fleet">
+        <input type="hidden" name="warehouse" value="{{ warehouse }}">
+        <input type="hidden" name="fleet_number" id="abnormalFleetNumber" value="">
+        <input type="hidden" name="shipment_batch_number" id="abnormalShipmentNumber" value="">
+        
+        <div class="table-container" style="margin-bottom: 20px;">
+            <table class="data-table">
+            <thead>
+                <tr>
+                <th>异常状态</th>
+                <th>异常说明</th>
+                </tr>
+            </thead>
+            <tbody>
+                <tr>
+                <td>
+                    <select name="abnormal_status" class="table-input" style="width: 100%;" required>
+                    <option value="">请选择异常状态</option>
+                    {% for k, v in abnormal_fleet_options.items %}
+                    <option value="{{ v }}">{{ k }}</option>
+                    {% endfor %}
+                    </select>
+                </td>
+                <td>
+                    <input type="text" name="abnormal_description" class="table-input" style="width: 100%;" placeholder="请输入异常说明..." required>
+                </td>
+                </tr>
+            </tbody>
+            </table>
+        </div>
+        
+        <div style="display: flex; justify-content: flex-end; gap: 10px; margin-top: 20px;">
+            <button type="submit" class="action-btn btn-success">
+            <i class="fas fa-check"></i> 确认提交
+            </button>
+            <button type="button" class="action-btn btn-danger" onclick="closeAbnormalModal()">
+            <i class="fas fa-times"></i> 取消
+            </button>
+        </div>
+        </form>
+    </div>
+</div>
+
+<div id="messageModal" class="modal" {% if success_messages or error_messages %}style="display:block;"{% endif %}>
+    <div class="modal-content" style="max-width: 400px; text-align: center;">
+        <div style="font-size: 3rem; margin-bottom: 15px;">
+            {% if success_messages %}
+            <i class="fas fa-check-circle" style="color: var(--success-color);"></i>
+            {% elif error_messages %}
+            <i class="fas fa-exclamation-circle" style="color: var(--danger-color);"></i>
+            {% endif %}
+        </div>
+        <h4 style="margin-bottom: 15px;">
+            {% if success_messages %}操作成功{% elif error_messages %}操作失败{% endif %}
+        </h4>
+        <p style="margin-bottom: 20px; line-height: 1.5;">
+            {{ success_messages }}{{ error_messages }}
+        </p>
+        <button type="button" class="action-btn btn-primary" onclick="closeMessageModal()" style="min-width: 100px;">
+            <i class="fas fa-check"></i> 确认
+        </button>
+    </div>
+</div>
+
+<!-- 隐藏表单需要修改以支持大组匹配 -->
+<form method="post" action="" id="actionForm" style="display: none;">
+    {% csrf_token %}
+    <input type="hidden" name="step" id="formStep">
+    <input type="hidden" name="appointment_id" id="formAppointmentId">
+    <input type="hidden" name="cargo_ids" id="formCargoIds">
+    <input type="hidden" name="plt_ids" id="formPltIds">
+    <input type="hidden" name="suggestion_id" id="formSuggestionId">
+    <input type="hidden" name="warehouse" value="{{ warehouse }}">
+</form>
+
+<script>
+    function closeMessageModal() {
+        document.getElementById('messageModal').style.display = 'none';
+    }
+    // 更新原有的 abnormalPopUp 调用
+    function toggleRowBackground(checkbox) {
+        const row = checkbox.closest('tr');
+        if (checkbox.checked) {
+            row.style.backgroundColor = '#e8f5e9';
+        } else {
+            row.style.backgroundColor = '';
+        }
+    }
+
+    window.addEventListener('DOMContentLoaded', function() {
+        document.querySelectorAll('.fleet-link').forEach(link => {
+            link.addEventListener('click', function(e) {
+                e.preventDefault();
+                e.stopPropagation();
+
+                const modal = document.getElementById("fleetModal");
+                modal.style.display = "block";
+
+                const data = this.dataset;
+                document.getElementById('fleetModalStep').value = 'update_fleet';  // 设置为更新模式
+                document.getElementById('fleetModalFleetNumber').value = data.fleetNumber; 
+                
+                const safeSetValueById = (id, value) => {
+                    const input = document.getElementById(id);
+                    if (!input) return;
+                    input.value = value || '';
+                };
+
+                safeSetValueById('fleetModalPickupNumber', data.pickupNumber);
+                safeSetValueById('fleetModalThirdPartyAddress', data.thirdPartyAddress);
+                safeSetValueById('fleetModalLicensePlate', data.licensePlate);
+                safeSetValueById('fleetModalMotorCarrierNumber', data.motorCarrierNumber);
+                safeSetValueById('fleetModalDotNumber', data.dotNumber);
+                safeSetValueById('fleetModalNote', data.note);
+
+                if (data.appointmentDatetime) {
+                    const formatted = formatDateForInput(data.appointmentDatetime.replace(' ', 'T'));
+                    safeSetValueById('fleetModalAppointmentDatetime', formatted);
+                }
+
+                if (data.carrier) {
+                    const carrierSelect = document.getElementById('fleetModalCarrier');
+                    for (let opt of carrierSelect.options) {
+                        if (opt.text.trim() === data.carrier || opt.value.trim() === data.carrier) {
+                            opt.selected = true;
+                            break;
+                        }
+                    }
+                }
+
+                // 填充下方表格
+                const tbody = document.getElementById("fleetShipmentTableBody");
+                tbody.innerHTML = "";
+                const newRow = document.createElement("tr");
+                newRow.innerHTML = `
+                    <td>${data.shipmentBatches || ''}</td>
+                    <td>-</td>
+                    <td>${data.appointmentIds || ''}</td>
+                    <td>${data.appointmentDatetime || ''}</td>
+                    <td>${data.note || ''}</td>
+                    <td>${data.totalWeight || ''}</td>
+                    <td>${data.totalCbm || ''}</td>
+                    <td>${data.totalPallet || ''}</td>
+                `;
+                tbody.appendChild(newRow);
+
+                const confirmBtn = document.getElementById('fleetModalConfirmBtn');
+                if (this.closest('#scheduled-section')) {
+                    confirmBtn.innerHTML = '<i class="fas fa-check"></i> 更新出库';
+                } else {
+                    confirmBtn.innerHTML = '<i class="fas fa-check"></i> 确认出库';
+                }
+            });
+        });
+
+        function formatDateForInput(datetimeStr) {
+            if (!datetimeStr) return '';
+            const date = new Date(datetimeStr);
+            if (isNaN(date)) return '';
+            const yyyy = date.getFullYear();
+            const MM = String(date.getMonth() + 1).padStart(2, '0');
+            const dd = String(date.getDate()).padStart(2, '0');
+            const hh = String(date.getHours()).padStart(2, '0');
+            const mm = String(date.getMinutes()).padStart(2, '0');
+            return `${yyyy}-${MM}-${dd}T${hh}:${mm}`;
+        }
+    });
+
+    // 工具函数：格式化日期为 datetime-local 格式
+    function formatDateForInput(datetimeStr) {
+        if (!datetimeStr) return '';
+        const date = new Date(datetimeStr);
+        if (isNaN(date)) return '';
+        const yyyy = date.getFullYear();
+        const MM = String(date.getMonth() + 1).padStart(2, '0');
+        const dd = String(date.getDate()).padStart(2, '0');
+        const hh = String(date.getHours()).padStart(2, '0');
+        const mm = String(date.getMinutes()).padStart(2, '0');
+        return `${yyyy}-${MM}-${dd}T${hh}:${mm}`;
+    };
+
+    document.getElementById("confirmScheduleBtn").addEventListener("click", function() {
+        const checkboxes = document.querySelectorAll('input[name="is_appointment_added"]:checked');
+        if (checkboxes.length === 0) {
+            alert("请先选择至少一条待排车批次！");
+            return;
+        }
+
+        const selectedIds = [];
+        checkboxes.forEach(cb => {
+            const hiddenInput = cb.closest('tr').querySelector('input[name="shipment_ids"]');
+            if (hiddenInput && hiddenInput.value) {
+                selectedIds.push(hiddenInput.value);
+            }
+        });
+
+        // 设置选中的ID到隐藏字段
+        document.getElementById('fleetModalSelectedIds').value = JSON.stringify(selectedIds);
+        // 将选中的记录信息填入弹窗表格
+        const tbody = document.getElementById("fleetShipmentTableBody");
+        tbody.innerHTML = ""; // 清空旧内容
+
+        checkboxes.forEach(cb => {
+            const tr = cb.closest("tr");
+            const cells = tr.querySelectorAll("td");
+            const newRow = document.createElement("tr");
+            newRow.innerHTML = `
+                <td style="max-width: 120px; word-break: break-all;">${cells[1].innerText}</td>
+                <td>${cells[2].innerText}</td>
+                <td>${cells[3].innerText}</td>
+                <td style="max-width: 150px; word-break: break-all;">${cells[4].innerText}</td>
+                <td style="max-width: 120px; word-break: break-all;">${cells[8].innerText}</td>
+                <td>${cells[5].innerText}</td>
+                <td>${cells[6].innerText}</td>
+                <td>${cells[7].innerText}</td>
+            `;
+            tbody.appendChild(newRow);
+        });
+        
+        document.getElementById('fleetModalStep').value = 'fleet_confirmation';
+        document.getElementById('fleetModalFleetNumber').value = '';
+        
+        // 清空其他表单字段
+        const form = document.querySelector('#fleetModal form');
+        form.reset();
+        // 显示弹窗
+        document.getElementById("fleetModal").style.display = "block";
+    });
+
+    function closeFleetModal() {
+        document.getElementById("fleetModal").style.display = "none";
+    }
+
+    window.onclick = function(event) {
+        const modal = document.getElementById("fleetModal");
+        if (event.target === modal) closeFleetModal();
+    };
+
+    // 标签页切换
+    document.querySelectorAll('.tab').forEach(tab => {
+        tab.addEventListener('click', function() {
+            const tabName = this.getAttribute('data-tab');
+            
+            document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
+            this.classList.add('active');
+            
+            document.querySelectorAll('.content-section').forEach(section => {
+                section.classList.remove('active');
+            });
+            document.getElementById(tabName + '-section').classList.add('active');
+        });
+    });
+
+    function showLoadingBar() {
+        const buttons = document.querySelectorAll('button');
+        buttons.forEach(btn => {
+            if (btn.innerHTML.includes('fa-check')) {
+                btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> 处理中...';
+                btn.disabled = true;
+            }
+        });
+    }
+
+    // 搜索功能
+    document.getElementById('searchUnscheduledBtn').addEventListener('click', function() {
+        applySearch('unscheduled');
+    });
+
+    document.getElementById('searchScheduledBtn').addEventListener('click', function() {
+        applySearch('scheduled');
+    });
+
+    document.getElementById('searchReadyBtn').addEventListener('click', function() {
+        applySearch('ready');
+    });
+
+    document.getElementById('searchPodBtn').addEventListener('click', function() {
+        applySearch('pod');
+    });
+
+    function applySearch(section) {
+        const searchTerm = document.getElementById(section + 'Search').value.trim().toLowerCase();
+        const rows = document.querySelectorAll('#' + section + '-section .data-table tbody tr');
+        
+        rows.forEach(row => {
+            const text = row.textContent.toLowerCase();
+            row.style.display = text.includes(searchTerm) ? '' : 'none';
+        });
+    }
+
+    function abnormalPopUp(fleetNumber,shipmentNumber) {
+        const fleetInput = document.querySelector('.popup-window input[name="fleet_number"]');
+        fleetInput.value = fleetNumber;
+        const shipmentInput = document.querySelector('.popup-window input[name="shipment_batch_number"]');
+        shipmentInput.value = shipmentNumber;
+        var popup = document.querySelector('.popup-window');
+        var shipmentPopUp = document.querySelector('#shipment-reschedule-list');
+        if (popup.style.display === 'none') {
+            popup.style.display = 'block';
+        } else {
+            popup.style.display = 'none';
+            shipmentPopUp.style.display = 'none';
+            const tbody = document.querySelector('#shipment-reschedule-list tbody');
+            tbody.innerHTML = '';
+            const shipmentReschedule = document.querySelector("select[name='shipment_reschedule']");
+            shipmentReschedule.selectedIndex = 0;
+            const abnormalStatus = document.querySelector("select[name='abnormal_status']");
+            abnormalStatus.selectedIndex = 0;
+            const abnormalDescription = document.querySelector("input[name='abnormal_description']");
+            abnormalDescription.value = '';
+        };
+    };
+</script>
+{% endblock %}

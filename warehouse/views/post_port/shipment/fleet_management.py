@@ -1113,12 +1113,15 @@ class FleetManagement(View):
             return await self.handle_fleet_warehouse_search_post(request)
 
     async def handle_fleet_confirmation_post(
-        self, request: HttpRequest
+        self, request: HttpRequest, name: str | None = None
     ) -> tuple[str, dict[str, Any]]:
         current_time = datetime.now()
         fleet_data = ast.literal_eval(request.POST.get("fleet_data"))
-        shipment_ids = request.POST.get("selected_ids").strip("][").split(", ")
-        shipment_ids = [int(i) for i in shipment_ids]
+        if name:
+            shipment_ids = request.POST.get("selected_ids")
+        else:
+            shipment_ids = request.POST.get("selected_ids").strip("][").split(", ")
+            shipment_ids = [int(i) for i in shipment_ids]
         try:
             await sync_to_async(Fleet.objects.get)(
                 fleet_number=fleet_data["fleet_number"]
@@ -1156,10 +1159,12 @@ class FleetManagement(View):
             # await sync_to_async(Shipment.objects.bulk_update)(
             #     shipment, ["fleet_number"]
             # )
+            if name == "post_nsop":
+                return True
             return await self.handle_fleet_warehouse_search_post(request)
 
     async def handle_update_fleet_post(
-        self, request: HttpRequest
+        self, request: HttpRequest, name: str | None = None
     ) -> tuple[str, dict[str, Any]]:
         fleet_number = request.POST.get("fleet_number")
         fleet = await sync_to_async(Fleet.objects.get)(fleet_number=fleet_number)
@@ -1173,10 +1178,12 @@ class FleetManagement(View):
         mutable_get["warehouse"] = request.POST.get("warehouse")
         mutable_get["fleet_number"] = fleet_number
         request.GET = mutable_get
+        if name == "post_nsop":
+            return True
         return await self.handle_fleet_info_get(request)
 
     async def handle_cancel_fleet_post(
-        self, request: HttpRequest
+        self, request: HttpRequest, name: str | None = None
     ) -> tuple[str, dict[str, Any]]:
         fleet_number = request.POST.get("fleet_number")
         fleet = await sync_to_async(Fleet.objects.get)(fleet_number=fleet_number)
@@ -1189,6 +1196,8 @@ class FleetManagement(View):
         mutable_post = request.POST.copy()
         mutable_post["name"] = warehouse
         request.POST = mutable_post
+        if name == "post_nsop":
+            return True
         return await self.handle_fleet_warehouse_search_post(request)
 
     async def handle_outbound_warehouse_search_post(
@@ -1786,7 +1795,7 @@ class FleetManagement(View):
         return await self.handle_outbound_warehouse_search_post(request)
 
     async def handle_confirm_delivery_post(
-        self, request: HttpRequest
+        self, request: HttpRequest, name: str | None = None
     ) -> tuple[str, dict[str, Any]]:
         arrived_ats = request.POST.getlist("arrived_at")  # 使用 getlist 获取数组
         # fleet_numbers = request.POST.getlist("fleet_number")  # 使用 getlist 获取数组
@@ -1813,10 +1822,12 @@ class FleetManagement(View):
             if fleet:
                 fleet.arrived_at = arrived_at
                 await sync_to_async(fleet.save)()
+        if name == "post_nsop":
+            return True
         return await self.handle_delivery_and_pod_get(request)
 
     async def handle_pod_upload_post(
-        self, request: HttpRequest
+        self, request: HttpRequest, name: str | None = None
     ) -> tuple[str, dict[str, Any]]:
         conn = await self._get_sharepoint_auth()
         if "file" in request.FILES:
@@ -1830,6 +1841,8 @@ class FleetManagement(View):
                 await self._upload_file_to_sharepoint(conn, shipment_batch_number, file)
         else:
             raise ValueError("未找到上传的文件")
+        if name == "post_nsop":
+            return True
         return await self.handle_pod_upload_get(request)
 
     async def _upload_file_to_sharepoint(
@@ -2309,7 +2322,7 @@ class FleetManagement(View):
         return response
 
     async def handle_abnormal_fleet_post(
-        self, request: HttpRequest
+        self, request: HttpRequest, name: str | None = None
     ) -> tuple[str, dict[str, Any]]:
         status = request.POST.get("abnormal_status", "").strip()
         description = request.POST.get("abnormal_description", "").strip()
@@ -2337,6 +2350,8 @@ class FleetManagement(View):
         await sync_to_async(shipment.save)()
         if fleet:
             await sync_to_async(fleet.save)()
+        if name == "post_nsop":
+            return True
         return await self.handle_delivery_and_pod_get(request)
 
     # async def handle_fleet_warehouse_search_post(self, request: HttpRequest) -> tuple[str, dict[str, Any]]:
