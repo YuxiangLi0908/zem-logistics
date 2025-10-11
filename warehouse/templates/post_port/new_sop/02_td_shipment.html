@@ -592,7 +592,7 @@
             {% if matching_suggestions %}
             <div style="margin-top: 20px;">
                 <h4 style="margin-bottom: 15px; color: var(--secondary-color);">
-                    <i class="fas fa-robot"></i> 智能匹配建议 ({{ matching_suggestions|length }}个分组)
+                    <i class="fas fa-robot"></i> 智能匹配建议 ({{ matching_suggestions|length }}个批次)
                 </h4>
                 
                 <div class="table-container">
@@ -702,9 +702,11 @@
                                                 data-destination="{{ suggestion.primary_group.destination }}"
                                                 data-scheduled-time="{{ suggestion.primary_group.matched_shipment.shipment_appointment|date:'Y-m-d H:i' }}"
                                                 data-delivery-method="{{ suggestion.primary_group.delivery_method }}"
+                                                data-note="{{ suggestion.primary_group.matched_shipment.note }}"
+                                                data-address-detail="{{ suggestion.primary_group.matched_shipment.address_detail }}"                            
                                                 {% if suggestion.primary_group.matched_shipment %}
                                                     data-shipment-account="{{ suggestion.primary_group.matched_shipment.shipment_account }}"
-                                                    data-origin="{{ suggestion.primary_group.matched_shipment.origin }}"
+                                                    data-origin="{{ warehouse }}"
                                                 {% endif %}>
                                             <i class="fas fa-check"></i> 绑定
                                         </button>
@@ -1055,7 +1057,7 @@
                                     {% endfor %}
                                 </select>
                             </td>
-                            <td class="td"><input type="text" name="note" style="font-size: 13px; width: 200px;"></td>
+                            <td class="td"><input type="text" name="note" id="note" style="font-size: 13px; width: 200px;"></td>
                         </tr>
                     </tbody>
                 </table>
@@ -1064,12 +1066,20 @@
                         <tr>
                             <th class="th">目的地</th>
                             <th class="th">地址</th>
+                            <th class="th">预约类型</th>
                         </tr>
                     </thead>
                     <tbody>
                         <tr>
                             <td class="td"><input type="text" name="destination" id="ftl-destination" style="font-size: 13px; width: 200px;" required></td>
-                            <td class="td"><input type="text" name="address" style="font-size: 13px; width: 300px;" required></td>
+                            <td class="td"><input type="text" name="address" id="address_detail" style="font-size: 13px; width: 300px;" required></td>
+                            <td class="td">
+                                <select name="shipment_type" id="shipment-type-select" style="font-size: 13px; width: 200px;">
+                                    {% for k, v in shipment_type_options.items %}
+                                        <option value="{{ v }}">{{ k }}</option>
+                                    {% endfor %}
+                                </select>
+                            </td>
                         </tr>
                     </tbody>
                 </table>
@@ -1095,6 +1105,9 @@
             const deliveryMethod = this.getAttribute('data-delivery-method');
             const shipmentAccount = this.getAttribute('data-shipment-account');
             let origin = this.getAttribute('data-origin');
+
+            const note = this.getAttribute('data-note');
+            const address_detail = this.getAttribute('data-address-detail');
             let scheduledTime = this.getAttribute('data-scheduled-time'); // 从按钮 data 获取
 
             // 收集该分组内所有货物的ids和plt_ids
@@ -1128,11 +1141,20 @@
             document.getElementById('origin-select-1').value = origin;
 
             // ✅ 设置预约号
-            const appointmentInput = document.querySelector('input[name="appointment_id"]');
+            const appointmentInput = document.getElementById('appointment_id');
             if (appointmentInput && appointmentId) {
                 appointmentInput.value = appointmentId;
             }
 
+            const noteInput = document.getElementById('note');
+            if (noteInput && note) {
+                noteInput.value = note;
+            }
+            
+            const addressDetailInput = document.getElementById('address_detail');
+            if (addressDetailInput && address_detail) {
+                addressDetailInput.value = address_detail;
+            }
             // ✅ 设置 Scheduled Time
             const scheduledTimeInput = document.getElementById('scheduled-time-input');
             if (scheduledTimeInput) {

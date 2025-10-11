@@ -1326,7 +1326,7 @@ class ShippingManagement(View):
         )()
 
     async def handle_appointment_post(
-        self, request: HttpRequest
+        self, request: HttpRequest, name: str | None = None
     ) -> tuple[str, dict[str, Any]]:
         area = request.POST.get("area")
         current_time = datetime.now()
@@ -1565,7 +1565,9 @@ class ShippingManagement(View):
             await sync_to_async(shipment.save)()
             # 上面更新完约的信息，下面要更新packinglist绑定的约,这是未打板的，所有不用管板子
             container_number = set()
-            pl_ids = request.POST.get("pl_ids").strip("][").split(", ")
+            pl_ids = request.POST.get("pl_ids")
+            if pl_ids:
+                pl_ids = pl_ids.strip("][").split(", ")
             try:
                 pl_ids = [int(i) for i in pl_ids]
                 packing_list = await sync_to_async(list)(
@@ -1684,7 +1686,8 @@ class ShippingManagement(View):
             tzinfo = self._parse_tzinfo(request.POST.get("origin", ""))
             shipment_appointment_utc = self._parse_ts(shipment_appointment, tzinfo)
             note = request.POST.get("note")
-            shipment = Shipment.objects.get(shipment_batch_number=batch_number)
+            print('batch_number',batch_number)
+            shipment = await sync_to_async(Shipment.objects.get)(shipment_batch_number=batch_number)
             shipment.shipment_appointment = parse(shipment_appointment).replace(
                 tzinfo=None
             )
@@ -1703,6 +1706,8 @@ class ShippingManagement(View):
             mutable_post = request.POST.copy()
             mutable_post["area"] = warehouse
             request.POST = mutable_post
+        if name == "post_nsop":
+            return True
         return await self.handle_warehouse_post(request)
 
     def sync_query_and_create(self, shipment, fleet):
