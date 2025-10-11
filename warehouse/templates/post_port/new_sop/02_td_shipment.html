@@ -710,7 +710,7 @@
                                     </td>
                                     {% endif %}
                                 {% endfor %}
-
+                                {% endif %}
                                 <!-- 再显示没有匹配预约的分组 -->
                                 {% for suggestion in matching_suggestions %}
                                     {% if not suggestion.primary_group.matched_shipment %}
@@ -812,6 +812,7 @@
                                 {% endfor %}
                                 </tbody>
                             </table>
+                            {% endfor %}
                         </div>
                     </div>
                 {% else %}
