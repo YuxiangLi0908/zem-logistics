@@ -1011,10 +1011,9 @@ class PostNsop(View):
                 except MultipleObjectsReturned:
                     raise ValueError(f"shipment_batch_number={batch_number} 查询到多条记录，请检查数据")
                 grouped_data[fleet_number]['shipments'][batch_number] = {
-                    'appointment_id': shipment.appointment_id,
-                    'destination': shipment.destination,
-                    'cargos': [],
-                    'cargo_count': 0  # 新增：统计该shipment下的cargo数量（用于预约号/目的地的rowspan）
+                    'appointment_id': shipment.appointment_id, 
+                    'destination': shipment.destination, 
+                    'cargos': []
                 }
 
             # 新增：添加cargo时，更新两个统计字段
