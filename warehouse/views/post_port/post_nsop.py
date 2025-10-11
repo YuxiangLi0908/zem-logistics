@@ -996,7 +996,7 @@ class PostNsop(View):
         # 按fleet_number分组
         grouped_data = {}
         for item in raw_data:
-            fleet_number = item.get('shipment_batch_number__fleet_number')
+            fleet_number = item.get('shipment_batch_number__fleet_number__fleet_number')
             if fleet_number not in grouped_data:
                 grouped_data[fleet_number] = {
                     'fleet_number': fleet_number,
@@ -1222,6 +1222,7 @@ class PostNsop(View):
                 "container_number__order",
                 "container_number__order__warehouse",
                 "shipment_batch_number",
+                "shipment_batch_number__fleet_number",
                 "container_number__order__offload_id",
                 "container_number__order__customer_name",
                 "container_number__order__retrieval_id",
@@ -1260,6 +1261,7 @@ class PostNsop(View):
                 "po_expired",
                 "shipment_batch_number__shipment_batch_number",
                 "data_source",  # 包含数据源标识
+                "shipment_batch_number__fleet_number__fleet_number",
                 warehouse=F(
                     "container_number__order__retrieval_id__retrieval_destination_precise"
                 ),
@@ -1296,6 +1298,7 @@ class PostNsop(View):
                     "container_number__order",
                     "container_number__order__warehouse",
                     "shipment_batch_number",
+                    "shipment_batch_number__fleet_number",
                     "container_number__order__offload_id",
                     "container_number__order__customer_name",
                     "container_number__order__retrieval_id",
@@ -1400,6 +1403,7 @@ class PostNsop(View):
                     "note",
                     "data_source",  # 包含数据源标识
                     "shipment_batch_number__shipment_batch_number",
+                    "shipment_batch_number__fleet_number__fleet_number",
                     warehouse=F(
                         "container_number__order__retrieval_id__retrieval_destination_precise"
                     ),
