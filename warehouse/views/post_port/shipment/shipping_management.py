@@ -2044,7 +2044,7 @@ class ShippingManagement(View):
         return await self.handle_shipment_info_get(request)
 
     async def handle_cancel_post(
-        self, request: HttpRequest
+        self, request: HttpRequest, name: str | None = None
     ) -> tuple[str, dict[str, Any]]:
         appointment_type = request.POST.get("type")
         if appointment_type == "td":  # 撤销预约是这种类型
@@ -2136,6 +2136,8 @@ class ShippingManagement(View):
         mutable_post = request.POST.copy()
         mutable_post["name"] = warehouse
         request.POST = mutable_post
+        if name == "post_nsop":
+            return True
         return await self.handle_warehouse_post(request)
 
     async def handle_update_appointment_post(

@@ -1,5 +1,6 @@
 from datetime import datetime, timedelta
 from typing import Any
+from django.db.models import Prefetch
 
 import pandas as pd
 import json
@@ -155,6 +156,9 @@ class PostNsop(View):
         elif step == "bind_group_shipment":
             template, context = await self.handle_appointment_post(request)
             return render(request, template, context) 
+        elif step == "unassign_shipment":
+            template, context = await self.handle_cancel_appointment_post(request)
+            return render(request, template, context) 
         else:
             raise ValueError('输入错误',step)
     
@@ -177,6 +181,22 @@ class PostNsop(View):
                 return batch_number
         raise ValueError('批次号始终重复')
 
+    async def handle_cancel_appointment_post(
+        self, request: HttpRequest
+    ) -> tuple[str, dict[str, Any]]:
+        appointment_id = request.POST.get('appointment_id')
+        shipment = await sync_to_async(Shipment.objects.get)(
+            appointment_id=appointment_id
+        )
+        shipment_batch_number = shipment.shipment_batch_number
+
+        request.POST = request.POST.copy()
+        request.POST['shipment_batch_number'] = shipment_batch_number
+        request.POST['type'] = 'td'     
+        sm = ShippingManagement()
+        info = await sm.handle_cancel_post(request,'post_nsop')        
+        return await self.handle_td_shipment_post(request)
+    
     async def handle_appointment_post(
         self, request: HttpRequest
     ) -> tuple[str, dict[str, Any]]:
@@ -972,54 +992,78 @@ class PostNsop(View):
 
     async def _sp_ready_to_ship_data(self, warehouse: str) -> list:
         """获取待出库数据 - 按fleet_number分组"""
-        # 获取有fleet_number的货物
-        raw_data = await self._get_packing_list(
-            models.Q(
-                container_number__order__warehouse__name=warehouse,
-                shipment_batch_number__isnull=False,
-                container_number__order__offload_id__offload_at__isnull=True,
-                shipment_batch_number__shipment_batch_number__isnull=False,
-                shipment_batch_number__fleet_number__isnull=False,
-                shipment_batch_number__is_shipped=False,
-                delivery_type='public',
-            ),
-            models.Q(
-                shipment_batch_number__shipment_batch_number__isnull=False,
-                container_number__order__offload_id__offload_at__isnull=False,
-                shipment_batch_number__fleet_number__isnull=False,
-                shipment_batch_number__is_shipped=False,
-                location=warehouse,
-                delivery_type='public',
-            ),
+        # 获取指定仓库的未出发且未取消的fleet
+        fleets = await sync_to_async(list)(
+            Fleet.objects.filter(
+                origin=warehouse,
+                departured_at__isnull=True,
+                is_canceled=False,
+                fleet_type='FTL',
+            ).prefetch_related(
+                Prefetch(
+                    'shipment',
+                    queryset=Shipment.objects.prefetch_related(
+                        Prefetch(
+                            'packinglist',
+                            queryset=PackingList.objects.select_related('container_number')
+                        ),
+                        Prefetch(
+                            'pallet', 
+                            queryset=Pallet.objects.select_related('packing_list', 'container_number')
+                        )
+                    )
+                )
+            )
         )
         
-        # 按fleet_number分组
-        grouped_data = {}
-        for item in raw_data:
-            fleet_number = item.get('shipment_batch_number__fleet_number__fleet_number')
-            if fleet_number not in grouped_data:
-                grouped_data[fleet_number] = {
-                    'fleet_number': fleet_number,
-                    'shipments': {}
-                }
-            
-            # 按shipment分组
-            batch_number = item.get('shipment_batch_number__shipment_batch_number')
-            if batch_number not in grouped_data[fleet_number]['shipments']:
-                try:
-                    shipment = await sync_to_async(Shipment.objects.get)(
-                        shipment_batch_number=batch_number
-                    )
-                except MultipleObjectsReturned:
-                    raise ValueError(f"shipment_batch_number={batch_number} 查询到多条记录，请检查数据")
-                grouped_data[fleet_number]['shipments'][batch_number] = {
-                    'appointment_id': shipment.appointment_id,
-                    'destination': shipment.destination,
-                    'cargos': []
-                }
-            grouped_data[fleet_number]['shipments'][batch_number]['cargos'].append(item)
+        grouped_data = []
         
-        return list(grouped_data.values())
+        for fleet in fleets:
+            fleet_group = {
+                'fleet_number': fleet.fleet_number,
+                'shipments': {},  # 改回字典结构，保持与前端兼容
+                'pl_ids': [],
+                'plt_ids': [],
+                'total_cargos': 0  # 总货物行数
+            }
+            
+            shipments = fleet.shipment.all()
+            
+            for shipment in shipments:
+                if not shipment.shipment_batch_number:
+                    continue
+
+                batch_number = shipment.shipment_batch_number
+                
+                # 初始化shipment数据
+                if batch_number not in fleet_group['shipments']:
+                    fleet_group['shipments'][batch_number] = {
+                        'appointment_id': shipment.appointment_id or '-',
+                        'destination': shipment.destination or '-',
+                        'cargos': []
+                    }
+                
+                # 处理packinglists
+                raw_data = await self._get_packing_list(
+                    models.Q(
+                        shipment_batch_number__shipment_batch_number=batch_number,
+                        container_number__order__offload_id__offload_at__isnull=True,
+                    ),
+                    models.Q(
+                        shipment_batch_number__shipment_batch_number=batch_number,
+                        container_number__order__offload_id__offload_at__isnull=False,
+                    ),
+                )
+                fleet_group['shipments'][batch_number]['cargos'].extend(raw_data)
+            
+            fleet_group['total_cargos'] = sum(
+                len(s['cargos']) for s in fleet_group['shipments'].values()
+            )
+            # 只有有数据的fleet才返回
+            if fleet_group['shipments']:
+                grouped_data.append(fleet_group)
+        
+        return grouped_data
 
     async def sp_available_shipments(self, warehouse: str, st_type: str) -> list:
         """获取可用预约"""
