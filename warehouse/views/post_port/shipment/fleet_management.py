@@ -1598,7 +1598,7 @@ class FleetManagement(View):
         return processed_pallet
 
     async def handle_fleet_departure_post(
-        self, request: HttpRequest
+        self, request: HttpRequest, name: str | None = None
     ) -> tuple[str, dict[str, Any]]:
         fleet_number = request.POST.get("fleet_number")
         departured_at = request.POST.get("departured_at")
@@ -1646,19 +1646,25 @@ class FleetManagement(View):
         ):
             if p_schedule > p_shipped:
                 unshipped_pallet_ids += plt_id[: p_schedule - p_shipped]
-
+        
         # 把出库的板子的slot改为空    
         await sync_to_async(
             lambda: Pallet.objects.filter(pallet_id__in=all_flat_ids)
-            .exclude(pallet_id__in=unshipped_pallet_ids)
+            .exclude(id__in=unshipped_pallet_ids)
             .update(slot=None)
         )()
 
         unshipped_pallet = await sync_to_async(list)(
             Pallet.objects.select_related("shipment_batch_number").filter(
-                pallet_id__in=unshipped_pallet_ids
+                id__in=unshipped_pallet_ids
             )
         )
+        unshipped_pallet_ids = [int(pid) for pid in unshipped_pallet_ids]
+
+        await sync_to_async(Pallet.objects.filter(
+            id__in=unshipped_pallet_ids
+        ).update)(shipment_batch_number=None)
+     
         shipment_pallet = {}
         for p in unshipped_pallet:
             if p.shipment_batch_number.shipment_batch_number not in shipment_pallet:
@@ -1791,7 +1797,8 @@ class FleetManagement(View):
             await sync_to_async(FleetShipmentPallet.objects.bulk_create)(
                 new_fleet_shipment_pallets, batch_size=500
             )
-
+        if name == "post_nsop":
+            return True
         return await self.handle_outbound_warehouse_search_post(request)
 
     async def handle_confirm_delivery_post(
