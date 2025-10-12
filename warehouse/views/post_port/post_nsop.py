@@ -159,6 +159,9 @@ class PostNsop(View):
         elif step == "unassign_shipment":
             template, context = await self.handle_cancel_appointment_post(request)
             return render(request, template, context) 
+        elif step == "fleet_departure":
+            template, context = await self.handle_fleet_departure_post(request)
+            return render(request, template, context)
         else:
             raise ValueError('输入错误',step)
     
@@ -181,6 +184,21 @@ class PostNsop(View):
                 return batch_number
         raise ValueError('批次号始终重复')
 
+    async def handle_fleet_departure_post(
+        self, request: HttpRequest
+    ) -> tuple[str, dict[str, Any]]:
+        batch_number = request.POST.getlist('batch_number')
+        new_batch = []
+        for i in batch_number:
+            shipment = await sync_to_async(Shipment.objects.get)(appointment_id=i)
+            new_batch.append(shipment.shipment_batch_number)
+
+        request.POST = request.POST.copy()
+        request.POST.setlist('batch_number', new_batch)
+        fm = FleetManagement()
+        info = await fm.handle_fleet_departure_post(request,'post_nsop')
+        return await self.handle_td_shipment_post(request)         
+    
     async def handle_cancel_appointment_post(
         self, request: HttpRequest
     ) -> tuple[str, dict[str, Any]]:
@@ -207,7 +225,7 @@ class PostNsop(View):
         plt_ids = request.POST.get("plt_ids")
         selected = [int(i) for i in ids.split(",") if i]
         selected_plt = [int(i) for i in plt_ids.split(",") if i]
-
+        
         if selected or selected_plt:
             packing_list_selected = await self._get_packing_list(
                 models.Q(id__in=selected)
@@ -231,11 +249,14 @@ class PostNsop(View):
                         total_pallet += int(pl.get("total_n_pallet_est") // 1 + 1)
                     else:
                         total_pallet += int(pl.get("total_n_pallet_est") // 1)
+        
+        address = request.POST.get('address')
+        if not address:
+            address = await self.get_address(destination)
         shipment_data = {
             'shipment_batch_number': shipment_batch_number,
-            'pl_ids': selected,
-            'plt_ids': selected_plt,
             'destination': destination,
+            'total_weight': total_weight,
             'total_cbm': total_cbm,
             'total_pallet': total_pallet,
             'total_pcs': total_pcs,
@@ -247,7 +268,7 @@ class PostNsop(View):
             'load_type': '卡板' if request.POST.get('st_type') == 'pallet' else '地板',
             'origin': request.POST.get('warehouse'),
             'note': request.POST.get('note'),
-            'address': request.POST.get('address'),
+            'address': address,
         }
         request.POST = request.POST.copy()
         request.POST['shipment_data'] = str(shipment_data)
@@ -1062,7 +1083,7 @@ class PostNsop(View):
             # 只有有数据的fleet才返回
             if fleet_group['shipments']:
                 grouped_data.append(fleet_group)
-        
+       
         return grouped_data
 
     async def sp_available_shipments(self, warehouse: str, st_type: str) -> list:

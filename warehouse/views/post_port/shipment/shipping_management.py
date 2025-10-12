@@ -1333,6 +1333,9 @@ class ShippingManagement(View):
         appointment_type = request.POST.get("type")
         if appointment_type == "td":  # 首次预约、更新预约、取消预约都是这个类型
             shipment_data = ast.literal_eval(request.POST.get("shipment_data"))
+            if 'shipment_schduled_at' not in shipment_data or shipment_data['shipment_schduled_at'] is None:
+                #港后新sop传过来的没有当前操作时间
+                shipment_data['shipment_schduled_at'] = datetime.now(timezone.utc)
             shipment_type = request.POST.get("shipment_type")
             appointment_id = request.POST.get("appointment_id", None)
             appointment_id = appointment_id.strip() if appointment_id else None
@@ -1560,6 +1563,7 @@ class ShippingManagement(View):
                         if request.POST.get("arm_bol")
                         else ""
                     )
+            print('期望的参数是',shipment_data)
             if not existed_appointment:
                 shipment = Shipment(**shipment_data)
             await sync_to_async(shipment.save)()
@@ -1687,6 +1691,7 @@ class ShippingManagement(View):
             mutable_post["area"] = area
             request.POST = mutable_post
         else:
+            print('不是首次')
             batch_number = request.POST.get("batch_number")
             warehouse = request.POST.get("warehouse")
             shipment_appointment = request.POST.get("shipment_appointment")
