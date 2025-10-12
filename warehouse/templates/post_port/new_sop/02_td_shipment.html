@@ -1481,7 +1481,6 @@ document.addEventListener('DOMContentLoaded', function() {
         targetSection = document.querySelector('.content-section.active') || document.querySelector('.content-section');
         // 还找不到的话就放弃切换（避免把所有 active 都移除导致页面全隐藏）
         if (!targetSection) {
-            console.warn('未找到任何 content-section 元素，跳过 tab 初始化。');
             return;
         }
     } else {
@@ -1573,7 +1572,6 @@ function closeAddPOModal() {
 function confirmFleetDeparture(fleetNumber) {
     // 获取该车次的所有货物数据
     const fleetData = collectFleetData(fleetNumber);
-    console.log('fleetData', fleetData);
     
     if (fleetData.shipments.length === 0) {
         alert('未找到车次数据或车次下没有货物');
@@ -1585,7 +1583,6 @@ function confirmFleetDeparture(fleetNumber) {
 }
 
 function collectFleetData(fleetNumber) {
-    console.log('开始搜集数据，车次号:', fleetNumber);
     const fleetData = {
         fleetNumber: fleetNumber,
         shipments: []
@@ -1601,12 +1598,10 @@ function collectFleetData(fleetNumber) {
         const firstTd = row.querySelector('td:first-child');
         if (firstTd && firstTd.textContent.trim() === fleetNumber) {
             fleetStartIndex = index;
-            console.log('找到车次起始行:', index);
         }
     });
     
     if (fleetStartIndex === -1) {
-        console.log('未找到车次行');
         return fleetData;
     }
     
@@ -1679,7 +1674,6 @@ function collectFleetData(fleetNumber) {
                     pltId
                 });
                 
-                console.log('添加货物:', refIds);
             }
         }
         
@@ -1691,7 +1685,6 @@ function collectFleetData(fleetNumber) {
         fleetData.shipments.push(currentShipment);
     }
     
-    console.log('收集完成:', fleetData);
     return fleetData;
 }
 

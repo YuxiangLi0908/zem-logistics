@@ -841,7 +841,6 @@ class PostNsop(View):
         else:
             # 防止传入的 context 被意外修改
             context = context.copy()
-            print('可加塞的',context['plt_unshipped'])
         context.update({
             'warehouse': warehouse,
             'st_type': st_type,
