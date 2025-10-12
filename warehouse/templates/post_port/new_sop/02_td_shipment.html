@@ -914,7 +914,7 @@
                 <table class="data-table">
                     <thead>
                         <tr>
-                            <th>车队号</th>
+                            <th>车次号</th>
                             <th>预约号</th>
                             <th>目的地</th>
                             <th>REF ID</th>
@@ -926,42 +926,52 @@
                     </thead>
                     <tbody>
                         {% for fleet_group in ready_to_ship_data %}
-                        {% for shipment_id, shipment in fleet_group.shipments.items %}
-                        {% for cargo in shipment.cargos %}
-                        <tr>
-                            {% if forloop.first and forloop.parentloop.first %}
-                            <td rowspan="{% widthratio fleet_group.shipments|length 1 fleet_group.shipments|length %}" style="vertical-align: middle; background-color: #f8f9fa;">
-                                <strong>{{ fleet_group.fleet_number }}</strong>
-                            </td>
-                            {% endif %}
-                            {% if forloop.first %}
-                            <td rowspan="{{ shipment.cargos|length }}" style="vertical-align: middle; background-color: #f8f9fa;">
-                                {{ shipment.appointment_id }}
-                            </td>
-                            <td rowspan="{{ shipment.cargos|length }}" style="vertical-align: middle; background-color: #f8f9fa;">
-                                {{ shipment.destination }}
-                            </td>
-                            {% endif %}
-                            <td class="ref-ids-col">{{ cargo.ref_ids|default:"-"|truncatechars:20 }}</td>
-                            <td class="fba-ids-col">{{ cargo.fba_ids|default:"-"|truncatechars:20 }}</td>
-                            <td>
-                                {% if cargo.label == 'ACT' %}
-                                    {{ cargo.total_n_pallet_act|default:0 }} ACT
-                                {% else %}
-                                    {{ cargo.total_n_pallet_est|default:0 }} EST
-                                {% endif %}
-                            </td>
-                            <td>{{ cargo.total_cbm|default:0 }}</td>
-                            {% if forloop.first and forloop.parentloop.first %}
-                            <td rowspan="{% widthratio fleet_group.shipments|length 1 fleet_group.shipments|length %}" style="vertical-align: middle;">
-                                <button class="action-btn btn-primary" onclick="viewFleetDetails('{{ fleet_group.fleet_number }}')">
-                                    <i class="fas fa-eye"></i> 详情
-                                </button>
-                            </td>
-                            {% endif %}
-                        </tr>
-                        {% endfor %}
-                        {% endfor %}
+                            {% with fleet_rowspan=fleet_group.total_cargos %}
+                            {% for shipment_id, shipment in fleet_group.shipments.items %}
+                                {% with shipment_rowspan=shipment.cargos|length %}
+                                {% for cargo in shipment.cargos %}
+                                <tr>
+                                    {# Fleet编号合并列 #}
+                                    {% if forloop.first and forloop.parentloop.first %}
+                                    <td rowspan="{{ fleet_rowspan }}" style="vertical-align: middle; background-color: #f8f9fa;">
+                                        <strong>{{ fleet_group.fleet_number }}</strong>
+                                    </td>
+                                    {% endif %}
+
+                                    {# 预约号 / 目的地合并列 #}
+                                    {% if forloop.first %}
+                                    <td rowspan="{{ shipment_rowspan }}" style="vertical-align: middle; background-color: #f8f9fa;">
+                                        {{ shipment.appointment_id }}
+                                    </td>
+                                    <td rowspan="{{ shipment_rowspan }}" style="vertical-align: middle; background-color: #f8f9fa;">
+                                        {{ shipment.destination }}
+                                    </td>
+                                    {% endif %}
+
+                                    <td class="ref-ids-col">{{ cargo.ref_ids|default:"-"|truncatechars:20 }}</td>
+                                    <td class="fba-ids-col">{{ cargo.fba_ids|default:"-"|truncatechars:20 }}</td>
+                                    <td>
+                                        {% if cargo.label == 'ACT' %}
+                                            {{ cargo.total_n_pallet_act|default:0 }} ACT
+                                        {% else %}
+                                            {{ cargo.total_n_pallet_est|default:0 }} EST
+                                        {% endif %}
+                                    </td>
+                                    <td>{{ cargo.total_cbm|default:0 }}</td>
+
+                                    {# 操作列合并列 #}
+                                    {% if forloop.first and forloop.parentloop.first %}
+                                    <td rowspan="{{ fleet_rowspan }}" style="vertical-align: middle;">
+                                        <button class="action-btn btn-success" onclick="confirmFleetDeparture('{{ fleet_group.fleet_number }}')">
+                                            <i class="fas fa-check-circle"></i> 确认出库
+                                        </button>
+                                    </td>
+                                    {% endif %}
+                                </tr>
+                                {% endfor %}
+                                {% endwith %}
+                            {% endfor %}
+                            {% endwith %}
                         {% empty %}
                         <tr>
                             <td colspan="8" style="text-align: center; padding: 20px;">
@@ -973,7 +983,6 @@
                 </table>
             </div>
         </div>
-
     </div>
 </div>
 
