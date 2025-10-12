@@ -8,6 +8,7 @@ import uuid
 from asgiref.sync import sync_to_async
 from django.contrib.postgres.aggregates import StringAgg
 from django.db.models.functions import Round, Cast, Coalesce
+from simple_history.utils import bulk_update_with_history
 from django.db import models
 from django.db.models import (
     Case,
@@ -162,6 +163,12 @@ class PostNsop(View):
         elif step == "fleet_departure":
             template, context = await self.handle_fleet_departure_post(request)
             return render(request, template, context)
+        elif step == "add_pallet":
+            template, context = await self.handle_add_pallet_post(request)
+            return render(request, template, context)
+        elif step == "fleet_add_pallet":
+            template, context = await self.handle_fleet_add_pallet_post(request)
+            return render(request, template, context)
         else:
             raise ValueError('输入错误',step)
     
@@ -183,6 +190,97 @@ class PostNsop(View):
             if not exists:
                 return batch_number
         raise ValueError('批次号始终重复')
+
+    async def handle_fleet_add_pallet_post(
+        self, request: HttpRequest
+    ) -> tuple[str, dict[str, Any]]:
+        
+        appointment_id = request.POST.get("add_pallet_ISA")
+        plt_ids = request.POST.getlist("plt_ids")
+        actual_shipped_pallet = request.POST.getlist("actual_shipped_pallet")
+        shipped_pallet_ids = []
+        
+        for plt_id, p_shipped in zip(plt_ids, actual_shipped_pallet):
+            # 清理数据：移除空字符串和None
+            if not plt_id or not p_shipped:
+                continue
+
+            p_shipped_int = int(float(p_shipped))
+            
+            # 分割plt_ids并清理空值
+            plt_id_list = [pid.strip() for pid in plt_id.split(',') if pid.strip()]
+            
+            if not plt_id_list:
+                continue
+                
+            # 取前p_shipped_int个元素
+            shipped_count = min(p_shipped_int, len(plt_id_list))  # 防止索引越界
+            shipped_pallet_ids += plt_id_list[:shipped_count]
+        pallets = await sync_to_async(list)(
+            Pallet.objects.select_related("container_number").filter(
+                id__in=shipped_pallet_ids
+            )
+        )
+        total_weight, total_cbm, total_pcs = 0.0, 0.0, 0
+        for plt in pallets:
+            total_weight += plt.weight_lbs
+            total_pcs += plt.pcs
+            total_cbm += plt.cbm
+        # 查找该出库批次,将重量等信息加到出库批次上
+        shipment = await Shipment.objects.select_related("fleet_number").aget(appointment_id=appointment_id)
+        fleet = shipment.fleet_number
+        fleet.total_weight += total_weight
+        fleet.total_pcs += total_pcs
+        fleet.total_cbm += total_cbm
+        fleet.total_pallet += len(shipped_pallet_ids)
+        await sync_to_async(fleet.save)()
+        # 查找该出库批次下的约，把加塞的柜子板数加到同一个目的地的约
+        
+        plt_to_update = []
+        for pallet in pallets:
+            pallet.shipment_batch_number = shipment
+            plt_to_update.append(pallet)
+        if plt_to_update:
+            result = await sync_to_async(bulk_update_with_history)(
+                plt_to_update,
+                Pallet,
+                fields=["shipment_batch_number"],
+            )
+
+        return await self.handle_td_shipment_post(request)
+    
+    async def handle_add_pallet_post(
+        self, request: HttpRequest
+    ) -> tuple[str, dict[str, Any]]:
+        warehouse = request.POST.get("warehouse")
+        destination = request.POST.get("destination")
+        tab = request.POST.get("tab")
+        step = request.POST.get("step")
+        criteria_plt = models.Q(
+            shipment_batch_number__fleet_number__fleet_number__isnull=True,
+            location=warehouse,
+            destination=destination,
+            container_number__order__offload_id__offload_at__isnull=False,
+        )
+        plt_unshipped = await self._get_packing_list(
+            models.Q(
+                container_number__order__offload_id__offload_at__isnull=False,
+            )& models.Q(pk=0),
+            criteria_plt
+        )
+        
+        context = {
+            "warehouse": warehouse,
+            "destination": destination,
+            "plt_unshipped": plt_unshipped,
+            "step": step,  # ← 前端靠这个判断要不要弹窗
+            "active_tab": tab,          # ← 用来控制前端打开哪个标签页
+            "show_add_po_modal": True,   # ← 控制是否直接弹出“添加PO”弹窗
+            "add_po_title": "加塞",
+            "add_pallet_ISA": request.POST.get('add_pallet_ISA')
+        }
+        return await self.handle_td_shipment_post(request, context)
+
 
     async def handle_fleet_departure_post(
         self, request: HttpRequest
@@ -719,7 +817,7 @@ class PostNsop(View):
         return self.template_fleet_schedule, context
     
     async def handle_td_shipment_post(
-        self, request: HttpRequest
+        self, request: HttpRequest, context: dict| None = None
     ) -> tuple[str, dict[str, Any]]:
         warehouse = request.POST.get("warehouse")
         st_type = request.POST.get("st_type", "pallet")
@@ -737,7 +835,14 @@ class PostNsop(View):
         
         # 生成匹配建议
         max_cbm, max_pallet = await self.get_capacity_limits(st_type)
-        context = {
+
+        if not context:
+            context = {}
+        else:
+            # 防止传入的 context 被意外修改
+            context = context.copy()
+            print('可加塞的',context['plt_unshipped'])
+        context.update({
             'warehouse': warehouse,
             'st_type': st_type,
             'matching_suggestions': matching_suggestions,
@@ -751,7 +856,8 @@ class PostNsop(View):
             "account_options": self.account_options,
             "load_type_options": LOAD_TYPE_OPTIONS,
             "shipment_type_options": self.shipment_type_options,
-        } 
+        }) 
+        
         return self.template_td_shipment, context
     
     async def sp_unscheduled_data(self, warehouse: str, st_type: str) -> list:
@@ -1187,10 +1293,7 @@ class PostNsop(View):
         # 计算各类数量
         unscheduled_count = len(unscheduled)
         scheduled_count = sum(len(group['cargos']) for group in scheduled)
-        ready_count = sum(
-            sum(len(shipment['cargos']) for shipment in fleet_group['shipments'].values())
-            for fleet_group in ready
-        )
+        ready_count = len(ready)
         
         # 计算总板数
         total_pallets = 0

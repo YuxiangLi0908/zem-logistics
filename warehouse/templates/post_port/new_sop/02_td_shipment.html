@@ -441,6 +441,166 @@
         transition: width 0.3s ease;
     }
 
+    .modal {
+        display: none;
+        position: fixed;
+        z-index: 1000;
+        left: 0;
+        top: 0;
+        width: 100%;
+        height: 100%;
+        background-color: rgba(0,0,0,0.5);
+        backdrop-filter: blur(2px);
+    }
+
+    .modal-content {
+        background-color: #fefefe;
+        margin: auto;
+        padding: 0;
+        border: none;
+        border-radius: 12px;
+        box-shadow: 0 10px 30px rgba(0,0,0,0.3);
+        position: absolute;
+        top: 50%;
+        left: 50%;
+        transform: translate(-50%, -50%);
+        max-height: 85vh;
+        overflow-y: auto;
+        animation: modalSlideIn 0.3s ease-out;
+    }
+
+    @keyframes modalSlideIn {
+        from {
+            opacity: 0;
+            transform: translate(-50%, -60%);
+        }
+        to {
+            opacity: 1;
+            transform: translate(-50%, -50%);
+        }
+    }
+
+    .modal-header {
+        background: linear-gradient(135deg, var(--secondary-color), #4a6491);
+        color: white;
+        padding: 20px 25px;
+        border-radius: 12px 12px 0 0;
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+    }
+
+    .modal-header h3 {
+        margin: 0;
+        font-size: 1.3rem;
+        font-weight: 600;
+    }
+
+    .modal-header .close {
+        color: white;
+        font-size: 28px;
+        font-weight: bold;
+        cursor: pointer;
+        opacity: 0.8;
+        transition: opacity 0.3s;
+    }
+
+    .modal-header .close:hover {
+        opacity: 1;
+    }
+
+    .modal-body {
+        padding: 25px;
+    }
+
+    /* 弹窗表单样式 */
+    .modal-form-section {
+        margin-bottom: 20px;
+    }
+
+    .modal-form-section h4 {
+        color: var(--secondary-color);
+        margin-bottom: 15px;
+        font-size: 1.1rem;
+        border-bottom: 2px solid var(--light-color);
+        padding-bottom: 8px;
+    }
+
+    .modal-table {
+        width: 100%;
+        border-collapse: collapse;
+        margin: 15px 0;
+        font-size: 0.9rem;
+    }
+
+    .modal-table th {
+        background-color: #f8f9fa;
+        padding: 12px 8px;
+        text-align: left;
+        font-weight: 600;
+        color: var(--secondary-color);
+        border-bottom: 2px solid #e9ecef;
+    }
+
+    .modal-table td {
+        padding: 10px 8px;
+        border-bottom: 1px solid #f1f3f4;
+    }
+
+    .modal-table tr:hover {
+        background-color: #f8f9fa;
+    }
+
+    /* 弹窗按钮组 */
+    .modal-actions {
+        display: flex;
+        justify-content: center;
+        gap: 15px;
+        margin-top: 25px;
+        padding-top: 20px;
+        border-top: 1px solid #e9ecef;
+    }
+
+    .modal-btn {
+        padding: 12px 25px;
+        border: none;
+        border-radius: 6px;
+        cursor: pointer;
+        font-weight: 600;
+        font-size: 0.95rem;
+        transition: all 0.3s ease;
+        min-width: 120px;
+    }
+
+    .modal-btn-success {
+        background: var(--success-color);
+        color: white;
+    }
+
+    .modal-btn-success:hover {
+        background: #27ae60;
+        transform: translateY(-1px);
+    }
+
+    .modal-btn-danger {
+        background: var(--danger-color);
+        color: white;
+    }
+
+    .modal-btn-danger:hover {
+        background: #c0392b;
+        transform: translateY(-1px);
+    }
+
+    .modal-btn-primary {
+        background: var(--primary-color);
+        color: white;
+    }
+
+    .modal-btn-primary:hover {
+        background: #2980b9;
+        transform: translateY(-1px);
+    }
     @media (max-width: 768px) {
         .system-header {
             flex-direction: column;
@@ -700,6 +860,7 @@
                                                 data-suggestion-id="{{ suggestion.suggestion_id }}"
                                                 data-has-appointment="1"
                                                 data-appointment-id="{{ suggestion.primary_group.matched_shipment.appointment_id }}"
+                                                data-load-type="{{ suggestion.primary_group.matched_shipment.load_type }}"
                                                 data-destination="{{ suggestion.primary_group.destination }}"
                                                 data-delivery-method="{{ suggestion.primary_group.delivery_method }}"
                                                 data-scheduled-time="{{ suggestion.primary_group.matched_shipment.shipment_appointment|date:'Y-m-d H:i' }}"
@@ -924,11 +1085,13 @@
                             <th>车次号</th>
                             <th>预约号</th>
                             <th>目的地</th>
+                            <th>柜号</th>
                             <th>REF ID</th>
                             <th>FBA ID</th>
                             <th>板数</th>
                             <th>CBM</th>
-                            <th>操作</th>
+                            <th>添加PO</th>
+                            <th>出库</th>
                         </tr>
                     </thead>
                     <tbody>
@@ -952,7 +1115,7 @@
                                         {{ shipment.destination }}
                                     </td>
                                     {% endif %}
-
+                                    <td class="ref-ids-col">{{ cargo.cns|linebreaks_cn }}</td>
                                     <td class="ref-ids-col">{{ cargo.ref_ids|default:"-"|truncatechars:20 }}</td>
                                     <td class="fba-ids-col">{{ cargo.fba_ids|default:"-"|truncatechars:20 }}</td>
                                     <td>
@@ -963,7 +1126,23 @@
                                         {% endif %}
                                     </td>
                                     <td>{{ cargo.total_cbm|default:0 }}</td>
+                                    {% if forloop.first %}
+                                        <!-- 添加PO按钮：对应预约号 -->
+                                        <td rowspan="{{ shipment_rowspan }}" style="vertical-align: middle;">
+                                            <form method="post" action="">
+                                                {% csrf_token %}
+                                                <input type="hidden" name="destination" value="{{ shipment.destination }}">
+                                                <input type="hidden" name="add_pallet_ISA" value="{{ shipment.appointment_id }}">
+                                                <input type="hidden" name="warehouse" value="{{ warehouse }}">
+                                                <input type="hidden" name="step" value="add_pallet">
+                                                <input type="hidden" name="tab" value="{{ current_tab }}"> 
 
+                                                <button type="submit" class="action-btn btn-primary">
+                                                    <i class="fas fa-plus"></i> 添加PO
+                                                </button>
+                                            </form>
+                                        </td>
+                                        {% endif %}
                                     {% if forloop.first and forloop.parentloop.first %}
                                     <td rowspan="{{ fleet_rowspan }}" style="vertical-align: middle;">
                                          <button class="action-btn btn-success" onclick="confirmFleetDeparture('{{ fleet_group.fleet_number }}')">
@@ -1002,208 +1181,396 @@
     <input type="hidden" name="st_type" value="{{ st_type }}">
 </form>
 
-<div id="bindShipmentModal" class="modal" style="display: none; position: fixed; z-index: 1000; left: 0; top: 0; width: 100%; height: 100%; background-color: rgba(0,0,0,0.5);">
-    <div class="modal-content"
-            style="background-color: #fefefe; margin: 5% auto; padding: 20px; border: 1px solid #888; width: 90%; max-width: 1000px; max-height: 80vh; overflow-y: auto; border-radius: 10px;">
-        <span class="close" style="color: #aaa; float: right; font-size: 28px; font-weight: bold; cursor: pointer;">&times;</span>
-        <h3>绑定预约信息</h3>
+<div id="bindShipmentModal" class="modal">
+    <div class="modal-content" style="width: 90%; max-width: 1000px;">
+        <div class="modal-header">
+            <h3><i class="fas fa-link"></i> 绑定预约信息</h3>
+            <span class="close">&times;</span>
+        </div>
+        <div class="modal-body">
+            <form id="bindShipmentForm" method="post">
+                {% csrf_token %}
+                <input type="hidden" name="step" value="bind_group_shipment">
+                <input type="hidden" name="suggestion_id" id="modalSuggestionId">
+                <input type="hidden" name="cargo_ids" id="modalCargoIds">
+                <input type="hidden" name="plt_ids" id="modalPltIds">
+                <input type="hidden" name="warehouse" value="{{ warehouse }}">
+                <input type="hidden" name="st_type" value="{{ st_type }}">
 
-        <form id="bindShipmentForm" method="post">
-            {% csrf_token %}
-            <input type="hidden" name="step" value="bind_group_shipment">
-            <input type="hidden" name="suggestion_id" id="modalSuggestionId">
-            <input type="hidden" name="cargo_ids" id="modalCargoIds">
-            <input type="hidden" name="plt_ids" id="modalPltIds">
-            <input type="hidden" name="warehouse" value="{{ warehouse }}">
-            <input type="hidden" name="st_type" value="{{ st_type }}">
+                <!-- FTL 表单 -->
+                <div class="modal-form-section">
+                    <h4><i class="fas fa-truck"></i> 预约信息</h4>
+                    <table class="modal-table">
+                        <thead>
+                            <tr>
+                                <th>预约账号</th>
+                                <th>预约号</th>
+                                <th>Scheduled Time</th>
+                                <th>发货仓库</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            <tr>
+                                <td>
+                                    <select name="shipment_account" id="shipment-account-select" class="form-select">
+                                        {% for k, v in account_options.items %}
+                                            <option value="{{ v }}">{{ k }}</option>
+                                        {% endfor %}
+                                    </select>
+                                </td>
+                                <td>
+                                    <input type="text" name="appointment_id" id="appointment_id" class="form-input" required>
+                                </td>
+                                <td>
+                                    <input type="datetime-local" id="scheduled-time-input" name="shipment_appointment" class="form-input" required>
+                                </td>
+                                <td>
+                                    <select name="origin" id="origin-select-1" class="form-select">
+                                        {% for k, v in warehouse_options.items %}
+                                            <option value="{{ v }}">{{ k }}</option>
+                                        {% endfor %}
+                                    </select>
+                                </td>
+                            </tr>
+                            <tr>
+                                <th>装车类型</th>
+                                <th>备注</th>
+                                <th>目的地</th>
+                                <th>地址</th>
+                            </tr>
+                            <tr>
+                                <td>
+                                    <select name="load_type" id="load-type-select" class="form-select">
+                                        {% for k, v in load_type_options %}
+                                            <option value="{{ v }}">{{ k }}</option>
+                                        {% endfor %}
+                                    </select>
+                                </td>
+                                <td>
+                                    <input type="text" name="note" id="note" class="form-input">
+                                </td>
+                                <td>
+                                    <input type="text" name="destination" id="ftl-destination" class="form-input" required>
+                                </td>
+                                <td>
+                                    <input type="text" name="address" id="address_detail" class="form-input">
+                                </td>
+                            </tr>
+                        </tbody>
+                    </table>
+                </div>
+                
+                <div id="cargoSelectionArea" class="modal-form-section">
+                    <h4><i class="fas fa-box"></i> 选择要绑定/预约的货物</h4>
+                    <table class="modal-table">
+                        <thead>
+                            <tr>
+                                <th style="width: 50px;">
+                                    <input type="checkbox" id="selectAllCargos">
+                                </th>
+                                <th>REF ID</th>
+                                <th>FBA ID</th>
+                                <th>柜号</th>
+                            </tr>
+                        </thead>
+                        <tbody id="cargoSelectionBody">
+                            <!-- JS 动态生成 -->
+                        </tbody>
+                    </table>
+                </div>
 
-            <!-- FTL 表单 -->
-            <div id="FTL-form">
-                <table id="shipment-table-1" class="table"
-                        style="font-size: 11px; overflow-x: scroll; max-width: 100%; margin-bottom: 15px;">
-                    <thead>
-                    <tr>
-                        <th class="th">预约账号</th>
-                        <th class="th">预约号</th>
-                        <th class="th">Scheduled Time</th>
-                    </tr>
-                    </thead>
-                    <tbody>
-                    <tr>
-                        <td class="td">
-                            <select name="shipment_account" id="shipment-account-select"
-                                    style="font-size: 13px; width: 200px;">
-                                {% for k, v in account_options.items %}
-                                    <option value="{{ v }}">{{ k }}</option>
-                                {% endfor %}
-                            </select>
-                        </td>
-                        <td class="td"><input type="text" name="appointment_id" id="appointment_id"
-                                                style="font-size: 13px; width: 200px;" required></td>
-                        <td class="td"><input
-                                type="datetime-local"
-                                id="scheduled-time-input"
-                                name="shipment_appointment"
-                                style="font-size: 13px; width: 200px;"
-                                required
-                        ></td>
-                    </tr>
-                    </tbody>
-                </table>
-                <table id="shipment-table-2" class="table"
-                        style="font-size: 11px; overflow-x: auto; max-width: 100%; margin-bottom: 15px;">
-                    <thead>
-                    <tr>
-                        <th class="th">发货仓库</th>
-                        <th class="th">装车类型</th>
-                        <th class="th">备注</th>
-                    </tr>
-                    </thead>
-                    <tbody>
-                    <tr>
-                        <td class="td">
-                            <select name="origin" id="origin-select-1" style="font-size: 13px; width: 200px;">
-                                {% for k, v in warehouse_options.items %}
-                                    <option value="{{ v }}">{{ k }}</option>
-                                {% endfor %}
-                            </select>
-                        </td>
-                        <td class="td">
-                            <select name="load_type" id="load-type-select" style="font-size: 13px; width: 200px;">
-                                {% for k, v in load_type_options %}
-                                    <option value="{{ v }}">{{ k }}</option>
-                                {% endfor %}
-                            </select>
-                        </td>
-                        <td class="td"><input type="text" name="note" id="note" style="font-size: 13px; width: 200px;"></td>
-                    </tr>
-                    </tbody>
-                </table>
-                <table id="shipment-table-3" class="table"
-                        style="font-size: 11px; overflow-x: auto; max-width: 100%;">
-                    <thead>
-                    <tr>
-                        <th class="th">目的地</th>
-                        <th class="th">地址</th>
-                        <th class="th">预约类型</th>
-                    </tr>
-                    </thead>
-                    <tbody>
-                    <tr>
-                        <td class="td"><input type="text" name="destination" id="ftl-destination" style="font-size: 13px; width: 200px;" required></td>
-                        <td class="td"><input type="text" name="address" id="address_detail" style="font-size: 13px; width: 300px;"></td>
-                        <td class="td">
-                            <select name="shipment_type" id="shipment-type-select" style="font-size: 13px; width: 200px;">
-                                {% for k, v in shipment_type_options.items %}
-                                    <option value="{{ v }}">{{ k }}</option>
-                                {% endfor %}
-                            </select>
-                        </td>
-                    </tr>
-                    </tbody>
-                </table>
-            </div>
-            
-            <div id="cargoSelectionArea" style="margin-top: 25px;">
-                <h4 style="margin-bottom: 10px;"><i class="fas fa-box"></i> 选择要绑定/预约的货物</h4>
-                <table class="table" style="font-size: 12px; width: 100%;">
-                    <thead>
-                        <tr>
-                            <th><input type="checkbox" id="selectAllCargos"></th>
-                            <th>REF ID</th>
-                            <th>FBA ID</th>
-                            <th>柜号</th>
-                        </tr>
-                    </thead>
-                    <tbody id="cargoSelectionBody">
-                        <!-- JS 动态生成 -->
-                    </tbody>
-                </table>
-            </div>
-
-            <div style="margin-top: 20px; text-align: center;">
-                <button type="submit" class="action-btn btn-success" style="padding: 10px 20px;">
-                    <i class="fas fa-check"></i> 确认绑定
-                </button>
-                <button type="button" class="action-btn btn-danger" onclick="closeBindModal()"
-                        style="padding: 10px 20px;">
-                    <i class="fas fa-times"></i> 取消
-                </button>
-            </div>
-        </form>
+                <div class="modal-actions">
+                    <button type="submit" class="modal-btn modal-btn-success">
+                        <i class="fas fa-check"></i> 确认绑定
+                    </button>
+                    <button type="button" class="modal-btn modal-btn-danger" onclick="closeBindModal()">
+                        <i class="fas fa-times"></i> 取消
+                    </button>
+                </div>
+            </form>
+        </div>
     </div>
 </div>
 
 <!--确认出库的弹框-->
-<div id="confirmDepartureModal" class="modal" style="display: none; position: fixed; z-index: 1000; left: 0; top: 0; width: 100%; height: 100%; background-color: rgba(0,0,0,0.5);">
-    <div class="modal-content" style="background-color: #fefefe; margin: 2% auto; padding: 20px; border: 1px solid #888; width: 95%; max-width: 1200px; max-height: 90vh; overflow-y: auto; border-radius: 10px;">
-        <span class="close-departure" style="color: #aaa; float: right; font-size: 28px; font-weight: bold; cursor: pointer;">&times;</span>
-        <h3><i class="fas fa-truck-loading"></i> 确认出库 - <span id="modalFleetNumber"></span></h3>
+<div id="confirmDepartureModal" class="modal">
+    <div class="modal-content" style="width: 95%; max-width: 1200px;">
+        <div class="modal-header">
+            <h3><i class="fas fa-truck-loading"></i> 确认出库 - <span id="modalFleetNumber"></span></h3>
+            <span class="close close-departure">&times;</span>
+        </div>
+        <div class="modal-body">
+            <form id="confirmDepartureForm" method="post">
+                {% csrf_token %}
+                <input type="hidden" name="step" value="fleet_departure">
+                <input type="hidden" name="fleet_number" id="fleetNumber">
+                <input type="hidden" name="warehouse" value="{{ warehouse }}">
+                
+                <!-- 出库时间选择 -->
+                <div class="modal-form-section" style="background: #f8f9fa; padding: 15px; border-radius: 8px;">
+                    <label style="font-weight: bold; margin-right: 15px;">
+                        <i class="fas fa-calendar-alt"></i> 出库时间:
+                    </label>
+                    <input type="datetime-local" name="departured_at" id="departuredAt" class="form-input" required>
+                </div>
 
-        <form id="confirmDepartureForm" method="post">
-            {% csrf_token %}
-            <input type="hidden" name="step" value="fleet_departure">
-            <input type="hidden" name="fleet_number" id="fleetNumber">
-            <input type="hidden" name="warehouse" value="{{ warehouse }}">
-            
-            <!-- 出库时间选择 -->
-            <div style="margin-bottom: 20px; padding: 15px; background-color: #f8f9fa; border-radius: 5px;">
-                <label style="font-weight: bold; margin-right: 10px;">
-                    <i class="fas fa-calendar-alt"></i> 出库时间:
-                </label>
-                <input type="datetime-local" name="departured_at" id="departuredAt" 
-                       style="padding: 8px; border: 1px solid #ddd; border-radius: 4px; font-size: 14px;" required>
+                <!-- 货物信息表格 -->
+                <div class="modal-form-section">
+                    <h4><i class="fas fa-list"></i> 货物信息</h4>
+                    <div style="max-height: 400px; overflow-y: auto;">
+                        <table class="modal-table">
+                            <thead>
+                                <tr>
+                                    <th>预约号</th>
+                                    <th>目的地</th>
+                                    <th>REF ID</th>
+                                    <th>FBA ID</th>
+                                    <th>柜号</th>
+                                    <th>计划板数</th>
+                                    <th>实际出库板数</th>
+                                    <th>状态</th>
+                                </tr>
+                            </thead>
+                            <tbody id="departureCargoBody">
+                                <!-- JS动态填充 -->
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+
+                <!-- 统计信息 -->
+                <div style="background: #e9f7ef; padding: 15px; border-radius: 8px; border-left: 4px solid #28a745;">
+                    <div style="display: flex; justify-content: space-between; align-items: center;">
+                        <div>
+                            <strong>板数统计:</strong>
+                            <span id="totalScheduledPallets" style="margin: 0 10px;"></span>
+                            <i class="fas fa-arrow-right" style="color: #6c757d;"></i>
+                            <span id="totalActualPallets" style="margin: 0 10px; font-weight: bold; color: #28a745;"></span>
+                        </div>
+                        <div id="estWarning" style="display: none; color: #dc3545; font-weight: bold;">
+                            <i class="fas fa-exclamation-triangle"></i> 存在未打板货物，请核实！
+                        </div>
+                    </div>
+                </div>
+
+                <div class="modal-actions">
+                    <button type="submit" class="modal-btn modal-btn-success">
+                        <i class="fas fa-check-circle"></i> 确认出库
+                    </button>
+                    <button type="button" class="modal-btn modal-btn-danger" onclick="closeDepartureModal()">
+                        <i class="fas fa-times"></i> 取消
+                    </button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+
+<!--添加PO的弹框-->
+<form method="post" id="addPOForm">
+    {% csrf_token %}
+    <input type="hidden" name="tab" id="formTab" value="">
+    <input type="hidden" name="step" value="fleet_add_pallet">
+    <input type="hidden" name="warehouse" value="{{ warehouse }}">
+    <input type="hidden" name="add_pallet_ISA" value="{{ add_pallet_ISA }}">
+
+    <div id="addPOModal" class="modal">
+        <div class="modal-content" style="width: 90%; max-width: 900px;">
+            <div class="modal-header">
+                <h3><i class="fas fa-plus"></i> 添加PO</h3>
+                <span class="close" onclick="closeAddPOModal()">&times;</span>
             </div>
-
-            <!-- 货物信息表格 -->
-            <div class="table-container">
-                <table class="data-table" style="font-size: 12px;">
+            <div class="modal-body">
+                <table class="modal-table">
                     <thead>
                         <tr>
-                            <th>预约号</th>
-                            <th>目的地</th>
-                            <th>REF ID</th>
-                            <th>FBA ID</th>
-                            <th>柜号</th>
-                            <th>计划板数</th>
-                            <th>实际出库板数</th>
-                            <th>状态</th>
+                            <th style="width: 5%; text-align:center;">
+                                <input type="checkbox" id="selectAllPos">
+                            </th>
+                            <th style="width: 20%; word-break: break-word; white-space: normal;">REF ID</th>
+                            <th style="width: 20%; word-break: break-word; white-space: normal;">FBA ID</th>
+                            <th style="width: 15%; word-break: break-word; white-space: normal;">柜号</th>
+                            <th style="width: 20%; word-break: break-word; white-space: normal;">目的地</th>
+                            <th style="width: 10%; text-align:center;">板数</th>
+                            <th style="width: 10%; text-align:center;">加塞板数</th>
                         </tr>
                     </thead>
-                    <tbody id="departureCargoBody">
-                        <!-- JS动态填充 -->
+                    <tbody id="addPOTableBody">
+                        {% if plt_unshipped %}
+                            {% for po in plt_unshipped %}
+                            <tr>
+                                <td style="text-align:center;">
+                                    <input type="checkbox" class="plt-checkbox" value="{{ po.id }}">
+                                    <input type="hidden"  name="plt_ids" value="{{ po.plt_ids }}">
+                                </td>
+                                <td style="word-break: break-word; white-space: normal;">{{ po.ref_ids }}</td>
+                                <td style="word-break: break-word; white-space: normal;">{{ po.fba_ids }}</td>
+                                <td style="word-break: break-word; white-space: normal;">{{ po.cns }}</td>
+                                <td style="word-break: break-word; white-space: normal;">{{ po.destination }}</td>
+                                <td style="text-align:center;">
+                                    {{ po.total_n_pallet_act }}
+                                    <input type="hidden" name="scheduled_pallet" value="{{ po.total_n_pallet_act }}">
+                                </td>
+                                <td class="td">
+                                    <input type="number" 
+                                        name="actual_shipped_pallet" 
+                                        step="1" 
+                                        max="{{ po.total_n_pallet_act }}" 
+                                        value="{{ po.total_n_pallet_act }}" 
+                                        required
+                                        style="width: 80px; max-width: 100%; box-sizing: border-box;">
+                                </td>
+                            </tr>
+                            {% endfor %}
+                        {% else %}
+                            <tr><td colspan="7" style="text-align:center; color:#888; padding: 20px;">暂无可添加的PO</td></tr>
+                        {% endif %}
                     </tbody>
                 </table>
             </div>
-
-            <!-- 统计信息 -->
-            <div style="margin-top: 20px; padding: 15px; background-color: #e9f7ef; border-radius: 5px; border-left: 4px solid #28a745;">
-                <div style="display: flex; justify-content: space-between; align-items: center;">
-                    <div>
-                        <strong>板数统计:</strong>
-                        <span id="totalScheduledPallets" style="margin: 0 10px;"></span>
-                        <i class="fas fa-arrow-right" style="color: #6c757d;"></i>
-                        <span id="totalActualPallets" style="margin: 0 10px; font-weight: bold; color: #28a745;"></span>
-                    </div>
-                    <div id="estWarning" style="display: none; color: #dc3545; font-weight: bold;">
-                        <i class="fas fa-exclamation-triangle"></i> 存在未打板货物，请核实！
-                    </div>
-                </div>
+            <div class="modal-actions">
+                <button type="submit" class="modal-btn modal-btn-success">确认添加</button>
+                <button type="button" class="modal-btn modal-btn-danger" onclick="closeAddPOModal()" style="padding:10px 20px;">取消</button>
             </div>
-
-            <div style="margin-top: 25px; text-align: center;">
-                <button type="submit" class="action-btn btn-success" style="padding: 10px 25px;">
-                    <i class="fas fa-check-circle"></i> 确认出库
-                </button>
-                <button type="button" class="action-btn btn-danger" onclick="closeDepartureModal()" style="padding: 10px 25px;">
-                    <i class="fas fa-times"></i> 取消
-                </button>
-            </div>
-        </form>
+        </div>
     </div>
-</div>
+</form>
+
 <script>
-    function confirmFleetDeparture(fleetNumber) {
+document.addEventListener('DOMContentLoaded', function() {
+    // 后端传来的 active_tab（比如 "ready_to_ship" 或 "ready-to-ship" 或 "ready" 等）
+    const rawActiveTab = "{{ active_tab|default:'unscheduled' }}";
+    let activeTab = rawActiveTab;
+
+    // 辅助：把 tab 名规范化、并尝试若干候选 section id
+    function findSectionByTabName(tabName) {
+        const candidates = [];
+
+        // 原始 + 变体
+        candidates.push(tabName + '-section');                       // "ready_to_ship-section"
+        candidates.push(tabName.replace(/_/g, '-') + '-section');   // "ready-to-ship-section"
+        candidates.push(tabName.replace(/_/g, '') + '-section');    // "readytoship-section"
+        candidates.push(tabName.replace(/-/g, '_') + '-section');   // reverse transform
+        candidates.push(tabName + 'section');                       // "ready_to_shipsection"
+        candidates.push(tabName.replace(/_/g, '-') + 'section');
+
+        // 常见别名映射（根据你模板里可能的 id）
+        const aliasMap = {
+            'ready_to_ship': 'ready-section',
+            'ready-to-ship': 'ready-section',
+            'ready': 'ready-section',
+            'unscheduled': 'unscheduled-section',
+            'scheduled': 'scheduled-section',
+            'ready_ship': 'ready-section'
+        };
+        if (aliasMap[tabName]) candidates.unshift(aliasMap[tabName]);
+
+        // 尝试候选
+        for (let id of candidates) {
+            const el = document.getElementById(id);
+            if (el) return el;
+        }
+        return null;
+    }
+
+    // 找到目标 section（先试后端给的值）
+    let targetSection = findSectionByTabName(activeTab);
+
+    // 如果找不到，用页面上已有的第一个 .content-section.active 作为回退
+    if (!targetSection) {
+        targetSection = document.querySelector('.content-section.active') || document.querySelector('.content-section');
+        // 还找不到的话就放弃切换（避免把所有 active 都移除导致页面全隐藏）
+        if (!targetSection) {
+            console.warn('未找到任何 content-section 元素，跳过 tab 初始化。');
+            return;
+        }
+    } else {
+        // 如果通过 alias 找到了真正的目标，但它不一定与 rawActiveTab 相匹配：把 activeTab 设成与 DOM 匹配的短名（方便后续）
+        // 这里我们不强制修改 activeTab 字符串，因为后续仅用于填 hidden inputs
+    }
+
+    // 现在安全地切换：先移除所有 tab/section 的 active（仅在我们确实找到了至少一个 section 时）
+    document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
+    document.querySelectorAll('.content-section').forEach(s => s.classList.remove('active'));
+
+    // 激活对应 tab（如果有对应的 tab 按钮）
+    // 通过匹配 data-tab 或尝试匹配候选名称
+    const tabs = Array.from(document.querySelectorAll('.tab'));
+    let activatedTabButton = null;
+    for (const t of tabs) {
+        const dataTab = t.dataset.tab;
+        if (!dataTab) continue;
+        // 若 data-tab 等于后端传的 rawActiveTab，或变体，则匹配
+        if (
+            dataTab === rawActiveTab
+            || dataTab === rawActiveTab.replace(/_/g,'-')
+            || dataTab === rawActiveTab.replace(/_/g,'')
+            || (rawActiveTab.includes('-') && dataTab === rawActiveTab.replace(/-/g,'_'))
+            || dataTab === (rawActiveTab.split(/[-_]/)[0]) // e.g. "ready"
+        ) {
+            activatedTabButton = t;
+            break;
+        }
+    }
+    if (activatedTabButton) {
+        activatedTabButton.classList.add('active');
+    } else {
+        // 如果没找到对应按钮，尝试激活一个与 targetSection id 对应的 button（通过 data-tab 与 id 对比）
+        const targetId = targetSection.id; // e.g. "ready-section"
+        const guessTabName = targetId.replace(/-section$/,'').replace(/-/g,'_');
+        const fallbackBtn = document.querySelector(`.tab[data-tab="${guessTabName}"]`);
+        if (fallbackBtn) fallbackBtn.classList.add('active');
+    }
+
+    // 激活目标 section（已经确认 targetSection 存在）
+    targetSection.classList.add('active');
+
+    // 把当前实际激活的 tab 写回页面上所有 name="tab" 的隐藏域，便于表单提交保留 state
+    const activeTabValue = (document.querySelector('.tab.active')?.dataset.tab) || rawActiveTab;
+    document.querySelectorAll('input[name="tab"]').forEach(i => i.value = activeTabValue);
+
+    // 绑定 tab 点击事件（点击切换时也要同步隐藏域）
+    document.querySelectorAll('.tab').forEach(tab => {
+        tab.addEventListener('click', function () {
+            const tabName = this.dataset.tab;
+            // 切样式
+            document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
+            document.querySelectorAll('.content-section').forEach(s => s.classList.remove('active'));
+            this.classList.add('active');
+
+            // 激活和同步对应的 section（使用相同的查找策略）
+            const sec = findSectionByTabName(tabName) || document.getElementById(tabName + '-section');
+            if (sec) sec.classList.add('active');
+
+            // 同步所有隐藏域值
+            document.querySelectorAll('input[name="tab"]').forEach(i => i.value = tabName);
+        });
+    });
+
+    // 页面加载后是否自动弹出添加PO弹窗（由后端通过 show_add_po_modal 控制）
+    {% if show_add_po_modal %}
+        setTimeout(function () {
+            const modal = document.getElementById('addPOModal');
+            if (modal) modal.style.display = 'block';
+        }, 300);
+    {% endif %}
+
+    // “全选”checkbox逻辑（弹窗渲染后才有效）
+    const selectAll = document.getElementById('selectAllPos');
+    if (selectAll) {
+        selectAll.addEventListener('click', function() {
+            document.querySelectorAll('.plt-checkbox').forEach(cb => cb.checked = this.checked);
+        });
+    }
+});
+
+
+// ---- 关闭添加PO弹窗 ----
+function closeAddPOModal() {
+    const modal = document.getElementById('addPOModal');
+    if (modal) modal.style.display = 'none';
+}
+function confirmFleetDeparture(fleetNumber) {
     // 获取该车次的所有货物数据
     const fleetData = collectFleetData(fleetNumber);
     console.log('fleetData', fleetData);
@@ -1267,7 +1634,6 @@ function collectFleetData(fleetNumber) {
                 destination: row.querySelector('td:nth-child(3)').textContent.trim(),
                 cargos: []
             };
-            console.log('找到预约号:', currentShipment.appointmentId);
         }
         
         // 收集货物数据
@@ -1568,6 +1934,7 @@ document.querySelectorAll('.open-bind-modal').forEach(btn => {
         const suggestionId = this.dataset.suggestionId;
         const hasAppointment = this.dataset.hasAppointment === '1';  // 区分绑定或预约
         const appointmentId = this.dataset.appointmentId || '';
+        const loadType = this.dataset.loadType || '';
         const destination = this.dataset.destination || '';
         const deliveryMethod = this.dataset.deliveryMethod || '';
         const scheduledTime = this.dataset.scheduledTime || '';
@@ -1596,6 +1963,7 @@ document.querySelectorAll('.open-bind-modal').forEach(btn => {
             cargos,
             hasAppointment,
             appointmentId,
+            loadType,
             destination,
             deliveryMethod,
             scheduledTime,
@@ -1609,7 +1977,7 @@ document.querySelectorAll('.open-bind-modal').forEach(btn => {
 function openBindModal(data) {
     const {
         suggestionId, cargos, hasAppointment,
-        appointmentId, destination, deliveryMethod,
+        appointmentId, loadType, destination, deliveryMethod,
         scheduledTime, shipmentAccount, origin, note, addressDetail
     } = data;
 
@@ -1625,6 +1993,11 @@ function openBindModal(data) {
     document.getElementById('origin-select-1').value = origin;
     document.getElementById('load-type-select').value = deliveryMethod;
 
+    if (loadType) {
+        document.getElementById('load-type-select').value = loadType;
+    } else {
+        document.getElementById('load-type-select').value = deliveryMethod;
+    }
     // 是否有预约号
     if (hasAppointment) {
         document.getElementById('appointment_id').value = appointmentId;
@@ -1741,21 +2114,6 @@ document.querySelectorAll('.export-group-po').forEach(btn => {
         document.getElementById('formPltIds').value = pltIds.join(',');
         document.getElementById('formSuggestionId').value = suggestionId;
         document.getElementById('actionForm').submit();
-    });
-});
-
-// 标签页切换
-document.querySelectorAll('.tab').forEach(tab => {
-    tab.addEventListener('click', function () {
-        const tabName = this.getAttribute('data-tab');
-
-        document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
-        this.classList.add('active');
-
-        document.querySelectorAll('.content-section').forEach(section => {
-            section.classList.remove('active');
-        });
-        document.getElementById(tabName + '-section').classList.add('active');
     });
 });
 
