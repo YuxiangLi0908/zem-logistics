@@ -400,6 +400,9 @@ class FleetManagement(View):
                 shipment_batch_number__fleet_number__fleet_number=selected_fleet_number,
                 container_number__order__offload_id__offload_at__isnull=False,
             )
+            .annotate(
+                str_id=Cast("id", CharField()),
+            )
             .values(
                 "shipment_batch_number__shipment_batch_number",
                 "container_number__container_number",
@@ -412,7 +415,7 @@ class FleetManagement(View):
             )
             .annotate(
                 plt_ids=StringAgg(
-                    "pallet_id", delimiter=",", distinct=True, ordering="pallet_id"
+                    "str_id", delimiter=",", distinct=True, ordering="str_id"
                 ),
                 total_weight=Sum("weight_lbs", output_field=FloatField()),
                 total_cbm=Sum("cbm", output_field=FloatField()),
