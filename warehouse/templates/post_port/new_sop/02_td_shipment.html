@@ -1453,39 +1453,63 @@
     pointer-events: none;
 "></div>
 <script>
-document.addEventListener('DOMContentLoaded', function() {
+function initializeTooltips() {
     const tooltip = document.getElementById('tooltip');
-    const container = document.querySelector('.table-container') || document.body;
+    if (!tooltip) return;
 
-    // 获取显示用的完整字符串（优先 data-full -> title -> textContent）
+    let activeCell = null;
+    let hideTimeout = null;
+
+    // 获取显示用的完整字符串
     function getFullTextFromCell(cell) {
         if (!cell) return '';
-        // dataset.full 读取 data-full
+        // 优先使用 data-full 属性
         if (cell.dataset && cell.dataset.full && cell.dataset.full.trim().length > 0) {
             return cell.dataset.full.trim();
         }
-        // title 回退
+        // 回退到 title 属性
         const title = cell.getAttribute('title');
         if (title && title.trim().length > 0) return title.trim();
-        // 有时内容在子元素（例如 <span>），尝试取 textContent（不会受到 CSS ellipsis 影响，除非你服务端截断）
+        // 最后使用文本内容
         const txt = cell.textContent || '';
         return txt.trim();
     }
 
-    let activeCell = null;
-
-    container.addEventListener('mouseover', (e) => {
+    // 使用事件委托，监听整个文档
+    document.addEventListener('mouseover', function(e) {
         const cell = e.target.closest('.ref-ids-col, .fba-ids-col');
-        if (!cell) return;
+        if (!cell) {
+            // 如果鼠标离开工具提示相关元素，清除激活状态
+            if (activeCell) {
+                activeCell = null;
+                tooltip.style.display = 'none';
+                tooltip.innerText = '';
+            }
+            return;
+        }
+
+        // 清除之前的隐藏超时
+        if (hideTimeout) {
+            clearTimeout(hideTimeout);
+            hideTimeout = null;
+        }
+
         const fullText = getFullTextFromCell(cell);
-        if (!fullText) return;
+        if (!fullText) {
+            tooltip.style.display = 'none';
+            tooltip.innerText = '';
+            activeCell = null;
+            return;
+        }
+
         activeCell = cell;
         tooltip.innerText = fullText;
         tooltip.style.display = 'block';
     });
 
-    container.addEventListener('mousemove', (e) => {
-        if (!activeCell) return;
+    document.addEventListener('mousemove', function(e) {
+        if (!activeCell || tooltip.style.display !== 'block') return;
+        
         // 小偏移，避免遮挡鼠标
         let left = e.clientX + 14;
         let top = e.clientY + 14;
@@ -1495,41 +1519,90 @@ document.addEventListener('DOMContentLoaded', function() {
         const vw = document.documentElement.clientWidth;
         const vh = document.documentElement.clientHeight;
 
-        // 先放到目标位置以便测量宽高（不可见时也可测）
+        // 先放到目标位置以便测量宽高
         tooltip.style.left = left + 'px';
         tooltip.style.top = top + 'px';
 
-        if (left + tooltipRect.width > vw - 8) {
-            left = e.clientX - tooltipRect.width - 18;
+        // 重新获取位置，因为刚刚设置了新位置
+        const currentRect = tooltip.getBoundingClientRect();
+
+        if (left + currentRect.width > vw - 8) {
+            left = e.clientX - currentRect.width - 18;
             tooltip.style.left = Math.max(8, left) + 'px';
         }
-        if (top + tooltipRect.height > vh - 8) {
-            top = e.clientY - tooltipRect.height - 18;
+        if (top + currentRect.height > vh - 8) {
+            top = e.clientY - currentRect.height - 18;
             tooltip.style.top = Math.max(8, top) + 'px';
         }
     });
 
-    container.addEventListener('mouseout', (e) => {
-        // 当鼠标离开当前单元格时隐藏（事件冒泡导致 relatedTarget 检查更稳健）
-        const cell = e.target.closest('.ref-ids-col, .fba-ids-col');
-        if (!cell) return;
-        const related = e.relatedTarget;
-        if (related && (related === tooltip || cell.contains(related) || related.closest && related.closest('.ref-ids-col, .fba-ids-col'))) {
-            // 仍在单元格内或移动到另一个单元格，不隐藏
-            return;
+    document.addEventListener('mouseout', function(e) {
+        // 检查鼠标是否离开了工具提示相关的元素
+        const relatedTarget = e.relatedTarget;
+        if (!relatedTarget) return;
+
+        const isLeavingCell = activeCell && 
+            (!activeCell.contains(relatedTarget) && 
+             relatedTarget !== tooltip &&
+             !tooltip.contains(relatedTarget));
+        
+        const isEnteringTooltip = relatedTarget === tooltip || tooltip.contains(relatedTarget);
+        
+        if (isLeavingCell && !isEnteringTooltip) {
+            // 设置延迟隐藏，避免在单元格和工具提示之间移动时闪烁
+            hideTimeout = setTimeout(() => {
+                tooltip.style.display = 'none';
+                tooltip.innerText = '';
+                activeCell = null;
+            }, 100);
         }
-        tooltip.style.display = 'none';
-        tooltip.innerText = '';
-        activeCell = null;
     });
 
-    // 可选：按 ESC 隐藏
-    document.addEventListener('keydown', (e) => {
+    // 工具提示本身的鼠标事件
+    tooltip.addEventListener('mouseover', function() {
+        if (hideTimeout) {
+            clearTimeout(hideTimeout);
+            hideTimeout = null;
+        }
+    });
+
+    tooltip.addEventListener('mouseout', function(e) {
+        const relatedTarget = e.relatedTarget;
+        if (!relatedTarget || 
+            (relatedTarget !== activeCell && 
+             !activeCell.contains(relatedTarget))) {
+            hideTimeout = setTimeout(() => {
+                tooltip.style.display = 'none';
+                tooltip.innerText = '';
+                activeCell = null;
+            }, 100);
+        }
+    });
+
+    // 按 ESC 隐藏
+    document.addEventListener('keydown', function(e) {
         if (e.key === 'Escape') {
             tooltip.style.display = 'none';
             tooltip.innerText = '';
             activeCell = null;
+            if (hideTimeout) {
+                clearTimeout(hideTimeout);
+                hideTimeout = null;
+            }
         }
+    });
+}
+
+// 在DOM加载完成后初始化工具提示
+document.addEventListener('DOMContentLoaded', function() {
+    initializeTooltips();
+    
+    // 在标签页切换时重新初始化工具提示（处理动态内容）
+    document.querySelectorAll('.tab').forEach(tab => {
+        tab.addEventListener('click', function() {
+            // 给一点延迟，确保新内容已经加载
+            setTimeout(initializeTooltips, 100);
+        });
     });
 });
 document.addEventListener('DOMContentLoaded', function() {
