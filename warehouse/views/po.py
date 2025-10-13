@@ -250,9 +250,10 @@ class PO(View):
                     current_time_cn = datetime.now(cn)
                     if "eta" in time_code:
                         pochecketaseven.last_eta_checktime = current_time_cn
-                        pochecketaseven.last_eta_status = (
-                            True if is_valid.lower() == "yes" else False
-                        )
+                        if is_valid:  # 空字符串""会被视为False
+                            pochecketaseven.last_eta_status = is_valid.lower() == "yes"
+                        else:
+                            pochecketaseven.last_eta_status = False  # 或者True，根据实际需求
                         # 如果要撤销查询，隐藏方法
                         if "restore" in is_valid:
                             pochecketaseven.last_eta_checktime = None
