@@ -294,8 +294,8 @@ class PostNsop(View):
         request.POST = request.POST.copy()
         request.POST.setlist('batch_number', new_batch)
         fm = FleetManagement()
-        info = await fm.handle_fleet_departure_post(request,'post_nsop')
-        return await self.handle_td_shipment_post(request)         
+        context = await fm.handle_fleet_departure_post(request,'post_nsop')
+        return await self.handle_td_shipment_post(request,context)         
     
     async def handle_cancel_appointment_post(
         self, request: HttpRequest
@@ -310,8 +310,8 @@ class PostNsop(View):
         request.POST['shipment_batch_number'] = shipment_batch_number
         request.POST['type'] = 'td'     
         sm = ShippingManagement()
-        info = await sm.handle_cancel_post(request,'post_nsop')        
-        return await self.handle_td_shipment_post(request)
+        context = await sm.handle_cancel_post(request,'post_nsop')         
+        return await self.handle_td_shipment_post(request,context)
     
     async def handle_appointment_post(
         self, request: HttpRequest
@@ -375,8 +375,10 @@ class PostNsop(View):
         request.POST['plt_ids'] = selected_plt
         request.POST['type'] = 'td'
         sm = ShippingManagement()
-        info = await sm.handle_appointment_post(request,'post_nsop')        
-        return await self.handle_td_shipment_post(request)
+        info = await sm.handle_appointment_post(request,'post_nsop')  
+        context = {}
+        context.update({"success_messages": f"绑定成功，批次号是{shipment_batch_number}"})
+        return await self.handle_td_shipment_post(request,context)
     
     async def handle_fleet_confirmation_post(
         self, request: HttpRequest

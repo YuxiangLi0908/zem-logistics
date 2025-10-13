@@ -1631,6 +1631,8 @@ class FleetManagement(View):
             hold_pallet_ids = await sync_to_async(
                 lambda: list(set([pallet.container_number.container_number for pallet in hold_pallets]))
             )()
+            if name == "post_nsop":
+                return {'error_messages':"存在未解扣的板子，不能确认出库！"}
             error_messages.append(f"板子{hold_pallet_ids}未解扣，不能确认出库")
             return await self.handle_outbound_warehouse_search_post(request,error_messages)
 
@@ -1798,7 +1800,7 @@ class FleetManagement(View):
                 new_fleet_shipment_pallets, batch_size=500
             )
         if name == "post_nsop":
-            return True
+            return {'success_messages':f"{fleet_number}车出库成功"}
         return await self.handle_outbound_warehouse_search_post(request)
 
     async def handle_confirm_delivery_post(
