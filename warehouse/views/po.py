@@ -207,6 +207,12 @@ class PO(View):
         if form.is_valid():
             file = request.FILES["file"]
             df = self.read_csv_smart(file)
+            if "is_valid" in df.columns:
+                # 处理float类型的NaN和其他空值情况
+                df["is_valid"] = df["is_valid"].apply(lambda x:
+                                                      "" if (pd.isna(x) or str(x).strip().lower() in ['', 'nan'])
+                                                      else str(x).strip()
+                                                      )
             if "check_id" in df.columns and "is_valid" in df.columns:
                 data_pairs = [
                     (
