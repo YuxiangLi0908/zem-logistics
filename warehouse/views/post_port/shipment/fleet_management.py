@@ -1633,8 +1633,13 @@ class FleetManagement(View):
                 unshipped_count = p_schedule - p_shipped
                 unshipped_pallet_ids += plt_id[: p_schedule - p_shipped]
                 shipped_pallet_ids += plt_id[unshipped_count:p_schedule]
-            else:
+            elif p_schedule == p_shipped:
                 shipped_pallet_ids += plt_id[:p_schedule]
+            else:
+                if name == "post_nsop":
+                    return {'error_messages':"出库板数大于实际库存，请核实！"}
+                error_messages.append(f"出库板数大于实际库存，请核实！")
+                return await self.handle_outbound_warehouse_search_post(request,error_messages)
 
         # 把出库的板子的slot改为空    
         await sync_to_async(
