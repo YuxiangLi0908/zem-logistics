@@ -207,12 +207,6 @@ class PO(View):
         if form.is_valid():
             file = request.FILES["file"]
             df = self.read_csv_smart(file)
-            if "is_valid" in df.columns:
-                # 处理float类型的NaN和其他空值情况
-                df["is_valid"] = df["is_valid"].apply(lambda x:
-                                                      "" if (pd.isna(x) or str(x).strip().lower() in ['', 'nan'])
-                                                      else str(x).strip()
-                                                      )
             if "check_id" in df.columns and "is_valid" in df.columns:
                 data_pairs = [
                     (
@@ -256,10 +250,9 @@ class PO(View):
                     current_time_cn = datetime.now(cn)
                     if "eta" in time_code:
                         pochecketaseven.last_eta_checktime = current_time_cn
-                        if is_valid:  # 空字符串""会被视为False
-                            pochecketaseven.last_eta_status = is_valid.lower() == "yes"
-                        else:
-                            pochecketaseven.last_eta_status = False  # 或者True，根据实际需求
+                        pochecketaseven.last_eta_status = (
+                            True if is_valid.lower() == "yes" else False
+                        )
                         # 如果要撤销查询，隐藏方法
                         if "restore" in is_valid:
                             pochecketaseven.last_eta_checktime = None
