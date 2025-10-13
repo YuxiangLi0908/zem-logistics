@@ -1614,6 +1614,7 @@ class FleetManagement(View):
         plt_ids = request.POST.getlist("plt_ids")
         plt_ids = [ids.split(",") for ids in plt_ids]
 
+        error_messages = []
         #判断是否有未解扣的板子，有的话，就直接报错
         all_flat_ids = [pid for group in plt_ids for pid in group]
 
@@ -1657,7 +1658,7 @@ class FleetManagement(View):
         )()
 
         # 如果有暂扣留仓的板子，记录错误信息
-        error_messages = []
+        
         if hold_pallets:
             if name == "post_nsop":
                 return {'error_messages':"存在未解扣的板子，不能确认出库！"}
