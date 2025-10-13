@@ -2058,6 +2058,8 @@ class ShippingManagement(View):
                 shipment_batch_number=shipment_batch_number
             )
             if shipment.is_shipped:
+                if name == "post_nsop":
+                    return {'error_messages':f"{shipment}车次已发货，不可取消！"}
                 raise RuntimeError(
                     f"Shipment with batch number {shipment} has been shipped!"
                 )
@@ -2142,7 +2144,7 @@ class ShippingManagement(View):
         mutable_post["name"] = warehouse
         request.POST = mutable_post
         if name == "post_nsop":
-            return True
+            return {'success_messages':f"{shipment}批次已发货，不可取消！"}
         return await self.handle_warehouse_post(request)
 
     async def handle_update_appointment_post(
