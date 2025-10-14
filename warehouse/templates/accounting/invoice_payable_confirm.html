@@ -267,37 +267,44 @@
                                             </tr>
                                         </thead>
                                         <tbody>
-                                            {% for p in pick_pending_orders %}
-                                            <tr>
-                                                <td>
-                                                    <input type="checkbox" name="containers" value="{{ p.container_number__container_number }}" class="pick-orders">
-                                                </td>
-                                                <td>{{ p.customer_name__zem_name }}</td>
-                                                <td>{{ p.retrieval_id__retrieval_destination_area }}</td>                              
-                                                <td>{{ p.retrieval_id__retrieval_carrier }}</td>
-                                                <td>
-                                                    <a href="/accounting/?step=container_payable&container_number={{ p.container_number__container_number }}&start_date={{ start_date }}&end_date={{ end_date }}&warehouse_filter={{ warehouse_filter }}" 
-                                                    title="点击查看详情">{{ p.container_number__container_number }}</a>
-                                                </td>
-                                                <td>{{ p.payable_pickup|default:0|floatformat:2 }}</td>
-                                                <td>{{ p.payable_over_weight|default:0|floatformat:2 }}</td>
-                                                <td>{{ p.payable_chassis|default:0|floatformat:2 }}</td>
-                                                <td>{{ p.payable_demurrage|default:0|floatformat:2 }}</td>
-                                                <td>{{ p.payable_per_diem|default:0|floatformat:2 }}</td>
-                                                <td>
-                                                    {% if p.payable_other_fee_data %}
-                                                        <div>
-                                                            {% for name, amount in p.payable_other_fee_data.items %}
-                                                                <div>{{ name }}: ${{ amount|floatformat:2 }}</div>
-                                                            {% endfor %}
-                                                        </div>
+                                        {% for p in pick_pending_orders %}
+                                            {% if p.is_over_3_days %}
+                                                <tr style="background-color: #ffebee; color: #c62828;">
                                                     {% else %}
-                                                        -
-                                                    {% endif %}
-                                                </td>
-                                                <td style="font-weight: bold;">{{ p.invoice_id__payable_preport_amount|default:0|floatformat:2 }}</td>
-                                            </tr>
-                                            {% endfor %}
+                                                <tr>
+                                            {% endif %}
+
+                                        <td>
+                                            <input type="checkbox" name="containers"
+                                                   value="{{ p.container_number__container_number }}"
+                                                   class="pick-orders">
+                                        </td>
+                                        <td>{{ p.customer_name__zem_name }}</td>
+                                        <td>{{ p.retrieval_id__retrieval_destination_area }}</td>
+                                        <td>{{ p.retrieval_id__retrieval_carrier }}</td>
+                                        <td>
+                                            <a href="/accounting/?step=container_payable&container_number={{ p.container_number__container_number }}&start_date={{ start_date }}&end_date={{ end_date }}&warehouse_filter={{ warehouse_filter }}"
+                                               title="点击查看详情">{{ p.container_number__container_number }}</a>
+                                        </td>
+                                        <td>{{ p.payable_pickup|default:0|floatformat:2 }}</td>
+                                        <td>{{ p.payable_over_weight|default:0|floatformat:2 }}</td>
+                                        <td>{{ p.payable_chassis|default:0|floatformat:2 }}</td>
+                                        <td>{{ p.payable_demurrage|default:0|floatformat:2 }}</td>
+                                        <td>{{ p.payable_per_diem|default:0|floatformat:2 }}</td>
+                                        <td>
+                                            {% if p.payable_other_fee_data %}
+                                                <div>
+                                                    {% for name, amount in p.payable_other_fee_data.items %}
+                                                        <div>{{ name }}: ${{ amount|floatformat:2 }}</div>
+                                                    {% endfor %}
+                                                </div>
+                                            {% else %}
+                                                -
+                                            {% endif %}
+                                        </td>
+                                        <td style="font-weight: bold;">{{ p.invoice_id__payable_preport_amount|default:0|floatformat:2 }}</td>
+                                        </tr>
+                                        {% endfor %}
                                         </tbody>
                                     </table>
                                 </div>
@@ -778,5 +785,17 @@
             }
         }
     }
+
+    window.addEventListener('load', function () {
+        // 1. 获取客户下拉框（Django Form生成的ID是"id_customer_name"）
+        const customerSelect = document.getElementById('id_customer_name');
+        // 2. 获取后端传递的选中客户ID（双重保障，防止Form初始值失效）
+        const selectedCustomerId = "{{ selected_customer_id|default:'' }}";
+
+        // 3. 若有选中ID，强制设置下拉框选中状态
+        if (selectedCustomerId && customerSelect) {
+            customerSelect.value = selectedCustomerId;
+        }
+    });
 </script>
 {% endblock %}

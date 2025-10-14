@@ -1405,22 +1405,86 @@ class Accounting(View):
             criteria &= models.Q(retrieval_id__retrieval_destination_precise=warehouse)
         if customer:
             criteria &= models.Q(customer_name__zem_name=customer)
-        invoice_type = request.POST.get("invoice_type") or "receivable"
         orders = Order.objects.select_related(
-            "customer_name", "container_number", f"{invoice_type}_status"
+            "customer_name", "container_number", "receivable_status", "payable_status"
         ).filter(criteria)
-        orders = self.process_orders_display_status(orders, invoice_type)
+        orders = self.process_orders_display_status_v1(orders)
+        selected_customer_id = request.POST.get("customer_name", "")  # 重点：字段名是"customer_name"（Form字段名）
+        order_form = OrderForm(
+            initial={
+                "customer_name": selected_customer_id  # 关键：让表单默认选中该客户
+            }
+        )
         context = {
             "order": orders,
-            "order_form": OrderForm(),
+            "order_form": order_form,
+            "selected_customer_id": selected_customer_id,
             "start_date": start_date,
             "end_date": end_date,
             "customer": customer,
             "warehouse_options": self.warehouse_options,
             "warehouse_filter": warehouse,
-            "invoice_type_filter": invoice_type,
         }
         return self.template_invoice_search, context
+
+    def process_orders_display_status_v1(self, orders):
+        STAGE_MAPPING = {
+            "unstarted": "未录入",
+            "preport": "提拆柜录入阶段",
+            "warehouse": "仓库录入阶段",
+            "delivery": "派送录入阶段",
+            "tobeconfirmed": "待财务确认",
+            "confirmed": "财务已确认",
+        }
+
+        SUB_STAGE_MAPPING = {
+            "pending": "仓库待处理",
+            "warehouse_completed": "仓库已完成",
+            "delivery_completed": "派送已完成",
+            "warehouse_rejected": "仓库已驳回",
+            "delivery_rejected": "派送已驳回",
+        }
+
+        processed_orders = []
+        for order in orders:
+            # 1. 先判断订单关联的是“应收状态”还是“应付状态”
+            # 优先读取应收状态（若有），若无则读取应付状态（可根据业务调整优先级）
+            status_obj = getattr(order, "receivable_status", None)
+            status_type = "receivable"  # 标记状态类型：应收
+
+            # 若没有应收状态，再检查应付状态
+            if not status_obj:
+                status_obj = getattr(order, "payable_status", None)
+                status_type = "payable"  # 标记状态类型：应付
+
+            # 2. 读取状态字段信息（无状态时设为默认值）
+            if status_obj:
+                raw_stage = status_obj.stage
+                raw_public_stage = status_obj.stage_public
+                raw_other_stage = status_obj.stage_other
+                raw_is_rejected = status_obj.is_rejected
+                raw_reject_reason = status_obj.reject_reason
+            else:
+                raw_stage = None
+                raw_public_stage = None
+                raw_other_stage = None
+                raw_is_rejected = False
+                raw_reject_reason = ""
+            # 3. 处理显示阶段（公仓/私仓逻辑不变，适配两种状态）
+            if raw_stage in ["warehouse", "delivery"]:
+                stage1 = SUB_STAGE_MAPPING.get(raw_public_stage, str(raw_public_stage))
+                stage2 = SUB_STAGE_MAPPING.get(raw_other_stage, str(raw_other_stage))
+                display_stage = f"公仓: {stage1} \n私仓: {stage2}"
+            else:
+                # 无细分阶段时，同样显示状态类型
+                base_stage = STAGE_MAPPING.get(raw_stage, str(raw_stage)) if raw_stage else "未录入任何费用"
+                display_stage = base_stage
+            order.display_stage = display_stage
+            order.display_is_rejected = "已驳回" if raw_is_rejected else "正常"
+            order.display_reject_reason = raw_reject_reason or " "
+            processed_orders.append(order)
+
+        return processed_orders
 
     def process_orders_display_status(self, orders, invoice_type):
         STAGE_MAPPING = {
@@ -1818,6 +1882,12 @@ class Accounting(View):
         if customer:
             criteria &= models.Q(customer_name__zem_name=customer)
         if invoice_type == "receivable":
+            selected_customer_id = request.POST.get("customer_name", "")  # 重点：字段名是"customer_name"（Form字段名）
+            order_form = OrderForm(
+                initial={
+                    "customer_name": selected_customer_id  # 关键：让表单默认选中该客户
+                }
+            )
             criteria = models.Q(
                 models.Q(vessel_id__vessel_etd__gte=start_date_confirm),
                 models.Q(vessel_id__vessel_etd__lte=end_date_confirm),
@@ -1886,7 +1956,8 @@ class Accounting(View):
             context = {
                 "order": order,
                 "previous_order": previous_order,
-                "order_form": OrderForm(),
+                "order_form": order_form,
+                "selected_customer_id": selected_customer_id,
                 "start_date_confirm": start_date_confirm,
                 "end_date_confirm": end_date_confirm,
                 "customer": customer,
@@ -1932,6 +2003,12 @@ class Accounting(View):
     def _payable_confirm_get(self, request):
         warehouse = request.POST.get("warehouse")
         customer = request.POST.get("customer")
+        selected_customer_id = request.POST.get("customer_name", "")  # 重点：字段名是"customer_name"（Form字段名）
+        order_form = OrderForm(
+            initial={
+                "customer_name": selected_customer_id  # 关键：让表单默认选中该客户
+            }
+        )
         current_date = datetime.now().date()
         start_date_confirm = request.POST.get("start_date_confirm")
         end_date_confirm = request.POST.get("end_date_confirm")
@@ -1969,7 +2046,7 @@ class Accounting(View):
         ).values("other_fees__other_fee")[:1]
         pick_pending_orders = (
             Order.objects.select_related(
-                "customer_name", "container_number", "retrieval_id", "invoice_id"
+                "customer_name", "container_number", "retrieval_id", "invoice_id", "payable_status"
             )
             .annotate(
                 payable_pickup=Subquery(payable_preport_subquery.values("pickup")[:1]),
@@ -2009,7 +2086,27 @@ class Accounting(View):
                 "invoice_id__payable_preport_amount",  # 总费用
                 "invoice_id",
                 "retrieval_id__retrieval_carrier",
+                "payable_status__payable_date"
             )
+        )
+
+        for item in pick_pending_orders:
+            raw_time = item.get("payable_status__payable_date")
+            item["is_over_3_days"] = False  # 默认未超过 3 天
+            item["payable_date_str"] = ""  # 用于前端显示时间（可选）
+            if isinstance(raw_time, datetime):
+                if raw_time.tzinfo is None or raw_time.tzinfo.utcoffset(raw_time) is None:
+                    raw_time = timezone.make_aware(raw_time, timezone=timezone.utc)
+                current_utc_time = timezone.now()
+                time_diff = current_utc_time - raw_time
+                if time_diff > timedelta(days=3):
+                    item["is_over_3_days"] = True
+                item["payable_date_str"] = raw_time.strftime("%Y-%m-%d %H:%M:%S %Z")
+
+        pick_pending_orders = sorted(
+            pick_pending_orders,
+            key=lambda x: x["is_over_3_days"],
+            reverse=True
         )
 
         pick_confirmed_orders = (
@@ -2063,9 +2160,23 @@ class Accounting(View):
         payable_other_fee_wh_subquery = InvoiceWarehouse.objects.filter(
             invoice_number=OuterRef("invoice_id"), invoice_type="payable"
         ).values("other_fees__other")[:1]
+
+        #修改历史，后续注释
+        current_time = timezone.now()
+        qualified_payable_status_ids = Order.objects.filter(
+            criteria,  # 你的原有筛选条件
+            models.Q(payable_status__stage="tobeconfirmed") | models.Q(payable_status__stage="confirmed"),
+            payable_status__isnull=False,
+            payable_status__payable_status__has_key="warehouse",
+            payable_status__payable_status__warehouse="pending",
+        ).values_list("payable_status_id", flat=True).distinct()
+        InvoiceStatus.objects.filter(
+            id__in=qualified_payable_status_ids  # 仅更新符合条件的记录
+        ).update(payable_date=current_time)
+
         warehouse_pending_orders = (
             Order.objects.select_related(
-                "customer_name", "container_number", "retrieval_id", "invoice_id"
+                "customer_name", "container_number", "retrieval_id", "invoice_id", "payable_status"
             )
             .annotate(
                 payable_palletization_fee=Subquery(
@@ -2283,7 +2394,8 @@ class Accounting(View):
             "delivery_confirmed_orders": None,
             "warehouse_options": self.warehouse_options,
             "existing_customers": existing_customers,
-            "order_form": OrderForm(),
+            "order_form": order_form,
+            "selected_customer_id": selected_customer_id,
             "start_date_confirm": start_date_confirm,
             "end_date_confirm": end_date_confirm,
             "start_date_export": start_date_export,
@@ -2588,6 +2700,8 @@ class Accounting(View):
             return self.handle_invoice_confirm_get(request)
         elif save_type == "check_confirm_without_data":  # 列表中确认通过，不需要改数据
             invoice_status.stage = "tobeconfirmed"
+            current_time = timezone.now()
+            invoice_status.payable_date = current_time
             invoice_status.save()
             return self.handle_invoice_payable_get(
                 request,
