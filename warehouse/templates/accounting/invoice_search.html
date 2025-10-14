@@ -22,11 +22,6 @@
                     {% endfor %}
                 </select>
             </b>
-            <b style="margin-right: 5px; margin-left: 10px;">账单类型:</b>
-            <select name="invoice_type" style="margin-right: 5px;">
-                <option value="receivable" {% if invoice_type_filter == 'receivable' %}selected{% endif %}>应收账单</option>
-                <option value="payable" {% if invoice_type_filter == 'payable' %}selected{% endif %}>应付账单</option>
-            </select>
             <input type="hidden" name="step" value="invoice_search">
             <button id="submit-btn" type="submit" class="btn btn-primary" style="width: 100px; height: 35px; margin-left: 20px;">查询</button>
         </div>
@@ -39,13 +34,15 @@
                 <th class="th" style="padding: 12px; border: 1px solid #ddd;text-align: center;">客户</th>
                 <th class="th" style="padding: 12px; border: 1px solid #ddd;text-align: center;">柜号</th>
                 <th class="th" style="padding: 12px; border: 1px solid #ddd;text-align: center;">分类</th>
-                <th class="th" style="padding: 12px; border: 1px solid #ddd;text-align: center;">状态</th>
+                <th class="th" style="padding: 12px; border: 1px solid #ddd;text-align: center;">应收状态</th>
+                <th class="th" style="padding: 12px; border: 1px solid #ddd;text-align: center;">应付状态</th>
                 <th class="th" style="padding: 12px; border: 1px solid #ddd;text-align: center;">是否拒绝</th>
                 <th class="th" style="padding: 12px; border: 1px solid #ddd;text-align: center;">拒绝原因</th>
             </tr>
             <tr style="position: sticky; top: 28px;">
                 <th class="th"></th>
                 <th class="th" style="padding: 12px; border: 1px solid #ddd;text-align: center;"><input type="text" id="containerSearchInput" placeholder="搜索柜号..." oninput="filterTable(this, 1)" size="16" style="font-size: 14px;"></th>
+                <th class="th"></th>
                 <th class="th"></th>
                 <th class="th"></th>
                 <th class="th"></th>
@@ -70,7 +67,14 @@
                             {{ c.container_number.delivery_type }} 
                         {% endif %}
                     </td>
-                    <td class="td" style="padding: 12px; border: 1px solid #ddd; text-align: center;vertical-align: middle; white-space: pre-line;">{{ c.display_stage }}</td>
+                    <td class="td" style="padding: 12px; border: 1px solid #ddd; text-align: center;vertical-align: middle; white-space: pre-line;">
+                        {% if c.receivable_status %}{{ c.display_stage }}
+                        {% elif not c.receivable_status and not c.payable_status %}{{ c.display_stage }}{% endif %}
+                    </td>
+                    <td class="td" style="padding: 12px; border: 1px solid #ddd; text-align: center;vertical-align: middle; white-space: pre-line;">
+                        {% if c.payable_status %}{{ c.display_stage }}
+                        {% elif not c.receivable_status and not c.payable_status %}{{ c.display_stage }}{% endif %}
+                    </td>
                     <td class="td" style="padding: 12px; border: 1px solid #ddd; text-align: center;vertical-align: middle">{{ c.display_is_rejected }}</td>
                     <td class="td" style="padding: 12px; border: 1px solid #ddd; text-align: center;vertical-align: middle">{{ c.display_reject_reason }}</td>
                 </tr>            
@@ -100,6 +104,16 @@
             }
         }
     };
+    window.addEventListener('load', function () {
+        // 1. 获取客户下拉框（Django Form生成的ID是"id_customer_name"）
+        const customerSelect = document.getElementById('id_customer_name');
+        // 2. 获取后端传递的选中客户ID（双重保障，防止Form初始值失效）
+        const selectedCustomerId = "{{ selected_customer_id|default:'' }}";
 
+        // 3. 若有选中ID，强制设置下拉框选中状态
+        if (selectedCustomerId && customerSelect) {
+            customerSelect.value = selectedCustomerId;
+        }
+    });
 </script>
 {% endblock %}

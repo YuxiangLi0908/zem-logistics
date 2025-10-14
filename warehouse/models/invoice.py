@@ -118,6 +118,7 @@ class InvoiceStatus(models.Model):
     )
     is_rejected = models.BooleanField(default=False)
     reject_reason = models.TextField(blank=True)
+    payable_date = models.DateTimeField(null=True, blank=True, verbose_name="应付待审核通过时间")
     history = HistoricalRecords()
 
     class Meta:
