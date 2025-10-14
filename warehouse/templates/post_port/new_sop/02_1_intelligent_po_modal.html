@@ -25,7 +25,7 @@ let currentSuggestionData = null;
 function groupIntelligentCargos(cargos) {
     const groups = {};
     cargos.forEach(cargo => {
-        const key = cargo.order_number || "未分配订单";
+        const key = cargo.order_number || "";
         if (!groups[key]) groups[key] = [];
         groups[key].push(cargo);
     });
@@ -33,8 +33,28 @@ function groupIntelligentCargos(cargos) {
 }
 
 /* 渲染分组表格 */
-function renderGroupedTables(groups) {
+function renderGroupedTables(groups, stats) {
     let html = "";
+    if (stats) {
+        html += `
+        <div class="intelligent-group-stats" style="
+            position: sticky;
+            top: 0;
+            background: #f9f9f9;
+            padding: 10px 15px;
+            border-bottom: 1px solid #e0e0e0;
+            font-weight: bold;
+            color: #2c3e50;
+            z-index: 10;
+        ">
+            <span style="margin-right:15px;">总计: ${stats.total_count}</span>
+            <span style="margin-right:15px;">已拆正常派送组: ${stats.ACT_normal_count}</span>
+            <span style="margin-right:15px;">已拆暂扣组: ${stats.ACT_hold_count}</span>
+            <span style="margin-right:15px;">未拆正常派送组: ${stats.EST_normal_count}</span>
+            <span style="margin-right:15px;">未拆暂扣组: ${stats.EST_hold_count}</span>
+        </div>
+        `;
+    }
     for (const [orderNumber, items] of Object.entries(groups)) {
         html += `
             <div class="intelligent-group">
@@ -78,9 +98,10 @@ function openModalForSuggestion(suggestionData) {
 
     const modal = document.getElementById("intelligentPoModal");
     const container = document.getElementById("intelligentPoTablesContainer");
-
+    console.log('这个组的数据',suggestionData);
     const groups = groupIntelligentCargos(suggestionData.intelligent_cargos || []);
-    container.innerHTML = renderGroupedTables(groups);
+    const stats = suggestionData.intelligent_pos_stats || null;
+    container.innerHTML = renderGroupedTables(groups, stats);
 
     modal.style.display = "block";
 }
