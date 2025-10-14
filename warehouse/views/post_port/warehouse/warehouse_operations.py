@@ -152,11 +152,7 @@ class WarehouseOperations(View):
                     offload_id__offload_id=offload_id).select_related('offload_id', 'export_unpacking_id')
                 if related_orders.exists():
                     for order in related_orders:
-                        if order.offload_id.warehouse_unpacking_time is None:
-                            order.offload_id.warehouse_unpacking_time = warehouse_unpacking_time
-                            order.offload_id.unpacking_status = "2"
-                            order.offload_id.save()
-                            if not order.export_unpacking_id:
+                        if not order.export_unpacking_id:
                                 # 表为空或该订单无关联记录，创建新记录
                                 new_record = ExportUnpackingCabinets.objects.create(
                                     container_number=container,
@@ -165,7 +161,6 @@ class WarehouseOperations(View):
                                 )
                                 order.export_unpacking_id = new_record
                                 order.save()
-
                         else:
                             order.export_unpacking_id.download_num += 1
                             order.export_unpacking_id.save()
@@ -355,17 +350,37 @@ class WarehouseOperations(View):
                     return updated_count  # 返回更新的记录数
                 return 0
 
+            def sync_update_single_offload_unpacking():
+                related_orders = Order.objects.filter(
+                    offload_id__offload_id=offload_id,
+                    offload_id__warehouse_unpacking_time__isnull=True
+                ).select_related('offload_id')
+
+                if related_orders.exists():
+                    current_time = timezone.now()
+                    updated_count = 0
+                    for order in related_orders:
+                        order.offload_id.warehouse_unpacking_time = current_time
+                        order.offload_id.save()
+                        updated_count += 1
+                    return updated_count  # 返回更新的记录数
+                return 0
+
             # 3. 包装同步函数为异步函数
             async_update = sync_to_async(sync_update_single, thread_sensitive=True)
             # 关键：必须为sync_update_single_offload也创建异步包装
             async_update_offload = sync_to_async(sync_update_single_offload, thread_sensitive=True)
+            async_update_offload_unpacking = sync_to_async(sync_update_single_offload_unpacking, thread_sensitive=True)
 
             # 4. 执行更新操作（通过包装后的异步函数）
             affected_rows = await async_update()
 
-            # 5. 当拆柜状态为1时，执行Offload更新
+            # 5. 已拆柜状态时，执行Offload更新
             if unpacking_status == "1":
-                offload_affected = await async_update_offload()  # 正确调用方式
+                offload_affected = await async_update_offload()
+            # 拆柜中
+            elif unpacking_status == "2":
+                offload_affected = await async_update_offload_unpacking()
 
         except Exception as e:
             self.logger.error(f"更新记录{offload_id}时发生错误：{str(e)}", exc_info=True)
@@ -485,6 +500,7 @@ class WarehouseOperations(View):
         入库回传拆柜数据
         """
         offload_id = request.POST.get("offload_id")
+        offload_note = request.POST.get("offload_note")
         #上传出库凭证
         try:
             receipt_image = request.FILES.get("receipt_image")
@@ -502,11 +518,11 @@ class WarehouseOperations(View):
             conn = self._get_sharepoint_auth()
             link = await self._upload_image_to_sharepoint(conn, receipt_image, file_path_name)
 
-        #更新回传拆柜数据上传时间
+        #更新回传拆柜数据上传时间 添加回传拆柜数据备注
         current_upload_time = timezone.now()
-        upload_time = await sync_to_async(
+        data = await sync_to_async(
             Offload.objects.filter(offload_id=offload_id).update
-        )(uploaded_at=current_upload_time)
+        )(uploaded_at=current_upload_time, offload_note=offload_note)
 
         template, context = await self.warehousing_operation_post(request)
         return template, context
