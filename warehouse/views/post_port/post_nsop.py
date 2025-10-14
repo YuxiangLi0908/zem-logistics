@@ -1692,8 +1692,6 @@ class PostNsop(View):
                             then=Concat(
                                 # Value(" "),
                                 # "container_number__order__vessel_id__vessel", 
-                                Value(" "),
-                                "container_number__order__vessel_id__vessel", 
                                 Value("[已提柜]"),
                                 "container_number__container_number",                          
                                 # Value(" ETA:"),

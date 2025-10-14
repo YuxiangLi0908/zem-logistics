@@ -927,6 +927,18 @@
                                                 style="margin-top: 5px;">
                                             <i class="fas fa-file-export"></i> 导出PO
                                         </button>
+                                        {% with sid="suggestion_"|add:suggestion.suggestion_id %}
+                                            <div class="intelligent-po-action">
+                                                <button type="button"
+                                                        class="action-btn btn-primary open-intelligent-modal"
+                                                        data-script-id="{{ sid }}">
+                                                    <i class="fas fa-plus"></i> 智能找PO
+                                                </button>
+
+                                                {# 正确使用 json_script：第二个参数必须是最终的 id（这里用 sid） #}
+                                                {{ suggestion|json_script:sid }}
+                                            </div>
+                                        {% endwith %}
                                     </td>
                                     {% endif %}
                                 </tr>
@@ -1026,6 +1038,18 @@
                                                 style="margin-top: 5px;">
                                             <i class="fas fa-file-export"></i> 导出PO
                                         </button>
+                                        {% with sid="suggestion_"|add:suggestion.suggestion_id %}
+                                            <div class="intelligent-po-action">
+                                                <button type="button"
+                                                        class="action-btn btn-primary open-intelligent-modal"
+                                                        data-script-id="{{ sid }}">
+                                                    <i class="fas fa-plus"></i> 智能找PO
+                                                </button>
+
+                                                {# 正确使用 json_script：第二个参数必须是最终的 id（这里用 sid） #}
+                                                {{ suggestion|json_script:sid }}
+                                            </div>
+                                        {% endwith %}
                                     </td>
                                     {% endif %}
                                 </tr>
@@ -1142,7 +1166,7 @@
                             <th>FBA ID</th>
                             <th>板数</th>
                             <th>CBM</th>
-                            <th>添加PO</th>
+                            <th>加塞</th>
                             <th>出库</th>
                         </tr>
                     </thead>
@@ -1179,7 +1203,7 @@
                                     </td>
                                     <td>{{ cargo.total_cbm|default:0 }}</td>
                                     {% if forloop.first %}
-                                        <!-- 添加PO按钮：对应预约号 -->
+                                        <!-- 加塞按钮：对应预约号 -->
                                         <td rowspan="{{ shipment_rowspan }}" style="vertical-align: middle;">
                                             <form method="post" action="">
                                                 {% csrf_token %}
@@ -1190,7 +1214,7 @@
                                                 <input type="hidden" name="tab" value="{{ current_tab }}"> 
 
                                                 <button type="submit" class="action-btn btn-primary">
-                                                    <i class="fas fa-plus"></i> 添加PO
+                                                    <i class="fas fa-plus"></i> 加塞
                                                 </button>
                                             </form>
                                         </td>
@@ -1418,7 +1442,7 @@
     </div>
 </div>
 
-<!--添加PO的弹框-->
+<!--加塞的弹框-->
 <form method="post" id="addPOForm">
     {% csrf_token %}
     <input type="hidden" name="tab" id="formTab" value="">
@@ -1429,7 +1453,7 @@
     <div id="addPOModal" class="modal">
         <div class="modal-content" style="width: 90%; max-width: 900px;">
             <div class="modal-header">
-                <h3><i class="fas fa-plus"></i> 添加PO</h3>
+                <h3><i class="fas fa-plus"></i> 加塞 - {{ add_pallet_ISA }}</h3>
                 <span class="close" onclick="closeAddPOModal()">&times;</span>
             </div>
             <div class="modal-body">
@@ -1455,8 +1479,8 @@
                                     <input type="checkbox" class="plt-checkbox" value="{{ po.id }}">
                                     <input type="hidden"  name="plt_ids" value="{{ po.plt_ids }}">
                                 </td>
-                                <td style="word-break: break-word; white-space: normal;">{{ po.ref_ids }}</td>
-                                <td style="word-break: break-word; white-space: normal;">{{ po.fba_ids }}</td>
+                                <td style="word-break: break-word; white-space: normal;">{{ po.ref_ids|default:"-" }}</td>
+                                <td style="word-break: break-word; white-space: normal;">{{ po.fba_ids|default:"-" }}</td>
                                 <td style="word-break: break-word; white-space: normal;">{{ po.cns }}</td>
                                 <td style="word-break: break-word; white-space: normal;">{{ po.destination }}</td>
                                 <td style="text-align:center;">
@@ -1524,7 +1548,13 @@
     </div>
 </div>
 
+{% include 'post_port/new_sop/02_1_intelligent_po_modal.html' %}
+
 <script>
+window.matching_suggestions = {{ matching_suggestions_json|safe }};
+
+const scriptTag = document.getElementById(`suggestion_${suggestionId}`);
+const suggestion = JSON.parse(scriptTag.textContent);
 function closeMessageModal() {
     document.getElementById('messageModal').style.display = 'none';
 }
@@ -1803,7 +1833,7 @@ document.addEventListener('DOMContentLoaded', function() {
         });
     });
 
-    // 页面加载后是否自动弹出添加PO弹窗（由后端通过 show_add_po_modal 控制）
+    // 页面加载后是否自动弹出加塞弹窗（由后端通过 show_add_po_modal 控制）
     {% if show_add_po_modal %}
         setTimeout(function () {
             const modal = document.getElementById('addPOModal');
@@ -1821,7 +1851,7 @@ document.addEventListener('DOMContentLoaded', function() {
 });
 
 
-// ---- 关闭添加PO弹窗 ----
+// ---- 关闭加塞弹窗 ----
 function closeAddPOModal() {
     const modal = document.getElementById('addPOModal');
     if (modal) modal.style.display = 'none';
