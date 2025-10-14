@@ -126,6 +126,7 @@ class FleetManagement(View):
         "Arm": "Arm",
         "ZEM": "ZEM",
         "LiFeng": "LiFeng",
+        "FWT": "FWT",
     }
 
     async def get(self, request: HttpRequest) -> HttpResponse:
