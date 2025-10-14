@@ -2161,18 +2161,6 @@ class Accounting(View):
             invoice_number=OuterRef("invoice_id"), invoice_type="payable"
         ).values("other_fees__other")[:1]
 
-        #修改历史，后续注释
-        current_time = timezone.now()
-        qualified_payable_status_ids = Order.objects.filter(
-            criteria,  # 你的原有筛选条件
-            models.Q(payable_status__stage="tobeconfirmed") | models.Q(payable_status__stage="confirmed"),
-            payable_status__isnull=False,
-            payable_status__payable_status__has_key="warehouse",
-            payable_status__payable_status__warehouse="pending",
-        ).values_list("payable_status_id", flat=True).distinct()
-        InvoiceStatus.objects.filter(
-            id__in=qualified_payable_status_ids  # 仅更新符合条件的记录
-        ).update(payable_date=current_time)
 
         warehouse_pending_orders = (
             Order.objects.select_related(
