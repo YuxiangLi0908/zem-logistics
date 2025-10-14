@@ -1510,7 +1510,7 @@ class PostNsop(View):
             vessel_name = item.get('vessel_name')
             vessel_eta = item.get('vessel_eta')
             eta_date = str(vessel_eta).split()[0]
-            combined = f"{vessel_name}-{eta_date}"
+            combined = f"{vessel_name} → {eta_date}"
             if vessel_name and vessel_name not in vessel_names:
                 vessel_names.append(vessel_name)
                 vessel_combined.append(combined)
