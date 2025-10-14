@@ -1786,6 +1786,9 @@ class FleetManagement(View):
             .select_related("shipment_batch_number", "container_number")
             .only("pallet_id", "PO_ID", "shipment_batch_number", "container_number")
         )
+        error = None
+        if not pallets:
+            error = "查不到有效板子！"
         pallet_mapping = {
             p.pallet_id: (p.PO_ID, p.shipment_batch_number, p.container_number)
             for p in pallets
@@ -1813,6 +1816,10 @@ class FleetManagement(View):
             await sync_to_async(FleetShipmentPallet.objects.bulk_create)(
                 new_fleet_shipment_pallets, batch_size=500
             )
+        else:
+            if name == "post_nsop":
+                return {'error_messages':f"成本记录没有生成成功！{error}"}
+            error_messages.append(f"成本记录没有生成成功！{error}")
         if name == "post_nsop":
             return {'success_messages':f"{fleet_number}车出库成功"}
         return await self.handle_outbound_warehouse_search_post(request)

@@ -8,6 +8,7 @@ import uuid
 from asgiref.sync import sync_to_async
 from django.contrib.postgres.aggregates import StringAgg
 from django.db.models.functions import Round, Cast, Coalesce
+from django.core.exceptions import ObjectDoesNotExist
 from simple_history.utils import bulk_update_with_history
 from django.db import models
 from django.db.models import (
@@ -33,6 +34,7 @@ from django.views import View
 from django.utils import timezone
 from datetime import timedelta
 from dateutil.parser import parse
+from django.core.serializers.json import DjangoJSONEncoder
 
 from warehouse.forms.warehouse_form import ZemWarehouseForm
 from warehouse.models.packing_list import PackingList
@@ -169,6 +171,9 @@ class PostNsop(View):
         elif step == "fleet_add_pallet":
             template, context = await self.handle_fleet_add_pallet_post(request)
             return render(request, template, context)
+        elif step == "search_intelligent_po":
+            template, context = await self.handle_search_intelligent_po_post(request)
+            return render(request, template, context)
         else:
             raise ValueError('输入错误',step)
     
@@ -190,11 +195,11 @@ class PostNsop(View):
             if not exists:
                 return batch_number
         raise ValueError('批次号始终重复')
-
+    
     async def handle_fleet_add_pallet_post(
         self, request: HttpRequest
     ) -> tuple[str, dict[str, Any]]:
-        
+        context = {}
         appointment_id = request.POST.get("add_pallet_ISA")
         plt_ids = request.POST.getlist("plt_ids")
         actual_shipped_pallet = request.POST.getlist("actual_shipped_pallet")
@@ -227,7 +232,11 @@ class PostNsop(View):
             total_pcs += plt.pcs
             total_cbm += plt.cbm
         # 查找该出库批次,将重量等信息加到出库批次上
-        shipment = await Shipment.objects.select_related("fleet_number").aget(appointment_id=appointment_id)
+        try:
+            shipment = await Shipment.objects.select_related("fleet_number").aget(appointment_id=appointment_id)
+        except ObjectDoesNotExist:
+            context.update({"error_messages": f"{appointment_id}预约号找不到"})
+            return await self.handle_td_shipment_post(request,context)
         fleet = shipment.fleet_number
         fleet.total_weight += total_weight
         fleet.total_pcs += total_pcs
@@ -246,8 +255,9 @@ class PostNsop(View):
                 Pallet,
                 fields=["shipment_batch_number"],
             )
-
-        return await self.handle_td_shipment_post(request)
+        if 'error_messages' not in context:
+            context.update({"success_messages": f"{appointment_id}加塞成功！"})
+        return await self.handle_td_shipment_post(request,context)
     
     async def handle_add_pallet_post(
         self, request: HttpRequest
@@ -822,6 +832,18 @@ class PostNsop(View):
         self, request: HttpRequest, context: dict| None = None
     ) -> tuple[str, dict[str, Any]]:
         warehouse = request.POST.get("warehouse")
+        if not warehouse:
+            if context:
+                context.update({
+                    "error_messages": "未选择仓库!",
+                    'warehouse_options': self.warehouse_options
+                })
+            else:
+                context = {
+                    "error_messages":"未选择仓库!",
+                    'warehouse_options': self.warehouse_options,
+                }
+            return self.template_td_shipment, context
         st_type = request.POST.get("st_type", "pallet")
         
         # 获取三类数据：未排约、已排约、待出库
@@ -843,6 +865,7 @@ class PostNsop(View):
         else:
             # 防止传入的 context 被意外修改
             context = context.copy()
+
         context.update({
             'warehouse': warehouse,
             'st_type': st_type,
@@ -858,6 +881,7 @@ class PostNsop(View):
             "load_type_options": LOAD_TYPE_OPTIONS,
             "shipment_type_options": self.shipment_type_options,
         }) 
+        context["matching_suggestions_json"] = json.dumps(matching_suggestions, cls=DjangoJSONEncoder)
         
         return self.template_td_shipment, context
     
@@ -879,7 +903,7 @@ class PostNsop(View):
         shipments = await self.get_available_shipments(warehouse)
         
         # 生成智能匹配建议
-        matching_suggestions = await self.generate_matching_suggestions(unshipment_pos, shipments)
+        matching_suggestions = await self.generate_matching_suggestions(unshipment_pos, shipments, warehouse)
         
         # 只返回匹配建议，不返回原始未排约数据
         return matching_suggestions
@@ -898,7 +922,7 @@ class PostNsop(View):
         )
         return shipments
 
-    async def generate_matching_suggestions(self, unshipment_pos, shipments, max_cbm=33, max_pallet=26):
+    async def generate_matching_suggestions(self, unshipment_pos, shipments, warehouse, max_cbm=33, max_pallet=26):
         """生成智能匹配建议 - 基于功能A的逻辑但适配shipment匹配"""
         suggestions = []
 
@@ -979,7 +1003,29 @@ class PostNsop(View):
                 
                 # 寻找匹配的shipment
                 matched_shipment = await self.find_matching_shipment(primary_group, shipments)
+
+                result_intel = await self._find_intelligent_po_for_group(
+                    primary_group, warehouse
+                )
                 
+                intelligent_pos = result_intel['intelligent_pos']
+                intelligent_pos_stats = result_intel['intelligent_pos_stats']
+                intelligent_cargos = [{
+                    'ids': pos.get('ids', ''),
+                    'plt_ids': pos.get('plt_ids', ''),
+                    'ref_ids': pos.get('ref_ids', ''),
+                    'fba_ids': pos.get('fba_ids', ''),
+                    'container_numbers': pos.get('container_numbers', ''),
+                    'cns': pos.get('cns', ''),
+                    'delivery_window_start': pos.get('delivery_window_start'),
+                    'delivery_window_end': pos.get('delivery_window_end'),
+                    'total_n_pallet_act': pos.get('total_n_pallet_act', 0),
+                    'total_n_pallet_est': pos.get('total_n_pallet_est', 0),
+                    'total_cbm': pos.get('total_cbm', 0),
+                    'label': pos.get('label', ''),
+                    'destination': pos.get('destination', ''),
+                    'custom_delivery_method': pos.get('custom_delivery_method', ''),
+                } for pos in intelligent_pos]
                 # 无论是否匹配到shipment，都创建建议分组
                 suggestion = {
                     'suggestion_id': f"{group_key}_{primary_group_index}",
@@ -1006,12 +1052,111 @@ class PostNsop(View):
                         'total_n_pallet_est': cargo.get('total_n_pallet_est', 0),
                         'total_cbm': cargo.get('total_cbm', 0),
                         'label': cargo.get('label', ''),
-                    } for cargo in primary_group['cargos']]
+                    } for cargo in primary_group['cargos']],
+                    'intelligent_cargos': intelligent_cargos,
+                    'intelligent_pos_stats': intelligent_pos_stats,
                 }
                 suggestions.append(suggestion)
         
         return suggestions
 
+    async def _find_intelligent_po_for_group(self, primary_group, warehouse) -> Any:
+        existing_pl_ids = []
+        existing_plt_ids = []
+        destination = None
+        # for group in primary_group:
+        #     print('primary_group',primary_group)
+        for cargo in primary_group.get("cargos", []):
+            destination = cargo.get("destination")
+            id_str = cargo.get("ids")
+            if id_str:
+                existing_pl_ids.extend([r.strip() for r in id_str.split(",") if r.strip()])
+
+            plt_str = cargo.get("plt_ids")
+            if plt_str:
+                existing_plt_ids.extend([int(p.strip()) for p in plt_str.split(",") if p.strip().isdigit()])
+
+        #预想，NJ和SAV的可以考虑转仓，LA的就不考虑了，所以提供智能匹配意见时，LA的不考虑别的仓
+        if "LA" in warehouse:
+            location_condition = models.Q(location=warehouse)
+            retrieval_condition = (
+                models.Q(container_number__order__retrieval_id__retrieval_destination_precise=warehouse) |
+                models.Q(container_number__order__warehouse__name=warehouse)
+            )
+        else:
+            location_condition = models.Q(location__in=["NJ-07001", "SAV-31326"])
+            retrieval_condition = (
+                models.Q(container_number__order__retrieval_id__retrieval_destination_precise__in=["NJ-07001", "SAV-31326"]) |
+                models.Q(container_number__order__warehouse__name__in=["NJ-07001", "SAV-31326"])
+            )
+
+        intelligent_pos = await self._get_packing_list(
+            models.Q(
+                shipment_batch_number__shipment_batch_number__isnull=True,
+                container_number__order__offload_id__offload_at__isnull=True,
+                destination=destination,
+                delivery_type='public',
+                
+            ) & retrieval_condition
+            & ~models.Q(id__in=existing_pl_ids),
+            models.Q(
+                shipment_batch_number__shipment_batch_number__isnull=True,
+                container_number__order__offload_id__offload_at__isnull=False,
+                destination=destination,
+                delivery_type='public',
+            ) & location_condition
+            & ~models.Q(id__in=existing_plt_ids),
+        )
+        intelligent_cargos = [{
+            'ids': pos.get('ids', ''),
+            'plt_ids': pos.get('plt_ids', ''),
+            'ref_ids': pos.get('ref_ids', ''),
+            'fba_ids': pos.get('fba_ids', ''),
+            'container_numbers': pos.get('container_numbers', ''),
+            'cns': pos.get('cns', ''),
+            'delivery_window_start': pos.get('delivery_window_start'),
+            'delivery_window_end': pos.get('delivery_window_end'),
+            'total_n_pallet_act': pos.get('total_n_pallet_act', 0),
+            'total_n_pallet_est': pos.get('total_n_pallet_est', 0),
+            'total_cbm': pos.get('total_cbm', 0),
+            'label': pos.get('label', ''),
+            'destination': pos.get('destination', ''),
+            'custom_delivery_method': pos.get('custom_delivery_method', ''),
+        } for pos in intelligent_pos]
+
+        organized = {
+            'ACT': {'normal': [], 'hold': []},
+            'EST': {'normal': [], 'hold': []}
+        }
+        
+        for cargo in intelligent_cargos:
+            label = cargo.get('label', 'EST')
+            delivery_method = cargo.get('custom_delivery_method', '')
+            is_hold = '暂扣' in delivery_method
+            
+            if label == 'ACT':
+                if is_hold:
+                    organized['ACT']['hold'].append(cargo)
+                else:
+                    organized['ACT']['normal'].append(cargo)
+            else: 
+                if is_hold:
+                    organized['EST']['hold'].append(cargo)
+                else:
+                    organized['EST']['normal'].append(cargo)
+        intelligent_pos_stats = {
+            'ACT_normal_count': len(organized['ACT']['normal']),
+            'ACT_hold_count': len(organized['ACT']['hold']),
+            'EST_normal_count': len(organized['EST']['normal']),
+            'EST_hold_count': len(organized['EST']['hold']),
+            'total_count': len(organized['ACT']['normal']) + len(organized['ACT']['hold']) + 
+                        len(organized['EST']['normal']) + len(organized['EST']['hold'])
+        }
+        return {
+            'intelligent_pos': intelligent_pos,
+            'intelligent_pos_stats':intelligent_pos_stats
+            }
+    
     async def find_matching_shipment(self, primary_group, shipments):
         """为货物大组寻找匹配的shipment"""
         destination = primary_group['destination']
@@ -1333,11 +1478,8 @@ class PostNsop(View):
                 container_number__order__warehouse__name=warehouse,
             )& ~ models.Q(delivery_method__icontains='暂扣'),
             models.Q(
-                shipment_batch_number__shipment_batch_number__isnull=True,
                 container_number__order__offload_id__offload_at__isnull=False,
-                location=warehouse,
-                delivery_type='public',
-            ) & ~ models.Q(delivery_method__icontains='暂扣'),
+            )& models.Q(pk=0),
         )
         
         #未使用的约和异常的约
@@ -1384,80 +1526,87 @@ class PostNsop(View):
         pl_criteria: models.Q | None = None,
         plt_criteria: models.Q | None = None,
     ) -> list[Any]:
+        def sort_key(item):
+            custom_method = item.get("custom_delivery_method", "")
+            keywords = ["暂扣", "HOLD", "留仓"]
+            return (any(k in custom_method for k in keywords),)
+        
         data = []
-        pal_list = await sync_to_async(list)(
-            Pallet.objects.prefetch_related(
-                "container_number",
-                "container_number__order",
-                "container_number__order__warehouse",
-                "shipment_batch_number",
-                "shipment_batch_number__fleet_number",
-                "container_number__order__offload_id",
-                "container_number__order__customer_name",
-                "container_number__order__retrieval_id",
-                "container_number__order__vessel_id",
+        if plt_criteria:
+            pal_list = await sync_to_async(list)(
+                Pallet.objects.prefetch_related(
+                    "container_number",
+                    "container_number__order",
+                    "container_number__order__warehouse",
+                    "shipment_batch_number",
+                    "shipment_batch_number__fleet_number",
+                    "container_number__order__offload_id",
+                    "container_number__order__customer_name",
+                    "container_number__order__retrieval_id",
+                    "container_number__order__vessel_id",
+                )
+                .filter(plt_criteria)
+                .annotate(
+                    str_id=Cast("id", CharField()),
+                    str_container_number=Cast("container_number__container_number", CharField()), 
+                    
+                    # 格式化vessel_eta为月日
+                    formatted_offload_at=Func(
+                        F('container_number__order__offload_id__offload_at'),
+                        Value('MM-DD'),
+                        function='to_char',
+                        output_field=CharField()
+                    ),
+                    
+                    # 创建完整的组合字段，通过前缀区分状态
+                    container_with_eta_retrieval=Concat(
+                        Value("[已入仓]"),
+                        "container_number__container_number",
+                        Value(" 入仓:"),
+                        "formatted_offload_at",
+                        output_field=CharField()
+                    ),
+                    data_source=Value("PALLET", output_field=CharField()),  # 添加数据源标识
+                )
+                .values(
+                    "destination",
+                    "delivery_method",
+                    "abnormal_palletization",
+                    "delivery_window_start",
+                    "delivery_window_end",
+                    "note",
+                    "po_expired",
+                    "shipment_batch_number__shipment_batch_number",
+                    "data_source",  # 包含数据源标识
+                    "shipment_batch_number__fleet_number__fleet_number",
+                    warehouse=F(
+                        "container_number__order__retrieval_id__retrieval_destination_precise"
+                    ),
+                )
+                .annotate(
+                    custom_delivery_method=F("delivery_method"),
+                    fba_ids=F("fba_id"),
+                    ref_ids=F("ref_id"),
+                    shipping_marks=F("shipping_mark"),
+                    plt_ids=StringAgg(
+                        "str_id", delimiter=",", distinct=True, ordering="str_id"
+                    ),
+                    container_numbers=StringAgg(  # 聚合完整的组合字段
+                        "container_with_eta_retrieval", delimiter="\n", distinct=True, ordering="container_with_eta_retrieval"
+                    ),
+                    cns=StringAgg(
+                        "str_container_number", delimiter="\n", distinct=True, ordering="str_container_number"
+                    ),
+                    total_pcs=Sum("pcs", output_field=IntegerField()),
+                    total_cbm = Round(Sum("cbm", output_field=FloatField()), 3),
+                    total_weight_lbs=Sum("weight_lbs", output_field=FloatField()),
+                    total_n_pallet_act=Count("pallet_id", distinct=True),
+                    label=Value("ACT"),
+                )
+                .order_by("container_number__order__offload_id__offload_at")
             )
-            .filter(plt_criteria)
-            .annotate(
-                str_id=Cast("id", CharField()),
-                str_container_number=Cast("container_number__container_number", CharField()), 
-                
-                # 格式化vessel_eta为月日
-                formatted_offload_at=Func(
-                    F('container_number__order__offload_id__offload_at'),
-                    Value('MM-DD'),
-                    function='to_char',
-                    output_field=CharField()
-                ),
-                
-                # 创建完整的组合字段，通过前缀区分状态
-                container_with_eta_retrieval=Concat(
-                    Value("[已入仓]"),
-                    "container_number__container_number",
-                    Value(" 入仓:"),
-                    "formatted_offload_at",
-                    output_field=CharField()
-                ),
-                data_source=Value("PALLET", output_field=CharField()),  # 添加数据源标识
-            )
-            .values(
-                "destination",
-                "delivery_method",
-                "abnormal_palletization",
-                "delivery_window_start",
-                "delivery_window_end",
-                "note",
-                "po_expired",
-                "shipment_batch_number__shipment_batch_number",
-                "data_source",  # 包含数据源标识
-                "shipment_batch_number__fleet_number__fleet_number",
-                warehouse=F(
-                    "container_number__order__retrieval_id__retrieval_destination_precise"
-                ),
-            )
-            .annotate(
-                custom_delivery_method=F("delivery_method"),
-                fba_ids=F("fba_id"),
-                ref_ids=F("ref_id"),
-                shipping_marks=F("shipping_mark"),
-                plt_ids=StringAgg(
-                    "str_id", delimiter=",", distinct=True, ordering="str_id"
-                ),
-                container_numbers=StringAgg(  # 聚合完整的组合字段
-                    "container_with_eta_retrieval", delimiter="\n", distinct=True, ordering="container_with_eta_retrieval"
-                ),
-                cns=StringAgg(
-                    "str_container_number", delimiter="\n", distinct=True, ordering="str_container_number"
-                ),
-                total_pcs=Sum("pcs", output_field=IntegerField()),
-                total_cbm = Round(Sum("cbm", output_field=FloatField()), 3),
-                total_weight_lbs=Sum("weight_lbs", output_field=FloatField()),
-                total_n_pallet_act=Count("pallet_id", distinct=True),
-                label=Value("ACT"),
-            )
-            .order_by("container_number__order__offload_id__offload_at")
-        )
-        data += pal_list
+            pal_list_sorted = sorted(pal_list, key=sort_key)
+            data += pal_list_sorted
         
         # PackingList 查询 - 添加数据源标识
         if pl_criteria:
@@ -1612,7 +1761,9 @@ class PostNsop(View):
                 )
                 .distinct()
             )
-            data += pl_list
+            pl_list_sorted = sorted(pl_list, key=sort_key)
+            data += pl_list_sorted      
+        
         return data
 
     async def get_shipments_by_warehouse(self, warehouse):
