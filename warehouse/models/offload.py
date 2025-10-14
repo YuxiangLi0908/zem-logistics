@@ -29,6 +29,7 @@ class Offload(models.Model):
     )
     image_link = models.CharField(max_length=2000, null=True, blank=True)
     uploaded_at = models.DateTimeField(null=True, blank=True, verbose_name="回传拆柜数据上传时间")
+    offload_note = models.CharField(max_length=2000, null=True, blank=True, verbose_name="回传拆柜数据备注")
     def __str__(self) -> str:
         return self.offload_id
 
