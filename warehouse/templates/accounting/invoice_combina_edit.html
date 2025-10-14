@@ -216,7 +216,7 @@
                                                 id="current_pallets"
                                                 class="form-control" 
                                                 name="current_pallets" 
-                                                step="0.01" 
+                                                step="any" 
                                                 style="width:100px; font-size: 1rem; font-weight: bold;"
                                                 value="{{ display_data.extra_fees.overpallets.current_pallets }}"
                                             >
@@ -232,7 +232,7 @@
                                                 id="limit_pallets"
                                                 class="form-control" 
                                                 name="limit_pallets" 
-                                                step="0.01" 
+                                                step="any" 
                                                 style="width:100px; font-size: 1rem; font-weight: bold;"
                                                 value="{{ display_data.extra_fees.overpallets.limit_pallets }}"
                                             >
@@ -401,7 +401,7 @@
                             {% for detail in display_data.extra_fees.overregion.delivery.details %}
                             <tr>
                                 <td><input type="text" name="overregion_delivery_destination" style="width:80px;" value="{{ detail.destination }}"></td>
-                                <td class="text-end"><input type="number" id="overregion_delivery_pallet" name="overregion_delivery_pallets" style="width:80px;" value="{{ detail.pallets }}"></td>
+                                <td class="text-end"><input type="number" id="overregion_delivery_pallet" step="any" name="overregion_delivery_pallets" style="width:80px;" value="{{ detail.pallets }}"></td>
                                 <td class="text-end"><input type="number" id="overregion_delivery_cbm" name="overregion_delivery_cbm" style="width:80px;" value="{{ detail.cbm }}"></td>
                                 <td class="text-end"><input type="number" id="overregion_delivery_price" name="overregion_delivery_price" style="width:80px;" value="{{ detail.price }}"></td>
                                 <td class="text-end"><input type="number" name="overregion_delivery_subtotal" style="width:80px;" value="{{ detail.subtotal }}"></td>
@@ -721,7 +721,7 @@
                                 </div>
                                 <div class="col-md-1">
                                     <small class="text-muted d-md-none">板数</small>
-                                    <input type="number" class="form-control form-control-sm quantity-input" step="0.1"
+                                    <input type="number" class="form-control form-control-sm quantity-input" step="any"
                                         name="deliverys[{{ forloop.counter0 }}][total_pallet]" 
                                         value="{{ delivery.total_pallet|default:0 }}">
                                 </div>
@@ -999,7 +999,7 @@
                 </div>
                 <div class="col-md-1">
                     <small class="text-muted d-md-none">板数</small>
-                    <input type="number" class="form-control form-control-sm quantity-input" step="0.1"
+                    <input type="number" class="form-control form-control-sm quantity-input" step="any"
                         name="${namePrefix}[${index}][total_pallet]" value="0">
                 </div>
                 <div class="col-md-1">
