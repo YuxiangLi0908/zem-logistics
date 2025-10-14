@@ -1786,6 +1786,7 @@ class FleetManagement(View):
             .select_related("shipment_batch_number", "container_number")
             .only("pallet_id", "PO_ID", "shipment_batch_number", "container_number")
         )
+        error = None
         if not pallets:
             error = "查不到有效板子！"
         pallet_mapping = {
