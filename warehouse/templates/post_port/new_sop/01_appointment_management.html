@@ -668,12 +668,52 @@
                 <button class="action-btn btn-primary" onclick="exportSelectedCargos()">
                     <i class="fas fa-file-export"></i> 导出选PO
                 </button>
-                <button class="action-btn btn-success" id="findAppointments">
-                    <i class="fas fa-search"></i> 查找匹配预约
-                </button>
-                <button class="action-btn btn-warning" id="clearSelection">
-                    <i class="fas fa-times"></i> 清除选择
-                </button>
+            </div>
+            <!-- 船名筛选区域 -->
+            <div class="vessel-filter-section" style="margin-bottom: 20px; padding: 15px; background: #f8f9fa; border-radius: 8px; border-left: 4px solid #3498db;">
+                <div style="display: flex; justify-content: space-between; align-items: flex-start; gap: 15px; flex-wrap: nowrap;">
+                    <!-- 左边：船名列表 -->
+                    <div style="flex: 1; min-width: 0;"> <!-- min-width: 0 防止内容溢出 -->
+                        <div style="display: flex; align-items: flex-start; gap: 8px;">
+                            <strong style="color: #2c3e50; white-space: nowrap; flex-shrink: 0; margin-top: 2px;">
+                                <i class="fas fa-ship"></i> 船名列表:
+                            </strong>
+                            <div id="vesselList" style="display: flex; gap: 8px; flex-wrap: wrap; flex: 1;">
+                                {% for vessel in vessel_combined %}
+                                <span class="vessel-tag" data-vessel="{{ vessel }}" 
+                                    style="background: #e3f2fd; padding: 4px 12px; border-radius: 16px; font-size: 0.85rem; 
+                                            border: 1px solid #bbdefb; cursor: pointer; transition: all 0.3s; flex-shrink: 0;"
+                                    onclick="applyVesselFilter('{{ vessel }}')">
+                                    {{ vessel }}
+                                </span>
+                                {% empty %}
+                                <span style="color: #666; font-style: italic;">暂无船名数据</span>
+                                {% endfor %}
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <!-- 右边：筛选控件 -->
+                    <div style="flex-shrink: 0; display: flex; align-items: center; gap: 8px; margin-left: 20px;">
+                        <strong style="color: #2c3e50; white-space: nowrap; flex-shrink: 0;">
+                            <i class="fas fa-filter"></i> 船名筛选:
+                        </strong>
+                        <select id="vesselFilter" onchange="applyVesselFilter(this.value)" style="padding: 8px 12px; border: 1px solid #ddd; border-radius: 4px; min-width: 150px; flex-shrink: 0;">
+                            <option value="">全部船名</option>
+                            {% for vessel in vessel_names %}
+                            <option value="{{ vessel }}">{{ vessel }}</option>
+                            {% endfor %}
+                        </select>
+                        <button id="clearVesselFilter" class="action-btn btn-warning" style="padding: 8px 12px; flex-shrink: 0;" onclick="clearVesselFilter()">
+                            <i class="fas fa-times"></i> 清除筛选
+                        </button>
+                    </div>
+                </div>
+                
+                <!-- 筛选统计 -->
+                <div id="filterStats" style="margin-top: 10px; font-size: 0.9rem; color: #666;">
+                    总计: {{ cargos|length }} 个PO
+                </div>
             </div>
             <!-- 导PO的表单 -->
             <form method="post" action="" id="exportForm" style="display: none;">
@@ -699,12 +739,14 @@
                     <thead>
                         <tr>
                             <th class="checkbox-cell">
-                                <input type="checkbox" class="cargo-checkbox" value="{% if cargo.plt_ids %}plt_{{ cargo.plt_ids }}{% else %}{{ cargo.ids }}{% endif %}">
+                                <input type="checkbox" class="cargo-checkbox" value="{% if cargo.plt_ids %}plt_{{ cargo.plt_ids }}{% else %}{{ cargo.ids }}{% endif %}"
+                                onclick="toggleSelectAll()">
                             </th>
                             <th data-sort="ref_ids">REF ID</th>
                             <th data-sort="fba_ids">FBA ID</th>
                             <th data-sort="destination">目的地</th>
                             <th class="delivery-method-col" data-sort="delivery_method">派送方式</th>
+                            <th class="vessel-col" data-sort="vessels">船名</th>
                             <th class="container-col" data-sort="containers">柜号</th>
                             <th data-sort="delivery_window">派送时间窗口</th>
                             <th data-sort="pallets">板数</th>
@@ -720,10 +762,12 @@
                             data-ref-ids="{{ cargo.ref_ids }}"
                             data-fba-ids="{{ cargo.fba_ids }}"
                             data-delivery-method="{{ cargo.custom_delivery_method }}"
+                            data-vessel-name="{{ cargo.vessel_name|default:'' }}"
                             >
                             <td class="checkbox-cell">
                                 <input type="checkbox" class="cargo-checkbox" 
-                                    value="{% if cargo.plt_ids %}plt_{{ cargo.plt_ids }}{% else %}{{ cargo.ids }}{% endif %}">
+                                    value="{% if cargo.plt_ids %}plt_{{ cargo.plt_ids }}{% else %}{{ cargo.ids }}{% endif %}"
+                                    onchange="updateSelectedCount()">
                             </td>
                             <td class="ref-ids-col">
                                 {% if cargo.ref_ids %}
@@ -741,7 +785,9 @@
                             </td>
                             <td>{{ cargo.destination|default:"-" }}</td>
                             <td class="delivery-method-col">{{ cargo.custom_delivery_method|default:"-" }}</td>
-                                                   
+                            <td class="container-col" style="white-space: pre-line;" id="container-{{ forloop.counter }}">
+                                {{ cargo.vessel_name }}
+                            </td>                 
                             <td class="container-col" style="white-space: pre-line;" id="container-{{ forloop.counter }}">
                                 {{ cargo.container_numbers }}
                             </td>
@@ -934,6 +980,87 @@
 </div>
 
 <script>
+    function applyVesselFilter(vesselName) {
+        const rows = document.querySelectorAll('#cargoTable tbody tr');
+        const vesselTags = document.querySelectorAll('.vessel-tag');
+        const vesselFilter = document.getElementById('vesselFilter');
+        const filterStats = document.getElementById('filterStats');
+        
+        window.currentFilter = vesselName;
+        
+        rows.forEach(row => {
+            const rowVessel = row.dataset.vesselName || '';
+            if (!vesselName || rowVessel === vesselName) {
+                row.style.display = '';
+            } else {
+                row.style.display = 'none';
+            }
+        });
+        
+        // 更新下拉框选中状态
+        vesselFilter.value = vesselName;
+        
+        // 更新船名标签样式
+        vesselTags.forEach(tag => {
+            if (tag.dataset.vessel === vesselName) {
+                tag.style.background = '#3498db';
+                tag.style.color = 'white';
+                tag.style.borderColor = '#2980b9';
+            } else {
+                tag.style.background = '#e3f2fd';
+                tag.style.color = 'inherit';
+                tag.style.borderColor = '#bbdefb';
+            }
+        });
+        
+        updateFilterStats();
+        updateSelectedCount(); // 更新选中数量
+    }
+
+    function updateSelectedCount() {
+        const cargoCheckboxes = document.querySelectorAll('.cargo-checkbox');
+        const selectedCount = document.getElementById('selectedCount');
+        const selected = Array.from(cargoCheckboxes).filter(cb => cb.checked).length;
+        selectedCount.textContent = selected;
+    }
+
+    // 初始化统计
+    updateFilterStats();
+    updateSelectedCount();
+    // 清除筛选
+    function clearVesselFilter() {
+        applyVesselFilter('');
+    }
+
+    // 更新筛选统计
+    function updateFilterStats() {
+        const rows = document.querySelectorAll('#cargoTable tbody tr');
+        const filterStats = document.getElementById('filterStats');
+        const visibleRows = Array.from(rows).filter(row => row.style.display !== 'none');
+        const totalRows = rows.length;
+        const visibleCount = visibleRows.length;
+        
+        if (window.currentFilter) {
+            filterStats.innerHTML = `筛选: <strong>${window.currentFilter}</strong> | 显示: ${visibleCount} / ${totalRows} 个PO`;
+        } else {
+            filterStats.innerHTML = `总计: ${totalRows} 个PO`;
+        }
+    }
+
+    // 全选功能
+    function toggleSelectAll() {
+        const selectAllCheckbox = document.getElementById('selectAllCargos');
+        const cargoCheckboxes = document.querySelectorAll('.cargo-checkbox');
+        const isChecked = selectAllCheckbox.checked;
+        
+        cargoCheckboxes.forEach(checkbox => {
+            if (checkbox.closest('tr').style.display !== 'none') {
+                checkbox.checked = isChecked;
+            }
+        });
+        updateSelectedCount();
+    };
+
     function handleSelectChange(select, appointmentId, counter) {
         var value = select.value;
         console.log('handleSelectChange');

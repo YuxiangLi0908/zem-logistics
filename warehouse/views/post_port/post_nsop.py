@@ -1504,6 +1504,16 @@ class PostNsop(View):
 
         auto_matches = await self.get_auto_matches(unshipment_pos, shipments)
         
+        vessel_names = []
+        vessel_combined = []
+        for item in unshipment_pos:
+            vessel_name = item.get('vessel_name')
+            vessel_eta = item.get('vessel_eta')
+            eta_date = str(vessel_eta).split()[0]
+            combined = f"{vessel_name}-{eta_date}"
+            if vessel_name and vessel_name not in vessel_names:
+                vessel_names.append(vessel_name)
+                vessel_combined.append(combined)
         context = {
             'warehouse': warehouse,
             'warehouse_options': self.warehouse_options,
@@ -1518,6 +1528,8 @@ class PostNsop(View):
             'st_type': st_type,
             'max_cbm': max_cbm,
             'max_pallet': max_pallet,
+            "vessel_names": vessel_names,
+            "vessel_combined": vessel_combined,
         }
         return self.template_main_dash, context
     
@@ -1582,6 +1594,8 @@ class PostNsop(View):
                     warehouse=F(
                         "container_number__order__retrieval_id__retrieval_destination_precise"
                     ),
+                    vessel_name=F("container_number__order__vessel_id__vessel"),
+                    vessel_eta=F("container_number__order__vessel_id__vessel_eta"),
                 )
                 .annotate(
                     custom_delivery_method=F("delivery_method"),
@@ -1676,8 +1690,12 @@ class PostNsop(View):
                         # 有实际提柜时间 - 使用前缀 [实际]
                         When(container_number__order__retrieval_id__actual_retrieval_timestamp__isnull=False,
                             then=Concat(
+                                # Value(" "),
+                                # "container_number__order__vessel_id__vessel", 
+                                Value(" "),
+                                "container_number__order__vessel_id__vessel", 
                                 Value("[已提柜]"),
-                                "container_number__container_number",
+                                "container_number__container_number",                          
                                 # Value(" ETA:"),
                                 # "formatted_vessel_eta",
                                 # Value(" 提柜:"),
@@ -1686,7 +1704,9 @@ class PostNsop(View):
                             )),
                         # 有预计提柜时间范围 - 使用前缀 [预计]
                         When(container_number__order__retrieval_id__target_retrieval_timestamp_lower__isnull=False,
-                            then=Concat(
+                            then=Concat( 
+                                # Value(" "),
+                                # "container_number__order__vessel_id__vessel", 
                                 Value("[预计]"),
                                 "container_number__container_number",
                                 # Value(" ETA:"),
@@ -1699,6 +1719,8 @@ class PostNsop(View):
                             )),
                         # 没有提柜计划 - 使用前缀 [未安排]
                         default=Concat(
+                            # Value(" "),
+                            # "container_number__order__vessel_id__vessel", 
                             Value("[未安排提柜]"),
                             "container_number__container_number",
                             Value(" ETA:"),
@@ -1725,6 +1747,8 @@ class PostNsop(View):
                     warehouse=F(
                         "container_number__order__retrieval_id__retrieval_destination_precise"
                     ),
+                    vessel_name=F("container_number__order__vessel_id__vessel"),
+                    vessel_eta=F("container_number__order__vessel_id__vessel_eta"),
                 )
                 .annotate(
                     fba_ids=StringAgg(
