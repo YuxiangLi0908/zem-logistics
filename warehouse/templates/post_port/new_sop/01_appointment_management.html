@@ -671,36 +671,40 @@
             </div>
             <!-- 船名筛选区域 -->
             <div class="vessel-filter-section" style="margin-bottom: 20px; padding: 15px; background: #f8f9fa; border-radius: 8px; border-left: 4px solid #3498db;">
-                <div style="display: flex; align-items: center; gap: 15px; flex-wrap: wrap;">
-                    <div style="display: flex; align-items: center; gap: 8px;">
-                        <strong style="color: #2c3e50; white-space: nowrap;">
-                            <i class="fas fa-ship"></i> 船名列表:
-                        </strong>
-                        <div id="vesselList" style="display: flex; gap: 8px; flex-wrap: wrap;">
-                            {% for vessel in vessel_names %}
-                            <span class="vessel-tag" data-vessel="{{ vessel }}" 
-                                style="background: #e3f2fd; padding: 4px 12px; border-radius: 16px; font-size: 0.85rem; 
-                                        border: 1px solid #bbdefb; cursor: pointer; transition: all 0.3s;"
-                                onclick="applyVesselFilter('{{ vessel }}')">
-                                {{ vessel }}
-                            </span>
-                            {% empty %}
-                            <span style="color: #666; font-style: italic;">暂无船名数据</span>
-                            {% endfor %}
+                <div style="display: flex; justify-content: space-between; align-items: flex-start; gap: 15px; flex-wrap: nowrap;">
+                    <!-- 左边：船名列表 -->
+                    <div style="flex: 1; min-width: 0;"> <!-- min-width: 0 防止内容溢出 -->
+                        <div style="display: flex; align-items: flex-start; gap: 8px;">
+                            <strong style="color: #2c3e50; white-space: nowrap; flex-shrink: 0; margin-top: 2px;">
+                                <i class="fas fa-ship"></i> 船名列表:
+                            </strong>
+                            <div id="vesselList" style="display: flex; gap: 8px; flex-wrap: wrap; flex: 1;">
+                                {% for vessel in vessel_combined %}
+                                <span class="vessel-tag" data-vessel="{{ vessel }}" 
+                                    style="background: #e3f2fd; padding: 4px 12px; border-radius: 16px; font-size: 0.85rem; 
+                                            border: 1px solid #bbdefb; cursor: pointer; transition: all 0.3s; flex-shrink: 0;"
+                                    onclick="applyVesselFilter('{{ vessel }}')">
+                                    {{ vessel }}
+                                </span>
+                                {% empty %}
+                                <span style="color: #666; font-style: italic;">暂无船名数据</span>
+                                {% endfor %}
+                            </div>
                         </div>
                     </div>
                     
-                    <div style="display: flex; align-items: center; gap: 8px; margin-left: auto;">
-                        <strong style="color: #2c3e50; white-space: nowrap;">
+                    <!-- 右边：筛选控件 -->
+                    <div style="flex-shrink: 0; display: flex; align-items: center; gap: 8px; margin-left: 20px;">
+                        <strong style="color: #2c3e50; white-space: nowrap; flex-shrink: 0;">
                             <i class="fas fa-filter"></i> 船名筛选:
                         </strong>
-                        <select id="vesselFilter" onchange="applyVesselFilter(this.value)" style="padding: 8px 12px; border: 1px solid #ddd; border-radius: 4px; min-width: 150px;">
+                        <select id="vesselFilter" onchange="applyVesselFilter(this.value)" style="padding: 8px 12px; border: 1px solid #ddd; border-radius: 4px; min-width: 150px; flex-shrink: 0;">
                             <option value="">全部船名</option>
                             {% for vessel in vessel_names %}
                             <option value="{{ vessel }}">{{ vessel }}</option>
                             {% endfor %}
                         </select>
-                        <button id="clearVesselFilter" class="action-btn btn-warning" style="padding: 8px 12px;" onclick="clearVesselFilter()">
+                        <button id="clearVesselFilter" class="action-btn btn-warning" style="padding: 8px 12px; flex-shrink: 0;" onclick="clearVesselFilter()">
                             <i class="fas fa-times"></i> 清除筛选
                         </button>
                     </div>

@@ -1505,10 +1505,15 @@ class PostNsop(View):
         auto_matches = await self.get_auto_matches(unshipment_pos, shipments)
         
         vessel_names = []
+        vessel_combined = []
         for item in unshipment_pos:
             vessel_name = item.get('vessel_name')
+            vessel_eta = item.get('vessel_eta')
+            eta_date = str(vessel_eta).split()[0]
+            combined = f"{vessel_name}-{eta_date}"
             if vessel_name and vessel_name not in vessel_names:
                 vessel_names.append(vessel_name)
+                vessel_combined.append(combined)
         context = {
             'warehouse': warehouse,
             'warehouse_options': self.warehouse_options,
@@ -1524,6 +1529,7 @@ class PostNsop(View):
             'max_cbm': max_cbm,
             'max_pallet': max_pallet,
             "vessel_names": vessel_names,
+            "vessel_combined": vessel_combined,
         }
         return self.template_main_dash, context
     
