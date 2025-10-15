@@ -1137,7 +1137,7 @@ class PostNsop(View):
         
         for cargo in intelligent_cargos:
             label = cargo.get('label', 'EST')
-            delivery_method = cargo.get('delivery_method', '')
+            delivery_method = cargo.get('custom_delivery_method', '')
             is_hold = False
             if delivery_method:
                 is_hold = '暂扣' in delivery_method
