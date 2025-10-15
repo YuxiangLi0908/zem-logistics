@@ -1141,7 +1141,8 @@ class PostNsop(View):
             is_hold = False
             if delivery_method:
                 is_hold = '暂扣' in delivery_method
-            
+            else:
+                continue
             if label == 'ACT':
                 if is_hold:
                     organized['ACT']['hold'].append(cargo)
@@ -1484,7 +1485,13 @@ class PostNsop(View):
                 container_number__order__retrieval_id__retrieval_destination_precise=warehouse,
                 delivery_type='public',
                 container_number__order__warehouse__name=warehouse,
-            )& ~ models.Q(delivery_method__icontains='暂扣'),
+            )&
+            ~(
+                models.Q(delivery_method__icontains='暂扣') |
+                models.Q(delivery_method__icontains='自提') |
+                models.Q(delivery_method__icontains='UPS') |
+                models.Q(delivery_method__icontains='FEDEX')
+            ),
             models.Q(
                 container_number__order__offload_id__offload_at__isnull=False,
             )& models.Q(pk=0),
