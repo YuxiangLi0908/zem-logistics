@@ -711,9 +711,6 @@
                     
                     <!-- 右边：操作按钮 -->
                     <div style="flex-shrink: 0; display: flex; align-items: center; gap: 8px; margin-left: 20px;">
-                        <button id="selectAllVessels" class="action-btn btn-primary" style="padding: 8px 12px; flex-shrink: 0;" onclick="selectAllVessels()">
-                            <i class="fas fa-check-double"></i> 全选
-                        </button>
                         <button id="clearVesselFilter" class="action-btn btn-warning" style="padding: 8px 12px; flex-shrink: 0;" onclick="clearVesselFilter()">
                             <i class="fas fa-times"></i> 清除筛选
                         </button>
@@ -1352,20 +1349,6 @@
 
         updateFilterStats();
         updateSelectedCount();
-    }
-
-    function selectAllVessels() {
-        const vesselTags = document.querySelectorAll('.vessel-tag');
-        selectedVessels.clear();
-        
-        vesselTags.forEach(tag => {
-            const vesselName = tag.getAttribute('data-vessel');
-            selectedVessels.add(vesselName);
-            tag.classList.add('selected'); // 添加选中状态
-        });
-        
-        applyCombinedFilter();
-        updateVesselStats(); // 更新船名筛选统计
     }
 
     function clearVesselFilter() {
