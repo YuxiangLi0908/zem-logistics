@@ -739,7 +739,7 @@
                     <thead>
                         <tr>
                             <th class="checkbox-cell">
-                                <input type="checkbox" class="cargo-checkbox" value="{% if cargo.plt_ids %}plt_{{ cargo.plt_ids }}{% else %}{{ cargo.ids }}{% endif %}"
+                                <input type="checkbox" id="selectAll" class="cargo-checkbox" value="{% if cargo.plt_ids %}plt_{{ cargo.plt_ids }}{% else %}{{ cargo.ids }}{% endif %}"
                                 onclick="toggleSelectAll()">
                             </th>
                             <th data-sort="ref_ids">REF ID</th>
@@ -763,6 +763,7 @@
                             data-fba-ids="{{ cargo.fba_ids }}"
                             data-delivery-method="{{ cargo.custom_delivery_method }}"
                             data-vessel-name="{{ cargo.vessel_name|default:'' }}"
+                            data-container-number="{{ cargo.cns|default:'' }}"
                             >
                             <td class="checkbox-cell">
                                 <input type="checkbox" class="cargo-checkbox" 
@@ -1063,7 +1064,6 @@
 
     function handleSelectChange(select, appointmentId, counter) {
         var value = select.value;
-        console.log('handleSelectChange');
         if (value === 'edit') {
             editAppointment(select, appointmentId, counter);
         } else if (value === 'delete') {
@@ -1258,13 +1258,14 @@
                 const destination = row.getAttribute('data-destination').toLowerCase();
                 const refIds = row.getAttribute('data-ref-ids').toLowerCase();
                 const fbaIds = row.getAttribute('data-fba-ids').toLowerCase();
-                const containerNumber = row.getAttribute('data-container-number').toLowerCase();
+                const containerNumber = row.getAttribute('data-container-number');
+                const cn = containerNumber.toLowerCase();
                 
                 const matchesSearch = searchTerm === '' || 
                                     destination.includes(searchTerm) || 
                                     refIds.includes(searchTerm) ||
                                     fbaIds.includes(searchTerm) ||
-                                    containerNumber.includes(searchTerm);
+                                    cn.includes(searchTerm);
                 
                 row.style.display = matchesSearch ? '' : 'none';
             });
@@ -1350,85 +1351,6 @@
             // 更新统计信息
             updateFilterStats();
         }
-
-
-
-        // 导出选中货物
-        document.getElementById('exportSelected').addEventListener('click', function() {
-            const selectedIds = Array.from(document.querySelectorAll('.cargo-checkbox:checked'))
-                .map(checkbox => checkbox.value);
-            
-            if (selectedIds.length === 0) {
-                alert('请先选择要导出的PO');
-                return;
-            }
-
-            // 创建表单提交
-            const form = document.createElement('form');
-            form.method = 'POST';
-            form.action = '';
-            
-            const csrfToken = document.querySelector('[name=csrfmiddlewaretoken]').value;
-            const csrfInput = document.createElement('input');
-            csrfInput.type = 'hidden';
-            csrfInput.name = 'csrfmiddlewaretoken';
-            csrfInput.value = csrfToken;
-            form.appendChild(csrfInput);
-            
-            const stepInput = document.createElement('input');
-            stepInput.type = 'hidden';
-            stepInput.name = 'step';
-            stepInput.value = 'export_pos';
-            form.appendChild(stepInput);
-            
-            selectedIds.forEach(id => {
-                const input = document.createElement('input');
-                input.type = 'hidden';
-                input.name = 'cargo_ids';
-                input.value = id;
-                form.appendChild(input);
-            });
-            
-            document.body.appendChild(form);
-            form.submit();
-        });
-
-        // 查找匹配预约
-        document.getElementById('findAppointments').addEventListener('click', function() {
-            const selectedIds = Array.from(document.querySelectorAll('.cargo-checkbox:checked'))
-                .map(checkbox => checkbox.value);
-            
-            if (selectedIds.length === 0) {
-                alert('请先选择PO');
-                return;
-            }
-
-            // 切换到匹配标签页
-            document.querySelector('.tab[data-tab="matching"]').click();
-        });
-
-        // 清除选择
-        document.getElementById('clearSelection').addEventListener('click', function() {
-            document.querySelectorAll('.cargo-checkbox').forEach(checkbox => {
-                checkbox.checked = false;
-            });
-            document.getElementById('selectAll').checked = false;
-            updateSelectedCount();
-            // 清除搜索框并更新统计
-            document.getElementById('cargoSearch').value = '';
-            applySearch();
-        });
-
-        // 应用匹配建议
-        document.querySelectorAll('.apply-suggestion').forEach(btn => {
-            btn.addEventListener('click', function() {
-                const suggestionId = this.getAttribute('data-suggestion-id');
-                if (confirm('确定要应用这个匹配方案吗？')) {
-                    // 这里可以添加应用匹配的逻辑
-                    console.log('应用匹配建议:', suggestionId);
-                }
-            });
-        });
     });
 
     function showLoadingBar() {
