@@ -119,9 +119,6 @@ document.addEventListener("click", e => {
     }
 
     const suggestionData = JSON.parse(scriptTag.textContent);
-    console.log("=== 原始 suggestionData ===", suggestionData);
-    console.log("intelligent_cargos:", suggestionData.intelligent_cargos);
-    console.log("intelligent_cargos sample:", suggestionData.intelligent_cargos[0]);
     openModalForSuggestion(suggestionData);
 });
 
@@ -147,12 +144,27 @@ document.addEventListener("DOMContentLoaded", () => {
     confirmBtn.onclick = () => {
         const checkedIds = Array.from(container.querySelectorAll(".cargo-checkbox:checked")).map(cb => cb.value);
         if (!checkedIds.length) return alert("请至少选择一个PO");
+        
+        // 找出选中的 intelligent_cargos 记录
+        const selectedCargos = currentSuggestionData.intelligent_cargos.filter(c => c.ids === checkedIds.find(id => id === c.ids));
 
-        currentSuggestionData.selected_po_ids = checkedIds;
+        console.log('选中的记录', JSON.stringify(selectedCargos, null, 2));
+        
+        
+        // 加入 cargos
+        currentSuggestionData.cargos = currentSuggestionData.cargos.concat(selectedCargos);
+        console.log('新的cargos', JSON.stringify(currentSuggestionData.cargos, null, 2));
 
+        // 从 intelligent_cargos 中移除
+        currentSuggestionData.intelligent_cargos = currentSuggestionData.intelligent_cargos.filter(c => {
+            const idsArray = c.ids.split(',').filter(Boolean);
+            return !idsArray.some(id => checkedIds.includes(id));
+        });
+        console.log('新的intelligent_cargos', JSON.stringify(currentSuggestionData.intelligent_cargos, null, 2));
         modal.style.display = "none";
         alert(`成功选择 ${checkedIds.length} 个智能PO！`);
-        // 可按需刷新局部表格
+
+        // 可按需刷新页面或局部表格
         location.reload();
     };
 });

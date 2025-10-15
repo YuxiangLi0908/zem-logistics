@@ -1553,8 +1553,10 @@
 <script>
 window.matching_suggestions = {{ matching_suggestions_json|safe }};
 
-const scriptTag = document.getElementById(`suggestion_${suggestionId}`);
-const suggestion = JSON.parse(scriptTag.textContent);
+const scriptTag = (typeof suggestionId !== 'undefined' && suggestionId) 
+    ? document.getElementById(`suggestion_${suggestionId}`) 
+    : null;
+const suggestion = scriptTag ? JSON.parse(scriptTag.textContent) : null;
 function closeMessageModal() {
     document.getElementById('messageModal').style.display = 'none';
 }
@@ -2457,20 +2459,70 @@ function showLoadingBar() {
 }
 
 // 搜索功能
-document.getElementById('searchUnscheduledBtn').addEventListener('click', function () {
-    applySearch('unscheduled');
-});
-
-document.getElementById('searchScheduledBtn').addEventListener('click', function () {
-    applySearch('scheduled');
-});
-
-document.getElementById('searchReadyBtn').addEventListener('click', function () {
-    applySearch('ready');
+document.addEventListener('DOMContentLoaded', function() {
+    console.log('DOM loaded, initializing search functionality');
+    
+    // 搜索按钮事件
+    const searchUnscheduledBtn = document.getElementById('searchUnscheduledBtn');
+    const searchScheduledBtn = document.getElementById('searchScheduledBtn');
+    const searchReadyBtn = document.getElementById('searchReadyBtn');
+    
+    if (searchUnscheduledBtn) {
+        searchUnscheduledBtn.addEventListener('click', function() {
+            applySearch('unscheduled');
+        });
+    }
+    
+    if (searchScheduledBtn) {
+        searchScheduledBtn.addEventListener('click', function() {
+            applySearch('scheduled');
+        });
+    }
+    
+    if (searchReadyBtn) {
+        searchReadyBtn.addEventListener('click', function() {
+            applySearch('ready');
+        });
+    }
+    
+    // 回车键搜索支持
+    const unscheduledSearch = document.getElementById('unscheduledSearch');
+    const scheduledSearch = document.getElementById('scheduledSearch');
+    const readySearch = document.getElementById('readySearch');
+    
+    if (unscheduledSearch) {
+        unscheduledSearch.addEventListener('keypress', function(e) {
+            if (e.key === 'Enter') {
+                console.log('Enter pressed in unscheduled search');
+                applySearch('unscheduled');
+            }
+        });
+    }
+    
+    if (scheduledSearch) {
+        scheduledSearch.addEventListener('keypress', function(e) {
+            if (e.key === 'Enter') {
+                console.log('Enter pressed in scheduled search');
+                applySearch('scheduled');
+            }
+        });
+    }
+    
+    if (readySearch) {
+        readySearch.addEventListener('keypress', function(e) {
+            if (e.key === 'Enter') {
+                console.log('Enter pressed in ready search');
+                applySearch('ready');
+            }
+        });
+    }
 });
 
 function applySearch(section) {
-    const searchTerm = document.getElementById(section + 'Search').value.trim().toLowerCase();
+    const searchInput = document.getElementById(section + 'Search');
+    if (!searchInput) return;
+    
+    const searchTerm = searchInput.value.trim().toLowerCase();
     
     const sectionElement = document.getElementById(section + '-section');
     if (!sectionElement) return;
@@ -2516,11 +2568,15 @@ function handleGroupedSearch(rows, searchTerm) {
         
         const isMatch = isRowMatch(row, searchTerm);
         groupMap.get(suggestionId).push({ row, isMatch });
+        console.log(`Row ${suggestionId} match:`, isMatch); // 调试用
     });
+    
+    console.log(`Group map size:`, groupMap.size); // 调试用
     
     // 第二步：处理每个分组
     groupMap.forEach((groupRows, suggestionId) => {
         const hasAnyMatch = groupRows.some(item => item.isMatch);
+        console.log(`Group ${suggestionId} has match:`, hasAnyMatch); // 调试用
         
         if (hasAnyMatch) {
             // 如果分组中有匹配的行，显示整个分组
@@ -2560,9 +2616,12 @@ function handleNormalRowSearch(row, searchTerm) {
 }
 
 function isRowMatch(row, searchTerm) {
+    if (!searchTerm) return true;
+    
     // 检查行的文本内容
     const rowText = row.textContent.toLowerCase();
     if (rowText.includes(searchTerm)) {
+        console.log('Matched by row text:', rowText); // 调试用
         return true;
     }
     
@@ -2572,15 +2631,17 @@ function isRowMatch(row, searchTerm) {
     const containerCell = row.querySelector('.container-no-col');
     
     if (refIdsCell) {
-        const fullRefIds = refIdsCell.getAttribute('data-full') || '';
+        const fullRefIds = refIdsCell.getAttribute('data-full') || refIdsCell.textContent || '';
         if (fullRefIds.toLowerCase().includes(searchTerm)) {
+            console.log('Matched by REF ID:', fullRefIds); // 调试用
             return true;
         }
     }
     
     if (fbaIdsCell) {
-        const fullFbaIds = fbaIdsCell.getAttribute('data-full') || '';
+        const fullFbaIds = fbaIdsCell.getAttribute('data-full') || fbaIdsCell.textContent || '';
         if (fullFbaIds.toLowerCase().includes(searchTerm)) {
+            console.log('Matched by FBA ID:', fullFbaIds); // 调试用
             return true;
         }
     }
@@ -2588,8 +2649,16 @@ function isRowMatch(row, searchTerm) {
     if (containerCell) {
         const containerText = containerCell.textContent || '';
         if (containerText.toLowerCase().includes(searchTerm)) {
+            console.log('Matched by container:', containerText); // 调试用
             return true;
         }
+    }
+    
+    // 检查其他可能的数据属性
+    const destination = row.getAttribute('data-destination') || '';
+    if (destination.toLowerCase().includes(searchTerm)) {
+        console.log('Matched by destination:', destination); // 调试用
+        return true;
     }
     
     return false;
