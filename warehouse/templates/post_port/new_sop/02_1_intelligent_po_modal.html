@@ -83,8 +83,8 @@ function renderGroupedTables(groups, stats) {
                                 <td><input type="checkbox" class="cargo-checkbox" value="${item.ids}"></td>
                                 <td>${item.destination || ''}</td>
                                 <td>${item.custom_delivery_method || ''}</td>
-                                <td>${item.ref_ids || ''}</td>
-                                <td>${item.container_numbers || ''}</td>
+                                <td style="max-width: 120px; min-width: 100px; white-space: normal; word-break: break-word;">${item.ref_ids || ''}</td>
+                                <td style="max-width: 200px; width: 200px; white-space: normal; overflow: hidden; text-overflow: ellipsis;">${item.container_numbers || ''}</td>
                                 <td>${item.total_cbm || ''}</td>
                                 <td>${item.total_n_pallet_est || ''}</td>
                                 <td>${item.label === 'ACT' ? '已打板' : '未打板'}</td>
