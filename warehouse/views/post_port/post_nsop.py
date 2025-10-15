@@ -1507,11 +1507,11 @@ class PostNsop(View):
         #智能匹配内容
         st_type = request.POST.get('st_type')
         if st_type == "pallet":
-            max_cbm = 72
-            max_pallet = 35
+            max_cbm = 68
+            max_pallet = 30
         elif st_type == "floor":
-            max_cbm = 80
-            max_pallet = 38
+            max_cbm = 75
+            max_pallet = 75
         matching_suggestions = await self.get_matching_suggestions(unshipment_pos, shipments,max_cbm,max_pallet)
         primary_group_keys = set()
         for suggestion in matching_suggestions:
