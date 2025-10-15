@@ -77,6 +77,9 @@ class TerminalDispatch(View):
         elif step == "confirm_pickup":
             template, context = await self.handle_confirm_pickup_post(request)
             return await sync_to_async(render)(request, template, context)
+        elif step == "confirm_pickup_appointment_time":
+            template, context = await self.handle_confirm_pickup_post_appointment_time(request)
+            return await sync_to_async(render)(request, template, context)
         elif step == "batch_schedule_container":
             template, context = await self.handle_batch_schedule_container_get(request)
             return await sync_to_async(render)(request, template, context)
@@ -89,6 +92,10 @@ class TerminalDispatch(View):
         elif step == "batch_confirm_pickup_submit":
             template, context = await self.handle_batch_confirm_pickup_submit_post(request)
             return await sync_to_async(render)(request, template, context)
+        elif step == "batch_confirm_pickup_submit_appointment_time":
+            template, context = await self.handle_batch_confirm_pickup_submit_post_appointment_time(request)
+            return await sync_to_async(render)(request, template, context)
+
 
     async def handle_all_get(self) -> tuple[Any, Any]:
         current_date = datetime.now().date()
@@ -169,7 +176,7 @@ class TerminalDispatch(View):
         context["carrier_options"] = CONTAINER_PICKUP_CARRIER
     
         return self.template_batch_update_container_pickup_schedule, context
-    
+
     async def handle_batch_schedule_container_get(
         self, request: HttpRequest
     ) -> tuple[Any, Any]:
@@ -375,6 +382,29 @@ class TerminalDispatch(View):
             await sync_to_async(retrieval.save)()
         return await self.handle_all_get()
 
+    async def handle_batch_confirm_pickup_submit_post_appointment_time(
+            self, request: HttpRequest
+    ) -> tuple[Any, Any]:
+        """待确认提柜-处理批量确认预约时间的请求"""
+        container_numbers = request.POST.getlist("container_numbers")
+        appointment_time_start = request.POST.get("appointment_time_start")
+        appointment_time_end = request.POST.get("appointment_time_end")
+        for cn in container_numbers:
+            # 获取retrieval记录
+            retrieval = await sync_to_async(Retrieval.objects.get)(
+                order__container_number__container_number=cn
+            )
+            # 解析时区信息
+            tzinfo = self._parse_tzinfo(retrieval.retrieval_destination_precise)
+            appointment_time_start_ts = self._parse_ts(appointment_time_start, tzinfo)
+            appointment_time_end_ts = self._parse_ts(appointment_time_end, tzinfo)
+
+            # 更新retrieval记录
+            retrieval.target_retrieval_timestamp_lower = appointment_time_start_ts
+            retrieval.target_retrieval_timestamp = appointment_time_end_ts
+            await sync_to_async(retrieval.save)()
+        return await self.handle_all_get()
+
     async def handle_confirm_pickup_post(self, request: HttpRequest) -> tuple[Any, Any]:
         container_number = request.POST.get("container_number")
         retrieval = await sync_to_async(Retrieval.objects.get)(
@@ -404,6 +434,22 @@ class TerminalDispatch(View):
                     await sync_to_async(o.save)()
             except PoCheckEtaSeven.DoesNotExist:
                 pass
+        await sync_to_async(retrieval.save)()
+        return await self.handle_all_get()
+
+    async def handle_confirm_pickup_post_appointment_time(self, request: HttpRequest) -> tuple[Any, Any]:
+        container_number = request.POST.get("container_number")
+        retrieval = await sync_to_async(Retrieval.objects.get)(
+            order__container_number__container_number=container_number
+        )
+        tzinfo = self._parse_tzinfo(retrieval.retrieval_destination_precise)
+        appointment_time_start = request.POST.get("appointment_time_start")
+        appointment_time_end = request.POST.get("appointment_time_end")
+        appointment_time_start_ts = self._parse_ts(appointment_time_start, tzinfo)
+        appointment_time_end_ts = self._parse_ts(appointment_time_end, tzinfo)
+        retrieval.target_retrieval_timestamp_lower = appointment_time_start_ts
+        retrieval.target_retrieval_timestamp = appointment_time_end_ts
+
         await sync_to_async(retrieval.save)()
         return await self.handle_all_get()
 
