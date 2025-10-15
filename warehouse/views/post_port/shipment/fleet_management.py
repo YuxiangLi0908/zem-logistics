@@ -1648,8 +1648,7 @@ class FleetManagement(View):
 
         # 把出库的板子的slot改为空    
         await sync_to_async(
-            lambda: Pallet.objects.filter(id__in=all_flat_ids)
-            .exclude(id__in=shipped_pallet_ids)
+            lambda: Pallet.objects.filter(id__in=shipped_pallet_ids)
             .update(slot=None)
         )()
         #要出库的查看下是否有未解扣的
@@ -1784,13 +1783,13 @@ class FleetManagement(View):
         pallets = await sync_to_async(list)(
             Pallet.objects.filter(id__in=sample_pallet_ids)
             .select_related("shipment_batch_number", "container_number")
-            .only("pallet_id", "PO_ID", "shipment_batch_number", "container_number")
+            .only("id","pallet_id", "PO_ID", "shipment_batch_number", "container_number")
         )
         error = None
         if not pallets:
             error = "查不到有效板子！"
         pallet_mapping = {
-            p.pallet_id: (p.PO_ID, p.shipment_batch_number, p.container_number)
+            p.pallet_id: (p.PO_ID, p.shipment_batch_number, p.container_number, p.id)
             for p in pallets
             if p.PO_ID
         }
@@ -1798,10 +1797,16 @@ class FleetManagement(View):
         for first_pallet_id, actual_pallets in zip(
             sample_pallet_ids, actual_shipped_pallet
         ):
-            if first_pallet_id not in pallet_mapping:
+            target_id = int(first_pallet_id)
+            matched_key = None
+            for key, value in pallet_mapping.items():
+                if value[3] == target_id:
+                    matched_key = key
+                    break
+            if matched_key is None:
                 continue
 
-            po_id, shipment, container_number = pallet_mapping[first_pallet_id]
+            po_id, shipment, container_number, _ = pallet_mapping[matched_key]
             new_record = FleetShipmentPallet(
                 fleet_number=fleet,
                 pickup_number=fleet.pickup_number,
