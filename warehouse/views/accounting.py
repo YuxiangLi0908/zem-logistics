@@ -5376,6 +5376,8 @@ class Accounting(View):
         )  # 各区的价格和仓点
         dest_cbm_list = []  # 临时存储初筛组合柜内的cbm和匹配信息
 
+        region_counter = {}
+        region_price_map = {}
         for plts in plts_by_destination:
             destination = plts["destination"]
             # 如果是沃尔玛的，只保留后面的名字，因为报价表里就是这么保留的
@@ -5384,25 +5386,49 @@ class Accounting(View):
             dest_matches = []
             matched = False
             # 遍历所有区域和location
-            for region, fee_data_list in combina_fee.items():
+            
+            for region, fee_data_list in combina_fee.items():           
                 for fee_data in fee_data_list:
                     # 如果匹配到组合柜仓点，就登记到组合柜集合中
                     if dest in fee_data["location"]:
-                        temp_cbm = matching_regions[region] + cbm
-                        matching_regions[region] = temp_cbm
+                        price = fee_data["prices"][container_type]
+
+                        # 初始化
+                        if region not in region_price_map:
+                            region_price_map[region] = [price]
+                            region_counter[region] = 0
+                            actual_region = region
+                        else:
+                            # 如果该 region 下已有相同价格 → 不加编号
+                            if price in region_price_map[region]:
+                                actual_region = region
+                            else:
+                                # 新价格 → 需要编号
+                                region_counter[region] += 1
+                                actual_region = f"{region}{region_counter[region]}"
+                                region_price_map[region].append(price)
+
+                        temp_cbm = matching_regions.get(actual_region, 0) + cbm
+                        matching_regions[actual_region] = temp_cbm
                         dest_matches.append(
                             {
-                                "region": region,
+                                "region": actual_region,
                                 "location": dest,
                                 "prices": fee_data["prices"],
                                 "cbm": cbm,
                             }
                         )
-                        price_display[region]["price"] = fee_data["prices"][
-                            container_type
-                        ]
-                        price_display[region]["location"].add(dest)
+                        if actual_region not in price_display:
+                            price_display[actual_region] = {
+                                "price": price,
+                                "location": set([dest]),
+                            }
+                        else:
+                            # 不要覆盖，更新集合
+                            price_display[actual_region]["location"].add(dest)
+                        
                         matched = True
+            
             if not matched:
                 # 非组合柜仓点
                 non_combina_dests[dest] = {"cbm": cbm}
@@ -5414,7 +5440,6 @@ class Accounting(View):
                     {"dest": dest, "cbm": cbm, "matches": dest_matches}
                 )
                 destination_matches.add(dest)
-
         if len(destination_matches) > combina_threshold:
             # 按cbm降序排序，将cbm大的归到非组合
             sorted_dests = sorted(dest_cbm_list, key=lambda x: x["cbm"], reverse=True)
@@ -5431,6 +5456,7 @@ class Accounting(View):
                     region = match["region"]
                     matching_regions[region] += item["cbm"]
                     price_display[region]["price"] = match["prices"][container_type]
+                    
                     price_display[region]["location"].add(dest)
 
             # 其余仓点转为非组合柜
@@ -5632,6 +5658,7 @@ class Accounting(View):
         matched_regions = self.find_matching_regions(
             plts_by_destination, combina_fee, container_type_temp, total_cbm_sum, combina_threshold
         )
+        
         # 判断是否混区，除了LA的CDEF不能混，别的都能混
         is_mix = self.is_mixed_region(
             matched_regions["matching_regions"], warehouse, vessel_etd
@@ -5751,6 +5778,8 @@ class Accounting(View):
                     }
                     for region, data in price_display.items()
                 ]
+                print('price_display',price_display)
+                print('price_display_new',price_display_new)
                 base_fee = round(
                     sum(item["price"] * item["rate"] for item in price_display_new), 2
                 )
