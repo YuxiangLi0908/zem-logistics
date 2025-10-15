@@ -1141,8 +1141,6 @@ class PostNsop(View):
             is_hold = False
             if delivery_method:
                 is_hold = '暂扣' in delivery_method
-            else:
-                raise ValueError('缺数据',cargo)
             
             if label == 'ACT':
                 if is_hold:
