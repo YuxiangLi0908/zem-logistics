@@ -5,6 +5,7 @@ from django.db.models import Prefetch
 import pandas as pd
 import json
 import uuid
+import pytz
 from asgiref.sync import sync_to_async
 from django.contrib.postgres.aggregates import StringAgg
 from django.db.models.functions import Round, Cast, Coalesce
@@ -1806,7 +1807,7 @@ class PostNsop(View):
                 ),
                 models.Q(appointment_id__isnull=False),
                 models.Q(in_use=False, is_canceled=False),
-            ).order_by("shipment_appointment")
+            ).order_by("shipment_appointment","shipment_account")
         )
         
         return appointment
@@ -1831,9 +1832,20 @@ class PostNsop(View):
         
         return total_pallets
     
+    def _parse_tzinfo(self, s: str) -> str:
+        if not s:
+            return "America/New_York"
+        if "NJ" in s.upper():
+            return "America/New_York"
+        elif "SAV" in s.upper():
+            return "America/New_York"
+        elif "LA" in s.upper():
+            return "America/Los_Angeles"
+        else:
+            return "America/New_York"
+        
     async def calculate_summary(self, unshipment_pos, shipments):
         """异步计算统计数据 - 适配新的数据结构"""
-        now = timezone.now()
     
         # 计算预约状态统计
         expired_count = 0
@@ -1842,6 +1854,9 @@ class PostNsop(View):
         used_count = 0  # 已使用的预约数量
         
         for shipment in shipments:
+            tzinfo = self._parse_tzinfo(shipment.origin)
+            timezone_str = pytz.timezone(tzinfo)
+            now = timezone.now().astimezone(timezone_str)
             # 检查预约是否已过期
             is_expired = (
                 shipment.shipment_appointment_utc and 
@@ -1861,13 +1876,16 @@ class PostNsop(View):
             is_used = has_packinglist or has_pallet
             
             if is_used:
+                shipment.status = "used"
                 used_count += 1
             elif is_expired:
+                shipment.status = "expired"
                 expired_count += 1
             elif is_urgent:
+                shipment.status = "urgent"
                 urgent_count += 1
             else:
-                # 可用预约：没过期、不紧急、未被使用
+                shipment.status = "available"
                 available_count += 1
         
         # 计算货物统计

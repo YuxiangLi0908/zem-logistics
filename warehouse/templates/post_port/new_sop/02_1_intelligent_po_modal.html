@@ -98,7 +98,6 @@ function openModalForSuggestion(suggestionData) {
 
     const modal = document.getElementById("intelligentPoModal");
     const container = document.getElementById("intelligentPoTablesContainer");
-    console.log('这个组的数据',suggestionData);
     const groups = groupIntelligentCargos(suggestionData.intelligent_cargos || []);
     const stats = suggestionData.intelligent_pos_stats || null;
     container.innerHTML = renderGroupedTables(groups, stats);
@@ -147,13 +146,9 @@ document.addEventListener("DOMContentLoaded", () => {
         
         // 找出选中的 intelligent_cargos 记录
         const selectedCargos = currentSuggestionData.intelligent_cargos.filter(c => c.ids === checkedIds.find(id => id === c.ids));
-
-        console.log('选中的记录', JSON.stringify(selectedCargos, null, 2));
-        
-        
+          
         // 加入 cargos
         currentSuggestionData.cargos = currentSuggestionData.cargos.concat(selectedCargos);
-        console.log('新的cargos', JSON.stringify(currentSuggestionData.cargos, null, 2));
 
         // 从 intelligent_cargos 中移除
         currentSuggestionData.intelligent_cargos = currentSuggestionData.intelligent_cargos.filter(c => {
