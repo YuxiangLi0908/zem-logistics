@@ -859,12 +859,12 @@
                             <td class="td">{{ s.appointment_id }}</td>
                             <td class="td">{{ s.destination }}</td>
                             <td class="td">
-                                {% if s.appointment_status == 'past_due' %}
+                                {% if s.status == 'expired' %}
                                 <span class="status-span-red">已过期</span>
                                 <span class="status-span-red-100" id="appointment_{{ forloop.counter }}" data-original-value="{{ s.shipment_appointment|date:'Y-m-d' }} {{ s.shipment_appointment|time:'H:i' }}">
                                     {{ s.shipment_appointment|date:'Y-m-d' }} {{ s.shipment_appointment|time:'H:i' }}
                                 </span>
-                                {% elif s.appointment_status == 'need_attention' %}
+                                {% elif s.status == 'urgent' %}
                                 <span class="status-span-yellow">即将过期</span>
                                 <span class="status-span-yellow-100" id="appointment_{{ forloop.counter }}" data-original-value="{{ s.shipment_appointment|date:'Y-m-d' }} {{ s.shipment_appointment|time:'H:i' }}">
                                     {{ s.shipment_appointment|date:'Y-m-d' }} {{ s.shipment_appointment|time:'H:i' }}
