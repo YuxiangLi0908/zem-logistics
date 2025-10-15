@@ -31,6 +31,37 @@
             </table>
         </form>
     </div>
+
+    <!-- 确认预约时间 -->
+    <div>
+        <form method="post" action="" style="width: 100%;">
+            {% csrf_token %}
+            <table class="table" id="pickup-confirm-table" style="font-size: 11px;">
+                <thead>
+                    <tr>
+                        <th class="th">预约时间</th>
+                        <th class="th">批量确认</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    <tr>
+                        <td class="td">
+                            <input type="datetime-local" name="appointment_time_start" style="font-size: 13px;">
+                            <input type="datetime-local" name="appointment_time_end" style="font-size: 13px;">
+                        </td>
+                        <td class="td">
+                            <input type="hidden" name="step" value="confirm_pickup_appointment_time">
+                            <input type="hidden" name="container_number" value="{{ container_number }}">
+                            <button id="schedule-pickup-btn" type="submit" class="btn btn-primary" style="height: 30px; margin-left: 20px; font-size: 13px;">
+                                确认时间
+                            </button>
+                        </td>
+                    </tr>
+                </tbody>
+            </table>
+        </form>
+    </div>
+
     <div>
         <table class="table" id="shipment-info-table" style="font-size: 11px;">
             <thead>

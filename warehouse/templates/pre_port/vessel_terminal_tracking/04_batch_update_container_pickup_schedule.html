@@ -39,6 +39,39 @@
         </form>
     </div>
 
+    <!-- 批量确认预约时间 -->
+    <div>
+        <form method="post" action="" style="width: 100%;">
+            {% csrf_token %}
+            <table class="table" id="batch-pickup-confirm-table" style="font-size: 11px;">
+                <thead>
+                    <tr>
+                        <th class="th">预约时间</th>
+                        <th class="th">批量确认</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    <tr>
+                        <td class="td">
+                            <input type="datetime-local" name="appointment_time_start" style="font-size: 13px;">
+                            <input type="datetime-local" name="appointment_time_end" style="font-size: 13px;">
+                        </td>
+                        <td class="td">
+                            <input type="hidden" name="step" value="batch_confirm_pickup_submit_appointment_time">
+                            <!-- 隐藏字段传递选中的柜号 -->
+                            {% for container in selected_orders %}
+                            <input type="hidden" name="container_numbers" value="{{ container.container_number.container_number }}">
+                            {% endfor %}
+                            <button type="submit" class="btn btn-primary" style="height: 30px; margin-left: 20px; font-size: 13px;">
+                                批量确认时间
+                            </button>
+                        </td>
+                    </tr>
+                </tbody>
+            </table>
+        </form>
+    </div>
+
     <!-- 显示所有选中柜子的详细信息 -->
     <div style="max-height: 1000px; overflow-y: auto; margin-top: 15px;">
         <h4 style="font-size: 12px; margin: 10px 0;">柜子详细信息：</h4>
