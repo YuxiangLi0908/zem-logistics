@@ -510,7 +510,23 @@
     .data-table tr:hover {
         background-color: #edf2f7;
     }
+    .vessel-tag.selected {
+        background-color: #3498db !important;   /* 高亮蓝色背景 */
+        color: #fff !important;                 /* 字体白色 */
+        border-color: #2980b9 !important;       /* 边框颜色 */
+        box-shadow: 0 2px 5px rgba(0, 0, 0, 0.2); /* 添加阴影增强效果 */
+    }
 
+    .vessel-tag:hover {
+        transform: translateY(-2px);
+        box-shadow: 0 4px 8px rgba(0, 0, 0, 0.15);
+    }
+
+    /* 选中的船名标签 */
+    .vessel-tag.selected:hover {
+        background-color: #2980b9 !important;
+        box-shadow: 0 4px 8px rgba(0, 0, 0, 0.25);
+    }
     @media (max-width: 768px) {
         .appointment-header {
             flex-direction: column;
@@ -673,18 +689,18 @@
             <div class="vessel-filter-section" style="margin-bottom: 20px; padding: 15px; background: #f8f9fa; border-radius: 8px; border-left: 4px solid #3498db;">
                 <div style="display: flex; justify-content: space-between; align-items: flex-start; gap: 15px; flex-wrap: nowrap;">
                     <!-- 左边：船名列表 -->
-                    <div style="flex: 1; min-width: 0;"> <!-- min-width: 0 防止内容溢出 -->
+                    <div style="flex: 1; min-width: 0;">
                         <div style="display: flex; align-items: flex-start; gap: 8px;">
                             <strong style="color: #2c3e50; white-space: nowrap; flex-shrink: 0; margin-top: 2px;">
-                                <i class="fas fa-ship"></i> 船名列表:
+                                <i class="fas fa-ship"></i> 船名列表 (点击筛选):
                             </strong>
                             <div id="vesselList" style="display: flex; gap: 8px; flex-wrap: wrap; flex: 1;">
-                                {% for vessel in vessel_combined %}
-                                <span class="vessel-tag" data-vessel="{{ vessel }}" 
+                                {% for vessel_name, display_text in vessel_dict.items %}
+                                <span class="vessel-tag" data-vessel="{{ vessel_name }}" 
                                     style="background: #e3f2fd; padding: 4px 12px; border-radius: 16px; font-size: 0.85rem; 
                                             border: 1px solid #bbdefb; cursor: pointer; transition: all 0.3s; flex-shrink: 0;"
-                                    onclick="applyVesselFilter('{{ vessel }}')">
-                                    {{ vessel }}
+                                    onclick="toggleVesselFilter('{{ vessel_name }}')">
+                                    {{ display_text }}
                                 </span>
                                 {% empty %}
                                 <span style="color: #666; font-style: italic;">暂无船名数据</span>
@@ -693,17 +709,11 @@
                         </div>
                     </div>
                     
-                    <!-- 右边：筛选控件 -->
+                    <!-- 右边：操作按钮 -->
                     <div style="flex-shrink: 0; display: flex; align-items: center; gap: 8px; margin-left: 20px;">
-                        <strong style="color: #2c3e50; white-space: nowrap; flex-shrink: 0;">
-                            <i class="fas fa-filter"></i> 船名筛选:
-                        </strong>
-                        <select id="vesselFilter" onchange="applyVesselFilter(this.value)" style="padding: 8px 12px; border: 1px solid #ddd; border-radius: 4px; min-width: 150px; flex-shrink: 0;">
-                            <option value="">全部船名</option>
-                            {% for vessel in vessel_names %}
-                            <option value="{{ vessel }}">{{ vessel }}</option>
-                            {% endfor %}
-                        </select>
+                        <button id="selectAllVessels" class="action-btn btn-primary" style="padding: 8px 12px; flex-shrink: 0;" onclick="selectAllVessels()">
+                            <i class="fas fa-check-double"></i> 全选
+                        </button>
                         <button id="clearVesselFilter" class="action-btn btn-warning" style="padding: 8px 12px; flex-shrink: 0;" onclick="clearVesselFilter()">
                             <i class="fas fa-times"></i> 清除筛选
                         </button>
@@ -712,7 +722,7 @@
                 
                 <!-- 筛选统计 -->
                 <div id="filterStats" style="margin-top: 10px; font-size: 0.9rem; color: #666;">
-                    总计: {{ cargos|length }} 组PO
+                    总计: {{ cargos|length }} 组PO | 已选择: <span id="selectedVesselCount">0</span> 个船名
                 </div>
             </div>
             <!-- 导PO的表单 -->
@@ -739,7 +749,7 @@
                     <thead>
                         <tr>
                             <th class="checkbox-cell">
-                                <input type="checkbox" id="selectAll" class="cargo-checkbox" value="{% if cargo.plt_ids %}plt_{{ cargo.plt_ids }}{% else %}{{ cargo.ids }}{% endif %}"
+                                <input type="checkbox" id="selectAllCargos" class="cargo-checkbox" value="{% if cargo.plt_ids %}plt_{{ cargo.plt_ids }}{% else %}{{ cargo.ids }}{% endif %}"
                                 onclick="toggleSelectAll()">
                             </th>
                             <th data-sort="ref_ids">REF ID</th>
@@ -981,72 +991,6 @@
 </div>
 
 <script>
-    function applyVesselFilter(vesselName) {
-        const rows = document.querySelectorAll('#cargoTable tbody tr');
-        const vesselTags = document.querySelectorAll('.vessel-tag');
-        const vesselFilter = document.getElementById('vesselFilter');
-        const filterStats = document.getElementById('filterStats');
-        
-        window.currentFilter = vesselName;
-        
-        rows.forEach(row => {
-            const rowVessel = row.dataset.vesselName || '';
-            if (!vesselName || rowVessel === vesselName) {
-                row.style.display = '';
-            } else {
-                row.style.display = 'none';
-            }
-        });
-        
-        // 更新下拉框选中状态
-        vesselFilter.value = vesselName;
-        
-        // 更新船名标签样式
-        vesselTags.forEach(tag => {
-            if (tag.dataset.vessel === vesselName) {
-                tag.style.background = '#3498db';
-                tag.style.color = 'white';
-                tag.style.borderColor = '#2980b9';
-            } else {
-                tag.style.background = '#e3f2fd';
-                tag.style.color = 'inherit';
-                tag.style.borderColor = '#bbdefb';
-            }
-        });
-        
-        updateFilterStats();
-        updateSelectedCount(); // 更新选中数量
-    }
-
-    function updateSelectedCount() {
-        const cargoCheckboxes = document.querySelectorAll('.cargo-checkbox');
-        const selectedCount = document.getElementById('selectedCount');
-        const selected = Array.from(cargoCheckboxes).filter(cb => cb.checked).length;
-        selectedCount.textContent = selected;
-    }
-
-    // 初始化统计
-    updateFilterStats();
-    updateSelectedCount();
-    // 清除筛选
-    function clearVesselFilter() {
-        applyVesselFilter('');
-    }
-
-    // 更新筛选统计
-    function updateFilterStats() {
-        const rows = document.querySelectorAll('#cargoTable tbody tr');
-        const filterStats = document.getElementById('filterStats');
-        const visibleRows = Array.from(rows).filter(row => row.style.display !== 'none');
-        const totalRows = rows.length;
-        const visibleCount = visibleRows.length;
-        
-        if (window.currentFilter) {
-            filterStats.innerHTML = `筛选: <strong>${window.currentFilter}</strong> | 显示: ${visibleCount} / ${totalRows} 个PO`;
-        } else {
-            filterStats.innerHTML = `总计: ${totalRows} 个PO`;
-        }
-    }
 
     // 全选功能
     function toggleSelectAll() {
@@ -1223,7 +1167,7 @@
         });
 
         // 全选/取消全选
-        document.getElementById('selectAll').addEventListener('change', function() {
+        document.getElementById('selectAllCargos').addEventListener('change', function() {
             const checkboxes = document.querySelectorAll('.cargo-checkbox');
             checkboxes.forEach(checkbox => {
                 checkbox.checked = this.checked;
@@ -1236,43 +1180,13 @@
             checkbox.addEventListener('change', updateSelectedCount);
         });
 
-        // 更新选中数量
-        function updateSelectedCount() {
-            const selectedCount = document.querySelectorAll('.cargo-checkbox:checked').length;
-            document.getElementById('selectedCount').textContent = selectedCount;
-        }
-
         // 搜索功能
-        document.getElementById('searchCargoBtn').addEventListener('click', applySearch);
+        document.getElementById('searchCargoBtn').addEventListener('click', applyCombinedFilter);
         document.getElementById('cargoSearch').addEventListener('keypress', function(e) {
             if (e.key === 'Enter') {
-                applySearch();
+                applyCombinedFilter();
             }
         });
-
-        function applySearch() {
-            const searchTerm = document.getElementById('cargoSearch').value.trim().toLowerCase();
-            const rows = document.querySelectorAll('#cargoTable tbody tr');
-            
-            rows.forEach(row => {
-                const destination = row.getAttribute('data-destination').toLowerCase();
-                const refIds = row.getAttribute('data-ref-ids').toLowerCase();
-                const fbaIds = row.getAttribute('data-fba-ids').toLowerCase();
-                const containerNumber = row.getAttribute('data-container-number');
-                const cn = containerNumber.toLowerCase();
-                
-                const matchesSearch = searchTerm === '' || 
-                                    destination.includes(searchTerm) || 
-                                    refIds.includes(searchTerm) ||
-                                    fbaIds.includes(searchTerm) ||
-                                    cn.includes(searchTerm);
-                
-                row.style.display = matchesSearch ? '' : 'none';
-            });
-            
-            // 更新统计信息
-            updateFilterStats();
-        }
 
         // 排序功能
         let currentSort = 'destination';
@@ -1351,6 +1265,7 @@
             // 更新统计信息
             updateFilterStats();
         }
+        updateVesselStats();
     });
 
     function showLoadingBar() {
@@ -1386,6 +1301,128 @@
         
         document.getElementById('totalPalletsCount').textContent = Math.round(totalPallets);
         document.getElementById('totalCbmCount').textContent = totalCbm.toFixed(2);
+    }
+    let selectedVessels = new Set();
+
+    function toggleVesselFilter(vesselName) {
+        const nameKey = vesselName.trim().toLowerCase();
+        const vesselTag = document.querySelector(`.vessel-tag[data-vessel="${vesselName}"]`);
+        
+        if (selectedVessels.has(nameKey)) {
+            selectedVessels.delete(nameKey);
+            vesselTag.classList.remove('selected'); // 移除选中状态
+        } else {
+            selectedVessels.add(nameKey);
+            vesselTag.classList.add('selected'); // 添加选中状态
+        }
+        applyCombinedFilter();
+        updateVesselStats(); // 更新船名筛选统计
+    }
+
+
+    function applyCombinedFilter() {
+        const searchTerm = document.getElementById('cargoSearch').value.trim().toLowerCase();
+        const rows = document.querySelectorAll('#cargoTable tbody tr');
+
+        rows.forEach(row => {
+            const rowVessel = (row.dataset.vesselName || '').trim().toLowerCase();
+            const destination = (row.dataset.destination || '').toLowerCase();
+            const refIds = (row.dataset.refIds || '').toLowerCase();
+            const fbaIds = (row.dataset.fbaIds || '').toLowerCase();
+            const containerNumber = (row.dataset.containerNumber || '').toLowerCase();
+
+            // === 条件① 船名匹配 ===
+            const vesselMatch = selectedVessels.size === 0 || selectedVessels.has(rowVessel);
+
+            // === 条件② 搜索匹配 ===
+            const searchMatch =
+                searchTerm === '' ||
+                destination.includes(searchTerm) ||
+                refIds.includes(searchTerm) ||
+                fbaIds.includes(searchTerm) ||
+                containerNumber.includes(searchTerm);
+
+            // === “并且”逻辑 ===
+            if (vesselMatch && searchMatch) {
+                row.style.display = '';
+            } else {
+                row.style.display = 'none';
+            }
+        });
+
+        updateFilterStats();
+        updateSelectedCount();
+    }
+
+    function selectAllVessels() {
+        const vesselTags = document.querySelectorAll('.vessel-tag');
+        selectedVessels.clear();
+        
+        vesselTags.forEach(tag => {
+            const vesselName = tag.getAttribute('data-vessel');
+            selectedVessels.add(vesselName);
+            tag.classList.add('selected'); // 添加选中状态
+        });
+        
+        applyCombinedFilter();
+        updateVesselStats(); // 更新船名筛选统计
+    }
+
+    function clearVesselFilter() {
+        const vesselTags = document.querySelectorAll('.vessel-tag');
+        selectedVessels.clear();
+        
+        vesselTags.forEach(tag => {
+            tag.classList.remove('selected'); // 移除所有选中状态
+        });
+        
+        applyCombinedFilter();
+        updateVesselStats(); // 更新船名筛选统计
+    }
+    // 新增函数：更新船名筛选统计
+    function updateVesselStats() {
+        const selectedVesselCount = document.getElementById('selectedVesselCount');
+        if (selectedVesselCount) {
+            selectedVesselCount.textContent = selectedVessels.size;
+        }
+    }
+    // 更新选中数量
+    function updateSelectedCount() {
+        const selectedCountEl = document.getElementById('selectedCount');
+        if (!selectedCountEl) return;
+        const selected = document.querySelectorAll('.cargo-checkbox:checked').length;
+        selectedCountEl.textContent = selected;
+    }
+
+    // 更新筛选统计函数
+    function updateFilterStats() {
+        // 获取所有“当前可见的行”
+        const visibleRows = Array.from(
+            document.querySelectorAll("#cargoTableBody tr")
+        ).filter(row => row.style.display !== "none");
+
+        // ===== ① 统计当前显示的 PO 数 =====
+        const visiblePOs = visibleRows.length;
+        const statsEl = document.getElementById("filterStats");
+        if (statsEl) statsEl.textContent = `当前显示 ${visiblePOs} 个 PO`;
+
+        // ===== ② 累计 Pallet 与 CBM =====
+        let totalPallets = 0;
+        let totalCbm = 0;
+
+        visibleRows.forEach(row => {
+            // 从 <tr data-pallets="..." data-cbm="..."> 里取值
+            const pallets = parseFloat(row.dataset.pallets) || 0;
+            const cbm = parseFloat(row.dataset.cbm) || 0;
+            totalPallets += pallets;
+            totalCbm += cbm;
+        });
+
+        const palletsEl = document.getElementById("totalPalletsCount");
+        const cbmEl = document.getElementById("totalCbmCount");
+
+        if (palletsEl) palletsEl.textContent = totalPallets.toFixed(2);
+        if (cbmEl) cbmEl.textContent = totalCbm.toFixed(2);
     }
 </script>
 {% endblock %}
