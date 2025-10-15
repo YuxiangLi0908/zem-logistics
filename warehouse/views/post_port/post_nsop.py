@@ -1544,7 +1544,9 @@ class PostNsop(View):
         plt_criteria: models.Q | None = None,
     ) -> list[Any]:
         def sort_key(item):
-            custom_method = item.get("custom_delivery_method", "")
+            custom_method = item.get("custom_delivery_method")
+            if custom_method is None:
+                custom_method = ""
             keywords = ["暂扣", "HOLD", "留仓"]
             return (any(k in custom_method for k in keywords),)
         

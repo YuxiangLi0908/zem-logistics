@@ -1623,27 +1623,23 @@
         });
     }
 
-    function abnormalPopUp(fleetNumber,shipmentNumber) {
-        const fleetInput = document.querySelector('.popup-window input[name="fleet_number"]');
-        fleetInput.value = fleetNumber;
-        const shipmentInput = document.querySelector('.popup-window input[name="shipment_batch_number"]');
-        shipmentInput.value = shipmentNumber;
-        var popup = document.querySelector('.popup-window');
-        var shipmentPopUp = document.querySelector('#shipment-reschedule-list');
-        if (popup.style.display === 'none') {
-            popup.style.display = 'block';
-        } else {
-            popup.style.display = 'none';
-            shipmentPopUp.style.display = 'none';
-            const tbody = document.querySelector('#shipment-reschedule-list tbody');
-            tbody.innerHTML = '';
-            const shipmentReschedule = document.querySelector("select[name='shipment_reschedule']");
-            shipmentReschedule.selectedIndex = 0;
-            const abnormalStatus = document.querySelector("select[name='abnormal_status']");
-            abnormalStatus.selectedIndex = 0;
-            const abnormalDescription = document.querySelector("input[name='abnormal_description']");
-            abnormalDescription.value = '';
-        };
-    };
+    function abnormalPopUp(fleetNumber, shipmentNumber) {
+        // 设置异常弹窗中的隐藏字段值
+        document.getElementById('abnormalFleetNumber').value = fleetNumber;
+        document.getElementById('abnormalShipmentNumber').value = shipmentNumber;
+        
+        // 显示异常弹窗
+        document.getElementById('abnormalModal').style.display = 'block';
+    }
+    function closeAbnormalModal() {
+        document.getElementById('abnormalModal').style.display = 'none';
+    }
+    window.addEventListener('click', function(event) {
+        const modal = document.getElementById('abnormalModal');
+        if (event.target === modal) {
+            closeAbnormalModal();
+        }
+    });
+
 </script>
 {% endblock %}
