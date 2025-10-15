@@ -1715,8 +1715,8 @@ class PostNsop(View):
                                 "container_number__container_number",                          
                                 # Value(" ETA:"),
                                 # "formatted_vessel_eta",
-                                # Value(" 提柜:"),
-                                # "formatted_actual_retrieval",
+                                Value(" 提柜:"),
+                                "formatted_actual_retrieval",
                                 output_field=CharField()
                             )),
                         # 有预计提柜时间范围 - 使用前缀 [预计]
