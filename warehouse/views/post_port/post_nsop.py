@@ -471,18 +471,22 @@ class PostNsop(View):
         return await self.handle_appointment_management_post(request)
        
     async def handle_export_pos(self, request: HttpRequest) -> HttpResponse:
-        packinglist_ids = request.POST.getlist("cargo_ids")
+        cargo_ids_str_list = request.POST.getlist("cargo_ids")
         pallet_ids = request.POST.getlist("plt_ids")
 
-        if packinglist_ids and packinglist_ids[0]:
-            packinglist_ids = packinglist_ids[0].split(',')
+        packinglist_ids = []
+        if cargo_ids_str_list and cargo_ids_str_list[0]:
+            packinglist_ids = cargo_ids_str_list[0].split(',')
+            packinglist_ids = [int(x) for x in packinglist_ids if x]
         else:
-            packinglist_ids = []
-
+            packinglist_ids = []     
+            
         if pallet_ids and pallet_ids[0]:
             pallet_ids = pallet_ids[0].split(',')
         else:
             pallet_ids = []
+        if len(packinglist_ids) == 0 and pallet_ids == 0:
+            raise ValueError('没有找到PO')
         all_data = []
 
         if packinglist_ids:
@@ -636,6 +640,7 @@ class PostNsop(View):
 
         if "total_n_pallet_est" in df.columns:
             df["total_n_pallet_est"] = df["total_n_pallet_est"].apply(get_est_pallet)
+
         df["est"] = df["label"] == "EST"
         df["act"] = df["label"] == "ACT"
 
