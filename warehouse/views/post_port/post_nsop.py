@@ -896,10 +896,12 @@ class PostNsop(View):
                 }
             return self.template_td_shipment, context
         st_type = request.POST.get("st_type", "pallet")
-        
+        # 生成匹配建议
+        max_cbm, max_pallet = await self.get_capacity_limits(st_type)
+
         # 获取三类数据：未排约、已排约、待出库
         if not matching_suggestions:
-            matching_suggestions = await self.sp_unscheduled_data(warehouse, st_type)
+            matching_suggestions = await self.sp_unscheduled_data(warehouse, st_type, max_cbm, max_pallet)
         scheduled_data = await self.sp_scheduled_data(warehouse)
         ready_to_ship_data = await self._sp_ready_to_ship_data(warehouse)
         
@@ -909,8 +911,7 @@ class PostNsop(View):
         # 计算统计数据
         summary = await self._sp_calculate_summary(matching_suggestions, scheduled_data, ready_to_ship_data)
         
-        # 生成匹配建议
-        max_cbm, max_pallet = await self.get_capacity_limits(st_type)
+        
 
         if not context:
             context = {}
@@ -937,7 +938,7 @@ class PostNsop(View):
         context["warehouse_json"] = json.dumps(warehouse, cls=DjangoJSONEncoder)
         return self.template_td_shipment, context
     
-    async def sp_unscheduled_data(self, warehouse: str, st_type: str) -> list:
+    async def sp_unscheduled_data(self, warehouse: str, st_type: str, max_cbm, max_pallet) -> list:
         """获取未排约数据"""
         unshipment_pos = await self._get_packing_list(
             models.Q(
@@ -955,7 +956,7 @@ class PostNsop(View):
         shipments = await self.get_available_shipments(warehouse)
         
         # 生成智能匹配建议
-        matching_suggestions = await self.generate_matching_suggestions(unshipment_pos, shipments, warehouse)
+        matching_suggestions = await self.generate_matching_suggestions(unshipment_pos, shipments, warehouse, max_cbm, max_pallet)
         
         # 只返回匹配建议，不返回原始未排约数据
         return matching_suggestions
@@ -974,7 +975,7 @@ class PostNsop(View):
         )
         return shipments
 
-    async def generate_matching_suggestions(self, unshipment_pos, shipments, warehouse, max_cbm=33, max_pallet=26):
+    async def generate_matching_suggestions(self, unshipment_pos, shipments, warehouse):
         """生成智能匹配建议 - 基于功能A的逻辑但适配shipment匹配"""
         suggestions = []
 
