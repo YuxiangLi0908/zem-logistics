@@ -823,25 +823,34 @@ class WarehouseOperations(View):
         }
 
         for fleet in fleets:
-            pallet_stats = await sync_to_async(fleet.shipment.aggregate)(
-                total_pallets=Count('pallet', distinct=True),
-                total_pallet_cbm=Sum('pallet__cbm')
-            )
+            pls_stats = await sync_to_async(
+                lambda: PackingList.objects.filter(
+                    shipment_batch_number__fleet_number=fleet,
+                    container_number__order__offload_id__offload_at__isnull=True
+                ).aggregate(
+                    total_cbm=Sum('cbm'),
+                    count=Count('id')
+                )
+            )()
+            
+            plts_stats = await sync_to_async(
+                lambda: Pallet.objects.filter(
+                    shipment_batch_number__fleet_number=fleet,
+                    container_number__order__offload_id__offload_at__isnull=False
+                ).aggregate(
+                    total_cbm=Sum('cbm'),
+                    count=Count('id')
+                )
+            )()
+            pls_cbm = pls_stats['total_cbm'] or 0
+            plts_cbm = plts_stats['total_cbm'] or 0
+            plts_count = plts_stats['count'] or 0
+            
+            total_cbm = pls_cbm + plts_cbm
+            total_pallets = plts_count + (pls_cbm / 1.8)
 
-            packinglist_stats = await sync_to_async(fleet.shipment.aggregate)(
-                total_packinglist_cbm=Sum('packinglist__cbm')
-            )
-
-            pallet_pallets = pallet_stats['total_pallets'] or 0
-            pallet_cbm = pallet_stats['total_pallet_cbm'] or 0.0
-            packinglist_cbm = packinglist_stats['total_packinglist_cbm'] or 0.0
-
-            packinglist_pallets = round(packinglist_cbm / 1.8) if packinglist_cbm else 0
-
-            is_estimated = pallet_pallets == 0 and packinglist_pallets > 0
-
-            total_pallets = pallet_pallets + packinglist_pallets
-            total_cbm = pallet_cbm + packinglist_cbm
+            is_estimated = plts_count == 0 and total_pallets > 0
+           
 
             days_diff = (fleet.appointment_datetime.date() - today).days
             display_day = days_diff
@@ -889,6 +898,7 @@ class WarehouseOperations(View):
             day_stats[day]['normal_count'] = normal_count
 
         fleet_data.sort(key=lambda x: x['days_diff'])
+        
         context = {
             'warehouse_options': self.warehouse_options,
             'fleets': fleet_data,
