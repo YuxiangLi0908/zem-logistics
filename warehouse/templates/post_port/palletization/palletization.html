@@ -151,76 +151,102 @@
                                 <form method="post" action="" style="display: inline-block;" id="semi_auto_label">
                                     {% csrf_token %}
                                     <input type="hidden" name="step" value="export_pallet_label">
-                                    <button id="editButton" type="button" class="btn btn-primary" onclick="print_label(this)" style="font-size: 11px;">托盘标手动打印</button>
-                                    <div class="popup" style="display: none; z-index:999; position: fixed; top: 50%; left: 50%; transform: translate(-50%, -50%); background-color: white; border: 1px solid gray; padding: 20px;">
-                                        <div style="text-align:right;">
-                                            <button type="button" id="add-more-btn" class="btn btn-success" style="height: 35px; font-size: 12px; margin: 5px;" onclick="addRowBelow()">
-                                                <i class="bi bi-plus-lg"></i> 添加行
+                                    <button id="editButton" type="button" class="btn btn-primary" onclick="print_label(this, '{{ c.container_number }}', '{{ c.customer_name.zem_code }}')" style="font-size: 11px;">托盘标手动打印</button>
+                                    <div class="popup" style="display: none; z-index: 9999; position: fixed; top: 50%; left: 50%; transform: translate(-50%, -50%); background-color: white; border: 2px solid #4a90e2; border-radius: 12px; padding: 20px; box-shadow: 0 10px 30px rgba(0,0,0,0.3); width: 90%; max-width: 1200px; max-height: 85vh; overflow: hidden;">
+                                        <!-- 标题栏和关闭按钮 -->
+                                        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 15px; padding-bottom: 10px; border-bottom: 2px solid #f0f0f0;">
+                                            <h4 style="margin: 0; color: #2c3e50; font-weight: bold;">
+                                                <i class="fas fa-print"></i> 托盘标手动打印编辑
+                                            </h4>
+                                            <button type="button" class="btn-close" onclick="closePopup()" style="background: none; border: none; font-size: 24px; color: #888; cursor: pointer; padding: 0; width: 30px; height: 30px; display: flex; align-items: center; justify-content: center;">
+                                                &times;
                                             </button>
                                         </div>
-                                        <table style=" max-height:90%; overflow-y:scroll; margin: 10px; padding: 100px;" cellpadding='15' id="edit_pallet_label">
-                                            <thead>                       
-                                                <th class="th" style="text-align: center; border: 1px solid #141414">柜号</th>
-                                                <th class="th" style="text-align: center; border: 1px solid #141414">客户</th>
-                                                <th class="th" style="text-align: center; border: 1px solid #141414">唛头</th>
-                                                <th class="th" style="text-align: center; border: 1px solid #141414">fba</th>
-                                                <th class="th" style="text-align: center; border: 1px solid #141414">目的地</th>
-                                                <th class="th" style="text-align: center; border: 1px solid #141414">派送方式</th>                                                
-                                                <th class="th" style="text-align: center; border: 1px solid #141414">板号</th>
-                                                <th class="th" style="text-align: center; border: 1px solid #141414">日期</th>
-                                                <!--
-                                                <th class="th" style="text-align: center; border: 1px solid #141414">最早派送日期</th>
-                                                <th class="th" style="text-align: center; border: 1px solid #141414">最晚派送日期</th>
-                                                -->
-                                                <th class="th" style="text-align: center; border: 1px solid #141414">是否扣货</th>   
-                                            </thead>
-                                            <tr id="lable-row">
-                                                <td style="text-align: center; border: 1px solid #141414; padding:10px;" data-editable="true">
-                                                    <input value="{{ c.container_number }}">
-                                                </td>
-                                                <td style="text-align: center; border: 1px solid #141414; padding:10px;" data-editable="true">
-                                                    <input value="{{ c.customer_name.zem_code }}">
-                                                </td>
-                                                <td style="text-align: center; border: 1px solid #141414; text-wrap: wrap; padding:10px;" data-editable="true">
-                                                    <input type="text" style="width: 100px;">
-                                                </td>
-                                                <td style="text-align: center; border: 1px solid #141414; text-wrap: wrap; padding:10px;" data-editable="true">
-                                                    <input type="text" style="width: 100px;">
-                                                </td>
-                                                <td style="text-align: center; border: 1px solid #141414; text-wrap: wrap; padding:10px;" data-editable="true">
-                                                    <input type="text" style="width: 100px;">
-                                                </td>
-                                                <td style="text-align: center; border: 1px solid #141414; padding:10px;" data-editable="true">
-                                                    <select>
-                                                        <option value="卡车派送">卡车派送</option>
-                                                        <option value="客户自提">客户自提</option>
-                                                        <option value="暂扣留仓">暂扣留仓</option>
-                                                    </select>
-                                                </td>         
-                                                <td style="text-align: center; border: 1px solid #141414; padding:10px;" data-editable="true">
-                                                    <input type="text" style="width: 50px;">
-                                                </td>
-                                                <td style="text-align: center; border: 1px solid #141414; padding:10px;" data-editable="true">
-                                                    <input type="date" data-editable="true">
-                                                </td>
-                                                <!--
-                                                <td style="text-align: center; border: 1px solid #141414; padding:10px;" data-editable="true">
-                                                    <input type="date" data-editable="true">
-                                                </td>
-                                                <td style="text-align: center; border: 1px solid #141414; padding:10px;" data-editable="true">
-                                                    <input type="date" data-editable="true">
-                                                </td>
-                                                -->
-                                                <td style="text-align: center; border: 1px solid #141414; padding:10px;" data-editable="true">
-                                                    <select>
-                                                        <option value="是">是</option>
-                                                        <option value="否">否</option>
-                                                    </select>
-                                                </td>                                        
-                                            </tr>
-                                        </table>
-                                        <div style="text-align:right;">
-                                            <button id="confirmButton" type="button" class="btn btn-primary"  style="font-size: 11px;" onclick="editTable(false)">确认</button>
+                                        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 15px;">
+                                            <div>
+                                                <button type="button" id="add-more-btn" class="btn btn-success" style="height: 35px; font-size: 12px; margin-right: 10px;" onclick="addRowBelow()">
+                                                    <i class="bi bi-plus-lg"></i> 添加行
+                                                </button>
+                                                <button type="button" class="btn btn-warning" style="height: 35px; font-size: 12px;" onclick="editTable(true)">
+                                                    <i class="bi bi-pencil"></i> 编辑模式
+                                                </button>
+                                            </div>
+                                            <div>
+                                                <button type="button" class="btn btn-secondary" style="height: 35px; font-size: 12px; margin-right: 10px;" onclick="clearAllRows()">
+                                                    <i class="bi bi-trash"></i> 清空
+                                                </button>
+                                                <button id="confirmButton" type="button" class="btn btn-primary" style="height: 35px; font-size: 12px;" onclick="editTable(false)">
+                                                    <i class="bi bi-check-lg"></i> 确认打印
+                                                </button>
+                                            </div>
+                                        </div>
+                                        
+                                        <!-- 表格容器 -->
+                                        <div style="max-height: 60vh; overflow-y: auto; border: 1px solid #e0e0e0; border-radius: 8px; padding: 10px;">
+                                            <table style="width: 100%; border-collapse: collapse; font-size: 12px;" id="edit_pallet_label">
+                                                <thead style="position: sticky; top: 0; background: #f8f9fa; z-index: 10;">                       
+                                                    <th style="text-align: center; border: 1px solid #dee2e6; padding: 12px 8px; background: #4a90e2; color: white; font-weight: bold; min-width: 100px;">柜号</th>
+                                                    <th style="text-align: center; border: 1px solid #dee2e6; padding: 12px 8px; background: #4a90e2; color: white; font-weight: bold; min-width: 100px;">客户</th>
+                                                    <th style="text-align: center; border: 1px solid #dee2e6; padding: 12px 8px; background: #4a90e2; color: white; font-weight: bold; min-width: 120px;">唛头</th>
+                                                    <th style="text-align: center; border: 1px solid #dee2e6; padding: 12px 8px; background: #4a90e2; color: white; font-weight: bold; min-width: 120px;">FBA</th>
+                                                    <th style="text-align: center; border: 1px solid #dee2e6; padding: 12px 8px; background: #4a90e2; color: white; font-weight: bold; min-width: 120px;">目的地</th>
+                                                    <th style="text-align: center; border: 1px solid #dee2e6; padding: 12px 8px; background: #4a90e2; color: white; font-weight: bold; min-width: 130px;">派送方式</th>                                                
+                                                    <th style="text-align: center; border: 1px solid #dee2e6; padding: 12px 8px; background: #4a90e2; color: white; font-weight: bold; min-width: 80px;">板号</th>
+                                                    <th style="text-align: center; border: 1px solid #dee2e6; padding: 12px 8px; background: #4a90e2; color: white; font-weight: bold; min-width: 140px;">日期</th>
+                                                    <th style="text-align: center; border: 1px solid #dee2e6; padding: 12px 8px; background: #4a90e2; color: white; font-weight: bold; min-width: 100px;">是否扣货</th>
+                                                    <th style="text-align: center; border: 1px solid #dee2e6; padding: 12px 8px; background: #4a90e2; color: white; font-weight: bold; min-width: 80px;">操作</th>   
+                                                </thead>
+                                                <tbody>
+                                                    <tr id="lable-row">
+                                                        <td style="text-align: center; border: 1px solid #dee2e6; padding: 10px; background: #f8f9fa;">
+                                                            <input type="text" style="width: 100%; border: 1px solid #ced4da; border-radius: 4px; padding: 6px; font-size: 12px; box-sizing: border-box;" placeholder="输入柜号">
+                                                        </td>
+                                                        <td style="text-align: center; border: 1px solid #dee2e6; padding: 10px; background: #f8f9fa;">
+                                                            <input type="text" style="width: 100%; border: 1px solid #ced4da; border-radius: 4px; padding: 6px; font-size: 12px; box-sizing: border-box;" placeholder="输入客户">
+                                                        </td>
+                                                        <td style="text-align: center; border: 1px solid #dee2e6; padding: 10px; background: #f8f9fa;">
+                                                            <input type="text" style="width: 100%; border: 1px solid #ced4da; border-radius: 4px; padding: 6px; font-size: 12px; box-sizing: border-box;" placeholder="输入唛头">
+                                                        </td>
+                                                        <td style="text-align: center; border: 1px solid #dee2e6; padding: 10px; background: #f8f9fa;">
+                                                            <input type="text" style="width: 100%; border: 1px solid #ced4da; border-radius: 4px; padding: 6px; font-size: 12px; box-sizing: border-box;" placeholder="输入FBA">
+                                                        </td>
+                                                        <td style="text-align: center; border: 1px solid #dee2e6; padding: 10px; background: #f8f9fa;">
+                                                            <input type="text" style="width: 100%; border: 1px solid #ced4da; border-radius: 4px; padding: 6px; font-size: 12px; box-sizing: border-box;" placeholder="输入目的地">
+                                                        </td>
+                                                        <td style="text-align: center; border: 1px solid #dee2e6; padding: 10px; background: #f8f9fa;">
+                                                            <select style="width: 100%; border: 1px solid #ced4da; border-radius: 4px; padding: 6px; font-size: 12px; box-sizing: border-box;">
+                                                                <option value="卡车派送">卡车派送</option>
+                                                                <option value="客户自提">客户自提</option>
+                                                                <option value="暂扣留仓">暂扣留仓</option>
+                                                            </select>
+                                                        </td>         
+                                                        <td style="text-align: center; border: 1px solid #dee2e6; padding: 10px; background: #f8f9fa;">
+                                                            <input type="text" style="width: 100%; border: 1px solid #ced4da; border-radius: 4px; padding: 6px; font-size: 12px; box-sizing: border-box;" placeholder="板号">
+                                                        </td>
+                                                        <td style="text-align: center; border: 1px solid #dee2e6; padding: 10px; background: #f8f9fa;">
+                                                            <input type="date" style="width: 100%; border: 1px solid #ced4da; border-radius: 4px; padding: 6px; font-size: 12px; box-sizing: border-box;">
+                                                        </td>
+                                                        <td style="text-align: center; border: 1px solid #dee2e6; padding: 10px; background: #f8f9fa;">
+                                                            <select style="width: 100%; border: 1px solid #ced4da; border-radius: 4px; padding: 6px; font-size: 12px; box-sizing: border-box;">
+                                                                <option value="否">否</option>
+                                                                <option value="是">是</option>
+                                                            </select>
+                                                        </td>
+                                                        <td style="text-align: center; border: 1px solid #dee2e6; padding: 10px; background: #f8f9fa;">
+                                                            <button type="button" class="btn btn-danger btn-sm" onclick="removeRow(this)" style="font-size: 10px; padding: 4px 8px;">
+                                                                <i class="bi bi-trash"></i>
+                                                            </button>
+                                                        </td>                                      
+                                                    </tr>
+                                                </tbody>
+                                            </table>
+                                        </div>
+                                        
+                                        <!-- 底部提示 -->
+                                        <div style="margin-top: 15px; padding: 10px; background: #e7f3ff; border-radius: 6px; border-left: 4px solid #4a90e2;">
+                                            <small style="color: #2c3e50;">
+                                                <i class="bi bi-info-circle"></i> 提示：点击"编辑模式"可修改所有字段，添加多行数据后确认打印
+                                            </small>
                                         </div>
                                     </div>
                                     {% comment %} <script src="script.js"></script> {% endcomment %}
@@ -293,6 +319,109 @@
                                         <i class="bi bi-cloud-arrow-down-fill"></i>
                                     </button>
                                 </form>
+                                 <form method="post" action="" style="display: inline-block;" id="semi_auto_label">
+                                    {% csrf_token %}
+                                    <input type="hidden" name="step" value="export_pallet_label">
+                                    <button id="editButton" type="button" class="btn btn-primary" onclick="print_label(this, '{{ c.container_number }}', '{{ c.customer_name.zem_code }}')" style="font-size: 11px;">托盘标手动打印</button>
+                                    <div class="popup" style="display: none; z-index: 9999; position: fixed; top: 50%; left: 50%; transform: translate(-50%, -50%); background-color: white; border: 2px solid #4a90e2; border-radius: 12px; padding: 20px; box-shadow: 0 10px 30px rgba(0,0,0,0.3); width: 90%; max-width: 1200px; max-height: 85vh; overflow: hidden;">
+                                        <!-- 标题栏和关闭按钮 -->
+                                        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 15px; padding-bottom: 10px; border-bottom: 2px solid #f0f0f0;">
+                                            <h4 style="margin: 0; color: #2c3e50; font-weight: bold;">
+                                                <i class="fas fa-print"></i> 托盘标手动打印编辑
+                                            </h4>
+                                            <button type="button" class="btn-close" onclick="closePopup()" style="background: none; border: none; font-size: 24px; color: #888; cursor: pointer; padding: 0; width: 30px; height: 30px; display: flex; align-items: center; justify-content: center;">
+                                                &times;
+                                            </button>
+                                        </div>
+                                        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 15px;">
+                                            <div>
+                                                <button type="button" id="add-more-btn" class="btn btn-success" style="height: 35px; font-size: 12px; margin-right: 10px;" onclick="addRowBelow()">
+                                                    <i class="bi bi-plus-lg"></i> 添加行
+                                                </button>
+                                                <button type="button" class="btn btn-warning" style="height: 35px; font-size: 12px;" onclick="editTable(true)">
+                                                    <i class="bi bi-pencil"></i> 编辑模式
+                                                </button>
+                                            </div>
+                                            <div>
+                                                <button type="button" class="btn btn-secondary" style="height: 35px; font-size: 12px; margin-right: 10px;" onclick="clearAllRows()">
+                                                    <i class="bi bi-trash"></i> 清空
+                                                </button>
+                                                <button id="confirmButton" type="button" class="btn btn-primary" style="height: 35px; font-size: 12px;" onclick="editTable(false)">
+                                                    <i class="bi bi-check-lg"></i> 确认打印
+                                                </button>
+                                            </div>
+                                        </div>
+                                        
+                                        <!-- 表格容器 -->
+                                        <div style="max-height: 60vh; overflow-y: auto; border: 1px solid #e0e0e0; border-radius: 8px; padding: 10px;">
+                                            <table style="width: 100%; border-collapse: collapse; font-size: 12px;" id="edit_pallet_label">
+                                                <thead style="position: sticky; top: 0; background: #f8f9fa; z-index: 10;">                       
+                                                    <th style="text-align: center; border: 1px solid #dee2e6; padding: 12px 8px; background: #4a90e2; color: white; font-weight: bold; min-width: 100px;">柜号</th>
+                                                    <th style="text-align: center; border: 1px solid #dee2e6; padding: 12px 8px; background: #4a90e2; color: white; font-weight: bold; min-width: 100px;">客户</th>
+                                                    <th style="text-align: center; border: 1px solid #dee2e6; padding: 12px 8px; background: #4a90e2; color: white; font-weight: bold; min-width: 120px;">唛头</th>
+                                                    <th style="text-align: center; border: 1px solid #dee2e6; padding: 12px 8px; background: #4a90e2; color: white; font-weight: bold; min-width: 120px;">FBA</th>
+                                                    <th style="text-align: center; border: 1px solid #dee2e6; padding: 12px 8px; background: #4a90e2; color: white; font-weight: bold; min-width: 120px;">目的地</th>
+                                                    <th style="text-align: center; border: 1px solid #dee2e6; padding: 12px 8px; background: #4a90e2; color: white; font-weight: bold; min-width: 130px;">派送方式</th>                                                
+                                                    <th style="text-align: center; border: 1px solid #dee2e6; padding: 12px 8px; background: #4a90e2; color: white; font-weight: bold; min-width: 80px;">板号</th>
+                                                    <th style="text-align: center; border: 1px solid #dee2e6; padding: 12px 8px; background: #4a90e2; color: white; font-weight: bold; min-width: 140px;">日期</th>
+                                                    <th style="text-align: center; border: 1px solid #dee2e6; padding: 12px 8px; background: #4a90e2; color: white; font-weight: bold; min-width: 100px;">是否扣货</th>
+                                                    <th style="text-align: center; border: 1px solid #dee2e6; padding: 12px 8px; background: #4a90e2; color: white; font-weight: bold; min-width: 80px;">操作</th>   
+                                                </thead>
+                                                <tbody>
+                                                    <tr id="lable-row">
+                                                        <td style="text-align: center; border: 1px solid #dee2e6; padding: 10px; background: #f8f9fa;">
+                                                            <input type="text" style="width: 100%; border: 1px solid #ced4da; border-radius: 4px; padding: 6px; font-size: 12px; box-sizing: border-box;" placeholder="输入柜号">
+                                                        </td>
+                                                        <td style="text-align: center; border: 1px solid #dee2e6; padding: 10px; background: #f8f9fa;">
+                                                            <input type="text" style="width: 100%; border: 1px solid #ced4da; border-radius: 4px; padding: 6px; font-size: 12px; box-sizing: border-box;" placeholder="输入客户">
+                                                        </td>
+                                                        <td style="text-align: center; border: 1px solid #dee2e6; padding: 10px; background: #f8f9fa;">
+                                                            <input type="text" style="width: 100%; border: 1px solid #ced4da; border-radius: 4px; padding: 6px; font-size: 12px; box-sizing: border-box;" placeholder="输入唛头">
+                                                        </td>
+                                                        <td style="text-align: center; border: 1px solid #dee2e6; padding: 10px; background: #f8f9fa;">
+                                                            <input type="text" style="width: 100%; border: 1px solid #ced4da; border-radius: 4px; padding: 6px; font-size: 12px; box-sizing: border-box;" placeholder="输入FBA">
+                                                        </td>
+                                                        <td style="text-align: center; border: 1px solid #dee2e6; padding: 10px; background: #f8f9fa;">
+                                                            <input type="text" style="width: 100%; border: 1px solid #ced4da; border-radius: 4px; padding: 6px; font-size: 12px; box-sizing: border-box;" placeholder="输入目的地">
+                                                        </td>
+                                                        <td style="text-align: center; border: 1px solid #dee2e6; padding: 10px; background: #f8f9fa;">
+                                                            <select style="width: 100%; border: 1px solid #ced4da; border-radius: 4px; padding: 6px; font-size: 12px; box-sizing: border-box;">
+                                                                <option value="卡车派送">卡车派送</option>
+                                                                <option value="客户自提">客户自提</option>
+                                                                <option value="暂扣留仓">暂扣留仓</option>
+                                                            </select>
+                                                        </td>         
+                                                        <td style="text-align: center; border: 1px solid #dee2e6; padding: 10px; background: #f8f9fa;">
+                                                            <input type="text" style="width: 100%; border: 1px solid #ced4da; border-radius: 4px; padding: 6px; font-size: 12px; box-sizing: border-box;" placeholder="板号">
+                                                        </td>
+                                                        <td style="text-align: center; border: 1px solid #dee2e6; padding: 10px; background: #f8f9fa;">
+                                                            <input type="date" style="width: 100%; border: 1px solid #ced4da; border-radius: 4px; padding: 6px; font-size: 12px; box-sizing: border-box;">
+                                                        </td>
+                                                        <td style="text-align: center; border: 1px solid #dee2e6; padding: 10px; background: #f8f9fa;">
+                                                            <select style="width: 100%; border: 1px solid #ced4da; border-radius: 4px; padding: 6px; font-size: 12px; box-sizing: border-box;">
+                                                                <option value="否">否</option>
+                                                                <option value="是">是</option>
+                                                            </select>
+                                                        </td>
+                                                        <td style="text-align: center; border: 1px solid #dee2e6; padding: 10px; background: #f8f9fa;">
+                                                            <button type="button" class="btn btn-danger btn-sm" onclick="removeRow(this)" style="font-size: 10px; padding: 4px 8px;">
+                                                                <i class="bi bi-trash"></i>
+                                                            </button>
+                                                        </td>                                      
+                                                    </tr>
+                                                </tbody>
+                                            </table>
+                                        </div>
+                                        
+                                        <!-- 底部提示 -->
+                                        <div style="margin-top: 15px; padding: 10px; background: #e7f3ff; border-radius: 6px; border-left: 4px solid #4a90e2;">
+                                            <small style="color: #2c3e50;">
+                                                <i class="bi bi-info-circle"></i> 提示：点击"编辑模式"可修改所有字段，添加多行数据后确认打印
+                                            </small>
+                                        </div>
+                                    </div>
+                                    {% comment %} <script src="script.js"></script> {% endcomment %}
+                                </form> 
                             </td>
                             <td class="td">
                                 <form method="post" action="">
@@ -381,79 +510,157 @@
             });
         }
     });
-    function print_label(button) {   //用户要编辑手动打印托盘标的表时，弹出表格框
+
+    function closePopup() {
         var popup = document.querySelector('.popup');
-        if (popup.style.display === 'none') {
+        if (popup) {
+            popup.style.display = 'none';
+        }
+    }
+
+    // 删除行函数
+    function removeRow(button) {
+        var row = button.closest('tr');
+        if (row) {
+            var table = document.getElementById('edit_pallet_label');
+            var rows = table.getElementsByTagName('tr');
+            // 确保至少保留一行
+            if (rows.length > 2) {
+                row.remove();
+            } else {
+                alert('至少需要保留一行数据');
+            }
+        }
+    }
+
+    // 清空所有行函数
+    function clearAllRows() {
+        if (confirm('确定要清空所有数据吗？')) {
+            var table = document.getElementById('edit_pallet_label');
+            var tbody = table.querySelector('tbody');
+            // 清空tbody
+            tbody.innerHTML = '';
+            // 重新添加一行
+            var newRow = document.createElement('tr');
+            newRow.id = 'lable-row';
+            newRow.innerHTML = `
+                <td style="text-align: center; border: 1px solid #dee2e6; padding: 10px; background: #f8f9fa;">
+                    <input type="text" style="width: 100%; border: 1px solid #ced4da; border-radius: 4px; padding: 6px; font-size: 12px; box-sizing: border-box;" placeholder="输入柜号">
+                </td>
+                <td style="text-align: center; border: 1px solid #dee2e6; padding: 10px; background: #f8f9fa;">
+                    <input type="text" style="width: 100%; border: 1px solid #ced4da; border-radius: 4px; padding: 6px; font-size: 12px; box-sizing: border-box;" placeholder="输入客户">
+                </td>
+                <td style="text-align: center; border: 1px solid #dee2e6; padding: 10px; background: #f8f9fa;">
+                    <input type="text" style="width: 100%; border: 1px solid #ced4da; border-radius: 4px; padding: 6px; font-size: 12px; box-sizing: border-box;" placeholder="输入唛头">
+                </td>
+                <td style="text-align: center; border: 1px solid #dee2e6; padding: 10px; background: #f8f9fa;">
+                    <input type="text" style="width: 100%; border: 1px solid #ced4da; border-radius: 4px; padding: 6px; font-size: 12px; box-sizing: border-box;" placeholder="输入FBA">
+                </td>
+                <td style="text-align: center; border: 1px solid #dee2e6; padding: 10px; background: #f8f9fa;">
+                    <input type="text" style="width: 100%; border: 1px solid #ced4da; border-radius: 4px; padding: 6px; font-size: 12px; box-sizing: border-box;" placeholder="输入目的地">
+                </td>
+                <td style="text-align: center; border: 1px solid #dee2e6; padding: 10px; background: #f8f9fa;">
+                    <select style="width: 100%; border: 1px solid #ced4da; border-radius: 4px; padding: 6px; font-size: 12px; box-sizing: border-box;">
+                        <option value="卡车派送">卡车派送</option>
+                        <option value="客户自提">客户自提</option>
+                        <option value="暂扣留仓">暂扣留仓</option>
+                    </select>
+                </td>         
+                <td style="text-align: center; border: 1px solid #dee2e6; padding: 10px; background: #f8f9fa;">
+                    <input type="text" style="width: 100%; border: 1px solid #ced4da; border-radius: 4px; padding: 6px; font-size: 12px; box-sizing: border-box;" placeholder="板号">
+                </td>
+                <td style="text-align: center; border: 1px solid #dee2e6; padding: 10px; background: #f8f9fa;">
+                    <input type="date" style="width: 100%; border: 1px solid #ced4da; border-radius: 4px; padding: 6px; font-size: 12px; box-sizing: border-box;">
+                </td>
+                <td style="text-align: center; border: 1px solid #dee2e6; padding: 10px; background: #f8f9fa;">
+                    <select style="width: 100%; border: 1px solid #ced4da; border-radius: 4px; padding: 6px; font-size: 12px; box-sizing: border-box;">
+                        <option value="否">否</option>
+                        <option value="是">是</option>
+                    </select>
+                </td>
+                <td style="text-align: center; border: 1px solid #dee2e6; padding: 10px; background: #f8f9fa;">
+                    <button type="button" class="btn btn-danger btn-sm" onclick="removeRow(this)" style="font-size: 10px; padding: 4px 8px;">
+                        <i class="bi bi-trash"></i>
+                    </button>
+                </td>
+            `;
+            tbody.appendChild(newRow);
+        }
+    }
+    function print_label(button, containerNumber, customerCode) {
+        var popup = document.querySelector('.popup');
+        
+        // 填充柜号和客户信息到第一行
+        var firstRow = document.querySelector('#lable-row');
+        if (firstRow) {
+            var containerInput = firstRow.cells[0].querySelector('input');
+            var customerInput = firstRow.cells[1].querySelector('input');
+            
+            if (containerInput) containerInput.value = containerNumber;
+            if (customerInput) customerInput.value = customerCode;
+        }
+        
+        if (popup.style.display === 'none' || popup.style.display === '') {
             popup.style.display = 'block';
         } else {
             popup.style.display = 'none';
         }
-        //button.style.backgroundColor = 'gray';   
-    };
-    function editTable(flag){   //用户编辑时，将表格的单元格变为编辑状态，用户确认时，变为不可编辑状态，并记录单元格的内容，用于传输给视图
+    }
+    function editTable(flag) {
         customerInfo = []
         var table = document.getElementById('edit_pallet_label');              
         var rows = table.getElementsByTagName('tr');
-        for (var i=1; i < rows.length; i++){      
+        
+        for (var i = 1; i < rows.length; i++) {      
             var cells = rows[i].getElementsByTagName('td');
             var rowData = [];
-            for (var j = 0; j < cells.length; j++) {
-                if (cells[j].getAttribute('data-editable') === 'true') {
-                    if (flag){
-                        if (!cells[j].getElementsByTagName('input')[0]){
-                            var content = cells[j].innerHTML;
-                            var input = document.createElement('input');
-                            input.type = 'text';
-                            input.value = content;
-                            input.size = 15;
-                            cells[j].innerHTML = '';
-                            cells[j].appendChild(input);
+            
+            for (var j = 0; j < cells.length - 1; j++) { // 减1是为了跳过最后一列的操作按钮
+                var input = cells[j].querySelector('input');
+                var select = cells[j].querySelector('select');
+                
+                if (flag) {
+                    // 编辑模式：确保所有字段都是可编辑的
+                    // 在新的界面中，所有字段默认就是可编辑的，所以不需要特殊处理
+                } else {
+                    // 确认模式：收集数据
+                    if (input) {
+                        if (input.type === 'date' || input.type === 'text') {
+                            rowData.push(input.value);
                         }
-                    } else {
-                        var input = cells[j].getElementsByTagName('input')[0];
-                        if (input){
-                            var tr = rows[i];
-                            if (tr.id && tr.id.indexOf('empty')=== -1) {
-                                rowData.push(input.value);
-                            }
-                            cells[j].innerHTML = input.value;    
-                            console.log(input.value)                       
-                        } else {
-                            // 处理最后一个包含select元素的单元格
-                            var select = cells[j].getElementsByTagName('select')[0];
-                            if (select) {
-                               rowData.push(select.value);
-                            }
-                        }
+                    } else if (select) {
+                        rowData.push(select.value);
                     }
                 }
             }
+            
             if (rowData.length > 0) {
                 customerInfo.push(rowData);
             }
         };
-        if (!flag){  
-            for (var i=1; i<rows.length; i++){
-                var rowData = {};
-                var cells = rows[i].getElementsByTagName('td');
-                for (var j = 0; j < cells.length; j++) {
-                    var cellName = 'cell' + j;
-                    rowData[cellName] = cells[j].innerHTML;
-                }
-            }
+        
+        if (!flag) {  
             var jsonCustomerInfo = JSON.stringify(customerInfo);
             var form = document.getElementById('semi_auto_label');
+            
+            // 移除可能已存在的customerInfo输入
+            var existingInput = form.querySelector('input[name="customerInfo"]');
+            if (existingInput) {
+                existingInput.remove();
+            }
+            
             var newInput = document.createElement('input');
             newInput.value = jsonCustomerInfo;
             newInput.name = 'customerInfo';
             newInput.type = 'hidden';
-            form.appendChild(newInput)
+            form.appendChild(newInput);
 
+            console.log('提交的数据:', customerInfo); // 调试用
+            
             var popup = document.querySelector('.popup');
             popup.style.display = 'none';
             form.submit();
         };
-        
     };
     function addRowBelow() {   //添加行的操作
         var table = document.getElementById('edit_pallet_label');
