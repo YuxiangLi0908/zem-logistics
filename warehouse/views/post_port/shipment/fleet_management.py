@@ -912,12 +912,49 @@ class FleetManagement(View):
         fleet = await sync_to_async(Fleet.objects.get)(fleet_number=fleet_number)
         fleet.fleet_cost = fleet_cost
         await sync_to_async(fleet.save)()
-
+        error_messages = []
         fleet_shipments = await sync_to_async(list)(
             FleetShipmentPallet.objects.filter(
                 fleet_number__fleet_number=fleet_number
             ).only("PO_ID", "total_pallet")
         )
+        if not fleet_shipments:
+            # 如果找不到，说明这个车次，在系统上没有经过确认出库那一步，这里再补上
+            criteria_plt = models.Q(
+                shipment_batch_number__fleet_number=fleet_number
+            )
+            #先找到这个车/约里面的板子，按PO_ID分组，因为一组PO_ID存成一条记录
+            grouped_pallets = await sync_to_async(list)(
+                Pallet.objects.filter(criteria_plt)
+                .values("shipment_batch_number", "PO_ID", "container_number")
+                .annotate(
+                    actual_pallets=Count("pallet_id")
+                )  # 计算每组的板子数量
+                .order_by("shipment_batch_number", "PO_ID")
+            )
+            new_fleet_shipment_pallets = []
+            if not grouped_pallets:
+                error_messages.append(f"{fleet_number}车次里面板子是空的")
+            for group in grouped_pallets:
+                new_record = FleetShipmentPallet(
+                    fleet_number=fleet,
+                    pickup_number=fleet.pickup_number,
+                    shipment_batch_number_id=group["shipment_batch_number"],
+                    PO_ID=group["PO_ID"],
+                    total_pallet=group["actual_pallets"],
+                    container_number_id=group["container_number"],
+                    is_recorded=False, #这里只是登记，没有记录到总费用，所以默认是False
+                )
+                new_fleet_shipment_pallets.append(new_record)
+
+            await sync_to_async(FleetShipmentPallet.objects.bulk_create)(
+                new_fleet_shipment_pallets, batch_size=500
+            )
+            fleet_shipments = await sync_to_async(list)(
+                FleetShipmentPallet.objects.filter(
+                    fleet_number__fleet_number=fleet_number
+                ).only("PO_ID", "total_pallet")
+            )
         total_pallets_in_fleet = sum(
             [fs.total_pallet for fs in fleet_shipments if fs.total_pallet]
         )
