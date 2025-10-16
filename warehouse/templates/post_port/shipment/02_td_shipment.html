@@ -92,6 +92,8 @@
                             <tr style="position: sticky; top: 52px;">
                                 <th class="th" style="min-width: 40px; text-align: center;">
                                     <input type="checkbox" id="selectAllCheckbox" onchange="toggleAllCheckboxes()">
+                                    <br>
+                                    <span id="selectedCount" style="font-size: 10px; color: #666;">0条</span>
                                 </th>
                                 <th class="th"></th>
                                 <th class="th"><input type="text" id="containerSearchInput" placeholder="搜索柜号..." oninput="filterTable()" size="13" style="font-size: 11px;"></th>
@@ -423,6 +425,7 @@
                 var cbmSum = 0;
                 var palletSum = 0;
                 var weightSum = 0;
+                var count = 0;
                 checkboxes.forEach(function (cb) {
                     if (cb.checked) {
                         var row = cb.closest('tr');
@@ -441,11 +444,14 @@
                         weightSum += weight;
                         weightSum = weightSum.toFixed(2);
                         weightSum = parseFloat(weightSum);
+
+                        count++;
                     }
                 });
                 sumRow.cells[9].textContent = cbmSum;
                 sumRow.cells[10].textContent = palletSum;
                 sumRow.cells[12].textContent = weightSum;
+                document.getElementById('selectedCount').textContent = count + '条';
             });
         });
     };
