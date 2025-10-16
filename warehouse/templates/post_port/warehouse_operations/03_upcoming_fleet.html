@@ -683,6 +683,7 @@
                                     {% elif fleet.warehouse_process_status == 'check_in' %}fa-check-circle
                                     {% elif fleet.warehouse_process_status == 'loading' %}fa-truck-loading
                                     {% elif fleet.warehouse_process_status == 'shipped' %}fa-check-double
+                                    {% elif fleet.warehouse_process_status == 'proof_uploaded' %}fa-upload
                                     {% elif fleet.warehouse_process_status == 'abnormal' %}fa-exclamation-triangle
                                     {% else %}fa-circle{% endif %} status-icon">
                                 </i>
@@ -690,6 +691,7 @@
                                 {% elif fleet.warehouse_process_status == 'check_in' %}已签到
                                 {% elif fleet.warehouse_process_status == 'loading' %}装柜中
                                 {% elif fleet.warehouse_process_status == 'shipped' %}已出库
+                                {% elif fleet.warehouse_process_status == 'proof_uploaded' %}已传凭证
                                 {% elif fleet.warehouse_process_status == 'abnormal' %}已异常 
                                 {% else %}未知状态{% endif %}
                             </span>
@@ -772,38 +774,48 @@
                             </form>
                             
                             {% if fleet.warehouse_process_status == 'waiting' %}
-                            <form method="post" class="action-form">
-                                {% csrf_token %}
-                                <input type="hidden" name="step" value="loading_fleet">
-                                <input type="hidden" name="warehouse" value="{{ warehouse }}">
-                                <input type="hidden" name="fleet_number" value="{{ fleet.fleet_number }}">
-                                <button type="submit" class="action-btn btn-success">
-                                    <i class="fas fa-play-circle"></i> 开始装柜
-                                </button>
-                            </form>
+                                <form method="post" class="action-form">
+                                    {% csrf_token %}
+                                    <input type="hidden" name="step" value="loading_fleet">
+                                    <input type="hidden" name="warehouse" value="{{ warehouse }}">
+                                    <input type="hidden" name="fleet_number" value="{{ fleet.fleet_number }}">
+                                    <button type="submit" class="action-btn btn-success">
+                                        <i class="fas fa-play-circle"></i> 开始装柜
+                                    </button>
+                                </form> <!-- 这两个的按钮是一样，因为不管司机没到还是签到，下一步操作都是装柜-->
                             {% elif fleet.warehouse_process_status == 'check_in' %}
-                            <form method="post" class="action-form">
-                                {% csrf_token %}
-                                <input type="hidden" name="step" value="loading_fleet">
-                                <input type="hidden" name="warehouse" value="{{ warehouse }}">
-                                <input type="hidden" name="fleet_number" value="{{ fleet.fleet_number }}">
-                                <button type="submit" class="action-btn btn-success">
-                                    <i class="fas fa-play-circle"></i> 开始装柜
-                                </button>
-                            </form>
+                                <form method="post" class="action-form">
+                                    {% csrf_token %}
+                                    <input type="hidden" name="step" value="loading_fleet">
+                                    <input type="hidden" name="warehouse" value="{{ warehouse }}">
+                                    <input type="hidden" name="fleet_number" value="{{ fleet.fleet_number }}">
+                                    <button type="submit" class="action-btn btn-success">
+                                        <i class="fas fa-play-circle"></i> 开始装柜
+                                    </button>
+                                </form>
                             {% elif fleet.warehouse_process_status == 'loading' %}
-                            <button type="button" class="action-btn btn-warning complete-loading-btn" 
-                                    data-fleet="{{ fleet.fleet_number }}">
-                                <i class="fas fa-check-circle"></i> 完成出库
-                            </button>
-                            {% elif fleet.warehouse_process_status == 'shipped' %}
-                            <span class="action-btn btn-success" style="cursor: default;">
-                                <i class="fas fa-check-double"></i> 已完成
-                            </span>
+                                <form method="post" class="action-form">
+                                    {% csrf_token %}
+                                    <input type="hidden" name="step" value="shipped_fleet">
+                                    <input type="hidden" name="warehouse" value="{{ warehouse }}">
+                                    <input type="hidden" name="fleet_number" value="{{ fleet.fleet_number }}">
+                                    <button type="submit" class="action-btn btn-success">
+                                        <i class="fas fa-play-circle"></i> 确认出库
+                                    </button>
+                                </form>                                             
+                            {% elif fleet.warehouse_process_status == 'shipped' %}  
+                                <button type="button" class="action-btn btn-warning complete-loading-btn" 
+                                        data-fleet="{{ fleet.fleet_number }}">
+                                    <i class="fas fa-check-circle"></i> 上传凭证
+                                </button>    
+                            {% elif fleet.warehouse_process_status == 'proof_uploaded' %}
+                                <span class="action-btn btn-danger" style="cursor: default;">
+                                    <i class="fas fa-exclamation-triangle"></i> 已完结{{ fleet.abnormal_reason }}）
+                                </span>
                             {% elif fleet.warehouse_process_status == 'abnormal' %}
-                            <span class="action-btn btn-danger" style="cursor: default;">
-                                <i class="fas fa-exclamation-triangle"></i> 已异常（{{ fleet.abnormal_reason }}）
-                            </span>
+                                <span class="action-btn btn-danger" style="cursor: default;">
+                                    <i class="fas fa-exclamation-triangle"></i> 已异常（{{ fleet.abnormal_reason }}）
+                                </span>
                             {% endif %}
                             {% if fleet.warehouse_process_status != 'shipped' and fleet.warehouse_process_status != 'abnormal' %}
                                 <button type="button" class="action-btn btn-danger report-issue-btn" 
@@ -831,7 +843,7 @@
 <div id="completeLoadingModal" style="display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background-color: rgba(0,0,0,0.5); z-index: 999; overflow-y: auto;">
     <div style="position: relative; top: 50%; left: 50%; transform: translate(-50%, -50%); width: 90%; max-width: 500px; background: white; border-radius: 8px; box-shadow: 0 4px 20px rgba(0,0,0,0.15); padding: 25px;">
         <span class="close" style="position: absolute; top: 15px; right: 15px; font-size: 24px; cursor: pointer; color: #666;" onclick="adjustBalance()">&times;</span>   
-        <h3 style="margin-top: 0; margin-bottom: 20px; color: #333; font-size: 18px; font-weight: 600;">完成出库</h3>
+        <h3 style="margin-top: 0; margin-bottom: 20px; color: #333; font-size: 18px; font-weight: 600;">上传凭证</h3>
         
         <form method="post" action="" style="margin-bottom: 15px;" enctype="multipart/form-data">
             {% csrf_token %}
@@ -842,7 +854,7 @@
             <div class="form-group" style="margin-bottom: 15px;">
                 <label style="display: block; margin-bottom: 6px; font-size: 14px; color: #555;">凭证图片：</label>
                 <div style="border: 1px dashed #ddd; border-radius: 4px; padding: 15px; text-align: center; background: #f9f9f9;">
-                    <input type="file" name="receipt_image" id="receiptImage" accept="image/*" style="display: none;" onchange="handleImageUpload(this)">
+                    <input type="file" name="receipt_images" id="receiptImage" accept="image/*" multiple style="display: none;" onchange="handleImageUpload(this)">
                     <div id="uploadPrompt" style="cursor: pointer;">
                         <label for="receiptImage" style="display: block;">
                             <div style="font-size: 48px; color: #1890ff;">+</div>
@@ -1115,23 +1127,57 @@
     });
 
     function handleImageUpload(input) {
-        const file = input.files[0];
-        if (!file) return;
-        document.getElementById('uploadPrompt').style.display = 'none';
-        document.getElementById('imagePreview').style.display = 'block';
+        const previewContainer = document.getElementById('imagePreview');
+        previewContainer.innerHTML = ''; // 清空之前的预览
+        const files = input.files;
 
-        document.getElementById('fileNameDisplay').textContent = `已选择: ${file.name}`;
-        
-        if (file.type.startsWith('image/')) {
+        if (files.length > 0) {
+            previewContainer.style.display = 'block';
+        } else {
+            previewContainer.style.display = 'none';
+        }
+
+        Array.from(files).forEach((file, index) => {
             const reader = new FileReader();
             reader.onload = function(e) {
-                const previewImg = document.getElementById('previewImg');
-                previewImg.src = e.target.result;
-                previewImg.style.display = 'block';
-                document.getElementById('imageActions').style.display = 'block';
-            }
+                const div = document.createElement('div');
+                div.style.marginBottom = '10px';
+                div.style.position = 'relative';
+
+                const img = document.createElement('img');
+                img.src = e.target.result;
+                img.style.maxWidth = '100%';
+                img.style.maxHeight = '150px';
+                img.style.borderRadius = '4px';
+                div.appendChild(img);
+
+                const removeBtn = document.createElement('button');
+                removeBtn.type = 'button';
+                removeBtn.innerText = '删除';
+                removeBtn.style.position = 'absolute';
+                removeBtn.style.top = '5px';
+                removeBtn.style.right = '5px';
+                removeBtn.style.padding = '2px 5px';
+                removeBtn.style.background = '#ff4d4f';
+                removeBtn.style.color = 'white';
+                removeBtn.style.border = 'none';
+                removeBtn.style.borderRadius = '2px';
+                removeBtn.style.cursor = 'pointer';
+                removeBtn.onclick = () => {
+                    const dt = new DataTransfer();
+                    Array.from(input.files)
+                        .filter((_, i) => i !== index)
+                        .forEach(f => dt.items.add(f));
+                    input.files = dt.files;
+                    div.remove();
+                    if (input.files.length === 0) previewContainer.style.display = 'none';
+                };
+                div.appendChild(removeBtn);
+
+                previewContainer.appendChild(div);
+            };
             reader.readAsDataURL(file);
-        }
+        });
     }
 
     document.querySelectorAll('form').forEach(form => {

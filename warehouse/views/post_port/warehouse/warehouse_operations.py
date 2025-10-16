@@ -109,6 +109,9 @@ class WarehouseOperations(View):
         elif step == "loading_fleet":
             template, context = await self.handle_loading_fleet_post(request)
             return render(request, template, context)
+        elif step == "shipped_fleet":
+            template, context = await self.handle_shipped_fleet_post(request)
+            return render(request, template, context)
         elif step == "complete_loading":
             file_path_name = "outbound_file"
             template, context = await self.handle_complete_loading_post(request, file_path_name)
@@ -455,26 +458,34 @@ class WarehouseOperations(View):
         fleet_number = request.POST.get("fleet_number")
         offload_id = request.POST.get("offload_id")
         #上传出库凭证
-        try:
-            receipt_image = request.FILES.get("receipt_image")
-            if receipt_image:
-                valid_extensions = [".jpg", ".png", ".jpeg"]
-                ext = os.path.splitext(receipt_image.name)[1].lower()
-                if ext not in valid_extensions:
-                    raise ValidationError("仅支持JPG/PNG格式图片")
-                if receipt_image.size > 5 * 1024 * 1024:  # 5MB
-                    raise ValidationError("图片大小不能超过5MB")
-        except ValidationError as e:
-            raise ValidationError("图片格式错误")
-        link = ""
-        if receipt_image:
+
+        receipt_images = request.FILES.getlist("receipt_images")
+        uploaded_links = []
+
+        valid_extensions = [".jpg", ".png", ".jpeg"]
+        max_size = 5 * 1024 * 1024  # 5MB
+        for img in receipt_images:
+            if not img:
+                continue
+
+            # 校验格式
+            ext = os.path.splitext(img.name)[1].lower()
+            if ext not in valid_extensions:
+                raise ValidationError(f"仅支持JPG/PNG格式图片: {img.name}")
+
+            # 校验大小
+            if img.size > max_size:
+                raise ValidationError(f"图片大小不能超过5MB: {img.name}")
+
+            # 上传
             conn = self._get_sharepoint_auth()
-            link = await self._upload_image_to_sharepoint(conn, receipt_image, file_path_name)
+            link = await self._upload_image_to_sharepoint(conn, img, file_path_name)
+            uploaded_links.append(link)
 
         #更新车次状态
         updated = await sync_to_async(
             Fleet.objects.filter(fleet_number=fleet_number).update
-        )(warehouse_process_status="shipped", shipped_cert_link=link)
+        )(warehouse_process_status="shipped", shipped_cert_link=uploaded_links)
 
         return await self.handle_upcoming_fleet_post(request)
 
@@ -547,6 +558,19 @@ class WarehouseOperations(View):
         updated = await sync_to_async(
             Fleet.objects.filter(fleet_number=fleet_number).update
         )(pre_load=pre_load)
+
+        if updated == 0:
+            return ValueError('未查到该车次')
+        return await self.handle_upcoming_fleet_post(request)
+    
+    async def handle_shipped_fleet_post(
+        self, request: HttpRequest
+    ) -> tuple[str, dict[str, Any]]:
+        fleet_number = request.POST.get("fleet_number")
+
+        updated = await sync_to_async(
+            Fleet.objects.filter(fleet_number=fleet_number).update
+        )(warehouse_process_status="shipped")
 
         if updated == 0:
             return ValueError('未查到该车次')
@@ -750,13 +774,21 @@ class WarehouseOperations(View):
 
         criteria1 = models.Q(appointment_datetime__date__range=[today, three_days_later])
         criteria2 = models.Q(
-            ~models.Q(warehouse_process_status__in=['shipped', 'abnormal']),
             appointment_datetime__date__range=[one_week_ago, today],
         )
         warehouse_condition = models.Q(origin=warehouse)
         query_conditions = (criteria1 | criteria2) & warehouse_condition
         fleets = await sync_to_async(list)(
-            Fleet.objects.filter(query_conditions).prefetch_related(
+            Fleet.objects.filter(query_conditions)
+            .annotate(
+                shipped_order=Case(
+                    When(warehouse_process_status='shipped', then=Value(1)),
+                    default=Value(0),
+                    output_field=IntegerField()
+                )
+            )
+            .order_by('appointment_datetime', 'shipped_order') 
+            .prefetch_related(
                 Prefetch(
                     'shipment',
                     queryset=Shipment.objects.prefetch_related(
