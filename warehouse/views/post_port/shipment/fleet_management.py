@@ -1619,6 +1619,18 @@ class FleetManagement(View):
         plt_ids = [ids.split(",") for ids in plt_ids]
 
         error_messages = []
+        # 找出包含"暂扣留仓"的板子
+        hold_pallets = await sync_to_async(
+            lambda: [pallet for pallet in shipped_pallets if "暂扣留仓" in getattr(pallet, 'delivery_method', '')]
+        )()
+
+        # 如果有暂扣留仓的板子，记录错误信息
+        
+        if hold_pallets:
+            if name == "post_nsop":
+                return {'error_messages':"存在未解扣的板子，不能确认出库！"}
+            error_messages.append(f"存在板子未解扣，不能确认出库")
+            return await self.handle_outbound_warehouse_search_post(request,error_messages)
         #判断是否有未解扣的板子，有的话，就直接报错
         all_flat_ids = [pid for group in plt_ids for pid in group]
 
@@ -1648,26 +1660,14 @@ class FleetManagement(View):
 
         # 把出库的板子的slot改为空    
         await sync_to_async(
-            lambda: Pallet.objects.filter(id__in=all_flat_ids)
-            .exclude(id__in=shipped_pallet_ids)
+            lambda: Pallet.objects.filter(id__in=shipped_pallet_ids)
             .update(slot=None)
         )()
         #要出库的查看下是否有未解扣的
         shipped_pallets = await sync_to_async(
             lambda: list(Pallet.objects.filter(id__in=shipped_pallet_ids).select_related('container_number'))
         )()
-        # 找出包含"暂扣留仓"的板子
-        hold_pallets = await sync_to_async(
-            lambda: [pallet for pallet in shipped_pallets if "暂扣留仓" in getattr(pallet, 'delivery_method', '')]
-        )()
-
-        # 如果有暂扣留仓的板子，记录错误信息
         
-        if hold_pallets:
-            if name == "post_nsop":
-                return {'error_messages':"存在未解扣的板子，不能确认出库！"}
-            error_messages.append(f"存在板子未解扣，不能确认出库")
-            return await self.handle_outbound_warehouse_search_post(request,error_messages)
         
         unshipped_pallet = await sync_to_async(list)(
             Pallet.objects.select_related("shipment_batch_number").filter(
