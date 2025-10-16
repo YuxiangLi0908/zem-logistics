@@ -3571,6 +3571,7 @@ class Accounting(View):
         overpallet_fee = float(request.POST.get("overpallet_fee", 0))
         overregion_pickup_fee = float(request.POST.get("overregion_pickup_fee", 0))
         overregion_delivery_fee = float(request.POST.get("overregion_delivery_fee", 0))
+        addition_fee = float(request.POST.get("addition_fee", 0))
 
         plts_by_destination = (
             Pallet.objects.filter(container_number__container_number=container_number)
@@ -3673,6 +3674,7 @@ class Accounting(View):
                     "note": None,
                 }
             )
+        
         if overregion_delivery_fee > 0:
             overregion_delivery_destination = request.POST.getlist(
                 "overregion_delivery_destination"
@@ -3779,6 +3781,20 @@ class Accounting(View):
                 )
             k += 1
 
+        if addition_fee:
+            invoice_item_data.append(
+                {
+                    "invoice_number": invoice,
+                    "description": "单柜超仓点费用",
+                    "warehouse_code": None,
+                    "cbm": None,
+                    "weight": None,
+                    "qty": 1,
+                    "rate": addition_fee,
+                    "amount": addition_fee,
+                    "note": None,
+                }
+            )
         invoice_item = InvoiceItem.objects.filter(
             invoice_number__invoice_number=invoice.invoice_number
         )
