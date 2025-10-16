@@ -3571,7 +3571,7 @@ class Accounting(View):
         overpallet_fee = float(request.POST.get("overpallet_fee", 0))
         overregion_pickup_fee = float(request.POST.get("overregion_pickup_fee", 0))
         overregion_delivery_fee = float(request.POST.get("overregion_delivery_fee", 0))
-        addition_fee = float(request.POST.get("addition_fee", 0))
+        addition_fee = float(request.POST.get("addition_fee", None))
 
         plts_by_destination = (
             Pallet.objects.filter(container_number__container_number=container_number)
