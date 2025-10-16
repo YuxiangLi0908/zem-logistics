@@ -847,7 +847,7 @@ class WarehouseOperations(View):
             plts_count = plts_stats['count'] or 0
             
             total_cbm = pls_cbm + plts_cbm
-            total_pallets = plts_count + (pls_cbm / 1.8)
+            total_pallets = plts_count + round(pls_cbm / 1.8, 2)
 
             is_estimated = plts_count == 0 and total_pallets > 0
            
