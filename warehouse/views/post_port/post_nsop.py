@@ -975,7 +975,7 @@ class PostNsop(View):
         )
         return shipments
 
-    async def generate_matching_suggestions(self, unshipment_pos, shipments, warehouse):
+    async def generate_matching_suggestions(self, unshipment_pos, shipments, warehouse, max_cbm, max_pallet):
         """生成智能匹配建议 - 基于功能A的逻辑但适配shipment匹配"""
         suggestions = []
 
