@@ -220,6 +220,15 @@ class PostNsop(View):
             move_ids = [sl['ids'] for sl in cargos_list]
         
         cargos.extend(cargos_list)
+         # === 更新 primary_group 的统计数据 ===
+        total_pallets = sum(c.get('total_n_pallet_act', 0) or c.get('total_n_pallet_est', 0) for c in cargos)
+        total_cbm = sum(c.get('total_cbm', 0) for c in cargos)
+
+        primary_group = suggestion_data.get('primary_group', {})
+        if primary_group:
+            # 更新主组的板数和CBM
+            primary_group['total_pallets'] = total_pallets
+            primary_group['total_cbm'] = total_cbm
         new_intelligent_cargos = [c for c in intelligent_cargos if c['ids'] not in move_ids]
 
         suggestion_data['cargos'] = cargos
@@ -1382,8 +1391,6 @@ class PostNsop(View):
             # 只有有数据的fleet才返回
             #if fleet_group['shipments']:
             grouped_data.append(fleet_group)
-        for g in grouped_data:
-            print(g['fleet_number'])
         return grouped_data
 
     async def sp_available_shipments(self, warehouse: str, st_type: str) -> list:
