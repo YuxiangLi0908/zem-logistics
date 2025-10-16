@@ -10,6 +10,7 @@ class Fleet(models.Model):
         ('check_in', 'Check In'),       # 仓库司机签到
         ('loading', '正在装柜'),        # 仓库工作人员正在装柜
         ('shipped', '已出库'),          # 仓库处理完成（已出库）
+        ('proof_uploaded', '已上传凭证'),
         ('abnormal','已异常'),
     )
     fleet_number = models.CharField(max_length=255, null=True)
