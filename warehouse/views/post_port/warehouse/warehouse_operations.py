@@ -485,7 +485,7 @@ class WarehouseOperations(View):
         #更新车次状态
         updated = await sync_to_async(
             Fleet.objects.filter(fleet_number=fleet_number).update
-        )(warehouse_process_status="shipped", shipped_cert_link=uploaded_links)
+        )(warehouse_process_status="proof_uploaded", shipped_cert_link=uploaded_links)
 
         return await self.handle_upcoming_fleet_post(request)
 
