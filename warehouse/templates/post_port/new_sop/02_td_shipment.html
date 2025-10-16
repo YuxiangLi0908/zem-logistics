@@ -1173,63 +1173,63 @@
                     <tbody>
                         {% for fleet_group in ready_to_ship_data %}
                             {% with fleet_rowspan=fleet_group.total_cargos %}
-                            {% for shipment_id, shipment in fleet_group.shipments.items %}
-                                {% with shipment_rowspan=shipment.cargos|length %}
-                                {% for cargo in shipment.cargos %}
-                                <tr data-plt-id="{{ cargo.plt_ids }}" data-cargo-id="{{ cargo.ids }}">
-                                    {% if forloop.first and forloop.parentloop.first %}
-                                    <td rowspan="{{ fleet_rowspan }}" style="vertical-align: middle; background-color: #f8f9fa;">
-                                        <strong>{{ fleet_group.fleet_number }}</strong>
-                                    </td>
-                                    {% endif %}
-
-                                    {% if forloop.first %}
-                                    <td rowspan="{{ shipment_rowspan }}" style="vertical-align: middle; background-color: #f8f9fa;">
-                                        {{ shipment.appointment_id }}
-                                    </td>
-                                    <td rowspan="{{ shipment_rowspan }}" style="vertical-align: middle; background-color: #f8f9fa;">
-                                        {{ shipment.destination }}
-                                    </td>
-                                    {% endif %}
-                                    <td class="cns-col">{{ cargo.cns|linebreaks_cn }}</td>
-                                    <td class="ref-ids-col" data-full="{{ cargo.ref_ids|default:'' }}">{{ cargo.ref_ids|default:"-"|truncatechars:20 }}</td>
-                                    <td class="fba-ids-col" data-full="{{ cargo.fba_ids|default:'' }}">{{ cargo.fba_ids|default:"-"|truncatechars:20 }}</td>
-                                    <td>
-                                        {% if cargo.label == 'ACT' %}
-                                            {{ cargo.total_n_pallet_act|default:0 }} ACT
+                                {% for shipment_id, shipment in fleet_group.shipments.items %}
+                                    {% with shipment_rowspan=shipment.cargos|length %}
+                                        {% if shipment.cargos %}
+                                            {% for cargo in shipment.cargos %}
+                                                <tr data-plt-id="{{ cargo.plt_ids }}" data-cargo-id="{{ cargo.ids }}">
+                                                    {% if forloop.first and forloop.parentloop.first %}
+                                                        <td rowspan="{{ fleet_rowspan }}" style="vertical-align: middle; background-color: #f8f9fa;">
+                                                            <strong>{{ fleet_group.fleet_number }}</strong>
+                                                        </td>
+                                                    {% endif %}
+                                                    {% if forloop.first %}
+                                                        <td rowspan="{{ shipment_rowspan }}" style="vertical-align: middle; background-color: #f8f9fa;">
+                                                            {{ shipment.appointment_id }}
+                                                        </td>
+                                                        <td rowspan="{{ shipment_rowspan }}" style="vertical-align: middle; background-color: #f8f9fa;">
+                                                            {{ shipment.destination }}
+                                                        </td>
+                                                    {% endif %}
+                                                    <td class="cns-col">{{ cargo.cns|linebreaks_cn }}</td>
+                                                    <td class="ref-ids-col" data-full="{{ cargo.ref_ids|default:'' }}">{{ cargo.ref_ids|default:"-"|truncatechars:20 }}</td>
+                                                    <td class="fba-ids-col" data-full="{{ cargo.fba_ids|default:'' }}">{{ cargo.fba_ids|default:"-"|truncatechars:20 }}</td>
+                                                    <td>{{ cargo.total_n_pallet_est|default:0 }}</td>
+                                                    <td>{{ cargo.total_cbm|default:0 }}</td>
+                                                    {% if forloop.first %}
+                                                        <td rowspan="{{ shipment_rowspan }}">
+                                                            <button class="action-btn btn-primary">加塞</button>
+                                                        </td>
+                                                    {% endif %}
+                                                    {% if forloop.first and forloop.parentloop.first %}
+                                                        <td rowspan="{{ fleet_rowspan }}">
+                                                            <button class="action-btn btn-success" onclick="confirmFleetDeparture('{{ fleet_group.fleet_number }}')">出库</button>
+                                                        </td>
+                                                    {% endif %}
+                                                </tr>
+                                            {% endfor %}
                                         {% else %}
-                                            {{ cargo.total_n_pallet_est|default:0 }} EST
+                                            <!-- 没有cargo时仍然显示一行 -->
+                                            <tr>
+                                                {% if forloop.first and forloop.parentloop.first %}
+                                                    <td rowspan="{{ fleet_rowspan }}" style="vertical-align: middle; background-color: #f8f9fa;">
+                                                        <strong>{{ fleet_group.fleet_number }}</strong>
+                                                    </td>
+                                                {% else %}
+                                                    <td style="vertical-align: middle; background-color: #f8f9fa;">
+                                                        <strong>{{ fleet_group.fleet_number }}</strong>
+                                                    </td>
+                                                {% endif %}
+                                                <td style="vertical-align: middle; background-color: #f8f9fa;">{{ shipment.appointment_id }}</td>
+                                                <td style="vertical-align: middle; background-color: #f8f9fa;">{{ shipment.destination }}</td>
+                                                <td colspan="5" style="text-align:center; color:#999;">暂无货物</td>
+                                                <td>
+                                                    <button class="action-btn btn-primary">加塞</button>
+                                                </td>                    
+                                            </tr>
                                         {% endif %}
-                                    </td>
-                                    <td>{{ cargo.total_cbm|default:0 }}</td>
-                                    {% if forloop.first %}
-                                        <!-- 加塞按钮：对应预约号 -->
-                                        <td rowspan="{{ shipment_rowspan }}" style="vertical-align: middle;">
-                                            <form method="post" action="">
-                                                {% csrf_token %}
-                                                <input type="hidden" name="destination" value="{{ shipment.destination }}">
-                                                <input type="hidden" name="add_pallet_ISA" value="{{ shipment.appointment_id }}">
-                                                <input type="hidden" name="warehouse" value="{{ warehouse }}">
-                                                <input type="hidden" name="step" value="add_pallet">
-                                                <input type="hidden" name="tab" value="{{ current_tab }}"> 
-
-                                                <button type="submit" class="action-btn btn-primary">
-                                                    <i class="fas fa-plus"></i> 加塞
-                                                </button>
-                                            </form>
-                                        </td>
-                                        {% endif %}
-                                    {% if forloop.first and forloop.parentloop.first %}
-                                    <td rowspan="{{ fleet_rowspan }}" style="vertical-align: middle;">
-                                         <button class="action-btn btn-success" onclick="confirmFleetDeparture('{{ fleet_group.fleet_number }}')">
-                                            <i class="fas fa-check-circle"></i> 确认出库
-                                        </button>
-                                    </td>
-                                    {% endif %}
-                                </tr>
+                                    {% endwith %}
                                 {% endfor %}
-                                {% endwith %}
-                            {% endfor %}
                             {% endwith %}
                         {% empty %}
                         <tr>
@@ -1551,7 +1551,8 @@
 {% include 'post_port/new_sop/02_1_intelligent_po_modal.html' %}
 
 <script>
-window.matching_suggestions = {{ matching_suggestions_json|safe }};
+window.matching_suggestions = {{ matching_suggestions_json|default:"[]"|safe }};
+window.warehouse = {{ warehouse_json|default:"[]"|safe }};
 
 const scriptTag = (typeof suggestionId !== 'undefined' && suggestionId) 
     ? document.getElementById(`suggestion_${suggestionId}`) 
@@ -2539,6 +2540,7 @@ function applySearch(section) {
     });
     
     if (searchTerm === '') {
+        console.log('Empty search term, showing all rows');
         return;
     }
     

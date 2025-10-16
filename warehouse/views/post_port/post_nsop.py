@@ -172,9 +172,10 @@ class PostNsop(View):
         elif step == "fleet_add_pallet":
             template, context = await self.handle_fleet_add_pallet_post(request)
             return render(request, template, context)
-        elif step == "search_intelligent_po":
-            template, context = await self.handle_search_intelligent_po_post(request)
+        elif step == "modify_intelligent_po":
+            template, context = await self.handle_modify_intelligent_po_post(request)
             return render(request, template, context)
+            
         else:
             raise ValueError('输入错误',step)
     
@@ -197,6 +198,41 @@ class PostNsop(View):
                 return batch_number
         raise ValueError('批次号始终重复')
     
+    async def handle_modify_intelligent_po_post(
+        self, request: HttpRequest
+    ) -> tuple[str, dict[str, Any]]:
+        all_suggestions_raw = request.POST.get('all_suggestions')
+        if all_suggestions_raw:
+            all_suggestions = json.loads(all_suggestions_raw)
+
+        suggestion_data_raw = request.POST.get('suggestion_data')
+        if suggestion_data_raw:
+            suggestion_data = json.loads(suggestion_data_raw)
+            suggestion_id = suggestion_data['suggestion_id']
+            cargos = suggestion_data.get('cargos', [])
+            intelligent_cargos = suggestion_data.get('intelligent_cargos', [])
+        
+        selected_cargos_raw = request.POST.get('selected_cargos')
+
+        move_ids = []
+        if selected_cargos_raw:
+            cargos_list = json.loads(selected_cargos_raw)
+            move_ids = [sl['ids'] for sl in cargos_list]
+        
+        cargos.extend(cargos_list)
+        new_intelligent_cargos = [c for c in intelligent_cargos if c['ids'] not in move_ids]
+
+        suggestion_data['cargos'] = cargos
+        suggestion_data['intelligent_cargos'] = new_intelligent_cargos
+
+        # 替换掉 all_suggestions 中对应项
+        for i, s in enumerate(all_suggestions):
+            if s['suggestion_id'] == suggestion_id:
+                all_suggestions[i] = suggestion_data
+                break
+        return await self.handle_td_shipment_post(request,{},all_suggestions)
+
+
     async def handle_fleet_add_pallet_post(
         self, request: HttpRequest
     ) -> tuple[str, dict[str, Any]]:
@@ -835,7 +871,7 @@ class PostNsop(View):
         return self.template_fleet_schedule, context
     
     async def handle_td_shipment_post(
-        self, request: HttpRequest, context: dict| None = None
+        self, request: HttpRequest, context: dict| None = None, matching_suggestions: dict | None = None,
     ) -> tuple[str, dict[str, Any]]:
         warehouse = request.POST.get("warehouse")
         if not warehouse:
@@ -853,7 +889,8 @@ class PostNsop(View):
         st_type = request.POST.get("st_type", "pallet")
         
         # 获取三类数据：未排约、已排约、待出库
-        matching_suggestions = await self.sp_unscheduled_data(warehouse, st_type)
+        if not matching_suggestions:
+            matching_suggestions = await self.sp_unscheduled_data(warehouse, st_type)
         scheduled_data = await self.sp_scheduled_data(warehouse)
         ready_to_ship_data = await self._sp_ready_to_ship_data(warehouse)
         
@@ -888,7 +925,7 @@ class PostNsop(View):
             "shipment_type_options": self.shipment_type_options,
         }) 
         context["matching_suggestions_json"] = json.dumps(matching_suggestions, cls=DjangoJSONEncoder)
-        
+        context["warehouse_json"] = json.dumps(warehouse, cls=DjangoJSONEncoder)
         return self.template_td_shipment, context
     
     async def sp_unscheduled_data(self, warehouse: str, st_type: str) -> list:
@@ -1070,8 +1107,7 @@ class PostNsop(View):
         existing_pl_ids = []
         existing_plt_ids = []
         destination = None
-        # for group in primary_group:
-        #     print('primary_group',primary_group)
+
         for cargo in primary_group.get("cargos", []):
             destination = cargo.get("destination")
             id_str = cargo.get("ids")
@@ -1344,9 +1380,10 @@ class PostNsop(View):
                 len(s['cargos']) for s in fleet_group['shipments'].values()
             )
             # 只有有数据的fleet才返回
-            if fleet_group['shipments']:
-                grouped_data.append(fleet_group)
-       
+            #if fleet_group['shipments']:
+            grouped_data.append(fleet_group)
+        for g in grouped_data:
+            print(g['fleet_number'])
         return grouped_data
 
     async def sp_available_shipments(self, warehouse: str, st_type: str) -> list:
@@ -1449,9 +1486,8 @@ class PostNsop(View):
         """计算统计数据"""
         # 计算各类数量
         unscheduled_count = len(unscheduled)
-        scheduled_count = sum(len(group['cargos']) for group in scheduled)
+        scheduled_count = len(scheduled)
         ready_count = len(ready)
-        
         # 计算总板数
         total_pallets = 0
         for cargo in unscheduled:
