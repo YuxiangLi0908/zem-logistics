@@ -2561,11 +2561,174 @@ function applySearch(section) {
     // 分组处理逻辑（针对未排约页面的智能匹配建议）
     if (section === 'unscheduled') {
         handleGroupedSearch(rows, searchTerm);
+    } else if (section === 'ready') {
+        handleReadySectionSearch(rows, searchTerm); // 专门处理待出库页面的搜索
     } else {
         handleNormalSearch(rows, searchTerm);
     }
 }
 
+// 专门处理待出库页面的搜索
+function handleReadySectionSearch(rows, searchTerm) {
+    const fleetMap = new Map();
+    
+    // 第一步：收集所有行并建立车次号映射
+    rows.forEach(row => {
+        // 查找车次号单元格（第一列）
+        const fleetTd = row.querySelector('td:first-child');
+        let fleetNumber = '';
+        
+        if (fleetTd && fleetTd.hasAttribute('rowspan')) {
+            // 这是车次号的主单元格
+            fleetNumber = fleetTd.textContent.trim().toLowerCase();
+        } else {
+            // 对于没有车次号的行，向上查找所属的车次
+            // 通过查找前面的行中具有rowspan属性的车次号单元格
+            let currentRow = row.previousElementSibling;
+            while (currentRow) {
+                const prevFleetTd = currentRow.querySelector('td:first-child[rowspan]');
+                if (prevFleetTd) {
+                    fleetNumber = prevFleetTd.textContent.trim().toLowerCase();
+                    break;
+                }
+                currentRow = currentRow.previousElementSibling;
+            }
+        }
+        
+        if (fleetNumber && !fleetMap.has(fleetNumber)) {
+            fleetMap.set(fleetNumber, []);
+        }
+        
+        if (fleetNumber) {
+            fleetMap.get(fleetNumber).push(row);
+        }
+    });
+    
+    // 第二步：处理搜索
+    let hasAnyMatch = false;
+    
+    // 先检查是否有车次号匹配
+    const matchingFleets = Array.from(fleetMap.keys()).filter(fleet => 
+        fleet.includes(searchTerm)
+    );
+    
+    if (matchingFleets.length > 0) {
+        // 有车次号匹配，显示匹配的车次
+        hasAnyMatch = true;
+        rows.forEach(row => {
+            row.style.display = 'none';
+        });
+        
+        matchingFleets.forEach(fleet => {
+            fleetMap.get(fleet).forEach(row => {
+                row.style.display = '';
+            });
+        });
+    } else {
+        // 没有车次号匹配，按普通搜索处理
+        rows.forEach(row => {
+            const isMatch = isReadyRowMatch(row, searchTerm);
+            row.style.display = isMatch ? '' : 'none';
+            
+            if (isMatch) {
+                hasAnyMatch = true;
+                // 显示匹配行的rowspan单元格
+                row.querySelectorAll('td[rowspan]').forEach(td => {
+                    td.style.display = '';
+                });
+                
+                // 如果这一行属于某个车次，显示整个车次的所有行
+                const fleetNumber = getFleetNumberForRow(row, fleetMap);
+                if (fleetNumber && fleetMap.has(fleetNumber)) {
+                    fleetMap.get(fleetNumber).forEach(fleetRow => {
+                        fleetRow.style.display = '';
+                    });
+                }
+            }
+        });
+    }
+    
+    if (!hasAnyMatch) {
+        // 没有匹配结果的处理
+        console.log('No matches found');
+    }
+}
+// 获取行所属的车次号
+function getFleetNumberForRow(row, fleetMap) {
+    for (let [fleetNumber, rows] of fleetMap.entries()) {
+        if (rows.includes(row)) {
+            return fleetNumber;
+        }
+    }
+    return null;
+}
+
+// 待出库页面的行匹配逻辑
+function isReadyRowMatch(row, searchTerm) {
+    if (!searchTerm) return true;
+    
+    // 检查车次号（第一列）
+    const fleetTd = row.querySelector('td:first-child');
+    if (fleetTd) {
+        const fleetText = fleetTd.textContent.toLowerCase();
+        if (fleetText.includes(searchTerm)) {
+            return true;
+        }
+    }
+    
+    // 检查预约号（第二列）
+    const appointmentTd = row.querySelector('td:nth-child(2)');
+    if (appointmentTd) {
+        const appointmentText = appointmentTd.textContent.toLowerCase();
+        if (appointmentText.includes(searchTerm)) {
+            return true;
+        }
+    }
+    
+    // 检查目的地（第三列）
+    const destinationTd = row.querySelector('td:nth-child(3)');
+    if (destinationTd) {
+        const destinationText = destinationTd.textContent.toLowerCase();
+        if (destinationText.includes(searchTerm)) {
+            return true;
+        }
+    }
+    
+    // 检查柜号
+    const containerCell = row.querySelector('.cns-col');
+    if (containerCell) {
+        const containerText = containerCell.textContent.toLowerCase();
+        if (containerText.includes(searchTerm)) {
+            return true;
+        }
+    }
+    
+    // 检查REF ID
+    const refIdsCell = row.querySelector('.ref-ids-col');
+    if (refIdsCell) {
+        const fullRefIds = refIdsCell.getAttribute('data-full') || refIdsCell.textContent || '';
+        if (fullRefIds.toLowerCase().includes(searchTerm)) {
+            return true;
+        }
+    }
+    
+    // 检查FBA ID
+    const fbaIdsCell = row.querySelector('.fba-ids-col');
+    if (fbaIdsCell) {
+        const fullFbaIds = fbaIdsCell.getAttribute('data-full') || fbaIdsCell.textContent || '';
+        if (fullFbaIds.toLowerCase().includes(searchTerm)) {
+            return true;
+        }
+    }
+    
+    // 检查行的完整文本内容
+    const rowText = row.textContent.toLowerCase();
+    if (rowText.includes(searchTerm)) {
+        return true;
+    }
+    
+    return false;
+}
 function handleGroupedSearch(rows, searchTerm) {
     const groupMap = new Map();
     
