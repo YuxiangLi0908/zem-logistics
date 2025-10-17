@@ -4667,6 +4667,7 @@ class Accounting(View):
             "total_cbm": Sum("cbm", output_field=FloatField()),
             "total_weight_lbs": Sum("weight_lbs", output_field=FloatField()),
             "total_pallet": Count("pallet_id", distinct=True),
+            "shipping_marks": StringAgg("shipping_mark", delimiter=",", distinct=True),
         }
         common_ordering = [
             Case(
