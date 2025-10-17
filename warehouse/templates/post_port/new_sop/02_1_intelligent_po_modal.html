@@ -124,9 +124,7 @@ document.addEventListener("click", e => {
     }
 
     const suggestionData = JSON.parse(scriptTag.textContent);
-    console.log('suggestionData',suggestionData);
     const allSuggestions = window.matching_suggestions;
-    console.log('allSuggestions',allSuggestions);
     openModalForSuggestion(suggestionData);
 });
 

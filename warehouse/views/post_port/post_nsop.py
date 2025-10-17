@@ -1388,6 +1388,13 @@ class PostNsop(View):
                 )
                 fleet_group['shipments'][batch_number]['cargos'].extend(raw_data)
             
+            # 排序 shipments，cargos 为空的放后面
+            fleet_group['shipments'] = dict(
+                sorted(
+                    fleet_group['shipments'].items(),
+                    key=lambda item: not item[1]['cargos']
+                )
+            )
             fleet_group['total_cargos'] = sum(
                 len(s['cargos']) if s['cargos'] else 1
                 for s in fleet_group['shipments'].values()
@@ -1395,7 +1402,6 @@ class PostNsop(View):
             # 只有有数据的fleet才返回
             #if fleet_group['shipments']:
             grouped_data.append(fleet_group)
-            
         return grouped_data
 
     async def sp_available_shipments(self, warehouse: str, st_type: str) -> list:
