@@ -923,7 +923,6 @@ class FleetManagement(View):
             criteria_plt = models.Q(
                 shipment_batch_number__fleet_number__fleet_number=fleet_number
             )
-            print('criteria_plt',criteria_plt)
             #先找到这个车/约里面的板子，按PO_ID分组，因为一组PO_ID存成一条记录
             grouped_pallets = await sync_to_async(list)(
                 Pallet.objects.filter(criteria_plt)
