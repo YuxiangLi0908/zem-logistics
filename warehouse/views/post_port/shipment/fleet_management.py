@@ -921,8 +921,9 @@ class FleetManagement(View):
         if not fleet_shipments:
             # 如果找不到，说明这个车次，在系统上没有经过确认出库那一步，这里再补上
             criteria_plt = models.Q(
-                shipment_batch_number__fleet_number=fleet_number
+                shipment_batch_number__fleet_number__fleet_number=fleet_number
             )
+            print('criteria_plt',criteria_plt)
             #先找到这个车/约里面的板子，按PO_ID分组，因为一组PO_ID存成一条记录
             grouped_pallets = await sync_to_async(list)(
                 Pallet.objects.filter(criteria_plt)
@@ -982,21 +983,22 @@ class FleetManagement(View):
         batch_number = request.POST.get("batch_number", "")
         area = request.POST.get("area") or None
         status = request.POST.get("status", "")
-        if status == "record":
-            criteria = models.Q(
-                pod_uploaded_at__isnull=False,
-                shipped_at__isnull=False,
-                arrived_at__isnull=False,
-                shipment_schduled_at__gte="2025-05-01",
-                fleet_number__fleet_cost__isnull=True,
-            )
-        else:
+        if status != "record":
             criteria = models.Q(
                 pod_uploaded_at__isnull=False,
                 shipped_at__isnull=False,
                 arrived_at__isnull=False,
                 shipment_schduled_at__gte="2025-05-01",
                 fleet_number__fleet_cost__isnull=False,
+            )
+            
+        else:
+            criteria = models.Q(
+                pod_uploaded_at__isnull=False,
+                shipped_at__isnull=False,
+                arrived_at__isnull=False,
+                shipment_schduled_at__gte="2025-05-01",
+                fleet_number__fleet_cost__isnull=True,
             )
         if pickup_number:
             criteria &= models.Q(fleet_number__pickup_number=pickup_number)

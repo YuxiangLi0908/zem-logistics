@@ -119,12 +119,12 @@
                         <th class="th">备注</th>                      
                     </tr>
                     <tr style="position: sticky;" id="fleet-table-filter">
-                        <th class="th"><input type="text" id="fleetSearchInput" placeholder="搜索出库批次..." size="13" style="font-size: 11px;"></th>
+                        <th class="th"><input type="text" placeholder="搜索PickUp Number..." size="13" style="font-size: 11px;"></th>
                         <th class="th"></th>
-                        <th class="th"><input type="text" id="fleetSearchInput" placeholder="搜索出库批次..." size="13" style="font-size: 11px;"></th>
-                        <th class="th"><input type="text" id="fleetShipmentSearchInput" placeholder="搜索预约批次..." size="13" style="font-size: 11px;"></th>
-                        <th class="th"><input type="text" id="appointmentSearchInput" placeholder="搜索ISA..." size="13" style="font-size: 11px;"></th>
-                        <th class="th"><input type="text" id="carrierSearchInput" placeholder="搜索carrier..." size="13" style="font-size: 11px;"></th>
+                        <th class="th"><input type="text" placeholder="搜索出库批次..." size="13" style="font-size: 11px;"></th>
+                        <th class="th"><input type="text" placeholder="搜索预约批次..." size="13" style="font-size: 11px;"></th>
+                        <th class="th"><input type="text" placeholder="搜索ISA..." size="13" style="font-size: 11px;"></th>
+                        <th class="th"><input type="text" placeholder="搜索carrier..." size="13" style="font-size: 11px;"></th>
                         <th class="th"></th>                      
                         <th class="th"></th>
                         <th class="th"></th>
@@ -282,57 +282,6 @@
 </style>
 
 <script>
-    document.getElementById('confirm-all-button').addEventListener('click', function() {
-        const form = document.createElement('form');
-        form.method = 'post';
-        form.action = ''; 
-        form.enctype = 'multipart/form-data';
-    
-        const csrfToken = document.querySelector('input[name="csrfmiddlewaretoken"]').value;
-        const csrfInput = document.createElement('input');
-        csrfInput.type = 'hidden';
-        csrfInput.name = 'csrfmiddlewaretoken';
-        csrfInput.value = csrfToken;
-        form.appendChild(csrfInput);
-        document.querySelectorAll('.file-input').forEach(input => {
-            if (input.files.length > 0) {
-                const file = input.files[0];
-                const fileInput = document.createElement('input');
-                fileInput.type = 'file';
-                fileInput.name = 'file';
-                fileInput.files = input.files;
-                form.appendChild(fileInput);
-    
-                const shipmentBatchNumber = input.closest('tr').querySelector('input[name="shipment_batch_number"]').value;
-                const shipmentBatchNumberInput = document.createElement('input');
-                shipmentBatchNumberInput.type = 'hidden';
-                shipmentBatchNumberInput.name = 'shipment_batch_number';
-                shipmentBatchNumberInput.value = shipmentBatchNumber;
-                form.appendChild(shipmentBatchNumberInput);
-            }
-        });
-    
-        const stepInput = document.createElement('input');
-        stepInput.type = 'hidden';
-        stepInput.name = 'step';
-        stepInput.value = 'pod_upload';
-        form.appendChild(stepInput);
-    
-        const areaInput = document.createElement('input');
-        areaInput.type = 'hidden';
-        areaInput.name = 'area';
-        areaInput.value = '{{ area }}';
-        form.appendChild(areaInput);
-    
-        const arrivedAtInput = document.createElement('input');
-        arrivedAtInput.type = 'hidden';
-        arrivedAtInput.name = 'arrived_at';
-        arrivedAtInput.value = '{{ arrived_at }}';
-        form.appendChild(arrivedAtInput);
-    
-        document.body.appendChild(form);
-        form.submit();
-    });
 
     function showLoadingBar() {
         document.getElementById('loading-bar').style.display = 'block';
@@ -357,20 +306,34 @@
         const filterInputs = table.querySelectorAll('#fleet-table-filter input[type="text"]');
         const rows = table.querySelectorAll('tbody tr');
         
-        const filters = Array.from(filterInputs).map(input => ({
-            value: input.value.trim().toUpperCase(),
-            colIndex: Array.from(input.closest('th').parentNode.children).indexOf(input.closest('th'))
-        })).filter(filter => filter.value !== '');
+        const filters = [];
+        
+        // 收集所有过滤条件
+        filterInputs.forEach(input => {
+            const value = input.value.trim().toUpperCase();
+            if (value !== '') {
+                const th = input.closest('th');
+                const headerRow = th.closest('tr');
+                const colIndex = Array.from(headerRow.children).indexOf(th);
+                filters.push({
+                    value: value,
+                    colIndex: colIndex
+                });
+            }
+        });
 
         rows.forEach(row => {
             let shouldShow = true;
             
             for (const filter of filters) {
                 const cell = row.querySelector(`td:nth-child(${filter.colIndex + 1})`);
-                if (!cell) continue;
+                if (!cell) {
+                    shouldShow = false;
+                    break;
+                }
                 
-                const cellText = (cell.textContent || cell.innerText).trim().toUpperCase();
-                if (!cellText.includes(filter.value)) {
+                const cellText = (cell.textContent || cell.innerText || '').trim().toUpperCase();
+                if (cellText.indexOf(filter.value) === -1) {
                     shouldShow = false;
                     break;
                 }
@@ -383,8 +346,16 @@
     document.addEventListener('DOMContentLoaded', function() {
         const inputs = document.querySelectorAll('#fleet-table-filter input[type="text"]');
         inputs.forEach(input => {
+            // 移除重复的ID，添加类名
+            input.removeAttribute('id');
+            input.classList.add('filter-input');
+            
             input.addEventListener('input', filterTable);
+            input.addEventListener('keyup', filterTable);
         });
+        
+        // 初始执行一次过滤
+        filterTable();
     });
 </script>
 {% endblock %}
