@@ -2551,26 +2551,64 @@ class ShippingManagement(View):
             return response
 
     async def handle_upload_and_create_empty_appointment_post(
-        self, request: HttpRequest
+            self, request: HttpRequest
     ) -> tuple[str, dict[str, Any]]:
-        # raise ValueError(request.POST, request.FILES)
         form = UploadFileForm(request.POST, request.FILES)
         if form.is_valid():
             file = request.FILES["file"]
             df = pd.read_excel(file)
             df["warehouse"] = df["warehouse"].astype(str)
+            # 遍历每行数据进行校验
+            for idx, row in df.iterrows():
+                c_id = row["c_id"]
+                destination = row["destination"]
+                scheduled_time = row["scheduled_time"]
+                warehouse = row["warehouse"]
+                load_type = row["load_type"]
+                shipment_account = row["shipment_account"]
+                row_num = idx + 2  # Excel 行号从 1 开始，表头占 1 行
+
+                # 1. 校验不为空
+                if pd.isna(c_id) or str(c_id).strip() == "":
+                    raise ValueError(f"第 {row_num} 行的预约号（c_id）不能为空")
+                if pd.isna(destination) or str(destination).strip() == "":
+                    raise ValueError(f"第 {row_num} 行的目的地（destination）不能为空")
+                if pd.isna(scheduled_time) or str(scheduled_time).strip() == "":
+                    raise ValueError(f"第 {row_num} 行的（scheduled_time）不能为空")
+                if pd.isna(warehouse) or str(warehouse).strip() == "":
+                    raise ValueError(f"第 {row_num} 行的发货仓库（warehouse）不能为空")
+                if pd.isna(load_type) or str(load_type).strip() == "":
+                    raise ValueError(f"第 {row_num} 行的装车类型（load_type）不能为空")
+                if pd.isna(shipment_account) or str(shipment_account).strip() == "":
+                    raise ValueError(f"第 {row_num} 行的预约账号（shipment_account）不能为空")
+                # 2. 转换为字符串并去除两端空格
+                c_id_str = str(c_id).strip()
+
+                # 3. 校验仅为数字（不包含任何标点符号或字母）
+                if not c_id_str.isdigit():
+                    raise ValueError(
+                        f"第 {row_num} 行的预约号（c_id）'{c_id_str}' 无效，"
+                        "仅允许数字，不允许包含标点符号、字母或其他特殊字符"
+                    )
+
+            # 校验通过后继续处理数据
             data = df.to_dict("records")
-            appointment_ids = [d["appointment_id"].strip() for d in data]
-            if len(appointment_ids) != len(set(appointment_ids)):
-                raise RuntimeError("appointment id 重复！")
+            c_id = [str(d["c_id"]).strip() for d in data]
+
+            # 校验重复
+            if len(c_id) != len(set(c_id)):
+                raise RuntimeError("预约号（c_id）存在重复值！")
+
             existed_shipments = await sync_to_async(list)(
-                Shipment.objects.filter(appointment_id__in=appointment_ids)
+                Shipment.objects.filter(appointment_id__in=c_id)
             )
             if existed_shipments:
-                raise ValueError(f"Appointment {existed_shipments} already created!")
+                existing_ids = [ship.appointment_id for ship in existed_shipments]
+                raise ValueError(f"以下预约号已存在：{existing_ids}")
+
             cleaned_data = [
                 {
-                    "appointment_id": d["appointment_id"].strip(),
+                    "appointment_id": str(d["c_id"]).strip(),
                     "destination": d["destination"].upper().strip(),
                     "shipment_appointment": d["scheduled_time"],
                     "origin": (
@@ -2584,11 +2622,10 @@ class ShippingManagement(View):
                 }
                 for d in data
             ]
-            # await sync_to_async(Shipment.objects.bulk_create)(
-            #     Shipment(**d) for d in cleaned_data
-            # )
+
             instances = [Shipment(**d) for d in cleaned_data]
             await sync_to_async(bulk_create_with_history)(instances, Shipment)
+
         return await self.handle_appointment_warehouse_search_post(request)
 
     async def handle_shipment_list_search_post(
