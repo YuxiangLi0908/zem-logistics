@@ -378,7 +378,7 @@ class PostNsop(View):
         plt_ids = request.POST.get("plt_ids")
         selected = [int(i) for i in ids.split(",") if i]
         selected_plt = [int(i) for i in plt_ids.split(",") if i]
-        
+        context = {}
         if selected or selected_plt:
             packing_list_selected = await self._get_packing_list(
                 models.Q(id__in=selected)
@@ -402,36 +402,38 @@ class PostNsop(View):
                         total_pallet += int(pl.get("total_n_pallet_est") // 1 + 1)
                     else:
                         total_pallet += int(pl.get("total_n_pallet_est") // 1)
+            address = request.POST.get('address')
+            if not address:
+                address = await self.get_address(destination)
+            shipment_data = {
+                'shipment_batch_number': shipment_batch_number,
+                'destination': destination,
+                'total_weight': total_weight,
+                'total_cbm': total_cbm,
+                'total_pallet': total_pallet,
+                'total_pcs': total_pcs,
+                'total_pallet': total_pallet,
+                'shipment_type': request.POST.get('shipment_type'),
+                'shipment_account': request.POST.get('shipment_account'),
+                'appointment_id': request.POST.get('appointment_id'),
+                'shipment_appointment': request.POST.get('shipment_appointment'),
+                'load_type': '卡板' if request.POST.get('st_type') == 'pallet' else '地板',
+                'origin': request.POST.get('warehouse'),
+                'note': request.POST.get('note'),
+                'address': address,
+            }
+            request.POST = request.POST.copy()
+            request.POST['shipment_data'] = str(shipment_data)
+            request.POST['batch_number'] = shipment_batch_number     
+            request.POST['pl_ids'] = selected
+            request.POST['plt_ids'] = selected_plt
+            request.POST['type'] = 'td'
+            sm = ShippingManagement()
+            info = await sm.handle_appointment_post(request,'post_nsop') 
+        else:
+            context.update({"error_messages": f"没有选择PO！"})
+         
         
-        address = request.POST.get('address')
-        if not address:
-            address = await self.get_address(destination)
-        shipment_data = {
-            'shipment_batch_number': shipment_batch_number,
-            'destination': destination,
-            'total_weight': total_weight,
-            'total_cbm': total_cbm,
-            'total_pallet': total_pallet,
-            'total_pcs': total_pcs,
-            'total_pallet': total_pallet,
-            'shipment_type': request.POST.get('shipment_type'),
-            'shipment_account': request.POST.get('shipment_account'),
-            'appointment_id': request.POST.get('appointment_id'),
-            'shipment_appointment': request.POST.get('shipment_appointment'),
-            'load_type': '卡板' if request.POST.get('st_type') == 'pallet' else '地板',
-            'origin': request.POST.get('warehouse'),
-            'note': request.POST.get('note'),
-            'address': address,
-        }
-        request.POST = request.POST.copy()
-        request.POST['shipment_data'] = str(shipment_data)
-        request.POST['batch_number'] = shipment_batch_number     
-        request.POST['pl_ids'] = selected
-        request.POST['plt_ids'] = selected_plt
-        request.POST['type'] = 'td'
-        sm = ShippingManagement()
-        info = await sm.handle_appointment_post(request,'post_nsop')  
-        context = {}
         context.update({"success_messages": f"绑定成功，批次号是{shipment_batch_number}"})
         return await self.handle_td_shipment_post(request,context)
     
