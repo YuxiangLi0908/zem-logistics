@@ -306,6 +306,7 @@
                     <th>出库时间</th>
                     <th>送达时间</th>
                     <th>是否有POD</th>
+                    <th>PO_ID</th>
                 </tr>
                 <tr id="packing-list-table-filter">                  
                     <th style="text-align: center;">
@@ -328,6 +329,7 @@
                     <th></th>
                     <th><input type="text" placeholder="搜索批次..." oninput="filterTable(this, 17)" size="8"></th>
                     <th><input type="text" placeholder="搜索预约号..." oninput="filterTable(this, 18)" size="8"></th>
+                    <th></th>
                     <th></th>
                     <th></th>
                     <th></th>
@@ -416,6 +418,9 @@
                         {% else %}
                         FALSE 
                         {% endif %}
+                    </td>
+                    <td>
+                        {{ c.PO_ID }}
                     </td>
                 </tr>               
                 {% endfor %}
