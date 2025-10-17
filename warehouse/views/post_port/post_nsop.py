@@ -372,7 +372,6 @@ class PostNsop(View):
     async def handle_appointment_post(
         self, request: HttpRequest
     ) -> tuple[str, dict[str, Any]]:
-
         destination = request.POST.get('destination')     
         shipment_batch_number = await self.generate_unique_batch_number(destination)
         ids = request.POST.get("cargo_ids")
@@ -1230,6 +1229,7 @@ class PostNsop(View):
             matched = matched_shipments[0]
             return {
                 'appointment_id': matched.appointment_id,
+                'shipment_type': matched.shipment_type,
                 'shipment_appointment': matched.shipment_appointment,
                 'origin': matched.origin,
                 'load_type': matched.load_type,
@@ -1309,11 +1309,17 @@ class PostNsop(View):
                     )
                 except MultipleObjectsReturned:
                     raise ValueError(f"shipment_batch_number={batch_number} 查询到多条记录，请检查数据")
+                
+                address = await self.get_address(shipment.destination)
                 grouped_data[batch_number] = {
                     'appointment_id': shipment.appointment_id,
+                    'shipment_type': shipment.shipment_type,
                     'destination': shipment.destination,
                     'shipment_appointment': shipment.shipment_appointment,
                     'load_type': shipment.load_type,
+                    'shipment_account': shipment.shipment_account,
+                    'address': shipment.address,
+                    'address_detail': address,
                     'cargos': []
                 }
             grouped_data[batch_number]['cargos'].append(item)
