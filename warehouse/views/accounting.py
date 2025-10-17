@@ -4830,7 +4830,7 @@ class Accounting(View):
             warehouse,
             is_new_rule,
         )
-
+        
         groups = [group.name for group in request.user.groups.all()]
 
         step = request.POST.get("step")
@@ -5250,6 +5250,9 @@ class Accounting(View):
             pallets_in_delivery = delivery.pallet_delivery.all()
             pallet_ids = [str(p.id) for p in pallets_in_delivery]
             setattr(delivery, "plt_ids", pallet_ids)
+
+            shipping_marks = [p.shipping_mark for p in pallets_in_delivery if p.shipping_mark]
+            setattr(delivery, "shipping_marks", shipping_marks)
             if delivery.cost is None:
                 self._calculate_and_set_delivery_cost(
                     delivery, container_type, fee_details, warehouse, is_new_rule
@@ -5795,8 +5798,6 @@ class Accounting(View):
                     }
                     for region, data in price_display.items()
                 ]
-                print('price_display',price_display)
-                print('price_display_new',price_display_new)
                 base_fee = round(
                     sum(item["price"] * item["rate"] for item in price_display_new), 2
                 )
