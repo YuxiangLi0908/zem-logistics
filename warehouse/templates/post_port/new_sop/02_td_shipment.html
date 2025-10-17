@@ -1174,15 +1174,41 @@
                         {% for fleet_group in ready_to_ship_data %}
                             {% with fleet_rowspan=fleet_group.total_cargos %}
                                 {% for shipment_id, shipment in fleet_group.shipments.items %}
-                                    {% with shipment_rowspan=shipment.cargos|length %}
-                                        {% if shipment.cargos %}
+                                    {% with shipment_rowspan=shipment.cargos|length|default:0 %}
+                                        {% if shipment_rowspan == 0 %}
+                                            {% with shipment_rowspan=1 %}
+                                                <tr>
+                                                    {% if forloop.parentloop.first and forloop.first or fleet_rowspan == 1 %}
+                                                        <td rowspan="{{ fleet_rowspan }}" style="vertical-align: middle; background-color: #f8f9fa;">
+                                                            <strong>{{ fleet_group.fleet_number }}</strong>
+                                                        </td>
+                                                    
+                                                    {% endif %}
+                                                    
+                                                    <td rowspan="{{ shipment_rowspan }}" style="vertical-align: middle; background-color: #f8f9fa;">
+                                                        {{ shipment.appointment_id }}
+                                                    </td>
+                                                    <td rowspan="{{ shipment_rowspan }}" style="vertical-align: middle; background-color: #f8f9fa;">
+                                                        {{ shipment.destination }}
+                                                    </td>
+                                                    <td colspan="5" style="text-align:center; color:#999;">暂无货物</td>
+                                                    <td><button class="action-btn btn-primary">加塞</button></td>
+                                                    {% if forloop.parentloop.first and forloop.first %}
+                                                        <td rowspan="{{ fleet_rowspan }}">
+                                                            <button class="action-btn btn-success" onclick="confirmFleetDeparture('{{ fleet_group.fleet_number }}')">出库</button>
+                                                        </td>
+                                                    {% endif %}
+                                                </tr>
+                                            {% endwith %}
+                                        {% else %}
                                             {% for cargo in shipment.cargos %}
-                                                <tr data-plt-id="{{ cargo.plt_ids }}" data-cargo-id="{{ cargo.ids }}">
+                                                <tr data-plt-id="{{ cargo.plt_ids }}">
                                                     {% if forloop.first and forloop.parentloop.first %}
                                                         <td rowspan="{{ fleet_rowspan }}" style="vertical-align: middle; background-color: #f8f9fa;">
                                                             <strong>{{ fleet_group.fleet_number }}</strong>
                                                         </td>
                                                     {% endif %}
+
                                                     {% if forloop.first %}
                                                         <td rowspan="{{ shipment_rowspan }}" style="vertical-align: middle; background-color: #f8f9fa;">
                                                             {{ shipment.appointment_id }}
@@ -1191,16 +1217,17 @@
                                                             {{ shipment.destination }}
                                                         </td>
                                                     {% endif %}
-                                                    <td class="cns-col">{{ cargo.cns|linebreaks_cn }}</td>
+
+                                                    <td class="cns-col">{{ cargo.cns|linebreaksbr }}</td>
                                                     <td class="ref-ids-col" data-full="{{ cargo.ref_ids|default:'' }}">{{ cargo.ref_ids|default:"-"|truncatechars:20 }}</td>
                                                     <td class="fba-ids-col" data-full="{{ cargo.fba_ids|default:'' }}">{{ cargo.fba_ids|default:"-"|truncatechars:20 }}</td>
-                                                    <td>{{ cargo.total_n_pallet_est|default:0 }}</td>
+                                                    <td>{{ cargo.total_n_pallet_act|default:0 }}</td>
                                                     <td>{{ cargo.total_cbm|default:0 }}</td>
+
                                                     {% if forloop.first %}
-                                                        <td rowspan="{{ shipment_rowspan }}">
-                                                            <button class="action-btn btn-primary">加塞</button>
-                                                        </td>
+                                                        <td rowspan="{{ shipment_rowspan }}"><button class="action-btn btn-primary">加塞</button></td>
                                                     {% endif %}
+
                                                     {% if forloop.first and forloop.parentloop.first %}
                                                         <td rowspan="{{ fleet_rowspan }}">
                                                             <button class="action-btn btn-success" onclick="confirmFleetDeparture('{{ fleet_group.fleet_number }}')">出库</button>
@@ -1208,35 +1235,14 @@
                                                     {% endif %}
                                                 </tr>
                                             {% endfor %}
-                                        {% else %}
-                                            <!-- 没有cargo时仍然显示一行 -->
-                                            <tr>
-                                                {% if forloop.first and forloop.parentloop.first %}
-                                                    <td rowspan="{{ fleet_rowspan }}" style="vertical-align: middle; background-color: #f8f9fa;">
-                                                        <strong>{{ fleet_group.fleet_number }}</strong>
-                                                    </td>
-                                                {% else %}
-                                                    <td style="vertical-align: middle; background-color: #f8f9fa;">
-                                                        <strong>{{ fleet_group.fleet_number }}</strong>
-                                                    </td>
-                                                {% endif %}
-                                                <td style="vertical-align: middle; background-color: #f8f9fa;">{{ shipment.appointment_id }}</td>
-                                                <td style="vertical-align: middle; background-color: #f8f9fa;">{{ shipment.destination }}</td>
-                                                <td colspan="5" style="text-align:center; color:#999;">暂无货物</td>
-                                                <td>
-                                                    <button class="action-btn btn-primary">加塞</button>
-                                                </td>                    
-                                            </tr>
                                         {% endif %}
                                     {% endwith %}
                                 {% endfor %}
                             {% endwith %}
                         {% empty %}
-                        <tr>
-                            <td colspan="8" style="text-align: center; padding: 20px;">
-                                暂无待出库货物
-                            </td>
-                        </tr>
+                            <tr>
+                                <td colspan="10" style="text-align:center; padding:20px;">暂无待出库货物</td>
+                            </tr>
                         {% endfor %}
                     </tbody>
                 </table>
