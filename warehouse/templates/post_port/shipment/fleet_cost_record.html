@@ -44,9 +44,12 @@
                         {% endfor %}
                     </select>
                 </div>
-                <div style="align-self: end;">
-                    <button type="submit" class="search-btn">
+                <div style="align-self: end; display: flex; gap: 10px;">
+                    <button type="submit" name="status" value="record" class="search-btn">
                         <i class="bi bi-search"></i> 查询
+                    </button>
+                    <button type="submit" name="status" value="unrecord" class="search-btn" style="background: #28a745;">
+                        <i class="bi bi-check-circle"></i> 已录查询
                     </button>
                 </div>
             </div>

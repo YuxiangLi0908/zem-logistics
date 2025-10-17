@@ -981,13 +981,23 @@ class FleetManagement(View):
         fleet_number = request.POST.get("fleet_number", "")
         batch_number = request.POST.get("batch_number", "")
         area = request.POST.get("area") or None
-        criteria = models.Q(
-            pod_uploaded_at__isnull=False,
-            shipped_at__isnull=False,
-            arrived_at__isnull=False,
-            shipment_schduled_at__gte="2025-05-01",
-            fleet_number__fleet_cost__isnull=True,
-        )
+        status = request.POST.get("status", "")
+        if status == "record":
+            criteria = models.Q(
+                pod_uploaded_at__isnull=False,
+                shipped_at__isnull=False,
+                arrived_at__isnull=False,
+                shipment_schduled_at__gte="2025-05-01",
+                fleet_number__fleet_cost__isnull=True,
+            )
+        else:
+            criteria = models.Q(
+                pod_uploaded_at__isnull=False,
+                shipped_at__isnull=False,
+                arrived_at__isnull=False,
+                shipment_schduled_at__gte="2025-05-01",
+                fleet_number__fleet_cost__isnull=False,
+            )
         if pickup_number:
             criteria &= models.Q(fleet_number__pickup_number=pickup_number)
         if fleet_number:
