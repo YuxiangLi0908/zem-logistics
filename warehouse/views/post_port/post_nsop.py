@@ -1357,7 +1357,9 @@ class PostNsop(View):
                 'total_cargos': 0  # 总货物行数
             }
             
-            shipments = fleet.shipment.all()
+            shipments = await sync_to_async(list)(
+                Shipment.objects.filter(fleet_number__fleet_number=fleet.fleet_number)
+            )
             
             for shipment in shipments:
                 if not shipment.shipment_batch_number:
