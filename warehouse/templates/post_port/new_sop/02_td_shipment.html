@@ -1192,7 +1192,20 @@
                                                         {{ shipment.destination }}
                                                     </td>
                                                     <td colspan="5" style="text-align:center; color:#999;">暂无货物</td>
-                                                    <td><button class="action-btn btn-primary">加塞</button></td>
+                                                    <td rowspan="{{ shipment_rowspan }}" style="vertical-align: middle;">
+                                                        <form method="post" action="">
+                                                            {% csrf_token %}
+                                                            <input type="hidden" name="destination" value="{{ shipment.destination }}">
+                                                            <input type="hidden" name="add_pallet_ISA" value="{{ shipment.appointment_id }}">
+                                                            <input type="hidden" name="warehouse" value="{{ warehouse }}">
+                                                            <input type="hidden" name="step" value="add_pallet">
+                                                            <input type="hidden" name="tab" value="{{ current_tab }}"> 
+
+                                                            <button type="submit" class="action-btn btn-primary">
+                                                                <i class="fas fa-plus"></i> 加塞
+                                                            </button>
+                                                        </form>
+                                                    </td>
                                                     {% if forloop.parentloop.first and forloop.first %}
                                                         <td rowspan="{{ fleet_rowspan }}">
                                                             <button class="action-btn btn-success" onclick="confirmFleetDeparture('{{ fleet_group.fleet_number }}')">出库</button>
@@ -1233,7 +1246,20 @@
                                                     <td>{{ cargo.total_cbm|default:0 }}</td>
 
                                                     {% if forloop.first %}
-                                                        <td rowspan="{{ shipment_rowspan }}"><button class="action-btn btn-primary">加塞</button></td>
+                                                        <td rowspan="{{ shipment_rowspan }}" style="vertical-align: middle;">
+                                                            <form method="post" action="">
+                                                                {% csrf_token %}
+                                                                <input type="hidden" name="destination" value="{{ shipment.destination }}">
+                                                                <input type="hidden" name="add_pallet_ISA" value="{{ shipment.appointment_id }}">
+                                                                <input type="hidden" name="warehouse" value="{{ warehouse }}">
+                                                                <input type="hidden" name="step" value="add_pallet">
+                                                                <input type="hidden" name="tab" value="{{ current_tab }}"> 
+
+                                                                <button type="submit" class="action-btn btn-primary">
+                                                                    <i class="fas fa-plus"></i> 加塞
+                                                                </button>
+                                                            </form>
+                                                        </td>
                                                     {% endif %}
 
                                                     {% if forloop.first and forloop.parentloop.first %}
@@ -2475,7 +2501,6 @@ function showLoadingBar() {
 
 // 搜索功能
 document.addEventListener('DOMContentLoaded', function() {
-    console.log('DOM loaded, initializing search functionality');
     
     // 搜索按钮事件
     const searchUnscheduledBtn = document.getElementById('searchUnscheduledBtn');
@@ -2508,7 +2533,6 @@ document.addEventListener('DOMContentLoaded', function() {
     if (unscheduledSearch) {
         unscheduledSearch.addEventListener('keypress', function(e) {
             if (e.key === 'Enter') {
-                console.log('Enter pressed in unscheduled search');
                 applySearch('unscheduled');
             }
         });
@@ -2517,7 +2541,6 @@ document.addEventListener('DOMContentLoaded', function() {
     if (scheduledSearch) {
         scheduledSearch.addEventListener('keypress', function(e) {
             if (e.key === 'Enter') {
-                console.log('Enter pressed in scheduled search');
                 applySearch('scheduled');
             }
         });
@@ -2526,7 +2549,6 @@ document.addEventListener('DOMContentLoaded', function() {
     if (readySearch) {
         readySearch.addEventListener('keypress', function(e) {
             if (e.key === 'Enter') {
-                console.log('Enter pressed in ready search');
                 applySearch('ready');
             }
         });
@@ -2554,7 +2576,6 @@ function applySearch(section) {
     });
     
     if (searchTerm === '') {
-        console.log('Empty search term, showing all rows');
         return;
     }
     
@@ -2570,89 +2591,130 @@ function applySearch(section) {
 
 // 专门处理待出库页面的搜索
 function handleReadySectionSearch(rows, searchTerm) {
-    const fleetMap = new Map();
     
-    // 第一步：收集所有行并建立车次号映射
-    rows.forEach(row => {
-        // 查找车次号单元格（第一列）
-        const fleetTd = row.querySelector('td:first-child');
-        let fleetNumber = '';
+    const fleetMap = new Map(); // 存储车次号对应的所有行
+    const appointmentMap = new Map(); // 存储预约号对应的所有行
+    
+    // 第一步：建立正确的车次号和预约号的映射关系
+    let currentFleetNumber = '';
+    let currentAppointmentId = '';
+    
+    rows.forEach((row, index) => {
         
+        // 检查是否是真正的车次号行（第一列有rowspan且内容是车次号格式）
+        const fleetTd = row.querySelector('td:first-child');
         if (fleetTd && fleetTd.hasAttribute('rowspan')) {
-            // 这是车次号的主单元格
-            fleetNumber = fleetTd.textContent.trim().toLowerCase();
-        } else {
-            // 对于没有车次号的行，向上查找所属的车次
-            // 通过查找前面的行中具有rowspan属性的车次号单元格
-            let currentRow = row.previousElementSibling;
-            while (currentRow) {
-                const prevFleetTd = currentRow.querySelector('td:first-child[rowspan]');
-                if (prevFleetTd) {
-                    fleetNumber = prevFleetTd.textContent.trim().toLowerCase();
-                    break;
+            const fleetText = fleetTd.textContent.trim();
+            // 检查是否是车次号格式（以F开头）
+            if (fleetText.startsWith('F')) {
+                const newFleetNumber = fleetText;
+                if (newFleetNumber !== currentFleetNumber) {
+                    currentFleetNumber = newFleetNumber;
+                    // 重置预约号，因为新的车次开始了
+                    currentAppointmentId = '';
                 }
-                currentRow = currentRow.previousElementSibling;
+            } else {
             }
         }
         
-        if (fleetNumber && !fleetMap.has(fleetNumber)) {
-            fleetMap.set(fleetNumber, []);
+        // 检查预约号单元格（第二列）
+        const appointmentTd = row.querySelector('td:nth-child(2)');
+        if (appointmentTd && appointmentTd.hasAttribute('rowspan')) {
+            const newAppointmentId = appointmentTd.textContent.trim();
+            if (newAppointmentId !== currentAppointmentId) {
+                currentAppointmentId = newAppointmentId;
+            }
         }
         
-        if (fleetNumber) {
-            fleetMap.get(fleetNumber).push(row);
+        // 添加到车次号映射
+        if (currentFleetNumber) {
+            if (!fleetMap.has(currentFleetNumber)) {
+                fleetMap.set(currentFleetNumber, []);
+            }
+            fleetMap.get(currentFleetNumber).push(row);
+        }
+        
+        // 添加到预约号映射
+        if (currentAppointmentId) {
+            if (!appointmentMap.has(currentAppointmentId)) {
+                appointmentMap.set(currentAppointmentId, []);
+            }
+            appointmentMap.get(currentAppointmentId).push(row);
         }
     });
+    
     
     // 第二步：处理搜索
     let hasAnyMatch = false;
     
-    // 先检查是否有车次号匹配
-    const matchingFleets = Array.from(fleetMap.keys()).filter(fleet => 
-        fleet.includes(searchTerm)
-    );
+    // 先隐藏所有行
+    rows.forEach(row => {
+        row.style.display = 'none';
+    });
     
-    if (matchingFleets.length > 0) {
-        // 有车次号匹配，显示匹配的车次
+    // 检查车次号匹配
+    const matchingFleets = Array.from(fleetMap.keys()).filter(fleet => {
+        const isMatch = fleet.toLowerCase().includes(searchTerm);
+        return isMatch;
+    });
+    
+    // 检查预约号匹配
+    const matchingAppointments = Array.from(appointmentMap.keys()).filter(appointment => {
+        const isMatch = appointment.toLowerCase().includes(searchTerm);
+        return isMatch;
+    });
+    
+    // 检查其他内容匹配
+    const matchingRows = [];
+    rows.forEach((row, index) => {
+        if (isReadyRowMatch(row, searchTerm)) {
+            matchingRows.push(row);
+        }
+    });
+    
+    // 显示匹配的结果
+    if (matchingFleets.length > 0 || matchingAppointments.length > 0 || matchingRows.length > 0) {
         hasAnyMatch = true;
-        rows.forEach(row => {
-            row.style.display = 'none';
-        });
         
-        matchingFleets.forEach(fleet => {
-            fleetMap.get(fleet).forEach(row => {
-                row.style.display = '';
-            });
-        });
-    } else {
-        // 没有车次号匹配，按普通搜索处理
-        rows.forEach(row => {
-            const isMatch = isReadyRowMatch(row, searchTerm);
-            row.style.display = isMatch ? '' : 'none';
-            
-            if (isMatch) {
-                hasAnyMatch = true;
-                // 显示匹配行的rowspan单元格
-                row.querySelectorAll('td[rowspan]').forEach(td => {
-                    td.style.display = '';
+        // 显示匹配车次的所有行
+        if (matchingFleets.length > 0) {
+            matchingFleets.forEach(fleet => {
+                const fleetRows = fleetMap.get(fleet);
+                fleetRows.forEach(row => {
+                    row.style.display = '';
                 });
-                
-                // 如果这一行属于某个车次，显示整个车次的所有行
+            });
+        }
+        
+        // 显示匹配预约号的所有行
+        if (matchingAppointments.length > 0) {
+            matchingAppointments.forEach(appointment => {
+                const appointmentRows = appointmentMap.get(appointment);
+                appointmentRows.forEach(row => {
+                    row.style.display = '';
+                });
+            });
+        }
+        
+        // 对于其他匹配的行，显示其所属的整个车次
+        if (matchingRows.length > 0) {
+            matchingRows.forEach(row => {
                 const fleetNumber = getFleetNumberForRow(row, fleetMap);
                 if (fleetNumber && fleetMap.has(fleetNumber)) {
                     fleetMap.get(fleetNumber).forEach(fleetRow => {
                         fleetRow.style.display = '';
                     });
+                } else {
+                    row.style.display = '';
                 }
-            }
-        });
+            });
+        }
     }
     
     if (!hasAnyMatch) {
-        // 没有匹配结果的处理
-        console.log('No matches found');
     }
 }
+
 // 获取行所属的车次号
 function getFleetNumberForRow(row, fleetMap) {
     for (let [fleetNumber, rows] of fleetMap.entries()) {
@@ -2721,6 +2783,23 @@ function isReadyRowMatch(row, searchTerm) {
         }
     }
     
+    // 检查板数和CBM
+    const palletTd = row.querySelector('td:nth-child(7)');
+    if (palletTd) {
+        const palletText = palletTd.textContent.toLowerCase();
+        if (palletText.includes(searchTerm)) {
+            return true;
+        }
+    }
+    
+    const cbmTd = row.querySelector('td:nth-child(8)');
+    if (cbmTd) {
+        const cbmText = cbmTd.textContent.toLowerCase();
+        if (cbmText.includes(searchTerm)) {
+            return true;
+        }
+    }
+    
     // 检查行的完整文本内容
     const rowText = row.textContent.toLowerCase();
     if (rowText.includes(searchTerm)) {
@@ -2729,6 +2808,8 @@ function isReadyRowMatch(row, searchTerm) {
     
     return false;
 }
+
+
 function handleGroupedSearch(rows, searchTerm) {
     const groupMap = new Map();
     
@@ -2747,15 +2828,11 @@ function handleGroupedSearch(rows, searchTerm) {
         
         const isMatch = isRowMatch(row, searchTerm);
         groupMap.get(suggestionId).push({ row, isMatch });
-        console.log(`Row ${suggestionId} match:`, isMatch); // 调试用
     });
-    
-    console.log(`Group map size:`, groupMap.size); // 调试用
     
     // 第二步：处理每个分组
     groupMap.forEach((groupRows, suggestionId) => {
         const hasAnyMatch = groupRows.some(item => item.isMatch);
-        console.log(`Group ${suggestionId} has match:`, hasAnyMatch); // 调试用
         
         if (hasAnyMatch) {
             // 如果分组中有匹配的行，显示整个分组
@@ -2800,7 +2877,6 @@ function isRowMatch(row, searchTerm) {
     // 检查行的文本内容
     const rowText = row.textContent.toLowerCase();
     if (rowText.includes(searchTerm)) {
-        console.log('Matched by row text:', rowText); // 调试用
         return true;
     }
     
@@ -2812,7 +2888,6 @@ function isRowMatch(row, searchTerm) {
     if (refIdsCell) {
         const fullRefIds = refIdsCell.getAttribute('data-full') || refIdsCell.textContent || '';
         if (fullRefIds.toLowerCase().includes(searchTerm)) {
-            console.log('Matched by REF ID:', fullRefIds); // 调试用
             return true;
         }
     }
@@ -2820,7 +2895,6 @@ function isRowMatch(row, searchTerm) {
     if (fbaIdsCell) {
         const fullFbaIds = fbaIdsCell.getAttribute('data-full') || fbaIdsCell.textContent || '';
         if (fullFbaIds.toLowerCase().includes(searchTerm)) {
-            console.log('Matched by FBA ID:', fullFbaIds); // 调试用
             return true;
         }
     }
@@ -2828,7 +2902,6 @@ function isRowMatch(row, searchTerm) {
     if (containerCell) {
         const containerText = containerCell.textContent || '';
         if (containerText.toLowerCase().includes(searchTerm)) {
-            console.log('Matched by container:', containerText); // 调试用
             return true;
         }
     }
@@ -2836,7 +2909,6 @@ function isRowMatch(row, searchTerm) {
     // 检查其他可能的数据属性
     const destination = row.getAttribute('data-destination') || '';
     if (destination.toLowerCase().includes(searchTerm)) {
-        console.log('Matched by destination:', destination); // 调试用
         return true;
     }
     
