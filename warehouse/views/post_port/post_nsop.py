@@ -110,6 +110,7 @@ class PostNsop(View):
         if not await self._user_authenticate(request):
             return redirect("login")
         step = request.POST.get("step")
+        print('step',step)
         if step == "appointment_management_warehouse":
             template, context = await self.handle_appointment_management_post(request)
             return render(request, template, context)
@@ -372,13 +373,33 @@ class PostNsop(View):
     async def handle_appointment_post(
         self, request: HttpRequest
     ) -> tuple[str, dict[str, Any]]:
-        destination = request.POST.get('destination')     
-        shipment_batch_number = await self.generate_unique_batch_number(destination)
+        print(request.POST)
+        appointment_id = request.POST.get('appointment_id')
         ids = request.POST.get("cargo_ids")
         plt_ids = request.POST.get("plt_ids")
         selected = [int(i) for i in ids.split(",") if i]
         selected_plt = [int(i) for i in plt_ids.split(",") if i]
         context = {}
+        operation_type = request.POST.get('operation_type')
+        if operation_type == "remove_po":            
+            shipment = await sync_to_async(Shipment.objects.get)(
+                appointment_id=appointment_id
+            )
+
+            shipment_batch_number = shipment.shipment_batch_number
+            
+            request.POST = request.POST.copy()
+            request.POST['alter_type'] = 'remove'
+            request.POST['pl_ids'] = selected
+            request.POST['plt_ids'] = selected_plt
+            request.POST['shipment_batch_number'] = shipment_batch_number           
+            sm = ShippingManagement()
+            info = await sm.handle_alter_po_shipment_post(request,'post_nsop') 
+            context.update({"success_messages": f"删除成功，批次号是{shipment_batch_number}"})
+            return await self.handle_td_shipment_post(request,context)
+        
+        destination = request.POST.get('destination')                  
+        
         if selected or selected_plt:
             packing_list_selected = await self._get_packing_list(
                 models.Q(id__in=selected)
@@ -405,6 +426,40 @@ class PostNsop(View):
             address = request.POST.get('address')
             if not address:
                 address = await self.get_address(destination)
+            
+            #先去查询一下shipment表，有没有这个记录，就是第一次预约出库，如果有就是修改
+            try:
+                shipment = await sync_to_async(Shipment.objects.get)(
+                    appointment_id=appointment_id
+                )
+                if shipment.shipment_batch_number:  #已经有批次号了，说明这是修改PO的
+                    shipment_batch_number = shipment.shipment_batch_number
+                else:
+                    shipment_batch_number = await self.generate_unique_batch_number(destination)
+
+                #不管之前怎么样，目前都是要重新按plt_ids/pl_ids重新绑定，所以要把以前主约/约绑定这个的解绑               
+                if selected_plt: 
+                    await sync_to_async(
+                        Pallet.objects.filter(master_shipment_batch_number=shipment).update
+                    )(master_shipment_batch_number=None)
+                    await sync_to_async(
+                        Pallet.objects.filter(shipment_batch_number=shipment).update
+                    )(shipment_batch_number=None)
+                if selected:  #不管之前怎么样，目前都是要重新按plt_ids/pl_ids重新绑定，所以要把以前的解绑
+                    await sync_to_async(
+                        PackingList.objects.filter(master_shipment_batch_number=shipment).update
+                    )(master_shipment_batch_number=None)
+                    await sync_to_async(
+                        PackingList.objects.filter(shipment_batch_number=shipment).update
+                    )(shipment_batch_number=None)
+            except ObjectDoesNotExist:
+                #找不到，那就新建一条记录
+                shipment_batch_number = await self.generate_unique_batch_number(destination)
+                               
+            except MultipleObjectsReturned:
+                context.update({"error_messages": f"存在多条重复的{appointment_id}!"})  
+                return await self.handle_td_shipment_post(request,context)          
+
             shipment_data = {
                 'shipment_batch_number': shipment_batch_number,
                 'destination': destination,
@@ -415,9 +470,9 @@ class PostNsop(View):
                 'total_pallet': total_pallet,
                 'shipment_type': request.POST.get('shipment_type'),
                 'shipment_account': request.POST.get('shipment_account'),
-                'appointment_id': request.POST.get('appointment_id'),
+                'appointment_id': appointment_id,
                 'shipment_appointment': request.POST.get('shipment_appointment'),
-                'load_type': '卡板' if request.POST.get('st_type') == 'pallet' else '地板',
+                'load_type': request.POST.get('load_type'),
                 'origin': request.POST.get('warehouse'),
                 'note': request.POST.get('note'),
                 'address': address,
@@ -428,13 +483,13 @@ class PostNsop(View):
             request.POST['pl_ids'] = selected
             request.POST['plt_ids'] = selected_plt
             request.POST['type'] = 'td'
+            
             sm = ShippingManagement()
             info = await sm.handle_appointment_post(request,'post_nsop') 
+            context.update({"success_messages": f"绑定成功，批次号是{shipment_batch_number}"})
         else:
-            context.update({"error_messages": f"没有选择PO！"})
-         
+            context.update({"error_messages": f"没有选择PO！"}) 
         
-        context.update({"success_messages": f"绑定成功，批次号是{shipment_batch_number}"})
         return await self.handle_td_shipment_post(request,context)
     
     async def handle_fleet_confirmation_post(

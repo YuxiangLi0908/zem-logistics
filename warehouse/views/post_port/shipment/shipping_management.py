@@ -1331,6 +1331,7 @@ class ShippingManagement(View):
         area = request.POST.get("area")
         current_time = datetime.now()
         appointment_type = request.POST.get("type")
+        
         if appointment_type == "td":  # 首次预约、更新预约、取消预约都是这个类型
             shipment_data = ast.literal_eval(request.POST.get("shipment_data"))
             if 'shipment_schduled_at' not in shipment_data or shipment_data['shipment_schduled_at'] is None:
@@ -1345,7 +1346,7 @@ class ShippingManagement(View):
                 )
             except:
                 existed_appointment = None
-            if existed_appointment:
+            if existed_appointment: #如果是修改PO，就不验证约的情况了
                 if existed_appointment.in_use:
                     raise RuntimeError(f"ISA {appointment_id} 已经登记过了!")
                 elif existed_appointment.is_canceled:
@@ -1563,7 +1564,6 @@ class ShippingManagement(View):
                         if request.POST.get("arm_bol")
                         else ""
                     )
-            print('期望的参数是',shipment_data)
             if not existed_appointment:
                 shipment = Shipment(**shipment_data)
             await sync_to_async(shipment.save)()
@@ -1691,14 +1691,12 @@ class ShippingManagement(View):
             mutable_post["area"] = area
             request.POST = mutable_post
         else:
-            print('不是首次')
             batch_number = request.POST.get("batch_number")
             warehouse = request.POST.get("warehouse")
             shipment_appointment = request.POST.get("shipment_appointment")
             tzinfo = self._parse_tzinfo(request.POST.get("origin", ""))
             shipment_appointment_utc = self._parse_ts(shipment_appointment, tzinfo)
             note = request.POST.get("note")
-            print('batch_number',batch_number)
             shipment = await sync_to_async(Shipment.objects.get)(shipment_batch_number=batch_number)
             shipment.shipment_appointment = parse(shipment_appointment).replace(
                 tzinfo=None
@@ -1783,21 +1781,39 @@ class ShippingManagement(View):
         return await sync_to_async(lambda: pallet_obj.master_shipment_batch_number)()
 
     async def handle_alter_po_shipment_post(
-        self, request: HttpRequest
+        self, request: HttpRequest, name: str | None = None
     ) -> tuple[str, dict[str, Any]]:
         shipment_batch_number = request.POST.get("shipment_batch_number")
         alter_type = request.POST.get("alter_type")
+        print(request.POST)
         shipment = await sync_to_async(
             Shipment.objects.select_related("fleet_number").get
         )(shipment_batch_number=shipment_batch_number)
+        if name == "post_nsop":
+            pl_ids = request.POST.get("pl_ids")
+            plt_ids = request.POST.get("plt_ids")
+        else:
+            if alter_type == "add":
+                pl_ids_key = request.POST.getlist("added_pl_ids")
+                plt_ids_key = request.POST.getlist("added_plt_ids")
+                selections = request.POST.getlist("is_shipment_added")
+            else:
+                pl_ids_key = request.POST.getlist("removed_pl_ids")
+                plt_ids_key = request.POST.getlist("removed_plt_ids")
+                selections = request.POST.getlist("is_shipment_removed")
+            def parse_ids(ids_key):
+                ids_list = request.POST.getlist(ids_key)
+                selected_ids = [id_str for s, id_str in zip(selections, ids_list) if s == "on"]
+                # 展平并转换为整数列表
+                return [int(i) for id_str in selected_ids for i in id_str.split(",") if i.strip()]
+            pl_ids = parse_ids(pl_ids_key)
+            plt_ids = parse_ids(plt_ids_key)
+        
         if alter_type == "add":
             container_number = set()
             selections = request.POST.getlist("is_shipment_added")
             # 添加PO，更新pl
             try:
-                pl_ids = request.POST.getlist("added_pl_ids")
-                pl_ids = [id for s, id in zip(selections, pl_ids) if s == "on"]
-                pl_ids = [int(i) for id in pl_ids for i in id.split(",") if i]
                 packing_list = await sync_to_async(list)(
                     PackingList.objects.select_related("container_number").filter(
                         id__in=pl_ids
@@ -1840,9 +1856,6 @@ class ShippingManagement(View):
 
             # 添加PO，是直接添加的板子
             try:
-                plt_ids = request.POST.getlist("added_plt_ids")
-                plt_ids = [id for s, id in zip(selections, plt_ids) if s == "on"]
-                plt_ids = [int(i) for id in plt_ids for i in id.split(",") if i]
                 pallet = await sync_to_async(list)(
                     Pallet.objects.select_related("container_number").filter(
                         id__in=plt_ids
@@ -1918,9 +1931,6 @@ class ShippingManagement(View):
             fleet_po_ids = set()
             # 未打板的
             try:
-                pl_ids = request.POST.getlist("removed_pl_ids")
-                pl_ids = [id for s, id in zip(selections, pl_ids) if s == "on"]
-                pl_ids = [int(i) for id in pl_ids for i in id.split(",") if i]
                 packing_list = await sync_to_async(list)(
                     PackingList.objects.select_related("container_number").filter(
                         id__in=pl_ids
@@ -1959,9 +1969,6 @@ class ShippingManagement(View):
             except:
                 pass
             # 打板的
-            plt_ids = request.POST.getlist("removed_plt_ids")
-            plt_ids = [id for s, id in zip(selections, plt_ids) if s == "on"]
-            plt_ids = [int(i) for id in plt_ids for i in id.split(",") if i]
             pallet = await sync_to_async(list)(
                 Pallet.objects.select_related("container_number").filter(id__in=plt_ids)
             )

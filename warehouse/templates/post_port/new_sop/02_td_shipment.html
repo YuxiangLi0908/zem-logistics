@@ -1099,7 +1099,9 @@
                     <tbody>
                         {% for shipment_group in scheduled_data %}
                         {% for cargo in shipment_group.cargos %}
-                        <tr>
+                        <tr data-suggestion-id="{{ suggestion.suggestion_id }}"
+                                    data-cargo-id="{{ cargo.ids|default:'' }}"
+                                    data-plt-id="{{ cargo.plt_ids|default:'' }}">
                             {% if forloop.first %}
                             <td rowspan="{{ shipment_group.cargos|length }}" style="vertical-align: middle; background-color: #f8f9fa;">
                                 <strong>{{ shipment_group.appointment_id }}</strong>
@@ -1320,7 +1322,7 @@
 </form>
 
 <div id="bindShipmentModal" class="modal">
-    <div class="modal-content" style="width: 90%; max-width: 1000px;">
+    <div class="modal-content" style="width: 90%; max-width: 1000px; max-height: 700px;">
         <div class="modal-header">
             <h3><i class="fas fa-link"></i> 绑定预约信息</h3>
             <span class="close">&times;</span>
@@ -1334,6 +1336,7 @@
                 <input type="hidden" name="plt_ids" id="modalPltIds">
                 <input type="hidden" name="warehouse" value="{{ warehouse }}">
                 <input type="hidden" name="st_type" value="{{ st_type }}">
+                <input type="text" name="operation_type" id="operationType" value="bind">
 
                 <!-- FTL 表单 -->
                 <div class="modal-form-section">
@@ -2335,7 +2338,8 @@ document.querySelectorAll('.open-bind-modal').forEach(btn => {
             origin,
             note,
             shipmentType,
-            addressDetail
+            addressDetail,
+            operationType
         });
     });
 });
@@ -2343,20 +2347,35 @@ document.querySelectorAll('.open-bind-modal').forEach(btn => {
 // 辅助函数：获取同一预约号的所有行
 function getRowsByAppointment(startRow, appointmentId) {
     const rows = [startRow];
-    let currentRow = startRow.nextElementSibling;
     
-    while (currentRow) {
-        const appointmentTd = currentRow.querySelector('td:nth-child(1)');
-        if (appointmentTd && appointmentTd.textContent.trim() === appointmentId) {
-            rows.push(currentRow);
-            currentRow = currentRow.nextElementSibling;
-        } else {
-            break;
+    // 找到包含预约号的起始行（有 rowspan 的行）
+    let headerRow = startRow;
+    while (headerRow && !headerRow.querySelector('td:first-child[rowspan]')) {
+        headerRow = headerRow.previousElementSibling;
+    }
+    
+    if (!headerRow) {
+        headerRow = startRow;
+    }
+    
+    // 获取 rowspan 的值
+    const firstTd = headerRow.querySelector('td:first-child');
+    const rowspan = firstTd ? parseInt(firstTd.getAttribute('rowspan')) || 1 : 1;
+    
+    // 获取该分组的所有行
+    let currentIndex = Array.from(headerRow.parentNode.children).indexOf(headerRow);
+    const allRows = Array.from(headerRow.parentNode.children);
+    
+    for (let i = 1; i < rowspan; i++) {
+        const nextRow = allRows[currentIndex + i];
+        if (nextRow) {
+            rows.push(nextRow);
         }
     }
     
     return rows;
 }
+
 function openBindModal(data) {
     const {
         suggestionId, cargos, hasAppointment,
@@ -2371,13 +2390,18 @@ function openBindModal(data) {
     // 根据操作类型更新弹窗标题和按钮文本
     const modalHeader = document.querySelector('#bindShipmentModal .modal-header h3');
     const submitButton = document.querySelector('#bindShipmentModal .modal-btn-success');
-
+    const cargoSelectionTitle = document.querySelector('#cargoSelectionArea h4');
+    
+    document.getElementById('modalSuggestionId').value = suggestionId || '';
+    document.getElementById('operationType').value = operationType; // 设置操作类型
     if (operationType === 'remove_po') {
         modalHeader.innerHTML = '<i class="fas fa-minus-circle"></i> 减掉PO';
         submitButton.innerHTML = '<i class="fas fa-check"></i> 确认减掉';
+        cargoSelectionTitle.innerHTML = '<i class="fas fa-box"></i> 选择要解绑的货物'; 
     } else {
         modalHeader.innerHTML = '<i class="fas fa-link"></i> 绑定预约信息';
         submitButton.innerHTML = '<i class="fas fa-check"></i> 确认绑定';
+        cargoSelectionTitle.innerHTML = '<i class="fas fa-box"></i> 选择要绑定/预约的货物';
     }
     // 设置 shipment type
     const shipmentTypeSelect = document.getElementById('shipment-type-select');
