@@ -1439,7 +1439,8 @@ class PostNsop(View):
                 # 获取预约信息
                 try:
                     shipment = await sync_to_async(Shipment.objects.get)(
-                        shipment_batch_number=batch_number
+                        shipment_batch_number=batch_number,
+                        shipment_appointment__gte=datetime(2025, 1, 1)
                     )
                 except MultipleObjectsReturned:
                     raise ValueError(f"shipment_batch_number={batch_number} 查询到多条记录，请检查数据")
