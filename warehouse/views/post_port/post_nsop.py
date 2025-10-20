@@ -1720,12 +1720,13 @@ class PostNsop(View):
         vessel_dict = {} 
         for item in unshipment_pos:
             vessel_name = item.get('vessel_name')
+            vessel_voyage = item.get('vessel_voyage')
             vessel_eta = item.get('vessel_eta')
 
             if vessel_name and vessel_name not in vessel_names:
                 vessel_names.append(vessel_name)
                 eta_date = str(vessel_eta).split()[0] if vessel_eta else "未知"
-                vessel_dict[vessel_name] = f"{vessel_name} → {eta_date}"
+                vessel_dict[vessel_name] = f"{vessel_name} / {vessel_voyage} → {eta_date}"
         context = {
             'warehouse': warehouse,
             'warehouse_options': self.warehouse_options,
@@ -1809,6 +1810,7 @@ class PostNsop(View):
                         "container_number__order__retrieval_id__retrieval_destination_precise"
                     ),
                     vessel_name=F("container_number__order__vessel_id__vessel"),
+                    vessel_voyage=F("container_number__order__vessel_id__voyage"),
                     vessel_eta=F("container_number__order__vessel_id__vessel_eta"),
                 )
                 .annotate(
@@ -1960,6 +1962,7 @@ class PostNsop(View):
                         "container_number__order__retrieval_id__retrieval_destination_precise"
                     ),
                     vessel_name=F("container_number__order__vessel_id__vessel"),
+                    vessel_voyage=F("container_number__order__vessel_id__voyage"),
                     vessel_eta=F("container_number__order__vessel_id__vessel_eta"),
                 )
                 .annotate(
