@@ -1084,6 +1084,7 @@
                 <table class="data-table">
                     <thead>
                         <tr>
+                            <th>预约批次</th>
                             <th>预约号</th>
                             <th>目的地</th>
                             <th>预约时间</th>
@@ -1104,7 +1105,10 @@
                                     data-plt-id="{{ cargo.plt_ids|default:'' }}">
                             {% if forloop.first %}
                             <td rowspan="{{ shipment_group.cargos|length }}" style="vertical-align: middle; background-color: #f8f9fa;">
-                                <strong>{{ shipment_group.appointment_id }}</strong>
+                                {{ shipment_group.shipment_batch_number|default_if_none:'' }}
+                            </td>
+                            <td rowspan="{{ shipment_group.cargos|length }}" style="vertical-align: middle; background-color: #f8f9fa;">
+                                <strong>{{ shipment_group.appointment_id|default_if_none:'' }}</strong>
                             </td>
                             <td rowspan="{{ shipment_group.cargos|length }}" style="vertical-align: middle; background-color: #f8f9fa;">
                                 {{ shipment_group.destination }}
@@ -1131,12 +1135,24 @@
                             <td>{{ cargo.total_cbm|default:0 }}</td>
                             {% if forloop.first %}
                             <td rowspan="{{ shipment_group.cargos|length }}" style="vertical-align: middle;">
+                                
                                 <button class="action-btn btn-danger" onclick="unassignShipment('{{ shipment_group.appointment_id }}')">
                                     <i class="fas fa-unlink"></i> 取消排约
                                 </button>
-                                <button class="action-btn btn-success" onclick="">
-                                    <i class="fas fa-square-plus"></i> 添加PO
-                                </button>
+                                
+                                <form method="post" action="">
+                                    {% csrf_token %}
+                                    <input type="hidden" name="appointment_id" value="{{ shipment_group.appointment_id }}">                                  
+                                    <input type="hidden" name="warehouse" value="{{ warehouse }}">
+                                    <input type="hidden" name="destination" value="{{ shipment_group.destination }}">
+                                    <input type="hidden" name="step" value="search_addable_po">
+                                    <input type="hidden" name="tab" value="{{ current_tab }}"> 
+
+                                    <button class="action-btn btn-success" onclick="">
+                                        <i class="fas fa-square-plus"></i> 添加PO
+                                    </button>
+                                </form>
+  
                                 <button class="action-btn btn-warning open-bind-modal"
                                         data-has-appointment="1"
                                         data-appointment-id="{{ shipment_group.appointment_id }}"
@@ -1578,8 +1594,79 @@
                 </table>
             </div>
             <div class="modal-actions">
-                <button type="submit" class="modal-btn modal-btn-success">确认添加</button>
+                <button type="submit" class="modal-btn modal-btn-success" onclick="handleAddPOFormSubmit()">确认添加</button>
                 <button type="button" class="modal-btn modal-btn-danger" onclick="closeAddPOModal()" style="padding:10px 20px;">取消</button>
+            </div>
+        </div>
+    </div>
+</form>
+
+<!--未排车时添加PO弹框-->
+<form method="post" id="addablePOForm">
+    {% csrf_token %}
+    <input type="hidden" name="tab" id="formTab" value="">
+    <input type="hidden" name="step" value="shipment_add_pallet">
+    <input type="hidden" name="warehouse" value="{{ warehouse }}">
+    <input type="hidden" name="appointment_id" value="{{ appointment_id }}">
+
+    <div id="addablePOModal" class="modal">
+        <div class="modal-content" style="width: 90%; max-width: 900px;">
+            <div class="modal-header">
+                <h3><i class="fas fa-plus"></i> 添加PO - {{ appointment_id }}</h3>
+                <span class="close" onclick="closeAddablePOModal()">&times;</span>
+            </div>
+            <div class="modal-body">
+                <table class="modal-table">
+                    <thead>
+                        <tr>
+                            <th style="width: 5%; text-align:center;">
+                                <input type="checkbox" id="selectAllPos">
+                            </th>
+                            <th style="width: 20%; word-break: break-word; white-space: normal;">REF ID</th>
+                            <th style="width: 20%; word-break: break-word; white-space: normal;">FBA ID</th>
+                            <th style="width: 15%; word-break: break-word; white-space: normal;">柜号</th>
+                            <th style="width: 20%; word-break: break-word; white-space: normal;">目的地</th>
+                            <th style="width: 10%; text-align:center;">板数</th>
+                            <th style="width: 10%; text-align:center;">加塞板数</th>
+                        </tr>
+                    </thead>
+                    <tbody id="addPOTableBody">
+                        {% if packing_list_not_scheduled %}
+                            {% for po in packing_list_not_scheduled %}
+                            <tr>
+                                <td style="text-align:center;">
+                                    <input type="checkbox" class="plt-checkbox" value="{{ po.id }}">
+                                    <input type="hidden"  name="plt_ids" value="{{ po.plt_ids }}">
+                                    <input type="hidden"  name="cargo_ids" value="{{ po.pl_ids }}">
+                                </td>
+                                <td style="word-break: break-word; white-space: normal;">{{ po.ref_ids|default:"-" }}</td>
+                                <td style="word-break: break-word; white-space: normal;">{{ po.fba_ids|default:"-" }}</td>
+                                <td style="word-break: break-word; white-space: normal;">{{ po.cns }}</td>
+                                <td style="word-break: break-word; white-space: normal;">{{ po.destination }}</td>
+                                <td style="text-align:center;">
+                                    {{ po.total_n_pallet_act }}
+                                    <input type="hidden" name="scheduled_pallet" value="{{ po.total_n_pallet_act }}">
+                                </td>
+                                <td class="td">
+                                    <input type="number" 
+                                        name="actual_shipped_pallet" 
+                                        step="1" 
+                                        max="{{ po.total_n_pallet_act }}" 
+                                        value="{{ po.total_n_pallet_act }}" 
+                                        required
+                                        style="width: 80px; max-width: 100%; box-sizing: border-box;">
+                                </td>
+                            </tr>
+                            {% endfor %}
+                        {% else %}
+                            <tr><td colspan="7" style="text-align:center; color:#888; padding: 20px;">暂无可添加的PO</td></tr>
+                        {% endif %}
+                    </tbody>
+                </table>
+            </div>
+            <div class="modal-actions">
+                <button type="submit" class="modal-btn modal-btn-success" onclick="handleAddablePOFormSubmit()">确认添加</button>
+                <button type="button" class="modal-btn modal-btn-danger" onclick="closeAddablePOModal()" style="padding:10px 20px;">取消</button>
             </div>
         </div>
     </div>
@@ -1917,6 +2004,14 @@ document.addEventListener('DOMContentLoaded', function() {
         }, 300);
     {% endif %}
 
+    {% if show_add_po_inventory_modal %}
+        setTimeout(function () {
+            const modal = document.getElementById('addablePOModal');
+            if (modal) modal.style.display = 'block';
+        }, 300);
+    {% endif %}
+
+
     // “全选”checkbox逻辑（弹窗渲染后才有效）
     const selectAll = document.getElementById('selectAllPos');
     if (selectAll) {
@@ -1932,6 +2027,12 @@ function closeAddPOModal() {
     const modal = document.getElementById('addPOModal');
     if (modal) modal.style.display = 'none';
 }
+
+function closeAddablePOModal() {
+    const modal = document.getElementById('addablePOModal');
+    if (modal) modal.style.display = 'none';
+}
+
 function confirmFleetDeparture(fleetNumber) {
     // 获取该车次的所有货物数据
     const fleetData = collectFleetData(fleetNumber);
@@ -2051,6 +2152,133 @@ function collectFleetData(fleetNumber) {
     return fleetData;
 }
 
+// 为 addPOForm 添加提交事件处理
+function handleAddPOFormSubmit() {
+    const form = document.getElementById('addPOForm');
+    
+    // 收集选中的行数据
+    const selectedRowsData = [];
+    const selectedCheckboxes = document.querySelectorAll('#addPOModal .plt-checkbox:checked');
+    
+    selectedCheckboxes.forEach(checkbox => {
+        const row = checkbox.closest('tr');
+        const pltIdInput = row.querySelector('input[name="plt_ids"]');
+        const scheduledPalletInput = row.querySelector('input[name="scheduled_pallet"]');
+        const actualShippedPalletInput = row.querySelector('input[name="actual_shipped_pallet"]');
+        
+        if (pltIdInput && pltIdInput.value) {
+            selectedRowsData.push({
+                pltId: pltIdInput.value,
+                scheduledPallet: scheduledPalletInput ? scheduledPalletInput.value : '',
+                actualShippedPallet: actualShippedPalletInput ? actualShippedPalletInput.value : ''
+            });
+        }
+    });
+    
+    if (selectedRowsData.length === 0) {
+        alert('请至少选择一个PO！');
+        return false;
+    }
+    
+    // 移除原有的所有相关输入
+    const existingInputs = form.querySelectorAll('input[name="plt_ids"], input[name="scheduled_pallet"], input[name="actual_shipped_pallet"]');
+    existingInputs.forEach(input => input.remove());
+    
+    // 添加选中的数据
+    selectedRowsData.forEach(rowData => {
+        // 添加 plt_ids
+        const pltInput = document.createElement('input');
+        pltInput.type = 'hidden';
+        pltInput.name = 'plt_ids';
+        pltInput.value = rowData.pltId;
+        form.appendChild(pltInput);
+        
+        // 添加 scheduled_pallet
+        const scheduledInput = document.createElement('input');
+        scheduledInput.type = 'hidden';
+        scheduledInput.name = 'scheduled_pallet';
+        scheduledInput.value = rowData.scheduledPallet;
+        form.appendChild(scheduledInput);
+        
+        // 添加 actual_shipped_pallet
+        const actualInput = document.createElement('input');
+        actualInput.type = 'hidden';
+        actualInput.name = 'actual_shipped_pallet';
+        actualInput.value = rowData.actualShippedPallet;
+        form.appendChild(actualInput);
+    });
+    
+    // 提交表单
+    form.submit();
+    return true;
+}
+
+function handleAddablePOFormSubmit() {
+    const form = document.getElementById('addablePOForm');
+    
+    // 收集选中的行数据
+    const selectedRowsData = [];
+    const selectedCheckboxes = document.querySelectorAll('#addablePOModal .plt-checkbox:checked');
+    
+    selectedCheckboxes.forEach(checkbox => {
+        const row = checkbox.closest('tr');
+        const pltIdInput = row.querySelector('input[name="plt_ids"]');
+        const cargoIdInput = row.querySelector('input[name="cargo_ids"]');
+        const scheduledPalletInput = row.querySelector('input[name="scheduled_pallet"]');
+        const actualShippedPalletInput = row.querySelector('input[name="actual_shipped_pallet"]');
+        
+        // 判断是 plt_ids 还是 cargo_ids
+        const idType = pltIdInput && pltIdInput.value ? 'plt_ids' : 'cargo_ids';
+        const idValue = pltIdInput && pltIdInput.value ? pltIdInput.value : 
+                       (cargoIdInput && cargoIdInput.value ? cargoIdInput.value : '');
+        
+        if (idValue) {
+            selectedRowsData.push({
+                idType: idType,
+                idValue: idValue,
+                scheduledPallet: scheduledPalletInput ? scheduledPalletInput.value : '',
+                actualShippedPallet: actualShippedPalletInput ? actualShippedPalletInput.value : ''
+            });
+        }
+    });
+    
+    if (selectedRowsData.length === 0) {
+        alert('请至少选择一个PO！');
+        return false;
+    }
+    
+    // 移除原有的所有相关输入
+    const existingInputs = form.querySelectorAll('input[name="plt_ids"], input[name="cargo_ids"], input[name="scheduled_pallet"], input[name="actual_shipped_pallet"]');
+    existingInputs.forEach(input => input.remove());
+    
+    // 添加选中的数据
+    selectedRowsData.forEach(rowData => {
+        // 添加 plt_ids 或 cargo_ids
+        const idInput = document.createElement('input');
+        idInput.type = 'hidden';
+        idInput.name = rowData.idType;
+        idInput.value = rowData.idValue;
+        form.appendChild(idInput);
+        
+        // 添加 scheduled_pallet
+        const scheduledInput = document.createElement('input');
+        scheduledInput.type = 'hidden';
+        scheduledInput.name = 'scheduled_pallet';
+        scheduledInput.value = rowData.scheduledPallet;
+        form.appendChild(scheduledInput);
+        
+        // 添加 actual_shipped_pallet
+        const actualInput = document.createElement('input');
+        actualInput.type = 'hidden';
+        actualInput.name = 'actual_shipped_pallet';
+        actualInput.value = rowData.actualShippedPallet;
+        form.appendChild(actualInput);
+    });
+    
+    // 提交表单
+    form.submit();
+    return true;
+}
 // 打开出库确认弹窗
 function openDepartureModal(fleetNumber, fleetData) {
     document.getElementById('modalFleetNumber').textContent = fleetNumber;

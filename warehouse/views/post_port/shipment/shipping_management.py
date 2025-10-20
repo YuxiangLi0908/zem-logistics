@@ -1785,7 +1785,6 @@ class ShippingManagement(View):
     ) -> tuple[str, dict[str, Any]]:
         shipment_batch_number = request.POST.get("shipment_batch_number")
         alter_type = request.POST.get("alter_type")
-        print(request.POST)
         shipment = await sync_to_async(
             Shipment.objects.select_related("fleet_number").get
         )(shipment_batch_number=shipment_batch_number)
@@ -1801,13 +1800,18 @@ class ShippingManagement(View):
                 pl_ids_key = request.POST.getlist("removed_pl_ids")
                 plt_ids_key = request.POST.getlist("removed_plt_ids")
                 selections = request.POST.getlist("is_shipment_removed")
-            def parse_ids(ids_key):
-                ids_list = request.POST.getlist(ids_key)
+            def parse_ids(ids_list):             
                 selected_ids = [id_str for s, id_str in zip(selections, ids_list) if s == "on"]
                 # 展平并转换为整数列表
                 return [int(i) for id_str in selected_ids for i in id_str.split(",") if i.strip()]
-            pl_ids = parse_ids(pl_ids_key)
-            plt_ids = parse_ids(plt_ids_key)
+            if pl_ids_key and all(id_str == '' for id_str in pl_ids_key):
+                pl_ids = []
+            else:
+                pl_ids = parse_ids(pl_ids_key)
+            if plt_ids_key and all(id_str == '' for id_str in plt_ids_key):
+                plt_ids = []
+            else:
+                plt_ids = parse_ids(plt_ids_key)
         
         if alter_type == "add":
             container_number = set()
