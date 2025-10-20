@@ -1785,7 +1785,6 @@ class ShippingManagement(View):
     ) -> tuple[str, dict[str, Any]]:
         shipment_batch_number = request.POST.get("shipment_batch_number")
         alter_type = request.POST.get("alter_type")
-        print(request.POST)
         shipment = await sync_to_async(
             Shipment.objects.select_related("fleet_number").get
         )(shipment_batch_number=shipment_batch_number)
@@ -1815,7 +1814,6 @@ class ShippingManagement(View):
                 plt_ids = parse_ids(plt_ids_key)
         
         if alter_type == "add":
-            print('是添加')
             container_number = set()
             selections = request.POST.getlist("is_shipment_added")
             # 添加PO，更新pl
