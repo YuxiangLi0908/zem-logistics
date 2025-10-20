@@ -110,7 +110,6 @@ class PostNsop(View):
         if not await self._user_authenticate(request):
             return redirect("login")
         step = request.POST.get("step")
-        print('step',step)
         if step == "appointment_management_warehouse":
             template, context = await self.handle_appointment_management_post(request)
             return render(request, template, context)
@@ -169,9 +168,15 @@ class PostNsop(View):
             return render(request, template, context)
         elif step == "add_pallet":
             template, context = await self.handle_add_pallet_post(request)
-            return render(request, template, context)
+            return render(request, template, context)      
         elif step == "fleet_add_pallet":
             template, context = await self.handle_fleet_add_pallet_post(request)
+            return render(request, template, context)
+        elif step == "search_addable_po":
+            template, context = await self.handle_search_addable_po_post(request)
+            return render(request, template, context)
+        elif step == "shipment_add_pallet":
+            template, context = await self.handle_shipment_add_pallet_post(request)
             return render(request, template, context)
         elif step == "modify_intelligent_po":
             template, context = await self.handle_modify_intelligent_po_post(request)
@@ -243,6 +248,8 @@ class PostNsop(View):
         return await self.handle_td_shipment_post(request,{},all_suggestions)
 
 
+    
+
     async def handle_fleet_add_pallet_post(
         self, request: HttpRequest
     ) -> tuple[str, dict[str, Any]]:
@@ -306,6 +313,53 @@ class PostNsop(View):
             context.update({"success_messages": f"{appointment_id}加塞成功！"})
         return await self.handle_td_shipment_post(request,context)
     
+    async def handle_search_addable_po_post(
+        self, request: HttpRequest
+    ) -> tuple[str, dict[str, Any]]:
+        warehouse = request.POST.get("warehouse")
+        destination = request.POST.get("destination")
+        appointment_id = request.POST.get("appointment_id")
+        context = {}
+        if not bool(appointment_id) or not appointment_id or 'None' in appointment_id:
+            context.update({
+                'error_messages':'ISA为空！',
+                "show_add_po_inventory_modal": False,
+            })
+        tab = request.POST.get("tab")
+        criteria_p = models.Q(
+            (
+                models.Q(container_number__order__order_type="转运")
+                | models.Q(container_number__order__order_type="转运组合")
+            ),
+            container_number__order__packing_list_updloaded=True,
+            shipment_batch_number__isnull=True,
+            container_number__order__created_at__gte="2024-09-01",
+        )
+        pl_criteria = criteria_p & models.Q(
+            container_number__order__offload_id__offload_at__isnull=True,
+            container_number__order__retrieval_id__retrieval_destination_area=warehouse,
+            destination=destination,
+        )
+        plt_criteria = criteria_p & models.Q(
+            container_number__order__offload_id__offload_at__isnull=False,
+            location__startswith=warehouse,
+            destination=destination,
+        )
+        packing_list_not_scheduled = await self._get_packing_list(
+            pl_criteria, plt_criteria
+        )
+        context.update({
+            "warehouse": warehouse,
+            "destination": destination,
+            "appointment_id": request.POST.get("appointment_id"),
+            "packing_list_not_scheduled": packing_list_not_scheduled,
+            #"step": step,  # ← 前端靠这个判断要不要弹窗
+            "active_tab": tab,          # ← 用来控制前端打开哪个标签页    
+        })
+        if 'show_add_po_inventory_modal' not in context:
+            context.update({"show_add_po_inventory_modal": True})# ← 控制是否直接弹出“添加PO”弹窗
+        return await self.handle_td_shipment_post(request, context)
+    
     async def handle_add_pallet_post(
         self, request: HttpRequest
     ) -> tuple[str, dict[str, Any]]:
@@ -338,7 +392,6 @@ class PostNsop(View):
         }
         return await self.handle_td_shipment_post(request, context)
 
-
     async def handle_fleet_departure_post(
         self, request: HttpRequest
     ) -> tuple[str, dict[str, Any]]:
@@ -370,10 +423,34 @@ class PostNsop(View):
         context = await sm.handle_cancel_post(request,'post_nsop')         
         return await self.handle_td_shipment_post(request,context)
     
+    async def handle_shipment_add_pallet_post(
+        self, request: HttpRequest
+    ) -> tuple[str, dict[str, Any]]:
+        context = {}
+        appointment_id = request.POST.get("appointment_id")
+        selected = request.POST.getlist("cargo_ids")
+        selected_plt = request.POST.getlist("plt_ids")
+        
+        context = {}
+        shipment = await sync_to_async(Shipment.objects.get)(
+            appointment_id=appointment_id
+        )
+
+        shipment_batch_number = shipment.shipment_batch_number
+        request.POST = request.POST.copy()
+        request.POST['alter_type'] = 'add'
+        request.POST['pl_ids'] = selected
+        request.POST['plt_ids'] = selected_plt
+        request.POST['shipment_batch_number'] = shipment_batch_number           
+        sm = ShippingManagement()
+        info = await sm.handle_alter_po_shipment_post(request,'post_nsop') 
+        
+        context.update({"success_messages": f"{appointment_id}添加成功！"})
+        return await self.handle_td_shipment_post(request,context)
+    
     async def handle_appointment_post(
         self, request: HttpRequest
     ) -> tuple[str, dict[str, Any]]:
-        print(request.POST)
         appointment_id = request.POST.get('appointment_id')
         ids = request.POST.get("cargo_ids")
         plt_ids = request.POST.get("plt_ids")
@@ -1370,6 +1447,7 @@ class PostNsop(View):
                 address = await self.get_address(shipment.destination)
                 grouped_data[batch_number] = {
                     'appointment_id': shipment.appointment_id,
+                    'shipment_batch_number': shipment.shipment_batch_number,
                     'shipment_type': shipment.shipment_type,
                     'destination': shipment.destination,
                     'shipment_appointment': shipment.shipment_appointment,
