@@ -1149,7 +1149,7 @@
                                         data-note=""
                                         data-address-detail="{{ shipment_group.address_detail }}"
                                         data-operation-type="remove_po">
-                                    <i class="fas fa-square-minus"></i> 减掉PO
+                                    <i class="fas fa-square-minus"></i> 删除PO
                                 </button>
                             </td>
                             {% endif %}
@@ -2395,13 +2395,13 @@ function openBindModal(data) {
     document.getElementById('modalSuggestionId').value = suggestionId || '';
     document.getElementById('operationType').value = operationType; // 设置操作类型
     if (operationType === 'remove_po') {
-        modalHeader.innerHTML = '<i class="fas fa-minus-circle"></i> 减掉PO';
+        modalHeader.innerHTML = '<i class="fas fa-minus-circle"></i> 删除PO';
         submitButton.innerHTML = '<i class="fas fa-check"></i> 确认减掉';
-        cargoSelectionTitle.innerHTML = '<i class="fas fa-box"></i> 选择要解绑的货物'; 
+        cargoSelectionTitle.innerHTML = '<i class="fas fa-box"></i> 选择要删除的PO'; 
     } else {
         modalHeader.innerHTML = '<i class="fas fa-link"></i> 绑定预约信息';
         submitButton.innerHTML = '<i class="fas fa-check"></i> 确认绑定';
-        cargoSelectionTitle.innerHTML = '<i class="fas fa-box"></i> 选择要绑定/预约的货物';
+        cargoSelectionTitle.innerHTML = '<i class="fas fa-box"></i> 选择要绑定/预约的PO';
     }
     // 设置 shipment type
     const shipmentTypeSelect = document.getElementById('shipment-type-select');
@@ -2522,12 +2522,6 @@ function updateHiddenIds() {
     const cargoIds = selected.map(cb => cb.dataset.cargoId).filter(id => id && id.trim() !== '');
     const pltIds = selected.map(cb => cb.dataset.pltId).filter(id => id && id.trim() !== '');
     
-    console.log('选中的货物:', {
-        cargoIds: cargoIds,
-        pltIds: pltIds,
-        selectedCount: selected.length
-    });
-    
     document.getElementById('modalCargoIds').value = cargoIds.join(',');
     document.getElementById('modalPltIds').value = pltIds.join(',');
 }
@@ -2554,7 +2548,7 @@ document.getElementById('bindShipmentForm').addEventListener('submit', function(
     // 收集选中的货物
     const selected = Array.from(document.querySelectorAll('.cargo-checkbox:checked'));
     if (selected.length === 0) {
-        alert('请至少选择一个货物！');
+        alert('请至少选择一个PO！');
         return;
     }
 
@@ -2566,7 +2560,7 @@ document.getElementById('bindShipmentForm').addEventListener('submit', function(
 
      // 根据操作类型设置不同的step
     const operationType = document.getElementById('modalSuggestionId').value;
-    const confirmMessage = operationType === 'remove_po' ? '确定要减掉选中的PO吗？' : '确定提交所选货物吗？';
+    const confirmMessage = operationType === 'remove_po' ? '确定要减掉选中的PO吗？' : '确定提交所选PO吗？';
 
     if (confirm(confirmMessage)) {
         const btn = this.querySelector('button[type="submit"]');
@@ -2617,7 +2611,7 @@ function matchSingleCargo(cargoIds) {
 function matchSelectedCargos() {
     const selectedCheckboxes = document.querySelectorAll('.unscheduled-checkbox:checked');
     if (selectedCheckboxes.length === 0) {
-        alert('请先选择要匹配的货物');
+        alert('请先选择要匹配的PO');
         return;
     }
 
@@ -2628,7 +2622,7 @@ function matchSelectedCargos() {
 }
 
 function applyGroupMatch(suggestionId) {
-    if (confirm('确定要将这些货物匹配到此预约吗？')) {
+    if (confirm('确定要将这些PO匹配到此预约吗？')) {
         document.getElementById('formStep').value = 'apply_group_match';
         document.getElementById('formSuggestionId').value = suggestionId;
         document.getElementById('actionForm').submit();
