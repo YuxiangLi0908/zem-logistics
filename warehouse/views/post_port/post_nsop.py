@@ -1672,7 +1672,8 @@ class PostNsop(View):
         self, request: HttpRequest
     ) -> tuple[str, dict[str, Any]]:
         warehouse = request.POST.get("warehouse")
-        
+        if warehouse:
+            warehouse_name = warehouse.split('-')[0]
         
         nowtime = timezone.now()
         two_weeks_later = nowtime + timezone.timedelta(weeks=2)
@@ -1682,8 +1683,9 @@ class PostNsop(View):
                 shipment_batch_number__shipment_batch_number__isnull=True,
                 container_number__order__offload_id__offload_at__isnull=True,
                 container_number__order__vessel_id__vessel_eta__lte=two_weeks_later, 
+                container_number__order__retrieval_id__retrieval_destination_area=warehouse_name,
                 delivery_type='public',
-                container_number__order__warehouse__name=warehouse,
+                #container_number__order__warehouse__name=warehouse,
             )&
             ~(
                 models.Q(delivery_method__icontains='暂扣') |
