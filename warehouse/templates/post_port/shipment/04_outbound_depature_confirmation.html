@@ -514,7 +514,6 @@
         var containerInput = document.getElementById("containerSearchInput").value.toUpperCase();
         var destinationInput = document.getElementById("destinationSearchInput").value.toUpperCase();
         tr = document.querySelectorAll("#packing-list-table-add tbody tr");
-        console.log(containerInput,destinationInput)
         for (i = 0; i < tr.length; i++) {
             var containerTd = tr[i].getElementsByTagName("td")[2];
             var destinationTd = tr[i].getElementsByTagName("td")[3];
@@ -594,7 +593,6 @@
                         // 编辑模式：创建或更新输入框
                         if (!cells[j].getElementsByTagName('input')[0]){
                             var content = cells[j].textContent || cells[j].innerText;
-                            console.log('创建输入框，当前值:', cells[j].textContent,cells[j].innerText);
                             
                             var input = document.createElement('input');
                             input.type = 'text';
