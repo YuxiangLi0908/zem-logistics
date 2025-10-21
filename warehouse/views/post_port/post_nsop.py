@@ -779,6 +779,7 @@ class PostNsop(View):
             keep = [
                 "fba_id",
                 "container_number__container_number",
+                "destination",
                 "ref_id",
                 "Pallet Count",
                 "total_pcs",
