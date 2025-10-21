@@ -10,6 +10,7 @@ from django.views import View
 
 from warehouse.models.customer import Customer
 from warehouse.models.order import Order
+from warehouse.models.retrieval import Retrieval
 
 
 class PrePortDash(View):
@@ -54,6 +55,9 @@ class PrePortDash(View):
             return await self.download_eta_file(
                 start_date, end_date, start_date_eta, end_date_eta
             )
+        elif step == "get_note_preport_dispatch":
+            template, context = await self.get_note_preport_dispatch(request)
+            return render(request, template, context)
         else:
             return await sync_to_async(render)(request, self.template_main, {})
 
@@ -179,6 +183,26 @@ class PrePortDash(View):
             "tab": tab,
         }
         return self.template_main, context
+
+    async def get_note_preport_dispatch(self, request: HttpRequest) -> tuple[Any, Any]:
+        def process_empty(value):
+            if value in ['None', '']:
+                return None
+            return value
+        note_preport_dispatch = request.POST.get("note_preport_dispatch")
+        start_date = process_empty(request.POST.get("start_date"))
+        end_date = process_empty(request.POST.get("end_date"))
+        start_date_eta = process_empty(request.POST.get("start_date_eta"))  # 处理后为None
+        end_date_eta = process_empty(request.POST.get("end_date_eta"))
+        retrieval_id = request.POST.get("retrieval_id")
+        await sync_to_async(
+                lambda: Retrieval.objects.filter(retrieval_id=retrieval_id).update(
+                    note_preport_dispatch=note_preport_dispatch
+                )
+            )()
+        template_main, context = await self.handle_all_get(start_date, end_date, start_date_eta, end_date_eta)
+        return template_main, context
+
 
     async def _user_authenticate(self, request: HttpRequest):
         if await sync_to_async(lambda: request.user.is_authenticated)():
