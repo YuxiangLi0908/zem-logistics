@@ -184,10 +184,11 @@ async def export_palletization_list_v2(request: HttpRequest) -> HttpResponse:
             },
             axis=1,
         )
-
+        df["slot"] = ""
         df["delivery_method"] = df["delivery_method"].apply(
             lambda x: x.split("-")[0] if x and isinstance(x, str) else x
         )
+        df["pcs"] = df["pcs"].astype(str)
 
         mask = (df["delivery_method"] == "卡车派送") & (df["delivery_type"] == "public")
         df.loc[mask, "shipping_mark"] = ""
@@ -201,10 +202,11 @@ async def export_palletization_list_v2(request: HttpRequest) -> HttpResponse:
                 "pcs",
                 "pl",
                 "note",
+                "slot",
             ]
         ]
     else:
-        df = pd.DataFrame(columns=["destination", "delivery_method", "shipping_mark", "pcs", "pl", "note"])
+        df = pd.DataFrame(columns=["destination", "delivery_method", "shipping_mark", "pcs", "pl", "note", "slot"])
 
     buffer = BytesIO()
     wb = openpyxl.Workbook()
@@ -243,12 +245,17 @@ async def export_palletization_list_v2(request: HttpRequest) -> HttpResponse:
     ws['D1'].font = header1_font
     ws['D1'].alignment = center_alignment
 
+    ws.merge_cells('F1:G1')
+    for col_idx in range(6, 8):
+        cell = ws.cell(row=1, column=col_idx)
+        cell.border = thin_border
+
     ws['F1'] = 'dock'
     ws['F1'].font = header1_font
     ws['F1'].border = thin_border
     ws['F1'].alignment = center_alignment
 
-    column_names = ["destination", "delivery_method", "shipping_mark", "pcs", "pl", "note"]
+    column_names = ["destination", "delivery_method", "shipping_mark", "pcs", "pl", "note", "slot"]
     for col_idx, name in enumerate(column_names, 1):
         cell = ws.cell(row=2, column=col_idx)
         cell.value = name
