@@ -144,3 +144,12 @@ def linebreaks_cn(value):
     result = '\n'.join(items)
     
     return mark_safe(result)
+
+@register.filter
+def linebreaks_comma(value):
+    """将逗号分隔的内容转换为换行显示"""
+    if not value:
+        return value
+    # 按逗号分割，然后每个元素用<br>连接
+    parts = [part.strip() for part in str(value).split(',') if part.strip()]
+    return '<br>'.join(parts)
