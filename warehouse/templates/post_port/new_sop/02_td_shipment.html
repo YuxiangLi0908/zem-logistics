@@ -1199,6 +1199,7 @@
                     <thead>
                         <tr>
                             <th>车次号</th>
+                            <th>提货时间</th>
                             <th>预约号</th>
                             <th>目的地</th>
                             <th>柜号</th>
@@ -1221,8 +1222,10 @@
                                                     {% if forloop.parentloop.first and forloop.first or fleet_rowspan == 1 %}
                                                         <td rowspan="{{ fleet_rowspan }}" style="vertical-align: middle; background-color: #f8f9fa;">
                                                             <strong>{{ fleet_group.fleet_number }}</strong>
-                                                        </td>
-                                                    
+                                                        </td>   
+                                                        <td rowspan="{{ fleet_rowspan }}" style="vertical-align: middle; background-color: #f8f9fa;">
+                                                            {{ fleet_group.appointment_datetime|date:"Y-m-d" }}
+                                                        </td>                                        
                                                     {% endif %}
                                                     
                                                     <td rowspan="{{ shipment_rowspan }}" style="vertical-align: middle; background-color: #f8f9fa;">
@@ -1260,6 +1263,9 @@
                                                         <td rowspan="{{ fleet_rowspan }}" style="vertical-align: middle; background-color: #f8f9fa;">
                                                             <strong>{{ fleet_group.fleet_number }}</strong>
                                                         </td>
+                                                        <td rowspan="{{ fleet_rowspan }}" style="vertical-align: middle; background-color: #f8f9fa;">
+                                                            {{ fleet_group.appointment_datetime|date:"Y-m-d" }}
+                                                        </td> 
                                                     {% endif %}
 
                                                     {% if forloop.first %}

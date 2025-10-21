@@ -1493,6 +1493,7 @@ class PostNsop(View):
         for fleet in fleets:
             fleet_group = {
                 'fleet_number': fleet.fleet_number,
+                'appointment_datetime': fleet.appointment_datetime,
                 'shipments': {},  # 改回字典结构，保持与前端兼容
                 'pl_ids': [],
                 'plt_ids': [],
