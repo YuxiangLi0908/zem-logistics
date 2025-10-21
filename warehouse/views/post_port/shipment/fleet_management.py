@@ -1290,7 +1290,6 @@ class FleetManagement(View):
     ) -> HttpResponse:
         fleet_number = request.POST.get("fleet_number")
         customerInfo = request.POST.get("customerInfo")
-        print('customerInfo',customerInfo)
         if customerInfo:
             customer_info = json.loads(customerInfo)
             packing_list = []
