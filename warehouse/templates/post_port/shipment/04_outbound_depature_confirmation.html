@@ -42,6 +42,8 @@
                             <th class="th" style="text-align: center; border: 1px solid #141414">weight</th> 
                             <th class="th" style="text-align: center; border: 1px solid #141414">CBM</th> 
                             <th class="th" style="text-align: center; border: 1px solid #141414">板数</th>  
+                            <th class="th" style="text-align: center; border: 1px solid #141414">库位</th>  
+                            <th class="th" style="text-align: center; border: 1px solid #141414">时间</th>  
                             {% if pl_fleet.0.load_position %}
                             <th class="th" style="text-align: center; border: 1px solid #141414">一提两卸</th>
                             {% endif %} 
@@ -54,6 +56,8 @@
                             <td style="text-align: center; border: 1px solid #141414; text-wrap: wrap; padding:10px;" data-editable="true">{{ s.total_weight }}</td>
                             <td style="text-align: center; border: 1px solid #141414; text-wrap: wrap; padding:10px;" data-editable="true">{{ s.total_cbm }}</td>
                             <td style="text-align: center; border: 1px solid #141414; padding:10px;" data-editable="true">{{ s.total_n_pallet }}</td>
+                            <td style="text-align: center; border: 1px solid #141414; padding:10px;" data-editable="true">{{ s.slot|default_if_none:'' }}</td>
+                            <td style="text-align: center; border: 1px solid #141414; padding:10px;" data-editable="true">{{ s.shipment_batch_number__shipment_appointment }}</td>
                             {% if s.load_position %}
                             <td style="text-align: center; border: 1px solid #141414; padding:10px;" data-editable="true">{{ s.load_position }}</td>
                             {% endif %}
@@ -64,6 +68,7 @@
                             <td style="text-align: center; border: 1px solid #141414; text-wrap: wrap; padding:10px;" data-editable="true"></td>
                             <td style="text-align: center; border: 1px solid #141414; text-wrap: wrap; padding:10px;" data-editable="true"></td>
                             <td style="text-align: center; border: 1px solid #141414; text-wrap: wrap; padding:10px;" data-editable="true"></td>
+                            <td style="text-align: center; border: 1px solid #141414; padding:10px;" data-editable="true"></td>
                             <td style="text-align: center; border: 1px solid #141414; padding:10px;" data-editable="true"></td>
                             <td style="text-align: center; border: 1px solid #141414; padding:10px;" data-editable="true"></td>
                         </tr>  
@@ -509,7 +514,6 @@
         var containerInput = document.getElementById("containerSearchInput").value.toUpperCase();
         var destinationInput = document.getElementById("destinationSearchInput").value.toUpperCase();
         tr = document.querySelectorAll("#packing-list-table-add tbody tr");
-        console.log(containerInput,destinationInput)
         for (i = 0; i < tr.length; i++) {
             var containerTd = tr[i].getElementsByTagName("td")[2];
             var destinationTd = tr[i].getElementsByTagName("td")[3];
@@ -578,6 +582,7 @@
         } else if (name == "self_pickup") {
             var table = document.getElementById('self_pickup-container-' + batch_number);
         }
+        
         var rows = table.getElementsByTagName('tr');
         for (var i=1; i < rows.length; i++){    
             var cells = rows[i].getElementsByTagName('td');
@@ -585,8 +590,10 @@
             for (var j = 0; j < cells.length; j++) {
                 if (cells[j].getAttribute('data-editable') === 'true') {
                     if (flag){
+                        // 编辑模式：创建或更新输入框
                         if (!cells[j].getElementsByTagName('input')[0]){
-                            var content = cells[j].innerHTML;
+                            var content = cells[j].textContent || cells[j].innerText;
+                            
                             var input = document.createElement('input');
                             input.type = 'text';
                             input.value = content.trim();
@@ -596,12 +603,11 @@
                             cells[j].appendChild(input);
                         }
                     } else {
-                        var input = cells[j].getElementsByTagName('input')[0];
-                        if (input){
-                            var tr = rows[i];
-                            if (tr.id && tr.id.indexOf('empty')=== -1) {
-                                rowData.push(input.value);
-                            }                           
+                        var tr = rows[i];
+                        if (tr.id && tr.id.indexOf('empty') === -1) {
+                            var input = cells[j].getElementsByTagName('input')[0];
+                            var value = input ? input.value.trim() : cells[j].innerText.trim();
+                            rowData.push(value);
                         }
                     }
                 }
@@ -637,13 +643,15 @@
                 form.appendChild(newInput);           
             } else if (name == "fleet") {
                 //传给BOL下载的表格
+                form.appendChild(newInput);
+                // 同时传给所有 BOL 下载表格
                 var bolForms = document.querySelectorAll('form[id^="exportBOL-"]');
-                bolForms.forEach(function(form) {             
-                    var newInput = document.createElement('input');
-                    newInput.type = 'hidden';
-                    newInput.name = 'pickupList';
-                    newInput.value = jsonCustomerInfo;
-                    form.appendChild(newInput);
+                bolForms.forEach(function(bolForm) {             
+                    var bolInput = document.createElement('input');
+                    bolInput.type = 'hidden';
+                    bolInput.name = 'pickupList';
+                    bolInput.value = jsonCustomerInfo;
+                    bolForm.appendChild(bolInput);
                 });
             } else {
                 form.appendChild(newInput);

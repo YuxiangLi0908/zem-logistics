@@ -487,6 +487,7 @@ class FleetManagement(View):
                 "destination",
                 "shipment_batch_number__shipment_batch_number",
                 "shipment_batch_number__shipment_appointment",
+                "slot",
             )
             .annotate(
                 total_weight=Sum("weight_lbs"),
@@ -1300,6 +1301,8 @@ class FleetManagement(View):
                         "destination": row[2].strip(),
                         "total_cbm": row[3].strip(),
                         "total_n_pallet": row[4].strip(),
+                        "slot": row[6].strip(),
+                        "Appointment": row[7].strip(),
                     }
                 )
         else:
