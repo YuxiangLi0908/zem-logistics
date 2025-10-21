@@ -527,6 +527,22 @@
         background-color: #2980b9 !important;
         box-shadow: 0 4px 8px rgba(0, 0, 0, 0.25);
     }
+    .destination-tag.selected {
+        background-color: #e74c3c !important;
+        color: #fff !important;
+        border-color: #c0392b !important;
+        box-shadow: 0 2px 5px rgba(0, 0, 0, 0.2);
+    }
+
+    .destination-tag:hover {
+        transform: translateY(-2px);
+        box-shadow: 0 4px 8px rgba(0, 0, 0, 0.15);
+    }
+
+    .destination-tag.selected:hover {
+        background-color: #c0392b !important;
+        box-shadow: 0 4px 8px rgba(0, 0, 0, 0.25);
+    }
     @media (max-width: 768px) {
         .appointment-header {
             flex-direction: column;
@@ -722,6 +738,39 @@
                     总计: {{ cargos|length }} 组PO | 已选择: <span id="selectedVesselCount">0</span> 个船名
                 </div>
             </div>
+            <!-- 目的地筛选区域 -->
+            <div class="destination-filter-section" style="margin-bottom: 20px; padding: 15px; background: #f8f9fa; border-radius: 8px; border-left: 4px solid #e74c3c;">
+                <div style="display: flex; justify-content: space-between; align-items: flex-start; gap: 15px; flex-wrap: nowrap;">
+                    <!-- 左边：目的地列表 -->
+                    <div style="flex: 1; min-width: 0;">
+                        <div style="display: flex; align-items: flex-start; gap: 8px;">
+                            <strong style="color: #2c3e50; white-space: nowrap; flex-shrink: 0; margin-top: 2px;">
+                                <i class="fas fa-map-marker-alt"></i> 目的地列表 (点击筛选):
+                            </strong>
+                            <div id="destinationList" style="display: flex; gap: 8px; flex-wrap: wrap; flex: 1;">
+                                {% for destination in destination_list %}
+                                <span class="destination-tag" data-destination="{{ destination }}" 
+                                    style="background: #ffeaa7; padding: 4px 12px; border-radius: 16px; font-size: 0.85rem; 
+                                            border: 1px solid #fdcb6e; cursor: pointer; transition: all 0.3s; flex-shrink: 0;"
+                                    onclick="toggleDestinationFilter('{{ destination }}')">
+                                    {{ destination }}
+                                </span>
+                                {% empty %}
+                                <span style="color: #666; font-style: italic;">暂无目的地数据</span>
+                                {% endfor %}
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <!-- 右边：操作按钮 -->
+                    <div style="flex-shrink: 0; display: flex; align-items: center; gap: 8px; margin-left: 20px;">
+                        <button id="clearDestinationFilter" class="action-btn btn-warning" style="padding: 8px 12px; flex-shrink: 0;" onclick="clearDestinationFilter()">
+                            <i class="fas fa-times"></i> 清除目的地
+                        </button>
+                    </div>
+                </div>
+            </div>
+
             <!-- 导PO的表单 -->
             <form method="post" action="" id="exportForm" style="display: none;">
                 {% csrf_token %}
@@ -1262,7 +1311,6 @@
             // 更新统计信息
             updateFilterStats();
         }
-        updateVesselStats();
     });
 
     function showLoadingBar() {
@@ -1299,7 +1347,24 @@
         document.getElementById('totalPalletsCount').textContent = Math.round(totalPallets);
         document.getElementById('totalCbmCount').textContent = totalCbm.toFixed(2);
     }
+
+    // 目的地筛选函数
     let selectedVessels = new Set();
+    let selectedDestinations = new Set(); // 添加这行
+
+    function toggleDestinationFilter(destination) {
+        const destinationKey = destination.trim().toLowerCase();
+        const destinationTag = document.querySelector(`.destination-tag[data-destination="${destination}"]`);
+        
+        if (selectedDestinations.has(destinationKey)) {
+            selectedDestinations.delete(destinationKey);
+            destinationTag.classList.remove('selected');
+        } else {
+            selectedDestinations.add(destinationKey);
+            destinationTag.classList.add('selected');
+        }
+        applyCombinedFilter();
+    }
 
     function toggleVesselFilter(vesselName) {
         const nameKey = vesselName.trim().toLowerCase();
@@ -1313,34 +1378,44 @@
             vesselTag.classList.add('selected'); // 添加选中状态
         }
         applyCombinedFilter();
-        updateVesselStats(); // 更新船名筛选统计
     }
 
-
+    function clearDestinationFilter() {
+        const destinationTags = document.querySelectorAll('.destination-tag');
+        selectedDestinations.clear();
+        
+        destinationTags.forEach(tag => {
+            tag.classList.remove('selected');
+        });
+        
+        applyCombinedFilter();
+    }
+    
     function applyCombinedFilter() {
         const searchTerm = document.getElementById('cargoSearch').value.trim().toLowerCase();
         const rows = document.querySelectorAll('#cargoTable tbody tr');
 
         rows.forEach(row => {
             const rowVessel = (row.dataset.vesselName || '').trim().toLowerCase();
-            const destination = (row.dataset.destination || '').toLowerCase();
+            const rowDestination = (row.dataset.destination || '').trim().toLowerCase();
             const refIds = (row.dataset.refIds || '').toLowerCase();
             const fbaIds = (row.dataset.fbaIds || '').toLowerCase();
             const containerNumber = (row.dataset.containerNumber || '').toLowerCase();
 
             // === 条件① 船名匹配 ===
             const vesselMatch = selectedVessels.size === 0 || selectedVessels.has(rowVessel);
-
+            // === 条件② 目的地匹配 ===
+            const destinationMatch = selectedDestinations.size === 0 || selectedDestinations.has(rowDestination);
             // === 条件② 搜索匹配 ===
             const searchMatch =
                 searchTerm === '' ||
-                destination.includes(searchTerm) ||
+                rowDestination.includes(searchTerm) ||
                 refIds.includes(searchTerm) ||
                 fbaIds.includes(searchTerm) ||
                 containerNumber.includes(searchTerm);
 
             // === “并且”逻辑 ===
-            if (vesselMatch && searchMatch) {
+            if (vesselMatch && destinationMatch && searchMatch) {
                 row.style.display = '';
             } else {
                 row.style.display = 'none';
@@ -1360,14 +1435,6 @@
         });
         
         applyCombinedFilter();
-        updateVesselStats(); // 更新船名筛选统计
-    }
-    // 新增函数：更新船名筛选统计
-    function updateVesselStats() {
-        const selectedVesselCount = document.getElementById('selectedVesselCount');
-        if (selectedVesselCount) {
-            selectedVesselCount.textContent = selectedVessels.size;
-        }
     }
     // 更新选中数量
     function updateSelectedCount() {

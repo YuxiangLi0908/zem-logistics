@@ -872,7 +872,6 @@ class PostNsop(View):
     async def _fl_unscheduled_data(
         self, request: HttpRequest, warehouse:str
     ) -> tuple[str, dict[str, Any]]:
-        warehouse_form = ZemWarehouseForm(initial={"name": warehouse})
         shipment = await sync_to_async(list)(
             Shipment.objects.filter(
                 origin=warehouse,
@@ -1672,6 +1671,8 @@ class PostNsop(View):
         self, request: HttpRequest
     ) -> tuple[str, dict[str, Any]]:
         warehouse = request.POST.get("warehouse")
+        
+        
         nowtime = timezone.now()
         two_weeks_later = nowtime + timezone.timedelta(weeks=2)
         #所有没约且两周内到港的货物
@@ -1680,7 +1681,6 @@ class PostNsop(View):
                 shipment_batch_number__shipment_batch_number__isnull=True,
                 container_number__order__offload_id__offload_at__isnull=True,
                 container_number__order__vessel_id__vessel_eta__lte=two_weeks_later, 
-                container_number__order__retrieval_id__retrieval_destination_precise=warehouse,
                 delivery_type='public',
                 container_number__order__warehouse__name=warehouse,
             )&
@@ -1719,7 +1719,10 @@ class PostNsop(View):
         
         vessel_names = []
         vessel_dict = {} 
+        destination_list = []
         for item in unshipment_pos:
+            destination = item.get('destination')
+            destination_list.append(destination)
             vessel_name = item.get('vessel_name')
             vessel_voyage = item.get('vessel_voyage')
             vessel_eta = item.get('vessel_eta')
@@ -1728,6 +1731,7 @@ class PostNsop(View):
                 vessel_names.append(vessel_name)
                 eta_date = str(vessel_eta).split()[0] if vessel_eta else "未知"
                 vessel_dict[vessel_name] = f"{vessel_name} / {vessel_voyage} → {eta_date}"
+        destination_list = list(set(destination_list))
         context = {
             'warehouse': warehouse,
             'warehouse_options': self.warehouse_options,
@@ -1744,6 +1748,7 @@ class PostNsop(View):
             'max_pallet': max_pallet,
             "vessel_names": vessel_names,
             "vessel_dict": vessel_dict,
+            "destination_list": destination_list,
         }
         return self.template_main_dash, context
     
