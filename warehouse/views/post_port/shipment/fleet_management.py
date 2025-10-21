@@ -1347,6 +1347,7 @@ class FleetManagement(View):
                     "destination",
                     "shipment_batch_number__shipment_batch_number",
                     "shipment_batch_number__shipment_appointment",
+                    "slot",
                 )
                 .annotate(
                     total_weight=Round(Sum("weight_lbs", output_field=FloatField()), 2),
@@ -1385,14 +1386,15 @@ class FleetManagement(View):
                 "total_cbm": "CBM",
                 "total_n_pallet": "板数",
                 "shipment_batch_number__shipment_appointment": "Appointment",
+                "slot": "库位",
             }
         )
         if len(shipment) > 1:
             df = df[
-                ["柜号", "预约批次", "仓点", "CBM", "板数", "一提两卸", "Appointment"]
+                ["柜号", "预约批次", "仓点", "CBM", "板数", "一提两卸", "Appointment", "库位"]
             ]
         else:
-            df = df[["柜号", "预约批次", "仓点", "CBM", "板数"]]
+            df = df[["柜号", "预约批次", "仓点", "CBM", "板数","库位"]]
         response = HttpResponse(content_type="text/csv")
         response["Content-Disposition"] = (
             f"attachment; filename=packing_list_{fleet_number}.csv"

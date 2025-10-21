@@ -1429,8 +1429,7 @@ class PostNsop(View):
         
         # 按shipment_batch_number分组
         grouped_data = {}
-        for item in raw_data:
-            
+        for item in raw_data:           
             batch_number = item.get('shipment_batch_number__shipment_batch_number')
             if "库存盘点" in batch_number:
                 continue
@@ -1441,6 +1440,8 @@ class PostNsop(View):
                         shipment_batch_number=batch_number,
                         shipment_appointment__gte=datetime(2025, 1, 1)
                     )
+                except Shipment.DoesNotExist:
+                    raise ValueError(f"未找到符合条件的 Shipment：shipment_batch_number={batch_number}")
                 except MultipleObjectsReturned:
                     raise ValueError(f"shipment_batch_number={batch_number} 查询到多条记录，请检查数据")
                 

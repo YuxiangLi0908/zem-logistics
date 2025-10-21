@@ -86,6 +86,7 @@
                     <thead>
                         <tr style="position: sticky; top: 30px;">
                             <th class="th">出库批次</th>
+                            <th class="th">Pickup Number</th>
                             <th class="th">预约批次</th>
                             <th class="th">ISA</th>
                             <th class="th">Carrier</th>
@@ -98,9 +99,10 @@
                         </tr>
                         <tr style="position: sticky; top: 52px;" id="fleet-table-filter">
                             <th class="th"><input type="text" id="fleetSearchInput" placeholder="搜索出库批次..." oninput="filterTable(this, 0, true)" size="13" style="font-size: 11px;"></th>
-                            <th class="th"><input type="text" id="fleetShipmentSearchInput" placeholder="搜索预约批次..." oninput="filterTable(this, 1, true)" size="13" style="font-size: 11px;"></th>
-                            <th class="th"><input type="text" id="appointmentSearchInput" placeholder="搜索ISA..." oninput="filterTable(this, 2, true)" size="13" style="font-size: 11px;"></th>
-                            <th class="th"><input type="text" id="carrierSearchInput" placeholder="搜索carrier..." oninput="filterTable(this, 3, true)" size="13" style="font-size: 11px;"></th>
+                            <th class="th"><input type="text" id="fleetShipmentSearchInput" placeholder="搜索Pickup..." oninput="filterTable(this, 1, true)" size="13" style="font-size: 11px;"></th>
+                            <th class="th"><input type="text" id="fleetShipmentSearchInput" placeholder="搜索预约批次..." oninput="filterTable(this, 2, true)" size="13" style="font-size: 11px;"></th>
+                            <th class="th"><input type="text" id="appointmentSearchInput" placeholder="搜索ISA..." oninput="filterTable(this, 3, true)" size="13" style="font-size: 11px;"></th>
+                            <th class="th"><input type="text" id="carrierSearchInput" placeholder="搜索carrier..." oninput="filterTable(this, 4, true)" size="13" style="font-size: 11px;"></th>
                             <th class="th"></th>
                             <th class="th"></th>
                             <th class="th"></th>
@@ -117,7 +119,8 @@
                                     {{ f.fleet_number }}
                                 </a>
                             </td>
-                            <td class="td">{{ f.shipment_batch_numbers }}</td>
+                            <td class="td">{{ f.pickup_number|default_if_none:'' }}</td>
+                            <td class="td">{{ f.shipment_batch_numbers|linebreaks_comma|safe }}</td>
                             <td class="td">{{ f.appointment_ids }}</td>
                             <td class="td">{{ f.carrier }}</td>
                             <td class="td">
