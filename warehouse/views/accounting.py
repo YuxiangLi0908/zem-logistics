@@ -846,14 +846,14 @@ class Accounting(View):
         context = {}
         return self.template_invoice_preport, context
 
-    def handle_check_unreferenced_delivery(self, request) -> tuple[Any, Any]:
-        unreferenced_invoices = InvoiceDelivery.objects.filter(
-            pallet_delivery__isnull=True
-        )
-        # 先查看数量确认
-        deleted_count, _ = unreferenced_invoices.delete()
-        context = {}
-        return self.template_invoice_delivery, context
+    # def handle_check_unreferenced_delivery(self, request) -> tuple[Any, Any]:
+    #     unreferenced_invoices = InvoiceDelivery.objects.filter(
+    #         pallet_delivery__isnull=True
+    #     )
+    #     # 先查看数量确认
+    #     deleted_count, _ = unreferenced_invoices.delete()
+    #     context = {}
+    #     return self.template_invoice_delivery, context
 
     def get_special_stages(self, main_stage) -> tuple[str, str]:
         if main_stage == "delivery":
