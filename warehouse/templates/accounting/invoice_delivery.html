@@ -28,7 +28,7 @@
         </div>
     </form>
 </div>
-{% if user.is_staff or modify_shipped_shipment%}
+{% if user.is_staff %}
 <form method="post" action="" style="width: 80%;">
     {% csrf_token %}    
     <input type="hidden" name="step" value="check_unreferenced_delivery">
