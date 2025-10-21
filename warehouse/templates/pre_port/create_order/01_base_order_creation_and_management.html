@@ -22,7 +22,7 @@
                 <div style="display: flex;">
                     <div class="order-form-1-row flex-8">
                         <div><label style="font-size: 13px;">客户</label></div>
-                        <select name="customer" style="font-size: 13px;">
+                        <select name="customer" style="font-size: 13px;" id="customer">
                             {% for k, v in customers.items %}
                                 <option value="{{ v }}">{{ k }}</option>
                             {% endfor %}
@@ -51,39 +51,6 @@
                     <div class="order-form-1-row flex-8" style="font-size: 13px;">
                         <div><label style="font-size: 13px;">柜号</label></div>
                         <input type="text" name="container_number" id="containerNumber" size="15" required>
-                    </div>
-                    <div class="order-form-1-row flex-8" style="font-size: 13px;">
-                        <div><label style="font-size: 13px;">柜型</label></div>
-                        <select name="container_type">
-                            {% for k, v in container_type.items %}
-                                <option value="{{ v }}">{{ k }}</option>
-                            {% endfor %}
-                        </select>
-                    </div>
-                    <div class="order-form-1-row flex-8" style="font-size: 13px;">
-                        <div><label style="font-size: 13px;">柜重</label></div>
-                        <div style="display: flex;">
-                            <div><input type="number" name="weight" id="containerWeight" step=0.0001 style="width: 80px" required></div>
-                            <div>
-                                <select name="weight_unit">
-                                    <option value="kg">kg</option>
-                                    <option value="lbs">lbs</option>
-                                </select>
-                            </div>
-                        </div>
-                        
-                    </div>
-                    <div class="order-form-1-row flex-8" style="font-size: 13px;">
-                        <div><label style="font-size: 13px;">特殊柜型</label></div>
-                        <input type="checkbox" name="is_special_container" onchange="showNote(this)">
-                    </div>
-                    <div class="order-form-1-row flex-8" id="containerNote" style="display: none; font-size: 13px;">
-                        <div><label style="font-size: 13px;">备注(特殊柜型)</label></div>
-                        <input type="text" name="note">
-                    </div>
-                    <div class="order-form-1-row flex-8" style="font-size: 13px;">
-                        <div><label style="font-size: 13px;">保时效</label></div>
-                        <input type="checkbox" name="is_expiry_guaranteed" value="true">
                     </div>
                 </div>
             </div>
@@ -137,8 +104,14 @@
         };
     };
 
+
     function checkOrderTypeInput() {
         const selectedValue = document.getElementById('order_type').value;
+        const selectedValueCustomer = document.getElementById('customer').value;
+        if (!selectedValueCustomer) {
+        alert('请选择客户类型！');
+        isValid = false;
+        }
         if (!selectedValue) {
             alert('请选择订单类型！');
             event.preventDefault();

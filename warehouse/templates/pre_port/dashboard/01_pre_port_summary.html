@@ -1,5 +1,44 @@
 {% extends 'base.html' %}
 {% block content %}
+    <style>
+.custom-btn {
+  /* 基础样式 */
+  padding: 2px 10px;
+  border: none;
+  border-radius: 4px;
+  background-color: #4096ff; /* 主色调：蓝色 */
+  color: #fff; /* 文字白色 */
+  font-size: 13px;
+  cursor: pointer;
+  /* 对齐方式 */
+  vertical-align: middle;
+  margin-left: 8px;
+  /* 过渡动画（平滑交互） */
+  transition: all 0.2s ease;
+}
+
+/* 悬停效果 */
+.custom-btn:hover {
+  background-color: #69b1ff; /* 浅一点的蓝色 */
+  box-shadow: 0 2px 8px rgba(64, 150, 255, 0.3); /* 轻微阴影 */
+  transform: translateY(-1px); /* 轻微上浮 */
+}
+
+/* 点击效果 */
+.custom-btn:active {
+  background-color: #3385ff; /* 深一点的蓝色 */
+  transform: translateY(0); /* 恢复原位 */
+  box-shadow: none; /* 取消阴影 */
+}
+
+/* 禁用状态（可选） */
+.custom-btn:disabled {
+  background-color: #c9c9c9;
+  cursor: not-allowed;
+  transform: none;
+  box-shadow: none;
+}
+</style>
 <div style="width: 100%; font-size: 11px;">
     <ul class="nav nav-tabs">
         <li class="nav-item">
@@ -14,7 +53,7 @@
 </div>
 
 <div id="order-info-sec" style="width: 100%;">
-    <div id="status-summary-sec" style="display: ''; overflow-y: scroll; max-height: 800px;">
+    <div id="status-summary-sec" style=" overflow-y: scroll; max-height: 800px;">
         <div style="max-height: 100%; max-width: 100%;">
             <div style="width: 100%; display: flex; justify-content: space-between;">
                 <form method="post" action="">
@@ -45,11 +84,13 @@
                     <th class="th">所属仓/直送地址</th>
                     <th class="th">建单进度</th>
                     <th class="th">Vessel状态</th>
+                    <th class="th">放行状态</th>
                     <th class="th">预约提柜</th>
                     <th class="th">实际提柜</th>
                     <th class="th">抵达仓库</th>
                     <th class="th">拆柜状态</th>
                     <th class="th">还空状态</th>
+                    <th class="th">货柜备注</th>
                 </tr>
                 <tr style="position: sticky; top: 20px;">
                     <th class="th">
@@ -66,23 +107,90 @@
                             {% endfor %}
                         </select>
                     </th>
-                    <th class="th"></th>
-                    <th class="th"></th>
-                    <th class="th"></th>
-                    <th class="th"></th>
+                    <th class="th">
+                        <input type="text" id="ctnSearch" placeholder="搜索订单类型..."
+                               oninput="filterTable(this)"
+                               size="13" style="font-size: 11px;"
+                               data-col="2">
+                    </th>
+                    <th class="th">
+                        <input type="text" id="ctnSearch" placeholder="建单日期..."
+                               oninput="filterTable(this)"
+                               size="13" style="font-size: 11px;"
+                               data-col="3">
+                    </th>
+                    <th class="th">
+                        <input type="text" id="ctnSearch" placeholder="搜索港前完结..."
+                               oninput="filterTable(this)"
+                               size="13" style="font-size: 11px;"
+                               data-col="4">
+                    </th>
+                    <th class="th">
+                        <input type="text" id="ctnSearch" placeholder="搜索ETA..."
+                               oninput="filterTable(this)"
+                               size="13" style="font-size: 11px;"
+                               data-col="5">
+                    </th>
                     <th class="th">
                         <input type="text" id="warehouseSearch" placeholder="搜索仓库..." 
                             oninput="filterTable(this)" 
                             size="13" style="font-size: 11px;" 
                             data-col="6">  
                     </th>
-                    <th class="th"></th>
-                    <th class="th"></th>
-                    <th class="th"></th>
-                    <th class="th"></th>
-                    <th class="th"></th>
-                    <th class="th"></th>
-                    <th class="th"></th>
+                    <th class="th">
+                        <input type="text" id="ctnSearch" placeholder="搜索建单进度..."
+                               oninput="filterTable(this)"
+                               size="13" style="font-size: 11px;"
+                               data-col="7">
+                    </th>
+                    <th class="th">
+                        <input type="text" id="ctnSearch" placeholder="搜索Vessel状态..."
+                               oninput="filterTable(this)"
+                               size="13" style="font-size: 11px;"
+                               data-col="8">
+                    </th>
+                    <th class="th">
+                        <input type="text" id="ctnSearch" placeholder="搜索放行状态..."
+                               oninput="filterTable(this)"
+                               size="13" style="font-size: 11px;"
+                               data-col="9">
+                    </th>
+                    <th class="th">
+                        <input type="text" id="ctnSearch" placeholder="搜索预约提柜..."
+                               oninput="filterTable(this)"
+                               size="13" style="font-size: 11px;"
+                               data-col="10">
+                    </th>
+                    <th class="th">
+                        <input type="text" id="ctnSearch" placeholder="搜索实际提柜..."
+                               oninput="filterTable(this)"
+                               size="13" style="font-size: 11px;"
+                               data-col="11">
+                    </th>
+                    <th class="th">
+                        <input type="text" id="ctnSearch" placeholder="搜索抵达仓库..."
+                               oninput="filterTable(this)"
+                               size="13" style="font-size: 11px;"
+                               data-col="12">
+                    </th>
+                    <th class="th">
+                        <input type="text" id="ctnSearch" placeholder="搜索拆柜状态..."
+                               oninput="filterTable(this)"
+                               size="13" style="font-size: 11px;"
+                               data-col="13">
+                    </th>
+                    <th class="th">
+                        <input type="text" id="ctnSearch" placeholder="搜索还空状态..."
+                               oninput="filterTable(this)"
+                               size="13" style="font-size: 11px;"
+                               data-col="14">
+                    </th>
+                    <th class="th">
+                        <input type="text" id="ctnSearch" placeholder="搜索货柜备注..."
+                               oninput="filterTable(this)"
+                               size="13" style="font-size: 11px;"
+                               data-col="15">
+                    </th>
                 </tr>
             </thead>
             <tbody>
@@ -100,7 +208,7 @@
                         {% if o.retrieval_id.empty_returned %}
                         <span class="status-span-green-100"><i class="bi bi-check-square"></i></span>
                         {% else %}
-                        <span class="status-span-red-100"><i class="bi bi-x-square"></i></i></span>
+                        <span class="status-span-red-100"><i class="bi bi-x-square"></i></span>
                         {% endif %}
                     </td>
                     <td class="td">
@@ -129,6 +237,13 @@
                         {% elif o.vessel_id %}
                         <span class="status-span-blue-100">en route</span>
                         {% endif %}
+                    </td>
+                    <td class="td">
+                        {% if o.retrieval_id.temp_t49_available_for_pickup == True %}
+                                <span style="color: #28a745;">√</span>
+                            {% else %}
+                                <span style="color: #dc3545;">{{ o.retrieval_id.temp_t49_available_for_pickup|default:"×" }}</span>
+                            {% endif %}
                     </td>
                     <td>
                         {% if o.retrieval_id.target_retrieval_timestamp %}
@@ -160,6 +275,25 @@
                         {% if o.retrieval_id.empty_returned %}
                         <span class="status-span-green-100">{{ o.retrieval_id.empty_returned_at|date:"M-j" }}</span>
                         {% endif %}
+                    </td>
+                    <td>
+                        <form action="" method="post">
+                        {% csrf_token %}
+                        <input type="hidden" name="step" value="get_note_preport_dispatch">
+                        <input type="hidden" name="start_date" value="{{ start_date|default:'' }}">
+                        <input type="hidden" name="end_date" value="{{ end_date|default:'' }}" style="margin-right: 5px;">
+                        <input type="hidden" name="start_date_eta" value="{{ start_date_eta|default:'' }}" style="margin-right: 5px;">
+                        <input type="hidden" name="end_date_eta" value="{{ end_date_eta|default:'' }}" style="margin-right: 5px;">
+                        <input type="hidden" name="retrieval_id" value="{{ o.retrieval_id|default:'' }}">
+                            <span class="status-span-green-100">
+                                <input type="text" name="note_preport_dispatch"
+                                       value="{{ o.retrieval_id.note_preport_dispatch|default:'' }}">
+                                <button type="submit" class="custom-btn">
+                                  <span>确认</span>
+                                </button>
+                            </span>
+                        </form>
+
                     </td>
                 </tr>
                 {% endfor %}

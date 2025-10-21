@@ -70,7 +70,7 @@
                             <input type="text" name="container_number" id="infoContainerNumber" value="{{ selected_order.container_number.container_number }}" required>
                         </td>
                         <td class="td">
-                            <select name="container_type">
+                            <select name="container_type" id="container_type">
                                 {% for k, v in container_type.items %}
                                 <option value="{{ v }}" {% if k == selected_order.container_number.container_type %}selected{% endif %}>{{ k }}</option>
                                 {% endfor %}
@@ -100,7 +100,7 @@
                 <input type="hidden" name="original_container_weight" value="{{ selected_order.container_number.weight_lbs }}">
                 <input type="hidden" name="original_is_special_container" value="{{ selected_order.container_number.is_special_container }}">
                 <input type="hidden" name="original_container_note" value="{{ selected_order.container_number.note }}">
-                <button id="submit-btn-update-basic-info" type="submit" class="btn btn-primary" style="width: 90px; height: 30px; margin-left: 20px; font-size: 13px;">
+                <button id="submit-btn-update-basic-info" type="submit" class="btn btn-primary" style="width: 90px; height: 30px; margin-left: 20px; font-size: 13px;" onclick="checkOrderTypeInputV()">
                     更新信息
                 </button>
             </div>
@@ -427,6 +427,13 @@
         if (!isValid) {
             event.preventDefault();
             alert("请选择'派送方式'!");
+        };
+    };
+    function checkOrderTypeInputV() {
+        const selectedValueContainerType = document.getElementById('container_type').value;
+        if (!selectedValueContainerType) {
+            alert('请选择柜型！');
+            event.preventDefault();
         };
     };
 </script>

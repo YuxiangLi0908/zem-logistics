@@ -8,6 +8,7 @@ class Retrieval(models.Model):
     retrieval_id = models.CharField(max_length=255, null=True)
     shipping_order_number = models.CharField(max_length=255, null=True, blank=True)
     master_bill_of_lading = models.CharField(max_length=255, null=True, blank=True)
+    note_preport_dispatch = models.TextField(null=True, blank=True, verbose_name="货柜进度汇总备注")
     retrive_by_zem = models.BooleanField(default=True, blank=True)
     retrieval_carrier = models.CharField(max_length=100, null=True, blank=True)
     origin_port = models.CharField(max_length=255, null=True, blank=True)

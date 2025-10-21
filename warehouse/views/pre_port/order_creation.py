@@ -70,6 +70,7 @@ class OrderCreation(View):
     order_type = {"": "", "转运": "转运", "直送": "直送", "转运组合": "转运组合"}
     area = {"NJ": "NJ", "SAV": "SAV", "LA": "LA", "MO": "MO", "TX": "TX"}
     container_type = {
+        "": "",
         "40HQ/GP": "40HQ/GP",
         "45HQ/GP": "45HQ/GP",
         "20GP": "20GP",
@@ -386,7 +387,9 @@ class OrderCreation(View):
 
     async def handle_order_basic_info_get(self) -> tuple[Any, Any]:
         customers = await sync_to_async(list)(Customer.objects.all())
-        customers = {c.zem_name: c.id for c in customers}
+        original_dict = {c.zem_name: c.id for c in customers}
+        customers = {"": ""}
+        customers.update(original_dict)
         orders = await sync_to_async(list)(
             Order.objects.select_related(
                 "vessel_id",
@@ -397,6 +400,8 @@ class OrderCreation(View):
             )
             .values(
                 "container_number__container_number",
+                "container_number__weight_lbs",
+                "container_number__container_type",
                 "customer_name__zem_name",
                 "vessel_id",
                 "order_type",
@@ -640,16 +645,6 @@ class OrderCreation(View):
             Order.objects.filter(container_number__container_number=container_number)
         ):
             raise RuntimeError(f"Container {container_number} exists!")
-        weight = float(request.POST.get("weight"))
-        weight_unit = request.POST.get("weight_unit")
-        if weight_unit == "kg":
-            weight *= 2.20462
-        is_special_container = (
-            True if request.POST.get("is_special_container", None) else False
-        )
-        is_expiry_guaranteed = (
-            True if request.POST.get("is_expiry_guaranteed", None) else False
-        )
         order_id = str(
             uuid.uuid3(
                 uuid.NAMESPACE_DNS,
@@ -663,11 +658,6 @@ class OrderCreation(View):
 
         container_data = {
             "container_number": request.POST.get("container_number").upper().strip(),
-            "container_type": request.POST.get("container_type"),
-            "weight_lbs": weight,
-            "is_special_container": is_special_container,
-            "is_expiry_guaranteed": is_expiry_guaranteed,
-            "note": request.POST.get("note"),
         }
         container = Container(**container_data)
         retrieval_data = {
@@ -691,9 +681,6 @@ class OrderCreation(View):
             "retrieval_id": retrieval,
             "offload_id": offload,
             "packing_list_updloaded": False,
-            "unpacking_priority": (
-                "P2" if is_expiry_guaranteed else "P4"
-            ),  # 初始创建基础信息时，只有P2/P4两个选择，没有P1和P3的问题
         }
         order = Order(**order_data)
         await sync_to_async(container.save)()
