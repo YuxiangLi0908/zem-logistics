@@ -732,11 +732,6 @@
                         </button>
                     </div>
                 </div>
-                
-                <!-- 筛选统计 -->
-                <div id="filterStats" style="margin-top: 10px; font-size: 0.9rem; color: #666;">
-                    总计: {{ cargos|length }} 组PO | 已选择: <span id="selectedVesselCount">0</span> 个船名
-                </div>
             </div>
             <!-- 目的地筛选区域 -->
             <div class="destination-filter-section" style="margin-bottom: 20px; padding: 15px; background: #f8f9fa; border-radius: 8px; border-left: 4px solid #e74c3c;">
@@ -1394,6 +1389,8 @@
     function applyCombinedFilter() {
         const searchTerm = document.getElementById('cargoSearch').value.trim().toLowerCase();
         const rows = document.querySelectorAll('#cargoTable tbody tr');
+        // 将搜索词按空格分割成多个关键词
+        const searchKeywords = searchTerm.split(/\s+/).filter(keyword => keyword.length > 0);
 
         rows.forEach(row => {
             const rowVessel = (row.dataset.vesselName || '').trim().toLowerCase();
@@ -1406,13 +1403,17 @@
             const vesselMatch = selectedVessels.size === 0 || selectedVessels.has(rowVessel);
             // === 条件② 目的地匹配 ===
             const destinationMatch = selectedDestinations.size === 0 || selectedDestinations.has(rowDestination);
-            // === 条件② 搜索匹配 ===
-            const searchMatch =
-                searchTerm === '' ||
-                rowDestination.includes(searchTerm) ||
-                refIds.includes(searchTerm) ||
-                fbaIds.includes(searchTerm) ||
-                containerNumber.includes(searchTerm);
+
+            let searchMatch = true; //
+            if (searchKeywords.length > 0) {
+                // 检查任一关键词是否匹配任一字段
+                searchMatch = searchKeywords.some(keyword => {
+                    return rowDestination.includes(keyword) ||
+                        refIds.includes(keyword) ||
+                        fbaIds.includes(keyword) ||
+                        containerNumber.includes(keyword);
+                });
+            }
 
             // === “并且”逻辑 ===
             if (vesselMatch && destinationMatch && searchMatch) {
@@ -1442,37 +1443,6 @@
         if (!selectedCountEl) return;
         const selected = document.querySelectorAll('.cargo-checkbox:checked').length;
         selectedCountEl.textContent = selected;
-    }
-
-    // 更新筛选统计函数
-    function updateFilterStats() {
-        // 获取所有“当前可见的行”
-        const visibleRows = Array.from(
-            document.querySelectorAll("#cargoTableBody tr")
-        ).filter(row => row.style.display !== "none");
-
-        // ===== ① 统计当前显示的 PO 数 =====
-        const visiblePOs = visibleRows.length;
-        const statsEl = document.getElementById("filterStats");
-        if (statsEl) statsEl.textContent = `当前显示 ${visiblePOs} 个 PO`;
-
-        // ===== ② 累计 Pallet 与 CBM =====
-        let totalPallets = 0;
-        let totalCbm = 0;
-
-        visibleRows.forEach(row => {
-            // 从 <tr data-pallets="..." data-cbm="..."> 里取值
-            const pallets = parseFloat(row.dataset.pallets) || 0;
-            const cbm = parseFloat(row.dataset.cbm) || 0;
-            totalPallets += pallets;
-            totalCbm += cbm;
-        });
-
-        const palletsEl = document.getElementById("totalPalletsCount");
-        const cbmEl = document.getElementById("totalCbmCount");
-
-        if (palletsEl) palletsEl.textContent = totalPallets.toFixed(2);
-        if (cbmEl) cbmEl.textContent = totalCbm.toFixed(2);
     }
 </script>
 {% endblock %}
