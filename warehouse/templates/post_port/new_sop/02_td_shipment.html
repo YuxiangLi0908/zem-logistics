@@ -1476,6 +1476,7 @@
                 <input type="hidden" name="step" value="fleet_departure">
                 <input type="hidden" name="fleet_number" id="fleetNumber">
                 <input type="hidden" name="warehouse" value="{{ warehouse }}">
+                <input type="hidden" name="debug_info" id="debugInfo">
                 <input type="hidden" name="scheduled_pallet" id="formScheduledPallet">
                 <input type="hidden" name="actual_shipped_pallet" id="formActualShippedPallet">
                 <input type="hidden" name="plt_ids" id="formPltIds">
@@ -1528,7 +1529,7 @@
                 </div>
 
                 <div class="modal-actions">
-                    <button type="submit" class="modal-btn modal-btn-success" onclick="submitFleetDepartureSimple()">
+                    <button type="button" class="modal-btn modal-btn-success" onclick="submitFleetDepartureSimple()">
                         <i class="fas fa-check-circle"></i> 确认出库
                     </button>
                     <button type="button" class="modal-btn modal-btn-danger" onclick="closeDepartureModal()">
@@ -2031,40 +2032,104 @@ document.addEventListener('DOMContentLoaded', function() {
 });
 
 function submitFleetDepartureSimple() {
+    console.log('submitFleetDepartureSimple called');
+    
     // 1. 获取 modal 表格行
     const tbody = document.getElementById('departureCargoBody');
-    if (!tbody) return alert('找不到出库表格');
+    if (!tbody) {
+        console.error('找不到出库表格 tbody');
+        return alert('找不到出库表格');
+    }
 
     const rows = Array.from(tbody.querySelectorAll('tr'));
+    console.log('找到的行数:', rows.length);
 
     const pltIdsArr = [];
     const scheduledArr = [];
     const actualArr = [];
 
-    rows.forEach(row => {
+    rows.forEach((row, index) => {
+        console.log(`处理第 ${index} 行:`, row.dataset);
+        
         // pltId 存在就加
-        const pltId = row.dataset.pltId || '';
-        if (pltId) pltIdsArr.push(pltId);
+        const pltId = (row.dataset.pltId || '').trim();
+        console.log(`行 ${index} 的 pltId:`, pltId);
+        
+        if (pltId) {
+            pltIdsArr.push(pltId);
+        } else {
+            console.warn(`行 ${index} 没有 pltId`);
+        }
+
 
         // 计划板数
-        const scheduled = parseFloat(row.dataset.planned || 0);
-        scheduledArr.push(scheduled);
+        const planned = parseFloat(row.dataset.planned || 0);
+        scheduledArr.push(planned);
 
         // 实际出库板数，从 input 取值
         const actualInput = row.querySelector('input[type="number"]');
         const actual = actualInput ? parseFloat(actualInput.value || 0) : 0;
         actualArr.push(actual);
+
+        console.log(`行 ${index}: pltId=${pltId}, planned=${planned}, actual=${actual}`);
     });
 
-    // 填充隐藏表单
-    document.getElementById('formFleetNumber').value = document.getElementById('fleetNumber').value || '';
-    document.getElementById('formPltIds').value = pltIdsArr.join(',');
-    document.getElementById('formScheduledPallet').value = scheduledArr.join(',');
-    document.getElementById('formActualShippedPallet').value = actualArr.join(',');
+    console.log('收集的数据:', {
+        pltIds: pltIdsArr,
+        scheduled: scheduledArr,
+        actual: actualArr
+    });
 
-    // 提交
-    document.getElementById('actionForm').submit();
+    // 获取正确的表单
+    const form = document.getElementById('confirmDepartureForm');
+    if (!form) {
+        console.error('找不到确认出库表单');
+        return alert('系统错误：找不到表单');
+    }
+
+    // 清空之前可能存在的隐藏字段
+    const existingInputs = form.querySelectorAll('input[name="plt_ids"], input[name="scheduled_pallet"], input[name="actual_shipped_pallet"]');
+    existingInputs.forEach(input => input.remove());
+
+    // 添加新的隐藏字段到正确的表单中
+    if (pltIdsArr.length > 0) {
+        const pltInput = document.createElement('input');
+        pltInput.type = 'hidden';
+        pltInput.name = 'plt_ids';
+        pltInput.value = pltIdsArr.join(',');
+        form.appendChild(pltInput);
+        console.log('添加 plt_ids:', pltIdsArr.join(','));
+    }
+
+    if (scheduledArr.length > 0) {
+        const scheduledInput = document.createElement('input');
+        scheduledInput.type = 'hidden';
+        scheduledInput.name = 'scheduled_pallet';
+        scheduledInput.value = scheduledArr.join(',');
+        form.appendChild(scheduledInput);
+        console.log('添加 scheduled_pallet:', scheduledArr.join(','));
+    }
+
+    if (actualArr.length > 0) {
+        const actualInput = document.createElement('input');
+        actualInput.type = 'hidden';
+        actualInput.name = 'actual_shipped_pallet';
+        actualInput.value = actualArr.join(',');
+        form.appendChild(actualInput);
+        console.log('添加 actual_shipped_pallet:', actualArr.join(','));
+    }
+
+    // 验证数据
+    if (pltIdsArr.length === 0) {
+        alert('没有找到货物数据，无法出库');
+        return;
+    }
+
+    // 提交表单
+    console.log('提交表单...');
+    //form.submit();
 }
+
 // ---- 关闭加塞弹窗 ----
 function closeAddPOModal() {
     const modal = document.getElementById('addPOModal');
@@ -2436,8 +2501,16 @@ function openDepartureModal(fleetNumber, fleetData) {
             tr.appendChild(statusTd);
 
             // 保存 id 到 DOM
-            if (cargo.cargoId) tr.dataset.cargoId = cargo.cargoId;
-            if (cargo.pltId) tr.dataset.pltId = cargo.pltId;
+            if (cargo.pltId) {
+                tr.dataset.pltId = cargo.pltId;
+                console.log(`设置行 pltId: ${cargo.pltId}`);
+            } else if (cargo.cargoId) {
+                // 如果没有 pltId，使用 cargoId 作为备选
+                tr.dataset.pltId = cargo.cargoId;
+                console.log(`使用 cargoId 作为 pltId: ${cargo.cargoId}`);
+            } else {
+                console.warn('货物没有 pltId 和 cargoId');
+            }
 
             // 保持原始 planned & label 存在于 row 以便提交时读取
             tr.dataset.planned = planned;
