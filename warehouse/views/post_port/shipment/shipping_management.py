@@ -1566,6 +1566,7 @@ class ShippingManagement(View):
                         if request.POST.get("arm_bol")
                         else ""
                     )
+                    shipment_data["in_use"] = True
             if not existed_appointment:
                 shipment = Shipment(**shipment_data)
                 await sync_to_async(shipment.save)()
@@ -1719,6 +1720,7 @@ class ShippingManagement(View):
             shipment.ARM_PRO = (
                 request.POST.get("arm_pro") if request.POST.get("arm_bol") else ""
             )
+            shipment.in_use = True
             shipment.save()
             mutable_post = request.POST.copy()
             mutable_post["area"] = warehouse
