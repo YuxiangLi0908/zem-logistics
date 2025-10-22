@@ -62,6 +62,7 @@
                     <thead>
                         <tr>
                             <th class="th">预约账号</th>
+                            <th class="th">shipment ID</th>
                             <th class="th">预约号</th>
                             <th class="th">目的地</th>
                             <th class="th">Scheduled Time</th>
@@ -78,6 +79,7 @@
                                     {% endfor %}
                                 </select>
                             </td>
+                            <td class="td"><input type="Number" name="shipment_cargo_id" style="font-size: 13px;"></td>
                             <td class="td"><input type="Number" name="appointment_id" style="font-size: 13px;" required></td>
                             <td class="td"><input type="text" name="destination" style="font-size: 13px;" required></td>
                             <td class="td"><input type="datetime-local" name="shipment_appointment" style="font-size: 13px;" required></td>
@@ -114,6 +116,7 @@
                     <tr style="position: sticky; top: 0;">
                         <th class="th">预约账号</th>
                         <th class="th">预约号</th>
+                        <th class="th">shipment ID</th>
                         <th class="th">目的地</th>
                         <th class="th">Scheduled Time</th>
                         <th class="th">装车类型</th>
@@ -122,6 +125,7 @@
                     <tr style="position: sticky; top: 28px;">
                         <th class="th"></th>
                         <th class="th"><input type="text" id="appointment-id-filter" placeholder="搜索预约号..." oninput="filterAppointmentTable()" size="13" style="font-size: 11px;"></th>
+                        <th class="th"><input type="text" id="shipemnt-cargo-id-filter" placeholder="搜索shiment ID..." oninput="filterAppointmentTable()" size="13" style="font-size: 11px;"></th>
                         <th class="th"><input type="text" id="destination-filter" placeholder="搜索目的地..." oninput="filterAppointmentTable()" size="13" style="font-size: 11px;"></th>
                         <th class="th"><input type="text" id="status-filter" placeholder="搜索预约状态..." oninput="filterAppointmentTable()" size="13" style="font-size: 11px;"></th>
                         <th class="th"></th>
@@ -139,6 +143,7 @@
                             </select>
                         </td>
                         <td class="td">{{ s.appointment_id }}</td>
+                        <td class="td">{{ s.shipment_cargo_id|default_if_none:'' }}</td>
                         <td class="td">{{ s.destination }}</td>
                         <td class="td">
                             {% if s.appointment_status == 'past_due' %}
@@ -257,24 +262,31 @@
 
     function filterAppointmentTable() {
         var appointmentInput = document.getElementById("appointment-id-filter").value.toUpperCase();
+        var shipmentInput = document.getElementById("shipemnt-cargo-id-filter").value.toUpperCase();
         var destInput = document.getElementById("destination-filter").value.toUpperCase();
         var statusInput = document.getElementById("status-filter").value.toUpperCase();
+        
         tr = document.querySelectorAll("#appointment-table tbody tr");
 
         for (i = 0; i < tr.length; i++) {
-            var appointmentTd = tr[i].getElementsByTagName("td")[1];
-            var destTd = tr[i].getElementsByTagName("td")[2];
-            var statusTd = tr[i].getElementsByTagName("td")[3];
-            if (appointmentTd && destTd && statusTd) {
+            var appointmentTd = tr[i].getElementsByTagName("td")[1];  // 预约号列
+            var shipmentTd = tr[i].getElementsByTagName("td")[2];     // shipment ID列
+            var destTd = tr[i].getElementsByTagName("td")[3];         // 目的地列
+            var statusTd = tr[i].getElementsByTagName("td")[4];       // 状态列
+            
+            if (appointmentTd && shipmentTd && destTd && statusTd) {
                 var appointmentTxtValue = appointmentTd.textContent.trim();
+                var shipmentTxtValue = shipmentTd.textContent.trim();
                 var destTxtValue = destTd.textContent.trim();
                 var statusTxtValue = statusTd.textContent.trim();
 
-                var appointmentDisplayStyle = appointmentTxtValue.toUpperCase().indexOf(appointmentInput) > -1 ? "" : "none";
-                var destDisplayStyle = destTxtValue.toUpperCase().indexOf(destInput) > -1 ? "" : "none";
-                var statusDisplayStyle = statusTxtValue.toUpperCase().indexOf(statusInput) > -1 ? "" : "none";
+                var appointmentMatch = appointmentTxtValue.toUpperCase().indexOf(appointmentInput) > -1;
+                var shipmentMatch = shipmentTxtValue.toUpperCase().indexOf(shipmentInput) > -1;
+                var destMatch = destTxtValue.toUpperCase().indexOf(destInput) > -1;
+                var statusMatch = statusTxtValue.toUpperCase().indexOf(statusInput) > -1;
 
-                tr[i].style.display = appointmentDisplayStyle === "" && destDisplayStyle === "" && statusDisplayStyle === "" ? "": "none";
+                // 显示匹配所有搜索条件的行
+                tr[i].style.display = (appointmentMatch && shipmentMatch && destMatch && statusMatch) ? "" : "none";
             }
         };
     };

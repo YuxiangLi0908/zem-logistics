@@ -2521,11 +2521,12 @@ class ShippingManagement(View):
         self, request: HttpRequest
     ) -> tuple[str, dict[str, Any]]:
         appointment_id = request.POST.get("appointment_id").strip()
+        shipment_cargo_id = (request.POST.get("shipment_cargo_id") or "").strip()
         appointment = await sync_to_async(list)(
             Shipment.objects.filter(appointment_id=appointment_id)
         )
         if appointment:
-            raise RuntimeError(f"Appointment {appointment_id} already exist!")
+            raise RuntimeError(f"预约号 {appointment_id} 已经录过了!")
         await sync_to_async(Shipment.objects.create)(
             **{
                 "appointment_id": appointment_id,
@@ -2535,6 +2536,7 @@ class ShippingManagement(View):
                 "origin": request.POST.get("origin", None),
                 "shipment_account": request.POST.get("shipment_account", None),
                 "in_use": False,
+                "shipment_cargo_id": shipment_cargo_id,
             }
         )
         warehouse = request.POST.get("warehouse", "")

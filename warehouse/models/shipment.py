@@ -10,6 +10,7 @@ class Shipment(models.Model):
     shipment_batch_number = models.CharField(max_length=255, null=True, blank=True)
     master_batch_number = models.CharField(max_length=255, null=True, blank=True)
     batch = models.IntegerField(null=True, default=0)
+    shipment_cargo_id = models.CharField(max_length=255, null=True, blank=True)
     appointment_id = models.CharField(max_length=255, null=True, blank=True)
     origin = models.CharField(max_length=255, null=True, blank=True)
     destination = models.CharField(max_length=255, null=True, blank=True)
