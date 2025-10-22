@@ -77,7 +77,7 @@
                             </select>
                         </td>
                         <td class="td">
-                            <input type="number" name="weight" id="infoContainerWeight" step=0.0001 style="width: 80px" value="{{ selected_order.container_number.weight_lbs }}" required> lbs
+                            <input type="number" name="weight" id="infoContainerWeight" step=0.0001 style="width: 80px" required> kg
                         </td>
                         <td class="td">
                             <input type="checkbox" name="is_special_container" onchange="alterTableNote(this)" {% if selected_order.container_number.is_special_container %}checked{% endif %}>
@@ -436,6 +436,21 @@
             event.preventDefault();
         };
     };
+    document.addEventListener('DOMContentLoaded', function() {
+    // 获取原始磅值（从模板中获取）
+    const weightLbs = {{ selected_order.container_number.weight_lbs|default:"null" }};
+    const inputElement = document.getElementById('infoContainerWeight');
+
+    if (weightLbs !== null && !isNaN(weightLbs)) {
+        // 计算除法：磅 -> 千克（保留原始小数位数）
+        const weightKg = weightLbs / 2.20462;
+        // 填充到输入框（不强制四舍五入，保留计算结果的原始精度）
+        inputElement.value = weightKg;
+    } else {
+        // 处理空值或无效值（可选）
+        inputElement.value = '';
+    }
+});
 </script>
 
 {% endblock %}
