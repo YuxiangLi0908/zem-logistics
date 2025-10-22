@@ -458,6 +458,7 @@ class PostNsop(View):
         selected_plt = [int(i) for i in plt_ids.split(",") if i]
         context = {}
         operation_type = request.POST.get('operation_type')
+        shipment_cargo_id = request.POST.get('shipment_cargo_id')
         if operation_type == "remove_po":            
             shipment = await sync_to_async(Shipment.objects.get)(
                 appointment_id=appointment_id
@@ -548,6 +549,7 @@ class PostNsop(View):
                 'shipment_type': request.POST.get('shipment_type'),
                 'shipment_account': request.POST.get('shipment_account'),
                 'appointment_id': appointment_id,
+                'shipment_cargo_id': shipment_cargo_id,
                 'shipment_appointment': request.POST.get('shipment_appointment'),
                 'load_type': request.POST.get('load_type'),
                 'origin': request.POST.get('warehouse'),
@@ -560,6 +562,7 @@ class PostNsop(View):
             request.POST['pl_ids'] = selected
             request.POST['plt_ids'] = selected_plt
             request.POST['type'] = 'td'
+            print(request.POST)
             
             sm = ShippingManagement()
             info = await sm.handle_appointment_post(request,'post_nsop') 

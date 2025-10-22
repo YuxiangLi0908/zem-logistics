@@ -1332,6 +1332,7 @@ class ShippingManagement(View):
         current_time = datetime.now()
         appointment_type = request.POST.get("type")
         shipment_cargo_id = request.POST.get("shipment_cargo_id")
+        
         if appointment_type == "td":  # 首次预约、更新预约、取消预约都是这个类型
             shipment_data = ast.literal_eval(request.POST.get("shipment_data"))
             if 'shipment_schduled_at' not in shipment_data or shipment_data['shipment_schduled_at'] is None:
@@ -1567,7 +1568,12 @@ class ShippingManagement(View):
                     )
             if not existed_appointment:
                 shipment = Shipment(**shipment_data)
-            await sync_to_async(shipment.save)()
+                await sync_to_async(shipment.save)()
+            else: #新sop用到的，修改PO时，约变了也修改
+                await sync_to_async(Shipment.objects.filter(id=shipment.id).update)(
+                    **shipment_data
+                )
+            
             # 上面更新完约的信息，下面要更新packinglist绑定的约,这是未打板的，所有不用管板子
             container_number = set()
             if name != "post_nsop":
