@@ -683,35 +683,11 @@ class PostNsop(View):
                     "shipping_mark",
                 )
                 .annotate(
-                    total_pcs=Sum(
-                        Case(
-                            When(pallet__isnull=True, then=F("pcs")),
-                            default=F("pallet__pcs"),
-                            output_field=IntegerField(),
-                        )
-                    ),
-                    total_cbm=Sum(
-                        Case(
-                            When(pallet__isnull=True, then=F("cbm")),
-                            default=F("pallet__cbm"),
-                            output_field=FloatField(),
-                        )
-                    ),
-                    total_weight_lbs=Sum(
-                        Case(
-                            When(pallet__isnull=True, then=F("total_weight_lbs")),
-                            default=F("pallet__weight_lbs"),
-                            output_field=FloatField(),
-                        )
-                    ),
+                    total_pcs=Sum("pcs"),
+                    total_cbm=Sum("cbm"),
+                    total_weight_lbs=Sum("total_weight_lbs"),
                     total_n_pallet_est=Sum("cbm", output_field=FloatField()) / 2,
-                    label=Max(
-                        Case(
-                            When(pallet__isnull=True, then=Value("EST")),
-                            default=Value("ACT"),
-                            output_field=CharField(),
-                        )
-                    ),
+                    label=Value("EST"),
                 )
                 .distinct()
                 .order_by("destination", "container_number__container_number")
@@ -780,6 +756,7 @@ class PostNsop(View):
                 "fba_id",
                 "container_number__container_number",
                 "destination",
+                "total_cbm",
                 "ref_id",
                 "Pallet Count",
                 "total_pcs",
