@@ -1019,9 +1019,7 @@ class PostNsop(View):
         available_shipments = await self.sp_available_shipments(warehouse, st_type)
         
         # 计算统计数据
-        summary = await self._sp_calculate_summary(matching_suggestions, scheduled_data, ready_to_ship_data)
-        
-        
+        summary = await self._sp_calculate_summary(matching_suggestions, scheduled_data, ready_to_ship_data)       
 
         if not context:
             context = {}
@@ -1056,7 +1054,7 @@ class PostNsop(View):
             )& models.Q(pk=0),
             models.Q(
                 shipment_batch_number__shipment_batch_number__isnull=True,
-                container_number__order__offload_id__offload_at__isnull=False,
+                container_number__order__offload_id__offload_at__gt=datetime(2025, 1, 1),
                 location=warehouse,
                 delivery_type='public',
             )& ~models.Q(delivery_method__contains='暂扣'),
@@ -1340,6 +1338,7 @@ class PostNsop(View):
             matched = matched_shipments[0]
             return {
                 'appointment_id': matched.appointment_id,
+                'shipment_cargo_id': matched.shipment_cargo_id,
                 'shipment_type': matched.shipment_type,
                 'shipment_appointment': matched.shipment_appointment,
                 'origin': matched.origin,
@@ -1426,6 +1425,7 @@ class PostNsop(View):
                 address = await self.get_address(shipment.destination)
                 grouped_data[batch_number] = {
                     'appointment_id': shipment.appointment_id,
+                    'shipment_cargo_id': shipment.shipment_cargo_id,
                     'shipment_batch_number': shipment.shipment_batch_number,
                     'shipment_type': shipment.shipment_type,
                     'destination': shipment.destination,
