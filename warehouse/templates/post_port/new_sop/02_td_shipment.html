@@ -929,7 +929,8 @@
                                                 data-shipment-account="{{ suggestion.primary_group.matched_shipment.shipment_account }}"
                                                 data-origin="{{ warehouse }}"
                                                 data-note="{{ suggestion.primary_group.matched_shipment.note }}"
-                                                data-address-detail="{{ suggestion.primary_group.matched_shipment.address_detail }}">
+                                                data-address-detail="{{ suggestion.primary_group.matched_shipment.address_detail }}"
+                                                data-shipment-cargo-id="{{ suggestion.primary_group.matched_shipment.shipment_cargo_id }}">
                                             <i class="fas fa-link"></i> 绑定
                                         </button>
                                         <button class="action-btn btn-success export-group-po" 
@@ -1425,6 +1426,7 @@
                                 <th>备注</th>
                                 <th>目的地</th>
                                 <th>地址</th>
+                                <th>shipment ID</th>
                             </tr>
                             <tr>
                                 <td>
@@ -1442,6 +1444,9 @@
                                 </td>
                                 <td>
                                     <input type="text" name="address" id="address_detail" class="form-input">
+                                </td>
+                                <td>
+                                    <input type="text" name="shipment_cargo_id" id="shipment_cargo_id" class="form-input">
                                 </td>
                             </tr>
                         </tbody>
@@ -2550,6 +2555,7 @@ document.querySelectorAll('.open-bind-modal').forEach(btn => {
         const origin = this.dataset.origin || '';
         const note = this.dataset.note || '';
         const addressDetail = this.dataset.addressDetail || '';
+        const shipmentCargoId = this.dataset.shipmentCargoId || '';
         const operationType = this.dataset.operationType || 'bind'; // 获取操作类型
 
         // 找出该组的所有货物行
@@ -2590,6 +2596,7 @@ document.querySelectorAll('.open-bind-modal').forEach(btn => {
             note,
             shipmentType,
             addressDetail,
+            shipmentCargoId,
             operationType
         });
     });
@@ -2631,7 +2638,7 @@ function openBindModal(data) {
     const {
         suggestionId, cargos, hasAppointment,
         appointmentId, loadType, destination, deliveryMethod,
-        scheduledTime, shipmentAccount, origin, note, addressDetail,shipmentType,
+        scheduledTime, shipmentAccount, origin, note, addressDetail,shipmentCargoId,shipmentType,
         operationType = 'bind'
     } = data;
     
@@ -2663,6 +2670,7 @@ function openBindModal(data) {
     // 填充主要字段
     document.getElementById('ftl-destination').value = destination;
     document.getElementById('address_detail').value = addressDetail;
+    document.getElementById('shipment_cargo_id').value = shipmentCargoId;
     document.getElementById('note').value = note;
     document.getElementById('origin-select-1').value = origin;
 
@@ -2809,6 +2817,7 @@ document.getElementById('bindShipmentForm').addEventListener('submit', function(
     document.getElementById('modalCargoIds').value = cargoIds.join(',');
     document.getElementById('modalPltIds').value = pltIds.join(',');
 
+    const shipmentCargoId = document.getElementById('shipment_cargo_id').value;
      // 根据操作类型设置不同的step
     const operationType = document.getElementById('modalSuggestionId').value;
     const confirmMessage = operationType === 'remove_po' ? '确定要减掉选中的PO吗？' : '确定提交所选PO吗？';
