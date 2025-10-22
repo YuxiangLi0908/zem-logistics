@@ -1331,7 +1331,7 @@ class ShippingManagement(View):
         area = request.POST.get("area")
         current_time = datetime.now()
         appointment_type = request.POST.get("type")
-        
+        shipment_cargo_id = request.POST.get("shipment_cargo_id")
         if appointment_type == "td":  # 首次预约、更新预约、取消预约都是这个类型
             shipment_data = ast.literal_eval(request.POST.get("shipment_data"))
             if 'shipment_schduled_at' not in shipment_data or shipment_data['shipment_schduled_at'] is None:
@@ -1422,6 +1422,7 @@ class ShippingManagement(View):
                 shipment_data["appointment_id"] = request.POST.get(
                     "appointment_id", None
                 )
+                shipment_data["shipment_cargo_id"] = shipment_cargo_id
                 try:
                     shipment_data["third_party_address"] = shipment_data[
                         "third_party_address"
@@ -2171,6 +2172,8 @@ class ShippingManagement(View):
             shipment_appointment = None
         # 如果这个ISA备约已经登记过了，就把原记录删除
         appointment_id = request.POST.get("appointment_id")
+        shipment_cargo_id = request.POST.get("shipment_cargo_id")
+        shipment.shipment_cargo_id = shipment_cargo_id
         if (
             shipment.appointment_id != appointment_id
         ):  # 更改ISA的时候，才判断ISA是否已存在，改ISA跟主约没有关系
