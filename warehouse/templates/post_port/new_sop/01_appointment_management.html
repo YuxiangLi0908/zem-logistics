@@ -888,6 +888,7 @@
                         <tr>
                             <th class="th">预约账号</th>
                             <th class="th">预约号</th>
+                            <th class="th">shipment ID</th>
                             <th class="th">目的地</th>
                             <th class="th">Scheduled Time</th>
                             <th class="th">装车类型</th>
@@ -901,6 +902,7 @@
                                 {{ s.shipment_account|default_if_none:"" }}
                             </td>
                             <td class="td">{{ s.appointment_id }}</td>
+                            <td class="td">{{ s.shipment_cargo_id|default_if_none:'' }}</td>
                             <td class="td">{{ s.destination }}</td>
                             <td class="td">
                                 {% if s.status == 'expired' %}
