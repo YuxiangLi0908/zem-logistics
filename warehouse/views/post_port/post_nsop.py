@@ -1012,6 +1012,7 @@ class PostNsop(View):
         # 获取三类数据：未排约、已排约、待出库
         if not matching_suggestions:
             matching_suggestions = await self.sp_unscheduled_data(warehouse, st_type, max_cbm, max_pallet)
+            
         scheduled_data = await self.sp_scheduled_data(warehouse)
         ready_to_ship_data = await self._sp_ready_to_ship_data(warehouse)
         
@@ -1178,6 +1179,7 @@ class PostNsop(View):
                     'fba_ids': pos.get('fba_ids', ''),
                     'container_numbers': pos.get('container_numbers', ''),
                     'cns': pos.get('cns', ''),
+                    'offload_time': pos.get('offload_time',''),
                     'delivery_window_start': pos.get('delivery_window_start'),
                     'delivery_window_end': pos.get('delivery_window_end'),
                     'total_n_pallet_act': pos.get('total_n_pallet_act', 0),
@@ -1207,6 +1209,7 @@ class PostNsop(View):
                         'fba_ids': cargo.get('fba_ids', ''),
                         'container_numbers': cargo.get('container_numbers', ''),
                         'cns': cargo.get('cns', ''),
+                        'offload_time': cargo.get('offload_time', ''),
                         'delivery_window_start': cargo.get('delivery_window_start'),
                         'delivery_window_end': cargo.get('delivery_window_end'),
                         'total_n_pallet_act': cargo.get('total_n_pallet_act', 0),
@@ -1274,6 +1277,7 @@ class PostNsop(View):
             'fba_ids': pos.get('fba_ids', ''),
             'container_numbers': pos.get('container_numbers', ''),
             'cns': pos.get('cns', ''),
+            'offload_time': cargo.get('offload_time',''),
             'delivery_window_start': pos.get('delivery_window_start'),
             'delivery_window_end': pos.get('delivery_window_end'),
             'total_n_pallet_act': pos.get('total_n_pallet_act', 0),
@@ -1815,6 +1819,9 @@ class PostNsop(View):
                     cns=StringAgg(
                         "str_container_number", delimiter="\n", distinct=True, ordering="str_container_number"
                     ),
+                    offload_time=StringAgg(
+                        "formatted_offload_at", delimiter="\n", distinct=True, ordering="formatted_offload_at"
+                    ),
                     total_pcs=Sum("pcs", output_field=IntegerField()),
                     total_cbm = Round(Sum("cbm", output_field=FloatField()), 3),
                     total_weight_lbs=Sum("weight_lbs", output_field=FloatField()),
@@ -1981,6 +1988,7 @@ class PostNsop(View):
                     cns=StringAgg(
                         "str_container_number", delimiter="\n", distinct=True, ordering="str_container_number"
                     ),
+                    offload_time=Value("", output_field=CharField()),
                     total_pcs=Sum("pcs", output_field=FloatField()),
                     total_cbm = Round(Sum("cbm", output_field=FloatField()), 3),
                     total_n_pallet_est= Round(Sum("cbm", output_field=FloatField()) / 2, 2),
@@ -1990,7 +1998,6 @@ class PostNsop(View):
             )
             pl_list_sorted = sorted(pl_list, key=sort_key)
             data += pl_list_sorted      
-        
         return data
 
     async def get_shipments_by_warehouse(self, warehouse):
@@ -2241,6 +2248,7 @@ class PostNsop(View):
                                 'plt_ids': cargo.get('plt_ids', ''),  # 确保包含plt_ids
                                 'container_numbers': cargo.get('container_numbers', ''),
                                 'cns': cargo.get('cns', ''),
+                                'offload_time': cargo.get('offload_time',''),
                                 'total_n_pallet_act': cargo.get('total_n_pallet_act', 0),
                                 'total_n_pallet_est': cargo.get('total_n_pallet_est', 0),
                                 'total_cbm': cargo.get('total_cbm', 0),
@@ -2250,6 +2258,7 @@ class PostNsop(View):
                             'total_cbm': cargo_cbm,
                             'container_numbers': cargo.get('container_numbers', ''),
                             'cns': cargo.get('cns', ''),
+                            'offload_time': cargo.get('offload_time',''),
                             'cargo_count': 1
                         },
                         'subgroup_index': subgroup_index + 1,

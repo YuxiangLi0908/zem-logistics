@@ -816,6 +816,7 @@
                                 <th>REF ID</th>
                                 <th>FBA ID</th>
                                 <th>柜号</th>
+                                <th>入仓时间</th>
                                 <th>派送时间</th>
                                 <th>板数</th>
                                 <th>CBM</th>
@@ -867,6 +868,9 @@
                                     <td class="fba-ids-col" data-full="{{ cargo.fba_ids|default:'' }}">{{ cargo.fba_ids|default:"-"|truncatechars:20 }}</td>
                                     <td class="container-no-col" style="max-width: 150px; white-space: pre-line; font-size: 0.8rem;">
                                         {{ cargo.cns|linebreaks_cn }}
+                                    </td>
+                                    <td>
+                                        {{ cargo.offload_time }}
                                     </td>
                                     <td>
                                         {% if cargo.delivery_window_start or cargo.delivery_window_end %}
@@ -985,6 +989,9 @@
                                     <td class="fba-ids-col" data-full="{{ cargo.fba_ids|default:'' }}">{{ cargo.fba_ids|default:"-"|truncatechars:20 }}</td>
                                     <td class="container-no-col" style="max-width: 150px; white-space: pre-line; font-size: 0.8rem;">
                                         {{ cargo.cns|linebreaks_cn }}
+                                    </td>
+                                    <td>
+                                        {{ cargo.offload_time }}
                                     </td>
                                     <td>
                                         {% if cargo.delivery_window_start or cargo.delivery_window_end %}
