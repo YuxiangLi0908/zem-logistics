@@ -1529,9 +1529,11 @@
                 </div>
 
                 <div class="modal-actions">
+                    <!--
                     <button type="button" class="modal-btn modal-btn-success" onclick="submitFleetDepartureSimple()">
                         <i class="fas fa-check-circle"></i> 确认出库
                     </button>
+                    -->
                     <button type="button" class="modal-btn modal-btn-danger" onclick="closeDepartureModal()">
                         <i class="fas fa-times"></i> 取消
                     </button>
@@ -2143,15 +2145,13 @@ function closeAddablePOModal() {
 
 function confirmFleetDeparture(fleetNumber) {
     // 获取该车次的所有货物数据
-    console.log('confirmFleetDeparture clicked for fleetNumber:', fleetNumber);
+    //console.log('confirmFleetDeparture clicked for fleetNumber:', fleetNumber);
     const fleetData = collectFleetData(fleetNumber);
-    console.log('fleetData returned:', fleetData);
+    //console.log('fleetData returned:', fleetData);
     if (!fleetData || !fleetData.shipments || fleetData.shipments.length === 0) {
         alert('未找到车次数据或车次下没有货物');
         return;
     }
-    console.log('Open departure modal with fleetData:');
-    console.log(JSON.stringify(fleetData, null, 2));
     // 打开弹窗
     openDepartureModal(fleetNumber, fleetData);
 }
@@ -2407,19 +2407,13 @@ function handleAddablePOFormSubmit() {
 }
 // 打开出库确认弹窗
 function openDepartureModal(fleetNumber, fleetData) {
-    console.log('openDepartureModal called for', fleetNumber, fleetData);
-
     const modal = document.getElementById('confirmDepartureModal');
     const tbody = document.getElementById('departureCargoBody');
     const fleetNumberInput = document.getElementById('fleetNumber');         // hidden input in form
     const modalFleetSpan = document.getElementById('modalFleetNumber');     // header span to show fleet
 
-    if (!modal) {
-        console.error('openDepartureModal: confirmDepartureModal not found');
-        return;
-    }
-    if (!tbody) {
-        console.error('openDepartureModal: departureCargoBody not found');
+    if (!modal || !tbody) {
+        console.error('Modal elements not found');
         return;
     }
     if (!fleetNumberInput || !modalFleetSpan) {
@@ -2503,11 +2497,9 @@ function openDepartureModal(fleetNumber, fleetData) {
             // 保存 id 到 DOM
             if (cargo.pltId) {
                 tr.dataset.pltId = cargo.pltId;
-                console.log(`设置行 pltId: ${cargo.pltId}`);
             } else if (cargo.cargoId) {
                 // 如果没有 pltId，使用 cargoId 作为备选
                 tr.dataset.pltId = cargo.cargoId;
-                console.log(`使用 cargoId 作为 pltId: ${cargo.cargoId}`);
             } else {
                 console.warn('货物没有 pltId 和 cargoId');
             }
@@ -2555,7 +2547,11 @@ function openDepartureModal(fleetNumber, fleetData) {
             if (actualNum < plannedNum) anyUnfilled = true;
             // 更新行状态
             const statusTd = tr.children[tr.children.length - 1];
-            if (statusTd) statusTd.textContent = (actualNum >= plannedNum && plannedNum > 0) ? '已打板' : '未打板';
+            if (statusTd) {
+                const newStatus = (actualNum >= plannedNum && plannedNum > 0) ? '已打板' : '未打板';
+                console.log(`行状态更新: planned=${plannedNum}, actual=${actualNum}, status=${newStatus}`);
+                statusTd.textContent = newStatus;
+            }
         });
         if (totalScheduledElem) totalScheduledElem.textContent = tp;
         if (totalActualElem) totalActualElem.textContent = ta;

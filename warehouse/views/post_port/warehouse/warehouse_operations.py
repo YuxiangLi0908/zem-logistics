@@ -819,43 +819,83 @@ class WarehouseOperations(View):
         day_stats = {
             0: {'fleets': [], 'total_pallets': 0, 'total_cbm': 0, 'completed_count': 0, 'abnormal_count': 0},
             1: {'fleets': [], 'total_pallets': 0, 'total_cbm': 0, 'completed_count': 0, 'abnormal_count': 0},
-            2: {'fleets': [], 'total_pallets': 0, 'total_cbm': 0, 'completed_count': 0, 'abnormal_count': 0}
+            2: {'fleets': [], 'total_pallets': 0, 'total_cbm': 0, 'completed_count': 0, 'abnormal_count': 0},
+            3: {'fleets': [], 'total_pallets': 0, 'total_cbm': 0, 'completed_count': 0, 'abnormal_count': 0}
         }
 
         for fleet in fleets:
-            pls_stats = await sync_to_async(
-                lambda: PackingList.objects.filter(
-                    shipment_batch_number__fleet_number=fleet,
-                    container_number__order__offload_id__offload_at__isnull=True
-                ).aggregate(
-                    total_cbm=Sum('cbm'),
-                    count=Count('id')
+            pls_details = await sync_to_async(
+                lambda: list(
+                    PackingList.objects.filter(
+                        shipment_batch_number__fleet_number=fleet,
+                        container_number__order__offload_id__offload_at__isnull=True
+                    ).select_related('container_number').values(
+                        'container_number__container_number',
+                        'shipping_mark',
+                        'destination',
+                        'cbm'
+                    )
                 )
-            )()
-            
-            plts_stats = await sync_to_async(
-                lambda: Pallet.objects.filter(
-                    shipment_batch_number__fleet_number=fleet,
-                    container_number__order__offload_id__offload_at__isnull=False
-                ).aggregate(
-                    total_cbm=Sum('cbm'),
-                    count=Count('id')
+            )() 
+            pls_cbm = sum(item['cbm'] for item in pls_details) if pls_details else 0
+
+            plt_details = await sync_to_async(
+                lambda: list(
+                    Pallet.objects.filter(
+                        shipment_batch_number__fleet_number=fleet,
+                        container_number__order__offload_id__offload_at__isnull=False
+                    ).select_related('container_number').values(
+                        'container_number__container_number',
+                        'shipping_mark',
+                        'destination',
+                        'cbm'
+                    )
                 )
-            )()
-            pls_cbm = pls_stats['total_cbm'] or 0
-            plts_cbm = plts_stats['total_cbm'] or 0
-            plts_count = plts_stats['count'] or 0
+            )()               
+            plts_cbm = sum(item['cbm'] for item in plt_details) if plt_details else 0
+            plts_count = len(plt_details)
             
             total_cbm = pls_cbm + plts_cbm
             total_pallets = plts_count + round(pls_cbm / 1.8, 2)
 
             is_estimated = plts_count == 0 and total_pallets > 0
-           
-
             days_diff = (fleet.appointment_datetime.date() - today).days
+            all_details = pls_details + plt_details
+            details = []
+            if fleet.fleet_type == 'LTL':
+                # 获取container_number和shipping_mark信息（去重）
+                seen = set()
+                for item in all_details:
+                    container_num = item.get('container_number__container_number')
+                    shipping_mark = item.get('shipping_mark')
+                    if container_num and shipping_mark:
+                        key = f"{container_num}-{shipping_mark}"
+                        if key not in seen:
+                            details.append(key)
+                            seen.add(key)
+                                    
+            elif fleet.fleet_type == '外配':
+                # 获取destination信息（去重）
+                destinations = set()
+                for item in all_details:
+                    destination = item.get('destination')
+                    if destination:
+                        destinations.add(destination)
+                details = list(destinations)
+                
+            elif fleet.fleet_type == '快递':
+                # 获取container_number信息（去重）
+                container_numbers = set()
+                for item in all_details:
+                    container_num = item.get('container_number__container_number')
+                    if container_num:
+                        container_numbers.add(container_num)
+                details = list(container_numbers)
+            print('details',details)
             display_day = days_diff
             fleet_item = {
                 'fleet_number': fleet.fleet_number,
+                'details': details,
                 'warehouse_process_status': fleet.warehouse_process_status,
                 'pickup_number': fleet.pickup_number,
                 'fleet_type': fleet.fleet_type,
@@ -873,9 +913,12 @@ class WarehouseOperations(View):
                 'abnormal_reason': fleet.abnormal_reason,
             }
             fleet_data.append(fleet_item)
-            if days_diff < 0 or 0 <= days_diff <= 2:
-                day_to_count = 0 if days_diff < 0 else days_diff  #过去一周的就放到今天显示
+            if days_diff < 0:
+                day_to_count = 3  #过去一周的
+            elif 0 <= days_diff <= 2:
+                day_to_count = days_diff  
 
+            if day_to_count in day_stats:
                 day_stats[day_to_count]['fleets'].append(fleet_item)
                 day_stats[day_to_count]['total_pallets'] += total_pallets
                 day_stats[day_to_count]['total_cbm'] += total_cbm
@@ -883,7 +926,7 @@ class WarehouseOperations(View):
                     day_stats[day_to_count]['completed_count'] += 1
                 elif fleet.warehouse_process_status == 'abnormal':
                     day_stats[day_to_count]['abnormal_count'] += 1
-        for day in [0, 1, 2]:
+        for day in [0, 1, 2, 3]:
             total_fleets = len(day_stats[day]['fleets'])
             completed_count = day_stats[day]['completed_count']
             abnormal_count = day_stats[day]['abnormal_count']
@@ -912,6 +955,7 @@ class WarehouseOperations(View):
                 'today_count': len(day_stats[0]['fleets']),
                 'tomorrow_count': len(day_stats[1]['fleets']),
                 'day_after_count': len(day_stats[2]['fleets']),
+                'past_count': len(day_stats[3]['fleets']),
                 'day_stats': {
                     0: {
                         'total_fleets': len(day_stats[0]['fleets']),
@@ -939,9 +983,17 @@ class WarehouseOperations(View):
                         'abnormal_count': day_stats[2]['abnormal_count'],
                         'normal_count': day_stats[2]['normal_count'],
                         'completion_rate': day_stats[2]['completion_rate']
-                    }
+                    },
+                    3: {
+                        'total_fleets': len(day_stats[3]['fleets']),
+                        'total_pallets': day_stats[3]['total_pallets'],
+                        'total_cbm': round(day_stats[3]['total_cbm'], 2),
+                        'completed_count': day_stats[3]['completed_count'],
+                        'abnormal_count': day_stats[3]['abnormal_count'],
+                        'normal_count': day_stats[3]['normal_count'],
+                        'completion_rate': day_stats[3]['completion_rate']
+                    },
                 }
             }
         }
-        
         return self.template_upcoming_fleet, context

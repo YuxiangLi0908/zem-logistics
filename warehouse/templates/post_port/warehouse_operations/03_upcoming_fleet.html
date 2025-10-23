@@ -37,6 +37,7 @@
         border-radius: 10px;
         box-shadow: 0 0 20px rgba(0, 0, 0, 0.1);
         overflow: hidden;
+        font-size: 0.9rem;
     }
 
     .warehouse-header {
@@ -161,7 +162,7 @@
     }
 
     .summary-card .card-value {
-        font-size: 1.8rem;
+        font-size: 1.4rem;
         font-weight: 700;
         color: var(--secondary-color);
     }
@@ -239,13 +240,23 @@
         top: 0;
         background: var(--secondary-color);
         color: white;
-        padding: 15px;
+        padding: 12px 10px;
+        font-size: 0.85rem; 
+        white-space: nowrap;
         text-align: left;
         font-weight: 600;
     }
-
+    .shipment-table th:nth-child(1), 
+    .shipment-table td:nth-child(1) {
+        min-width: 100px; 
+    }
+    .shipment-table th:nth-child(4), 
+    .shipment-table td:nth-child(4) {
+        min-width: 100px; 
+    }
     .shipment-table td {
-        padding: 15px;
+        padding: 10px 8px;
+        font-size: 0.85rem;
         border-bottom: 1px solid #eaecef;
     }
 
@@ -286,7 +297,10 @@
     .bol-download-btn:hover {
         background: #2980b9;
     }
-
+    .bol-download-btn, .save-btn, .action-btn {
+        font-size: 0.8rem;
+        padding: 5px 10px; /* 减小按钮内边距 */
+    }
     .location-input {
         padding: 6px 10px;
         border: 1px solid #dce1e6;
@@ -452,12 +466,8 @@
     .status-shipped .status-icon { color: #27ae60; }
     
     .status-badge {
-        display: inline-flex;
-        align-items: center;
-        padding: 6px 12px;
-        border-radius: 15px;
-        font-size: 0.8rem;
-        font-weight: 600;
+        font-size: 0.75rem;
+        padding: 4px 8px;
     }
     
     .status-waiting {
@@ -487,7 +497,6 @@
         padding: 10px 15px;
         border: 1px solid #dce1e6;
         border-radius: 5px;
-        font-size: 0.9rem;
         min-width: 250px;
     }
     .search-btn {
@@ -603,6 +612,7 @@
 
     <div class="warehouse-main">
         <div class="time-navigation">
+            <div class="time-tab" data-day="3">过去 <span class="badge">{{ summary.past_count }}</span></div>
             <div class="time-tab active" data-day="0">
                 今天 <span class="badge">{{ summary.today_count }}</span>
             </div>
@@ -617,6 +627,12 @@
                     <i class="fas fa-search"></i> 搜索
                 </button>
             </div>
+            <div class="summary-mini" style="display: flex; gap: 20px; align-items: center; font-size: 0.85rem; color: #555; background: #f8f9fa; padding: 8px 16px; border-radius: 6px; border: 1px solid #e9ecef; height: 40px;">
+                <div style="display: flex; align-items: center; gap: 4px;"><strong>总批次:</strong> <span id="total-fleets-mini" style="color: #2c3e50; font-weight: 600;">{{ summary.day_stats.0.total_fleets }}</span></div>
+                <div style="display: flex; align-items: center; gap: 4px;"><strong>总板数:</strong> <span id="total-pallets-mini" style="color: #2c3e50; font-weight: 600;">{{ summary.day_stats.0.total_pallets }}</span></div>
+                <div style="display: flex; align-items: center; gap: 4px;"><strong>总体积:</strong> <span id="total-cbm-mini" style="color: #2c3e50; font-weight: 600;">{{ summary.day_stats.0.total_cbm }}</span> CBM</div>
+                <div style="display: flex; align-items: center; gap: 4px;"><strong>完成率:</strong> <span id="completion-rate-mini" style="color: #27ae60; font-weight: 600;">{{ summary.day_stats.0.completion_rate }}</span>%</div>
+            </div>
             <div style="display: flex; align-items: center; gap: 10px;">
                 <label for="fleetTypeFilter" style="font-weight: 600; color: #2c3e50; white-space: nowrap;">出库类型:</label>
                 <select id="fleetTypeFilter" class="search-input" style="min-width: 150px;">
@@ -627,31 +643,6 @@
                     <option value="快递">快递</option>
                     <option value="快递">外配</option>
                 </select>
-            </div>
-        </div>
-
-        <div class="summary-cards">
-            <div class="summary-card">
-                <div class="card-title">总出库批次</div>
-                <div class="card-value" id="total-fleets">{{ summary.day_stats.0.total_fleets }}</div>
-            </div>
-            <div class="summary-card">
-                <div class="card-title">总板数</div>
-                <div class="card-value" id="total-pallets">{{ summary.day_stats.0.total_pallets }}</div>
-            </div>
-            <div class="summary-card">
-                <div class="card-title">总体积 (CBM)</div>
-                <div class="card-value" id="total-cbm">{{ summary.day_stats.0.total_cbm }}</div>
-            </div>
-            <div class="summary-card">
-                <div class="card-title">已完成出库</div>
-                <div class="card-value" id="completed-count">
-                    {{ summary.day_stats.0.completed_count }}/{{ summary.day_stats.0.normal_count }}
-                </div>
-                <div class="progress-container">
-                    <div class="progress-bar" style="width: {{ summary.day_stats.0.completion_rate }}%;"></div>
-                </div>
-                <div class="completion-text">{{ summary.day_stats.0.completion_rate }}% 完成率</div>
             </div>
         </div>
 
@@ -709,7 +700,14 @@
                                 {% else %}{{ fleet.days_diff|add:"0"|cut:"-" }}天前{% endif %}
                             </span>
                         </td>
-                        <td>{{ fleet.pickup_number }}</td>
+                        <td>
+                            {{ fleet.pickup_number }}
+                            {% if fleet.fleet_type != 'FTL'%}
+                            <div style="font-size: 12px; color: #666;">                              
+                                详情: {{ fleet.details }}                                    
+                            </div>
+                            {% endif %}
+                        </td>
                         <td>{{ fleet.fleet_type }}</td>
                         <td style="padding: 4px;">
                             <form method="post" class="action-form">
@@ -961,15 +959,17 @@
             
             let matchesDay = false;
             if (selectedDay === '0') {
-                matchesDay = daysDiff <= 0;
+                matchesDay = daysDiff === 0;
             } else if (selectedDay === '1') {
                 matchesDay = daysDiff === 1;
             } else if (selectedDay === '2') {
                 matchesDay = daysDiff === 2;
+            } else if (selectedDay === '3') {
+                matchesDay = daysDiff < 0;
             } else {
                 matchesDay = true; // 显示所有
             }
-            const displayDay = parseInt(daysDiff) < 0 ? '0' : daysDiff;
+            const displayDay = parseInt(daysDiff);
             const matchesSearch = searchTerm === '' || 
                                 fleet_number.includes(searchTerm) || 
                                 pickup.includes(searchTerm);
@@ -1067,12 +1067,14 @@
         const dayStats = {
             0: {{ summary.day_stats.0|safe }},
             1: {{ summary.day_stats.1|safe }},
-            2: {{ summary.day_stats.2|safe }}
+            2: {{ summary.day_stats.2|safe }},
+            3: {{ summary.day_stats.3|safe }},
         };
         
-        document.getElementById('total-fleets').textContent = dayStats[dayFilter].total_fleets;
-        document.getElementById('total-pallets').textContent = dayStats[dayFilter].total_pallets;
-        document.getElementById('total-cbm').textContent = dayStats[dayFilter].total_cbm;
+        document.getElementById('total-fleets-mini').textContent = dayStats[dayFilter].total_fleets;
+        document.getElementById('total-pallets-mini').textContent = dayStats[dayFilter].total_pallets;
+        document.getElementById('total-cbm-mini').textContent = dayStats[dayFilter].total_cbm;
+        document.getElementById('completion-rate-mini').textContent = dayStats[dayFilter].completion_rate;
         
         const completedElement = document.getElementById('completed-count');
         completedElement.textContent = `${dayStats[dayFilter].completed_count}/${dayStats[dayFilter].normal_count}`;
