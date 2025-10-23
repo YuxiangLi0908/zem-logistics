@@ -469,13 +469,14 @@
                                               class="download-form" onsubmit="return handleDownloadAndUpdate(this)">
                                             {% csrf_token %}
                                             <input type="hidden" name="step" value="export_palletization_list">
-                                            <input type="hidden" name="status" value="palletized">
+                                            <input type="hidden" name="status" value="non_palletized">
                                             <input type="hidden" name="warehouse_filter" value="{{ warehouse }}">
                                             <input type="hidden" name="offload_id" value="{{ ret.offload_id }}">
                                             <input type="hidden" name="arrival_location"
                                                    value="{{ ret.arrival_location|default:''|upper }}">
                                             <input type="hidden" name="unpacking_status"
                                                    value="{{ ret.unpacking_status }}">
+                                            <input type="hidden" name="warehouse" value="{{ warehouse }}">
                                             <input type="hidden" name="first_time_download" class="first-time-input"
                                                    value="">
                                             <input type="hidden" name="container_number"
@@ -493,13 +494,14 @@
                                               class="download-form" onsubmit="return handleDownloadAndUpdate(this)">
                                             {% csrf_token %}
                                             <input type="hidden" name="step" value="export_palletization_list">
-                                            <input type="hidden" name="status" value="palletized">
+                                            <input type="hidden" name="status" value="non_palletized">
                                             <input type="hidden" name="warehouse_filter" value="{{ warehouse }}">
                                             <input type="hidden" name="offload_id" value="{{ ret.offload_id }}">
                                             <input type="hidden" name="arrival_location"
                                                    value="{{ ret.arrival_location|default:''|upper }}">
                                             <input type="hidden" name="unpacking_status"
                                                    value="{{ ret.unpacking_status }}">
+                                            <input type="hidden" name="warehouse" value="{{ warehouse }}">
                                             <input type="hidden" name="first_time_download" class="first-time-input"
                                                    value="">
                                             <input type="hidden" name="container_number"
