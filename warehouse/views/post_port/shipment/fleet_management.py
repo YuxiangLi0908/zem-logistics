@@ -1707,9 +1707,7 @@ class FleetManagement(View):
                 error_messages.append(f"出库板数大于实际库存，请核实！")
                 return await self.handle_outbound_warehouse_search_post(request,error_messages)
 
-        print('出库的板子',shipped_pallet_ids)
-        print('未出的板子',unshipped_pallet_ids)
-        raise ValueError('000')
+        
         #要出库的查看下是否有未解扣的
         shipped_pallets = await sync_to_async(
             lambda: list(Pallet.objects.filter(id__in=shipped_pallet_ids).select_related('container_number'))
