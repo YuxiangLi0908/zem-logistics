@@ -410,7 +410,7 @@ class ShippingManagement(View):
             .filter(
                 models.Q(
                     is_shipped=True,
-                    in_use=True,
+                    #in_use=True,  #10/23近期出现多个有效的批次被改成失效，所以暂时把这个筛选条件去掉
                     is_canceled=False,
                     shipment_appointment__gt=start_date,
                     shipment_appointment__lt=end_date,
