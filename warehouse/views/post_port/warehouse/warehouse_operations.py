@@ -865,36 +865,36 @@ class WarehouseOperations(View):
             if fleet.fleet_type == 'LTL':
                 # 获取container_number和shipping_mark信息（去重）
                 seen = set()
-                details['container_number'] = []
-                details['shipping_mark'] = []
+                details['柜号'] = []
+                details['唛头'] = []
                 for item in all_details:
                     container_num = item.get('container_number__container_number')
                     shipping_mark = item.get('shipping_mark')
                     if container_num and shipping_mark:
                         key = f"{container_num}-{shipping_mark}"
                         if key not in seen:
-                            details['container_number'].append(container_num)
-                            details['shipping_mark'].append(shipping_mark)
+                            details['柜号'].append(container_num)
+                            details['唛头'].append(shipping_mark)
                             seen.add(key)
                             
             elif fleet.fleet_type == '外配':
                 # 获取destination信息（去重）
-                details['destinations'] = []
+                details['仓点'] = []
                 destinations_set = set()
                 for item in all_details:
                     destination = item.get('destination')
                     if destination and destination not in destinations_set:
-                        details['destinations'].append(destination)
+                        details['仓点'].append(destination)
                         destinations_set.add(destination)
                 
             elif fleet.fleet_type == '快递':
                 # 获取container_number信息（去重）
-                details['container_numbers'] = []
+                details['柜号'] = []
                 container_set = set()
                 for item in all_details:
                     container_num = item.get('container_number__container_number')
                     if container_num and container_num not in container_set:
-                        details['container_numbers'].append(container_num)
+                        details['柜号'].append(container_num)
                         container_set.add(container_num)
             
             display_day = days_diff
