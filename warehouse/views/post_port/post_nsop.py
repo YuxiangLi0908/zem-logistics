@@ -395,6 +395,8 @@ class PostNsop(View):
     async def handle_fleet_departure_post(
         self, request: HttpRequest
     ) -> tuple[str, dict[str, Any]]:
+        print('原始传入的',request.POST)
+        raise ValueError('00')
         batch_number = request.POST.getlist('batch_number')
         new_batch = []
         for i in batch_number:

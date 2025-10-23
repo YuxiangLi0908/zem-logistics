@@ -1525,7 +1525,8 @@ class ShippingManagement(View):
                     else:
                         dt = appointment_datetime
                     month_day = dt.strftime("%m%d")
-                    pickupNumber = "ZEM" + "-" + wh + "-" + "" + month_day + ca
+                    destination = request.POST.get("destination", None)
+                    pickupNumber = "ZEM" + "-" + wh + "-" + "" + month_day + ca + destination
                     fleet = Fleet(
                         **{
                             "carrier": request.POST.get("carrier").strip(),
@@ -1566,6 +1567,7 @@ class ShippingManagement(View):
                         if request.POST.get("arm_bol")
                         else ""
                     )
+                    shipment_data["in_use"] = True
             if not existed_appointment:
                 shipment = Shipment(**shipment_data)
                 await sync_to_async(shipment.save)()
@@ -1719,6 +1721,7 @@ class ShippingManagement(View):
             shipment.ARM_PRO = (
                 request.POST.get("arm_pro") if request.POST.get("arm_bol") else ""
             )
+            shipment.in_use = True
             shipment.save()
             mutable_post = request.POST.copy()
             mutable_post["area"] = warehouse
@@ -2252,7 +2255,8 @@ class ShippingManagement(View):
                         shipment_appointment.replace("Z", "+00:00")
                     )
                     month_day = dt.strftime("%m%d")
-                    pickupNumber = "ZEM" + "-" + wh + "-" + "" + month_day + ca
+                    destination = request.POST.get("destination").replace("WALMART", "Walmart")
+                    pickupNumber = "ZEM" + "-" + wh + "-" + "" + month_day + ca + destination
                     fleet = Fleet(
                         **{
                             "carrier": request.POST.get("carrier").strip(),
@@ -2331,7 +2335,8 @@ class ShippingManagement(View):
                 ca = request.POST.get("carrier").strip()
                 dt = datetime.fromisoformat(shipment_appointment.replace("Z", "+00:00"))
                 month_day = dt.strftime("%m%d")
-                pickupNumber = "ZEM" + "-" + wh + "-" + "" + month_day + ca
+                destination = request.POST.get("destination").replace("WALMART", "Walmart")
+                pickupNumber = "ZEM" + "-" + wh + "-" + "" + month_day + ca + destination
                 fleet = Fleet(
                     **{
                         "carrier": request.POST.get("carrier").strip(),
