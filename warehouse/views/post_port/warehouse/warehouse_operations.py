@@ -865,17 +865,16 @@ class WarehouseOperations(View):
             if fleet.fleet_type == 'LTL':
                 # 获取container_number和shipping_mark信息（去重）
                 seen = set()
-                details['container_shipping_pairs'] = []
+                details['container_number'] = []
+                details['shipping_mark'] = []
                 for item in all_details:
                     container_num = item.get('container_number__container_number')
                     shipping_mark = item.get('shipping_mark')
                     if container_num and shipping_mark:
                         key = f"{container_num}-{shipping_mark}"
                         if key not in seen:
-                            details['container_shipping_pairs'].append({
-                                'container_number': container_num,
-                                'shipping_mark': shipping_mark
-                            })
+                            details['container_number'].append(container_num)
+                            details['shipping_mark'].append(shipping_mark)
                             seen.add(key)
                             
             elif fleet.fleet_type == '外配':
