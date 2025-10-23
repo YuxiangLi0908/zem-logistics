@@ -1525,7 +1525,8 @@ class ShippingManagement(View):
                     else:
                         dt = appointment_datetime
                     month_day = dt.strftime("%m%d")
-                    pickupNumber = "ZEM" + "-" + wh + "-" + "" + month_day + ca
+                    destination = request.POST.get("destination", None)
+                    pickupNumber = "ZEM" + "-" + wh + "-" + "" + month_day + ca + destination
                     fleet = Fleet(
                         **{
                             "carrier": request.POST.get("carrier").strip(),
@@ -2254,7 +2255,8 @@ class ShippingManagement(View):
                         shipment_appointment.replace("Z", "+00:00")
                     )
                     month_day = dt.strftime("%m%d")
-                    pickupNumber = "ZEM" + "-" + wh + "-" + "" + month_day + ca
+                    destination = request.POST.get("destination").replace("WALMART", "Walmart")
+                    pickupNumber = "ZEM" + "-" + wh + "-" + "" + month_day + ca + destination
                     fleet = Fleet(
                         **{
                             "carrier": request.POST.get("carrier").strip(),
@@ -2333,7 +2335,8 @@ class ShippingManagement(View):
                 ca = request.POST.get("carrier").strip()
                 dt = datetime.fromisoformat(shipment_appointment.replace("Z", "+00:00"))
                 month_day = dt.strftime("%m%d")
-                pickupNumber = "ZEM" + "-" + wh + "-" + "" + month_day + ca
+                destination = request.POST.get("destination").replace("WALMART", "Walmart")
+                pickupNumber = "ZEM" + "-" + wh + "-" + "" + month_day + ca + destination
                 fleet = Fleet(
                     **{
                         "carrier": request.POST.get("carrier").strip(),

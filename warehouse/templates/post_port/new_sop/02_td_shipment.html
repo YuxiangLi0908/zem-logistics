@@ -1276,7 +1276,7 @@
                                             {% endwith %}
                                         {% else %}
                                             {% for cargo in shipment.cargos %}
-                                                <tr data-plt-id="{{ cargo.plt_ids }}">
+                                                <tr data-plt-id="{{ cargo.plt_ids }}" data-cargo-id="{{ cargo.cargo_ids }}">
                                                     {% if forloop.first and forloop.parentloop.first %}
                                                         <td rowspan="{{ fleet_rowspan }}" style="vertical-align: middle; background-color: #f8f9fa;">
                                                             <strong>{{ fleet_group.fleet_number }}</strong>
@@ -1498,7 +1498,11 @@
                 <input type="hidden" name="step" value="fleet_departure">
                 <input type="hidden" name="fleet_number" id="fleetNumber">
                 <input type="hidden" name="warehouse" value="{{ warehouse }}">
-                
+                <input type="hidden" name="debug_info" id="debugInfo">
+                <input type="hidden" name="scheduled_pallet" id="formScheduledPallet">
+                <input type="hidden" name="actual_shipped_pallet" id="formActualShippedPallet">
+                <input type="hidden" name="plt_ids" id="formPltIds">
+                <div id="cargoDataContainer" style="display: none;"></div>
                 <!-- 出库时间选择 -->
                 <div class="modal-form-section" style="background: #f8f9fa; padding: 15px; border-radius: 8px;">
                     <label style="font-weight: bold; margin-right: 15px;">
@@ -1547,9 +1551,11 @@
                 </div>
 
                 <div class="modal-actions">
-                    <button type="submit" class="modal-btn modal-btn-success">
+                    <!--
+                    <button type="button" class="modal-btn modal-btn-success" onclick="submitFleetDepartureSimple()">
                         <i class="fas fa-check-circle"></i> 确认出库
                     </button>
+                    -->
                     <button type="button" class="modal-btn modal-btn-danger" onclick="closeDepartureModal()">
                         <i class="fas fa-times"></i> 取消
                     </button>
@@ -2049,6 +2055,104 @@ document.addEventListener('DOMContentLoaded', function() {
     }
 });
 
+function submitFleetDepartureSimple() {
+    console.log('submitFleetDepartureSimple called');
+    
+    // 1. 获取 modal 表格行
+    const tbody = document.getElementById('departureCargoBody');
+    if (!tbody) {
+        console.error('找不到出库表格 tbody');
+        return alert('找不到出库表格');
+    }
+
+    const rows = Array.from(tbody.querySelectorAll('tr'));
+    console.log('找到的行数:', rows.length);
+
+    const pltIdsArr = [];
+    const scheduledArr = [];
+    const actualArr = [];
+
+    rows.forEach((row, index) => {
+        console.log(`处理第 ${index} 行:`, row.dataset);
+        
+        // pltId 存在就加
+        const pltId = (row.dataset.pltId || '').trim();
+        console.log(`行 ${index} 的 pltId:`, pltId);
+        
+        if (pltId) {
+            pltIdsArr.push(pltId);
+        } else {
+            console.warn(`行 ${index} 没有 pltId`);
+        }
+
+
+        // 计划板数
+        const planned = parseFloat(row.dataset.planned || 0);
+        scheduledArr.push(planned);
+
+        // 实际出库板数，从 input 取值
+        const actualInput = row.querySelector('input[type="number"]');
+        const actual = actualInput ? parseFloat(actualInput.value || 0) : 0;
+        actualArr.push(actual);
+
+        console.log(`行 ${index}: pltId=${pltId}, planned=${planned}, actual=${actual}`);
+    });
+
+    console.log('收集的数据:', {
+        pltIds: pltIdsArr,
+        scheduled: scheduledArr,
+        actual: actualArr
+    });
+
+    // 获取正确的表单
+    const form = document.getElementById('confirmDepartureForm');
+    if (!form) {
+        console.error('找不到确认出库表单');
+        return alert('系统错误：找不到表单');
+    }
+
+    // 清空之前可能存在的隐藏字段
+    const existingInputs = form.querySelectorAll('input[name="plt_ids"], input[name="scheduled_pallet"], input[name="actual_shipped_pallet"]');
+    existingInputs.forEach(input => input.remove());
+
+    // 添加新的隐藏字段到正确的表单中
+    if (pltIdsArr.length > 0) {
+        const pltInput = document.createElement('input');
+        pltInput.type = 'hidden';
+        pltInput.name = 'plt_ids';
+        pltInput.value = pltIdsArr.join(',');
+        form.appendChild(pltInput);
+        console.log('添加 plt_ids:', pltIdsArr.join(','));
+    }
+
+    if (scheduledArr.length > 0) {
+        const scheduledInput = document.createElement('input');
+        scheduledInput.type = 'hidden';
+        scheduledInput.name = 'scheduled_pallet';
+        scheduledInput.value = scheduledArr.join(',');
+        form.appendChild(scheduledInput);
+        console.log('添加 scheduled_pallet:', scheduledArr.join(','));
+    }
+
+    if (actualArr.length > 0) {
+        const actualInput = document.createElement('input');
+        actualInput.type = 'hidden';
+        actualInput.name = 'actual_shipped_pallet';
+        actualInput.value = actualArr.join(',');
+        form.appendChild(actualInput);
+        console.log('添加 actual_shipped_pallet:', actualArr.join(','));
+    }
+
+    // 验证数据
+    if (pltIdsArr.length === 0) {
+        alert('没有找到货物数据，无法出库');
+        return;
+    }
+
+    // 提交表单
+    console.log('提交表单...');
+    //form.submit();
+}
 
 // ---- 关闭加塞弹窗 ----
 function closeAddPOModal() {
@@ -2063,120 +2167,136 @@ function closeAddablePOModal() {
 
 function confirmFleetDeparture(fleetNumber) {
     // 获取该车次的所有货物数据
+    //console.log('confirmFleetDeparture clicked for fleetNumber:', fleetNumber);
     const fleetData = collectFleetData(fleetNumber);
-    
-    if (fleetData.shipments.length === 0) {
+    //console.log('fleetData returned:', fleetData);
+    if (!fleetData || !fleetData.shipments || fleetData.shipments.length === 0) {
         alert('未找到车次数据或车次下没有货物');
         return;
     }
-    
     // 打开弹窗
     openDepartureModal(fleetNumber, fleetData);
 }
 
 function collectFleetData(fleetNumber) {
-    const fleetData = {
-        fleetNumber: fleetNumber,
-        shipments: []
-    };
-    
-    // 找到包含该车次号的所有行
-    const allRows = document.querySelectorAll('#ready-section tbody tr');
-    let fleetRows = [];
-    
-    // 首先找到车次标题行
-    let fleetStartIndex = -1;
-    allRows.forEach((row, index) => {
-        const firstTd = row.querySelector('td:first-child');
-        if (firstTd && firstTd.textContent.trim() === fleetNumber) {
-            fleetStartIndex = index;
-        }
-    });
-    
-    if (fleetStartIndex === -1) {
-        return fleetData;
-    }
-    
-    // 收集该车次下的所有行
-    let currentIndex = fleetStartIndex;
+    console.log('collectFleetData start for', fleetNumber);
+    const fleetData = { fleetNumber, shipments: [] };
+    const allRows = Array.from(document.querySelectorAll('#ready-section tbody tr'));
+    console.log('total rows under #ready-section tbody:', allRows.length);
+
+    let collecting = false;
     let currentShipment = null;
-    
-    while (currentIndex < allRows.length) {
-        const row = allRows[currentIndex];
-        const firstTd = row.querySelector('td:first-child');
-        
-        // 如果遇到新的车次，停止收集
-        if (firstTd && firstTd.textContent.trim() && firstTd.textContent.trim() !== fleetNumber) {
-            break;
+    let currentAppointmentId = null;
+
+    allRows.forEach((row, i) => {
+        const tds = Array.from(row.querySelectorAll('td'));
+        const tcount = tds.length;
+        const firstText = (tds[0]?.textContent || '').trim();
+
+        // --- 调试：打印行的 dataset，方便确认模板渲染
+        console.log(`ROW[${i}] dataset before parse:`, JSON.parse(JSON.stringify(row.dataset)));
+
+        // 判断开始/停止（更保守）
+        if (firstText === fleetNumber) {
+            collecting = true;
+            console.log('start collecting at row', i);
+        } else if (collecting && firstText && firstText.startsWith('F') && firstText !== fleetNumber && /^[A-Z]{1,3}\d{4,}$/.test(firstText)) {
+            // 只在很可能是新车次号时停止
+            console.log('stop collecting at row', i, 'found new fleet header:', firstText);
+            collecting = false;
         }
-        
-        // 检查是否是预约号行（第二列有rowspan属性）
-        const appointmentTd = row.querySelector('td:nth-child(2)');
-        if (appointmentTd && appointmentTd.hasAttribute('rowspan')) {
-            if (currentShipment) {
-                fleetData.shipments.push(currentShipment);
-            }
-            currentShipment = {
-                appointmentId: appointmentTd.textContent.trim(),
-                destination: row.querySelector('td:nth-child(3)').textContent.trim(),
-                cargos: []
-            };
+
+        if (!collecting) return;
+        if (tcount === 0) return;
+
+        // 解析字段占位
+        let appointmentId = null;
+        let destination = null;
+        let containerNo = null;
+        let refIds = null;
+        let fbaIds = null;
+        let rawPalletText = '';
+        let cbmText = '0';
+
+        if (tcount >= 8) {
+            appointmentId = (tds[2]?.textContent || '').trim() || currentAppointmentId || '-';
+            destination = (tds[3]?.textContent || '').trim() || (currentShipment?.destination ?? '-');
+            containerNo = (tds[4]?.textContent || '').trim() || '-';
+            refIds = (tds[5]?.textContent || '').trim() || '-';
+            fbaIds = (tds[6]?.textContent || '').trim() || '-';
+            rawPalletText = (tds[7]?.textContent || '').trim() || '';
+            cbmText = (tds[8]?.textContent || '').trim() || '0';
+            console.log(`row ${i} (full): appointment=${appointmentId}, dest=${destination}, container=${containerNo}, rawPallet='${rawPalletText}', cbm='${cbmText}'`);
+        } else if (tcount >= 5) {
+            appointmentId = currentAppointmentId || '-';
+            destination = (currentShipment?.destination) || '-';
+            containerNo = (tds[0]?.textContent || '').trim() || '-';
+            refIds = (tds[1]?.textContent || '').trim() || '-';
+            fbaIds = (tds[2]?.textContent || '').trim() || '-';
+            rawPalletText = (tds[3]?.textContent || '').trim() || '';
+            cbmText = (tds[4]?.textContent || '').trim() || '0';
+            console.log(`row ${i} (short): reuse appointment=${appointmentId}, dest=${destination}, container=${containerNo}, rawPallet='${rawPalletText}', cbm='${cbmText}'`);
+        } else {
+            console.log('row', i, 'skipped due to unexpected td count:', tcount);
+            return;
         }
-        
-        // 收集货物数据
-        if (currentShipment) {
-            const refIdsTd = row.querySelector('.ref-ids-col');
-            if (refIdsTd) {
-                const refIds = refIdsTd.textContent.trim() || '-';
-                const fbaIds = row.querySelector('.fba-ids-col')?.textContent.trim() || '-';
-                const containerTd = row.querySelector('td:nth-child(5)');
-                const containerNo = containerTd?.textContent.trim() || '-';
-                
-                // 解析板数信息
-                const palletTd = row.querySelector('td:nth-child(7)');
-                let scheduledPallets = 0;
-                let isEst = false;
-                
-                if (palletTd) {
-                    const palletText = palletTd.textContent.trim();
-                    if (palletText.includes('ACT')) {
-                        scheduledPallets = parseFloat(palletText.replace('ACT', '').trim()) || 0;
-                        isEst = false;
-                    } else if (palletText.includes('EST')) {
-                        scheduledPallets = parseFloat(palletText.replace('EST', '').trim()) || 0;
-                        isEst = true;
-                    }
-                }
-                
-                const cbm = row.querySelector('td:nth-child(7)')?.textContent.trim() || '0';
-                
-                // 获取隐藏的ID数据
-                const cargoId = row.dataset.cargoId || '';
-                const pltId = row.dataset.pltId || '';
-                
-                currentShipment.cargos.push({
-                    refIds,
-                    fbaIds,
-                    containerNo,
-                    scheduledPallets,
-                    actualPallets: scheduledPallets,
-                    isEst,
-                    cbm,
-                    cargoId,
-                    pltId
-                });
-                
-            }
+
+        // 解析板数与标签
+        let plannedPallets = 0;
+        if (rawPalletText) {
+            const cleaned = rawPalletText.replace(/[^\d.\-]/g, '');
+            const num = parseFloat(cleaned);
+            plannedPallets = isNaN(num) ? 0 : num;
         }
-        
-        currentIndex++;
-    }
-    
-    // 添加最后一个shipment
-    if (currentShipment && currentShipment.cargos.length > 0) {
-        fleetData.shipments.push(currentShipment);
-    }
-    
+        let palletLabel = '';
+        if (/ACT/i.test(rawPalletText)) palletLabel = 'ACT';
+        else if (/EST/i.test(rawPalletText)) palletLabel = 'EST';
+
+        // 如果完整行里出现新的 appointment 则创建新的 shipment
+        if (appointmentId && appointmentId !== currentAppointmentId) {
+            if (currentShipment) fleetData.shipments.push(currentShipment);
+            currentShipment = { appointmentId, destination, cargos: [] };
+            currentAppointmentId = appointmentId;
+            console.log('-> new shipment created for appointment', appointmentId);
+        }
+
+        if (!currentShipment) {
+            currentShipment = { appointmentId: (appointmentId || '-'), destination: (destination || '-'), cargos: [] };
+            currentAppointmentId = appointmentId || '-';
+        }
+
+        // 关键：优先使用 pltId，否则使用 cargoId（统一放到 cargo.cargoId）
+        const pltId = (row.dataset.pltId || '').trim();
+        const cargoIdRaw = (row.dataset.cargoId || '').trim();
+        console.log(`row ${i} ids: pltId='${pltId}', cargoId='${cargoIdRaw}'`);
+
+        // 如果两者都没有，仍然允许加入（可能模板未输出 id），但记录警告
+        if (!pltId && !cargoIdRaw) {
+            console.warn(`row ${i} has no pltId and no cargoId — will still push but consider fixing template to include data-cargo-id/data-plt-id`);
+        }
+
+        const unifiedId = pltId || cargoIdRaw || '';
+
+        // 推入 cargo（cargoId 字段为“统一 id”，pltId 单独保留）
+        currentShipment.cargos.push({
+            containerNo: containerNo,
+            refIds: refIds,
+            fbaIds: fbaIds,
+            plannedPallets: plannedPallets,
+            palletLabel: palletLabel,
+            actualPallets: plannedPallets,
+            cbm: cbmText || '0',
+            cargoId: unifiedId,   // 统一 ID（优先 plt）
+            pltId: pltId,
+            rawCargoId: cargoIdRaw
+        });
+
+        console.log(`-> pushed cargo for row ${i}: container=${containerNo}, planned=${plannedPallets}, label=${palletLabel}, unifiedId='${unifiedId}'`);
+    });
+
+    if (currentShipment) fleetData.shipments.push(currentShipment);
+
+    console.log('collected fleetData:', JSON.parse(JSON.stringify(fleetData)));
     return fleetData;
 }
 
@@ -2309,93 +2429,183 @@ function handleAddablePOFormSubmit() {
 }
 // 打开出库确认弹窗
 function openDepartureModal(fleetNumber, fleetData) {
-    document.getElementById('modalFleetNumber').textContent = fleetNumber;
-    document.getElementById('fleetNumber').value = fleetNumber;
-    
-    // 设置默认出库时间为当前时间
-    const now = new Date();
-    const localDateTime = now.toISOString().slice(0, 16);
-    document.getElementById('departuredAt').value = localDateTime;
-    
-    // 渲染货物表格
+    const modal = document.getElementById('confirmDepartureModal');
     const tbody = document.getElementById('departureCargoBody');
+    const fleetNumberInput = document.getElementById('fleetNumber');         // hidden input in form
+    const modalFleetSpan = document.getElementById('modalFleetNumber');     // header span to show fleet
+
+    if (!modal || !tbody) {
+        console.error('Modal elements not found');
+        return;
+    }
+    if (!fleetNumberInput || !modalFleetSpan) {
+        console.warn('openDepartureModal: fleetNumber input or modalFleetNumber span not found (header/hidden input)');
+    }
+
+    // 清空旧内容
     tbody.innerHTML = '';
-    
-    let totalScheduled = 0;
+
+    // 写入 fleetNumber 到隐藏 input 和 header
+    if (fleetNumberInput) fleetNumberInput.value = fleetNumber;
+    if (modalFleetSpan) modalFleetSpan.textContent = fleetNumber;
+
+    // 统计
+    let totalPlanned = 0;
     let totalActual = 0;
     let hasEst = false;
-    
+    let hasUnfilled = false;
+
+    // 渲染每个 cargo 为一行（不使用 rowspan，保证对齐可靠）
     fleetData.shipments.forEach(shipment => {
-        shipment.cargos.forEach((cargo, index) => {
-            totalScheduled += cargo.scheduledPallets;
-            totalActual += cargo.actualPallets;
-            if (cargo.isEst) hasEst = true;
-            
-            const row = document.createElement('tr');
-            row.innerHTML = `
-                ${index === 0 ? `
-                <td rowspan="${shipment.cargos.length}" style="vertical-align: middle; background-color: #f8f9fa;">
-                    ${shipment.appointmentId}
-                </td>
-                <td rowspan="${shipment.cargos.length}" style="vertical-align: middle; background-color: #f8f9fa;">
-                    ${shipment.destination}
-                </td>
-                ` : ''}
-                <td>${cargo.refIds}</td>
-                <td>${cargo.fbaIds}</td>
-                <td style="max-width: 150px; white-space: pre-line; font-size: 0.8rem;">
-                    ${cargo.containerNo}
-                </td>
-                <td style="text-align: center;">
-                    ${cargo.scheduledPallets} ${cargo.isEst ? 'EST' : 'ACT'}
-                </td>
-                <td style="text-align: center;">
-                    <input type="number" 
-                           class="actual-pallet-input" 
-                           min="0" 
-                           step="0.01"
-                           value="${cargo.actualPallets}" 
-                           data-cargo-id="${cargo.cargoId}"
-                           data-plt-id="${cargo.pltId}"
-                           data-is-est="${cargo.isEst}"
-                           data-batch-number="${shipment.appointmentId}"
-                           data-scheduled-pallet="${cargo.scheduledPallets}"
-                           style="width: 80px; padding: 4px; text-align: center; border: 1px solid #ddd; border-radius: 3px;">
-                </td>
-                <td style="text-align: center; color: ${cargo.isEst ? '#dc3545' : '#28a745'};">
-                    <i class="fas ${cargo.isEst ? 'fa-exclamation-triangle' : 'fa-check-circle'}"></i>
-                    ${cargo.isEst ? '未打板' : '已打板'}
-                </td>
-            `;
-            tbody.appendChild(row);
+        const appointment = shipment.appointmentId || '-';
+        const destination = shipment.destination || '-';
+
+        (shipment.cargos || []).forEach(cargo => {
+            const tr = document.createElement('tr');
+
+            // 预约号
+            const apptTd = document.createElement('td');
+            apptTd.textContent = appointment;
+            tr.appendChild(apptTd);
+
+            // 目的地
+            const destTd = document.createElement('td');
+            destTd.textContent = destination;
+            tr.appendChild(destTd);
+
+            // REF ID
+            const refTd = document.createElement('td');
+            refTd.textContent = cargo.refIds || '-';
+            tr.appendChild(refTd);
+
+            // FBA ID
+            const fbaTd = document.createElement('td');
+            fbaTd.textContent = cargo.fbaIds || '-';
+            tr.appendChild(fbaTd);
+
+            // 柜号
+            const contTd = document.createElement('td');
+            contTd.textContent = cargo.containerNo || '-';
+            tr.appendChild(contTd);
+
+            // 计划板数（显示数字 + label）
+            const planned = (typeof cargo.plannedPallets === 'number') ? cargo.plannedPallets : (parseFloat(cargo.plannedPallets) || 0);
+            const labelPart = cargo.palletLabel ? (' ' + cargo.palletLabel) : '';
+            const planTd = document.createElement('td');
+            planTd.textContent = (planned || planned === 0) ? (planned + labelPart) : '-';
+            tr.appendChild(planTd);
+
+            // 实际出库板数（输入框，用户可修改）
+            const actualTd = document.createElement('td');
+            const actualInput = document.createElement('input');
+            actualInput.type = 'number';
+            actualInput.min = 0;
+            actualInput.step = 1;
+            actualInput.value = (typeof cargo.actualPallets !== 'undefined') ? cargo.actualPallets : planned;
+            actualInput.style.width = '70px';
+            // 当用户改动时，更新汇总和状态
+            actualInput.addEventListener('input', () => {
+                updateTotalsAndWarning();
+            });
+            actualTd.appendChild(actualInput);
+            tr.appendChild(actualTd);
+
+            // 状态列（动态，根据 actual vs planned）
+            const statusTd = document.createElement('td');
+            const status = (parseFloat(actualInput.value || 0) >= parseFloat(planned || 0) && parseFloat(planned || 0) > 0) ? '已打板' : '未打板';
+            statusTd.textContent = status;
+            tr.appendChild(statusTd);
+
+            // 保存 id 到 DOM
+            if (cargo.pltId) {
+                tr.dataset.pltId = cargo.pltId;
+            } else if (cargo.cargoId) {
+                // 如果没有 pltId，使用 cargoId 作为备选
+                tr.dataset.pltId = cargo.cargoId;
+            } else {
+                console.warn('货物没有 pltId 和 cargoId');
+            }
+
+            // 保持原始 planned & label 存在于 row 以便提交时读取
+            tr.dataset.planned = planned;
+            if (cargo.palletLabel) {
+                tr.dataset.palletLabel = cargo.palletLabel;
+                if (String(cargo.palletLabel).toUpperCase() === 'EST') hasEst = true;
+            }
+
+            // 统计
+            totalPlanned += planned;
+            totalActual += parseFloat(actualInput.value || 0);
+            if (parseFloat(actualInput.value || 0) < planned) hasUnfilled = true;
+
+            tbody.appendChild(tr);
         });
     });
-    
-    // 更新统计信息
-    updatePalletStatistics(totalScheduled, totalActual, hasEst);
-    
-    // 添加输入框变化监听
-    document.querySelectorAll('.actual-pallet-input').forEach(input => {
-        input.addEventListener('change', function() {
-            updateTotalStatistics();
-            // 如果是EST货物，检查值是否改变
-            if (this.dataset.isEst === 'true') {
-                const scheduled = parseFloat(this.dataset.scheduledPallet);
-                const actual = parseFloat(this.value);
-                if (actual !== scheduled) {
-                    this.style.borderColor = '#dc3545';
-                    this.style.backgroundColor = '#fff5f5';
-                } else {
-                    this.style.borderColor = '#ddd';
-                    this.style.backgroundColor = '';
-                }
+
+    // 填写统计信息
+    const totalScheduledElem = document.getElementById('totalScheduledPallets');
+    const totalActualElem = document.getElementById('totalActualPallets');
+    const estWarning = document.getElementById('estWarning');
+
+    if (totalScheduledElem) totalScheduledElem.textContent = totalPlanned;
+    if (totalActualElem) totalActualElem.textContent = totalActual;
+    if (estWarning) {
+        estWarning.style.display = (hasEst || hasUnfilled) ? 'block' : 'none';
+    }
+
+    // helper 更新函数（当实际数修改时更新总数与状态列）
+    function updateTotalsAndWarning() {
+        let tp = 0;
+        let ta = 0;
+        let anyEst = false;
+        let anyUnfilled = false;
+        Array.from(tbody.children).forEach(tr => {
+            const plannedNum = parseFloat(tr.dataset.planned || 0) || 0;
+            const input = tr.querySelector('input[type="number"]');
+            const actualNum = input ? (parseFloat(input.value || 0) || 0) : 0;
+            tp += plannedNum;
+            ta += actualNum;
+            if ((tr.dataset.palletLabel || '').toUpperCase() === 'EST') anyEst = true;
+            if (actualNum < plannedNum) anyUnfilled = true;
+            // 更新行状态
+            const statusTd = tr.children[tr.children.length - 1];
+            if (statusTd) {
+                const newStatus = (actualNum >= plannedNum && plannedNum > 0) ? '已打板' : '未打板';
+                console.log(`行状态更新: planned=${plannedNum}, actual=${actualNum}, status=${newStatus}`);
+                statusTd.textContent = newStatus;
             }
         });
+        if (totalScheduledElem) totalScheduledElem.textContent = tp;
+        if (totalActualElem) totalActualElem.textContent = ta;
+        if (estWarning) estWarning.style.display = (anyEst || anyUnfilled) ? 'block' : 'none';
+    }
+
+    // 绑定关闭按钮（如果还没绑定）
+    const closeBtns = modal.querySelectorAll('.close-departure');
+    closeBtns.forEach(btn => {
+        btn.onclick = function() { modal.style.display = 'none'; };
     });
-    
-    // 显示弹窗
-    document.getElementById('confirmDepartureModal').style.display = 'block';
+
+    // 可选：点击 modal 外部区域关闭（若你的 modal 有 backdrop 结构则需要适配）
+    modal.addEventListener('click', function(e) {
+        if (e.target === modal) modal.style.display = 'none';
+    });
+
+    // 最后显示 modal（如果用 bootstrap，请改为 $('#confirmDepartureModal').modal('show'))
+    modal.style.display = 'block';
+
+    // 初次渲染后确保 totals 与警告正确
+    updateTotalsAndWarning();
+
+    console.log('openDepartureModal rendered. totalPlanned=', totalPlanned, 'totalActual=', totalActual, 'hasEst=', hasEst, 'hasUnfilled=', hasUnfilled);
 }
+
+// 如果你还没有 closeDepartureModal，可以用下面这个方便调用
+function closeDepartureModal() {
+    const modal = document.getElementById('confirmDepartureModal');
+    if (modal) modal.style.display = 'none';
+}
+
 
 // 更新板数统计
 function updatePalletStatistics(scheduled, actual, hasEst) {
