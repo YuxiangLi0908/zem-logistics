@@ -141,6 +141,7 @@
                                     {% csrf_token %}
                                     <input type="hidden" name="step" value="new_export_palletization_list">
                                     <input type="hidden" name="status" value="non_palletized">
+                                    <input type="hidden" name="warehouse" value="{{ warehouse }}">
                                     <input type="hidden" name="first_time_download" value="{% now 'Y-m-d H:i:s' %}">
                                     <input type="hidden" name="container_number" value="{{ c.container_number }}">
                                     <button type="submit" class="btn btn-success" style="font-size: 13px;">
