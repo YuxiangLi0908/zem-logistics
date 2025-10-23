@@ -419,23 +419,31 @@ class WarehouseOperations(View):
         fm = FleetManagement()
 
         fleet = await sync_to_async(Fleet.objects.get)(fleet_number=fleet_number)
-        shipment = await sync_to_async(list)(Shipment.objects.filter(fleet_number=fleet))
-        if len(shipment) > 1:
-            zip_buffer = BytesIO()
-            with zipfile.ZipFile(zip_buffer, "w", zipfile.ZIP_DEFLATED) as zip_file:
-                for s in shipment:
-                    s_number = s.shipment_batch_number
-                    mutable_post["shipment_batch_number"] = s_number
-                    pdf_response = await fm.handle_export_bol_post(request)
-                    zip_file.writestr(f"BOL_{s_number}.pdf", pdf_response.content)
-            response = HttpResponse(zip_buffer.getvalue(), content_type="application/zip")
-            response["Content-Disposition"] = 'attachment; filename="orders.zip"'
-            zip_buffer.close()
-            return response
+        
+        if fleet.fleet_type == 'LTL':
+            return await fm._export_ltl_bol(request)
+            
+        elif fleet.fleet_type == 'FTL':   
+            shipment = await sync_to_async(list)(Shipment.objects.filter(fleet_number=fleet))
+            if len(shipment) > 1:
+                zip_buffer = BytesIO()
+                with zipfile.ZipFile(zip_buffer, "w", zipfile.ZIP_DEFLATED) as zip_file:
+                    for s in shipment:
+                        s_number = s.shipment_batch_number
+                        mutable_post["shipment_batch_number"] = s_number
+                        pdf_response = await fm.handle_export_bol_post(request)
+                        zip_file.writestr(f"BOL_{s_number}.pdf", pdf_response.content)
+                response = HttpResponse(zip_buffer.getvalue(), content_type="application/zip")
+                response["Content-Disposition"] = 'attachment; filename="orders.zip"'
+                zip_buffer.close()
+                return response
+            else:
+                mutable_post["shipment_batch_number"] = shipment[0].shipment_batch_number
+            return await fm.handle_export_bol_post(request)
         else:
-            mutable_post["shipment_batch_number"] = shipment[0].shipment_batch_number
+            raise ValueError('暂不支持下载非FTL和LTL以外的BOL')
 
-        return await fm.handle_export_bol_post(request)
+        
 
     async def handle_report_issue_post(
         self, request: HttpRequest
