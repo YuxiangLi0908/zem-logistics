@@ -196,8 +196,13 @@ async def export_palletization_list_v2(request: HttpRequest) -> HttpResponse:
                 {"destinations": {"GEU5", "GYR2", "GYR3", "IAH3", "IND9", "IUSF", "IUSJ", "IUSP"}, "slot": "NS"},
                 {"destinations": {"IUTI", "LAS1", "LAX9", "LFB1", "LGB6", "LGB8", "MCE1", "MDW2"}, "slot": "NT"},
                 {"destinations": {"MIT2", "MQJ1", "ONT8", "POC1", "POC3", "QXY8", "RFD2", "RMN3"}, "slot": "NU"},
-                {"destinations": {"SBD1", "SBD2", "SCK4", "SMF6", "TCY1", "TCY2", "TEB9", "VGT2",
-                                  "WALMART-LAX2T", "XLX7"}, "slot": "NV"}
+                {"destinations": {"SBD1", "SBD2", "SCK4", "SMF6", "TCY1", "TCY2", "TEB9", "VGT2", "WALMART-LAX2T",
+                                  "XLX7"}, "slot": "NV"},
+                {"destinations": {"AMA1", "DEN2", "DFW6", "FOE1", "FTW5", "GEG2", "HEA2", "ICT2", "IGQ2", "IUSL",
+                                  "IUSQ", "IUST", "IUTE", "IUTH", "LAN2", "LFT1", "LIT2", "MCC1", "MDW6", "MKC4",
+                                  "OAK3", "ORD2", "PDX7", "PHX5", "PHX7", "PPO4", "PSC2", "SCK1", "SLC2", "SNA4",
+                                  "STL3", "STL4", "Walmart-DFW2n", "Walmart-DFW5s", "Walmart-DFW6s", "SMF3", "POC2",
+                                  "MEM6", "SCK8", "SAT4", "HLI2", "IUSR", "IUSW"}, "slot": "NX"}
             ]
         }
     }
