@@ -1092,7 +1092,7 @@ class FleetManagement(View):
                 fleet_number__isnull=True,
                 in_use=True,
                 is_canceled=False,
-                shipment_type="FTL",
+                #shipment_type="FTL",   非FTL的，都会自动排车，所以这个条件可以暂时隐藏
             ).order_by("-batch", "shipment_appointment")
         )
         fleet = await sync_to_async(list)(
