@@ -4,7 +4,10 @@ import os
 import zipfile
 from datetime import datetime
 from io import BytesIO
+from pathlib import Path
+
 import openpyxl
+import yaml
 from openpyxl.styles import Font, Border, Side, Alignment
 from openpyxl.utils import get_column_letter
 from openpyxl.utils.dataframe import dataframe_to_rows
@@ -868,10 +871,29 @@ def export_do_branch(container_number) -> Any:
     retrieval = order.retrieval_id
     vessel = order.vessel_id
     warehouse = order.warehouse
+    detailedAddress = ""
+    file_path = "warehouse/utils/fba_fulfillment_center.yaml"
+    try:
+        with open(file_path, "r", encoding="utf-8") as f:
+            fba_data = yaml.safe_load(f)
+    except FileNotFoundError:
+        raise FileNotFoundError(f"YAML文件未找到，请检查路径：{file_path}")
+    except yaml.YAMLError as e:
+        raise ValueError(f"YAML文件格式错误：{str(e)}")
+
+    if retrieval and hasattr(retrieval, "retrieval_destination_area"):
+        dest_area = retrieval.retrieval_destination_area.strip()  # 去除空格，避免匹配失败
+
+        if dest_area in fba_data:
+            fba_info = fba_data[dest_area]
+            detailedAddress = f"{dest_area} {fba_info['location']}, {fba_info['city']}, {fba_info['state']} {fba_info['zipcode']}"
+        else:
+            detailedAddress = dest_area
     context = {
         "order": order,
         "retrieval": retrieval,
         "vessel": vessel,
+        "detailedAddress": detailedAddress,
         "container": container,
         "warehouse": warehouse,
         "pcs": pcs,
