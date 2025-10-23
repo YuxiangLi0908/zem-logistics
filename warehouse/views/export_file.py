@@ -101,6 +101,7 @@ async def export_palletization_list_v2(request: HttpRequest) -> HttpResponse:
     (新)拆柜单导出
     """
     status = request.POST.get("status")
+    warehouse = request.POST.get("warehouse").split("-")[0].upper()
     container_number = request.POST.get("container_number")
     warehouse_unpacking_time = request.POST.get("first_time_download")
     try:
@@ -174,6 +175,46 @@ async def export_palletization_list_v2(request: HttpRequest) -> HttpResponse:
 
     data = [i for i in packing_list]
     df = pd.DataFrame.from_records(data)
+    slot_rules = {
+        "SAV": {
+            "destinations": {"BNA2", "BNA6", "CHA2", "CLT2", "CLT3", "GSO1", "HSV1", "IUS3",
+                             "JAX3", "MCO2", "MGE3", "MEM1", "PBI3", "RDU2", "RDU4", "RYY2",
+                             "SAV3", "TMB8", "TPA2", "TPA3", "TPA6", "WALMART-ATL1", "WALMART-ATL3",
+                             "WALMART-MCO1", "XAV3", "XLX6", "XPB2"},
+            "slot": "NQ1"
+        },
+        "NJ": {
+            "destinations": {"ABE4", "ABE8", "ACY2", "ALB1", "AVP1", "BOS7", "BWI4", "CHO1",
+                             "CMH2", "CMH3", "DEN4", "DET1", "DET2", "HGR6", "ILG1", "IUS1",
+                             "LBE1", "MDT1", "MDT4", "ORF2", "PHL6", "PIT2", "RNN3", "SWF1",
+                             "SWF2", "TEB3", "TEB4", "TEB6"},
+            "slot": "NQ2"
+        },
+        "LA": {
+            "rules": [
+                {"destinations": {"ABQ2", "DCA6", "DEN8", "FAT2", "FTW1", "FWA4", "GEU2", "GEU3"}, "slot": "NR"},
+                {"destinations": {"GEU5", "GYR2", "GYR3", "IAH3", "IND9", "IUSF", "IUSJ", "IUSP"}, "slot": "NS"},
+                {"destinations": {"IUTI", "LAS1", "LAX9", "LFB1", "LGB6", "LGB8", "MCE1", "MDW2"}, "slot": "NT"},
+                {"destinations": {"MIT2", "MQJ1", "ONT8", "POC1", "POC3", "QXY8", "RFD2", "RMN3"}, "slot": "NU"},
+                {"destinations": {"SBD1", "SBD2", "SCK4", "SMF6", "TCY1", "TCY2", "TEB9", "VGT2",
+                                  "WALMART-LAX2T", "XLX7"}, "slot": "NV"}
+            ]
+        }
+    }
+    df["slot"] = ""
+
+    if warehouse == "SAV":
+        mask = df["destination"].isin(slot_rules["SAV"]["destinations"])
+        df.loc[mask, "slot"] = slot_rules["SAV"]["slot"]
+
+    elif warehouse == "NJ":
+        mask = df["destination"].isin(slot_rules["NJ"]["destinations"])
+        df.loc[mask, "slot"] = slot_rules["NJ"]["slot"]
+
+    elif warehouse == "LA":
+        for rule in slot_rules["LA"]["rules"]:
+            mask = df["destination"].isin(rule["destinations"])
+            df.loc[mask, "slot"] = rule["slot"]
     if not df.empty:
         df = df.rename(
             {
@@ -184,7 +225,6 @@ async def export_palletization_list_v2(request: HttpRequest) -> HttpResponse:
             },
             axis=1,
         )
-        df["slot"] = ""
         df["delivery_method"] = df["delivery_method"].apply(
             lambda x: x.split("-")[0] if x and isinstance(x, str) else x
         )
