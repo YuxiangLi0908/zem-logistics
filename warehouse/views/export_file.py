@@ -207,19 +207,28 @@ async def export_palletization_list_v2(request: HttpRequest) -> HttpResponse:
         }
     }
     df["slot"] = ""
+    public_mask = df["delivery_type"] == "public"
 
-    if warehouse == "SAV":
-        mask = df["destination"].isin(slot_rules["SAV"]["destinations"])
-        df.loc[mask, "slot"] = slot_rules["SAV"]["slot"]
+    if not df.empty and public_mask.any():
+        if warehouse == "SAV":
+            sav_mask = public_mask & df["destination"].isin(slot_rules["SAV"]["destinations"])
+            df.loc[sav_mask, "slot"] = slot_rules["SAV"]["slot"]
+            df.loc[public_mask & ~sav_mask, "slot"] = "NX"
 
-    elif warehouse == "NJ":
-        mask = df["destination"].isin(slot_rules["NJ"]["destinations"])
-        df.loc[mask, "slot"] = slot_rules["NJ"]["slot"]
+        elif warehouse == "NJ":
+            nj_mask = public_mask & df["destination"].isin(slot_rules["NJ"]["destinations"])
+            df.loc[nj_mask, "slot"] = slot_rules["NJ"]["slot"]
+            df.loc[public_mask & ~nj_mask, "slot"] = "NX"
 
-    elif warehouse == "LA":
-        for rule in slot_rules["LA"]["rules"]:
-            mask = df["destination"].isin(rule["destinations"])
-            df.loc[mask, "slot"] = rule["slot"]
+        elif warehouse == "LA":
+            df.loc[public_mask, "slot"] = "NX"
+            for rule in slot_rules["LA"]["rules"]:
+                la_mask = public_mask & df["destination"].isin(rule["destinations"])
+                df.loc[la_mask, "slot"] = rule["slot"]
+
+        else:
+            df.loc[public_mask, "slot"] = "NX"
+
     if not df.empty:
         df = df.rename(
             {
