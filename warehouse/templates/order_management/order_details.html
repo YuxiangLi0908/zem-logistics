@@ -168,7 +168,7 @@
                             </select>
                         </td>
                         <td class="td">
-                            <input type="number" name="weight" id="infoContainerWeight" step=0.0001 style="width: 80px" value="{{ selected_order.container_number.weight_lbs }}" required> lbs
+                            <input type="number" name="weight_lbs" id="infoContainerWeight" step=0.0001 style="width: 80px" value="{{ selected_order.container_number.weight_lbs }}" required> lbs
                         </td>
                         <td class="td">
                             <input type="checkbox" name="is_special_container" onchange="alterTableNote(this)" {% if selected_order.container_number.is_special_container %}checked{% endif %}>
@@ -1139,6 +1139,11 @@
     }
 
     window.onload = calculateSummary;
+    function formatDecimal(input) {
+    if (input.value) {
+        input.value = parseFloat(input.value).toFixed(4);
+    }
+}
 
 </script>
 {% endblock %}
