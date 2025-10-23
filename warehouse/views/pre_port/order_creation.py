@@ -717,9 +717,15 @@ class OrderCreation(View):
             else:
                 container.container_number = input_container_number
         container.container_type = request.POST.get("container_type")
-        weight = float(request.POST.get("weight"))
-        weight *= 2.20462
-        container.weight_lbs = weight
+        weight = request.POST.get("weight")
+        if weight:
+            weight=float(weight)
+            weight *= 2.20462
+            container.weight_lbs = weight
+        weight_lbs = request.POST.get("weight_lbs")
+        if weight_lbs:
+            weight_lbs = float(weight_lbs)
+            container.weight_lbs = weight_lbs
         container.is_special_container = (
             True if request.POST.get("is_special_container", None) else False
         )
