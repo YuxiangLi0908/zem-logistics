@@ -1244,10 +1244,10 @@ class OrderCreation(View):
                 item["id"]
                 for item in batch
                 if (
-                    re.fullmatch(r"^[A-Za-z]{4}\s*$", str(item["destination"]))
-                    or re.fullmatch(r"^[A-Za-z]{3}\s*\d$", str(item["destination"]))
+                    re.fullmatch(r"^[A-Za-z]{4}\s*$", str(item["destination"]).strip())
+                    or re.fullmatch(r"^[A-Za-z]{3}\s*\d$", str(item["destination"]).strip())
                     or re.fullmatch(
-                        r"^[A-Za-z]{3}\s*\d\s*[A-Za-z]$", str(item["destination"])
+                        r"^[A-Za-z]{3}\s*\d\s*[A-Za-z]$", str(item["destination"]).strip()
                     )
                     or any(
                         kw.lower() in str(item["destination"]).lower()
@@ -1284,10 +1284,10 @@ class OrderCreation(View):
                 item["id"]
                 for item in batch_plt
                 if (
-                    re.fullmatch(r"^[A-Za-z]{4}\s*$", str(item["destination"]))
-                    or re.fullmatch(r"^[A-Za-z]{3}\s*\d$", str(item["destination"]))
+                    re.fullmatch(r"^[A-Za-z]{4}\s*$", str(item["destination"]).strip())
+                    or re.fullmatch(r"^[A-Za-z]{3}\s*\d$", str(item["destination"]).strip())
                     or re.fullmatch(
-                        r"^[A-Za-z]{3}\s*\d\s*[A-Za-z]$", str(item["destination"])
+                        r"^[A-Za-z]{3}\s*\d\s*[A-Za-z]$", str(item["destination"]).strip()
                     )
                     or any(
                         kw.lower() in str(item["destination"]).lower()
@@ -1620,12 +1620,13 @@ class OrderCreation(View):
 
         for item in packing_list:
             destination = str(item.destination)
+            dest_clean = str(destination).strip()
             is_public = (
-                re.fullmatch(r"^[A-Za-z]{4}\s*$", destination)
-                or re.fullmatch(r"^[A-Za-z]{3}\s*\d$", destination)
-                or re.fullmatch(r"^[A-Za-z]{3}\s*\d\s*[A-Za-z]$", destination)
+                re.fullmatch(r"^[A-Za-z]{4}\s*$", dest_clean)
+                or re.fullmatch(r"^[A-Za-z]{3}\s*\d$", dest_clean)
+                or re.fullmatch(r"^[A-Za-z]{3}\s*\d\s*[A-Za-z]$", dest_clean)
                 or any(
-                    kw.lower() in destination.lower() for kw in {"walmart", "沃尔玛"}
+                    kw.lower() in dest_clean.lower() for kw in {"walmart", "沃尔玛"}
                 )
             )
 
@@ -2141,21 +2142,22 @@ class OrderCreation(View):
             return self.template_order_create_supplement_pl_tab, context
 
     def is_public_destination(self, destination):
-        if not isinstance(destination, str):  # 没有地址是私仓
+        dest_clean = str(destination).strip()
+        if not isinstance(dest_clean, str):  # 没有地址是私仓
             return False
-        if "自提" in destination:
+        if "自提" in dest_clean:
             return False
         pattern1 = r"^[A-Za-z]{3}\s*\d$"
-        if re.match(pattern1, destination):  # 3个字母+空格+1个数字是公仓
+        if re.match(pattern1, dest_clean):  # 3个字母+空格+1个数字是公仓
             return True
         pattern2 = r"^[A-Za-z]{3}\s*\d\s*[A-Za-z]$"  # 3个字母+空格+1个数字+字母是公仓
-        if re.match(pattern2, destination):
+        if re.match(pattern2, dest_clean):
             return True
         pattern3 = r"^[A-Za-z]{4}\s*$"  # 包含4个字母是公仓
-        if re.fullmatch(pattern3, destination):
+        if re.fullmatch(pattern3, dest_clean):
             return True
         keywords = {"walmart", "沃尔玛", "UPS", "FEDEX"}
-        destination_lower = destination.lower()
+        destination_lower = dest_clean.lower()
         return any(keyword.lower() in destination_lower for keyword in keywords)
 
     async def handle_download_template_post(self) -> HttpResponse:

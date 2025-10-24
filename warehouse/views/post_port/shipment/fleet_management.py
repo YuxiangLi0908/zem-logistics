@@ -1680,7 +1680,10 @@ class FleetManagement(View):
 
         error_messages = []
         if any(ids == [''] for ids in plt_ids):
-            raise ValueError("存在未打板的柜子，请核实后再出库！")
+            if name == "post_nsop":
+                return {'error_messages':"出库板数大于实际库存，请核实！"}
+            error_messages.append(f"出库板数大于实际库存，请核实！")
+            return await self.handle_outbound_warehouse_search_post(request,error_messages)
         
         #判断是否有未解扣的板子，有的话，就直接报错
         all_flat_ids = [pid for group in plt_ids for pid in group]
