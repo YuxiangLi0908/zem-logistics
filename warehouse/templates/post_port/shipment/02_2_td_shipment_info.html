@@ -37,7 +37,6 @@
                 <thead>
                     <tr>
                         <th class="th">预约类型</th>
-                        <th class="th">shipment ID</th>
                     </tr>
                 </thead>
                 <tbody>
@@ -49,7 +48,6 @@
                                 {% endfor %}
                             </select>
                         </td>
-                        <td class="td"><input type="text" name="shipment_cargo_id" value="{{ shipment.shipment_cargo_id|default_if_none:'' }}" style="font-size: 13px;"></td>
                     </tr>
                 </tbody>
             </table>
@@ -60,6 +58,7 @@
                             <th class="th">预约账号</th>
                             <th class="th">预约号</th>
                             <th class="th">Scheduled Time</th>
+                            <th class="th">shipment ID</th>
                         </tr>
                     </thead>
                     <tbody>
@@ -73,6 +72,7 @@
                             </tb>
                             <td class="td"><input type="text" name="appointment_id" value="{{ shipment.appointment_id }}" style="font-size: 13px;"></td>
                             <td class="td"><input type="datetime-local" name="shipment_appointment" value="{{ shipment.shipment_appointment|date:'Y-m-d\\TH:i'  }}" style="font-size: 13px;" required></td>
+                            <td class="td"><input type="text" name="shipment_cargo_id" value="{{ shipment.shipment_cargo_id|default_if_none:'' }}" style="font-size: 13px;"></td>
                         </tr>
                     </tbody>
                 </table>
@@ -173,12 +173,19 @@
                         <tr>
                             <th class="th">ARM-BOL</th>
                             <th class="th">ARM-PRO</th>
+                            <th class="th">是否需要打印label</th>
                         </tr>
                     </thead>
                     <tbody>
                         <tr>
                             <td class="td"><input type="text" name="arm_bol" value="{{ shipment.ARM_BOL|default_if_none:'' }}" style="font-size: 13px;"></td>
                             <td class="td"><input type="text" name="arm_pro" value="{{ shipment.ARM_PRO|default_if_none:'' }}" style="font-size: 13px;"></td>
+                            <td class="td">
+                                <select name="is_print_label" style="font-size: 13px;" required>
+                                    <option value="是" {% if shipment.is_print_label %}selected{% endif %}>是</option>
+                                    <option value="否" {% if not shipment.is_print_label %}selected{% endif %}>否</option>
+                                </select>
+                            </td>
                         </tr>
                     </tbody>
                 </table>
@@ -307,12 +314,19 @@
                         <tr>
                             <th class="th">ARM-BOL</th>
                             <th class="th">ARM-PRO</th>
+                            <th class="th">是否需要打印label</th>
                         </tr>
                     </thead>
                     <tbody>
                         <tr>
                             <td class="td"><input type="text" name="arm_bol" value="{{ shipment.ARM_BOL|default_if_none:'' }}" style="font-size: 13px;" required></td>
                             <td class="td"><input type="text" name="arm_pro" value="{{ shipment.ARM_PRO|default_if_none:'' }}" style="font-size: 13px;" required></td>
+                            <td class="td">
+                                <select name="is_print_label" style="font-size: 13px;" required>
+                                    <option value="是" {% if shipment.is_print_label %}selected{% endif %}>是</option>
+                                    <option value="否" {% if not shipment.is_print_label %}selected{% endif %}>否</option>
+                                </select>
+                            </td>
                         </tr>
                     </tbody>
                 </table>
