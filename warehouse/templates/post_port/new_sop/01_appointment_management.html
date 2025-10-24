@@ -1117,7 +1117,8 @@
     };
 
     function exportSelectedCargos() {
-        const selectedCheckboxes = document.querySelectorAll('.cargo-checkbox:checked');
+        const selectedCheckboxes = Array.from(document.querySelectorAll('.cargo-checkbox:checked'))
+        .filter(checkbox => checkbox.closest('tr').style.display !== 'none');
         if (selectedCheckboxes.length === 0) {
             alert('请先选择要导出的PO');
             return;
