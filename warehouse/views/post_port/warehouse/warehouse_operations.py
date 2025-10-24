@@ -927,7 +927,12 @@ class WarehouseOperations(View):
                     for shipment in fleet.shipment.all()
                     if getattr(shipment, 'is_print_label', None) is not None
                 ]
-                is_print_label_combined = '|'.join(is_print_label_list)
+
+                # 如果所有值都一样，就只显示一个；否则用 | 连接所有值
+                if len(set(is_print_label_list)) == 1:
+                    is_print_label_combined = is_print_label_list[0]  # 所有值都一样，只取第一个
+                else:
+                    is_print_label_combined = '|'.join(is_print_label_list)
             fleet_item = {
                 'fleet_number': fleet.fleet_number,
                 'details': details,
