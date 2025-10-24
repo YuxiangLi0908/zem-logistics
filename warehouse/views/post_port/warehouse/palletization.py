@@ -974,21 +974,22 @@ class Palletization(View):
         return await self.handle_warehouse_post(request)
 
     def is_public_destination(self, destination):
-        if not isinstance(destination, str):  # 没有地址是私仓
+        dest_clean = str(destination).strip()
+        if not isinstance(dest_clean, str):  # 没有地址是私仓
             return False
-        if "自提" in destination:
+        if "自提" in dest_clean:
             return False
         pattern1 = r"^[A-Za-z]{3}\s*\d$"
-        if re.match(pattern1, destination):  # 3个字母+空格+1个数字是公仓
+        if re.match(pattern1, dest_clean):  # 3个字母+空格+1个数字是公仓
             return True
         pattern2 = r"^[A-Za-z]{3}\s*\d\s*[A-Za-z]$"  # 3个字母+空格+1个数字+字母是公仓
-        if re.match(pattern2, destination):
+        if re.match(pattern2, dest_clean):
             return True
         pattern3 = r"^[A-Za-z]{4}\s*$"  # 包含4个字母是公仓
-        if re.fullmatch(pattern3, destination):
+        if re.fullmatch(pattern3, dest_clean):
             return True
         keywords = {"walmart", "沃尔玛", "UPS", "FEDEX"}
-        destination_lower = destination.lower()
+        destination_lower = dest_clean.lower()
         return any(keyword.lower() in destination_lower for keyword in keywords)
 
     async def handle_cancel_post(
