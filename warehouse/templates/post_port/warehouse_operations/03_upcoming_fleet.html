@@ -652,7 +652,7 @@
             <div class="summary-mini" style="display: flex; gap: 20px; align-items: center; font-size: 0.85rem; color: #555; background: #f8f9fa; padding: 8px 16px; border-radius: 6px; border: 1px solid #e9ecef; height: 40px;">
                 <div style="display: flex; align-items: center; gap: 4px;"><strong>总批次:</strong> <span id="total-fleets-mini" style="color: #2c3e50; font-weight: 600;">{{ summary.day_stats.0.total_fleets }}</span></div>
                 <div style="display: flex; align-items: center; gap: 4px;"><strong>总板数:</strong> <span id="total-pallets-mini" style="color: #2c3e50; font-weight: 600;">{{ summary.day_stats.0.total_pallets }}</span></div>
-                <div style="display: flex; align-items: center; gap: 4px;"><strong>总体积:</strong> <span id="total-cbm-mini" style="color: #2c3e50; font-weight: 600;">{{ summary.day_stats.0.total_cbm }}</span> CBM</div>
+                <div style="display: flex; align-items: center; gap: 4px;"><strong>总箱数:</strong> <span id="total-cbm-mini" style="color: #2c3e50; font-weight: 600;">{{ summary.day_stats.0.total_pcs }}</span> CBM</div>
                 <div style="display: flex; align-items: center; gap: 4px;"><strong>完成率:</strong> <span id="completion-rate-mini" style="color: #27ae60; font-weight: 600;">{{ summary.day_stats.0.completion_rate }}</span>%</div>
             </div>
             <div style="display: flex; align-items: center; gap: 10px;">
@@ -674,13 +674,13 @@
                 <thead>
                     <tr>
                         <th>状态</th>
-                        <th>出库批次</th>
+                        <!--<th>出库批次</th>-->
                         <th>Pickup Number</th>
                         <th>出库类型</th>
                         <th>Pre-load</th>
                         <th>预计提货时间</th>
                         <th>板数</th>
-                        <th>CBM</th>
+                        <th>箱数</th>
                         <th>Carrier</th>
                         <th>司机信息</th>
                         <th>操作</th>
@@ -709,8 +709,12 @@
                                 {% else %}未知状态{% endif %}
                             </span>
                         </td>
+                        <!--
                         <td>
-                            {{ fleet.fleet_number }}
+                            {{ fleet.fleet_number }}                          
+                        </td> -->
+                        <td>
+                            {{ fleet.pickup_number }}
                             <span class="day-display 
                                 {% if fleet.days_diff == 0 %}day-today
                                 {% elif fleet.days_diff == 1 %}day-tomorrow
@@ -721,9 +725,6 @@
                                 {% elif fleet.days_diff == 2 %}后天
                                 {% else %}{{ fleet.days_diff|add:"0"|cut:"-" }}天前{% endif %}
                             </span>
-                        </td>
-                        <td>
-                            {{ fleet.pickup_number }}
                             {% if fleet.fleet_type != 'FTL' %}
                             <div style="font-size: 12px; color: #666;"> 
                                 {% if fleet.fleet_type == 'LTL' %}
@@ -738,6 +739,7 @@
                         </td>
                         <td>{{ fleet.fleet_type }}</td>
                         <td style="padding: 4px;">
+                            {%  if fleet.fleet_type == 'FTL' %}
                             <form method="post" class="action-form">
                                 {% csrf_token %}
                                 <input type="hidden" name="step" value="record_load">
@@ -750,6 +752,7 @@
                                     <button type="submit" class="btn btn-primary btn-sm" style="width: 80px;">更新</button>
                                 </div>
                             </form>
+                            {% endif %}
                         </td>
                         <td>{{ fleet.appointment_datetime|date:"Y-m-d H:i" }}</td>
                         <td>{{ fleet.pallets }}
@@ -757,7 +760,7 @@
                             <span style="color: orange; font-size: 0.8rem;" title="板数为预估数据">(预估)</span>
                             {% endif %}
                         </td>
-                        <td>{{ fleet.cbm }}</td>
+                        <td>{{ fleet.pcs }}</td>
                         <td>{{ fleet.carrier }}</td>
                         <td style="padding: 4px 8px;"> <!-- 减少单元格内边距 -->
                             {% if fleet.warehouse_process_status == 'waiting' %}
@@ -769,11 +772,15 @@
                                 
                                 <div class="driver-info">
                                     <input type="text" name="driver_name" class="info-input" placeholder="司机姓名" 
-                                        value="{{ fleet.driver_name|default:'' }}" required>
+                                        value="{{ fleet.driver_name|default:'' }}">
                                     <input type="tel" name="driver_phone" class="info-input" placeholder="司机电话" 
                                         value="{{ fleet.driver_phone|default:'' }}" required>
+                                    {% if fleet.fleet_type == 'FTL' %}
                                     <input type="text" name="trailer_number" class="info-input" placeholder="Trailer Number" 
-                                        value="{{ fleet.trailer_number|default:'' }}" required>
+                                        value="{{ fleet.trailer_number|default:'' }}">
+                                    {% elif fleet.fleet_type == 'LTL' %}
+                                    <div><strong>PRO:</strong> {{ fleet.PRO }}</div>
+                                    {% endif %}
                                     <button type="button" class="action-btn btn-primary save-driver-btn" 
                                             data-fleet="{{ fleet.fleet_number }}">
                                         <i class="fas fa-user-check"></i> 司机签到
@@ -784,7 +791,11 @@
                                 <div class="driver-info">
                                     <div><strong>司机:</strong> {{ fleet.driver_name|default_if_none:"" }}</div>
                                     <div><strong>电话:</strong> {{ fleet.driver_phone|default_if_none:"" }}</div>
+                                    {% if fleet.fleet_type == 'FTL' %}
                                     <div><strong>Trailer:</strong> {{ fleet.trailer_number|default_if_none:"" }}</div>
+                                    {% elif fleet.fleet_type == 'LTL' %}
+                                    <div><strong>PRO:</strong> {{ fleet.PRO }}</div>
+                                    {% endif %}
                                 </div>
                             {% endif %}
                         </td>
