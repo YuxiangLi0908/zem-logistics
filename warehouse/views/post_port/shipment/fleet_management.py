@@ -1673,6 +1673,8 @@ class FleetManagement(View):
         plt_ids = [ids.split(",") for ids in plt_ids]
 
         error_messages = []
+        if any(ids == [''] for ids in plt_ids):
+            raise ValueError("存在未打板的柜子，请核实后再出库！")
         
         #判断是否有未解扣的板子，有的话，就直接报错
         all_flat_ids = [pid for group in plt_ids for pid in group]
