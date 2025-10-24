@@ -807,7 +807,7 @@ class WarehouseOperations(View):
             .prefetch_related(
                 Prefetch(
                     'shipment',
-                    queryset=Shipment.objects.prefetch_related(
+                    queryset=Shipment.objects.only('ARM_PRO').prefetch_related(
                         'pallet',
                         'packinglist'
                     )
@@ -829,6 +829,7 @@ class WarehouseOperations(View):
                     container_number__order__offload_id__offload_at__isnull=True
                 ).aggregate(
                     total_cbm=Sum('cbm'),
+                    total_pcs=Sum('pcs'),
                     count=Count('id')
                 )
             )()
@@ -839,6 +840,7 @@ class WarehouseOperations(View):
                     container_number__order__offload_id__offload_at__isnull=False
                 ).aggregate(
                     total_cbm=Sum('cbm'),
+                    total_pcs=Sum('pcs'),
                     count=Count('id')
                 )
             )()
@@ -847,12 +849,24 @@ class WarehouseOperations(View):
             plts_count = plts_stats['count'] or 0
             
             total_cbm = pls_cbm + plts_cbm
-            total_pallets = plts_count + round(pls_cbm / 1.8, 2)
+            try:
+                total_pcs = plts_stats['total_pcs'] + pls_stats['total_pcs']
+            except TypeError as e:
+                total_pcs = 0
+            total_pallets = round(plts_count + round(pls_cbm / 1.8, 2))
 
             is_estimated = plts_count == 0 and total_pallets > 0
            
 
             days_diff = (fleet.appointment_datetime.date() - today).days
+            arm_pro_combined = None
+            if fleet.fleet_type != 'FTL':
+                arm_pro_list = [
+                    str(getattr(shipment, 'ARM_PRO', ''))
+                    for shipment in fleet.shipment.all()
+                    if getattr(shipment, 'ARM_PRO', None)
+                ]
+                arm_pro_combined = '|'.join(arm_pro_list)
             display_day = days_diff
             fleet_item = {
                 'fleet_number': fleet.fleet_number,
@@ -866,11 +880,12 @@ class WarehouseOperations(View):
                 'pre_load': fleet.pre_load,
                 'carrier': fleet.carrier,
                 'pallets': total_pallets,
-                'cbm': round(total_cbm, 2),
+                'pcs': total_pcs,
                 'is_estimated': is_estimated,
                 'days_diff': days_diff,
                 'display_day': 0 if days_diff < 0 else days_diff, 
                 'abnormal_reason': fleet.abnormal_reason,
+                'PRO': arm_pro_combined,
             }
             fleet_data.append(fleet_item)
             if days_diff < 0 or 0 <= days_diff <= 2:
@@ -906,7 +921,7 @@ class WarehouseOperations(View):
             'summary': {
                 'total_fleets': len(fleet_data),
                 'total_pallets': sum(f['pallets'] for f in fleet_data),
-                'total_cbm': sum(f['cbm'] for f in fleet_data),
+                'total_pcs': sum(f['pcs'] for f in fleet_data),
                 'completed_count': len([f for f in fleet_data if f['warehouse_process_status'] == 'shipped']),
                 'abnormal_count': len([f for f in fleet_data if f['warehouse_process_status'] == 'abnormal']),
                 'today_count': len(day_stats[0]['fleets']),

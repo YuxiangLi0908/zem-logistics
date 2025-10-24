@@ -640,8 +640,8 @@
                 <div class="card-value" id="total-pallets">{{ summary.day_stats.0.total_pallets }}</div>
             </div>
             <div class="summary-card">
-                <div class="card-title">总体积 (CBM)</div>
-                <div class="card-value" id="total-cbm">{{ summary.day_stats.0.total_cbm }}</div>
+                <div class="card-title">总箱数</div>
+                <div class="card-value" id="total-cbm">{{ summary.day_stats.0.total_pcs }}</div>
             </div>
             <div class="summary-card">
                 <div class="card-title">已完成出库</div>
@@ -661,13 +661,13 @@
                 <thead>
                     <tr>
                         <th>状态</th>
-                        <th>出库批次</th>
+                        <!--<th>出库批次</th>-->
                         <th>Pickup Number</th>
                         <th>出库类型</th>
                         <th>Pre-load</th>
                         <th>预计提货时间</th>
                         <th>板数</th>
-                        <th>CBM</th>
+                        <th>箱数</th>
                         <th>Carrier</th>
                         <th>司机信息</th>
                         <th>操作</th>
@@ -696,8 +696,13 @@
                                 {% else %}未知状态{% endif %}
                             </span>
                         </td>
+                        <!-- 
                         <td>
-                            {{ fleet.fleet_number }}
+                            {{ fleet.fleet_number }}                          
+                        </td>
+                        -->
+                        <td>
+                            {{ fleet.pickup_number }}
                             <span class="day-display 
                                 {% if fleet.days_diff == 0 %}day-today
                                 {% elif fleet.days_diff == 1 %}day-tomorrow
@@ -709,21 +714,22 @@
                                 {% else %}{{ fleet.days_diff|add:"0"|cut:"-" }}天前{% endif %}
                             </span>
                         </td>
-                        <td>{{ fleet.pickup_number }}</td>
                         <td>{{ fleet.fleet_type }}</td>
                         <td style="padding: 4px;">
-                            <form method="post" class="action-form">
-                                {% csrf_token %}
-                                <input type="hidden" name="step" value="record_load">
-                                <input type="hidden" name="warehouse" value="{{ warehouse }}">
-                                <input type="hidden" name="fleet_number" value="{{ fleet.fleet_number }}">
-                                
-                                <div style="display: flex; flex-direction: column; gap: 2px;">
-                                    <input type="text" name="pre_load" value="{{ fleet.pre_load|default_if_none:'' }}" 
-                                        class="form-control form-control-sm" style="width: 80px;">
-                                    <button type="submit" class="btn btn-primary btn-sm" style="width: 80px;">更新</button>
-                                </div>
-                            </form>
+                            {%  if fleet.fleet_type == 'FTL' %}
+                                <form method="post" class="action-form">
+                                    {% csrf_token %}
+                                    <input type="hidden" name="step" value="record_load">
+                                    <input type="hidden" name="warehouse" value="{{ warehouse }}">
+                                    <input type="hidden" name="fleet_number" value="{{ fleet.fleet_number }}">
+                                    
+                                    <div style="display: flex; flex-direction: column; gap: 2px;">
+                                        <input type="text" name="pre_load" value="{{ fleet.pre_load|default_if_none:'' }}" 
+                                            class="form-control form-control-sm" style="width: 80px;">
+                                        <button type="submit" class="btn btn-primary btn-sm" style="width: 80px;">更新</button>
+                                    </div>
+                                </form>
+                            {% endif %}
                         </td>
                         <td>{{ fleet.appointment_datetime|date:"Y-m-d H:i" }}</td>
                         <td>{{ fleet.pallets }}
@@ -731,10 +737,9 @@
                             <span style="color: orange; font-size: 0.8rem;" title="板数为预估数据">(预估)</span>
                             {% endif %}
                         </td>
-                        <td>{{ fleet.cbm }}</td>
+                        <td>{{ fleet.pcs }}</td>
                         <td>{{ fleet.carrier }}</td>
-                        <td>
-                            
+                        <td>                          
                             {% if fleet.warehouse_process_status == 'waiting' %}
                             <form method="post" class="action-form driver-form" id="driver-form-{{ fleet.fleet_number }}">
                                 {% csrf_token %}
@@ -744,11 +749,11 @@
                                 
                                 <div class="driver-info">
                                     <input type="text" name="driver_name" class="info-input" placeholder="司机姓名" 
-                                           value="{{ fleet.driver_name|default:'' }}" required>
+                                           value="{{ fleet.driver_name|default:'' }}">
                                     <input type="tel" name="driver_phone" class="info-input" placeholder="司机电话" 
                                            value="{{ fleet.driver_phone|default:'' }}" required>
                                     <input type="text" name="trailer_number" class="info-input" placeholder="Trailer Number" 
-                                           value="{{ fleet.trailer_number|default:'' }}" required>
+                                           value="{{ fleet.trailer_number|default:'' }}">
                                     <button type="button" class="action-btn btn-primary save-driver-btn" 
                                             data-fleet="{{ fleet.fleet_number }}">
                                         <i class="fas fa-user-check"></i> 司机签到
@@ -758,7 +763,11 @@
                             {% else %}
                                 <div><strong>司机:</strong> {{ fleet.driver_name|default_if_none:"" }}</div>
                                 <div><strong>电话:</strong> {{ fleet.driver_phone|default_if_none:"" }}</div>
+                                {% if fleet.fleet_type == 'FTL' %}
                                 <div><strong>Trailer Number:</strong> {{ fleet.trailer_number|default_if_none:"" }}</div>
+                                {% elif fleet.fleet_type != 'FTL' %}
+                                <div><strong>PRO:</strong> {{ fleet.PRO }}</div>
+                                {% endif %}
                             {% endif %}
                         </td>
                         
