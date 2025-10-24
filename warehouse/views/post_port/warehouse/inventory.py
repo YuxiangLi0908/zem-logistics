@@ -438,13 +438,14 @@ class Inventory(View):
             n_pallets,
             notes,
         ):
+            dest_clean = str(dest).strip()
             # 判断是公仓/私仓
             if "自提" not in str(dest) and (
-                re.fullmatch(r"^[A-Za-z]{4}\s*$", str(dest))
-                or re.fullmatch(r"^[A-Za-z]{3}\s*\d$", str(dest))
-                or re.fullmatch(r"^[A-Za-z]{3}\s*\d\s*[A-Za-z]$", str(dest))
+                re.fullmatch(r"^[A-Za-z]{4}\s*$", str(dest_clean))
+                or re.fullmatch(r"^[A-Za-z]{3}\s*\d$", str(dest_clean))
+                or re.fullmatch(r"^[A-Za-z]{3}\s*\d\s*[A-Za-z]$", str(dest_clean))
                 or any(
-                    kw.lower() in str(dest).lower()
+                    kw.lower() in str(dest_clean).lower()
                     for kw in {"walmart", "沃尔玛", "UPS", "FEDEX"}
                 )
             ):
