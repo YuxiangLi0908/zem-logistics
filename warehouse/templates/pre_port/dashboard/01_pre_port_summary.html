@@ -285,13 +285,15 @@
                         <input type="hidden" name="start_date_eta" value="{{ start_date_eta|default:'' }}" style="margin-right: 5px;">
                         <input type="hidden" name="end_date_eta" value="{{ end_date_eta|default:'' }}" style="margin-right: 5px;">
                         <input type="hidden" name="retrieval_id" value="{{ o.retrieval_id|default:'' }}">
-                            <span class="status-span-green-100">
-                                <input type="text" name="note_preport_dispatch"
-                                       value="{{ o.retrieval_id.note_preport_dispatch|default:'' }}">
-                                <button type="submit" class="custom-btn">
-                                  <span>确认</span>
-                                </button>
-                            </span>
+                        <span style="display: inline-flex; align-items: flex-end; gap: 10px;">
+                            <textarea
+                                    name="note_preport_dispatch"
+                                    style="width: 66%; min-height: 50px;"
+                            >{{ o.retrieval_id.note_preport_dispatch|default:'' }}</textarea>
+                            <button type="submit" class="custom-btn" style="font-size: 12px;">
+                            <span>确认</span>
+                            </button>
+                        </span>
                         </form>
 
                     </td>
