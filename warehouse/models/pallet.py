@@ -44,9 +44,9 @@ class Pallet(models.Model):
     pallet_id = models.CharField(max_length=255, null=True, blank=True)
     PO_ID = models.CharField(max_length=20, null=True, blank=True)
     slot = models.CharField(max_length=20, null=True, blank=True)  # 槽位，例如NJ-3
-    shipping_mark = models.CharField(max_length=4000, null=True, blank=True)
-    fba_id = models.CharField(max_length=4000, null=True, blank=True)
-    ref_id = models.CharField(max_length=4000, null=True, blank=True)
+    shipping_mark = models.CharField(max_length=99999, null=True, blank=True)
+    fba_id = models.CharField(max_length=99999, null=True, blank=True)
+    ref_id = models.CharField(max_length=99999, null=True, blank=True)
     pcs = models.IntegerField(null=True, blank=True)
     sequence_number = models.CharField(max_length=2000, null=True, blank=True)
     length = models.FloatField(null=True, blank=True)
