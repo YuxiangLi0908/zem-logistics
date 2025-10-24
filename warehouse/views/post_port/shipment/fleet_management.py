@@ -1673,10 +1673,15 @@ class FleetManagement(View):
         plt_ids = [ids.split(",") for ids in plt_ids]
 
         error_messages = []
-        if any(ids == [''] for ids in plt_ids):
+        empty_indices = [i for i, ids in enumerate(plt_ids) if ids == ['']]
+        if empty_indices:
+            # 将索引转换为用户友好的位置（从1开始计数）
+            positions = [f"第{i+1}组" for i in empty_indices]
+            error_message = f"有未打板的货物，请核实！行数：{', '.join(positions)}"
+            
             if name == "post_nsop":
-                return {'error_messages':"出库板数大于实际库存，请核实！"}
-            error_messages.append(f"出库板数大于实际库存，请核实！")
+                return {'error_messages': error_message}
+            error_messages.append(error_message)
             return await self.handle_outbound_warehouse_search_post(request,error_messages)
         
         #判断是否有未解扣的板子，有的话，就直接报错
