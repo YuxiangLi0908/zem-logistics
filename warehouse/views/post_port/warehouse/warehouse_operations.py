@@ -815,7 +815,7 @@ class WarehouseOperations(View):
             .prefetch_related(
                 Prefetch(
                     'shipment',
-                    queryset=Shipment.objects.only('ARM_PRO').prefetch_related(
+                    queryset=Shipment.objects.only('ARM_PRO','is_print_label').prefetch_related(
                         'pallet',
                         'packinglist'
                     )
@@ -913,6 +913,7 @@ class WarehouseOperations(View):
             
             display_day = days_diff
             arm_pro_combined = None
+            is_print_label_combined = None
             if fleet.fleet_type != 'FTL':
                 arm_pro_list = [
                     str(getattr(shipment, 'ARM_PRO', ''))
@@ -920,6 +921,13 @@ class WarehouseOperations(View):
                     if getattr(shipment, 'ARM_PRO', None)
                 ]
                 arm_pro_combined = '|'.join(arm_pro_list)
+
+                is_print_label_list = [
+                    str(getattr(shipment, 'is_print_label', ''))
+                    for shipment in fleet.shipment.all()
+                    if getattr(shipment, 'is_print_label', None) is not None
+                ]
+                is_print_label_combined = '|'.join(is_print_label_list)
             fleet_item = {
                 'fleet_number': fleet.fleet_number,
                 'details': details,
@@ -939,6 +947,7 @@ class WarehouseOperations(View):
                 'display_day': 0 if days_diff < 0 else days_diff, 
                 'abnormal_reason': fleet.abnormal_reason,
                 'PRO': arm_pro_combined,
+                'is_print_label':is_print_label_combined,
             }
             fleet_data.append(fleet_item)
             if days_diff < 0:
