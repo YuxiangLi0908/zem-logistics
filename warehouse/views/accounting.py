@@ -4168,6 +4168,7 @@ class Accounting(View):
                 effective_date__lte=vessel_etd,
                 is_user_exclusive=True,
                 exclusive_user=customer.zem_name,
+                quote_type='receivable',
             )
             .order_by("-effective_date")
             .first()
@@ -4177,6 +4178,7 @@ class Accounting(View):
                 QuotationMaster.objects.filter(
                     effective_date__lte=vessel_etd,
                     is_user_exclusive=False,  # 非用户专属的通用报价单
+                    quote_type='receivable',
                 )
                 .order_by("-effective_date")
                 .first()
@@ -5081,6 +5083,7 @@ class Accounting(View):
                 effective_date__lte=vessel_etd,
                 is_user_exclusive=True,
                 exclusive_user=customer_name,
+                quote_type='receivable',
             )
             .order_by("-effective_date")
             .first()
@@ -5090,6 +5093,7 @@ class Accounting(View):
                 QuotationMaster.objects.filter(
                     effective_date__lte=vessel_etd,
                     is_user_exclusive=False,  # 非用户专属的通用报价单
+                    quote_type='receivable',
                 )
                 .order_by("-effective_date")
                 .first()
@@ -5192,6 +5196,7 @@ class Accounting(View):
                     effective_date__lte=vessel_etd,
                     is_user_exclusive=True,
                     exclusive_user=customer_name,
+                    quote_type='receivable',
                 )
                 .order_by("-effective_date")
                 .first()
@@ -5201,6 +5206,7 @@ class Accounting(View):
                     QuotationMaster.objects.filter(
                         effective_date__lte=vessel_etd,
                         is_user_exclusive=False,  # 非用户专属的通用报价单
+                        quote_type='receivable',
                     )
                     .order_by("-effective_date")
                     .first()
@@ -5606,6 +5612,7 @@ class Accounting(View):
                 effective_date__lte=vessel_etd,
                 is_user_exclusive=True,
                 exclusive_user=customer_name,
+                quote_type='receivable',
             )
             .order_by("-effective_date")
             .first()
@@ -5615,6 +5622,7 @@ class Accounting(View):
                 QuotationMaster.objects.filter(
                     effective_date__lte=vessel_etd,
                     is_user_exclusive=False,  # 非用户专属的通用报价单
+                    quote_type='receivable',
                 )
                 .order_by("-effective_date")
                 .first()
@@ -6280,6 +6288,7 @@ class Accounting(View):
                 effective_date__lte=vessel_etd,
                 is_user_exclusive=True,
                 exclusive_user=customer_name,
+                quote_type='receivable',
             )
             .order_by("-effective_date")
             .first()
@@ -6289,6 +6298,7 @@ class Accounting(View):
                 QuotationMaster.objects.filter(
                     effective_date__lte=vessel_etd,
                     is_user_exclusive=False,  # 非用户专属的通用报价单
+                    quote_type='receivable',
                 )
                 .order_by("-effective_date")
                 .first()
@@ -6623,6 +6633,8 @@ class Accounting(View):
         if not vessel_etd:
             raise ValueError('缺失ETD时间！')
         act_pick_time = order.retrieval_id.actual_retrieval_timestamp
+        if not act_pick_time:
+            raise ValueError('缺少实际提柜时间！')
         warehouse = context["warehouse"]
         warehouse_precise = context["warehouse_precise"]
         preport_carrier = context["preport_carrier"]
@@ -6694,7 +6706,7 @@ class Accounting(View):
         # 正常情况下，第一次录，preport等表是空的，但是如果有异常，将状态改为未录入，那么也是初次查找
         if invoice_status.stage == "unstarted" and not invoice_status.is_rejected:
             is_first_find = True
-        DETAILS = self._get_feetail(vessel_etd, "PAYABLE")
+        DETAILS = self._get_feetail(act_pick_time, "PAYABLE")
         precise_warehouse = warehouse_precise.replace("-", " ")
         pallet_details = None
         # 从报价表获取费用标准
@@ -6935,6 +6947,7 @@ class Accounting(View):
                 effective_date__lte=vessel_etd,
                 is_user_exclusive=True,
                 exclusive_user=customer_name,
+                quote_type='receivable',
             )
             .order_by("-effective_date")
             .first()
@@ -6944,6 +6957,7 @@ class Accounting(View):
                 QuotationMaster.objects.filter(
                     effective_date__lte=vessel_etd,
                     is_user_exclusive=False,  # 非用户专属的通用报价单
+                    quote_type='receivable',
                 )
                 .order_by("-effective_date")
                 .first()

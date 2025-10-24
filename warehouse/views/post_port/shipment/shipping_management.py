@@ -1332,13 +1332,17 @@ class ShippingManagement(View):
         current_time = datetime.now()
         appointment_type = request.POST.get("type")
         shipment_cargo_id = request.POST.get("shipment_cargo_id")
+        shipment_type = request.POST.get("shipment_type", "").strip()
+        if not shipment_type:
+            raise ValueError("shipment_type 不能为空!")
+        is_print_label = request.POST.get("is_print_label")  #仅LTL和客提的有值
         
         if appointment_type == "td":  # 首次预约、更新预约、取消预约都是这个类型
             shipment_data = ast.literal_eval(request.POST.get("shipment_data"))
             if 'shipment_schduled_at' not in shipment_data or shipment_data['shipment_schduled_at'] is None:
                 #港后新sop传过来的没有当前操作时间
                 shipment_data['shipment_schduled_at'] = datetime.now(timezone.utc)
-            shipment_type = request.POST.get("shipment_type")
+            
             appointment_id = request.POST.get("appointment_id", None)
             appointment_id = appointment_id.strip() if appointment_id else None
             try:
@@ -1406,23 +1410,24 @@ class ShippingManagement(View):
                     )
                     shipment.ARM_PRO = (
                         request.POST.get("arm_pro")
-                        if request.POST.get("arm_bol")
+                        if request.POST.get("arm_pro")
                         else ""
                     )
+                    if is_print_label:
+                        shipment.is_print_label = (is_print_label == "是")
                     try:
                         shipment.third_party_address = shipment_data[
                             "third_party_address"
                         ].strip()
                     except:
                         pass
+                    await sync_to_async(shipment.save)() 
             else:
                 if await self._shipment_exist(shipment_data["shipment_batch_number"]):
                     raise ValueError(
                         f"约批次 {shipment_data['shipment_batch_number']} 已经存在!"
                     )
-                shipment_data["appointment_id"] = request.POST.get(
-                    "appointment_id", None
-                )
+                shipment_data["appointment_id"] =  request.POST.get("appointment_id", "").strip()
                 shipment_data["shipment_cargo_id"] = shipment_cargo_id
                 try:
                     shipment_data["third_party_address"] = shipment_data[
@@ -1507,7 +1512,10 @@ class ShippingManagement(View):
                     shipmentappointment  # FTL和外配快递的scheduled time表示预计到仓时间，LTL和客户自提的提货时间
                 )
                 shipment_data["shipment_appointment_utc"] = shipmentappointment_utc
-                if shipment_type != "FTL":
+                if is_print_label:
+                    shipment_data["is_print_label"] = (is_print_label == "是")
+                shipment_data["in_use"] = True
+                if shipment_type != "FTL": #非FTL的要自动排车
                     appointment_datetime = request.POST.get(
                         "shipment_appointment", None
                     )
@@ -1564,17 +1572,18 @@ class ShippingManagement(View):
                     )
                     shipment_data["ARM_PRO"] = (
                         request.POST.get("arm_pro")
-                        if request.POST.get("arm_bol")
+                        if request.POST.get("arm_pro")
                         else ""
                     )
-                    shipment_data["in_use"] = True
+                    
             if not existed_appointment:
                 shipment = Shipment(**shipment_data)
                 await sync_to_async(shipment.save)()
-            else: #新sop用到的，修改PO时，约变了也修改
-                await sync_to_async(Shipment.objects.filter(id=shipment.id).update)(
-                    **shipment_data
-                )
+            #else: #新sop用到的，修改PO时，约变了也修改
+                # await sync_to_async(Shipment.objects.filter(id=shipment.id).update)(
+                #     **shipment_data
+                # )
+                
             
             # 上面更新完约的信息，下面要更新packinglist绑定的约,这是未打板的，所有不用管板子
             container_number = set()
@@ -1714,6 +1723,8 @@ class ShippingManagement(View):
             shipment.note = note
             shipment.is_shipment_schduled = True
             shipment.shipment_schduled_at = current_time
+            if is_print_label:
+                shipment.is_print_label = (is_print_label == "是")
             # LTL的需要存ARM-BOL和ARM-PRO
             shipment.ARM_BOL = (
                 request.POST.get("arm_bol") if request.POST.get("arm_bol") else ""
@@ -1722,7 +1733,7 @@ class ShippingManagement(View):
                 request.POST.get("arm_pro") if request.POST.get("arm_bol") else ""
             )
             shipment.in_use = True
-            shipment.save()
+            await sync_to_async(shipment.save)() 
             mutable_post = request.POST.copy()
             mutable_post["area"] = warehouse
             request.POST = mutable_post
@@ -2180,8 +2191,9 @@ class ShippingManagement(View):
         if not shipment_appointment:
             shipment_appointment = None
         # 如果这个ISA备约已经登记过了，就把原记录删除
-        appointment_id = request.POST.get("appointment_id")
+        appointment_id = request.POST.get("appointment_id", "").strip()
         shipment_cargo_id = request.POST.get("shipment_cargo_id")
+        is_print_label = request.POST.get("is_print_label")
         shipment.shipment_cargo_id = shipment_cargo_id
         if (
             shipment.appointment_id != appointment_id
@@ -2202,7 +2214,7 @@ class ShippingManagement(View):
                     else:  # 如果ISA已经有预约批次，就报错
                         raise ValueError("ISA已预约")
         tzinfo = self._parse_tzinfo(request.POST.get("origin", ""))
-        if shipment_type == shipment.shipment_type:
+        if shipment_type == shipment.shipment_type:  #约的类型没有修改时
             if shipment_type == "FTL":
                 shipment.appointment_id = request.POST.get("appointment_id")
                 shipment.shipment_account = request.POST.get("shipment_account")
@@ -2240,6 +2252,8 @@ class ShippingManagement(View):
                     "WALMART", "Walmart"
                 )
                 shipment.address = request.POST.get("address")
+                if is_print_label:
+                    shipment.is_print_label = (is_print_label == "是")
                 fleet = shipment.fleet_number
                 # 测试发现甩板的约没有车次
                 if fleet:
@@ -2329,6 +2343,8 @@ class ShippingManagement(View):
                 shipment.ARM_PRO = (
                     request.POST.get("arm_pro") if request.POST.get("arm_pro") else ""
                 )
+                if is_print_label:
+                    shipment.is_print_label = (is_print_label == "是")
                 current_time = datetime.now()
                 # 给非FTL的车，加上pickupNumber
                 wh = request.POST.get("origin", "").split("-")[1]

@@ -682,6 +682,7 @@
                         <th>板数</th>
                         <th>箱数</th>
                         <th>Carrier</th>
+                        <th>是否打印label</th>
                         <th>司机信息</th>
                         <th>操作</th>
                     </tr>
@@ -762,6 +763,11 @@
                         </td>
                         <td>{{ fleet.pcs }}</td>
                         <td>{{ fleet.carrier }}</td>
+                        <td>
+                            {% if fleet.fleet_type == 'LTL' or fleet.fleet_type == '客户自提' %}
+                                {% if fleet.is_print_label %}是{% else %}否{% endif %}
+                            {% endif %}
+                        </td>
                         <td style="padding: 4px 8px;"> <!-- 减少单元格内边距 -->
                             {% if fleet.warehouse_process_status == 'waiting' %}
                             <form method="post" class="action-form driver-form" id="driver-form-{{ fleet.fleet_number }}">
