@@ -1042,7 +1042,8 @@
         const isChecked = selectAllCheckbox.checked;
         
         cargoCheckboxes.forEach(checkbox => {
-            if (checkbox.closest('tr').style.display !== 'none') {
+            const row = checkbox.closest('tr');
+            if (row.style.display !== 'none') {
                 checkbox.checked = isChecked;
             }
         });
@@ -1210,19 +1211,16 @@
         });
 
         // 全选/取消全选
-        document.getElementById('selectAllCargos').addEventListener('change', function() {
-            const checkboxes = document.querySelectorAll('.cargo-checkbox');
-            checkboxes.forEach(checkbox => {
-                checkbox.checked = this.checked;
-            });
-            updateSelectedCount();
-        });
+        document.getElementById('selectAllCargos').addEventListener('change', toggleSelectAll);
 
         // 单个选择框变化
         document.querySelectorAll('.cargo-checkbox').forEach(checkbox => {
-            checkbox.addEventListener('change', updateSelectedCount);
+            checkbox.addEventListener('change', function() {
+                updateSelectedCount();
+            });
         });
-
+        // 初始更新选中数量
+        updateSelectedCount();
         // 搜索功能
         document.getElementById('searchCargoBtn').addEventListener('click', applyCombinedFilter);
         document.getElementById('cargoSearch').addEventListener('keypress', function(e) {
@@ -1422,6 +1420,11 @@
                 row.style.display = '';
             } else {
                 row.style.display = 'none';
+                // 隐藏行时取消选中
+                const checkbox = row.querySelector('.cargo-checkbox');
+                if (checkbox) {
+                    checkbox.checked = false;
+                }
             }
         });
 
@@ -1445,6 +1448,32 @@
         if (!selectedCountEl) return;
         const selected = document.querySelectorAll('.cargo-checkbox:checked').length;
         selectedCountEl.textContent = selected;
+        // 更新全选框的状态
+        updateSelectAllCheckbox();
+    }
+    function updateSelectAllCheckbox() {
+        const selectAllCheckbox = document.getElementById('selectAllCargos');
+        const visibleCheckboxes = Array.from(document.querySelectorAll('.cargo-checkbox'))
+            .filter(checkbox => checkbox.closest('tr').style.display !== 'none');
+        
+        if (visibleCheckboxes.length === 0) {
+            selectAllCheckbox.checked = false;
+            selectAllCheckbox.indeterminate = false;
+            return;
+        }
+        
+        const checkedCount = visibleCheckboxes.filter(checkbox => checkbox.checked).length;
+        
+        if (checkedCount === 0) {
+            selectAllCheckbox.checked = false;
+            selectAllCheckbox.indeterminate = false;
+        } else if (checkedCount === visibleCheckboxes.length) {
+            selectAllCheckbox.checked = true;
+            selectAllCheckbox.indeterminate = false;
+        } else {
+            selectAllCheckbox.checked = false;
+            selectAllCheckbox.indeterminate = true;
+        }
     }
 </script>
 {% endblock %}
