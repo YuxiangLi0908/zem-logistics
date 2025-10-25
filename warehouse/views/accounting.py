@@ -4116,6 +4116,9 @@ class Accounting(View):
         else:
             # 记录其中一种派送方式到invoice_delivery表
             plt_ids = request.POST.getlist("plt_ids")
+            if not plt_ids or all(not str(plt_id).strip() for plt_id in plt_ids):
+                raise ValueError('板子id都是空的！')
+    
             new_plt_ids = [ast.literal_eval(sub_plt_id) for sub_plt_id in plt_ids]
             expense = request.POST.getlist("expense")
             # 有的类型有备注，有的没有
