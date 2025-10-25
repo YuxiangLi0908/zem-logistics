@@ -218,7 +218,7 @@
                                 <td class="td"><input type="text" name="total_pallet" value="{{ plt.total_pallet }}"></td>
                                 <td class="td">
                                     <input type="number" id="local_cost" step="0.01" name="total_cost" value="{{ plt.total_cost }}" oninput="updateLocal(this)">                                    
-                                    <input type="hidden" name="plt_ids" value="{{ plt.plt_ids }}">
+                                    <input type="text" name="plt_ids" value="{{ plt.plt_ids }}">
                                 </td>
                                 <td class="td"><input type="number" name="po_activation" value="{{ plt.po_activation }}"></td>
                                 <td class="td"><input type="number" name="expense" value="{{ plt.expense|default:'' }}"></td>
@@ -464,7 +464,7 @@
                             <td class="td"><input type="text" name="total_pallet" value="{{ plt.total_pallet }}"></td>
                             <td class="td">
                                 <input type="number" id="upsdelivery_cost" step="0.01" name="total_cost" value="{{ plt.total_cost }}">
-                                <input type="hidden" name="plt_ids" value="{{ plt.plt_ids }}">
+                                <input type="text" name="plt_ids" value="{{ plt.plt_ids }}">
                             </td>
                             <td class="td"><input type="number" name="po_activation" value="{{ plt.po_activation }}"></td>
                             <td class="td"><input type="number" name="expense" value="{{ plt.expense|default:'' }}"></td>
