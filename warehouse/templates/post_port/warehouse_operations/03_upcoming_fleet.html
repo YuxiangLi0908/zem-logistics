@@ -644,7 +644,7 @@
 
         <div class="search-box" style="display: flex; gap: 15px; margin-bottom: 20px; align-items: center;">
             <div style="display: flex; gap: 10px; flex: 1;">
-                <input type="text" class="search-input" placeholder="搜索出库批次、pickupNumber..." id="fleetSearch">
+                <input type="text" class="search-input" placeholder="搜索pickupNumber..." id="fleetSearch">
                 <button class="search-btn" id="searchBtn">
                     <i class="fas fa-search"></i> 搜索
                 </button>
@@ -998,10 +998,14 @@
         
         // 筛选普通行
         rows.forEach(row => {
-            const fleet_number = row.getAttribute('data-fleet-number').toLowerCase();
-            const pickup = row.getAttribute('data-pickup-number').toLowerCase();
+            const pickupAttr = row.getAttribute('data-pickup-number');
+            const pickup = pickupAttr ? pickupAttr.toLowerCase() : '';
             const daysDiff = parseInt(row.getAttribute('data-days-diff'));
-            const fleetType = row.querySelector('td:nth-child(4)').textContent.trim(); 
+
+            const pickupNumberCell = row.querySelector('td:nth-child(2)');
+            const fleetTypeCell = row.querySelector('td:nth-child(3)'); 
+            const pickupNumber = pickupNumberCell ? pickupNumberCell.textContent.trim().toLowerCase() : '';
+            const fleetType = fleetTypeCell ? fleetTypeCell.textContent.trim() : '';
             
             let matchesDay = false;
             if (selectedDay === '0') {
@@ -1017,7 +1021,6 @@
             }
             const displayDay = parseInt(daysDiff);
             const matchesSearch = searchTerm === '' || 
-                                fleet_number.includes(searchTerm) || 
                                 pickup.includes(searchTerm);
             const matchesType = typeFilter === 'all' || fleetType === typeFilter;
             row.style.display = (matchesDay && matchesSearch && matchesType) ? '' : 'none';
