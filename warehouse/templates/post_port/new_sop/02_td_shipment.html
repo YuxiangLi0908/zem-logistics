@@ -869,7 +869,7 @@
                                     <td class="container-no-col" style="max-width: 150px; white-space: pre-line; font-size: 0.8rem;">
                                         {{ cargo.cns|linebreaks_cn }}
                                     </td>
-                                    <td>
+                                    <td class="offload-time-col">
                                         {{ cargo.offload_time }}
                                     </td>
                                     <td>
@@ -991,7 +991,7 @@
                                     <td class="container-no-col" style="max-width: 150px; white-space: pre-line; font-size: 0.8rem;">
                                         {{ cargo.cns|linebreaks_cn }}
                                     </td>
-                                    <td>
+                                    <td class="offload-time-col">
                                         {{ cargo.offload_time }}
                                     </td>
                                     <td>
@@ -1464,6 +1464,7 @@
                                 <th>REF ID</th>
                                 <th>FBA ID</th>
                                 <th>柜号</th>
+                                <th>入仓时间</th>
                             </tr>
                         </thead>
                         <tbody id="cargoSelectionBody">
@@ -2782,12 +2783,16 @@ document.querySelectorAll('.open-bind-modal').forEach(btn => {
         const cargos = [];
         groupRows.forEach(row => {
             const containerTd = row.querySelector('td.container-no-col') || row.querySelector('.cns-col');
+            //入仓时间
+            const offload_timeTd = row.querySelector('td.offload-time-col');
+            
             cargos.push({
                 cargo_id: row.dataset.cargoId || '',
                 plt_ids: row.dataset.pltId || '',
                 ref_ids: row.querySelector('.ref-ids-col')?.innerText.trim() || '-',
                 fba_ids: row.querySelector('.fba-ids-col')?.innerText.trim() || '-',
-                container_no: containerTd?.textContent.trim().replace(/\s+/g, '\n') || '-'
+                container_no: containerTd?.textContent.trim().replace(/\s+/g, '\n') || '-',
+                offload_time: offload_timeTd ? offload_timeTd.textContent.trim() : '无入仓时间',
             });
         });
 
@@ -2926,6 +2931,7 @@ function openBindModal(data) {
             <td>${c.ref_ids}</td>
             <td>${c.fba_ids}</td>
             <td>${c.container_no}</td>
+            <td>${c.offload_time}</td>
         `;
         tbody.appendChild(tr);
         // 收集所有货物的ID
