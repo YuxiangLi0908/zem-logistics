@@ -45,7 +45,7 @@ from warehouse.models.order import Order
 from warehouse.models.po_check_eta import PoCheckEtaSeven
 from warehouse.models.shipment import Shipment
 from django.contrib import messages
-
+from warehouse.models.transfer_location import TransferLocation
 from warehouse.views.post_port.shipment.fleet_management import FleetManagement
 from warehouse.views.post_port.shipment.shipping_management import ShippingManagement
 from warehouse.utils.constants import (
@@ -110,7 +110,6 @@ class PostNsop(View):
         if not await self._user_authenticate(request):
             return redirect("login")
         step = request.POST.get("step")
-        print('step',request.POST)
         if step == "appointment_management_warehouse":
             template, context = await self.handle_appointment_management_post(request)
             return render(request, template, context)
@@ -1829,12 +1828,15 @@ class PostNsop(View):
                     "shipment_batch_number__shipment_batch_number",
                     "data_source",  # 包含数据源标识
                     "shipment_batch_number__fleet_number__fleet_number",
+                    "id",  # 添加id用于后续查询
+                    "location",  # 添加location用于比较
                     warehouse=F(
                         "container_number__order__retrieval_id__retrieval_destination_precise"
                     ),
                     vessel_name=F("container_number__order__vessel_id__vessel"),
                     vessel_voyage=F("container_number__order__vessel_id__voyage"),
-                    vessel_eta=F("container_number__order__vessel_id__vessel_eta"),
+                    vessel_eta=F("container_number__order__vessel_id__vessel_eta"),                 
+                    retrieval_destination_precise=F("container_number__order__retrieval_id__retrieval_destination_precise"),
                 )
                 .annotate(
                     custom_delivery_method=F("delivery_method"),
@@ -1861,7 +1863,10 @@ class PostNsop(View):
                 )
                 .order_by("container_number__order__offload_id__offload_at")
             )
-            pal_list_sorted = sorted(pal_list, key=sort_key)
+            #去排查是否有转仓的，有转仓的要特殊处理
+            pal_list_trans = await self._find_transfer(pal_list)
+            pal_list_sorted = sorted(pal_list_trans, key=sort_key)
+
             data += pal_list_sorted
         
         # PackingList 查询 - 添加数据源标识
@@ -2030,6 +2035,62 @@ class PostNsop(View):
             pl_list_sorted = sorted(pl_list, key=sort_key)
             data += pl_list_sorted      
         return data
+
+    async def _find_transfer(self, pal_list:list):
+        # 第一步：先筛选出需要修改的记录
+        need_update_pallets = []
+        for pallet in pal_list:
+            retrieval_destination = pallet.get('retrieval_destination_precise')
+            current_location = pallet.get('location')
+            
+            # 检查是否需要修改
+            if retrieval_destination and current_location and retrieval_destination != current_location:
+                need_update_pallets.append(pallet)
+
+        # 第二步：只对需要修改的记录查询TransferLocation
+        if need_update_pallets:
+            # 获取需要查询的pallet IDs
+            need_update_ids = [pallet['id'] for pallet in need_update_pallets]
+            
+            # 批量查询TransferLocation记录
+            transfer_locations = await sync_to_async(list)(
+                TransferLocation.objects.filter(plt_ids__isnull=False)
+            )
+            
+            # 创建pallet_id到TransferLocation的映射
+            pallet_transfer_map = {}
+            for transfer in transfer_locations:
+                if transfer.plt_ids:
+                    try:
+                        plt_id_list = [pid.strip() for pid in transfer.plt_ids.split(',')]
+                        for plt_id in plt_id_list:
+                            if plt_id.isdigit() and int(plt_id) in need_update_ids:
+                                pallet_transfer_map[int(plt_id)] = transfer
+                    except (ValueError, AttributeError):
+                        continue
+            
+            # 第三步：只修改需要更新的记录
+            for pallet in need_update_pallets:
+                pallet_id = pallet['id']
+                retrieval_destination = pallet.get('retrieval_destination_precise')
+                
+                # 查找对应的TransferLocation记录
+                transfer_record = pallet_transfer_map.get(pallet_id)
+                
+                if transfer_record and transfer_record.arrival_time:
+                    # 提取原始仓名称（retrieval_destination_precise以-分组，取前面的值）
+                    original_warehouse = retrieval_destination.split('-')[0] if '-' in retrieval_destination else retrieval_destination
+                    
+                    # 格式化到达时间
+                    arrival_time_str = transfer_record.arrival_time.strftime('%m-%d')
+                    
+                    # 修改offload_time
+                    pallet['offload_time'] = f"{original_warehouse}-{arrival_time_str}"
+                else:
+                    # 如果没有找到TransferLocation记录，使用原始仓名称
+                    original_warehouse = retrieval_destination.split('-')[0] if '-' in retrieval_destination else retrieval_destination
+                    pallet['offload_time'] = f"{original_warehouse}-转仓中"
+        return pal_list
 
     async def get_shipments_by_warehouse(self, warehouse):
         """异步获取指定仓库相关的预约数据"""
