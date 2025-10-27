@@ -7586,34 +7586,204 @@ class Accounting(View):
         invoices = Invoice.objects.prefetch_related(
             "order", "order__container_number", "container_number"
         ).filter(container_number__container_number__in=selected_orders)
-        data = [
-            (
-                order,
-                invoices.get(
-                    container_number__container_number=order.container_number.container_number
-                ),
-            )
-            for order in orders
-        ]
+
+        contexts = []
+        invoice_numbers = []
         invoice_type = request.POST.get("invoice_type")
-        zip_buffer = io.BytesIO()
-        with zipfile.ZipFile(zip_buffer, "w", zipfile.ZIP_DEFLATED) as zip_file:
-            for order, invoice in data:
-                context = self._parse_invoice_excel_data(order, invoice, invoice_type)
-                workbook, _ = self._generate_invoice_excel(
-                    context, save_to_sharepoint=False
-                )
-                excel_file = io.BytesIO()
-                workbook.save(excel_file)
-                excel_file.seek(0)  # Go to the beginning of the in-memory file
-                zip_file.writestr(
-                    f"INVOICE-{order.container_number.container_number}.xlsx",
-                    excel_file.read(),
-                )
-        zip_buffer.seek(0)
-        response = HttpResponse(zip_buffer.read(), content_type="application/zip")
-        response["Content-Disposition"] = 'attachment; filename="invoices.zip"'
+        current_date = datetime.now().date()  # 统一使用当前日期生成invoice_number
+
+        for order in orders:
+            invoice = invoices.get(
+                container_number__container_number=order.container_number.container_number
+            )
+            context = self._parse_invoice_excel_data(order, invoice, invoice_type)
+            contexts.append(context)
+
+            order_id = str(order.id)
+            customer_id = order.customer_name.id
+            inv_num = f"{current_date.strftime('%Y-%m-%d').replace('-', '')}C{customer_id}{order_id}"
+            invoice_numbers.append(inv_num)
+
+        workbook, _ = self._generate_combined_invoice_excel_v1(contexts, invoice_numbers)
+
+        excel_file = io.BytesIO()
+        workbook.save(excel_file)
+        excel_file.seek(0)
+        response = HttpResponse(
+            excel_file.read(),
+            content_type="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
+        )
+        response["Content-Disposition"] = 'attachment; filename="combined_invoices.xlsx"'
         return response
+
+    def _generate_combined_invoice_excel_v1(
+            self,
+            contexts: list[dict[Any, Any]],
+            invoice_numbers: list[str],
+            save_to_sharepoint: bool = False,
+    ) -> tuple[openpyxl.workbook.Workbook, dict[Any, Any]]:
+        current_date = datetime.now().date()
+        workbook = openpyxl.Workbook()
+        worksheet = workbook.active
+        worksheet.title = "Combined Invoices"
+
+        # 合并单元格
+        cells_to_merge = [
+            "A1:E1", "A3:A4", "B3:D3", "B4:D4", "E3:E4", "F3:I4",
+            "A5:A6", "B5:D5", "B6:D6", "E5:E6", "F5:I6",
+            "A9:B9", "A10:B10", "F1:I1", "C1:E1", "A2:I2",
+            "A7:I7", "A8:I8", "C9:I9", "C10:I10", "A11:I11",
+        ]
+        self._merge_ws_cells(worksheet, cells_to_merge)
+
+        worksheet.column_dimensions["A"].width = 18
+        worksheet.column_dimensions["B"].width = 18
+        worksheet.column_dimensions["C"].width = 15
+        worksheet.column_dimensions["D"].width = 7
+        worksheet.column_dimensions["E"].width = 8
+        worksheet.column_dimensions["F"].width = 7
+        worksheet.column_dimensions["G"].width = 11
+        worksheet.column_dimensions["H"].width = 11
+        worksheet.column_dimensions["I"].width = 11
+        worksheet.row_dimensions[1].height = 40
+
+        worksheet["A1"] = "Zem Elitelink Logistics Inc"
+        worksheet["A3"] = "NJ"
+        worksheet["B3"] = "27 Engelhard Ave. Avenel NJ 07001"
+        worksheet["B4"] = "Contact: Marstin Ma 929-810-9968"
+        worksheet["A5"] = "SAV"
+        worksheet["B5"] = "1001 Trade Center Pkwy, Rincon, GA 31326, USA"
+        worksheet["B6"] = "Contact: Ken 929-329-4323"
+        worksheet["A7"] = "E-mail: OFFICE@ZEMLOGISTICS.COM"
+        worksheet["A9"] = "BILL TO"
+        worksheet["A10"] = contexts[0]["order"].customer_name.zem_name if contexts else ""
+        worksheet["F1"] = "Invoice"
+        worksheet["E3"] = "Date"
+        worksheet["F3"] = current_date.strftime("%Y-%m-%d")
+        worksheet["E5"] = "Invoice #"
+        worksheet["F5"] = ", ".join(invoice_numbers)
+
+        worksheet["A1"].font = Font(size=20)
+        worksheet["F1"].font = Font(size=28)
+        worksheet["A3"].alignment = Alignment(vertical="center")
+        worksheet["A5"].alignment = Alignment(vertical="center")
+        worksheet["E3"].alignment = Alignment(vertical="center")
+        worksheet["E5"].alignment = Alignment(vertical="center")
+        worksheet["F3"].alignment = Alignment(vertical="center")
+        worksheet["F5"].alignment = Alignment(vertical="center")
+
+        worksheet.append([
+            "CONTAINER #", "DESCRIPTION", "WAREHOUSE CODE", "CBM", "WEIGHT",
+            "QTY", "RATE", "AMOUNT", "NOTE",
+        ])
+        invoice_item_starting_row = 12
+        current_row = 13
+        # 总合计（累计所有context）
+        grand_total_amount = 0.0
+        grand_total_cbm = 0.0
+        grand_total_weight = 0.0
+        # 记录所有数据行范围（用于设置边框）
+        all_data_rows = []
+
+        for context in contexts:
+            context_subtotal_amount = 0.0
+            context_subtotal_cbm = 0.0
+            context_subtotal_weight = 0.0
+            context_start_row = current_row
+
+            for d, wc, cbm, weight, qty, r, amt, n in context["data"]:
+                if r == {}:
+                    continue
+                worksheet.append([
+                    context["container_number"],
+                    d, wc, cbm, weight, qty, r, amt, n
+                ])
+                # 累计当前context的小计
+                context_subtotal_amount += float(amt) if amt else 0.0
+                context_subtotal_cbm += float(cbm) if cbm else 0.0
+                context_subtotal_weight += float(weight) if weight else 0.0
+                current_row += 1
+
+            # 追加当前context的小计行（可选，清晰区分每个context）
+            worksheet.append([
+                f"Subtotal ({context['container_number']})",  # 显示柜号小计
+                None, None, context_subtotal_cbm, context_subtotal_weight,
+                None, None, context_subtotal_amount, None
+            ])
+            current_row += 1
+
+            # 累计到总合计
+            grand_total_amount += context_subtotal_amount
+            grand_total_cbm += context_subtotal_cbm
+            grand_total_weight += context_subtotal_weight
+
+            all_data_rows.extend(range(context_start_row, current_row))
+
+        worksheet.append([
+            "Grand Total", None, None, grand_total_cbm, grand_total_weight,
+            None, None, grand_total_amount, None
+        ])
+        grand_total_row = current_row
+        current_row += 1
+        all_data_rows.append(grand_total_row)
+
+        if all_data_rows:
+            min_border_row = invoice_item_starting_row
+            max_border_row = grand_total_row
+
+            for row in worksheet.iter_rows(
+                    min_row=min_border_row,
+                    max_row=max_border_row,
+                    min_col=1,
+                    max_col=9,
+            ):
+                for cell in row:
+                    cell.border = Border(
+                        left=Side(style="thin"),
+                        right=Side(style="thin"),
+                        top=Side(style="thin"),
+                        bottom=Side(style="thin"),
+                    )
+
+        self._merge_ws_cells(worksheet, [f"A{grand_total_row}:C{grand_total_row}"])
+        self._merge_ws_cells(worksheet, [f"F{grand_total_row}:G{grand_total_row}"])
+        worksheet[f"A{grand_total_row}"].alignment = Alignment(horizontal="center")
+        worksheet[f"H{grand_total_row}"].number_format = numbers.FORMAT_NUMBER_00  # 金额格式化
+        worksheet[f"H{grand_total_row}"].alignment = Alignment(horizontal="right")
+
+        row_count = current_row
+        self._merge_ws_cells(worksheet, [f"A{row_count}:I{row_count}"])
+        row_count += 1
+
+        bank_info = [
+            f"Beneficiary Name: {ACCT_BENEFICIARY_NAME}",
+            f"Bank Name: {ACCT_BANK_NAME}",
+            f"SWIFT Code: {ACCT_SWIFT_CODE}",
+            f"ACH/Wire Transfer Routing Number: {ACCT_ACH_ROUTING_NUMBER}",
+            f"Beneficiary Account #: {ACCT_BENEFICIARY_ACCOUNT}",
+            f"Beneficiary Address: {ACCT_BENEFICIARY_ADDRESS}",
+            f"Email:FINANCE@ZEMLOGISTICS.COM",
+            f"phone: 929-810-9968",
+        ]
+        for c in bank_info:
+            worksheet.append([c])
+            self._merge_ws_cells(worksheet, [f"A{row_count}:I{row_count}"])
+            row_count += 1
+        self._merge_ws_cells(worksheet, [f"A{row_count}:I{row_count}"])
+
+        worksheet["A9"].font = Font(color="00FFFFFF")
+        worksheet["A9"].fill = PatternFill(
+            start_color="00000000", end_color="00000000", fill_type="solid"
+        )
+
+        invoice_data = {
+            "invoice_numbers": invoice_numbers,
+            "invoice_date": current_date.strftime("%Y-%m-%d"),
+            "total_amount": grand_total_amount,
+        }
+        if save_to_sharepoint:
+            pass
+        return workbook, invoice_data
 
     def handle_adjust_balance_save(self, request: HttpRequest) -> tuple[Any, Any]:
         customer_id = request.POST.get("customerId")
