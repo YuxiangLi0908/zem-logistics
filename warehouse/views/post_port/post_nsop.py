@@ -55,7 +55,7 @@ from warehouse.utils.constants import (
 
 class PostNsop(View):
     template_main_dash = "post_port/new_sop/01_appointment_management.html"
-    template_td_shipment = "post_port/new_sop/02_td_shipment.html"
+    template_td_shipment = "post_port/new_sop/02_shipment/02_td_shipment.html"
     template_fleet_schedule = "post_port/new_sop/03_fleet_schedule.html"
     area_options = {"NJ": "NJ", "SAV": "SAV", "LA": "LA", "MO": "MO", "TX": "TX"}
     warehouse_options = {"":"", "NJ-07001": "NJ-07001", "SAV-31326": "SAV-31326", "LA-91761": "LA-91761"}
@@ -110,6 +110,7 @@ class PostNsop(View):
         if not await self._user_authenticate(request):
             return redirect("login")
         step = request.POST.get("step")
+        print('step',request.POST)
         if step == "appointment_management_warehouse":
             template, context = await self.handle_appointment_management_post(request)
             return render(request, template, context)
@@ -395,8 +396,6 @@ class PostNsop(View):
     async def handle_fleet_departure_post(
         self, request: HttpRequest
     ) -> tuple[str, dict[str, Any]]:
-        print('原始传入的',request.POST)
-        raise ValueError('00')
         batch_number = request.POST.getlist('batch_number')
         new_batch = []
         for i in batch_number:
@@ -564,7 +563,6 @@ class PostNsop(View):
             request.POST['pl_ids'] = selected
             request.POST['plt_ids'] = selected_plt
             request.POST['type'] = 'td'
-            print(request.POST)
             
             sm = ShippingManagement()
             info = await sm.handle_appointment_post(request,'post_nsop') 
@@ -1017,15 +1015,23 @@ class PostNsop(View):
         # 获取三类数据：未排约、已排约、待出库
         if not matching_suggestions:
             matching_suggestions = await self.sp_unscheduled_data(warehouse, st_type, max_cbm, max_pallet)
-            
+            print("\n排序后 suggestions：")
+            for s in matching_suggestions:
+                pg = s["primary_group"]
+                print(
+                    f"目的地: {pg.get('destination')} | pallets_percentage: {pg.get('pallets_percentage')} | cbm_percentage: {pg.get('cbm_percentage')}"
+                )
         scheduled_data = await self.sp_scheduled_data(warehouse)
+
+        unschedule_fleet = await self._fl_unscheduled_data(request, warehouse)
+        unschedule_fleet_data = unschedule_fleet['shipment_list']
         ready_to_ship_data = await self._sp_ready_to_ship_data(warehouse)
         
         # 获取可用预约
         available_shipments = await self.sp_available_shipments(warehouse, st_type)
         
         # 计算统计数据
-        summary = await self._sp_calculate_summary(matching_suggestions, scheduled_data, ready_to_ship_data)       
+        summary = await self._sp_calculate_summary(matching_suggestions, scheduled_data, ready_to_ship_data, unschedule_fleet_data)       
 
         if not context:
             context = {}
@@ -1038,6 +1044,8 @@ class PostNsop(View):
             'st_type': st_type,
             'matching_suggestions': matching_suggestions,
             'scheduled_data': scheduled_data,
+            'unschedule_fleet': unschedule_fleet_data,
+            'unscheduled_fl_count': len(unschedule_fleet.get('shipment_list', [])) if unschedule_fleet else 0,
             'ready_to_ship_data': ready_to_ship_data,
             'available_shipments': available_shipments,
             'summary': summary,
@@ -1047,6 +1055,7 @@ class PostNsop(View):
             "account_options": self.account_options,
             "load_type_options": LOAD_TYPE_OPTIONS,
             "shipment_type_options": self.shipment_type_options,
+            "carrier_options": self.carrier_options,
         }) 
         context["matching_suggestions_json"] = json.dumps(matching_suggestions, cls=DjangoJSONEncoder)
         context["warehouse_json"] = json.dumps(warehouse, cls=DjangoJSONEncoder)
@@ -1070,7 +1079,7 @@ class PostNsop(View):
         shipments = await self.get_available_shipments(warehouse)
         
         # 生成智能匹配建议
-        matching_suggestions = await self.generate_matching_suggestions(unshipment_pos, shipments, warehouse, max_cbm, max_pallet)
+        matching_suggestions = await self.generate_matching_suggestions(unshipment_pos, shipments, warehouse, max_cbm, max_pallet,st_type)
         
         # 只返回匹配建议，不返回原始未排约数据
         return matching_suggestions
@@ -1089,7 +1098,7 @@ class PostNsop(View):
         )
         return shipments
 
-    async def generate_matching_suggestions(self, unshipment_pos, shipments, warehouse, max_cbm, max_pallet):
+    async def generate_matching_suggestions(self, unshipment_pos, shipments, warehouse, max_cbm, max_pallet,st_type):
         """生成智能匹配建议 - 基于功能A的逻辑但适配shipment匹配"""
         suggestions = []
 
@@ -1226,7 +1235,26 @@ class PostNsop(View):
                     'intelligent_pos_stats': intelligent_pos_stats,
                 }
                 suggestions.append(suggestion)
+        def to_float(val):
+            try:
+                return float(val)
+            except (TypeError, ValueError):
+                return 0.0
+
         
+        if st_type == "卡板":
+            suggestions.sort(
+                key=lambda s: (
+                    to_float(s['primary_group'].get('cbm_percentage')),
+                    to_float(s['primary_group'].get('pallets_percentage'))
+                ),
+                reverse=True
+            )
+        else:
+            suggestions.sort(
+                key=lambda x: x['primary_group']['cbm_percentage'], 
+                reverse=True
+            )
         return suggestions
 
     async def _find_intelligent_po_for_group(self, primary_group, warehouse) -> Any:
@@ -1632,12 +1660,13 @@ class PostNsop(View):
         
         return False
 
-    async def _sp_calculate_summary(self, unscheduled: list, scheduled: list, ready: list) -> dict:
+    async def _sp_calculate_summary(self, unscheduled: list, scheduled: list, ready: list, unscheduled_fl) -> dict:
         """计算统计数据"""
         # 计算各类数量
         unscheduled_count = len(unscheduled)
         scheduled_count = len(scheduled)
         ready_count = len(ready)
+        unscheduled_fl_count = len(unscheduled_fl)
         # 计算总板数
         total_pallets = 0
         for cargo in unscheduled:
@@ -1647,6 +1676,7 @@ class PostNsop(View):
             'unscheduled_count': unscheduled_count,
             'scheduled_count': scheduled_count,
             'ready_count': ready_count,
+            'unscheduled_fl_count': unscheduled_fl_count,
             'total_pallets': int(total_pallets),
         }
 

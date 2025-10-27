@@ -1390,6 +1390,7 @@ class ShippingManagement(View):
                     shipment.note = request.POST.get("note", "")
                     shipment.shipment_schduled_at = timezone.now()
                     shipment.is_shipment_schduled = True
+                    shipment.shipment_cargo_id = shipment_cargo_id
                     shipment.destination = request.POST.get(
                         "destination", None
                     ).replace("WALMART", "Walmart")
