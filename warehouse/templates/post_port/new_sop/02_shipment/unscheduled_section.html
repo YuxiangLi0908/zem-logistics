@@ -51,6 +51,12 @@
                     <!-- 先显示有匹配预约的分组 -->
                     {% for suggestion in matching_suggestions %}
                         {% if suggestion.primary_group.matched_shipment %}
+                        <!-- 添加组间隔行 - 每个组都添加 -->
+                        <tr class="group-separator">
+                            <td colspan="11" style="background: linear-gradient(90deg, #3498db, #6c8bc7); 
+                                                height: 4px; padding: 0;"></td>
+                        </tr>
+                        
                         {% for cargo in suggestion.cargos %}
                         <tr data-suggestion-id="{{ suggestion.suggestion_id }}"
                             data-cargo-id="{{ cargo.ids|default:'' }}"
@@ -58,6 +64,10 @@
                             <!-- 仓点列 -->
                             {% if forloop.first %}
                             <td rowspan="{{ suggestion.cargos|length }}" style="vertical-align: middle; background-color: #f8f9fa;">
+                                <!-- 添加组标识 -->
+                                <div style="position: absolute; top: 8px; left: 8px; width: 8px; height: 8px; 
+                                            background: #28a745; border-radius: 50%;"></div>
+                                <div style="margin-left: 15px;">
                                 <div style="font-size: 16px; font-weight: bold; margin-bottom: 5px;">
                                     {{ suggestion.primary_group.destination }}
                                 </div>
@@ -182,6 +192,11 @@
                     <!-- 再显示没有匹配预约的分组 -->
                     {% for suggestion in matching_suggestions %}
                         {% if not suggestion.primary_group.matched_shipment %}
+                        <!-- 添加组间隔行 -->
+                        <tr class="group-separator">
+                            <td colspan="11" style="background: linear-gradient(90deg, #f39c12, #e67e22); 
+                                                height: 3px; padding: 0;"></td>
+                        </tr>
                         {% for cargo in suggestion.cargos %}
                         <tr data-suggestion-id="{{ suggestion.suggestion_id }}"
                             data-cargo-id="{{ cargo.ids|default:'' }}"
@@ -189,6 +204,10 @@
                             <!-- 仓点列 -->
                             {% if forloop.first %}
                             <td rowspan="{{ suggestion.cargos|length }}" style="vertical-align: middle; background-color: #f8f9fa;">
+                                <!-- 添加组标识 -->
+                                <div style="position: absolute; top: 8px; left: 8px; width: 8px; height: 3px; 
+                                            background: #f39c12; border-radius: 50%;"></div>
+                                <div style="margin-left: 15px;">
                                 <div style="font-size: 16px; font-weight: bold; margin-bottom: 5px;">
                                     {{ suggestion.primary_group.destination }}
                                 </div>

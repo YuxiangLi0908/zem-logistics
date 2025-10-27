@@ -1015,12 +1015,6 @@ class PostNsop(View):
         # 获取三类数据：未排约、已排约、待出库
         if not matching_suggestions:
             matching_suggestions = await self.sp_unscheduled_data(warehouse, st_type, max_cbm, max_pallet)
-            print("\n排序后 suggestions：")
-            for s in matching_suggestions:
-                pg = s["primary_group"]
-                print(
-                    f"目的地: {pg.get('destination')} | pallets_percentage: {pg.get('pallets_percentage')} | cbm_percentage: {pg.get('cbm_percentage')}"
-                )
         scheduled_data = await self.sp_scheduled_data(warehouse)
 
         unschedule_fleet = await self._fl_unscheduled_data(request, warehouse)
