@@ -37,7 +37,7 @@ class Pallet(models.Model):
     destination = models.CharField(max_length=255, null=True, blank=True)
     delivery_window_start = models.DateField(null=True, blank=True)
     delivery_window_end = models.DateField(null=True, blank=True)
-    is_dropped_pallet = models.BooleanField(default=False, null=True, blank=True)
+    is_dropped_pallet = models.BooleanField(default=False, null=True, blank=True) #是否甩板
     address = models.CharField(max_length=2000, null=True, blank=True)
     zipcode = models.CharField(max_length=20, null=True, blank=True)
     delivery_method = models.CharField(max_length=255, null=True, blank=True)
