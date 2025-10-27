@@ -406,7 +406,34 @@
         border-radius: 4px;
         transition: width 0.3s ease;
     }
+    /* 组间隔行样式 - 更细的分隔线 */
+    .group-separator {
+        height: 0.1px;
+    }
 
+    .group-separator td {
+        padding: 0 !important;
+        height: 1px;
+        border: none !important;
+    }
+
+    /* 组行样式 */
+    .group-row {
+        transition: all 0.2s ease;
+    }
+
+    .group-row:hover {
+        background-color: #f8f9fa !important;
+    }
+
+    /* 为不同的组类型设置不同的行背景 */
+    .group-row:nth-of-type(odd) {
+        background-color: #fafbfc;
+    }
+
+    .group-row:nth-of-type(even) {
+        background-color: #ffffff;
+    }
     @media (max-width: 768px) {
         .system-header {
             flex-direction: column;
