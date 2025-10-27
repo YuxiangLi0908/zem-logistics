@@ -1,0 +1,356 @@
+{% load custom_filters %}
+
+<!-- 未排约标签页 -->
+<div class="content-section" id="unscheduled-section">
+    <div class="search-box">
+        <div style="display: flex; gap: 10px; flex: 1; align-items: center;">
+            <input type="text" class="search-input" placeholder="搜索目的地、REF ID、FBA ID..." id="unscheduledSearch">
+            <button class="search-btn" id="searchUnscheduledBtn">
+                <i class="fas fa-search"></i> 搜索
+            </button>
+            <div style="display: flex; align-items: center; gap: 8px; margin-left: 10px;">
+                <small style="color: #666; white-space: nowrap;">容量限制:</small>
+                <span style="font-size: 0.85rem; color: var(--primary-color); font-weight: 600;">
+                    {{ max_pallet }}板 / {{ max_cbm }}CBM
+                </span>
+            </div>
+        </div>
+        
+        <div class="sort-options" style="margin-bottom: 0;">
+            <button class="sort-btn active" data-sort="destination">目的地</button>
+            <button class="sort-btn" data-sort="pallets">板数</button>
+            <button class="sort-btn" data-sort="delivery_window">派送窗口</button>
+        </div>
+    </div>
+
+    <!-- 智能匹配建议表格 -->
+    {% if matching_suggestions %}
+    <div style="margin-top: 20px;">
+        <h4 style="margin-bottom: 15px; color: var(--secondary-color);">
+            <i class="fas fa-robot"></i> 智能匹配建议 ({{ matching_suggestions|length }}个分组)
+        </h4>
+        
+        <div class="table-container">
+            <table class="data-table">
+                <thead>
+                    <tr>
+                        <th>仓点</th>
+                        <th>建议预约号</th>
+                        <th>REF ID</th>
+                        <th>FBA ID</th>
+                        <th>柜号</th>
+                        <th>入仓时间</th>
+                        <th>派送时间</th>
+                        <th>板数</th>
+                        <th>CBM</th>
+                        <th>匹配度</th>
+                        <th>操作</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    <!-- 先显示有匹配预约的分组 -->
+                    {% for suggestion in matching_suggestions %}
+                        {% if suggestion.primary_group.matched_shipment %}
+                        {% for cargo in suggestion.cargos %}
+                        <tr data-suggestion-id="{{ suggestion.suggestion_id }}"
+                            data-cargo-id="{{ cargo.ids|default:'' }}"
+                            data-plt-id="{{ cargo.plt_ids|default:'' }}">
+                            <!-- 仓点列 -->
+                            {% if forloop.first %}
+                            <td rowspan="{{ suggestion.cargos|length }}" style="vertical-align: middle; background-color: #f8f9fa;">
+                                <div style="font-size: 16px; font-weight: bold; margin-bottom: 5px;">
+                                    {{ suggestion.primary_group.destination }}
+                                </div>
+                                <div style="font-size: 12px; color: #666;">
+                                    {{ suggestion.primary_group.delivery_method }}
+                                </div>
+                            </td>
+                            {% endif %}
+                            
+                            <!-- 建议预约号 -->
+                            {% if forloop.first %}
+                            <td rowspan="{{ suggestion.cargos|length }}" style="vertical-align: middle; background-color: #f8f9fa;">
+                                <div style="font-weight: bold; color: #28a745; margin-bottom: 5px;">
+                                    {{ suggestion.primary_group.matched_shipment.appointment_id|default:"未分配预约号" }}
+                                </div>
+                                {% if suggestion.primary_group.matched_shipment.shipment_cargo_id %}
+                                <div style="font-size: 12px; color: #666;">
+                                    shipment: {{ suggestion.primary_group.matched_shipment.shipment_cargo_id }}
+                                </div>
+                                {% endif %}
+                                {% if suggestion.primary_group.matched_shipment.shipment_appointment %}
+                                <div style="font-size: 12px; color: #666;">
+                                    {{ suggestion.primary_group.matched_shipment.shipment_appointment|date:"Y-m-d H:i" }}
+                                </div>
+                                {% endif %}
+                            </td>
+                            {% endif %}
+                            
+                            <!-- 货物详细信息 -->
+                            <td class="ref-ids-col" data-full="{{ cargo.ref_ids|default:'' }}">{{ cargo.ref_ids|default:"-"|truncatechars:20 }}</td>
+                            <td class="fba-ids-col" data-full="{{ cargo.fba_ids|default:'' }}">{{ cargo.fba_ids|default:"-"|truncatechars:20 }}</td>
+                            <td class="container-no-col" style="max-width: 150px; white-space: pre-line; font-size: 0.8rem;">
+                                {{ cargo.cns|linebreaks_cn }}
+                            </td>
+                            <td class="offload-time-col">
+                                {{ cargo.offload_time }}
+                            </td>
+                            <td>
+                                {% if cargo.delivery_window_start or cargo.delivery_window_end %}
+                                    {{ cargo.delivery_window_start|date:"M. j" }} ~ {{ cargo.delivery_window_end|date:"M. j" }}
+                                {% else %}
+                                    -
+                                {% endif %}
+                            </td>
+                            <td>
+                                {% if cargo.label == 'ACT' %}
+                                    {{ cargo.total_n_pallet_act|default:0|floatformat:2 }}
+                                {% else %}
+                                    {{ cargo.total_n_pallet_est|default:0|floatformat:2 }}
+                                {% endif %}
+                            </td>
+                            <td>{{ cargo.total_cbm|default:0|floatformat:3 }}</td>
+                            
+                            <!-- 匹配度 -->
+                            {% if forloop.first %}
+                            <td rowspan="{{ suggestion.cargos|length }}" style="vertical-align: middle;">
+                                <div style="display: flex; flex-direction: column; gap: 6px; min-width: 100px;">
+                                    <!-- 板数进度条 -->
+                                    <div style="display: flex; align-items: center; gap: 6px;">
+                                        <div class="progress-container" style="flex: 0.6; background: #e9ecef; border-radius: 4px; height: 8px;">
+                                            <div class="progress-bar-pallets" style="width: {{ suggestion.primary_group.pallets_percentage }}%; height: 100%; background: #28a745; border-radius: 4px;"></div>
+                                        </div>
+                                        <span style="font-size: 0.9rem; font-weight: bold; white-space: nowrap; min-width: 50px;">
+                                            {{ suggestion.primary_group.total_pallets|floatformat:0 }}/{{ max_pallet }}
+                                        </span>
+                                    </div>
+                                    <!-- CBM进度条 -->
+                                    <div style="display: flex; align-items: center; gap: 6px;">
+                                        <div class="progress-container" style="flex: 0.6; background: #e9ecef; border-radius: 4px; height: 8px;">
+                                            <div class="progress-bar-cbm" style="width: {{ suggestion.primary_group.cbm_percentage }}%; height: 100%; background: #007bff; border-radius: 4px;"></div>
+                                        </div>
+                                        <span style="font-size: 0.9rem; font-weight: bold; white-space: nowrap; min-width: 50px;">
+                                            {{ suggestion.primary_group.total_cbm|floatformat:1 }}/{{ max_cbm }}
+                                        </span>
+                                    </div>
+                                </div>
+                            </td>
+                            {% endif %}
+                            
+                            <!-- 操作按钮 -->
+                            {% if forloop.first %}
+                            <td rowspan="{{ suggestion.cargos|length }}" style="vertical-align: middle;">
+                                <button class="action-btn btn-success open-bind-modal"
+                                        data-suggestion-id="{{ suggestion.suggestion_id }}"
+                                        data-has-appointment="1"
+                                        data-shipment-type="{{ suggestion.primary_group.matched_shipment.shipment_type }}"
+                                        data-appointment-id="{{ suggestion.primary_group.matched_shipment.appointment_id }}"
+                                        data-load-type="{{ suggestion.primary_group.matched_shipment.load_type }}"
+                                        data-destination="{{ suggestion.primary_group.destination }}"
+                                        data-delivery-method="{{ suggestion.primary_group.delivery_method }}"
+                                        data-scheduled-time="{{ suggestion.primary_group.matched_shipment.shipment_appointment|date:'Y-m-d H:i' }}"
+                                        data-shipment-account="{{ suggestion.primary_group.matched_shipment.shipment_account }}"
+                                        data-origin="{{ warehouse }}"
+                                        data-note="{{ suggestion.primary_group.matched_shipment.note }}"
+                                        data-address-detail="{{ suggestion.primary_group.matched_shipment.address_detail }}"
+                                        data-shipment-cargo-id="{{ suggestion.primary_group.matched_shipment.shipment_cargo_id }}">
+                                    <i class="fas fa-link"></i> 绑定
+                                </button>
+                                <button class="action-btn btn-success export-group-po" 
+                                        data-suggestion-id="{{ suggestion.suggestion_id }}"
+                                        style="margin-top: 5px;">
+                                    <i class="fas fa-file-export"></i> 导出PO
+                                </button>
+                                {% with sid="suggestion_"|add:suggestion.suggestion_id %}
+                                    <div class="intelligent-po-action">
+                                        <button type="button"
+                                                class="action-btn btn-primary open-intelligent-modal"
+                                                data-script-id="{{ sid }}">
+                                            <i class="fas fa-plus"></i> 智能找PO
+                                        </button>
+
+                                        {{ suggestion|json_script:sid }}
+                                    </div>
+                                {% endwith %}
+                            </td>
+                            {% endif %}
+                        </tr>
+                        {% endfor %}
+                        {% endif %}
+                    {% endfor %}
+                    
+                    <!-- 再显示没有匹配预约的分组 -->
+                    {% for suggestion in matching_suggestions %}
+                        {% if not suggestion.primary_group.matched_shipment %}
+                        {% for cargo in suggestion.cargos %}
+                        <tr data-suggestion-id="{{ suggestion.suggestion_id }}"
+                            data-cargo-id="{{ cargo.ids|default:'' }}"
+                            data-plt-id="{{ cargo.plt_ids|default:'' }}">
+                            <!-- 仓点列 -->
+                            {% if forloop.first %}
+                            <td rowspan="{{ suggestion.cargos|length }}" style="vertical-align: middle; background-color: #f8f9fa;">
+                                <div style="font-size: 16px; font-weight: bold; margin-bottom: 5px;">
+                                    {{ suggestion.primary_group.destination }}
+                                </div>
+                                <div style="font-size: 12px; color: #666;">
+                                    {{ suggestion.primary_group.delivery_method }}
+                                </div>
+                            </td>
+                            {% endif %}
+                            
+                            <!-- 建议预约号 -->
+                            {% if forloop.first %}
+                            <td rowspan="{{ suggestion.cargos|length }}" style="vertical-align: middle; background-color: #f8f9fa;">
+                                <div style="font-weight: bold; color: #6c757d;">
+                                    未匹配到预约
+                                </div>
+                            </td>
+                            {% endif %}
+                            
+                            <!-- 货物详细信息 -->
+                            <td class="ref-ids-col" data-full="{{ cargo.ref_ids|default:'' }}">{{ cargo.ref_ids|default:"-"|truncatechars:20 }}</td>
+                            <td class="fba-ids-col" data-full="{{ cargo.fba_ids|default:'' }}">{{ cargo.fba_ids|default:"-"|truncatechars:20 }}</td>
+                            <td class="container-no-col" style="max-width: 150px; white-space: pre-line; font-size: 0.8rem;">
+                                {{ cargo.cns|linebreaks_cn }}
+                            </td>
+                            <td class="offload-time-col">
+                                {{ cargo.offload_time }}
+                            </td>
+                            <td>
+                                {% if cargo.delivery_window_start or cargo.delivery_window_end %}
+                                    {{ cargo.delivery_window_start|date:"M. j" }} ~ {{ cargo.delivery_window_end|date:"M. j" }}
+                                {% else %}
+                                    -
+                                {% endif %}
+                            </td>
+                            <td>
+                                {% if cargo.label == 'ACT' %}
+                                    {{ cargo.total_n_pallet_act|default:0|floatformat:2 }}
+                                {% else %}
+                                    {{ cargo.total_n_pallet_est|default:0|floatformat:2 }}
+                                {% endif %}
+                            </td>
+                            <td>{{ cargo.total_cbm|default:0|floatformat:3 }}</td>
+                            
+                            <!-- 匹配度 -->
+                            {% if forloop.first %}
+                            <td rowspan="{{ suggestion.cargos|length }}" style="vertical-align: middle;">
+                                <div style="display: flex; flex-direction: column; gap: 6px; min-width: 100px;">
+                                    <!-- 板数进度条 -->
+                                    <div style="display: flex; align-items: center; gap: 6px;">
+                                        <div class="progress-container" style="flex: 0.6; background: #e9ecef; border-radius: 4px; height: 8px;">
+                                            <div class="progress-bar-pallets" style="width: {{ suggestion.primary_group.pallets_percentage }}%; height: 100%; background: #28a745; border-radius: 4px;"></div>
+                                        </div>
+                                        <span style="font-size: 0.9rem; font-weight: bold; white-space: nowrap; min-width: 50px;">
+                                            {{ suggestion.primary_group.total_pallets|floatformat:0 }}/{{ max_pallet }}
+                                        </span>
+                                    </div>
+                                    <!-- CBM进度条 -->
+                                    <div style="display: flex; align-items: center; gap: 6px;">
+                                        <div class="progress-container" style="flex: 0.6; background: #e9ecef; border-radius: 4px; height: 8px;">
+                                            <div class="progress-bar-cbm" style="width: {{ suggestion.primary_group.cbm_percentage }}%; height: 100%; background: #007bff; border-radius: 4px;"></div>
+                                        </div>
+                                        <span style="font-size: 0.9rem; font-weight: bold; white-space: nowrap; min-width: 50px;">
+                                            {{ suggestion.primary_group.total_cbm|floatformat:1 }}/{{ max_cbm }}
+                                        </span>
+                                    </div>
+                                </div>
+                            </td>
+                            {% endif %}
+                            
+                            <!-- 操作按钮 -->
+                            {% if forloop.first %}
+                            <td rowspan="{{ suggestion.cargos|length }}" style="vertical-align: middle;">
+                                <button class="action-btn btn-primary open-bind-modal"
+                                        data-suggestion-id="{{ suggestion.suggestion_id }}"
+                                        data-has-appointment="0"
+                                        data-destination="{{ suggestion.primary_group.destination }}"
+                                        data-delivery-method="{{ suggestion.primary_group.delivery_method }}"
+                                        data-origin="{{ warehouse }}">
+                                    <i class="fas fa-calendar-plus"></i> 预约
+                                </button>
+                                <button class="action-btn btn-success export-group-po" 
+                                        data-suggestion-id="{{ suggestion.suggestion_id }}"
+                                        style="margin-top: 5px;">
+                                    <i class="fas fa-file-export"></i> 导出PO
+                                </button>
+                                {% with sid="suggestion_"|add:suggestion.suggestion_id %}
+                                    <div class="intelligent-po-action">
+                                        <button type="button"
+                                                class="action-btn btn-primary open-intelligent-modal"
+                                                data-script-id="{{ sid }}">
+                                            <i class="fas fa-plus"></i> 智能找PO
+                                        </button>
+
+                                        {{ suggestion|json_script:sid }}
+                                    </div>
+                                {% endwith %}
+                            </td>
+                            {% endif %}
+                        </tr>
+                        {% endfor %}
+                        {% endif %}
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </div>
+    {% else %}
+    <div style="text-align: center; padding: 40px; color: #6c757d;">
+        <i class="fas fa-robot" style="font-size: 3rem; margin-bottom: 15px;"></i>
+        <p>暂无智能匹配建议</p>
+    </div>
+    {% endif %}
+</div>
+
+<script>
+// 未排约页面特定的JavaScript
+document.addEventListener('DOMContentLoaded', function() {
+    // 导出PO功能
+    document.querySelectorAll('.export-group-po').forEach(btn => {
+        btn.addEventListener('click', function () {
+            const suggestionId = this.getAttribute('data-suggestion-id');
+            const suggestionRow = document.querySelector(`tr[data-suggestion-id="${suggestionId}"]`);
+            if (!suggestionRow) {
+                alert('未找到对应的PO数据');
+                return;
+            }
+
+            const cargoIds = [];
+            const pltIds = [];
+            const groupRows = document.querySelectorAll(`tr[data-suggestion-id="${suggestionId}"]`);
+            groupRows.forEach(row => {
+                const cargoId = row.getAttribute('data-cargo-id') || '';
+                const pltId = row.getAttribute('data-plt-id') || '';
+                
+                if (cargoId) cargoIds.push(cargoId);
+                if (pltId) pltIds.push(pltId);
+            });
+
+            document.getElementById('formStep').value = 'export_pos';
+            document.getElementById('formCargoIds').value = cargoIds.join(',');
+            document.getElementById('formPltIds').value = pltIds.join(',');
+            document.getElementById('formSuggestionId').value = suggestionId;
+            document.getElementById('actionForm').submit();
+        });
+    });
+
+    // 排序功能
+    const sortButtons = document.querySelectorAll('.sort-btn');
+    sortButtons.forEach(btn => {
+        btn.addEventListener('click', function() {
+            sortButtons.forEach(b => b.classList.remove('active'));
+            this.classList.add('active');
+            
+            const sortBy = this.dataset.sort;
+            sortUnscheduledTable(sortBy);
+        });
+    });
+
+    function sortUnscheduledTable(sortBy) {
+        // 实现排序逻辑
+        console.log('按', sortBy, '排序');
+        // 这里可以添加具体的排序实现
+    }
+});
+</script>

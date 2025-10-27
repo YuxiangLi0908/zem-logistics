@@ -1,0 +1,1198 @@
+{% extends 'base.html' %}
+{% load static %}
+{% load custom_filters %}
+
+{% block content %}
+<style>
+    :root {
+        --primary-color: #3498db;
+        --secondary-color: #2c3e50;
+        --success-color: #2ecc71;
+        --warning-color: #f39c12;
+        --danger-color: #e74c3c;
+        --light-color: #f8f9fa;
+        --dark-color: #343a40;
+    }
+
+    * {
+        margin: 0;
+        padding: 0;
+        box-sizing: border-box;
+        font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+    }
+
+    body {
+        background-color: #f5f7fa;
+        color: #333;
+        line-height: 1.6;
+    }
+
+    .shipment-system {
+        max-width: 1800px;
+        margin: 20px auto;
+        background: white;
+        border-radius: 10px;
+        box-shadow: 0 0 20px rgba(0, 0, 0, 0.1);
+        overflow: hidden;
+    }
+
+    .system-header {
+        background: linear-gradient(135deg, var(--secondary-color), #4a6491);
+        color: white;
+        padding: 20px 30px;
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        flex-wrap: wrap;
+    }
+
+    .system-logo {
+        display: flex;
+        align-items: center;
+        font-size: 1.5rem;
+        font-weight: bold;
+    }
+
+    .system-logo i {
+        margin-right: 10px;
+        font-size: 1.8rem;
+    }
+
+    .warehouse-selector {
+        display: flex;
+        align-items: center;
+        gap: 15px;
+        background: rgba(255, 255, 255, 0.15);
+        padding: 10px 20px;
+        border-radius: 8px;
+    }
+
+    .warehouse-selector label {
+        font-weight: 600;
+    }
+
+    .warehouse-selector select {
+        padding: 8px 15px;
+        border: none;
+        border-radius: 5px;
+        background: white;
+        font-size: 1rem;
+        min-width: 200px;
+    }
+
+    .warehouse-selector button {
+        padding: 8px 16px;
+        background: var(--success-color);
+        color: white;
+        border: none;
+        border-radius: 5px;
+        cursor: pointer;
+        font-weight: 600;
+        transition: background 0.3s ease;
+    }
+
+    .warehouse-selector button:hover {
+        background: #27ae60;
+    }
+
+    .system-main {
+        padding: 20px;
+    }
+
+    .summary-cards {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+        gap: 15px;
+        margin-bottom: 25px;
+    }
+
+    .summary-card {
+        background: white;
+        border-radius: 8px;
+        padding: 15px;
+        box-shadow: 0 3px 10px rgba(0, 0, 0, 0.08);
+        display: flex;
+        flex-direction: column;
+        border-left: 4px solid var(--primary-color);
+    }
+
+    .summary-card.unscheduled {
+        border-left-color: var(--warning-color);
+    }
+
+    .summary-card.scheduled {
+        border-left-color: var(--primary-color);
+    }
+
+    .summary-card.ready {
+        border-left-color: var(--success-color);
+    }
+
+    .summary-card.pallets {
+        border-left-color: var(--danger-color);
+    }
+
+    .summary-card .card-title {
+        font-size: 0.8rem;
+        color: #7f8c8d;
+        margin-bottom: 8px;
+    }
+
+    .summary-card .card-value {
+        font-size: 1.5rem;
+        font-weight: 700;
+        color: var(--secondary-color);
+    }
+
+    .tab-navigation {
+        display: flex;
+        margin-bottom: 20px;
+        border-bottom: 1px solid #eaecef;
+    }
+
+    .tab {
+        padding: 12px 25px;
+        cursor: pointer;
+        border-bottom: 3px solid transparent;
+        transition: all 0.3s;
+        font-weight: 500;
+        position: relative;
+    }
+
+    .tab.active {
+        color: var(--primary-color);
+        border-bottom: 3px solid var(--primary-color);
+        font-weight: 600;
+    }
+
+    .tab .badge {
+        position: absolute;
+        top: 5px;
+        right: 5px;
+        background: var(--primary-color);
+        color: white;
+        border-radius: 50%;
+        width: 20px;
+        height: 20px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        font-size: 0.7rem;
+    }
+
+    .content-section {
+        display: none;
+    }
+
+    .content-section.active {
+        display: block;
+    }
+
+    .search-box {
+        display: flex;
+        gap: 15px;
+        margin-bottom: 20px;
+        align-items: center;
+        justify-content: space-between;
+        flex-wrap: wrap;
+    }
+
+    .search-input {
+        padding: 10px 15px;
+        border: 1px solid #dce1e6;
+        border-radius: 5px;
+        font-size: 0.9rem;
+        min-width: 250px;
+    }
+
+    .search-btn {
+        padding: 10px 20px;
+        background: var(--primary-color);
+        color: white;
+        border: none;
+        border-radius: 5px;
+        cursor: pointer;
+        font-weight: 600;
+    }
+
+    .sort-options {
+        display: flex;
+        gap: 8px;
+        align-items: center;
+        margin-bottom: 0;
+    }
+
+    .sort-btn {
+        padding: 8px 16px;
+        background: #f8f9fa;
+        border: 1px solid #dee2e6;
+        border-radius: 5px;
+        cursor: pointer;
+        font-size: 0.85rem;
+        transition: all 0.3s;
+    }
+    
+    .sort-btn.active {
+        background: var(--primary-color);
+        color: white;
+        border-color: var(--primary-color);
+    }
+
+    .table-container {
+        overflow-x: auto;
+        overflow-y: auto;
+        max-height:800px;
+        border-radius: 8px;
+        box-shadow: 0 3px 10px rgba(0, 0, 0, 0.08);
+        margin-bottom: 20px;
+    }
+
+    .data-table {
+        width: 100%;
+        border-collapse: collapse;
+    }
+
+    .data-table th {
+        position: sticky;
+        top: 0;
+        background: var(--secondary-color);
+        color: white;
+        padding: 12px;
+        text-align: left;
+        font-weight: 600;
+        font-size: 0.9rem;
+        cursor: pointer;
+    }
+
+    .data-table th:hover {
+        background: #34495e;
+    }
+
+    .data-table td {
+        padding: 12px;
+        border-bottom: 1px solid #eaecef;
+        font-size: 0.85rem;
+    }
+
+    .data-table tr:nth-child(even) {
+        background-color: #f9fafb;
+    }
+
+    .data-table tr:hover {
+        background-color: #edf2f7;
+    }
+
+    .checkbox-cell {
+        width: 40px;
+        text-align: center;
+    }
+
+    .status-badge {
+        display: inline-flex;
+        align-items: center;
+        padding: 4px 8px;
+        border-radius: 12px;
+        font-size: 0.75rem;
+        font-weight: 600;
+    }
+
+    .status-unscheduled {
+        background-color: #fff3cd;
+        color: #856404;
+        border: 1px solid #ffeaa7;
+    }
+
+    .status-scheduled {
+        background-color: #d1ecf1;
+        color: #0c5460;
+        border: 1px solid #bee5eb;
+    }
+
+    .status-ready {
+        background-color: #d4edda;
+        color: #155724;
+        border: 1px solid #c3e6cb;
+    }
+
+    .pallet-badge {
+        display: inline-block;
+        padding: 2px 6px;
+        border-radius: 8px;
+        font-size: 0.7rem;
+        font-weight: 600;
+        margin-left: 5px;
+    }
+
+    .pallet-actual {
+        background-color: #e8f5e9;
+        color: #2e7d32;
+    }
+
+    .pallet-estimated {
+        background-color: #fff3e0;
+        color: #ef6c00;
+    }
+
+    .action-btn {
+        padding: 6px 12px;
+        border: none;
+        border-radius: 4px;
+        cursor: pointer;
+        font-size: 0.8rem;
+        transition: all 0.3s ease;
+        margin: 2px;
+    }
+
+    .btn-primary {
+        background: var(--primary-color);
+        color: white;
+    }
+
+    .btn-success {
+        background: var(--success-color);
+        color: white;
+    }
+
+    .btn-warning {
+        background: var(--warning-color);
+        color: white;
+    }
+
+    .btn-danger {
+        background: var(--danger-color);
+        color: white;
+    }
+
+    .batch-actions {
+        display: flex;
+        gap: 10px;
+        margin-bottom: 15px;
+        padding: 15px;
+        background: #f8f9fa;
+        border-radius: 8px;
+        align-items: center;
+    }
+
+    .selected-count {
+        font-weight: 600;
+        color: var(--secondary-color);
+    }
+
+    .container-col {
+        max-width: 220px;
+        min-width: 180px;
+        white-space: pre-line;
+        word-break: break-all;
+        font-size: 0.8rem;
+        line-height: 1.6;
+    }
+
+    .data-table td[rowspan] {
+        background-color: #f8f9fa;
+        border-right: 2px solid #dee2e6;
+    }
+
+    .progress-container {
+        background: #e9ecef;
+        border-radius: 4px;
+        height: 8px;
+        overflow: hidden;
+        width: 80px;
+    }
+
+    .progress-bar {
+        height: 100%;
+        background: #28a745;
+        border-radius: 4px;
+        transition: width 0.3s ease;
+    }
+
+    @media (max-width: 768px) {
+        .system-header {
+            flex-direction: column;
+            gap: 20px;
+        }
+
+        .warehouse-selector {
+            width: 100%;
+            justify-content: center;
+        }
+
+        .summary-cards {
+            grid-template-columns: 1fr 1fr;
+        }
+        
+        .tab-navigation {
+            flex-wrap: wrap;
+        }
+        
+        .tab {
+            flex: 1;
+            text-align: center;
+            min-width: 50%;
+        }
+
+        .batch-actions {
+            flex-direction: column;
+            align-items: flex-start;
+        }
+    }
+
+    @media (max-width: 576px) {
+        .system-main {
+            padding: 10px;
+        }
+        
+        .summary-cards {
+            grid-template-columns: 1fr;
+        }
+        
+        .search-box {
+            flex-direction: column;
+            align-items: stretch;
+        }
+        
+        .search-input {
+            width: 100%;
+        }
+
+        .sort-options {
+            justify-content: flex-start;
+            margin-top: 10px;
+        }
+    }
+</style>
+
+<div class="shipment-system">
+    <div class="system-header">
+        <div class="system-logo">
+            <i class="fas fa-truck-loading"></i>
+            <span>库存排约管理 - {{ warehouse }}</span>
+        </div>
+        <div class="warehouse-selector">
+            <form method="post" action="" onsubmit="showLoadingBar()" class="warehouse-selector">
+                {% csrf_token %}
+                <label for="warehouse">仓库:</label>
+                <select name="warehouse" style="padding: 5px; border-radius: 4px; border: 1px solid #ced4da;">
+                    {% for k, v in warehouse_options.items %}
+                    <option value="{{ v }}" {% if k == warehouse %}selected{% endif %}>{{ k }}</option>
+                    {% endfor %}
+                </select>
+                <input type="hidden" id="current-warehouse" value="{{ warehouse }}">
+                <label for="st-type-select">装载类型:</label>
+                <select name="st_type" id="st-type-select" style="padding: 5px; border-radius: 4px; border: 1px solid #ced4da;">
+                    <option value="pallet" {% if st_type == 'pallet' %}selected{% endif %}>卡板</option>
+                    <option value="floor" {% if st_type == 'floor' %}selected{% endif %}>地板</option>
+                </select>
+                
+                <input type="hidden" name="step" value="td_shipment_warehouse">
+                <button id="confirmWarehouse">
+                    <i class="fas fa-check"></i> 确认
+                </button>
+            </form>
+        </div>
+    </div>
+
+    <div class="system-main">
+        <!-- 统计卡片 -->
+        <div class="summary-cards">
+            <div class="summary-card unscheduled">
+                <div class="card-title">未排约货物</div>
+                <div class="card-value">{{ summary.unscheduled_count }}</div>
+                <div class="card-trend">待安排预约</div>
+            </div>
+            <div class="summary-card scheduled">
+                <div class="card-title">已排约货物</div>
+                <div class="card-value">{{ summary.scheduled_count }}</div>
+                <div class="card-trend">等待出库</div>
+            </div>
+            <div class="summary-card ready">
+                <div class="card-title">待出库货物</div>
+                <div class="card-value">{{ summary.ready_count }}</div>
+                <div class="card-trend">已安排车次</div>
+            </div>
+            <div class="summary-card pallets">
+                <div class="card-title">总板数</div>
+                <div class="card-value">{{ summary.total_pallets }}</div>
+                <div class="card-trend">当前仓库</div>
+            </div>
+        </div>
+
+        <!-- 标签导航 -->
+        <div class="tab-navigation">
+            <div class="tab active" data-tab="unscheduled">
+                未排约 <span class="badge">{{ summary.unscheduled_count }}</span>
+            </div>
+            <div class="tab" data-tab="scheduled">
+                已排约 <span class="badge">{{ summary.scheduled_count }}</span>
+            </div>
+            <div class="tab" data-tab="unscheduled-fleet">
+                未排车 <span class="badge">{{ summary.unscheduled_fl_count }}</span>
+            </div>
+            <div class="tab" data-tab="ready">
+                待出库 <span class="badge">{{ summary.ready_count }}</span>
+            </div>
+        </div>
+
+        <!-- 包含三个标签页 -->
+        {% include 'post_port/new_sop/02_shipment/unscheduled_section.html' %}
+        {% include 'post_port/new_sop/02_shipment/scheduled_section.html' %}
+        {% include 'post_port/new_sop/02_shipment/unscheduled_fleet.html' %}
+        {% include 'post_port/new_sop/02_shipment/ready_section.html' %}
+    </div>
+</div>
+
+<!-- 隐藏表单 -->
+<form method="post" action="" id="actionForm" style="display: none;">
+    {% csrf_token %}
+    <input type="hidden" name="step" id="formStep">
+    <input type="hidden" name="appointment_id" id="formAppointmentId">
+    <input type="hidden" name="cargo_ids" id="formCargoIds">
+    <input type="hidden" name="plt_ids" id="formPltIds">
+    <input type="hidden" name="suggestion_id" id="formSuggestionId">
+    <input type="hidden" name="warehouse" value="{{ warehouse }}">
+    <input type="hidden" name="st_type" value="{{ st_type }}">
+</form>
+
+<!-- 包含模态框 -->
+{% include 'post_port/new_sop/02_shipment/modals/bind_shipment_modal.html' %}
+{% include 'post_port/new_sop/02_shipment/modals/departure_modal.html' %}
+{% include 'post_port/new_sop/02_shipment/modals/add_po_modal.html' %}
+{% include 'post_port/new_sop/02_shipment/modals/addable_po_modal.html' %}
+{% include 'post_port/new_sop/02_shipment/modals/message_modal.html' %}
+{% include 'post_port/new_sop/02_shipment/02_1_intelligent_po_modal.html' %}
+
+<!-- 工具提示 -->
+<div id="tooltip" style="
+    position: fixed;
+    background: rgba(0,0,0,0.85);
+    color: #fff;
+    padding: 8px 12px;
+    border-radius: 6px;
+    font-size: 0.85rem;
+    max-width: 480px;
+    white-space: pre-wrap;
+    word-break: break-word;
+    z-index: 99999;
+    display: none;
+    pointer-events: none;
+"></div>
+
+<script>
+// 主JavaScript逻辑
+window.matching_suggestions = {{ matching_suggestions_json|default:"[]"|safe }};
+window.warehouse = {{ warehouse_json|default:"[]"|safe }};
+
+// 标签页切换逻辑
+document.addEventListener('DOMContentLoaded', function() {
+    const rawActiveTab = "{{ active_tab|default:'unscheduled' }}";
+    let activeTab = rawActiveTab;
+
+    function findSectionByTabName(tabName) {
+        const candidates = [];
+        candidates.push(tabName + '-section');
+        candidates.push(tabName.replace(/_/g, '-') + '-section');
+        candidates.push(tabName.replace(/_/g, '') + '-section');
+        candidates.push(tabName.replace(/-/g, '_') + '-section');
+        candidates.push(tabName + 'section');
+        candidates.push(tabName.replace(/_/g, '-') + 'section');
+
+        const aliasMap = {
+            'ready_to_ship': 'ready-section',
+            'ready-to-ship': 'ready-section',
+            'ready': 'ready-section',
+            'unscheduled': 'unscheduled-section',
+            'scheduled': 'scheduled-section',
+            'ready_ship': 'ready-section'
+        };
+        if (aliasMap[tabName]) candidates.unshift(aliasMap[tabName]);
+
+        for (let id of candidates) {
+            const el = document.getElementById(id);
+            if (el) return el;
+        }
+        return null;
+    }
+
+    let targetSection = findSectionByTabName(activeTab);
+    if (!targetSection) {
+        targetSection = document.querySelector('.content-section.active') || document.querySelector('.content-section');
+        if (!targetSection) return;
+    }
+
+    document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
+    document.querySelectorAll('.content-section').forEach(s => s.classList.remove('active'));
+
+    const tabs = Array.from(document.querySelectorAll('.tab'));
+    let activatedTabButton = null;
+    for (const t of tabs) {
+        const dataTab = t.dataset.tab;
+        if (!dataTab) continue;
+        if (
+            dataTab === rawActiveTab
+            || dataTab === rawActiveTab.replace(/_/g,'-')
+            || dataTab === rawActiveTab.replace(/_/g,'')
+            || (rawActiveTab.includes('-') && dataTab === rawActiveTab.replace(/-/g,'_'))
+            || dataTab === (rawActiveTab.split(/[-_]/)[0])
+        ) {
+            activatedTabButton = t;
+            break;
+        }
+    }
+    
+    if (activatedTabButton) {
+        activatedTabButton.classList.add('active');
+    } else {
+        const targetId = targetSection.id;
+        const guessTabName = targetId.replace(/-section$/,'').replace(/-/g,'_');
+        const fallbackBtn = document.querySelector(`.tab[data-tab="${guessTabName}"]`);
+        if (fallbackBtn) fallbackBtn.classList.add('active');
+    }
+
+    targetSection.classList.add('active');
+    const activeTabValue = (document.querySelector('.tab.active')?.dataset.tab) || rawActiveTab;
+    document.querySelectorAll('input[name="tab"]').forEach(i => i.value = activeTabValue);
+
+    // 绑定标签页点击事件
+    document.querySelectorAll('.tab').forEach(tab => {
+        tab.addEventListener('click', function () {
+            const tabName = this.dataset.tab;
+            document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
+            document.querySelectorAll('.content-section').forEach(s => s.classList.remove('active'));
+            this.classList.add('active');
+
+            const sec = findSectionByTabName(tabName) || document.getElementById(tabName + '-section');
+            if (sec) sec.classList.add('active');
+
+            document.querySelectorAll('input[name="tab"]').forEach(i => i.value = tabName);
+        });
+    });
+
+    // 初始化工具提示
+    initializeTooltips();
+    
+    // 自动弹出模态框
+    {% if show_add_po_modal %}
+        setTimeout(function () {
+            const modal = document.getElementById('addPOModal');
+            if (modal) modal.style.display = 'block';
+        }, 300);
+    {% endif %}
+
+    {% if show_add_po_inventory_modal %}
+        setTimeout(function () {
+            const modal = document.getElementById('addablePOModal');
+            if (modal) modal.style.display = 'block';
+        }, 300);
+    {% endif %}
+});
+
+// 工具提示初始化
+function initializeTooltips() {
+    const tooltip = document.getElementById('tooltip');
+    if (!tooltip) return;
+
+    let activeCell = null;
+    let hideTimeout = null;
+
+    function getFullTextFromCell(cell) {
+        if (!cell) return '';
+        if (cell.dataset && cell.dataset.full && cell.dataset.full.trim().length > 0) {
+            return cell.dataset.full.trim();
+        }
+        const title = cell.getAttribute('title');
+        if (title && title.trim().length > 0) return title.trim();
+        const txt = cell.textContent || '';
+        return txt.trim();
+    }
+
+    document.addEventListener('mouseover', function(e) {
+        const cell = e.target.closest('.ref-ids-col, .fba-ids-col');
+        if (!cell) {
+            if (activeCell) {
+                activeCell = null;
+                tooltip.style.display = 'none';
+                tooltip.innerText = '';
+            }
+            return;
+        }
+
+        if (hideTimeout) {
+            clearTimeout(hideTimeout);
+            hideTimeout = null;
+        }
+
+        const fullText = getFullTextFromCell(cell);
+        if (!fullText) {
+            tooltip.style.display = 'none';
+            tooltip.innerText = '';
+            activeCell = null;
+            return;
+        }
+
+        activeCell = cell;
+        tooltip.innerText = fullText;
+        tooltip.style.display = 'block';
+    });
+
+    document.addEventListener('mousemove', function(e) {
+        if (!activeCell || tooltip.style.display !== 'block') return;
+        
+        let left = e.clientX + 14;
+        let top = e.clientY + 14;
+
+        const tooltipRect = tooltip.getBoundingClientRect();
+        const vw = document.documentElement.clientWidth;
+        const vh = document.documentElement.clientHeight;
+
+        tooltip.style.left = left + 'px';
+        tooltip.style.top = top + 'px';
+
+        const currentRect = tooltip.getBoundingClientRect();
+        if (left + currentRect.width > vw - 8) {
+            left = e.clientX - currentRect.width - 18;
+            tooltip.style.left = Math.max(8, left) + 'px';
+        }
+        if (top + currentRect.height > vh - 8) {
+            top = e.clientY - currentRect.height - 18;
+            tooltip.style.top = Math.max(8, top) + 'px';
+        }
+    });
+
+    document.addEventListener('mouseout', function(e) {
+        const relatedTarget = e.relatedTarget;
+        if (!relatedTarget) return;
+
+        const isLeavingCell = activeCell && 
+            (!activeCell.contains(relatedTarget) && 
+             relatedTarget !== tooltip &&
+             !tooltip.contains(relatedTarget));
+        
+        const isEnteringTooltip = relatedTarget === tooltip || tooltip.contains(relatedTarget);
+        
+        if (isLeavingCell && !isEnteringTooltip) {
+            hideTimeout = setTimeout(() => {
+                tooltip.style.display = 'none';
+                tooltip.innerText = '';
+                activeCell = null;
+            }, 100);
+        }
+    });
+
+    tooltip.addEventListener('mouseover', function() {
+        if (hideTimeout) {
+            clearTimeout(hideTimeout);
+            hideTimeout = null;
+        }
+    });
+
+    tooltip.addEventListener('mouseout', function(e) {
+        const relatedTarget = e.relatedTarget;
+        if (!relatedTarget || 
+            (relatedTarget !== activeCell && 
+             !activeCell.contains(relatedTarget))) {
+            hideTimeout = setTimeout(() => {
+                tooltip.style.display = 'none';
+                tooltip.innerText = '';
+                activeCell = null;
+            }, 100);
+        }
+    });
+
+    document.addEventListener('keydown', function(e) {
+        if (e.key === 'Escape') {
+            tooltip.style.display = 'none';
+            tooltip.innerText = '';
+            activeCell = null;
+            if (hideTimeout) {
+                clearTimeout(hideTimeout);
+                hideTimeout = null;
+            }
+        }
+    });
+}
+
+// 搜索功能
+function applySearch(section) {
+    const searchInput = document.getElementById(section + 'Search');
+    if (!searchInput) return;
+    
+    const searchTerm = searchInput.value.trim().toLowerCase();
+    const sectionElement = document.getElementById(section + '-section');
+    if (!sectionElement) return;
+    
+    const rows = sectionElement.querySelectorAll('.data-table tbody tr');
+    
+    rows.forEach(row => {
+        row.style.display = '';
+        row.querySelectorAll('td[rowspan]').forEach(td => {
+            td.style.display = '';
+        });
+    });
+    
+    if (searchTerm === '') return;
+    
+    if (section === 'unscheduled') {
+        handleGroupedSearch(rows, searchTerm);
+    } else if (section === 'ready') {
+        handleReadySectionSearch(rows, searchTerm);
+    } else {
+        handleNormalSearch(rows, searchTerm);
+    }
+}
+
+function handleGroupedSearch(rows, searchTerm) {
+    const groupMap = new Map();
+    
+    rows.forEach(row => {
+        const suggestionId = row.getAttribute('data-suggestion-id');
+        if (!suggestionId) {
+            handleNormalRowSearch(row, searchTerm);
+            return;
+        }
+        
+        if (!groupMap.has(suggestionId)) {
+            groupMap.set(suggestionId, []);
+        }
+        
+        const isMatch = isRowMatch(row, searchTerm);
+        groupMap.get(suggestionId).push({ row, isMatch });
+    });
+    
+    groupMap.forEach((groupRows, suggestionId) => {
+        const hasAnyMatch = groupRows.some(item => item.isMatch);
+        
+        if (hasAnyMatch) {
+            groupRows.forEach(item => {
+                item.row.style.display = '';
+                item.row.querySelectorAll('td[rowspan]').forEach(td => {
+                    td.style.display = '';
+                });
+            });
+        } else {
+            groupRows.forEach(item => {
+                item.row.style.display = 'none';
+            });
+        }
+    });
+}
+
+function handleReadySectionSearch(rows, searchTerm) {
+    const fleetMap = new Map();
+    const appointmentMap = new Map();
+    
+    let currentFleetNumber = '';
+    let currentAppointmentId = '';
+    
+    rows.forEach((row, index) => {
+        const fleetTd = row.querySelector('td:first-child');
+        if (fleetTd && fleetTd.hasAttribute('rowspan')) {
+            const fleetText = fleetTd.textContent.trim();
+            if (fleetText.startsWith('F')) {
+                const newFleetNumber = fleetText;
+                if (newFleetNumber !== currentFleetNumber) {
+                    currentFleetNumber = newFleetNumber;
+                    currentAppointmentId = '';
+                }
+            }
+        }
+        
+        const appointmentTd = row.querySelector('td:nth-child(2)');
+        if (appointmentTd && appointmentTd.hasAttribute('rowspan')) {
+            const newAppointmentId = appointmentTd.textContent.trim();
+            if (newAppointmentId !== currentAppointmentId) {
+                currentAppointmentId = newAppointmentId;
+            }
+        }
+        
+        if (currentFleetNumber) {
+            if (!fleetMap.has(currentFleetNumber)) {
+                fleetMap.set(currentFleetNumber, []);
+            }
+            fleetMap.get(currentFleetNumber).push(row);
+        }
+        
+        if (currentAppointmentId) {
+            if (!appointmentMap.has(currentAppointmentId)) {
+                appointmentMap.set(currentAppointmentId, []);
+            }
+            appointmentMap.get(currentAppointmentId).push(row);
+        }
+    });
+    
+    let hasAnyMatch = false;
+    rows.forEach(row => {
+        row.style.display = 'none';
+    });
+    
+    const matchingFleets = Array.from(fleetMap.keys()).filter(fleet => {
+        return fleet.toLowerCase().includes(searchTerm);
+    });
+    
+    const matchingAppointments = Array.from(appointmentMap.keys()).filter(appointment => {
+        return appointment.toLowerCase().includes(searchTerm);
+    });
+    
+    const matchingRows = [];
+    rows.forEach((row, index) => {
+        if (isReadyRowMatch(row, searchTerm)) {
+            matchingRows.push(row);
+        }
+    });
+    
+    if (matchingFleets.length > 0 || matchingAppointments.length > 0 || matchingRows.length > 0) {
+        hasAnyMatch = true;
+        
+        if (matchingFleets.length > 0) {
+            matchingFleets.forEach(fleet => {
+                const fleetRows = fleetMap.get(fleet);
+                fleetRows.forEach(row => {
+                    row.style.display = '';
+                });
+            });
+        }
+        
+        if (matchingAppointments.length > 0) {
+            matchingAppointments.forEach(appointment => {
+                const appointmentRows = appointmentMap.get(appointment);
+                appointmentRows.forEach(row => {
+                    row.style.display = '';
+                });
+            });
+        }
+        
+        if (matchingRows.length > 0) {
+            matchingRows.forEach(row => {
+                const fleetNumber = getFleetNumberForRow(row, fleetMap);
+                if (fleetNumber && fleetMap.has(fleetNumber)) {
+                    fleetMap.get(fleetNumber).forEach(fleetRow => {
+                        fleetRow.style.display = '';
+                    });
+                } else {
+                    row.style.display = '';
+                }
+            });
+        }
+    }
+}
+
+function getFleetNumberForRow(row, fleetMap) {
+    for (let [fleetNumber, rows] of fleetMap.entries()) {
+        if (rows.includes(row)) {
+            return fleetNumber;
+        }
+    }
+    return null;
+}
+
+function isReadyRowMatch(row, searchTerm) {
+    if (!searchTerm) return true;
+    
+    const fleetTd = row.querySelector('td:first-child');
+    if (fleetTd) {
+        const fleetText = fleetTd.textContent.toLowerCase();
+        if (fleetText.includes(searchTerm)) return true;
+    }
+    
+    const appointmentTd = row.querySelector('td:nth-child(2)');
+    if (appointmentTd) {
+        const appointmentText = appointmentTd.textContent.toLowerCase();
+        if (appointmentText.includes(searchTerm)) return true;
+    }
+    
+    const destinationTd = row.querySelector('td:nth-child(3)');
+    if (destinationTd) {
+        const destinationText = destinationTd.textContent.toLowerCase();
+        if (destinationText.includes(searchTerm)) return true;
+    }
+    
+    const containerCell = row.querySelector('.cns-col');
+    if (containerCell) {
+        const containerText = containerCell.textContent.toLowerCase();
+        if (containerText.includes(searchTerm)) return true;
+    }
+    
+    const refIdsCell = row.querySelector('.ref-ids-col');
+    if (refIdsCell) {
+        const fullRefIds = refIdsCell.getAttribute('data-full') || refIdsCell.textContent || '';
+        if (fullRefIds.toLowerCase().includes(searchTerm)) return true;
+    }
+    
+    const fbaIdsCell = row.querySelector('.fba-ids-col');
+    if (fbaIdsCell) {
+        const fullFbaIds = fbaIdsCell.getAttribute('data-full') || fbaIdsCell.textContent || '';
+        if (fullFbaIds.toLowerCase().includes(searchTerm)) return true;
+    }
+    
+    const palletTd = row.querySelector('td:nth-child(7)');
+    if (palletTd) {
+        const palletText = palletTd.textContent.toLowerCase();
+        if (palletText.includes(searchTerm)) return true;
+    }
+    
+    const cbmTd = row.querySelector('td:nth-child(8)');
+    if (cbmTd) {
+        const cbmText = cbmTd.textContent.toLowerCase();
+        if (cbmText.includes(searchTerm)) return true;
+    }
+    
+    const rowText = row.textContent.toLowerCase();
+    if (rowText.includes(searchTerm)) return true;
+    
+    return false;
+}
+
+function handleNormalSearch(rows, searchTerm) {
+    rows.forEach(row => {
+        const isMatch = isRowMatch(row, searchTerm);
+        row.style.display = isMatch ? '' : 'none';
+        
+        if (isMatch) {
+            row.querySelectorAll('td[rowspan]').forEach(td => {
+                td.style.display = '';
+            });
+        }
+    });
+}
+
+function handleNormalRowSearch(row, searchTerm) {
+    const isMatch = isRowMatch(row, searchTerm);
+    row.style.display = isMatch ? '' : 'none';
+}
+
+function isRowMatch(row, searchTerm) {
+    if (!searchTerm) return true;
+    
+    const rowText = row.textContent.toLowerCase();
+    if (rowText.includes(searchTerm)) return true;
+    
+    const refIdsCell = row.querySelector('.ref-ids-col');
+    const fbaIdsCell = row.querySelector('.fba-ids-col');
+    const containerCell = row.querySelector('.container-no-col');
+    
+    if (refIdsCell) {
+        const fullRefIds = refIdsCell.getAttribute('data-full') || refIdsCell.textContent || '';
+        if (fullRefIds.toLowerCase().includes(searchTerm)) return true;
+    }
+    
+    if (fbaIdsCell) {
+        const fullFbaIds = fbaIdsCell.getAttribute('data-full') || fbaIdsCell.textContent || '';
+        if (fullFbaIds.toLowerCase().includes(searchTerm)) return true;
+    }
+    
+    if (containerCell) {
+        const containerText = containerCell.textContent || '';
+        if (containerText.toLowerCase().includes(searchTerm)) return true;
+    }
+    
+    const destination = row.getAttribute('data-destination') || '';
+    if (destination.toLowerCase().includes(searchTerm)) return true;
+    
+    return false;
+}
+
+// 搜索按钮事件绑定
+document.addEventListener('DOMContentLoaded', function() {
+    const searchUnscheduledBtn = document.getElementById('searchUnscheduledBtn');
+    const searchScheduledBtn = document.getElementById('searchScheduledBtn');
+    const searchReadyBtn = document.getElementById('searchReadyBtn');
+    
+    if (searchUnscheduledBtn) {
+        searchUnscheduledBtn.addEventListener('click', function() {
+            applySearch('unscheduled');
+        });
+    }
+    
+    if (searchScheduledBtn) {
+        searchScheduledBtn.addEventListener('click', function() {
+            applySearch('scheduled');
+        });
+    }
+    
+    if (searchReadyBtn) {
+        searchReadyBtn.addEventListener('click', function() {
+            applySearch('ready');
+        });
+    }
+    
+    // 回车键搜索
+    const unscheduledSearch = document.getElementById('unscheduledSearch');
+    const scheduledSearch = document.getElementById('scheduledSearch');
+    const readySearch = document.getElementById('readySearch');
+    
+    if (unscheduledSearch) {
+        unscheduledSearch.addEventListener('keypress', function(e) {
+            if (e.key === 'Enter') applySearch('unscheduled');
+        });
+    }
+    
+    if (scheduledSearch) {
+        scheduledSearch.addEventListener('keypress', function(e) {
+            if (e.key === 'Enter') applySearch('scheduled');
+        });
+    }
+    
+    if (readySearch) {
+        readySearch.addEventListener('keypress', function(e) {
+            if (e.key === 'Enter') applySearch('ready');
+        });
+    }
+});
+
+// 其他通用功能
+function showLoadingBar() {
+    const buttons = document.querySelectorAll('button');
+    buttons.forEach(btn => {
+        if (btn.innerHTML.includes('fa-check')) {
+            btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> 处理中...';
+            btn.disabled = true;
+        }
+    });
+}
+
+function unassignShipment(appointmentId) {
+    if (confirm('确定要取消这个预约的所有排约吗？')) {
+        document.getElementById('formStep').value = 'unassign_shipment';
+        document.getElementById('formAppointmentId').value = appointmentId;
+        document.getElementById('actionForm').submit();
+    }
+}
+
+function matchSingleCargo(cargoIds) {
+    document.getElementById('formStep').value = 'match_single_cargo';
+    document.getElementById('formCargoIds').value = cargoIds;
+    document.getElementById('actionForm').submit();
+}
+
+function matchSelectedCargos() {
+    const selectedCheckboxes = document.querySelectorAll('.unscheduled-checkbox:checked');
+    if (selectedCheckboxes.length === 0) {
+        alert('请先选择要匹配的PO');
+        return;
+    }
+
+    const cargoIds = Array.from(selectedCheckboxes).map(checkbox => checkbox.value).join(',');
+    document.getElementById('formStep').value = 'match_selected_cargos';
+    document.getElementById('formCargoIds').value = cargoIds;
+    document.getElementById('actionForm').submit();
+}
+
+function applyGroupMatch(suggestionId) {
+    if (confirm('确定要将这些PO匹配到此预约吗？')) {
+        document.getElementById('formStep').value = 'apply_group_match';
+        document.getElementById('formSuggestionId').value = suggestionId;
+        document.getElementById('actionForm').submit();
+    }
+}
+
+function selectGroupAppointment(select, groupKey) {
+    const appointmentId = select.value;
+    if (appointmentId) {
+        document.getElementById('formStep').value = 'assign_group_appointment';
+        document.getElementById('formAppointmentId').value = appointmentId;
+        document.getElementById('formGroupKey').value = groupKey;
+        document.getElementById('actionForm').submit();
+    }
+}
+</script>
+{% endblock %}

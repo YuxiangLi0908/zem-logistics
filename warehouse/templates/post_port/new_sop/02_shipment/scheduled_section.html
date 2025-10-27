@@ -1,0 +1,127 @@
+<!-- 已排约标签页 -->
+ {% load custom_filters %}
+ 
+<div class="content-section" id="scheduled-section">
+    <div class="search-box">
+        <div style="display: flex; gap: 10px; flex: 1; align-items: center;">
+            <input type="text" class="search-input" placeholder="搜索预约号、目的地..." id="scheduledSearch">
+            <button class="search-btn" id="searchScheduledBtn">
+                <i class="fas fa-search"></i> 搜索
+            </button>
+        </div>
+    </div>
+
+    <div class="table-container">
+        <table class="data-table">
+            <thead>
+                <tr>
+                    <th>预约批次</th>
+                    <th>预约号</th>
+                    <th>目的地</th>
+                    <th>预约时间</th>
+                    <th>装车类型</th>
+                    <th>柜号</th>
+                    <th>REF ID</th>
+                    <th>FBA ID</th>
+                    <th>板数</th>
+                    <th>CBM</th>
+                    <th>操作</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for shipment_group in scheduled_data %}
+                {% for cargo in shipment_group.cargos %}
+                <tr data-suggestion-id="{{ suggestion.suggestion_id }}"
+                            data-cargo-id="{{ cargo.ids|default:'' }}"
+                            data-plt-id="{{ cargo.plt_ids|default:'' }}">
+                    {% if forloop.first %}
+                    <td rowspan="{{ shipment_group.cargos|length }}" style="vertical-align: middle; background-color: #f8f9fa;">
+                        {{ shipment_group.shipment_batch_number|default_if_none:'' }}
+                    </td>
+                    <td rowspan="{{ shipment_group.cargos|length }}" style="vertical-align: middle; background-color: #f8f9fa;">
+                        <strong>{{ shipment_group.appointment_id|default_if_none:'' }}</strong>
+                        {% if shipment_group.shipment_cargo_id %}
+                        <div style="font-size: 12px; color: #666;">
+                            shipment: {{ shipment_group.shipment_cargo_id }}
+                        </div>
+                        {% endif %}
+                    </td>
+                    <td rowspan="{{ shipment_group.cargos|length }}" style="vertical-align: middle; background-color: #f8f9fa;">
+                        {{ shipment_group.destination }}
+                    </td>
+                    <td rowspan="{{ shipment_group.cargos|length }}" style="vertical-align: middle; background-color: #f8f9fa;">
+                        {{ shipment_group.shipment_appointment|date:"Y-m-d H:i" }}
+                    </td>
+                    <td rowspan="{{ shipment_group.cargos|length }}" style="vertical-align: middle; background-color: #f8f9fa;">
+                        {{ shipment_group.load_type }}
+                    </td>
+                    {% endif %}
+                    <td class="container-no-col" style="max-width: 150px; white-space: pre-line; font-size: 0.8rem;">
+                        {{ cargo.cns|linebreaks_cn }}
+                    </td>
+                    <td class="ref-ids-col" data-full="{{ cargo.ref_ids|default:'' }}">{{ cargo.ref_ids|default:"-"|truncatechars:20 }}</td>
+                    <td class="fba-ids-col" data-full="{{ cargo.fba_ids|default:'' }}">{{ cargo.fba_ids|default:"-"|truncatechars:20 }}</td>
+                    <td>
+                        {% if cargo.label == 'ACT' %}
+                            {{ cargo.total_n_pallet_act|default:0 }} ACT
+                        {% else %}
+                            {{ cargo.total_n_pallet_est|default:0 }} EST
+                        {% endif %}
+                    </td>
+                    <td>{{ cargo.total_cbm|default:0 }}</td>
+                    {% if forloop.first %}
+                    <td rowspan="{{ shipment_group.cargos|length }}" style="vertical-align: middle;">
+                        
+                        <button class="action-btn btn-danger" onclick="unassignShipment('{{ shipment_group.appointment_id }}')">
+                            <i class="fas fa-unlink"></i> 取消排约
+                        </button>
+                        
+                        <form method="post" action="">
+                            {% csrf_token %}
+                            <input type="hidden" name="appointment_id" value="{{ shipment_group.appointment_id }}">                                  
+                            <input type="hidden" name="warehouse" value="{{ warehouse }}">
+                            <input type="hidden" name="destination" value="{{ shipment_group.destination }}">
+                            <input type="hidden" name="step" value="search_addable_po">
+                            <input type="hidden" name="tab" value="{{ current_tab }}"> 
+
+                            <button class="action-btn btn-success" onclick="">
+                                <i class="fas fa-square-plus"></i> 添加PO
+                            </button>
+                        </form>
+      
+                        <button class="action-btn btn-warning open-bind-modal"
+                                data-has-appointment="1"
+                                data-appointment-id="{{ shipment_group.appointment_id }}"
+                                data-load-type="{{ shipment_group.load_type }}"
+                                data-destination="{{ shipment_group.destination }}"
+                                data-delivery-method="{{ shipment_group.load_type }}"
+                                data-scheduled-time="{{ shipment_group.shipment_appointment|date:'Y-m-d H:i' }}"
+                                data-shipment-account="{{ shipment_group.shipment_account }}"
+                                data-origin="{{ warehouse }}"
+                                data-note=""
+                                data-address-detail="{{ shipment_group.address_detail }}"
+                                data-operation-type="remove_po">
+                            <i class="fas fa-square-minus"></i> 删除PO
+                        </button>
+                    </td>
+                    {% endif %}
+                </tr>
+                {% endfor %}
+                {% empty %}
+                <tr>
+                    <td colspan="9" style="text-align: center; padding: 20px;">
+                        暂无已排约货物
+                    </td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+</div>
+
+<script>
+// 已排约页面特定的JavaScript
+document.addEventListener('DOMContentLoaded', function() {
+    // 已排约页面的特定功能可以在这里添加
+});
+</script>
