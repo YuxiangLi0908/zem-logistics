@@ -1662,7 +1662,6 @@ class FleetManagement(View):
     async def handle_fleet_departure_post(
         self, request: HttpRequest, name: str | None = None
     ) -> tuple[str, dict[str, Any]]:
-        print(request.POST)
         
         fleet_number = request.POST.get("fleet_number")
         departured_at = request.POST.get("departured_at")
@@ -1717,7 +1716,10 @@ class FleetManagement(View):
                 error_messages.append(f"出库板数大于实际库存，请核实！")
                 return await self.handle_outbound_warehouse_search_post(request,error_messages)
 
-        
+        #未出的就是甩板，记录甩板状态
+        await sync_to_async(
+            lambda: Pallet.objects.filter(id__in=unshipped_pallet_ids).update(is_dropped_pallet=True)
+        )()
         #要出库的查看下是否有未解扣的
         shipped_pallets = await sync_to_async(
             lambda: list(Pallet.objects.filter(id__in=shipped_pallet_ids).select_related('container_number'))
