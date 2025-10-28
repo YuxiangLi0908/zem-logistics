@@ -112,6 +112,7 @@ class PostNsop(View):
         if not await self._user_authenticate(request):
             return redirect("login")
         step = request.POST.get("step")
+        print('step',step)
         if step == "appointment_management_warehouse":
             template, context = await self.handle_appointment_management_post(request)
             return render(request, template, context)
@@ -1078,13 +1079,36 @@ class PostNsop(View):
             shipment_schduled_at__gte="2024-12-01",
             origin=warehouse,
         )
-        shipment = await sync_to_async(list)(
+        shipments = await sync_to_async(list)(
             Shipment.objects.select_related("fleet_number")
             .filter(criteria)
             .order_by("shipped_at")
         )
+        for shipment in shipments:
+            # 获取与该shipment关联的所有pallet
+            pallets = await sync_to_async(list)(
+                Pallet.objects.filter(shipment_batch_number=shipment)
+                .select_related('container_number')
+            )
+            
+            customer_names = set()
+            
+            for pallet in pallets:
+                if pallet.container_number:
+                    # 获取与该container关联的所有order
+                    orders = await sync_to_async(list)(
+                        Order.objects.filter(container_number=pallet.container_number)
+                        .select_related('customer_name')
+                    )
+                    
+                    for order in orders:
+                        if order.customer_name:
+                            customer_names.add(order.customer_name.zem_name)
+            
+            # 将客户名用逗号拼接，并添加到shipment对象上
+            shipment.customer = ", ".join(customer_names) if customer_names else "无客户信息"
         context = {
-            "fleet": shipment,
+            "fleet": shipments,
         }
         return context
     
