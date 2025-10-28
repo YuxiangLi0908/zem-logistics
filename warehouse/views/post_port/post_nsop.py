@@ -696,6 +696,8 @@ class PostNsop(View):
                     "address",
                     "zipcode",
                     "container_number__container_number",
+                    "destination",
+                    "cbm"
                 )
                 .annotate(
                     total_pcs=Sum(
@@ -706,6 +708,7 @@ class PostNsop(View):
                         )
                     ),
                     total_n_pallet_est=Sum("cbm", output_field=FloatField()) / 2,
+                    total_cbm=Sum("cbm", output_field=FloatField()),
                     label=Max(
                         Case(
                             When(pallet__isnull=True, then=Value("EST")),
@@ -742,6 +745,8 @@ class PostNsop(View):
             "label",
             "check_id",
             "is_valid",
+            "total_cbm",
+            "destination", 
         ]
         df = pd.DataFrame.from_records(data)
         df["is_valid"] = None
@@ -765,6 +770,8 @@ class PostNsop(View):
                 "container_number__container_number": "BOL",
                 "ref_id": "PO List (use , as separator) *",
                 "total_pcs": "Carton Count",
+                "total_cbm": "Total CBM",
+                "destination": "Destination",
             },
             axis=1,
         )
