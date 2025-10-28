@@ -1,0 +1,213 @@
+{% load custom_filters %}
+<style>
+    /* 智能匹配专用样式 */
+    .matching-table-container {
+        overflow-x: auto;
+        overflow-y: auto;
+        max-height: 600px;
+        border-radius: 8px;
+        box-shadow: 0 3px 10px rgba(0, 0, 0, 0.08);
+        margin-bottom: 20px;
+    }
+
+    .matching-data-table {
+        width: 100%;
+        border-collapse: collapse;
+    }
+
+    .matching-data-table th {
+        position: sticky;
+        top: 0;
+        background: var(--secondary-color);
+        color: white;
+        padding: 12px;
+        text-align: left;
+        font-weight: 600;
+        font-size: 0.9rem;
+    }
+
+    .matching-data-table td {
+        padding: 12px;
+        border-bottom: 1px solid #eaecef;
+        font-size: 0.85rem;
+    }
+
+    .matching-data-table tr:nth-child(even) {
+        background-color: #f9fafb;
+    }
+
+    .matching-data-table tr:hover {
+        background-color: #edf2f7;
+    }
+
+    .progress-container {
+        background: #e9ecef;
+        border-radius: 4px;
+        height: 8px;
+        overflow: hidden;
+    }
+
+    .progress-bar {
+        height: 100%;
+        background: #28a745;
+        border-radius: 4px;
+        transition: width 0.3s ease;
+    }
+
+    .matching-export-btn {
+        padding: 6px 12px;
+        border: none;
+        border-radius: 4px;
+        cursor: pointer;
+        font-size: 0.8rem;
+        transition: all 0.3s ease;
+        margin: 2px;
+        background: var(--success-color);
+        color: white;
+    }
+
+    .matching-export-btn:hover {
+        background: #27ae60;
+    }
+</style>
+
+<div class="matching-table-container">
+    <table class="matching-data-table">
+        <thead>
+            <tr>
+                <th>仓点</th>
+                <th>板数</th>
+                <th>CBM</th>
+                <th>柜号</th>
+                <th>匹配度</th>
+                <th>操作</th>
+            </tr>
+        </thead>
+        <tbody>
+            {% regroup matching_suggestions by primary_group as grouped_suggestions %}
+            {% for primary_group in grouped_suggestions %}
+                {% for suggestion in primary_group.list %}
+                <tr data-primary-group="{{ forloop.parentloop.counter0 }}"
+                    data-cargo-id="{{ suggestion.subgroup.cargos.0.ids|default:'' }}"
+                    data-plt-id="{{ suggestion.subgroup.cargos.0.plt_ids|default:'' }}">
+                    <!-- 仓点列 -->
+                    {% if forloop.first %}
+                    <td rowspan="{{ primary_group.list|length }}" style="vertical-align: middle; background-color: #f8f9fa;">
+                        <div style="font-size: 16px; font-weight: bold; margin-bottom: 5px;">
+                            {{ primary_group.grouper.destination }}
+                        </div>
+                        <div style="font-size: 12px; color: #666;">
+                            {{ primary_group.grouper.delivery_method }}
+                        </div>
+                    </td>
+                    {% endif %}
+                    
+                    <!-- 子组信息 -->
+                    <td>{{ suggestion.subgroup.total_pallets|floatformat:2 }}</td>
+                    <td>{{ suggestion.subgroup.total_cbm|floatformat:3 }}</td>
+                    
+                    <!-- 柜号 -->
+                    <td style="max-width: 150px; white-space: pre-line; font-size: 0.8rem;">
+                        {{ suggestion.subgroup.container_numbers|linebreaks_container }}
+                    </td>
+                    
+                    <!-- 匹配度 -->
+                    {% if forloop.first %}
+                    <td rowspan="{{ primary_group.list|length }}" style="vertical-align: middle;">
+                        <div style="display: flex; flex-direction: column; gap: 6px; min-width: 100px;">
+                            <!-- 板数进度条 -->
+                            <div style="display: flex; align-items: center; gap: 6px;">
+                                <div class="progress-container" style="flex: 0.6; background: #e9ecef; border-radius: 4px; height: 8px;">
+                                    <div class="progress-bar-pallets" style="width: {{ primary_group.grouper.pallets_percentage }}%; height: 100%; background: #28a745; border-radius: 4px;"></div>
+                                </div>
+                                <span style="font-size: 0.9rem; font-weight: bold; white-space: nowrap; min-width: 50px;">
+                                    {{ primary_group.grouper.total_pallets|floatformat:0 }}/{{ max_pallet }}
+                                </span>
+                            </div>
+                            <!-- CBM进度条 -->
+                            <div style="display: flex; align-items: center; gap: 6px;">
+                                <div class="progress-container" style="flex: 0.6; background: #e9ecef; border-radius: 4px; height: 8px;">
+                                    <div class="progress-bar-cbm" style="width: {{ primary_group.grouper.cbm_percentage }}%; height: 100%; background: #007bff; border-radius: 4px;"></div>
+                                </div>
+                                <span style="font-size: 0.9rem; font-weight: bold; white-space: nowrap; min-width: 50px;">
+                                    {{ primary_group.grouper.total_cbm|floatformat:1 }}/{{ max_cbm }}
+                                </span>
+                            </div>
+                        </div>
+                    </td>
+                    
+                    <!-- 操作按钮 - 只在第一行显示 -->
+                    <td rowspan="{{ primary_group.list|length }}" style="vertical-align: middle;">
+                        <button class="matching-export-btn export-primary-group" 
+                                data-primary-group-index="{{ forloop.parentloop.counter0 }}"
+                                data-destination="{{ primary_group.grouper.destination }}"
+                                data-delivery-method="{{ primary_group.grouper.delivery_method }}">
+                            <i class="fas fa-file-export"></i> 导出PO
+                        </button>
+                    </td>
+                    {% endif %}
+                </tr>
+                {% endfor %}
+            {% endfor %}
+        </tbody>
+    </table>
+</div>
+
+<!-- 导PO的表单 -->
+<form method="post" action="" id="matchingExportForm" style="display: none;">
+    {% csrf_token %}
+    <input type="hidden" name="step" value="export_pos">
+    <input type="hidden" name="cargo_ids" id="matchingCargoIdsInput">
+    <input type="hidden" name="plt_ids" id="matchingPltIdsInput">
+</form>
+
+<script>
+    // 智能匹配专用JavaScript
+    document.addEventListener('DOMContentLoaded', function() {
+        initializeIntelligentMatching();
+    });
+
+    function initializeIntelligentMatching() {
+        // 初始化导出按钮事件
+        document.querySelectorAll('.export-primary-group').forEach(btn => {
+            btn.addEventListener('click', function() {
+                const primaryGroupIndex = this.getAttribute('data-primary-group-index');
+                const destination = this.getAttribute('data-destination');
+                const deliveryMethod = this.getAttribute('data-delivery-method');
+                
+                // 收集这个大组内所有小组的ids和plt_ids
+                const cargoIds = [];
+                const pltIds = [];
+                
+                // 找到这个大组的所有行
+                const groupRows = document.querySelectorAll(`tr[data-primary-group="${primaryGroupIndex}"]`);
+                
+                groupRows.forEach(row => {
+                    const cargoId = row.getAttribute('data-cargo-id') || '';
+                    const pltId = row.getAttribute('data-plt-id') || '';
+                    
+                    if (cargoId) cargoIds.push(cargoId);
+                    if (pltId) pltIds.push(pltId);
+                });
+                
+                if (cargoIds.length === 0 && pltIds.length === 0) {
+                    alert('该大组没有可导出的PO数据');
+                    return;
+                }
+                
+                // 设置表单数据并提交
+                const cargoIdsInput = document.getElementById('matchingCargoIdsInput');
+                const pltIdsInput = document.getElementById('matchingPltIdsInput');
+                const exportForm = document.getElementById('matchingExportForm');
+                
+                if (cargoIdsInput && pltIdsInput && exportForm) {
+                    cargoIdsInput.value = cargoIds.join(',');
+                    pltIdsInput.value = pltIds.join(',');
+                    exportForm.submit();
+                } else {
+                    alert('导出表单未找到，请刷新页面重试');
+                }
+            });
+        });
+    }
+</script>
