@@ -195,7 +195,7 @@ class ContainerTracking(View):
             messages.error(request, f"查询过程中发生错误: {str(e)}")
             return self.template_find_table_id, {"search_performed": True}
 
-    async def handle_delete_pallet_invoice_delivery(self, request: HttpRequest):
+    async def handle_delete_invoice_delivery(self, request: HttpRequest):
         """删除单条 InvoiceDelivery"""
         invoice_delivery_id = request.POST.get("invoice_delivery_id")
         search_type = request.POST.get("search_type")
@@ -255,7 +255,7 @@ class ContainerTracking(View):
         request.POST["search_value"] = search_value
         return await self.handle_search_invoice_delivery(request)
     
-    async def handle_delete_invoice_delivery(self, request: HttpRequest):
+    async def handle_delete_pallet_invoice_delivery(self, request: HttpRequest):
         """删除 Pallet 的 Invoice Delivery 外键，并删除对应的 InvoiceDelivery 记录"""
         pallet_id = request.POST.get("pallet_id")
         search_type = request.POST.get("search_type")
