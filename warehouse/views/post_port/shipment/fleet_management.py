@@ -1295,9 +1295,10 @@ class FleetManagement(View):
     ) -> HttpResponse:
         fleet_number = request.POST.get("fleet_number")
         customerInfo = request.POST.get("customerInfo")
+        packing_list = []
+
         if customerInfo:
             customer_info = json.loads(customerInfo)
-            packing_list = []
             for row in customer_info:
                 packing_list.append(
                     {
@@ -1312,9 +1313,10 @@ class FleetManagement(View):
                     }
                 )
         else:
-            packing_list = await sync_to_async(list)(
+            packing_list_db1 = await sync_to_async(list)(
                 PackingList.objects.select_related(
-                    "container_number", "shipment_batch_number", "pallet", "shipment_batch_number__fleet_number"
+                    "container_number", "shipment_batch_number",
+                    "pallet", "shipment_batch_number__fleet_number"
                 )
                 .filter(
                     shipment_batch_number__fleet_number__fleet_number=fleet_number,
@@ -1336,17 +1338,20 @@ class FleetManagement(View):
                 )
                 .order_by("-shipment_batch_number__shipment_appointment")
             )
-            for s in packing_list:
-                if s["total_n_pallet"] < 1:
-                    s["total_n_pallet"] = 1
-                elif s["total_n_pallet"] % 1 >= 0.45:
-                    s["total_n_pallet"] = int(s["total_n_pallet"] // 1 + 1)
+
+            for item in packing_list_db1:
+                if item["total_n_pallet"] < 1:
+                    item["total_n_pallet"] = 1
+                elif item["total_n_pallet"] % 1 >= 0.45:
+                    item["total_n_pallet"] = int(item["total_n_pallet"] // 1 + 1)
                 else:
-                    s["total_n_pallet"] = int(s["total_n_pallet"] // 1)
-                s["total_n_pallet"] = f"预 {s['total_n_pallet']}"
-            packing_list += await sync_to_async(list)(
+                    item["total_n_pallet"] = int(item["total_n_pallet"] // 1)
+                item["total_n_pallet"] = f"预 {item['total_n_pallet']}"
+
+            packing_list_db2 = await sync_to_async(list)(
                 Pallet.objects.select_related(
-                    "container_number", "shipment_batch_number", "shipment_batch_number__fleet_number"
+                    "container_number", "shipment_batch_number",
+                    "shipment_batch_number__fleet_number"
                 )
                 .filter(
                     shipment_batch_number__fleet_number__fleet_number=fleet_number,
@@ -1367,6 +1372,9 @@ class FleetManagement(View):
                 )
                 .order_by("-shipment_batch_number__shipment_appointment")
             )
+
+            packing_list = packing_list_db1 + packing_list_db2
+
         shipment = await sync_to_async(list)(
             Shipment.objects.filter(fleet_number__fleet_number=fleet_number).order_by(
                 "-shipment_appointment"
@@ -1374,24 +1382,24 @@ class FleetManagement(View):
         )
 
         df = pd.DataFrame(packing_list)
+
         if len(shipment) > 1:
-            total = len(shipment)  # 获取总数量
-            for i, s in enumerate(shipment, 1):  # 从1开始计数
-                if i == 1:  # 第一个
+            total_shipments = len(shipment)
+            for i, s in enumerate(shipment, 1):
+                if i == 1:
                     position = "inside 1"
-                elif i == total:  # 最后一个
-                    position = f"outside {total}"
-                else:  # 中间的
+                elif i == total_shipments:
+                    position = f"outside {total_shipments}"
+                else:
                     position = f"inside {i}"
 
                 df.loc[
-                    df["shipment_batch_number__shipment_batch_number"]
-                    == s.shipment_batch_number,
-                    "一提两卸",
+                    df["shipment_batch_number__shipment_batch_number"] == s.shipment_batch_number,
+                    "一提两卸"
                 ] = position
+
         df = df.rename(
             columns={
-                "shipment_batch_number__fleet_number__pickup_number": "Pickup Number",
                 "container_number__container_number": "柜号",
                 "destination": "仓点",
                 "shipment_batch_number__shipment_batch_number": "预约批次",
@@ -1401,28 +1409,36 @@ class FleetManagement(View):
                 "slot": "库位",
             }
         )
-        pickup_number = None
-        if not df.empty and "Pickup Number" in df.columns:
-            pickup_number = df["Pickup Number"].dropna().iloc[0] if not df["Pickup Number"].dropna().empty else ""
 
-        if pickup_number is not None:
-            first_row = pd.DataFrame(
-                [[f"Pickup Number: {pickup_number}"] + [""] * (len(df.columns) - 1)],
-                columns=df.columns
-            )
-            df = pd.concat([first_row, df], ignore_index=True)
+        pickup_number = ""
+        original_pickup_col = "shipment_batch_number__fleet_number__pickup_number"
+        if not df.empty and original_pickup_col in df.columns:
+            non_empty_pickups = df[original_pickup_col].dropna()
+            if not non_empty_pickups.empty:
+                pickup_number = non_empty_pickups.iloc[0]
+            df = df.drop(columns=[original_pickup_col])
+
+        first_row_data = [f"Pickup Number: {pickup_number}"] + [""] * (len(df.columns) - 1)
+        first_row = pd.DataFrame([first_row_data], columns=[f"col_{i}" for i in range(len(df.columns))])
+        header_row = pd.DataFrame([df.columns.tolist()], columns=first_row.columns)
+        df.columns = first_row.columns
+        df = pd.concat([first_row, header_row, df], ignore_index=True)
 
         if len(shipment) > 1:
-            df = df[
-                ["Pickup Number", "柜号", "预约批次", "仓点", "CBM", "板数", "一提两卸", "Appointment", "库位"]
-            ]
+            column_order = ["柜号", "预约批次", "仓点", "CBM", "板数", "一提两卸", "Appointment", "库位"]
         else:
-            df = df[["Pickup Number", "柜号", "预约批次", "仓点", "CBM", "板数", "库位"]]
+            column_order = ["柜号", "预约批次", "仓点", "CBM", "板数", "库位"]
+
+        original_cols = df.iloc[1].tolist()
+        col_mapping = {original: new for original, new in zip(original_cols, df.columns)}
+        keep_cols = [col_mapping[col] for col in column_order if col in col_mapping]
+        df = df[keep_cols]
+
         response = HttpResponse(content_type="text/csv")
         response["Content-Disposition"] = (
             f"attachment; filename=packing_list_{fleet_number}.csv"
         )
-        df.to_csv(path_or_buf=response, index=False)
+        df.to_csv(path_or_buf=response, index=False, header=False)
         return response
 
     async def handle_export_bol_post(self, request: HttpRequest) -> HttpResponse:
