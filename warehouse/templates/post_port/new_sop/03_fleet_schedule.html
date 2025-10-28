@@ -117,10 +117,6 @@
         border-left: 4px solid var(--primary-color);
     }
 
-    .summary-card.unscheduled {
-        border-left-color: var(--warning-color);
-    }
-
     .summary-card.scheduled {
         border-left-color: var(--primary-color);
     }
@@ -295,12 +291,6 @@
         border-radius: 12px;
         font-size: 0.75rem;
         font-weight: 600;
-    }
-
-    .status-unscheduled {
-        background-color: #fff3cd;
-        color: #856404;
-        border: 1px solid #ffeaa7;
     }
 
     .status-scheduled {
@@ -631,11 +621,6 @@
     <div class="system-main">
         <!-- 统计卡片 -->
         <div class="summary-cards">
-            <div class="summary-card unscheduled">
-                <div class="card-title">未排车批次</div>
-                <div class="card-value">{{ summary.unscheduled_count }}</div>
-                <div class="card-trend">待安排车辆</div>
-            </div>
             <div class="summary-card scheduled">
                 <div class="card-title">已排车批次</div>
                 <div class="card-value">{{ summary.scheduled_count }}</div>
@@ -655,10 +640,7 @@
 
         <!-- 标签导航 -->
         <div class="tab-navigation">
-            <div class="tab active" data-tab="unscheduled">
-                未排车批次 <span class="badge">{{ summary.unscheduled_count }}</span>
-            </div>
-            <div class="tab" data-tab="scheduled">
+            <div class="tab active" data-tab="scheduled">
                 已排车批次 <span class="badge">{{ summary.scheduled_count }}</span>
             </div>
             <div class="tab" data-tab="ready">
@@ -668,91 +650,9 @@
                 待传POD批次 <span class="badge">{{ summary.pod_count }}</span>
             </div>
         </div>
-
-        <!-- 未排车批次标签页 -->
-        <div class="content-section active" id="unscheduled-section">
-            <div class="search-box">
-                <div style="display: flex; gap: 10px; flex: 1; align-items: center;">
-                    <input type="text" class="search-input" placeholder="搜索预约批次、目的仓库、预约号..." id="unscheduledSearch">
-                    <button class="search-btn" id="searchUnscheduledBtn">
-                        <i class="fas fa-search"></i> 搜索
-                    </button>
-                    <button class="btn btn-primary" id="confirmScheduleBtn" style="margin-left: auto;">
-                        <i class="fas fa-truck"></i> 确认排车
-                    </button>
-                </div>
-            </div>
-
-            {% if shipment_list %}
-            <div style="margin-top: 20px;">             
-                <div class="table-container">
-                    <table class="data-table">
-                        <thead>
-                            <tr>
-                                <th style="min-width: 40px; text-align: center;"></th>
-                                <th>预约批次</th>
-                                <th>目的仓库</th>
-                                <th>预约号</th>
-                                <th>Scheduled Time</th>
-                                <th>总重lbs</th>
-                                <th>总CBM</th>
-                                <th>总卡板数</th>
-                                <th>备注</th>
-                            </tr>
-                        </thead>
-                        <tbody>
-                            {% for s in shipment_list %}
-                            <tr>
-                                <td style="min-width: 40px; text-align: center;">
-                                    <input type='checkbox' name='is_appointment_added' onclick="toggleRowBackground(this)" {% if s.id in shipment_ids %}checked{% endif %} {% if s.abnormal_palletization or s.po_expired %}disabled{% endif %}>
-                                    <input type="hidden" name="is_appointment_added", value='off'>
-                                    <input type="hidden" name="shipment_ids", value='{{ s.id }}'>
-                                </td>
-                                <td style="max-width: 200px; word-break: break-all;">
-                                    {% if s.batch > 0 %}
-                                    <span class="status-span-red">甩板</span>
-                                    {% endif %}
-                                    {{ s.shipment_batch_number }}
-                                </td>
-                                <td>
-                                    {{ s.destination }}
-                                    {% if s.abnormal_palletization %}
-                                    <span class="status-span-red" style="padding-top: 0; padding-bottom: 0;">未解决拆柜异常</span>
-                                    {% endif %}
-                                    {% if s.po_expired %}
-                                    <span class="status-span-yellow" style="padding-top: 0; padding-bottom: 0;">PO失效</span>
-                                    {% endif %}
-                                </td>
-                                <td>{{ s.appointment_id }}</td>
-                                <td style="max-width: 150px; word-break: break-all;">
-                                    {% if s.shipping_status == "past_due" %}
-                                    <span class="status-span-red">{{ s.shipment_appointment|date:"Y-m-d" }} {{ s.shipment_appointment|time:"H:i" }}</span>
-                                    {% elif s.shipping_status == "need_attention" %}
-                                    <span class="status-span-yellow">{{ s.shipment_appointment|date:"Y-m-d" }} {{ s.shipment_appointment|time:"H:i" }}</span>
-                                    {% else %}
-                                    {{ s.shipment_appointment|date:"Y-m-d" }} {{ s.shipment_appointment|time:"H:i" }}
-                                    {% endif %}
-                                </td>
-                                <td>{{ s.total_weight|floatformat:2 }}</td>
-                                <td>{{ s.total_cbm|floatformat:2 }}</td>
-                                <td>{{ s.total_pallet }}</td>
-                                <td style="max-width: 150px; word-break: break-all;">{% if s.note %}{{ s.note }}{% endif %}</td>
-                            </tr>
-                            {% endfor %}
-                        </tbody>
-                    </table>
-                </div>
-            </div>
-            {% else %}
-            <div style="text-align: center; padding: 40px; color: #6c757d;">
-                <i class="fas fa-robot" style="font-size: 3rem; margin-bottom: 15px;"></i>
-                <p>暂无待排车批次</p>
-            </div>
-            {% endif %}
-        </div>
         
         <!-- 已排车批次标签页 -->
-        <div class="content-section" id="scheduled-section">
+        <div class="content-section active" id="scheduled-section">
             <div class="search-box">
                 <div style="display: flex; gap: 10px; flex: 1; align-items: center;">
                     <input type="text" class="search-input" placeholder="搜索出库批次、预约批次、ISA、carrier..." id="scheduledSearch">
@@ -938,6 +838,7 @@
                         <tr>
                             <th>出库批次</th>
                             <th>预约批次</th>
+                            <th>客户名</th>
                             <th>预约号</th>
                             <th>Carrier</th>
                             <th>预约发车日期</th>
@@ -954,6 +855,7 @@
                         <tr>
                             <td style="max-width: 120px; word-break: break-all;">{{ f.fleet_number.fleet_number }}</td>
                             <td>{{ f.shipment_batch_number }}</td>
+                            <td>{{ f.customer }}</td>
                             <td>{{ f.appointment_id|default_if_none:"" }}</td>
                             <td>{{ f.carrier|default_if_none:"" }}</td>
                             <td>{{ f.fleet_number.appointment_datetime|date:"M-j" }}</td>
@@ -1187,8 +1089,6 @@
 <script>
     const CURRENT_TIME = new Date('{{ current_time|date:"Y-m-d H:i" }}' || new Date());
     function addTimeMarkers() {
-        // 未排车批次 - 按scheduled time
-        markUnscheduledRows();
         
         // 已排车批次 - 按提货时间  
         markScheduledRows();
@@ -1198,45 +1098,6 @@
         
         // 待传POD批次 - 按实际发车时间
         markPodRows();
-    }
-
-    // 未排车批次标记
-    function markUnscheduledRows() {
-        const rows = document.querySelectorAll('#unscheduled-section .data-table tbody tr');
-        
-        rows.forEach((row, index) => {
-            const timeCell = row.cells[4]; // Scheduled Time在第5列
-            let timeText = timeCell.textContent.trim();
-            
-            // 如果有状态span，获取span内的文本
-            const statusSpan = timeCell.querySelector('.status-span-red, .status-span-yellow');
-            if (statusSpan) {
-                timeText = statusSpan.textContent.trim();
-            }
-            
-            
-            if (timeText) {
-                const scheduledTime = parseDateTime(timeText);
-                
-                if (scheduledTime) {
-                    const diffDays = getDayDiff(CURRENT_TIME, scheduledTime); // 当前时间到计划时间的天数
-                    
-                    // 新逻辑：
-                    if (scheduledTime < CURRENT_TIME) {
-                        // 早于当前时间 - 深红色
-                        row.style.backgroundColor = '#ffcccc';
-                    } else if (diffDays <= 1) {
-                        // 未来一天内 - 浅红色
-                        row.style.backgroundColor = '#ffe6e6';
-                    } else if (diffDays <= 2) {
-                        // 未来一天到两天内 - 黄色
-                        row.style.backgroundColor = '#fff9e6';
-                    } else {
-                        row.style.backgroundColor = ''; // 清除背景色
-                    }
-                }
-            }
-        });
     }
 
 
@@ -1305,7 +1166,7 @@
     function markPodRows() {
         const rows = document.querySelectorAll('#pod-section .data-table tbody tr');
         rows.forEach(row => {
-            const timeCell = row.cells[5]; // 实际发车时间在第6列
+            const timeCell = row.cells[6]; // 实际发车时间在第7列（原来是5，现在是6）
             const timeSpan = timeCell.querySelector('.status-span-red, .status-span-yellow');
             const timeText = timeSpan ? timeSpan.textContent : timeCell.textContent.trim();
             
@@ -1389,6 +1250,57 @@
     // 页面加载完成后添加时间标记
     document.addEventListener('DOMContentLoaded', function() {
         addTimeMarkers();
+        // 搜索按钮事件监听
+        const searchScheduledBtn = document.getElementById('searchScheduledBtn');
+        const searchReadyBtn = document.getElementById('searchReadyBtn');
+        const searchPodBtn = document.getElementById('searchPodBtn');
+        
+        if (searchScheduledBtn) {
+            searchScheduledBtn.addEventListener('click', function() {
+                applySearch('scheduled');
+            });
+        }
+        
+        if (searchReadyBtn) {
+            searchReadyBtn.addEventListener('click', function() {
+                applySearch('ready');
+            });
+        }
+        
+        if (searchPodBtn) {
+            searchPodBtn.addEventListener('click', function() {
+                applySearch('pod');
+            });
+        }
+        
+        // 添加回车键搜索功能
+        const scheduledSearch = document.getElementById('scheduledSearch');
+        const readySearch = document.getElementById('readySearch');
+        const podSearch = document.getElementById('podSearch');
+        
+        if (scheduledSearch) {
+            scheduledSearch.addEventListener('keypress', function(e) {
+                if (e.key === 'Enter') {
+                    applySearch('scheduled');
+                }
+            });
+        }
+        
+        if (readySearch) {
+            readySearch.addEventListener('keypress', function(e) {
+                if (e.key === 'Enter') {
+                    applySearch('ready');
+                }
+            });
+        }
+        
+        if (podSearch) {
+            podSearch.addEventListener('keypress', function(e) {
+                if (e.key === 'Enter') {
+                    applySearch('pod');
+                }
+            });
+        }
     });
 
     // 搜索后重新添加时间标记
@@ -1396,18 +1308,29 @@
         const searchTerm = document.getElementById(section + 'Search').value.trim().toLowerCase();
         const rows = document.querySelectorAll('#' + section + '-section .data-table tbody tr');
         
+        let hasResults = false;
+        
         rows.forEach(row => {
             const text = row.textContent.toLowerCase();
-            row.style.display = text.includes(searchTerm) ? '' : 'none';
+            const shouldShow = text.includes(searchTerm);
+            row.style.display = shouldShow ? '' : 'none';
+            
+            if (shouldShow) {
+                hasResults = true;
+            }
         });
         
         // 重新添加时间标记
         setTimeout(() => {
-            if (section === 'unscheduled') markUnscheduledRows();
-            else if (section === 'scheduled') markScheduledRows();
+            if (section === 'scheduled') markScheduledRows();
             else if (section === 'ready') markReadyRows();
             else if (section === 'pod') markPodRows();
         }, 100);
+        
+        // 如果没有搜索结果，可以显示提示（可选）
+        if (!hasResults && searchTerm) {
+            console.log('没有找到匹配的结果');
+        }
     }
     function closeMessageModal() {
         document.getElementById('messageModal').style.display = 'none';
@@ -1514,54 +1437,6 @@
         return `${yyyy}-${MM}-${dd}T${hh}:${mm}`;
     };
 
-    document.getElementById("confirmScheduleBtn").addEventListener("click", function() {
-        const checkboxes = document.querySelectorAll('input[name="is_appointment_added"]:checked');
-        if (checkboxes.length === 0) {
-            alert("请先选择至少一条待排车批次！");
-            return;
-        }
-
-        const selectedIds = [];
-        checkboxes.forEach(cb => {
-            const hiddenInput = cb.closest('tr').querySelector('input[name="shipment_ids"]');
-            if (hiddenInput && hiddenInput.value) {
-                selectedIds.push(hiddenInput.value);
-            }
-        });
-
-        // 设置选中的ID到隐藏字段
-        document.getElementById('fleetModalSelectedIds').value = JSON.stringify(selectedIds);
-        // 将选中的记录信息填入弹窗表格
-        const tbody = document.getElementById("fleetShipmentTableBody");
-        tbody.innerHTML = ""; // 清空旧内容
-
-        checkboxes.forEach(cb => {
-            const tr = cb.closest("tr");
-            const cells = tr.querySelectorAll("td");
-            const newRow = document.createElement("tr");
-            newRow.innerHTML = `
-                <td style="max-width: 120px; word-break: break-all;">${cells[1].innerText}</td>
-                <td>${cells[2].innerText}</td>
-                <td>${cells[3].innerText}</td>
-                <td style="max-width: 150px; word-break: break-all;">${cells[4].innerText}</td>
-                <td style="max-width: 120px; word-break: break-all;">${cells[8].innerText}</td>
-                <td>${cells[5].innerText}</td>
-                <td>${cells[6].innerText}</td>
-                <td>${cells[7].innerText}</td>
-            `;
-            tbody.appendChild(newRow);
-        });
-        
-        document.getElementById('fleetModalStep').value = 'fleet_confirmation';
-        document.getElementById('fleetModalFleetNumber').value = '';
-        
-        // 清空其他表单字段
-        const form = document.querySelector('#fleetModal form');
-        form.reset();
-        // 显示弹窗
-        document.getElementById("fleetModal").style.display = "block";
-    });
-
     function closeFleetModal() {
         document.getElementById("fleetModal").style.display = "none";
     }
@@ -1595,23 +1470,6 @@
             }
         });
     }
-
-    // 搜索功能
-    document.getElementById('searchUnscheduledBtn').addEventListener('click', function() {
-        applySearch('unscheduled');
-    });
-
-    document.getElementById('searchScheduledBtn').addEventListener('click', function() {
-        applySearch('scheduled');
-    });
-
-    document.getElementById('searchReadyBtn').addEventListener('click', function() {
-        applySearch('ready');
-    });
-
-    document.getElementById('searchPodBtn').addEventListener('click', function() {
-        applySearch('pod');
-    });
 
     function applySearch(section) {
         const searchTerm = document.getElementById(section + 'Search').value.trim().toLowerCase();
