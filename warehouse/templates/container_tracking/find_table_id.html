@@ -168,6 +168,7 @@ body {
         {% endif %}
     </div>
     <!-- 右侧删除按钮 -->
+    {% if container_info %}
     <form method="post" style="margin:0;">
         {% csrf_token %}
         <input type="hidden" name="step" value="delete_container_invoice_deliveries">
@@ -180,6 +181,7 @@ body {
             <i class="fas fa-trash"></i> 删除整个柜子 Invoice Delivery
         </button>
     </form>
+    {% endif %}
     <!-- 右侧搜索框 -->
     <div style="position: relative; width: 300px;">
         <input type="text" id="tableSearchInput" placeholder="🔍 搜索表格内容" 
@@ -212,8 +214,6 @@ body {
 {% endif %}
 
 <!-- 查询结果 -->
-
-
 {% if search_results %}
 <table class="data-table">
     <thead>
@@ -252,7 +252,7 @@ body {
                 {% if pallet.invoice_delivery_id %}
                 <form method="post" style="display:inline;">
                     {% csrf_token %}
-                    <input type="hidden" name="step" value="delete_invoice_delivery">
+                    <input type="hidden" name="step" value="delete_pallet_invoice_delivery">
                     <input type="hidden" name="pallet_id" value="{{ pallet.id }}">
                     <input type="hidden" name="search_type" value="{{ search_type }}">
                     <input type="hidden" name="search_value" value="{{ search_value }}">
@@ -269,8 +269,61 @@ body {
         {% endfor %}
     </tbody>
 </table>
-{% elif search_performed %}
-<div class="no-results">未找到匹配记录</div>
+{% endif %}
+
+{% if invoice_deliveries %}
+<div style="overflow-x:auto;">
+    <table class="data-table" style="width:100%; border-collapse: collapse;">
+        <thead>
+            <tr>
+                <th>ID</th>
+                <th>Invoice Delivery</th>
+                <th>Type</th>
+                <th>Delivery Type</th>
+                <th>Destination</th>
+                <th>Total Pallet</th>
+                <th>Total CBM</th>
+                <th>Total Weight</th>
+                <th>Note</th>
+                <th>操作</th>
+            </tr>
+        </thead>
+        <tbody id="tableBody">
+            {% for item in invoice_deliveries %}
+            <tr>
+                <td>{{ item.id }}</td>
+                <td style="max-width:100px; overflow:hidden; text-overflow:ellipsis;">{{ item.invoice_delivery }}</td>
+                <td>{{ item.invoice_type }}</td>
+                <td>{{ item.delivery_type }}</td>
+                <td>{{ item.destination }}</td>
+                <td>{{ item.total_pallet }}</td>
+                <td>{{ item.total_cbm }}</td>
+                <td>{{ item.total_weight_lbs }}</td>
+                <td style="max-width:120px; overflow:hidden; text-overflow:ellipsis;">{{ item.note }}</td>
+                <td>
+                    <form method="post" style="display:inline;">
+                        {% csrf_token %}
+                        <input type="hidden" name="step" value="delete_invoice_delivery">
+                        <input type="hidden" name="invoice_delivery_id" value="{{ item.id }}">
+                        <input type="hidden" name="search_type" value="{{ search_type }}">
+                        <input type="hidden" name="search_value" value="{{ search_value }}">
+                        <button type="submit" style="padding:4px 8px; background:#e74c3c; color:white; border:none; border-radius:4px;">删除</button>
+                    </form>
+                </td>
+            </tr>
+            {% endfor %}
+        </tbody>
+    </table>
+    <div style="margin-top:10px;">
+        <form method="post">
+            {% csrf_token %}
+            <input type="hidden" name="step" value="delete_all_invoice_delivery">
+            <input type="hidden" name="search_type" value="{{ search_type }}">
+            <input type="hidden" name="search_value" value="{{ search_value }}">
+            <button type="submit" style="padding:6px 12px; background:#c0392b; color:white; border:none; border-radius:4px;">删除全部</button>
+        </form>
+    </div>
+</div>
 {% endif %}
 
 <script>
