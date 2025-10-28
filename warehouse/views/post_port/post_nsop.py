@@ -48,13 +48,14 @@ from django.contrib import messages
 from warehouse.models.transfer_location import TransferLocation
 from warehouse.views.post_port.shipment.fleet_management import FleetManagement
 from warehouse.views.post_port.shipment.shipping_management import ShippingManagement
+from warehouse.views.po import PO
 from warehouse.utils.constants import (
     LOAD_TYPE_OPTIONS,
     amazon_fba_locations,
 )
 
 class PostNsop(View):
-    template_main_dash = "post_port/new_sop/01_appointment_management.html"
+    template_main_dash = "post_port/new_sop/01_appointment/01_appointment_management.html"
     template_td_shipment = "post_port/new_sop/02_shipment/02_td_shipment.html"
     template_fleet_schedule = "post_port/new_sop/03_fleet_schedule.html"
     area_options = {"NJ": "NJ", "SAV": "SAV", "LA": "LA", "MO": "MO", "TX": "TX"}
@@ -90,6 +91,7 @@ class PostNsop(View):
         "快递": "快递",
         "客户自提": "客户自提",
     }
+    
     async def get(self, request: HttpRequest) -> HttpResponse:
         if not await self._user_authenticate(request):
             return redirect("login")
@@ -181,7 +183,29 @@ class PostNsop(View):
         elif step == "modify_intelligent_po":
             template, context = await self.handle_modify_intelligent_po_post(request)
             return render(request, template, context)
-            
+        elif step == "upload_check_po":
+            po_cl = PO()
+            request.POST = request.POST.copy()
+            request.POST['time_code'] = 'eta' 
+            info = await po_cl.handle_upload_check_po_post(request,'post_nsop')
+            context = {'success_messages':'校验结果上传成功！'}
+            template, context = await self.handle_appointment_management_post(request,context)
+            return render(request, template, context)    
+        elif step == "create_empty_appointment":
+            sm = ShippingManagement()
+            info = await sm.handle_create_empty_appointment_post(request,'post_nsop') 
+            context = {'success_messages':'备约登记成功！'}
+            template, context = await self.handle_appointment_management_post(request,context)
+            return render(request, template, context)   
+        elif step == "download_empty_appointment_template":
+            sm = ShippingManagement()
+            return await sm.handle_download_empty_appointment_template_post()  
+        elif step == "upload_and_create_empty_appointment":
+            sm = ShippingManagement()
+            info = await sm.handle_upload_and_create_empty_appointment_post(request,'post_nsop') 
+            context = {'success_messages':'备约批量登记成功！'}
+            template, context = await self.handle_appointment_management_post(request,context)
+            return render(request, template, context)   
         else:
             raise ValueError('输入错误',step)
     
@@ -246,9 +270,6 @@ class PostNsop(View):
                 all_suggestions[i] = suggestion_data
                 break
         return await self.handle_td_shipment_post(request,{},all_suggestions)
-
-
-    
 
     async def handle_fleet_add_pallet_post(
         self, request: HttpRequest
@@ -650,8 +671,117 @@ class PostNsop(View):
             shipment.is_canceled = True
             await sync_to_async(shipment.delete)()
         return await self.handle_appointment_management_post(request)
-       
+
     async def handle_export_pos(self, request: HttpRequest) -> HttpResponse:
+        cargo_ids_str_list = request.POST.getlist("cargo_ids")
+        pl_ids = [
+            int(pl_id) 
+            for sublist in cargo_ids_str_list 
+            for pl_id in sublist.split(",") 
+            if pl_id.strip()  # 非空才转换
+        ]
+
+        if not pl_ids:
+            raise ValueError('没有获取到id')
+        # 查找柜号下的pl
+        packing_list = await sync_to_async(
+            lambda: list(
+                PackingList.objects.select_related("container_number", "pallet")
+                .filter(id__in=pl_ids)
+                .values(
+                    "id",
+                    "shipping_mark",
+                    "fba_id",
+                    "ref_id",
+                    "address",
+                    "zipcode",
+                    "container_number__container_number",
+                    "destination",
+                    "cbm"
+                )
+                .annotate(
+                    total_pcs=Sum(
+                        Case(
+                            When(pallet__isnull=True, then=F("pcs")),
+                            default=F("pallet__pcs"),
+                            output_field=IntegerField(),
+                        )
+                    ),
+                    total_n_pallet_est=Sum("cbm", output_field=FloatField()) / 2,
+                    total_cbm=Sum("cbm", output_field=FloatField()),
+                    label=Max(
+                        Case(
+                            When(pallet__isnull=True, then=Value("EST")),
+                            default=Value("ACT"),
+                            output_field=CharField(),
+                        )
+                    ),
+                )
+                .distinct()
+                .order_by("destination", "container_number__container_number")
+            )
+        )()
+        
+        pl_ids_list = [pl["id"] for pl in packing_list]
+        check_map = await sync_to_async(
+            lambda: {
+                p.packing_list_id: p.id
+                for p in PoCheckEtaSeven.objects.filter(packing_list_id__in=pl_ids_list)
+            }
+        )()
+        # 给每条 packing_list 添加 check_id
+        data = []
+        for item in packing_list:
+            item = dict(item)  # 因为 values() 返回的是 ValuesQuerySet
+            item["check_id"] = check_map.get(item["id"])  # 如果没有对应记录就返回 None
+            data.append(item)
+        keep = [
+            "shipping_mark",
+            "container_number__container_number",
+            "fba_id",
+            "ref_id",
+            "total_pcs",
+            "Pallet Count",
+            "label",
+            "check_id",
+            "is_valid",
+            "total_cbm",
+            "destination", 
+        ]
+        df = pd.DataFrame.from_records(data)
+        df["is_valid"] = None
+
+        def get_est_pallet(n):
+            if n < 1:
+                return 1
+            elif n % 1 >= 0.45:
+                return int(n // 1 + 1)
+            else:
+                return int(n // 1)
+
+        df["total_n_pallet_est"] = df["total_n_pallet_est"].apply(get_est_pallet)
+        df["est"] = df["label"] == "EST"
+        df["Pallet Count"] = (
+            df["total_n_pallet_est"] * df["est"]
+        )
+        df = df[keep].rename(
+            {
+                "fba_id": "PRO",
+                "container_number__container_number": "BOL",
+                "ref_id": "PO List (use , as separator) *",
+                "total_pcs": "Carton Count",
+                "total_cbm": "Total CBM",
+                "destination": "Destination",
+            },
+            axis=1,
+        )
+        response = HttpResponse(content_type="text/csv")
+        response["Content-Disposition"] = f"attachment; filename=PO.csv"
+        df.to_csv(path_or_buf=response, index=False)
+        return response
+
+    #这个是按照拿约的模板去导出   
+    async def handle_export_pos_get_appointment(self, request: HttpRequest) -> HttpResponse:
         cargo_ids_str_list = request.POST.getlist("cargo_ids")
         pallet_ids = request.POST.getlist("plt_ids")
 
@@ -1682,7 +1812,7 @@ class PostNsop(View):
         return 72, 35
 
     async def handle_appointment_management_post(
-        self, request: HttpRequest
+        self, request: HttpRequest, context: dict| None = None,
     ) -> tuple[str, dict[str, Any]]:
         warehouse = request.POST.get("warehouse")
         if warehouse:
@@ -1748,7 +1878,9 @@ class PostNsop(View):
                 eta_date = str(vessel_eta).split()[0] if vessel_eta else "未知"
                 vessel_dict[vessel_name] = f"{vessel_name} / {vessel_voyage} → {eta_date}"
         destination_list = list(set(destination_list))
-        context = {
+        if not context:
+            context = {}
+        context.update({
             'warehouse': warehouse,
             'warehouse_options': self.warehouse_options,
             'cargos': unshipment_pos,
@@ -1765,7 +1897,9 @@ class PostNsop(View):
             "vessel_names": vessel_names,
             "vessel_dict": vessel_dict,
             "destination_list": destination_list,
-        }
+            'account_options': self.account_options,
+            'load_type_options': LOAD_TYPE_OPTIONS,
+        })
         return self.template_main_dash, context
     
     async def _get_packing_list(

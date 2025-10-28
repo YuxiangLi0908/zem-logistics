@@ -2549,7 +2549,7 @@ class ShippingManagement(View):
         return self.template_appointment_management, context
 
     async def handle_create_empty_appointment_post(
-        self, request: HttpRequest
+        self, request: HttpRequest, name: str | None = None
     ) -> tuple[str, dict[str, Any]]:
         appointment_id = request.POST.get("appointment_id").strip()
         shipment_cargo_id = (request.POST.get("shipment_cargo_id") or "").strip()
@@ -2570,6 +2570,8 @@ class ShippingManagement(View):
                 "shipment_cargo_id": shipment_cargo_id,
             }
         )
+        if name == "post_nsop":
+            return True
         warehouse = request.POST.get("warehouse", "")
         if warehouse:
             return await self.handle_appointment_warehouse_search_post(request)
@@ -2595,7 +2597,7 @@ class ShippingManagement(View):
             return response
 
     async def handle_upload_and_create_empty_appointment_post(
-            self, request: HttpRequest
+            self, request: HttpRequest, name: str | None = None
     ) -> tuple[str, dict[str, Any]]:
         form = UploadFileForm(request.POST, request.FILES)
         if form.is_valid():
@@ -2669,7 +2671,8 @@ class ShippingManagement(View):
 
             instances = [Shipment(**d) for d in cleaned_data]
             await sync_to_async(bulk_create_with_history)(instances, Shipment)
-
+        if name == "post_nsop":
+            return True
         return await self.handle_appointment_warehouse_search_post(request)
 
     async def handle_shipment_list_search_post(
