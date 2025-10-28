@@ -24,6 +24,7 @@ from django.db.models import Sum
 from django.http import Http404, HttpRequest, HttpResponse
 from django.shortcuts import redirect, render
 from django.utils.dateparse import parse_date
+from django.utils import timezone
 from django.views import View
 from simple_history.utils import bulk_create_with_history, bulk_update_with_history
 
@@ -406,6 +407,10 @@ class OrderCreation(View):
                 "container_number__container_type",
                 "customer_name__zem_name",
                 "vessel_id",
+                "vessel_id__vessel",
+                "vessel_id__shipping_line",
+                "vessel_id__destination_port",
+                "vessel_id__master_bill_of_lading",
                 "order_type",
                 "retrieval_id__retrieval_destination_area",
                 "packing_list_updloaded",
@@ -417,10 +422,19 @@ class OrderCreation(View):
             )
         )
         unfinished_orders = []
-        for o in orders:
-            if not o.get("vessel_id") or not o.get("packing_list_updloaded"):
-                if not o.get("cancel_notification"):
-                    unfinished_orders.append(o)
+        unfinished_orders = [
+            o for o in orders
+            if (
+                   # 航运信息不完整的情况
+                       (not o.get("vessel_id") or
+                        not o.get("vessel_id__vessel") or
+                        not o.get("vessel_id__shipping_line") or
+                        not o.get("vessel_id__destination_port")) and
+                       o.get("vessel_id__master_bill_of_lading")
+               ) or
+               # 未上传装箱单的情况
+               not o.get("packing_list_updloaded")
+        ]
         context = {
             "customers": customers,
             "order_type": self.order_type,
@@ -615,53 +629,89 @@ class OrderCreation(View):
         return self.template_order_details, context
 
     async def handle_create_order_basic_post(
-        self, request: HttpRequest
+            self, request: HttpRequest
     ) -> tuple[Any, Any]:
         customer_id = request.POST.get("customer")
         customer = await sync_to_async(Customer.objects.get)(id=customer_id)
-        created_at = datetime.now()
         order_type = request.POST.get("order_type")
         area = request.POST.get("area")
         destination = request.POST.get("destination")
         container_number = request.POST.get("container_number")
+        mbl = request.POST.get("mbl")
+        etd_str = request.POST.get("etd")  # 原始字符串
+        eta_str = request.POST.get("eta")  # 原始字符串
+        is_expiry_guaranteed = (
+            True if request.POST.get("is_expiry_guaranteed", None) else False
+        )
+        created_at_str = request.POST.get("created_at")
+
+        # 处理日期格式：将纯日期转换为带时间的datetime，空值设为None
+        def parse_date(date_str):
+            if not date_str:  # 为空时返回None
+                return None
+            try:
+                # 前端传的是日期（YYYY-MM-DD），转换为datetime（YYYY-MM-DD 00:00:00）
+                return datetime.strptime(date_str, "%Y-%m-%d").replace(tzinfo=timezone.get_current_timezone())
+            except ValueError:
+                raise RuntimeError(f"无效的日期格式: {date_str}，请使用YYYY-MM-DD")
+
+        # 解析日期（etd可为空，eta和created_at必传）
+        etd = parse_date(etd_str)
+        eta = parse_date(eta_str)
+        created_at = parse_date(created_at_str)
+
+        # 处理已存在的柜号
         try:
             existing_order = await sync_to_async(Order.objects.get)(
                 container_number__container_number=container_number
             )
             if existing_order:
-                # 如果柜号已经存在，就将旧柜号后面加_年月
-                old_created_at = await sync_to_async(
-                    lambda: existing_order.created_at
-                )()
+                old_created_at = await sync_to_async(lambda: existing_order.created_at)()
                 year_month = old_created_at.strftime("%Y%m")
-                old_container = await sync_to_async(
-                    lambda: existing_order.container_number
-                )()
-                old_container.container_number = (
-                    f"{old_container.container_number}_{year_month}"
-                )
+                old_container = await sync_to_async(lambda: existing_order.container_number)()
+                old_container.container_number = f"{old_container.container_number}_{year_month}"
                 await sync_to_async(old_container.save)()
         except ObjectDoesNotExist:
             pass
+
         if await sync_to_async(list)(
-            Order.objects.filter(container_number__container_number=container_number)
+                Order.objects.filter(container_number__container_number=container_number)
         ):
             raise RuntimeError(f"Container {container_number} exists!")
+
+        # 生成UUID
         order_id = str(
             uuid.uuid3(
                 uuid.NAMESPACE_DNS,
-                str(uuid.uuid4())
-                + customer.zem_name
-                + created_at.strftime("%Y-%m-%d %H:%M:%S"),
+                str(uuid.uuid4()) + customer.zem_name + created_at_str,
             )
         )
         retrieval_id = str(uuid.uuid3(uuid.NAMESPACE_DNS, order_id + container_number))
         offload_id = str(uuid.uuid3(uuid.NAMESPACE_DNS, order_id + order_type))
+        vessel_id = str(
+            uuid.uuid3(uuid.NAMESPACE_DNS, container_number + (mbl or ""))
+        )
 
+        # 保存集装箱
         container_data = {
             "container_number": request.POST.get("container_number").upper().strip(),
+            "is_expiry_guaranteed": is_expiry_guaranteed,
+            "note": request.POST.get("note"),
         }
         container = Container(**container_data)
+        await sync_to_async(container.save)()
+
+        # 保存船舶信息（允许etd为空）
+        vessel_data = {
+            "vessel_id": vessel_id,
+            "master_bill_of_lading": mbl,
+            "vessel_etd": etd,  # 可为None
+            "vessel_eta": eta,  # 必传，已通过前端验证
+        }
+        vessel = Vessel(**vessel_data)
+        await sync_to_async(vessel.save)()
+
+        # 保存其他关联表
         retrieval_data = {
             "retrieval_id": retrieval_id,
             "retrieval_destination_area": (
@@ -669,11 +719,16 @@ class OrderCreation(View):
             ),
         }
         retrieval = Retrieval(**retrieval_data)
+        await sync_to_async(retrieval.save)()
+
         offload_data = {
             "offload_id": offload_id,
             "offload_required": True if order_type in ("转运", "转运组合") else False,
         }
         offload = Offload(**offload_data)
+        await sync_to_async(offload.save)()
+
+        # 保存订单
         order_data = {
             "order_id": order_id,
             "customer_name": customer,
@@ -682,13 +737,12 @@ class OrderCreation(View):
             "container_number": container,
             "retrieval_id": retrieval,
             "offload_id": offload,
+            "vessel_id": vessel,
             "packing_list_updloaded": False,
         }
         order = Order(**order_data)
-        await sync_to_async(container.save)()
-        await sync_to_async(retrieval.save)()
-        await sync_to_async(offload.save)()
         await sync_to_async(order.save)()
+
         return await self.handle_order_basic_info_get()
 
     async def handle_update_order_basic_info_post(
@@ -793,23 +847,31 @@ class OrderCreation(View):
         else:
             return await self.handle_order_supplemental_info_get(request)
 
+    @sync_to_async
+    def update_container_by_number(self, container_number, container_type):
+        # 所有同步代码在这里执行，与异步上下文完全隔离
+        Container.objects.filter(container_number=container_number).update(
+            container_type=container_type
+        )
+
     async def handle_update_order_shipping_info_post(
         self, request: HttpRequest
     ) -> tuple[Any, Any]:
         container_number = request.POST.get("container_number")
+        container_type = request.POST.get("container_type")
         if request.POST.get("is_vessel_created").upper().strip() == "YES":
             vessel = await sync_to_async(Vessel.objects.get)(
                 models.Q(order__container_number__container_number=container_number)
             )
-            vessel.master_bill_of_lading = request.POST.get("mbl").upper().strip()
             vessel.destination_port = request.POST.get("pod").upper().strip()
             vessel.shipping_line = request.POST.get("shipping_line").strip()
             vessel.vessel = request.POST.get("vessel").upper().strip()
-            vessel.voyage = request.POST.get("voyage").upper().strip()
             vessel.vessel_eta = request.POST.get("eta")
             vessel.vessel_etd = request.POST.get("etd")
             await sync_to_async(vessel.save)()
+            await self.update_container_by_number(container_number, container_type)
         else:
+            await self.update_container_by_number(container_number, container_type)
             order = await sync_to_async(Order.objects.get)(
                 models.Q(container_number__container_number=container_number)
             )
@@ -820,11 +882,9 @@ class OrderCreation(View):
             )
             vessel = Vessel(
                 vessel_id=vessel_id,
-                master_bill_of_lading=request.POST.get("mbl").upper().strip(),
                 destination_port=request.POST.get("pod").upper().strip(),
                 shipping_line=request.POST.get("shipping_line"),
                 vessel=request.POST.get("vessel").upper().strip(),
-                voyage=request.POST.get("voyage").upper().strip(),
                 vessel_eta=request.POST.get("eta"),
                 vessel_etd=request.POST.get("etd"),
             )
@@ -1447,6 +1507,20 @@ class OrderCreation(View):
                     seq_num += 1
                 po_ids.append(po_id)
             del po_id_hash, po_id, po_id_seg, po_id_hkey
+            total_weight_lbs_list = []
+            for lbs_str in request.POST.getlist("total_weight_lbs"):
+                if lbs_str.strip():  # 跳过空值
+                    try:
+                        total_weight_lbs_list.append(float(lbs_str))
+                    except ValueError:
+                        raise RuntimeError(f"无效的重量值: {lbs_str}，请输入数字")
+
+            total_weight_lbs_sum = sum(total_weight_lbs_list)
+            container = await sync_to_async(Container.objects.get)(
+                container_number=container_number
+            )
+            container.weight_lbs = total_weight_lbs_sum  # 假设Container模型有weight_lbs字段
+            await sync_to_async(container.save)()
             pl_data = zip(
                 request.POST.getlist("delivery_method"),
                 request.POST.getlist("shipping_mark"),
