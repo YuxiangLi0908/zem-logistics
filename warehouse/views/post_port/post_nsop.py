@@ -1415,7 +1415,6 @@ class PostNsop(View):
                 shipment_batch_number__shipment_batch_number__isnull=True,
                 container_number__order__offload_id__offload_at__isnull=True,
                 destination=destination,
-                container_number__order__offload_id__offload_at__gt=datetime(2025, 1, 1),
                 delivery_type='public',
                 
             ) & retrieval_condition
