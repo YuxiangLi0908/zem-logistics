@@ -1291,7 +1291,7 @@ class FleetManagement(View):
         return self.template_outbound, context
 
     async def handle_export_packing_list_post(
-        self, request: HttpRequest
+            self, request: HttpRequest
     ) -> HttpResponse:
         fleet_number = request.POST.get("fleet_number")
         customerInfo = request.POST.get("customerInfo")
@@ -1308,12 +1308,13 @@ class FleetManagement(View):
                         "total_n_pallet": row[4].strip(),
                         "slot": row[6].strip(),
                         "Appointment": row[7].strip(),
+                        "shipment_batch_number__fleet_number__pickup_number": row[8].strip(),
                     }
                 )
         else:
             packing_list = await sync_to_async(list)(
                 PackingList.objects.select_related(
-                    "container_number", "shipment_batch_number", "pallet"
+                    "container_number", "shipment_batch_number", "pallet", "shipment_batch_number__fleet_number"
                 )
                 .filter(
                     shipment_batch_number__fleet_number__fleet_number=fleet_number,
@@ -1324,6 +1325,7 @@ class FleetManagement(View):
                     "destination",
                     "shipment_batch_number__shipment_batch_number",
                     "shipment_batch_number__shipment_appointment",
+                    "shipment_batch_number__fleet_number__pickup_number"
                 )
                 .annotate(
                     total_weight=Round(
@@ -1344,7 +1346,7 @@ class FleetManagement(View):
                 s["total_n_pallet"] = f"预 {s['total_n_pallet']}"
             packing_list += await sync_to_async(list)(
                 Pallet.objects.select_related(
-                    "container_number", "shipment_batch_number"
+                    "container_number", "shipment_batch_number", "shipment_batch_number__fleet_number"
                 )
                 .filter(
                     shipment_batch_number__fleet_number__fleet_number=fleet_number,
@@ -1356,6 +1358,7 @@ class FleetManagement(View):
                     "shipment_batch_number__shipment_batch_number",
                     "shipment_batch_number__shipment_appointment",
                     "slot",
+                    "shipment_batch_number__fleet_number__pickup_number"
                 )
                 .annotate(
                     total_weight=Round(Sum("weight_lbs", output_field=FloatField()), 2),
@@ -1388,6 +1391,7 @@ class FleetManagement(View):
                 ] = position
         df = df.rename(
             columns={
+                "shipment_batch_number__fleet_number__pickup_number": "Pickup Number",
                 "container_number__container_number": "柜号",
                 "destination": "仓点",
                 "shipment_batch_number__shipment_batch_number": "预约批次",
@@ -1397,12 +1401,23 @@ class FleetManagement(View):
                 "slot": "库位",
             }
         )
+        pickup_number = None
+        if not df.empty and "Pickup Number" in df.columns:
+            pickup_number = df["Pickup Number"].dropna().iloc[0] if not df["Pickup Number"].dropna().empty else ""
+
+        if pickup_number is not None:
+            first_row = pd.DataFrame(
+                [[f"Pickup Number: {pickup_number}"] + [""] * (len(df.columns) - 1)],
+                columns=df.columns
+            )
+            df = pd.concat([first_row, df], ignore_index=True)
+
         if len(shipment) > 1:
             df = df[
-                ["柜号", "预约批次", "仓点", "CBM", "板数", "一提两卸", "Appointment", "库位"]
+                ["Pickup Number", "柜号", "预约批次", "仓点", "CBM", "板数", "一提两卸", "Appointment", "库位"]
             ]
         else:
-            df = df[["柜号", "预约批次", "仓点", "CBM", "板数","库位"]]
+            df = df[["Pickup Number", "柜号", "预约批次", "仓点", "CBM", "板数", "库位"]]
         response = HttpResponse(content_type="text/csv")
         response["Content-Disposition"] = (
             f"attachment; filename=packing_list_{fleet_number}.csv"
