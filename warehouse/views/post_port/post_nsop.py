@@ -1195,8 +1195,9 @@ class PostNsop(View):
                 container_number__order__offload_id__offload_at__gt=datetime(2025, 1, 1),
                 location=warehouse,
                 delivery_type='public',
-            )& ~models.Q(delivery_method__contains='暂扣'),
+            )& ~models.Q(delivery_method__contains='暂扣'), True
         )
+        
         
         # 获取可用的shipment记录（shipment_batch_number为空的）
         shipments = await self.get_available_shipments(warehouse)
@@ -1906,6 +1907,7 @@ class PostNsop(View):
         self,
         pl_criteria: models.Q | None = None,
         plt_criteria: models.Q | None = None,
+        name: str | None = None
     ) -> list[Any]:
         def sort_key(item):
             custom_method = item.get("custom_delivery_method")
@@ -1958,11 +1960,9 @@ class PostNsop(View):
                     "delivery_window_start",
                     "delivery_window_end",
                     "note",
-                    "po_expired",
                     "shipment_batch_number__shipment_batch_number",
                     "data_source",  # 包含数据源标识
                     "shipment_batch_number__fleet_number__fleet_number",
-                    "id",  # 添加id用于后续查询
                     "location",  # 添加location用于比较
                     warehouse=F(
                         "container_number__order__retrieval_id__retrieval_destination_precise"
@@ -2000,7 +2000,8 @@ class PostNsop(View):
             #去排查是否有转仓的，有转仓的要特殊处理
             pal_list_trans = await self._find_transfer(pal_list)
             pal_list_sorted = sorted(pal_list_trans, key=sort_key)
-
+            if name:
+                print('pal_list_sorted',pal_list_sorted)
             data += pal_list_sorted
         
         # PackingList 查询 - 添加数据源标识
@@ -2184,44 +2185,67 @@ class PostNsop(View):
         # 第二步：只对需要修改的记录查询TransferLocation
         if need_update_pallets:
             # 获取需要查询的pallet IDs
-            need_update_ids = [pallet['id'] for pallet in need_update_pallets]
-            
+            all_need_update_ids = set()
+            plt_ids_to_pallet_map = {} 
+            for pallet in need_update_pallets:
+                plt_ids_str = pallet.get('plt_ids', '')
+                if plt_ids_str:
+                    try:
+                        plt_id_list = [pid.strip() for pid in plt_ids_str.split(',') if pid.strip()]
+                        for plt_id in plt_id_list:
+                            if plt_id.isdigit():
+                                plt_id_int = int(plt_id)
+                                all_need_update_ids.add(plt_id_int)
+                                plt_ids_to_pallet_map[plt_id_int] = pallet
+                    except (ValueError, AttributeError):
+                        continue
             # 批量查询TransferLocation记录
             transfer_locations = await sync_to_async(list)(
                 TransferLocation.objects.filter(plt_ids__isnull=False)
             )
             
-            # 创建pallet_id到TransferLocation的映射
-            pallet_transfer_map = {}
+            # 创建plt_id到TransferLocation的映射
+            plt_id_transfer_map = {}
             for transfer in transfer_locations:
                 if transfer.plt_ids:
                     try:
-                        plt_id_list = [pid.strip() for pid in transfer.plt_ids.split(',')]
-                        for plt_id in plt_id_list:
-                            if plt_id.isdigit() and int(plt_id) in need_update_ids:
-                                pallet_transfer_map[int(plt_id)] = transfer
+                        transfer_plt_ids = [pid.strip() for pid in transfer.plt_ids.split(',') if pid.strip()]
+                        for plt_id in transfer_plt_ids:
+                            if plt_id.isdigit():
+                                plt_id_int = int(plt_id)
+                                if plt_id_int in all_need_update_ids:
+                                    plt_id_transfer_map[plt_id_int] = transfer
                     except (ValueError, AttributeError):
                         continue
             
-            # 第三步：只修改需要更新的记录
+            # 第三步：处理每个需要更新的pallet记录
+            processed_pallets = set()  # 记录已经处理过的pallet记录（避免重复处理）
+            
+            for plt_id, transfer_record in plt_id_transfer_map.items():
+                pallet = plt_ids_to_pallet_map.get(plt_id)
+                if pallet and id(pallet) not in processed_pallets:
+                    retrieval_destination = pallet.get('retrieval_destination_precise')
+                    
+                    if transfer_record and transfer_record.arrival_time:
+                        # 提取原始仓名称（retrieval_destination_precise以-分组，取前面的值）
+                        original_warehouse = retrieval_destination.split('-')[0] if '-' in retrieval_destination else retrieval_destination
+                        
+                        # 格式化到达时间
+                        arrival_time_str = transfer_record.arrival_time.strftime('%m-%d')
+                        
+                        # 修改offload_time
+                        pallet['offload_time'] = f"{original_warehouse}-{arrival_time_str}"
+                    else:
+                        # 如果没有到达时间，使用原始仓名称
+                        original_warehouse = retrieval_destination.split('-')[0] if '-' in retrieval_destination else retrieval_destination
+                        pallet['offload_time'] = f"{original_warehouse}-转仓中"
+                    
+                    processed_pallets.add(id(pallet))
+            
+            # 第四步：处理没有找到TransferLocation记录但需要更新的pallet
             for pallet in need_update_pallets:
-                pallet_id = pallet['id']
-                retrieval_destination = pallet.get('retrieval_destination_precise')
-                
-                # 查找对应的TransferLocation记录
-                transfer_record = pallet_transfer_map.get(pallet_id)
-                
-                if transfer_record and transfer_record.arrival_time:
-                    # 提取原始仓名称（retrieval_destination_precise以-分组，取前面的值）
-                    original_warehouse = retrieval_destination.split('-')[0] if '-' in retrieval_destination else retrieval_destination
-                    
-                    # 格式化到达时间
-                    arrival_time_str = transfer_record.arrival_time.strftime('%m-%d')
-                    
-                    # 修改offload_time
-                    pallet['offload_time'] = f"{original_warehouse}-{arrival_time_str}"
-                else:
-                    # 如果没有找到TransferLocation记录，使用原始仓名称
+                if id(pallet) not in processed_pallets:
+                    retrieval_destination = pallet.get('retrieval_destination_precise')
                     original_warehouse = retrieval_destination.split('-')[0] if '-' in retrieval_destination else retrieval_destination
                     pallet['offload_time'] = f"{original_warehouse}-转仓中"
         return pal_list
