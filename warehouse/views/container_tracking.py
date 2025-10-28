@@ -238,9 +238,18 @@ class ContainerTracking(View):
 
             if invoice:
                 # 清空对应 Pallet 外键
-                await sync_to_async(lambda: Pallet.objects.filter(invoice_delivery__invoice_number=invoice).update(invoice_delivery=None))()
+                await sync_to_async(
+                    lambda: Pallet.objects.filter(
+                        invoice_delivery__invoice_number=invoice
+                    ).exclude(delivery_type='other')
+                    .update(invoice_delivery=None)
+                )()
                 # 删除 InvoiceDelivery
-                await sync_to_async(lambda: InvoiceDelivery.objects.filter(invoice_number=invoice).delete())()
+                await sync_to_async(
+                    lambda: InvoiceDelivery.objects.filter(invoice_number=invoice)
+                    .exclude(delivery_type='other')
+                    .delete()
+                )()
                 messages.success(request, f"成功删除 Invoice ID {invoice.id} 的所有 InvoiceDelivery")
             else:
                 messages.warning(request, f"未找到对应的 Invoice 或 Container: {search_value}")
