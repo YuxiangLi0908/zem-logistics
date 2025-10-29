@@ -1,0 +1,352 @@
+{% extends 'base.html' %}
+
+{% block content %}
+<style>
+/* 整体背景和字体 */
+body {
+    font-family: "Segoe UI", Tahoma, Geneva, Verdana, sans-serif;
+    color: #2c3e50;
+}
+
+/* 查询栏 */
+.search-form {
+    background: #34495e;
+    padding: 20px;
+    border-radius: 8px;
+    margin-bottom: 20px;
+    color: white;
+}
+
+.search-input-group {
+    display: flex;
+    gap: 10px;
+    flex-wrap: wrap;
+    align-items: center;
+}
+
+.search-input, .search-select {
+    padding: 8px 12px;
+    border-radius: 4px;
+    border: none;
+    font-size: 14px;
+}
+
+.search-select {
+    min-width: 160px;
+}
+
+.search-btn {
+    padding: 8px 16px;
+    background-color: #27ae60;
+    color: white;
+    border: none;
+    border-radius: 4px;
+    cursor: pointer;
+    font-weight: 600;
+    transition: all 0.3s;
+}
+
+.search-btn:hover {
+    background-color: #2ecc71;
+}
+
+/* 消息提示 */
+.message {
+    padding: 12px;
+    border-radius: 4px;
+    margin-bottom: 12px;
+}
+
+.message.success {
+    background: #d4edda;
+    color: #155724;
+    border: 1px solid #c3e6cb;
+}
+
+.message.error {
+    background: #f8d7da;
+    color: #721c24;
+    border: 1px solid #f5c6cb;
+}
+
+.message.warning {
+    background: #fff3cd;
+    color: #856404;
+    border: 1px solid #ffeeba;
+}
+
+/* 查询结果表格 */
+.data-table {
+    width: 100%;
+    border-collapse: collapse;
+    margin-top: 15px;
+}
+
+.data-table th, .data-table td {
+    border: 1px solid #bdc3c7;
+    padding: 8px 10px;
+    text-align: left;
+    font-size: 13px;
+}
+
+.data-table th {
+    background-color: #34495e;
+    color: white;
+    font-weight: 600;
+}
+
+.data-table tr:nth-child(even) {
+    background-color: #ecf0f1;
+}
+
+.data-table tr:hover {
+    background-color: #d0d7de;
+}
+
+/* 列宽限制 */
+.col-fba, .col-ref, .col-shipping {
+    max-width: 120px;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+/* 删除按钮 */
+.delete-btn {
+    padding: 4px 8px;
+    background: #e74c3c;
+    color: white;
+    border: none;
+    border-radius: 4px;
+    font-size: 12px;
+    cursor: pointer;
+    transition: 0.2s;
+}
+
+.delete-btn:hover {
+    background: #c0392b;
+}
+
+.no-results {
+    padding: 20px;
+    text-align: center;
+    color: #7f8c8d;
+    font-style: italic;
+    border: 1px solid #bdc3c7;
+    border-radius: 4px;
+    margin-top: 15px;
+}
+</style>
+
+<!-- 查询表单 -->
+<div class="search-form">
+    <form method="post">
+        {% csrf_token %}
+        <input type="hidden" name="step" value="search_invoice_delivery">
+        <div class="search-input-group">
+            <select name="search_type" class="search-select" required>
+                <option value="">选择查询类型</option>
+                <option value="container" {% if search_type == 'container' %}selected{% endif %}>柜号查询</option>
+                <option value="invoice" {% if search_type == 'invoice' %}selected{% endif %}>发票号查询</option>
+                <option value="pallet" {% if search_type == 'pallet' %}selected{% endif %}>Pallet ID 查询</option>
+            </select>
+            <input type="text" name="search_value" class="search-input"
+                   placeholder="输入查询值" value="{{ search_value|default:'' }}" required>
+            <button type="submit" class="search-btn">查询</button>
+        </div>
+    </form>
+</div>
+<div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 15px;">
+    <!-- 左侧 Container 信息 -->
+    <div>
+        {% if container_info %}
+        <strong>Container ID:</strong> {{ container_info.id }} | 
+        <strong>Container Number:</strong> {{ container_info.number }}
+        {% elif invoice_info %}
+        <strong>Invoice ID:</strong> {{ invoice_info.id }} | 
+        <strong>Invoice Number:</strong> {{ invoice_info.number }}
+        {% endif %}
+    </div>
+    <!-- 右侧删除按钮 -->
+    {% if container_info %}
+    <form method="post" style="margin:0;">
+        {% csrf_token %}
+        <input type="hidden" name="step" value="delete_container_invoice_deliveries">
+        <input type="hidden" name="container_id" value="{{ container_info.id }}">
+        <input type="hidden" name="search_type" value="{{ search_type }}">
+        <input type="hidden" name="search_value" value="{{ search_value }}">
+        <button type="submit" class="delete-btn" 
+                style="background:#e74c3c; color:white; border:none; border-radius:6px; padding:6px 12px; cursor:pointer;"
+                onclick="return confirm('确定要删除这个柜子下所有 Invoice Delivery 吗？')">
+            <i class="fas fa-trash"></i> 删除整个柜子 Invoice Delivery
+        </button>
+    </form>
+    {% endif %}
+    <!-- 右侧搜索框 -->
+    <div style="position: relative; width: 300px;">
+        <input type="text" id="tableSearchInput" placeholder="🔍 搜索表格内容" 
+               style="
+                   width: 100%;
+                   padding: 8px 35px 8px 12px;
+                   border-radius: 6px;
+                   border: 1px solid #ccc;
+                   font-size: 14px;
+                   font-family: 'Arial', sans-serif;
+                   transition: all 0.3s ease;
+               ">
+        <span style="
+                   position: absolute;
+                   right: 10px;
+                   top: 50%;
+                   transform: translateY(-50%);
+                   color: #888;
+                   font-size: 16px;
+               ">🔍</span>
+    </div>
+</div>
+<!-- 消息提示 -->
+{% if messages %}
+    {% for message in messages %}
+        <div class="message {% if message.tags %}{{ message.tags }}{% endif %}">
+            {{ message }}
+        </div>
+    {% endfor %}
+{% endif %}
+
+<!-- 查询结果 -->
+{% if search_results %}
+<table class="data-table">
+    <thead>
+        <tr>
+            <th>Pallet ID</th>
+            <th>柜号</th>
+            <th class="col-fba">FBA</th>
+            <th class="col-ref">REF</th>
+            <th>目的地</th>
+            <th>派送方式</th>
+            <th>CBM</th>
+            <th>重量(lbs)</th>
+            <th>件数</th>
+            <th class="col-shipping">位置</th>
+            <th>备注</th>
+            <th>Invoice Delivery ID</th>
+            <th>操作</th>
+        </tr>
+    </thead>
+    <tbody>
+        {% for pallet in search_results %}
+        <tr>
+            <td>{{ pallet.id }}</td>
+            <td>{{ pallet.container_number__container_number }}</td>
+            <td class="col-fba">{{ pallet.fba_id|default:"-" }}</td>
+            <td class="col-ref">{{ pallet.ref_id|default:"-" }}</td>
+            <td>{{ pallet.destination|default:"-" }}</td>
+            <td>{{ pallet.delivery_method|default:"-" }}</td>
+            <td>{{ pallet.cbm|default:"-" }}</td>
+            <td>{{ pallet.weight_lbs|default:"-" }}</td>
+            <td>{{ pallet.pcs|default:"-" }}</td>
+            <td class="col-shipping">{{ pallet.location|default:"-" }}</td>
+            <td>{{ pallet.note|default:"-" }}</td>
+            <td>{{ pallet.invoice_delivery_id|default:"无" }}</td>
+            <td>
+                {% if pallet.invoice_delivery_id %}
+                <form method="post" style="display:inline;">
+                    {% csrf_token %}
+                    <input type="hidden" name="step" value="delete_pallet_invoice_delivery">
+                    <input type="hidden" name="pallet_id" value="{{ pallet.id }}">
+                    <input type="hidden" name="search_type" value="{{ search_type }}">
+                    <input type="hidden" name="search_value" value="{{ search_value }}">
+                    <button type="submit" class="delete-btn"
+                        onclick="return confirm('确定删除此 Invoice Delivery 吗？')">
+                        删除
+                    </button>
+                </form>
+                {% else %}
+                <span style="color:#7f8c8d;">无</span>
+                {% endif %}
+            </td>
+        </tr>
+        {% endfor %}
+    </tbody>
+</table>
+{% endif %}
+
+{% if invoice_deliveries %}
+<div style="overflow-x:auto;">
+    <table class="data-table" style="width:100%; border-collapse: collapse;">
+        <thead>
+            <tr>
+                <th>ID</th>
+                <th>Invoice Delivery</th>
+                <th>Type</th>
+                <th>Delivery Type</th>
+                <th>Destination</th>
+                <th>Total Pallet</th>
+                <th>Total CBM</th>
+                <th>Total Weight</th>
+                <th>Note</th>
+                <th>操作</th>
+            </tr>
+        </thead>
+        <tbody id="tableBody">
+            {% for item in invoice_deliveries %}
+            <tr>
+                <td>{{ item.id }}</td>
+                <td style="max-width:100px; overflow:hidden; text-overflow:ellipsis;">{{ item.invoice_delivery }}</td>
+                <td>{{ item.invoice_type }}</td>
+                <td>{{ item.delivery_type }}</td>
+                <td>{{ item.destination }}</td>
+                <td>{{ item.total_pallet }}</td>
+                <td>{{ item.total_cbm }}</td>
+                <td>{{ item.total_weight_lbs }}</td>
+                <td style="max-width:120px; overflow:hidden; text-overflow:ellipsis;">{{ item.note }}</td>
+                <td>
+                    <form method="post" style="display:inline;">
+                        {% csrf_token %}
+                        <input type="hidden" name="step" value="delete_invoice_delivery">
+                        <input type="hidden" name="invoice_delivery_id" value="{{ item.id }}">
+                        <input type="hidden" name="search_type" value="{{ search_type }}">
+                        <input type="hidden" name="search_value" value="{{ search_value }}">
+                        <button type="submit" style="padding:4px 8px; background:#e74c3c; color:white; border:none; border-radius:4px;">删除</button>
+                    </form>
+                </td>
+            </tr>
+            {% endfor %}
+        </tbody>
+    </table>
+    <div style="margin-top:10px;">
+        <form method="post">
+            {% csrf_token %}
+            <input type="hidden" name="step" value="delete_all_invoice_delivery">
+            <input type="hidden" name="search_type" value="{{ search_type }}">
+            <input type="hidden" name="search_value" value="{{ search_value }}">
+            <button type="submit" style="padding:6px 12px; background:#c0392b; color:white; border:none; border-radius:4px;">删除全部</button>
+        </form>
+    </div>
+</div>
+{% endif %}
+
+<script>
+setTimeout(() => {
+    document.querySelectorAll('.message').forEach(m => m.style.display='none');
+}, 5000);
+
+// 表格搜索功能
+document.addEventListener('DOMContentLoaded', function() {
+    const input = document.getElementById('tableSearchInput');
+    const table = document.querySelector('.data-table');
+    if (!input || !table) return;
+
+    input.addEventListener('input', function() {
+        const filter = this.value.toLowerCase();
+        const rows = table.tBodies[0].rows;
+
+        Array.from(rows).forEach(row => {
+            const cells = Array.from(row.cells);
+            const match = cells.some(cell => cell.textContent.toLowerCase().includes(filter));
+            row.style.display = match ? '' : 'none';
+        });
+    });
+});
+</script>
+{% endblock %}

@@ -202,6 +202,17 @@
                         </div>
                     </div>
                 </li>
+                <li class="nav-item">
+                    <div class="dropdown">
+                        <a class="nav-link">异常处理</a>
+                        <div class="dropdown-content">
+                            <a href="{% url 'exception_handling' %}?step=post_port_status" target="_blank">港后状态异常</a>
+                            <a href="{% url 'exception_handling' %}?step=shipment_actual" target="_blank">实际约主约修改</a>
+                            <a href="{% url 'exception_handling' %}?step=delivery_invoice" target="_blank">派送账单异常</a>
+                        </div>
+                        
+                    </div>
+                </li>
                 {% if user.is_authenticated and user.is_staff %}
                 <li class="nav-item">
                     <div class="dropdown">
