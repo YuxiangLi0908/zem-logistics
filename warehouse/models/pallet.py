@@ -59,6 +59,7 @@ class Pallet(models.Model):
     po_expired = models.BooleanField(default=False, null=True, blank=True)
 
     note = models.CharField(max_length=2000, null=True, blank=True)
+    note_sp = models.CharField(max_length=2000, null=True, blank=True)
     priority = models.CharField(max_length=20, null=True, blank=True)
     location = models.CharField(max_length=100, null=True, blank=True)
     contact_name = models.CharField(max_length=255, null=True, blank=True)
