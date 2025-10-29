@@ -202,6 +202,17 @@
                         </div>
                     </div>
                 </li>
+                <li class="nav-item">
+                    <div class="dropdown">
+                        <a class="nav-link">异常处理</a>
+                        <div class="dropdown-content">
+                            <a href="{% url 'exception_handling' %}?step=post_port_status" target="_blank">港后状态异常</a>
+                            <a href="{% url 'exception_handling' %}?step=shipment_actual" target="_blank">实际约主约修改</a>
+                            <a href="{% url 'exception_handling' %}?step=delivery_invoice" target="_blank">派送账单异常</a>
+                        </div>
+                        
+                    </div>
+                </li>
                 {% if user.is_authenticated and user.is_staff %}
                 <li class="nav-item">
                     <div class="dropdown">
@@ -214,7 +225,8 @@
                                 <div class="nested-dropdown-content">
                                     <a href="{% url 'container_tracking' %}">上传预约表并展示</a>
                                     <a href="{% url 'container_tracking' %}?step=actual_match" target="_blank">预约表与系统匹配情况</a>
-                                    <a href="{% url 'container_tracking' %}?step=sp_operation" target="_blank">将预约表落实到系统</a>
+                                    <a href="{% url 'container_tracking' %}?step=sp_operation" target="_blank">将预约表落实到系统</a>                             
+                                    <a href="{% url 'container_tracking' %}?step=find_table_id" target="_blank">查询记录id</a>
                                 </div>
                             </div>
                             <div class="nested-dropdown" >

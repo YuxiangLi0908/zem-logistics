@@ -201,13 +201,26 @@ class PO(View):
                     continue
             raise RuntimeError("无法识别文件编码，请检查文件格式！")
 
-    async def handle_upload_check_po_post(self, request: HttpRequest) -> tuple[Any]:
+    async def handle_upload_check_po_post(self, request: HttpRequest, name: str | None = None) -> tuple[Any]:
         time_code = request.POST.get("time_code")
         form = UploadFileForm(request.POST, request.FILES)
         if form.is_valid():
             file = request.FILES["file"]
             df = self.read_csv_smart(file)
             if "check_id" in df.columns and "is_valid" in df.columns:
+                # 检查 check_id 列空值
+                check_id_null_mask = df['check_id'].isna() | (df['check_id'] == '') | (df['check_id'].isnull())
+                if check_id_null_mask.any():
+                    null_indices = df[check_id_null_mask].index.tolist()
+                    null_count = len(null_indices)
+                    raise ValueError(f"check_id列发现 {null_count} 个空值，行号: {null_indices}")
+                
+                # 检查 is_valid 列空值
+                is_valid_null_mask = df['is_valid'].isna() | (df['is_valid'] == '') | (df['is_valid'].isnull())
+                if is_valid_null_mask.any():
+                    null_indices = df[is_valid_null_mask].index.tolist()
+                    null_count = len(null_indices)
+                    raise ValueError(f"is_valid列发现 {null_count} 个空值，行号: {null_indices}")
                 data_pairs = [
                     (
                         row["BOL"],
@@ -271,6 +284,8 @@ class PO(View):
                     #     continue
                     # except Container.DoesNotExist:
                     #     continue
+        if name == "post_nsop":
+            return True
         return await self.handle_po_check_seven(request, time_code)
 
     async def handle_po_check_seven(
@@ -278,7 +293,6 @@ class PO(View):
     ) -> dict[str, dict]:
         today = datetime.now()
         if "eta" in flag:
-            print("eta")
             query = (
                 models.Q(last_eta_checktime__isnull=True)
                 & models.Q(vessel_eta__lte=today + timedelta(days=7))

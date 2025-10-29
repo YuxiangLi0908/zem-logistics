@@ -48,13 +48,14 @@ from django.contrib import messages
 from warehouse.models.transfer_location import TransferLocation
 from warehouse.views.post_port.shipment.fleet_management import FleetManagement
 from warehouse.views.post_port.shipment.shipping_management import ShippingManagement
+from warehouse.views.po import PO
 from warehouse.utils.constants import (
     LOAD_TYPE_OPTIONS,
     amazon_fba_locations,
 )
 
 class PostNsop(View):
-    template_main_dash = "post_port/new_sop/01_appointment_management.html"
+    template_main_dash = "post_port/new_sop/01_appointment/01_appointment_management.html"
     template_td_shipment = "post_port/new_sop/02_shipment/02_td_shipment.html"
     template_fleet_schedule = "post_port/new_sop/03_fleet_schedule.html"
     area_options = {"NJ": "NJ", "SAV": "SAV", "LA": "LA", "MO": "MO", "TX": "TX"}
@@ -90,6 +91,7 @@ class PostNsop(View):
         "快递": "快递",
         "客户自提": "客户自提",
     }
+    
     async def get(self, request: HttpRequest) -> HttpResponse:
         if not await self._user_authenticate(request):
             return redirect("login")
@@ -110,6 +112,7 @@ class PostNsop(View):
         if not await self._user_authenticate(request):
             return redirect("login")
         step = request.POST.get("step")
+        print('step',step)
         if step == "appointment_management_warehouse":
             template, context = await self.handle_appointment_management_post(request)
             return render(request, template, context)
@@ -181,7 +184,29 @@ class PostNsop(View):
         elif step == "modify_intelligent_po":
             template, context = await self.handle_modify_intelligent_po_post(request)
             return render(request, template, context)
-            
+        elif step == "upload_check_po":
+            po_cl = PO()
+            request.POST = request.POST.copy()
+            request.POST['time_code'] = 'eta' 
+            info = await po_cl.handle_upload_check_po_post(request,'post_nsop')
+            context = {'success_messages':'校验结果上传成功！'}
+            template, context = await self.handle_appointment_management_post(request,context)
+            return render(request, template, context)    
+        elif step == "create_empty_appointment":
+            sm = ShippingManagement()
+            info = await sm.handle_create_empty_appointment_post(request,'post_nsop') 
+            context = {'success_messages':'备约登记成功！'}
+            template, context = await self.handle_appointment_management_post(request,context)
+            return render(request, template, context)   
+        elif step == "download_empty_appointment_template":
+            sm = ShippingManagement()
+            return await sm.handle_download_empty_appointment_template_post()  
+        elif step == "upload_and_create_empty_appointment":
+            sm = ShippingManagement()
+            info = await sm.handle_upload_and_create_empty_appointment_post(request,'post_nsop') 
+            context = {'success_messages':'备约批量登记成功！'}
+            template, context = await self.handle_appointment_management_post(request,context)
+            return render(request, template, context)   
         else:
             raise ValueError('输入错误',step)
     
@@ -246,9 +271,6 @@ class PostNsop(View):
                 all_suggestions[i] = suggestion_data
                 break
         return await self.handle_td_shipment_post(request,{},all_suggestions)
-
-
-    
 
     async def handle_fleet_add_pallet_post(
         self, request: HttpRequest
@@ -650,8 +672,117 @@ class PostNsop(View):
             shipment.is_canceled = True
             await sync_to_async(shipment.delete)()
         return await self.handle_appointment_management_post(request)
-       
+
     async def handle_export_pos(self, request: HttpRequest) -> HttpResponse:
+        cargo_ids_str_list = request.POST.getlist("cargo_ids")
+        pl_ids = [
+            int(pl_id) 
+            for sublist in cargo_ids_str_list 
+            for pl_id in sublist.split(",") 
+            if pl_id.strip()  # 非空才转换
+        ]
+
+        if not pl_ids:
+            raise ValueError('没有获取到id')
+        # 查找柜号下的pl
+        packing_list = await sync_to_async(
+            lambda: list(
+                PackingList.objects.select_related("container_number", "pallet")
+                .filter(id__in=pl_ids)
+                .values(
+                    "id",
+                    "shipping_mark",
+                    "fba_id",
+                    "ref_id",
+                    "address",
+                    "zipcode",
+                    "container_number__container_number",
+                    "destination",
+                    "cbm"
+                )
+                .annotate(
+                    total_pcs=Sum(
+                        Case(
+                            When(pallet__isnull=True, then=F("pcs")),
+                            default=F("pallet__pcs"),
+                            output_field=IntegerField(),
+                        )
+                    ),
+                    total_n_pallet_est=Sum("cbm", output_field=FloatField()) / 2,
+                    total_cbm=Sum("cbm", output_field=FloatField()),
+                    label=Max(
+                        Case(
+                            When(pallet__isnull=True, then=Value("EST")),
+                            default=Value("ACT"),
+                            output_field=CharField(),
+                        )
+                    ),
+                )
+                .distinct()
+                .order_by("destination", "container_number__container_number")
+            )
+        )()
+        
+        pl_ids_list = [pl["id"] for pl in packing_list]
+        check_map = await sync_to_async(
+            lambda: {
+                p.packing_list_id: p.id
+                for p in PoCheckEtaSeven.objects.filter(packing_list_id__in=pl_ids_list)
+            }
+        )()
+        # 给每条 packing_list 添加 check_id
+        data = []
+        for item in packing_list:
+            item = dict(item)  # 因为 values() 返回的是 ValuesQuerySet
+            item["check_id"] = check_map.get(item["id"])  # 如果没有对应记录就返回 None
+            data.append(item)
+        keep = [
+            "shipping_mark",
+            "container_number__container_number",
+            "fba_id",
+            "ref_id",
+            "total_pcs",
+            "Pallet Count",
+            "label",
+            "check_id",
+            "is_valid",
+            "total_cbm",
+            "destination", 
+        ]
+        df = pd.DataFrame.from_records(data)
+        df["is_valid"] = None
+
+        def get_est_pallet(n):
+            if n < 1:
+                return 1
+            elif n % 1 >= 0.45:
+                return int(n // 1 + 1)
+            else:
+                return int(n // 1)
+
+        df["total_n_pallet_est"] = df["total_n_pallet_est"].apply(get_est_pallet)
+        df["est"] = df["label"] == "EST"
+        df["Pallet Count"] = (
+            df["total_n_pallet_est"] * df["est"]
+        )
+        df = df[keep].rename(
+            {
+                "fba_id": "PRO",
+                "container_number__container_number": "BOL",
+                "ref_id": "PO List (use , as separator) *",
+                "total_pcs": "Carton Count",
+                "total_cbm": "Total CBM",
+                "destination": "Destination",
+            },
+            axis=1,
+        )
+        response = HttpResponse(content_type="text/csv")
+        response["Content-Disposition"] = f"attachment; filename=PO.csv"
+        df.to_csv(path_or_buf=response, index=False)
+        return response
+
+    #这个是按照拿约的模板去导出   
+    async def handle_export_pos_get_appointment(self, request: HttpRequest) -> HttpResponse:
         cargo_ids_str_list = request.POST.getlist("cargo_ids")
         pallet_ids = request.POST.getlist("plt_ids")
 
@@ -948,13 +1079,36 @@ class PostNsop(View):
             shipment_schduled_at__gte="2024-12-01",
             origin=warehouse,
         )
-        shipment = await sync_to_async(list)(
+        shipments = await sync_to_async(list)(
             Shipment.objects.select_related("fleet_number")
             .filter(criteria)
             .order_by("shipped_at")
         )
+        for shipment in shipments:
+            # 获取与该shipment关联的所有pallet
+            pallets = await sync_to_async(list)(
+                Pallet.objects.filter(shipment_batch_number=shipment)
+                .select_related('container_number')
+            )
+            
+            customer_names = set()
+            
+            for pallet in pallets:
+                if pallet.container_number:
+                    # 获取与该container关联的所有order
+                    orders = await sync_to_async(list)(
+                        Order.objects.filter(container_number=pallet.container_number)
+                        .select_related('customer_name')
+                    )
+                    
+                    for order in orders:
+                        if order.customer_name:
+                            customer_names.add(order.customer_name.zem_name)
+            
+            # 将客户名用逗号拼接，并添加到shipment对象上
+            shipment.customer = ", ".join(customer_names) if customer_names else "无客户信息"
         context = {
-            "fleet": shipment,
+            "fleet": shipments,
         }
         return context
     
@@ -1065,8 +1219,9 @@ class PostNsop(View):
                 container_number__order__offload_id__offload_at__gt=datetime(2025, 1, 1),
                 location=warehouse,
                 delivery_type='public',
-            )& ~models.Q(delivery_method__contains='暂扣'),
+            )& ~models.Q(delivery_method__contains='暂扣'), True
         )
+        
         
         # 获取可用的shipment记录（shipment_batch_number为空的）
         shipments = await self.get_available_shipments(warehouse)
@@ -1284,7 +1439,6 @@ class PostNsop(View):
                 shipment_batch_number__shipment_batch_number__isnull=True,
                 container_number__order__offload_id__offload_at__isnull=True,
                 destination=destination,
-                container_number__order__offload_id__offload_at__gt=datetime(2025, 1, 1),
                 delivery_type='public',
                 
             ) & retrieval_condition
@@ -1682,7 +1836,7 @@ class PostNsop(View):
         return 72, 35
 
     async def handle_appointment_management_post(
-        self, request: HttpRequest
+        self, request: HttpRequest, context: dict| None = None,
     ) -> tuple[str, dict[str, Any]]:
         warehouse = request.POST.get("warehouse")
         if warehouse:
@@ -1748,7 +1902,9 @@ class PostNsop(View):
                 eta_date = str(vessel_eta).split()[0] if vessel_eta else "未知"
                 vessel_dict[vessel_name] = f"{vessel_name} / {vessel_voyage} → {eta_date}"
         destination_list = list(set(destination_list))
-        context = {
+        if not context:
+            context = {}
+        context.update({
             'warehouse': warehouse,
             'warehouse_options': self.warehouse_options,
             'cargos': unshipment_pos,
@@ -1765,13 +1921,16 @@ class PostNsop(View):
             "vessel_names": vessel_names,
             "vessel_dict": vessel_dict,
             "destination_list": destination_list,
-        }
+            'account_options': self.account_options,
+            'load_type_options': LOAD_TYPE_OPTIONS,
+        })
         return self.template_main_dash, context
     
     async def _get_packing_list(
         self,
         pl_criteria: models.Q | None = None,
         plt_criteria: models.Q | None = None,
+        name: str | None = None
     ) -> list[Any]:
         def sort_key(item):
             custom_method = item.get("custom_delivery_method")
@@ -1824,11 +1983,9 @@ class PostNsop(View):
                     "delivery_window_start",
                     "delivery_window_end",
                     "note",
-                    "po_expired",
                     "shipment_batch_number__shipment_batch_number",
                     "data_source",  # 包含数据源标识
                     "shipment_batch_number__fleet_number__fleet_number",
-                    "id",  # 添加id用于后续查询
                     "location",  # 添加location用于比较
                     warehouse=F(
                         "container_number__order__retrieval_id__retrieval_destination_precise"
@@ -1866,7 +2023,8 @@ class PostNsop(View):
             #去排查是否有转仓的，有转仓的要特殊处理
             pal_list_trans = await self._find_transfer(pal_list)
             pal_list_sorted = sorted(pal_list_trans, key=sort_key)
-
+            if name:
+                print('pal_list_sorted',pal_list_sorted)
             data += pal_list_sorted
         
         # PackingList 查询 - 添加数据源标识
@@ -2050,44 +2208,67 @@ class PostNsop(View):
         # 第二步：只对需要修改的记录查询TransferLocation
         if need_update_pallets:
             # 获取需要查询的pallet IDs
-            need_update_ids = [pallet['id'] for pallet in need_update_pallets]
-            
+            all_need_update_ids = set()
+            plt_ids_to_pallet_map = {} 
+            for pallet in need_update_pallets:
+                plt_ids_str = pallet.get('plt_ids', '')
+                if plt_ids_str:
+                    try:
+                        plt_id_list = [pid.strip() for pid in plt_ids_str.split(',') if pid.strip()]
+                        for plt_id in plt_id_list:
+                            if plt_id.isdigit():
+                                plt_id_int = int(plt_id)
+                                all_need_update_ids.add(plt_id_int)
+                                plt_ids_to_pallet_map[plt_id_int] = pallet
+                    except (ValueError, AttributeError):
+                        continue
             # 批量查询TransferLocation记录
             transfer_locations = await sync_to_async(list)(
                 TransferLocation.objects.filter(plt_ids__isnull=False)
             )
             
-            # 创建pallet_id到TransferLocation的映射
-            pallet_transfer_map = {}
+            # 创建plt_id到TransferLocation的映射
+            plt_id_transfer_map = {}
             for transfer in transfer_locations:
                 if transfer.plt_ids:
                     try:
-                        plt_id_list = [pid.strip() for pid in transfer.plt_ids.split(',')]
-                        for plt_id in plt_id_list:
-                            if plt_id.isdigit() and int(plt_id) in need_update_ids:
-                                pallet_transfer_map[int(plt_id)] = transfer
+                        transfer_plt_ids = [pid.strip() for pid in transfer.plt_ids.split(',') if pid.strip()]
+                        for plt_id in transfer_plt_ids:
+                            if plt_id.isdigit():
+                                plt_id_int = int(plt_id)
+                                if plt_id_int in all_need_update_ids:
+                                    plt_id_transfer_map[plt_id_int] = transfer
                     except (ValueError, AttributeError):
                         continue
             
-            # 第三步：只修改需要更新的记录
+            # 第三步：处理每个需要更新的pallet记录
+            processed_pallets = set()  # 记录已经处理过的pallet记录（避免重复处理）
+            
+            for plt_id, transfer_record in plt_id_transfer_map.items():
+                pallet = plt_ids_to_pallet_map.get(plt_id)
+                if pallet and id(pallet) not in processed_pallets:
+                    retrieval_destination = pallet.get('retrieval_destination_precise')
+                    
+                    if transfer_record and transfer_record.arrival_time:
+                        # 提取原始仓名称（retrieval_destination_precise以-分组，取前面的值）
+                        original_warehouse = retrieval_destination.split('-')[0] if '-' in retrieval_destination else retrieval_destination
+                        
+                        # 格式化到达时间
+                        arrival_time_str = transfer_record.arrival_time.strftime('%m-%d')
+                        
+                        # 修改offload_time
+                        pallet['offload_time'] = f"{original_warehouse}-{arrival_time_str}"
+                    else:
+                        # 如果没有到达时间，使用原始仓名称
+                        original_warehouse = retrieval_destination.split('-')[0] if '-' in retrieval_destination else retrieval_destination
+                        pallet['offload_time'] = f"{original_warehouse}-转仓中"
+                    
+                    processed_pallets.add(id(pallet))
+            
+            # 第四步：处理没有找到TransferLocation记录但需要更新的pallet
             for pallet in need_update_pallets:
-                pallet_id = pallet['id']
-                retrieval_destination = pallet.get('retrieval_destination_precise')
-                
-                # 查找对应的TransferLocation记录
-                transfer_record = pallet_transfer_map.get(pallet_id)
-                
-                if transfer_record and transfer_record.arrival_time:
-                    # 提取原始仓名称（retrieval_destination_precise以-分组，取前面的值）
-                    original_warehouse = retrieval_destination.split('-')[0] if '-' in retrieval_destination else retrieval_destination
-                    
-                    # 格式化到达时间
-                    arrival_time_str = transfer_record.arrival_time.strftime('%m-%d')
-                    
-                    # 修改offload_time
-                    pallet['offload_time'] = f"{original_warehouse}-{arrival_time_str}"
-                else:
-                    # 如果没有找到TransferLocation记录，使用原始仓名称
+                if id(pallet) not in processed_pallets:
+                    retrieval_destination = pallet.get('retrieval_destination_precise')
                     original_warehouse = retrieval_destination.split('-')[0] if '-' in retrieval_destination else retrieval_destination
                     pallet['offload_time'] = f"{original_warehouse}-转仓中"
         return pal_list

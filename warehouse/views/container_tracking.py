@@ -8,6 +8,7 @@ from django.utils.decorators import method_decorator
 from django.views import View
 import pandas as pd
 import re
+from django.contrib import messages
 from warehouse.forms.upload_file import UploadFileForm
 from asgiref.sync import sync_to_async
 
@@ -16,6 +17,8 @@ from warehouse.models.container import Container
 from warehouse.models.shipment import Shipment
 from warehouse.models.fleet import Fleet
 from warehouse.models.pallet import Pallet
+from warehouse.models.invoice import Invoice
+from warehouse.models.invoice_details import InvoiceDelivery
 
 from warehouse.views.terminal49_webhook import T49Webhook
 
@@ -24,6 +27,7 @@ class ContainerTracking(View):
     template_main = "container_tracking/main_page.html"
     template_po_sp_match = "container_tracking/po_sp_match.html"
     template_sp_operation = "container_tracking/sp_operation.html"
+    template_find_table_id = "container_tracking/find_table_id.html"
 
     async def get(self, request: HttpRequest) -> HttpResponse:
         step = request.GET.get("step", None)
@@ -31,6 +35,9 @@ class ContainerTracking(View):
             return await sync_to_async(render)(request, self.template_po_sp_match)
         elif step == "sp_operation":
             return await sync_to_async(render)(request, self.template_sp_operation)
+        elif step == "find_table_id":
+            template, context = await self.handle_find_table_id_get(request)
+            return await sync_to_async(render)(request, template, context)
         else:
             return await sync_to_async(render)(request, self.template_main)
 
@@ -67,12 +74,277 @@ class ContainerTracking(View):
         elif step == "Standardize_ISA":
             template, context = await self.handle_Standardize_ISA(request)
             return await sync_to_async(render)(request, template, context)
+        elif step == "search_invoice_delivery":
+            template, context = await self.handle_search_invoice_delivery(request)
+            return await sync_to_async(render)(request, template, context)
+        elif step == "delete_pallet_invoice_delivery":
+            template, context = await self.handle_delete_pallet_invoice_delivery(request)
+            return await sync_to_async(render)(request, template, context)
+        elif step == "delete_container_invoice_deliveries":
+            template, context = await self.handle_delete_container_invoice_deliveries(request)
+            return await sync_to_async(render)(request, template, context) 
+        elif step == "delete_invoice_delivery":
+            template, context = await self.handle_delete_invoice_delivery(request)
+            return await sync_to_async(render)(request, template, context) 
+        elif step == "delete_all_invoice_delivery":
+            template, context = await self.handle_delete_all_invoice_delivery(request)
+            return await sync_to_async(render)(request, template, context) 
         else:
             return await sync_to_async(T49Webhook().post)(request)
         
     async def _send_tracking_request(self):
         pass
     
+    async def handle_find_table_id_get(self,request):
+        context = {}
+        return self.template_find_table_id, context
+    
+    async def handle_search_invoice_delivery(self, request: HttpRequest):
+        """查询 Invoice Delivery 记录"""
+        search_type = request.POST.get("search_type")
+        search_value = request.POST.get("search_value", "").strip()
+
+        if not search_type or not search_value:
+            messages.error(request, "请选择查询类型并输入查询值")
+            return self.template_find_table_id, {"search_performed": False}
+
+        context = {"search_type": search_type, "search_value": search_value}
+        search_results = []
+
+        try:
+            # === 柜号查询 ===
+            if search_type == "container":
+                container = await sync_to_async(
+                    lambda: Container.objects.filter(container_number=search_value).first()
+                )()
+                if container:
+                    context["container_info"] = {"id": container.id, "number": container.container_number}
+                    pallets = await sync_to_async(list)(
+                        Pallet.objects.filter(container_number=container)
+                        .select_related("invoice_delivery")
+                        .values(
+                            "id", "container_number__container_number", "destination", "delivery_method",
+                            "cbm", "weight_lbs", "pcs", "location", "note",
+                            "fba_id", "ref_id", "invoice_delivery_id"
+                        )
+                    )
+                    search_results = pallets
+                else:
+                    messages.warning(request, f"未找到柜号: {search_value}")
+
+            # === 发票查询 ===
+            elif search_type == "invoice":
+                invoice = None
+                # 优先尝试查 invoice_number
+                invoice = await sync_to_async(
+                    lambda: Invoice.objects.filter(invoice_number=search_value).first()
+                )()
+                # 如果没找到，尝试按 container_number 查
+                if not invoice:
+                    container = await sync_to_async(
+                        lambda: Container.objects.filter(container_number=search_value).first()
+                    )()
+                    if container:
+                        invoice = await sync_to_async(
+                            lambda: Invoice.objects.filter(container_number=container).first()
+                        )()
+
+                if invoice:
+                    context["invoice_info"] = {"id": invoice.id, "number": invoice.invoice_number}
+
+                    # 查该 Invoice 下的 InvoiceDelivery
+                    invoice_deliveries = await sync_to_async(list)(
+                        InvoiceDelivery.objects.filter(invoice_number=invoice)
+                        .values(
+                            "id", "invoice_delivery", "invoice_type", "delivery_type",
+                            "destination", "zipcode", "total_pallet", "total_cbm",
+                            "total_weight_lbs", "total_cost", "expense", "note"
+                        )
+                    )
+                    context["invoice_deliveries"] = invoice_deliveries
+                else:
+                    messages.warning(request, f"未找到 Invoice 或 Container: {search_value}")
+
+            # === Pallet 查询 ===
+            elif search_type == "pallet":
+                try:
+                    pallet_id = int(search_value)
+                    pallet = await sync_to_async(
+                        lambda: Pallet.objects.filter(id=pallet_id)
+                        .select_related("invoice_delivery", "container_number")
+                        .values(
+                            "id", "container_number__container_number", "destination", "delivery_method",
+                            "cbm", "weight_lbs", "pcs", "location", "note",
+                            "fba_id", "ref_id", "invoice_delivery_id"
+                        ).first()
+                    )()
+                    if pallet:
+                        search_results = [pallet]
+                    else:
+                        messages.warning(request, f"未找到 Pallet ID: {search_value}")
+                except ValueError:
+                    messages.error(request, "Pallet ID 必须是数字")
+
+            context.update({
+                "search_results": search_results,
+                "search_performed": True
+            })
+            return self.template_find_table_id, context
+
+        except Exception as e:
+            messages.error(request, f"查询过程中发生错误: {str(e)}")
+            return self.template_find_table_id, {"search_performed": True}
+
+    async def handle_delete_invoice_delivery(self, request: HttpRequest):
+        """删除单条 InvoiceDelivery"""
+        invoice_delivery_id = request.POST.get("invoice_delivery_id")
+        search_type = request.POST.get("search_type")
+        search_value = request.POST.get("search_value", "").strip()
+
+        try:
+            # 先把对应 Pallet 的外键置空
+            await sync_to_async(
+                lambda: Pallet.objects.filter(invoice_delivery_id=invoice_delivery_id)
+                .update(invoice_delivery=None)
+            )()
+            # 删除 InvoiceDelivery
+            await sync_to_async(
+                lambda: InvoiceDelivery.objects.filter(id=invoice_delivery_id).delete()
+            )()
+            messages.success(request, f"成功删除 InvoiceDelivery ID {invoice_delivery_id}")
+        except Exception as e:
+            messages.error(request, f"删除过程中发生错误: {str(e)}")
+
+        # 重新查询
+        request.POST = request.POST.copy()
+        request.POST["step"] = "search_invoice_delivery"
+        request.POST["search_type"] = search_type
+        request.POST["search_value"] = search_value
+        return await self.handle_search_invoice_delivery(request)
+
+    async def handle_delete_all_invoice_delivery(self, request: HttpRequest):
+        """删除 Invoice/Container 下所有 InvoiceDelivery"""
+        search_type = request.POST.get("search_type")
+        search_value = request.POST.get("search_value", "").strip()
+
+        try:
+            invoice = None
+            if search_type == "invoice":
+                invoice = await sync_to_async(lambda: Invoice.objects.filter(invoice_number=search_value).first())()
+                if not invoice:
+                    container = await sync_to_async(lambda: Container.objects.filter(container_number=search_value).first())()
+                    if container:
+                        invoice = await sync_to_async(lambda: Invoice.objects.filter(container_number=container).first())()
+
+            if invoice:
+                # 清空对应 Pallet 外键
+                await sync_to_async(
+                    lambda: Pallet.objects.filter(
+                        invoice_delivery__invoice_number=invoice
+                    ).exclude(delivery_type='other')
+                    .update(invoice_delivery=None)
+                )()
+                # 删除 InvoiceDelivery
+                await sync_to_async(
+                    lambda: InvoiceDelivery.objects.filter(invoice_number=invoice)
+                    .exclude(delivery_type='other')
+                    .delete()
+                )()
+                messages.success(request, f"成功删除 Invoice ID {invoice.id} 的所有 InvoiceDelivery")
+            else:
+                messages.warning(request, f"未找到对应的 Invoice 或 Container: {search_value}")
+
+        except Exception as e:
+            messages.error(request, f"删除过程中发生错误: {str(e)}")
+
+        # 重新查询
+        request.POST = request.POST.copy()
+        request.POST["step"] = "search_invoice_delivery"
+        request.POST["search_type"] = search_type
+        request.POST["search_value"] = search_value
+        return await self.handle_search_invoice_delivery(request)
+    
+    async def handle_delete_pallet_invoice_delivery(self, request: HttpRequest):
+        """删除 Pallet 的 Invoice Delivery 外键，并删除对应的 InvoiceDelivery 记录"""
+        pallet_id = request.POST.get("pallet_id")
+        search_type = request.POST.get("search_type")
+        search_value = request.POST.get("search_value", "").strip()
+
+        try:
+            # 先获取 pallet 对应的 invoice_delivery_id
+            pallet = await sync_to_async(
+                lambda: Pallet.objects.filter(id=pallet_id).first()
+            )()
+
+            if pallet and pallet.invoice_delivery_id:
+                invoice_delivery_id = pallet.invoice_delivery_id
+
+                # 先删除 Pallet 的外键
+                await sync_to_async(
+                    lambda: Pallet.objects.filter(id=pallet_id).update(invoice_delivery=None)
+                )()
+
+                # 再删除对应的 InvoiceDelivery 记录
+                deleted_count = await sync_to_async(
+                    lambda: InvoiceDelivery.objects.filter(id=invoice_delivery_id).delete()
+                )()
+
+                messages.success(request, f"成功删除 Pallet ID {pallet_id} 的 Invoice Delivery 及对应记录")
+            else:
+                messages.error(request, "Pallet 没有对应的 Invoice Delivery 记录")
+
+        except Exception as e:
+            messages.error(request, f"删除过程中发生错误: {str(e)}")
+
+        # 删除后重新执行查询
+        request.POST = request.POST.copy()
+        request.POST["step"] = "search_invoice_delivery"
+        request.POST["search_type"] = search_type
+        request.POST["search_value"] = search_value
+        return await self.handle_search_invoice_delivery(request)
+    
+    async def handle_delete_container_invoice_deliveries(self, request: HttpRequest):
+        """删除整个柜子下的所有 Pallet 的 Invoice Delivery 外键，并删除对应的 InvoiceDelivery 记录"""
+        container_id = request.POST.get("container_id")
+        search_type = request.POST.get("search_type", "")
+        search_value = request.POST.get("search_value", "").strip()
+
+        try:
+            # 获取这个柜子下所有 Pallet
+            pallets = await sync_to_async(
+                lambda: list(Pallet.objects.filter(container_number_id=container_id))
+            )()
+
+            if not pallets:
+                messages.error(request, f"未找到 Container ID {container_id} 下的任何 Pallet")
+            else:
+                # 收集所有相关的 invoice_delivery_id
+                invoice_delivery_ids = [p.invoice_delivery_id for p in pallets if p.invoice_delivery_id]
+
+                # 将所有 Pallet 的外键置空
+                await sync_to_async(
+                    lambda: Pallet.objects.filter(container_number_id=container_id).update(invoice_delivery=None)
+                )()
+
+                # 删除对应的 InvoiceDelivery 记录
+                if invoice_delivery_ids:
+                    await sync_to_async(
+                        lambda: InvoiceDelivery.objects.filter(id__in=invoice_delivery_ids).delete()
+                    )()
+                    messages.success(request, f"成功删除 Container ID {container_id} 下所有 Pallet 的 Invoice Delivery 及对应记录")
+                else:
+                    messages.info(request, "这个柜子下的 Pallet 没有任何 Invoice Delivery 记录")
+
+        except Exception as e:
+            messages.error(request, f"删除过程中发生错误: {str(e)}")
+
+        # 删除后重新执行查询
+        request.POST = request.POST.copy()
+        request.POST["step"] = "search_invoice_delivery"
+        request.POST["search_type"] = search_type
+        request.POST["search_value"] = search_value
+        return await self.handle_search_invoice_delivery(request)
+
     async def handle_Standardize_ISA(
         self, request: HttpRequest
     ) -> tuple[Any, Any]:

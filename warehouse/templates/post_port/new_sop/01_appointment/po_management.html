@@ -1,0 +1,835 @@
+{% load custom_filters %}
+<style>
+    /* PO管理专用样式 */
+    .search-box {
+        display: flex;
+        gap: 15px;
+        margin-bottom: 20px;
+        align-items: center;
+        justify-content: space-between;
+        flex-wrap: wrap;
+        border: none !important;
+        padding: 0;
+    }
+
+    .search-input {
+        padding: 10px 15px;
+        border: 1px solid #dce1e6;
+        border-radius: 5px;
+        font-size: 0.9rem;
+        min-width: 250px;
+        margin: 0;
+    }
+
+    .search-btn {
+        padding: 10px 20px;
+        background: var(--primary-color);
+        color: white;
+        border: none;
+        border-radius: 5px;
+        cursor: pointer;
+        font-weight: 600;
+    }
+
+    .sort-options {
+        display: flex;
+        gap: 8px;
+        align-items: center;
+        margin-bottom: 0;
+        border: none;
+    }
+
+    .sort-btn {
+        padding: 8px 16px;
+        background: #f8f9fa;
+        border: 1px solid #dee2e6;
+        border-radius: 5px;
+        cursor: pointer;
+        font-size: 0.85rem;
+        transition: all 0.3s;
+    }
+
+    .sort-btn.active {
+        background: var(--primary-color);
+        color: white;
+        border-color: var(--primary-color);
+    }
+
+    .filter-stats {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        font-size: 0.85rem;
+        color: #666;
+    }
+
+    .batch-actions {
+        display: flex;
+        gap: 10px;
+        margin-bottom: 15px;
+        padding: 15px;
+        background: #f8f9fa;
+        border-radius: 8px;
+        align-items: center;
+        border: 1px solid #e9ecef;
+    }
+
+    .selected-count {
+        font-weight: 600;
+        color: var(--secondary-color);
+    }
+
+    .vessel-tag.selected {
+        background-color: #3498db !important;
+        color: #fff !important;
+        border-color: #2980b9 !important;
+        box-shadow: 0 2px 5px rgba(0, 0, 0, 0.2);
+    }
+
+    .vessel-tag:hover {
+        transform: translateY(-2px);
+        box-shadow: 0 4px 8px rgba(0, 0, 0, 0.15);
+    }
+
+    .destination-tag.selected {
+        background-color: #e74c3c !important;
+        color: #fff !important;
+        border-color: #c0392b !important;
+        box-shadow: 0 2px 5px rgba(0, 0, 0, 0.2);
+    }
+
+    .destination-tag:hover {
+        transform: translateY(-2px);
+        box-shadow: 0 4px 8px rgba(0, 0, 0, 0.15);
+    }
+
+    .container-col:hover,
+    .ref-ids-col:hover,
+    .fba-ids-col:hover {
+        overflow: visible;
+        white-space: normal;
+        word-break: break-all;
+        position: relative;
+        z-index: 2;
+        background: white;
+        box-shadow: 0 0 8px rgba(0,0,0,0.15);
+    }
+
+    /* 表格样式 - 与分页面2保持一致 */
+    .table-container {
+        overflow-x: auto;
+        overflow-y: auto;
+        max-height: 600px;
+        border-radius: 8px;
+        box-shadow: 0 3px 10px rgba(0, 0, 0, 0.08);
+        margin-bottom: 20px;
+    }
+
+    .data-table {
+        width: 100%;
+        border-collapse: collapse;
+    }
+
+    .data-table th {
+        position: sticky;
+        top: 0;
+        background: var(--secondary-color);
+        color: white;
+        padding: 12px;
+        text-align: left;
+        font-weight: 600;
+        font-size: 0.9rem;
+    }
+
+    .data-table td {
+        padding: 12px;
+        border-bottom: 1px solid #eaecef;
+        font-size: 0.85rem;
+    }
+
+    .data-table tr:nth-child(even) {
+        background-color: #f9fafb;
+    }
+
+    .data-table tr:hover {
+        background-color: #edf2f7;
+    }
+
+    .checkbox-cell {
+        width: 40px;
+        text-align: center;
+    }
+
+    /* 状态标签样式 */
+    .pallet-badge {
+        display: inline-block;
+        padding: 4px 8px;
+        border-radius: 4px;
+        font-size: 0.8rem;
+        font-weight: 600;
+    }
+
+    .pallet-actual {
+        background-color: #e8f5e9;
+        color: #2e7d32;
+        border: 1px solid #c8e6c9;
+    }
+
+    .pallet-estimated {
+        background-color: #fff3e0;
+        color: #ef6c00;
+        border: 1px solid #ffe0b2;
+    }
+
+    .status-badge {
+        display: inline-block;
+        padding: 4px 8px;
+        border-radius: 4px;
+        font-size: 0.8rem;
+        font-weight: 600;
+    }
+
+    .status-expired {
+        background-color: #ffebee;
+        color: #c62828;
+        border: 1px solid #ffcdd2;
+    }
+</style>
+
+<div class="search-box">
+    <div style="display: flex; gap: 10px; flex: 1; align-items: center;">
+        <input type="text" class="search-input" placeholder="搜索目的地、PO号、REF ID..." id="cargoSearch">
+        <button class="search-btn" id="searchCargoBtn">
+            <i class="fas fa-search"></i> 搜索
+        </button>
+        <div style="display: flex; align-items: center; gap: 8px; margin-left: 10px;">
+            <small style="color: #666; white-space: nowrap;">筛选结果:</small>
+            <span id="filterResultStats" style="font-size: 0.85rem; color: var(--primary-color); font-weight: 600;">
+                总板数: <span id="totalPalletsCount">0</span> | 总CBM: <span id="totalCbmCount">0</span>
+            </span>
+        </div>
+    </div>
+    
+    <div class="sort-options" style="margin-bottom: 0;">
+        <button class="sort-btn active" data-sort="destination">目的地</button>
+        <button class="sort-btn" data-sort="pallets">板数</button>
+        <button class="sort-btn" data-sort="eta">ETA</button>
+        <small style="color: #666; margin-left: 8px; white-space: nowrap;">（排序方式）</small>
+    </div>
+</div>
+
+<div class="batch-actions">
+    <span class="selected-count">已选择 <span id="selectedCount">0</span> 组PO</span>
+    
+    <button class="action-btn btn-primary" onclick="exportSelectedCargos()">
+        <i class="fas fa-file-export"></i> 导出选PO
+    </button>
+    <button class="action-btn btn-success" onclick="openUploadModal()">
+        <i class="fas fa-file-upload"></i> 上传文件
+    </button>
+</div>
+<div id="uploadModal" style="display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.5); z-index: 1000; justify-content: center; align-items: center;">
+    <div style="background: white; padding: 30px; border-radius: 10px; width: 500px; max-width: 90%;">
+        <h3 style="margin-bottom: 20px; color: var(--secondary-color);">
+            <i class="fas fa-file-upload"></i> 上传文件
+        </h3>
+        
+        <form method="post" action="" enctype="multipart/form-data" id="uploadForm">
+            {% csrf_token %}
+            <input type="hidden" name="step" value="upload_check_po">
+            <input type="hidden" name="warehouse" value="{{ warehouse }}">
+            <input type="hidden" name="st_type" value="{{ st_type }}">
+            <div style="margin-bottom: 20px;">
+                <label style="display: block; margin-bottom: 8px; font-weight: 600; color: var(--secondary-color);">
+                    选择文件:
+                </label>
+                <input type="file" name="file" id="upload_file" 
+                       accept=".xlsx,.xls,.csv," 
+                       style="width: 100%; padding: 10px; border: 2px dashed #ddd; border-radius: 5px;"
+                       onchange="updateFileName(this)">
+                <div id="fileName" style="margin-top: 10px; font-size: 0.9rem; color: var(--primary-color);"></div>
+            </div>
+            
+            <div style="display: flex; gap: 10px; justify-content: flex-end;">
+                <button type="button" class="action-btn btn-secondary" onclick="closeUploadModal()">
+                    <i class="fas fa-times"></i> 取消
+                </button>
+                <button type="submit" class="action-btn btn-success" id="uploadSubmitBtn">
+                    <i class="fas fa-upload"></i> 上传
+                </button>
+            </div>
+        </form>
+    </div>
+</div>
+<!-- 船名筛选区域 -->
+<div class="vessel-filter-section" style="margin-bottom: 20px; padding: 15px; background: #f8f9fa; border-radius: 8px; border-left: 4px solid #3498db;">
+    <div style="display: flex; justify-content: space-between; align-items: flex-start; gap: 15px; flex-wrap: nowrap;">
+        <!-- 左边：船名列表 -->
+        <div style="flex: 1; min-width: 0;">
+            <div style="display: flex; align-items: flex-start; gap: 8px;">
+                <strong style="color: #2c3e50; white-space: nowrap; flex-shrink: 0; margin-top: 2px;">
+                    <i class="fas fa-ship"></i> 船名列表 (点击筛选):
+                </strong>
+                <div id="vesselList" style="display: flex; gap: 8px; flex-wrap: wrap; flex: 1;">
+                    {% for vessel_name, display_text in vessel_dict.items %}
+                    <span class="vessel-tag" data-vessel="{{ vessel_name }}" 
+                        style="background: #e3f2fd; padding: 4px 12px; border-radius: 16px; font-size: 0.85rem; 
+                                border: 1px solid #bbdefb; cursor: pointer; transition: all 0.3s; flex-shrink: 0;"
+                        onclick="toggleVesselFilter('{{ vessel_name }}')">
+                        {{ display_text }}
+                    </span>
+                    {% empty %}
+                    <span style="color: #666; font-style: italic;">暂无船名数据</span>
+                    {% endfor %}
+                </div>
+            </div>
+        </div>
+        
+        <!-- 右边：操作按钮 -->
+        <div style="flex-shrink: 0; display: flex; align-items: center; gap: 8px; margin-left: 20px;">
+            <button id="clearVesselFilter" class="action-btn btn-warning" style="padding: 8px 12px; flex-shrink: 0;" onclick="clearVesselFilter()">
+                <i class="fas fa-times"></i> 清除筛选
+            </button>
+        </div>
+    </div>
+</div>
+
+<!-- 目的地筛选区域 -->
+<div class="destination-filter-section" style="margin-bottom: 20px; padding: 15px; background: #f8f9fa; border-radius: 8px; border-left: 4px solid #e74c3c;">
+    <div style="display: flex; justify-content: space-between; align-items: flex-start; gap: 15px; flex-wrap: nowrap;">
+        <!-- 左边：目的地列表 -->
+        <div style="flex: 1; min-width: 0;">
+            <div style="display: flex; align-items: flex-start; gap: 8px;">
+                <strong style="color: #2c3e50; white-space: nowrap; flex-shrink: 0; margin-top: 2px;">
+                    <i class="fas fa-map-marker-alt"></i> 目的地列表 (点击筛选):
+                </strong>
+                <div id="destinationList" style="display: flex; gap: 8px; flex-wrap: wrap; flex: 1;">
+                    {% for destination in destination_list %}
+                    <span class="destination-tag" data-destination="{{ destination }}" 
+                        style="background: #ffeaa7; padding: 4px 12px; border-radius: 16px; font-size: 0.85rem; 
+                                border: 1px solid #fdcb6e; cursor: pointer; transition: all 0.3s; flex-shrink: 0;"
+                        onclick="toggleDestinationFilter('{{ destination }}')">
+                        {{ destination }}
+                    </span>
+                    {% empty %}
+                    <span style="color: #666; font-style: italic;">暂无目的地数据</span>
+                    {% endfor %}
+                </div>
+            </div>
+        </div>
+        
+        <!-- 右边：操作按钮 -->
+        <div style="flex-shrink: 0; display: flex; align-items: center; gap: 8px; margin-left: 20px;">
+            <button id="clearDestinationFilter" class="action-btn btn-warning" style="padding: 8px 12px; flex-shrink: 0;" onclick="clearDestinationFilter()">
+                <i class="fas fa-times"></i> 清除目的地
+            </button>
+        </div>
+    </div>
+</div>
+
+<!-- 导PO的表单 -->
+<form method="post" action="" id="exportForm" style="display: none;">
+    {% csrf_token %}
+    <input type="hidden" name="step" value="export_pos">
+    <input type="hidden" name="cargo_ids" id="cargoIdsInput">
+    <input type="hidden" name="plt_ids" id="pltIdsInput">
+</form>
+
+<div class="table-container">
+    <table class="data-table" id="cargoTable">
+        <thead>
+            <tr>
+                <th class="checkbox-cell">
+                    <input type="checkbox" id="selectAllCargos" class="cargo-checkbox" value="{% if cargo.plt_ids %}plt_{{ cargo.plt_ids }}{% else %}{{ cargo.ids }}{% endif %}"
+                    onclick="toggleSelectAll()">
+                </th>
+                <th data-sort="ref_ids">REF ID</th>
+                <th data-sort="fba_ids">FBA ID</th>
+                <th data-sort="destination">目的地</th>
+                <th class="delivery-method-col" data-sort="delivery_method">派送方式</th>
+                <th class="vessel-col" data-sort="vessels">船名</th>
+                <th class="container-col" data-sort="containers">柜号</th>
+                <th data-sort="delivery_window">派送时间窗口</th>
+                <th data-sort="pallets">板数</th>
+                <th data-sort="cbm">CBM</th>
+                <th data-sort="note">备注</th>
+            </tr>
+        </thead>
+        <tbody>
+            {% for cargo in cargos %}
+            <tr data-cargo-id="{{ cargo.ids }}" 
+                data-destination="{{ cargo.destination }}" 
+                data-pallets="{% if cargo.label == 'ACT' %}{{ cargo.total_n_pallet_act|default:0 }}{% else %}{{ cargo.total_n_pallet_est|default:0 }}{% endif %}" 
+                data-cbm="{{ cargo.total_cbm|default:0 }}"
+                data-ref-ids="{{ cargo.ref_ids }}"
+                data-fba-ids="{{ cargo.fba_ids }}"
+                data-delivery-method="{{ cargo.custom_delivery_method }}"
+                data-vessel-name="{{ cargo.vessel_name|default:'' }}"
+                data-container-number="{{ cargo.cns|default:'' }}"
+                >
+                <td class="checkbox-cell">
+                    <input type="checkbox" class="cargo-checkbox" 
+                        value="{% if cargo.plt_ids %}plt_{{ cargo.plt_ids }}{% else %}{{ cargo.ids }}{% endif %}"
+                        onchange="updateSelectedCount()">
+                </td>
+                <td class="ref-ids-col">
+                    {% if cargo.ref_ids %}
+                        {{ cargo.ref_ids|truncatechars:20 }}
+                    {% else %}
+                        -
+                    {% endif %}
+                </td>
+                <td class="fba-ids-col">
+                    {% if cargo.fba_ids %}
+                        {{ cargo.fba_ids|truncatechars:20 }}
+                    {% else %}
+                        -
+                    {% endif %}
+                </td>
+                <td>{{ cargo.destination|default:"-" }}</td>
+                <td class="delivery-method-col">{{ cargo.custom_delivery_method|default:"-" }}</td>
+                <td class="container-col" style="white-space: pre-line;" id="container-{{ forloop.counter }}">
+                    {{ cargo.vessel_name }}
+                </td>                 
+                <td class="container-col" style="white-space: pre-line;" id="container-{{ forloop.counter }}">
+                    {{ cargo.container_numbers }}
+                </td>
+                <td>
+                    {% if not cargo.delivery_window_start and not cargo.delivery_window_end %}
+                        -
+                    {% else %}
+                        {{ cargo.delivery_window_start|date:"M. j" }} ~ {{ cargo.delivery_window_end|date:"M. j" }}
+                    {% endif %}
+                </td>
+                <td>
+                    {% if cargo.label == 'ACT' %}
+                        <span class="pallet-badge pallet-actual">
+                            <span style="font-size: 16px; font-weight: bold;">{{ cargo.total_n_pallet_act|default:0 }}</span> ACT
+                        </span>
+                    {% else %}
+                        <span class="pallet-badge pallet-estimated">
+                            <span style="font-size: 16px; font-weight: bold;">{{ cargo.total_n_pallet_est|default:0 }}</span> EST
+                        </span>
+                    {% endif %}
+                </td>
+                <td>
+                    <span class="status-badge status-expired">{{ cargo.total_cbm }}</span>
+                </td>
+                <td>
+                    {{ cargo.note|default_if_none:"" }}
+                </td>
+            </tr>
+            {% empty %}
+            <tr>
+                <td colspan="11" style="text-align: center; padding: 20px;">
+                    暂无待匹配PO
+                </td>
+            </tr>
+            {% endfor %}
+        </tbody>
+    </table>
+</div>
+
+<script>
+    // PO管理专用JavaScript
+    document.addEventListener('DOMContentLoaded', function() {
+        initializePOManagement();
+    });
+
+    function initializePOManagement() {
+        setTimeout(updateFilterStats, 100);
+        
+        // 初始化柜号显示格式
+        document.querySelectorAll('.container-col').forEach(cell => {
+            let content = cell.textContent;
+            
+            content = content
+                .replace(/(\[实际\]|\[预计\]|\[未安排\]) ([A-Z]{4}\d{7}) ETA:([\d-]+)( 提柜:([\d-~]+))?/g, 
+                    function(match, status, container, eta, hasRetrieval, retrieval) {
+                        let html = `<span class="part-separated" style="color: #e74c3c; font-weight: bold;">${status}</span>`;
+                        html += `<span class="part-separated" style="color: #2980b9; font-weight: bold;">${container}</span>`;
+                        html += `<span class="part-separated" style="color: #8e44ad;">ETA:${eta}</span>`;
+                        if (retrieval) {
+                            html += `<span class="part-separated" style="color: #27ae60;">提柜:${retrieval}</span>`;
+                        }
+                        return html;
+                    });
+            
+            cell.innerHTML = content;
+        });
+
+        // 全选/取消全选
+        const selectAllCheckbox = document.getElementById('selectAllCargos');
+        if (selectAllCheckbox) {
+            selectAllCheckbox.addEventListener('change', toggleSelectAll);
+        }
+
+        // 单个选择框变化
+        document.querySelectorAll('.cargo-checkbox').forEach(checkbox => {
+            checkbox.addEventListener('change', function() {
+                updateSelectedCount();
+            });
+        });
+
+        // 初始更新选中数量
+        updateSelectedCount();
+        
+        // 搜索功能
+        const searchCargoBtn = document.getElementById('searchCargoBtn');
+        if (searchCargoBtn) {
+            searchCargoBtn.addEventListener('click', applyCombinedFilter);
+        }
+
+        const cargoSearch = document.getElementById('cargoSearch');
+        if (cargoSearch) {
+            cargoSearch.addEventListener('keypress', function(e) {
+                if (e.key === 'Enter') {
+                    applyCombinedFilter();
+                }
+            });
+        }
+
+        // 排序功能
+        initializeSorting();
+    }
+
+    function initializeSorting() {
+        let currentSort = 'destination';
+        let sortDirection = 'asc';
+
+        document.querySelectorAll('.sort-btn').forEach(btn => {
+            btn.addEventListener('click', function() {
+                const sortField = this.getAttribute('data-sort');
+                
+                // 更新活跃排序按钮
+                document.querySelectorAll('.sort-btn').forEach(b => b.classList.remove('active'));
+                this.classList.add('active');
+                
+                // 切换排序方向
+                if (currentSort === sortField) {
+                    sortDirection = sortDirection === 'asc' ? 'desc' : 'asc';
+                } else {
+                    currentSort = sortField;
+                    sortDirection = 'asc';
+                }
+                
+                sortTable(sortField, sortDirection);
+            });
+        });
+
+        function sortTable(sortField, direction) {
+            const tbody = document.querySelector('#cargoTable tbody');
+            if (!tbody) return;
+            
+            const rows = Array.from(tbody.querySelectorAll('tr'));
+            
+            rows.sort((a, b) => {
+                let aValue, bValue;
+                
+                switch(sortField) {
+                    case 'destination':
+                        aValue = a.getAttribute('data-destination') || '';
+                        bValue = b.getAttribute('data-destination') || '';
+                        break;
+                    case 'pallets':
+                        aValue = parseFloat(a.getAttribute('data-pallets')) || 0;
+                        bValue = parseFloat(b.getAttribute('data-pallets')) || 0;
+                        break;
+                    case 'eta':
+                        aValue = a.getAttribute('data-eta') || '';
+                        bValue = b.getAttribute('data-eta') || '';
+                        break;
+                    case 'container':
+                        aValue = a.getAttribute('data-container-number') || '';
+                        bValue = b.getAttribute('data-container-number') || '';
+                        break;
+                    case 'ref_ids':
+                        aValue = a.getAttribute('data-ref-ids') || '';
+                        bValue = b.getAttribute('data-ref-ids') || '';
+                        break;
+                    case 'fba_ids':
+                        aValue = a.getAttribute('data-fba-ids') || '';
+                        bValue = b.getAttribute('data-fba-ids') || '';
+                        break;
+                    case 'delivery_method':
+                        aValue = a.getAttribute('data-delivery-method') || '';
+                        bValue = b.getAttribute('data-delivery-method') || '';
+                        break;
+                    default:
+                        return 0;
+                }
+                
+                if (direction === 'asc') {
+                    return aValue > bValue ? 1 : -1;
+                } else {
+                    return aValue < bValue ? 1 : -1;
+                }
+            });
+            
+            // 清空并重新添加排序后的行
+            rows.forEach(row => tbody.appendChild(row));
+            
+            // 更新统计信息
+            updateFilterStats();
+        }
+    }
+
+    // 全选功能
+    function toggleSelectAll() {
+        const selectAllCheckbox = document.getElementById('selectAllCargos');
+        const cargoCheckboxes = document.querySelectorAll('.cargo-checkbox');
+        const isChecked = selectAllCheckbox.checked;
+        
+        cargoCheckboxes.forEach(checkbox => {
+            const row = checkbox.closest('tr');
+            if (row.style.display !== 'none') {
+                checkbox.checked = isChecked;
+            }
+        });
+        updateSelectedCount();
+    }
+
+    function exportSelectedCargos() {
+        const selectedCheckboxes = Array.from(document.querySelectorAll('.cargo-checkbox:checked'))
+        .filter(checkbox => checkbox.closest('tr').style.display !== 'none');
+        if (selectedCheckboxes.length === 0) {
+            alert('请先选择要导出的PO');
+            return;
+        }
+
+        const cargoIds = [];
+        const pltIds = [];
+
+        selectedCheckboxes.forEach(checkbox => {
+            const value = checkbox.value.trim();
+            // 如果 value 中包含 plt_ 说明是板数据，否则是普通 cargo
+            if (value.startsWith('plt_')) {
+                pltIds.push(value.replace(/^plt_/, ''));
+            } else {
+                cargoIds.push(value);
+            }
+        });
+
+        // 设置隐藏表单字段并提交
+        const cargoIdsInput = document.getElementById('cargoIdsInput');
+        const pltIdsInput = document.getElementById('pltIdsInput');
+        const exportForm = document.getElementById('exportForm');
+        
+        if (cargoIdsInput && pltIdsInput && exportForm) {
+            cargoIdsInput.value = cargoIds.join(',');
+            pltIdsInput.value = pltIds.join(',');
+            exportForm.submit();
+        }
+    }
+
+    function updateFilterStats() {
+        const visibleRows = Array.from(document.querySelectorAll('#cargoTable tbody tr'))
+            .filter(row => row.style.display !== 'none');
+        
+        let totalPallets = 0;
+        let totalCbm = 0;
+        
+        visibleRows.forEach(row => {
+            const pallets = parseFloat(row.getAttribute('data-pallets')) || 0;
+            const cbm = parseFloat(row.getAttribute('data-cbm')) || 0; // CBM列是第11列
+            
+            totalPallets += pallets;
+            totalCbm += cbm;
+        });
+        
+        const totalPalletsCount = document.getElementById('totalPalletsCount');
+        const totalCbmCount = document.getElementById('totalCbmCount');
+        
+        if (totalPalletsCount) totalPalletsCount.textContent = Math.round(totalPallets);
+        if (totalCbmCount) totalCbmCount.textContent = totalCbm.toFixed(2);
+    }
+
+    // 目的地筛选函数
+    let selectedVessels = new Set();
+    let selectedDestinations = new Set();
+
+    function toggleDestinationFilter(destination) {
+        const destinationKey = destination.trim().toLowerCase();
+        const destinationTag = document.querySelector(`.destination-tag[data-destination="${destination}"]`);
+        
+        if (selectedDestinations.has(destinationKey)) {
+            selectedDestinations.delete(destinationKey);
+            destinationTag.classList.remove('selected');
+        } else {
+            selectedDestinations.add(destinationKey);
+            destinationTag.classList.add('selected');
+        }
+        applyCombinedFilter();
+    }
+
+    function toggleVesselFilter(vesselName) {
+        const nameKey = vesselName.trim().toLowerCase();
+        const vesselTag = document.querySelector(`.vessel-tag[data-vessel="${vesselName}"]`);
+        
+        if (selectedVessels.has(nameKey)) {
+            selectedVessels.delete(nameKey);
+            vesselTag.classList.remove('selected');
+        } else {
+            selectedVessels.add(nameKey);
+            vesselTag.classList.add('selected');
+        }
+        applyCombinedFilter();
+    }
+
+    function clearDestinationFilter() {
+        const destinationTags = document.querySelectorAll('.destination-tag');
+        selectedDestinations.clear();
+        
+        destinationTags.forEach(tag => {
+            tag.classList.remove('selected');
+        });
+        
+        applyCombinedFilter();
+    }
+
+    function clearVesselFilter() {
+        const vesselTags = document.querySelectorAll('.vessel-tag');
+        selectedVessels.clear();
+        
+        vesselTags.forEach(tag => {
+            tag.classList.remove('selected');
+        });
+        
+        applyCombinedFilter();
+    }
+    
+    function applyCombinedFilter() {
+        const searchTerm = document.getElementById('cargoSearch');
+        if (!searchTerm) return;
+        
+        const searchValue = searchTerm.value.trim().toLowerCase();
+        const rows = document.querySelectorAll('#cargoTable tbody tr');
+        // 将搜索词按空格分割成多个关键词
+        const searchKeywords = searchValue.split(/\s+/).filter(keyword => keyword.length > 0);
+
+        rows.forEach(row => {
+            const rowVessel = (row.dataset.vesselName || '').trim().toLowerCase();
+            const rowDestination = (row.dataset.destination || '').trim().toLowerCase();
+            const refIds = (row.dataset.refIds || '').toLowerCase();
+            const fbaIds = (row.dataset.fbaIds || '').toLowerCase();
+            const containerNumber = (row.dataset.containerNumber || '').toLowerCase();
+
+            // === 条件① 船名匹配 ===
+            const vesselMatch = selectedVessels.size === 0 || selectedVessels.has(rowVessel);
+            // === 条件② 目的地匹配 ===
+            const destinationMatch = selectedDestinations.size === 0 || selectedDestinations.has(rowDestination);
+
+            let searchMatch = true;
+            if (searchKeywords.length > 0) {
+                // 检查任一关键词是否匹配任一字段
+                searchMatch = searchKeywords.some(keyword => {
+                    return rowDestination.includes(keyword) ||
+                        refIds.includes(keyword) ||
+                        fbaIds.includes(keyword) ||
+                        containerNumber.includes(keyword);
+                });
+            }
+
+            // === "并且"逻辑 ===
+            if (vesselMatch && destinationMatch && searchMatch) {
+                row.style.display = '';
+            } else {
+                row.style.display = 'none';
+                // 隐藏行时取消选中
+                const checkbox = row.querySelector('.cargo-checkbox');
+                if (checkbox) {
+                    checkbox.checked = false;
+                }
+            }
+        });
+
+        updateFilterStats();
+        updateSelectedCount();
+    }
+
+    // 更新选中数量
+    function updateSelectedCount() {
+        const selectedCountEl = document.getElementById('selectedCount');
+        if (!selectedCountEl) return;
+        const selected = document.querySelectorAll('.cargo-checkbox:checked').length;
+        selectedCountEl.textContent = selected;
+        // 更新全选框的状态
+        updateSelectAllCheckbox();
+    }
+
+    function updateSelectAllCheckbox() {
+        const selectAllCheckbox = document.getElementById('selectAllCargos');
+        if (!selectAllCheckbox) return;
+        
+        const visibleCheckboxes = Array.from(document.querySelectorAll('.cargo-checkbox'))
+            .filter(checkbox => checkbox.closest('tr').style.display !== 'none');
+        
+        if (visibleCheckboxes.length === 0) {
+            selectAllCheckbox.checked = false;
+            selectAllCheckbox.indeterminate = false;
+            return;
+        }
+        
+        const checkedCount = visibleCheckboxes.filter(checkbox => checkbox.checked).length;
+        
+        if (checkedCount === 0) {
+            selectAllCheckbox.checked = false;
+            selectAllCheckbox.indeterminate = false;
+        } else if (checkedCount === visibleCheckboxes.length) {
+            selectAllCheckbox.checked = true;
+            selectAllCheckbox.indeterminate = false;
+        } else {
+            selectAllCheckbox.checked = false;
+            selectAllCheckbox.indeterminate = true;
+        }
+    }
+
+    function openUploadModal() {
+        const modal = document.getElementById('uploadModal');
+        if (modal) {
+            modal.style.display = 'flex';
+        }
+    }
+
+    function closeUploadModal() {
+        const modal = document.getElementById('uploadModal');
+        if (modal) {
+            modal.style.display = 'none';
+            // 重置表单
+            document.getElementById('uploadForm').reset();
+            document.getElementById('fileName').textContent = '';
+        }
+    }
+
+    function updateFileName(input) {
+        const fileNameDiv = document.getElementById('fileName');
+        if (input.files.length > 0) {
+            fileNameDiv.textContent = '已选择文件: ' + input.files[0].name;
+        } else {
+            fileNameDiv.textContent = '';
+        }
+    }
+
+    // 点击模态框外部关闭
+    document.addEventListener('click', function(event) {
+        const modal = document.getElementById('uploadModal');
+        if (event.target === modal) {
+            closeUploadModal();
+        }
+    });
+
+    // 添加上传表单提交处理
+    document.getElementById('uploadForm').addEventListener('submit', function(e) {
+        const fileInput = document.getElementById('uploadFile');
+        if (fileInput.files.length === 0) {
+            e.preventDefault();
+            alert('请选择要上传的文件');
+            return;
+        }
+        
+        // 显示上传中状态
+        const submitBtn = document.getElementById('uploadSubmitBtn');
+        submitBtn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> 上传中...';
+        submitBtn.disabled = true;
+    });
+</script>

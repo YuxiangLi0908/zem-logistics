@@ -1,0 +1,476 @@
+{% load custom_filters %}
+<style>
+    /* 预约管理专用样式 */
+    .appointment-table-container {
+        overflow-x: auto;
+        overflow-y: auto;
+        max-height: 600px;
+        border-radius: 8px;
+        box-shadow: 0 3px 10px rgba(0, 0, 0, 0.08);
+        margin-bottom: 20px;
+    }
+
+    .appointment-data-table {
+        width: 100%;
+        border-collapse: collapse;
+    }
+
+    .appointment-data-table th {
+        position: sticky;
+        top: 0;
+        background: var(--secondary-color);
+        color: white;
+        padding: 12px;
+        text-align: left;
+        font-weight: 600;
+        font-size: 0.9rem;
+    }
+    .appointment-data-table td {
+        padding: 12px;
+        border-bottom: 1px solid #eaecef;
+        font-size: 0.85rem;
+    }
+
+    .appointment-data-table tr:nth-child(even) {
+        background-color: #f9fafb;
+    }
+
+    .appointment-data-table tr:hover {
+        background-color: #edf2f7;
+    }
+
+    .status-span-red {
+        background-color: #e74c3c;
+        color: white;
+        font-weight: bold;
+        margin-right: 8px;
+        padding: 4px 8px;
+        border-radius: 4px;
+        font-size: 0.8rem;
+    }
+
+    .status-span-red-100 {
+        background-color: #ffebee;
+        color: #c62828;
+        font-weight: 600;
+        padding: 4px 8px;
+        border-radius: 4px;
+        border: 1px solid #ffcdd2;
+        font-size: 0.8rem;
+    }
+
+    .status-span-yellow {
+        background-color: #f39c12;
+        color: white;
+        font-weight: bold;
+        margin-right: 8px;
+        padding: 4px 8px;
+        border-radius: 4px;
+        font-size: 0.8rem;
+    }
+
+    .status-span-yellow-100 {
+        background-color: #fff3e0;
+        color: #ef6c00;
+        font-weight: 600;
+        padding: 4px 8px;
+        border-radius: 4px;
+        border: 1px solid #ffe0b2;
+        font-size: 0.8rem;
+    }
+    .status-normal {
+        color: #2c3e50;
+        font-weight: 500;
+    }
+    .appointment-edit-input {
+        font-size: 0.75rem;
+        padding: 0.25rem 0.5rem;
+        line-height: 1.5;
+        border-radius: 0.2rem;
+        border: 1px solid #ced4da;
+        width: 150px;
+    }
+    .appointment-confirm-btn {
+        padding: 0.25rem 0.5rem;
+        font-size: 0.75rem;
+        line-height: 1.5;
+        border-radius: 0.2rem;
+    }
+
+    /* 为Scheduled Time列添加特定的样式 */
+    .appointment-data-table td:nth-child(5) {
+        min-width: 200px;
+    }
+
+    /* 功能A的样式调整 */
+    .appointment-creation-form {
+        width: 100%;
+        margin-bottom: 20px;
+    }
+
+    .appointment-creation-container {
+        border: 2px solid #e0e0e0;
+        border-radius: 8px;
+        padding: 15px;
+        background: #fafafa;
+    }
+
+    .appointment-creation-header {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        margin-bottom: 15px;
+    }
+
+    .appointment-creation-badge {
+        background-color: #e0e0e0;
+        border-radius: 12px;
+        font-size: 12px;
+        color: #666;
+        padding: 6px 12px;
+        font-weight: bold;
+    }
+
+    .appointment-creation-buttons {
+        display: flex;
+        gap: 10px;
+        align-items: center;
+    }
+
+    .appointment-creation-table {
+        width: 100%;
+        font-size: 13px;
+        border-collapse: collapse;
+    }
+
+    .appointment-creation-table th {
+        background: #f8f9fa;
+        padding: 10px;
+        text-align: left;
+        font-weight: 600;
+        border-bottom: 2px solid #dee2e6;
+    }
+
+    .appointment-creation-table td {
+        padding: 8px;
+        border-bottom: 1px solid #eaecef;
+    }
+
+    .appointment-creation-table input,
+    .appointment-creation-table select {
+        width: 100%;
+        padding: 6px 8px;
+        border: 1px solid #ced4da;
+        border-radius: 4px;
+        font-size: 13px;
+        box-sizing: border-box;
+    }
+
+    .btn {
+        padding: 6px 12px;
+        border: none;
+        border-radius: 4px;
+        cursor: pointer;
+        font-size: 13px;
+        font-weight: 500;
+    }
+
+    .btn-primary {
+        background: var(--primary-color);
+        color: white;
+    }
+
+    .btn-success {
+        background: var(--success-color);
+        color: white;
+    }
+
+    .btn:hover {
+        opacity: 0.9;
+    }
+</style>
+
+<!-- 功能A：添加备约 -->
+<div class="appointment-creation-form">
+    <form id="empty-appointment-creation-form" method="post" action="" onsubmit="showLoadingBar()">
+        {% csrf_token %}
+        <input type="hidden" name="warehouse" value="{{ warehouse }}">
+        <input type="hidden" name="st_type" value="{{ st_type }}">
+        <input type="hidden" name="step" value="create_empty_appointment">
+        
+        <div class="appointment-creation-container">
+            <div class="appointment-creation-header">
+                <div>
+                    <span class="appointment-creation-badge">添加备约</span>
+                </div>  
+                <div class="appointment-creation-buttons">
+                    <button id="create_empty_appointment" type="submit" class="btn btn-primary" onclick="updatePayload(this)">
+                        确认创建
+                    </button>
+                </div>
+            </div>
+            
+            <table class="appointment-creation-table">
+                <thead>
+                    <tr>
+                        <th>预约账号</th>
+                        <th>shipment ID</th>
+                        <th>预约号</th>
+                        <th>目的地</th>
+                        <th>Scheduled Time</th>
+                        <th>装车类型</th>
+                        <th>发货仓库</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    <tr>
+                        <td>
+                            <select name="shipment_account" id="shipment-account-select">
+                                {% for k, v in account_options.items %}
+                                <option value="{{ v }}">{{ k }}</option>
+                                {% endfor %}
+                            </select>
+                        </td>
+                        <td><input type="number" name="shipment_cargo_id"></td>
+                        <td><input type="number" name="appointment_id" required></td>
+                        <td><input type="text" name="destination" required></td>
+                        <td><input type="datetime-local" name="shipment_appointment" required></td>
+                        <td>
+                            <select name="load_type" id="load-type-select">
+                                {% for k, v in load_type_options %}
+                                <option value="{{ v }}">{{ k }}</option>
+                                {% endfor %}
+                            </select>
+                        </td>
+                        <td>
+                            <select name="origin" id="origin-select">
+                                {% for k, v in warehouse_options.items %}
+                                <option value="{{ v }}">{{ k }}</option>
+                                {% endfor %}
+                            </select>
+                        </td>
+                    </tr>
+                </tbody>
+            </table>
+        </div>
+    </form>
+    <div style="margin-top: 15px; display: flex; gap: 10px; align-items: center;">
+        <form id="upload-appointment-form" method="post" enctype="multipart/form-data" action="" onsubmit="showLoadingBar()" style="display: flex; gap: 10px; align-items: center;">
+            {% csrf_token %}
+            <input type="hidden" name="warehouse" value="{{ warehouse }}">
+            <input type="hidden" name="st_type" value="{{ st_type }}">
+            <input type="hidden" name="step" value="upload_and_create_empty_appointment">
+            
+            <div style="font-size: 11px;">
+                <input type="file" name="file" accept=".xlsx,.xls,.csv" required style="font-size: 13px;">
+            </div>
+            <button type="submit" class="btn btn-success">
+                备约批量上传
+            </button>
+        </form>
+
+        <form id="download-template-form" method="post" action="" onsubmit="showLoadingBar()">
+            {% csrf_token %}
+            <input type="hidden" name="warehouse" value="{{ warehouse }}">
+            <input type="hidden" name="st_type" value="{{ st_type }}">
+            <input type="hidden" name="step" value="download_empty_appointment_template">
+            <button type="submit" class="btn btn-success">
+                模版下载
+            </button>
+        </form>
+    </div>
+</div>
+
+<!-- 现有的预约数据表格 -->
+<div class="appointment-table-container">
+    <table class="appointment-data-table">
+        <thead>
+            <tr>
+                <th>预约账号</th>
+                <th>预约号</th>
+                <th>shipment ID</th>
+                <th>目的地</th>
+                <th>Scheduled Time</th>
+                <th>装车类型</th>
+                <th>发货仓库</th>
+            </tr>
+        </thead>
+        <tbody>
+            {% for s in shipments %}
+            <tr>
+                <td>
+                    {{ s.shipment_account|default_if_none:"" }}
+                </td>
+                <td>{{ s.appointment_id }}</td>
+                <td>{{ s.shipment_cargo_id|default_if_none:'' }}</td>
+                <td>{{ s.destination }}</td>
+                <td>
+                    {% if s.status == 'expired' %}
+                    <span class="status-span-red">已过期</span>
+                    <span class="status-span-red-100" id="appointment_{{ forloop.counter }}" data-original-value="{{ s.shipment_appointment|date:'Y-m-d\\TH:i' }}">
+                        {{ s.shipment_appointment|date:'Y-m-d' }} {{ s.shipment_appointment|time:'H:i' }}
+                    </span>
+                    {% elif s.status == 'urgent' %}
+                    <span class="status-span-yellow">即将过期</span>
+                    <span class="status-span-yellow-100" id="appointment_{{ forloop.counter }}" data-original-value="{{ s.shipment_appointment|date:'Y-m-d\\TH:i' }}">
+                        {{ s.shipment_appointment|date:'Y-m-d' }} {{ s.shipment_appointment|time:'H:i' }}
+                    </span>
+                    {% else %}
+                    <span id="appointment_{{ forloop.counter }}" data-original-value="{{ s.shipment_appointment|date:'Y-m-d\\TH:i' }}">
+                        {{ s.shipment_appointment|date:'Y-m-d' }} {{ s.shipment_appointment|time:'H:i' }}
+                    </span>
+                    {% endif %}
+                    <select style="font-size:.75rem; padding:.25rem.5rem; line-height:1.5; border-radius:.2rem;" onchange="handleAppointmentSelectChange(this, '{{ s.appointment_id }}', '{{ forloop.counter }}')">
+                        <option value="">操作</option>
+                        <option value="delete">删除</option>
+                        <option value="edit">编辑</option>
+                    </select>
+
+                    <input type="datetime-local" class="appointment-edit-input" id="editAppointmentInput_{{ forloop.counter }}" style="display: none;">
+                    <button class="btn btn-success btn-sm appointment-confirm-btn" id="confirm_{{ forloop.counter }}" onclick="confirmAppointment(this, '{{ s.appointment_id }}', '{{ forloop.counter }}')" style="display: none;">确认</button>
+                </td>
+                <td>
+                    {{ s.load_type|default_if_none:"" }}
+                </td>
+                <td>{% if s.origin %}{{ s.origin }}{% endif %}</td>
+            </tr>
+            {% empty %}
+            <tr>
+                <td colspan="7" style="text-align: center; padding: 20px;">
+                    暂无预约数据
+                </td>
+            </tr>
+            {% endfor %}
+        </tbody>
+    </table>
+</div>
+
+<!-- 修改约的表单 -->
+<form method="post" action="" id="appointmentHiddenForm" style="display: none;">
+    {% csrf_token %}
+    <input type="hidden" id="appointmentId" name="appointmentId">
+    <input type="hidden" id="operation" name="operation">
+    <input type="hidden" id="appointmentTime" name="appointmentTime">
+    <input type="hidden" id="warehouse" name="warehouse">
+    <input type="hidden" id="st_type" name="st_type" value ="{{ st_type }}">
+    <input type="hidden" name="step" value="appointment_time_modify">
+    <button type="submit">提交</button>
+</form>
+
+<script>
+    // 工具：把 Date -> "YYYY-MM-DDTHH:MM"（本地时间，不含秒）
+    function formatDateToLocalNoSeconds(d) {
+        const pad = (n) => n.toString().padStart(2, '0');
+        // 使用本地时间各分量，避免 toISOString() 的 UTC 偏移
+        const Y = d.getFullYear();
+        const M = pad(d.getMonth() + 1);
+        const D = pad(d.getDate());
+        const h = pad(d.getHours());
+        const m = pad(d.getMinutes());
+        return `${Y}-${M}-${D}T${h}:${m}`;
+    }
+
+    // 初始化函数：如果你保留在其它地方调用它，这里只做必要检查，不覆盖内联 onchange
+    window.initializeAppointmentManagement = function() {
+        // 检查是否在活跃标签
+        const section = document.getElementById('appointments-section');
+        if (!section || !section.classList.contains('active')) {
+            return;
+        }
+        // 不覆盖模板里已有的内联 onchange，避免破坏传入的参数（appointmentId / counter）
+        // 但如果你想用 JS 绑定而不是内联，这里可以改为添加 data-id/data-counter 至 select，并绑定。
+    };
+
+    // handler 由模板内联调用：handleAppointmentSelectChange(this, '{{ s.appointment_id }}', '{{ forloop.counter }}')
+    function handleAppointmentSelectChange(select, appointmentId, counter) {
+        var value = select.value;
+        if (value === 'edit') {
+            editAppointment(select, appointmentId, counter);
+        } else if (value === 'delete') {
+            deleteAppointment(select, appointmentId, counter);
+        }
+    }
+
+    function editAppointment(select, appointmentId, counter) {
+        const span = document.getElementById('appointment_' + counter);
+        const input = document.getElementById('editAppointmentInput_' + counter);
+        const confirmButton = document.getElementById('confirm_' + counter);
+
+        if (!span || !input || !confirmButton) {
+            // 找不到对应元素 -> 打印日志方便排查
+            console.warn('[appointment] missing elements for counter=', counter, 'appointmentId=', appointmentId);
+            return;
+        }
+
+        // 切换显示
+        select.style.display = 'none';
+        span.style.display = 'none';
+        input.style.display = 'inline-block';
+        confirmButton.style.display = 'inline-block';
+
+        // 尝试读取 data-original-value（模板里有设置）
+        let originalValue = span.dataset.originalValue || span.getAttribute('data-original-value') || '';
+
+        // 如果 originalValue 包含空格（例如 "YYYY-MM-DD HH:MM"），把空格换成 'T'
+        if (originalValue && originalValue.includes(' ')) {
+            originalValue = originalValue.replace(' ', 'T');
+            console.log('[appointment] originalValue replaced space->T =', originalValue);
+        }
+
+        // 如果还是空，回退到当前本地时间
+        if (!originalValue) {
+            const now = new Date();
+            originalValue = formatDateToLocalNoSeconds(now);
+            console.log('[appointment] originalValue was empty, fallback to now =', originalValue);
+        }
+
+        // 有时 originalValue 可能包含秒或时区，确保被截断为前 16 位 "YYYY-MM-DDTHH:MM"
+        if (originalValue.length > 16) {
+            originalValue = originalValue.slice(0, 16);
+            console.log('[appointment] originalValue truncated to 16 chars =', originalValue);
+        }
+
+        // 最终赋值 —— 对 datetime-local，空字符串或不合格式都会让控件显示为空
+        input.value = originalValue;
+        // 尝试把焦点给 input，方便直接编辑
+        try { input.focus(); } catch (e) { /* ignore */ }
+    }
+
+    function confirmAppointment(button, appointmentId, counter) {
+        const input = document.getElementById('editAppointmentInput_' + counter);
+        if (!input) return;
+
+        const newTime = input.value;
+        if (!newTime) {
+            alert('请输入合法的时间');
+            return;
+        }
+        if (!confirm('确定要修改预约时间为: ' + newTime + ' 吗？')) return;
+
+        const form = document.getElementById('appointmentHiddenForm');
+        form.querySelector('#operation').value = 'edit';
+        form.querySelector('#appointmentTime').value = newTime;
+        form.querySelector('#appointmentId').value = appointmentId;
+        form.querySelector('#warehouse').value = document.querySelector('input[name="warehouse"]').value;
+        form.submit();
+    }
+
+    function deleteAppointment(button, appointmentId, counter) {
+        if (!confirm('确定要删除这个预约吗？此操作不可撤销！')) return;
+
+        const form = document.getElementById('appointmentHiddenForm');
+        form.querySelector('#operation').value = 'delete';
+        form.querySelector('#appointmentId').value = appointmentId;
+        form.querySelector('#warehouse').value = document.querySelector('input[name="warehouse"]').value;
+        form.submit();
+    }
+
+    // 占位函数（如果页面其它地方依赖，可以实现或保留空实现）
+    function updatePayload(button) {
+        // 原有的updatePayload函数逻辑（如果有，请放回这里）
+    }
+
+    function showLoadingBar() {
+        // 原有的showLoadingBar函数逻辑（如果有，请放回这里）
+    }
+</script>
