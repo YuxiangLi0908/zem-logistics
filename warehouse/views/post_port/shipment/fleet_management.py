@@ -2291,6 +2291,8 @@ class FleetManagement(View):
         fleet_number = request.POST.get("fleet_number")
         customerInfo = request.POST.get("customerInfo")
         notes = ""
+        pickup_number = ""
+
         # 如果在界面输入了，就用界面添加后的值
         if customerInfo and customerInfo != "[]":
             customer_info = json.loads(customerInfo)
@@ -2338,6 +2340,7 @@ class FleetManagement(View):
                     "shipment_batch_number__fleet_number__fleet_type",
                     "shipment_batch_number__fleet_number__carrier",
                     "shipment_batch_number__fleet_number__appointment_datetime",
+                    "shipment_batch_number__fleet_number__pickup_number",  # 提取pickup_number
                     "shipment_batch_number__note",
                 )
                 .annotate(
@@ -2348,15 +2351,14 @@ class FleetManagement(View):
             if arm_pickup:
                 new_list = []
                 for p in arm_pickup:
-                    p_time = p[
-                        "shipment_batch_number__fleet_number__appointment_datetime"
-                    ]
+                    # 保存pickup_number（从数据库提取）
+                    pickup_number = p["shipment_batch_number__fleet_number__pickup_number"] or ""
+                    p_time = p["shipment_batch_number__fleet_number__appointment_datetime"]
 
-                    # 提取年、月、日、小时、分钟和秒
+                    # 提取年、月、日
                     year = p_time.year
                     month = p_time.month
                     day = p_time.day
-                    # 构建新的字符串
                     p_time = f"{year}-{month}-{day}"
                     destination = re.sub(r"[\u4e00-\u9fff]", " ", p["destination"])
                     new_list.append(
@@ -2370,23 +2372,24 @@ class FleetManagement(View):
                             p_time,
                         ]
                     )
-                    notes += p["shipment_batch_number__note"]
+                    notes += p["shipment_batch_number__note"] or ""  # 拼接备注
                 arm_pickup = [
-                    [
-                        "container",
-                        "destination",
-                        "mark",
-                        "pallet",
-                        "pcs",
-                        "carrier",
-                        "pickup",
-                    ]
-                ] + new_list
+                                 [
+                                     "container",
+                                     "destination",
+                                     "mark",
+                                     "pallet",
+                                     "pcs",
+                                     "carrier",
+                                     "pickup",
+                                 ]
+                             ] + new_list
             else:
                 raise ValueError("柜子未拆柜，请核实")
             s_time = arm_pickup[1][-1]
             dt = datetime.strptime(s_time, "%Y-%m-%d")
             new_string = dt.strftime("%m-%d")
+
         # BOL需要在后面加一个拣货单
         df = pd.DataFrame(arm_pickup[1:], columns=arm_pickup[0])
 
@@ -2426,18 +2429,33 @@ class FleetManagement(View):
                 table_bbox = table_bbox.transformed(
                     ax.transAxes.inverted()
                 )  # 转换为相对坐标
-                table_bottom = table_bbox.y0
+                table_bottom = table_bbox.y0  # 表格底部的y坐标
+
+                # 1. 绘制Notes（位置在上）
+                notes_y = table_bottom - 0.03  # 距离表格底部有一定距离
                 ax.text(
-                    0.05,
-                    table_bottom - 0.01,
+                    0.05,  # 左侧对齐
+                    notes_y,
                     f"Notes: {notes}",
+                    fontdict={"family": "STSong-Light", "size": 12},
+                    va="top",  # 顶部对齐
+                    ha="left",
+                    transform=ax.transAxes,
+                )
+
+                # 2. 绘制pickup_number（在Notes正下方，y坐标再减0.03避免重叠）
+                pickup_y = notes_y - 0.03  # 比Notes低一行
+                ax.text(
+                    0.05,  # 与Notes左对齐
+                    pickup_y,
+                    f"pickup_number: {pickup_number}",
                     fontdict={"family": "STSong-Light", "size": 12},
                     va="top",
                     ha="left",
                     transform=ax.transAxes,
                 )
 
-                # 保存表格和 Notes 内容到 buffer
+                # 保存表格和文本到buffer
                 buf_table = io.BytesIO()
                 fig.savefig(buf_table, format="pdf", bbox_inches="tight")
                 buf_table.seek(0)
@@ -2456,12 +2474,9 @@ class FleetManagement(View):
                 file_name = file.name
 
         response = HttpResponse(output_buf.getvalue(), content_type="application/pdf")
-        # response = StreamingHttpResponse(new_file, content_type="application/pdf")
         response["Content-Disposition"] = (
             f'attachment; filename="{new_string}-{file_name}.pdf"'
         )
-        # 将合并后的PDF内容写入响应
-        # response.write(output_buf)
         return response
 
     async def handle_abnormal_fleet_post(
