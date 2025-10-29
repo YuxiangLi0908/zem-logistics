@@ -759,8 +759,10 @@ class ExceptionHandling(View):
         request.POST["search_value"] = search_value
         return await self.handle_search_invoice_delivery(request)
     
-    def _validate_user_exception_handling(self, user: User) -> bool:
-        if user.is_staff or user.groups.filter(name="exception_handling").exists():
+    async def _validate_user_exception_handling(self, user: User) -> bool:
+        if user.is_staff:
             return True
-        else:
-            return False
+        
+        return await sync_to_async(
+            lambda: user.groups.filter(name="exception_handling").exists()
+        )()
