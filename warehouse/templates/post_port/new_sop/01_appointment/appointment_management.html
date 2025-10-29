@@ -307,16 +307,16 @@
                 <td>
                     {% if s.status == 'expired' %}
                     <span class="status-span-red">已过期</span>
-                    <span class="status-span-red-100" id="appointment_{{ forloop.counter }}" data-original-value="{{ s.shipment_appointment|date:'Y-m-d' }} {{ s.shipment_appointment|time:'H:i' }}">
+                    <span class="status-span-red-100" id="appointment_{{ forloop.counter }}" data-original-value="{{ s.shipment_appointment|date:'Y-m-d\\TH:i' }}">
                         {{ s.shipment_appointment|date:'Y-m-d' }} {{ s.shipment_appointment|time:'H:i' }}
                     </span>
                     {% elif s.status == 'urgent' %}
                     <span class="status-span-yellow">即将过期</span>
-                    <span class="status-span-yellow-100" id="appointment_{{ forloop.counter }}" data-original-value="{{ s.shipment_appointment|date:'Y-m-d' }} {{ s.shipment_appointment|time:'H:i' }}">
+                    <span class="status-span-yellow-100" id="appointment_{{ forloop.counter }}" data-original-value="{{ s.shipment_appointment|date:'Y-m-d\\TH:i' }}">
                         {{ s.shipment_appointment|date:'Y-m-d' }} {{ s.shipment_appointment|time:'H:i' }}
                     </span>
                     {% else %}
-                    <span id="appointment_{{ forloop.counter }}" data-original-value="{{ s.shipment_appointment|date:'Y-m-d' }} {{ s.shipment_appointment|time:'H:i' }}">
+                    <span id="appointment_{{ forloop.counter }}" data-original-value="{{ s.shipment_appointment|date:'Y-m-d\\TH:i' }}">
                         {{ s.shipment_appointment|date:'Y-m-d' }} {{ s.shipment_appointment|time:'H:i' }}
                     </span>
                     {% endif %}
@@ -326,7 +326,7 @@
                         <option value="edit">编辑</option>
                     </select>
 
-                    <input type="text" class="appointment-edit-input" id="editAppointmentInput_{{ forloop.counter }}" style="display: none;" >
+                    <input type="datetime-local" class="appointment-edit-input" id="editAppointmentInput_{{ forloop.counter }}" style="display: none;">
                     <button class="btn btn-success btn-sm appointment-confirm-btn" id="confirm_{{ forloop.counter }}" onclick="confirmAppointment(this, '{{ s.appointment_id }}', '{{ forloop.counter }}')" style="display: none;">确认</button>
                 </td>
                 <td>
@@ -358,24 +358,30 @@
 </form>
 
 <script>
-    // 原有的JavaScript代码保持不变
-    window.initializeAppointmentManagement = function() {
+    // 工具：把 Date -> "YYYY-MM-DDTHH:MM"（本地时间，不含秒）
+    function formatDateToLocalNoSeconds(d) {
+        const pad = (n) => n.toString().padStart(2, '0');
+        // 使用本地时间各分量，避免 toISOString() 的 UTC 偏移
+        const Y = d.getFullYear();
+        const M = pad(d.getMonth() + 1);
+        const D = pad(d.getDate());
+        const h = pad(d.getHours());
+        const m = pad(d.getMinutes());
+        return `${Y}-${M}-${D}T${h}:${m}`;
+    }
 
+    // 初始化函数：如果你保留在其它地方调用它，这里只做必要检查，不覆盖内联 onchange
+    window.initializeAppointmentManagement = function() {
         // 检查是否在活跃标签
         const section = document.getElementById('appointments-section');
         if (!section || !section.classList.contains('active')) {
             return;
         }
-
-        // 绑定下拉操作事件
-        document.querySelectorAll('.appointment-data-table select').forEach(select => {
-            select.onchange = function() {
-                handleAppointmentSelectChange(this, this.getAttribute('data-id'), this.getAttribute('data-counter'));
-            };
-        });
-
+        // 不覆盖模板里已有的内联 onchange，避免破坏传入的参数（appointmentId / counter）
+        // 但如果你想用 JS 绑定而不是内联，这里可以改为添加 data-id/data-counter 至 select，并绑定。
     };
 
+    // handler 由模板内联调用：handleAppointmentSelectChange(this, '{{ s.appointment_id }}', '{{ forloop.counter }}')
     function handleAppointmentSelectChange(select, appointmentId, counter) {
         var value = select.value;
         if (value === 'edit') {
@@ -390,14 +396,44 @@
         const input = document.getElementById('editAppointmentInput_' + counter);
         const confirmButton = document.getElementById('confirm_' + counter);
 
-        if (!span || !input || !confirmButton) return;
+        if (!span || !input || !confirmButton) {
+            // 找不到对应元素 -> 打印日志方便排查
+            console.warn('[appointment] missing elements for counter=', counter, 'appointmentId=', appointmentId);
+            return;
+        }
 
+        // 切换显示
         select.style.display = 'none';
         span.style.display = 'none';
         input.style.display = 'inline-block';
         confirmButton.style.display = 'inline-block';
-        input.type = 'datetime-local';
-        input.value = span.dataset.originalValue;
+
+        // 尝试读取 data-original-value（模板里有设置）
+        let originalValue = span.dataset.originalValue || span.getAttribute('data-original-value') || '';
+
+        // 如果 originalValue 包含空格（例如 "YYYY-MM-DD HH:MM"），把空格换成 'T'
+        if (originalValue && originalValue.includes(' ')) {
+            originalValue = originalValue.replace(' ', 'T');
+            console.log('[appointment] originalValue replaced space->T =', originalValue);
+        }
+
+        // 如果还是空，回退到当前本地时间
+        if (!originalValue) {
+            const now = new Date();
+            originalValue = formatDateToLocalNoSeconds(now);
+            console.log('[appointment] originalValue was empty, fallback to now =', originalValue);
+        }
+
+        // 有时 originalValue 可能包含秒或时区，确保被截断为前 16 位 "YYYY-MM-DDTHH:MM"
+        if (originalValue.length > 16) {
+            originalValue = originalValue.slice(0, 16);
+            console.log('[appointment] originalValue truncated to 16 chars =', originalValue);
+        }
+
+        // 最终赋值 —— 对 datetime-local，空字符串或不合格式都会让控件显示为空
+        input.value = originalValue;
+        // 尝试把焦点给 input，方便直接编辑
+        try { input.focus(); } catch (e) { /* ignore */ }
     }
 
     function confirmAppointment(button, appointmentId, counter) {
@@ -405,13 +441,17 @@
         if (!input) return;
 
         const newTime = input.value;
+        if (!newTime) {
+            alert('请输入合法的时间');
+            return;
+        }
         if (!confirm('确定要修改预约时间为: ' + newTime + ' 吗？')) return;
 
         const form = document.getElementById('appointmentHiddenForm');
         form.querySelector('#operation').value = 'edit';
         form.querySelector('#appointmentTime').value = newTime;
         form.querySelector('#appointmentId').value = appointmentId;
-        form.querySelector('#warehouse').value = document.querySelector('select[name="warehouse"]').value;
+        form.querySelector('#warehouse').value = document.querySelector('input[name="warehouse"]').value;
         form.submit();
     }
 
@@ -421,16 +461,16 @@
         const form = document.getElementById('appointmentHiddenForm');
         form.querySelector('#operation').value = 'delete';
         form.querySelector('#appointmentId').value = appointmentId;
-        form.querySelector('#warehouse').value = document.querySelector('select[name="warehouse"]').value;
+        form.querySelector('#warehouse').value = document.querySelector('input[name="warehouse"]').value;
         form.submit();
     }
 
-    // 功能A的JavaScript函数（保持不变）
+    // 占位函数（如果页面其它地方依赖，可以实现或保留空实现）
     function updatePayload(button) {
-        // 原有的updatePayload函数逻辑
+        // 原有的updatePayload函数逻辑（如果有，请放回这里）
     }
 
     function showLoadingBar() {
-        // 原有的showLoadingBar函数逻辑
+        // 原有的showLoadingBar函数逻辑（如果有，请放回这里）
     }
 </script>
