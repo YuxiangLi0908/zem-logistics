@@ -780,7 +780,7 @@
                                     <input type="text" name="driver_name" class="info-input" placeholder="司机姓名" 
                                         value="{{ fleet.driver_name|default:'' }}">
                                     <input type="tel" name="driver_phone" class="info-input" placeholder="司机电话" 
-                                        value="{{ fleet.driver_phone|default:'' }}" required>
+                                        value="{{ fleet.driver_phone|default:'' }}">
                                     {% if fleet.fleet_type == 'FTL' %}
                                     <input type="text" name="trailer_number" class="info-input" placeholder="Trailer Number" 
                                         value="{{ fleet.trailer_number|default:'' }}">
