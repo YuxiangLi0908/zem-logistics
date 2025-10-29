@@ -399,41 +399,48 @@ class OrderCreation(View):
                 "container_number",
                 "customer_name",
                 "container_number__packinglist",
-                "retrieval_id ",
-            )
-            .values(
+                "retrieval_id",
+            ).values(
                 "container_number__container_number",
                 "container_number__weight_lbs",
                 "container_number__container_type",
                 "customer_name__zem_name",
                 "vessel_id",
+                "vessel_id__vessel_eta",
+                "vessel_id__vessel_etd",
                 "vessel_id__vessel",
                 "vessel_id__shipping_line",
                 "vessel_id__destination_port",
                 "vessel_id__master_bill_of_lading",
                 "order_type",
+                "created_at",
                 "retrieval_id__retrieval_destination_area",
                 "packing_list_updloaded",
                 "cancel_notification",
-            )
-            .filter(
-                models.Q(created_at__gte="2024-08-19")
+            ).filter(
+                models.Q(created_at__gte=timezone.make_aware(datetime(2024, 8, 19)))
                 | models.Q(container_number__container_number__in=ADDITIONAL_CONTAINER)
             )
         )
-        unfinished_orders = []
         unfinished_orders = [
             o for o in orders
-            if (
-                   # 航运信息不完整的情况
-                       (not o.get("vessel_id") or
-                        not o.get("vessel_id__vessel") or
-                        not o.get("vessel_id__shipping_line") or
-                        not o.get("vessel_id__destination_port")) and
-                       o.get("vessel_id__master_bill_of_lading")
-               ) or
-               # 未上传装箱单的情况
-               not o.get("packing_list_updloaded")
+            if
+            #基础信息不完整
+            not o.get("customer_name__zem_name") or
+            not o.get("order_type") or
+            not o.get("created_at") or
+            not o.get("container_number__container_number") or
+            not o.get("vessel_id__master_bill_of_lading") or
+            not o.get("vessel_id__vessel_eta") or
+            # 航运信息不完整的情况
+            not o.get("vessel_id") or
+            not o.get("vessel_id__vessel") or
+            not o.get("vessel_id__shipping_line") or
+            not o.get("vessel_id__destination_port") or
+            not o.get("container_number__container_type") or
+            not o.get("vessel_id__vessel_etd") or
+            # 未上传装箱单的情况
+            not o.get("packing_list_updloaded")
         ]
         context = {
             "customers": customers,
@@ -468,7 +475,9 @@ class OrderCreation(View):
             )
         except:
             vessel = []
-        if vessel and order.packing_list_updloaded:
+        if order.customer_name.zem_name and order.order_type and order.created_at and order.container_number.container_number and vessel.master_bill_of_lading and vessel.vessel_eta and vessel.id and vessel.vessel and vessel.shipping_line and vessel.destination_port and order.packing_list_updloaded and order.container_number.container_type and vessel.vessel_eta:
+            order.status = "completed"
+            await sync_to_async(order.save)()
             return await self.handle_order_basic_info_get()
         context["selected_order"] = order
         context["packing_list"] = packing_list

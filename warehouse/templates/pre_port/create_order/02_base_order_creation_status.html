@@ -226,14 +226,14 @@
                                 </a>
                             </td>
                             <td>
-                                {% if o.container_number__container_number and o.vessel_id__master_bill_of_lading %}
+                                {% if o.customer_name__zem_name and o.order_type and o.created_at and o.container_number__container_number and o.vessel_id__master_bill_of_lading and o.vessel_id__vessel_eta %}
                                 <i class="bi bi-file-check-fill status-icon status-complete"></i>
                                 {% else %}
                                 <i class="bi bi-heartbreak-fill status-icon status-pending"></i>
                                 {% endif %}
                             </td>
                             <td>
-                                {% if o.vessel_id and o.vessel_id__vessel and o.vessel_id__shipping_line and o.vessel_id__destination_port and o.vessel_id__master_bill_of_lading and o.container_number__container_type%}
+                                {% if o.vessel_id and o.vessel_id__vessel and o.vessel_id__shipping_line and o.vessel_id__destination_port and o.container_number__container_type and o.vessel_id__vessel_etd%}
                                     <i class="bi bi-file-check-fill status-icon status-complete"></i>
                                 {% else %}
                                     <i class="bi bi-heartbreak-fill status-icon status-pending"></i>
