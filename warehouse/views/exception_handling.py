@@ -40,12 +40,7 @@ class ExceptionHandling(View):
                 )
             
         elif step == "delivery_invoice":
-            if self._validate_user_exception_handling(request.user):
-                return await sync_to_async(render)(request, self.template_delivery_invoice)
-            else:
-                return HttpResponseForbidden(
-                    "You are not authenticated to access this page!"
-                )         
+            return await sync_to_async(render)(request, self.template_delivery_invoice)     
         elif step == "shipment_actual":
             if self._validate_user_exception_handling(request.user):
                 return await sync_to_async(render)(request, self.template_container_pallet)
