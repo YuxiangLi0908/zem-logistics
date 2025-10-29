@@ -207,6 +207,12 @@ class PostNsop(View):
             context = {'success_messages':'备约批量登记成功！'}
             template, context = await self.handle_appointment_management_post(request,context)
             return render(request, template, context)   
+        elif step == "edit_appointment":
+            template, context = await self.handle_edit_appointment_post(request)
+            return render(request, template, context) 
+        elif step == "edit_note_sp":
+            template, context = await self.handle_edit_note_sp_post(request)
+            return render(request, template, context) 
         else:
             raise ValueError('输入错误',step)
     
@@ -428,6 +434,73 @@ class PostNsop(View):
         fm = FleetManagement()
         context = await fm.handle_fleet_departure_post(request,'post_nsop')
         return await self.handle_td_shipment_post(request,context)         
+    
+    async def handle_edit_note_sp_post(
+        self, request: HttpRequest
+    ) -> tuple[str, dict[str, Any]]:
+        cargo_ids = request.POST.get("cargo_ids", "")
+        plt_ids = request.POST.get("plt_ids", "")
+        note_sp = request.POST.get("note_sp", "").strip()
+        context = {}
+
+        cargo_id_list = [int(i) for i in cargo_ids.split(",") if i]
+        plt_id_list = [int(i) for i in plt_ids.split(",") if i]
+        if not cargo_ids and not plt_ids:
+            context.update({'error_messages': "未提供任何记录ID，无法更新备注"})
+            return await self.handle_td_shipment_post(request, context)
+        # 更新 PackingList
+        if cargo_id_list:
+            updated_count = await sync_to_async(
+                lambda: PackingList.objects.filter(id__in=cargo_id_list).update(note_sp=note_sp)
+            )()
+            if updated_count == 0:
+                context.update({'error_messages': "更新失败！"})
+                return await self.handle_td_shipment_post(request,context)
+
+        # 更新 Pallet
+        if plt_id_list:
+            updated_count = await sync_to_async(
+                lambda: Pallet.objects.filter(id__in=plt_id_list).update(note_sp=note_sp)
+            )()
+            if updated_count == 0:
+                context.update({'error_messages': "更新失败！"})
+                return await self.handle_td_shipment_post(request,context)
+        context.update({'sucess_messages':"更新备注成功！"}) 
+        return await self.handle_td_shipment_post(request,context)
+
+
+    async def handle_edit_appointment_post(
+        self, request: HttpRequest
+    ) -> tuple[str, dict[str, Any]]:
+        context = {}
+        appointment_id_old = request.POST.get('appointment_id', '').strip()
+        old_shipments = await sync_to_async(list)(
+            Shipment.objects.filter(appointment_id=appointment_id_old)
+        )      
+        if not old_shipments:
+            context.update({'error_messages':f"未找到 ISA={appointment_id_old}!"})     
+        if len(old_shipments) > 1:
+            context.update({'error_messages':f"找到多条相同 ISA={appointment_id_old}的记录，请检查数据!"})   
+        
+        old_shipment = old_shipments[0]
+
+        appointment_id_new = request.POST.get('appointment_id_input', '').strip()
+        shipment_appointment = request.POST.get('shipment_appointment')
+        destination = request.POST.get('destination')
+        load_type = request.POST.get('load_type')
+        origin = request.POST.get('origin')
+
+        if appointment_id_new == appointment_id_old:
+            old_shipment.shipment_appointment = shipment_appointment
+            old_shipment.destination = destination
+            old_shipment.load_type = load_type
+            old_shipment.origin = origin
+            await sync_to_async(old_shipment.save)()
+            context.update({'success_messages':'预约信息修改成功!'})
+            return await self.handle_td_shipment_post(request)
+        else:
+            context.update({'error_messages':f"ISA不能修改"}) 
+            return await self.handle_td_shipment_post(request,context)
     
     async def handle_cancel_appointment_post(
         self, request: HttpRequest
@@ -1168,6 +1241,7 @@ class PostNsop(View):
         # 获取三类数据：未排约、已排约、待出库
         if not matching_suggestions:
             matching_suggestions = await self.sp_unscheduled_data(warehouse, st_type, max_cbm, max_pallet)
+
         scheduled_data = await self.sp_scheduled_data(warehouse)
 
         unschedule_fleet = await self._fl_unscheduled_data(request, warehouse)
@@ -2017,14 +2091,13 @@ class PostNsop(View):
                     total_weight_lbs=Sum("weight_lbs", output_field=FloatField()),
                     total_n_pallet_act=Count("pallet_id", distinct=True),
                     label=Value("ACT"),
+                    note_sp=StringAgg("note_sp", delimiter=",", distinct=True)
                 )
                 .order_by("container_number__order__offload_id__offload_at")
             )
             #去排查是否有转仓的，有转仓的要特殊处理
             pal_list_trans = await self._find_transfer(pal_list)
             pal_list_sorted = sorted(pal_list_trans, key=sort_key)
-            if name:
-                print('pal_list_sorted',pal_list_sorted)
             data += pal_list_sorted
         
         # PackingList 查询 - 添加数据源标识
@@ -2187,6 +2260,7 @@ class PostNsop(View):
                     total_cbm = Round(Sum("cbm", output_field=FloatField()), 3),
                     total_n_pallet_est= Round(Sum("cbm", output_field=FloatField()) / 2, 2),
                     label=Value("EST"),
+                    note_sp=StringAgg("note_sp", delimiter=",", distinct=True)
                 )
                 .distinct()
             )
