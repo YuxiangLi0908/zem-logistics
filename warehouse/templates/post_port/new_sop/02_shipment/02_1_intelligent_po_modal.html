@@ -73,15 +73,16 @@
     box-shadow: 0 4px 12px rgba(0,0,0,0.3);
 }
 
-/* 柜号列样式 - 新增 */
 .container-cell {
-    max-width: 250px;
+    max-width: 300px;
     min-width: 200px;
-    white-space: nowrap;
-    overflow: hidden;
-    text-overflow: ellipsis;
+    white-space: normal;  /* 改为normal允许换行 */
+    word-wrap: break-word;  /* 允许长单词换行 */
+    word-break: break-all;  /* 允许在任何字符间断行 */
+    overflow: visible;  /* 改为visible显示全部内容 */
     position: relative;
     cursor: help;
+    line-height: 1.4;  /* 增加行高，让换行后更美观 */
 }
 
 .container-cell:hover::after {
@@ -113,7 +114,7 @@
 }
 
 .delivery-method-cell {
-    width: 100px;
+    max-width: 120px;
     min-width: 80px;
 }
 
