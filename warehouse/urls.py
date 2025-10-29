@@ -5,6 +5,7 @@ from django.urls import path
 from warehouse.views.accounting import Accounting
 from warehouse.views.bol import BOL
 from warehouse.views.container_tracking import ContainerTracking
+from warehouse.views.exception_handling import ExceptionHandling
 from warehouse.views.customer_management import CustomerManagement
 from warehouse.views.data_query.db_query import DBConn
 from warehouse.views.export_file import ExportFile
@@ -95,6 +96,7 @@ urlpatterns = [
     path("accounting/", Accounting.as_view(), name="accounting"),
     path("shipment_status/", ShipmentStatus.as_view(), name="shipment_status"),
     path("container_tracking/", ContainerTracking.as_view(), name="container_tracking"),
+    path("exception_handling/", ExceptionHandling.as_view(), name="exception_handling"),
     path("t49webhook/", T49Webhook.as_view(), name="t49webhook"),
     path("async_view", AsyncView.as_view(), name="async_view"),
     path("dbconn", DBConn.as_view(), name="dbconn"),

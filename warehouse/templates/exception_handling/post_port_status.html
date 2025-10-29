@@ -1,0 +1,272 @@
+{% extends 'base.html' %}
+
+{% block content %}
+<style>
+    body {
+        font-family: "Segoe UI", Tahoma, Geneva, Verdana, sans-serif;
+        color: #2c3e50;
+    }
+
+    .search-form {
+        background: #34495e;
+        padding: 20px;
+        border-radius: 8px;
+        margin-bottom: 20px;
+        color: white;
+    }
+
+    .search-input-group {
+        display: flex;
+        gap: 10px;
+        flex-wrap: wrap;
+        align-items: center;
+    }
+
+    .search-input, .search-select {
+        padding: 8px 12px;
+        border-radius: 4px;
+        border: none;
+        font-size: 14px;
+    }
+
+    .search-input {
+        min-width: 300px;
+    }
+
+    .search-select {
+        min-width: 160px;
+    }
+
+    .search-btn {
+        padding: 8px 16px;
+        background-color: #27ae60;
+        color: white;
+        border: none;
+        border-radius: 4px;
+        cursor: pointer;
+        font-weight: 600;
+        transition: all 0.3s;
+    }
+
+    .search-btn:hover {
+        background-color: #2ecc71;
+    }
+
+    .message {
+        padding: 12px;
+        border-radius: 4px;
+        margin-bottom: 12px;
+    }
+
+    .message.success {
+        background: #d4edda;
+        color: #155724;
+        border: 1px solid #c3e6cb;
+    }
+
+    .message.error {
+        background: #f8d7da;
+        color: #721c24;
+        border: 1px solid #f5c6cb;
+    }
+
+    .message.warning {
+        background: #fff3cd;
+        color: #856404;
+        border: 1px solid #ffeeba;
+    }
+
+    .data-table {
+        width: 100%;
+        border-collapse: collapse;
+        margin-top: 15px;
+    }
+
+    .data-table th, .data-table td {
+        border: 1px solid #bdc3c7;
+        padding: 8px 10px;
+        text-align: left;
+        font-size: 13px;
+    }
+
+    .data-table th {
+        background-color: #34495e;
+        color: white;
+        font-weight: 600;
+    }
+
+    .data-table tr:nth-child(even) {
+        background-color: #ecf0f1;
+    }
+
+    .data-table tr:hover {
+        background-color: #d0d7de;
+    }
+
+    .status-badge {
+        display: inline-block;
+        padding: 4px 8px;
+        border-radius: 4px;
+        font-size: 12px;
+        font-weight: 600;
+        color: white;
+    }
+
+    .status-unknown { background-color: #95a5a6; }
+    .status-scheduled { background-color: #3498db; }
+    .status-shipped { background-color: #f39c12; }
+    .status-arrived { background-color: #27ae60; }
+    .status-pod_uploaded { background-color: #9b59b6; }
+
+    .action-btn {
+        padding: 4px 8px;
+        border: none;
+        border-radius: 4px;
+        font-size: 12px;
+        cursor: pointer;
+        margin: 2px;
+        transition: 0.2s;
+    }
+
+    .btn-primary { background: #3498db; color: white; }
+    .btn-warning { background: #f39c12; color: white; }
+    .btn-danger { background: #e74c3c; color: white; }
+    .btn-success { background: #27ae60; color: white; }
+    .btn-info { background: #17a2b8; color: white; }
+    .btn-secondary { background: #6c757d; color: white; }
+
+    .action-btn:hover {
+        opacity: 0.8;
+    }
+
+    .no-results {
+        padding: 20px;
+        text-align: center;
+        color: #7f8c8d;
+        font-style: italic;
+        border: 1px solid #bdc3c7;
+        border-radius: 4px;
+        margin-top: 15px;
+    }
+
+    .search-info {
+        margin-bottom: 15px;
+        padding: 10px;
+        background: #f8f9fa;
+        border-radius: 4px;
+        border-left: 4px solid #3498db;
+    }
+</style>
+
+<!-- 查询表单 -->
+<div class="search-form">
+    <form method="post">
+        {% csrf_token %}
+        <input type="hidden" name="step" value="search_shipment">
+        <div class="search-input-group">
+            <select name="search_type" class="search-select" required>
+                <option value="batch" {% if search_type == 'batch' %}selected{% endif %}>批次号查询</option>
+                <option value="appointment" {% if search_type == 'appointment' %}selected{% endif %}>预约号查询</option>
+            </select>
+            <input type="text" name="shipment_batch_number" class="search-input"
+                   placeholder="输入查询内容" value="{{ search_value|default:'' }}" required>
+            <button type="submit" class="search-btn">查询</button>
+        </div>
+    </form>
+</div>
+
+<!-- 消息提示 -->
+{% if messages %}
+    {% for message in messages %}
+        <div class="message {% if message.tags %}{{ message.tags }}{% endif %}">
+            {{ message }}
+        </div>
+    {% endfor %}
+{% endif %}
+
+<!-- 查询结果 -->
+{% if shipments %}
+<div class="search-info">
+    <strong>查询方式:</strong> 
+    {% if search_type == 'batch' %}批次号查询{% else %}预约号查询{% endif %} | 
+    <strong>查询内容:</strong> {{ search_value }} | 
+    <strong>查询结果:</strong> 1 条记录
+</div>
+
+<table class="data-table">
+    <thead>
+        <tr>
+            <th>ID</th>
+            <th>预约批次号</th>
+            <th>预约号</th>
+            <th>当前状态</th>
+            <th>目的地</th>
+            <th>供应商</th>
+            <th>预约时间</th>
+            <th>发货时间</th>
+            <th>送达时间</th>
+            <th>POD链接</th>
+            <th>操作</th>
+        </tr>
+    </thead>
+    <tbody>
+        {% for shipment in shipments %}
+        <tr>
+            <td>{{ shipment.id }}</td>
+            <td>{{ shipment.shipment_batch_number|default:"-" }}</td>
+            <td>{{ shipment.appointment_id|default:"-" }}</td>
+            <td>
+                <span class="status-badge status-{{ shipment.current_status }}">
+                    {{ shipment.status_display }}
+                </span>
+            </td>
+            <td>{{ shipment.destination|default:"-" }}</td>
+            <td>{{ shipment.carrier|default:"-" }}</td>
+            <td>{{ shipment.shipment_appointment|default:"-" }}</td>
+            <td>{{ shipment.shipped_at|default:"-" }}</td>
+            <td>{{ shipment.arrived_at|default:"-" }}</td>
+            <td>
+                {% if shipment.pod_link %}
+                    <a href="{{ shipment.pod_link }}" target="_blank" 
+                    style="color: #3498db; text-decoration: none; font-size: 12px;"
+                    onmouseover="this.style.textDecoration='underline'" 
+                    onmouseout="this.style.textDecoration='none'">
+                        📎 查看POD
+                    </a>
+                {% else %}
+                    -
+                {% endif %}
+            </td>
+            <td>
+                {% for operation in shipment.available_operations %}
+                <form method="post" style="display: inline-block; margin: 2px;">
+                    {% csrf_token %}
+                    <input type="hidden" name="step" value="update_shipment_status">
+                    <input type="hidden" name="shipment_id" value="{{ shipment.id }}">
+                    <input type="hidden" name="target_status" value="{{ operation.0 }}">
+                    <input type="hidden" name="search_batch_number" value="{{ search_value }}">
+                    <input type="hidden" name="search_type" value="{{ search_type }}">
+                    <button type="submit" class="action-btn {{ operation.2 }}" 
+                            onclick="return confirm('确定要执行此操作吗？')">
+                        {{ operation.1 }}
+                    </button>
+                </form>
+                {% endfor %}
+            </td>
+        </tr>
+        {% endfor %}
+    </tbody>
+</table>
+{% elif search_value and not shipments %}
+<div class="no-results">
+    未找到{% if search_type == 'batch' %}批次号{% else %}预约号{% endif %} "{{ search_value }}" 的相关数据
+</div>
+{% endif %}
+
+<script>
+// 自动隐藏消息提示
+setTimeout(() => {
+    document.querySelectorAll('.message').forEach(m => m.style.display='none');
+}, 5000);
+</script>
+{% endblock %}

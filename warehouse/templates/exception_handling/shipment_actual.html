@@ -1,0 +1,332 @@
+{% extends 'base.html' %}
+
+{% block content %}
+<style>
+    body {
+        font-family: "Segoe UI", Tahoma, Geneva, Verdana, sans-serif;
+        color: #2c3e50;
+    }
+
+    .search-form {
+        background: #34495e;
+        padding: 20px;
+        border-radius: 8px;
+        margin-bottom: 20px;
+        color: white;
+    }
+
+    .search-input-group {
+        display: flex;
+        gap: 10px;
+        flex-wrap: wrap;
+        align-items: center;
+    }
+
+    .search-input {
+        padding: 8px 12px;
+        border-radius: 4px;
+        border: none;
+        font-size: 14px;
+        min-width: 300px;
+    }
+
+    .search-btn {
+        padding: 8px 16px;
+        background-color: #27ae60;
+        color: white;
+        border: none;
+        border-radius: 4px;
+        cursor: pointer;
+        font-weight: 600;
+        transition: all 0.3s;
+    }
+
+    .search-btn:hover {
+        background-color: #2ecc71;
+    }
+
+    .message {
+        padding: 12px;
+        border-radius: 4px;
+        margin-bottom: 12px;
+    }
+
+    .message.success {
+        background: #d4edda;
+        color: #155724;
+        border: 1px solid #c3e6cb;
+    }
+
+    .message.error {
+        background: #f8d7da;
+        color: #721c24;
+        border: 1px solid #f5c6cb;
+    }
+
+    .message.warning {
+        background: #fff3cd;
+        color: #856404;
+        border: 1px solid #ffeeba;
+    }
+
+    .data-table {
+        width: 100%;
+        border-collapse: collapse;
+        margin-top: 15px;
+    }
+
+    .data-table th, .data-table td {
+        border: 1px solid #bdc3c7;
+        padding: 8px 10px;
+        text-align: left;
+        font-size: 13px;
+    }
+
+    .data-table th {
+        background-color: #34495e;
+        color: white;
+        font-weight: 600;
+    }
+
+    .data-table tr:nth-child(even) {
+        background-color: #ecf0f1;
+    }
+
+    .data-table tr:hover {
+        background-color: #d0d7de;
+    }
+
+    .edit-form {
+        background: #f8f9fa;
+        padding: 15px;
+        border-radius: 6px;
+        margin: 10px 0;
+        border-left: 4px solid #3498db;
+    }
+
+    .form-group {
+        margin-bottom: 10px;
+        display: flex;
+        align-items: center;
+        gap: 10px;
+    }
+
+    .form-label {
+        font-weight: 600;
+        color: #2c3e50;
+        min-width: 120px;
+    }
+
+    .form-input {
+        padding: 6px 10px;
+        border: 1px solid #bdc3c7;
+        border-radius: 4px;
+        font-size: 13px;
+        width: 250px;
+    }
+
+    .update-btn {
+        padding: 6px 12px;
+        background: #e67e22;
+        color: white;
+        border: none;
+        border-radius: 4px;
+        cursor: pointer;
+        font-weight: 600;
+        transition: 0.2s;
+    }
+
+    .update-btn:hover {
+        background: #d35400;
+    }
+
+    .no-results {
+        padding: 20px;
+        text-align: center;
+        color: #7f8c8d;
+        font-style: italic;
+        border: 1px solid #bdc3c7;
+        border-radius: 4px;
+        margin-top: 15px;
+    }
+
+    .search-info {
+        margin-bottom: 15px;
+        padding: 10px;
+        background: #f8f9fa;
+        border-radius: 4px;
+        border-left: 4px solid #3498db;
+    }
+
+    .shipment-display {
+        background: #e8f4fd;
+        padding: 4px 8px;
+        border-radius: 4px;
+        font-size: 12px;
+        margin: 2px 0;
+    }
+
+    .readonly-display {
+        background: #f8f9fa;
+        padding: 4px 8px;
+        border-radius: 4px;
+        font-size: 12px;
+        margin: 2px 0;
+        color: #6c757d;
+        border: 1px dashed #bdc3c7;
+    }
+
+    .toggle-btn {
+        padding: 4px 8px;
+        background: #95a5a6;
+        color: white;
+        border: none;
+        border-radius: 4px;
+        cursor: pointer;
+        font-size: 11px;
+        margin-left: 10px;
+    }
+
+    .toggle-btn:hover {
+        background: #7f8c8d;
+    }
+</style>
+
+<!-- 查询表单 -->
+<div class="search-form">
+    <form method="post">
+        {% csrf_token %}
+        <input type="hidden" name="step" value="search_container">
+        <div class="search-input-group">
+            <input type="text" name="container_number" class="search-input"
+                   placeholder="输入柜号" value="{{ container_number|default:'' }}" required>
+            <button type="submit" class="search-btn">查询</button>
+        </div>
+    </form>
+</div>
+
+<!-- 消息提示 -->
+{% if messages %}
+    {% for message in messages %}
+        <div class="message {% if message.tags %}{{ message.tags }}{% endif %}">
+            {{ message }}
+        </div>
+    {% endfor %}
+{% endif %}
+
+<!-- 查询结果 -->
+{% if grouped_pallets %}
+<div class="search-info">
+    <strong>柜号:</strong> {{ container_number }} | 
+    <strong>分组数量:</strong> {{ grouped_pallets|length }} 组 | 
+    <strong>总托盘数:</strong> {{ pallets|length }}
+</div>
+
+<table class="data-table">
+    <thead>
+        <tr>
+            <th>PO_ID</th>
+            <th>目的地</th>
+            <th>派送方式</th>
+            <th>实际约批次号</th>
+            <th>主约批次号</th>
+            <th>托盘数量</th>
+            <th>总体积(CBM)</th>
+            <th>总重量(lbs)</th>
+            <th>总件数</th>
+            <th>操作</th>
+        </tr>
+    </thead>
+    <tbody>
+        {% for group in grouped_pallets %}
+        <tr>
+            <td><strong>{{ group.PO_ID }}</strong></td>
+            <td>{{ group.destination }}</td>
+            <td>{{ group.delivery_method }}</td>
+            <td>
+                <div class="readonly-display" title="只读，不可修改">
+                    {{ group.shipment_batch_number_display }}
+                </div>
+            </td>
+            <td>
+                <div class="shipment-display">
+                    {{ group.master_shipment_batch_number_display }}
+                </div>
+            </td>
+            <td>{{ group.pallet_count }}</td>
+            <td>{{ group.total_cbm|floatformat:2 }}</td>
+            <td>{{ group.total_weight|floatformat:2 }}</td>
+            <td>{{ group.total_pcs }}</td>
+            <td>
+                <button type="button" class="update-btn" 
+                        onclick="toggleEditForm('edit-form-{{ forloop.counter }}')">
+                    修改主约批次号
+                </button>
+            </td>
+        </tr>
+        <!-- 编辑表单 -->
+        <tr id="edit-form-{{ forloop.counter }}" style="display: none;">
+            <td colspan="8">
+                <div class="edit-form">
+                    <form method="post">
+                        {% csrf_token %}
+                        <input type="hidden" name="step" value="update_pallet_master_shipment">
+                        <input type="hidden" name="container_number" value="{{ container_number }}">
+                        <input type="hidden" name="po_id" value="{{ group.PO_ID }}">
+                        <input type="hidden" name="current_shipment_id" value="{{ group.shipment_batch_number_id }}">
+                        <input type="hidden" name="current_master_shipment_id" value="{{ group.master_shipment_batch_number_id }}">
+                        
+                        <div class="form-group">
+                            <label class="form-label">当前实际约批次号:</label>
+                            <div class="readonly-display" style="display: inline-block;">
+                                {{ group.shipment_batch_number_display }}
+                            </div>
+                            <small style="color: #6c757d;">(只读，不可修改)</small>
+                        </div>
+                        
+                        <div class="form-group">
+                            <label class="form-label">新主约批次号:</label>
+                            <input type="text" name="new_master_shipment_batch" class="form-input" 
+                                   placeholder="输入新的主约批次号" required>
+                            <small style="color: #7f8c8d;">必填，将根据此批次号查找并绑定Shipment记录</small>
+                        </div>
+                        
+                        <div class="form-group">
+                            <button type="submit" class="update-btn" 
+                                    onclick="return confirm('确定要更新这 {{ group.pallet_count }} 个托盘的主约批次号绑定吗？')">
+                                确认更新
+                            </button>
+                            <button type="button" class="toggle-btn" 
+                                    onclick="toggleEditForm('edit-form-{{ forloop.counter }}')">
+                                取消
+                            </button>
+                        </div>
+                    </form>
+                </div>
+            </td>
+        </tr>
+        {% endfor %}
+    </tbody>
+</table>
+
+{% elif container_number and not grouped_pallets %}
+<div class="no-results">
+    未找到柜号 "{{ container_number }}" 的相关托盘数据
+</div>
+{% endif %}
+
+<script>
+// 自动隐藏消息提示
+setTimeout(() => {
+    document.querySelectorAll('.message').forEach(m => m.style.display='none');
+}, 5000);
+
+// 切换编辑表单显示
+function toggleEditForm(formId) {
+    const form = document.getElementById(formId);
+    if (form) {
+        form.style.display = form.style.display === 'none' ? 'table-row' : 'none';
+    }
+}
+</script>
+{% endblock %}
