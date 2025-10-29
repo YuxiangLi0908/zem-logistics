@@ -27,6 +27,17 @@ class Order(models.Model):
         on_delete=models.SET_NULL,
         related_name="order",
     )
+    STATUS_CHOICES = (
+        ("unfinished", "未完成"),
+        ("completed", "已完成"),
+        ("checked", "已检查"),
+    )
+    status = models.CharField(
+        max_length=20,
+        choices=STATUS_CHOICES,
+        default="unfinished",  # 默认未完成
+        verbose_name="订单状态"
+    )
     created_at = models.DateTimeField()
     eta = models.DateField(null=True, blank=True)
     order_type = models.CharField(max_length=255, null=True)
