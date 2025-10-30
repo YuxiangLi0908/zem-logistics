@@ -1,0 +1,201 @@
+<!DOCTYPE html>
+{% extends 'base.html' %}
+{% load static %}
+{% load custom_filters %}
+
+{% block content %}
+<style>
+  body {
+    font-family: "Segoe UI", Arial, sans-serif;
+    margin: 30px;
+    background: #f9fafb;
+    color: #333;
+  }
+
+  h2 {
+    text-align: center;
+    margin-bottom: 20px;
+  }
+
+  textarea {
+    width: 100%;
+    height: 100px;
+    font-size: 14px;
+    font-family: Consolas, monospace;
+    padding: 10px;
+    border-radius: 6px;
+    border: 1px solid #ccc;
+    resize: vertical;
+    background: #fff;
+  }
+
+  .controls {
+    margin: 15px 0;
+    display: flex;
+    gap: 10px;
+    align-items: center;
+  }
+
+  input, select, button {
+    font-size: 14px;
+    padding: 8px 12px;
+    border-radius: 6px;
+    border: 1px solid #ccc;
+  }
+
+  button {
+    cursor: pointer;
+    background-color: #0078d7;
+    color: white;
+    border: none;
+  }
+
+  button:hover {
+    background-color: #005fa3;
+  }
+
+  table {
+    border-collapse: collapse;
+    width: 100%;
+    margin-top: 20px;
+    background: #fff;
+    border-radius: 6px;
+    overflow: hidden;
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+  }
+
+  td, th {
+    border: 1px solid #ddd;
+    padding: 8px;
+    text-align: center;
+    min-width: 60px;
+  }
+
+  td {
+    user-select: text;
+  }
+
+  tr:nth-child(even) {
+    background-color: #f6f8fa;
+  }
+
+  tr:hover {
+    background-color: #eef3f7;
+  }
+</style>
+
+<h2>📊 Excel 粘贴与批量公式计算</h2>
+
+<textarea id="excel-input" placeholder="从 Excel 复制后在此粘贴 (Ctrl+V)..."></textarea>
+
+<div class="controls">
+  <button onclick="handlePaste()">生成表格</button>
+
+  <select id="operator">
+    <option value="*">× 乘</option>
+    <option value="+">＋ 加</option>
+    <option value="-">－ 减</option>
+    <option value="/">÷ 除</option>
+  </select>
+
+  <input id="formulaValue" type="text" placeholder="输入数值，如 105% 或 10">
+  <button onclick="applyFormula()">应用公式</button>
+
+  <button onclick="copyTableToClipboard()">📋 复制结果</button>
+</div>
+
+<div id="table-container"></div>
+
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+
+  // 粘贴并生成表格
+  window.handlePaste = function() {
+    const text = document.getElementById('excel-input').value.trim();
+    if (!text) return alert('请先粘贴 Excel 数据');
+
+    const rows = text.split(/\r?\n/);
+    const data = rows.map(r => r.split('\t'));
+
+    const table = document.createElement('table');
+    table.className = 'data-table';
+    data.forEach(row => {
+      const tr = document.createElement('tr');
+      row.forEach(cell => {
+        const td = document.createElement('td');
+        td.textContent = cell;
+        tr.appendChild(td);
+      });
+      table.appendChild(tr);
+    });
+
+    const container = document.getElementById('table-container');
+    container.innerHTML = '';
+    container.appendChild(table);
+    console.log('✅ 表格生成完成');
+  };
+
+  // 应用公式
+  window.applyFormula = function() {
+    const operator = document.getElementById('operator').value;
+    const inputValue = document.getElementById('formulaValue').value.trim();
+
+    if (!inputValue) return alert('请输入要计算的数值，例如 105% 或 10');
+
+    const table = document.querySelector('.data-table');
+    if (!table) return alert('请先生成表格');
+
+    // 处理百分比
+    let value = parseFloat(inputValue.replace('%', ''));
+    if (isNaN(value)) return alert('请输入有效数值');
+    if (inputValue.includes('%')) value = value / 100;
+
+    for (const row of table.rows) {
+      for (const cell of row.cells) {
+        const raw = cell.textContent.trim();
+        const num = parseFloat(raw.replace(/[^0-9.\-]/g, ''));
+        if (isNaN(num)) continue;
+
+        let newValue = num;
+        switch (operator) {
+          case '*':
+            newValue = inputValue.includes('%') ? num * (1 + value) : num * value;
+            break;
+          case '+':
+            newValue = num + (inputValue.includes('%') ? num * value : value);
+            break;
+          case '-':
+            newValue = num - (inputValue.includes('%') ? num * value : value);
+            break;
+          case '/':
+            newValue = inputValue.includes('%') ? num / (1 + value) : num / value;
+            break;
+        }
+        cell.textContent = newValue.toFixed(2);
+      }
+    }
+    console.log('✅ 公式应用完成');
+  };
+
+  // 复制表格到剪贴板
+  window.copyTableToClipboard = function() {
+    const table = document.querySelector('.data-table');
+    if (!table) return alert('请先生成或计算表格');
+
+    let output = '';
+    for (const row of table.rows) {
+      const cells = Array.from(row.cells).map(td => td.textContent);
+      output += cells.join('\t') + '\n';
+    }
+
+    navigator.clipboard.writeText(output.trim()).then(() => {
+      alert('✅ 已复制结果，可直接粘贴到 Excel 中');
+    }).catch(err => {
+      console.error('复制失败', err);
+      alert('复制失败，请检查浏览器权限');
+    });
+  };
+
+});
+</script>
+{% endblock %}
