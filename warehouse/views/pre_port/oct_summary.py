@@ -1,4 +1,5 @@
 import json
+from io import BytesIO
 from typing import Any
 
 from asgiref.sync import sync_to_async
@@ -8,6 +9,7 @@ from django.http import HttpRequest, HttpResponse, JsonResponse
 from django.shortcuts import redirect, render
 from django.utils import timezone
 from django.views import View
+from openpyxl import Workbook
 from sqlalchemy import values
 
 from warehouse.models.order import Order
@@ -35,6 +37,9 @@ class OctSummaryView(View):
         elif step == "save_do_sent":
             template, context = await self.save_do_sent(request)
             return render(request, template, context)
+        elif step == "batch_export":
+            # 直接返回 batch_export 生成的文件响应（无需 render）
+            return await self.batch_export(request)
 
     async def check_disnation(self) -> tuple[Any, Any]:
         context = {"warehouse_options": self.warehouse_options}
@@ -54,9 +59,21 @@ class OctSummaryView(View):
         time_range_type = request.POST.get("timeRangeType", "")
         pallets_list = []
         if eta_start and eta_end:
-            pallets_list = await self._get_pallet(warehouse, eta_start, eta_end)
+            if warehouse == "NJ,SAV,LA,MO,TX":
+                warehouse_list = warehouse.split(",")
+                for w in warehouse_list:
+                    pallets = await self._get_pallet(w, eta_start, eta_end)
+                    pallets_list.extend(pallets)
+            else:
+                pallets_list = await self._get_pallet(warehouse, eta_start, eta_end)
         elif order_start and order_end:
-            pallets_list = await self._get_pallet_by_order_at(warehouse, order_start, order_end)
+            if warehouse == "NJ,SAV,LA,MO,TX":
+                warehouse_list = warehouse.split(",")
+                for w in warehouse_list:
+                    pallets = await self._get_pallet_by_order_at(w, order_start, order_end)
+                    pallets_list.extend(pallets)
+            else:
+                pallets_list = await self._get_pallet_by_order_at(warehouse, order_start, order_end)
 
         # 3. 构建上下文（包含更新提示）
         context = {
@@ -72,6 +89,77 @@ class OctSummaryView(View):
 
         # 4. 返回模板路径和上下文（与原有调用逻辑兼容）
         return self.main_template, context
+
+    async def batch_export(self, request: HttpRequest):
+        try:
+            container_numbers = request.POST.getlist("container_numbers[]")
+            def sync_process_data():
+                # 1. 同步查询订单数据
+                orders = list(
+                    Order.objects.select_related("container_number", "retrieval_id").filter(
+                        container_number__container_number__in=container_numbers
+                    ).all()
+                )
+
+                if not orders:
+                    return None
+
+                port_stats = {}
+                customer_stats = {}
+                for item in orders:
+                    port = item.retrieval_id.retrieval_destination_area or "未知港口"
+                    customer = getattr(item.customer_name, "zem_name", "未知客户")
+
+                    # 统计港口数据
+                    if port not in port_stats:
+                        port_stats[port] = [0, 0]
+                    port_stats[port][0] += 1
+                    if item.status == "unfinished":
+                        port_stats[port][1] += 1
+
+                    # 统计客户数据
+                    key = (port, customer)
+                    customer_stats[key] = customer_stats.get(key, 0) + 1
+
+                # 港口统计：[(港口1, 总数量1, 未建单数量1), (港口2, 总数量2, 未建单数量2), ...]
+                port_list = [(port, stats[0], stats[1]) for port, stats in port_stats.items()]
+                # 客户统计：[(港口1, 客户1, 数量1), (港口1, 客户2, 数量2), ...]
+                customer_list = [(k[0], k[1], v) for k, v in customer_stats.items()]
+
+                return (port_list, customer_list)
+
+            result = await sync_to_async(sync_process_data)()
+            if not result:
+                return HttpResponse("未查询到数据", status=404)
+            port_list, customer_list = result
+            wb = Workbook()
+
+            # 1. 港口统计表（按港口分组显示）
+            ws1 = wb.active
+            ws1.title = "港口统计"
+            ws1.append(["港口", "预报数量", "未建单数量"])
+            for port_data in port_list:
+                ws1.append(port_data)
+
+            # 2. 客户统计表（按港口+客户分组显示）
+            ws2 = wb.create_sheet(title="客户统计")
+            ws2.append(["港口", "客户", "数量"])
+            for customer_data in customer_list:
+                ws2.append(customer_data)
+
+            buffer = BytesIO()
+            wb.save(buffer)
+            buffer.seek(0)
+
+            response = HttpResponse(
+                buffer.getvalue(),
+                content_type="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
+            )
+            response["Content-Disposition"] = 'attachment; filename="港口客户统计.xlsx"'
+            return response
+
+        except Exception as e:
+            return HttpResponse(f"导出失败：{str(e)}", status=500)
 
     async def save_do_sent(self, request: HttpRequest) -> tuple[str, dict[str, Any]]:
         order_id = request.POST.get("order_id")
@@ -311,7 +399,7 @@ class OctSummaryView(View):
         )
 
     warehouse_options = {
-        "": "",
+        "所有仓库": "NJ,SAV,LA,MO,TX",
         "NJ": "NJ",
         "SAV": "SAV",
         "LA": "LA",
