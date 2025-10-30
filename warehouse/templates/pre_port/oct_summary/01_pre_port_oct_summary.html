@@ -8,6 +8,7 @@
             padding: 0 20px;
         }
 
+        /* 其他样式保持不变 */
         .layui-form-item .layui-form-label {
             padding-right: 10px;
         }
@@ -92,70 +93,123 @@
             color: #6c757d;
         }
 
-        /* 隐藏原生单选框 */
-        .custom-radio input {
+        /* ================================== */
+        /* 核心修复：列宽合理化+滚动同步 */
+        /* ================================== */
+        /* 1. 滚动容器：唯一横向滚动区域 */
+        .table-container {
+            width: 100%;
+            overflow-x: auto; /* 横向滚动唯一出口 */
+            position: relative;
+        }
+
+        /* 2. 表格包装器：移除max-content，改用动态计算 */
+        .table-wrapper {
+            width: 100%;
+            min-width: 100%; /* 最小占满容器 */
+        }
+
+        /* 3. 表头容器：固定顶部，跟随滚动 */
+        .fixed-header {
+            position: sticky;
+            top: 0;
+            z-index: 10;
+            background-color: #fff;
+            box-shadow: 0 2px 4px rgba(0, 0, 0, 0.05);
+        }
+
+        /* 4. 表体容器：仅纵向滚动 */
+        .scroll-body {
+            max-height: 550px;
+            overflow-y: auto;
+            overflow-x: hidden; /* 禁止表体横向滚动 */
+        }
+
+        /* 5. 统一表格样式：强制同结构同列宽 */
+        .layui-table {
+            width: 100%;
+            border-collapse: collapse;
+            table-layout: fixed; /* 按列宽设置渲染 */
+            margin: 0;
+        }
+
+        /* 6. 表头和表体单元格样式完全统一 */
+        .fixed-header th,
+        .scroll-body td {
+            padding: 9px 8px; /* 减少内边距 */
+            text-align: left;
+            border: 1px solid #e6e6e6;
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+        }
+
+        /* 7. 搜索行样式 */
+        .fixed-header th.search-th {
+            padding: 5px 8px;
+        }
+
+        /* 8. 优化列宽设置（大幅缩减宽度，总和适应常见屏幕） */
+        .fixed-header th:nth-child(1), .scroll-body td:nth-child(1) { width: 80px; }  /* 下单日期 */
+        .fixed-header th:nth-child(2), .scroll-body td:nth-child(2) { width: 90px; }  /* 客户 */
+        .fixed-header th:nth-child(3), .scroll-body td:nth-child(3) { width: 130px; } /* 所属仓/直送地址 */
+        .fixed-header th:nth-child(4), .scroll-body td:nth-child(4) { width: 110px; } /* 调度备注 */
+        .fixed-header th:nth-child(5), .scroll-body td:nth-child(5) { width: 90px; }  /* 柜号 */
+        .fixed-header th:nth-child(6), .scroll-body td:nth-child(6) { width: 90px; }  /* MBL */
+        .fixed-header th:nth-child(7), .scroll-body td:nth-child(7) { width: 90px; }  /* 船司 */
+        .fixed-header th:nth-child(8), .scroll-body td:nth-child(8) { width: 110px; } /* 船名航次 */
+        .fixed-header th:nth-child(9), .scroll-body td:nth-child(9) { width: 60px; }  /* 柜型 */
+        .fixed-header th:nth-child(10), .scroll-body td:nth-child(10) { width: 60px; } /* 船期 */
+        .fixed-header th:nth-child(11), .scroll-body td:nth-child(11) { width: 90px; } /* ETD */
+        .fixed-header th:nth-child(12), .scroll-body td:nth-child(12) { width: 90px; } /* ETA */
+        .fixed-header th:nth-child(13), .scroll-body td:nth-child(13) { width: 80px; }  /* 放行状态 */
+        .fixed-header th:nth-child(14), .scroll-body td:nth-child(14) { width: 90px; } /* 供应商 */
+        .fixed-header th:nth-child(15), .scroll-body td:nth-child(15) { width: 80px; }  /* 调度委托 */
+        .fixed-header th:nth-child(16), .scroll-body td:nth-child(16) { width: 80px; }  /* 私仓数量 */
+        .fixed-header th:nth-child(17), .scroll-body td:nth-child(17) { width: 150px; } /* 是否提供Do */
+        .fixed-header th:nth-child(18), .scroll-body td:nth-child(18) { width: 90px; } /* 建单进度 */
+
+        /* 9. 滚动条样式优化 */
+        .table-container::-webkit-scrollbar {
+            height: 10px;
+        }
+        .scroll-body::-webkit-scrollbar {
+            width: 8px;
+        }
+        .table-container::-webkit-scrollbar-track,
+        .scroll-body::-webkit-scrollbar-track {
+            background: #f1f3f5;
+            border-radius: 5px;
+        }
+        .table-container::-webkit-scrollbar-thumb,
+        .scroll-body::-webkit-scrollbar-thumb {
+            background: #adb5bd;
+            border-radius: 5px;
+        }
+        .table-container::-webkit-scrollbar-thumb:hover,
+        .scroll-body::-webkit-scrollbar-thumb:hover {
+            background: #868e96;
+        }
+
+        /* 10. 隐藏表体表头 */
+        .scroll-body thead {
             display: none;
         }
 
-        /* 自定义单选按钮样式 */
-        .radio-btn {
-            display: inline-block;
-            width: 16px;
-            height: 16px;
-            border-radius: 50%;
-            border: 2px solid #ddd;
-            position: relative;
-            vertical-align: middle;
-            margin-right: 8px;
-            transition: all 0.2s ease;
+        /* 11. Do列布局优化 */
+        .do-column-content {
+            display: flex;
+            align-items: center;
+            gap: 5px; /* 进一步缩减间距 */
+            width: 100%;
+            box-sizing: border-box;
         }
-
-        /* 选中状态的按钮样式 */
-        .custom-radio input:checked + .radio-btn {
-            border-color: currentColor; /* 边框颜色继承文字颜色 */
+        .do-column-content button {
+            padding: 0 6px !important;
+            height: 22px !important;
+            line-height: 22px !important;
+            font-size: 12px !important;
         }
-
-        /* 选中状态的圆点 */
-        .custom-radio input:checked + .radio-btn::after {
-            content: '';
-            position: absolute;
-            top: 50%;
-            left: 50%;
-            width: 8px;
-            height: 8px;
-            border-radius: 50%;
-            background-color: currentColor; /* 圆点颜色继承文字颜色 */
-            transform: translate(-50%, -50%);
-        }
-
-        /* 文字基础样式 */
-        .radio-text {
-            vertical-align: middle;
-            font-size: 14px;
-            transition: all 0.2s ease;
-        }
-
-        /* “是”的颜色（深红色，更沉稳） */
-        .yes-text {
-            color: #e53e3e;
-        }
-
-        /* “否”的颜色（深绿色，更协调） */
-        .no-text {
-            color: #2e7d32;
-        }
-
-        /* 鼠标悬停效果 */
-        .custom-radio:hover .radio-btn {
-            border-color: #999;
-        }
-
-        /* 聚焦状态（按Tab键选中时） */
-        .custom-radio input:focus + .radio-btn {
-            box-shadow: 0 0 0 2px rgba(0, 0, 0, 0.1);
-            outline: none;
-        }
-
     </style>
 
     <div class="container_main">
@@ -230,166 +284,211 @@
         </form>
 
 
-        <div class="table-wrapper">
-            <table class="layui-table" id="dataTable">
-                <thead>
-                <tr>
-                    <th>下单日期</th>
-                    <th>客户</th>
-                    <th>所属仓/直送地址</th>
-                    <th>调度备注</th>
-                    <th>柜号</th>
-                    <th>MBL</th>
-                    <th>船司</th>
-                    <th>船名航次</th>
-                    <th>柜型</th>
-                    <th>船期</th>
-                    <th>ETD</th>
-                    <th>ETA</th>
-                    <th>放行状态</th>
-                    <th>供应商</th>
-                    <th>调度委托</th>
-                    <th>私仓数量</th>
-                    <th>是否提供Do</th>
-                </tr>
-                <tr>
-                    <th><input type="text" class="column-search" data-index="0" placeholder="搜索下单日期..."></th>
-                    <th><input type="text" class="column-search" data-index="1" placeholder="搜索客户..."></th>
-                    <th><input type="text" class="column-search" data-index="2" placeholder="搜索仓/地址..."></th>
-                    <th><input type="text" class="column-search" data-index="3" placeholder="搜索调度备注..."></th>
-                    <th><input type="text" class="column-search" data-index="4" placeholder="搜索柜号..."></th>
-                    <th><input type="text" class="column-search" data-index="5" placeholder="搜索MBL..."></th>
-                    <th><input type="text" class="column-search" data-index="6" placeholder="搜索船司..."></th>
-                    <th><input type="text" class="column-search" data-index="7" placeholder="搜索船名航次..."></th>
-                    <th><input type="text" class="column-search" data-index="8" placeholder="搜索柜型..."></th>
-                    <th><input type="text" class="column-search" data-index="9" placeholder="搜索船期..."></th>
-                    <th><input type="text" class="column-search" data-index="10" placeholder="搜索ETD..."></th>
-                    <th><input type="text" class="column-search" data-index="11" placeholder="搜索ETA..."></th>
-                    <th><input type="text" class="column-search" data-index="12" placeholder="搜索放行状态..."></th>
-                    <th><input type="text" class="column-search" data-index="13" placeholder="搜索供应商..."></th>
-                    <th><input type="text" class="column-search" data-index="14" placeholder="搜索调度委托..."></th>
-                    <th><input type="text" class="column-search" data-index="15" placeholder="搜索私仓数量..."></th>
-                    <th><input type="text" class="column-search" data-index="16" placeholder="搜索Do..."></th>
-                </tr>
-                </thead>
-                <tbody id="tableBody">
-                {% for data in datas %}
-                    <tr class="table-row">
-                        <td>{{ data.created_at|date:"Y-m-d" }}</td>
-                        <td>{{ data.customer_name }}</td>
-                        <td>
-                            {% if data.order_type == "转运" %}
-                                {{ data.retrieval_destination_area }}
-                            {% elif data.order_type == "直送" %}
-                                直送{{ data.retrieval_destination_area }}
-                            {% elif data.order_type == "转运组合" %}
-                                {{ data.retrieval_destination_area }}组合柜
-                            {% endif %}
-                        </td>
-                        <td>{{ data.retrieval_note|default:"空" }}</td>
-                        <td>
-                            <a href="/terminal_dispatch/?step=update_pickup_schedule&container_number={{ data.container }}"
-                               style="color: #0066cc;" target="_blank">{{ data.container }}</a>
-                        </td>
-                        <td>{{ data.mbl|default:'-' }}</td>
-                        <td>{{ data.shipping_line|default:'-' }}</td>
-                        <td>{{ data.vessel|default:'-' }}</td>
-                        <td>{{ data.container_type|default:'-' }}</td>
-                        <td>
-                            {% if data.vessel_date|default:'-' %}
-                                {{ data.vessel_date.days }}天
-                            {% else %}
-                                -
-                            {% endif %}
-                        </td>
-                        <td>{{ data.vessel_etd|date:"Y-m-d H:i"|default:'-' }}</td>
-                        <td>{{ data.vessel_eta|date:"Y-m-d H:i"|default:'-' }}</td>
-                        <td>
-                            {% if data.temp_t49_available_for_pickup == True %}
-                                <span style="color: #28a745;">√</span>
-                            {% else %}
-                                <span style="color: #dc3545;">{{ data.temp_t49_available_for_pickup|default:"×" }}</span>
-                            {% endif %}
-                        </td>
-                        <td>{{ data.retrieval_carrier }}</td>
-                        <td>
-                            {% if data.retrieval_carrier %}
-                                <span style="color: #28a745;">√</span>
-                            {% else %}
-                                <span style="color: #dc3545;">×</span>
-                            {% endif %}
-                        </td>
-                        <td>
-                            {% with ke=data.ke_destination_num|default:0 si=data.si_destination_num|default:0 %}
-                                {% if ke > 0 %}
-                                    客{{ ke }}
-                                {% elif si > 0 %}
-                                    私{{ si }}
-                                {% else %}
-                                    无
+        <!-- 表格容器：确保表头表体同步滚动且对齐 -->
+        <div class="table-container">
+            <div class="table-wrapper">
+                <!-- 固定表头 -->
+                <div class="fixed-header">
+                    <table class="layui-table">
+                        <thead>
+                        <tr>
+                            <th>下单日期</th>
+                            <th>客户</th>
+                            <th>所属仓/直送地址</th>
+                            <th>调度备注</th>
+                            <th>柜号</th>
+                            <th>MBL</th>
+                            <th>船司</th>
+                            <th>船名航次</th>
+                            <th>柜型</th>
+                            <th>船期</th>
+                            <th>ETD</th>
+                            <th>ETA</th>
+                            <th>放行状态</th>
+                            <th>供应商</th>
+                            <th>调度委托</th>
+                            <th>私仓数量</th>
+                            <th>是否提供Do</th>
+                            <th>建单进度</th>
+                        </tr>
+                        <tr>
+                            <th class="search-th"><input type="text" class="column-search" data-index="0" placeholder="搜索日期..."></th>
+                            <th class="search-th"><input type="text" class="column-search" data-index="1" placeholder="搜索客户..."></th>
+                            <th class="search-th"><input type="text" class="column-search" data-index="2" placeholder="搜索仓/地址..."></th>
+                            <th class="search-th"><input type="text" class="column-search" data-index="3" placeholder="搜索备注..."></th>
+                            <th class="search-th"><input type="text" class="column-search" data-index="4" placeholder="搜索柜号..."></th>
+                            <th class="search-th"><input type="text" class="column-search" data-index="5" placeholder="搜索MBL..."></th>
+                            <th class="search-th"><input type="text" class="column-search" data-index="6" placeholder="搜索船司..."></th>
+                            <th class="search-th"><input type="text" class="column-search" data-index="7" placeholder="搜索船名航次..."></th>
+                            <th class="search-th"><input type="text" class="column-search" data-index="8" placeholder="搜索柜型..."></th>
+                            <th class="search-th"><input type="text" class="column-search" data-index="9" placeholder="搜索船期..."></th>
+                            <th class="search-th"><input type="text" class="column-search" data-index="10" placeholder="搜索ETD..."></th>
+                            <th class="search-th"><input type="text" class="column-search" data-index="11" placeholder="搜索ETA..."></th>
+                            <th class="search-th"><input type="text" class="column-search" data-index="12" placeholder="搜索放行状态..."></th>
+                            <th class="search-th"><input type="text" class="column-search" data-index="13" placeholder="搜索供应商..."></th>
+                            <th class="search-th"><input type="text" class="column-search" data-index="14" placeholder="搜索调度委托..."></th>
+                            <th class="search-th"><input type="text" class="column-search" data-index="15" placeholder="搜索私仓数量..."></th>
+                            <th class="search-th"><input type="text" class="column-search" data-index="16" placeholder="搜索Do..."></th>
+                            <th class="search-th"><input type="text" class="column-search" data-index="17" placeholder="搜索建单进度..."></th>
+                        </tr>
+                        </thead>
+                    </table>
+                </div>
+
+                <!-- 滚动表体 -->
+                <div class="scroll-body">
+                    <table class="layui-table">
+                        <thead>
+                        <tr>
+                            <th>下单日期</th>
+                            <th>客户</th>
+                            <th>所属仓/直送地址</th>
+                            <th>调度备注</th>
+                            <th>柜号</th>
+                            <th>MBL</th>
+                            <th>船司</th>
+                            <th>船名航次</th>
+                            <th>柜型</th>
+                            <th>船期</th>
+                            <th>ETD</th>
+                            <th>ETA</th>
+                            <th>放行状态</th>
+                            <th>供应商</th>
+                            <th>调度委托</th>
+                            <th>私仓数量</th>
+                            <th>是否提供Do</th>
+                            <th>建单进度</th>
+                        </tr>
+                        </thead>
+                        <tbody id="tableBody">
+                        {% for data in datas %}
+                            <tr class="table-row">
+                                <td>{{ data.created_at|date:"Y-m-d" }}</td>
+                                <td>{{ data.customer_name }}</td>
+                                <td>
+                                    {% if data.order_type == "转运" %}
+                                        {{ data.retrieval_destination_area }}
+                                    {% elif data.order_type == "直送" %}
+                                        直送{{ data.retrieval_destination_area }}
+                                    {% elif data.order_type == "转运组合" %}
+                                        {{ data.retrieval_destination_area }}组合柜
+                                    {% endif %}
+                                </td>
+                                <td>{{ data.retrieval_note|default:"空" }}</td>
+                                <td>
+                                    <a href="/terminal_dispatch/?step=update_pickup_schedule&container_number={{ data.container }}"
+                                       style="color: #0066cc;" target="_blank">{{ data.container }}</a>
+                                </td>
+                                <td>{{ data.mbl|default:'-' }}</td>
+                                <td>{{ data.shipping_line|default:'-' }}</td>
+                                <td>{{ data.vessel|default:'-' }}</td>
+                                <td>{{ data.container_type|default:'-' }}</td>
+                                <td>
+                                    {% if data.vessel_date|default:'-' %}
+                                        {{ data.vessel_date.days }}天
+                                    {% else %}
+                                        -
+                                    {% endif %}
+                                </td>
+                                <td>{{ data.vessel_etd|date:"Y-m-d H:i"|default:'-' }}</td>
+                                <td>{{ data.vessel_eta|date:"Y-m-d H:i"|default:'-' }}</td>
+                                <td>
+                                    {% if data.temp_t49_available_for_pickup == True %}
+                                        <span style="color: #28a745;">√</span>
+                                    {% else %}
+                                        <span style="color: #dc3545;">{{ data.temp_t49_available_for_pickup|default:"×" }}</span>
+                                    {% endif %}
+                                </td>
+                                <td>{{ data.retrieval_carrier }}</td>
+                                <td>
+                                    {% if data.retrieval_carrier %}
+                                        <span style="color: #28a745;">√</span>
+                                    {% else %}
+                                        <span style="color: #dc3545;">×</span>
+                                    {% endif %}
+                                </td>
+                                <td>
+                                    {% with ke=data.ke_destination_num|default:0 si=data.si_destination_num|default:0 %}
+                                        {% if ke > 0 %}
+                                            客{{ ke }}
+                                        {% elif si > 0 %}
+                                            私{{ si }}
+                                        {% else %}
+                                            无
+                                        {% endif %}
+                                    {% endwith %}
+                                </td>
+                                <!-- 是否提供Do列 -->
+                                <td>
+                                    <form action="" method="post" style="margin: 0;">
+                                        {% csrf_token %}
+                                        <input type="hidden" name="step" value="save_do_sent">
+                                        <input type="hidden" name="order_id" value="{{ data.id }}">
+                                        <input type="hidden" name="do_sent" value="{{ data.do_sent }}">
+                                        <input type="hidden" name="warehouse" value="{{ warehouse }}">
+                                        <input type="hidden" name="eta_start" value="{{ eta_start }}">
+                                        <input type="hidden" name="eta_end" value="{{ eta_end }}">
+                                        <input type="hidden" name="order_start" value="{{ order_start }}">
+                                        <input type="hidden" name="order_end" value="{{ order_end }}">
+                                        <input type="hidden" name="timeRangeType" value="{{ time_range_type }}">
+
+                                        <div class="do-column-content">
+                                            <label style="display: inline-flex; align-items: center; cursor: pointer; margin: 0;">
+                                                <input type="radio" name="do_sent"
+                                                       value="True"
+                                                       {% if data.do_sent == True %}checked{% endif %}
+                                                       style="width: 14px; height: 14px; margin: 0 3px 0 0; cursor: pointer;">
+                                                <span style="color: red; font-size: 12px; margin: 0;">是</span>
+                                            </label>
+
+                                            <label style="display: inline-flex; align-items: center; cursor: pointer; margin: 0;">
+                                                <input type="radio" name="do_sent"
+                                                       value="False"
+                                                       {% if data.do_sent == False %}checked{% endif %}
+                                                       style="width: 14px; height: 14px; margin: 0 3px 0 0; cursor: pointer;">
+                                                <span style="color: green; font-size: 12px; margin: 0;">否</span>
+                                            </label>
+
+                                            <button type="submit" class="layui-btn layui-btn-sm"
+                                                    style="margin: 0; padding: 0 8px; height: 20px; line-height: 20px; font-size: 12px;">
+                                                <i class="layui-icon layui-icon-ok" style="margin-right: 2px; font-size: 10px;"></i>确定
+                                            </button>
+                                        </div>
+                                    </form>
+                                </td>
+                                <!--建单状态-->
+                                {% if data.status == "unfinished" %}
+                                    <td>
+                                        <a href="/create_order/?step=container_info_supplement&container_number={{ data.container }}" style="color: #3875d7">未完成</a>
+                                    </td>
+                                {% elif data.status == "completed" %}
+                                    <td>
+                                        <a href="/create_order/?step=order_management_container&container_number={{ data.container }}" style="color: #3875d7">已完成</a>
+                                    </td>
+                                {% elif data.status == "checked" %}
+                                    <td>已检查</td>
                                 {% endif %}
-                            {% endwith %}
-                        </td>
-                        <!-- 新增的是否提供Do单选框列 -->
-                        <td>
-                            <form action="" method="post">
-                                {% csrf_token %}
-                                <input type="hidden" name="step" value="save_do_sent">
-                                <input type="hidden" name="order_id" value="{{ data.id }}">
-                                <input type="hidden" name="do_sent" value="{{ data.do_sent }}">
-                                <input type="hidden" name="warehouse" value="{{ warehouse }}">
-                                <input type="hidden" name="eta_start" value="{{ eta_start }}">
-                                <input type="hidden" name="eta_end" value="{{ eta_end }}">
-                                <input type="hidden" name="order_start" value="{{ order_start }}">
-                                <input type="hidden" name="order_end" value="{{ order_end }}">
-                                <input type="hidden" name="timeRangeType" value="{{ time_range_type }}">
-                                <div style="display: inline-flex; align-items: center; gap: 15px;">
-                                    <!-- “是”选项 -->
-                                    <label style="display: inline-flex; align-items: center; cursor: pointer;">
-                                        <input type="radio" name="do_sent"
-                                               value="True"
-                                               {% if data.do_sent == True %}checked{% endif %}
-                                               style="width: 16px; height: 16px; margin: 0; cursor: pointer;">
-                                        <span style="color: red; margin-left: 5px; font-size: 14px;">是</span>
-                                    </label>
-
-                                    <!-- “否”选项 -->
-                                    <label style="display: inline-flex; align-items: center; cursor: pointer;">
-                                        <input type="radio" name="do_sent"
-                                               value="False"
-                                               {% if data.do_sent == False %}checked{% endif %}
-                                               style="width: 16px; height: 16px; margin: 0; cursor: pointer;">
-                                        <span style="color: green; margin-left: 5px; font-size: 14px;">否</span>
-                                    </label>
-                                </div>
-
-
-                                <button type="submit" class="layui-btn layui-btn-sm"
-                                        style="margin-left: 8px; transition: all 0.2s;">
-                                    <i class="layui-icon layui-icon-ok" style="margin-right: 3px;"></i>确定
-                                </button>
-                            </form>
-                        </td>
-                    </tr>
-                {% empty %}
-                    <tr>
-                        <td colspan="17" style="text-align: center; padding: 40px 0; color: #6c757d;">
-                            {% if warehouse %}
-                                未找到符合条件的数据
-                            {% else %}
-                                请选择仓库和时间范围并点击"确认加载数据"
-                            {% endif %}
-                        </td>
-                    </tr>
-                {% endfor %}
-                </tbody>
-            </table>
-            <div id="columnNoMatch" class="column-no-match">未找到匹配的记录</div>
+                            </tr>
+                        {% empty %}
+                            <tr>
+                                <td colspan="18" style="text-align: center; padding: 40px 0; color: #6c757d;">
+                                    {% if warehouse %}
+                                        未找到符合条件的数据
+                                    {% else %}
+                                        请选择仓库和时间范围并点击"确认加载数据"
+                                    {% endif %}
+                                </td>
+                            </tr>
+                        {% endfor %}
+                        </tbody>
+                    </table>
+                    <div id="columnNoMatch" class="column-no-match">未找到匹配的记录</div>
+                </div>
+            </div>
         </div>
     </div>
 
     <script>
-        // 核心修复：将初始化逻辑封装为独立函数，确保页面刷新后能重新执行
         function initAllFeatures() {
             layui.use(['form', 'laydate', 'layer'], function () {
                 var form = layui.form;
@@ -544,9 +643,8 @@
                     return isValid;
                 });
 
-                // 8. 初始化列搜索（关键：确保每次页面加载都重新绑定事件）
+                // 8. 初始化列搜索
                 function initColumnSearch() {
-                    // 清除之前的事件绑定（避免重复绑定）
                     document.querySelectorAll('.column-search').forEach(input => {
                         const newInput = input.cloneNode(true);
                         input.parentNode.replaceChild(newInput, input);
@@ -555,17 +653,13 @@
                     const tableRows = Array.from(document.querySelectorAll('#tableBody .table-row'));
                     const searchInputs = document.querySelectorAll('.column-search');
 
-                    // 为每个搜索框重新绑定事件
                     searchInputs.forEach((input, index) => {
                         input.addEventListener('input', function() {
                             const keyword = this.value.trim().toLowerCase();
                             let visibleCount = 0;
 
                             tableRows.forEach(row => {
-                                // 恢复行显示（避免被其他列搜索影响）
                                 row.style.display = '';
-
-                                // 过滤当前列
                                 const cellText = row.cells[index].textContent.trim().toLowerCase();
                                 if (keyword && !cellText.includes(keyword)) {
                                     row.style.display = 'none';
@@ -574,16 +668,29 @@
                                 }
                             });
 
-                            // 显示无结果提示
                             columnNoMatch.style.display = (visibleCount === 0 && keyword) ? 'block' : 'none';
                         });
                     });
                     form.render('radio');
                 }
 
+                // 9. 强制表头表体宽度同步
+                function syncTableWidths() {
+                    const headerTable = document.querySelector('.fixed-header .layui-table');
+                    const bodyTable = document.querySelector('.scroll-body .layui-table');
+                    if (headerTable && bodyTable) {
+                        bodyTable.style.width = headerTable.offsetWidth + 'px';
+                    }
+                }
+
                 // 初始化所有功能
                 initDatePickers();
-                initColumnSearch(); // 每次页面加载都重新初始化搜索
+                initColumnSearch();
+
+                // 页面加载完成后同步宽度
+                setTimeout(syncTableWidths, 100);
+                // 窗口大小变化时重新同步
+                window.addEventListener('resize', syncTableWidths);
 
                 // 显示当前选中的时间范围类型
                 const selectedType = "{{ time_range_type|default:'' }}";
@@ -595,8 +702,7 @@
             });
         }
 
-        // 页面加载完成后初始化（包括首次加载和表单提交后的刷新）
+        // 页面加载完成后初始化
         window.addEventListener('load', initAllFeatures);
-
     </script>
 {% endblock %}

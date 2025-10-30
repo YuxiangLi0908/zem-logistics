@@ -182,6 +182,9 @@ class OrderCreation(View):
         elif step == "peer_po_save":
             template, context = await self.handle_peer_po_save(request)
             return await sync_to_async(render)(request, template, context)
+        elif step == "check_order_status":
+            template, context = await self.check_order_status(request)
+            return await sync_to_async(render)(request, template, context)
         elif step == "modify_is_combina":
             raise ValueError('暂未开放修改计费权限')
     
@@ -1025,6 +1028,13 @@ class OrderCreation(View):
                 container_number__container_number=container_number
             ).update(unpacking_priority=priority)
         )()
+
+    async def check_order_status(
+        self, request: HttpRequest
+    ) -> tuple[Any, Any]:
+        order_id = request.POST.get("order_id")
+        await Order.objects.filter(id=order_id).aupdate(status="checked")
+        return await self.handle_order_management_container_get(request)
 
     async def handle_peer_po_save(
         self, request: HttpRequest

@@ -190,7 +190,7 @@ class OctSummaryView(View):
                 "retrieval_note", "mbl", "shipping_line", "vessel", "container_type",
                 "vessel_date", "vessel_etd", "vessel_eta", "temp_t49_available_for_pickup",
                 "retrieval_carrier", "ke_destination_num", "si_destination_num", "order_type",
-                "do_sent", "id"
+                "do_sent", "id", "status"
             )
             # 按创建时间倒序（最新数据优先显示，符合用户习惯）
             .order_by("-created_at")
@@ -304,7 +304,7 @@ class OctSummaryView(View):
                 "retrieval_note", "mbl", "shipping_line", "vessel", "container_type",
                 "vessel_date", "vessel_etd", "vessel_eta", "temp_t49_available_for_pickup",
                 "retrieval_carrier", "ke_destination_num", "si_destination_num", "order_type",
-                "do_sent", "id"
+                "do_sent", "id", "status"
             )
             # 按创建时间倒序（最新数据优先显示，符合用户习惯）
             .order_by("-created_at")
