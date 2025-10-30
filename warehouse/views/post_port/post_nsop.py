@@ -218,6 +218,9 @@ class PostNsop(View):
         elif step == "multi_group_booking":
             template, context = await self.handle_multi_group_booking(request)
             return render(request, template, context) 
+        elif step == "update_fleet_info":
+            template, context = await self.handle_update_fleet_info(request)
+            return render(request, template, context) 
         else:
             raise ValueError('输入错误',step)
     
@@ -452,7 +455,6 @@ class PostNsop(View):
         plt_ids = [
             int(i.strip()) for i in plt_ids_str.split(",") if i.strip().isdigit()
         ]
-        print('plt_ids',plt_ids)
         if not pl_ids and not plt_ids:
             raise ValueError("没有获取到任何 ID")
         packinglist_data = await sync_to_async(
@@ -585,6 +587,59 @@ class PostNsop(View):
         grouped.to_csv(path_or_buf=response, index=False)
         return response
     
+    async def handle_update_fleet_info(self, request: HttpRequest) -> tuple[str, dict[str, Any]]:
+        """更新 fleet 基础信息"""
+        context = {}
+
+        # 1️⃣ 获取请求中的字段
+        fleet_number = request.POST.get("fleet_number", "").strip()
+        warehouse = request.POST.get("warehouse", "").strip()
+        carrier = request.POST.get("carrier", "").strip()
+        third_party_address = request.POST.get("third_party_address", "").strip()
+        pickup_number = request.POST.get("pickup_number", "").strip()
+        license_plate = request.POST.get("license_plate", "").strip()
+        motor_carrier_number = request.POST.get("motor_carrier_number", "").strip()
+        dot_number = request.POST.get("dot_number", "").strip()
+        appointment_datetime_str = request.POST.get("appointment_datetime", "").strip()
+        note = request.POST.get("note", "").strip()
+
+        # 2️⃣ 查找 Fleet
+        fleet = await sync_to_async(lambda: Fleet.objects.filter(fleet_number=fleet_number).first())()
+        if not fleet:
+            context["error_messages"] = f"Fleet {fleet_number} 不存在"
+            return await self.handle_td_shipment_post(request, context)
+
+        # 3️⃣ 解析时间字符串
+        appointment_datetime = None
+        if appointment_datetime_str:
+            try:
+                # 格式例如 2025-10-11T16:09
+                appointment_datetime = datetime.strptime(appointment_datetime_str, "%Y-%m-%dT%H:%M")
+            except Exception as e:
+                context["error_messages"] = f"时间格式错误: {appointment_datetime_str} ({e})"
+                return await self.handle_td_shipment_post(request, context)
+
+        # 4️⃣ 更新字段
+        fleet.origin = warehouse or fleet.origin
+        fleet.carrier = carrier or fleet.carrier
+        fleet.third_party_address = third_party_address or fleet.third_party_address
+        fleet.pickup_number = pickup_number or fleet.pickup_number
+        fleet.license_plate = license_plate or fleet.license_plate
+        fleet.motor_carrier_number = motor_carrier_number or fleet.motor_carrier_number
+        fleet.dot_number = dot_number or fleet.dot_number
+        fleet.note = note or fleet.note
+        if appointment_datetime:
+            fleet.appointment_datetime = appointment_datetime
+
+        # 5️⃣ 保存更新
+        await sync_to_async(fleet.save)()
+
+        # 6️⃣ 返回结果
+        context["message"] = f"Fleet {fleet_number} 信息已成功更新。"
+        context["fleet_number"] = fleet_number
+        return await self.handle_td_shipment_post(request, context)
+
+
     async def handle_multi_group_booking(self, request: HttpRequest) -> tuple[str, dict[str, Any]]:
         """处理多组预约出库"""
         booking_data_str = request.POST.get('booking_data')
@@ -727,7 +782,7 @@ class PostNsop(View):
         }
         fleet = Fleet(**fleet_data)
         await sync_to_async(fleet.save)()
-        
+
         if shipment_ids:
             await sync_to_async(
                 Shipment.objects.filter(id__in=shipment_ids).update
@@ -1635,7 +1690,7 @@ class PostNsop(View):
             matching_suggestions = await self.sp_unscheduled_data(warehouse, st_type, max_cbm, max_pallet)
 
         scheduled_data = await self.sp_scheduled_data(warehouse)
-
+        #未排车
         unschedule_fleet = await self._fl_unscheduled_data(request, warehouse)
         unschedule_fleet_data = unschedule_fleet['shipment_list']
         ready_to_ship_data = await self._sp_ready_to_ship_data(warehouse)
@@ -2169,6 +2224,11 @@ class PostNsop(View):
         for fleet in fleets:
             fleet_group = {
                 'fleet_number': fleet.fleet_number,
+                'third_party_address': fleet.third_party_address,
+                'pickup_number': fleet.pickup_number,
+                'motor_carrier_number': fleet.motor_carrier_number,
+                'license_plate': fleet.license_plate,
+                'dot_number': fleet.dot_number,
                 'appointment_datetime': fleet.appointment_datetime,
                 'shipments': {},  # 改回字典结构，保持与前端兼容
                 'pl_ids': [],
