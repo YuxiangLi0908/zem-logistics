@@ -1,4 +1,13 @@
 <!-- 待出库标签页 -->
+ <style>
+    .fleet-number-cell:hover {
+        background-color: #e8f4fd !important;
+    }
+
+    .fleet-number-cell:hover strong {
+        color: #2980b9 !important;
+    }
+ </style>
 <div class="content-section" id="ready-section">
     <div class="search-box">
         <div style="display: flex; gap: 10px; flex: 1; align-items: center;">
@@ -35,9 +44,19 @@
                                     {% with shipment_rowspan=1 %}
                                         <tr>
                                             {% if forloop.parentloop.first and forloop.first or fleet_rowspan == 1 %}
-                                                <td rowspan="{{ fleet_rowspan }}" style="vertical-align: middle; background-color: #f8f9fa;">
-                                                    <strong>{{ fleet_group.fleet_number }}</strong>
-                                                </td>   
+                                                <td rowspan="{{ fleet_rowspan }}" style="vertical-align: middle; background-color: #f8f9fa; cursor: pointer;" 
+                                                    class="fleet-number-cell" 
+                                                    data-fleet-number="{{ fleet_group.fleet_number }}"
+                                                    data-third-party-address="{{ fleet_group.third_party_address }}"
+                                                    data-pickup-number="{{ fleet_group.pickup_number }}"
+                                                    data-motor-carrier-number="{{ fleet_group.motor_carrier_number }}"
+                                                    data-license-plate="{{ fleet_group.license_plate }}"
+                                                    data-dot-number="{{ fleet_group.dot_number }}"
+                                                    data-appointment-datetime="{{ fleet_group.appointment_datetime }}">
+                                                    <strong style="color: #3498db; text-decoration: underline;">{{ fleet_group.fleet_number }}</strong>
+                                                    <br>
+                                                    <small style="color: #7f8c8d; font-size: 10px;">点击编辑</small>
+                                                </td>
                                                 <td rowspan="{{ fleet_rowspan }}" style="vertical-align: middle; background-color: #f8f9fa;">
                                                     {{ fleet_group.appointment_datetime|date:"Y-m-d" }}
                                                 </td>                                        
@@ -75,9 +94,19 @@
                                     {% for cargo in shipment.cargos %}
                                         <tr data-plt-id="{{ cargo.plt_ids }}" data-cargo-id="{{ cargo.cargo_ids }}">
                                             {% if forloop.first and forloop.parentloop.first %}
-                                                <td rowspan="{{ fleet_rowspan }}" style="vertical-align: middle; background-color: #f8f9fa;">
-                                                    <strong>{{ fleet_group.fleet_number }}</strong>
-                                                </td>
+                                                <td rowspan="{{ fleet_rowspan }}" style="vertical-align: middle; background-color: #f8f9fa; cursor: pointer;" 
+                                                    class="fleet-number-cell" 
+                                                    data-fleet-number="{{ fleet_group.fleet_number }}"
+                                                    data-third-party-address="{{ fleet_group.third_party_address }}"
+                                                    data-pickup-number="{{ fleet_group.pickup_number }}"
+                                                    data-motor-carrier-number="{{ fleet_group.motor_carrier_number }}"
+                                                    data-license-plate="{{ fleet_group.license_plate }}"
+                                                    data-dot-number="{{ fleet_group.dot_number }}"
+                                                    data-appointment-datetime="{{ fleet_group.appointment_datetime }}">
+                                                    <strong style="color: #3498db; text-decoration: underline;">{{ fleet_group.fleet_number }}</strong>
+                                                    <br>
+                                                    <small style="color: #7f8c8d; font-size: 10px;">点击编辑</small>
+                                                </td> 
                                                 <td rowspan="{{ fleet_rowspan }}" style="vertical-align: middle; background-color: #f8f9fa;">
                                                     {{ fleet_group.appointment_datetime|date:"Y-m-d" }}
                                                 </td> 

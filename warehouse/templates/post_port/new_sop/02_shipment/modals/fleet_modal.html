@@ -1,0 +1,423 @@
+<!-- fleet_modal.html -->
+<div id="fleetInfoModal" class="modal" style="display:none; position:fixed; z-index:2000; left:0; top:0; width:100%; height:100%; background:rgba(0,0,0,0.5);">
+  <div class="modal-content" style="width:90%; max-width:1200px; max-height:90%; background:#fff; border-radius:8px; overflow:auto; padding:20px; position:absolute; top:50%; left:50%; transform:translate(-50%, -50%); box-shadow:0 4px 20px rgba(0,0,0,0.15);">
+    
+    <!-- 关闭按钮 -->
+    <span class="close-btn" style="position:absolute; top:15px; right:20px; font-size:24px; font-weight:bold; color:#888; cursor:pointer; z-index:10;" onclick="closeFleetInfoModal()">&times;</span>
+
+    <!-- 弹框标题 -->
+    <h3 style="margin-bottom:20px; color:#2c3e50; border-bottom:2px solid #ecf0f1; padding-bottom:10px;">
+        <i class="fas fa-truck"></i> 车次信息管理 - <span id="fleetInfoModalTitle"></span>
+    </h3>
+    
+    <!-- 表单内容 -->
+    <div id="fleetInfoModalContent">
+      <!-- 表单内容将通过JavaScript动态加载 -->
+    </div>
+    
+  </div>
+</div>
+
+<style>
+    /* Fleet Modal 专用样式 */
+    .fleet-form-container {
+        width: 100%;
+        overflow-x: auto;
+    }
+
+    .fleet-header {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        margin-bottom: 15px;
+        padding: 10px 0;
+    }
+
+    .fleet-badge {
+        background-color: #bdc3c7;
+        border-radius: 20px;
+        font-size: 12px;
+        color: #2c3e50;
+        padding: 6px 12px;
+        font-weight: 600;
+    }
+
+    .fleet-table {
+        width: 100%;
+        border-collapse: collapse;
+        margin-bottom: 15px;
+        font-size: 13px;
+    }
+
+    .fleet-table th {
+        background-color: #34495e;
+        color: white;
+        padding: 10px 8px;
+        text-align: left;
+        font-weight: 600;
+        border: none;
+    }
+
+    .fleet-table td {
+        padding: 8px;
+        border-bottom: 1px solid #ecf0f1;
+    }
+
+    .fleet-table input, .fleet-table select {
+        width: 100%;
+        padding: 6px 8px;
+        border: 1px solid #bdc3c7;
+        border-radius: 4px;
+        font-size: 13px;
+        box-sizing: border-box;
+    }
+
+    .fleet-table input:focus, .fleet-table select:focus {
+        border-color: #3498db;
+        outline: none;
+        box-shadow: 0 0 5px rgba(52, 152, 219, 0.3);
+    }
+
+    .fleet-table tr:nth-child(even) {
+        background-color: #f8f9fa;
+    }
+
+    .fleet-buttons {
+        text-align: right;
+        margin-top: 20px;
+        padding-top: 15px;
+        border-top: 1px solid #ecf0f1;
+    }
+
+    .btn {
+        padding: 8px 16px;
+        border: none;
+        border-radius: 4px;
+        cursor: pointer;
+        font-size: 13px;
+        font-weight: 500;
+        transition: all 0.3s;
+    }
+
+    .btn-primary {
+        background: #3498db;
+        color: white;
+    }
+
+    .btn-secondary {
+        background: #95a5a6;
+        color: white;
+        margin-right: 10px;
+    }
+
+    .btn:hover {
+        opacity: 0.9;
+        transform: translateY(-1px);
+    }
+</style>
+
+<script>
+// Fleet Modal JavaScript
+let currentFleetNumber = '';
+
+function buildFleetForm(fleetNumber) {
+    console.log('buildFleetForm 被调用，fleetNumber:', fleetNumber);
+    
+    return `
+        <div class="fleet-form-container">
+            <form id="fleetForm" method="post" action="" onsubmit="handleFleetFormSubmit(event)">
+                {% csrf_token %}
+                <input type="hidden" name="step" value="update_fleet_info">
+                <input type="hidden" name="fleet_number" id="hiddenFleetNumber" value="">
+                <input type="hidden" name="warehouse" value="{{ warehouse }}">
+                <input type="hidden" name="st_type" value="{{ st_type }}">
+                
+                <!-- 运输信息表格 -->
+                <table class="fleet-table">
+                    <thead>
+                        <tr>
+                            <th>承运商</th>
+                            <th>第三方地址</th>
+                            <th>提货号码</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        <tr>
+                            <td>
+                                <select name="carrier" id="fleetCarrier" required>
+                                    <option value="">选择承运商</option>
+                                    {% for k, v in carrier_options.items %}
+                                    <option value="{{ v }}">{{ k }}</option>
+                                    {% endfor %}
+                                </select>
+                            </td>
+                            <td>
+                                <input type="text" name="third_party_address" id="fleetThirdPartyAddress" 
+                                       placeholder="输入第三方地址" value="">
+                            </td>
+                            <td>
+                                <input type="text" name="pickup_number" id="fleetPickupNumber" 
+                                       placeholder="输入提货号码" value="">
+                            </td>
+                        </tr>
+                    </tbody>
+                </table>
+                
+                <!-- 车辆信息表格 -->
+                <table class="fleet-table">
+                    <thead>
+                        <tr>
+                            <th>车牌号</th>
+                            <th>MC Number</th>
+                            <th>DOT Number</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        <tr>
+                            <td>
+                                <input type="text" name="license_plate" id="fleetLicensePlate" 
+                                       placeholder="输入车牌号" required value="">
+                            </td>
+                            <td>
+                                <input type="text" name="motor_carrier_number" id="fleetMotorCarrierNumber" 
+                                       placeholder="输入MC号码" value="">
+                            </td>
+                            <td>
+                                <input type="text" name="dot_number" id="fleetDotNumber" 
+                                       placeholder="输入DOT号码" value="">
+                            </td>
+                        </tr>
+                    </tbody>
+                </table>
+                
+                <!-- 时间信息表格 -->
+                <table class="fleet-table">
+                    <thead>
+                        <tr>
+                            <th>提货时间</th>
+                            <th>备注</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        <tr>
+                            <td>
+                                <input type="datetime-local" name="appointment_datetime" id="fleetAppointmentDatetime" 
+                                       required value="">
+                            </td>
+                            <td>
+                                <input type="text" name="note" id="fleetNote" 
+                                       placeholder="输入备注信息" value="">
+                            </td>
+                        </tr>
+                    </tbody>
+                </table>
+                
+                <div class="fleet-buttons">
+                    <button type="button" class="btn btn-secondary" onclick="closeFleetModal()">取消</button>
+                    <button type="submit" class="btn btn-primary">保存信息</button>
+                </div>
+            </form>
+        </div>
+    `;
+}
+
+function loadFleetData(fleetNumber) {
+    console.log('Loading data for fleet:', fleetNumber);
+    
+    // 使用DOM操作设置值
+    setTimeout(() => {
+        const hiddenField = document.getElementById('hiddenFleetNumber');
+        const debugSpan = document.getElementById('debugFleetNumberSpan');
+        const debugCode = document.getElementById('debugFleetNumber');
+        const fleetBadge = document.getElementById('fleetBadge');
+        
+        if (hiddenField) {
+            hiddenField.value = fleetNumber;
+            console.log('设置隐藏字段值为:', hiddenField.value);
+        }
+        
+        if (debugSpan) {
+            debugSpan.textContent = fleetNumber;
+        }
+        
+        if (debugCode) {
+            debugCode.textContent = fleetNumber;
+        }
+        
+        if (fleetBadge) {
+            fleetBadge.textContent = '出库批次信息 - ' + fleetNumber;
+        }
+        
+        console.log('所有字段设置完成，隐藏字段值:', document.querySelector('input[name="fleet_number"]').value);
+    }, 100);
+}
+
+function handleFleetFormSubmit(event) {
+    event.preventDefault();
+    
+    const form = event.target;
+    const formData = new FormData(form);
+    
+    // 验证表单
+    if (!validateFleetForm(formData)) {
+        return;
+    }
+    
+    // 显示加载中
+    showLoadingBar();
+    
+    // 提交表单
+    form.submit();
+}
+
+function validateFleetForm(formData) {
+    const carrier = formData.get('carrier');
+    const licensePlate = formData.get('license_plate');
+    const appointmentDatetime = formData.get('appointment_datetime');
+    
+    if (!carrier) {
+        alert('请选择承运商');
+        return false;
+    }
+    
+    if (!licensePlate) {
+        alert('请输入车牌号');
+        return false;
+    }
+    
+    if (!appointmentDatetime) {
+        alert('请选择提货时间');
+        return false;
+    }
+    
+    return true;
+}
+
+function openFleetModal(fleetNumber, third_party_address, pickup_number, motor_carrier_number, dot_number, license_plate, appointment_datetime) {
+    console.log('=== openFleetModal 被调用 ===');
+    console.log('传入的 fleetNumber:', fleetNumber);
+    
+    currentFleetNumber = fleetNumber;
+    const modal = document.getElementById('fleetInfoModal');
+    const title = document.getElementById('fleetInfoModalTitle');
+    const content = document.getElementById('fleetInfoModalContent');
+    
+    if (!modal || !title || !content) {
+        console.error('未找到弹框相关元素');
+        return;
+    }
+    
+    title.textContent = fleetNumber;
+    content.innerHTML = buildFleetForm(fleetNumber);
+    modal.style.display = 'block';
+
+    // 延迟确保DOM渲染后再设置值
+    setTimeout(() => {
+        loadFleetData(fleetNumber);
+
+        // 填充数据
+        document.getElementById('fleetThirdPartyAddress').value = third_party_address || '';
+        document.getElementById('fleetPickupNumber').value = pickup_number || '';
+        document.getElementById('fleetMotorCarrierNumber').value = motor_carrier_number || '';
+        document.getElementById('fleetDotNumber').value = dot_number || '';
+        document.getElementById('fleetLicensePlate').value = license_plate || '';
+        console.log('原始时间字符串:', appointment_datetime);
+
+        const formattedDatetime = parseLocalizedDatetime(appointment_datetime);
+        document.getElementById('fleetAppointmentDatetime').value = formattedDatetime;
+
+        console.log('转换后时间:', formattedDatetime);
+        
+
+        
+        console.log('✅ 已填充表单数据');
+    }, 100);
+}
+
+function parseLocalizedDatetime(datetimeStr) {
+    if (!datetimeStr) return '';
+
+    // 替换掉 “.”，以防止 "Oct." 解析失败
+    datetimeStr = datetimeStr.replace(/\./g, '').trim();
+
+    // 匹配月份、日期、年份、时间部分
+    const match = datetimeStr.match(
+        /([A-Za-z]+)\s+(\d{1,2}),\s*(\d{4}),\s*(\d{1,2}):(\d{2})\s*(a\.m\.|p\.m\.|am|pm)?/i
+    );
+
+    if (!match) {
+        console.warn('⚠️ 无法识别的时间格式:', datetimeStr);
+        return '';
+    }
+
+    const [_, monthName, day, year, hourStr, minute, meridiem] = match;
+
+    const months = {
+        January: '01', February: '02', March: '03', April: '04',
+        May: '05', June: '06', July: '07', August: '08',
+        September: '09', October: '10', November: '11', December: '12',
+        Jan: '01', Feb: '02', Mar: '03', Apr: '04', Jun: '06',
+        Jul: '07', Aug: '08', Sep: '09', Sept: '09', Oct: '10',
+        Nov: '11', Dec: '12'
+    };
+
+    const month = months[monthName];
+    if (!month) return '';
+
+    let hour = parseInt(hourStr, 10);
+    if (meridiem) {
+        const lower = meridiem.toLowerCase();
+        if (lower.includes('p') && hour < 12) hour += 12;
+        if (lower.includes('a') && hour === 12) hour = 0;
+    }
+
+    // 补零
+    const dayPadded = String(day).padStart(2, '0');
+    const hourPadded = String(hour).padStart(2, '0');
+    const minutePadded = String(minute).padStart(2, '0');
+
+    return `${year}-${month}-${dayPadded}T${hourPadded}:${minutePadded}`;
+}
+
+function closeFleetModal() {
+    document.getElementById('fleetInfoModal').style.display = 'none';
+    currentFleetNumber = '';
+}
+
+// 修改事件监听器中的函数调用
+document.addEventListener('DOMContentLoaded', function() {
+    const readySection = document.getElementById('ready-section');
+    
+    if (readySection) {
+        readySection.addEventListener('click', function(e) {
+            const fleetCell = e.target.closest('.fleet-number-cell');
+            
+            if (fleetCell) {
+                const fleetNumber = fleetCell.getAttribute('data-fleet-number');
+                const third_party_address = fleetCell.getAttribute('data-third-party-address');
+                const pickup_number = fleetCell.getAttribute('data-pickup-number');
+                const motor_carrier_number = fleetCell.getAttribute('data-motor-carrier-number');
+                const license_plate = fleetCell.getAttribute('data-license-plate');
+                const dot_number = fleetCell.getAttribute('data-dot-number');
+                const appointment_datetime = fleetCell.getAttribute('data-appointment-datetime');
+
+                console.log('点击车次号:', fleetNumber,third_party_address);
+                
+                if (fleetNumber) {
+                    openFleetModal(fleetNumber, third_party_address, pickup_number, motor_carrier_number, dot_number, license_plate, appointment_datetime);
+                    e.preventDefault();
+                    e.stopPropagation();
+                }
+            }
+        });
+    }
+});
+
+// 点击模态框外部关闭
+window.addEventListener('click', function(e) {
+    const modal = document.getElementById('fleetInfoModal');
+    if (e.target === modal) {
+        closeFleetModal();
+    }
+});
+</script>
