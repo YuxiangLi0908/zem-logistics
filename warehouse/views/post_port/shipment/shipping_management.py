@@ -1328,6 +1328,7 @@ class ShippingManagement(View):
     async def handle_appointment_post(
         self, request: HttpRequest, name: str | None = None
     ) -> tuple[str, dict[str, Any]]:
+        print(request.POST)
         area = request.POST.get("area")
         current_time = datetime.now()
         appointment_type = request.POST.get("type")
@@ -1345,6 +1346,7 @@ class ShippingManagement(View):
             
             appointment_id = request.POST.get("appointment_id", None)
             appointment_id = appointment_id.strip() if appointment_id else None
+            print('这里的ISA是',appointment_id)
             try:
                 existed_appointment = await sync_to_async(Shipment.objects.get)(
                     appointment_id=appointment_id

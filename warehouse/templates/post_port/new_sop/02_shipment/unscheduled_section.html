@@ -182,6 +182,7 @@
                                         {{ suggestion|json_script:sid }}
                                     </div>
                                 {% endwith %}
+                                
                             </td>
                             {% endif %}
                         </tr>
@@ -299,6 +300,16 @@
                                                 class="action-btn btn-primary open-intelligent-modal"
                                                 data-script-id="{{ sid }}">
                                             <i class="fas fa-plus"></i> 智能找PO
+                                        </button>
+
+                                        {{ suggestion|json_script:sid }}
+                                    </div>
+                                {% endwith %}
+                                {% with sid="suggestion_"|add:suggestion.suggestion_id %}
+                                    <div class="intelligent-po-action">
+                                        <button type="button" class="action-btn btn-primary" 
+                                                onclick="openVirtualFleetModal('{{ suggestion.suggestion_id }}')">
+                                            <i class="fas fa-truck-loading"></i> 一提多卸
                                         </button>
 
                                         {{ suggestion|json_script:sid }}
