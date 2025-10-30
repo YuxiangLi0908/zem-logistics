@@ -121,8 +121,6 @@
 let currentFleetNumber = '';
 
 function buildFleetForm(fleetNumber) {
-    console.log('buildFleetForm 被调用，fleetNumber:', fleetNumber);
-    
     return `
         <div class="fleet-form-container">
             <form id="fleetForm" method="post" action="" onsubmit="handleFleetFormSubmit(event)">
@@ -221,9 +219,7 @@ function buildFleetForm(fleetNumber) {
     `;
 }
 
-function loadFleetData(fleetNumber) {
-    console.log('Loading data for fleet:', fleetNumber);
-    
+function loadFleetData(fleetNumber) {  
     // 使用DOM操作设置值
     setTimeout(() => {
         const hiddenField = document.getElementById('hiddenFleetNumber');
@@ -233,7 +229,6 @@ function loadFleetData(fleetNumber) {
         
         if (hiddenField) {
             hiddenField.value = fleetNumber;
-            console.log('设置隐藏字段值为:', hiddenField.value);
         }
         
         if (debugSpan) {
@@ -247,8 +242,6 @@ function loadFleetData(fleetNumber) {
         if (fleetBadge) {
             fleetBadge.textContent = '出库批次信息 - ' + fleetNumber;
         }
-        
-        console.log('所有字段设置完成，隐藏字段值:', document.querySelector('input[name="fleet_number"]').value);
     }, 100);
 }
 
@@ -294,8 +287,6 @@ function validateFleetForm(formData) {
 }
 
 function openFleetModal(fleetNumber, third_party_address, pickup_number, motor_carrier_number, dot_number, license_plate, appointment_datetime) {
-    console.log('=== openFleetModal 被调用 ===');
-    console.log('传入的 fleetNumber:', fleetNumber);
     
     currentFleetNumber = fleetNumber;
     const modal = document.getElementById('fleetInfoModal');
@@ -303,7 +294,6 @@ function openFleetModal(fleetNumber, third_party_address, pickup_number, motor_c
     const content = document.getElementById('fleetInfoModalContent');
     
     if (!modal || !title || !content) {
-        console.error('未找到弹框相关元素');
         return;
     }
     
@@ -321,16 +311,9 @@ function openFleetModal(fleetNumber, third_party_address, pickup_number, motor_c
         document.getElementById('fleetMotorCarrierNumber').value = motor_carrier_number || '';
         document.getElementById('fleetDotNumber').value = dot_number || '';
         document.getElementById('fleetLicensePlate').value = license_plate || '';
-        console.log('原始时间字符串:', appointment_datetime);
 
         const formattedDatetime = parseLocalizedDatetime(appointment_datetime);
         document.getElementById('fleetAppointmentDatetime').value = formattedDatetime;
-
-        console.log('转换后时间:', formattedDatetime);
-        
-
-        
-        console.log('✅ 已填充表单数据');
     }, 100);
 }
 
@@ -400,8 +383,6 @@ document.addEventListener('DOMContentLoaded', function() {
                 const license_plate = fleetCell.getAttribute('data-license-plate');
                 const dot_number = fleetCell.getAttribute('data-dot-number');
                 const appointment_datetime = fleetCell.getAttribute('data-appointment-datetime');
-
-                console.log('点击车次号:', fleetNumber,third_party_address);
                 
                 if (fleetNumber) {
                     openFleetModal(fleetNumber, third_party_address, pickup_number, motor_carrier_number, dot_number, license_plate, appointment_datetime);
