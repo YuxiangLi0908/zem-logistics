@@ -28,6 +28,7 @@ class ExceptionHandling(View):
     template_container_pallet = "exception_handling/shipment_actual.html"
     template_post_port_status = "exception_handling/post_port_status.html"
     template_delivery_invoice = "exception_handling/delivery_invoice.html"
+    template_excel_formula_tool = "exception_handling/excel_formula_tool.html"
 
     async def get(self, request: HttpRequest) -> HttpResponse:
         step = request.GET.get("step", None)
@@ -41,6 +42,8 @@ class ExceptionHandling(View):
             
         elif step == "delivery_invoice":
             return await sync_to_async(render)(request, self.template_delivery_invoice)     
+        elif step == "excel_formula_tool":
+            return await sync_to_async(render)(request, self.template_excel_formula_tool)   
         elif step == "shipment_actual":
             if self._validate_user_exception_handling(request.user):
                 return await sync_to_async(render)(request, self.template_container_pallet)
