@@ -206,6 +206,7 @@
             <th>发货时间</th>
             <th>送达时间</th>
             <th>in_use</th>
+            <th>已经取消</th>
             <th>POD链接</th>
             <th>操作</th>
         </tr>
@@ -236,6 +237,20 @@
                     <select name="in_use" class="in-use-select" onchange="this.form.submit()">
                         <option value="true" {% if shipment.in_use %}selected{% endif %}>是</option>
                         <option value="false" {% if not shipment.in_use %}selected{% endif %}>否</option>
+                    </select>
+                </form>
+                
+            </td>
+            <td>
+                <form method="post" style="display: inline-block; margin: 2px;">
+                    {% csrf_token %}
+                    <input type="hidden" name="step" value="update_shipment_is_canceled">
+                    <input type="hidden" name="shipment_id" value="{{ shipment.id }}">
+                    <input type="hidden" name="shipment_batch_number" value="{{ search_value }}">
+                    <input type="hidden" name="search_type" value="{{ search_type }}">
+                    <select name="is_canceled" class="is-canceled-select" onchange="this.form.submit()">
+                        <option value="true" {% if shipment.is_canceled %}selected{% endif %}>是</option>
+                        <option value="false" {% if not shipment.is_canceled %}selected{% endif %}>否</option>
                     </select>
                 </form>
                 
