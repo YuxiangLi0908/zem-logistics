@@ -61,6 +61,9 @@ class ExceptionHandling(View):
         elif step == "update_shipment_in_use":
             template, context = await self.handle_update_shipment_in_use(request)
             return await sync_to_async(render)(request, template, context)
+        elif step == "update_shipment_is_canceled":
+            template, context = await self.handle_update_shipment_is_canceled(request)
+            return await sync_to_async(render)(request, template, context)
         #修改主约和实际约
         elif step == "search_container":
             template, context = await self.handle_search_container(request)
@@ -309,6 +312,24 @@ class ExceptionHandling(View):
             messages.error(request, f"查询失败: {str(e)}")
         
         return self.template_post_port_status, context
+    
+    async def handle_update_shipment_is_canceled(self, request: HttpRequest):
+        shipment_id = request.POST.get('shipment_id')
+        is_canceled_value = request.POST.get('is_canceled')
+        is_canceled_bool = is_canceled_value.lower() == 'true' if is_canceled_value else False
+        shipment = await sync_to_async(
+            lambda: Shipment.objects.select_related('fleet_number').filter(id=shipment_id).first()
+        )()
+        if shipment:
+            # 更新in_use字段
+            shipment.is_canceled = is_canceled_bool
+            await sync_to_async(shipment.save)()
+            
+            # 添加成功消息
+            messages.success(request, f"成功更新 Shipment ID {shipment_id} 的取消状态为: {'是' if is_canceled_bool else '否'}")
+        else:
+            messages.error(request, f"未找到 ID 为 {shipment_id} 的 Shipment")
+        return await self.handle_search_shipment(request)
     
     async def handle_update_shipment_in_use(self, request: HttpRequest):
         shipment_id = request.POST.get('shipment_id')
