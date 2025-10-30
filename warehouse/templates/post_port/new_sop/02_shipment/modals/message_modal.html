@@ -21,56 +21,56 @@
 </div>
 
 <style>
-.message-modal {
-    display: none;
-    position: fixed;
-    z-index: 3000;
-    left: 0;
-    top: 0;
-    width: 100%;
-    height: 100%;
-    background: rgba(0,0,0,0.5);
-    backdrop-filter: blur(2px);
-}
+    .message-modal {
+        display: none;
+        position: fixed;
+        z-index: 3000;
+        left: 0;
+        top: 0;
+        width: 100%;
+        height: 100%;
+        background: rgba(0,0,0,0.5);
+        backdrop-filter: blur(2px);
+    }
 
-.message-modal-content {
-    background: #fff;
-    border-radius: 14px;
-    width: 400px;
-    margin: 5% auto;
-    padding: 30px;
-    text-align: center;
-    box-shadow: 0 10px 25px rgba(0,0,0,0.3);
-    animation: messageModalIn 0.3s ease-out;
-}
+    .message-modal-content {
+        background: #fff;
+        border-radius: 14px;
+        width: 400px;
+        margin: 5% auto;
+        padding: 30px;
+        text-align: center;
+        box-shadow: 0 10px 25px rgba(0,0,0,0.3);
+        animation: messageModalIn 0.3s ease-out;
+    }
 
-@keyframes messageModalIn {
-    from {transform: translateY(-30px); opacity: 0;}
-    to {transform: translateY(0); opacity: 1;}
-}
+    @keyframes messageModalIn {
+        from {transform: translateY(-30px); opacity: 0;}
+        to {transform: translateY(0); opacity: 1;}
+    }
 
-.message-modal-icon {
-    font-size: 3rem;
-    margin-bottom: 15px;
-}
+    .message-modal-icon {
+        font-size: 3rem;
+        margin-bottom: 15px;
+    }
 
-.message-modal-title {
-    margin-bottom: 15px;
-    color: var(--secondary-color);
-    font-size: 1.3rem;
-    font-weight: 600;
-}
+    .message-modal-title {
+        margin-bottom: 15px;
+        color: var(--secondary-color);
+        font-size: 1.3rem;
+        font-weight: 600;
+    }
 
-.message-modal-text {
-    margin-bottom: 20px;
-    line-height: 1.5;
-    color: #666;
-}
+    .message-modal-text {
+        margin-bottom: 20px;
+        line-height: 1.5;
+        color: #666;
+    }
 
-.message-modal-button {
-    min-width: 100px;
-    padding: 10px 20px;
-}
+    .message-modal-button {
+        min-width: 100px;
+        padding: 10px 20px;
+    }
 </style>
 
 <script>
@@ -93,10 +93,4 @@ document.addEventListener('keydown', function(e) {
     }
 });
 
-// 自动关闭成功消息（3秒后）
-{% if success_messages %}
-setTimeout(function() {
-    closeMessageModal();
-}, 3000);
-{% endif %}
 </script>

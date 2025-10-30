@@ -213,6 +213,11 @@ class PostNsop(View):
         elif step == "edit_note_sp":
             template, context = await self.handle_edit_note_sp_post(request)
             return render(request, template, context) 
+        elif step == "export_virtual_fleet_pos":
+            return await self.handle_export_virtual_fleet_pos_post(request)
+        elif step == "multi_group_booking":
+            template, context = await self.handle_multi_group_booking(request)
+            return render(request, template, context) 
         else:
             raise ValueError('输入错误',step)
     
@@ -434,6 +439,393 @@ class PostNsop(View):
         fm = FleetManagement()
         context = await fm.handle_fleet_departure_post(request,'post_nsop')
         return await self.handle_td_shipment_post(request,context)         
+    
+    async def handle_export_virtual_fleet_pos_post(
+        self, request: HttpRequest
+    ) -> tuple[str, dict[str, Any]]:
+        cargo_ids_str = request.POST.get("cargo_ids", "").strip()
+        pl_ids = [
+            int(i.strip()) for i in cargo_ids_str.split(",") if i.strip().isdigit()
+        ]
+
+        plt_ids_str = request.POST.get("plt_ids", "").strip()
+        plt_ids = [
+            int(i.strip()) for i in plt_ids_str.split(",") if i.strip().isdigit()
+        ]
+        print('plt_ids',plt_ids)
+        if not pl_ids and not plt_ids:
+            raise ValueError("没有获取到任何 ID")
+        packinglist_data = await sync_to_async(
+            lambda: list(
+                PackingList.objects.select_related("container_number")
+                .filter(id__in=pl_ids)
+                .values(
+                    "id",
+                    "shipping_mark",
+                    "fba_id",
+                    "ref_id",
+                    "address",
+                    "zipcode",
+                    "container_number__container_number",
+                    "destination",
+                    "cbm"
+                )
+                .annotate(
+                    total_pcs=Sum("pcs"),
+                    total_n_pallet_est=Sum("cbm", output_field=FloatField()) / 2,
+                    total_cbm=Sum("cbm", output_field=FloatField()),
+                    label=Value("EST"),
+                )
+                .distinct()
+                .order_by("destination", "container_number__container_number")
+            )
+        )()
+        pallet_data = await sync_to_async(
+            lambda: list(
+                Pallet.objects.select_related("container_number")
+                .filter(id__in=plt_ids)
+                .values(
+                    "id",
+                    "shipping_mark",
+                    "fba_id",
+                    "ref_id",
+                    "address",
+                    "zipcode",
+                    "container_number__container_number",
+                    "destination",
+                    "cbm",
+                    "pcs"
+                )
+                .annotate(
+                    total_pcs=Sum("pcs"),
+                    total_n_pallet_act=Count("id"),
+                    total_cbm=Sum("cbm", output_field=FloatField()),
+                    label=Value('ACT')
+                )
+                .distinct()
+                .order_by("destination", "container_number__container_number")
+            )
+        )()
+        # 合并数据
+        combined_data = packinglist_data + pallet_data
+
+        if not combined_data:
+            raise ValueError("未找到匹配记录")
+
+        # 聚合计算
+        df = pd.DataFrame.from_records(combined_data)
+        # 计算合计字段
+        grouped = (
+            df.groupby(
+                [
+                    "shipping_mark",
+                    "fba_id",
+                    "ref_id",
+                    "address",
+                    "zipcode",
+                    "container_number__container_number",
+                    "destination",
+                    "label",
+                ],
+                as_index=False,
+            )
+            .agg({
+                "cbm": "sum",
+                "total_pcs": "sum",
+                "id": "count",  # 👈 新增，统计 pallet 数
+            })
+            .rename(columns={"id": "total_n_pallet_act", "cbm": "total_cbm"})
+        )
+        grouped["total_n_pallet_est"] = grouped["total_cbm"] / 2
+        def get_est_pallet(n):
+            if n < 1:
+                return 1
+            elif n % 1 >= 0.45:
+                return int(n // 1 + 1)
+            else:
+                return int(n // 1)
+
+        grouped["total_n_pallet_est"] = grouped["total_n_pallet_est"].apply(get_est_pallet)
+        grouped["is_valid"] = None
+        grouped["is_est"] = grouped["label"] == "EST"
+        grouped["Pallet Count"] = grouped.apply(
+            lambda row: row["total_n_pallet_est"] if row["is_est"] else max(1, row.get("total_n_pallet_act", 1)),
+            axis=1
+        ).astype(int)
+
+        # 重命名列以符合导出格式
+        keep = [
+            "shipping_mark",
+            "container_number__container_number",
+            "fba_id",
+            "ref_id",
+            "total_pcs",
+            "Pallet Count",
+            "label",
+            "is_valid",
+            "total_cbm",
+            "destination",
+        ]
+
+        grouped = grouped[keep].rename(
+            {
+                "fba_id": "PRO",
+                "container_number__container_number": "BOL",
+                "ref_id": "PO List (use , as separator) *",
+                "total_pcs": "Carton Count",
+                "total_cbm": "Total CBM",
+                "destination": "Destination",
+            },
+            axis=1,
+        )
+
+        # 导出 CSV
+        response = HttpResponse(content_type="text/csv")
+        response["Content-Disposition"] = f"attachment; filename=PO_virtual_fleet.csv"
+        grouped.to_csv(path_or_buf=response, index=False)
+        return response
+    
+    async def handle_multi_group_booking(self, request: HttpRequest) -> tuple[str, dict[str, Any]]:
+        """处理多组预约出库"""
+        booking_data_str = request.POST.get('booking_data')
+        context = {}
+        
+        if not booking_data_str:
+            context.update({"error_messages": "没有收到预约数据"})
+            return await self.handle_td_shipment_post(request, context)
+        
+        try:
+            booking_data = json.loads(booking_data_str)
+        except json.JSONDecodeError:
+            context.update({"error_messages": "预约数据格式错误"})
+            return await self.handle_td_shipment_post(request, context)
+        
+        if not isinstance(booking_data, list) or len(booking_data) == 0:
+            context.update({"error_messages": "预约数据为空或格式不正确"})
+            return await self.handle_td_shipment_post(request, context)
+        
+        # 存储处理结果
+        success_groups = []
+        failed_groups = []
+        success_appointment_ids = []
+        # 为每个大组分别处理预约
+        for group_index, group_data in enumerate(booking_data, 1):
+            # 准备调用 handle_appointment_post 所需的参数
+            cargo_ids = group_data.get('cargo_ids', '')
+            plt_ids = group_data.get('plt_ids', '')
+            destination = group_data.get('destination', '')
+            appointment_id = group_data.get('appointment_id', '')
+            shipment_cargo_id = group_data.get('shipment_cargo_id', '')
+            shipment_type = group_data.get('shipment_type', '')
+            shipment_account = group_data.get('shipment_account', '')
+            shipment_appointment = group_data.get('shipment_appointment', '')
+            load_type = group_data.get('load_type', '')
+            origin = group_data.get('origin', '')
+            note = group_data.get('note', '')
+            suggestion_id = group_data.get('suggestion_id')
+            result = await self._process_single_group_booking(request, suggestion_id, cargo_ids, plt_ids, destination, appointment_id,shipment_cargo_id,shipment_type,
+                                                              shipment_account,shipment_appointment,load_type,origin,note)
+            
+            if result['success']:
+                success_groups.append({
+                    'suggestion_id': result.get('suggestion_id'),
+                    'appointment_id': result.get('appointment_id')
+                })
+                success_appointment_ids.append(result.get('appointment_id'))
+            else:
+                failed_groups.append({
+                    'suggestion_id': result.get('suggestion_id'),
+                    'appointment_id': result.get('appointment_id'),
+                    'error': result.get('error', '未知错误')
+                })
+                       
+        # 构建返回消息
+        messages = []
+        if success_groups:
+            success_msg = f"成功预约 {len(success_groups)} 个大组: "
+            success_msg += ", ".join([f"{group['suggestion_id']}(预约号:{group['appointment_id']})" for group in success_groups])
+            messages.append(success_msg)
+            
+        if failed_groups:
+            failed_msg = f"预约失败 {len(failed_groups)} 个大组: "
+            failed_details = []
+            for group in failed_groups:
+                detail = f"{group['suggestion_id']}(预约号:{group['appointment_id']}) - {group['error']}"
+                failed_details.append(detail)
+            failed_msg += "; ".join(failed_details)
+            messages.append(failed_msg)
+        
+        # 存储成功创建的shipment IDs，方便后续约车使用
+        if success_appointment_ids:
+            # 排车
+            fleet_number = await self._add_appointments_to_fleet(success_appointment_ids)
+            success_msg = f"成功排车，车次号是 {fleet_number}"
+            messages.append(success_msg)
+        if messages:
+            context.update({"success_messages": "<br>".join(messages)})
+    
+        return await self.handle_td_shipment_post(request, context)
+
+    async def _add_appointments_to_fleet(self,appointment_ids):
+        current_time = datetime.now()
+        fleet_number = (
+            "F"
+            + current_time.strftime("%m%d%H%M%S")
+            + str(uuid.uuid4())[:2].upper()
+        )
+        shipment_info = await sync_to_async(list)(
+            Shipment.objects.filter(id__in=appointment_ids)
+            .values('id', 'shipment_type', 'origin')
+            .distinct()
+        )
+        shipment_ids = [item['id'] for item in shipment_info]
+        shipment_types = list(set(item['shipment_type'] for item in shipment_info))
+        origins = list(set(item['origin'] for item in shipment_info))
+
+        total_weight, total_cbm, total_pcs, total_pallet = 0.0, 0.0, 0, 0
+        #记录总数
+        if shipment_ids:
+            # 获取所有Pallet记录
+            pallet_records = await sync_to_async(list)(
+                Pallet.objects.filter(
+                    shipment_batch_number_id__in=shipment_ids,
+                    container_number__order__offload_id__offload_at__isnull=False
+                )
+            )
+            
+            # 获取所有PackingList记录  
+            packinglist_records = await sync_to_async(list)(
+                PackingList.objects.filter(
+                    shipment_batch_number_id__in=shipment_ids,
+                    container_number__order__offload_id__offload_at__isnull=True
+                )
+            )
+            
+            # 汇总Pallet数据
+            for p in pallet_records:
+                total_weight += p.total_weight or 0
+                total_cbm += p.total_cbm or 0
+                total_pcs += p.total_pcs or 0
+                total_pallet += p.total_pallet or 0
+            
+            # 汇总PackingList数据
+            for pl in packinglist_records:
+                total_weight += pl.total_weight or 0
+                total_cbm += pl.total_cbm or 0
+                total_pcs += pl.total_pcs or 0
+                total_pallet += pl.total_pallet or 0
+        
+        fleet_data = {
+            "fleet_number": fleet_number,
+            "fleet_type": shipment_types[0] if shipment_types else None,
+            "origin": origins[0] if origins else None,
+            "total_weight": total_weight,
+            "total_cbm": total_cbm,
+            "total_pallet": total_pallet,
+            "total_pcs": total_pcs,
+            "is_virtual": True,
+        }
+        fleet = Fleet(**fleet_data)
+        await sync_to_async(fleet.save)()
+        
+        if shipment_ids:
+            await sync_to_async(
+                Shipment.objects.filter(id__in=shipment_ids).update
+            )(fleet_number=fleet)
+        return fleet_number
+
+    async def _process_single_group_booking(self, request: HttpRequest, suggestion_id, cargo_ids, plt_ids,destination, appointment_id,shipment_cargo_id,shipment_type,
+                                                              shipment_account,shipment_appointment,load_type,origin,note) -> dict:
+        """处理单个大组的预约出库"""
+        new_post = {}
+        cargo_id_list = []
+        if cargo_ids and cargo_ids.strip():
+            cargo_id_list = [int(id.strip()) for id in cargo_ids.split(',') if id.strip()]
+        
+        plt_id_list = []
+        if plt_ids and plt_ids.strip():
+            plt_id_list = [int(id.strip()) for id in plt_ids.split(',') if id.strip()]
+        # 设置货物ID参数（与handle_appointment_post保持一致）
+        
+        total_weight, total_cbm, total_pcs, total_pallet = 0.0, 0.0, 0, 0
+        pallet_records = await sync_to_async(list)(
+            Pallet.objects.filter(
+                id__in=plt_id_list,
+            )
+        )
+        
+        # 获取所有PackingList记录  
+        packinglist_records = await sync_to_async(list)(
+            PackingList.objects.filter(
+                id__in=cargo_id_list,
+            )
+        )
+        
+        # 汇总Pallet数据
+        for p in pallet_records:
+            total_weight += p.weight_lbs or 0
+            total_cbm += p.cbm or 0
+            total_pcs += p.pcs or 0
+            total_pallet += 1
+        
+        # 汇总PackingList数据
+        for pl in packinglist_records:
+            total_weight += pl.total_weight_lbs or 0
+            total_cbm += pl.cbm or 0
+            total_pcs += pl.pcs or 0
+            total_pallet += round(pl.cbm /1.8)
+        # 设置预约信息参数
+        shipment_batch_number = await self.generate_unique_batch_number(destination)
+        address = await self.get_address(destination)
+        shipment_data = {
+            'shipment_batch_number': shipment_batch_number,
+            'destination': destination,
+            'total_weight': total_weight,
+            'total_cbm': total_cbm,
+            'total_pallet': total_pallet,
+            'total_pcs': total_pcs,
+            'total_pallet': total_pallet,
+            'shipment_type': shipment_type,
+            'shipment_account': shipment_account,
+            'appointment_id': appointment_id,
+            'shipment_cargo_id': shipment_cargo_id,
+            'shipment_appointment': shipment_appointment,
+            'load_type': request.POST.get('load_type'),
+            'origin': request.POST.get('warehouse'),
+            'note': request.POST.get('note'),
+            'address': address,
+        }
+    
+        new_post = {**new_post, **shipment_data}
+        new_post['shipment_data'] = str(shipment_data)
+        new_post['pl_ids'] = cargo_id_list
+        new_post['plt_ids'] = plt_id_list
+        new_post['type'] = 'td' 
+        new_post['batch_number'] = shipment_batch_number  
+
+        # 创建新的HttpRequest对象
+        new_request = HttpRequest()
+        new_request.method = 'POST'     
+        new_request.POST = new_post     
+        
+        try:
+            # 直接调用 sm.handle_appointment_post_tuple
+            sm = ShippingManagement()
+            info = await sm.handle_appointment_post(new_request, 'post_nsop')
+            appointment_id = appointment_id
+            return {
+                'success': True,
+                'appointment_id': appointment_id,
+                'suggestion_id': suggestion_id
+            }
+            
+        except Exception as e:
+            return {
+                'success': False,
+                'appointment_id': appointment_id,
+                'suggestion_id': suggestion_id,
+                'error': f"预约失败: {str(e)}"
+            }
     
     async def handle_edit_note_sp_post(
         self, request: HttpRequest
@@ -1455,8 +1847,11 @@ class PostNsop(View):
                     } for cargo in primary_group['cargos']],
                     'intelligent_cargos': intelligent_cargos,
                     'intelligent_pos_stats': intelligent_pos_stats,
+                    'virtual_fleet': []
                 }
                 suggestions.append(suggestion)
+        #查找可以一提多卸的可能
+        await self.calculate_virtual_fleet(suggestions, max_cbm, max_pallet)
         def to_float(val):
             try:
                 return float(val)
@@ -1478,6 +1873,49 @@ class PostNsop(View):
                 reverse=True
             )
         return suggestions
+
+    async def calculate_virtual_fleet(self, suggestions, max_cbm, max_pallet):
+        """计算每个大组可以合并装车的其他大组"""
+        for i, current_suggestion in enumerate(suggestions):
+            current_group = current_suggestion['primary_group']
+            current_cbm = current_group['total_cbm']
+            current_pallets = current_group['total_pallets']
+            
+            # 计算当前大组的剩余容量
+            remaining_cbm = max_cbm - current_cbm
+            remaining_pallets = max_pallet - current_pallets
+            
+            # 寻找可以合并的其他大组
+            compatible_groups = []
+            
+            for j, other_suggestion in enumerate(suggestions):
+                if i == j:  # 跳过自己
+                    continue
+                    
+                other_group = other_suggestion['primary_group']
+                other_cbm = other_group['total_cbm']
+                other_pallets = other_group['total_pallets']
+                
+                # 检查是否可以合并（不超过剩余容量）
+                if other_cbm <= remaining_cbm and other_pallets <= remaining_pallets:
+                    # 计算匹配度分数 - 越接近剩余容量的优先级越高
+                    cbm_match_score = other_cbm / remaining_cbm if remaining_cbm > 0 else 0
+                    pallets_match_score = other_pallets / remaining_pallets if remaining_pallets > 0 else 0
+                    total_match_score = (cbm_match_score + pallets_match_score) / 2
+                    
+                    compatible_groups.append({
+                        'suggestion_id': other_group['suggestion_id'],
+                        'cbm_percentage': other_group['cbm_percentage'],
+                        'pallets_percentage': other_group['pallets_percentage'],
+                        'total_cbm': other_cbm,
+                        'total_pallets': other_pallets,
+                        'match_score': total_match_score
+                    })
+            
+            # 按匹配度分数排序，匹配度高的排在前面
+            compatible_groups.sort(key=lambda x: x['match_score'], reverse=True)         
+            # 只存储suggestion_id列表
+            current_suggestion['virtual_fleet'] = [group['suggestion_id'] for group in compatible_groups]
 
     async def _find_intelligent_po_for_group(self, primary_group, warehouse) -> Any:
         existing_pl_ids = []
