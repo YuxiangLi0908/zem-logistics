@@ -311,10 +311,31 @@
                 <input type="hidden" name="step" value="batch_export">
                 <!-- 选中的ID和柜号将通过JS动态添加 -->
                 <button type="button" id="batchExportBtn" class="batch-export-btn">
-                    <i class="layui-icon layui-icon-download-circle"></i> 批量导出选中数据
+                    <i class="layui-icon layui-icon-download-circle"></i> 批量导出选中仓库数据
                 </button>
             </form>
         </div>
+
+        <!-- 批量导出按钮V1 批量导出选中MBL数据（DO） -->
+        <div class="export-btn-container">
+            <form id="batchExportForm1" method="post" action="">
+                {% csrf_token %}
+                <!-- 动态筛选条件（与搜索表单保持一致） -->
+                <input type="hidden" name="warehouse" value="{{ warehouse }}">
+                <input type="hidden" name="timeRangeType" value="{{ time_range_type }}">
+                <input type="hidden" name="eta_start" value="{{ eta_start|default:'' }}">
+                <input type="hidden" name="eta_end" value="{{ eta_end|default:'' }}">
+                <input type="hidden" name="order_start" value="{{ order_start|default:'' }}">
+                <input type="hidden" name="order_end" value="{{ order_end|default:'' }}">
+                <input type="hidden" name="step" value="batch_export_v1">
+                <!-- 选中的ID和柜号将通过JS动态添加 -->
+                <button type="button" id="batchExportBtnV1" class="batch-export-btn">
+                    <i class="layui-icon layui-icon-download-circle"></i> 批量导出选中MBL数据（DO）
+                </button>
+            </form>
+        </div>
+
+
 
         <!-- 表格容器：确保表头表体同步滚动且对齐 -->
         <div class="table-container">
@@ -784,6 +805,73 @@
                         layer.msg('网络错误，导出失败', {icon: 2, time: 2000});
                     }
                 });
+
+                document.getElementById('batchExportBtnV1').addEventListener('click', async function () {
+                    const checkedBoxes = document.querySelectorAll('.rowCheckbox:checked');
+                    if (checkedBoxes.length === 0) {
+                        layer.msg('请先选择要导出的数据', {icon: 2, time: 2000});
+                        return;
+                    }
+
+                    // 1. 构建表单数据
+                    const formData = new FormData();
+                    formData.append('csrfmiddlewaretoken', document.querySelector('[name=csrfmiddlewaretoken]').value);
+                    formData.append('timeRangeType', document.querySelector('input[name="timeRangeType"]').value);
+                    formData.append('eta_start', document.querySelector('input[name="eta_start"]').value || '');
+                    formData.append('eta_end', document.querySelector('input[name="eta_end"]').value || '');
+                    formData.append('order_start', document.querySelector('input[name="order_start"]').value || '');
+                    formData.append('order_end', document.querySelector('input[name="order_end"]').value || '');
+                    formData.append('step', 'batch_export_v1');
+
+                    // 添加选中的ID和柜号
+                    checkedBoxes.forEach(box => {
+                        formData.append('selected_ids[]', box.getAttribute('data-id'));
+                        formData.append('container_numbers[]', box.getAttribute('data-container'));
+                    });
+
+                    try {
+                        // 2. 发送请求获取文件流
+                        const response = await fetch(window.location.href, {
+                            method: 'POST',
+                            body: formData,
+                        });
+
+                        if (!response.ok) {
+                            const errorText = await response.text();
+                            layer.msg(`导出失败：${errorText}`, {icon: 2, time: 3000});
+                            return;
+                        }
+
+                        // 3. 处理文件下载（关键修改：使用后端返回的文件名）
+                        const blob = await response.blob();
+                        const url = URL.createObjectURL(blob);
+                        const a = document.createElement('a');
+                        a.href = url;
+
+                        // 从响应头中获取后端指定的文件名
+                        const contentDisposition = response.headers.get('Content-Disposition');
+                        if (contentDisposition) {
+                            // 解析后端返回的文件名（兼容不同浏览器）
+                            const fileNameMatch = contentDisposition.match(/filename="(.+)"/);
+                            if (fileNameMatch && fileNameMatch[1]) {
+                                a.download = fileNameMatch[1];  // 使用后端指定的文件名（含.zip后缀）
+                            }
+                        }
+
+                        document.body.appendChild(a);
+                        a.click();
+                        document.body.removeChild(a);
+                        URL.revokeObjectURL(url);
+
+                        // 4. 下载完成提示（无需刷新页面）
+                        layer.msg('导出成功，文件已下载', {icon: 1, time: 1500});
+
+                    } catch (error) {
+                        console.error('导出错误:', error);
+                        layer.msg('网络错误，导出失败', {icon: 2, time: 2000});
+                    }
+                });
+
 
                 // 初始化所有功能
                 initDatePickers();

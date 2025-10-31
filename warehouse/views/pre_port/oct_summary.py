@@ -1,4 +1,5 @@
 import json
+import zipfile
 from io import BytesIO
 from typing import Any
 
@@ -15,6 +16,7 @@ from sqlalchemy import values
 from warehouse.models.order import Order
 from warehouse.models.pallet import Pallet
 from warehouse.utils.constants import PORT_TO_WAREHOUSE_AREA
+from warehouse.views.export_file import export_do, export_do_branch
 
 
 class OctSummaryView(View):
@@ -40,6 +42,9 @@ class OctSummaryView(View):
         elif step == "batch_export":
             # 直接返回 batch_export 生成的文件响应（无需 render）
             return await self.batch_export(request)
+        elif step == "batch_export_v1":
+            # 直接返回 batch_export 生成的文件响应（无需 render）
+            return await self.batch_export_v1(request)
 
     async def check_disnation(self) -> tuple[Any, Any]:
         context = {"warehouse_options": self.warehouse_options}
@@ -156,6 +161,75 @@ class OctSummaryView(View):
                 content_type="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
             )
             response["Content-Disposition"] = 'attachment; filename="港口客户统计.xlsx"'
+            return response
+
+        except Exception as e:
+            return HttpResponse(f"导出失败：{str(e)}", status=500)
+
+    async def batch_export_v1(self, request: HttpRequest):
+        try:
+            container_numbers = request.POST.getlist("container_numbers[]")
+            if not container_numbers:
+                return HttpResponse("未选择任何数据", status=400)
+
+            def sync_process_data():
+                orders = list(
+                    Order.objects.select_related("container_number", "retrieval_id", "vessel_id").filter(
+                        container_number__container_number__in=container_numbers
+                    ).all()
+                )
+                if not orders:
+                    return None
+
+                export_data = []
+                for item in orders:
+                    container = item.container_number.container_number or ""
+                    mbl = getattr(item.vessel_id, "master_bill_of_lading", "")
+                    container_type = item.container_number.container_type or ""
+                    eta = item.vessel_id.vessel_eta.strftime("%Y-%m-%d") if (
+                            item.vessel_id and item.vessel_id.vessel_eta) else ""
+                    terminal = ""
+                    remark = ""
+                    export_data.append([container, mbl, terminal, container_type, eta, remark])
+                return export_data
+
+            export_data = await sync_to_async(sync_process_data)()
+            if not export_data:
+                return HttpResponse("未查询到数据", status=404)
+
+            excel_buffer = BytesIO()
+            wb = Workbook()
+            ws1 = wb.active
+            ws1.title = "选中MBL数据统计"
+            ws1.append(["柜号", "MBL", "码头", "柜型", "ETA", "备注"])
+            for row in export_data:
+                ws1.append(row)
+            wb.save(excel_buffer)
+            excel_buffer.seek(0)  # 重置指针
+            #DO的PDF
+            async def get_do_pdf(container_number):
+                return await sync_to_async(export_do_branch)(container_number)
+
+            # 创建ZIP压缩包（核心：把Excel和PDF都放进ZIP）
+            zip_buffer = BytesIO()
+            with zipfile.ZipFile(zip_buffer, "w", zipfile.ZIP_DEFLATED) as zip_file:
+                # 添加Excel文件到ZIP（文件名保持.xlsx后缀）
+                zip_file.writestr("批量导出选中MBL数据.xlsx", excel_buffer.getvalue())
+
+                for container_number in container_numbers:
+                    pdf_response = await get_do_pdf(container_number)
+                    zip_file.writestr(f"DO_{container_number}.pdf", pdf_response.content)
+
+            zip_buffer.seek(0)
+            response = HttpResponse(
+                zip_buffer.getvalue(),
+                content_type="application/zip"
+            )
+            response["Content-Disposition"] = 'attachment; filename="批量导出数据（含Excel和DO）.zip"'
+
+            excel_buffer.close()
+            zip_buffer.close()
+
             return response
 
         except Exception as e:
