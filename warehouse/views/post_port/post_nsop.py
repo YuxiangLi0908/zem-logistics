@@ -1226,6 +1226,7 @@ class PostNsop(View):
         return await self.handle_appointment_management_post(request)
 
     async def handle_export_pos(self, request: HttpRequest) -> HttpResponse:
+        print(request.POST)
         cargo_ids_str_list = request.POST.getlist("cargo_ids")
         pl_ids = [
             int(pl_id) 

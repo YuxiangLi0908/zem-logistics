@@ -59,8 +59,8 @@
                         
                         {% for cargo in suggestion.cargos %}
                         <tr data-suggestion-id="{{ suggestion.suggestion_id }}"
-                            data-cargo-id="{{ cargo.ids|default:'' }}"
-                            data-plt-id="{{ cargo.plt_ids|default:'' }}">
+                            data-cargo-id="{{ cargo.ids|join:',' }}"
+                            data-plt-id="{{ cargo.plt_ids|join:',' }}">
                             <!-- 仓点列 -->
                             {% if forloop.first %}
                             <td rowspan="{{ suggestion.cargos|length }}" style="vertical-align: middle; background-color: #f8f9fa;">
@@ -367,7 +367,7 @@ document.addEventListener('DOMContentLoaded', function() {
                 if (pltId) pltIds.push(pltId);
             });
 
-            document.getElementById('formStep').value = 'export_pos';
+            document.getElementById('formStep').value = 'export_virtual_fleet_pos';
             document.getElementById('formCargoIds').value = cargoIds.join(',');
             document.getElementById('formPltIds').value = pltIds.join(',');
             document.getElementById('formSuggestionId').value = suggestionId;
