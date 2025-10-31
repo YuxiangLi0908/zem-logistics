@@ -414,6 +414,7 @@ class FleetManagement(View):
                 "shipment_batch_number__note",
                 "shipment_batch_number__fleet_number__carrier",
                 "shipment_batch_number__ARM_PRO",
+                "is_dropped_pallet"
             )
             .annotate(
                 plt_ids=StringAgg(

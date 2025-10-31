@@ -52,7 +52,8 @@
                                                     data-motor-carrier-number="{{ fleet_group.motor_carrier_number }}"
                                                     data-license-plate="{{ fleet_group.license_plate }}"
                                                     data-dot-number="{{ fleet_group.dot_number }}"
-                                                    data-appointment-datetime="{{ fleet_group.appointment_datetime }}">
+                                                    data-appointment-datetime="{{ fleet_group.appointment_datetime }}"
+                                                    data-carrier="{{ fleet_group.carrier }}">
                                                     <strong style="color: #3498db; text-decoration: underline;">{{ fleet_group.fleet_number }}</strong>
                                                     <br>
                                                     {% if fleet_group.is_virtual %}
@@ -104,7 +105,8 @@
                                                     data-motor-carrier-number="{{ fleet_group.motor_carrier_number }}"
                                                     data-license-plate="{{ fleet_group.license_plate }}"
                                                     data-dot-number="{{ fleet_group.dot_number }}"
-                                                    data-appointment-datetime="{{ fleet_group.appointment_datetime }}">
+                                                    data-appointment-datetime="{{ fleet_group.appointment_datetime }}"
+                                                    data-carrier="{{ fleet_group.carrier }}">
                                                     <strong style="color: #3498db; text-decoration: underline;">{{ fleet_group.fleet_number }}</strong>
                                                     <br>
                                                     {% if fleet_group.is_virtual%}

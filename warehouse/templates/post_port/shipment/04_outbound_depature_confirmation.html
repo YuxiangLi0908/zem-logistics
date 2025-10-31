@@ -442,7 +442,8 @@
                             <th class="th">备注</th>
                             <th class="th">总重lbs</th>
                             <th class="th">总CBM</th>
-                            <th class="th">总卡板数</th>
+                            <th class="th">是否甩板</th>
+                            <th class="th">总卡板数</th>                    
                             <th class="th">实际出库板数</th>
                         </tr>
                     </thead>
@@ -467,12 +468,15 @@
                                 {{ s.total_cbm|floatformat:2 }}
                                 <input type="hidden" name="scheduled_cbm" value="{{ s.total_cbm }}">
                             </td>
+                            <td class="td" style="width:20px;">
+                                {{ s.is_dropped_pallet }}
+                            </td>
                             <td class="td">
                                 {{ s.total_pallet|floatformat:0 }}
                                 <input type="hidden" name="scheduled_pallet" value="{{ s.total_pallet }}">
-                            </td>
+                            </td>                          
                             <td class="td">
-                                <input type="number" name="actual_shipped_pallet" step=1 max="{{ s.total_pallet }}" value="{{ s.total_pallet }}" required>
+                                <input type="number" style = "width:40px;" name="actual_shipped_pallet" step=1 max="{{ s.total_pallet }}" value="{{ s.total_pallet }}" required>
                             </td>
                             <input type="hidden" name="batch_number" value="{{ s.shipment_batch_number__shipment_batch_number }}">
                             <input type="hidden" name="pl_ids" value="{{ s.ids }}">
@@ -480,7 +484,7 @@
                         </tr>
                         {% endfor %}
                         <tr id="amount-total-row">
-                            <td colspan="9"></td>
+                            <td colspan="10"></td>
                             <td class="td"><input type="number" id="pallet-total" disabled></td>
                         </tr>
                     </tbody>
