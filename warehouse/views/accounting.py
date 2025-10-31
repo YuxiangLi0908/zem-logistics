@@ -364,7 +364,8 @@ class Accounting(View):
         elif step == "invoice_order_delivered":
             return self.handle_invoice_order_batch_delivered(request)
         elif step == "invoice_order_reject":
-            return self.handle_invoice_order_batch_reject(request)
+            template, context = self.handle_invoice_order_batch_reject(request)
+            return render(request, template, context)
         elif step == "migrate_payable_receivable_amount":
             template, context = self.migrate_payable_to_receivable()
             return render(request, template, context)
@@ -7537,7 +7538,7 @@ class Accounting(View):
         workbook.save(response)
         return response
 
-    def handle_invoice_order_batch_reject(self, request: HttpRequest) -> HttpResponse:
+    def handle_invoice_order_batch_reject(self, request: HttpRequest) -> tuple[Any, Any]:
         selected_orders = json.loads(request.POST.get("selectedOrders", "[]"))
         selected_orders = list(set(selected_orders))
         invoice_status = InvoiceStatus.objects.filter(
