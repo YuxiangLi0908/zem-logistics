@@ -12,6 +12,7 @@ class Retrieval(models.Model):
     retrive_by_zem = models.BooleanField(default=True, blank=True)
     retrieval_carrier = models.CharField(max_length=100, null=True, blank=True)
     retrieval_carrier_planned = models.CharField(max_length=100, null=True, blank=True, verbose_name="计划提柜供应商")
+    retrieval_delegation_status = models.BooleanField(default=True, blank=True, verbose_name="调度委托状态")
     origin_port = models.CharField(max_length=255, null=True, blank=True)
     destination_port = models.CharField(max_length=255, null=True, blank=True)
     shipping_line = models.CharField(max_length=255, null=True, blank=True)
