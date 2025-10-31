@@ -1226,6 +1226,7 @@ class PostNsop(View):
         return await self.handle_appointment_management_post(request)
 
     async def handle_export_pos(self, request: HttpRequest) -> HttpResponse:
+        print(request.POST)
         cargo_ids_str_list = request.POST.getlist("cargo_ids")
         pl_ids = [
             int(pl_id) 
@@ -2262,6 +2263,7 @@ class PostNsop(View):
                 'license_plate': fleet.license_plate,
                 'dot_number': fleet.dot_number,
                 'appointment_datetime': fleet.appointment_datetime,
+                'carrier': fleet.carrier,
                 'is_virtual': fleet.is_virtual,
                 'shipments': {},  # 改回字典结构，保持与前端兼容
                 'pl_ids': [],

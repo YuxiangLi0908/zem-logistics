@@ -325,7 +325,10 @@ class ExceptionHandling(View):
                 context['search_type'] = 'appointment'
                 context['search_value'] = search_value
             elif search_type == 'fleet':
-                fleets = await sync_to_async(lambda: Fleet.objects.get(fleet_number=search_value))()
+                if 'ZEM' in search_value:
+                    fleets = await sync_to_async(lambda: Fleet.objects.get(pickup_number=search_value))()
+                else:
+                    fleets = await sync_to_async(lambda: Fleet.objects.get(fleet_number=search_value))()
                 fleet_sp = await sync_to_async(
                     lambda: list(Shipment.objects.filter(fleet_number=fleets))
                 )()
