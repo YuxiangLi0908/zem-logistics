@@ -34,7 +34,8 @@
                 {% for cargo in shipment_group.cargos %}
                 <tr data-suggestion-id="{{ suggestion.suggestion_id }}"
                             data-cargo-id="{{ cargo.ids|default:'' }}"
-                            data-plt-id="{{ cargo.plt_ids|default:'' }}">
+                            data-plt-id="{{ cargo.plt_ids|default:'' }}"
+                            data-shipment-group="{{ shipment_group.appointment_id }}">
                     {% if forloop.first %}
                     <td rowspan="{{ shipment_group.cargos|length }}" style="vertical-align: middle; background-color: #f8f9fa;">
                         {{ shipment_group.shipment_batch_number|default_if_none:'' }}
