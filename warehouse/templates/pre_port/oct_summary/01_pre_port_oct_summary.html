@@ -17,8 +17,7 @@
         }
 
         .form-container {
-            margin-bottom: 20px;
-            padding: 15px;
+            padding: 15px 15px 0px 15px;
             background-color: #f8f9fa;
             border-radius: 4px;
         }
@@ -80,6 +79,7 @@
             border-radius: 3px;
             outline: none;
         }
+
         .column-search:focus {
             border-color: #57c5f7;
             box-shadow: 0 0 0 2px rgba(87, 197, 247, 0.2);
@@ -92,16 +92,16 @@
             color: #6c757d;
         }
 
-        /* 表格样式调整 */
+        /* 表格核心样式：确保表头与表体宽度完全对齐 */
         .table-container {
             width: 100%;
-            overflow-x: auto;
+            overflow-x: auto; /* 外层负责横向滚动，表头表体同步 */
             position: relative;
+            height: 630px;
         }
 
         .table-wrapper {
-            width: 100%;
-            min-width: 100%;
+            width: 100%; /* 包裹层占满容器，避免宽度溢出 */
         }
 
         .fixed-header {
@@ -112,77 +112,205 @@
             box-shadow: 0 2px 4px rgba(0, 0, 0, 0.05);
         }
 
-        .scroll-body {
-            max-height: 550px;
-            overflow-y: auto;
-            overflow-x: hidden;
-        }
-
-        .layui-table {
+        /* 表头表格样式 */
+        .fixed-header .layui-table {
             width: 100%;
             border-collapse: collapse;
-            table-layout: fixed;
+            table-layout: auto; /* 取消固定列宽，随内容自适应 */
             margin: 0;
+            border: none;
         }
 
-        .fixed-header th,
+        /* 表体表格样式（与表头完全一致） */
+        .scroll-body .layui-table {
+            width: 100%;
+            border-collapse: collapse;
+            table-layout: auto; /* 关键：与表头保持同一宽度规则 */
+            margin: 0;
+            border: none;
+        }
+
+        /* 表头单元格样式 */
+        .fixed-header th {
+            padding: 9px 8px;
+            text-align: left;
+            border: 1px solid #e6e6e6;
+            white-space: nowrap; /* 禁止换行，保证列宽稳定 */
+            overflow: hidden;
+            text-overflow: ellipsis;
+            min-width: 80px; /* 最小宽度，避免内容挤在一起 */
+        }
+
+        /* 表体单元格样式（与表头完全对齐） */
         .scroll-body td {
             padding: 9px 8px;
             text-align: left;
             border: 1px solid #e6e6e6;
-            white-space: nowrap;
+            white-space: nowrap; /* 与表头一致，禁止换行 */
             overflow: hidden;
             text-overflow: ellipsis;
+            min-width: 80px; /* 与表头最小宽度完全相同 */
         }
 
+        /* 表头搜索列样式（不影响宽度） */
         .fixed-header th.search-th {
             padding: 5px 8px;
         }
 
-        /* 调整列宽（第一列改为复选框列） */
-        .fixed-header th:nth-child(1), .scroll-body td:nth-child(1) { width: 50px; text-align: center; }  /* 复选框列 */
-        .fixed-header th:nth-child(2), .scroll-body td:nth-child(2) { width: 80px; }  /* 下单日期 */
-        .fixed-header th:nth-child(3), .scroll-body td:nth-child(3) { width: 90px; }  /* 客户 */
-        .fixed-header th:nth-child(4), .scroll-body td:nth-child(4) { width: 130px; } /* 所属仓/直送地址 */
-        .fixed-header th:nth-child(5), .scroll-body td:nth-child(5) { width: 110px; } /* 调度备注 */
-        .fixed-header th:nth-child(6), .scroll-body td:nth-child(6) { width: 90px; }  /* 柜号 */
-        .fixed-header th:nth-child(7), .scroll-body td:nth-child(7) { width: 90px; }  /* MBL */
-        .fixed-header th:nth-child(8), .scroll-body td:nth-child(8) { width: 90px; }  /* 船司 */
-        .fixed-header th:nth-child(9), .scroll-body td:nth-child(9) { width: 110px; } /* 船名航次 */
-        .fixed-header th:nth-child(10), .scroll-body td:nth-child(10) { width: 60px; } /* 柜型 */
-        .fixed-header th:nth-child(11), .scroll-body td:nth-child(11) { width: 60px; } /* 船期 */
-        .fixed-header th:nth-child(12), .scroll-body td:nth-child(12) { width: 90px; } /* ETD */
-        .fixed-header th:nth-child(13), .scroll-body td:nth-child(13) { width: 90px; } /* ETA */
-        .fixed-header th:nth-child(14), .scroll-body td:nth-child(14) { width: 80px; }  /* 放行状态 */
-        .fixed-header th:nth-child(15), .scroll-body td:nth-child(15) { width: 90px; } /* 供应商 */
-        .fixed-header th:nth-child(16), .scroll-body td:nth-child(16) { width: 80px; }  /* 调度委托 */
-        .fixed-header th:nth-child(17), .scroll-body td:nth-child(17) { width: 80px; }  /* 私仓数量 */
-        .fixed-header th:nth-child(18), .scroll-body td:nth-child(18) { width: 150px; } /* 是否提供Do */
-        .fixed-header th:nth-child(19), .scroll-body td:nth-child(19) { width: 90px; } /* 建单进度 */
+        /* 关键列宽度设置（确保核心列宽合理，新增字段自动适配） */
+        .fixed-header th:nth-child(1),
+        .scroll-body td:nth-child(1) {
+            width: 50px;
+            min-width: 50px;
+            text-align: center;
+        }
 
+        /* 复选框列 */
+        .fixed-header th:nth-child(2),
+        .scroll-body td:nth-child(2) {
+            width: 100px;
+            min-width: 100px;
+        }
+
+        /* 下单日期 */
+        .fixed-header th:nth-child(3),
+        .scroll-body td:nth-child(3) {
+            width: 120px;
+            min-width: 120px;
+        }
+
+        /* 客户 */
+        .fixed-header th:nth-child(4),
+        .scroll-body td:nth-child(4) {
+            width: 160px;
+            min-width: 160px;
+        }
+
+        /* 所属仓/直送地址 */
+        .fixed-header th:nth-child(5),
+        .scroll-body td:nth-child(5) {
+            width: 140px;
+            min-width: 140px;
+        }
+
+        /* 调度备注 */
+        .fixed-header th:nth-child(6),
+        .scroll-body td:nth-child(6) {
+            width: 176px;
+            min-width: 176px;
+        }
+
+        /* 柜号 */
+
+        .fixed-header th:nth-child(7),
+        .scroll-body td:nth-child(7) {
+            width: 176px;
+            min-width: 176px;
+        }
+
+        /* mbl */
+
+        .fixed-header th:nth-child(8),
+        .scroll-body td:nth-child(8) {
+            width: 176px;
+            min-width: 176px;
+        }
+
+        .fixed-header th:nth-child(9),
+        .scroll-body td:nth-child(9) {
+            width: 200px;
+            min-width: 200px;
+        }
+
+        .fixed-header th:nth-child(10),
+        .scroll-body td:nth-child(10) {
+            width: 176px;
+            min-width: 176px;
+        }
+
+        .fixed-header th:nth-child(11),
+        .scroll-body td:nth-child(11) {
+            width: 176px;
+            min-width: 176px;
+        }
+
+        .fixed-header th:nth-child(12),
+        .scroll-body td:nth-child(12) {
+            width: 176px;
+            min-width: 176px;
+        }
+
+        .fixed-header th:nth-child(13),
+        .scroll-body td:nth-child(13) {
+            width: 176px;
+            min-width: 176px;
+        }
+
+        .fixed-header th:nth-child(14),
+        .scroll-body td:nth-child(14) {
+            width: 176px;
+            min-width: 176px;
+        }
+
+        .fixed-header th:nth-child(15),
+        .scroll-body td:nth-child(15) {
+            width: 176px;
+            min-width: 176px;
+        }
+
+        .fixed-header th:nth-child(16),
+        .scroll-body td:nth-child(16) {
+            width: 176px;
+            min-width: 176px;
+        }
+
+        .fixed-header th:nth-child(17),
+        .scroll-body td:nth-child(17) {
+            width: 176px;
+            min-width: 176px;
+        }
+
+        .fixed-header th:nth-child(18),
+        .scroll-body td:nth-child(18) {
+            width: 176px;
+            min-width: 176px;
+        }
+
+        .fixed-header th:nth-child(19),
+        .scroll-body td:nth-child(19) {
+            width: 176px;
+            min-width: 176px;
+        }
+
+
+        /* 滚动条样式优化 */
         .table-container::-webkit-scrollbar {
-            height: 10px;
+            height: 10px; /* 横向滚动条高度 */
         }
+
         .scroll-body::-webkit-scrollbar {
-            width: 8px;
+            width: 8px; /* 纵向滚动条宽度 */
         }
+
         .table-container::-webkit-scrollbar-track,
         .scroll-body::-webkit-scrollbar-track {
             background: #f1f3f5;
             border-radius: 5px;
         }
+
         .table-container::-webkit-scrollbar-thumb,
         .scroll-body::-webkit-scrollbar-thumb {
             background: #adb5bd;
             border-radius: 5px;
         }
+
         .table-container::-webkit-scrollbar-thumb:hover,
         .scroll-body::-webkit-scrollbar-thumb:hover {
             background: #868e96;
         }
 
         .scroll-body thead {
-            display: none;
+            display: none; /* 隐藏表体表头，避免重复 */
         }
 
         .do-column-content {
@@ -192,6 +320,7 @@
             width: 100%;
             box-sizing: border-box;
         }
+
         .do-column-content button {
             padding: 0 6px !important;
             height: 22px !important;
@@ -199,14 +328,20 @@
             font-size: 12px !important;
         }
 
-        /* 批量导出按钮样式 */
-        .export-btn-container {
+        /* 导出按钮容器：三个按钮同一行（新增复制按钮后调整） */
+        .export-buttons-wrap {
             margin: 15px 0;
             text-align: right;
+            display: flex; /* Flex布局实现同行 */
+            justify-content: flex-end; /* 按钮靠右对齐 */
+            align-items: center; /* 垂直居中 */
+            gap: 12px; /* 按钮间距，可调整 */
         }
+
+        /* 单个按钮样式（统一风格，复制按钮用蓝色区分） */
         .batch-export-btn {
             padding: 6px 15px;
-            background-color: #009688;
+            background-color: #16baaa;
             color: white;
             border: none;
             border-radius: 3px;
@@ -216,8 +351,27 @@
             align-items: center;
             gap: 5px;
         }
+
         .batch-export-btn:hover {
             background-color: #00796b;
+        }
+
+        /* 复制按钮单独样式（蓝色，与导出按钮区分） */
+        .copy-btn {
+            padding: 8px 15px;
+            background-color: #16baaa; /* 蓝色主题 */
+            color: white;
+            border: none;
+            border-radius: 3px;
+            cursor: pointer;
+            font-size: 14px;
+            display: inline-flex;
+            align-items: center;
+            gap: 5px;
+        }
+
+        .copy-btn:hover {
+            background-color: #0088cc; /* hover加深 */
         }
 
         .layui-select option[value=""] {
@@ -238,7 +392,6 @@
                                 <option value="">暂无仓库数据</option>
                             {% else %}
                                 {% for k, v in warehouse_options.items %}
-                                    <!-- k 是显示文本（如“所有仓库”），v 是提交的值（空字符串表示所有） -->
                                     <option value="{{ v }}" {% if v == warehouse %}selected{% endif %}>{{ k }}</option>
                                 {% endfor %}
                             {% endif %}
@@ -253,8 +406,11 @@
                         <div class="layui-input-inline" style="width: 180px;">
                             <select name="timeRangeType" lay-verify="required" lay-filter="timeRangeType">
                                 <option value="">请选择时间范围类型</option>
-                                <option value="eta" {% if time_range_type == 'eta' %}selected{% endif %}>ETA时间范围</option>
-                                <option value="order" {% if time_range_type == 'order' %}selected{% endif %}>下单日期范围</option>
+                                <option value="eta" {% if time_range_type == 'eta' %}selected{% endif %}>ETA时间范围
+                                </option>
+                                <option value="order" {% if time_range_type == 'order' %}selected{% endif %}>
+                                    下单日期范围
+                                </option>
                             </select>
                         </div>
                     </div>
@@ -297,11 +453,11 @@
             <div class="error提示" id="timeError"></div>
         </form>
 
-        <!-- 批量导出按钮 -->
-        <div class="export-btn-container">
+        <!-- 导出按钮统一容器：两个按钮同一行 -->
+        <div class="export-buttons-wrap">
+            <!-- 第一个导出按钮 -->
             <form id="batchExportForm" method="post" action="">
                 {% csrf_token %}
-                <!-- 动态筛选条件（与搜索表单保持一致） -->
                 <input type="hidden" name="warehouse" value="{{ warehouse }}">
                 <input type="hidden" name="timeRangeType" value="{{ time_range_type }}">
                 <input type="hidden" name="eta_start" value="{{ eta_start|default:'' }}">
@@ -309,18 +465,14 @@
                 <input type="hidden" name="order_start" value="{{ order_start|default:'' }}">
                 <input type="hidden" name="order_end" value="{{ order_end|default:'' }}">
                 <input type="hidden" name="step" value="batch_export">
-                <!-- 选中的ID和柜号将通过JS动态添加 -->
                 <button type="button" id="batchExportBtn" class="batch-export-btn">
                     <i class="layui-icon layui-icon-download-circle"></i> 批量导出选中仓库数据
                 </button>
             </form>
-        </div>
 
-        <!-- 批量导出按钮V1 批量导出选中MBL数据（DO） -->
-        <div class="export-btn-container">
+            <!-- 第二个导出按钮 -->
             <form id="batchExportForm1" method="post" action="">
                 {% csrf_token %}
-                <!-- 动态筛选条件（与搜索表单保持一致） -->
                 <input type="hidden" name="warehouse" value="{{ warehouse }}">
                 <input type="hidden" name="timeRangeType" value="{{ time_range_type }}">
                 <input type="hidden" name="eta_start" value="{{ eta_start|default:'' }}">
@@ -328,16 +480,18 @@
                 <input type="hidden" name="order_start" value="{{ order_start|default:'' }}">
                 <input type="hidden" name="order_end" value="{{ order_end|default:'' }}">
                 <input type="hidden" name="step" value="batch_export_v1">
-                <!-- 选中的ID和柜号将通过JS动态添加 -->
                 <button type="button" id="batchExportBtnV1" class="batch-export-btn">
                     <i class="layui-icon layui-icon-download-circle"></i> 批量导出选中MBL数据（DO）
                 </button>
             </form>
+
+            <!-- 新增：复制按钮 -->
+            <button type="button" id="copySelectedBtn" class="copy-btn">
+                <i class="layui-icon layui-icon-copy"></i> 复制选中的柜号和MBL
+            </button>
         </div>
 
-
-
-        <!-- 表格容器：确保表头表体同步滚动且对齐 -->
+        <!-- 表格容器：横向滚动功能已修复 -->
         <div class="table-container">
             <div class="table-wrapper">
                 <!-- 固定表头 -->
@@ -366,27 +520,46 @@
                             <th>私仓数量</th>
                             <th>是否提供Do</th>
                             <th>建单进度</th>
+                            <!-- 后续新增字段直接加在这里，无需修改样式 -->
                         </tr>
                         <tr>
-                            <th class="search-th"></th> <!-- 复选框列无搜索框 -->
-                            <th class="search-th"><input type="text" class="column-search" data-index="1" placeholder="搜索日期..."></th>
-                            <th class="search-th"><input type="text" class="column-search" data-index="2" placeholder="搜索客户..."></th>
-                            <th class="search-th"><input type="text" class="column-search" data-index="3" placeholder="搜索仓/地址..."></th>
-                            <th class="search-th"><input type="text" class="column-search" data-index="4" placeholder="搜索备注..."></th>
-                            <th class="search-th"><input type="text" class="column-search" data-index="5" placeholder="搜索柜号..."></th>
-                            <th class="search-th"><input type="text" class="column-search" data-index="6" placeholder="搜索MBL..."></th>
-                            <th class="search-th"><input type="text" class="column-search" data-index="7" placeholder="搜索船司..."></th>
-                            <th class="search-th"><input type="text" class="column-search" data-index="8" placeholder="搜索船名航次..."></th>
-                            <th class="search-th"><input type="text" class="column-search" data-index="9" placeholder="搜索柜型..."></th>
-                            <th class="search-th"><input type="text" class="column-search" data-index="10" placeholder="搜索船期..."></th>
-                            <th class="search-th"><input type="text" class="column-search" data-index="11" placeholder="搜索ETD..."></th>
-                            <th class="search-th"><input type="text" class="column-search" data-index="12" placeholder="搜索ETA..."></th>
-                            <th class="search-th"><input type="text" class="column-search" data-index="13" placeholder="搜索放行状态..."></th>
-                            <th class="search-th"><input type="text" class="column-search" data-index="14" placeholder="搜索供应商..."></th>
-                            <th class="search-th"><input type="text" class="column-search" data-index="15" placeholder="搜索调度委托..."></th>
-                            <th class="search-th"><input type="text" class="column-search" data-index="16" placeholder="搜索私仓数量..."></th>
-                            <th class="search-th"><input type="text" class="column-search" data-index="17" placeholder="搜索Do..."></th>
-                            <th class="search-th"><input type="text" class="column-search" data-index="18" placeholder="搜索建单进度..."></th>
+                            <th class="search-th"></th>
+                            <th class="search-th"><input type="text" class="column-search" data-index="1"
+                                                         placeholder="搜索日期..."></th>
+                            <th class="search-th"><input type="text" class="column-search" data-index="2"
+                                                         placeholder="搜索客户..."></th>
+                            <th class="search-th"><input type="text" class="column-search" data-index="3"
+                                                         placeholder="搜索仓/地址..."></th>
+                            <th class="search-th"><input type="text" class="column-search" data-index="4"
+                                                         placeholder="搜索备注..."></th>
+                            <th class="search-th"><input type="text" class="column-search" data-index="5"
+                                                         placeholder="搜索柜号..."></th>
+                            <th class="search-th"><input type="text" class="column-search" data-index="6"
+                                                         placeholder="搜索MBL..."></th>
+                            <th class="search-th"><input type="text" class="column-search" data-index="7"
+                                                         placeholder="搜索船司..."></th>
+                            <th class="search-th"><input type="text" class="column-search" data-index="8"
+                                                         placeholder="搜索船名航次..."></th>
+                            <th class="search-th"><input type="text" class="column-search" data-index="9"
+                                                         placeholder="搜索柜型..."></th>
+                            <th class="search-th"><input type="text" class="column-search" data-index="10"
+                                                         placeholder="搜索船期..."></th>
+                            <th class="search-th"><input type="text" class="column-search" data-index="11"
+                                                         placeholder="搜索ETD..."></th>
+                            <th class="search-th"><input type="text" class="column-search" data-index="12"
+                                                         placeholder="搜索ETA..."></th>
+                            <th class="search-th"><input type="text" class="column-search" data-index="13"
+                                                         placeholder="搜索放行状态..."></th>
+                            <th class="search-th"><input type="text" class="column-search" data-index="14"
+                                                         placeholder="搜索供应商..."></th>
+                            <th class="search-th"><input type="text" class="column-search" data-index="15"
+                                                         placeholder="搜索调度委托..."></th>
+                            <th class="search-th"><input type="text" class="column-search" data-index="16"
+                                                         placeholder="搜索私仓数量..."></th>
+                            <th class="search-th"><input type="text" class="column-search" data-index="17"
+                                                         placeholder="搜索Do..."></th>
+                            <th class="search-th"><input type="text" class="column-search" data-index="18"
+                                                         placeholder="搜索建单进度..."></th>
                         </tr>
                         </thead>
                     </table>
@@ -424,7 +597,8 @@
                                 <td style="text-align: center;">
                                     <input type="checkbox" class="rowCheckbox" lay-skin="primary"
                                            data-id="{{ data.id }}"
-                                           data-container="{{ data.container }}">
+                                           data-container="{{ data.container }}"
+                                           data-mbl="{{ data.mbl|default:'' }}">
                                 </td>
                                 <td>{{ data.created_at|date:"Y-m-d" }}</td>
                                 <td>{{ data.customer_name }}</td>
@@ -514,7 +688,8 @@
 
                                             <button type="submit" class="layui-btn layui-btn-sm"
                                                     style="margin: 0; padding: 0 8px; height: 20px; line-height: 20px; font-size: 12px;">
-                                                <i class="layui-icon layui-icon-ok" style="margin-right: 2px; font-size: 10px;"></i>确定
+                                                <i class="layui-icon layui-icon-ok"
+                                                   style="margin-right: 2px; font-size: 10px;"></i>确定
                                             </button>
                                         </div>
                                     </form>
@@ -522,11 +697,13 @@
                                 <!--建单状态-->
                                 {% if data.status == "unfinished" %}
                                     <td>
-                                        <a href="/create_order/?step=container_info_supplement&container_number={{ data.container }}" style="color: #3875d7">未完成</a>
+                                        <a href="/create_order/?step=container_info_supplement&container_number={{ data.container }}"
+                                           style="color: #3875d7">未完成</a>
                                     </td>
                                 {% elif data.status == "completed" %}
                                     <td>
-                                        <a href="/create_order/?step=order_management_container&container_number={{ data.container }}" style="color: #3875d7">已完成</a>
+                                        <a href="/create_order/?step=order_management_container&container_number={{ data.container }}"
+                                           style="color: #3875d7">已完成</a>
                                     </td>
                                 {% elif data.status == "checked" %}
                                     <td>已检查</td>
@@ -717,7 +894,7 @@
                     const searchInputs = document.querySelectorAll('.column-search');
 
                     searchInputs.forEach((input, index) => {
-                        input.addEventListener('input', function() {
+                        input.addEventListener('input', function () {
                             const keyword = this.value.trim().toLowerCase();
                             let visibleCount = 0;
 
@@ -870,6 +1047,48 @@
                         console.error('导出错误:', error);
                         layer.msg('网络错误，导出失败', {icon: 2, time: 2000});
                     }
+                });
+
+                // 12. 新增：批量复制柜号和MBL功能
+                document.getElementById('copySelectedBtn').addEventListener('click', function () {
+                    // 获取所有选中的行
+                    const checkedBoxes = document.querySelectorAll('.rowCheckbox:checked');
+
+                    // 验证是否有选中项
+                    if (checkedBoxes.length === 0) {
+                        layer.msg('请先勾选需要复制的记录', {icon: 2, time: 2000});
+                        return;
+                    }
+
+                    // 收集柜号和MBL数据
+                    let copyContent = '';
+                    checkedBoxes.forEach((box, index) => {
+                        const container = box.getAttribute('data-container') || '无柜号';
+                        const mbl = box.getAttribute('data-mbl') || '无MBL';
+                        // 格式：柜号 - MBL（每行一条）
+                        copyContent += `${container} ${mbl}`;
+                        // 最后一条不加换行
+                        if (index < checkedBoxes.length - 1) {
+                            copyContent += '\n';
+                        }
+                    });
+
+                    // 复制到剪贴板
+                    navigator.clipboard.writeText(copyContent).then(() => {
+                        layer.msg(`已成功复制 ${checkedBoxes.length} 条记录的柜号和MBL`, {icon: 1, time: 2000});
+                    }).catch(err => {
+                        console.error('复制失败:', err);
+                        layer.msg('复制失败，请手动复制', {icon: 2, time: 2000});
+                    });
+                });
+
+                // 13. 全选/取消全选功能
+                form.on('checkbox(selectAll)', function (data) {
+                    const checkboxes = document.querySelectorAll('.rowCheckbox');
+                    checkboxes.forEach(checkbox => {
+                        checkbox.checked = data.elem.checked;
+                    });
+                    form.render('checkbox'); // 重新渲染复选框
                 });
 
 
